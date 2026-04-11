@@ -1,0 +1,27 @@
+{
+  "_provenance": "Derived from a 14-team round-robin volleyball tournament structure with 4 courts per round. 14 rounds total (one per team as anchor). Each round has 4 courts; each court plays one match between 2 teams (4 courts x 2 teams = 8 teams active, 6 idle per round). Teams are identified only by their structural position (avatar ID 0-13) per DEC-9. rowCount=14 because N=14 — the permutation maps position i to round rowSequence[i], optimizing the order in which rounds are played for maximum team variety.",
+  "_n": 14,
+  "_note": "n=14 is the number of rounds (rows) being permuted. avatarCount=14 because each of the 14 teams is an avatar. Each row represents one round of play; 8 avatars are active per round (4 matches, 2 teams each). The permutation assigns round-order to time slots. PACKET_SIZE=17_000_000 covers approximately 5 seconds at the H-2 target of 300 ns/perm.",
+  "jobId": "00000000-0000-0000-0000-000000000014",
+  "n": 14,
+  "canonicalPhaseDef": {
+    "rowCount": 14,
+    "avatarCount": 14,
+    "rows": [
+      [0, 1, 2, 3, 4, 5, 6, 7],
+      [0, 1, 2, 3, 8, 9, 10, 11],
+      [0, 2, 4, 6, 8, 10, 12, 13],
+      [1, 3, 5, 7, 9, 11, 12, 13],
+      [0, 1, 4, 5, 8, 9, 12, 13],
+      [2, 3, 6, 7, 10, 11, 12, 13],
+      [0, 3, 4, 7, 8, 11, 12, 13],
+      [1, 2, 5, 6, 9, 10, 12, 13],
+      [0, 1, 6, 7, 10, 11, 12, 13],
+      [2, 3, 4, 5, 8, 9, 12, 13],
+      [0, 5, 6, 7, 8, 9, 10, 11],
+      [1, 2, 3, 4, 8, 9, 10, 11],
+      [0, 3, 5, 7, 8, 10, 11, 13],
+      [1, 2, 4, 6, 9, 11, 12, 13]
+    ]
+  }
+}
