@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS registered_keys (
 --
 -- One row per accepted submit-job call (cache-miss path only).
 -- Cache-hit submissions do NOT create a job row.
+-- Status values: queued | decomposing | ready | done | failed
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS jobs (
@@ -73,6 +74,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     fingerprint              BYTEA            NOT NULL,
     status                   VARCHAR(16)      NOT NULL,
     submitted_at             TIMESTAMP WITH TIME ZONE NOT NULL,
+    packet_count             INTEGER,
+    priority                 INTEGER          NOT NULL DEFAULT 0,
     PRIMARY KEY (job_id)
 );
 
@@ -81,7 +84,7 @@ CREATE TABLE IF NOT EXISTS jobs (
 -- ============================================================================
 -- Table: audit_log
 --
--- Append-only. Every register-key and submit-job call creates one row,
+-- Append-only. Every register-key, submit-job, and pull-packet call creates one row,
 -- regardless of outcome. Never updated or deleted by the dispatcher.
 -- ============================================================================
 
@@ -95,3 +98,38 @@ CREATE TABLE IF NOT EXISTS audit_log (
     http_status              INTEGER          NOT NULL,
     PRIMARY KEY (audit_id)
 );
+
+-- ============================================================================
+-- Packet decomposition & distribution schema (E01S07 AC1–AC8)
+-- ============================================================================
+-- Table: packets
+--
+-- One row per rank-interval packet created by the decomposer (AC1).
+-- status values: pending | assigned | done | failed
+-- reissue_history — TEXT column holding a JSON array; each entry records
+--   { "timestamp": "...", "workerKeyId": "...", "attemptNumber": N }
+--   appended by the timeout sweeper on each reissue (AC8).
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS packets (
+    packet_id                UUID             NOT NULL,
+    job_id                   UUID             NOT NULL REFERENCES jobs(job_id),
+    rank_from                BIGINT           NOT NULL,
+    rank_to                  BIGINT           NOT NULL,
+    status                   VARCHAR(16)      NOT NULL,
+    attempts                 INTEGER          NOT NULL DEFAULT 0,
+    assigned_to              UUID,
+    assigned_at              TIMESTAMP WITH TIME ZONE,
+    reissue_history          TEXT,
+    PRIMARY KEY (packet_id)
+);
+
+-- Fast lookup: pending packets for a job (used by pull-packet) (AC5, AC7)
+CREATE INDEX IF NOT EXISTS idx_packets_job_status
+    ON packets(job_id, status);
+
+-- Fast sweep: assigned packets older than timeout (AC8)
+-- Note: a partial index (WHERE status = 'assigned') would be ideal in PostgreSQL for performance
+-- but is omitted here for H2 compatibility (test DB). The query optimizer uses assigned_at ordering.
+CREATE INDEX IF NOT EXISTS idx_packets_assigned_at
+    ON packets(assigned_at);

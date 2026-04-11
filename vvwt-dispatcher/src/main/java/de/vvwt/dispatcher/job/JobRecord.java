@@ -24,9 +24,13 @@ import java.util.UUID;
  *   <li>{@code fingerprint} — 32-byte SHA-256 of the canonical form</li>
  *   <li>{@code status} — {@code "queued"} on creation; updated by E01S07</li>
  *   <li>{@code submittedAt} — intake timestamp</li>
+ *   <li>{@code packetCount} — set when job transitions to {@code "ready"} (E01S07 AC1)</li>
+ *   <li>{@code priority} — higher value = higher priority for packet distribution (E01S07 AC5)</li>
  * </ul>
  *
- * <p>See Story E01S06 AC5, AC9, AC10 and DEC-9.
+ * <p>Status lifecycle: {@code queued → decomposing → ready → done | failed}
+ *
+ * <p>See Story E01S06 AC5, AC9, AC10 and E01S07 AC1, AC5 and DEC-9.
  */
 @Entity
 @Table(name = "jobs")
@@ -58,6 +62,20 @@ public class JobRecord {
 
     @Column(name = "submitted_at", nullable = false, updatable = false)
     private Instant submittedAt;
+
+    /**
+     * Set when the job transitions to {@code "ready"} after decomposition (E01S07 AC1).
+     * Null while the job is still {@code "queued"} or {@code "decomposing"}.
+     */
+    @Column(name = "packet_count")
+    private Integer packetCount;
+
+    /**
+     * Job priority for packet distribution order (E01S07 AC5).
+     * Higher value = higher priority. Default 0 (normal priority).
+     */
+    @Column(name = "priority", nullable = false)
+    private int priority = 0;
 
     /** JPA no-arg constructor. */
     protected JobRecord() {
@@ -96,7 +114,17 @@ public class JobRecord {
     public byte[] getFingerprint() { return fingerprint; }
     public String getStatus() { return status; }
     public Instant getSubmittedAt() { return submittedAt; }
+    public Integer getPacketCount() { return packetCount; }
+    public int getPriority() { return priority; }
 
     /** Updates the job status (called by E01S07 when the job is picked up for decomposition). */
     public void setStatus(String status) { this.status = status; }
+
+    /**
+     * Records the number of packets created for this job (called by {@code PacketDecomposerService}
+     * when the job transitions to {@code "ready"}).
+     *
+     * @param packetCount number of packets created (E01S07 AC1)
+     */
+    public void setPacketCount(Integer packetCount) { this.packetCount = packetCount; }
 }
