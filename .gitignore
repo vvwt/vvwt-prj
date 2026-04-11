@@ -1,0 +1,23 @@
+# Maven build output
+target/
+*.class
+
+# IDE metadata
+.idea/
+*.iml
+.vscode/
+*.iws
+*.ipr
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Maven shade plugin artifact
+dependency-reduced-pom.xml
+
+# Benchmark output
+benchmarks.jar

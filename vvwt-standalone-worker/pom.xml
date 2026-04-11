@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>de.vvwt</groupId>
+        <artifactId>vvwt-prj</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>vvwt-standalone-worker</artifactId>
+    <name>VVW Standalone Worker</name>
+    <description>
+        Plain-Java headless worker process — no Spring Boot.
+        Uses picocli for CLI parsing, slf4j-simple for logging.
+        Package de.vvwt.standalone is intentionally distinct from de.vvwt.worker
+        to avoid split-package errors if JPMS is adopted later (DEC-11).
+        Main class placeholder: de.vvwt.standalone.OptimizerWorkerMain
+        (class created by E01S05).
+    </description>
+
+    <!-- ===================================================================
+         Compile dependencies
+         Versions managed by parent dependencyManagement.
+         =================================================================== -->
+    <dependencies>
+
+        <!-- Own worker-lib (algorithms + keypair + type model) -->
+        <dependency>
+            <groupId>de.vvwt</groupId>
+            <artifactId>vvwt-worker-lib</artifactId>
+        </dependency>
+
+        <!-- CLI parsing (no Spring Boot) -->
+        <dependency>
+            <groupId>info.picocli</groupId>
+            <artifactId>picocli</artifactId>
+        </dependency>
+
+        <!-- Concrete SLF4J binding (slf4j-simple — lightweight, no Spring) -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+        </dependency>
+
+    </dependencies>
+
+    <!-- ===================================================================
+         Build
+         =================================================================== -->
+    <build>
+        <plugins>
+
+            <!-- Produce an executable JAR with Main-Class manifest entry.
+                 The class de.vvwt.standalone.OptimizerWorkerMain does NOT
+                 exist at bootstrap time — it will be created by E01S05.
+                 maven-jar-plugin only embeds the manifest entry; the build
+                 will succeed at bootstrap (no test classes, no main invocation). -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>de.vvwt.standalone.OptimizerWorkerMain</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+
+            <!-- Enforcer: block Spring Boot drift -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>ban-spring-boot-in-standalone-worker</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>org.springframework.boot:*</exclude>
+                                        <exclude>org.springframework:*</exclude>
+                                    </excludes>
+                                    <message>
+                                        vvwt-standalone-worker must remain Spring-Boot-free
+                                        (DEC-10, DEC-11). Plain Java process only.
+                                    </message>
+                                </bannedDependencies>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+        </plugins>
+    </build>
+
+</project>
