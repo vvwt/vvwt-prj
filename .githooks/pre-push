@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# DEC-13 — Block accidental push to `main` from AI agents.
+#
+# AI Delivery targets `staging` only. Human promotes `staging` -> `main` with
+# an explicit opt-in:
+#
+#     GAAI_ALLOW_MAIN_PUSH=1 git push origin main
+#
+# The daemon and Delivery sub-agents never set this variable, so accidental
+# direct-to-main pushes are blocked here. This is convention-level enforcement,
+# not structural — a determined script can unset the check. The real guarantee
+# is that Delivery workflow files instruct agents to push to `staging` only.
+#
+# See: .gaai/project/contexts/memory/decisions/DEC-13.md (in the outer shell repo)
+
+set -euo pipefail
+
+remote="$1"
+# url="$2"  # unused
+
+protected_branch="main"
+zero_sha="0000000000000000000000000000000000000000"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  # Extract the target branch name from remote_ref (e.g. refs/heads/main -> main)
+  remote_branch="${remote_ref#refs/heads/}"
+
+  if [[ "$remote_branch" == "$protected_branch" ]]; then
+    if [[ "${GAAI_ALLOW_MAIN_PUSH:-}" != "1" ]]; then
+      echo ""
+      echo "╔════════════════════════════════════════════════════════════════╗"
+      echo "║  BLOCKED by DEC-13 pre-push hook                               ║"
+      echo "╠════════════════════════════════════════════════════════════════╣"
+      echo "║  Direct push to 'main' is reserved for human promotion of     ║"
+      echo "║  reviewed 'staging' -> 'main'. AI Delivery must target        ║"
+      echo "║  'staging' only.                                               ║"
+      echo "║                                                                ║"
+      echo "║  If you are the human promoting reviewed staging work, run:   ║"
+      echo "║    GAAI_ALLOW_MAIN_PUSH=1 git push $remote main"
+      echo "║                                                                ║"
+      echo "║  Attempted push: $local_ref -> $remote_ref"
+      echo "╚════════════════════════════════════════════════════════════════╝"
+      echo ""
+      exit 1
+    fi
+  fi
+done
+
+exit 0

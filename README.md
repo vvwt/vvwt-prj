@@ -34,6 +34,31 @@ java -jar vvwt-benchmark/target/benchmarks.jar
 - Java 21 (OpenJDK or compatible)
 - Maven 3.9+
 
+## Branch model (DEC-13)
+
+This repository follows a `staging` / `main` split enforced by convention and a
+client-side pre-push hook:
+
+- **`staging`** — AI Delivery integration branch. Story branches (`story/{id}`)
+  are created from `staging`, worked in, and squash-merged back to `staging`.
+- **`main`** — human-gated production branch. AI never pushes to `main`.
+  Promotion `staging` → `main` is a manual human action after review.
+
+**One-time setup after cloning** (enables the pre-push hook):
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The hook refuses `git push origin main` unless `GAAI_ALLOW_MAIN_PUSH=1` is set.
+When you (the human) promote reviewed `staging` work to `main`, run:
+
+```bash
+GAAI_ALLOW_MAIN_PUSH=1 git push origin main
+```
+
+See `DEC-13` in the outer GAAI shell repo for the full rationale.
+
 ## Spring Boot Version Note
 
 Target version: Spring Boot 4.0.5 (DEC-10). At bootstrap time (2026-04-11),
