@@ -110,6 +110,20 @@
             </build>
         </profile>
 
+        <!-- Ship-gate profile (E01S12 AC7): run gate/run-gate.sh on reference hardware.
+             This profile MUST be activated when building the H-2 ship-gate for Phase 1 release.
+             Usage: mvn -Pbenchmark,ship-gate package -pl vvwt-benchmark -am -DskipTests
+             Then:  cd vvwt-benchmark && ./gate/run-gate.sh
+             See RELEASE-CHECKLIST.md for the full ship-gate procedure. -->
+        <profile>
+            <id>ship-gate</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <!-- ship-gate is a documentation/process marker — no additional build steps.
+                 The actual gate logic lives in gate/run-gate.sh (AC5, AC8). -->
+        </profile>
+
     </profiles>
 
 </project>

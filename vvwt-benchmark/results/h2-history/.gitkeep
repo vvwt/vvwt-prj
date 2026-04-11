@@ -1,0 +1,14 @@
+# H-2 Ship-Gate History (AC9 — E01S12)
+#
+# After each ship-gate run (gate/run-gate.sh), copy the JMH JSON result here:
+#   cp gate-result.json results/h2-history/$(date +%Y%m%d).json
+#
+# Naming convention: YYYYMMDD.json (one file per gate run day).
+# If multiple runs occur on the same day, use YYYYMMDD-N.json (N=1,2,...).
+#
+# This directory tracks throughput history across worker library versions.
+# Regressions are visible via: git log -- results/h2-history/
+#
+# File format: JMH JSON output from run-gate.sh (-rf json -rff gate-result.json).
+# The primaryMetric.score field contains ns/op; divide by PACKET_SIZE (17_000_000)
+# to get ns/perm for the H-2 gate threshold comparison.
