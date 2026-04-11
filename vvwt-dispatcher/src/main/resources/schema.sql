@@ -120,7 +120,12 @@ CREATE TABLE IF NOT EXISTS packets (
     attempts                 INTEGER          NOT NULL DEFAULT 0,
     assigned_to              UUID,
     assigned_at              TIMESTAMP WITH TIME ZONE,
+    deadline                 TIMESTAMP WITH TIME ZONE,
     reissue_history          TEXT,
+    -- First-valid-wins result fields (E01S08 AC3): set when packet transitions to done
+    first_best_rank          BIGINT,
+    first_best_score         DOUBLE PRECISION,
+    first_worker_key_id      UUID,
     PRIMARY KEY (packet_id)
 );
 
@@ -133,3 +138,48 @@ CREATE INDEX IF NOT EXISTS idx_packets_job_status
 -- but is omitted here for H2 compatibility (test DB). The query optimizer uses assigned_at ordering.
 CREATE INDEX IF NOT EXISTS idx_packets_assigned_at
     ON packets(assigned_at);
+
+-- ============================================================================
+-- Late results log schema (E01S08 AC4)
+-- ============================================================================
+-- Table: late_results
+--
+-- Receives every result submission for a packet that is already done.
+-- matchesFirst: true if (bestRank, bestScore) match the first accepted result.
+-- A WARN log is emitted when matchesFirst=false (AC5).
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS late_results (
+    late_result_id           BIGINT           NOT NULL GENERATED ALWAYS AS IDENTITY,
+    packet_id                UUID             NOT NULL,
+    job_id                   UUID             NOT NULL,
+    worker_key_id            UUID             NOT NULL,
+    best_rank                BIGINT           NOT NULL,
+    best_score               DOUBLE PRECISION NOT NULL,
+    received_at              TIMESTAMP WITH TIME ZONE NOT NULL,
+    matches_first            BOOLEAN          NOT NULL,
+    PRIMARY KEY (late_result_id)
+);
+
+-- ============================================================================
+-- Result intake audit log schema (E01S08 AC8)
+-- ============================================================================
+-- Table: result_audit_log
+--
+-- Append-only. Every submit-result call creates one row, regardless of outcome.
+-- decisionOutcome: ACCEPTED_FIRST | ACCEPTED_LATE | REJECTED_NOT_ASSIGNED |
+--                  REJECTED_DEADLINE | REJECTED_SIGNATURE | REJECTED_OTHER
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS result_audit_log (
+    audit_id                 BIGINT           NOT NULL GENERATED ALWAYS AS IDENTITY,
+    logged_at                TIMESTAMP WITH TIME ZONE NOT NULL,
+    source_ip                VARCHAR(64)      NOT NULL,
+    worker_key_id            UUID,
+    packet_id                UUID,
+    job_id                   UUID,
+    signature_outcome        VARCHAR(16),
+    decision_outcome         VARCHAR(32),
+    http_status              INTEGER          NOT NULL,
+    PRIMARY KEY (audit_id)
+);
