@@ -140,7 +140,7 @@ public class PullPacketService {
                 .map(packet -> {
                     Instant now = Instant.now();
                     Instant deadline = now.plusSeconds(packetTimeoutMinutes * 60L);
-                    packet.assign(workerKeyId, now);
+                    packet.assign(workerKeyId, now, deadline);
                     packetRepository.save(packet);
 
                     JobRecord job = jobRepository.findById(packet.getJobId())

@@ -2,6 +2,7 @@ package de.vvwt.dispatcher.packet;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 import java.util.List;
@@ -55,7 +56,7 @@ public interface PacketRepository extends JpaRepository<PacketRecord, UUID> {
      * @return list of timed-out assigned packets (may be empty)
      */
     @Query("SELECT p FROM PacketRecord p WHERE p.status = 'assigned' AND p.assignedAt < :cutoff")
-    List<PacketRecord> findTimedOutPackets(Instant cutoff);
+    List<PacketRecord> findTimedOutPackets(@Param("cutoff") Instant cutoff);
 
     /**
      * Counts packets for a given job in a given status.
@@ -68,4 +69,16 @@ public interface PacketRepository extends JpaRepository<PacketRecord, UUID> {
      * @return count of matching packets
      */
     long countByJobIdAndStatus(UUID jobId, String status);
+
+    /**
+     * Finds all completed (done) packets for a job.
+     *
+     * <p>Used by the job finalizer (E01S08 AC9) to collect all first-results
+     * and compute the global best across the job.
+     *
+     * @param jobId  the job UUID
+     * @return list of done packets (may be empty)
+     */
+    @Query("SELECT p FROM PacketRecord p WHERE p.jobId = :jobId AND p.status = 'done'")
+    List<PacketRecord> findDonePacketsByJobId(@Param("jobId") UUID jobId);
 }
