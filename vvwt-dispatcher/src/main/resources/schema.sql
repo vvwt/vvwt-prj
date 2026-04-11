@@ -32,3 +32,66 @@ CREATE TABLE IF NOT EXISTS cached_results (
     source_job_id            UUID             NOT NULL,
     PRIMARY KEY (fingerprint, score_fn_version, canonicalization_version)
 );
+
+-- ============================================================================
+-- Identity registry schema (E01S06 AC1–AC4)
+-- ============================================================================
+-- Table: registered_keys
+--
+-- Holds all registered Ed25519 public keys (workers and submitters).
+-- A key that has been superseded keeps its row for audit; it is accepted
+-- during the grace window (grace_expires_at) and hard-rejected after.
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS registered_keys (
+    key_id                   UUID             NOT NULL,
+    role                     VARCHAR(16)      NOT NULL,
+    public_key_bytes         BYTEA            NOT NULL,
+    registered_at            TIMESTAMP WITH TIME ZONE NOT NULL,
+    superseded_at            TIMESTAMP WITH TIME ZONE,
+    grace_expires_at         TIMESTAMP WITH TIME ZONE,
+    superseded_by_key_id     UUID,
+    name                     VARCHAR(255),
+    PRIMARY KEY (key_id)
+);
+
+-- ============================================================================
+-- Job intake schema (E01S06 AC5, AC10)
+-- ============================================================================
+-- Table: jobs
+--
+-- One row per accepted submit-job call (cache-miss path only).
+-- Cache-hit submissions do NOT create a job row.
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS jobs (
+    job_id                   UUID             NOT NULL,
+    submitter_key_id         UUID             NOT NULL,
+    phase_id                 INTEGER          NOT NULL,
+    raw_phase_def_json       TEXT             NOT NULL,
+    canonical_phase_def_json TEXT             NOT NULL,
+    fingerprint              BYTEA            NOT NULL,
+    status                   VARCHAR(16)      NOT NULL,
+    submitted_at             TIMESTAMP WITH TIME ZONE NOT NULL,
+    PRIMARY KEY (job_id)
+);
+
+-- ============================================================================
+-- Audit log schema (E01S06 AC12)
+-- ============================================================================
+-- Table: audit_log
+--
+-- Append-only. Every register-key and submit-job call creates one row,
+-- regardless of outcome. Never updated or deleted by the dispatcher.
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS audit_log (
+    audit_id                 BIGINT           NOT NULL GENERATED ALWAYS AS IDENTITY,
+    logged_at                TIMESTAMP WITH TIME ZONE NOT NULL,
+    source_ip                VARCHAR(64)      NOT NULL,
+    endpoint                 VARCHAR(32)      NOT NULL,
+    key_id                   UUID,
+    signature_outcome        VARCHAR(16),
+    http_status              INTEGER          NOT NULL,
+    PRIMARY KEY (audit_id)
+);

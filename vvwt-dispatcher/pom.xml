@@ -69,9 +69,8 @@
     <build>
         <plugins>
 
-            <!-- spring-boot-maven-plugin: repackage execution produces runnable fat JAR.
-                 'skip' is set to true at bootstrap time (no main class yet — created by E01S06).
-                 Remove 'skip' when implementing E01S06 (dispatcher main class exists). -->
+            <!-- spring-boot-maven-plugin: repackage produces runnable fat JAR.
+                 Main class: de.vvwt.dispatcher.DispatcherApplication (delivered by E01S06). -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -81,10 +80,6 @@
                         <goals>
                             <goal>repackage</goal>
                         </goals>
-                        <configuration>
-                            <!-- TODO(E01S06): remove this skip when DispatcherApplication main class is present -->
-                            <skip>true</skip>
-                        </configuration>
                     </execution>
                 </executions>
             </plugin>
