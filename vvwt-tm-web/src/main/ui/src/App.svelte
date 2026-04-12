@@ -6,6 +6,7 @@
    * Story E05S04 — adds /tournaments, /tournaments/new, /tournaments/:id/edit routes.
    * Story E05S05 — adds /tournaments/:tournamentId/teams route.
    * Story E05S06 — adds /tournaments/:tournamentId/draft route.
+   * Story E05S07 — adds /tournaments/:tournamentId/phases route.
    *
    * Hash-based routing decision (Brief H-2): No server-side catch-all is needed for
    * deep-link URLs because the hash fragment is never sent to the server.
@@ -20,6 +21,7 @@
   import TournamentForm from './routes/TournamentForm.svelte';
   import Teams from './routes/Teams.svelte';
   import DraftConfig from './routes/DraftConfig.svelte';
+  import PhaseOverview from './routes/PhaseOverview.svelte';
 
   /** Route map: URL pattern → Svelte component. */
   const routes = new Map([
@@ -29,6 +31,7 @@
     ['/tournaments/:id/edit', TournamentForm],
     ['/tournaments/:tournamentId/teams', Teams],
     ['/tournaments/:tournamentId/draft', DraftConfig],
+    ['/tournaments/:tournamentId/phases', PhaseOverview],
   ]);
 
   /** Fallback: redirect unknown routes to home. */

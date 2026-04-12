@@ -1,5 +1,6 @@
 package de.vvwt.tm.infrastructure.web;
 
+import de.vvwt.tm.domain.PhaseLifecycleService;
 import de.vvwt.tm.domain.event.MatchResultChangedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,13 +58,17 @@ public class DomainEventBridge {
     static final String EVENT_TYPE_MATCH_RESULT_CHANGED = "MATCH_RESULT_CHANGED";
 
     private final SimpMessagingTemplate messagingTemplate;
+    private final PhaseLifecycleService phaseLifecycleService;
 
     /**
-     * @param messagingTemplate Spring's WebSocket messaging template for broadcasting
-     *                          messages to subscribed clients
+     * @param messagingTemplate    Spring's WebSocket messaging template for broadcasting
+     *                             messages to subscribed clients
+     * @param phaseLifecycleService for tournament completion check (AC11 — E05S07)
      */
-    public DomainEventBridge(SimpMessagingTemplate messagingTemplate) {
+    public DomainEventBridge(SimpMessagingTemplate messagingTemplate,
+                              PhaseLifecycleService phaseLifecycleService) {
         this.messagingTemplate = messagingTemplate;
+        this.phaseLifecycleService = phaseLifecycleService;
     }
 
     /**
@@ -95,6 +100,18 @@ public class DomainEventBridge {
             // Client may have disconnected between subscription check and send — this is expected.
             log.warn("[tm-ws] Failed to broadcast {} for matchId={}: {}",
                     EVENT_TYPE_MATCH_RESULT_CHANGED, event.getMatchId(), e.getMessage());
+        }
+
+        // AC11 (E05S07): check if the cascade auto-advance completed the last phase,
+        // which would trigger tournament → COMPLETED.
+        // This runs in a NEW transaction (the originating transaction has committed).
+        if (event.getTournamentId() != null) {
+            try {
+                phaseLifecycleService.checkTournamentCompletion(event.getTournamentId());
+            } catch (Exception e) {
+                log.warn("[tm-ws] checkTournamentCompletion failed for tournament={}: {}",
+                        event.getTournamentId(), e.getMessage());
+            }
         }
     }
 }

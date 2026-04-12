@@ -131,5 +131,53 @@
       "title": "Ergebnis",
       "phasesCreated": "{count} Phase(n) erstellt."
     }
+  },
+  "phases": {
+    "title": "Phasen",
+    "loading": "Phasen werden geladen…",
+    "loadError": "Fehler beim Laden der Phasen.",
+    "noPhases": "Keine Phasen vorhanden. Bitte zuerst die Turnierkonfiguration anwenden.",
+    "phaseLabel": "Phase {n}",
+    "lapIndicator": "Runde {current} / {total}",
+    "matchProgress": "{finished} / {total} Spiele abgeschlossen",
+    "prepareButton": "Phase vorbereiten",
+    "reprepareButton": "Erneut vorbereiten",
+    "startButton": "Phase starten",
+    "advanceLapButton": "Runde weiterschalten",
+    "viewScheduleButton": "Spielplan anzeigen",
+    "hideScheduleButton": "Spielplan ausblenden",
+    "preparing": "Vorbereitung…",
+    "starting": "Starte…",
+    "advancingLap": "Weiterschalten…",
+    "prepareError": "Fehler bei der Vorbereitung.",
+    "startError": "Phase konnte nicht gestartet werden.",
+    "advanceLapError": "Runde konnte nicht weitergeschaltet werden.",
+    "cancelButton": "Abbrechen",
+    "forceAdvanceLapConfirm": "Diese Runde enthält noch nicht abgeschlossene Spiele. Trotzdem weiterschalten?",
+    "forceAdvanceLapConfirmButton": "Trotzdem weiterschalten (erzwingen)",
+    "tournamentCompleted": "Turnier abgeschlossen",
+    "tournamentCompletedMessage": "Alle Phasen sind beendet. Das Turnier ist abgeschlossen.",
+    "status": {
+      "PENDING": "Ausstehend",
+      "ACTIVE": "Aktiv",
+      "COMPLETED": "Abgeschlossen"
+    },
+    "prep": {
+      "generateMatches": "Spiele generieren",
+      "optimizeSlots": "Zeitslots optimieren",
+      "assignReferees": "Schiedsrichter zuweisen"
+    },
+    "schedule": {
+      "title": "Spielplan",
+      "loading": "Spielplan wird geladen…",
+      "empty": "Noch kein Spielplan. Bitte Phase zuerst vorbereiten.",
+      "lapLabel": "Runde {n}",
+      "lapColumn": "Runde",
+      "fieldColumn": "Feld",
+      "team1Column": "Team 1",
+      "team2Column": "Team 2",
+      "refereeColumn": "Schiedsrichter",
+      "stateColumn": "Status"
+    }
   }
 }
