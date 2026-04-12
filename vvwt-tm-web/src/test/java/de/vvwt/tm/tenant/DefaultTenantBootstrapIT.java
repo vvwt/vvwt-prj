@@ -266,6 +266,11 @@ class DefaultTenantBootstrapIT {
     void concurrentStartRaceResolvesToSingleUUID() throws Exception {
         // The Spring context bootstrap already ran once (leaving one row). Delete it so we
         // can simulate a fresh start race against a clean DB.
+        // E03S01: delete from tables with FK references to tenants/locations first (in FK order).
+        jdbcTemplate.update("DELETE FROM team_avatar");
+        jdbcTemplate.update("DELETE FROM team");
+        jdbcTemplate.update("DELETE FROM phase");
+        jdbcTemplate.update("DELETE FROM tournament");
         jdbcTemplate.update("DELETE FROM locations");
         jdbcTemplate.update("DELETE FROM tenants");
 
