@@ -60,8 +60,8 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    /** Fixed admin username (V1 — not configurable). */
-    static final String ADMIN_USERNAME = "admin";
+    /** Fixed admin username (V1 — not configurable). Public for use in WebSocket auth and tests (E05S03). */
+    public static final String ADMIN_USERNAME = "admin";
 
     /**
      * BCrypt password encoder bean.
