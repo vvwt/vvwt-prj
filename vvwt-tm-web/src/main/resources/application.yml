@@ -39,6 +39,17 @@ spring:
     fail-on-missing-locations: false
 
 # ---------------------------------------------------------------------------
+# Slot-optimization configuration (E04S02, AC6)
+# ---------------------------------------------------------------------------
+tm:
+  slotopt:
+    fallback:
+      # Number of courts (fields) available per lap for slot assignment.
+      # Used by PhaseToRawPhaseDefMapper and FallbackSlotOptimizationClient.
+      # Override via TM_SLOTOPT_FIELDCOUNT env var or -Dtm.slotopt.fallback.field-count.
+      field-count: ${TM_SLOTOPT_FIELDCOUNT:3}
+
+# ---------------------------------------------------------------------------
 # Actuator — health endpoint (AC5)
 # No authentication required — DEC-5 default-tenant LAN mode
 # ---------------------------------------------------------------------------
