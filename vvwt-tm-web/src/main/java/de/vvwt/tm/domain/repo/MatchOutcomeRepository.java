@@ -36,4 +36,20 @@ public class MatchOutcomeRepository extends TenantScopedRepository<MatchOutcome,
     @Override protected UUID extractTenantId(MatchOutcome e) { return e.getTenantId(); }
     @Override protected void setTenantId(MatchOutcome e, UUID id) { e.setTenantId(id); }
     @Override protected UUID extractId(MatchOutcome e) { return e.getMatchId(); }
+
+    /**
+     * Deletes the {@link MatchOutcome} row for the given match ID, scoped to the active tenant.
+     *
+     * <p>Used by {@link de.vvwt.tm.domain.PhasePreparationService#generateMatches} to clean up
+     * existing outcome rows before re-generating matches for a phase (AC2 idempotent-delete
+     * cascade). In PENDING state, no outcomes should exist (no results have been recorded),
+     * so this is a no-op in the normal case — but protects structural correctness.
+     *
+     * @param matchId the match whose outcome row to delete
+     * @throws IllegalStateException if no tenant context is active
+     */
+    public void deleteByMatchId(UUID matchId) {
+        activeTenantId();  // guard fires here — verifies active tenant before SQL
+        delegate.deleteByMatchIdRaw(matchId);
+    }
 }
