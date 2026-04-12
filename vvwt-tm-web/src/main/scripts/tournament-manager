@@ -1,0 +1,96 @@
+#!/bin/bash
+# Tournament Manager V1 — Unix launcher script
+# Story E02S05 | DEC-15: jlink primary distribution format
+#
+# Usage:
+#   ./bin/tournament-manager [--verbose|-v] [spring-boot-args...]
+#
+# Environment variables:
+#   TM_DB_PATH       Path to H2 database file (without .mv.db extension).
+#                    Default: $HOME/.tournament-manager/db/tm
+#   TM_SERVER_PORT   HTTP server port. Default: 8080
+#   TM_JVM_XMS       JVM initial heap size. Default: 64m
+#   TM_JVM_XMX       JVM maximum heap size. Default: 512m
+#
+# Flags:
+#   --verbose, -v    Print resolved configuration before starting JVM. (AC10)
+#                    Does NOT print the shell environment. (AC11)
+
+set -e
+
+# --------------------------------------------------------------------------
+# Resolve installation directory from this script's own location.
+# Handles symlinks via readlink -f (GNU coreutils on Linux).
+# --------------------------------------------------------------------------
+SCRIPT_REALPATH="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || realpath "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_REALPATH")" && pwd)"
+INSTALL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+RUNTIME_JAVA="$INSTALL_DIR/runtime/bin/java"
+LIB_DIR="$INSTALL_DIR/lib"
+
+# Read version from POM-injected manifest entry (best-effort; falls back to placeholder)
+VERSION="@project.version@"
+
+# --------------------------------------------------------------------------
+# AC8: Guard — bundled JRE must exist before we try to use it.
+# --------------------------------------------------------------------------
+if [ ! -x "$RUNTIME_JAVA" ]; then
+    echo "Error: JRE runtime not found at $RUNTIME_JAVA — archive may be corrupt or incomplete" >&2
+    exit 1
+fi
+
+# --------------------------------------------------------------------------
+# Parse flags: consume --verbose/-v; pass everything else to Spring Boot.
+# AC10: verbose flag; AC11: no env dump.
+# --------------------------------------------------------------------------
+VERBOSE=false
+PASS_ARGS=()
+for arg in "$@"; do
+    if [ "$arg" = "--verbose" ] || [ "$arg" = "-v" ]; then
+        VERBOSE=true
+    else
+        PASS_ARGS+=("$arg")
+    fi
+done
+
+# --------------------------------------------------------------------------
+# Resolved configuration (not raw env — see AC11).
+# --------------------------------------------------------------------------
+JVM_HEAP_MIN="${TM_JVM_XMS:-64m}"
+JVM_HEAP_MAX="${TM_JVM_XMX:-512m}"
+SERVER_PORT="${TM_SERVER_PORT:-8080}"
+DB_PATH="${TM_DB_PATH:-$HOME/.tournament-manager/db/tm}"
+
+# --------------------------------------------------------------------------
+# Output: verbose or single-line banner.
+# AC10: verbose prints JRE path, classpath summary, heap, version info.
+# AC11: no "env", "set", "printenv", or "export -p" — only resolved values.
+# --------------------------------------------------------------------------
+if [ "$VERBOSE" = true ]; then
+    echo "Tournament Manager $VERSION — verbose mode"
+    echo "  Install dir : $INSTALL_DIR"
+    echo "  JRE path    : $RUNTIME_JAVA"
+    echo "  JRE version : $("$RUNTIME_JAVA" -version 2>&1 | head -1)"
+    echo "  Lib dir     : $LIB_DIR"
+    echo "  DB path     : $DB_PATH"
+    echo "  Server port : $SERVER_PORT"
+    echo "  Heap min    : $JVM_HEAP_MIN"
+    echo "  Heap max    : $JVM_HEAP_MAX"
+    echo ""
+else
+    echo "Starting Tournament Manager $VERSION on port $SERVER_PORT, DB path $DB_PATH"
+fi
+
+# --------------------------------------------------------------------------
+# Launch the application using the bundled JRE.
+# exec replaces the shell process — SIGINT/Ctrl-C goes directly to the JVM.
+# AC4: relative path via $RUNTIME_JAVA; pass-through CLI args via ${PASS_ARGS[@]}.
+# AC9: port-in-use error surfaces naturally from Spring Boot / JVM stderr.
+# --------------------------------------------------------------------------
+exec "$RUNTIME_JAVA" \
+    "-Xms$JVM_HEAP_MIN" \
+    "-Xmx$JVM_HEAP_MAX" \
+    -cp "$LIB_DIR/*" \
+    de.vvwt.tm.TournamentManagerApplication \
+    "${PASS_ARGS[@]+"${PASS_ARGS[@]}"}"

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Assembly descriptor for Tournament Manager V1 jlink distribution.
+    Story E02S05 | DEC-15: jlink primary distribution format.
+
+    Produces: target/tournament-manager-<version>.tar.gz
+    Layout:
+        tournament-manager-<version>/
+        ├── bin/          launcher scripts (Unix 0755, Windows included always — AC3, AC12)
+        ├── runtime/      custom JRE produced by maven-jlink-plugin (AC2, AC3)
+        ├── lib/          application JAR + all runtime dependency JARs (AC3)
+        └── README.txt    run instructions (AC3)
+-->
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.2.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.2.0
+              https://maven.apache.org/xsd/assembly-2.2.0.xsd">
+
+    <id>distribution</id>
+
+    <!--
+        AC3: On Unix build hosts, produce tar.gz (tar preserves permissions natively — AC12).
+             Windows build hosts would add "zip" here (handled in E09 cross-platform story).
+    -->
+    <formats>
+        <format>tar.gz</format>
+    </formats>
+
+    <!-- Archive root directory: tournament-manager-<version>/ -->
+    <includeBaseDirectory>true</includeBaseDirectory>
+
+    <fileSets>
+
+        <!--
+            runtime/ — custom JRE produced by maven-jlink-plugin (AC2, AC3)
+            maven-jlink-plugin writes to ${project.build.directory}/runtime/
+        -->
+        <fileSet>
+            <directory>${project.build.directory}/runtime</directory>
+            <outputDirectory>runtime</outputDirectory>
+            <!-- Preserve JRE binary permissions (jlink sets them correctly) -->
+            <useDefaultExcludes>true</useDefaultExcludes>
+        </fileSet>
+
+        <!--
+            lib/ — application JAR + all runtime dependency JARs (AC3)
+            maven-dependency-plugin copies these to ${project.build.directory}/lib/
+        -->
+        <fileSet>
+            <directory>${project.build.directory}/lib</directory>
+            <outputDirectory>lib</outputDirectory>
+        </fileSet>
+
+        <!--
+            bin/ — launcher scripts (AC3, AC12)
+            Unix launcher: 0755 — tar preserves this permission (AC12)
+            Windows launcher: always included regardless of build host (AC3)
+            filtered=true: substitutes @project.version@ in script content (AC10 version banner)
+        -->
+        <fileSet>
+            <directory>src/main/scripts</directory>
+            <outputDirectory>bin</outputDirectory>
+            <!-- AC12: 0755 = executable by owner, readable+executable by group and others -->
+            <fileMode>0755</fileMode>
+            <!-- Enable Maven property filtering for @project.version@ substitution -->
+            <filtered>true</filtered>
+            <includes>
+                <include>tournament-manager</include>
+                <include>tournament-manager.bat</include>
+            </includes>
+        </fileSet>
+
+        <!--
+            README.txt (AC3)
+        -->
+        <fileSet>
+            <directory>src/main/assembly</directory>
+            <outputDirectory></outputDirectory>
+            <includes>
+                <include>README.txt</include>
+            </includes>
+        </fileSet>
+
+    </fileSets>
+
+</assembly>
