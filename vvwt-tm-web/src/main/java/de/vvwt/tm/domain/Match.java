@@ -1,6 +1,7 @@
 package de.vvwt.tm.domain;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.LocalDateTime;
@@ -69,13 +70,18 @@ public class Match {
     /**
      * First team in the match pairing — references a {@link TeamAvatar} (DEC-9).
      * NOT NULL. FK references {@code team_avatar(id)}.
+     * Explicit {@code @Column} required because Spring Data JDBC converts {@code memberAvatar1Id}
+     * to {@code member_avatar1_id} but the DB column is {@code member_avatar_1_id}.
      */
+    @Column("member_avatar_1_id")
     private UUID memberAvatar1Id;
 
     /**
      * Second team in the match pairing — references a {@link TeamAvatar} (DEC-9).
      * NOT NULL. FK references {@code team_avatar(id)}.
+     * Explicit {@code @Column} required (see {@code memberAvatar1Id}).
      */
+    @Column("member_avatar_2_id")
     private UUID memberAvatar2Id;
 
     /**
