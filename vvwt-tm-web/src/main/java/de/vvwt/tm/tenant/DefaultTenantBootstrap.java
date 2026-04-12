@@ -8,7 +8,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
 import java.util.UUID;
@@ -37,6 +37,13 @@ import java.util.concurrent.atomic.AtomicReference;
  * unique-constraint violation (the {@code idx_tenants_single_default} index from E02S03). The
  * losing process catches {@link DataIntegrityViolationException}, logs that another process beat
  * it, re-queries to resolve the winner's UUID, and continues — no second insertion is attempted.
+ *
+ * <h2>Transaction handling</h2>
+ * <p>The insertion of the tenant + location rows uses {@link TransactionTemplate} rather than
+ * {@code @Transactional}. This avoids the Spring AOP self-invocation proxy bypass that would
+ * silently make the transaction annotation ineffective when called from within the same bean.
+ * {@link TransactionTemplate} is a direct, unambiguous API that wraps the two inserts in a
+ * real transaction regardless of how the method is called.
  *
  * <h2>Security — UUID generation (AC11)</h2>
  * <p>{@code UUID.randomUUID()} is specified by the Java SE spec to use a cryptographically strong
@@ -77,9 +84,12 @@ public class DefaultTenantBootstrap implements ApplicationRunner, DefaultTenantP
     private final AtomicReference<UUID> resolvedTenantId = new AtomicReference<>();
 
     private final JdbcTemplate jdbcTemplate;
+    private final TransactionTemplate transactionTemplate;
 
-    public DefaultTenantBootstrap(JdbcTemplate jdbcTemplate) {
+    public DefaultTenantBootstrap(JdbcTemplate jdbcTemplate,
+                                  TransactionTemplate transactionTemplate) {
         this.jdbcTemplate = jdbcTemplate;
+        this.transactionTemplate = transactionTemplate;
     }
 
     // -------------------------------------------------------------------------
@@ -157,8 +167,9 @@ public class DefaultTenantBootstrap implements ApplicationRunner, DefaultTenantP
     }
 
     /**
-     * Attempts to insert a new default-tenant row and its corresponding default-location row
-     * within a single transaction (AC2, DEC-5: tenant-creation creates location atomically).
+     * Inserts a new default-tenant row and its corresponding default-location row within a
+     * single transaction, using {@link TransactionTemplate} to ensure the transaction is
+     * applied regardless of call site (avoids Spring AOP self-invocation proxy bypass).
      *
      * <p>On a concurrent-race constraint violation (AC3): catches the exception, re-queries to
      * resolve the winning UUID, and logs the outcome. Does NOT attempt a second insertion.
@@ -166,16 +177,17 @@ public class DefaultTenantBootstrap implements ApplicationRunner, DefaultTenantP
      * <p>On any other write failure (AC7): rethrows as {@link IllegalStateException} with a clear
      * actionable error message. The application will abort with non-zero exit status.
      */
-    @Transactional
-    public void insertDefaultTenantWithLocation() {
+    void insertDefaultTenantWithLocation() {
         // AC11: UUID.randomUUID() uses SecureRandom per the Java SE spec.
         // No direct UUID(long, long) construction with non-random inputs.
         UUID tenantId = UUID.randomUUID();
         UUID locationId = UUID.randomUUID();
 
         try {
-            jdbcTemplate.update(INSERT_TENANT, tenantId);
-            jdbcTemplate.update(INSERT_LOCATION, locationId, tenantId);
+            transactionTemplate.executeWithoutResult(status -> {
+                jdbcTemplate.update(INSERT_TENANT, tenantId);
+                jdbcTemplate.update(INSERT_LOCATION, locationId, tenantId);
+            });
 
             resolvedTenantId.set(tenantId);
 

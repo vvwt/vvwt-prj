@@ -2,15 +2,15 @@ package de.vvwt.tm.tenant;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import de.vvwt.tm.TournamentManagerApplication;
-
-import org.springframework.boot.ApplicationArguments;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -71,6 +71,9 @@ class DefaultTenantBootstrapIT {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private TransactionTemplate transactionTemplate;
 
     @Autowired
     private DefaultTenantProvider defaultTenantProvider;
@@ -190,8 +193,9 @@ class DefaultTenantBootstrapIT {
      * This is the formal regression test for the DEC-17 "no hardcoded ID" requirement.
      *
      * <p>Uses two separate file-based H2 databases in temp directories to simulate two
-     * independently deployed self-host instances. Each gets its own JdbcTemplate pointing at
-     * a distinct file path, and we run the bootstrap logic against each.
+     * independently deployed self-host instances. Each gets its own JdbcTemplate and
+     * TransactionTemplate pointing at a distinct file path, and we run the bootstrap logic
+     * against each.
      *
      * <p>Note: this test creates real H2 files on disk and cleans them up in a finally block.
      */
@@ -201,17 +205,20 @@ class DefaultTenantBootstrapIT {
         Path tempDirB = Files.createTempDirectory("tm-e02s04-instanceB-");
 
         try {
-            // Build two separate JdbcTemplate instances pointing at separate H2 files
+            // Build two separate JdbcTemplate + TransactionTemplate instances pointing at separate H2 files
             JdbcTemplate jdbcA = buildFileH2JdbcTemplate(tempDirA.resolve("tm"));
             JdbcTemplate jdbcB = buildFileH2JdbcTemplate(tempDirB.resolve("tm"));
+
+            TransactionTemplate txA = buildTransactionTemplate(jdbcA);
+            TransactionTemplate txB = buildTransactionTemplate(jdbcB);
 
             // Apply the schema migration to both (so the tables exist)
             applySchemaMigration(jdbcA);
             applySchemaMigration(jdbcB);
 
             // Run bootstrap logic against each
-            DefaultTenantBootstrap bootstrapA = new DefaultTenantBootstrap(jdbcA);
-            DefaultTenantBootstrap bootstrapB = new DefaultTenantBootstrap(jdbcB);
+            DefaultTenantBootstrap bootstrapA = new DefaultTenantBootstrap(jdbcA, txA);
+            DefaultTenantBootstrap bootstrapB = new DefaultTenantBootstrap(jdbcB, txB);
 
             bootstrapA.run(null);
             bootstrapB.run(null);
@@ -270,9 +277,9 @@ class DefaultTenantBootstrapIT {
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger exceptionCount = new AtomicInteger(0);
 
-        // Both threads use the same JdbcTemplate (same in-memory DB)
-        DefaultTenantBootstrap bootstrapThread1 = new DefaultTenantBootstrap(jdbcTemplate);
-        DefaultTenantBootstrap bootstrapThread2 = new DefaultTenantBootstrap(jdbcTemplate);
+        // Both threads use the same JdbcTemplate + TransactionTemplate (same in-memory DB)
+        DefaultTenantBootstrap bootstrapThread1 = new DefaultTenantBootstrap(jdbcTemplate, transactionTemplate);
+        DefaultTenantBootstrap bootstrapThread2 = new DefaultTenantBootstrap(jdbcTemplate, transactionTemplate);
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
 
@@ -343,24 +350,19 @@ class DefaultTenantBootstrapIT {
      * If two {@code is_default = TRUE} rows are found at query time (schema corruption),
      * bootstrap aborts with a clear {@link IllegalStateException} rather than auto-healing.
      *
-     * <p>We manually bypass the unique index (not possible via normal INSERT — the constraint
-     * prevents it). Instead we mock the scenario by directly invoking the bootstrap's run logic
-     * after disabling the constraint temporarily via H2's session-level constraint toggle, or —
-     * more practically — we test this by directly injecting a mock that returns two rows.
-     *
      * <p>Since we cannot insert two rows with is_default=TRUE into a live H2 DB (the unique index
-     * prevents it), we instead unit-test the guard logic by subclassing DefaultTenantBootstrap
-     * with a controlled queryDefaultTenantIds() override.
+     * prevents it), we test this by subclassing DefaultTenantBootstrap with a controlled
+     * run() override that simulates the "two rows found" scenario.
      */
     @Test
     void inconsistentStateAborts() {
         // We need to simulate the "two rows" scenario. The unique index prevents us from
-        // actually inserting two rows, so we use a testable subclass that overrides
-        // the query to return two rows while still using the real JdbcTemplate.
-        DefaultTenantBootstrap corruptStateBootstrap = new DefaultTenantBootstrap(jdbcTemplate) {
+        // actually inserting two rows, so we use a testable subclass that overrides run()
+        // to replicate the guard logic with a hardcoded two-row result.
+        DefaultTenantBootstrap corruptStateBootstrap = new DefaultTenantBootstrap(jdbcTemplate, transactionTemplate) {
             @Override
             public void run(ApplicationArguments args) {
-                // Inline the guard logic with a hardcoded "two rows found" scenario
+                // Simulate: query returns two rows (schema corruption scenario)
                 List<UUID> fakeRows = List.of(UUID.randomUUID(), UUID.randomUUID());
                 if (fakeRows.size() > 1) {
                     throw new IllegalStateException(
@@ -410,6 +412,19 @@ class DefaultTenantBootstrapIT {
         dataSource.setUser("sa");
         dataSource.setPassword("");
         return new JdbcTemplate(dataSource);
+    }
+
+    /**
+     * Builds a {@link TransactionTemplate} backed by a {@link org.springframework.jdbc.datasource.DataSourceTransactionManager}
+     * for the given {@link JdbcTemplate}'s DataSource.
+     * Used by {@code twoInstancesGenerateDifferentUUIDs()} to provide transaction support
+     * to standalone bootstrap instances.
+     */
+    private TransactionTemplate buildTransactionTemplate(JdbcTemplate jdbc) {
+        org.springframework.jdbc.datasource.DataSourceTransactionManager txManager =
+                new org.springframework.jdbc.datasource.DataSourceTransactionManager(
+                        jdbc.getDataSource());
+        return new TransactionTemplate(txManager);
     }
 
     /**
