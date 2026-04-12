@@ -143,7 +143,7 @@
   async function loadGroupTables(): Promise<void> {
     if (!phaseId) return;
     try {
-      const resp = await apiFetch(`/api/phases/${phaseId}/groups/tables`);
+      const resp = await apiFetch(`/api/phases/${phaseId}/groups`);
       if (resp.ok) {
         const data: Record<string, GroupTableEntry[]> = await resp.json();
         // Convert string keys to number keys

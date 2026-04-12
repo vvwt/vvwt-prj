@@ -77,11 +77,14 @@ public class MonitoringController {
     }
 
     // -------------------------------------------------------------------------
-    // AC2 — GET /api/phases/{phaseId}/groups/tables
+    // AC2 — GET /api/phases/{phaseId}/groups
     // -------------------------------------------------------------------------
 
     /**
      * Returns all groups' ranked standings for the phase (AC2).
+     *
+     * <p>Also accessible at {@code /api/phases/{phaseId}/groups/tables} for URL clarity.
+     * The canonical URL per the story spec is {@code /api/phases/{phaseId}/groups}.
      *
      * <p>The response is a map from group number (as string key, JSON-compatible) to
      * sorted list of entries. Groups are returned in ascending group number order.
@@ -90,7 +93,7 @@ public class MonitoringController {
      * @param phaseId the phase to query
      * @return 200 OK with map of groupNumber → sorted entries, or 404 if phase not found
      */
-    @GetMapping("/api/phases/{phaseId}/groups/tables")
+    @GetMapping({"/api/phases/{phaseId}/groups", "/api/phases/{phaseId}/groups/tables"})
     public ResponseEntity<Map<Integer, List<GroupTableEntryResponse>>> getAllGroupTables(
             @PathVariable("phaseId") UUID phaseId) {
 

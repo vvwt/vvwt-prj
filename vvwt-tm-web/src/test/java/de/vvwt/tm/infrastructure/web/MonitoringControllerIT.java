@@ -121,7 +121,7 @@ class MonitoringControllerIT {
     @Test
     void allGroupTables_returns401WithoutCredentials() {
         ResponseEntity<String> resp = restTemplate.getForEntity(
-                baseUrl + "/api/phases/" + existingPhaseId + "/groups/tables",
+                baseUrl + "/api/phases/" + existingPhaseId + "/groups",
                 String.class);
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
@@ -157,7 +157,7 @@ class MonitoringControllerIT {
     @Test
     void allGroupTables_returns404ForUnknownPhase() {
         ResponseEntity<String> resp = authed.getForEntity(
-                baseUrl + "/api/phases/" + UUID.randomUUID() + "/groups/tables",
+                baseUrl + "/api/phases/" + UUID.randomUUID() + "/groups",
                 String.class);
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
@@ -187,7 +187,7 @@ class MonitoringControllerIT {
     void allGroupTables_returns200WithEmptyMap_forPhaseWithNoAvatars() {
         @SuppressWarnings("unchecked")
         ResponseEntity<Map> resp = authed.getForEntity(
-                baseUrl + "/api/phases/" + existingPhaseId + "/groups/tables",
+                baseUrl + "/api/phases/" + existingPhaseId + "/groups",
                 Map.class);
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
