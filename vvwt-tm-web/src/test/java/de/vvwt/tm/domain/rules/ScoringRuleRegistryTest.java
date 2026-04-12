@@ -30,7 +30,17 @@ class ScoringRuleRegistryTest {
                 new ThreePointMatchRule()
         );
         registry = new ScoringRuleRegistry(rules);
-        resolver = new TournamentRuleResolver(registry);
+
+        // TournamentRuleResolver (E03S07 + E03S08 merged) requires both registries.
+        // Use a minimal SetValidationRuleRegistry for this unit test scope.
+        List<SetValidationRule> setRules = List.of(
+                new StandardVolleyballSet(),
+                new TimeBoundedSet()
+        );
+        SetValidationRuleRegistry setRegistry = new SetValidationRuleRegistry(
+                setRules.stream().collect(
+                        java.util.stream.Collectors.toMap(SetValidationRule::getBeanId, r -> r)));
+        resolver = new TournamentRuleResolver(setRegistry, registry);
     }
 
     // -----------------------------------------------------------------------
