@@ -48,6 +48,12 @@ tm:
       # Used by PhaseToRawPhaseDefMapper and FallbackSlotOptimizationClient.
       # Override via TM_SLOTOPT_FIELDCOUNT env var or -Dtm.slotopt.fallback.field-count.
       field-count: ${TM_SLOTOPT_FIELDCOUNT:3}
+    # Maximum N (team count) for exhaustive slot-optimization (DirectSlotOptimizationClient, E04S03 AC6).
+    # For N <= exhaustive-max-n: all N! permutations are evaluated (guaranteed global optimum).
+    # For N > exhaustive-max-n: timeout-based mode (E04S04) is used (not yet implemented — throws UOE).
+    # 10! = 3,628,800 permutations. At ~300 ns/perm (E01S12 benchmark), this takes ~1 s.
+    # Override via -Dtm.slotopt.exhaustive-max-n or in application-*.yml per environment.
+    exhaustive-max-n: 10
 
 # ---------------------------------------------------------------------------
 # Actuator — health endpoint (AC5)

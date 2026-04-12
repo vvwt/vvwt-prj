@@ -79,4 +79,25 @@ public class MatchRepository extends TenantScopedRepository<Match, UUID> {
         }
         return result;
     }
+
+    /**
+     * Deletes all matches for the given phase that belong to the active tenant.
+     *
+     * <p>Used by {@link de.vvwt.tm.domain.PhasePreparationService#generateMatches} for the
+     * idempotent-delete step (AC2): when the organizer re-runs generation, existing matches
+     * for the phase are cleared before new ones are inserted.
+     *
+     * <p>The delete is performed via the raw @Query method which issues a bulk DELETE by phase_id.
+     * The tenant guard fires before the SQL to ensure the active tenant context is set.
+     * Since all matches in the phase were inserted with the active tenant's ID (enforced by
+     * {@link TenantScopedRepository#save}), the bulk delete is implicitly tenant-safe when
+     * combined with the upstream guard.
+     *
+     * @param phaseId the phase whose matches to delete
+     * @throws IllegalStateException if no tenant context is active
+     */
+    public void deleteByPhaseId(UUID phaseId) {
+        activeTenantId();  // guard fires here — verifies active tenant before SQL
+        delegate.deleteByPhaseIdRaw(phaseId);
+    }
 }
