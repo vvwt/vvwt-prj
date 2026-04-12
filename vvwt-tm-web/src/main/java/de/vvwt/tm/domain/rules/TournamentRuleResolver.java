@@ -1,6 +1,8 @@
 package de.vvwt.tm.domain.rules;
 
 import de.vvwt.tm.domain.Tournament;
+import de.vvwt.tm.domain.generator.MatchGenerator;
+import de.vvwt.tm.domain.generator.MatchGeneratorRegistry;
 import org.springframework.stereotype.Component;
 
 /**
@@ -12,33 +14,41 @@ import org.springframework.stereotype.Component;
  *
  * <p>E03S07 introduces {@link #resolveSetValidationRule(Tournament)}.
  * E03S08 introduces {@link #resolveScoringRule(Tournament)}.
- * E03S09 will add {@code resolveMatchGenerator(Tournament)} when delivered.
+ * E03S09 introduces {@link #resolveMatchGenerator(Tournament)}.
  *
  * @see SetValidationRuleRegistry
  * @see ScoringRuleRegistry
+ * @see MatchGeneratorRegistry
  */
 @Component
 public class TournamentRuleResolver {
 
     private final SetValidationRuleRegistry setValidationRuleRegistry;
     private final ScoringRuleRegistry scoringRuleRegistry;
+    private final MatchGeneratorRegistry matchGeneratorRegistry;
 
     /**
      * Constructs the resolver. Spring injects the registries.
      *
      * @param setValidationRuleRegistry registry of all {@link SetValidationRule} beans
      * @param scoringRuleRegistry       registry of all {@link ScoringRule} beans
+     * @param matchGeneratorRegistry    registry of all {@link MatchGenerator} beans
      */
     public TournamentRuleResolver(SetValidationRuleRegistry setValidationRuleRegistry,
-                                  ScoringRuleRegistry scoringRuleRegistry) {
+                                  ScoringRuleRegistry scoringRuleRegistry,
+                                  MatchGeneratorRegistry matchGeneratorRegistry) {
         if (setValidationRuleRegistry == null) {
             throw new IllegalArgumentException("setValidationRuleRegistry must not be null");
         }
         if (scoringRuleRegistry == null) {
             throw new IllegalArgumentException("scoringRuleRegistry must not be null");
         }
+        if (matchGeneratorRegistry == null) {
+            throw new IllegalArgumentException("matchGeneratorRegistry must not be null");
+        }
         this.setValidationRuleRegistry = setValidationRuleRegistry;
         this.scoringRuleRegistry = scoringRuleRegistry;
+        this.matchGeneratorRegistry = matchGeneratorRegistry;
     }
 
     /**
@@ -81,5 +91,28 @@ public class TournamentRuleResolver {
             throw new NullPointerException("tournament must not be null");
         }
         return scoringRuleRegistry.get(tournament.getScoringRuleId());
+    }
+
+    /**
+     * Resolves the {@link MatchGenerator} configured for the given tournament (AC7, D-27).
+     *
+     * <p>Reads {@link Tournament#getMatchGeneratorId()} and looks it up in the
+     * {@link MatchGeneratorRegistry}.
+     *
+     * @param tournament the tournament whose match generator is needed (must not be null)
+     * @return the resolved {@link MatchGenerator} (never null)
+     * @throws IllegalArgumentException if {@code tournament} is null, if the
+     *         {@code matchGeneratorId} is null/blank, or if it is not registered
+     */
+    public MatchGenerator resolveMatchGenerator(Tournament tournament) {
+        if (tournament == null) {
+            throw new IllegalArgumentException("tournament must not be null");
+        }
+        String generatorId = tournament.getMatchGeneratorId();
+        if (generatorId == null || generatorId.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Tournament.matchGeneratorId must not be null or blank");
+        }
+        return matchGeneratorRegistry.get(generatorId);
     }
 }
