@@ -81,6 +81,28 @@ public class MatchRepository extends TenantScopedRepository<Match, UUID> {
     }
 
     /**
+     * Returns all matches in the given phase with the given lap number, scoped to the active tenant.
+     *
+     * <p>Used by {@link de.vvwt.tm.domain.LiveMonitoringService} for the lap-matches endpoint
+     * (AC3 — E05S10).
+     *
+     * @param phaseId   the phase to query
+     * @param lapNumber the lap number to filter by
+     * @return list of matches for the given lap in the phase, ordered by fieldNumber; never {@code null}
+     * @throws IllegalStateException if no tenant context is active
+     */
+    public List<Match> findByPhaseIdAndLapNumber(UUID phaseId, int lapNumber) {
+        UUID tenantId = activeTenantId();  // guard fires here — before any SQL
+        List<Match> result = new ArrayList<>();
+        for (Match match : delegate.findByPhaseIdAndLapNumberRaw(phaseId, lapNumber)) {
+            if (tenantId.equals(match.getTenantId())) {
+                result.add(match);
+            }
+        }
+        return result;
+    }
+
+    /**
      * Deletes all matches for the given phase that belong to the active tenant.
      *
      * <p>Used by {@link de.vvwt.tm.domain.PhasePreparationService#generateMatches} for the

@@ -37,6 +37,20 @@ interface MatchCrudRepository extends CrudRepository<Match, UUID> {
                                                     @Param("avatarId") UUID avatarId);
 
     /**
+     * Returns all matches in the given phase with the given lap number (raw — no tenant filter).
+     *
+     * <p>Used by {@link MatchRepository#findByPhaseIdAndLapNumber} for the lap-matches endpoint
+     * (AC3 — E05S10).
+     *
+     * @param phaseId   the phase to query
+     * @param lapNumber the lap number to filter by
+     * @return list of matches in the phase at the given lap; never {@code null}
+     */
+    @Query("SELECT * FROM \"match\" WHERE phase_id = :phaseId AND lap_number = :lapNumber")
+    List<Match> findByPhaseIdAndLapNumberRaw(@Param("phaseId") UUID phaseId,
+                                              @Param("lapNumber") int lapNumber);
+
+    /**
      * Deletes all matches for the given phase (raw — no tenant filter).
      *
      * <p>Used by {@link MatchRepository#deleteByPhaseId} which applies the tenant filter

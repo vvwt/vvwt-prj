@@ -14,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -45,6 +46,7 @@ class PhaseLifecycleServiceTest {
     @Mock private TeamRepository teamRepository;
     @Mock private TournamentRepository tournamentRepository;
     @Mock private PhaseAuditLogRepository phaseAuditLogRepository;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
     private PhaseLifecycleService service;
 
@@ -62,7 +64,8 @@ class PhaseLifecycleServiceTest {
                 teamAvatarRepository,
                 teamRepository,
                 tournamentRepository,
-                phaseAuditLogRepository
+                phaseAuditLogRepository,
+                eventPublisher
         );
     }
 

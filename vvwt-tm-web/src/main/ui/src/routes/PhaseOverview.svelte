@@ -17,6 +17,7 @@
    */
   import { onMount, onDestroy } from 'svelte';
   import { _ } from 'svelte-i18n';
+  import { push } from 'svelte-spa-router';
   import { apiFetch } from '../lib/api.js';
   import { Client } from '@stomp/stompjs';
 
@@ -376,7 +377,7 @@
         {/if}
 
         {#if phase.status === 'ACTIVE'}
-          <!-- AC10: Active phase — advance lap + view schedule -->
+          <!-- AC10: Active phase — advance lap + view schedule + live monitoring -->
           <button
             class="btn btn-warning"
             disabled={advancingLap[phase.id]}
@@ -387,12 +388,18 @@
           <button class="btn btn-link" onclick={() => toggleSchedule(phase.id)}>
             {showSchedule[phase.id] ? $_('phases.hideScheduleButton') : $_('phases.viewScheduleButton')}
           </button>
+          <button class="btn btn-link" onclick={() => push(`/phases/${phase.id}/monitoring`)}>
+            {$_('phases.monitoringButton')}
+          </button>
         {/if}
 
         {#if phase.status === 'COMPLETED'}
-          <!-- Completed phase — view schedule only -->
+          <!-- Completed phase — view schedule + live monitoring -->
           <button class="btn btn-link" onclick={() => toggleSchedule(phase.id)}>
             {showSchedule[phase.id] ? $_('phases.hideScheduleButton') : $_('phases.viewScheduleButton')}
+          </button>
+          <button class="btn btn-link" onclick={() => push(`/phases/${phase.id}/monitoring`)}>
+            {$_('phases.monitoringButton')}
           </button>
         {/if}
       </div>

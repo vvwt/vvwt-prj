@@ -132,6 +132,37 @@
       "phasesCreated": "{count} Phase(n) erstellt."
     }
   },
+  "monitoring": {
+    "title": "Live-Monitoring",
+    "loading": "Daten werden geladen…",
+    "loadError": "Fehler beim Laden der Monitoring-Daten.",
+    "wsConnected": "Verbunden",
+    "wsDisconnected": "Nicht verbunden",
+    "phaseCompleted": "Phase abgeschlossen.",
+    "phaseCompletedMessage": "Alle Spiele sind beendet. Die Endtabellen sind final.",
+    "lapLabel": "Runde {current} / {total}",
+    "groupTables": {
+      "title": "Gruppentabellen",
+      "empty": "Noch keine Tabellendaten verfügbar.",
+      "groupLabel": "Gruppe {n}",
+      "rankColumn": "Pl.",
+      "teamColumn": "Team",
+      "matchesColumn": "Sp.",
+      "pointsColumn": "Pkt.",
+      "setsColumn": "Sätze",
+      "setQuotientColumn": "Satz-Q",
+      "ballsColumn": "Bälle",
+      "ballQuotientColumn": "Ball-Q"
+    },
+    "lapMatches": {
+      "title": "Runde {n} — Spiele",
+      "empty": "Keine Spiele für diese Runde.",
+      "prevLap": "Vorherige",
+      "nextLap": "Nächste",
+      "fieldLabel": "Feld {n}",
+      "refereeLabel": "Schiri"
+    }
+  },
   "phases": {
     "title": "Phasen",
     "loading": "Phasen werden geladen…",
@@ -145,6 +176,7 @@
     "startButton": "Phase starten",
     "advanceLapButton": "Runde weiterschalten",
     "viewScheduleButton": "Spielplan anzeigen",
+    "monitoringButton": "Live-Monitoring",
     "hideScheduleButton": "Spielplan ausblenden",
     "preparing": "Vorbereitung…",
     "starting": "Starte…",

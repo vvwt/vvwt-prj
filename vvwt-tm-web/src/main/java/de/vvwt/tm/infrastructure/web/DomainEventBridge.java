@@ -2,6 +2,7 @@ package de.vvwt.tm.infrastructure.web;
 
 import de.vvwt.tm.domain.PhaseLifecycleService;
 import de.vvwt.tm.domain.event.MatchResultChangedEvent;
+import de.vvwt.tm.domain.event.PhaseCompletedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.messaging.MessagingException;
@@ -57,6 +58,12 @@ public class DomainEventBridge {
     /** Event type constant for {@link MatchResultChangedEvent} (AC5). */
     static final String EVENT_TYPE_MATCH_RESULT_CHANGED = "MATCH_RESULT_CHANGED";
 
+    /** Event type broadcast when a lap auto-advances (AC5 — E05S10). entityId = phaseId. */
+    static final String EVENT_TYPE_LAP_ADVANCED = "LAP_ADVANCED";
+
+    /** Event type broadcast when a phase transitions to COMPLETED (AC5 — E05S10). entityId = phaseId. */
+    static final String EVENT_TYPE_PHASE_COMPLETED = "PHASE_COMPLETED";
+
     private final SimpMessagingTemplate messagingTemplate;
     private final PhaseLifecycleService phaseLifecycleService;
 
@@ -102,16 +109,60 @@ public class DomainEventBridge {
                     EVENT_TYPE_MATCH_RESULT_CHANGED, event.getMatchId(), e.getMessage());
         }
 
-        // AC11 (E05S07): check if the cascade auto-advance completed the last phase,
-        // which would trigger tournament → COMPLETED.
-        // This runs in a NEW transaction (the originating transaction has committed).
-        if (event.getTournamentId() != null) {
+        // AC5 (E05S10): broadcast LAP_ADVANCED when the cascade auto-advances a lap
+        if (event.getNewLapNumber() > event.getPreviousLapNumber() && event.getPhaseId() != null) {
+            EventMessage lapMsg = new EventMessage(
+                    EVENT_TYPE_LAP_ADVANCED,
+                    event.getPhaseId(),
+                    Instant.now());
+
+            log.debug("[tm-ws] Broadcasting {} phaseId={} lap {} → {}",
+                    EVENT_TYPE_LAP_ADVANCED, event.getPhaseId(),
+                    event.getPreviousLapNumber(), event.getNewLapNumber());
+
             try {
-                phaseLifecycleService.checkTournamentCompletion(event.getTournamentId());
-            } catch (Exception e) {
-                log.warn("[tm-ws] checkTournamentCompletion failed for tournament={}: {}",
-                        event.getTournamentId(), e.getMessage());
+                messagingTemplate.convertAndSend(EVENTS_TOPIC, lapMsg);
+            } catch (MessagingException e) {
+                log.warn("[tm-ws] Failed to broadcast {}: {}", EVENT_TYPE_LAP_ADVANCED, e.getMessage());
             }
+        }
+
+        // AC5 (E05S10) + AC11 (E05S07): check if this cascade result completed the phase,
+        // which triggers phase → COMPLETED → tournament → COMPLETED chain.
+        // checkPhaseCompletion runs in a NEW transaction (AFTER_COMMIT context).
+        if (event.getPhaseId() != null && event.getTournamentId() != null) {
+            try {
+                phaseLifecycleService.checkPhaseCompletion(event.getPhaseId(), event.getTournamentId());
+            } catch (Exception e) {
+                log.warn("[tm-ws] checkPhaseCompletion failed for phase={}: {}",
+                        event.getPhaseId(), e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Forwards {@link PhaseCompletedEvent} to connected WebSocket clients after the originating
+     * transaction commits (AC5 — E05S10).
+     *
+     * <p>The {@link EventMessage} contains the {@code PHASE_COMPLETED} event type and the phaseId
+     * as the entity identifier. The SPA uses this to trigger a final group-table refresh.
+     *
+     * @param event the domain event from {@link PhaseLifecycleService#checkPhaseCompletion}
+     */
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onPhaseCompleted(PhaseCompletedEvent event) {
+        EventMessage message = new EventMessage(
+                EVENT_TYPE_PHASE_COMPLETED,
+                event.getPhaseId(),
+                Instant.now());
+
+        log.debug("[tm-ws] Broadcasting {} phaseId={}", EVENT_TYPE_PHASE_COMPLETED, event.getPhaseId());
+
+        try {
+            messagingTemplate.convertAndSend(EVENTS_TOPIC, message);
+        } catch (MessagingException e) {
+            log.warn("[tm-ws] Failed to broadcast {} for phaseId={}: {}",
+                    EVENT_TYPE_PHASE_COMPLETED, event.getPhaseId(), e.getMessage());
         }
     }
 }

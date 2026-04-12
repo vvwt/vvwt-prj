@@ -1,5 +1,6 @@
 package de.vvwt.tm.domain;
 
+import de.vvwt.tm.domain.event.PhaseCompletedEvent;
 import de.vvwt.tm.domain.repo.MatchRepository;
 import de.vvwt.tm.domain.repo.PhaseAuditLogRepository;
 import de.vvwt.tm.domain.repo.PhaseRepository;
@@ -10,6 +11,7 @@ import de.vvwt.tm.domain.repo.TournamentRepository;
 import de.vvwt.tm.infrastructure.web.ConflictException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -72,6 +74,7 @@ public class PhaseLifecycleService {
     private final TeamRepository teamRepository;
     private final TournamentRepository tournamentRepository;
     private final PhaseAuditLogRepository phaseAuditLogRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public PhaseLifecycleService(PhasePreparationService phasePreparationService,
                                   PhaseRepository phaseRepository,
@@ -80,7 +83,8 @@ public class PhaseLifecycleService {
                                   TeamAvatarRepository teamAvatarRepository,
                                   TeamRepository teamRepository,
                                   TournamentRepository tournamentRepository,
-                                  PhaseAuditLogRepository phaseAuditLogRepository) {
+                                  PhaseAuditLogRepository phaseAuditLogRepository,
+                                  ApplicationEventPublisher eventPublisher) {
         this.phasePreparationService = phasePreparationService;
         this.phaseRepository = phaseRepository;
         this.matchRepository = matchRepository;
@@ -89,6 +93,7 @@ public class PhaseLifecycleService {
         this.teamRepository = teamRepository;
         this.tournamentRepository = tournamentRepository;
         this.phaseAuditLogRepository = phaseAuditLogRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     // =========================================================================
@@ -471,6 +476,51 @@ public class PhaseLifecycleService {
             String matchState,
             List<SetResult> setResults
     ) {}
+
+    // =========================================================================
+    // checkPhaseCompletion — AC5 (E05S10)
+    // =========================================================================
+
+    /**
+     * Checks whether all matches in the given ACTIVE phase are in a terminal or canceled state,
+     * and if so, transitions the phase to COMPLETED and publishes a {@link PhaseCompletedEvent}
+     * (AC5 — E05S10).
+     *
+     * <p>Called from {@link de.vvwt.tm.infrastructure.web.DomainEventBridge} after each
+     * {@code MatchResultChangedEvent} to detect when the last match in the final lap finishes.
+     *
+     * <p>No-op if the phase is not ACTIVE or if at least one match is not yet terminal.
+     *
+     * @param phaseId      the phase to check
+     * @param tournamentId the tournament this phase belongs to (for completion chain)
+     */
+    @Transactional
+    public void checkPhaseCompletion(UUID phaseId, UUID tournamentId) {
+        Phase phase = phaseRepository.findById(phaseId).orElse(null);
+        if (phase == null || !Phase.PhaseStatus.ACTIVE.name().equals(phase.getStatus())) {
+            return;
+        }
+
+        List<Match> matches = matchRepository.findByPhaseId(phaseId);
+        if (matches.isEmpty()) {
+            return;
+        }
+
+        boolean allTerminal = matches.stream().allMatch(m -> isTerminalOrCanceled(m.getMatchState()));
+        if (!allTerminal) {
+            return;
+        }
+
+        phase.setStatus(Phase.PhaseStatus.COMPLETED.name());
+        phaseRepository.save(phase);
+        LOG.info("checkPhaseCompletion: phase {} → COMPLETED (all {} matches terminal)", phaseId, matches.size());
+
+        // Publish PhaseCompletedEvent — DomainEventBridge broadcasts PHASE_COMPLETED (AC5 E05S10)
+        eventPublisher.publishEvent(new PhaseCompletedEvent(this, tournamentId, phaseId));
+
+        // Chain: check if this was the last phase in the tournament
+        checkTournamentCompletion(tournamentId);
+    }
 
     // =========================================================================
     // checkTournamentCompletion — AC11
