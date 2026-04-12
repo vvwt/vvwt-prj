@@ -12,6 +12,7 @@ import de.vvwt.tm.domain.repo.TournamentRepository;
 import de.vvwt.tm.domain.rules.ScoringResult;
 import de.vvwt.tm.domain.rules.ScoringRule;
 import de.vvwt.tm.domain.rules.SetValidationRule;
+import de.vvwt.tm.domain.generator.MatchGeneratorRegistry;
 import de.vvwt.tm.domain.rules.ScoringRuleRegistry;
 import de.vvwt.tm.domain.rules.SetValidationRuleRegistry;
 import de.vvwt.tm.domain.rules.TournamentRuleResolver;
@@ -85,7 +86,11 @@ class CascadeRecomputeServiceTest {
                 java.util.Map.of("standardVolleyball", setValidationRule));
         ScoringRuleRegistry scoringRegistry = new ScoringRuleRegistry(
                 java.util.List.of(scoringRule));
-        TournamentRuleResolver resolver = new TournamentRuleResolver(validationRegistry, scoringRegistry);
+        // MatchGeneratorRegistry added in E03S09 (TournamentRuleResolver constructor now requires 3 args).
+        // CascadeRecomputeService unit tests do not exercise match generation, so an empty registry is correct.
+        MatchGeneratorRegistry matchGeneratorRegistry = new MatchGeneratorRegistry(java.util.List.of());
+        TournamentRuleResolver resolver = new TournamentRuleResolver(validationRegistry, scoringRegistry,
+                matchGeneratorRegistry);
 
         service = new CascadeRecomputeService(
                 matchRepository, tournamentRepository, phaseRepository,

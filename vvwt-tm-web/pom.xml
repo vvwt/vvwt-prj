@@ -62,6 +62,15 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
+        <!-- vvwt-worker-lib — shared types + compute kernel for slot-optimization (DEC-4 V1 amendment, DEC-11)
+             Compile scope: E04S02–E04S04 use worker-lib types in production code (RawPhaseDef,
+             StructuralFingerprint, PacketSolver, LehmerCodec, VarietyScorer).
+             Version managed by parent POM dependencyManagement (DEC-10). -->
+        <dependency>
+            <groupId>de.vvwt</groupId>
+            <artifactId>vvwt-worker-lib</artifactId>
+        </dependency>
+
         <!-- Test dependencies -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
