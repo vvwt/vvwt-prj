@@ -183,33 +183,25 @@ class TournamentManagerApplicationIT {
     /**
      * E02S03 AC10 — Duplicate default-tenant constraint violation.
      *
-     * <p>Inserts one row with {@code is_default = TRUE}, then asserts that a second insert
-     * with {@code is_default = TRUE} is rejected by the {@code idx_tenants_single_default}
-     * filtered unique index with a {@link DataIntegrityViolationException}.
+     * <p>As of E02S04, the {@code DefaultTenantBootstrap} ApplicationRunner inserts a
+     * default-tenant row ({@code is_default = TRUE}) during context startup. This test
+     * therefore verifies that the unique index rejects a second insert of a row with
+     * {@code is_default = TRUE} — the bootstrap row already occupies the slot.
      *
-     * <p>UUID primary keys are generated per-insert to avoid PK collision.
+     * <p>UUID primary key is generated per-insert to avoid PK collision.
      */
     @Test
     void duplicateDefaultTenantIsRejected() {
-        // Insert the first default-tenant row (must succeed).
-        UUID firstId = UUID.randomUUID();
-        jdbcTemplate.update(
-                "INSERT INTO tenants (id, display_name, tenant_location_count, is_default) "
-                + "VALUES (?, 'Default Tenant', 1, TRUE)",
-                firstId);
-
-        // A second default-tenant insert must be rejected.
-        UUID secondId = UUID.randomUUID();
+        // The bootstrap has already inserted one is_default=TRUE row during context startup.
+        // Attempting a second insert must be rejected by idx_tenants_single_default.
+        UUID duplicateId = UUID.randomUUID();
         assertThatThrownBy(() ->
                 jdbcTemplate.update(
                         "INSERT INTO tenants (id, display_name, tenant_location_count, is_default) "
                         + "VALUES (?, 'Another Default', 1, TRUE)",
-                        secondId))
-                .as("Inserting a second row with is_default=TRUE must raise a constraint violation")
+                        duplicateId))
+                .as("Inserting a second row with is_default=TRUE must raise a constraint violation "
+                    + "(bootstrap already occupies the slot)")
                 .isInstanceOf(DataIntegrityViolationException.class);
-
-        // Cleanup: remove the inserted row so subsequent test runs against the same
-        // in-memory database (DB_CLOSE_DELAY=-1) are not affected.
-        jdbcTemplate.update("DELETE FROM tenants WHERE id = ?", firstId);
     }
 }
