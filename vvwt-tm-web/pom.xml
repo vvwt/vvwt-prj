@@ -62,6 +62,21 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
+        <!-- Spring Security — HTTP Basic auth for /admin/** and /api/** (E05S02)
+             Version managed by Spring Boot BOM (DEC-10 — no version pin in child modules).
+             Provides: SecurityFilterChain, BCryptPasswordEncoder, BasicAuthenticationEntryPoint. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- Spring Security Test — TestRestTemplate withBasicAuth, @WithMockUser -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- vvwt-worker-lib — shared types + compute kernel for slot-optimization (DEC-4 V1 amendment, DEC-11)
              Compile scope: E04S02–E04S04 use worker-lib types in production code (RawPhaseDef,
              StructuralFingerprint, PacketSolver, LehmerCodec, VarietyScorer).

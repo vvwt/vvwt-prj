@@ -11,3 +11,8 @@ spring:
     enabled: true
     locations: classpath:db/migration
     fail-on-missing-locations: false
+
+  # E05S02: allow TestAdminCredentials @Primary bean to override AdminCredentialsBootstrap's
+  # AdminCredentialsProvider bean registration in SecurityConfigIT tests.
+  main:
+    allow-bean-definition-overriding: true
