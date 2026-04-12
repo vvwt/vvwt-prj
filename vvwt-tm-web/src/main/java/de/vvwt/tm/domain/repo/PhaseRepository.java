@@ -5,6 +5,8 @@ import org.springframework.data.jdbc.core.JdbcAggregateOperations;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -34,4 +36,25 @@ public class PhaseRepository extends TenantScopedRepository<Phase, UUID> {
     @Override protected UUID extractTenantId(Phase e) { return e.getTenantId(); }
     @Override protected void setTenantId(Phase e, UUID id) { e.setTenantId(id); }
     @Override protected UUID extractId(Phase e) { return e.getId(); }
+
+    /**
+     * Returns all phases belonging to the given tournament that belong to the active tenant.
+     *
+     * <p>Used by {@link de.vvwt.tm.domain.TournamentService} to check whether a tournament
+     * has associated phases before allowing deletion (E05S04 AC5).
+     *
+     * @param tournamentId the tournament to query
+     * @return list of phases for the given tournament scoped to the active tenant; never {@code null}
+     * @throws IllegalStateException if no tenant context is active
+     */
+    public List<Phase> findByTournamentId(UUID tournamentId) {
+        UUID tenantId = activeTenantId();  // guard fires here — before any SQL
+        List<Phase> result = new ArrayList<>();
+        for (Phase phase : delegate.findByTournamentIdRaw(tournamentId)) {
+            if (tenantId.equals(phase.getTenantId())) {
+                result.add(phase);
+            }
+        }
+        return result;
+    }
 }

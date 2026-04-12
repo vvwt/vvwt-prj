@@ -181,6 +181,33 @@ public class GlobalExceptionHandler {
     }
 
     // -------------------------------------------------------------------------
+    // E05S04 — 400: Invalid argument (bad enum value, unknown bean ID)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Handles {@link IllegalArgumentException} — thrown by domain services when an argument
+     * is invalid (e.g., unknown {@code MatchFormat} value, unregistered strategy bean ID).
+     *
+     * @param ex      the exception
+     * @param request the current HTTP request
+     * @return 400 response with the exception message
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiErrorResponse> handleIllegalArgument(
+            IllegalArgumentException ex, HttpServletRequest request) {
+
+        ApiErrorResponse body = new ApiErrorResponse.Builder(
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                ex.getMessage() != null ? ex.getMessage() : "Invalid argument",
+                "error.validation")
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.badRequest().body(body);
+    }
+
+    // -------------------------------------------------------------------------
     // AC1 — 500: Unexpected errors (no stack trace in response — AC1)
     // -------------------------------------------------------------------------
 

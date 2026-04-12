@@ -3,6 +3,7 @@
    * Root application component for Tournament Manager Admin SPA.
    *
    * Story E05S01 — AC4: wires the svelte-spa-router for hash-based client-side routing.
+   * Story E05S04 — adds /tournaments, /tournaments/new, /tournaments/:id/edit routes.
    *
    * Hash-based routing decision (Brief H-2): No server-side catch-all is needed for
    * deep-link URLs because the hash fragment is never sent to the server.
@@ -14,11 +15,15 @@
   import Router from 'svelte-spa-router';
   import { wrap } from 'svelte-spa-router/wrap';
   import Home from './routes/Home.svelte';
+  import Tournaments from './routes/Tournaments.svelte';
+  import TournamentForm from './routes/TournamentForm.svelte';
 
   /** Route map: URL pattern → Svelte component. */
   const routes = new Map([
     ['/', Home],
-    // Future E05 routes added here (e.g., '/tournaments', '/teams')
+    ['/tournaments', Tournaments],
+    ['/tournaments/new', TournamentForm],
+    ['/tournaments/:id/edit', TournamentForm],
   ]);
 
   /** Fallback: redirect unknown routes to home. */

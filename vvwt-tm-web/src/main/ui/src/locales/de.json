@@ -3,9 +3,52 @@
     "title": "Turnierverwaltung"
   },
   "nav": {
-    "home": "Startseite"
+    "home": "Startseite",
+    "tournaments": "Turniere"
   },
   "home": {
     "heading": "Tournament Manager"
+  },
+  "tournaments": {
+    "title": "Turniere",
+    "loadError": "Fehler beim Laden der Turniere.",
+    "empty": "Keine Turniere vorhanden.",
+    "createButton": "Neues Turnier",
+    "selectButton": "Auswählen",
+    "selectedLabel": "Aktiv",
+    "editButton": "Bearbeiten",
+    "deleteButton": "Löschen",
+    "deleteConfirm": "Turnier wirklich löschen?",
+    "deleteError": "Fehler beim Löschen.",
+    "columns": {
+      "description": "Bezeichnung",
+      "appointment": "Termin",
+      "status": "Status",
+      "teamCount": "Teams",
+      "fieldCount": "Felder"
+    },
+    "status": {
+      "DRAFT": "Entwurf",
+      "ACTIVE": "Aktiv",
+      "COMPLETED": "Abgeschlossen",
+      "CANCELLED": "Abgebrochen"
+    }
+  },
+  "tournamentForm": {
+    "createTitle": "Neues Turnier erstellen",
+    "editTitle": "Turnier bearbeiten",
+    "saveButton": "Speichern",
+    "cancelButton": "Abbrechen",
+    "saveError": "Fehler beim Speichern.",
+    "fields": {
+      "description": "Bezeichnung",
+      "appointment": "Termin (optional)",
+      "teamCount": "Anzahl Teams",
+      "fieldCount": "Anzahl Felder",
+      "matchFormat": "Spielmodus",
+      "scoringRuleId": "Wertungsregel",
+      "setValidationRuleId": "Satzregel",
+      "matchGeneratorId": "Spielgenerator"
+    }
   }
 }

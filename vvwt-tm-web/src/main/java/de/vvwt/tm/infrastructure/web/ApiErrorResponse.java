@@ -1,6 +1,8 @@
 package de.vvwt.tm.infrastructure.web;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.time.Instant;
 
@@ -51,6 +53,25 @@ public final class ApiErrorResponse {
         this.fieldErrors = builder.fieldErrors;
     }
 
+    /** Jackson deserialization constructor. */
+    @JsonCreator
+    ApiErrorResponse(
+            @JsonProperty("status") int status,
+            @JsonProperty("error") String error,
+            @JsonProperty("message") String message,
+            @JsonProperty("messageKey") String messageKey,
+            @JsonProperty("path") String path,
+            @JsonProperty("timestamp") Instant timestamp,
+            @JsonProperty("fieldErrors") java.util.List<FieldError> fieldErrors) {
+        this.status = status;
+        this.error = error;
+        this.message = message;
+        this.messageKey = messageKey;
+        this.path = path;
+        this.timestamp = timestamp;
+        this.fieldErrors = fieldErrors;
+    }
+
     /** @return HTTP status code */
     public int getStatus() { return status; }
 
@@ -89,7 +110,12 @@ public final class ApiErrorResponse {
         private final String message;
         private final String messageKey;
 
-        public FieldError(String field, Object rejectedValue, String message, String messageKey) {
+        @JsonCreator
+        public FieldError(
+                @JsonProperty("field") String field,
+                @JsonProperty("rejectedValue") Object rejectedValue,
+                @JsonProperty("message") String message,
+                @JsonProperty("messageKey") String messageKey) {
             this.field = field;
             this.rejectedValue = rejectedValue != null ? rejectedValue.toString() : null;
             this.message = message;
