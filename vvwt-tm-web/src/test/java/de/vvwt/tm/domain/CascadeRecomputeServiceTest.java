@@ -85,7 +85,10 @@ class CascadeRecomputeServiceTest {
                 java.util.Map.of("standardVolleyball", setValidationRule));
         ScoringRuleRegistry scoringRegistry = new ScoringRuleRegistry(
                 java.util.List.of(scoringRule));
-        TournamentRuleResolver resolver = new TournamentRuleResolver(validationRegistry, scoringRegistry);
+        de.vvwt.tm.domain.generator.MatchGeneratorRegistry matchGenRegistry =
+                new de.vvwt.tm.domain.generator.MatchGeneratorRegistry(java.util.List.of());
+        TournamentRuleResolver resolver = new TournamentRuleResolver(validationRegistry, scoringRegistry,
+                matchGenRegistry);
 
         service = new CascadeRecomputeService(
                 matchRepository, tournamentRepository, phaseRepository,

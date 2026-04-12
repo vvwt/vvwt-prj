@@ -1,6 +1,7 @@
 package de.vvwt.tm.domain.repo;
 
 import de.vvwt.tm.domain.Match;
+import org.springframework.data.jdbc.repository.query.Modifying;
 import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
@@ -34,4 +35,16 @@ interface MatchCrudRepository extends CrudRepository<Match, UUID> {
          + "AND state IN (50, 51, 52)")
     List<Match> findTerminalByPhaseIdAndAvatarIdRaw(@Param("phaseId") UUID phaseId,
                                                     @Param("avatarId") UUID avatarId);
+
+    /**
+     * Deletes all matches for the given phase (raw — no tenant filter).
+     *
+     * <p>Used by {@link MatchRepository#deleteByPhaseId} which applies the tenant filter
+     * before delegating here. Caller is responsible for ensuring tenant isolation.
+     *
+     * @param phaseId the phase whose matches to delete
+     */
+    @Modifying
+    @Query("DELETE FROM \"match\" WHERE phase_id = :phaseId")
+    void deleteByPhaseIdRaw(@Param("phaseId") UUID phaseId);
 }
