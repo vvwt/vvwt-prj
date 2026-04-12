@@ -174,7 +174,6 @@ public class PhasePreparationService {
         Phase phase = requirePhase(phaseId);
         requireStatus(phase, Phase.PhaseStatus.PENDING, "optimizeSlots");
 
-        long matchCount = matchRepository.count();  // count() returns total; use findByPhaseId
         List<Match> matches = matchRepository.findByPhaseId(phaseId);
         if (matches.isEmpty()) {
             throw new IllegalStateException(
