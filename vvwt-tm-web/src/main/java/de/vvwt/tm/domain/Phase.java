@@ -1,6 +1,7 @@
 package de.vvwt.tm.domain;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.ReadOnlyProperty;
 import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.LocalDateTime;
@@ -84,7 +85,12 @@ public class Phase {
      */
     private int currentLapNumber;
 
-    /** Row creation timestamp — set by the database via DEFAULT CURRENT_TIMESTAMP. */
+    /**
+     * Row creation timestamp — set by the database via {@code DEFAULT CURRENT_TIMESTAMP}.
+     * Marked {@link ReadOnlyProperty} so Spring Data JDBC never includes this column in
+     * {@code INSERT} or {@code UPDATE} statements; the DB default applies on insert.
+     */
+    @ReadOnlyProperty
     private LocalDateTime createdAt;
 
     // -------------------------------------------------------------------------

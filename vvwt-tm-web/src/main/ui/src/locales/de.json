@@ -178,6 +178,43 @@
       "team2Column": "Team 2",
       "refereeColumn": "Schiedsrichter",
       "stateColumn": "Status"
+    },
+    "reviewRefereesButton": "Schiedsrichter verwalten"
+  },
+  "referees": {
+    "title": "Schiedsrichterzuweisung",
+    "loading": "Schiedsrichterzuweisung wird geladen…",
+    "loadError": "Fehler beim Laden der Schiedsrichterzuweisung.",
+    "noAssignments": "Keine Spiele vorhanden. Phase bitte zuerst vorbereiten.",
+    "noRefereeTeams": "Keine Teams als Schiedsrichter konfiguriert. Bitte unter Team-Verwaltung mindestens ein Team als Schiedsrichter markieren.",
+    "reassignButton": "Automatisch neu zuweisen",
+    "reassigning": "Wird zugewiesen…",
+    "reassignError": "Fehler bei der automatischen Neuzuweisung.",
+    "overrideButton": "Überschreiben",
+    "clearOverrideButton": "Überschreibung aufheben",
+    "confirmOverride": "Übernehmen",
+    "cancelButton": "Abbrechen",
+    "selectTeam": "Team auswählen…",
+    "manualBadge": "Manuell",
+    "unassigned": "Nicht zugewiesen",
+    "saving": "Wird gespeichert…",
+    "overrideError": "Fehler beim Setzen des Schiedsrichters.",
+    "clearError": "Fehler beim Aufheben der Überschreibung.",
+    "overrideConflict": "Dieses Team spielt in derselben Runde und kann nicht gleichzeitig als Schiedsrichter eingesetzt werden.",
+    "playing": "spielt in dieser Runde",
+    "lapLabel": "Runde {n}",
+    "lapUnscheduled": "Nicht eingeplant",
+    "columns": {
+      "field": "Feld",
+      "team1": "Team 1",
+      "team2": "Team 2",
+      "referee": "Schiedsrichter",
+      "actions": "Aktionen"
+    },
+    "summary": {
+      "title": "Schiedsrichter-Verteilung",
+      "teamColumn": "Team",
+      "assignedCountColumn": "Spiele als Schiedsrichter"
     }
   }
 }

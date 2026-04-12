@@ -373,6 +373,13 @@
           <button class="btn btn-link" onclick={() => toggleSchedule(phase.id)}>
             {showSchedule[phase.id] ? $_('phases.hideScheduleButton') : $_('phases.viewScheduleButton')}
           </button>
+          <!-- E05S09: Review Referees link -->
+          <a
+            class="btn btn-link"
+            href={`#/tournaments/${tournamentId}/phases/${phase.id}/referees`}
+          >
+            {$_('phases.reviewRefereesButton')}
+          </a>
         {/if}
 
         {#if phase.status === 'ACTIVE'}
@@ -387,13 +394,27 @@
           <button class="btn btn-link" onclick={() => toggleSchedule(phase.id)}>
             {showSchedule[phase.id] ? $_('phases.hideScheduleButton') : $_('phases.viewScheduleButton')}
           </button>
+          <!-- E05S09: Review Referees link -->
+          <a
+            class="btn btn-link"
+            href={`#/tournaments/${tournamentId}/phases/${phase.id}/referees`}
+          >
+            {$_('phases.reviewRefereesButton')}
+          </a>
         {/if}
 
         {#if phase.status === 'COMPLETED'}
-          <!-- Completed phase — view schedule only -->
+          <!-- Completed phase — view schedule + referees only -->
           <button class="btn btn-link" onclick={() => toggleSchedule(phase.id)}>
             {showSchedule[phase.id] ? $_('phases.hideScheduleButton') : $_('phases.viewScheduleButton')}
           </button>
+          <!-- E05S09: Review Referees link -->
+          <a
+            class="btn btn-link"
+            href={`#/tournaments/${tournamentId}/phases/${phase.id}/referees`}
+          >
+            {$_('phases.reviewRefereesButton')}
+          </a>
         {/if}
       </div>
 
