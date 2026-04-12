@@ -38,8 +38,17 @@ import java.util.UUID;
  * (court count, ≥1), {@code teamCount} (team count, ≥2) added via V7 migration. These fields
  * complete the tournament creation form required by the admin UI.
  *
+ * <p>E05S06 additions: {@code draftJson} (nullable TEXT) stores the organizer's draft
+ * configuration as a JSON blob. Also introduces the {@code PLANNED} lifecycle status:
+ * <ul>
+ *   <li>{@code PLANNED} — draft applied; phases created; no phase is active yet</li>
+ * </ul>
+ * After {@code apply}, the tournament transitions DRAFT → PLANNED and {@code draftJson}
+ * is cleared (phases are the source of truth from this point on).
+ *
  * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E03S01.story.md">Story E03S01</a>
  * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E05S04.story.md">Story E05S04</a>
+ * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E05S06.story.md">Story E05S06</a>
  */
 @Table("tournament")
 public class Tournament {
@@ -101,6 +110,15 @@ public class Tournament {
      */
     @Column("team_count")
     private int teamCount;
+
+    /**
+     * Draft configuration JSON blob (AC2, AC3 — E05S06).
+     * Stores the organizer's section list as a JSON text. {@code null} means no draft
+     * has been configured yet (returns empty sections array in GET draft response).
+     * Cleared after {@code apply} (phases become the source of truth).
+     */
+    @Column("draft_json")
+    private String draftJson;
 
     // -------------------------------------------------------------------------
     // Constructors
@@ -203,4 +221,7 @@ public class Tournament {
 
     public int getTeamCount() { return teamCount; }
     public void setTeamCount(int teamCount) { this.teamCount = teamCount; }
+
+    public String getDraftJson() { return draftJson; }
+    public void setDraftJson(String draftJson) { this.draftJson = draftJson; }
 }

@@ -30,10 +30,12 @@
     },
     "status": {
       "DRAFT": "Entwurf",
+      "PLANNED": "Geplant",
       "ACTIVE": "Aktiv",
       "COMPLETED": "Abgeschlossen",
       "CANCELLED": "Abgebrochen"
-    }
+    },
+    "draftButton": "Konfiguration"
   },
   "tournamentForm": {
     "createTitle": "Neues Turnier erstellen",
@@ -75,6 +77,59 @@
     },
     "error": {
       "noTournament": "Kein Turnier ausgewählt."
+    }
+  },
+  "draft": {
+    "title": "Turnierkonfiguration",
+    "loadError": "Fehler beim Laden der Konfiguration.",
+    "saveError": "Fehler beim Speichern der Konfiguration.",
+    "previewError": "Fehler beim Berechnen der Vorschau.",
+    "applyError": "Fehler beim Anwenden der Konfiguration.",
+    "noTournament": "Kein Turnier ausgewählt.",
+    "addSectionButton": "Abschnitt hinzufügen",
+    "previewButton": "Vorschau",
+    "applyButton": "Anwenden",
+    "applyConfirm": "Turnierphasen werden jetzt erstellt. Die Konfiguration kann danach nicht mehr geändert werden. Fortfahren?",
+    "saveButton": "Speichern",
+    "appliedNotice": "Konfiguration wurde angewendet. Phasen sind unter Phase-Verwaltung verfügbar.",
+    "sections": {
+      "title": "Abschnitte",
+      "empty": "Noch keine Abschnitte. Füge einen Abschnitt hinzu.",
+      "removeButton": "Entfernen",
+      "fields": {
+        "sectionNumber": "Abschnitt Nr.",
+        "sortType": "Sortierung",
+        "groupCount": "Gruppen",
+        "gameMode": "Spielmodus",
+        "lapBreakTimeMinutes": "Pause zwischen Runden (Min.)",
+        "sectionBreakTimeMinutes": "Pause nach Abschnitt (Min.)",
+        "lapTimeMinutes": "Rundendauer (Min.)",
+        "setQuantity": "Sätze pro Spiel"
+      },
+      "sortTypes": {
+        "team_number": "Teamnummer",
+        "placement_group": "Gruppenplatzierung",
+        "group_placement": "Platzierungsgruppe"
+      },
+      "gameModes": {
+        "roundrobin": "Jeder gegen Jeden"
+      }
+    },
+    "preview": {
+      "title": "Vorschau",
+      "columns": {
+        "phaseNumber": "Phase",
+        "groupCount": "Gruppen",
+        "teamsPerGroup": "Teams/Gruppe",
+        "matchesPerGroup": "Spiele/Gruppe",
+        "totalLaps": "Runden",
+        "totalMatches": "Spiele gesamt",
+        "estimatedTimeMinutes": "Geschätzte Zeit (Min.)"
+      }
+    },
+    "apply": {
+      "title": "Ergebnis",
+      "phasesCreated": "{count} Phase(n) erstellt."
     }
   }
 }

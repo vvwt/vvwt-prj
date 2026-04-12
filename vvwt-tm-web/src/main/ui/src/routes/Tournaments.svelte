@@ -121,6 +121,13 @@
                       onclick={() => push(`/tournaments/${t.id}/teams`)}>
                 {$_('tournaments.teamsButton')}
               </button>
+              <!-- E05S06: navigate to draft configuration (DRAFT tournaments) -->
+              {#if t.status === 'DRAFT'}
+                <button class="btn btn--secondary btn--sm"
+                        onclick={() => push(`/tournaments/${t.id}/draft`)}>
+                  {$_('tournaments.draftButton')}
+                </button>
+              {/if}
               {#if t.status === 'DRAFT'}
                 <button class="btn btn--secondary btn--sm"
                         onclick={() => push(`/tournaments/${t.id}/edit`)}>
