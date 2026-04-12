@@ -390,6 +390,12 @@
                   {/each}
                 </div>
               {/if}
+              <!-- E05S11 AC7: link to result correction view -->
+              <div class="correction-link">
+                <a href="#/phases/{phaseId}/matches/{match.matchId}/correct" class="btn-correct">
+                  {$_('monitoring.correctButton')}
+                </a>
+              </div>
             </div>
           {/each}
         </div>
@@ -468,6 +474,13 @@
   .set-scores { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.4rem; }
   .set-score { font-size: 0.8rem; padding: 0.1rem 0.4rem; background: #e9ecef; border-radius: 3px; }
   .set-score.set-finished { background: #d4edda; }
+  .correction-link { margin-top: 0.5rem; }
+  .btn-correct {
+    display: inline-block; font-size: 0.75rem; padding: 0.15rem 0.5rem;
+    background: #f0f4ff; border: 1px solid #0d6efd; color: #0d6efd;
+    border-radius: 4px; text-decoration: none;
+  }
+  .btn-correct:hover { background: #0d6efd; color: #fff; }
 
   /* Buttons */
   .btn { padding: 0.35rem 0.8rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.875rem; }

@@ -1,5 +1,6 @@
 package de.vvwt.tm.infrastructure.web;
 
+import de.vvwt.tm.domain.ValidationException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -178,6 +179,33 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    // -------------------------------------------------------------------------
+    // E05S11 — 400: Set score validation failure (AC10)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Handles {@link ValidationException} thrown by {@link de.vvwt.tm.domain.CascadeRecomputeService}
+     * step 1 (SetValidationRule) when the set score is invalid for the match format (AC10 — E05S11).
+     *
+     * @param ex      the validation exception
+     * @param request the current HTTP request
+     * @return 400 response with the validation reason
+     */
+    @ExceptionHandler(ValidationException.class)
+    public ResponseEntity<ApiErrorResponse> handleValidationDomain(
+            ValidationException ex, HttpServletRequest request) {
+
+        ApiErrorResponse body = new ApiErrorResponse.Builder(
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                ex.getValidationReason(),
+                "error.validation.score")
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.badRequest().body(body);
     }
 
     // -------------------------------------------------------------------------

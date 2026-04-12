@@ -161,7 +161,8 @@
       "nextLap": "Nächste",
       "fieldLabel": "Feld {n}",
       "refereeLabel": "Schiri"
-    }
+    },
+    "correctButton": "Ergebnis korrigieren"
   },
   "phases": {
     "title": "Phasen",
@@ -210,6 +211,39 @@
       "team2Column": "Team 2",
       "refereeColumn": "Schiedsrichter",
       "stateColumn": "Status"
+    }
+  },
+  "correction": {
+    "title": "Spielergebnis korrigieren",
+    "loading": "Spieldaten werden geladen…",
+    "loadError": "Fehler beim Laden der Spieldaten.",
+    "notFound": "Spiel nicht gefunden.",
+    "submitError": "Fehler beim Speichern der Korrektur.",
+    "submitting": "Wird gespeichert…",
+    "backToMonitoring": "Zurück zum Monitoring",
+    "matchState": "Status",
+    "matchFormat": "Format",
+    "setLimit": "Max. Sätze",
+    "setsTitle": "Satzergebnisse",
+    "noSets": "Noch keine Satzergebnisse vorhanden.",
+    "setLabel": "Satz {n}",
+    "setColumn": "Satz",
+    "team1Column": "Team 1",
+    "team2Column": "Team 2",
+    "stateColumn": "Status",
+    "actionsColumn": "Aktionen",
+    "editButton": "Bearbeiten",
+    "saveButton": "Speichern",
+    "cancelButton": "Abbrechen",
+    "confirmButton": "Bestätigen & Korrigieren",
+    "score": "Punkte",
+    "addSetTitle": "Neues Satzergebnis eintragen",
+    "addSetButton": "Satz eintragen",
+    "confirmDialog": {
+      "title": "Korrektur bestätigen",
+      "changeMessage": "Satz {n} von {old1}:{old2} auf {new1}:{new2} ändern? Alle Tabellen werden neu berechnet.",
+      "enterMessage": "Satz {n} mit {team1}:{team2} eintragen? Alle Tabellen werden neu berechnet.",
+      "warning": "Diese Aktion wird die Spielstände, das Spielergebnis und die Teamwertungen neu berechnen."
     }
   }
 }
