@@ -26,6 +26,7 @@
     <!-- ===================================================================
          Compile dependencies
          Versions managed by parent dependencyManagement — NO version pins here.
+         DEC-10: all version coordinates live in parent POM; child modules MUST NOT pin.
          =================================================================== -->
     <dependencies>
 
@@ -33,6 +34,32 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- H2 embedded database — DEC-14 persistence choice, version from Spring Boot BOM (AC1) -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+        </dependency>
+
+        <!-- Flyway schema migration — version from Spring Boot BOM (AC2) -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+
+        <!-- Spring Data JDBC — CRUD-first persistence starter, DEC-14 choice (AC3)
+             Chosen over JPA/Hibernate: lighter-weight, no auto-schema interference with Flyway,
+             aligned with DEC-14's CRUD-first framing. JPA remains available for future Epics. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jdbc</artifactId>
+        </dependency>
+
+        <!-- Spring Boot Actuator — provides /actuator/health endpoint (AC5) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
         <!-- Test dependencies -->
@@ -51,7 +78,10 @@
         <plugins>
 
             <!-- spring-boot-maven-plugin: repackage produces runnable fat JAR.
-                 Main class: de.vvwt.tm.TournamentManagerApplication -->
+                 Main class: de.vvwt.tm.TournamentManagerApplication
+                 classifier=exec: preserves the original (flat) jar at vvwt-tm-web-*.jar
+                 so that Failsafe integration tests resolve test classpath correctly.
+                 The executable fat jar is produced as vvwt-tm-web-*-exec.jar. -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -60,6 +90,23 @@
                         <id>repackage</id>
                         <goals>
                             <goal>repackage</goal>
+                        </goals>
+                        <configuration>
+                            <classifier>exec</classifier>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- maven-failsafe-plugin: runs *IT.java integration tests (AC6) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
                         </goals>
                     </execution>
                 </executions>
