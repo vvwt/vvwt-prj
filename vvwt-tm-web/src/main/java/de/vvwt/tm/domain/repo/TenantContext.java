@@ -12,7 +12,7 @@ import java.util.UUID;
  * scope without Spring proxy overhead or request-scope complications.
  *
  * <h2>Lifecycle (DEC-5, DEC-17, AC1)</h2>
- * <p>The {@link de.vvwt.tm.web.DefaultTenantContextResolver} interceptor calls
+ * <p>The {@link DefaultTenantContextResolver} interceptor calls
  * {@link #set(UUID)} at the start of each HTTP request and {@link #clear()} in its
  * {@code afterCompletion} hook, ensuring the ThreadLocal is always cleaned up.
  *
@@ -23,11 +23,10 @@ import java.util.UUID;
  *
  * <h2>Package-private access (AC1)</h2>
  * <p>{@link #set(UUID)} and {@link #clear()} are package-private. Only
- * {@link de.vvwt.tm.web.DefaultTenantContextResolver} and tests (in the same package or via
- * a test helper) may invoke them. Domain code and service code may only call
- * {@link #getTenantId()}.
+ * {@link DefaultTenantContextResolver} (which lives in the same package) and tests may invoke
+ * them. Domain code and service code may only call {@link #getTenantId()}.
  *
- * @see de.vvwt.tm.web.DefaultTenantContextResolver
+ * @see DefaultTenantContextResolver
  * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E03S05.story.md">Story E03S05</a>
  */
 @Component
@@ -59,14 +58,14 @@ public class TenantContext {
     /**
      * Sets the active tenant ID for the current thread.
      *
-     * <p><strong>Intended callers:</strong> {@link de.vvwt.tm.web.DefaultTenantContextResolver}
-     * and test infrastructure only. Domain code and service code must NOT call this method —
-     * they use {@link #getTenantId()} only.
+     * <p><strong>Package-private (AC1).</strong> Only {@link DefaultTenantContextResolver}
+     * and test infrastructure in this package may call this method. Domain and service code
+     * must NOT call it — they use {@link #getTenantId()} only.
      *
      * @param tenantId the tenant ID to activate (must not be {@code null})
      * @throws NullPointerException if {@code tenantId} is {@code null}
      */
-    public void set(UUID tenantId) {
+    void set(UUID tenantId) {
         if (tenantId == null) {
             throw new NullPointerException("tenantId must not be null when setting TenantContext");
         }
@@ -76,11 +75,11 @@ public class TenantContext {
     /**
      * Clears the active tenant ID for the current thread.
      *
-     * <p><strong>Intended callers:</strong> {@link de.vvwt.tm.web.DefaultTenantContextResolver}
-     * and test infrastructure only. Must be called in {@code afterCompletion} / {@code finally}
-     * blocks to prevent ThreadLocal leaks in thread-pool environments.
+     * <p><strong>Package-private (AC1).</strong> Only {@link DefaultTenantContextResolver}
+     * and test infrastructure in this package may call this method. Must be called in
+     * {@code afterCompletion} / {@code finally} to prevent ThreadLocal leaks in thread pools.
      */
-    public void clear() {
+    void clear() {
         TENANT_ID_HOLDER.remove();
     }
 }

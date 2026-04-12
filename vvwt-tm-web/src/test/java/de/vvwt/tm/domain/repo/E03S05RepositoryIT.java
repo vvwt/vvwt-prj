@@ -1,5 +1,6 @@
-package de.vvwt.tm;
+package de.vvwt.tm.domain.repo;
 
+import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.domain.AuditLogEntry;
 import de.vvwt.tm.domain.Match;
 import de.vvwt.tm.domain.MatchFormat;

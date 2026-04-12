@@ -1,6 +1,5 @@
-package de.vvwt.tm.web;
+package de.vvwt.tm.domain.repo;
 
-import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.tenant.DefaultTenantProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -18,20 +17,21 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * of every HTTP request and clears it in {@code afterCompletion} (always called — even on
  * exception). This ensures the ThreadLocal is always cleaned up in the servlet thread pool.
  *
+ * <p>Placed in {@code de.vvwt.tm.domain.repo} to satisfy AC1: {@link TenantContext#set(UUID)}
+ * and {@link TenantContext#clear()} are package-private; only classes in the same package may
+ * invoke them.
+ *
  * <h2>Default-tenant LAN mode (DEC-5, DEC-17)</h2>
  * <p>In V1 single-tenant runtime, every HTTP request resolves to the default tenant UUID.
  * Cloud-tenant authentication (V2+) would replace this interceptor with one that reads a
  * tenant claim from the JWT — the {@link TenantContext} interface remains the same.
  *
  * <h2>Mapping (AC9)</h2>
- * <p>Applied to all paths ({@code /**}) including Actuator endpoints. Actuator endpoints
- * ({@code /actuator/**}) don't use the repository layer, so the overhead is negligible.
+ * <p>Applied to all paths ({@code /**}) including Actuator endpoints.
  *
  * <h2>Error handling (AC10)</h2>
- * <p>If {@link DefaultTenantProvider#getDefaultTenantId()} throws (bootstrap not complete —
- * should not happen since ApplicationRunner order guarantees bootstrap runs first), the
- * exception propagates and Spring MVC returns a 500 error. The log entry from the exception
- * will name the missing context.
+ * <p>If {@link DefaultTenantProvider#getDefaultTenantId()} throws (bootstrap not complete),
+ * the exception propagates and Spring MVC returns a 500 error.
  *
  * @see TenantContext
  * @see DefaultTenantProvider
@@ -68,9 +68,6 @@ public class DefaultTenantContextResolver implements HandlerInterceptor, WebMvcC
 
     /**
      * Clears the {@link TenantContext} after the request completes (always called).
-     *
-     * <p>The {@code clear()} call is in {@code afterCompletion} (not {@code postHandle}) to
-     * ensure it runs even when the handler throws an exception.
      *
      * @param request  the current HTTP request
      * @param response the current HTTP response
