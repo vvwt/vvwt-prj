@@ -1,12 +1,20 @@
 package de.vvwt.tm.infrastructure.web;
 
+import de.vvwt.tm.domain.MappingAssignment;
+import de.vvwt.tm.domain.MappingSuggestion;
 import de.vvwt.tm.domain.Phase;
 import de.vvwt.tm.domain.PhaseLifecycleService;
+import de.vvwt.tm.domain.PhaseMappingService;
 import de.vvwt.tm.domain.PhasePreparationResult;
+import de.vvwt.tm.domain.TeamAvatar;
 import de.vvwt.tm.infrastructure.web.dto.AdvanceLapRequest;
+import de.vvwt.tm.infrastructure.web.dto.MappingApplyRequest;
+import de.vvwt.tm.infrastructure.web.dto.MappingApplyResponse;
+import de.vvwt.tm.infrastructure.web.dto.MappingSuggestionResponse;
 import de.vvwt.tm.infrastructure.web.dto.PhasePreparationResponse;
 import de.vvwt.tm.infrastructure.web.dto.PhaseResponse;
 import de.vvwt.tm.infrastructure.web.dto.PhaseScheduleResponse;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,16 +28,23 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * REST controller for phase lifecycle operations (E05S07).
+ * REST controller for phase lifecycle and mapping operations (E05S07, E05S08).
  *
- * <h2>Endpoints</h2>
+ * <h2>Endpoints (E05S07)</h2>
  * <ul>
- *   <li>POST /api/phases/{phaseId}/prepare     — trigger preparation steps 1–3 (AC1)</li>
- *   <li>GET  /api/phases/{phaseId}             — get phase with status and match counts (AC2)</li>
- *   <li>GET  /api/tournaments/{id}/phases      — list all phases for a tournament (AC3)</li>
- *   <li>POST /api/phases/{phaseId}/start       — trigger step 4 / start phase (AC4)</li>
- *   <li>POST /api/phases/{phaseId}/advance-lap — manual lap advance with force override (AC5)</li>
- *   <li>GET  /api/phases/{phaseId}/schedule    — generated match schedule (AC6)</li>
+ *   <li>POST /api/phases/{phaseId}/prepare         — trigger preparation steps 1–3 (AC1)</li>
+ *   <li>GET  /api/phases/{phaseId}                 — get phase with status and match counts (AC2)</li>
+ *   <li>GET  /api/tournaments/{id}/phases          — list all phases for a tournament (AC3)</li>
+ *   <li>POST /api/phases/{phaseId}/start           — trigger step 4 / start phase (AC4)</li>
+ *   <li>POST /api/phases/{phaseId}/advance-lap     — manual lap advance with force override (AC5)</li>
+ *   <li>GET  /api/phases/{phaseId}/schedule        — generated match schedule (AC6)</li>
+ * </ul>
+ *
+ * <h2>Endpoints (E05S08 — team mapping)</h2>
+ * <ul>
+ *   <li>GET  /api/phases/{phaseId}/mapping-suggestion — generate mapping suggestion (AC1)</li>
+ *   <li>POST /api/phases/{phaseId}/mapping             — apply mapping / create TeamAvatars (AC2)</li>
+ *   <li>POST /api/phases/{phaseId}/mapping/redo        — re-do mapping: delete + re-apply (AC10)</li>
  * </ul>
  *
  * <h2>Error handling</h2>
@@ -54,9 +69,12 @@ import java.util.stream.Collectors;
 public class PhaseController {
 
     private final PhaseLifecycleService phaseLifecycleService;
+    private final PhaseMappingService phaseMappingService;
 
-    public PhaseController(PhaseLifecycleService phaseLifecycleService) {
+    public PhaseController(PhaseLifecycleService phaseLifecycleService,
+                           PhaseMappingService phaseMappingService) {
         this.phaseLifecycleService = phaseLifecycleService;
+        this.phaseMappingService = phaseMappingService;
     }
 
     // -------------------------------------------------------------------------
@@ -193,5 +211,72 @@ public class PhaseController {
 
         var laps = phaseLifecycleService.getSchedule(phaseId);
         return ResponseEntity.ok(PhaseScheduleResponse.from(phaseId, laps));
+    }
+
+    // -------------------------------------------------------------------------
+    // E05S08 AC1 — GET /api/phases/{phaseId}/mapping-suggestion
+    // -------------------------------------------------------------------------
+
+    /**
+     * Generates a mapping suggestion for the given PENDING Phase 2+ (E05S08 AC1).
+     *
+     * <p>Always returns a fresh suggestion based on the previous phase's standings —
+     * ignores existing TeamAvatars for the target phase (AC1 re-call behavior).
+     *
+     * @param phaseId the PENDING phase to generate a suggestion for
+     * @return 200 OK with suggestion, or 404 if phase not found, or 409 if previous phase not COMPLETED
+     */
+    @GetMapping("/api/phases/{phaseId}/mapping-suggestion")
+    public ResponseEntity<MappingSuggestionResponse> getMappingSuggestion(
+            @PathVariable("phaseId") UUID phaseId) {
+
+        MappingSuggestion suggestion = phaseMappingService.getMappingSuggestion(phaseId);
+        return ResponseEntity.ok(MappingSuggestionResponse.from(suggestion));
+    }
+
+    // -------------------------------------------------------------------------
+    // E05S08 AC2 — POST /api/phases/{phaseId}/mapping
+    // -------------------------------------------------------------------------
+
+    /**
+     * Applies a mapping by creating TeamAvatar entities for the target phase (E05S08 AC2).
+     *
+     * <p>Returns 409 if TeamAvatars already exist (use re-do endpoint instead).
+     *
+     * @param phaseId the PENDING phase to assign teams to
+     * @param request the mapping assignments (teamId, groupNumber, groupPosition tuples)
+     * @return 201 Created with the list of created TeamAvatars
+     */
+    @PostMapping("/api/phases/{phaseId}/mapping")
+    public ResponseEntity<MappingApplyResponse> applyMapping(
+            @PathVariable("phaseId") UUID phaseId,
+            @RequestBody @Valid MappingApplyRequest request) {
+
+        List<TeamAvatar> created = phaseMappingService.applyMapping(phaseId, request.toDomain());
+        return ResponseEntity.status(201).body(MappingApplyResponse.from(phaseId, created));
+    }
+
+    // -------------------------------------------------------------------------
+    // E05S08 AC10 — POST /api/phases/{phaseId}/mapping/redo
+    // -------------------------------------------------------------------------
+
+    /**
+     * Re-does a mapping: deletes existing TeamAvatars (and dependent data) then re-applies
+     * a new mapping (E05S08 AC10).
+     *
+     * <p>The phase must be PENDING — cannot re-map a started phase.
+     * Requires confirmation in the UI before calling (AC10 dialog).
+     *
+     * @param phaseId the PENDING phase to re-map
+     * @param request the new mapping assignments
+     * @return 201 Created with the new TeamAvatars
+     */
+    @PostMapping("/api/phases/{phaseId}/mapping/redo")
+    public ResponseEntity<MappingApplyResponse> redoMapping(
+            @PathVariable("phaseId") UUID phaseId,
+            @RequestBody @Valid MappingApplyRequest request) {
+
+        List<TeamAvatar> created = phaseMappingService.redoMapping(phaseId, request.toDomain());
+        return ResponseEntity.status(201).body(MappingApplyResponse.from(phaseId, created));
     }
 }

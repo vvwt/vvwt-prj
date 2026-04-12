@@ -259,6 +259,8 @@ public class DraftService {
                     "Phase " + section.getSectionNumber(),  // human label
                     Phase.PhaseStatus.PENDING.name(),
                     0,                                      // currentLapNumber
+                    section.getSortType(),                  // sortType — E05S08: persisted for mapping suggestion
+                    section.getGroupCount(),                // groupCount — E05S08: persisted for mapping suggestion
                     null                                    // createdAt — set by DB default
             );
             phase = phaseRepository.save(phase);

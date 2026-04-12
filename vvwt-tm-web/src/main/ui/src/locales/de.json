@@ -140,6 +140,7 @@
     "phaseLabel": "Phase {n}",
     "lapIndicator": "Runde {current} / {total}",
     "matchProgress": "{finished} / {total} Spiele abgeschlossen",
+    "mapTeamsButton": "Teams zuordnen",
     "prepareButton": "Phase vorbereiten",
     "reprepareButton": "Erneut vorbereiten",
     "startButton": "Phase starten",
@@ -178,6 +179,40 @@
       "team2Column": "Team 2",
       "refereeColumn": "Schiedsrichter",
       "stateColumn": "Status"
+    }
+  },
+  "mapping": {
+    "title": "Team-Zuordnung",
+    "loading": "Zuordnung wird geladen…",
+    "loadError": "Fehler beim Laden der Zuordnungsvorschläge.",
+    "applyError": "Fehler beim Speichern der Zuordnung.",
+    "errorPreviousNotCompleted": "Die vorherige Phase ist noch nicht abgeschlossen. Zuordnung nicht möglich.",
+    "alreadyMappedNotice": "Für diese Phase existiert bereits eine Zuordnung. Sie können die Zuordnung neu vornehmen oder zur Phasenübersicht zurückkehren.",
+    "noAssessment": "Ohne Wertung",
+    "applyButton": "Zuordnung übernehmen",
+    "redoButton": "Zuordnung neu vornehmen",
+    "redoApplyButton": "Zuordnung neu übernehmen",
+    "cancelButton": "Abbrechen",
+    "backButton": "Zurück zur Phasenübersicht",
+    "applying": "Wird gespeichert…",
+    "redoConfirm": "Die bestehende Zuordnung wird gelöscht und neu erstellt. Fortfahren?",
+    "redoConfirmButton": "Ja, neu zuordnen",
+    "validationUnassigned": "Bitte alle Teams einer Gruppe zuweisen.",
+    "validationDuplicates": "Einige Teams haben dieselbe Gruppen-/Positionskombination. Bitte korrigieren.",
+    "sourcePanel": {
+      "title": "Vorherige Phase – Gruppen",
+      "groupLabel": "Gruppe {n}",
+      "stats": "{pts} Pkt. | {sw}:{sl} Sätze"
+    },
+    "targetPanel": {
+      "title": "Neue Phase – Zuordnung",
+      "hint": "Wähle für jedes Team die Zielgruppe und Position.",
+      "teamColumn": "Team",
+      "groupColumn": "Gruppe",
+      "positionColumn": "Position",
+      "selectGroup": "– Gruppe wählen –",
+      "selectPosition": "– Position –",
+      "groupOption": "Gruppe {n}"
     }
   }
 }

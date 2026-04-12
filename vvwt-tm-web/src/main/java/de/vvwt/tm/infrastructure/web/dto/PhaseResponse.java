@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * REST response for phase detail and phase list entries (AC2, AC3 — E05S07).
+ * REST response for phase detail and phase list entries (AC2, AC3 — E05S07; E05S08 adds sortType/groupCount).
  */
 public record PhaseResponse(
         UUID id,
@@ -17,6 +17,8 @@ public record PhaseResponse(
         String status,
         int currentLapNumber,
         int totalLapCount,
+        String sortType,
+        int groupCount,
         PhaseMatchCountsResponse matchCounts
 ) {
     /**
@@ -36,6 +38,8 @@ public record PhaseResponse(
                 phase.getStatus(),
                 phase.getCurrentLapNumber(),
                 totalLapCount,
+                phase.getSortType(),
+                phase.getGroupCount(),
                 PhaseMatchCountsResponse.from(matchCounts)
         );
     }

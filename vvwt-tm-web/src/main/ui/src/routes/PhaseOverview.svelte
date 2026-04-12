@@ -1,6 +1,7 @@
 <script lang="ts">
   /**
    * Phase overview and lifecycle management — Story E05S07 AC7–AC11, AC14.
+   * Story E05S08 — adds "Map Teams" button for PENDING phases with sequenceNumber > 1.
    *
    * Receives the selected tournament ID via route parameter `params.tournamentId`.
    *
@@ -12,10 +13,12 @@
    *   - Manually advance the current lap, with force-override confirmation (AC5)
    *   - See real-time lap and match state updates via WebSocket (AC10)
    *   - See tournament completion state when all phases finish (AC11)
+   *   - Navigate to team mapping view for Phase 2+ (E05S08)
    *
    * All visible strings use the svelte-i18n `$_()` function (AC14).
    */
   import { onMount, onDestroy } from 'svelte';
+  import { push } from 'svelte-spa-router';
   import { _ } from 'svelte-i18n';
   import { apiFetch } from '../lib/api.js';
   import { Client } from '@stomp/stompjs';
@@ -41,6 +44,8 @@
     status: 'PENDING' | 'ACTIVE' | 'COMPLETED';
     currentLapNumber: number;
     totalLapCount: number;
+    sortType: string;
+    groupCount: number;
     matchCounts: MatchCounts;
   }
 
@@ -344,6 +349,15 @@
       <div class="phase-actions">
         {#if phase.status === 'PENDING' && phase.matchCounts.total === 0}
           <!-- Phase not yet prepared: show Prepare button -->
+          <!-- E05S08: Phase 2+ also gets a "Map Teams" button -->
+          {#if phase.sequenceNumber > 1}
+            <button
+              class="btn btn-primary"
+              onclick={() => push(`/tournaments/${tournamentId}/phases/${phase.id}/mapping`)}
+            >
+              {$_('phases.mapTeamsButton')}
+            </button>
+          {/if}
           <button
             class="btn btn-primary"
             disabled={preparing[phase.id]}
