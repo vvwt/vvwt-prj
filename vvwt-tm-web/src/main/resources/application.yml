@@ -48,12 +48,25 @@ tm:
       # Used by PhaseToRawPhaseDefMapper and FallbackSlotOptimizationClient.
       # Override via TM_SLOTOPT_FIELDCOUNT env var or -Dtm.slotopt.fallback.field-count.
       field-count: ${TM_SLOTOPT_FIELDCOUNT:3}
-    # Maximum N (team count) for exhaustive slot-optimization (DirectSlotOptimizationClient, E04S03 AC6).
+    # Maximum N (rowCount) for exhaustive slot-optimization (DirectSlotOptimizationClient, E04S03 AC6).
     # For N <= exhaustive-max-n: all N! permutations are evaluated (guaranteed global optimum).
-    # For N > exhaustive-max-n: timeout-based mode (E04S04) is used (not yet implemented — throws UOE).
+    # For N > exhaustive-max-n: timeout-based micro-segment mode (E04S04, AC1) is used.
     # 10! = 3,628,800 permutations. At ~300 ns/perm (E01S12 benchmark), this takes ~1 s.
     # Override via -Dtm.slotopt.exhaustive-max-n or in application-*.yml per environment.
     exhaustive-max-n: 10
+    # Timeout for micro-segment search in seconds (E04S04, AC2).
+    # Used when N > exhaustive-max-n. Best result found within this wall-clock window is applied.
+    # Override via -Dtm.slotopt.timeout-seconds or TM_SLOTOPT_TIMEOUT_SECONDS.
+    timeout-seconds: 30
+    # Micro-segment size: permutations per task submitted to the thread pool (E04S04, AC3).
+    # At ~300 ns/perm, 1,000,000 permutations takes ~0.3 s per segment — well under 1 s.
+    # Smaller values → finer timeout granularity; larger values → fewer task submissions.
+    # Override via -Dtm.slotopt.segment-size.
+    segment-size: 1000000
+    # Thread count for the slotOptExecutor thread pool (E04S04, AC3).
+    # Defaults to availableProcessors() at runtime via SpEL in SlotOptConfig.
+    # Explicit override: -Dtm.slotopt.thread-count=N
+    # thread-count: 4  # uncomment and set to override the default
 
 # ---------------------------------------------------------------------------
 # Actuator — health endpoint (AC5)

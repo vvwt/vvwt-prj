@@ -9,63 +9,81 @@ import de.vvwt.worker.types.CanonicalPhaseDef;
 import de.vvwt.worker.types.JobDef;
 import de.vvwt.worker.types.PacketResult;
 
+// NOTE: JobDef.MAX_N = 17 — PacketSolver only accepts permutation lengths in [1, 17].
+// Phases with rowCount > 17 (e.g. 6+ teams: C(6,2)=15 matches is fine, but C(7,2)=21 is not)
+// are outside the compute kernel's design scope and must use fallback assignment.
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 
 /**
- * In-process exhaustive slot-optimization client (E04S03).
+ * In-process slot-optimization client — exhaustive mode (N &le; exhaustiveMaxN) and
+ * timeout-based best-effort mode (N &gt; exhaustiveMaxN).
  *
- * <p>Implements {@link SlotOptimizationClient} using the {@link PacketSolver} compute kernel
- * from {@code vvwt-worker-lib}. For phases with N <= {@code tm.slotopt.exhaustive-max-n} rows,
- * it exhaustively searches all N! permutations and applies the globally optimal result.
+ * <h2>Exhaustive mode (E04S03, N &le; exhaustiveMaxN)</h2>
+ * <p>Searches all N! permutations and applies the globally optimal result.
+ *
+ * <h2>Timeout-based micro-segment mode (E04S04, N &gt; exhaustiveMaxN)</h2>
+ * <p>For phases where the permutation space exceeds what can be searched exhaustively in-process
+ * (N &gt; {@code tm.slotopt.exhaustive-max-n}, default 10), this mode is used:
+ *
+ * <ol>
+ *   <li>Partitions {@code [0, N!)} into micro-segments of configurable size
+ *       ({@code tm.slotopt.segment-size}, default 1,000,000 permutations). For N=12 this
+ *       produces ~479 micro-segments.</li>
+ *   <li>Submits each micro-segment as a {@link PacketSolver#solvePacket(JobDef, long, long)} task
+ *       to a managed {@link ExecutorService} ({@code slotOptExecutor} bean,
+ *       {@code tm.slotopt.thread-count} threads, default: available processors).</li>
+ *   <li>Stops submitting new micro-segments after the wall-clock timeout expires
+ *       ({@code tm.slotopt.timeout-seconds}, default 30).</li>
+ *   <li>Waits for currently-running segments to finish naturally (each segment completes in
+ *       well under a second at 1M permutations — no interruption needed).</li>
+ *   <li>Collects the best {@code (rank, score)} across all completed segments and applies it.</li>
+ *   <li>If <em>no</em> segment completes within the timeout, falls back to
+ *       {@link FallbackSlotOptimizationClient}'s sequential assignment with a WARN log (AC5).</li>
+ * </ol>
  *
  * <h2>Architecture note — N = rowCount</h2>
  * <p>The {@link PacketSolver} operates on permutations of row indices {@code [0, rowCount)}.
  * The permutation length {@code n} passed in {@link JobDef} must therefore equal
- * {@code canonicalPhaseDef.rowCount()}, not {@code avatarCount}. The threshold check
- * and the search space are both computed from {@code rowCount}.
- *
- * <h2>Slot assignment</h2>
- * <p>After finding the optimal row ordering, matches are assigned to laps using a greedy
- * round-constraint algorithm: for each match in the optimal order, the match is placed in
- * the earliest lap where neither of its avatars has already been assigned. Field numbers
- * within a lap are assigned in order of arrival. This guarantees the round constraint
- * (AC5 / AC11: no avatar plays twice in the same lap) without requiring
- * {@link SlotResultApplicator}'s circle-method.
+ * {@code canonicalPhaseDef.rowCount()}, not {@code avatarCount}.
  *
  * <h2>DEC-4 V1 amendment</h2>
- * <p>Per DEC-4 V1 amendment (2026-04-12), the Tournament Manager is permitted to call
- * {@link PacketSolver#solvePacket(JobDef, long, long)} in-process. The dispatcher HTTP
- * integration is deferred to a future Epic.
+ * <p>Per DEC-4 V1 amendment (2026-04-12), in-process computation is permitted for V1.
+ * The dispatcher HTTP integration is deferred to a future Epic.
  *
  * <h2>Bean wiring</h2>
- * <p>This is a {@link Service} bean of type {@link SlotOptimizationClient}. Its mere presence
- * causes Spring to skip {@link FallbackSlotOptimizationClient} due to that bean's
- * {@code @ConditionalOnMissingBean(SlotOptimizationClient.class)} annotation (AC1).
+ * <p>This is a {@code @Service} bean of type {@link SlotOptimizationClient}. Its presence
+ * disables {@link FallbackSlotOptimizationClient} via {@code @ConditionalOnMissingBean}.
+ * The fallback bean is injected here by qualifier for use in the timeout fallback path (AC5, AC11).
  *
- * <h2>Optimality guarantee (AC3)</h2>
- * <p>For N <= {@code exhaustiveMaxN}, the result is the global optimum — the permutation with
- * the lowest variety score across all N! permutations, with ties broken by lowest rank
- * (PacketSolver deterministic tie-break per E01S03).
- *
- * <h2>Tenant scoping (AC14)</h2>
+ * <h2>Tenant scoping (AC16)</h2>
  * <p>All repository calls delegate to tenant-scoped repositories (DEC-5, E03S05). The
  * TenantContext must be active before calling {@link #optimize(UUID)}.
  *
  * @see SlotOptimizationClient
  * @see FallbackSlotOptimizationClient
  * @see PacketSolver
+ * @see SlotOptConfig
  * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E04S03.story.md">Story E04S03</a>
+ * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E04S04.story.md">Story E04S04</a>
  */
+@Primary
 @Service
 public class DirectSlotOptimizationClient implements SlotOptimizationClient {
 
@@ -74,22 +92,36 @@ public class DirectSlotOptimizationClient implements SlotOptimizationClient {
     private final PhaseRepository phaseRepository;
     private final MatchRepository matchRepository;
     private final PhaseToRawPhaseDefMapper mapper;
+    private final SlotOptimizationClient fallbackClient;
+    private final ExecutorService executor;
     private final int exhaustiveMaxN;
+    private final int timeoutSeconds;
+    private final long segmentSize;
 
     /**
      * Constructs the client.
      *
-     * @param phaseRepository   tenant-scoped repository for Phase entities (AC7)
-     * @param matchRepository   tenant-scoped repository for Match entities (AC8, AC14)
-     * @param mapper            forward mapper for Phase → RawPhaseDef (AC2)
-     * @param exhaustiveMaxN    maximum N (rowCount) for exhaustive search; configured via
-     *                          {@code tm.slotopt.exhaustive-max-n} (AC6)
+     * @param phaseRepository  tenant-scoped repository for Phase entities (AC9)
+     * @param matchRepository  tenant-scoped repository for Match entities (AC10, AC16)
+     * @param mapper           forward mapper for Phase &rarr; RawPhaseDef (E04S02)
+     * @param fallbackClient   fallback for the timeout path when no segment completes (AC5, AC11)
+     * @param executor         managed thread pool for micro-segment tasks (AC3)
+     * @param exhaustiveMaxN   maximum N for exhaustive search (default 10,
+     *                         {@code tm.slotopt.exhaustive-max-n})
+     * @param timeoutSeconds   timeout for micro-segment search in seconds (default 30,
+     *                         {@code tm.slotopt.timeout-seconds})
+     * @param segmentSize      micro-segment size in permutations (default 1,000,000,
+     *                         {@code tm.slotopt.segment-size})
      */
     public DirectSlotOptimizationClient(
             PhaseRepository phaseRepository,
             MatchRepository matchRepository,
             PhaseToRawPhaseDefMapper mapper,
-            @Value("${tm.slotopt.exhaustive-max-n:10}") int exhaustiveMaxN) {
+            @Qualifier("fallbackSlotOptimizer") SlotOptimizationClient fallbackClient,
+            @Qualifier("slotOptExecutor") ExecutorService executor,
+            @Value("${tm.slotopt.exhaustive-max-n:10}") int exhaustiveMaxN,
+            @Value("${tm.slotopt.timeout-seconds:30}") int timeoutSeconds,
+            @Value("${tm.slotopt.segment-size:1000000}") long segmentSize) {
         if (phaseRepository == null) {
             throw new IllegalArgumentException("phaseRepository must not be null");
         }
@@ -99,36 +131,38 @@ public class DirectSlotOptimizationClient implements SlotOptimizationClient {
         if (mapper == null) {
             throw new IllegalArgumentException("mapper must not be null");
         }
+        if (fallbackClient == null) {
+            throw new IllegalArgumentException("fallbackClient must not be null");
+        }
+        if (executor == null) {
+            throw new IllegalArgumentException("executor must not be null");
+        }
+        if (segmentSize <= 0) {
+            throw new IllegalArgumentException("segmentSize must be > 0, got: " + segmentSize);
+        }
         this.phaseRepository = phaseRepository;
         this.matchRepository = matchRepository;
         this.mapper = mapper;
+        this.fallbackClient = fallbackClient;
+        this.executor = executor;
         this.exhaustiveMaxN = exhaustiveMaxN;
+        this.timeoutSeconds = timeoutSeconds;
+        this.segmentSize = segmentSize;
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>For N <= {@code tm.slotopt.exhaustive-max-n} (default: 10):
-     * <ol>
-     *   <li>Maps the phase to {@link de.vvwt.worker.types.RawPhaseDef} via E04S02 mapper.</li>
-     *   <li>Canonicalizes via {@link de.vvwt.worker.types.StructuralFingerprint#transform}.</li>
-     *   <li>Calls {@link PacketSolver#solvePacket(JobDef, long, long)} over the full N! space,
-     *       where N = rowCount (number of matches).</li>
-     *   <li>Decodes the best rank to a row permutation and assigns lap/field coordinates
-     *       using a greedy round-constraint-aware algorithm.</li>
-     * </ol>
-     *
-     * <p>For N > {@code exhaustiveMaxN}: throws {@link UnsupportedOperationException} (AC5)
-     * until E04S04 is delivered.
-     *
-     * <p>For N < 2: logs a warning and assigns trivial coordinates — lap 0, sequential field
-     * numbers — without throwing (AC9).
+     * <p>Selects exhaustive or timeout-based mode based on N (rowCount):
+     * <ul>
+     *   <li>N &lt; 2: trivial coordinates, no optimization.</li>
+     *   <li>N &le; {@code exhaustiveMaxN}: exhaustive search &mdash; guaranteed optimal (E04S03).</li>
+     *   <li>N &gt; {@code exhaustiveMaxN}: micro-segment timeout mode (E04S04, AC1).</li>
+     * </ul>
      *
      * @param phaseId the phase whose matches should receive slot assignments; must not be null
-     * @throws IllegalArgumentException  if {@code phaseId} is null or the phase does not exist (AC7)
-     * @throws IllegalStateException     if no matches exist for the phase (AC8)
-     * @throws UnsupportedOperationException if N > {@code exhaustiveMaxN} and E04S04 is not yet
-     *                                       available (AC5)
+     * @throws IllegalArgumentException if {@code phaseId} is null or the phase does not exist (AC9)
+     * @throws IllegalStateException    if no matches exist for the phase (AC10)
      */
     @Override
     public void optimize(UUID phaseId) {
@@ -136,12 +170,12 @@ public class DirectSlotOptimizationClient implements SlotOptimizationClient {
             throw new IllegalArgumentException("phaseId must not be null");
         }
 
-        // AC7: verify phase exists (throws IAE if not found)
+        // AC9: verify phase exists
         phaseRepository.findById(phaseId)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "DirectSlotOptimizationClient: phase not found: " + phaseId));
 
-        // AC8: verify matches exist (mapper also checks, but we check early for a clearer error)
+        // AC10: verify matches exist
         List<Match> matches = matchRepository.findByPhaseId(phaseId);
         if (matches.isEmpty()) {
             throw new IllegalStateException(
@@ -149,16 +183,13 @@ public class DirectSlotOptimizationClient implements SlotOptimizationClient {
                     + ". Cannot optimize empty phase.");
         }
 
-        // Forward-map to RawPhaseDef + canonical form (AC2 steps 1-2)
+        // Forward-map to RawPhaseDef + canonical form
         MappingResult mapping = mapper.map(phaseId);
         CanonicalPhaseDef canonical = mapping.canonical();
 
-        // N = canonical.rowCount() = number of matches.
-        // PacketSolver requires jobDef.n() == rowCount so that LehmerCodec.rankToPermutation(rank, n)
-        // produces a permutation of length rowCount, compatible with VarietyScorer.scoreWithMatrix.
         int n = canonical.rowCount();
 
-        // AC9: trivial phase (fewer than 2 rows/matches) — assign sequential coordinates, do not throw
+        // Trivial phase (N < 2): assign sequential coordinates without optimization
         if (n < 2) {
             LOG.warn("DirectSlotOptimizationClient: phase={}, N={} (< 2 rows) — "
                     + "trivial phase, assigning sequential coordinates without optimization",
@@ -167,37 +198,166 @@ public class DirectSlotOptimizationClient implements SlotOptimizationClient {
             return;
         }
 
-        // AC5: N > exhaustiveMaxN — timeout-based mode not yet available (E04S04)
-        if (n > exhaustiveMaxN) {
-            throw new UnsupportedOperationException(
-                    "Exhaustive optimization not feasible for N=" + n
-                    + " (> " + exhaustiveMaxN + "). "
-                    + "Timeout-based mode (E04S04) not yet available.");
+        // AC1: route to correct mode, with N > MAX_N safety guard
+        if (n > JobDef.MAX_N) {
+            // PacketSolver only accepts permutation lengths in [1, JobDef.MAX_N=17].
+            // For phases with rowCount > 17, the compute kernel cannot be used.
+            // Fall back to sequential assignment to ensure all matches get valid slot coordinates.
+            LOG.warn("DirectSlotOptimizationClient: phase={}, N={} > MAX_N={}. "
+                    + "PacketSolver cannot handle this permutation length. "
+                    + "Falling back to sequential slot assignment.",
+                    phaseId, n, JobDef.MAX_N);
+            fallbackClient.optimize(phaseId);
+        } else if (n <= exhaustiveMaxN) {
+            optimizeExhaustive(phaseId, mapping, canonical, n);
+        } else {
+            optimizeWithTimeout(phaseId, mapping, canonical, n);
         }
+    }
 
-        // AC2 step 3: build JobDef with n = rowCount
+    // -------------------------------------------------------------------------
+    // Exhaustive mode (E04S03)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Exhaustive slot optimization for N &le; exhaustiveMaxN.
+     *
+     * <p>Evaluates all N! permutations and applies the globally optimal result.
+     *
+     * @param phaseId   phase identifier (for logging)
+     * @param mapping   forward mapping result
+     * @param canonical canonical phase definition
+     * @param n         rowCount (= number of matches)
+     */
+    private void optimizeExhaustive(UUID phaseId, MappingResult mapping,
+                                     CanonicalPhaseDef canonical, int n) {
         JobDef jobDef = new JobDef(UUID.randomUUID(), n, canonical);
-
-        // AC2 step 4: solve the full N! permutation space (exhaustive)
         long totalPermutations = factorial(n);
         long startMs = System.currentTimeMillis();
 
         PacketResult result = PacketSolver.solvePacket(jobDef, 0L, totalPermutations);
 
         long wallClockMs = System.currentTimeMillis() - startMs;
-
-        // AC10: INFO log with phase ID, N, total permutations, wall-clock time, best score
-        LOG.info("DirectSlotOptimizationClient: phase={}, N={}, permutations={}, "
+        LOG.info("DirectSlotOptimizationClient [exhaustive]: phase={}, N={}, permutations={}, "
                 + "wallClockMs={}, bestScore={}",
                 phaseId, n, totalPermutations, wallClockMs, result.bestScore());
 
-        // AC2 step 5: decode the best rank to a row permutation and apply slot coordinates.
-        // LehmerCodec.rankToPermutation(bestRank, n) produces an int[] rowSeq of length n=rowCount,
-        // where rowSeq[position] = which match goes in that schedule position.
         int[] rowSeq = LehmerCodec.rankToPermutation(result.bestRank(), n);
+        applyOptimizedSlots(mapping, rowSeq);
+    }
 
-        // Apply the optimized row sequence: assign lap and field numbers using a greedy
-        // round-constraint-aware algorithm that respects the round constraint (AC5/AC11).
+    // -------------------------------------------------------------------------
+    // Timeout-based micro-segment mode (E04S04)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Timeout-based best-effort slot optimization for N &gt; exhaustiveMaxN (AC1–AC11, AC16).
+     *
+     * <p>Partitions {@code [0, N!)} into micro-segments of size {@code segmentSize} and submits
+     * them to the executor until the wall-clock timeout expires or all segments are submitted.
+     * Then collects the best result from all completed segments.
+     *
+     * <p>If the executor rejects tasks (AC11), or if no segment completes within the timeout
+     * (AC5), falls back to {@link FallbackSlotOptimizationClient} sequential assignment.
+     *
+     * @param phaseId   phase identifier (for logging and fallback delegation)
+     * @param mapping   forward mapping result
+     * @param canonical canonical phase definition
+     * @param n         rowCount; guaranteed &gt; exhaustiveMaxN
+     */
+    private void optimizeWithTimeout(UUID phaseId, MappingResult mapping,
+                                      CanonicalPhaseDef canonical, int n) {
+        long totalPermutations = factorial(n);
+        long totalMicroSegments = (totalPermutations + segmentSize - 1) / segmentSize;
+
+        int threadPoolSize = (executor instanceof java.util.concurrent.ThreadPoolExecutor tpe)
+                ? tpe.getCorePoolSize()
+                : -1;
+
+        // AC8: INFO log — startup parameters
+        LOG.info("DirectSlotOptimizationClient [timeout-mode]: phase={}, N={}, "
+                + "totalPermutations={} ({}!), threads={}, segmentSize={}, "
+                + "totalMicroSegments={}, timeoutSeconds={}",
+                phaseId, n, totalPermutations, n,
+                threadPoolSize, segmentSize, totalMicroSegments, timeoutSeconds);
+
+        JobDef jobDef = new JobDef(UUID.randomUUID(), n, canonical);
+        long deadlineMs = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(timeoutSeconds);
+
+        List<Future<PacketResult>> futures = new ArrayList<>();
+        long segmentsSubmitted = 0L;
+
+        // Submit micro-segments until timeout expires or all segments are submitted (AC3)
+        try {
+            for (long segStart = 0; segStart < totalPermutations; segStart += segmentSize) {
+                if (System.currentTimeMillis() >= deadlineMs) {
+                    break;
+                }
+                long segEnd = Math.min(segStart + segmentSize, totalPermutations);
+                final long capturedStart = segStart;
+                final long capturedEnd = segEnd;
+                futures.add(executor.submit(
+                        () -> PacketSolver.solvePacket(jobDef, capturedStart, capturedEnd)));
+                segmentsSubmitted++;
+            }
+        } catch (RejectedExecutionException ex) {
+            // AC11: thread pool failure — fall back to sequential assignment
+            LOG.error("DirectSlotOptimizationClient [timeout-mode]: ExecutorService rejected tasks "
+                    + "for phase={}. Falling back to sequential assignment. Cause: {}",
+                    phaseId, ex.getMessage());
+            fallbackClient.optimize(phaseId);
+            return;
+        }
+
+        // Collect completed results; cancel futures that have not yet started if past deadline
+        PacketResult bestResult = null;
+        long segmentsCompleted = 0L;
+        long permutationsScored = 0L;
+
+        for (Future<PacketResult> future : futures) {
+            long remaining = deadlineMs - System.currentTimeMillis();
+            if (remaining <= 0) {
+                future.cancel(false);
+                continue;
+            }
+            try {
+                PacketResult result = future.get(remaining, TimeUnit.MILLISECONDS);
+                segmentsCompleted++;
+                permutationsScored += segmentSize;
+                if (bestResult == null
+                        || result.bestScore() < bestResult.bestScore()
+                        || (result.bestScore() == bestResult.bestScore()
+                                && result.bestRank() < bestResult.bestRank())) {
+                    bestResult = result;
+                }
+            } catch (java.util.concurrent.TimeoutException | InterruptedException
+                    | ExecutionException ignored) {
+                future.cancel(false);
+            }
+        }
+
+        long wallClockMs = System.currentTimeMillis()
+                - (deadlineMs - TimeUnit.SECONDS.toMillis(timeoutSeconds));
+        boolean timeoutHit = segmentsCompleted < segmentsSubmitted;
+
+        // AC8: INFO log — completion summary
+        LOG.info("DirectSlotOptimizationClient [timeout-mode]: phase={}, N={}, "
+                + "segmentsSubmitted={}, segmentsCompleted={}, permutationsScored~={}, "
+                + "wallClockMs={}, bestScore={}, timeout_hit={}",
+                phaseId, n, segmentsSubmitted, segmentsCompleted, permutationsScored,
+                wallClockMs, bestResult != null ? bestResult.bestScore() : "none", timeoutHit);
+
+        if (bestResult == null) {
+            // AC5: no segment completed within timeout — fall back to sequential assignment
+            LOG.warn("DirectSlotOptimizationClient [timeout-mode]: Timeout-based optimization "
+                    + "produced no result within {}s for N={}. Falling back to sequential assignment.",
+                    timeoutSeconds, n);
+            fallbackClient.optimize(phaseId);
+            return;
+        }
+
+        // AC6: apply best result — same lap/field assignment as the exhaustive path
+        int[] rowSeq = LehmerCodec.rankToPermutation(bestResult.bestRank(), n);
         applyOptimizedSlots(mapping, rowSeq);
     }
 
@@ -209,15 +369,15 @@ public class DirectSlotOptimizationClient implements SlotOptimizationClient {
      * Assigns lap/field coordinates from the optimized row sequence using a greedy
      * round-constraint-aware algorithm.
      *
-     * <p>Iterates over the ordered row sequence. For each match, it is placed in the earliest
-     * lap where neither of its two avatars already has a match assigned. Field numbers within
-     * each lap are sequential (order of assignment).
+     * <p>For each match in the optimal order, the match is placed in the earliest lap where
+     * neither of its avatars has a match already assigned. Field numbers within each lap are
+     * sequential (order of arrival).
      *
-     * <p>This guarantees:
+     * <p>Guarantees:
      * <ul>
-     *   <li>Round constraint (AC5/AC11): no avatar plays twice in the same lap — by construction.</li>
-     *   <li>Determinism (AC4/AC13): for the same best rank and same phase data, the same
-     *       lap/field assignment is always produced.</li>
+     *   <li>Round constraint: no avatar plays twice in the same lap — by construction.</li>
+     *   <li>Determinism: for the same row sequence and phase data, the same assignment is
+     *       always produced.</li>
      * </ul>
      *
      * @param mapping the forward mapping result (match order, denseIdsByRawRow)
@@ -226,23 +386,18 @@ public class DirectSlotOptimizationClient implements SlotOptimizationClient {
     private void applyOptimizedSlots(MappingResult mapping, int[] rowSeq) {
         List<Match> matchOrder = mapping.matchOrder();
         int[][] denseIdsByRawRow = mapping.denseIdsByRawRow();
-        int avatarCount = mapping.avatarCount();
         int rowCount = matchOrder.size();
 
-        // Track lap assignments: for each lap, the set of dense avatar IDs already scheduled
         List<Set<Integer>> lapAvatarSets = new ArrayList<>();
-
-        // For each match in the optimal sequence (rowSeq[position] = rowIndex in matchOrder)
         int[] assignedLap = new int[rowCount];
         int[] assignedField = new int[rowCount];
-        int[] fieldCountPerLap = new int[rowCount]; // upper bound: at most rowCount laps
+        int[] fieldCountPerLap = new int[rowCount];
 
         for (int pos = 0; pos < rowCount; pos++) {
             int rowIdx = rowSeq[pos];
             int d1 = denseIdsByRawRow[rowIdx][0];
             int d2 = denseIdsByRawRow[rowIdx][1];
 
-            // Find the earliest lap where neither d1 nor d2 is already assigned
             int targetLap = -1;
             for (int lap = 0; lap < lapAvatarSets.size(); lap++) {
                 Set<Integer> used = lapAvatarSets.get(lap);
@@ -252,7 +407,6 @@ public class DirectSlotOptimizationClient implements SlotOptimizationClient {
                 }
             }
             if (targetLap == -1) {
-                // No existing lap has room — open a new lap
                 targetLap = lapAvatarSets.size();
                 lapAvatarSets.add(new HashSet<>());
             }
@@ -265,7 +419,6 @@ public class DirectSlotOptimizationClient implements SlotOptimizationClient {
             assignedField[rowIdx] = fieldCountPerLap[targetLap]++;
         }
 
-        // Write lap/field to all matches (AC14: tenant-scoped via matchRepository)
         for (int rowIdx = 0; rowIdx < rowCount; rowIdx++) {
             Match match = matchOrder.get(rowIdx);
             match.setLapNumber(assignedLap[rowIdx]);
@@ -279,8 +432,8 @@ public class DirectSlotOptimizationClient implements SlotOptimizationClient {
     }
 
     /**
-     * Assigns trivial coordinates (lap 0, sequential field numbers) to all matches in the
-     * mapping result. Used for the AC9 trivial-phase case (N < 2).
+     * Assigns trivial coordinates (lap 0, sequential field numbers) to all matches.
+     * Used for the trivial-phase case (N &lt; 2).
      *
      * @param mapping the forward mapping result
      */
@@ -301,11 +454,11 @@ public class DirectSlotOptimizationClient implements SlotOptimizationClient {
     // -------------------------------------------------------------------------
 
     /**
-     * Computes N! for N in [0, 17]. All values fit in {@code long}.
+     * Computes N! for N in [0, 20]. All values fit in {@code long} (20! = 2.4e18 &lt; Long.MAX_VALUE).
      *
-     * @param n the value whose factorial to compute
+     * @param n the value whose factorial to compute; must be &ge; 0
      * @return n!
-     * @throws IllegalArgumentException if n < 0
+     * @throws IllegalArgumentException if n &lt; 0
      */
     static long factorial(int n) {
         if (n < 0) {

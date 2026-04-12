@@ -5,7 +5,6 @@ import de.vvwt.tm.domain.repo.MatchRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.stereotype.Component;
 
 import java.util.Comparator;
@@ -13,27 +12,31 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Development-time fallback implementation of {@link SlotOptimizationClient} (AC3, AC8).
+ * Fallback (sequential) implementation of {@link SlotOptimizationClient} (E03S12, AC3, AC8).
  *
- * <p>When E04 is not yet delivered, this bean provides a sequential lap/field assignment:
- * matches are sorted deterministically by ID, then assigned indices {@code (idx / fieldCount,
- * idx % fieldCount)} where {@code fieldCount} is configurable via
- * {@code tm.slotopt.fallback.field-count} (default: 3).
+ * <p>Provides a sequential lap/field assignment: matches are sorted deterministically by UUID,
+ * then assigned indices {@code (idx / fieldCount, idx % fieldCount)} where {@code fieldCount}
+ * is configurable via {@code tm.slotopt.fallback.field-count} (default: 3).
  *
- * <p>This is not an optimal schedule — it makes no attempt to avoid pairs playing on
- * adjacent courts or minimize wait time. It is sufficient to unblock E03 development and
- * allow integration tests to exercise the preparation flow.
+ * <p>This is not an optimal schedule — it makes no attempt to minimize team idle time.
+ * It is used as the fallback by {@link DirectSlotOptimizationClient} when the timeout-based
+ * search produces no results, or when the thread pool fails to submit tasks (E04S04, AC5, AC11).
  *
- * <h2>Auto-disabling on E04 delivery</h2>
- * <p>This bean is annotated {@code @ConditionalOnMissingBean(SlotOptimizationClient.class)}.
- * When E04 provides a real {@link SlotOptimizationClient} implementation, Spring will skip
- * this fallback and use the real one instead. No code changes required on E03's side.
+ * <h2>Bean priority (E04S04 amendment)</h2>
+ * <p>Previously this bean used {@code @ConditionalOnMissingBean(SlotOptimizationClient.class)}
+ * to auto-disable when E04 was delivered. E04S04 requires the fallback to be always present as
+ * a named bean (qualifier: {@code "fallbackSlotOptimizer"}) so that
+ * {@link DirectSlotOptimizationClient} can inject it for the timeout fallback path.
+ * The previous conditional has been removed; {@link DirectSlotOptimizationClient} is now
+ * {@code @Primary} and is injected by default when {@link SlotOptimizationClient} is
+ * requested without a qualifier.
  *
  * @see SlotOptimizationClient
+ * @see DirectSlotOptimizationClient
  * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E03S12.story.md">Story E03S12</a>
+ * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E04S04.story.md">Story E04S04</a>
  */
 @Component("fallbackSlotOptimizer")
-@ConditionalOnMissingBean(value = SlotOptimizationClient.class, ignored = FallbackSlotOptimizationClient.class)
 public class FallbackSlotOptimizationClient implements SlotOptimizationClient {
 
     private static final Logger LOG = LoggerFactory.getLogger(FallbackSlotOptimizationClient.class);
