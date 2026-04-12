@@ -179,6 +179,9 @@ public class PhaseMappingService {
                     "Target phase " + targetPhaseId + " has invalid group count: " + targetGroupCount);
         }
 
+        // AC10: check whether TeamAvatars already exist (informs UI read-only mode on load)
+        boolean existingMapping = !teamAvatarRepository.findByPhaseId(targetPhaseId).isEmpty();
+
         // Build sorted team list from source standings
         List<SortedTeamEntry> sortedTeams = buildSortedTeamList(sourceAvatars, ratings, targetPhase.getSortType());
 
@@ -188,7 +191,7 @@ public class PhaseMappingService {
         // Build source group view (groups with standings for the source panel)
         List<MappingSuggestion.SourceGroup> sourceGroups = buildSourceGroups(sourceAvatars, ratings, previousPhase);
 
-        return new MappingSuggestion(previousPhase.getId(), targetPhaseId, sourceGroups, targetAssignments);
+        return new MappingSuggestion(previousPhase.getId(), targetPhaseId, sourceGroups, targetAssignments, existingMapping);
     }
 
     // =========================================================================

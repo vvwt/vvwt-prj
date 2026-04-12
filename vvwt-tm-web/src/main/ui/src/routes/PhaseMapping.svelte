@@ -56,6 +56,7 @@
     targetPhaseId: string;
     sourceGroups: SourceGroup[];
     suggestedAssignments: TargetAssignment[];
+    hasExistingMapping: boolean;
   }
 
   interface AvatarEntry {
@@ -109,14 +110,14 @@
       : 0
   );
 
-  /** Whether TeamAvatars already exist for this phase (read-only mode). */
+  /** Whether TeamAvatars already exist for this phase (read-only mode until redo is confirmed). */
   let alreadyMapped = $state(false);
-
-  /** Existing avatars when alreadyMapped is true. */
-  let existingAvatars = $state<AvatarEntry[]>([]);
 
   /** Re-do confirmation dialog visible. */
   let showRedoConfirm = $state(false);
+
+  /** True after the organizer confirmed the redo — unlocks the redo-apply button. */
+  let redoConfirmed = $state(false);
 
   let applying = $state(false);
   let actionError = $state<string | null>(null);
@@ -159,20 +160,17 @@
     loading = true;
     loadError = null;
     alreadyMapped = false;
+    redoConfirmed = false;
+    showRedoConfirm = false;
 
     try {
       const resp = await apiFetch(`/api/phases/${phaseId}/mapping-suggestion`);
 
       if (resp.status === 409) {
+        // AC9 — previous phase not COMPLETED
         const err = await resp.json().catch(() => ({}));
         const msg: string = (err as any)?.message ?? '';
-        if (msg.includes('already exist')) {
-          // AC10 — mapping already exists: switch to read-only mode
-          await loadExistingAvatars();
-        } else {
-          // AC9 — previous phase not COMPLETED
-          loadError = msg || $_('mapping.errorPreviousNotCompleted');
-        }
+        loadError = msg || $_('mapping.errorPreviousNotCompleted');
         return;
       }
 
@@ -183,6 +181,11 @@
 
       const data: MappingSuggestionResponse = await resp.json();
       suggestion = data;
+
+      // AC10: if TeamAvatars already exist, switch to read-only mode immediately
+      if (data.hasExistingMapping) {
+        alreadyMapped = true;
+      }
 
       // Populate editable rows from suggested assignments, preserving team order
       const teamMeta: Record<string, { description: string; withoutAssessment: boolean }> = {};
@@ -204,17 +207,6 @@
     } finally {
       loading = false;
     }
-  }
-
-  async function loadExistingAvatars(): Promise<void> {
-    // Use the mapping-suggestion endpoint — but since we got "already exist" from it,
-    // call applyMapping with the redo guard: just show the error state.
-    // We have no dedicated GET endpoint for existing avatars, so we derive from the
-    // suggestion response that included the "already exist" message.
-    // Show readonly mode with the info message.
-    alreadyMapped = true;
-    existingAvatars = [];
-    loading = false;
   }
 
   // ── Actions ────────────────────────────────────────────────────────────────
@@ -292,9 +284,10 @@
   }
 
   function startRedo(): void {
-    alreadyMapped = false;
+    // AC10: confirmed redo — unlock the editor and the redo-apply button
     showRedoConfirm = false;
-    loadSuggestion();
+    redoConfirmed = true;
+    // alreadyMapped stays true so redoMapping() endpoint is used instead of applyMapping()
   }
 
   function slotKey(a: AssignmentRow): string {
@@ -337,23 +330,24 @@
       {$_('mapping.backButton')}
     </button>
 
-  {:else if alreadyMapped && !suggestion}
-    <!-- AC10: mapping already exists — read-only state before re-do confirmation -->
-    <div class="info-box">
-      <p>{$_('mapping.alreadyMappedNotice')}</p>
-    </div>
-
-    {#if !showRedoConfirm}
-      <div class="action-bar">
-        <button class="btn btn-warning" onclick={() => { showRedoConfirm = true; }}>
-          {$_('mapping.redoButton')}
-        </button>
-        <button class="btn btn-secondary" onclick={() => push(`/tournaments/${tournamentId}/phases`)}>
-          {$_('mapping.backButton')}
-        </button>
+  {:else if suggestion}
+    <!-- AC10: if mapping already exists, show notice + redo option -->
+    {#if alreadyMapped && !showRedoConfirm}
+      <div class="info-box">
+        <p>{$_('mapping.alreadyMappedNotice')}</p>
+        <div class="action-bar">
+          <button class="btn btn-warning" onclick={() => { showRedoConfirm = true; }}>
+            {$_('mapping.redoButton')}
+          </button>
+          <button class="btn btn-secondary" onclick={() => push(`/tournaments/${tournamentId}/phases`)}>
+            {$_('mapping.backButton')}
+          </button>
+        </div>
       </div>
-    {:else}
-      <!-- AC10: confirmation dialog -->
+    {/if}
+
+    {#if showRedoConfirm}
+      <!-- AC10: confirmation dialog before redo -->
       <div class="confirm-dialog">
         <p>{$_('mapping.redoConfirm')}</p>
         <button class="btn btn-danger" onclick={startRedo}>
@@ -365,8 +359,7 @@
       </div>
     {/if}
 
-  {:else if suggestion}
-    <!-- AC6: source and target panels -->
+    <!-- AC6: source and target panels (shown always for reference; apply disabled when alreadyMapped) -->
     <div class="mapping-layout">
 
       <!-- Left panel: source groups from the previous phase -->
@@ -470,9 +463,9 @@
         {/if}
 
         <div class="action-bar">
-          <!-- AC10: if this was opened after re-do confirmation, use redo endpoint -->
-          {#if alreadyMapped}
-            <!-- We entered edit mode via "re-do" flow — show re-do apply button -->
+          <!-- AC10: after redo confirmation — use redo endpoint -->
+          <!-- AC8: normal apply (only when not in read-only mode) -->
+          {#if redoConfirmed}
             <button
               class="btn btn-danger"
               disabled={!canApply || applying}
@@ -480,8 +473,7 @@
             >
               {applying ? $_('mapping.applying') : $_('mapping.redoApplyButton')}
             </button>
-          {:else}
-            <!-- AC8: normal apply -->
+          {:else if !alreadyMapped}
             <button
               class="btn btn-primary"
               disabled={!canApply || applying}

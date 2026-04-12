@@ -15,12 +15,14 @@ import java.util.UUID;
  * @param targetPhaseId        UUID of the PENDING phase being mapped into
  * @param sourceGroups         previous phase standings by group (for the "source" panel)
  * @param suggestedAssignments suggested target slot assignments (for the "target" panel)
+ * @param hasExistingMapping   true if TeamAvatars already exist for the target phase (AC10 signal)
  */
 public record MappingSuggestionResponse(
         UUID sourcePhaseId,
         UUID targetPhaseId,
         List<SourceGroupResponse> sourceGroups,
-        List<TargetAssignmentResponse> suggestedAssignments
+        List<TargetAssignmentResponse> suggestedAssignments,
+        boolean hasExistingMapping
 ) {
 
     /**
@@ -53,7 +55,8 @@ public record MappingSuggestionResponse(
                 suggestion.sourcePhaseId(),
                 suggestion.targetPhaseId(),
                 sourceGroups,
-                assignments);
+                assignments,
+                suggestion.hasExistingMapping());
     }
 
     /**

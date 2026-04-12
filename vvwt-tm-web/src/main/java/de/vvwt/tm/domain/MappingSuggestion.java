@@ -12,16 +12,19 @@ import java.util.UUID;
  *   <li>{@link #targetPhaseId()} — the PENDING phase being mapped into</li>
  *   <li>{@link #sourceGroups()} — previous phase standings by group (for the "source" panel)</li>
  *   <li>{@link #suggestedAssignments()} — suggested target group assignments (for the "target" panel)</li>
+ *   <li>{@link #hasExistingMapping()} — true if TeamAvatars already exist for the target phase
+ *       (AC10: UI can show read-only mode immediately on load)</li>
  * </ul>
  *
  * @see PhaseMappingService
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E05S08.story.md">Story E05S08 AC1</a>
+ * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E05S08.story.md">Story E05S08 AC1, AC10</a>
  */
 public record MappingSuggestion(
         UUID sourcePhaseId,
         UUID targetPhaseId,
         List<SourceGroup> sourceGroups,
-        List<TargetAssignment> suggestedAssignments
+        List<TargetAssignment> suggestedAssignments,
+        boolean hasExistingMapping
 ) {
 
     /**
