@@ -21,3 +21,8 @@ dependency-reduced-pom.xml
 
 # Benchmark output
 benchmarks.jar
+
+# Frontend SPA (E05S01): generated assets and node_modules
+vvwt-tm-web/src/main/ui/node_modules/
+vvwt-tm-web/src/main/ui/dist/
+vvwt-tm-web/src/main/ui/.vite/

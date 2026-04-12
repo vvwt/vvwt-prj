@@ -1,0 +1,11 @@
+{
+  "app": {
+    "title": "Turnierverwaltung"
+  },
+  "nav": {
+    "home": "Startseite"
+  },
+  "home": {
+    "heading": "Tournament Manager"
+  }
+}

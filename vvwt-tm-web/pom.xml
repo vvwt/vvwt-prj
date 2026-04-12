@@ -86,6 +86,110 @@
     <build>
         <plugins>
 
+            <!--
+                frontend-maven-plugin: downloads a pinned Node.js to target/node/ and runs npm scripts.
+                Story E05S01 — AC1, AC2, AC7 | DEC-2 (Svelte/Vite/TS) | Brief H-3 (Maven/npm integration choice).
+
+                Implementation decision (Brief H-3): frontend-maven-plugin 1.15.1 selected over exec-maven-plugin
+                (which would require system Node installation) and over a separate Maven module approach
+                (unnecessary module proliferation). frontend-maven-plugin downloads a pinned Node.js binary
+                to target/node/ so the build is reproducible without a system Node prerequisite.
+
+                Phase assignment:
+                  initialize   — install-node-and-npm: downloads Node.js 22 + npm 10 to target/node/
+                  generate-resources — npm install: installs node_modules
+                  generate-resources — npm run build: compiles SPA assets to src/main/ui/dist/
+
+                AC7: if npm run build exits non-zero, the generate-resources phase fails with a non-zero
+                Maven exit code and the npm error output is printed to the build log. No partial artifact
+                is produced because maven-resources-plugin (below) only copies dist/ if it exists.
+            -->
+            <plugin>
+                <groupId>com.github.eirslett</groupId>
+                <artifactId>frontend-maven-plugin</artifactId>
+                <configuration>
+                    <!-- Working directory: the npm project root relative to this module -->
+                    <workingDirectory>src/main/ui</workingDirectory>
+                    <!-- Install to target/node to keep project root clean; .gitignored via target/ -->
+                    <installDirectory>target</installDirectory>
+                </configuration>
+                <executions>
+
+                    <!-- Step 1: download pinned Node.js + npm to target/node/ -->
+                    <execution>
+                        <id>install-node-and-npm</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>install-node-and-npm</goal>
+                        </goals>
+                        <configuration>
+                            <!-- Version pinned in parent POM (${node.version}) — update there only. -->
+                            <nodeVersion>${node.version}</nodeVersion>
+                        </configuration>
+                    </execution>
+
+                    <!-- Step 2: npm install (resolves package-lock.json; reproducible) -->
+                    <execution>
+                        <id>npm-install</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>install</arguments>
+                        </configuration>
+                    </execution>
+
+                    <!-- Step 3: npm run build → src/main/ui/dist/ -->
+                    <execution>
+                        <id>npm-build</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>run build</arguments>
+                        </configuration>
+                    </execution>
+
+                </executions>
+            </plugin>
+
+            <!--
+                maven-resources-plugin: copy Vite dist/ → target/classes/static/admin/.
+                Story E05S01 — AC2, AC3, AC6.
+
+                Bound to process-resources phase (runs after generate-resources where npm build fires).
+                This places the SPA assets in the Spring Boot classpath under static/admin/, so:
+                  - Spring Boot ResourceHttpRequestHandler serves /admin/** from classpath:/static/admin/
+                  - The thin JAR (tm-application-*.jar) produced by maven-dependency-plugin includes
+                    target/classes/static/admin/, satisfying AC6 (jlink distribution includes SPA assets).
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-spa-assets</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.outputDirectory}/static/admin</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>src/main/ui/dist</directory>
+                                    <!-- Disable Maven property filtering — SPA assets are binary/JS,
+                                         not Maven-filtered templates. Filtering would corrupt JS bundles. -->
+                                    <filtering>false</filtering>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <!-- maven-clean-plugin: remove target/runtime before jlink to allow re-build.
                  jlink refuses to write to an existing output directory.
                  Bound to prepare-package phase (runs just before package). -->
