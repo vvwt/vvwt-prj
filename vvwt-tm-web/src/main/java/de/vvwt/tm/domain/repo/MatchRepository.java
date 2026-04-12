@@ -57,4 +57,26 @@ public class MatchRepository extends TenantScopedRepository<Match, UUID> {
         }
         return result;
     }
+
+    /**
+     * Returns all terminal matches for a given avatar in a given phase, scoped to the active tenant.
+     *
+     * <p>Used by cascade steps 7–8 (E03S11, AC9/AC10) for {@code refreshAvatarRating}.
+     * Terminal states: FINISHED_STANDOFF (50), FINISHED_WINNER1 (51), FINISHED_WINNER2 (52).
+     *
+     * @param phaseId  the phase whose matches are queried
+     * @param avatarId the team avatar — matches where this avatar appears in slot 1 or slot 2 are returned
+     * @return list of terminal matches for the avatar in the phase; never {@code null}
+     * @throws IllegalStateException if no tenant context is active
+     */
+    public List<Match> findTerminalByPhaseIdAndAvatarId(UUID phaseId, UUID avatarId) {
+        UUID tenantId = activeTenantId();  // guard fires here — before any SQL
+        List<Match> result = new ArrayList<>();
+        for (Match match : delegate.findTerminalByPhaseIdAndAvatarIdRaw(phaseId, avatarId)) {
+            if (tenantId.equals(match.getTenantId())) {
+                result.add(match);
+            }
+        }
+        return result;
+    }
 }
