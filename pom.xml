@@ -69,8 +69,16 @@
         <maven-failsafe-plugin.version>3.5.3</maven-failsafe-plugin.version>
         <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
         <maven-shade-plugin.version>3.6.0</maven-shade-plugin.version>
+        <maven-clean-plugin.version>3.4.1</maven-clean-plugin.version>
         <maven-enforcer-plugin.version>3.5.0</maven-enforcer-plugin.version>
         <jacoco-maven-plugin.version>0.8.13</jacoco-maven-plugin.version>
+
+        <!-- jlink distribution plugins (E02S05 — DEC-15) -->
+        <!-- exec-maven-plugin: used to invoke jlink directly (maven-jlink-plugin cannot link
+             non-modular Spring Boot/H2/Flyway JARs as automatic modules — see E02S05 impl-report) -->
+        <exec-maven-plugin.version>3.5.0</exec-maven-plugin.version>
+        <maven-dependency-plugin.version>3.8.1</maven-dependency-plugin.version>
+        <maven-assembly-plugin.version>3.7.1</maven-assembly-plugin.version>
     </properties>
 
     <!-- ===================================================================
@@ -176,6 +184,12 @@
 
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-clean-plugin</artifactId>
+                    <version>${maven-clean-plugin.version}</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>${maven-compiler-plugin.version}</version>
                     <configuration>
@@ -223,6 +237,30 @@
                     <groupId>org.springframework.boot</groupId>
                     <artifactId>spring-boot-maven-plugin</artifactId>
                     <version>${spring-boot.version}</version>
+                </plugin>
+
+                <!-- jlink distribution plugins (E02S05 — DEC-15) -->
+                <!--
+                    exec-maven-plugin: used to invoke jlink directly with explicit module-path.
+                    maven-jlink-plugin was rejected because it adds non-modular Spring Boot deps
+                    as automatic modules which jlink cannot link (see E02S05 impl-report).
+                -->
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>exec-maven-plugin</artifactId>
+                    <version>${exec-maven-plugin.version}</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <version>${maven-dependency-plugin.version}</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-assembly-plugin</artifactId>
+                    <version>${maven-assembly-plugin.version}</version>
                 </plugin>
 
             </plugins>

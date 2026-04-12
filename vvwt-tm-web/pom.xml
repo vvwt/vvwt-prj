@@ -77,6 +77,31 @@
     <build>
         <plugins>
 
+            <!-- maven-clean-plugin: remove target/runtime before jlink to allow re-build.
+                 jlink refuses to write to an existing output directory.
+                 Bound to prepare-package phase (runs just before package). -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-clean-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>clean-runtime-dir</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>clean</goal>
+                        </goals>
+                        <configuration>
+                            <excludeDefaultDirectories>true</excludeDefaultDirectories>
+                            <filesets>
+                                <fileset>
+                                    <directory>${project.build.directory}/runtime</directory>
+                                </fileset>
+                            </filesets>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <!-- spring-boot-maven-plugin: repackage produces runnable fat JAR.
                  Main class: de.vvwt.tm.TournamentManagerApplication
                  classifier=exec: preserves the original (flat) jar at vvwt-tm-web-*.jar
@@ -98,7 +123,7 @@
                 </executions>
             </plugin>
 
-            <!-- maven-failsafe-plugin: runs *IT.java integration tests (AC6) -->
+            <!-- maven-failsafe-plugin: runs *IT.java integration tests (AC5, AC6) -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
@@ -108,6 +133,124 @@
                             <goal>integration-test</goal>
                             <goal>verify</goal>
                         </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+                exec-maven-plugin: invokes jlink directly from JAVA_HOME (AC1, AC2, DEC-15).
+                Plugin choice rationale: maven-jlink-plugin was rejected because it
+                adds all non-modular dependency JARs (H2, Spring Boot, Flyway, etc.) as
+                automatic modules to the jlink module-path, which jlink rejects.
+                The exec-maven-plugin approach (AC1 option 3) calls jlink with the
+                module-path pointing ONLY at JAVA_HOME/jmods, producing a JDK-platform-only
+                custom JRE. Application and library JARs are placed on the classpath
+                at runtime (not linked into the JRE).
+                Module list derived from jdeps analysis (AC2, AC7).
+            -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>create-runtime-image</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <!--
+                                Use JAVA_HOME/bin/jlink — the same JDK Maven runs with.
+                                This ensures the custom JRE matches the compilation target (Java 21).
+                                AC2: jlink from java.home property resolves to Maven's JDK.
+                            -->
+                            <executable>${java.home}/bin/jlink</executable>
+                            <arguments>
+                                <!-- Module path: ONLY JDK platform modules (JAVA_HOME/jmods) -->
+                                <argument>--module-path</argument>
+                                <argument>${java.home}/../jmods</argument>
+                                <!-- JDK modules for Spring Boot 3.4.7 + H2 + Flyway + Tomcat.
+                                     Source: jdeps analysis with ignore-missing-deps, multi-release 21.
+                                     Validated: custom JRE runs the application, health 200 OK (AC2, AC7) -->
+                                <argument>--add-modules</argument>
+                                <argument>java.base,java.compiler,java.desktop,java.instrument,java.net.http,java.prefs,java.rmi,java.scripting,java.security.jgss,java.sql.rowset,jdk.jfr,jdk.management,jdk.net,jdk.unsupported</argument>
+                                <!-- Minimize JRE size (AC6) -->
+                                <argument>--strip-debug</argument>
+                                <argument>--no-header-files</argument>
+                                <argument>--no-man-pages</argument>
+                                <!-- Output to target/runtime/ — picked up by assembly descriptor (AC3) -->
+                                <argument>--output</argument>
+                                <argument>${project.build.directory}/runtime</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- maven-dependency-plugin: collect runtime JARs to target/lib/ (AC3) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <!-- Copy all transitive runtime dependency JARs to target/lib/ -->
+                    <execution>
+                        <id>copy-runtime-deps</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/lib</outputDirectory>
+                            <includeScope>runtime</includeScope>
+                            <excludeTransitive>false</excludeTransitive>
+                        </configuration>
+                    </execution>
+                    <!-- Copy the thin application JAR (no classifier) as tm-application-<version>.jar.
+                         The thin jar contains only our classes; deps are on the classpath via lib/.
+                         NOT the exec (fat) jar — that is only for direct java -jar usage. -->
+                    <execution>
+                        <id>copy-app-jar</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy</goal>
+                        </goals>
+                        <configuration>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>${project.groupId}</groupId>
+                                    <artifactId>${project.artifactId}</artifactId>
+                                    <version>${project.version}</version>
+                                    <type>jar</type>
+                                    <!-- No classifier — copies the plain Maven jar (not the exec repackage) -->
+                                    <outputDirectory>${project.build.directory}/lib</outputDirectory>
+                                    <destFileName>tm-application-${project.version}.jar</destFileName>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- maven-assembly-plugin: packages runtime + lib + scripts into tar.gz (AC3, AC12) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>create-distribution-archive</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                        <configuration>
+                            <descriptors>
+                                <descriptor>src/main/assembly/distribution.xml</descriptor>
+                            </descriptors>
+                            <!-- Produces tournament-manager-<version>.tar.gz (AC3) -->
+                            <finalName>tournament-manager-${project.version}</finalName>
+                            <!-- appendAssemblyId=false: no "-distribution" suffix in filename -->
+                            <appendAssemblyId>false</appendAssemblyId>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
