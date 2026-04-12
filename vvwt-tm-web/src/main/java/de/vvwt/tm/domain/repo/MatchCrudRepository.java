@@ -34,4 +34,18 @@ interface MatchCrudRepository extends CrudRepository<Match, UUID> {
          + "AND state IN (50, 51, 52)")
     List<Match> findTerminalByPhaseIdAndAvatarIdRaw(@Param("phaseId") UUID phaseId,
                                                     @Param("avatarId") UUID avatarId);
+
+    /**
+     * Returns all matches in a given phase and lap (unfiltered — caller applies tenant check).
+     *
+     * <p>Used by {@link MatchRepository#findByPhaseIdAndLapNumber} for round-end snapshot
+     * payload generation (E03S13, AC3 {@code matches_in_lap} field).
+     *
+     * @param phaseId   the phase to query
+     * @param lapNumber the lap index to filter on
+     * @return all matches in the given phase and lap
+     */
+    @Query("SELECT * FROM \"match\" WHERE phase_id = :phaseId AND lap_number = :lapNumber")
+    List<Match> findByPhaseIdAndLapNumberRaw(@Param("phaseId") UUID phaseId,
+                                             @Param("lapNumber") int lapNumber);
 }
