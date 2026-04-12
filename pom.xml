@@ -24,6 +24,9 @@
         <module>vvwt-dispatcher</module>
         <module>vvwt-standalone-worker</module>
         <module>vvwt-benchmark</module>
+
+        <!-- Tournament Manager modules (E02+) — DEC-10, DEC-7 -->
+        <module>vvwt-tm-web</module>
     </modules>
 
     <!-- ===================================================================

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>de.vvwt</groupId>
+        <artifactId>vvwt-prj</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>vvwt-tm-web</artifactId>
+    <name>VVW Tournament Manager — Web Application</name>
+    <description>
+        Tournament Manager V1 Spring Boot application.
+        Hosts the application entry point, HTTP endpoints, persistence wiring (H2 + Flyway — E02S02),
+        and all TM V1 server-side logic through later Epics.
+        Distribution: fat JAR via jlink (DEC-15 primary), Docker (secondary).
+        Architecture: DEC-7 rewrite, multi-tenant per DEC-5, DEC-14 persistence.
+        Stories: E02S01 (scaffold), E02S02 (persistence), E02S03 (schema), E02S04 (default-tenant),
+                 E02S05 (jlink), E03+ (domain logic), E05+ (UI surfaces).
+    </description>
+
+    <!-- ===================================================================
+         Compile dependencies
+         Versions managed by parent dependencyManagement — NO version pins here.
+         =================================================================== -->
+    <dependencies>
+
+        <!-- Spring Boot Web starter — provides embedded server, MVC, Jackson -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Test dependencies -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <!-- ===================================================================
+         Build
+         =================================================================== -->
+    <build>
+        <plugins>
+
+            <!-- spring-boot-maven-plugin: repackage produces runnable fat JAR.
+                 Main class: de.vvwt.tm.TournamentManagerApplication -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>repackage</id>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+        </plugins>
+    </build>
+
+</project>
