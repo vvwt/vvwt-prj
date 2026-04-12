@@ -1,0 +1,53 @@
+# Tournament Manager V1 — application configuration
+# Story: E02S02 — H2 + Spring Boot persistence wiring
+# DEC-14: H2 embedded + CRUD + Flyway
+# DEC-5:  no authentication required for default-tenant LAN mode
+
+# ---------------------------------------------------------------------------
+# HTTP Server
+# ---------------------------------------------------------------------------
+server:
+  # Override via TM_SERVER_PORT env var or -Dserver.port (AC4)
+  port: ${TM_SERVER_PORT:8080}
+
+# ---------------------------------------------------------------------------
+# Persistence — H2 embedded, file-based (DEC-14)
+# ---------------------------------------------------------------------------
+spring:
+  datasource:
+    # File-based H2 database. H2 automatically appends .mv.db to the path.
+    # Default: ~/.tournament-manager/db/tm.mv.db
+    # Override:  export TM_DB_PATH=/your/path/tm   (no extension — H2 adds it)
+    # Security:  AUTO_SERVER=FALSE — no embedded TCP listener; local file only.
+    # AC4, AC7, AC10
+    url: "jdbc:h2:file:${TM_DB_PATH:${user.home}/.tournament-manager/db/tm};AUTO_SERVER=FALSE"
+    driver-class-name: org.h2.Driver
+    # sa + empty password is the H2 file-mode convention (no server to expose).
+    # AC11: no secrets beyond the local H2 file mode.
+    username: sa
+    password:
+
+  # ---------------------------------------------------------------------------
+  # Flyway schema migration (DEC-14)
+  # ---------------------------------------------------------------------------
+  flyway:
+    enabled: true
+    # Migration scripts live in src/main/resources/db/migration (AC4)
+    locations: classpath:db/migration
+    # AC8: if Flyway raises any error during startup, abort with non-zero exit.
+    # fail-on-missing-locations defaults to false — empty migration dir is OK (AC6).
+    fail-on-missing-locations: false
+
+# ---------------------------------------------------------------------------
+# Actuator — health endpoint (AC5)
+# No authentication required — DEC-5 default-tenant LAN mode
+# ---------------------------------------------------------------------------
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      # Show full datasource details so health endpoint includes DB status (AC5)
+      show-details: always

@@ -1,0 +1,13 @@
+# Test profile overrides — E02S02
+# Replaces file-based H2 with in-memory H2 for test isolation.
+# DatabaseDirectoryInitializer detects the mem: URL and skips directory creation.
+spring:
+  datasource:
+    url: "jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    fail-on-missing-locations: false
