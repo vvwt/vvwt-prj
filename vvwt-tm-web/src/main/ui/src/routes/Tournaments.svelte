@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * Tournaments list view — Story E05S04 AC7, AC9, AC11.
+   * Tournaments list view — Story E05S04 AC7, AC9, AC11; updated E05S05 (teams nav button).
    *
    * Shows all tournaments for the current tenant. The organizer can:
    *   - View tournament list (AC7)
@@ -8,6 +8,7 @@
    *   - Navigate to the create form
    *   - Navigate to the edit form (DRAFT only)
    *   - Delete a tournament (DRAFT only, via confirmation)
+   *   - Navigate to team management for any tournament (E05S05)
    *
    * All visible strings use the svelte-i18n `$_()` function (AC11 — no hardcoded strings).
    */
@@ -115,6 +116,11 @@
                   {$_('tournaments.selectButton')}
                 </button>
               {/if}
+              <!-- E05S05: navigate to team management -->
+              <button class="btn btn--secondary btn--sm"
+                      onclick={() => push(`/tournaments/${t.id}/teams`)}>
+                {$_('tournaments.teamsButton')}
+              </button>
               {#if t.status === 'DRAFT'}
                 <button class="btn btn--secondary btn--sm"
                         onclick={() => push(`/tournaments/${t.id}/edit`)}>

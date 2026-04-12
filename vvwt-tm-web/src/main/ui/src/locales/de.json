@@ -18,6 +18,7 @@
     "selectedLabel": "Aktiv",
     "editButton": "Bearbeiten",
     "deleteButton": "Löschen",
+    "teamsButton": "Teams",
     "deleteConfirm": "Turnier wirklich löschen?",
     "deleteError": "Fehler beim Löschen.",
     "columns": {
@@ -49,6 +50,31 @@
       "scoringRuleId": "Wertungsregel",
       "setValidationRuleId": "Satzregel",
       "matchGeneratorId": "Spielgenerator"
+    }
+  },
+  "teams": {
+    "title": "Teams",
+    "loadError": "Fehler beim Laden der Teams.",
+    "empty": "Keine Teams vorhanden. Team hinzufügen.",
+    "addButton": "Team hinzufügen",
+    "addPlaceholder": "Teamname",
+    "saveButton": "Speichern",
+    "cancelButton": "Abbrechen",
+    "deleteButton": "Löschen",
+    "deleteConfirm": "Team \"{name}\" wirklich löschen?",
+    "deleteError": "Fehler beim Löschen.",
+    "unsavedHint": "Nicht gespeicherte Änderungen",
+    "totalCount": "Gesamt: {count} Teams",
+    "participatingCount": "Teilnehmend: {count}",
+    "columns": {
+      "number": "Nr.",
+      "description": "Teamname",
+      "participate": "Teilnehmend",
+      "refereeAssignment": "Schiedsrichter",
+      "withoutAssessment": "Ohne Wertung"
+    },
+    "error": {
+      "noTournament": "Kein Turnier ausgewählt."
     }
   }
 }
