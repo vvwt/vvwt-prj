@@ -3,9 +3,11 @@ package de.vvwt.tm.domain.rules;
 import de.vvwt.tm.domain.MatchFormat;
 import de.vvwt.tm.domain.MatchOutcome;
 import de.vvwt.tm.domain.Tournament;
+import de.vvwt.tm.domain.generator.MatchGeneratorRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -40,7 +42,10 @@ class ScoringRuleRegistryTest {
         SetValidationRuleRegistry setRegistry = new SetValidationRuleRegistry(
                 setRules.stream().collect(
                         java.util.stream.Collectors.toMap(SetValidationRule::getBeanId, r -> r)));
-        resolver = new TournamentRuleResolver(setRegistry, registry);
+        // E03S09 adds MatchGeneratorRegistry as a third parameter — use an empty registry here
+        // since this test only exercises the ScoringRule resolution path.
+        MatchGeneratorRegistry genRegistry = new MatchGeneratorRegistry(Collections.emptyList());
+        resolver = new TournamentRuleResolver(setRegistry, registry, genRegistry);
     }
 
     // -----------------------------------------------------------------------
