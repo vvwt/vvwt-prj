@@ -77,6 +77,21 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Spring Validation — Bean Validation support (@Valid, @NotBlank, etc.) for REST API (E05S03 AC1)
+             Version managed by Spring Boot BOM (DEC-10 — no version pin in child modules). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- Spring WebSocket — STOMP over SockJS; provides SimpMessagingTemplate, WebSocket broker (E05S03)
+             Version managed by Spring Boot BOM (DEC-10 — no version pin in child modules).
+             Provides: @EnableWebSocketMessageBroker, SimpMessagingTemplate, WebSocketConfigurer. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+
         <!-- vvwt-worker-lib — shared types + compute kernel for slot-optimization (DEC-4 V1 amendment, DEC-11)
              Compile scope: E04S02–E04S04 use worker-lib types in production code (RawPhaseDef,
              StructuralFingerprint, PacketSolver, LehmerCodec, VarietyScorer).
