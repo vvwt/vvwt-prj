@@ -7,6 +7,7 @@ import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.util.Locale;
@@ -139,6 +140,70 @@ public class ScoreController {
         // Token storage (localStorage / cookie) is performed entirely in client-side ES5 JS.
 
         return "score/register";
+    }
+
+    /**
+     * Score entry page for a specific field (E06S06, AC2, AC3).
+     *
+     * <p>Mapped to {@code GET /score/field/{fieldNumber}} (AC2). Renders the Mustache template
+     * {@code classpath:/templates/score/field.mustache}.</p>
+     *
+     * <p>The device token is read client-side from localStorage/cookie and used to call
+     * {@code GET /api/score/match?field={n}&token={t}} on page load (AC3). The controller
+     * does NOT validate the token — validation happens in {@link ScoreEntryService} per API call.
+     * This allows the page to render first and then show an error if token is missing (AC13).</p>
+     *
+     * <p>All user-visible text is resolved from the Spring {@link MessageSource}
+     * ({@code messages.properties}) for i18n (AC13).</p>
+     *
+     * @param fieldNumber the court field number from the URL path (1-based)
+     * @param model       Spring MVC model populated with i18n strings
+     * @return Mustache view name {@code score/field}
+     */
+    @GetMapping("/field/{fieldNumber}")
+    public String fieldPage(@PathVariable("fieldNumber") int fieldNumber, Model model) {
+        Locale locale = LocaleContextHolder.getLocale();
+
+        model.addAttribute("locale", locale.toLanguageTag());
+        model.addAttribute("fieldNumber", fieldNumber);
+
+        // AC13 — page title and heading
+        model.addAttribute("title",                 msg("score.field.title",               "Scoring Tablet — Field " + fieldNumber, locale));
+        model.addAttribute("heading",               msg("score.field.heading",             "Scoring Tablet", locale));
+        // AC4 — field number label
+        model.addAttribute("msgFieldLabel",         msg("score.field.field.label",         "Field", locale));
+        // AC3 — no match state (AC9)
+        model.addAttribute("msgNoMatch",            msg("score.field.no.match",            "No active match on this field", locale));
+        // AC3 — match display labels
+        model.addAttribute("msgLapLabel",           msg("score.field.lap.label",           "Round", locale));
+        model.addAttribute("msgSetLabel",           msg("score.field.set.label",           "Set", locale));
+        model.addAttribute("msgVsLabel",            msg("score.field.vs.label",            "vs.", locale));
+        model.addAttribute("msgRefereeLabel",       msg("score.field.referee.label",       "Referee", locale));
+        // AC3 — score entry controls
+        model.addAttribute("msgTeam1Label",         msg("score.field.team1.label",         "Team 1", locale));
+        model.addAttribute("msgTeam2Label",         msg("score.field.team2.label",         "Team 2", locale));
+        model.addAttribute("msgPlusLabel",          msg("score.field.plus.label",          "+", locale));
+        model.addAttribute("msgMinusLabel",         msg("score.field.minus.label",         "-", locale));
+        // AC5 — confirm dialog
+        model.addAttribute("msgConfirmHeading",     msg("score.field.confirm.heading",     "Confirm set result", locale));
+        model.addAttribute("msgConfirmPrompt",      msg("score.field.confirm.prompt",      "Final score for this set?", locale));
+        model.addAttribute("msgConfirmYes",         msg("score.field.confirm.yes",         "Confirm", locale));
+        model.addAttribute("msgConfirmNo",          msg("score.field.confirm.no",          "Cancel", locale));
+        // AC3 — error and status messages
+        model.addAttribute("msgLoading",            msg("score.field.loading",             "Loading match\u2026", locale));
+        model.addAttribute("msgErrorNet",           msg("score.field.error.network",       "Network error. Please retry.", locale));
+        model.addAttribute("msgErrorToken",         msg("score.field.error.token",         "Device not authorized. Please register again.", locale));
+        model.addAttribute("msgErrorForbidden",     msg("score.field.error.forbidden",     "This device is not authorized for this field.", locale));
+        model.addAttribute("msgErrorValidation",    msg("score.field.error.validation",    "Invalid score. Please check and retry.", locale));
+        model.addAttribute("msgSubmitSuccess",      msg("score.field.submit.success",      "Set result recorded.", locale));
+        // AC11 — score queue status
+        model.addAttribute("msgQueuePending",       msg("score.field.queue.pending",       "Saving\u2026", locale));
+        model.addAttribute("msgQueueSaved",         msg("score.field.queue.saved",         "Saved.", locale));
+        // version (informational)
+        model.addAttribute("versionLabel",          msg("score.field.version.label",       "Version", locale));
+        model.addAttribute("appVersion",            appVersion);
+
+        return "score/field";
     }
 
     /**

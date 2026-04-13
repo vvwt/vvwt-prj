@@ -100,4 +100,26 @@ public class MatchRepository extends TenantScopedRepository<Match, UUID> {
         activeTenantId();  // guard fires here — verifies active tenant before SQL
         delegate.deleteByPhaseIdRaw(phaseId);
     }
+
+    /**
+     * Returns all matches on the given field in the given lap, scoped to the active tenant (E06S06, AC1).
+     *
+     * <p>Used by {@link de.vvwt.tm.infrastructure.score.ScoreEntryService} to resolve the
+     * current match for a scoring tablet's court field.
+     *
+     * @param fieldNumber the court field number (1-based)
+     * @param lapNumber   the lap (round) number
+     * @return list of matches on the field in the lap for the active tenant; never {@code null}
+     * @throws IllegalStateException if no tenant context is active
+     */
+    public List<Match> findByFieldNumberAndLapNumber(int fieldNumber, int lapNumber) {
+        UUID tenantId = activeTenantId();  // guard fires here — before any SQL
+        List<Match> result = new ArrayList<>();
+        for (Match match : delegate.findByFieldNumberAndLapNumberRaw(fieldNumber, lapNumber)) {
+            if (tenantId.equals(match.getTenantId())) {
+                result.add(match);
+            }
+        }
+        return result;
+    }
 }

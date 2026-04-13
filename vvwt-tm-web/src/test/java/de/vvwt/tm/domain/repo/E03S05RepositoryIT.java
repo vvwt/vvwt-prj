@@ -292,7 +292,7 @@ class E03S05RepositoryIT {
                 entry1Id, defaultTenantId, matchId, 0,
                 null, null, 15, 10,
                 null, SetState.WINNER1.getLegacyCode(),
-                null, null, LocalDateTime.now());
+                null, null, LocalDateTime.now(), null, null);
         auditLogRepository.save(entry1);
 
         UUID entry2Id = UUID.randomUUID();
@@ -300,7 +300,7 @@ class E03S05RepositoryIT {
                 entry2Id, defaultTenantId, matchId, 1,
                 null, null, 8, 15,
                 null, SetState.WINNER2.getLegacyCode(),
-                null, null, LocalDateTime.now());
+                null, null, LocalDateTime.now(), null, null);
         auditLogRepository.save(entry2);
 
         // Query by matchId + setIndex=0 — should return only entry1

@@ -243,4 +243,100 @@ class ScoreControllerTest {
         assertThat(model.getAttribute("heading")).isEqualTo("Scoring Tablet");
         assertThat(model.getAttribute("msgRetry")).isEqualTo("Try again");
     }
+
+    // =========================================================================
+    // E06S06 — Score-entry page (field page) unit tests
+    // =========================================================================
+
+    private void registerFieldPageMessages() {
+        Locale jvmDefault = Locale.getDefault();
+        for (Locale locale : new Locale[]{Locale.ROOT, Locale.ENGLISH, jvmDefault}) {
+            messageSource.addMessage("score.field.title",               locale, "Test Field Title");
+            messageSource.addMessage("score.field.heading",             locale, "Scoring Tablet");
+            messageSource.addMessage("score.field.field.label",         locale, "Field");
+            messageSource.addMessage("score.field.no.match",            locale, "No match");
+            messageSource.addMessage("score.field.lap.label",           locale, "Round");
+            messageSource.addMessage("score.field.set.label",           locale, "Set");
+            messageSource.addMessage("score.field.vs.label",            locale, "vs.");
+            messageSource.addMessage("score.field.referee.label",       locale, "Referee");
+            messageSource.addMessage("score.field.team1.label",         locale, "Team 1");
+            messageSource.addMessage("score.field.team2.label",         locale, "Team 2");
+            messageSource.addMessage("score.field.plus.label",          locale, "+");
+            messageSource.addMessage("score.field.minus.label",         locale, "-");
+            messageSource.addMessage("score.field.confirm.heading",     locale, "Confirm set result");
+            messageSource.addMessage("score.field.confirm.prompt",      locale, "Final score?");
+            messageSource.addMessage("score.field.confirm.yes",         locale, "Confirm");
+            messageSource.addMessage("score.field.confirm.no",          locale, "Cancel");
+            messageSource.addMessage("score.field.loading",             locale, "Loading...");
+            messageSource.addMessage("score.field.error.network",       locale, "Network error.");
+            messageSource.addMessage("score.field.error.token",         locale, "Token error.");
+            messageSource.addMessage("score.field.error.forbidden",     locale, "Forbidden.");
+            messageSource.addMessage("score.field.error.validation",    locale, "Validation error.");
+            messageSource.addMessage("score.field.submit.success",      locale, "Saved.");
+            messageSource.addMessage("score.field.queue.pending",       locale, "Saving...");
+            messageSource.addMessage("score.field.queue.saved",         locale, "Saved.");
+            messageSource.addMessage("score.field.version.label",       locale, "Version");
+        }
+    }
+
+    @Test
+    @DisplayName("E06S06 AC2: fieldPage returns view name 'score/field'")
+    void fieldPage_returnsCorrectViewName() {
+        registerFieldPageMessages();
+        Model model = new ConcurrentModel();
+        String viewName = controller.fieldPage(1, model);
+        assertThat(viewName).isEqualTo("score/field");
+    }
+
+    @Test
+    @DisplayName("E06S06 AC2: fieldPage model contains fieldNumber attribute")
+    void fieldPage_modelContainsFieldNumber() {
+        registerFieldPageMessages();
+        Model model = new ConcurrentModel();
+        controller.fieldPage(3, model);
+        assertThat(model.getAttribute("fieldNumber")).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("E06S06 AC13: fieldPage model contains i18n title from MessageSource")
+    void fieldPage_modelContainsTitle() {
+        registerFieldPageMessages();
+        Model model = new ConcurrentModel();
+        controller.fieldPage(1, model);
+        assertThat(model.getAttribute("title")).isEqualTo("Test Field Title");
+    }
+
+    @Test
+    @DisplayName("E06S06 AC9: fieldPage model contains no-match message from MessageSource")
+    void fieldPage_modelContainsNoMatchMsg() {
+        registerFieldPageMessages();
+        Model model = new ConcurrentModel();
+        controller.fieldPage(1, model);
+        assertThat(model.getAttribute("msgNoMatch")).isEqualTo("No match");
+    }
+
+    @Test
+    @DisplayName("E06S06 AC5: fieldPage model contains confirm dialog strings")
+    void fieldPage_modelContainsConfirmStrings() {
+        registerFieldPageMessages();
+        Model model = new ConcurrentModel();
+        controller.fieldPage(1, model);
+        assertThat(model.getAttribute("msgConfirmHeading")).isEqualTo("Confirm set result");
+        assertThat(model.getAttribute("msgConfirmYes")).isEqualTo("Confirm");
+        assertThat(model.getAttribute("msgConfirmNo")).isEqualTo("Cancel");
+    }
+
+    @Test
+    @DisplayName("E06S06 AC13: fieldPage falls back to default when MessageSource key missing")
+    void fieldPage_missingKeyFallsBackToDefault() {
+        MessageSource emptySource = new StaticMessageSource();
+        ScoreController controllerWithEmptySource = new ScoreController(emptySource, null);
+        Model model = new ConcurrentModel();
+
+        // Must not throw
+        controllerWithEmptySource.fieldPage(2, model);
+
+        assertThat(model.getAttribute("fieldNumber")).isEqualTo(2);
+        assertThat(model.getAttribute("heading")).isEqualTo("Scoring Tablet");
+    }
 }

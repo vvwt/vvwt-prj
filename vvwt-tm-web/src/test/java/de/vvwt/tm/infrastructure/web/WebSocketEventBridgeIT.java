@@ -170,7 +170,7 @@ class WebSocketEventBridgeIT {
 
             // Trigger domain event via service layer (real commit → AFTER_COMMIT listener fires)
             // BEST_OF_1: setIndex=0 is the deciding set, target=15 (standardVolleyball)
-            cascadeService.registerMatchResult(new SetResultInput(matchId, 0, 15, 10, null, null));
+            cascadeService.registerMatchResult(SetResultInput.legacy(matchId, 0, 15, 10, null, null));
 
             // Assert: client receives EventMessage within 2 seconds (AC11)
             Map<?, ?> received = receivedMessages.poll(2, TimeUnit.SECONDS);

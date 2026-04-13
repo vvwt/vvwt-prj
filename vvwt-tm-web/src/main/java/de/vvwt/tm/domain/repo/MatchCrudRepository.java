@@ -37,6 +37,20 @@ interface MatchCrudRepository extends CrudRepository<Match, UUID> {
                                                     @Param("avatarId") UUID avatarId);
 
     /**
+     * Returns matches on a specific field in a specific lap (raw — no tenant filter).
+     *
+     * <p>Used by {@link MatchRepository#findByFieldNumberAndLapNumber} (E06S06, AC1).
+     * Caller is responsible for tenant isolation.
+     *
+     * @param fieldNumber the court field number
+     * @param lapNumber   the lap (round) number
+     * @return list of matches scheduled on the given field in the given lap
+     */
+    @Query("SELECT * FROM \"match\" WHERE field_number = :fieldNumber AND lap_number = :lapNumber")
+    List<Match> findByFieldNumberAndLapNumberRaw(@Param("fieldNumber") int fieldNumber,
+                                                  @Param("lapNumber") int lapNumber);
+
+    /**
      * Deletes all matches for the given phase (raw — no tenant filter).
      *
      * <p>Used by {@link MatchRepository#deleteByPhaseId} which applies the tenant filter

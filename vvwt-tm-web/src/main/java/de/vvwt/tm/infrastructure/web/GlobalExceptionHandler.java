@@ -1,6 +1,8 @@
 package de.vvwt.tm.infrastructure.web;
 
+import de.vvwt.tm.domain.ForbiddenException;
 import de.vvwt.tm.domain.UnauthorizedException;
+import de.vvwt.tm.domain.ValidationException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -209,6 +212,34 @@ public class GlobalExceptionHandler {
     }
 
     // -------------------------------------------------------------------------
+    // E06S06 — 400: Missing required query parameter
+    // -------------------------------------------------------------------------
+
+    /**
+     * Handles {@link MissingServletRequestParameterException} — thrown by Spring MVC when a
+     * required {@code @RequestParam} is absent from the request (e.g., missing {@code token}
+     * on {@code GET /api/score/match}). Returns HTTP 400.
+     *
+     * @param ex      the exception
+     * @param request the current HTTP request
+     * @return 400 response
+     */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiErrorResponse> handleMissingRequestParam(
+            MissingServletRequestParameterException ex, HttpServletRequest request) {
+
+        ApiErrorResponse body = new ApiErrorResponse.Builder(
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                "Required parameter '" + ex.getParameterName() + "' is not present",
+                "error.validation")
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.badRequest().body(body);
+    }
+
+    // -------------------------------------------------------------------------
     // E06S03 AC8 — 401: Invalid or expired device token
     // -------------------------------------------------------------------------
 
@@ -236,6 +267,60 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+    }
+
+    // -------------------------------------------------------------------------
+    // E06S06 AC6 — 400: Set validation failure (invalid score for volleyball rule)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Handles {@link ValidationException} — thrown by {@link de.vvwt.tm.domain.CascadeRecomputeService}
+     * when step 1 set validation rejects the submitted score (AC6 — 400 with descriptive error).
+     *
+     * @param ex      the validation exception
+     * @param request the current HTTP request
+     * @return 400 response with the validation reason
+     */
+    @ExceptionHandler(ValidationException.class)
+    public ResponseEntity<ApiErrorResponse> handleValidationFailure(
+            ValidationException ex, HttpServletRequest request) {
+
+        ApiErrorResponse body = new ApiErrorResponse.Builder(
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                ex.getValidationReason(),
+                "error.score.validation")
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.badRequest().body(body);
+    }
+
+    // -------------------------------------------------------------------------
+    // E06S06 AC12 — 403: Device not authorized for the requested field
+    // -------------------------------------------------------------------------
+
+    /**
+     * Handles {@link ForbiddenException} — thrown when a device token is valid but the device
+     * is not authorized for the requested operation (AC12 — wrong field → HTTP 403).
+     *
+     * @param ex      the forbidden exception
+     * @param request the current HTTP request
+     * @return 403 response
+     */
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ApiErrorResponse> handleForbidden(
+            ForbiddenException ex, HttpServletRequest request) {
+
+        ApiErrorResponse body = new ApiErrorResponse.Builder(
+                HttpStatus.FORBIDDEN.value(),
+                HttpStatus.FORBIDDEN.getReasonPhrase(),
+                ex.getMessage() != null ? ex.getMessage() : "Forbidden",
+                "error.score.forbidden")
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
     }
 
     // -------------------------------------------------------------------------

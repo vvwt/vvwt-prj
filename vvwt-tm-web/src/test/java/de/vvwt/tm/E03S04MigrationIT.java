@@ -519,7 +519,8 @@ class E03S04MigrationIT {
                 null,             // set_state_old null
                 SetState.WINNER1.getLegacyCode(),
                 null, null,       // actorId, reason null
-                null);
+                null,
+                null, null);      // sourceType, sourceDeviceId null (E06S06)
 
         assertThat(entry.getTeam1PointsOld()).as("AC6: team1PointsOld = null on first insert").isNull();
         assertThat(entry.getTeam2PointsOld()).as("AC6: team2PointsOld = null on first insert").isNull();
