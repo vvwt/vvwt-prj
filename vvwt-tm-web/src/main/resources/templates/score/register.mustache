@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="{{locale}}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{title}}</title>
+    <style>
+        /*
+         * E06S04 — Registration page styles.
+         * iOS 9 Safari compatible: no flexbox/grid quirks, no CSS container queries.
+         * DEC-19: scoring tablet surface; Mustache + ES5 only.
+         */
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            background: #1a1a2e;
+            color: #eee;
+            text-align: center;
+        }
+        #page-wrapper {
+            padding: 40px 20px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 1.4em;
+            color: #aaa;
+            margin: 0 0 32px;
+            font-weight: normal;
+        }
+        /* AC8: global error banner — shown by window.onerror in vvwt-tablet.js */
+        #error-banner {
+            display: none;
+            background: #c0392b;
+            color: #fff;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        /* Status line (registering… / waiting… / being assigned…) */
+        #status-msg {
+            font-size: 1em;
+            color: #aaa;
+            margin-bottom: 28px;
+            min-height: 1.4em;
+        }
+        /* PIN display block — hidden until registration succeeds */
+        #pin-block {
+            display: none;
+            margin: 0 auto 28px;
+        }
+        /* AC2: PIN instruction text */
+        #pin-instruction {
+            font-size: 0.95em;
+            color: #bbb;
+            margin-bottom: 16px;
+        }
+        /* AC2: PIN value — large, high contrast, centered */
+        #pin-value {
+            font-size: 4em;
+            font-weight: bold;
+            letter-spacing: 0.18em;
+            color: #f0f0f0;
+            background: #2d2d54;
+            border-radius: 8px;
+            padding: 18px 32px;
+            display: inline-block;
+        }
+        /* AC8: retry button — hidden until an error occurs */
+        #retry-btn {
+            display: none;
+            margin-top: 16px;
+            padding: 12px 28px;
+            font-size: 1em;
+            background: #4a90e2;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        /* App version — small, bottom */
+        #version-info {
+            margin-top: 48px;
+            font-size: 0.7em;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div id="page-wrapper">
+
+        <!-- AC8: global error banner — shown by window.onerror in vvwt-tablet.js -->
+        <div id="error-banner"></div>
+
+        <!-- AC2: page heading -->
+        <h1>{{heading}}</h1>
+
+        <!-- Status message: changes as registration / polling progresses -->
+        <div id="status-msg">{{msgRegistering}}</div>
+
+        <!-- AC2: PIN display block — hidden until POST /api/devices/register succeeds -->
+        <div id="pin-block">
+            <div id="pin-instruction">{{msgPinInstruction}}</div>
+            <!-- AC2: large, centered PIN; AC9: only PIN is shown here, never the device token -->
+            <div id="pin-value"></div>
+        </div>
+
+        <!-- AC8: retry button — shown when registration or network fails -->
+        <button id="retry-btn" type="button">{{msgRetry}}</button>
+
+        <div id="version-info">
+            <small>{{versionLabel}}: {{appVersion}}</small>
+        </div>
+
+    </div>
+
+    <!--
+        E06S02 AC4 (ES5 utility script) + DEC-19:
+        Only the shared ES5 utility script and inline ES5 are permitted on this page.
+        No npm-bundled code, no Svelte, no modern JS framework.
+    -->
+    <script src="/score/assets/vvwt-tablet.js"></script>
+
+    <!--
+        E06S04 inline ES5 registration logic.
+        AC3: localStorage with cookie fallback for device token persistence.
+        AC4: polling via VvwtPoller from vvwt-tablet.js.
+        AC5: redirect to /score/field/{assignedField} on ASSIGNED status.
+        AC6: re-register on 404 response to token validation.
+        AC7: ES5 only — var, named functions, no arrow/const/let/template-literals.
+        AC8: error + retry handling.
+        AC9: device token never inserted into the DOM.
+    -->
+    <script>
+    /* =========================================================================
+       E06S04 — Tablet registration page ES5 inline script.
+       DEC-19 constraint: ECMAScript 5 only. No ES2015+ syntax.
+       Relies on helpers from /score/assets/vvwt-tablet.js (must load first):
+         vvwtFetch, VvwtPoller, vvwtSetText, vvwtShow, vvwtHide, vvwtQuery
+       ========================================================================= */
+
+    /* i18n strings injected by the Mustache template / controller (AC10) */
+    var MSG_REGISTERING     = '{{msgRegistering}}';
+    var MSG_WAITING         = '{{msgWaiting}}';
+    var MSG_POLLING         = '{{msgPolling}}';
+    var MSG_ERROR_REG       = '{{msgErrorReg}}';
+    var MSG_ERROR_NET       = '{{msgErrorNet}}';
+
+    /* Poll interval in milliseconds — midpoint of the 5–10 s range (AC4) */
+    var POLL_INTERVAL_MS    = 7500;
+
+    /* localStorage key used for device token persistence (AC3) */
+    var TOKEN_STORAGE_KEY   = 'vvwt_device_token';
+
+    /* Cookie name used as fallback when localStorage is unavailable (AC3) */
+    var TOKEN_COOKIE_NAME   = 'vvwt_device_token';
+
+    /* Active poller reference — stored so we can stop it on redirect or error */
+    var activePoller        = null;
+
+    /* -------------------------------------------------------------------------
+       DOM element references
+       --------------------------------------------------------------------- */
+    var elStatusMsg  = vvwtQuery('#status-msg');
+    var elPinBlock   = vvwtQuery('#pin-block');
+    var elPinValue   = vvwtQuery('#pin-value');
+    var elRetryBtn   = vvwtQuery('#retry-btn');
+    var elErrorBanner = vvwtQuery('#error-banner');
+
+    /* -------------------------------------------------------------------------
+       AC3: localStorage with cookie fallback
+       --------------------------------------------------------------------- */
+
+    /**
+     * Attempt to read a value from localStorage; return null on any error.
+     * @param {string} key
+     * @returns {string|null}
+     */
+    function localStorageGet(key) {
+        try {
+            return window.localStorage ? window.localStorage.getItem(key) : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /**
+     * Attempt to write a value to localStorage.
+     * Returns true on success, false if unavailable or quota exceeded (iOS 9 private browsing).
+     * @param {string} key
+     * @param {string} value
+     * @returns {boolean}
+     */
+    function localStorageSet(key, value) {
+        try {
+            if (!window.localStorage) { return false; }
+            window.localStorage.setItem(key, value);
+            /* iOS 9 private browsing: setItem silently succeeds but getItem returns null */
+            var readback = window.localStorage.getItem(key);
+            return readback !== null;
+        } catch (e) {
+            /* QuotaExceededError or other storage errors */
+            return false;
+        }
+    }
+
+    /**
+     * Attempt to remove a key from localStorage; silently ignore errors.
+     * @param {string} key
+     */
+    function localStorageRemove(key) {
+        try {
+            if (window.localStorage) { window.localStorage.removeItem(key); }
+        } catch (e) { /* ignore */ }
+    }
+
+    /**
+     * Read a cookie value by name. Returns null if absent.
+     * @param {string} name
+     * @returns {string|null}
+     */
+    function cookieGet(name) {
+        var cookies = document.cookie ? document.cookie.split(';') : [];
+        for (var i = 0; i < cookies.length; i++) {
+            var parts = cookies[i].split('=');
+            var cookieName = (parts[0] || '').replace(/^\s+|\s+$/g, '');
+            if (cookieName === name) {
+                return decodeURIComponent((parts[1] || '').replace(/^\s+|\s+$/g, ''));
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Write a session cookie (no Expires/Max-Age = session-scoped).
+     * No SameSite / Secure attributes — iOS 9 Safari does not support them;
+     * omitting is correct for LAN deployment (DEC-15, DEC-16).
+     * @param {string} name
+     * @param {string} value
+     */
+    function cookieSet(name, value) {
+        document.cookie = name + '=' + encodeURIComponent(value) + '; path=/';
+    }
+
+    /**
+     * Expire a cookie by setting Max-Age=0.
+     * @param {string} name
+     */
+    function cookieRemove(name) {
+        document.cookie = name + '=; path=/; max-age=0';
+    }
+
+    /**
+     * Persist the device token to the best available storage (AC3).
+     * Primary: localStorage. Fallback: session cookie.
+     * @param {string} token
+     */
+    function storeToken(token) {
+        var stored = localStorageSet(TOKEN_STORAGE_KEY, token);
+        if (!stored) {
+            /* localStorage unavailable (iOS 9 private browsing) — fall back to cookie */
+            cookieSet(TOKEN_COOKIE_NAME, token);
+        }
+    }
+
+    /**
+     * Retrieve the stored device token from localStorage or cookie (AC3).
+     * Returns null if no token is persisted.
+     * @returns {string|null}
+     */
+    function retrieveToken() {
+        var token = localStorageGet(TOKEN_STORAGE_KEY);
+        if (token) { return token; }
+        return cookieGet(TOKEN_COOKIE_NAME);
+    }
+
+    /**
+     * Clear the stored device token from both storage locations (AC6).
+     */
+    function clearToken() {
+        localStorageRemove(TOKEN_STORAGE_KEY);
+        cookieRemove(TOKEN_COOKIE_NAME);
+    }
+
+    /* -------------------------------------------------------------------------
+       UI helpers
+       --------------------------------------------------------------------- */
+
+    /**
+     * Show the error state with a message and the retry button (AC8).
+     * @param {string} message
+     */
+    function showError(message) {
+        if (activePoller) {
+            activePoller.stop();
+            activePoller = null;
+        }
+        vvwtSetText(elStatusMsg, message);
+        vvwtHide(elPinBlock);
+        vvwtShow(elRetryBtn);
+    }
+
+    /**
+     * Show the PIN and start polling for assignment (AC2, AC4).
+     * @param {string} pin
+     * @param {string} deviceToken
+     */
+    function showPinAndPoll(pin, deviceToken) {
+        /* AC2: show PIN prominently */
+        vvwtShow(elPinBlock);
+        vvwtSetText(elPinValue, pin);
+        vvwtHide(elRetryBtn);
+        vvwtSetText(elStatusMsg, MSG_WAITING);
+
+        /* AC4: start polling for assignment status */
+        startPolling(deviceToken);
+    }
+
+    /* -------------------------------------------------------------------------
+       AC5: redirect to scoring page on assignment
+       --------------------------------------------------------------------- */
+
+    /**
+     * Redirect the tablet to the scoring page for the assigned field (AC5).
+     * @param {number} assignedField
+     */
+    function redirectToField(assignedField) {
+        if (activePoller) {
+            activePoller.stop();
+            activePoller = null;
+        }
+        window.location.href = '/score/field/' + assignedField;
+    }
+
+    /* -------------------------------------------------------------------------
+       AC4: polling for assignment status
+       --------------------------------------------------------------------- */
+
+    /**
+     * Start polling GET /api/devices/status?token={deviceToken} (AC4).
+     * On ASSIGNED → redirect to scoring page (AC5).
+     * On network error → log but keep polling (resilience).
+     * @param {string} deviceToken
+     */
+    function startPolling(deviceToken) {
+        if (activePoller) {
+            activePoller.stop();
+        }
+        vvwtSetText(elStatusMsg, MSG_WAITING);
+
+        activePoller = new VvwtPoller(
+            '/api/devices/status?token=' + encodeURIComponent(deviceToken),
+            {
+                interval: POLL_INTERVAL_MS,
+                onData: function (data) {
+                    if (data && data.status === 'ASSIGNED') {
+                        /* AC5: validate assignedField is a number before redirecting */
+                        if (typeof data.assignedField === 'number') {
+                            redirectToField(data.assignedField);
+                        } else {
+                            /* ASSIGNED but no valid field number — surface error */
+                            showError(MSG_ERROR_REG);
+                        }
+                    }
+                    /* REGISTERED or DISCONNECTED: keep polling */
+                },
+                onError: function (err) {
+                    /* Network error during poll — log but do not stop; retry next cycle */
+                    if (window.console && window.console.warn) {
+                        window.console.warn('[E06S04] Poll error: ' + err);
+                    }
+                    /* Update status line subtly so the user sees something */
+                    vvwtSetText(elStatusMsg, MSG_POLLING);
+                }
+            }
+        );
+        activePoller.start();
+    }
+
+    /* -------------------------------------------------------------------------
+       AC1, AC3: registration flow
+       --------------------------------------------------------------------- */
+
+    /**
+     * Register a new device: POST /api/devices/register (AC1, AC2).
+     * On success: store token (AC3), display PIN, start polling (AC4).
+     * On failure: show error + retry button (AC8).
+     */
+    function registerDevice() {
+        vvwtSetText(elStatusMsg, MSG_REGISTERING);
+        vvwtHide(elPinBlock);
+        vvwtHide(elRetryBtn);
+        if (elErrorBanner) { vvwtHide(elErrorBanner); }
+
+        vvwtFetch(
+            '/api/devices/register',
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: ''
+            },
+            function (data) {
+                /* Success: data = { deviceToken, pin } */
+                if (!data || !data.deviceToken || !data.pin) {
+                    showError(MSG_ERROR_REG);
+                    return;
+                }
+                /* AC3: store token before displaying PIN */
+                storeToken(data.deviceToken);
+                /* AC2, AC4: show PIN and begin polling */
+                showPinAndPoll(data.pin, data.deviceToken);
+            },
+            function (err) {
+                /* AC8: registration failed — show error and retry button */
+                showError(err && err.indexOf('HTTP') === 0 ? MSG_ERROR_REG : MSG_ERROR_NET);
+            }
+        );
+    }
+
+    /**
+     * Validate an existing device token: GET /api/devices/status?token=... (AC3, AC6).
+     * - If status is ASSIGNED: redirect immediately (AC5).
+     * - If status is REGISTERED: show previous PIN if available; fall back to re-register.
+     * - If 404: clear token and re-register (AC6).
+     * @param {string} token
+     */
+    function validateExistingToken(token) {
+        vvwtSetText(elStatusMsg, MSG_REGISTERING);
+
+        vvwtFetch(
+            '/api/devices/status?token=' + encodeURIComponent(token),
+            { method: 'GET' },
+            function (data) {
+                if (!data) {
+                    /* Unexpected empty response — re-register */
+                    clearToken();
+                    registerDevice();
+                    return;
+                }
+                if (data.status === 'ASSIGNED') {
+                    /* AC5: already assigned — redirect immediately */
+                    if (typeof data.assignedField === 'number') {
+                        redirectToField(data.assignedField);
+                    } else {
+                        clearToken();
+                        registerDevice();
+                    }
+                } else {
+                    /*
+                     * REGISTERED or DISCONNECTED: the device exists but is not yet
+                     * assigned. Start polling; no new PIN needed.
+                     * NOTE: The server does not return the PIN on status checks.
+                     * We do not have the PIN to display here without re-registering.
+                     * Show the waiting message and start polling with the existing token.
+                     */
+                    startPolling(token);
+                }
+            },
+            function (err) {
+                /*
+                 * AC6: 404 or network error.
+                 * vvwtFetch calls onError for non-2xx responses (including 404).
+                 * Treat any error as "token invalid or network unavailable":
+                 *   - If HTTP 404: token is invalid → clear and re-register (AC6).
+                 *   - If network error: could be transient → re-register anyway
+                 *     (safe: server deduplicates if token was valid).
+                 */
+                clearToken();
+                registerDevice();
+            }
+        );
+    }
+
+    /* -------------------------------------------------------------------------
+       AC8: retry button
+       --------------------------------------------------------------------- */
+    if (elRetryBtn) {
+        elRetryBtn.onclick = function () {
+            /* Clear any stale token on explicit retry */
+            clearToken();
+            registerDevice();
+        };
+    }
+
+    /* -------------------------------------------------------------------------
+       AC3: on-load — check for existing token, then register or validate
+       --------------------------------------------------------------------- */
+    (function init() {
+        var existingToken = retrieveToken();
+        if (existingToken) {
+            /* AC3: token found — validate before registering fresh */
+            validateExistingToken(existingToken);
+        } else {
+            /* No token — fresh registration */
+            registerDevice();
+        }
+    }());
+
+    </script>
+</body>
+</html>

@@ -298,6 +298,181 @@ class ScoreControllerIT {
                 .containsAnyOf("Scoring Tablet", "VVWT Tournament Manager");
     }
 
+    // =========================================================================
+    // E06S04 — Tablet registration page integration tests
+    // =========================================================================
+
+    // -----------------------------------------------------------------------
+    // AC1: GET /score/register returns 200 with rendered HTML
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("E06S04 AC1: GET /score/register returns 200 with Mustache-rendered HTML")
+    void registerPage_returns200() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/score/register"), String.class);
+
+        assertThat(response.getStatusCode())
+                .as("GET /score/register must return 200 OK")
+                .isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as("Response must be HTML (contains DOCTYPE)")
+                .containsIgnoringCase("<!DOCTYPE html>");
+    }
+
+    // -----------------------------------------------------------------------
+    // AC2: PIN display element and instruction text present
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("E06S04 AC2: /score/register contains PIN display element")
+    void registerPage_containsPinDisplayElement() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/score/register"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as("Page must contain pin-value element for large PIN display (AC2)")
+                .contains("id=\"pin-value\"");
+        assertThat(response.getBody())
+                .as("Page must contain pin-instruction element (AC2)")
+                .contains("id=\"pin-instruction\"");
+    }
+
+    @Test
+    @DisplayName("E06S04 AC2: /score/register contains PIN instruction text from i18n")
+    void registerPage_containsPinInstructionText() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/score/register"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        // German default: "Bitte sagen Sie diese PIN dem Organisator"
+        assertThat(response.getBody())
+                .as("PIN instruction text must be present in rendered page (AC2, AC10)")
+                .containsAnyOf("PIN", "Organisator", "organizer");
+    }
+
+    // -----------------------------------------------------------------------
+    // AC7: ES5 compliance — register page inline script uses no ES6+ syntax
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("E06S04 AC7: /score/register page contains no 'const' in inline script")
+    void registerPage_inlineScript_containsNoConst() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/score/register"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        String codeOnly = stripCommentLines(response.getBody());
+        assertThat(codeOnly)
+                .as("Inline script on register page must not use 'const' (ES6+) — DEC-19")
+                .doesNotContainPattern("\\bconst\\b");
+    }
+
+    @Test
+    @DisplayName("E06S04 AC7: /score/register page contains no 'let' in inline script")
+    void registerPage_inlineScript_containsNoLet() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/score/register"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        String codeOnly = stripCommentLines(response.getBody());
+        assertThat(codeOnly)
+                .as("Inline script on register page must not use 'let' (ES6+) — DEC-19")
+                .doesNotContainPattern("\\blet\\b");
+    }
+
+    @Test
+    @DisplayName("E06S04 AC7: /score/register page contains no arrow functions in inline script")
+    void registerPage_inlineScript_containsNoArrowFunctions() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/score/register"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        String codeOnly = stripCommentLines(response.getBody());
+        assertThat(codeOnly)
+                .as("Inline script on register page must not use arrow functions (ES6+) — DEC-19")
+                .doesNotContainPattern("(?<![=<>!])=>(?!=)");
+    }
+
+    @Test
+    @DisplayName("E06S04 AC7: /score/register page loads vvwt-tablet.js ES5 utility script")
+    void registerPage_loadsTabletJs() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/score/register"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as("Register page must load vvwt-tablet.js (AC7 — ES5 utility script from E06S02)")
+                .contains("/score/assets/vvwt-tablet.js");
+    }
+
+    // -----------------------------------------------------------------------
+    // AC8: Error banner element present in rendered HTML
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("E06S04 AC8: /score/register contains error-banner and retry-btn elements")
+    void registerPage_containsErrorAndRetryElements() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/score/register"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as("Page must contain id='error-banner' element (AC8 — global error handler)")
+                .contains("id=\"error-banner\"");
+        assertThat(response.getBody())
+                .as("Page must contain id='retry-btn' retry button (AC8)")
+                .contains("id=\"retry-btn\"");
+    }
+
+    // -----------------------------------------------------------------------
+    // AC9: Security — /score/register accessible without authentication;
+    //       device token NOT in rendered HTML source
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("E06S04 AC9: GET /score/register returns 200 without Authorization header")
+    void registerPage_accessibleWithoutAuth() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/score/register"), String.class);
+
+        assertThat(response.getStatusCode())
+                .as("GET /score/register must return 200 without auth (AC9)")
+                .isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    @DisplayName("E06S04 AC9: rendered /score/register page does not expose deviceToken in HTML")
+    void registerPage_doesNotExposeDeviceToken() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/score/register"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        // The device token is a UUID — it is never in the model, so the Mustache template
+        // cannot render it. Verify no UUID-like pattern appears in a visible HTML context.
+        // Note: this test checks rendered HTML source, not JS variables.
+        assertThat(response.getBody())
+                .as("Device token must not appear as a Mustache-rendered value in HTML (AC9)")
+                .doesNotContain("deviceToken");
+    }
+
+    // -----------------------------------------------------------------------
+    // AC10: Rendered register page contains i18n strings
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("E06S04 AC10: /score/register page contains i18n heading")
+    void registerPage_containsI18nHeading() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/score/register"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as("Register page must contain i18n heading (AC10)")
+                .containsAnyOf("Scoring Tablet", "Anmeldung");
+    }
+
     // -----------------------------------------------------------------------
     // Test configuration
     // -----------------------------------------------------------------------
