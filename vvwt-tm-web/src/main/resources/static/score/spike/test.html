@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<!--
+    iOS 9 Compatibility Spike Test Page (E06S01, DEC-19)
+
+    This page exercises every browser API the scoring tablet will use:
+    - fetch/XHR (AC1)
+    - WebSocket (AC2)
+    - Polling fallback (AC3)
+    - DOM + ES5 form handling (AC4)
+    - Background/foreground recovery (AC5)
+    - Network drop detection (AC6)
+    - Spike report generation (AC7)
+    - Global error handler (AC8)
+    - Local assets only (AC9)
+    - i18n parameterization (AC10)
+
+    ALL JavaScript is ES5-strict. No ES2015+ syntax.
+    ALL assets are local. No external scripts, stylesheets, or fonts.
+-->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>iOS 9 Compatibility Spike — E06S01</title>
+    <!-- AC9: All styles are inline — no external stylesheets or fonts -->
+    <style>
+        /* Reset — iOS 9 compatible CSS only */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, Helvetica, Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.5;
+            color: #333;
+            padding: 12px;
+            background: #f5f5f5;
+        }
+        h1 { font-size: 20px; margin-bottom: 16px; color: #111; }
+        h2 { font-size: 16px; margin: 16px 0 8px 0; color: #222; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+        .spike-section {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+        .spike-result {
+            padding: 8px;
+            margin: 4px 0;
+            border-radius: 3px;
+            font-size: 14px;
+            word-wrap: break-word;
+        }
+        .spike-result-pass { background: #d4edda; color: #155724; }
+        .spike-result-fail { background: #f8d7da; color: #721c24; }
+        .spike-result-pending { background: #fff3cd; color: #856404; }
+        .spike-btn {
+            display: inline-block;
+            padding: 10px 16px;
+            margin: 4px;
+            font-size: 16px;
+            border: 1px solid #999;
+            border-radius: 4px;
+            background: #eee;
+            color: #333;
+            cursor: pointer;
+            -webkit-appearance: none;
+            -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+        }
+        .spike-btn:active { background: #ddd; }
+        .spike-error-entry {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 6px;
+            margin: 4px 0;
+            border-radius: 3px;
+            font-size: 13px;
+        }
+        .spike-verdict {
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+        }
+        .spike-verdict-pass { background: #d4edda; color: #155724; }
+        .spike-verdict-fail { background: #f8d7da; color: #721c24; }
+        .spike-verdict-pending { background: #fff3cd; color: #856404; }
+        input[type="number"] {
+            padding: 8px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 80px;
+            -webkit-appearance: none;
+        }
+        pre {
+            background: #222;
+            color: #0f0;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .spike-device-info {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>iOS 9 Compatibility Spike (E06S01)</h1>
+
+    <div class="spike-device-info" id="spike-device-info"></div>
+
+    <!-- AC7: Overall verdict -->
+    <div id="spike-overall-verdict" class="spike-verdict spike-verdict-pending">
+        Tests not yet started
+    </div>
+
+    <!-- ===== AC1: fetch + XHR ===== -->
+    <div class="spike-section">
+        <h2 data-i18n="fetchTestTitle">AC1: fetch + XHR Test</h2>
+        <button class="spike-btn" onclick="runFetchXhrTest()">Run fetch/XHR Test</button>
+        <div id="result-ac1" class="spike-result spike-result-pending" data-i18n="reportPending">PENDING</div>
+    </div>
+
+    <!-- ===== AC2: WebSocket ===== -->
+    <div class="spike-section">
+        <h2 data-i18n="wsTestTitle">AC2: WebSocket Test</h2>
+        <button class="spike-btn" onclick="runWebSocketTest()">Connect WebSocket</button>
+        <button class="spike-btn" onclick="runWebSocketReconnectTest()">Test Reconnect</button>
+        <div id="result-ac2" class="spike-result spike-result-pending" data-i18n="reportPending">PENDING</div>
+    </div>
+
+    <!-- ===== AC3: Polling fallback ===== -->
+    <div class="spike-section">
+        <h2 data-i18n="pollingTestTitle">AC3: Polling Fallback Test</h2>
+        <button class="spike-btn" onclick="runPollingTest()">Start Polling</button>
+        <button class="spike-btn" onclick="stopPollingTest()">Stop Polling</button>
+        <div id="result-ac3" class="spike-result spike-result-pending" data-i18n="reportPending">PENDING</div>
+    </div>
+
+    <!-- ===== AC4: DOM + ES5 ===== -->
+    <div class="spike-section">
+        <h2 data-i18n="domTestTitle">AC4: DOM + ES5 Test</h2>
+        <form id="spike-dom-form" onsubmit="return false;">
+            <label>Score input: </label>
+            <input type="number" id="spike-score-input" min="0" max="99" value="0">
+            <button class="spike-btn" id="spike-submit-btn" onclick="runDomTest()">Submit</button>
+        </form>
+        <div id="result-ac4" class="spike-result spike-result-pending" data-i18n="reportPending">PENDING</div>
+    </div>
+
+    <!-- ===== AC5: Background/foreground ===== -->
+    <div class="spike-section">
+        <h2 data-i18n="bgTestTitle">AC5: Background/Foreground Test</h2>
+        <p style="font-size: 14px; color: #666;">Press the Home button or switch apps for 60 seconds, then return.</p>
+        <div id="result-ac5" class="spike-result spike-result-pending" data-i18n="reportPending">PENDING</div>
+    </div>
+
+    <!-- ===== AC6: Network drop ===== -->
+    <div class="spike-section">
+        <h2 data-i18n="netTestTitle">AC6: Network Drop Test</h2>
+        <p style="font-size: 14px; color: #666;">Disconnect Wi-Fi for 10 seconds, then reconnect.</p>
+        <button class="spike-btn" onclick="runManualNetworkTest()">Manual Network Test</button>
+        <div id="result-ac6" class="spike-result spike-result-pending" data-i18n="reportPending">PENDING</div>
+    </div>
+
+    <!-- ===== AC8: Error handling ===== -->
+    <div class="spike-section">
+        <h2 data-i18n="errorTestTitle">AC8: Error Handling Test</h2>
+        <button class="spike-btn" onclick="triggerTestError()">Trigger Test Error</button>
+        <div id="result-ac8" class="spike-result spike-result-pending" data-i18n="reportPending">PENDING</div>
+        <div id="spike-error-display"></div>
+    </div>
+
+    <!-- ===== AC9: Local assets (auto-verified) ===== -->
+    <div class="spike-section">
+        <h2>AC9: Local Asset Verification</h2>
+        <div id="result-ac9" class="spike-result spike-result-pending" data-i18n="reportPending">PENDING</div>
+    </div>
+
+    <!-- ===== AC10: i18n (auto-verified) ===== -->
+    <div class="spike-section">
+        <h2>AC10: i18n Parameterization</h2>
+        <div id="result-ac10" class="spike-result spike-result-pending" data-i18n="reportPending">PENDING</div>
+    </div>
+
+    <!-- ===== AC7: Spike report ===== -->
+    <div class="spike-section">
+        <h2 data-i18n="reportTitle">AC7: Spike Report</h2>
+        <button class="spike-btn" onclick="generateSpikeReport()">Generate Report</button>
+        <pre id="spike-report-output">Run all tests first, then generate the report.</pre>
+    </div>
+
+    <!-- AC9: spike-utils.js is loaded locally from the same server -->
+    <script src="/score/spike/spike-utils.js"></script>
+    <script>
+        // ES5 only — page initialization
+        (function() {
+            "use strict";
+
+            // Display device info
+            var infoEl = document.getElementById("spike-device-info");
+            if (infoEl) {
+                infoEl.textContent = "User-Agent: " + navigator.userAgent;
+            }
+
+            // Initialize the spike page (AC5, AC6, AC9, AC10 auto-tests)
+            if (typeof initSpikePage === "function") {
+                initSpikePage();
+            }
+        })();
+    </script>
+</body>
+</html>
