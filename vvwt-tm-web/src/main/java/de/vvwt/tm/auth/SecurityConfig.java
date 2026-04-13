@@ -145,6 +145,12 @@ public class SecurityConfig {
                         // AC8: WebSocket upgrade path — permitted at HTTP layer.
                         // WebSocket-level authentication is E05S03's responsibility.
                         .requestMatchers("/ws/**").permitAll()
+                        // E06S01: iOS 9 compatibility spike — permit spike test pages and
+                        // static assets without auth for device testing. Spike-only route;
+                        // production scoring tablet auth is E06S03 scope.
+                        // Static resources from classpath:/static/score/spike/ are served
+                        // at URL /score/spike/** by Spring Boot's default resource handler.
+                        .requestMatchers("/score/spike/**").permitAll()
                         // AC4: Admin UI and REST API require authentication
                         .requestMatchers("/admin/**").authenticated()
                         .requestMatchers("/api/**").authenticated()
