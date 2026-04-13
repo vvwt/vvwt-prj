@@ -19,9 +19,18 @@ import java.util.Locale;
  *   <li>AC3: All scoring tablet routes are served under {@code /score/**}, physically
  *       separated from {@code /admin/**} (Svelte SPA) and {@code /api/**} (REST).</li>
  *   <li>AC9: The {@code /score/**} routes are accessible without admin authentication.
- *       Device authentication (device token) is deferred to E06S04.</li>
+ *       Device authentication (device token) is handled client-side via device token.</li>
  *   <li>AC10: Mustache template model is populated from the Spring {@link MessageSource}
  *       locale bundle, establishing the i18n mechanism reused by subsequent E06 stories.</li>
+ * </ul>
+ *
+ * <h2>Story E06S04 — AC1, AC2, AC10</h2>
+ * <ul>
+ *   <li>AC1: {@code GET /score/register} renders the registration Mustache template.</li>
+ *   <li>AC2: Template model includes PIN instruction text and page heading from i18n bundle.</li>
+ *   <li>AC9: The controller does NOT pass the device token to the template model —
+ *       token storage is client-side only (localStorage / cookie).</li>
+ *   <li>AC10: All user-visible strings resolved from {@link MessageSource}.</li>
  * </ul>
  *
  * <h2>DEC-12, DEC-19</h2>
@@ -82,6 +91,54 @@ public class ScoreController {
         model.addAttribute("appVersion",  appVersion);
 
         return "score/hello";
+    }
+
+    /**
+     * Tablet registration page — E06S04.
+     *
+     * <p>Mapped to {@code GET /score/register} (AC1). Renders the Mustache template
+     * {@code classpath:/templates/score/register.mustache}.</p>
+     *
+     * <p>The page immediately calls {@code POST /api/devices/register} via ES5 inline
+     * JavaScript when loaded. The device token returned is stored client-side only
+     * (localStorage with cookie fallback — AC3). The controller does NOT include the
+     * device token in the template model — the token never appears in rendered HTML
+     * source (AC9).</p>
+     *
+     * <p>All user-visible text is resolved from the Spring {@link MessageSource}
+     * ({@code messages.properties}) for German locale (AC10).</p>
+     *
+     * @param model Spring MVC model populated with i18n strings (no device token — AC9)
+     * @return Mustache view name {@code score/register}
+     */
+    @GetMapping("/register")
+    public String registerPage(Model model) {
+        Locale locale = LocaleContextHolder.getLocale();
+
+        model.addAttribute("locale", locale.toLanguageTag());
+        // AC2 — page title and heading
+        model.addAttribute("title",             msg("score.register.title",               "Scoring Tablet — Registration", locale));
+        model.addAttribute("heading",           msg("score.register.heading",             "Scoring Tablet", locale));
+        // AC2 — registering / waiting state messages (used by JS to set initial status text)
+        model.addAttribute("msgRegistering",    msg("score.register.registering",         "Registering\u2026", locale));
+        model.addAttribute("msgWaiting",        msg("score.register.waiting",             "Waiting for assignment\u2026", locale));
+        // AC2 — PIN instruction text shown after successful registration
+        model.addAttribute("msgPinInstruction", msg("score.register.pin.instruction",     "Please tell this PIN to the organizer", locale));
+        // AC4 — polling status message
+        model.addAttribute("msgPolling",        msg("score.register.polling",             "Being assigned\u2026", locale));
+        // AC8 — error messages
+        model.addAttribute("msgErrorReg",       msg("score.register.error.registration",  "Registration failed. Please try again.", locale));
+        model.addAttribute("msgErrorNet",       msg("score.register.error.network",       "Network error. Please try again.", locale));
+        // AC8 — retry button label
+        model.addAttribute("msgRetry",          msg("score.register.retry",               "Try again", locale));
+        // version (informational)
+        model.addAttribute("versionLabel", msg("score.register.version.label", "Version", locale));
+        model.addAttribute("appVersion",   appVersion);
+
+        // AC9: device token is intentionally NOT added to the model.
+        // Token storage (localStorage / cookie) is performed entirely in client-side ES5 JS.
+
+        return "score/register";
     }
 
     /**
