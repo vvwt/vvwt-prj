@@ -1,0 +1,38 @@
+package de.vvwt.tm.domain.repo;
+
+import de.vvwt.tm.domain.Device;
+import org.springframework.data.repository.CrudRepository;
+
+import java.util.Optional;
+import java.util.UUID;
+
+/**
+ * Spring Data JDBC delegate for {@link Device} persistence.
+ *
+ * <p>Wired into {@link DeviceRepository} as the low-level CRUD provider.
+ * Not intended for direct use by domain/service code — use {@link DeviceRepository}
+ * instead to ensure tenant scoping is enforced.
+ *
+ * @see DeviceRepository
+ * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E06S03.story.md">Story E06S03</a>
+ */
+interface DeviceCrudRepository extends CrudRepository<Device, UUID> {
+
+    /**
+     * Finds a device by its unique device token (all tenants — low-level delegate).
+     * Callers must apply tenant filtering; use {@link DeviceRepository#findByDeviceToken} instead.
+     */
+    Optional<Device> findByDeviceToken(String deviceToken);
+
+    /**
+     * Finds a device by tenant and PIN (AC4).
+     * Callers should use {@link DeviceRepository#findByPin} which adds tenant scoping.
+     */
+    Optional<Device> findByTenantIdAndPin(UUID tenantId, String pin);
+
+    /**
+     * Finds the device assigned to a specific field within a tenant+location (AC5 conflict check).
+     */
+    Optional<Device> findByTenantIdAndLocationIdAndAssignedField(UUID tenantId, UUID locationId,
+                                                                  Integer assignedField);
+}

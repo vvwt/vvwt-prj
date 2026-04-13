@@ -1,5 +1,6 @@
 package de.vvwt.tm.infrastructure.web;
 
+import de.vvwt.tm.domain.UnauthorizedException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -205,6 +206,36 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.badRequest().body(body);
+    }
+
+    // -------------------------------------------------------------------------
+    // E06S03 AC8 — 401: Invalid or expired device token
+    // -------------------------------------------------------------------------
+
+    /**
+     * Handles {@link UnauthorizedException} — thrown when a device token is invalid,
+     * expired, or belongs to a different tenant (AC8 — invalid device token → HTTP 401).
+     *
+     * <p>Returns 401 rather than 404 to avoid oracle attacks (not informing callers whether
+     * a token exists but belongs to a different tenant vs. does not exist at all).
+     *
+     * @param ex      the exception
+     * @param request the current HTTP request
+     * @return 401 response with i18n message key
+     */
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<ApiErrorResponse> handleUnauthorized(
+            UnauthorizedException ex, HttpServletRequest request) {
+
+        ApiErrorResponse body = new ApiErrorResponse.Builder(
+                HttpStatus.UNAUTHORIZED.value(),
+                HttpStatus.UNAUTHORIZED.getReasonPhrase(),
+                ex.getMessage() != null ? ex.getMessage() : "Unauthorized",
+                "error.device.unauthorized")
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
     }
 
     // -------------------------------------------------------------------------

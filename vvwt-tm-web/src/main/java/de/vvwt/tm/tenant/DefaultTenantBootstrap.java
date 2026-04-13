@@ -66,6 +66,10 @@ public class DefaultTenantBootstrap implements ApplicationRunner, DefaultTenantP
     private static final String SELECT_DEFAULT_TENANT =
             "SELECT id FROM tenants WHERE is_default = TRUE";
 
+    /** SQL to resolve the default location for the default tenant (DEC-5: exactly one location). */
+    private static final String SELECT_DEFAULT_LOCATION =
+            "SELECT id FROM locations WHERE tenant_id = ? LIMIT 1";
+
     /** Insert the default-tenant row. Tenant location count = 1 per DEC-5 (exactly one location). */
     private static final String INSERT_TENANT =
             "INSERT INTO tenants (id, display_name, tenant_location_count, is_default, created_at) "
@@ -82,6 +86,12 @@ public class DefaultTenantBootstrap implements ApplicationRunner, DefaultTenantP
      * bootstrap completes will receive {@link IllegalStateException} (AC4).
      */
     private final AtomicReference<UUID> resolvedTenantId = new AtomicReference<>();
+
+    /**
+     * Holds the resolved default-location UUID after bootstrap completes (E06S03, AC2).
+     * {@code null} before bootstrap.
+     */
+    private final AtomicReference<UUID> resolvedLocationId = new AtomicReference<>();
 
     private final JdbcTemplate jdbcTemplate;
     private final TransactionTemplate transactionTemplate;
@@ -122,6 +132,8 @@ public class DefaultTenantBootstrap implements ApplicationRunner, DefaultTenantP
             resolvedTenantId.set(existingId);
             // AC10: observability — subsequent start
             log.info("[tm-bootstrap] Resolved existing default tenant UUID: {}", existingId);
+            // Resolve existing default location (E06S03, AC2: location needed for device scope)
+            resolveExistingLocation(existingId);
             log.info("[tm-bootstrap] Default tenant bootstrap complete — instance identity resolved");
             return;
         }
@@ -152,6 +164,22 @@ public class DefaultTenantBootstrap implements ApplicationRunner, DefaultTenantP
         return id;
     }
 
+    /**
+     * Returns the resolved default-location UUID (E06S03, AC2).
+     *
+     * @throws IllegalStateException if called before bootstrap has completed
+     */
+    @Override
+    public UUID getDefaultLocationId() {
+        UUID id = resolvedLocationId.get();
+        if (id == null) {
+            throw new IllegalStateException(
+                    "DefaultTenantProvider.getDefaultLocationId() was called before bootstrap "
+                    + "completed. The default-location UUID is not yet resolved.");
+        }
+        return id;
+    }
+
     // -------------------------------------------------------------------------
     // Internal helpers
     // -------------------------------------------------------------------------
@@ -164,6 +192,30 @@ public class DefaultTenantBootstrap implements ApplicationRunner, DefaultTenantP
         return jdbcTemplate.query(
                 SELECT_DEFAULT_TENANT,
                 (resultSet, rowNum) -> resultSet.getObject(1, UUID.class));
+    }
+
+    /**
+     * Resolves and stores the default-location UUID for an existing tenant (E06S03, AC2).
+     *
+     * <p>In V1 the default tenant has exactly one location (DEC-5 invariant). If the query
+     * finds no location row, this is a schema integrity issue (should not happen after
+     * a clean bootstrap) — warn and leave resolvedLocationId null (device registration will
+     * fail fast at runtime with a clear IllegalStateException).
+     *
+     * @param tenantId the resolved default-tenant UUID
+     */
+    private void resolveExistingLocation(UUID tenantId) {
+        List<UUID> locations = jdbcTemplate.query(
+                SELECT_DEFAULT_LOCATION,
+                (rs, rowNum) -> rs.getObject(1, UUID.class),
+                tenantId);
+        if (locations.isEmpty()) {
+            log.warn("[tm-bootstrap] No location row found for default tenant {}. "
+                    + "Device registration (E06S03) will fail until a location row exists.", tenantId);
+        } else {
+            resolvedLocationId.set(locations.get(0));
+            log.info("[tm-bootstrap] Resolved default location UUID: {}", locations.get(0));
+        }
     }
 
     /**
@@ -190,6 +242,7 @@ public class DefaultTenantBootstrap implements ApplicationRunner, DefaultTenantP
             });
 
             resolvedTenantId.set(tenantId);
+            resolvedLocationId.set(locationId);
 
             // AC9: observability — first start
             log.info("[tm-bootstrap] Generated new default tenant UUID: {}", tenantId);
@@ -214,6 +267,7 @@ public class DefaultTenantBootstrap implements ApplicationRunner, DefaultTenantP
             }
             UUID winnerId = winners.get(0);
             resolvedTenantId.set(winnerId);
+            resolveExistingLocation(winnerId);
             log.info("[tm-bootstrap] Resolved existing default tenant UUID (after concurrent race): {}", winnerId);
             log.info("[tm-bootstrap] Default tenant bootstrap complete — instance identity resolved");
 

@@ -155,6 +155,13 @@ public class SecurityConfig {
                         // assets (/score/assets/vvwt-tablet.js), and the E06S01 spike page
                         // (/score/spike/**). DEC-19: scoring tablet surface.
                         .requestMatchers("/score/**").permitAll()
+                        // E06S03 AC2: Device registration — no auth required; tablets don't log in.
+                        // The device token (returned by /register) is the tablet's credential for
+                        // subsequent polling. Admin assign/unassign/find-by-PIN remain protected.
+                        .requestMatchers("/api/devices/register").permitAll()
+                        // E06S03 AC3: Device status polling — public; tablet provides device token
+                        // as a query param. Token validation is done at the service layer (AC8).
+                        .requestMatchers("/api/devices/status").permitAll()
                         // AC4: Admin UI and REST API require authentication
                         .requestMatchers("/admin/**").authenticated()
                         .requestMatchers("/api/**").authenticated()
