@@ -25,4 +25,16 @@ public interface DefaultTenantProvider {
      * @throws IllegalStateException if called before bootstrap has completed
      */
     UUID getDefaultTenantId();
+
+    /**
+     * Returns the resolved default-location UUID for the default tenant.
+     *
+     * <p>In V1 single-tenant-LAN mode the default tenant has exactly one location.
+     * This method returns that location's UUID, used by device registration (E06S03, AC2)
+     * to scope new devices to the correct location (DEC-5, DEC-17).
+     *
+     * @return the default-location UUID; never null after bootstrap has completed
+     * @throws IllegalStateException if called before bootstrap has completed
+     */
+    UUID getDefaultLocationId();
 }
