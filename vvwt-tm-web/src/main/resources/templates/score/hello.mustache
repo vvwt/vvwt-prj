@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="{{locale}}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{title}}</title>
+    <style>
+        /* Minimal reset — iOS 9 Safari compatible; no flexbox/grid to avoid quirks */
+        body { margin: 0; padding: 16px; font-family: Arial, sans-serif; font-size: 16px; background: #f4f4f4; }
+        h1   { font-size: 1.4em; color: #333; }
+        p    { color: #555; }
+        #error-banner { display: none; background: #c0392b; color: #fff; padding: 10px; margin-bottom: 10px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <!-- E06S02 AC8: global error banner — shown by window.onerror in vvwt-tablet.js -->
+    <div id="error-banner"></div>
+
+    <h1>{{heading}}</h1>
+    <p>{{description}}</p>
+    <p><small>{{versionLabel}}: {{appVersion}}</small></p>
+
+    <!--
+        E06S02 AC4 (ES5 utility script) + AC7 (no Svelte contamination):
+        Only the shared ES5 utility script is loaded on scoring tablet pages.
+        DEC-19: scoring tablet surface uses Mustache + ES5 only.
+    -->
+    <script src="/score/assets/vvwt-tablet.js"></script>
+</body>
+</html>

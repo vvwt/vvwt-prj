@@ -101,6 +101,16 @@
             <artifactId>vvwt-worker-lib</artifactId>
         </dependency>
 
+        <!-- Spring Boot Mustache starter — DEC-12 (Mustache engine), DEC-19 (scoring tablet surface)
+             E06S02 AC1: Mustache library via parent POM dependencyManagement (BOM-managed via
+             spring-boot-starter-mustache → jmustache). Library choice: jmustache (Apache-2.0, DEC-3).
+             Version managed by Spring Boot BOM (DEC-10 — no version pin in child modules).
+             Auto-configures MustacheViewResolver resolving from classpath:/templates/ (AC2). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mustache</artifactId>
+        </dependency>
+
         <!-- Test dependencies -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

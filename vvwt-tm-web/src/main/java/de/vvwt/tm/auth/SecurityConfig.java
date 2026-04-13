@@ -32,6 +32,9 @@ import org.springframework.security.web.SecurityFilterChain;
  *       by E05S03; WebSocket-level auth is E05S03's responsibility per AC8)</li>
  *   <li>{@code /admin/**} — requires authentication</li>
  *   <li>{@code /api/**} — requires authentication</li>
+ *   <li>{@code /score/**} — permit all (no auth — scoring tablet routes, DEC-19, E06S02 AC9)</li>
+ *   <li>{@code /admin/**} — requires authentication</li>
+ *   <li>{@code /api/**} — requires authentication</li>
  *   <li>All other paths — requires authentication (default deny)</li>
  * </ul>
  *
@@ -145,12 +148,13 @@ public class SecurityConfig {
                         // AC8: WebSocket upgrade path — permitted at HTTP layer.
                         // WebSocket-level authentication is E05S03's responsibility.
                         .requestMatchers("/ws/**").permitAll()
-                        // E06S01: iOS 9 compatibility spike — permit spike test pages and
-                        // static assets without auth for device testing. Spike-only route;
-                        // production scoring tablet auth is E06S03 scope.
-                        // Static resources from classpath:/static/score/spike/ are served
-                        // at URL /score/spike/** by Spring Boot's default resource handler.
-                        .requestMatchers("/score/spike/**").permitAll()
+                        // E06S02 AC9: All /score/** routes are accessible without admin
+                        // authentication — scorekeepers do not log in. Device authentication
+                        // (via device token) is deferred to E06S04. The routes do NOT expose
+                        // admin-only data (AC9). Covers: /score/test (hello-world), static
+                        // assets (/score/assets/vvwt-tablet.js), and the E06S01 spike page
+                        // (/score/spike/**). DEC-19: scoring tablet surface.
+                        .requestMatchers("/score/**").permitAll()
                         // AC4: Admin UI and REST API require authentication
                         .requestMatchers("/admin/**").authenticated()
                         .requestMatchers("/api/**").authenticated()
