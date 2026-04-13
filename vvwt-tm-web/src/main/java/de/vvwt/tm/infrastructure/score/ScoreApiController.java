@@ -3,6 +3,7 @@ package de.vvwt.tm.infrastructure.score;
 import de.vvwt.tm.infrastructure.score.dto.MatchScoreResponse;
 import de.vvwt.tm.infrastructure.score.dto.PartialScoreRequest;
 import de.vvwt.tm.infrastructure.score.dto.SetSubmitRequest;
+import de.vvwt.tm.infrastructure.score.dto.TabletStatusResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,9 +20,10 @@ import java.util.Optional;
  *
  * <h2>Endpoints</h2>
  * <ul>
- *   <li>{@code GET  /api/score/match?field={n}&token={t}} — resolve active match for a field (AC1, AC4)</li>
- *   <li>{@code POST /api/score/partial}                   — partial (live) score update (AC5)</li>
- *   <li>{@code POST /api/score/submit}                    — final set result submission (AC7)</li>
+ *   <li>{@code GET  /api/score/match?field={n}&token={t}}  — resolve active match for a field (AC1, AC4)</li>
+ *   <li>{@code GET  /api/score/status?field={n}&token={t}} — tablet idle/active state (E06S08 AC1–AC6)</li>
+ *   <li>{@code POST /api/score/partial}                    — partial (live) score update (AC5)</li>
+ *   <li>{@code POST /api/score/submit}                     — final set result submission (AC7)</li>
  * </ul>
  *
  * <h2>Security</h2>
@@ -45,10 +47,13 @@ import java.util.Optional;
 @RequestMapping("/api/score")
 public class ScoreApiController {
 
-    private final ScoreEntryService scoreEntryService;
+    private final ScoreEntryService   scoreEntryService;
+    private final TabletStatusService tabletStatusService;
 
-    public ScoreApiController(ScoreEntryService scoreEntryService) {
-        this.scoreEntryService = scoreEntryService;
+    public ScoreApiController(ScoreEntryService scoreEntryService,
+                              TabletStatusService tabletStatusService) {
+        this.scoreEntryService   = scoreEntryService;
+        this.tabletStatusService = tabletStatusService;
     }
 
     // -------------------------------------------------------------------------
@@ -76,6 +81,32 @@ public class ScoreApiController {
         return matchOpt
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    // -------------------------------------------------------------------------
+    // E06S08 AC1–AC6, AC9: Tablet idle/active state
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns the current tablet state for the given field and device token (E06S08 AC1–AC6, AC9).
+     *
+     * <p>The device token is validated (AC9). An invalid or unassigned token results in HTTP 401,
+     * which the client interprets as a redirect to {@code /score/register}.
+     *
+     * <p>Returns HTTP 200 with a {@link TabletStatusResponse} whose {@code state} field
+     * tells the ES5 client state machine which idle screen (or active match) to show.
+     *
+     * @param field       the court field number (1-based)
+     * @param deviceToken the tablet's opaque device token
+     * @return 200 with {@link TabletStatusResponse}; 401 if token invalid/unassigned
+     */
+    @GetMapping("/status")
+    public ResponseEntity<TabletStatusResponse> getTabletStatus(
+            @RequestParam("field") int field,
+            @RequestParam("token") String deviceToken) {
+
+        TabletStatusResponse status = tabletStatusService.getTabletStatus(field, deviceToken);
+        return ResponseEntity.ok(status);
     }
 
     // -------------------------------------------------------------------------

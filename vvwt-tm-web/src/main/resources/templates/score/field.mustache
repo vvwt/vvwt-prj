@@ -167,6 +167,56 @@
             color: #888;
             margin-bottom: 12px;
         }
+        /* E06S08 AC7: connection-loss indicator banner */
+        #connection-lost-banner {
+            display: none;
+            background: #c0392b;
+            color: #fff;
+            padding: 10px 16px;
+            margin-bottom: 12px;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+        /* E06S08 AC1: waiting-for-lap idle panel */
+        #idle-waiting-lap {
+            display: none;
+            padding: 40px 16px;
+            color: #aaa;
+            font-size: 1.05em;
+        }
+        #idle-lap-detail {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 8px;
+        }
+        /* E06S08 AC3: no-match-on-field idle panel */
+        #idle-no-match {
+            display: none;
+            padding: 40px 16px;
+            color: #aaa;
+            font-size: 1.05em;
+        }
+        /* E06S08 AC4: phase-transition idle panel */
+        #idle-phase-transition {
+            display: none;
+            padding: 40px 16px;
+            color: #aaa;
+            font-size: 1.05em;
+        }
+        /* E06S08 AC5: tournament-complete idle panel */
+        #idle-tournament-complete {
+            display: none;
+            padding: 40px 16px;
+            color: #aaa;
+            font-size: 1.05em;
+        }
+        /* E06S08 AC6: no-active-tournament idle panel */
+        #idle-no-tournament {
+            display: none;
+            padding: 40px 16px;
+            color: #aaa;
+            font-size: 1.05em;
+        }
         /* AC5: confirmation dialog overlay */
         #confirm-dialog {
             display: none;
@@ -225,6 +275,9 @@
         <!-- AC8: global error banner -->
         <div id="error-banner"></div>
 
+        <!-- E06S08 AC7: connection-loss indicator banner -->
+        <div id="connection-lost-banner">{{msgConnectionLost}}</div>
+
         <!-- AC3: page heading and field label -->
         <h1>{{heading}}</h1>
         <div id="field-label">{{msgFieldLabel}} {{fieldNumber}}</div>
@@ -235,8 +288,28 @@
         <!-- AC11: score queue status -->
         <div id="queue-status"></div>
 
-        <!-- AC9: no-match panel — shown when no active match on this field -->
+        <!-- AC9: no-match panel — shown when no active match on this field (legacy / E06S06 usage) -->
         <div id="no-match-panel">{{msgNoMatch}}</div>
+
+        <!-- E06S08 AC1: waiting-for-next-lap idle panel -->
+        <div id="idle-waiting-lap">
+            <div>{{msgWaitingLap}}</div>
+            <div id="idle-lap-detail"></div>
+        </div>
+
+        <!-- E06S08 AC3: no-match-on-this-field idle panel -->
+        <div id="idle-no-match">
+            <div id="idle-no-match-text">{{msgNoMatchField}}</div>
+        </div>
+
+        <!-- E06S08 AC4: phase-transition idle panel -->
+        <div id="idle-phase-transition">{{msgPhaseTransition}}</div>
+
+        <!-- E06S08 AC5: tournament-complete idle panel -->
+        <div id="idle-tournament-complete">{{msgTournamentComplete}}</div>
+
+        <!-- E06S08 AC6: no-active-tournament idle panel -->
+        <div id="idle-no-tournament">{{msgNoActiveTournament}}</div>
 
         <!-- AC3: match display + score entry panel -->
         <div id="match-panel">
@@ -337,17 +410,24 @@
     /* -------------------------------------------------------------------------
        i18n strings (AC13) — injected by Mustache controller
        --------------------------------------------------------------------- */
-    var MSG_LOADING          = '{{msgLoading}}';
-    var MSG_NO_MATCH         = '{{msgNoMatch}}';
-    var MSG_ERROR_NET        = '{{msgErrorNet}}';
-    var MSG_ERROR_TOKEN      = '{{msgErrorToken}}';
-    var MSG_ERROR_FORBIDDEN  = '{{msgErrorForbidden}}';
-    var MSG_ERROR_VALIDATION = '{{msgErrorValidation}}';
-    var MSG_SUBMIT_SUCCESS   = '{{msgSubmitSuccess}}';
-    var MSG_QUEUE_PENDING    = '{{msgQueuePending}}';
-    var MSG_QUEUE_SAVED      = '{{msgQueueSaved}}';
-    var MSG_LAP_LABEL        = '{{msgLapLabel}}';
-    var MSG_SET_LABEL        = '{{msgSetLabel}}';
+    var MSG_LOADING              = '{{msgLoading}}';
+    var MSG_NO_MATCH             = '{{msgNoMatch}}';
+    var MSG_ERROR_NET            = '{{msgErrorNet}}';
+    var MSG_ERROR_TOKEN          = '{{msgErrorToken}}';
+    var MSG_ERROR_FORBIDDEN      = '{{msgErrorForbidden}}';
+    var MSG_ERROR_VALIDATION     = '{{msgErrorValidation}}';
+    var MSG_SUBMIT_SUCCESS       = '{{msgSubmitSuccess}}';
+    var MSG_QUEUE_PENDING        = '{{msgQueuePending}}';
+    var MSG_QUEUE_SAVED          = '{{msgQueueSaved}}';
+    var MSG_LAP_LABEL            = '{{msgLapLabel}}';
+    var MSG_SET_LABEL            = '{{msgSetLabel}}';
+    /* E06S08 idle-state i18n strings (AC1, AC3, AC4, AC5, AC6, AC7, AC10) */
+    var MSG_WAITING_LAP          = '{{msgWaitingLap}}';
+    var MSG_NO_MATCH_FIELD       = '{{msgNoMatchField}}';
+    var MSG_PHASE_TRANSITION     = '{{msgPhaseTransition}}';
+    var MSG_TOURNAMENT_COMPLETE  = '{{msgTournamentComplete}}';
+    var MSG_NO_ACTIVE_TOURNAMENT = '{{msgNoActiveTournament}}';
+    var MSG_CONNECTION_LOST      = '{{msgConnectionLost}}';
 
     /* -------------------------------------------------------------------------
        Page state
@@ -364,6 +444,13 @@
 
     /* AC11: offline score queue — array of {matchId, setIndex, team1Points, team2Points} */
     var scoreQueue           = [];
+
+    /* E06S08 AC7: consecutive status API error counter for connection-loss indicator */
+    var statusErrorCount     = 0;
+    /* E06S08: polling timer ID for idle states (cleared when terminal state reached) */
+    var statusPollTimerId    = null;
+    /* E06S08: polling interval for idle states (5 seconds — within AC2 requirement of 5-10s) */
+    var STATUS_POLL_INTERVAL = 5000;
 
     /* -------------------------------------------------------------------------
        DOM references
@@ -394,6 +481,15 @@
     var elConfirmScore   = vvwtQuery('#confirm-dialog-score');
     var elConfirmYesBtn  = vvwtQuery('#confirm-yes-btn');
     var elConfirmNoBtn   = vvwtQuery('#confirm-no-btn');
+
+    /* E06S08: idle-state panel DOM references */
+    var elConnectionLostBanner  = vvwtQuery('#connection-lost-banner');
+    var elIdleWaitingLap        = vvwtQuery('#idle-waiting-lap');
+    var elIdleLapDetail         = vvwtQuery('#idle-lap-detail');
+    var elIdleNoMatch           = vvwtQuery('#idle-no-match');
+    var elIdlePhaseTransition   = vvwtQuery('#idle-phase-transition');
+    var elIdleTournamentComplete = vvwtQuery('#idle-tournament-complete');
+    var elIdleNoTournament      = vvwtQuery('#idle-no-tournament');
 
     /* -------------------------------------------------------------------------
        AC10: Token storage helpers (same pattern as register.mustache)
@@ -733,11 +829,160 @@
         vvwtShow(elMatchPanel);
     }
 
+    /* =========================================================================
+       E06S08 — Idle-state panel helpers
+       AC1, AC3, AC4, AC5, AC6, AC7: show/hide idle sections
+       ========================================================================= */
+
+    /**
+     * Hide all state panels (match panel and all idle panels).
+     * Call before showing the correct panel for the current state.
+     */
+    function hideAllPanels() {
+        vvwtHide(elMatchPanel);
+        vvwtHide(elNoMatchPanel);
+        vvwtHide(elIdleWaitingLap);
+        vvwtHide(elIdleNoMatch);
+        vvwtHide(elIdlePhaseTransition);
+        vvwtHide(elIdleTournamentComplete);
+        vvwtHide(elIdleNoTournament);
+    }
+
+    /**
+     * Show the connection-loss indicator banner (AC7).
+     * Called when ≥2 consecutive /api/score/status requests fail.
+     */
+    function showConnectionLost() {
+        if (elConnectionLostBanner) { vvwtShow(elConnectionLostBanner); }
+    }
+
+    /**
+     * Hide the connection-loss indicator banner (AC7).
+     * Called when a /api/score/status request succeeds.
+     */
+    function hideConnectionLost() {
+        if (elConnectionLostBanner) { vvwtHide(elConnectionLostBanner); }
+    }
+
+    /**
+     * Schedule the next status poll after STATUS_POLL_INTERVAL milliseconds.
+     * Only schedules if no terminal state has been reached.
+     */
+    function scheduleStatusPoll() {
+        statusPollTimerId = window.setTimeout(function () {
+            checkStatus();
+        }, STATUS_POLL_INTERVAL);
+    }
+
+    /* =========================================================================
+       E06S08 — State machine: checkStatus()
+       AC1–AC6, AC7, AC8, AC9: poll /api/score/status and select the correct panel
+       ========================================================================= */
+
+    /**
+     * Check the current tablet state via GET /api/score/status.
+     *
+     * On success:
+     *   ACTIVE_MATCH          → call loadMatch() (existing score-entry flow)
+     *   WAITING_FOR_LAP       → show idle-waiting-lap panel, schedule next poll (AC1, AC2)
+     *   NO_MATCH_ON_FIELD     → show idle-no-match panel, schedule next poll (AC3)
+     *   PHASE_TRANSITION      → show idle-phase-transition panel, schedule next poll (AC4)
+     *   TOURNAMENT_COMPLETE   → show idle-tournament-complete panel, stop polling (AC5)
+     *   TOURNAMENT_NOT_ACTIVE → show idle-no-tournament panel, schedule next poll (AC6)
+     *
+     * On 401: redirect to /score/register (AC9).
+     * On error: show connection-loss banner after ≥2 failures, schedule retry (AC7, AC8).
+     */
+    function checkStatus() {
+        var token = retrieveToken();
+        if (!token) {
+            window.location.href = '/score/register';
+            return;
+        }
+
+        vvwtFetch(
+            '/api/score/status?field=' + FIELD_NUMBER + '&token=' + encodeURIComponent(token),
+            { method: 'GET' },
+            function (data) {
+                statusErrorCount = 0;
+                hideConnectionLost();
+                vvwtSetText(elStatusMsg, '');
+                hideAllPanels();
+
+                if (!data || !data.state) {
+                    /* Unexpected empty response — treat as network error */
+                    statusErrorCount += 1;
+                    if (statusErrorCount >= 2) { showConnectionLost(); }
+                    scheduleStatusPoll();
+                    return;
+                }
+
+                var state = data.state;
+
+                if (state === 'ACTIVE_MATCH') {
+                    /* Active match: delegate to existing loadMatch() (AC2) */
+                    loadMatch();
+
+                } else if (state === 'WAITING_FOR_LAP') {
+                    /* AC1: show waiting-for-lap panel with lap/field detail */
+                    if (elIdleLapDetail && data.lapNumber) {
+                        vvwtSetText(elIdleLapDetail,
+                            MSG_LAP_LABEL + ' ' + data.lapNumber +
+                            ' \u2014 ' + MSG_LOADING.replace(MSG_LOADING, '') +
+                            'Feld ' + data.fieldNumber);
+                    }
+                    vvwtShow(elIdleWaitingLap);
+                    scheduleStatusPoll();
+
+                } else if (state === 'NO_MATCH_ON_FIELD') {
+                    /* AC3: show no-match-on-field panel */
+                    vvwtShow(elIdleNoMatch);
+                    scheduleStatusPoll();
+
+                } else if (state === 'PHASE_TRANSITION') {
+                    /* AC4: show phase-transition panel */
+                    vvwtShow(elIdlePhaseTransition);
+                    scheduleStatusPoll();
+
+                } else if (state === 'TOURNAMENT_COMPLETE') {
+                    /* AC5: show tournament-complete panel; stop polling */
+                    vvwtShow(elIdleTournamentComplete);
+                    /* No further polling — terminal state */
+
+                } else if (state === 'TOURNAMENT_NOT_ACTIVE') {
+                    /* AC6: show no-active-tournament panel */
+                    vvwtShow(elIdleNoTournament);
+                    scheduleStatusPoll();
+
+                } else {
+                    /* Unknown state — treat as polling continue */
+                    scheduleStatusPoll();
+                }
+            },
+            function (err) {
+                /* AC8: server errors handled gracefully — no blank page */
+                if (err && (err.indexOf('401') !== -1 || err.indexOf('403') !== -1)) {
+                    /* AC9: device not authorized → redirect to registration */
+                    window.location.href = '/score/register';
+                    return;
+                }
+
+                /* AC7: count consecutive errors; show banner after ≥2 */
+                statusErrorCount += 1;
+                if (statusErrorCount >= 2) {
+                    showConnectionLost();
+                }
+                vvwtSetText(elStatusMsg, '');
+                scheduleStatusPoll();
+            }
+        );
+    }
+
     /* -------------------------------------------------------------------------
-       Page init — load match on startup
+       Page init — check status on startup (E06S08: replaces direct loadMatch())
        --------------------------------------------------------------------- */
     (function init() {
-        loadMatch();
+        checkStatus();
     }());
 
     </script>

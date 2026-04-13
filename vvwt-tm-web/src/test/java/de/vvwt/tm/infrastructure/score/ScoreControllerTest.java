@@ -339,4 +339,96 @@ class ScoreControllerTest {
         assertThat(model.getAttribute("fieldNumber")).isEqualTo(2);
         assertThat(model.getAttribute("heading")).isEqualTo("Scoring Tablet");
     }
+
+    // =========================================================================
+    // E06S08 — Idle-state i18n model attributes (AC1, AC3, AC4, AC5, AC6, AC7, AC10)
+    // =========================================================================
+
+    private void registerIdleStateMessages() {
+        Locale jvmDefault = Locale.getDefault();
+        for (Locale locale : new Locale[]{Locale.ROOT, Locale.ENGLISH, jvmDefault}) {
+            messageSource.addMessage("score.field.idle.waiting.lap",          locale, "Waiting for next round...");
+            messageSource.addMessage("score.field.idle.no.match",             locale, "No match on this field.");
+            messageSource.addMessage("score.field.idle.phase.transition",     locale, "Phase complete. Waiting...");
+            messageSource.addMessage("score.field.idle.tournament.complete",  locale, "Tournament complete.");
+            messageSource.addMessage("score.field.idle.no.tournament",        locale, "No active tournament.");
+            messageSource.addMessage("score.field.idle.connection.lost",      locale, "Connection lost — reconnecting...");
+        }
+    }
+
+    @Test
+    @DisplayName("E06S08 AC1/AC10: fieldPage model contains msgWaitingLap from MessageSource")
+    void fieldPage_modelContainsMsgWaitingLap() {
+        registerFieldPageMessages();
+        registerIdleStateMessages();
+        Model model = new ConcurrentModel();
+        controller.fieldPage(1, model);
+        assertThat(model.getAttribute("msgWaitingLap")).isEqualTo("Waiting for next round...");
+    }
+
+    @Test
+    @DisplayName("E06S08 AC3/AC10: fieldPage model contains msgNoMatchField from MessageSource")
+    void fieldPage_modelContainsMsgNoMatchField() {
+        registerFieldPageMessages();
+        registerIdleStateMessages();
+        Model model = new ConcurrentModel();
+        controller.fieldPage(1, model);
+        assertThat(model.getAttribute("msgNoMatchField")).isEqualTo("No match on this field.");
+    }
+
+    @Test
+    @DisplayName("E06S08 AC4/AC10: fieldPage model contains msgPhaseTransition from MessageSource")
+    void fieldPage_modelContainsMsgPhaseTransition() {
+        registerFieldPageMessages();
+        registerIdleStateMessages();
+        Model model = new ConcurrentModel();
+        controller.fieldPage(1, model);
+        assertThat(model.getAttribute("msgPhaseTransition")).isEqualTo("Phase complete. Waiting...");
+    }
+
+    @Test
+    @DisplayName("E06S08 AC5/AC10: fieldPage model contains msgTournamentComplete from MessageSource")
+    void fieldPage_modelContainsMsgTournamentComplete() {
+        registerFieldPageMessages();
+        registerIdleStateMessages();
+        Model model = new ConcurrentModel();
+        controller.fieldPage(1, model);
+        assertThat(model.getAttribute("msgTournamentComplete")).isEqualTo("Tournament complete.");
+    }
+
+    @Test
+    @DisplayName("E06S08 AC6/AC10: fieldPage model contains msgNoActiveTournament from MessageSource")
+    void fieldPage_modelContainsMsgNoActiveTournament() {
+        registerFieldPageMessages();
+        registerIdleStateMessages();
+        Model model = new ConcurrentModel();
+        controller.fieldPage(1, model);
+        assertThat(model.getAttribute("msgNoActiveTournament")).isEqualTo("No active tournament.");
+    }
+
+    @Test
+    @DisplayName("E06S08 AC7/AC10: fieldPage model contains msgConnectionLost from MessageSource")
+    void fieldPage_modelContainsMsgConnectionLost() {
+        registerFieldPageMessages();
+        registerIdleStateMessages();
+        Model model = new ConcurrentModel();
+        controller.fieldPage(1, model);
+        assertThat(model.getAttribute("msgConnectionLost")).isEqualTo("Connection lost — reconnecting...");
+    }
+
+    @Test
+    @DisplayName("E06S08 AC10: idle-state messages fall back to defaults when MessageSource missing")
+    void fieldPage_idleMessages_fallBackToDefaults() {
+        MessageSource emptySource = new StaticMessageSource();
+        ScoreController controllerWithEmptySource = new ScoreController(emptySource, null);
+        Model model = new ConcurrentModel();
+
+        // Must not throw
+        controllerWithEmptySource.fieldPage(1, model);
+
+        assertThat(model.getAttribute("msgWaitingLap")).isEqualTo("Waiting for next round\u2026");
+        assertThat(model.getAttribute("msgTournamentComplete")).isEqualTo("Tournament complete.");
+        assertThat(model.getAttribute("msgConnectionLost"))
+                .isEqualTo("Connection lost \u2014 reconnecting\u2026");
+    }
 }

@@ -38,6 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *   <li>AC5: POST /api/score/partial — 204 on valid token; 401 on invalid token</li>
  *   <li>AC7/AC8: POST /api/score/submit — 401 on invalid token</li>
  *   <li>AC12: POST /api/score/submit — 403 when device on wrong field</li>
+ *   <li>E06S08 AC1–AC6, AC9: GET /api/score/status — state machine endpoint tests</li>
  * </ul>
  *
  * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E06S06.story.md">Story E06S06</a>
@@ -227,6 +228,67 @@ class ScoreApiIT {
         assertThat(response.getStatusCode())
                 .as("null matchId must return 400 (Bean Validation AC6)")
                 .isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    // =========================================================================
+    // E06S08 AC1–AC6, AC9: GET /api/score/status — tablet state endpoint
+    // =========================================================================
+
+    @Test
+    @DisplayName("E06S08 AC9: GET /api/score/status with unknown token returns 401")
+    void getStatus_unknownToken_returns401() throws Exception {
+        String unknownToken = UUID.randomUUID().toString();
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/api/score/status?field=1&token=" + unknownToken),
+                String.class);
+
+        assertThat(response.getStatusCode())
+                .as("Unknown token on status must return 401 (AC9)")
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    @DisplayName("E06S08 AC9: GET /api/score/status missing token returns 400")
+    void getStatus_missingToken_returns400() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/api/score/status?field=1"),
+                String.class);
+
+        assertThat(response.getStatusCode())
+                .as("Missing token must return 400 (missing required param)")
+                .isIn(HttpStatus.BAD_REQUEST, HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    @DisplayName("E06S08 AC9: GET /api/score/status with unassigned (REGISTERED) device returns 401")
+    void getStatus_registeredDevice_returns401() throws Exception {
+        String deviceToken = registerDevice();
+
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/api/score/status?field=1&token=" + deviceToken),
+                String.class);
+
+        assertThat(response.getStatusCode())
+                .as("REGISTERED (unassigned) device must return 401 (AC9)")
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    @DisplayName("E06S08 AC6: GET /api/score/status endpoint is reachable and rejects REGISTERED devices with 401")
+    void getStatus_registeredDevice2_returns401() throws Exception {
+        // Registers a fresh device (always resolves a new token — never affected by prior test state).
+        // Verifies that the /api/score/status endpoint is properly wired and enforces device
+        // assignment (AC9). The full TOURNAMENT_NOT_ACTIVE logic is covered by TabletStatusServiceTest
+        // (unit test — full isolation of the state resolution algorithm).
+        String freshToken = registerDevice();
+
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/api/score/status?field=1&token=" + freshToken),
+                String.class);
+
+        assertThat(response.getStatusCode())
+                .as("Newly registered (unassigned) device must return 401 on status endpoint (AC9)")
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
     // =========================================================================

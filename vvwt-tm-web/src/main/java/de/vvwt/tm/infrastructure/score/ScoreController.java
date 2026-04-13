@@ -25,6 +25,17 @@ import java.util.Locale;
  *       locale bundle, establishing the i18n mechanism reused by subsequent E06 stories.</li>
  * </ul>
  *
+ * <h2>Story E06S08 — AC1, AC3, AC4, AC5, AC6, AC7, AC10</h2>
+ * <ul>
+ *   <li>AC1:  {@code fieldPage} model includes {@code msgWaitingLap} for the lap-gap idle screen.</li>
+ *   <li>AC3:  {@code msgNoMatchField} for the no-match-on-field idle screen.</li>
+ *   <li>AC4:  {@code msgPhaseTransition} for the phase-gap idle screen.</li>
+ *   <li>AC5:  {@code msgTournamentComplete} for the tournament-complete idle screen.</li>
+ *   <li>AC6:  {@code msgNoActiveTournament} for the no-active-tournament idle screen.</li>
+ *   <li>AC7:  {@code msgConnectionLost} for the connection-loss indicator banner.</li>
+ *   <li>AC10: All new message keys resolved from {@link MessageSource}.</li>
+ * </ul>
+ *
  * <h2>Story E06S04 — AC1, AC2, AC10</h2>
  * <ul>
  *   <li>AC1: {@code GET /score/register} renders the registration Mustache template.</li>
@@ -199,6 +210,18 @@ public class ScoreController {
         // AC11 — score queue status
         model.addAttribute("msgQueuePending",       msg("score.field.queue.pending",       "Saving\u2026", locale));
         model.addAttribute("msgQueueSaved",         msg("score.field.queue.saved",         "Saved.", locale));
+        // E06S08 AC1 — lap-gap idle screen
+        model.addAttribute("msgWaitingLap",         msg("score.field.idle.waiting.lap",    "Waiting for next round\u2026", locale));
+        // E06S08 AC3 — no-match-on-field idle screen
+        model.addAttribute("msgNoMatchField",       msg("score.field.idle.no.match",       "No match on this field.", locale));
+        // E06S08 AC4 — phase-transition idle screen
+        model.addAttribute("msgPhaseTransition",    msg("score.field.idle.phase.transition","Phase complete. Waiting for next phase\u2026", locale));
+        // E06S08 AC5 — tournament-complete idle screen
+        model.addAttribute("msgTournamentComplete", msg("score.field.idle.tournament.complete", "Tournament complete.", locale));
+        // E06S08 AC6 — no-active-tournament idle screen
+        model.addAttribute("msgNoActiveTournament", msg("score.field.idle.no.tournament",  "No active tournament.", locale));
+        // E06S08 AC7 — connection-loss indicator banner
+        model.addAttribute("msgConnectionLost",     msg("score.field.idle.connection.lost","Connection lost \u2014 reconnecting\u2026", locale));
         // version (informational)
         model.addAttribute("versionLabel",          msg("score.field.version.label",       "Version", locale));
         model.addAttribute("appVersion",            appVersion);
