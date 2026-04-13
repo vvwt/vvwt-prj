@@ -42,6 +42,11 @@ spring:
 # Slot-optimization configuration (E04S02, AC6)
 # ---------------------------------------------------------------------------
 tm:
+  scoring:
+    # E06S07 AC5: tie-break side swap threshold.
+    # In volleyball, teams swap sides at this score in the deciding set (default 8 for a 15-point tie-break).
+    # Override via -Dtm.scoring.tiebreak-swap-threshold or in application-*.yml.
+    tiebreak-swap-threshold: 8
   slotopt:
     fallback:
       # Number of courts (fields) available per lap for slot assignment.

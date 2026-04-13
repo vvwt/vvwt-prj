@@ -4,9 +4,12 @@ import de.vvwt.tm.domain.CascadeRecomputeService;
 import de.vvwt.tm.domain.Device;
 import de.vvwt.tm.domain.ForbiddenException;
 import de.vvwt.tm.domain.Match;
+import de.vvwt.tm.domain.MatchFormat;
 import de.vvwt.tm.domain.MatchState;
 import de.vvwt.tm.domain.Phase;
+import de.vvwt.tm.domain.SetResult;
 import de.vvwt.tm.domain.SetResultInput;
+import de.vvwt.tm.domain.SetState;
 import de.vvwt.tm.domain.Team;
 import de.vvwt.tm.domain.TeamAvatar;
 import de.vvwt.tm.domain.Tournament;
@@ -14,6 +17,7 @@ import de.vvwt.tm.domain.UnauthorizedException;
 import de.vvwt.tm.domain.repo.DeviceRepository;
 import de.vvwt.tm.domain.repo.MatchRepository;
 import de.vvwt.tm.domain.repo.PhaseRepository;
+import de.vvwt.tm.domain.repo.SetResultRepository;
 import de.vvwt.tm.domain.repo.TeamAvatarRepository;
 import de.vvwt.tm.domain.repo.TeamRepository;
 import de.vvwt.tm.domain.repo.TournamentRepository;
@@ -40,7 +44,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link ScoreEntryService} (E06S06).
+ * Unit tests for {@link ScoreEntryService} (E06S06, E06S07).
  *
  * <p>All collaborators are mocked. Tests verify:
  * <ul>
@@ -49,9 +53,13 @@ import static org.mockito.Mockito.when;
  *   <li>AC9: Empty Optional returned when no match</li>
  *   <li>AC12: ForbiddenException thrown for wrong field</li>
  *   <li>AC7/AC8: SetResultInput built with sourceType=TABLET and sourceDeviceId</li>
+ *   <li>E06S07 AC2: team sets-won counts populated from SetResult rows</li>
+ *   <li>E06S07 AC5: tiebreakSwapThreshold populated from ScoringConfig</li>
+ *   <li>E06S07 AC6: matchWinner determined from terminal MatchState</li>
+ *   <li>E06S07 AC8: matchFormat and maxSets populated from MatchFormat enum</li>
  * </ul>
  */
-@DisplayName("ScoreEntryService unit tests (E06S06)")
+@DisplayName("ScoreEntryService unit tests (E06S06, E06S07)")
 class ScoreEntryServiceTest {
 
     // -------------------------------------------------------------------------
@@ -63,8 +71,10 @@ class ScoreEntryServiceTest {
     private MatchRepository matchRepository;
     private TeamAvatarRepository teamAvatarRepository;
     private TeamRepository teamRepository;
+    private SetResultRepository setResultRepository;
     private CascadeRecomputeService cascadeRecomputeService;
     private SimpMessagingTemplate messagingTemplate;
+    private ScoringConfig scoringConfig;
 
     private ScoreEntryService service;
 
@@ -84,19 +94,24 @@ class ScoreEntryServiceTest {
 
     @BeforeEach
     void setUp() {
-        deviceRepository       = mock(DeviceRepository.class);
-        tournamentRepository   = mock(TournamentRepository.class);
-        phaseRepository        = mock(PhaseRepository.class);
-        matchRepository        = mock(MatchRepository.class);
-        teamAvatarRepository   = mock(TeamAvatarRepository.class);
-        teamRepository         = mock(TeamRepository.class);
+        deviceRepository        = mock(DeviceRepository.class);
+        tournamentRepository    = mock(TournamentRepository.class);
+        phaseRepository         = mock(PhaseRepository.class);
+        matchRepository         = mock(MatchRepository.class);
+        teamAvatarRepository    = mock(TeamAvatarRepository.class);
+        teamRepository          = mock(TeamRepository.class);
+        setResultRepository     = mock(SetResultRepository.class);
         cascadeRecomputeService = mock(CascadeRecomputeService.class);
-        messagingTemplate      = mock(SimpMessagingTemplate.class);
+        messagingTemplate       = mock(SimpMessagingTemplate.class);
+        scoringConfig           = mock(ScoringConfig.class);
+
+        when(scoringConfig.getTiebreakSwapThreshold()).thenReturn(8);
 
         service = new ScoreEntryService(
                 deviceRepository, tournamentRepository, phaseRepository,
                 matchRepository, teamAvatarRepository, teamRepository,
-                cascadeRecomputeService, messagingTemplate);
+                setResultRepository, cascadeRecomputeService, messagingTemplate,
+                scoringConfig);
     }
 
     // =========================================================================
@@ -197,7 +212,7 @@ class ScoreEntryServiceTest {
         Device device = stubDevice(1, Device.STATUS_ASSIGNED);
         when(deviceRepository.findByDeviceToken(DEV_TOKEN)).thenReturn(Optional.of(device));
 
-        Tournament tournament = stubTournament("ACTIVE");
+        Tournament tournament = stubTournament("ACTIVE", MatchFormat.BEST_OF_3.name());
         when(tournamentRepository.findAll()).thenReturn(List.of(tournament));
 
         Phase phase = stubPhase("ACTIVE", 1);
@@ -205,6 +220,8 @@ class ScoreEntryServiceTest {
 
         Match match = stubMatch(MatchState.ENABLED.getLegacyCode(), 1, 1);
         when(matchRepository.findByFieldNumberAndLapNumber(1, 1)).thenReturn(List.of(match));
+
+        when(setResultRepository.findByMatchId(MATCH_ID)).thenReturn(Collections.emptyList());
 
         TeamAvatar avatar1 = stubAvatar(AVATAR1_ID, TEAM1_ID);
         TeamAvatar avatar2 = stubAvatar(AVATAR2_ID, TEAM2_ID);
@@ -253,6 +270,200 @@ class ScoreEntryServiceTest {
     }
 
     // =========================================================================
+    // E06S07 AC5: tiebreakSwapThreshold from ScoringConfig
+    // =========================================================================
+
+    @Test
+    @DisplayName("E06S07 AC5: tiebreakSwapThreshold is populated from ScoringConfig")
+    void getMatchForField_activeMatch_tiebreakThresholdPopulated() {
+        when(scoringConfig.getTiebreakSwapThreshold()).thenReturn(11);
+
+        Device device = stubDevice(1, Device.STATUS_ASSIGNED);
+        when(deviceRepository.findByDeviceToken(DEV_TOKEN)).thenReturn(Optional.of(device));
+
+        Tournament tournament = stubTournament("ACTIVE", MatchFormat.BEST_OF_3.name());
+        when(tournamentRepository.findAll()).thenReturn(List.of(tournament));
+
+        Phase phase = stubPhase("ACTIVE", 1);
+        when(phaseRepository.findByTournamentId(TOUR_ID)).thenReturn(List.of(phase));
+
+        Match match = stubMatch(MatchState.ENABLED.getLegacyCode(), 1, 1);
+        when(matchRepository.findByFieldNumberAndLapNumber(1, 1)).thenReturn(List.of(match));
+        when(setResultRepository.findByMatchId(MATCH_ID)).thenReturn(Collections.emptyList());
+
+        stubTeamAvatarsAndTeams();
+
+        Optional<MatchScoreResponse> result = service.getMatchForField(1, DEV_TOKEN);
+
+        assertThat(result).isPresent();
+        assertThat(result.get().tiebreakSwapThreshold()).isEqualTo(11);
+    }
+
+    // =========================================================================
+    // E06S07 AC8: matchFormat and maxSets populated from MatchFormat enum
+    // =========================================================================
+
+    @Test
+    @DisplayName("E06S07 AC8: matchFormat=BEST_OF_3 and maxSets=3 populated from tournament")
+    void getMatchForField_activeMatch_matchFormatAndMaxSetsPopulated() {
+        Device device = stubDevice(1, Device.STATUS_ASSIGNED);
+        when(deviceRepository.findByDeviceToken(DEV_TOKEN)).thenReturn(Optional.of(device));
+
+        Tournament tournament = stubTournament("ACTIVE", MatchFormat.BEST_OF_3.name());
+        when(tournamentRepository.findAll()).thenReturn(List.of(tournament));
+
+        Phase phase = stubPhase("ACTIVE", 1);
+        when(phaseRepository.findByTournamentId(TOUR_ID)).thenReturn(List.of(phase));
+
+        Match match = stubMatch(MatchState.ENABLED.getLegacyCode(), 1, 1);
+        when(matchRepository.findByFieldNumberAndLapNumber(1, 1)).thenReturn(List.of(match));
+        when(setResultRepository.findByMatchId(MATCH_ID)).thenReturn(Collections.emptyList());
+
+        stubTeamAvatarsAndTeams();
+
+        Optional<MatchScoreResponse> result = service.getMatchForField(1, DEV_TOKEN);
+
+        assertThat(result).isPresent();
+        MatchScoreResponse resp = result.get();
+        assertThat(resp.matchFormat()).isEqualTo("BEST_OF_3");
+        assertThat(resp.maxSets()).isEqualTo(3);
+    }
+
+    // =========================================================================
+    // E06S07 AC2: sets-won counts populated from SetResult rows
+    // =========================================================================
+
+    @Test
+    @DisplayName("E06S07 AC2: team1SetsWon and team2SetsWon counted from closed SetResult rows")
+    void getMatchForField_activeMatch_setsWonCountedFromSetResults() {
+        Device device = stubDevice(1, Device.STATUS_ASSIGNED);
+        when(deviceRepository.findByDeviceToken(DEV_TOKEN)).thenReturn(Optional.of(device));
+
+        Tournament tournament = stubTournament("ACTIVE", MatchFormat.BEST_OF_5.name());
+        when(tournamentRepository.findAll()).thenReturn(List.of(tournament));
+
+        Phase phase = stubPhase("ACTIVE", 1);
+        when(phaseRepository.findByTournamentId(TOUR_ID)).thenReturn(List.of(phase));
+
+        Match match = stubMatch(MatchState.INPROGRESS.getLegacyCode(), 1, 1);
+        when(matchRepository.findByFieldNumberAndLapNumber(1, 1)).thenReturn(List.of(match));
+
+        // Set 0: team1 won (WINNER1); Set 1: team2 won (WINNER2); Set 2: open (OPEN)
+        SetResult set0 = stubSetResult(0, SetState.WINNER1, 25, 18);
+        SetResult set1 = stubSetResult(1, SetState.WINNER2, 14, 25);
+        SetResult set2 = stubSetResult(2, SetState.OPEN,     7,  5);
+        when(setResultRepository.findByMatchId(MATCH_ID)).thenReturn(List.of(set0, set1, set2));
+
+        stubTeamAvatarsAndTeams();
+
+        Optional<MatchScoreResponse> result = service.getMatchForField(1, DEV_TOKEN);
+
+        assertThat(result).isPresent();
+        MatchScoreResponse resp = result.get();
+        assertThat(resp.team1SetsWon()).isEqualTo(1);
+        assertThat(resp.team2SetsWon()).isEqualTo(1);
+        assertThat(resp.setIndex()).isEqualTo(2);        // current open set index
+        assertThat(resp.team1Points()).isEqualTo(7);    // in-progress points from OPEN set
+        assertThat(resp.team2Points()).isEqualTo(5);
+        assertThat(resp.matchDecided()).isFalse();
+    }
+
+    // =========================================================================
+    // E06S07 AC6: matchWinner populated for terminal matches
+    // =========================================================================
+
+    @Test
+    @DisplayName("E06S07 AC6: matchWinner=TEAM1 when match is FINISHED_WINNER1")
+    void getMatchForField_terminalMatch_matchWinnerTeam1() {
+        Device device = stubDevice(1, Device.STATUS_ASSIGNED);
+        when(deviceRepository.findByDeviceToken(DEV_TOKEN)).thenReturn(Optional.of(device));
+
+        Tournament tournament = stubTournament("ACTIVE", MatchFormat.BEST_OF_3.name());
+        when(tournamentRepository.findAll()).thenReturn(List.of(tournament));
+
+        Phase phase = stubPhase("ACTIVE", 1);
+        when(phaseRepository.findByTournamentId(TOUR_ID)).thenReturn(List.of(phase));
+
+        Match match = stubMatch(MatchState.FINISHED_WINNER1.getLegacyCode(), 1, 1);
+        when(matchRepository.findByFieldNumberAndLapNumber(1, 1)).thenReturn(List.of(match));
+
+        SetResult set0 = stubSetResult(0, SetState.WINNER1, 25, 18);
+        SetResult set1 = stubSetResult(1, SetState.WINNER1, 25, 20);
+        when(setResultRepository.findByMatchId(MATCH_ID)).thenReturn(List.of(set0, set1));
+
+        stubTeamAvatarsAndTeams();
+
+        Optional<MatchScoreResponse> result = service.getMatchForField(1, DEV_TOKEN);
+
+        assertThat(result).isPresent();
+        MatchScoreResponse resp = result.get();
+        assertThat(resp.matchDecided()).isTrue();
+        assertThat(resp.matchWinner()).isEqualTo("TEAM1");
+        assertThat(resp.team1SetsWon()).isEqualTo(2);
+        assertThat(resp.team2SetsWon()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("E06S07 AC6: matchWinner=TEAM2 when match is FINISHED_WINNER2")
+    void getMatchForField_terminalMatch_matchWinnerTeam2() {
+        Device device = stubDevice(1, Device.STATUS_ASSIGNED);
+        when(deviceRepository.findByDeviceToken(DEV_TOKEN)).thenReturn(Optional.of(device));
+
+        Tournament tournament = stubTournament("ACTIVE", MatchFormat.BEST_OF_3.name());
+        when(tournamentRepository.findAll()).thenReturn(List.of(tournament));
+
+        Phase phase = stubPhase("ACTIVE", 1);
+        when(phaseRepository.findByTournamentId(TOUR_ID)).thenReturn(List.of(phase));
+
+        Match match = stubMatch(MatchState.FINISHED_WINNER2.getLegacyCode(), 1, 1);
+        when(matchRepository.findByFieldNumberAndLapNumber(1, 1)).thenReturn(List.of(match));
+
+        SetResult set0 = stubSetResult(0, SetState.WINNER2, 18, 25);
+        SetResult set1 = stubSetResult(1, SetState.WINNER2, 20, 25);
+        when(setResultRepository.findByMatchId(MATCH_ID)).thenReturn(List.of(set0, set1));
+
+        stubTeamAvatarsAndTeams();
+
+        Optional<MatchScoreResponse> result = service.getMatchForField(1, DEV_TOKEN);
+
+        assertThat(result).isPresent();
+        MatchScoreResponse resp = result.get();
+        assertThat(resp.matchDecided()).isTrue();
+        assertThat(resp.matchWinner()).isEqualTo("TEAM2");
+    }
+
+    @Test
+    @DisplayName("E06S07 AC6: matchWinner=STANDOFF when match is FINISHED_STANDOFF (FIXED_2_SETS)")
+    void getMatchForField_terminalMatch_matchWinnerStandoff() {
+        Device device = stubDevice(1, Device.STATUS_ASSIGNED);
+        when(deviceRepository.findByDeviceToken(DEV_TOKEN)).thenReturn(Optional.of(device));
+
+        Tournament tournament = stubTournament("ACTIVE", MatchFormat.FIXED_2_SETS.name());
+        when(tournamentRepository.findAll()).thenReturn(List.of(tournament));
+
+        Phase phase = stubPhase("ACTIVE", 1);
+        when(phaseRepository.findByTournamentId(TOUR_ID)).thenReturn(List.of(phase));
+
+        Match match = stubMatch(MatchState.FINISHED_STANDOFF.getLegacyCode(), 1, 1);
+        when(matchRepository.findByFieldNumberAndLapNumber(1, 1)).thenReturn(List.of(match));
+
+        SetResult set0 = stubSetResult(0, SetState.WINNER1, 25, 18);
+        SetResult set1 = stubSetResult(1, SetState.WINNER2, 18, 25);
+        when(setResultRepository.findByMatchId(MATCH_ID)).thenReturn(List.of(set0, set1));
+
+        stubTeamAvatarsAndTeams();
+
+        Optional<MatchScoreResponse> result = service.getMatchForField(1, DEV_TOKEN);
+
+        assertThat(result).isPresent();
+        MatchScoreResponse resp = result.get();
+        assertThat(resp.matchDecided()).isTrue();
+        assertThat(resp.matchWinner()).isEqualTo("STANDOFF");
+        assertThat(resp.matchFormat()).isEqualTo("FIXED_2_SETS");
+        assertThat(resp.maxSets()).isEqualTo(2);
+    }
+
+    // =========================================================================
     // Fixture builders
     // =========================================================================
 
@@ -267,11 +478,16 @@ class ScoreEntryServiceTest {
     }
 
     private Tournament stubTournament(String status) {
+        return stubTournament(status, MatchFormat.BEST_OF_1.name());
+    }
+
+    private Tournament stubTournament(String status, String matchFormat) {
         Tournament t = new Tournament();
         t.setId(TOUR_ID);
         t.setTenantId(TENANT_ID);
         t.setDescription("Test Tour");
         t.setStatus(status);
+        t.setMatchFormat(matchFormat);
         return t;
     }
 
@@ -309,5 +525,32 @@ class ScoreEntryServiceTest {
         t.setId(teamId);
         t.setDescription(name);
         return t;
+    }
+
+    private SetResult stubSetResult(int setIndex, SetState state, int t1Points, int t2Points) {
+        SetResult sr = new SetResult();
+        sr.setMatchId(MATCH_ID);
+        sr.setSetIndex(setIndex);
+        sr.setTenantId(TENANT_ID);
+        sr.setPhaseId(PHASE_ID);
+        sr.setTeam1Points(t1Points);
+        sr.setTeam2Points(t2Points);
+        sr.setSetState(state);
+        return sr;
+    }
+
+    /**
+     * Shared convenience — stubs the two team avatar + team lookups used by most happy-path tests.
+     */
+    private void stubTeamAvatarsAndTeams() {
+        TeamAvatar avatar1 = stubAvatar(AVATAR1_ID, TEAM1_ID);
+        TeamAvatar avatar2 = stubAvatar(AVATAR2_ID, TEAM2_ID);
+        when(teamAvatarRepository.findById(AVATAR1_ID)).thenReturn(Optional.of(avatar1));
+        when(teamAvatarRepository.findById(AVATAR2_ID)).thenReturn(Optional.of(avatar2));
+
+        Team team1 = stubTeam(TEAM1_ID, "Alpha");
+        Team team2 = stubTeam(TEAM2_ID, "Beta");
+        when(teamRepository.findById(TEAM1_ID)).thenReturn(Optional.of(team1));
+        when(teamRepository.findById(TEAM2_ID)).thenReturn(Optional.of(team2));
     }
 }

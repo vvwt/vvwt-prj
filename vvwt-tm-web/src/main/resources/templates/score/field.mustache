@@ -6,7 +6,7 @@
     <title>{{title}}</title>
     <style>
         /*
-         * E06S06 — Score entry page styles.
+         * E06S06 / E06S07 — Score entry page styles.
          * iOS 9 Safari compatible: no flexbox/grid quirks, no CSS container queries.
          * DEC-19: scoring tablet surface; Mustache + ES5 only.
          */
@@ -31,13 +31,11 @@
             margin: 0 0 4px;
             font-weight: normal;
         }
-        /* AC4: field label row */
         #field-label {
             font-size: 0.85em;
             color: #666;
             margin-bottom: 20px;
         }
-        /* AC8: global error banner */
         #error-banner {
             display: none;
             background: #c0392b;
@@ -47,27 +45,116 @@
             border-radius: 4px;
             font-size: 0.9em;
         }
-        /* Status / loading message */
         #status-msg {
             font-size: 0.95em;
             color: #777;
             margin-bottom: 20px;
             min-height: 1.4em;
         }
-        /* AC9: no-match panel */
         #no-match-panel {
             display: none;
             padding: 32px 16px;
             color: #666;
             font-size: 1em;
         }
-        /* AC3: match display panel */
+        /* E06S07 AC3 / AC5: side swap notification banner */
+        #swap-notification {
+            display: none;
+            background: #2471a3;
+            color: #fff;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        /* E06S06 AC11: queue status */
+        #queue-status {
+            display: none;
+            font-size: 0.75em;
+            color: #888;
+            margin-bottom: 12px;
+        }
+        /* =====================================================================
+           E06S07 AC1: Initial side selection panel
+           ===================================================================== */
+        #side-selection-panel {
+            display: none;
+            padding: 16px;
+        }
+        #side-selection-heading {
+            font-size: 1.1em;
+            color: #ddd;
+            margin-bottom: 8px;
+        }
+        #side-selection-prompt {
+            font-size: 0.85em;
+            color: #888;
+            margin-bottom: 20px;
+        }
+        #side-preview {
+            margin-bottom: 16px;
+        }
+        .side-col {
+            display: inline-block;
+            width: 44%;
+            vertical-align: top;
+        }
+        .side-col-label {
+            font-size: 0.75em;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        .side-team-name {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #f0f0f0;
+        }
+        #side-vs-label {
+            display: inline-block;
+            width: 12%;
+            vertical-align: middle;
+            font-size: 0.9em;
+            color: #555;
+        }
+        #side-swap-btn {
+            display: block;
+            width: 80%;
+            margin: 0 auto 16px;
+            padding: 12px 0;
+            font-size: 1em;
+            background: #555;
+            color: #eee;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        #match-start-btn {
+            display: block;
+            width: 90%;
+            margin: 0 auto;
+            padding: 14px 0;
+            font-size: 1.1em;
+            background: #27ae60;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        /* =====================================================================
+           E06S06 AC3 / E06S07: Match display + score entry panel
+           ===================================================================== */
         #match-panel {
             display: none;
         }
-        /* Team names row */
+        /* E06S07 AC8: set counter */
+        #set-counter-row {
+            font-size: 0.85em;
+            color: #7ec8e3;
+            margin-bottom: 4px;
+            font-weight: bold;
+        }
         #team-row {
-            margin-bottom: 12px;
+            margin-bottom: 6px;
         }
         #team1-name, #team2-name {
             font-size: 1.3em;
@@ -83,19 +170,42 @@
             margin: 0 12px;
             vertical-align: middle;
         }
-        /* Lap/set info */
+        /* E06S07 AC9: side indicators */
+        #side-indicator-row {
+            font-size: 0.75em;
+            color: #555;
+            margin-bottom: 6px;
+        }
+        #side-left-label {
+            display: inline-block;
+            min-width: 120px;
+        }
+        #side-right-label {
+            display: inline-block;
+            min-width: 120px;
+        }
         #lap-set-row {
             font-size: 0.8em;
             color: #666;
             margin-bottom: 20px;
         }
-        /* Referee row */
         #referee-row {
             font-size: 0.8em;
             color: #555;
             margin-bottom: 24px;
         }
-        /* AC3: score entry area */
+        /* E06S07 AC4: manual swap button during match */
+        #match-swap-btn {
+            display: inline-block;
+            padding: 8px 18px;
+            font-size: 0.85em;
+            background: #444;
+            color: #ccc;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 16px;
+        }
         #score-area {
             margin-bottom: 28px;
         }
@@ -109,7 +219,6 @@
             color: #888;
             margin-bottom: 8px;
         }
-        /* AC3: point display */
         .score-display {
             font-size: 3.5em;
             font-weight: bold;
@@ -122,7 +231,6 @@
             margin-bottom: 10px;
             width: 100%;
         }
-        /* AC3: +/- buttons and numeric input */
         .btn-plus, .btn-minus {
             display: inline-block;
             width: 44%;
@@ -147,7 +255,6 @@
             border: 1px solid #444;
             border-radius: 4px;
         }
-        /* AC5: confirm button */
         #confirm-btn {
             display: block;
             width: 90%;
@@ -160,14 +267,7 @@
             border-radius: 6px;
             cursor: pointer;
         }
-        /* AC11: queue status pill */
-        #queue-status {
-            display: none;
-            font-size: 0.75em;
-            color: #888;
-            margin-bottom: 12px;
-        }
-        /* AC5: confirmation dialog overlay */
+        /* E06S06 AC5: confirm dialog */
         #confirm-dialog {
             display: none;
             position: fixed;
@@ -211,7 +311,61 @@
         }
         #confirm-yes-btn { background: #27ae60; color: #fff; }
         #confirm-no-btn  { background: #555; color: #eee; }
-        /* Version info */
+        /* =====================================================================
+           E06S07 AC6: Match result summary panel
+           ===================================================================== */
+        #match-result-panel {
+            display: none;
+            padding: 24px 16px;
+        }
+        #match-result-heading {
+            font-size: 1.3em;
+            color: #eee;
+            margin-bottom: 16px;
+        }
+        #match-result-winner-row {
+            font-size: 1.1em;
+            margin-bottom: 16px;
+        }
+        #match-result-winner-label {
+            color: #888;
+            font-size: 0.9em;
+            margin-right: 6px;
+        }
+        #match-result-winner-name {
+            color: #f0f0f0;
+            font-weight: bold;
+        }
+        #match-result-sets-table {
+            margin: 0 auto 24px;
+            border-collapse: collapse;
+            min-width: 240px;
+        }
+        #match-result-sets-table th,
+        #match-result-sets-table td {
+            padding: 6px 14px;
+            border-bottom: 1px solid #333;
+            font-size: 0.9em;
+        }
+        #match-result-sets-table th {
+            color: #777;
+            font-weight: normal;
+        }
+        #match-result-sets-table td {
+            color: #eee;
+        }
+        #next-match-btn {
+            display: block;
+            width: 80%;
+            margin: 0 auto;
+            padding: 14px 0;
+            font-size: 1.1em;
+            background: #2980b9;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
         #version-info {
             margin-top: 40px;
             font-size: 0.65em;
@@ -222,30 +376,60 @@
 <body>
     <div id="page-wrapper">
 
-        <!-- AC8: global error banner -->
         <div id="error-banner"></div>
 
-        <!-- AC3: page heading and field label -->
         <h1>{{heading}}</h1>
         <div id="field-label">{{msgFieldLabel}} {{fieldNumber}}</div>
 
-        <!-- Status / loading line -->
         <div id="status-msg">{{msgLoading}}</div>
 
-        <!-- AC11: score queue status -->
         <div id="queue-status"></div>
 
-        <!-- AC9: no-match panel — shown when no active match on this field -->
+        <!-- E06S07 AC3 / AC5: side swap notification -->
+        <div id="swap-notification"></div>
+
+        <!-- E06S06 AC9: no-match panel -->
         <div id="no-match-panel">{{msgNoMatch}}</div>
 
-        <!-- AC3: match display + score entry panel -->
+        <!-- E06S07 AC1: initial side selection panel -->
+        <div id="side-selection-panel">
+            <div id="side-selection-heading">{{msgSideSelectionHeading}}</div>
+            <div id="side-selection-prompt">{{msgSideSelectionPrompt}}</div>
+
+            <div id="side-preview">
+                <div class="side-col">
+                    <div class="side-col-label">{{msgSideLeft}}</div>
+                    <div class="side-team-name" id="side-left-team"></div>
+                </div>
+                <span id="side-vs-label">{{msgVsLabel}}</span>
+                <div class="side-col">
+                    <div class="side-col-label">{{msgSideRight}}</div>
+                    <div class="side-team-name" id="side-right-team"></div>
+                </div>
+            </div>
+
+            <button id="side-swap-btn" type="button">{{msgSideSwap}}</button>
+            <button id="match-start-btn" type="button">{{msgMatchStart}}</button>
+        </div>
+
+        <!-- E06S06 AC3 / E06S07: match display + score entry panel -->
         <div id="match-panel">
 
-            <!-- Team names row (AC3) -->
+            <!-- E06S07 AC8: set counter -->
+            <div id="set-counter-row"></div>
+
+            <!-- AC3: team names row -->
             <div id="team-row">
                 <span id="team1-name"></span>
                 <span id="vs-label">{{msgVsLabel}}</span>
                 <span id="team2-name"></span>
+            </div>
+
+            <!-- E06S07 AC9: side indicator row -->
+            <div id="side-indicator-row">
+                <span id="side-left-label"></span>
+                &nbsp;&nbsp;&mdash;&nbsp;&nbsp;
+                <span id="side-right-label"></span>
             </div>
 
             <!-- Lap and set info -->
@@ -255,14 +439,16 @@
                 <span id="set-info"></span>
             </div>
 
-            <!-- Referee row (shown only if referee present) -->
+            <!-- Referee row -->
             <div id="referee-row" style="display:none">
                 {{msgRefereeLabel}}: <span id="referee-name"></span>
             </div>
 
+            <!-- E06S07 AC4: manual side swap button -->
+            <button id="match-swap-btn" type="button">{{msgSideSwap}}</button>
+
             <!-- AC3: score entry area -->
             <div id="score-area">
-                <!-- Team 1 column -->
                 <div class="score-col" id="col-team1">
                     <div class="score-col-label" id="label-team1"></div>
                     <div class="score-display" id="score-team1">0</div>
@@ -271,7 +457,6 @@
                     <input  class="score-input" id="input-team1" type="number" min="0" max="99" value="0">
                 </div>
 
-                <!-- Team 2 column -->
                 <div class="score-col" id="col-team2">
                     <div class="score-col-label" id="label-team2"></div>
                     <div class="score-display" id="score-team2">0</div>
@@ -279,12 +464,33 @@
                     <button class="btn-minus" id="minus-team2" type="button">{{msgMinusLabel}}</button>
                     <input  class="score-input" id="input-team2" type="number" min="0" max="99" value="0">
                 </div>
-            </div><!-- /#score-area -->
+            </div>
 
             <!-- AC5: confirm set result button -->
             <button id="confirm-btn" type="button">{{msgConfirmHeading}}</button>
 
         </div><!-- /#match-panel -->
+
+        <!-- E06S07 AC6: match result summary panel -->
+        <div id="match-result-panel">
+            <div id="match-result-heading">{{msgMatchResultHeading}}</div>
+            <div id="match-result-winner-row">
+                <span id="match-result-winner-label">{{msgMatchWinner}}:</span>
+                <span id="match-result-winner-name"></span>
+            </div>
+            <table id="match-result-sets-table">
+                <thead>
+                    <tr>
+                        <th>{{msgSetLabel}}</th>
+                        <th id="result-team1-header"></th>
+                        <th id="result-team2-header"></th>
+                    </tr>
+                </thead>
+                <tbody id="match-result-sets-body">
+                </tbody>
+            </table>
+            <button id="next-match-btn" type="button">{{msgNextMatch}}</button>
+        </div>
 
         <div id="version-info">
             <small>{{versionLabel}}: {{appVersion}}</small>
@@ -292,7 +498,7 @@
 
     </div><!-- /#page-wrapper -->
 
-    <!-- AC5: confirmation dialog overlay -->
+    <!-- E06S06 AC5: confirmation dialog overlay -->
     <div id="confirm-dialog">
         <div id="confirm-dialog-box">
             <div id="confirm-dialog-heading">{{msgConfirmHeading}}</div>
@@ -311,92 +517,128 @@
     <script src="/score/assets/vvwt-tablet.js"></script>
 
     <!--
-        E06S06 inline ES5 score-entry logic.
-        AC1:  Load active match via GET /api/score/match?field={n}&token={t}.
-        AC3:  Display match details and score entry controls.
-        AC4:  +/- buttons and numeric input for point entry.
-        AC5:  POST /api/score/partial on every score change.
-        AC6:  Show validation error returned from /api/score/submit.
-        AC7:  POST /api/score/submit on confirm dialog confirmation.
-        AC8:  source_type=TABLET handled server-side via deviceToken.
-        AC9:  Show no-match panel when 204 returned from /api/score/match.
-        AC10: Device token read from localStorage/cookie (DEC-19 ES5 compliant).
-        AC11: Score queue with retry — stores pending submits, retries on next confirm.
-        AC12: Show 403 forbidden error when device is on wrong field.
-        AC13: All UI strings from Mustache i18n keys.
+        E06S06 + E06S07 inline ES5 multi-set scoring logic.
         DEC-19: ECMAScript 5 only — var, named functions, no arrow/class/template literals.
+
+        E06S06 ACs (unchanged): AC1-AC13.
+        E06S07 ACs (new): AC1 (side selection), AC2 (set progression), AC3 (auto swap),
+          AC4 (manual swap), AC5 (tie-break swap), AC6 (result summary), AC7 (next match),
+          AC8 (set counter), AC9 (side indicator), AC10 (state persistence), AC11-AC13.
     -->
     <script>
     /* =========================================================================
-       E06S06 — Score-entry page ES5 inline script.
+       E06S06 + E06S07 — Score-entry page ES5 inline script.
        DEC-19 constraint: ECMAScript 5 only.
-       Relies on helpers from /score/assets/vvwt-tablet.js (must load first):
+       Relies on helpers from /score/assets/vvwt-tablet.js:
          vvwtFetch, vvwtSetText, vvwtShow, vvwtHide, vvwtQuery
        ========================================================================= */
 
     /* -------------------------------------------------------------------------
        i18n strings (AC13) — injected by Mustache controller
        --------------------------------------------------------------------- */
-    var MSG_LOADING          = '{{msgLoading}}';
-    var MSG_NO_MATCH         = '{{msgNoMatch}}';
-    var MSG_ERROR_NET        = '{{msgErrorNet}}';
-    var MSG_ERROR_TOKEN      = '{{msgErrorToken}}';
-    var MSG_ERROR_FORBIDDEN  = '{{msgErrorForbidden}}';
-    var MSG_ERROR_VALIDATION = '{{msgErrorValidation}}';
-    var MSG_SUBMIT_SUCCESS   = '{{msgSubmitSuccess}}';
-    var MSG_QUEUE_PENDING    = '{{msgQueuePending}}';
-    var MSG_QUEUE_SAVED      = '{{msgQueueSaved}}';
-    var MSG_LAP_LABEL        = '{{msgLapLabel}}';
-    var MSG_SET_LABEL        = '{{msgSetLabel}}';
+    var MSG_LOADING              = '{{msgLoading}}';
+    var MSG_NO_MATCH             = '{{msgNoMatch}}';
+    var MSG_ERROR_NET            = '{{msgErrorNet}}';
+    var MSG_ERROR_TOKEN          = '{{msgErrorToken}}';
+    var MSG_ERROR_FORBIDDEN      = '{{msgErrorForbidden}}';
+    var MSG_ERROR_VALIDATION     = '{{msgErrorValidation}}';
+    var MSG_SUBMIT_SUCCESS       = '{{msgSubmitSuccess}}';
+    var MSG_QUEUE_PENDING        = '{{msgQueuePending}}';
+    var MSG_QUEUE_SAVED          = '{{msgQueueSaved}}';
+    var MSG_LAP_LABEL            = '{{msgLapLabel}}';
+    var MSG_SET_LABEL            = '{{msgSetLabel}}';
+    /* E06S07 AC13 */
+    var MSG_SWAP_NOTIFICATION    = '{{msgSwapNotification}}';
+    var MSG_SWAP_TIEBREAK        = '{{msgSwapTiebreak}}';
+    var MSG_SET_COUNTER          = '{{msgSetCounter}}';
+    var MSG_COURT_LEFT           = '{{msgCourtLeft}}';
+    var MSG_COURT_RIGHT          = '{{msgCourtRight}}';
+    var MSG_MATCH_WINNER         = '{{msgMatchWinner}}';
+    var MSG_MATCH_STANDOFF       = '{{msgMatchStandoff}}';
+    var MSG_NEXT_MATCH_LOADING   = '{{msgNextMatchLoading}}';
 
     /* -------------------------------------------------------------------------
        Page state
        --------------------------------------------------------------------- */
-    var FIELD_NUMBER         = {{fieldNumber}};
-    var TOKEN_STORAGE_KEY    = 'vvwt_device_token';
-    var TOKEN_COOKIE_NAME    = 'vvwt_device_token';
+    var FIELD_NUMBER             = {{fieldNumber}};
+    var TOKEN_STORAGE_KEY        = 'vvwt_device_token';
+    var TOKEN_COOKIE_NAME        = 'vvwt_device_token';
 
     /* Current match state */
-    var currentMatchId       = null;
-    var currentSetIndex      = 0;
-    var score1               = 0;
-    var score2               = 0;
+    var currentMatchId           = null;
+    var currentSetIndex          = 0;
+    var score1                   = 0;
+    var score2                   = 0;
 
-    /* AC11: offline score queue — array of {matchId, setIndex, team1Points, team2Points} */
-    var scoreQueue           = [];
+    /* Global team names for side swap display (AC3, AC9) */
+    var gTeam1Name               = '';
+    var gTeam2Name               = '';
+
+    /* E06S07 multi-set state */
+    var matchStarted             = false;   /* AC1: true once "Start match" pressed */
+    var sideSwapped              = false;   /* AC3/AC4: false=team1 left, true=team1 right */
+    var tiebreakSwapDone         = false;   /* AC5: prevent double-firing per set */
+    var matchMaxSets             = 1;
+    var matchFormatName          = 'BEST_OF_1';
+    var tiebreakThreshold        = 8;
+    var team1SetsWon             = 0;
+    var team2SetsWon             = 0;
+    var matchDecided             = false;
+    var matchWinner              = null;
+    /* Set results stored for summary display: index = setIndex, value = {t1,t2} */
+    var setResultsForSummary     = [];
+
+    /* E06S06 AC11: offline score queue */
+    var scoreQueue               = [];
 
     /* -------------------------------------------------------------------------
        DOM references
        --------------------------------------------------------------------- */
-    var elErrorBanner    = vvwtQuery('#error-banner');
-    var elStatusMsg      = vvwtQuery('#status-msg');
-    var elQueueStatus    = vvwtQuery('#queue-status');
-    var elNoMatchPanel   = vvwtQuery('#no-match-panel');
-    var elMatchPanel     = vvwtQuery('#match-panel');
-    var elTeam1Name      = vvwtQuery('#team1-name');
-    var elTeam2Name      = vvwtQuery('#team2-name');
-    var elLapInfo        = vvwtQuery('#lap-info');
-    var elSetInfo        = vvwtQuery('#set-info');
-    var elRefereeRow     = vvwtQuery('#referee-row');
-    var elRefereeName    = vvwtQuery('#referee-name');
-    var elLabelTeam1     = vvwtQuery('#label-team1');
-    var elLabelTeam2     = vvwtQuery('#label-team2');
-    var elScoreTeam1     = vvwtQuery('#score-team1');
-    var elScoreTeam2     = vvwtQuery('#score-team2');
-    var elPlusTeam1      = vvwtQuery('#plus-team1');
-    var elMinusTeam1     = vvwtQuery('#minus-team1');
-    var elInputTeam1     = vvwtQuery('#input-team1');
-    var elPlusTeam2      = vvwtQuery('#plus-team2');
-    var elMinusTeam2     = vvwtQuery('#minus-team2');
-    var elInputTeam2     = vvwtQuery('#input-team2');
-    var elConfirmBtn     = vvwtQuery('#confirm-btn');
-    var elConfirmDialog  = vvwtQuery('#confirm-dialog');
-    var elConfirmScore   = vvwtQuery('#confirm-dialog-score');
-    var elConfirmYesBtn  = vvwtQuery('#confirm-yes-btn');
-    var elConfirmNoBtn   = vvwtQuery('#confirm-no-btn');
+    var elErrorBanner             = vvwtQuery('#error-banner');
+    var elStatusMsg               = vvwtQuery('#status-msg');
+    var elQueueStatus             = vvwtQuery('#queue-status');
+    var elSwapNotification        = vvwtQuery('#swap-notification');
+    var elNoMatchPanel            = vvwtQuery('#no-match-panel');
+    var elSideSelectionPanel      = vvwtQuery('#side-selection-panel');
+    var elSideLeftTeam            = vvwtQuery('#side-left-team');
+    var elSideRightTeam           = vvwtQuery('#side-right-team');
+    var elSideSwapBtn             = vvwtQuery('#side-swap-btn');
+    var elMatchStartBtn           = vvwtQuery('#match-start-btn');
+    var elMatchPanel              = vvwtQuery('#match-panel');
+    var elSetCounterRow           = vvwtQuery('#set-counter-row');
+    var elTeam1Name               = vvwtQuery('#team1-name');
+    var elTeam2Name               = vvwtQuery('#team2-name');
+    var elSideLeftLabel           = vvwtQuery('#side-left-label');
+    var elSideRightLabel          = vvwtQuery('#side-right-label');
+    var elLapInfo                 = vvwtQuery('#lap-info');
+    var elSetInfo                 = vvwtQuery('#set-info');
+    var elRefereeRow              = vvwtQuery('#referee-row');
+    var elRefereeName             = vvwtQuery('#referee-name');
+    var elMatchSwapBtn            = vvwtQuery('#match-swap-btn');
+    var elLabelTeam1              = vvwtQuery('#label-team1');
+    var elLabelTeam2              = vvwtQuery('#label-team2');
+    var elScoreTeam1              = vvwtQuery('#score-team1');
+    var elScoreTeam2              = vvwtQuery('#score-team2');
+    var elPlusTeam1               = vvwtQuery('#plus-team1');
+    var elMinusTeam1              = vvwtQuery('#minus-team1');
+    var elInputTeam1              = vvwtQuery('#input-team1');
+    var elPlusTeam2               = vvwtQuery('#plus-team2');
+    var elMinusTeam2              = vvwtQuery('#minus-team2');
+    var elInputTeam2              = vvwtQuery('#input-team2');
+    var elConfirmBtn              = vvwtQuery('#confirm-btn');
+    var elConfirmDialog           = vvwtQuery('#confirm-dialog');
+    var elConfirmScore            = vvwtQuery('#confirm-dialog-score');
+    var elConfirmYesBtn           = vvwtQuery('#confirm-yes-btn');
+    var elConfirmNoBtn            = vvwtQuery('#confirm-no-btn');
+    var elMatchResultPanel        = vvwtQuery('#match-result-panel');
+    var elMatchResultWinnerName   = vvwtQuery('#match-result-winner-name');
+    var elResultTeam1Header       = vvwtQuery('#result-team1-header');
+    var elResultTeam2Header       = vvwtQuery('#result-team2-header');
+    var elMatchResultSetsBody     = vvwtQuery('#match-result-sets-body');
+    var elNextMatchBtn            = vvwtQuery('#next-match-btn');
 
     /* -------------------------------------------------------------------------
-       AC10: Token storage helpers (same pattern as register.mustache)
+       AC10 (E06S06): Token storage helpers
        --------------------------------------------------------------------- */
 
     function localStorageGet(key) {
@@ -434,7 +676,80 @@
     }
 
     /* -------------------------------------------------------------------------
-       AC5: Partial score broadcast
+       E06S07 AC8: Set counter display
+       --------------------------------------------------------------------- */
+
+    function updateSetCounterDisplay() {
+        var displaySet = currentSetIndex + 1;
+        var counterText = MSG_SET_COUNTER
+                .replace('{0}', String(displaySet))
+                .replace('{1}', String(matchMaxSets));
+        vvwtSetText(elSetCounterRow, counterText);
+    }
+
+    /* -------------------------------------------------------------------------
+       E06S07 AC9: Side indicator update
+       --------------------------------------------------------------------- */
+
+    function updateSideIndicators() {
+        var leftName  = sideSwapped ? gTeam2Name : gTeam1Name;
+        var rightName = sideSwapped ? gTeam1Name : gTeam2Name;
+        vvwtSetText(elSideLeftLabel,  MSG_COURT_LEFT  + ': ' + leftName);
+        vvwtSetText(elSideRightLabel, MSG_COURT_RIGHT + ': ' + rightName);
+    }
+
+    /* -------------------------------------------------------------------------
+       E06S07 AC1: Side selection preview update
+       --------------------------------------------------------------------- */
+
+    function updateSidePreview() {
+        var leftName  = sideSwapped ? gTeam2Name : gTeam1Name;
+        var rightName = sideSwapped ? gTeam1Name : gTeam2Name;
+        vvwtSetText(elSideLeftTeam,  leftName);
+        vvwtSetText(elSideRightTeam, rightName);
+    }
+
+    /* -------------------------------------------------------------------------
+       E06S07 AC3 / AC4 / AC5: Side swap helper
+       --------------------------------------------------------------------- */
+
+    function performSideSwap(showNotification, notificationMsg) {
+        sideSwapped = !sideSwapped;
+        updateSideIndicators();
+        if (showNotification && elSwapNotification) {
+            vvwtSetText(elSwapNotification, notificationMsg);
+            vvwtShow(elSwapNotification);
+            window.setTimeout(function () {
+                vvwtHide(elSwapNotification);
+            }, 3000);
+        }
+    }
+
+    /* -------------------------------------------------------------------------
+       E06S07 AC5: Tie-break side swap detection
+       Called on score change when in the deciding set.
+       --------------------------------------------------------------------- */
+
+    function checkTiebreakSwap() {
+        if (matchFormatName === 'BEST_OF_1' || matchFormatName === 'FIXED_2_SETS') {
+            return;
+        }
+        var decidingSetIndex = matchMaxSets - 1;
+        if (currentSetIndex !== decidingSetIndex) {
+            return;
+        }
+        if (tiebreakSwapDone) {
+            return;
+        }
+        if (score1 >= tiebreakThreshold || score2 >= tiebreakThreshold) {
+            tiebreakSwapDone = true;
+            var msg = MSG_SWAP_TIEBREAK.replace('{0}', String(tiebreakThreshold));
+            performSideSwap(true, msg);
+        }
+    }
+
+    /* -------------------------------------------------------------------------
+       E06S06 AC5: Partial score broadcast
        --------------------------------------------------------------------- */
 
     function sendPartialScore() {
@@ -454,9 +769,8 @@
                     deviceToken: token
                 })
             },
-            function () { /* success — no-op, partial is fire-and-forget */ },
+            function () { /* partial is fire-and-forget */ },
             function (err) {
-                /* Network errors on partial are silent — not surfaced to user */
                 if (window.console && window.console.warn) {
                     window.console.warn('[E06S06] Partial score error: ' + err);
                 }
@@ -465,7 +779,7 @@
     }
 
     /* -------------------------------------------------------------------------
-       AC4: +/- button and input handlers
+       E06S06 AC4: +/- button and input handlers
        --------------------------------------------------------------------- */
 
     function clamp(val) {
@@ -479,6 +793,7 @@
             score1 = clamp(score1 + 1);
             updateScoreDisplay();
             sendPartialScore();
+            checkTiebreakSwap();
         };
     }
     if (elMinusTeam1) {
@@ -493,6 +808,7 @@
             score2 = clamp(score2 + 1);
             updateScoreDisplay();
             sendPartialScore();
+            checkTiebreakSwap();
         };
     }
     if (elMinusTeam2) {
@@ -508,6 +824,7 @@
             score1 = isNaN(v) ? 0 : clamp(v);
             updateScoreDisplay();
             sendPartialScore();
+            checkTiebreakSwap();
         };
     }
     if (elInputTeam2) {
@@ -516,16 +833,45 @@
             score2 = isNaN(v) ? 0 : clamp(v);
             updateScoreDisplay();
             sendPartialScore();
+            checkTiebreakSwap();
         };
     }
 
     /* -------------------------------------------------------------------------
-       AC5, AC7: Confirm dialog
+       E06S07 AC1: Initial side selection handlers
+       --------------------------------------------------------------------- */
+
+    if (elSideSwapBtn) {
+        elSideSwapBtn.onclick = function () {
+            sideSwapped = !sideSwapped;
+            updateSidePreview();
+        };
+    }
+
+    if (elMatchStartBtn) {
+        elMatchStartBtn.onclick = function () {
+            matchStarted = true;
+            vvwtHide(elSideSelectionPanel);
+            openMatchScoringPanel();
+        };
+    }
+
+    /* -------------------------------------------------------------------------
+       E06S07 AC4: Manual side swap during match
+       --------------------------------------------------------------------- */
+
+    if (elMatchSwapBtn) {
+        elMatchSwapBtn.onclick = function () {
+            performSideSwap(false, '');
+        };
+    }
+
+    /* -------------------------------------------------------------------------
+       E06S06 AC5, AC7: Confirm dialog
        --------------------------------------------------------------------- */
 
     if (elConfirmBtn) {
         elConfirmBtn.onclick = function () {
-            /* Show confirmation dialog with current score */
             if (elConfirmScore) {
                 vvwtSetText(elConfirmScore, score1 + ' : ' + score2);
             }
@@ -547,13 +893,10 @@
     }
 
     /* -------------------------------------------------------------------------
-       AC7, AC11: Set result submission with offline queue
+       E06S06 AC7, AC11 / E06S07 AC2: Set result submission
+       After success: re-poll server. If matchDecided=false, advance to next set.
        --------------------------------------------------------------------- */
 
-    /**
-     * Submit a final set result via POST /api/score/submit.
-     * On failure (network / 5xx): queue the result and retry on next confirm (AC11).
-     */
     function submitSetResult(t1, t2) {
         var token = retrieveToken();
         if (!token) {
@@ -580,14 +923,14 @@
                 })
             },
             function () {
-                /* Success: clear queue, show success, reload match state */
+                /* Success: store result for summary, reload match state (AC2) */
                 scoreQueue = [];
+                setResultsForSummary[currentSetIndex] = { t1: t1, t2: t2 };
                 showQueueStatus(MSG_QUEUE_SAVED);
                 vvwtSetText(elStatusMsg, MSG_SUBMIT_SUCCESS);
-                /* Reload match state after a short delay to pick up next set or match end */
                 window.setTimeout(function () {
                     loadMatch();
-                }, 1500);
+                }, 1200);
             },
             function (err) {
                 hideQueueStatus();
@@ -595,11 +938,11 @@
                     showError(MSG_ERROR_TOKEN);
                 } else if (err && err.indexOf('403') !== -1) {
                     showError(MSG_ERROR_FORBIDDEN);
-                } else if (err && (err.indexOf('400') !== -1)) {
-                    /* AC6: validation error */
+                } else if (err && err.indexOf('400') !== -1) {
+                    /* AC11 (E06S06): validation error — stay on current set (E06S07 AC11) */
                     showError(MSG_ERROR_VALIDATION);
                 } else {
-                    /* AC11: network or server error — queue for retry */
+                    /* AC11 (E06S06): network error — queue for retry */
                     scoreQueue.push({
                         matchId:     currentMatchId,
                         setIndex:    currentSetIndex,
@@ -624,7 +967,7 @@
     }
 
     /* -------------------------------------------------------------------------
-       Error display
+       Error helpers
        --------------------------------------------------------------------- */
 
     function showError(message) {
@@ -640,23 +983,121 @@
     }
 
     /* -------------------------------------------------------------------------
-       AC1, AC4: Load and display the active match
+       E06S07 AC6: Match result summary panel
+       --------------------------------------------------------------------- */
+
+    function showMatchResultPanel(data) {
+        vvwtHide(elMatchPanel);
+        vvwtHide(elSideSelectionPanel);
+
+        /* Determine winner display name */
+        var winnerDisplay;
+        if (data.matchWinner === 'TEAM1') {
+            winnerDisplay = gTeam1Name;
+        } else if (data.matchWinner === 'TEAM2') {
+            winnerDisplay = gTeam2Name;
+        } else {
+            winnerDisplay = MSG_MATCH_STANDOFF;
+        }
+        vvwtSetText(elMatchResultWinnerName, winnerDisplay);
+
+        /* Table headers */
+        vvwtSetText(elResultTeam1Header, gTeam1Name);
+        vvwtSetText(elResultTeam2Header, gTeam2Name);
+
+        /* Set rows from accumulated results */
+        if (elMatchResultSetsBody) {
+            elMatchResultSetsBody.innerHTML = '';
+            var totalCompletedSets = (data.team1SetsWon || 0) + (data.team2SetsWon || 0);
+            for (var i = 0; i < totalCompletedSets; i++) {
+                var tr = document.createElement('tr');
+                var tdSet = document.createElement('td');
+                var tdT1  = document.createElement('td');
+                var tdT2  = document.createElement('td');
+                vvwtSetText(tdSet, String(i + 1));
+                var sr = setResultsForSummary[i] || { t1: '-', t2: '-' };
+                vvwtSetText(tdT1, String(sr.t1));
+                vvwtSetText(tdT2, String(sr.t2));
+                tr.appendChild(tdSet);
+                tr.appendChild(tdT1);
+                tr.appendChild(tdT2);
+                elMatchResultSetsBody.appendChild(tr);
+            }
+        }
+
+        vvwtSetText(elStatusMsg, '');
+        vvwtShow(elMatchResultPanel);
+    }
+
+    /* -------------------------------------------------------------------------
+       E06S07 AC7: Next match navigation
+       --------------------------------------------------------------------- */
+
+    if (elNextMatchBtn) {
+        elNextMatchBtn.onclick = function () {
+            vvwtSetText(elStatusMsg, MSG_NEXT_MATCH_LOADING);
+            vvwtHide(elMatchResultPanel);
+            resetMatchState();
+            loadMatch();
+        };
+    }
+
+    function resetMatchState() {
+        currentMatchId        = null;
+        currentSetIndex       = 0;
+        score1                = 0;
+        score2                = 0;
+        gTeam1Name            = '';
+        gTeam2Name            = '';
+        matchStarted          = false;
+        sideSwapped           = false;
+        tiebreakSwapDone      = false;
+        matchMaxSets          = 1;
+        matchFormatName       = 'BEST_OF_1';
+        tiebreakThreshold     = 8;
+        team1SetsWon          = 0;
+        team2SetsWon          = 0;
+        matchDecided          = false;
+        matchWinner           = null;
+        setResultsForSummary  = [];
+        scoreQueue            = [];
+    }
+
+    /* -------------------------------------------------------------------------
+       Open match scoring panel (after initial side selection or set advance)
+       --------------------------------------------------------------------- */
+
+    function openMatchScoringPanel() {
+        /* AC3: auto swap when advancing between sets (but not for the first set) */
+        if (matchStarted && currentSetIndex > 0) {
+            /* Only swap on set advancement, not on re-entry to same set index */
+            /* The swap already happened in onSetAdvance — this is just for display */
+        }
+        updateSetCounterDisplay();
+        updateSideIndicators();
+        vvwtShow(elMatchPanel);
+    }
+
+    /* -------------------------------------------------------------------------
+       E06S06 AC1, AC4 / E06S07: Load and display the active match
        --------------------------------------------------------------------- */
 
     /**
-     * Load the active match for this field via GET /api/score/match?field=N&token=T.
-     * - 200: render match display (AC3).
-     * - 204: show no-match panel (AC9).
-     * - 401: show token error (AC8).
-     * - 403: show field authorization error (AC12).
+     * Load the active match for this field via GET /api/score/match.
+     * AC9: 204 No Content or empty → no-match panel.
+     * E06S07 AC2: after submit, reload to detect match-decided or advance to next set.
+     * E06S07 AC10: full server response enables state restoration on refresh.
      */
     function loadMatch() {
         var token = retrieveToken();
         clearError();
+        vvwtHide(elSwapNotification);
         vvwtShow(elStatusMsg);
         vvwtSetText(elStatusMsg, MSG_LOADING);
         vvwtHide(elMatchPanel);
+        vvwtHide(elSideSelectionPanel);
         vvwtHide(elNoMatchPanel);
+        vvwtHide(elMatchResultPanel);
 
         if (!token) {
             showError(MSG_ERROR_TOKEN);
@@ -669,7 +1110,6 @@
             function (data) {
                 vvwtSetText(elStatusMsg, '');
                 if (!data) {
-                    /* 204 No Content or empty body — no active match (AC9) */
                     currentMatchId = null;
                     vvwtShow(elNoMatchPanel);
                     return;
@@ -682,7 +1122,6 @@
                 } else if (err && err.indexOf('403') !== -1) {
                     showError(MSG_ERROR_FORBIDDEN);
                 } else if (err && err.indexOf('204') !== -1) {
-                    /* vvwtFetch may call onError for 204 — treat as no match */
                     currentMatchId = null;
                     vvwtSetText(elStatusMsg, '');
                     vvwtShow(elNoMatchPanel);
@@ -694,23 +1133,56 @@
     }
 
     /**
-     * Render the match display with the data from /api/score/match (AC3, AC4).
+     * Render match state from server response.
+     * Handles all phases: initial side selection, active scoring, set advance, match end.
      */
     function renderMatch(data) {
-        currentMatchId  = data.matchId  || null;
-        currentSetIndex = data.setIndex || 0;
-        score1          = data.team1Points || 0;
-        score2          = data.team2Points || 0;
+        var incomingMatchId = (data.matchId || '').toString();
+        var isNewMatch = (currentMatchId === null || currentMatchId.toString() !== incomingMatchId);
+        var previousSetIndex = currentSetIndex;
 
-        /* AC3: team names */
-        vvwtSetText(elTeam1Name, data.team1Name || '?');
-        vvwtSetText(elTeam2Name, data.team2Name || '?');
-        vvwtSetText(elLabelTeam1, data.team1Name || '?');
-        vvwtSetText(elLabelTeam2, data.team2Name || '?');
+        /* Update state from server response (AC10: full restoration on refresh) */
+        currentMatchId    = data.matchId   || null;
+        currentSetIndex   = data.setIndex  || 0;
+        score1            = data.team1Points || 0;
+        score2            = data.team2Points || 0;
+        matchMaxSets      = data.maxSets   || 1;
+        matchFormatName   = data.matchFormat || 'BEST_OF_1';
+        tiebreakThreshold = data.tiebreakSwapThreshold || 8;
+        team1SetsWon      = data.team1SetsWon || 0;
+        team2SetsWon      = data.team2SetsWon || 0;
+        matchDecided      = data.matchDecided  || false;
+        matchWinner       = data.matchWinner   || null;
+
+        gTeam1Name = data.team1Name || '?';
+        gTeam2Name = data.team2Name || '?';
+
+        /* Reset tie-break swap flag when a new match begins or when set advances */
+        if (isNewMatch) {
+            tiebreakSwapDone = false;
+            matchStarted     = false;
+            sideSwapped      = false;
+        } else if (currentSetIndex !== previousSetIndex) {
+            /* E06S07 AC3: auto swap between sets */
+            tiebreakSwapDone = false;
+            performSideSwap(true, MSG_SWAP_NOTIFICATION);
+        }
+
+        /* E06S07 AC6: show result summary when match is decided */
+        if (matchDecided) {
+            showMatchResultPanel(data);
+            return;
+        }
+
+        /* Update team names display */
+        vvwtSetText(elTeam1Name, gTeam1Name);
+        vvwtSetText(elTeam2Name, gTeam2Name);
+        vvwtSetText(elLabelTeam1, gTeam1Name);
+        vvwtSetText(elLabelTeam2, gTeam2Name);
 
         /* Lap and set info */
         vvwtSetText(elLapInfo, MSG_LAP_LABEL + ' ' + (data.lapNumber || 0));
-        vvwtSetText(elSetInfo, MSG_SET_LABEL + ' ' + ((data.setIndex || 0) + 1));
+        vvwtSetText(elSetInfo, MSG_SET_LABEL + ' ' + (currentSetIndex + 1));
 
         /* Referee */
         if (data.refereeTeamName) {
@@ -723,14 +1195,22 @@
         /* Score display */
         updateScoreDisplay();
 
-        /* Retry any queued submissions (AC11) */
+        /* Retry queued submissions (AC11) */
         if (scoreQueue.length > 0) {
             var queued = scoreQueue.shift();
-            /* Silently re-attempt the queued item */
             submitSetResult(queued.team1Points, queued.team2Points);
+            return;
         }
 
-        vvwtShow(elMatchPanel);
+        /* E06S07 AC1: show initial side selection if match not yet started */
+        if (!matchStarted) {
+            updateSidePreview();
+            vvwtShow(elSideSelectionPanel);
+            return;
+        }
+
+        /* Show match scoring panel */
+        openMatchScoringPanel();
     }
 
     /* -------------------------------------------------------------------------

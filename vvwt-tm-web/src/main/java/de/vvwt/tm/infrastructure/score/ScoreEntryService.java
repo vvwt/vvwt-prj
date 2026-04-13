@@ -3,9 +3,12 @@ package de.vvwt.tm.infrastructure.score;
 import de.vvwt.tm.domain.Device;
 import de.vvwt.tm.domain.ForbiddenException;
 import de.vvwt.tm.domain.Match;
+import de.vvwt.tm.domain.MatchFormat;
 import de.vvwt.tm.domain.MatchState;
 import de.vvwt.tm.domain.Phase;
+import de.vvwt.tm.domain.SetResult;
 import de.vvwt.tm.domain.SetResultInput;
+import de.vvwt.tm.domain.SetState;
 import de.vvwt.tm.domain.Team;
 import de.vvwt.tm.domain.TeamAvatar;
 import de.vvwt.tm.domain.Tournament;
@@ -14,6 +17,7 @@ import de.vvwt.tm.domain.UnauthorizedException;
 import de.vvwt.tm.domain.repo.DeviceRepository;
 import de.vvwt.tm.domain.repo.MatchRepository;
 import de.vvwt.tm.domain.repo.PhaseRepository;
+import de.vvwt.tm.domain.repo.SetResultRepository;
 import de.vvwt.tm.domain.repo.TeamAvatarRepository;
 import de.vvwt.tm.domain.repo.TeamRepository;
 import de.vvwt.tm.domain.repo.TournamentRepository;
@@ -26,25 +30,31 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Service layer for the scoring tablet score-entry page (E06S06).
+ * Service layer for the scoring tablet score-entry page (E06S06, E06S07).
  *
  * <h2>Responsibilities (ACs covered)</h2>
  * <ul>
- *   <li>AC1: Resolve the active match for a given field+lap.</li>
- *   <li>AC3: Validate device token and field ownership before any operation.</li>
- *   <li>AC4: Build {@link MatchScoreResponse} from match + team names.</li>
- *   <li>AC5: Accept partial (in-progress) score updates and broadcast via WebSocket.</li>
- *   <li>AC7: Submit final set result to {@link CascadeRecomputeService}.</li>
- *   <li>AC8: Record {@code source_type=TABLET}, {@code source_device_id} in cascade input.</li>
- *   <li>AC9: Return empty Optional when no active match exists for the field (no-match state).</li>
- *   <li>AC12: Throw {@link ForbiddenException} when device is valid but assigned to a different field.</li>
+ *   <li>AC1 (E06S06): Resolve the active match for a given field+lap.</li>
+ *   <li>AC3 (E06S06): Validate device token and field ownership before any operation.</li>
+ *   <li>AC4 (E06S06): Build {@link MatchScoreResponse} from match + team names.</li>
+ *   <li>AC5 (E06S06): Accept partial (in-progress) score updates and broadcast via WebSocket.</li>
+ *   <li>AC7 (E06S06): Submit final set result to {@link CascadeRecomputeService}.</li>
+ *   <li>AC8 (E06S06): Record {@code source_type=TABLET}, {@code source_device_id} in cascade input.</li>
+ *   <li>AC9 (E06S06): Return empty Optional when no active match exists for the field (no-match state).</li>
+ *   <li>AC12 (E06S06): Throw {@link ForbiddenException} when device is valid but assigned to a different field.</li>
+ *   <li>AC2 (E06S07): Populate {@link MatchScoreResponse} with multi-set progression fields
+ *       (team1SetsWon, team2SetsWon, matchDecided, matchWinner, currentSetIndex).</li>
+ *   <li>AC5 (E06S07): Include tiebreakSwapThreshold from {@link ScoringConfig} in response.</li>
+ *   <li>AC8 (E06S07): Include matchFormat and maxSets for set counter display.</li>
+ *   <li>AC10 (E06S07): Full match state in response enables client-side state restoration on refresh.</li>
  * </ul>
  *
- * <h2>Token validation (AC8, AC12)</h2>
+ * <h2>Token validation (AC8/AC12 E06S06)</h2>
  * <p>A valid device token must:
  * <ol>
  *   <li>Exist in the {@code devices} table and belong to the active tenant.</li>
@@ -55,26 +65,29 @@ import java.util.UUID;
  * Step 2 failure → 401 {@link UnauthorizedException} (unassigned device).<br>
  * Step 3 failure → 403 {@link ForbiddenException} (valid device, wrong field).
  *
- * <h2>Match resolution (AC1, AC9)</h2>
+ * <h2>Match resolution (AC1, AC9 E06S06)</h2>
  * <p>The active match is resolved by finding the active tournament → active phase →
  * current lap number → {@code findByFieldNumberAndLapNumber}. If no ACTIVE tournament/phase
  * exists, or no non-terminal match is found for the field+lap, an empty Optional is returned
- * (the template renders the "no match" state — AC9).
+ * (the template renders the "no match" state — AC9). For E06S07, the response also includes
+ * set-won counts aggregated from persisted {@link SetResult} rows.
  *
- * <h2>Partial score broadcast (AC5)</h2>
+ * <h2>Partial score broadcast (AC5 E06S06)</h2>
  * <p>Partial updates are broadcast directly to {@code /topic/score/field/{fieldNumber}}
  * via WebSocket so every connected tablet on that field sees live score changes without polling.
  *
  * @see CascadeRecomputeService
  * @see MatchScoreResponse
+ * @see ScoringConfig
  * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E06S06.story.md">Story E06S06</a>
+ * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E06S07.story.md">Story E06S07</a>
  */
 @Service
 public class ScoreEntryService {
 
     private static final Logger log = LoggerFactory.getLogger(ScoreEntryService.class);
 
-    /** WebSocket topic prefix for per-field partial score broadcasts (AC5). */
+    /** WebSocket topic prefix for per-field partial score broadcasts (AC5 E06S06). */
     static final String SCORE_TOPIC_PREFIX = "/topic/score/field/";
 
     // -------------------------------------------------------------------------
@@ -89,6 +102,13 @@ public class ScoreEntryService {
             MatchState.ONCHECK.getLegacyCode()
     };
 
+    /** Terminal match state codes used to determine matchDecided (E06S07 AC2). */
+    private static final int[] TERMINAL_STATES = {
+            MatchState.FINISHED_WINNER1.getLegacyCode(),
+            MatchState.FINISHED_WINNER2.getLegacyCode(),
+            MatchState.FINISHED_STANDOFF.getLegacyCode()
+    };
+
     // -------------------------------------------------------------------------
     // Dependencies
     // -------------------------------------------------------------------------
@@ -99,8 +119,10 @@ public class ScoreEntryService {
     private final MatchRepository matchRepository;
     private final TeamAvatarRepository teamAvatarRepository;
     private final TeamRepository teamRepository;
+    private final SetResultRepository setResultRepository;
     private final CascadeRecomputeService cascadeRecomputeService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final ScoringConfig scoringConfig;
 
     /**
      * Constructor injection of all collaborators.
@@ -111,16 +133,20 @@ public class ScoreEntryService {
                              MatchRepository matchRepository,
                              TeamAvatarRepository teamAvatarRepository,
                              TeamRepository teamRepository,
+                             SetResultRepository setResultRepository,
                              CascadeRecomputeService cascadeRecomputeService,
-                             SimpMessagingTemplate messagingTemplate) {
+                             SimpMessagingTemplate messagingTemplate,
+                             ScoringConfig scoringConfig) {
         this.deviceRepository = deviceRepository;
         this.tournamentRepository = tournamentRepository;
         this.phaseRepository = phaseRepository;
         this.matchRepository = matchRepository;
         this.teamAvatarRepository = teamAvatarRepository;
         this.teamRepository = teamRepository;
+        this.setResultRepository = setResultRepository;
         this.cascadeRecomputeService = cascadeRecomputeService;
         this.messagingTemplate = messagingTemplate;
+        this.scoringConfig = scoringConfig;
     }
 
     // -------------------------------------------------------------------------
@@ -182,6 +208,7 @@ public class ScoreEntryService {
         }
 
         // Build a partial response with updated scores and broadcast
+        // Carry over all E06S07 multi-set fields from the existing response (they don't change on partial)
         MatchScoreResponse partial = new MatchScoreResponse(
                 existing.matchId(),
                 existing.fieldNumber(),
@@ -191,7 +218,14 @@ public class ScoreEntryService {
                 existing.team2Name(),
                 existing.refereeTeamName(),
                 request.team1Points(),
-                request.team2Points());
+                request.team2Points(),
+                existing.matchFormat(),
+                existing.maxSets(),
+                existing.tiebreakSwapThreshold(),
+                existing.team1SetsWon(),
+                existing.team2SetsWon(),
+                existing.matchDecided(),
+                existing.matchWinner());
 
         String topic = SCORE_TOPIC_PREFIX + fieldNumber;
         try {
@@ -283,6 +317,10 @@ public class ScoreEntryService {
      * Resolves the active non-terminal match for the given field by traversing:
      * active tournament → active phase → current lap → match query.
      *
+     * <p>Extended for E06S07 to include multi-set state fields:
+     * sets won by each team (from persisted SetResults), match format, maxSets,
+     * tiebreak swap threshold, and match-decided flag.
+     *
      * @param fieldNumber the court field number
      * @return populated response or empty if no match found
      */
@@ -296,7 +334,7 @@ public class ScoreEntryService {
             }
         }
         if (activeTournament == null) {
-            log.debug("[E06S06] No active tournament found for field {}", fieldNumber);
+            log.debug("[E06S06/E06S07] No active tournament found for field {}", fieldNumber);
             return Optional.empty();
         }
 
@@ -309,23 +347,25 @@ public class ScoreEntryService {
             }
         }
         if (activePhase == null) {
-            log.debug("[E06S06] No active phase found in tournament={}", activeTournament.getId());
+            log.debug("[E06S06/E06S07] No active phase found in tournament={}", activeTournament.getId());
             return Optional.empty();
         }
 
         // Current lap number from the active phase
         int lapNumber = activePhase.getCurrentLapNumber();
 
-        // Find a non-terminal match on this field+lap
+        // Find a non-terminal OR terminal match on this field+lap.
+        // We include terminal matches so that a page refresh after match completion still returns
+        // the match data with matchDecided=true (enabling the client to render the result summary — AC10).
         Match activeMatch = null;
         for (Match m : matchRepository.findByFieldNumberAndLapNumber(fieldNumber, lapNumber)) {
-            if (isNonTerminal(m.getState())) {
+            if (isNonTerminal(m.getState()) || isTerminal(m.getState())) {
                 activeMatch = m;
                 break;
             }
         }
         if (activeMatch == null) {
-            log.debug("[E06S06] No non-terminal match on field={} lap={}", fieldNumber, lapNumber);
+            log.debug("[E06S06/E06S07] No scoreable match on field={} lap={}", fieldNumber, lapNumber);
             return Optional.empty();
         }
 
@@ -336,8 +376,66 @@ public class ScoreEntryService {
                 ? resolveRefereeTeamName(activeMatch.getRefereeTeamId())
                 : null;
 
-        // Determine current set index from match state (0 for fresh matches)
-        int currentSetIndex = 0;  // default; cascade service manages set progression
+        // E06S07 AC2, AC8: resolve match format from tournament
+        String matchFormatName = activeTournament.getMatchFormat() != null
+                ? activeTournament.getMatchFormat() : MatchFormat.BEST_OF_1.name();
+        MatchFormat matchFormat;
+        try {
+            matchFormat = MatchFormat.fromPersistedName(matchFormatName);
+        } catch (IllegalArgumentException ex) {
+            log.warn("[E06S07] Unknown matchFormat '{}' for tournament={}, defaulting to BEST_OF_1",
+                    matchFormatName, activeTournament.getId());
+            matchFormat = MatchFormat.BEST_OF_1;
+        }
+
+        // E06S07 AC2: count sets won from persisted SetResult rows
+        List<SetResult> setResults = setResultRepository.findByMatchId(activeMatch.getId());
+        int team1SetsWon = 0;
+        int team2SetsWon = 0;
+        int currentSetIndex = 0;
+        int currentSetTeam1Points = 0;
+        int currentSetTeam2Points = 0;
+
+        for (SetResult sr : setResults) {
+            SetState ss = sr.getSetState();
+            if (ss == SetState.WINNER1) {
+                team1SetsWon++;
+            } else if (ss == SetState.WINNER2) {
+                team2SetsWon++;
+            } else if (ss == SetState.OPEN) {
+                // In-progress set: track its index and current points for state restoration (AC10)
+                if (sr.getSetIndex() >= currentSetIndex) {
+                    currentSetIndex = sr.getSetIndex();
+                    currentSetTeam1Points = sr.getTeam1Points();
+                    currentSetTeam2Points = sr.getTeam2Points();
+                }
+            }
+        }
+        // If no OPEN set found but there are completed sets, the next set to play = total completed
+        int completedSets = team1SetsWon + team2SetsWon;
+        if (completedSets > 0 && setResults.stream().noneMatch(sr -> sr.getSetState() == SetState.OPEN)) {
+            currentSetIndex = completedSets;
+            currentSetTeam1Points = 0;
+            currentSetTeam2Points = 0;
+        }
+
+        // E06S07 AC2, AC6: determine match-decided status from match state
+        boolean matchDecided = isTerminal(activeMatch.getState());
+        String matchWinner = null;
+        if (matchDecided) {
+            MatchState state = activeMatch.getMatchState();
+            if (state == MatchState.FINISHED_WINNER1) {
+                matchWinner = "TEAM1";
+            } else if (state == MatchState.FINISHED_WINNER2) {
+                matchWinner = "TEAM2";
+            } else if (state == MatchState.FINISHED_STANDOFF) {
+                matchWinner = "STANDOFF";
+            }
+        }
+
+        log.debug("[E06S07] resolveActiveMatch field={} lap={} matchId={} format={} sets={}/{} decided={}",
+                fieldNumber, lapNumber, activeMatch.getId(), matchFormat,
+                team1SetsWon, team2SetsWon, matchDecided);
 
         MatchScoreResponse response = new MatchScoreResponse(
                 activeMatch.getId(),
@@ -347,8 +445,16 @@ public class ScoreEntryService {
                 team1Name,
                 team2Name,
                 refereeName,
-                0,   // team1Points — initial display is 0:0
-                0);  // team2Points
+                currentSetTeam1Points,
+                currentSetTeam2Points,
+                // E06S07 multi-set fields
+                matchFormat.name(),
+                matchFormat.getMaxSets(),
+                scoringConfig.getTiebreakSwapThreshold(),
+                team1SetsWon,
+                team2SetsWon,
+                matchDecided,
+                matchWinner);
 
         return Optional.of(response);
     }
@@ -393,6 +499,24 @@ public class ScoreEntryService {
      */
     private static boolean isNonTerminal(int stateCode) {
         for (int code : ACTIVE_STATES) {
+            if (code == stateCode) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns {@code true} if the match state code is one of the terminal (finished) states.
+     *
+     * <p>Used by E06S07 to include terminal matches in the response so the tablet can render
+     * the match result summary after match completion, even on page refresh (AC10).
+     *
+     * @param stateCode the legacy integer state code
+     * @return true if the match is decided (FINISHED_WINNER1, FINISHED_WINNER2, FINISHED_STANDOFF)
+     */
+    private static boolean isTerminal(int stateCode) {
+        for (int code : TERMINAL_STATES) {
             if (code == stateCode) {
                 return true;
             }

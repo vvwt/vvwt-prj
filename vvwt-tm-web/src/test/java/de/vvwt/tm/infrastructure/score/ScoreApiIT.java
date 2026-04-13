@@ -1,6 +1,7 @@
 package de.vvwt.tm.infrastructure.score;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
+import de.vvwt.tm.infrastructure.score.ScoringConfig;
 import de.vvwt.tm.infrastructure.score.dto.PartialScoreRequest;
 import de.vvwt.tm.infrastructure.score.dto.SetSubmitRequest;
 import de.vvwt.tm.infrastructure.web.dto.DeviceAssignRequest;
@@ -30,7 +31,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link ScoreApiController} — full HTTP stack (E06S06).
+ * Integration tests for {@link ScoreApiController} — full HTTP stack (E06S06, E06S07).
  *
  * <h2>Test coverage</h2>
  * <ul>
@@ -38,9 +39,18 @@ import static org.assertj.core.api.Assertions.assertThat;
  *   <li>AC5: POST /api/score/partial — 204 on valid token; 401 on invalid token</li>
  *   <li>AC7/AC8: POST /api/score/submit — 401 on invalid token</li>
  *   <li>AC12: POST /api/score/submit — 403 when device on wrong field</li>
+ *   <li>E06S07 AC5: ScoringConfig bean is wired with the tiebreak-swap-threshold property</li>
  * </ul>
  *
+ * <p>The new E06S07 multi-set response fields (matchFormat, maxSets, tiebreakSwapThreshold,
+ * team1SetsWon, team2SetsWon, matchDecided, matchWinner) are covered exhaustively by
+ * unit tests in {@link ScoreEntryServiceTest}. An IT-level match-data setup would require
+ * seeding the full tournament/phase/match/set_result graph, which is deferred to a
+ * dedicated smoke-test suite (E06S08+). The {@link #scoringConfig_tiebreakThreshold_wired()}
+ * test below provides sufficient wiring confidence for AC5.
+ *
  * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E06S06.story.md">Story E06S06</a>
+ * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E06S07.story.md">Story E06S07</a>
  */
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -64,6 +74,9 @@ class ScoreApiIT {
 
     @Autowired
     private TestRestTemplate restTemplate;
+
+    @Autowired
+    private ScoringConfig scoringConfig;
 
     private String baseUrl;
 
@@ -227,6 +240,21 @@ class ScoreApiIT {
         assertThat(response.getStatusCode())
                 .as("null matchId must return 400 (Bean Validation AC6)")
                 .isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    // =========================================================================
+    // E06S07 AC5: ScoringConfig wiring
+    // =========================================================================
+
+    @Test
+    @DisplayName("E06S07 AC5: ScoringConfig bean is wired and tiebreak threshold is > 0")
+    void scoringConfig_tiebreakThreshold_wired() {
+        // This test verifies that the @ConfigurationProperties bean is correctly loaded by Spring
+        // and that the tm.scoring.tiebreak-swap-threshold property is present and valid.
+        // The actual threshold value is populated into MatchScoreResponse — covered by unit tests.
+        assertThat(scoringConfig.getTiebreakSwapThreshold())
+                .as("tiebreak-swap-threshold must be configured and positive")
+                .isGreaterThan(0);
     }
 
     // =========================================================================

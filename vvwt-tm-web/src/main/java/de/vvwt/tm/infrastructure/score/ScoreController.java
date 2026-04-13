@@ -203,6 +203,30 @@ public class ScoreController {
         model.addAttribute("versionLabel",          msg("score.field.version.label",       "Version", locale));
         model.addAttribute("appVersion",            appVersion);
 
+        // E06S07 AC1 — initial side selection
+        model.addAttribute("msgSideSelectionHeading", msg("score.field.side.selection.heading", "Side Selection", locale));
+        model.addAttribute("msgSideSelectionPrompt",  msg("score.field.side.selection.prompt",  "Assign sides based on coin toss result", locale));
+        model.addAttribute("msgSideSwap",             msg("score.field.side.swap",              "Swap sides", locale));
+        model.addAttribute("msgSideLeft",             msg("score.field.side.left",              "Left court", locale));
+        model.addAttribute("msgSideRight",            msg("score.field.side.right",             "Right court", locale));
+        model.addAttribute("msgMatchStart",           msg("score.field.match.start",            "Start match", locale));
+        // E06S07 AC3 — automatic side swap notification
+        model.addAttribute("msgSwapNotification",     msg("score.field.swap.notification",      "Side change \u2014 teams swapped sides", locale));
+        // E06S07 AC5 — tie-break side swap notification (client replaces {0} with threshold)
+        model.addAttribute("msgSwapTiebreak",         msg("score.field.swap.tiebreak",          "Tie-break side swap at {0} points", locale));
+        // E06S07 AC8 — set counter (client replaces {0}=current set, {1}=max sets)
+        model.addAttribute("msgSetCounter",           msg("score.field.set.counter",            "Set {0} of {1}", locale));
+        // E06S07 AC9 — side indicator labels
+        model.addAttribute("msgCourtLeft",            msg("score.field.court.left",             "Left court", locale));
+        model.addAttribute("msgCourtRight",           msg("score.field.court.right",            "Right court", locale));
+        // E06S07 AC6 — match result summary
+        model.addAttribute("msgMatchResultHeading",   msg("score.field.match.result.heading",   "Match result", locale));
+        model.addAttribute("msgMatchWinner",          msg("score.field.match.winner",           "Winner", locale));
+        model.addAttribute("msgMatchStandoff",        msg("score.field.match.standoff",         "Draw", locale));
+        model.addAttribute("msgNextMatch",            msg("score.field.next.match",             "Next match", locale));
+        // E06S07 AC7 — next match loading
+        model.addAttribute("msgNextMatchLoading",     msg("score.field.next.match.loading",     "Loading next match\u2026", locale));
+
         return "score/field";
     }
 
