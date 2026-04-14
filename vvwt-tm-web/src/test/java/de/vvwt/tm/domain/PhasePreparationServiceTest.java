@@ -11,6 +11,7 @@ import de.vvwt.tm.domain.repo.TournamentRepository;
 import de.vvwt.tm.domain.rules.TournamentRuleResolver;
 import de.vvwt.tm.slotopt.SlotOptimizationClient;
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.context.ApplicationEventPublisher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -49,6 +50,7 @@ class PhasePreparationServiceTest {
     @Mock private SlotOptimizationClient slotOptimizationClient;
     @Mock private RefereeAssigner refereeAssigner;
     @Mock private MatchGenerator matchGenerator;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
     private PhasePreparationService service;
 
@@ -61,7 +63,8 @@ class PhasePreparationServiceTest {
         service = new PhasePreparationService(
                 phaseRepository, matchRepository, matchOutcomeRepository,
                 teamAvatarRepository, tournamentRepository,
-                tournamentRuleResolver, slotOptimizationClient, refereeAssigner);
+                tournamentRuleResolver, slotOptimizationClient, refereeAssigner,
+                eventPublisher);
     }
 
     // =========================================================================

@@ -192,6 +192,61 @@
                         </configuration>
                     </execution>
 
+                    <!--
+                        E07S05 — Display SPA build steps.
+                        The display SPA lives in src/main/ui-display/ (separate npm project from
+                        the admin SPA). We reuse the same frontend-maven-plugin instance but add
+                        three additional <execution> blocks with distinct IDs, pointing the
+                        workingDirectory at src/main/ui-display/.
+
+                        The shared <configuration><installDirectory>target</installDirectory></configuration>
+                        above means Node.js is already downloaded to target/node/ by the first execution;
+                        these display executions reuse it without re-downloading.
+
+                        DEC-2: Vite + Svelte + TypeScript, no SvelteKit.
+                        DEC-16 / AC7: Vite produces only local asset paths (/display/assets/...) —
+                        no CDN references. The integration test DisplayViewControllerIT verifies this.
+                    -->
+
+                    <!-- Step 4: npm install for display SPA -->
+                    <execution>
+                        <id>npm-install-display</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <workingDirectory>src/main/ui-display</workingDirectory>
+                            <arguments>install</arguments>
+                        </configuration>
+                    </execution>
+
+                    <!-- Step 5: npm run build → src/main/ui-display/dist-display/ -->
+                    <execution>
+                        <id>npm-build-display</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <workingDirectory>src/main/ui-display</workingDirectory>
+                            <arguments>run build</arguments>
+                        </configuration>
+                    </execution>
+
+                    <!-- Step 6: npm test (vitest) for display SPA unit tests (AC10 displayApi tests) -->
+                    <execution>
+                        <id>npm-test-display</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <workingDirectory>src/main/ui-display</workingDirectory>
+                            <arguments>test</arguments>
+                        </configuration>
+                    </execution>
+
                 </executions>
             </plugin>
 
@@ -222,6 +277,39 @@
                                     <directory>src/main/ui/dist</directory>
                                     <!-- Disable Maven property filtering — SPA assets are binary/JS,
                                          not Maven-filtered templates. Filtering would corrupt JS bundles. -->
+                                    <filtering>false</filtering>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+
+                    <!--
+                        E07S05 — copy display SPA assets → target/classes/static/display/.
+                        Story E07S05 — AC7, AC8, DEC-16.
+
+                        After npm-build-display produces src/main/ui-display/dist-display/, this
+                        execution copies the Vite output to target/classes/static/display/ so:
+                          - Spring Boot ResourceHttpRequestHandler serves /display/assets/** from
+                            classpath:/static/display/assets/ (static resources, no controller needed)
+                          - DisplayViewController forwards /display/overview to
+                            classpath:/static/display/index.html (served as static resource)
+                          - The jlink distribution (fat JAR) includes static/display/ for offline use
+                            (DEC-16: no internet required — all assets bundled).
+
+                        filtering=false: SPA assets are binary/JS; Maven property substitution would
+                        corrupt hashed filenames (e.g. main.abc123.js → main.{project.version}.js).
+                    -->
+                    <execution>
+                        <id>copy-display-spa-assets</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.outputDirectory}/static/display</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>src/main/ui-display/dist-display</directory>
                                     <filtering>false</filtering>
                                 </resource>
                             </resources>

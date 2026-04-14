@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gesamtübersicht</title>
+  </head>
+  <body>
+    <!--
+      E07S05 — AC7, DEC-16:
+      This index.html is the Vite entry point. After `npm run build`, Vite injects
+      <script type="module"> and <link rel="stylesheet"> tags referencing only
+      /display/assets/... paths (local, no CDN). The output is copied to
+      classpath:/static/display/index.html by maven-resources-plugin.
+    -->
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

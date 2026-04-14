@@ -58,14 +58,24 @@ public class TenantContext {
     /**
      * Sets the active tenant ID for the current thread.
      *
-     * <p><strong>Package-private (AC1).</strong> Only {@link DefaultTenantContextResolver}
-     * and test infrastructure in this package may call this method. Domain and service code
-     * must NOT call it — they use {@link #getTenantId()} only.
+     * <p>Intended for:
+     * <ul>
+     *   <li>{@link DefaultTenantContextResolver} — sets the tenant at the start of each
+     *       HTTP request</li>
+     *   <li>WebSocket STOMP ChannelInterceptors — e.g. in E07S06, the
+     *       {@code WebSocketSecurityConfig} interceptor must set the TenantContext before
+     *       calling tenant-scoped repository methods on the STOMP thread</li>
+     *   <li>Test infrastructure — integration tests that need to scope repository access</li>
+     * </ul>
+     *
+     * <p>Domain and service code must NOT call this method — they use {@link #getTenantId()}
+     * only. Callers must always pair a {@code set()} with a {@link #clear()} in a
+     * {@code finally} block to prevent ThreadLocal leaks in thread pools.
      *
      * @param tenantId the tenant ID to activate (must not be {@code null})
      * @throws NullPointerException if {@code tenantId} is {@code null}
      */
-    void set(UUID tenantId) {
+    public void set(UUID tenantId) {
         if (tenantId == null) {
             throw new NullPointerException("tenantId must not be null when setting TenantContext");
         }
@@ -75,11 +85,12 @@ public class TenantContext {
     /**
      * Clears the active tenant ID for the current thread.
      *
-     * <p><strong>Package-private (AC1).</strong> Only {@link DefaultTenantContextResolver}
-     * and test infrastructure in this package may call this method. Must be called in
-     * {@code afterCompletion} / {@code finally} to prevent ThreadLocal leaks in thread pools.
+     * <p>Must be called in {@code afterCompletion} / {@code finally} to prevent ThreadLocal
+     * leaks in thread pools.
+     *
+     * @see #set(UUID)
      */
-    void clear() {
+    public void clear() {
         TENANT_ID_HOLDER.remove();
     }
 }

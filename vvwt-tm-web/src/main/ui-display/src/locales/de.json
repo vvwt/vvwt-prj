@@ -1,0 +1,34 @@
+{
+  "display": {
+    "overview": {
+      "noActivePhase": "Kein aktives Turnier",
+      "errorLoad": "Fehler beim Laden der Daten.",
+      "errorUnauthorized": "Gerät nicht autorisiert. Bitte neu anmelden.",
+      "errorRetry": "Erneut versuchen",
+      "field": "Feld",
+      "group": "Gruppe",
+      "teamColumn": "Mannschaft",
+      "pointsColumn": "P",
+      "setsColumn": "S",
+      "ballsColumn": "B",
+      "vs": "vs.",
+      "preparationPreview": "Vorschau"
+    },
+    "connection": {
+      "connecting": "Verbinde …",
+      "connected": "Verbunden",
+      "reconnecting": "Erneut verbinden …",
+      "polling": "Offline-Modus (Polling)",
+      "disconnected": "Nicht verbunden"
+    },
+    "register": {
+      "waitingTitle": "Warte auf Zuordnung ...",
+      "tokenLabel": "Gerät-ID",
+      "registering": "Registrierung läuft ...",
+      "limitReached": "Gerät-Limit erreicht. Bitte den Organisator kontaktieren.",
+      "connectionLost": "Verbindung unterbrochen – Erneuter Verbindungsversuch ...",
+      "registerError": "Registrierung fehlgeschlagen. Bitte erneut versuchen.",
+      "retryButton": "Erneut versuchen"
+    }
+  }
+}
