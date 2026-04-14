@@ -1,11 +1,13 @@
 /**
- * Unit tests for deviceStore (E06S05).
+ * Unit tests for deviceStore (E06S05, E07S03).
  *
  * Verifies:
  * - Store exports the expected API functions
  * - API functions make the correct HTTP calls (mocked fetch)
  * - AC9 error handling: 404 on PIN lookup throws with status 404
  * - de.json contains all device translation keys (AC11)
+ * - E07S03: configureDisplayDevice, removeDevice, getDisplayLimit (AC3, AC4, AC5)
+ * - E07S03: de.json contains all display device and filter translation keys (AC9)
  */
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
@@ -64,13 +66,17 @@ describe('de.json — device translations (AC11)', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('deviceStore — exported API functions', () => {
-  it('should export all required API functions', async () => {
+  it('should export all required API functions (E06S05 + E07S03)', async () => {
     const module = await import('./deviceStore.ts');
     expect(typeof module.listDevices).toBe('function');
     expect(typeof module.findDeviceByPin).toBe('function');
     expect(typeof module.assignDevice).toBe('function');
     expect(typeof module.unassignDevice).toBe('function');
     expect(typeof module.clearAllDevices).toBe('function');
+    // E07S03 additions:
+    expect(typeof module.configureDisplayDevice).toBe('function');
+    expect(typeof module.removeDevice).toBe('function');
+    expect(typeof module.getDisplayLimit).toBe('function');
   });
 });
 
@@ -227,5 +233,126 @@ describe('deviceStore — API calls (mocked fetch)', () => {
       expect.stringContaining('/api/devices'),
       expect.objectContaining({ method: 'DELETE' })
     );
+  });
+
+  it('configureDisplayDevice — PUT /api/devices/{id}/configure returns updated device (E07S03 AC3)', async () => {
+    const updatedDevice = {
+      id: 'uuid-display-1',
+      deviceType: 'DISPLAY',
+      pin: null,
+      status: 'REGISTERED',
+      assignedField: null,
+      registeredAt: null,
+      lastSeenAt: null,
+      deviceName: 'Main Screen',
+      configuration: '{"display_schema":"OVERVIEW"}',
+    };
+    fetchSpy.mockResolvedValue({
+      ok: true,
+      json: async () => updatedDevice,
+    });
+
+    const { configureDisplayDevice } = await import('./deviceStore.ts');
+    const result = await configureDisplayDevice('uuid-display-1', 'Main Screen', '{"display_schema":"OVERVIEW"}');
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining('/api/devices/uuid-display-1/configure'),
+      expect.objectContaining({ method: 'PUT' })
+    );
+    expect(result.deviceName).toBe('Main Screen');
+    expect(result.configuration).toBe('{"display_schema":"OVERVIEW"}');
+  });
+
+  it('removeDevice — DELETE /api/devices/{id} returns void (E07S03 AC4)', async () => {
+    fetchSpy.mockResolvedValue({
+      ok: true,
+    });
+
+    const { removeDevice } = await import('./deviceStore.ts');
+    await expect(removeDevice('uuid-display-1')).resolves.toBeUndefined();
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining('/api/devices/uuid-display-1'),
+      expect.objectContaining({ method: 'DELETE' })
+    );
+  });
+
+  it('removeDevice — 404 throws error with status 404 (E07S03 AC4/AC8)', async () => {
+    fetchSpy.mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: async () => ({ message: 'Device not found' }),
+    });
+
+    const { removeDevice } = await import('./deviceStore.ts');
+    await expect(removeDevice('unknown-id')).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('getDisplayLimit — GET /api/devices/display-limit returns maxDisplayCount (E07S03 AC5)', async () => {
+    fetchSpy.mockResolvedValue({
+      ok: true,
+      json: async () => ({ maxDisplayCount: 4 }),
+    });
+
+    const { getDisplayLimit } = await import('./deviceStore.ts');
+    const limit = await getDisplayLimit();
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining('/api/devices/display-limit'),
+      expect.objectContaining({ credentials: 'same-origin' })
+    );
+    expect(limit).toBe(4);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E07S03 i18n coverage — AC9
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('de.json — E07S03 translation keys (AC9)', () => {
+  it('should contain filter tab labels', () => {
+    const devices = (deMessages as Record<string, Record<string, Record<string, string>>>).devices;
+    expect(devices).toHaveProperty('filter');
+    expect(devices.filter).toHaveProperty('all');
+    expect(devices.filter).toHaveProperty('scoringTablets');
+    expect(devices.filter).toHaveProperty('displayDevices');
+  });
+
+  it('should contain displayDevice sub-keys', () => {
+    const devices = (deMessages as Record<string, Record<string, Record<string, string>>>).devices;
+    expect(devices).toHaveProperty('displayDevice');
+    const dd = devices.displayDevice;
+    expect(dd).toHaveProperty('unnamed');
+    expect(dd).toHaveProperty('configuredStatus');
+    expect(dd).toHaveProperty('pendingStatus');
+    expect(dd).toHaveProperty('configureButton');
+    expect(dd).toHaveProperty('nameLabel');
+    expect(dd).toHaveProperty('namePlaceholder');
+    expect(dd).toHaveProperty('schemaLabel');
+    expect(dd).toHaveProperty('schemaOption');
+    expect(dd).toHaveProperty('saveButton');
+    expect(dd).toHaveProperty('cancelButton');
+    expect(dd).toHaveProperty('saveError');
+    expect(dd).toHaveProperty('limitIndicator');
+    expect(dd).toHaveProperty('limitReached');
+  });
+
+  it('should contain remove action labels', () => {
+    const devices = (deMessages as Record<string, Record<string, string>>).devices;
+    expect(devices).toHaveProperty('removeButton');
+    expect(devices).toHaveProperty('removeConfirm');
+    expect(devices).toHaveProperty('removeError');
+  });
+
+  it('should contain extended column headers (name, configStatus)', () => {
+    const devices = (deMessages as Record<string, Record<string, Record<string, string>>>).devices;
+    expect(devices.columns).toHaveProperty('name');
+    expect(devices.columns).toHaveProperty('configStatus');
+  });
+
+  it('should contain DISPLAY deviceType label', () => {
+    const devices = (deMessages as Record<string, Record<string, Record<string, string>>>).devices;
+    expect(devices.deviceType).toHaveProperty('DISPLAY');
+    expect(devices.deviceType).toHaveProperty('SCORING_TABLET');
   });
 });

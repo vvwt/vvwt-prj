@@ -1,5 +1,6 @@
 package de.vvwt.tm.infrastructure.web;
 
+import de.vvwt.tm.config.DeviceLimitConfig;
 import de.vvwt.tm.domain.Device;
 import de.vvwt.tm.domain.DeviceService;
 import de.vvwt.tm.infrastructure.web.dto.DeviceAssignRequest;
@@ -32,6 +33,7 @@ import java.util.UUID;
  *   <li>POST /api/devices/register — register a scoring tablet or display device (E06S03 AC2, E07S02 AC1); public</li>
  *   <li>GET  /api/devices/status   — device polls its own status + config (E06S03 AC3, E07S02 AC3); public</li>
  *   <li>GET  /api/devices/list     — admin lists all devices (E06S05-AC1); requires admin auth</li>
+ *   <li>GET  /api/devices/display-limit — returns max display device count (E07S03 AC5); requires admin auth</li>
  *   <li>GET  /api/devices          — admin finds device by PIN (E06S03 AC4); requires admin auth</li>
  *   <li>PUT  /api/devices/{id}/assign — admin assigns device to field (E06S03 AC5); requires admin auth</li>
  *   <li>PUT  /api/devices/{id}/unassign — admin unassigns device (E06S03 AC6); requires admin auth</li>
@@ -57,11 +59,14 @@ public class DeviceController {
 
     private final DeviceService deviceService;
     private final DefaultTenantProvider defaultTenantProvider;
+    private final DeviceLimitConfig deviceLimitConfig;
 
     public DeviceController(DeviceService deviceService,
-                            DefaultTenantProvider defaultTenantProvider) {
+                            DefaultTenantProvider defaultTenantProvider,
+                            DeviceLimitConfig deviceLimitConfig) {
         this.deviceService = deviceService;
         this.defaultTenantProvider = defaultTenantProvider;
+        this.deviceLimitConfig = deviceLimitConfig;
     }
 
     // -------------------------------------------------------------------------
@@ -140,6 +145,23 @@ public class DeviceController {
                 .map(DeviceSummaryResponse::from)
                 .toList();
         return ResponseEntity.ok(devices);
+    }
+
+    // -------------------------------------------------------------------------
+    // E07S03 AC5 — GET /api/devices/display-limit
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns the configured maximum number of DISPLAY devices per tenant+location (E07S03 AC5).
+     *
+     * <p>Used by the admin UI to show the device limit indicator.
+     * Requires admin authentication.
+     *
+     * @return 200 OK with {@code { maxDisplayCount: int }}
+     */
+    @GetMapping(value = "/display-limit", produces = "application/json")
+    public ResponseEntity<java.util.Map<String, Integer>> getDisplayLimit() {
+        return ResponseEntity.ok(java.util.Map.of("maxDisplayCount", deviceLimitConfig.getMaxDisplayCount()));
     }
 
     // -------------------------------------------------------------------------

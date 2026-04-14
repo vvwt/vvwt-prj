@@ -88,7 +88,7 @@
     "showQrButton": "QR-Code anzeigen",
     "hideQrButton": "QR-Code schließen",
     "qrTitle": "Registrierungs-URL",
-    "pinLookupTitle": "Gerät zuweisen",
+    "pinLookupTitle": "Scoring-Tablet zuweisen",
     "pinInputLabel": "PIN",
     "pinInputPlaceholder": "PIN eingeben",
     "lookupButton": "Suchen",
@@ -106,7 +106,9 @@
       "deviceType": "Typ",
       "assignedField": "Feld",
       "status": "Status",
-      "lastSeen": "Zuletzt gesehen"
+      "lastSeen": "Zuletzt gesehen",
+      "configStatus": "Konfiguration",
+      "name": "Name"
     },
     "unassigned": "Nicht zugewiesen",
     "status": {
@@ -115,7 +117,31 @@
       "DISCONNECTED": "Verbindung unterbrochen"
     },
     "deviceType": {
-      "SCORING_TABLET": "Tablet"
-    }
+      "SCORING_TABLET": "Tablet",
+      "DISPLAY": "Display"
+    },
+    "filter": {
+      "all": "Alle",
+      "scoringTablets": "Scoring-Tablets",
+      "displayDevices": "Display-Geräte"
+    },
+    "displayDevice": {
+      "unnamed": "Unbenannt",
+      "configuredStatus": "Konfiguriert",
+      "pendingStatus": "Ausstehend",
+      "configureButton": "Konfigurieren",
+      "nameLabel": "Gerätename",
+      "namePlaceholder": "z.B. Anzeigetafel Eingang",
+      "schemaLabel": "Anzeige",
+      "schemaOption": "Gesamtübersicht",
+      "saveButton": "Speichern",
+      "cancelButton": "Abbrechen",
+      "saveError": "Fehler beim Speichern der Konfiguration.",
+      "limitIndicator": "{current} / {max} Display-Geräte",
+      "limitReached": "Maximale Anzahl an Display-Geräten erreicht."
+    },
+    "removeButton": "Entfernen",
+    "removeConfirm": "Gerät \"{name}\" wirklich entfernen? Dies kann nicht rückgängig gemacht werden.",
+    "removeError": "Fehler beim Entfernen des Geräts."
   }
 }
