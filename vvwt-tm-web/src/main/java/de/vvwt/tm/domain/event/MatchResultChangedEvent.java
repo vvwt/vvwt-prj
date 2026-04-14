@@ -29,6 +29,7 @@ import java.util.UUID;
  */
 public class MatchResultChangedEvent extends ApplicationEvent {
 
+    private final UUID tenantId;
     private final UUID tournamentId;
     private final UUID phaseId;
     private final UUID matchId;
@@ -43,6 +44,7 @@ public class MatchResultChangedEvent extends ApplicationEvent {
      * Constructs a {@code MatchResultChangedEvent}.
      *
      * @param source             the object on which the event initially occurred (the cascade service)
+     * @param tenantId           the tenant in whose context the match result was registered (E07S06)
      * @param tournamentId       the tournament this match belongs to
      * @param phaseId            the phase this match belongs to
      * @param matchId            the match whose result was registered or corrected
@@ -54,6 +56,7 @@ public class MatchResultChangedEvent extends ApplicationEvent {
      * @param correlationId      random UUID for cross-step log correlation (AC25)
      */
     public MatchResultChangedEvent(Object source,
+                                   UUID tenantId,
                                    UUID tournamentId,
                                    UUID phaseId,
                                    UUID matchId,
@@ -64,6 +67,7 @@ public class MatchResultChangedEvent extends ApplicationEvent {
                                    int newLapNumber,
                                    UUID correlationId) {
         super(source);
+        this.tenantId = tenantId;
         this.tournamentId = tournamentId;
         this.phaseId = phaseId;
         this.matchId = matchId;
@@ -74,6 +78,9 @@ public class MatchResultChangedEvent extends ApplicationEvent {
         this.newLapNumber = newLapNumber;
         this.correlationId = correlationId;
     }
+
+    /** @return the tenant in whose context the match result was registered (E07S06) */
+    public UUID getTenantId() { return tenantId; }
 
     /** @return the tournament this match belongs to */
     public UUID getTournamentId() { return tournamentId; }

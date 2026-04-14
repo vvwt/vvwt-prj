@@ -1,5 +1,6 @@
 package de.vvwt.tm.domain;
 
+import de.vvwt.tm.domain.event.PhaseStatusChangedEvent;
 import de.vvwt.tm.domain.generator.MatchGenerator;
 import de.vvwt.tm.domain.referee.RefereeAssigner;
 import de.vvwt.tm.domain.repo.MatchOutcomeRepository;
@@ -11,6 +12,7 @@ import de.vvwt.tm.domain.rules.TournamentRuleResolver;
 import de.vvwt.tm.slotopt.SlotOptimizationClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,6 +62,7 @@ public class PhasePreparationService {
     private final TournamentRuleResolver tournamentRuleResolver;
     private final SlotOptimizationClient slotOptimizationClient;
     private final RefereeAssigner refereeAssigner;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Constructs the service. Spring injects all collaborators.
@@ -72,6 +75,7 @@ public class PhasePreparationService {
      * @param tournamentRuleResolver   strategy resolver for match generator
      * @param slotOptimizationClient   E04 client (or fallback) for slot assignment
      * @param refereeAssigner          E03S10 referee assignment service
+     * @param eventPublisher           Spring event publisher for domain events (E07S06)
      */
     public PhasePreparationService(PhaseRepository phaseRepository,
                                    MatchRepository matchRepository,
@@ -80,7 +84,8 @@ public class PhasePreparationService {
                                    TournamentRepository tournamentRepository,
                                    TournamentRuleResolver tournamentRuleResolver,
                                    SlotOptimizationClient slotOptimizationClient,
-                                   RefereeAssigner refereeAssigner) {
+                                   RefereeAssigner refereeAssigner,
+                                   ApplicationEventPublisher eventPublisher) {
         this.phaseRepository = phaseRepository;
         this.matchRepository = matchRepository;
         this.matchOutcomeRepository = matchOutcomeRepository;
@@ -89,6 +94,7 @@ public class PhasePreparationService {
         this.tournamentRuleResolver = tournamentRuleResolver;
         this.slotOptimizationClient = slotOptimizationClient;
         this.refereeAssigner = refereeAssigner;
+        this.eventPublisher = eventPublisher;
     }
 
     // =========================================================================
@@ -314,6 +320,17 @@ public class PhasePreparationService {
 
         LOG.info("startPhase: phase={}, status {} → ACTIVE, currentLapNumber=0, {} matches OPEN → ENABLED",
                 phaseId, statusBefore, enabledCount);
+
+        // E07S06 AC5: Publish PhaseStatusChangedEvent after the PENDING → ACTIVE transition.
+        // Listeners annotated with @TransactionalEventListener(phase = AFTER_COMMIT) fire
+        // after this transaction commits, ensuring display devices see the committed ACTIVE state.
+        PhaseStatusChangedEvent phaseEvent = new PhaseStatusChangedEvent(
+                this, phase.getTenantId(), phase.getTournamentId(), phaseId, statusBefore,
+                Phase.PhaseStatus.ACTIVE.name());
+        eventPublisher.publishEvent(phaseEvent);
+
+        LOG.info("startPhase: PhaseStatusChangedEvent published phaseId={} {} → ACTIVE",
+                phaseId, statusBefore);
     }
 
     // =========================================================================

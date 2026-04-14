@@ -173,6 +173,7 @@ public class DisplayOverviewService {
 
         return new DisplayPhaseOverviewResponse(
                 phase.getId(),
+                phase.getTenantId(),       // E07S06 AC1: send tenantId so SPA can build WS topic
                 phase.getDescription(),
                 phase.getStatus(),
                 lapCount,

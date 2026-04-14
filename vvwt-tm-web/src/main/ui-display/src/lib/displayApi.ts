@@ -60,9 +60,11 @@ export class ApiError extends Error {
 // Response types — mirror the E07S04 Java DTOs
 // ---------------------------------------------------------------------------
 
-/** Mirrors DisplayPhaseOverviewResponse (E07S04 AC1). */
+/** Mirrors DisplayPhaseOverviewResponse (E07S04 AC1, extended by E07S06 AC1). */
 export interface DisplayPhaseOverview {
   phaseId: string;
+  /** Tenant UUID — added by E07S06 so the SPA can subscribe to the correct WebSocket topic. */
+  tenantId: string;
   phaseName: string;
   phaseStatus: string;
   lapCount: number;
