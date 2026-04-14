@@ -1,0 +1,17 @@
+{
+  "display": {
+    "overview": {
+      "noActivePhase": "Kein aktives Turnier",
+      "errorLoad": "Fehler beim Laden der Daten.",
+      "errorUnauthorized": "Gerät nicht autorisiert. Bitte neu anmelden.",
+      "errorRetry": "Erneut versuchen",
+      "field": "Feld",
+      "group": "Gruppe",
+      "teamColumn": "Mannschaft",
+      "pointsColumn": "P",
+      "setsColumn": "S",
+      "ballsColumn": "B",
+      "vs": "vs."
+    }
+  }
+}
