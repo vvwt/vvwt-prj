@@ -1,5 +1,6 @@
 package de.vvwt.tm.domain;
 
+import de.vvwt.tm.domain.event.LapAdvancedEvent;
 import de.vvwt.tm.domain.event.MatchResultChangedEvent;
 import de.vvwt.tm.domain.repo.AuditLogRepository;
 import de.vvwt.tm.domain.repo.MatchOutcomeRepository;
@@ -323,12 +324,24 @@ public class CascadeRecomputeService {
         // @TransactionalEventListener(phase = AFTER_COMMIT)
         // -----------------------------------------------------------------------
         MatchResultChangedEvent event = new MatchResultChangedEvent(
-                this, match.getTournamentId(), match.getPhaseId(), input.matchId(),
+                this, match.getTenantId(), match.getTournamentId(), match.getPhaseId(), input.matchId(),
                 previousState, derivedState, input.actorId(),
                 previousLapNumber, newLapNumber, correlationId);
         eventPublisher.publishEvent(event);
 
         log.info("[cascade] Step12 event published {} correlationId={}", event, correlationId);
+
+        // E07S06 AC4: Publish LapAdvancedEvent when a real lap advance occurred.
+        // Only published if previousLapNumber != newLapNumber so display devices
+        // know to refresh their match grid for the new lap.
+        if (previousLapNumber != newLapNumber) {
+            LapAdvancedEvent lapEvent = new LapAdvancedEvent(
+                    this, match.getTenantId(), match.getTournamentId(), match.getPhaseId(),
+                    previousLapNumber, newLapNumber, correlationId);
+            eventPublisher.publishEvent(lapEvent);
+            log.info("[cascade] Step12a LapAdvancedEvent published {} -> {} phaseId={} correlationId={}",
+                    previousLapNumber, newLapNumber, match.getPhaseId(), correlationId);
+        }
 
         // -----------------------------------------------------------------------
         // Step 13 — Return void (AC15)

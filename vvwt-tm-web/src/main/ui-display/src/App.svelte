@@ -1,8 +1,8 @@
 <script lang="ts">
   /**
-   * Root component for the Gesamtübersicht display SPA (E07S05).
+   * Root component for the Gesamtübersicht display SPA (E07S05 + E07S06).
    *
-   * Lifecycle:
+   * Lifecycle (E07S05):
    *   1. On mount: read device token from localStorage (AC5, AC11)
    *   2. If no token: redirect to /display/register (AC11, E07S07)
    *   3. If token present: fetch all three display endpoints concurrently (AC5)
@@ -11,6 +11,15 @@
    *      - Error state (noPhase / unauthorized / generic) on failure (AC6, AC9)
    *      - OverviewLayout on success (AC1–AC4)
    *
+   * E07S06 additions:
+   *   - After initial load: connect to WebSocket using device token (AC1)
+   *   - Handle MATCH_RESULT_CHANGED → refresh matches + standings (AC2, AC3)
+   *   - Handle LAP_ADVANCED → refresh matches for new lap (AC4)
+   *   - Handle PHASE_STATUS_CHANGED → full reload (AC5)
+   *   - Reconnect with exponential backoff; fallback to polling after 5 failures (AC7, AC9)
+   *   - Show ConnectionStatus indicator (AC7)
+   *   - 401 on REST poll → redirect to /display/register (AC9)
+   *
    * Error classification (AC9):
    *   - NoActivePhaseError → errorType 'noPhase' (AC6)
    *   - UnauthorizedError  → errorType 'unauthorized' (AC9 re-register message)
@@ -18,7 +27,7 @@
    *
    * No hardcoded strings: all user-visible text uses svelte-i18n $_() (AC10).
    */
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import {
     readDeviceToken,
     fetchPhaseOverview,
@@ -30,8 +39,21 @@
     type DisplayMatchesData,
     type DisplayGroupStandings,
   } from './lib/displayApi.js';
+  import {
+    connect as wsConnect,
+    disconnect as wsDisconnect,
+    EVENT_TYPE_MATCH_RESULT_CHANGED,
+    EVENT_TYPE_LAP_ADVANCED,
+    EVENT_TYPE_PHASE_STATUS_CHANGED,
+    type WsEventMessage,
+    type ConnectionStatus as WsConnectionStatus,
+  } from './lib/websocket.js';
   import OverviewLayout from './components/OverviewLayout.svelte';
   import ErrorPanel from './components/ErrorPanel.svelte';
+  import ConnectionStatusIndicator from './components/ConnectionStatus.svelte';
+
+  /** Polling interval in ms when WebSocket fallback is active (AC9). */
+  const POLLING_INTERVAL_MS = 5_000;
 
   // ---------------------------------------------------------------------------
   // State
@@ -42,6 +64,10 @@
   let phaseData = $state<DisplayPhaseOverview | null>(null);
   let matchesData = $state<DisplayMatchesData | null>(null);
   let standingsData = $state<DisplayGroupStandings | null>(null);
+  let connectionStatus = $state<WsConnectionStatus>('disconnected');
+
+  let activeToken: string = '';
+  let pollingIntervalId: ReturnType<typeof setInterval> | null = null;
 
   // ---------------------------------------------------------------------------
   // Data loading
@@ -88,6 +114,125 @@
   }
 
   /**
+   * Refresh matches + standings after a MATCH_RESULT_CHANGED event (AC2, AC3).
+   * Re-uses the active token from the current session.
+   */
+  async function refreshMatchesAndStandings(): Promise<void> {
+    if (!activeToken) return;
+    try {
+      const [matches, groups] = await Promise.all([
+        fetchMatches(activeToken),
+        fetchGroupStandings(activeToken),
+      ]);
+      matchesData = matches;
+      standingsData = groups;
+    } catch (err) {
+      if (err instanceof UnauthorizedError) {
+        window.location.href = '/display/register';
+      }
+      // Other errors: silently ignore — data stays at last known state
+    }
+  }
+
+  /**
+   * Refresh matches for the new lap after a LAP_ADVANCED event (AC4).
+   */
+  async function refreshMatches(): Promise<void> {
+    if (!activeToken) return;
+    try {
+      matchesData = await fetchMatches(activeToken);
+    } catch (err) {
+      if (err instanceof UnauthorizedError) {
+        window.location.href = '/display/register';
+      }
+    }
+  }
+
+  /**
+   * Full reload: re-fetch all data after a PHASE_STATUS_CHANGED event (AC5).
+   */
+  async function fullReload(): Promise<void> {
+    if (!activeToken) return;
+    await loadData(activeToken);
+  }
+
+  // ---------------------------------------------------------------------------
+  // WebSocket event handler (E07S06 AC2–AC5)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Dispatch incoming WebSocket events to the appropriate refresh function.
+   * Called by the WebSocket module after each received STOMP message.
+   */
+  function handleWsEvent(msg: WsEventMessage): void {
+    switch (msg.eventType) {
+      case EVENT_TYPE_MATCH_RESULT_CHANGED:
+        // AC2 + AC3: update match row + standings
+        void refreshMatchesAndStandings();
+        break;
+      case EVENT_TYPE_LAP_ADVANCED:
+        // AC4: refresh match grid for the new lap
+        void refreshMatches();
+        break;
+      case EVENT_TYPE_PHASE_STATUS_CHANGED:
+        // AC5: phase transition → full reload
+        void fullReload();
+        break;
+      default:
+        // Unknown event type — ignore silently
+        break;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Polling fallback (AC9)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Activates the polling fallback when WebSocket reconnects are exhausted (AC9).
+   * Polls all three REST endpoints at {@link POLLING_INTERVAL_MS} interval.
+   * If a poll returns 401, redirects to /display/register.
+   */
+  function activatePollingFallback(): void {
+    if (pollingIntervalId !== null) return; // already polling
+
+    pollingIntervalId = setInterval(async () => {
+      if (!activeToken) return;
+      try {
+        const [overview, matches, groups] = await Promise.all([
+          fetchPhaseOverview(activeToken),
+          fetchMatches(activeToken),
+          fetchGroupStandings(activeToken),
+        ]);
+        phaseData = overview;
+        matchesData = matches;
+        standingsData = groups;
+        errorType = null;
+      } catch (err) {
+        if (err instanceof UnauthorizedError) {
+          stopPolling();
+          window.location.href = '/display/register';
+        }
+        // NoActivePhaseError or network errors: show noPhase, keep polling
+        else if (err instanceof NoActivePhaseError) {
+          errorType = 'noPhase';
+        }
+      }
+    }, POLLING_INTERVAL_MS);
+  }
+
+  function stopPolling(): void {
+    if (pollingIntervalId !== null) {
+      clearInterval(pollingIntervalId);
+      pollingIntervalId = null;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Retry handler (AC9)
+  // ---------------------------------------------------------------------------
+
+  /**
    * Retry handler for the ErrorPanel retry button (AC9).
    * Re-reads the token (in case it changed) and reloads data.
    */
@@ -102,7 +247,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Mount: token check + initial data load (AC5, AC11)
+  // Mount: token check + initial data load + WebSocket connect (AC1, AC5, AC11)
   // ---------------------------------------------------------------------------
 
   onMount(() => {
@@ -114,11 +259,44 @@
       return;
     }
 
-    void loadData(token);
+    activeToken = token;
+
+    void loadData(token).then(() => {
+      // E07S06 AC1: connect WebSocket after initial data load succeeds
+      // (phaseData.phaseId holds the tenantId via the API, but tenantId is
+      //  embedded in the device token auth — the server resolves it; the
+      //  frontend needs tenantId from the phase overview response to subscribe
+      //  to the correct topic)
+      if (phaseData !== null && errorType === null) {
+        // E07S06 AC1: phaseData.tenantId is returned by the server (E07S06 addition to
+        // DisplayPhaseOverviewResponse). Use it to subscribe to the tenant-scoped topic.
+        wsConnect(
+          token,
+          phaseData.tenantId,
+          handleWsEvent,
+          (status) => { connectionStatus = status; },
+          activatePollingFallback
+        );
+      }
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Cleanup on destroy
+  // ---------------------------------------------------------------------------
+
+  onDestroy(() => {
+    wsDisconnect();
+    stopPolling();
   });
 </script>
 
 <div class="display-app">
+  <!-- E07S06 AC7: subtle connection status indicator (always rendered once data loads) -->
+  {#if !loading && errorType === null && phaseData !== null}
+    <ConnectionStatusIndicator status={connectionStatus} />
+  {/if}
+
   {#if loading}
     <!-- Loading state — no user-visible text needed; spinner communicates progress -->
     <div class="display-app__loading" aria-busy="true" aria-label="Loading">

@@ -11,7 +11,15 @@
       "pointsColumn": "P",
       "setsColumn": "S",
       "ballsColumn": "B",
-      "vs": "vs."
+      "vs": "vs.",
+      "preparationPreview": "Vorschau"
+    },
+    "connection": {
+      "connecting": "Verbinde …",
+      "connected": "Verbunden",
+      "reconnecting": "Erneut verbinden …",
+      "polling": "Offline-Modus (Polling)",
+      "disconnected": "Nicht verbunden"
     }
   }
 }
