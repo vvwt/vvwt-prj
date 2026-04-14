@@ -108,7 +108,9 @@ public class DeviceService {
                 null,
                 Device.STATUS_REGISTERED,
                 LocalDateTime.now(),   // registered_at: set explicitly (Spring Data JDBC passes null for DB-default cols)
-                null                   // last_seen_at: null until first heartbeat
+                null,                  // last_seen_at: null until first heartbeat
+                null,                  // deviceName: null for scoring tablets (E07S01 AC2)
+                null                   // configuration: null for scoring tablets (E07S01 AC2)
         );
 
         Device saved = deviceRepository.save(device);
