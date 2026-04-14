@@ -192,14 +192,15 @@ public class CascadeRecomputeService {
                     input.team1Points(), input.team2Points(), correlationId);
         }
 
-        // Write audit_log row (AC4)
+        // Write audit_log row (AC4) — include source distinction (E06S06 AC7, AC8)
         AuditLogEntry auditEntry = new AuditLogEntry(
                 UUID.randomUUID(), match.getTenantId(), input.matchId(), input.setIndex(),
                 team1PointsOld, team2PointsOld,
                 input.team1Points(), input.team2Points(),
                 setStateOld, setStateNew.getLegacyCode(),
                 input.actorId(), input.reason(),
-                LocalDateTime.now());
+                LocalDateTime.now(),
+                input.sourceType(), input.sourceDeviceId());
         auditLogRepository.save(auditEntry);
 
         log.debug("[cascade] Step2 audit_log written id={} correlationId={}", auditEntry.getId(), correlationId);

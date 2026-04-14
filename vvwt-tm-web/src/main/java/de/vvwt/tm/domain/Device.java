@@ -9,11 +9,16 @@ import java.util.UUID;
 /**
  * Spring Data JDBC entity for the {@code devices} table.
  *
- * <p>A {@code Device} represents a scoring tablet (or future display device) that has
- * registered itself with the Tournament Manager. Registration is PIN-based: the tablet
- * opens a known URL, receives a short numeric PIN ({@link #pin}) and an opaque
- * cryptographically random device token ({@link #deviceToken}). The organizer uses the
- * PIN from the admin UI (E06S05) to assign the device to a court field.
+ * <p>A {@code Device} represents a hardware device registered with the Tournament Manager.
+ * Two device types are supported:
+ * <ul>
+ *   <li><b>Scoring tablets</b> (E06S03): register via URL, receive a short numeric PIN
+ *       ({@link #pin}) and an opaque device token ({@link #deviceToken}). The organizer
+ *       assigns the tablet to a court using the PIN from the admin UI.</li>
+ *   <li><b>Display devices</b> (E07S01+): register via URL; no PIN ({@link #pin} is null).
+ *       Identified by a human-readable {@link #deviceName}. Behaviour controlled by
+ *       {@link #configuration} (JSON string, e.g. {@code {"display_schema":"OVERVIEW"}}).</li>
+ * </ul>
  *
  * <h2>Tenant and location scope (DEC-5, DEC-17)</h2>
  * <p>Both {@code tenant_id} and {@code location_id} are NOT NULL from day 1. In V1
@@ -27,12 +32,13 @@ import java.util.UUID;
  *   <li>{@code DISCONNECTED} — device has not been seen for an extended period (future use)</li>
  * </ul>
  *
- * <h2>Security (AC11)</h2>
+ * <h2>Security</h2>
  * <p>The {@link #deviceToken} is a {@link UUID#randomUUID()} string — cryptographically
- * random, not guessable. The {@link #pin} is a short numeric string for human convenience
- * (assignment UI), not a security token.
+ * random, not guessable. The {@link #pin} (scoring tablets only) is a short numeric string
+ * for human convenience; it is not a security credential.
  *
  * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E06S03.story.md">Story E06S03</a>
+ * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E07S01.story.md">Story E07S01</a>
  */
 @Table("devices")
 public class Device {
@@ -61,7 +67,8 @@ public class Device {
     private String deviceToken;
 
     /**
-     * Short numeric PIN — unique within tenant while the device row exists (AC7).
+     * Short numeric PIN — unique within tenant while the device row exists (scoring tablets only).
+     * Null for display devices, which register via URL without a PIN (E07S01 AC1).
      * Human-readable assignment code only; not a security credential.
      * 4–6 digits; avoids trivially confusable sequences.
      */
@@ -97,6 +104,22 @@ public class Device {
      */
     private LocalDateTime lastSeenAt;
 
+    /**
+     * Human-readable device name — used for display devices (E07S01 AC2).
+     * Null for scoring tablets; set by the admin when managing display devices.
+     * Maps to {@code device_name} column (VARCHAR 255, nullable).
+     */
+    private String deviceName;
+
+    /**
+     * JSON configuration string — controls what the device displays (E07S01 AC2, AC5).
+     * Null for scoring tablets. For display devices in V1, expected shape:
+     * {@code {"display_schema":"OVERVIEW"}}.
+     * Stored as TEXT per DEC-14 (H2 compatibility — no database-level JSON type).
+     * Application-layer parsing uses Jackson; no DB-level JSON schema validation.
+     */
+    private String configuration;
+
     // -------------------------------------------------------------------------
     // Status constants
     // -------------------------------------------------------------------------
@@ -105,8 +128,11 @@ public class Device {
     public static final String STATUS_ASSIGNED      = "ASSIGNED";
     public static final String STATUS_DISCONNECTED  = "DISCONNECTED";
 
-    /** Default device type for E06 scoring tablets. */
+    /** Device type for E06 scoring tablets. */
     public static final String TYPE_SCORING_TABLET  = "SCORING_TABLET";
+
+    /** Device type for E07+ display devices (Gesamtübersicht and future display modes). */
+    public static final String TYPE_DISPLAY         = "DISPLAY";
 
     // -------------------------------------------------------------------------
     // Constructors
@@ -123,16 +149,19 @@ public class Device {
      * @param tenantId      tenant scope (NOT NULL)
      * @param locationId    location scope (NOT NULL)
      * @param deviceToken   opaque auth token (cryptographically random)
-     * @param pin           short numeric PIN (unique within tenant)
-     * @param deviceType    device type enum name (e.g., {@code SCORING_TABLET})
+     * @param pin           short numeric PIN (unique within tenant; null for display devices)
+     * @param deviceType    device type enum name (e.g., {@code SCORING_TABLET}, {@code DISPLAY})
      * @param assignedField assigned court field number (null = unassigned)
      * @param status        lifecycle status
      * @param registeredAt  registration timestamp (may be null — DB sets default)
      * @param lastSeenAt    last-seen timestamp (null until first heartbeat)
+     * @param deviceName    human-readable device name (null for scoring tablets)
+     * @param configuration JSON configuration string (null for scoring tablets)
      */
     public Device(UUID id, UUID tenantId, UUID locationId, String deviceToken, String pin,
                   String deviceType, Integer assignedField, String status,
-                  LocalDateTime registeredAt, LocalDateTime lastSeenAt) {
+                  LocalDateTime registeredAt, LocalDateTime lastSeenAt,
+                  String deviceName, String configuration) {
         this.id = id;
         this.tenantId = tenantId;
         this.locationId = locationId;
@@ -143,6 +172,8 @@ public class Device {
         this.status = status;
         this.registeredAt = registeredAt;
         this.lastSeenAt = lastSeenAt;
+        this.deviceName = deviceName;
+        this.configuration = configuration;
     }
 
     // -------------------------------------------------------------------------
@@ -178,4 +209,10 @@ public class Device {
 
     public LocalDateTime getLastSeenAt() { return lastSeenAt; }
     public void setLastSeenAt(LocalDateTime lastSeenAt) { this.lastSeenAt = lastSeenAt; }
+
+    public String getDeviceName() { return deviceName; }
+    public void setDeviceName(String deviceName) { this.deviceName = deviceName; }
+
+    public String getConfiguration() { return configuration; }
+    public void setConfiguration(String configuration) { this.configuration = configuration; }
 }

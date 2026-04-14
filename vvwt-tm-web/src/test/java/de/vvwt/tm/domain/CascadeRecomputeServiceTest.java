@@ -106,7 +106,7 @@ class CascadeRecomputeServiceTest {
     @Test
     void registerMatchResult_firesStepsInOrder_firstEntry() {
         // Arrange
-        SetResultInput input = new SetResultInput(matchId, 0, 15, 10, null, null);
+        SetResultInput input = SetResultInput.legacy(matchId, 0, 15, 10, null, null);
         Match match = makeMatch(MatchState.OPEN, 3, 1);  // lapNumber=1
         Tournament tournament = makeTournament(MatchFormat.BEST_OF_3);
         Phase phase = makePhase(phaseId, 0);
@@ -171,7 +171,7 @@ class CascadeRecomputeServiceTest {
     @Test
     void registerMatchResult_firesStepsInOrder_correction() {
         // Arrange — second call for same (matchId, setIndex) → UPDATE path
-        SetResultInput input = new SetResultInput(matchId, 0, 14, 12, "organizer", "correction");
+        SetResultInput input = SetResultInput.legacy(matchId, 0, 14, 12, "organizer", "correction");
         Match match = makeMatch(MatchState.ONCHECK, 3, 1);
         Tournament tournament = makeTournament(MatchFormat.BEST_OF_3);
         Phase phase = makePhase(phaseId, 0);
@@ -224,7 +224,7 @@ class CascadeRecomputeServiceTest {
 
     @Test
     void registerMatchResult_validationFailure_throwsAndNoFurtherStepsFire() {
-        SetResultInput input = new SetResultInput(matchId, 0, 15, 15, null, null);
+        SetResultInput input = SetResultInput.legacy(matchId, 0, 15, 15, null, null);
         Match match = makeMatch(MatchState.OPEN, 3, null);
         Tournament tournament = makeTournament(MatchFormat.BEST_OF_3);
 
@@ -252,7 +252,7 @@ class CascadeRecomputeServiceTest {
     @Test
     void registerMatchResult_noMatchStateUpdate_whenStateUnchanged() {
         // Enter set 1 of BEST_OF_3 when set 0 is already entered — state stays ONCHECK
-        SetResultInput input = new SetResultInput(matchId, 1, 8, 15, null, null);
+        SetResultInput input = SetResultInput.legacy(matchId, 1, 8, 15, null, null);
         Match match = makeMatch(MatchState.ONCHECK, 3, 1);
         Tournament tournament = makeTournament(MatchFormat.BEST_OF_3);
         Phase phase = makePhase(phaseId, 0);
@@ -290,7 +290,7 @@ class CascadeRecomputeServiceTest {
 
     @Test
     void registerMatchResult_eventCarriesCorrectStateValues() {
-        SetResultInput input = new SetResultInput(matchId, 2, 15, 5, "player1", null);
+        SetResultInput input = SetResultInput.legacy(matchId, 2, 15, 5, "player1", null);
         // Match is in ONCHECK (1-1), this is the decisive 3rd set → FINISHED_WINNER1
         Match match = makeMatch(MatchState.ONCHECK, 3, 2);
         Tournament tournament = makeTournament(MatchFormat.BEST_OF_3);

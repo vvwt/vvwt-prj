@@ -136,7 +136,7 @@ class CascadeRecomputeServiceIT {
 
         // Enter first set: 25-15 → WINNER1 (standardVolleyball standard target = 25)
         cascadeService.registerMatchResult(
-                new SetResultInput(f.matchId, 0, 25, 15, null, null));
+                SetResultInput.legacy(f.matchId, 0, 25, 15, null, null));
 
         Match match = matchRepository.findById(f.matchId).orElseThrow();
         MatchOutcome outcome = matchOutcomeRepository.findById(f.matchId).orElseThrow();
@@ -150,8 +150,8 @@ class CascadeRecomputeServiceIT {
         TestFixture f = createFixture(MatchFormat.BEST_OF_3, "setPoints", "standardVolleyball");
 
         // standardVolleyball standard target = 25, minimum 2-point lead
-        cascadeService.registerMatchResult(new SetResultInput(f.matchId, 0, 25, 15, null, null));
-        cascadeService.registerMatchResult(new SetResultInput(f.matchId, 0, 25, 23, "organizer", "correction"));
+        cascadeService.registerMatchResult(SetResultInput.legacy(f.matchId, 0, 25, 15, null, null));
+        cascadeService.registerMatchResult(SetResultInput.legacy(f.matchId, 0, 25, 23, "organizer", "correction"));
 
         Match match = matchRepository.findById(f.matchId).orElseThrow();
         MatchOutcome outcome = matchOutcomeRepository.findById(f.matchId).orElseThrow();
@@ -164,7 +164,7 @@ class CascadeRecomputeServiceIT {
         // BEST_OF_1: setIndex=0 is the deciding set, target = 15
         TestFixture f = createFixture(MatchFormat.BEST_OF_1, "setPoints", "standardVolleyball");
 
-        cascadeService.registerMatchResult(new SetResultInput(f.matchId, 0, 15, 10, null, null));
+        cascadeService.registerMatchResult(SetResultInput.legacy(f.matchId, 0, 15, 10, null, null));
 
         Match match = matchRepository.findById(f.matchId).orElseThrow();
         MatchOutcome outcome = matchOutcomeRepository.findById(f.matchId).orElseThrow();
@@ -182,7 +182,7 @@ class CascadeRecomputeServiceIT {
         TestFixture f = createFixture(MatchFormat.BEST_OF_3, "setPoints", "standardVolleyball");
 
         // standardVolleyball standard target = 25, minimum 2-point lead
-        cascadeService.registerMatchResult(new SetResultInput(f.matchId, 0, 25, 15, null, null));
+        cascadeService.registerMatchResult(SetResultInput.legacy(f.matchId, 0, 25, 15, null, null));
 
         // SetResult persisted
         Optional<SetResult> sr = setResultRepository.findByMatchIdAndSetIndex(f.matchId, 0);
@@ -229,9 +229,9 @@ class CascadeRecomputeServiceIT {
         TestFixture f = createFixture(MatchFormat.BEST_OF_3, "setPoints", "standardVolleyball");
 
         // First entry: 25-15 → WINNER1 (standardVolleyball standard target = 25)
-        cascadeService.registerMatchResult(new SetResultInput(f.matchId, 0, 25, 15, null, null));
+        cascadeService.registerMatchResult(SetResultInput.legacy(f.matchId, 0, 25, 15, null, null));
         // Correction: 25-23 → still WINNER1 (valid correction with 2-point lead)
-        cascadeService.registerMatchResult(new SetResultInput(f.matchId, 0, 25, 23, "organizer", "correction"));
+        cascadeService.registerMatchResult(SetResultInput.legacy(f.matchId, 0, 25, 23, "organizer", "correction"));
 
         // SetResult UPDATEd to new values
         Optional<SetResult> sr = setResultRepository.findByMatchIdAndSetIndex(f.matchId, 0);
@@ -272,14 +272,14 @@ class CascadeRecomputeServiceIT {
             assertThat(phaseInit.getCurrentLapNumber()).isZero();
 
             // Finish match 1 (15-10 → valid for BEST_OF_1 deciding set)
-            cascadeService.registerMatchResult(new SetResultInput(f.match1Id, 0, 15, 10, null, null));
+            cascadeService.registerMatchResult(SetResultInput.legacy(f.match1Id, 0, 15, 10, null, null));
             // Lap should still be 0 (match 2 not finished)
             Phase phaseAfter1 = phaseRepository.findById(f.phaseId).orElseThrow();
             assertThat(phaseAfter1.getCurrentLapNumber()).isZero()
                     .as("AC20: lap must not advance until both matches are terminal");
 
             // Finish match 2 (10-15 → WINNER2 valid for deciding set)
-            cascadeService.registerMatchResult(new SetResultInput(f.match2Id, 0, 10, 15, null, null));
+            cascadeService.registerMatchResult(SetResultInput.legacy(f.match2Id, 0, 10, 15, null, null));
             // Now both matches in lap=0 are terminal → lap advances to 1
             Phase phaseAfter2 = phaseRepository.findById(f.phaseId).orElseThrow();
             assertThat(phaseAfter2.getCurrentLapNumber()).isEqualTo(1)
@@ -305,7 +305,7 @@ class CascadeRecomputeServiceIT {
         assertThat(phaseBefore.getCurrentLapNumber()).isZero();
 
         // Only finish match 1 (15-10 valid for deciding set)
-        cascadeService.registerMatchResult(new SetResultInput(f.match1Id, 0, 15, 10, null, null));
+        cascadeService.registerMatchResult(SetResultInput.legacy(f.match1Id, 0, 15, 10, null, null));
 
         Phase phaseAfter = phaseRepository.findById(f.phaseId).orElseThrow();
         assertThat(phaseAfter.getCurrentLapNumber()).isZero()
@@ -324,9 +324,9 @@ class CascadeRecomputeServiceIT {
         TestFixture f = createFixture(MatchFormat.FIXED_2_SETS, "setPoints", "timeBounded");
 
         // Set 0: team1 wins 15-10 (timeBounded: any score with ≥1 point lead is valid)
-        cascadeService.registerMatchResult(new SetResultInput(f.matchId, 0, 15, 10, null, null));
+        cascadeService.registerMatchResult(SetResultInput.legacy(f.matchId, 0, 15, 10, null, null));
         // Set 1: team2 wins 12-15
-        cascadeService.registerMatchResult(new SetResultInput(f.matchId, 1, 12, 15, null, null));
+        cascadeService.registerMatchResult(SetResultInput.legacy(f.matchId, 1, 12, 15, null, null));
 
         // MatchOutcome: team1_sets=1, team2_sets=1
         MatchOutcome outcome = matchOutcomeRepository.findById(f.matchId).orElseThrow();
@@ -361,18 +361,18 @@ class CascadeRecomputeServiceIT {
         TestFixture f = createFixture(MatchFormat.BEST_OF_3, "setPoints", "standardVolleyball");
 
         // Enter set 0: 25-15 → WINNER1 (standard target=25); state OPEN → ONCHECK
-        cascadeService.registerMatchResult(new SetResultInput(f.matchId, 0, 25, 15, null, null));
+        cascadeService.registerMatchResult(SetResultInput.legacy(f.matchId, 0, 25, 15, null, null));
         Match afterSet0 = matchRepository.findById(f.matchId).orElseThrow();
         assertThat(afterSet0.getMatchState()).isEqualTo(MatchState.ONCHECK);
 
         // Enter set 1: 15-25 → WINNER2 (standard target=25); still ONCHECK (1-1)
-        cascadeService.registerMatchResult(new SetResultInput(f.matchId, 1, 15, 25, null, null));
+        cascadeService.registerMatchResult(SetResultInput.legacy(f.matchId, 1, 15, 25, null, null));
         Match afterSet1 = matchRepository.findById(f.matchId).orElseThrow();
         assertThat(afterSet1.getMatchState()).isEqualTo(MatchState.ONCHECK)
                 .as("AC21b: state must remain ONCHECK when not yet decisive");
 
         // Enter decisive set 2: 15-8 → WINNER1 (deciding target=15); FINISHED_WINNER1
-        cascadeService.registerMatchResult(new SetResultInput(f.matchId, 2, 15, 8, null, null));
+        cascadeService.registerMatchResult(SetResultInput.legacy(f.matchId, 2, 15, 8, null, null));
         Match afterSet2 = matchRepository.findById(f.matchId).orElseThrow();
         assertThat(afterSet2.getMatchState()).isEqualTo(MatchState.FINISHED_WINNER1)
                 .as("AC21b: state must change to FINISHED_WINNER1 on decisive set");
@@ -389,7 +389,7 @@ class CascadeRecomputeServiceIT {
 
         // 15-15 is invalid for StandardVolleyball (no 2-point lead)
         assertThatThrownBy(() ->
-                cascadeService.registerMatchResult(new SetResultInput(f.matchId, 0, 15, 15, null, null)))
+                cascadeService.registerMatchResult(SetResultInput.legacy(f.matchId, 0, 15, 15, null, null)))
                 .isInstanceOf(ValidationException.class);
 
         // No set_result row was written
@@ -418,7 +418,7 @@ class CascadeRecomputeServiceIT {
         UUID nonExistentMatchId = UUID.randomUUID();
 
         assertThatThrownBy(() ->
-                cascadeService.registerMatchResult(new SetResultInput(nonExistentMatchId, 0, 15, 10, null, null)))
+                cascadeService.registerMatchResult(SetResultInput.legacy(nonExistentMatchId, 0, 15, 10, null, null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Match not found");
 
@@ -439,7 +439,7 @@ class CascadeRecomputeServiceIT {
         try {
             testEventCapture.reset();
 
-            cascadeService.registerMatchResult(new SetResultInput(f.matchId, 0, 15, 10, null, null));
+            cascadeService.registerMatchResult(SetResultInput.legacy(f.matchId, 0, 15, 10, null, null));
 
             assertThat(testEventCapture.captured).hasSize(1)
                     .as("AC26: exactly one MatchResultChangedEvent per successful cascade");
@@ -457,7 +457,7 @@ class CascadeRecomputeServiceIT {
 
             // 15-15 invalid → rollback
             assertThatThrownBy(() ->
-                    cascadeService.registerMatchResult(new SetResultInput(f.matchId, 0, 15, 15, null, null)))
+                    cascadeService.registerMatchResult(SetResultInput.legacy(f.matchId, 0, 15, 15, null, null)))
                     .isInstanceOf(ValidationException.class);
 
             assertThat(testEventCapture.captured)

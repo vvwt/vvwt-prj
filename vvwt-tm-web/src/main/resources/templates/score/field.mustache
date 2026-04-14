@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="{{locale}}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{title}}</title>
+    <style>
+        /*
+         * E06S06 — Score entry page styles.
+         * iOS 9 Safari compatible: no flexbox/grid quirks, no CSS container queries.
+         * DEC-19: scoring tablet surface; Mustache + ES5 only.
+         */
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            background: #1a1a2e;
+            color: #eee;
+            text-align: center;
+        }
+        #page-wrapper {
+            padding: 20px 16px 40px;
+            max-width: 540px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 1.2em;
+            color: #aaa;
+            margin: 0 0 4px;
+            font-weight: normal;
+        }
+        /* AC4: field label row */
+        #field-label {
+            font-size: 0.85em;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        /* AC8: global error banner */
+        #error-banner {
+            display: none;
+            background: #c0392b;
+            color: #fff;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        /* Status / loading message */
+        #status-msg {
+            font-size: 0.95em;
+            color: #777;
+            margin-bottom: 20px;
+            min-height: 1.4em;
+        }
+        /* AC9: no-match panel */
+        #no-match-panel {
+            display: none;
+            padding: 32px 16px;
+            color: #666;
+            font-size: 1em;
+        }
+        /* AC3: match display panel */
+        #match-panel {
+            display: none;
+        }
+        /* Team names row */
+        #team-row {
+            margin-bottom: 12px;
+        }
+        #team1-name, #team2-name {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #f0f0f0;
+            display: inline-block;
+            min-width: 120px;
+        }
+        #vs-label {
+            font-size: 0.9em;
+            color: #555;
+            display: inline-block;
+            margin: 0 12px;
+            vertical-align: middle;
+        }
+        /* Lap/set info */
+        #lap-set-row {
+            font-size: 0.8em;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        /* Referee row */
+        #referee-row {
+            font-size: 0.8em;
+            color: #555;
+            margin-bottom: 24px;
+        }
+        /* AC3: score entry area */
+        #score-area {
+            margin-bottom: 28px;
+        }
+        .score-col {
+            display: inline-block;
+            width: 45%;
+            vertical-align: top;
+        }
+        .score-col-label {
+            font-size: 0.8em;
+            color: #888;
+            margin-bottom: 8px;
+        }
+        /* AC3: point display */
+        .score-display {
+            font-size: 3.5em;
+            font-weight: bold;
+            color: #fff;
+            background: #2d2d54;
+            border-radius: 8px;
+            padding: 12px 0;
+            min-width: 80px;
+            display: inline-block;
+            margin-bottom: 10px;
+            width: 100%;
+        }
+        /* AC3: +/- buttons and numeric input */
+        .btn-plus, .btn-minus {
+            display: inline-block;
+            width: 44%;
+            padding: 10px 0;
+            font-size: 1.4em;
+            font-weight: bold;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 2px 1%;
+        }
+        .btn-plus  { background: #27ae60; color: #fff; }
+        .btn-minus { background: #7f8c8d; color: #fff; }
+        .score-input {
+            width: 80%;
+            font-size: 1.2em;
+            text-align: center;
+            padding: 6px 4px;
+            margin-top: 8px;
+            background: #23234a;
+            color: #eee;
+            border: 1px solid #444;
+            border-radius: 4px;
+        }
+        /* AC5: confirm button */
+        #confirm-btn {
+            display: block;
+            width: 90%;
+            margin: 0 auto 20px;
+            padding: 14px 0;
+            font-size: 1.1em;
+            background: #2980b9;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        /* AC11: queue status pill */
+        #queue-status {
+            display: none;
+            font-size: 0.75em;
+            color: #888;
+            margin-bottom: 12px;
+        }
+        /* AC5: confirmation dialog overlay */
+        #confirm-dialog {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 100;
+        }
+        #confirm-dialog-box {
+            background: #22224a;
+            border-radius: 10px;
+            padding: 32px 24px 24px;
+            margin: 18% auto 0;
+            max-width: 380px;
+            width: 90%;
+        }
+        #confirm-dialog-heading {
+            font-size: 1.1em;
+            color: #eee;
+            margin-bottom: 10px;
+        }
+        #confirm-dialog-prompt {
+            font-size: 0.95em;
+            color: #aaa;
+            margin-bottom: 24px;
+        }
+        #confirm-dialog-score {
+            font-size: 2em;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 24px;
+        }
+        .confirm-dialog-btn {
+            display: inline-block;
+            width: 44%;
+            margin: 0 2%;
+            padding: 12px 0;
+            font-size: 1em;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        #confirm-yes-btn { background: #27ae60; color: #fff; }
+        #confirm-no-btn  { background: #555; color: #eee; }
+        /* Version info */
+        #version-info {
+            margin-top: 40px;
+            font-size: 0.65em;
+            color: #444;
+        }
+    </style>
+</head>
+<body>
+    <div id="page-wrapper">
+
+        <!-- AC8: global error banner -->
+        <div id="error-banner"></div>
+
+        <!-- AC3: page heading and field label -->
+        <h1>{{heading}}</h1>
+        <div id="field-label">{{msgFieldLabel}} {{fieldNumber}}</div>
+
+        <!-- Status / loading line -->
+        <div id="status-msg">{{msgLoading}}</div>
+
+        <!-- AC11: score queue status -->
+        <div id="queue-status"></div>
+
+        <!-- AC9: no-match panel — shown when no active match on this field -->
+        <div id="no-match-panel">{{msgNoMatch}}</div>
+
+        <!-- AC3: match display + score entry panel -->
+        <div id="match-panel">
+
+            <!-- Team names row (AC3) -->
+            <div id="team-row">
+                <span id="team1-name"></span>
+                <span id="vs-label">{{msgVsLabel}}</span>
+                <span id="team2-name"></span>
+            </div>
+
+            <!-- Lap and set info -->
+            <div id="lap-set-row">
+                <span id="lap-info"></span>
+                &nbsp;&mdash;&nbsp;
+                <span id="set-info"></span>
+            </div>
+
+            <!-- Referee row (shown only if referee present) -->
+            <div id="referee-row" style="display:none">
+                {{msgRefereeLabel}}: <span id="referee-name"></span>
+            </div>
+
+            <!-- AC3: score entry area -->
+            <div id="score-area">
+                <!-- Team 1 column -->
+                <div class="score-col" id="col-team1">
+                    <div class="score-col-label" id="label-team1"></div>
+                    <div class="score-display" id="score-team1">0</div>
+                    <button class="btn-plus"  id="plus-team1"  type="button">{{msgPlusLabel}}</button>
+                    <button class="btn-minus" id="minus-team1" type="button">{{msgMinusLabel}}</button>
+                    <input  class="score-input" id="input-team1" type="number" min="0" max="99" value="0">
+                </div>
+
+                <!-- Team 2 column -->
+                <div class="score-col" id="col-team2">
+                    <div class="score-col-label" id="label-team2"></div>
+                    <div class="score-display" id="score-team2">0</div>
+                    <button class="btn-plus"  id="plus-team2"  type="button">{{msgPlusLabel}}</button>
+                    <button class="btn-minus" id="minus-team2" type="button">{{msgMinusLabel}}</button>
+                    <input  class="score-input" id="input-team2" type="number" min="0" max="99" value="0">
+                </div>
+            </div><!-- /#score-area -->
+
+            <!-- AC5: confirm set result button -->
+            <button id="confirm-btn" type="button">{{msgConfirmHeading}}</button>
+
+        </div><!-- /#match-panel -->
+
+        <div id="version-info">
+            <small>{{versionLabel}}: {{appVersion}}</small>
+        </div>
+
+    </div><!-- /#page-wrapper -->
+
+    <!-- AC5: confirmation dialog overlay -->
+    <div id="confirm-dialog">
+        <div id="confirm-dialog-box">
+            <div id="confirm-dialog-heading">{{msgConfirmHeading}}</div>
+            <div id="confirm-dialog-prompt">{{msgConfirmPrompt}}</div>
+            <div id="confirm-dialog-score"></div>
+            <button class="confirm-dialog-btn" id="confirm-yes-btn" type="button">{{msgConfirmYes}}</button>
+            <button class="confirm-dialog-btn" id="confirm-no-btn"  type="button">{{msgConfirmNo}}</button>
+        </div>
+    </div>
+
+    <!--
+        E06S02 AC4 (ES5 utility script) + DEC-19:
+        Only the shared ES5 utility script and inline ES5 are permitted on this page.
+        No npm-bundled code, no Svelte, no modern JS framework.
+    -->
+    <script src="/score/assets/vvwt-tablet.js"></script>
+
+    <!--
+        E06S06 inline ES5 score-entry logic.
+        AC1:  Load active match via GET /api/score/match?field={n}&token={t}.
+        AC3:  Display match details and score entry controls.
+        AC4:  +/- buttons and numeric input for point entry.
+        AC5:  POST /api/score/partial on every score change.
+        AC6:  Show validation error returned from /api/score/submit.
+        AC7:  POST /api/score/submit on confirm dialog confirmation.
+        AC8:  source_type=TABLET handled server-side via deviceToken.
+        AC9:  Show no-match panel when 204 returned from /api/score/match.
+        AC10: Device token read from localStorage/cookie (DEC-19 ES5 compliant).
+        AC11: Score queue with retry — stores pending submits, retries on next confirm.
+        AC12: Show 403 forbidden error when device is on wrong field.
+        AC13: All UI strings from Mustache i18n keys.
+        DEC-19: ECMAScript 5 only — var, named functions, no arrow/class/template literals.
+    -->
+    <script>
+    /* =========================================================================
+       E06S06 — Score-entry page ES5 inline script.
+       DEC-19 constraint: ECMAScript 5 only.
+       Relies on helpers from /score/assets/vvwt-tablet.js (must load first):
+         vvwtFetch, vvwtSetText, vvwtShow, vvwtHide, vvwtQuery
+       ========================================================================= */
+
+    /* -------------------------------------------------------------------------
+       i18n strings (AC13) — injected by Mustache controller
+       --------------------------------------------------------------------- */
+    var MSG_LOADING          = '{{msgLoading}}';
+    var MSG_NO_MATCH         = '{{msgNoMatch}}';
+    var MSG_ERROR_NET        = '{{msgErrorNet}}';
+    var MSG_ERROR_TOKEN      = '{{msgErrorToken}}';
+    var MSG_ERROR_FORBIDDEN  = '{{msgErrorForbidden}}';
+    var MSG_ERROR_VALIDATION = '{{msgErrorValidation}}';
+    var MSG_SUBMIT_SUCCESS   = '{{msgSubmitSuccess}}';
+    var MSG_QUEUE_PENDING    = '{{msgQueuePending}}';
+    var MSG_QUEUE_SAVED      = '{{msgQueueSaved}}';
+    var MSG_LAP_LABEL        = '{{msgLapLabel}}';
+    var MSG_SET_LABEL        = '{{msgSetLabel}}';
+
+    /* -------------------------------------------------------------------------
+       Page state
+       --------------------------------------------------------------------- */
+    var FIELD_NUMBER         = {{fieldNumber}};
+    var TOKEN_STORAGE_KEY    = 'vvwt_device_token';
+    var TOKEN_COOKIE_NAME    = 'vvwt_device_token';
+
+    /* Current match state */
+    var currentMatchId       = null;
+    var currentSetIndex      = 0;
+    var score1               = 0;
+    var score2               = 0;
+
+    /* AC11: offline score queue — array of {matchId, setIndex, team1Points, team2Points} */
+    var scoreQueue           = [];
+
+    /* -------------------------------------------------------------------------
+       DOM references
+       --------------------------------------------------------------------- */
+    var elErrorBanner    = vvwtQuery('#error-banner');
+    var elStatusMsg      = vvwtQuery('#status-msg');
+    var elQueueStatus    = vvwtQuery('#queue-status');
+    var elNoMatchPanel   = vvwtQuery('#no-match-panel');
+    var elMatchPanel     = vvwtQuery('#match-panel');
+    var elTeam1Name      = vvwtQuery('#team1-name');
+    var elTeam2Name      = vvwtQuery('#team2-name');
+    var elLapInfo        = vvwtQuery('#lap-info');
+    var elSetInfo        = vvwtQuery('#set-info');
+    var elRefereeRow     = vvwtQuery('#referee-row');
+    var elRefereeName    = vvwtQuery('#referee-name');
+    var elLabelTeam1     = vvwtQuery('#label-team1');
+    var elLabelTeam2     = vvwtQuery('#label-team2');
+    var elScoreTeam1     = vvwtQuery('#score-team1');
+    var elScoreTeam2     = vvwtQuery('#score-team2');
+    var elPlusTeam1      = vvwtQuery('#plus-team1');
+    var elMinusTeam1     = vvwtQuery('#minus-team1');
+    var elInputTeam1     = vvwtQuery('#input-team1');
+    var elPlusTeam2      = vvwtQuery('#plus-team2');
+    var elMinusTeam2     = vvwtQuery('#minus-team2');
+    var elInputTeam2     = vvwtQuery('#input-team2');
+    var elConfirmBtn     = vvwtQuery('#confirm-btn');
+    var elConfirmDialog  = vvwtQuery('#confirm-dialog');
+    var elConfirmScore   = vvwtQuery('#confirm-dialog-score');
+    var elConfirmYesBtn  = vvwtQuery('#confirm-yes-btn');
+    var elConfirmNoBtn   = vvwtQuery('#confirm-no-btn');
+
+    /* -------------------------------------------------------------------------
+       AC10: Token storage helpers (same pattern as register.mustache)
+       --------------------------------------------------------------------- */
+
+    function localStorageGet(key) {
+        try { return window.localStorage ? window.localStorage.getItem(key) : null; }
+        catch (e) { return null; }
+    }
+
+    function cookieGet(name) {
+        var cookies = document.cookie ? document.cookie.split(';') : [];
+        for (var i = 0; i < cookies.length; i++) {
+            var parts = cookies[i].split('=');
+            var n = (parts[0] || '').replace(/^\s+|\s+$/g, '');
+            if (n === name) {
+                return decodeURIComponent((parts[1] || '').replace(/^\s+|\s+$/g, ''));
+            }
+        }
+        return null;
+    }
+
+    function retrieveToken() {
+        var t = localStorageGet(TOKEN_STORAGE_KEY);
+        if (t) { return t; }
+        return cookieGet(TOKEN_COOKIE_NAME);
+    }
+
+    /* -------------------------------------------------------------------------
+       Score display helpers
+       --------------------------------------------------------------------- */
+
+    function updateScoreDisplay() {
+        vvwtSetText(elScoreTeam1, String(score1));
+        vvwtSetText(elScoreTeam2, String(score2));
+        if (elInputTeam1) { elInputTeam1.value = String(score1); }
+        if (elInputTeam2) { elInputTeam2.value = String(score2); }
+    }
+
+    /* -------------------------------------------------------------------------
+       AC5: Partial score broadcast
+       --------------------------------------------------------------------- */
+
+    function sendPartialScore() {
+        var token = retrieveToken();
+        if (!token || !currentMatchId) { return; }
+
+        vvwtFetch(
+            '/api/score/partial',
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    matchId:     currentMatchId,
+                    setIndex:    currentSetIndex,
+                    team1Points: score1,
+                    team2Points: score2,
+                    deviceToken: token
+                })
+            },
+            function () { /* success — no-op, partial is fire-and-forget */ },
+            function (err) {
+                /* Network errors on partial are silent — not surfaced to user */
+                if (window.console && window.console.warn) {
+                    window.console.warn('[E06S06] Partial score error: ' + err);
+                }
+            }
+        );
+    }
+
+    /* -------------------------------------------------------------------------
+       AC4: +/- button and input handlers
+       --------------------------------------------------------------------- */
+
+    function clamp(val) {
+        if (val < 0)  { return 0; }
+        if (val > 99) { return 99; }
+        return val;
+    }
+
+    if (elPlusTeam1) {
+        elPlusTeam1.onclick = function () {
+            score1 = clamp(score1 + 1);
+            updateScoreDisplay();
+            sendPartialScore();
+        };
+    }
+    if (elMinusTeam1) {
+        elMinusTeam1.onclick = function () {
+            score1 = clamp(score1 - 1);
+            updateScoreDisplay();
+            sendPartialScore();
+        };
+    }
+    if (elPlusTeam2) {
+        elPlusTeam2.onclick = function () {
+            score2 = clamp(score2 + 1);
+            updateScoreDisplay();
+            sendPartialScore();
+        };
+    }
+    if (elMinusTeam2) {
+        elMinusTeam2.onclick = function () {
+            score2 = clamp(score2 - 1);
+            updateScoreDisplay();
+            sendPartialScore();
+        };
+    }
+    if (elInputTeam1) {
+        elInputTeam1.onchange = function () {
+            var v = parseInt(elInputTeam1.value, 10);
+            score1 = isNaN(v) ? 0 : clamp(v);
+            updateScoreDisplay();
+            sendPartialScore();
+        };
+    }
+    if (elInputTeam2) {
+        elInputTeam2.onchange = function () {
+            var v = parseInt(elInputTeam2.value, 10);
+            score2 = isNaN(v) ? 0 : clamp(v);
+            updateScoreDisplay();
+            sendPartialScore();
+        };
+    }
+
+    /* -------------------------------------------------------------------------
+       AC5, AC7: Confirm dialog
+       --------------------------------------------------------------------- */
+
+    if (elConfirmBtn) {
+        elConfirmBtn.onclick = function () {
+            /* Show confirmation dialog with current score */
+            if (elConfirmScore) {
+                vvwtSetText(elConfirmScore, score1 + ' : ' + score2);
+            }
+            vvwtShow(elConfirmDialog);
+        };
+    }
+
+    if (elConfirmNoBtn) {
+        elConfirmNoBtn.onclick = function () {
+            vvwtHide(elConfirmDialog);
+        };
+    }
+
+    if (elConfirmYesBtn) {
+        elConfirmYesBtn.onclick = function () {
+            vvwtHide(elConfirmDialog);
+            submitSetResult(score1, score2);
+        };
+    }
+
+    /* -------------------------------------------------------------------------
+       AC7, AC11: Set result submission with offline queue
+       --------------------------------------------------------------------- */
+
+    /**
+     * Submit a final set result via POST /api/score/submit.
+     * On failure (network / 5xx): queue the result and retry on next confirm (AC11).
+     */
+    function submitSetResult(t1, t2) {
+        var token = retrieveToken();
+        if (!token) {
+            showError(MSG_ERROR_TOKEN);
+            return;
+        }
+        if (!currentMatchId) {
+            return;
+        }
+
+        showQueueStatus(MSG_QUEUE_PENDING);
+
+        vvwtFetch(
+            '/api/score/submit',
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    matchId:     currentMatchId,
+                    setIndex:    currentSetIndex,
+                    team1Points: t1,
+                    team2Points: t2,
+                    deviceToken: token
+                })
+            },
+            function () {
+                /* Success: clear queue, show success, reload match state */
+                scoreQueue = [];
+                showQueueStatus(MSG_QUEUE_SAVED);
+                vvwtSetText(elStatusMsg, MSG_SUBMIT_SUCCESS);
+                /* Reload match state after a short delay to pick up next set or match end */
+                window.setTimeout(function () {
+                    loadMatch();
+                }, 1500);
+            },
+            function (err) {
+                hideQueueStatus();
+                if (err && err.indexOf('401') !== -1) {
+                    showError(MSG_ERROR_TOKEN);
+                } else if (err && err.indexOf('403') !== -1) {
+                    showError(MSG_ERROR_FORBIDDEN);
+                } else if (err && (err.indexOf('400') !== -1)) {
+                    /* AC6: validation error */
+                    showError(MSG_ERROR_VALIDATION);
+                } else {
+                    /* AC11: network or server error — queue for retry */
+                    scoreQueue.push({
+                        matchId:     currentMatchId,
+                        setIndex:    currentSetIndex,
+                        team1Points: t1,
+                        team2Points: t2
+                    });
+                    showError(MSG_ERROR_NET);
+                }
+            }
+        );
+    }
+
+    function showQueueStatus(msg) {
+        if (elQueueStatus) {
+            vvwtSetText(elQueueStatus, msg);
+            vvwtShow(elQueueStatus);
+        }
+    }
+
+    function hideQueueStatus() {
+        if (elQueueStatus) { vvwtHide(elQueueStatus); }
+    }
+
+    /* -------------------------------------------------------------------------
+       Error display
+       --------------------------------------------------------------------- */
+
+    function showError(message) {
+        if (elErrorBanner) {
+            vvwtSetText(elErrorBanner, message);
+            vvwtShow(elErrorBanner);
+        }
+        vvwtSetText(elStatusMsg, '');
+    }
+
+    function clearError() {
+        if (elErrorBanner) { vvwtHide(elErrorBanner); }
+    }
+
+    /* -------------------------------------------------------------------------
+       AC1, AC4: Load and display the active match
+       --------------------------------------------------------------------- */
+
+    /**
+     * Load the active match for this field via GET /api/score/match?field=N&token=T.
+     * - 200: render match display (AC3).
+     * - 204: show no-match panel (AC9).
+     * - 401: show token error (AC8).
+     * - 403: show field authorization error (AC12).
+     */
+    function loadMatch() {
+        var token = retrieveToken();
+        clearError();
+        vvwtShow(elStatusMsg);
+        vvwtSetText(elStatusMsg, MSG_LOADING);
+        vvwtHide(elMatchPanel);
+        vvwtHide(elNoMatchPanel);
+
+        if (!token) {
+            showError(MSG_ERROR_TOKEN);
+            return;
+        }
+
+        vvwtFetch(
+            '/api/score/match?field=' + FIELD_NUMBER + '&token=' + encodeURIComponent(token),
+            { method: 'GET' },
+            function (data) {
+                vvwtSetText(elStatusMsg, '');
+                if (!data) {
+                    /* 204 No Content or empty body — no active match (AC9) */
+                    currentMatchId = null;
+                    vvwtShow(elNoMatchPanel);
+                    return;
+                }
+                renderMatch(data);
+            },
+            function (err) {
+                if (err && err.indexOf('401') !== -1) {
+                    showError(MSG_ERROR_TOKEN);
+                } else if (err && err.indexOf('403') !== -1) {
+                    showError(MSG_ERROR_FORBIDDEN);
+                } else if (err && err.indexOf('204') !== -1) {
+                    /* vvwtFetch may call onError for 204 — treat as no match */
+                    currentMatchId = null;
+                    vvwtSetText(elStatusMsg, '');
+                    vvwtShow(elNoMatchPanel);
+                } else {
+                    showError(MSG_ERROR_NET);
+                }
+            }
+        );
+    }
+
+    /**
+     * Render the match display with the data from /api/score/match (AC3, AC4).
+     */
+    function renderMatch(data) {
+        currentMatchId  = data.matchId  || null;
+        currentSetIndex = data.setIndex || 0;
+        score1          = data.team1Points || 0;
+        score2          = data.team2Points || 0;
+
+        /* AC3: team names */
+        vvwtSetText(elTeam1Name, data.team1Name || '?');
+        vvwtSetText(elTeam2Name, data.team2Name || '?');
+        vvwtSetText(elLabelTeam1, data.team1Name || '?');
+        vvwtSetText(elLabelTeam2, data.team2Name || '?');
+
+        /* Lap and set info */
+        vvwtSetText(elLapInfo, MSG_LAP_LABEL + ' ' + (data.lapNumber || 0));
+        vvwtSetText(elSetInfo, MSG_SET_LABEL + ' ' + ((data.setIndex || 0) + 1));
+
+        /* Referee */
+        if (data.refereeTeamName) {
+            vvwtSetText(elRefereeName, data.refereeTeamName);
+            vvwtShow(elRefereeRow);
+        } else {
+            vvwtHide(elRefereeRow);
+        }
+
+        /* Score display */
+        updateScoreDisplay();
+
+        /* Retry any queued submissions (AC11) */
+        if (scoreQueue.length > 0) {
+            var queued = scoreQueue.shift();
+            /* Silently re-attempt the queued item */
+            submitSetResult(queued.team1Points, queued.team2Points);
+        }
+
+        vvwtShow(elMatchPanel);
+    }
+
+    /* -------------------------------------------------------------------------
+       Page init — load match on startup
+       --------------------------------------------------------------------- */
+    (function init() {
+        loadMatch();
+    }());
+
+    </script>
+</body>
+</html>

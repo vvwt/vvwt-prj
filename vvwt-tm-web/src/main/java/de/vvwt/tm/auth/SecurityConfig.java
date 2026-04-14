@@ -30,8 +30,9 @@ import org.springframework.security.web.SecurityFilterChain;
  *   <li>{@code /actuator/health} — permit all (no auth required — E02S05 health endpoint)</li>
  *   <li>{@code /ws/**} — permit all at the HTTP Security level (WebSocket upgrade path used
  *       by E05S03; WebSocket-level auth is E05S03's responsibility per AC8)</li>
- *   <li>{@code /admin/**} — requires authentication</li>
- *   <li>{@code /api/**} — requires authentication</li>
+ *   <li>{@code /api/devices/register} — permit all (device registration, E06S03)</li>
+ *   <li>{@code /api/devices/status} — permit all (device status polling, E06S03)</li>
+ *   <li>{@code /api/score/**} — permit all (score entry API, E06S06 AC9 — device-token auth at service layer)</li>
  *   <li>{@code /score/**} — permit all (no auth — scoring tablet routes, DEC-19, E06S02 AC9)</li>
  *   <li>{@code /admin/**} — requires authentication</li>
  *   <li>{@code /api/**} — requires authentication</li>
@@ -162,6 +163,11 @@ public class SecurityConfig {
                         // E06S03 AC3: Device status polling — public; tablet provides device token
                         // as a query param. Token validation is done at the service layer (AC8).
                         .requestMatchers("/api/devices/status").permitAll()
+                        // E06S06 AC9: Score entry API is accessible without admin authentication.
+                        // Device identity is validated at the service layer via device token
+                        // (UnauthorizedException → 401, ForbiddenException → 403). Admin-level
+                        // auth would lock out scoring tablets that never log in (DEC-19).
+                        .requestMatchers("/api/score/**").permitAll()
                         // AC4: Admin UI and REST API require authentication
                         .requestMatchers("/admin/**").authenticated()
                         .requestMatchers("/api/**").authenticated()

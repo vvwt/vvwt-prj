@@ -60,11 +60,12 @@ class E06S03MigrationIT {
                 .map(String::toLowerCase)
                 .toList();
 
-        assertThat(columnNames).as("AC1 — devices table column set")
+        assertThat(columnNames).as("AC1 — devices table column set (includes E07S01 additions: device_name, configuration)")
                 .containsExactlyInAnyOrder(
                         "id", "tenant_id", "location_id", "device_token", "pin",
                         "device_type", "assigned_field", "status",
-                        "registered_at", "last_seen_at");
+                        "registered_at", "last_seen_at",
+                        "device_name", "configuration");  // E07S01 AC1 additions
     }
 
     @Test

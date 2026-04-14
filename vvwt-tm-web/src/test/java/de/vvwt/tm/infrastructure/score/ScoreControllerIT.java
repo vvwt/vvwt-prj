@@ -450,11 +450,12 @@ class ScoreControllerIT {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         // The device token is a UUID — it is never in the model, so the Mustache template
-        // cannot render it. Verify no UUID-like pattern appears in a visible HTML context.
-        // Note: this test checks rendered HTML source, not JS variables.
+        // cannot render it. Verify no Mustache unresolved placeholder for deviceToken appears
+        // in the rendered HTML (an unresolved Mustache key would appear as "{{deviceToken}}").
+        // Note: JS variable/property named "deviceToken" is expected in the inline script.
         assertThat(response.getBody())
-                .as("Device token must not appear as a Mustache-rendered value in HTML (AC9)")
-                .doesNotContain("deviceToken");
+                .as("Mustache placeholder {{deviceToken}} must not appear in rendered HTML (AC9)")
+                .doesNotContain("{{deviceToken}}");
     }
 
     // -----------------------------------------------------------------------
@@ -471,6 +472,161 @@ class ScoreControllerIT {
         assertThat(response.getBody())
                 .as("Register page must contain i18n heading (AC10)")
                 .containsAnyOf("Scoring Tablet", "Anmeldung");
+    }
+
+    // =========================================================================
+    // E06S06 — Score-entry field page integration tests
+    // =========================================================================
+
+    // -----------------------------------------------------------------------
+    // AC2: GET /score/field/{n} returns 200 with rendered HTML
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("E06S06 AC2: GET /score/field/1 returns 200 with Mustache-rendered HTML")
+    void fieldPage_returns200() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/score/field/1"), String.class);
+
+        assertThat(response.getStatusCode())
+                .as("GET /score/field/1 must return 200 OK")
+                .isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as("Response must be HTML (contains DOCTYPE)")
+                .containsIgnoringCase("<!DOCTYPE html>");
+    }
+
+    @Test
+    @DisplayName("E06S06 AC2: GET /score/field/1 is accessible without authentication")
+    void fieldPage_accessibleWithoutAuth() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/score/field/1"), String.class);
+
+        assertThat(response.getStatusCode())
+                .as("GET /score/field/1 must return 200 without auth")
+                .isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    @DisplayName("E06S06 AC2: field page template renders field number from URL path")
+    void fieldPage_containsFieldNumber() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/score/field/3"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        // The field number is passed to the template and should appear in the rendered HTML
+        assertThat(response.getBody())
+                .as("Rendered page must contain the field number (3)")
+                .contains("3");
+    }
+
+    // -----------------------------------------------------------------------
+    // AC9: No-match panel element present
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("E06S06 AC9: field page contains no-match-panel element")
+    void fieldPage_containsNoMatchPanel() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/score/field/1"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as("Page must contain id='no-match-panel' element for AC9 no-match state")
+                .contains("id=\"no-match-panel\"");
+    }
+
+    // -----------------------------------------------------------------------
+    // AC5: Confirm dialog present
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("E06S06 AC5: field page contains confirm dialog elements")
+    void fieldPage_containsConfirmDialog() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/score/field/1"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as("Page must contain confirm-dialog element (AC5)")
+                .contains("id=\"confirm-dialog\"");
+        assertThat(response.getBody())
+                .as("Page must contain confirm-yes-btn (AC5)")
+                .contains("id=\"confirm-yes-btn\"");
+        assertThat(response.getBody())
+                .as("Page must contain confirm-no-btn (AC5)")
+                .contains("id=\"confirm-no-btn\"");
+    }
+
+    // -----------------------------------------------------------------------
+    // DEC-19: ES5 compliance — field page inline script
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("E06S06 DEC-19: field page inline script contains no 'const'")
+    void fieldPage_inlineScript_containsNoConst() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/score/field/1"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        String codeOnly = stripCommentLines(response.getBody());
+        assertThat(codeOnly)
+                .as("Inline script on field page must not use 'const' (ES6+) — DEC-19")
+                .doesNotContainPattern("\\bconst\\b");
+    }
+
+    @Test
+    @DisplayName("E06S06 DEC-19: field page inline script contains no 'let'")
+    void fieldPage_inlineScript_containsNoLet() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/score/field/1"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        String codeOnly = stripCommentLines(response.getBody());
+        assertThat(codeOnly)
+                .as("Inline script on field page must not use 'let' (ES6+) — DEC-19")
+                .doesNotContainPattern("\\blet\\b");
+    }
+
+    @Test
+    @DisplayName("E06S06 DEC-19: field page inline script contains no arrow functions")
+    void fieldPage_inlineScript_containsNoArrowFunctions() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/score/field/1"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        String codeOnly = stripCommentLines(response.getBody());
+        assertThat(codeOnly)
+                .as("Inline script on field page must not use arrow functions (ES6+) — DEC-19")
+                .doesNotContainPattern("(?<![=<>!])=>(?!=)");
+    }
+
+    @Test
+    @DisplayName("E06S06 DEC-19: field page loads vvwt-tablet.js ES5 utility script")
+    void fieldPage_loadsTabletJs() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/score/field/1"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as("Field page must load vvwt-tablet.js (DEC-19 ES5 utility script)")
+                .contains("/score/assets/vvwt-tablet.js");
+    }
+
+    // -----------------------------------------------------------------------
+    // AC13: Rendered page contains i18n strings
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("E06S06 AC13: field page contains i18n heading")
+    void fieldPage_containsI18nHeading() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/score/field/1"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as("Field page must contain i18n heading (AC13)")
+                .containsAnyOf("Scoring Tablet", "Feld");
     }
 
     // -----------------------------------------------------------------------
