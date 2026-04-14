@@ -4,7 +4,8 @@
   },
   "nav": {
     "home": "Startseite",
-    "tournaments": "Turniere"
+    "tournaments": "Turniere",
+    "devices": "Geräte"
   },
   "home": {
     "heading": "Tournament Manager"
@@ -76,5 +77,71 @@
     "error": {
       "noTournament": "Kein Turnier ausgewählt."
     }
+  },
+  "devices": {
+    "title": "Geräteverwaltung",
+    "loadError": "Fehler beim Laden der Geräte.",
+    "empty": "Keine Geräte registriert.",
+    "clearAllButton": "Alle löschen",
+    "clearAllConfirm": "Alle registrierten Geräte wirklich löschen?",
+    "clearAllError": "Fehler beim Löschen aller Geräte.",
+    "showQrButton": "QR-Code anzeigen",
+    "hideQrButton": "QR-Code schließen",
+    "qrTitle": "Registrierungs-URL",
+    "pinLookupTitle": "Scoring-Tablet zuweisen",
+    "pinInputLabel": "PIN",
+    "pinInputPlaceholder": "PIN eingeben",
+    "lookupButton": "Suchen",
+    "lookupError": "Kein Gerät mit dieser PIN gefunden.",
+    "lookupNetworkError": "Fehler bei der PIN-Suche.",
+    "assignFieldLabel": "Feld zuweisen",
+    "assignFieldPlaceholder": "Feldnummer",
+    "assignButton": "Zuweisen",
+    "assignError": "Fehler beim Zuweisen.",
+    "fieldConflictConfirm": "Feld {field} ist bereits belegt. Ersetzen?",
+    "unassignButton": "Zuweisung aufheben",
+    "unassignError": "Fehler beim Aufheben der Zuweisung.",
+    "columns": {
+      "pin": "PIN",
+      "deviceType": "Typ",
+      "assignedField": "Feld",
+      "status": "Status",
+      "lastSeen": "Zuletzt gesehen",
+      "configStatus": "Konfiguration",
+      "name": "Name"
+    },
+    "unassigned": "Nicht zugewiesen",
+    "status": {
+      "REGISTERED": "Registriert",
+      "ASSIGNED": "Zugewiesen",
+      "DISCONNECTED": "Verbindung unterbrochen"
+    },
+    "deviceType": {
+      "SCORING_TABLET": "Tablet",
+      "DISPLAY": "Display"
+    },
+    "filter": {
+      "all": "Alle",
+      "scoringTablets": "Scoring-Tablets",
+      "displayDevices": "Display-Geräte"
+    },
+    "displayDevice": {
+      "unnamed": "Unbenannt",
+      "configuredStatus": "Konfiguriert",
+      "pendingStatus": "Ausstehend",
+      "configureButton": "Konfigurieren",
+      "nameLabel": "Gerätename",
+      "namePlaceholder": "z.B. Anzeigetafel Eingang",
+      "schemaLabel": "Anzeige",
+      "schemaOption": "Gesamtübersicht",
+      "saveButton": "Speichern",
+      "cancelButton": "Abbrechen",
+      "saveError": "Fehler beim Speichern der Konfiguration.",
+      "limitIndicator": "{current} / {max} Display-Geräte",
+      "limitReached": "Maximale Anzahl an Display-Geräten erreicht."
+    },
+    "removeButton": "Entfernen",
+    "removeConfirm": "Gerät \"{name}\" wirklich entfernen? Dies kann nicht rückgängig gemacht werden.",
+    "removeError": "Fehler beim Entfernen des Geräts."
   }
 }

@@ -5,6 +5,7 @@
    * Story E05S01 — AC4: wires the svelte-spa-router for hash-based client-side routing.
    * Story E05S04 — adds /tournaments, /tournaments/new, /tournaments/:id/edit routes.
    * Story E05S05 — adds /tournaments/:tournamentId/teams route.
+   * Story E06S05 — adds /devices route (AC8).
    *
    * Hash-based routing decision (Brief H-2): No server-side catch-all is needed for
    * deep-link URLs because the hash fragment is never sent to the server.
@@ -18,6 +19,7 @@
   import Tournaments from './routes/Tournaments.svelte';
   import TournamentForm from './routes/TournamentForm.svelte';
   import Teams from './routes/Teams.svelte';
+  import Devices from './routes/Devices.svelte';
 
   /** Route map: URL pattern → Svelte component. */
   const routes = new Map([
@@ -26,6 +28,7 @@
     ['/tournaments/new', TournamentForm],
     ['/tournaments/:id/edit', TournamentForm],
     ['/tournaments/:tournamentId/teams', Teams],
+    ['/devices', Devices],
   ]);
 
   /** Fallback: redirect unknown routes to home. */
