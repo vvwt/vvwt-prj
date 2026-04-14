@@ -1,23 +1,26 @@
 package de.vvwt.tm.domain;
 
 import de.vvwt.tm.config.DeviceLimitConfig;
+import de.vvwt.tm.domain.event.DeviceRegisteredEvent;
 import de.vvwt.tm.domain.repo.DeviceRepository;
 import de.vvwt.tm.domain.repo.TournamentRepository;
 import de.vvwt.tm.infrastructure.web.ConflictException;
 import de.vvwt.tm.tenant.DefaultTenantProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 /**
- * Business logic for device registration, assignment, and management (E06S03, E07S02).
+ * Business logic for device registration, assignment, and management (E06S03, E06S05, E07S02).
  *
  * <h2>E06S03 Responsibilities</h2>
  * <ul>
@@ -30,6 +33,8 @@ import java.util.UUID;
  *   <li>AC8 — Device token validation</li>
  *   <li>AC10 — PIN generation exhaustion handling</li>
  *   <li>AC11 — Cryptographically random device token</li>
+ *   <li>E06S05-AC1 — List all devices for admin view</li>
+ *   <li>E06S05-AC7 — Clear all devices for the active tenant/location</li>
  * </ul>
  *
  * <h2>PIN generation (AC7, AC10, AC11)</h2>
@@ -72,14 +77,17 @@ public class DeviceService {
     private final DeviceRepository deviceRepository;
     private final TournamentRepository tournamentRepository;
     private final DeviceLimitConfig deviceLimitConfig;
+    private final ApplicationEventPublisher eventPublisher;
     private final SecureRandom secureRandom;
 
     public DeviceService(DeviceRepository deviceRepository,
                          TournamentRepository tournamentRepository,
-                         DeviceLimitConfig deviceLimitConfig) {
+                         DeviceLimitConfig deviceLimitConfig,
+                         ApplicationEventPublisher eventPublisher) {
         this.deviceRepository = deviceRepository;
         this.tournamentRepository = tournamentRepository;
         this.deviceLimitConfig = deviceLimitConfig;
+        this.eventPublisher = eventPublisher;
         this.secureRandom = new SecureRandom();
     }
 
@@ -148,6 +156,8 @@ public class DeviceService {
         Device saved = deviceRepository.save(device);
         log.info("[devices] Registered {} id={} pin={} tenant={}",
                 deviceType, saved.getId(), pin, tenantId);
+        // E06S05-AC6: notify admin SPA via WebSocket that a new device has registered
+        eventPublisher.publishEvent(new DeviceRegisteredEvent(this, saved.getId()));
         return saved;
     }
 
@@ -181,7 +191,7 @@ public class DeviceService {
     // -------------------------------------------------------------------------
 
     /**
-     * Sets the device name and configuration for a DISPLAY device (E07S02 AC4).
+     * Sets the device name and configuration for a DISPLAY device (E07S02 AC4, E07S03 AC3).
      *
      * <p>Returns 400 if the device is not of type DISPLAY.
      *
@@ -211,11 +221,11 @@ public class DeviceService {
     }
 
     // -------------------------------------------------------------------------
-    // E07S02 AC5 — Delete device
+    // E07S02 AC5 / E07S03 AC4 — Delete device
     // -------------------------------------------------------------------------
 
     /**
-     * Deletes a device by its ID (E07S02 AC5).
+     * Deletes a device by its ID (E07S02 AC5, E07S03 AC4).
      *
      * <p>Works for both SCORING_TABLET and DISPLAY devices. The deletion is scoped to the
      * active tenant (DEC-5). Throws {@link NoSuchElementException} (→ 404) if not found.
@@ -355,6 +365,45 @@ public class DeviceService {
         return deviceRepository.findByDeviceToken(deviceToken)
                 .orElseThrow(() -> new UnauthorizedException(
                         "Invalid or expired device token"));
+    }
+
+    // -------------------------------------------------------------------------
+    // E06S05-AC1 — List all devices for admin view
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns all devices for the active tenant, ordered by registration time ascending (E06S05-AC1).
+     *
+     * <p>Used by the admin device management view. The result is tenant-scoped via
+     * {@link DeviceRepository#findAll()}.
+     *
+     * @return list of all devices for the active tenant; never {@code null}
+     */
+    public List<Device> listAllDevices() {
+        return deviceRepository.findAll();
+    }
+
+    // -------------------------------------------------------------------------
+    // E06S05-AC7 — Clear all devices for the active tenant/location
+    // -------------------------------------------------------------------------
+
+    /**
+     * Deletes all devices registered for the active tenant (E06S05-AC7).
+     *
+     * <p>This is the post-tournament teardown action. All devices are removed from the
+     * {@code devices} table for the active tenant. The operation is idempotent: if no
+     * devices exist, it completes without error.
+     *
+     * <p>Location scope: the current V1 single-location model means all devices for the
+     * active tenant are removed. When multi-location is enabled (V2), this method will need
+     * a location parameter.
+     */
+    public void clearAllDevices() {
+        List<Device> devices = deviceRepository.findAll();
+        for (Device device : devices) {
+            deviceRepository.deleteById(device.getId());
+        }
+        log.info("[devices] Cleared {} device(s) for active tenant", devices.size());
     }
 
     // -------------------------------------------------------------------------

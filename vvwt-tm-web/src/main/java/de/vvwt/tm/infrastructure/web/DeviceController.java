@@ -21,20 +21,22 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
- * REST controller for device registration and management (E06S03, E07S02).
+ * REST controller for device registration and management (E06S03, E06S05, E07S02).
  *
  * <h2>Endpoints</h2>
  * <ul>
  *   <li>POST /api/devices/register — register a scoring tablet or display device (E06S03 AC2, E07S02 AC1); public</li>
  *   <li>GET  /api/devices/status   — device polls its own status + config (E06S03 AC3, E07S02 AC3); public</li>
+ *   <li>GET  /api/devices/list     — admin lists all devices (E06S05-AC1); requires admin auth</li>
  *   <li>GET  /api/devices          — admin finds device by PIN (E06S03 AC4); requires admin auth</li>
  *   <li>PUT  /api/devices/{id}/assign — admin assigns device to field (E06S03 AC5); requires admin auth</li>
  *   <li>PUT  /api/devices/{id}/unassign — admin unassigns device (E06S03 AC6); requires admin auth</li>
  *   <li>PUT  /api/devices/{id}/configure — admin configures display device (E07S02 AC4); requires admin auth</li>
- *   <li>DELETE /api/devices/{id}   — admin deletes a device (E07S02 AC5); requires admin auth</li>
+ *   <li>DELETE /api/devices/{id}   — admin deletes a device (E07S02 AC5, E07S03 AC4); requires admin auth</li>
  * </ul>
  *
  * <h2>Authentication (E07S02 AC10)</h2>
@@ -117,6 +119,30 @@ public class DeviceController {
     }
 
     // -------------------------------------------------------------------------
+    // E06S05-AC1 — GET /api/devices/list
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns all devices for the current tenant and location (E06S05-AC1).
+     *
+     * <p>Used by the admin device management view to show the full device list.
+     * Each entry includes PIN, device type, assigned field, status, and last seen timestamp.
+     * Extended in E07S03 to include DISPLAY devices.
+     *
+     * <p>Requires admin authentication.
+     *
+     * @return 200 OK with list of device summaries (may be empty)
+     */
+    @GetMapping(value = "/list", produces = "application/json")
+    public ResponseEntity<List<DeviceSummaryResponse>> listDevices() {
+        List<DeviceSummaryResponse> devices = deviceService.listAllDevices()
+                .stream()
+                .map(DeviceSummaryResponse::from)
+                .toList();
+        return ResponseEntity.ok(devices);
+    }
+
+    // -------------------------------------------------------------------------
     // AC4 — GET /api/devices?pin={pin}
     // -------------------------------------------------------------------------
 
@@ -186,7 +212,7 @@ public class DeviceController {
     // -------------------------------------------------------------------------
 
     /**
-     * Sets the device name and configuration for a DISPLAY device (E07S02 AC4).
+     * Sets the device name and configuration for a DISPLAY device (E07S02 AC4, E07S03 AC3).
      *
      * <p>Requires admin authentication. Returns:
      * <ul>
@@ -209,11 +235,11 @@ public class DeviceController {
     }
 
     // -------------------------------------------------------------------------
-    // E07S02 AC5 — DELETE /api/devices/{id}
+    // E07S02 AC5 / E07S03 AC4 — DELETE /api/devices/{id}
     // -------------------------------------------------------------------------
 
     /**
-     * Deletes a device (scoring tablet or display device) by its ID (E07S02 AC5).
+     * Deletes a device (scoring tablet or display device) by its ID (E07S02 AC5, E07S03 AC4).
      *
      * <p>Requires admin authentication. Returns:
      * <ul>

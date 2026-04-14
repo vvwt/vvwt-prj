@@ -15,6 +15,7 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -24,13 +25,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link DeviceController} — full HTTP stack including Spring Security,
- * Jackson serialization, and {@link GlobalExceptionHandler} (E06S03).
+ * Jackson serialization, and {@link GlobalExceptionHandler} (E06S03, E06S05).
  *
  * <h2>Test coverage</h2>
  * <ul>
@@ -44,9 +46,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  *   <li>AC9 — tenant isolation (cross-tenant device not accessible)</li>
  *   <li>AC11 — deviceToken is a valid UUID string</li>
  *   <li>AC12 — error responses include messageKey field</li>
+ *   <li>E06S05-AC1 — GET /api/devices/list returns all devices for the tenant</li>
+ *   <li>E06S05-AC7 — DELETE /api/devices removes all devices; returns 204</li>
  * </ul>
  *
  * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E06S03.story.md">Story E06S03</a>
+ * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E06S05.story.md">Story E06S05</a>
  */
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -415,6 +420,115 @@ class DeviceControllerIT {
         assertThat(response.getBody().getMessageKey())
                 .as("AC12 — error response must include a messageKey")
                 .isNotNull().isNotBlank();
+    }
+
+    // =========================================================================
+    // E06S05-AC1 — GET /api/devices/list (requires admin auth)
+    // =========================================================================
+
+    @Test
+    void listDevicesReturnsEmptyListWhenNoDevicesRegistered() throws Exception {
+        ResponseEntity<List<DeviceSummaryResponse>> response = authed.exchange(
+                new URI(baseUrl + "/api/devices/list"),
+                HttpMethod.GET, null,
+                new ParameterizedTypeReference<List<DeviceSummaryResponse>>() {});
+
+        assertThat(response.getStatusCode())
+                .as("E06S05-AC1 — list must return 200")
+                .isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as("E06S05-AC1 — list must return an empty list when no devices are registered")
+                .isNotNull();
+    }
+
+    @Test
+    void listDevicesReturnsRegisteredDevice() {
+        DeviceRegisterResponse reg = restTemplate.postForEntity(
+                baseUrl + "/api/devices/register", null, DeviceRegisterResponse.class).getBody();
+
+        @SuppressWarnings("unchecked")
+        ResponseEntity<List<DeviceSummaryResponse>> response = authed.exchange(
+                baseUrl + "/api/devices/list",
+                HttpMethod.GET, null,
+                new ParameterizedTypeReference<List<DeviceSummaryResponse>>() {});
+
+        assertThat(response.getStatusCode())
+                .as("E06S05-AC1 — list must return 200")
+                .isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as("E06S05-AC1 — list must contain at least the newly registered device")
+                .isNotNull()
+                .extracting(DeviceSummaryResponse::pin)
+                .contains(reg.pin());
+    }
+
+    @Test
+    void listDevicesRequiresAuthentication() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                new URI(baseUrl + "/api/devices/list"), String.class);
+
+        assertThat(response.getStatusCode())
+                .as("E06S05-AC1 — list must require admin auth")
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    // =========================================================================
+    // E06S05-AC7 — DELETE /api/devices (requires admin auth)
+    // =========================================================================
+
+    @Test
+    void clearAllDevicesReturns204() {
+        // Register a device first so there is something to clear
+        restTemplate.postForEntity(baseUrl + "/api/devices/register", null,
+                DeviceRegisterResponse.class);
+
+        ResponseEntity<Void> response = authed.exchange(
+                baseUrl + "/api/devices", HttpMethod.DELETE, null, Void.class);
+
+        assertThat(response.getStatusCode())
+                .as("E06S05-AC7 — clear all must return 204 No Content")
+                .isEqualTo(HttpStatus.NO_CONTENT);
+    }
+
+    @Test
+    void clearAllDevicesRemovesDevicesFromList() {
+        // Register a device
+        DeviceRegisterResponse reg = restTemplate.postForEntity(
+                baseUrl + "/api/devices/register", null, DeviceRegisterResponse.class).getBody();
+
+        // Confirm it's visible in the list
+        @SuppressWarnings("unchecked")
+        List<DeviceSummaryResponse> beforeClear = authed.exchange(
+                baseUrl + "/api/devices/list", HttpMethod.GET, null,
+                new ParameterizedTypeReference<List<DeviceSummaryResponse>>() {}).getBody();
+        assertThat(beforeClear)
+                .as("E06S05-AC7 setup — device must appear in list before clear")
+                .extracting(DeviceSummaryResponse::pin)
+                .contains(reg.pin());
+
+        // Clear all
+        authed.exchange(baseUrl + "/api/devices", HttpMethod.DELETE, null, Void.class);
+
+        // List should no longer contain that device
+        @SuppressWarnings("unchecked")
+        List<DeviceSummaryResponse> afterClear = authed.exchange(
+                baseUrl + "/api/devices/list", HttpMethod.GET, null,
+                new ParameterizedTypeReference<List<DeviceSummaryResponse>>() {}).getBody();
+        assertThat(afterClear)
+                .as("E06S05-AC7 — device list must be empty after clear")
+                .isNotNull()
+                .extracting(DeviceSummaryResponse::pin)
+                .doesNotContain(reg.pin());
+    }
+
+    @Test
+    void clearAllDevicesRequiresAuthentication() throws Exception {
+        ResponseEntity<String> response = restTemplate.exchange(
+                new URI(baseUrl + "/api/devices"), HttpMethod.DELETE, null, String.class);
+
+        assertThat(response.getStatusCode())
+                .as("E06S05-AC7 — clear all must require admin auth")
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
     // =========================================================================
