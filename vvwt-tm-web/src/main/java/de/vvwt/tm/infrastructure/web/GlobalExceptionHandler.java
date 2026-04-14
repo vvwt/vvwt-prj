@@ -3,6 +3,7 @@ package de.vvwt.tm.infrastructure.web;
 import de.vvwt.tm.domain.ForbiddenException;
 import de.vvwt.tm.domain.UnauthorizedException;
 import de.vvwt.tm.domain.ValidationException;
+import de.vvwt.tm.infrastructure.display.NoActivePhaseException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,6 +11,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -321,6 +323,71 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+    }
+
+    // -------------------------------------------------------------------------
+    // E07S04 AC7 — 404: No active phase
+    // -------------------------------------------------------------------------
+
+    /**
+     * Handles {@link NoActivePhaseException} — thrown when no active phase exists for the
+     * current tenant's tournament (E07S04 AC7 — 404 with structured body).
+     *
+     * <p>Returns a specific body format per AC7: {@code { "status": "NO_ACTIVE_PHASE" }}.
+     * This is achieved via the structured {@link ApiErrorResponse} with {@code message = "NO_ACTIVE_PHASE"}
+     * and a matching {@code messageKey} for SPA i18n (AC10).
+     *
+     * @param ex      the exception
+     * @param request the current HTTP request
+     * @return 404 response with {@code {"status":"NO_ACTIVE_PHASE"}} body
+     */
+    @ExceptionHandler(NoActivePhaseException.class)
+    public ResponseEntity<NoActivePhaseResponse> handleNoActivePhase(
+            NoActivePhaseException ex, HttpServletRequest request) {
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new NoActivePhaseResponse("NO_ACTIVE_PHASE"));
+    }
+
+    /**
+     * Structured 404 body for the display overview endpoints when no phase is active (E07S04 AC7).
+     *
+     * <p>The AC7 requirement specifies {@code { "status": "NO_ACTIVE_PHASE" }} as the exact
+     * body shape. This record serializes directly to that JSON.
+     *
+     * @param status always {@code "NO_ACTIVE_PHASE"}
+     */
+    public record NoActivePhaseResponse(String status) {}
+
+    // -------------------------------------------------------------------------
+    // E07S04 AC11 — 405: HTTP method not supported
+    // -------------------------------------------------------------------------
+
+    /**
+     * Handles {@link HttpRequestMethodNotSupportedException} — thrown by Spring MVC when a
+     * controller does not declare a handler for the requested HTTP method (e.g., POST to a
+     * GET-only display endpoint — E07S04 AC11).
+     *
+     * <p>Without this handler, the catch-all {@link #handleUnexpected} would intercept the
+     * exception and return 500. This handler restores the correct 405 semantics.
+     *
+     * @param ex      the exception
+     * @param request the current HTTP request
+     * @return 405 response
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiErrorResponse> handleMethodNotSupported(
+            HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
+
+        ApiErrorResponse body = new ApiErrorResponse.Builder(
+                HttpStatus.METHOD_NOT_ALLOWED.value(),
+                HttpStatus.METHOD_NOT_ALLOWED.getReasonPhrase(),
+                "HTTP method '" + ex.getMethod() + "' is not supported for this endpoint",
+                "error.methodNotAllowed")
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(body);
     }
 
     // -------------------------------------------------------------------------

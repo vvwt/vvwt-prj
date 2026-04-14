@@ -168,6 +168,10 @@ public class SecurityConfig {
                         // (UnauthorizedException → 401, ForbiddenException → 403). Admin-level
                         // auth would lock out scoring tablets that never log in (DEC-19).
                         .requestMatchers("/api/score/**").permitAll()
+                        // E07S04 AC4: Display device overview endpoints — accessible without admin
+                        // authentication. Device token is validated at the service layer
+                        // (UnauthorizedException → 401). Only DISPLAY device tokens are accepted.
+                        .requestMatchers("/api/display/**").permitAll()
                         // AC4: Admin UI and REST API require authentication
                         .requestMatchers("/admin/**").authenticated()
                         .requestMatchers("/api/**").authenticated()
