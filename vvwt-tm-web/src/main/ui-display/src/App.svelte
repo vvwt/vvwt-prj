@@ -1,8 +1,15 @@
 <script lang="ts">
   /**
-   * Root component for the Gesamtübersicht display SPA (E07S05 + E07S06).
+   * Root component for the display SPA (E07S05, E07S06, E07S07).
    *
-   * Lifecycle (E07S05):
+   * Client-side routing (E07S07):
+   *   The display SPA uses a single Vite entry point and one index.html for both
+   *   /display/overview and /display/register. This component reads
+   *   window.location.pathname on mount and dispatches to the correct page:
+   *   - pathname starts with '/display/register' → render DisplayRegisterPage (E07S07)
+   *   - all other paths (including /display/overview) → render overview flow (E07S05)
+   *
+   * Lifecycle — overview flow (E07S05):
    *   1. On mount: read device token from localStorage (AC5, AC11)
    *   2. If no token: redirect to /display/register (AC11, E07S07)
    *   3. If token present: fetch all three display endpoints concurrently (AC5)
@@ -51,6 +58,18 @@
   import OverviewLayout from './components/OverviewLayout.svelte';
   import ErrorPanel from './components/ErrorPanel.svelte';
   import ConnectionStatusIndicator from './components/ConnectionStatus.svelte';
+  import DisplayRegisterPage from './components/DisplayRegisterPage.svelte';
+
+  // ---------------------------------------------------------------------------
+  // Client-side routing (E07S07)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * True when the current URL is /display/register (E07S07).
+   * Determined once at component creation time — routing is page-load-based,
+   * not reactive (navigation triggers a full page load via window.location.href).
+   */
+  const isRegisterPage = window.location.pathname.startsWith('/display/register');
 
   /** Polling interval in ms when WebSocket fallback is active (AC9). */
   const POLLING_INTERVAL_MS = 5_000;
@@ -251,6 +270,10 @@
   // ---------------------------------------------------------------------------
 
   onMount(() => {
+    // E07S07: if this is the register page, the DisplayRegisterPage component
+    // handles its own lifecycle. The overview flow (below) must not run.
+    if (isRegisterPage) return;
+
     const token = readDeviceToken();
 
     if (token === null) {
@@ -286,34 +309,50 @@
   // ---------------------------------------------------------------------------
 
   onDestroy(() => {
-    wsDisconnect();
-    stopPolling();
+    // Only the overview flow uses WebSocket and polling
+    if (!isRegisterPage) {
+      wsDisconnect();
+      stopPolling();
+    }
   });
 </script>
 
-<div class="display-app">
-  <!-- E07S06 AC7: subtle connection status indicator (always rendered once data loads) -->
-  {#if !loading && errorType === null && phaseData !== null}
-    <ConnectionStatusIndicator status={connectionStatus} />
-  {/if}
+{#if isRegisterPage}
+  <!--
+    E07S07: /display/register path — render the device registration lifecycle.
+    DisplayRegisterPage manages its own state machine (CHECKING → REGISTERING →
+    WAITING → redirect to /display/overview). It does not use any overview state.
+  -->
+  <DisplayRegisterPage />
+{:else}
+  <!--
+    E07S05 + E07S06: /display/overview (and all other paths) — render the
+    tournament overview flow with WebSocket real-time updates.
+  -->
+  <div class="display-app">
+    <!-- E07S06 AC7: subtle connection status indicator (always rendered once data loads) -->
+    {#if !loading && errorType === null && phaseData !== null}
+      <ConnectionStatusIndicator status={connectionStatus} />
+    {/if}
 
-  {#if loading}
-    <!-- Loading state — no user-visible text needed; spinner communicates progress -->
-    <div class="display-app__loading" aria-busy="true" aria-label="Loading">
-      <div class="display-app__spinner"></div>
-    </div>
-  {:else if errorType !== null}
-    <!-- AC6, AC9: error state -->
-    <ErrorPanel {errorType} onRetry={handleRetry} />
-  {:else if phaseData !== null && matchesData !== null && standingsData !== null}
-    <!-- AC1–AC4: main two-column layout -->
-    <OverviewLayout
-      {phaseData}
-      {matchesData}
-      {standingsData}
-    />
-  {/if}
-</div>
+    {#if loading}
+      <!-- Loading state — no user-visible text needed; spinner communicates progress -->
+      <div class="display-app__loading" aria-busy="true" aria-label="Loading">
+        <div class="display-app__spinner"></div>
+      </div>
+    {:else if errorType !== null}
+      <!-- AC6, AC9: error state -->
+      <ErrorPanel {errorType} onRetry={handleRetry} />
+    {:else if phaseData !== null && matchesData !== null && standingsData !== null}
+      <!-- AC1–AC4: main two-column layout -->
+      <OverviewLayout
+        {phaseData}
+        {matchesData}
+        {standingsData}
+      />
+    {/if}
+  </div>
+{/if}
 
 <style>
   :global(*, *::before, *::after) {

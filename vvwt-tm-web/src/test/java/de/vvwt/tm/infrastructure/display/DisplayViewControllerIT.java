@@ -17,15 +17,16 @@ import org.springframework.test.context.ActiveProfiles;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link DisplayViewController} (E07S05).
+ * Integration tests for {@link DisplayViewController} (E07S05, E07S07).
  *
  * <h2>Scope</h2>
- * <p>Verifies that the display SPA HTML shell is served correctly:
+ * <p>Verifies that the display SPA HTML shell is served correctly for both routes:
  * <ol>
- *   <li>HTTP 200 at {@code GET /display/overview} with content-type text/html (AC8)</li>
- *   <li>No admin authentication required (AC8, AC11)</li>
- *   <li>Response body contains the Svelte mount point {@code <div id="app">} (AC8)</li>
- *   <li>No external CDN links in the response — DEC-16 / AC7 offline compatibility</li>
+ *   <li>HTTP 200 at {@code GET /display/overview} with content-type text/html (E07S05 AC8)</li>
+ *   <li>HTTP 200 at {@code GET /display/register} with content-type text/html (E07S07 AC1, AC8)</li>
+ *   <li>No admin authentication required for either route (AC8, AC11)</li>
+ *   <li>Response bodies contain the Svelte mount point {@code <div id="app">} (AC8)</li>
+ *   <li>No external CDN links in the responses — DEC-16 / AC8 offline compatibility</li>
  * </ol>
  *
  * <h2>DEC-16 / AC7 offline check</h2>
@@ -178,6 +179,98 @@ class DisplayViewControllerIT {
 
         assertThat(response.getStatusCode())
                 .as("GET /display/overview must be accessible with no credentials (AC11)")
+                .isEqualTo(HttpStatus.OK);
+    }
+
+    // ---------------------------------------------------------------------------
+    // E07S07 — GET /display/register tests (AC1, AC8, AC11, DEC-16)
+    // ---------------------------------------------------------------------------
+
+    /**
+     * E07S07 AC1, AC8: {@code GET /display/register} must return HTTP 200 without authentication.
+     *
+     * <p>The registration route is served as the same Svelte SPA shell as /display/overview.
+     * Display devices open this URL to begin the registration lifecycle. No admin credentials
+     * are required — the route is permit-all under {@code /display/**}.
+     */
+    @Test
+    void registerPageReturns200WithoutAuthentication() {
+        ResponseEntity<String> response = restTemplate
+                .getForEntity("http://localhost:" + port + "/display/register", String.class);
+
+        assertThat(response.getStatusCode())
+                .as("GET /display/register must return 200 without auth (E07S07 AC1, AC8)")
+                .isEqualTo(HttpStatus.OK);
+    }
+
+    /**
+     * E07S07 AC8: {@code GET /display/register} must return an HTML response.
+     */
+    @Test
+    void registerPageReturnsHtmlContentType() {
+        ResponseEntity<String> response = restTemplate
+                .getForEntity("http://localhost:" + port + "/display/register", String.class);
+
+        assertThat(response.getHeaders().getContentType())
+                .as("GET /display/register content-type must be text/html (E07S07 AC8)")
+                .isNotNull()
+                .satisfies(ct -> assertThat(ct.isCompatibleWith(MediaType.TEXT_HTML)).isTrue());
+    }
+
+    /**
+     * E07S07 AC8: The HTML shell for {@code /display/register} must contain the Svelte mount
+     * point {@code <div id="app">}.
+     *
+     * <p>Both /display/overview and /display/register forward to the same index.html.
+     * The Svelte app reads window.location.pathname to dispatch to DisplayRegisterPage.
+     */
+    @Test
+    void registerPageContainsSvelteAppMountPoint() {
+        ResponseEntity<String> response = restTemplate
+                .getForEntity("http://localhost:" + port + "/display/register", String.class);
+
+        assertThat(response.getBody())
+                .as("GET /display/register body must contain Svelte mount point <div id=\"app\"> (AC8)")
+                .contains("<div id=\"app\">");
+    }
+
+    /**
+     * E07S07 AC8, DEC-16: The HTML shell at {@code /display/register} must NOT contain
+     * external {@code https://} URLs in {@code <script>} or {@code <link>} tags.
+     *
+     * <p>The registration page is part of the same Vite build as the overview page and shares
+     * the same locally-bundled assets. No CDN references must be introduced (DEC-16 offline).
+     */
+    @Test
+    void registerPageContainsNoExternalCdnScriptOrLinkTags() {
+        ResponseEntity<String> response = restTemplate
+                .getForEntity("http://localhost:" + port + "/display/register", String.class);
+
+        String body = response.getBody();
+        assertThat(body).isNotNull();
+
+        assertThat(body)
+                .as("GET /display/register must not contain external <script src=\"https://...\"> (DEC-16)")
+                .doesNotContainPattern("<script[^>]+src=[\"']https://");
+
+        assertThat(body)
+                .as("GET /display/register must not contain external <link href=\"https://...\"> (DEC-16)")
+                .doesNotContainPattern("<link[^>]+href=[\"']https://");
+    }
+
+    /**
+     * E07S07 AC11: {@code GET /display/register} must NOT require admin authentication.
+     *
+     * <p>Display devices open this URL without any admin credentials. If the route requires
+     * authentication, device registration would be impossible without human intervention.
+     */
+    @Test
+    void registerPageIsAccessibleWithNoCredentials() {
+        ResponseEntity<String> response = restTemplate
+                .getForEntity("http://localhost:" + port + "/display/register", String.class);
+
+        assertThat(response.getStatusCode())
+                .as("GET /display/register must be accessible with no credentials (E07S07 AC11)")
                 .isEqualTo(HttpStatus.OK);
     }
 }

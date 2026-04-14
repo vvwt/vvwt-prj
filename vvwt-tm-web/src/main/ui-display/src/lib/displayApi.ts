@@ -1,29 +1,40 @@
 /**
- * Display API client for the Gesamtübersicht SPA (E07S05).
+ * Display API client for the display SPA (E07S05, E07S07).
  *
- * Typed fetch functions for the three display endpoints delivered by E07S04:
- *   - GET /api/display/overview?token={token}
- *   - GET /api/display/overview/matches?token={token}[&lap={n}]
- *   - GET /api/display/overview/groups?token={token}
+ * Typed fetch functions for the three display overview endpoints (E07S04) and the
+ * device registration/status endpoints (E07S02, E07S07):
+ *   - POST /api/devices/register         — register a DISPLAY device (E07S07 AC1)
+ *   - GET  /api/devices/status?token=    — poll device status + configuration (E07S07 AC3, AC5)
+ *   - GET  /api/display/overview?token=  — current phase overview (E07S04 AC1)
+ *   - GET  /api/display/overview/matches?token=[&lap=] — matches (E07S04 AC2)
+ *   - GET  /api/display/overview/groups?token= — group standings (E07S04 AC3)
  *
- * Error classification (AC9):
+ * Error classification for overview endpoints (E07S05 AC9):
  *   - 401 → UnauthorizedError (device token invalid; show re-register message)
  *   - 404 → NoActivePhaseError (no active tournament; show no-phase message)
  *   - other non-2xx → ApiError (generic error; show retry button)
  *
- * AC5: device token is always passed as ?token= query parameter — not in any header.
- * The endpoints are permitAll in SecurityConfig; no credentials header is needed.
+ * Error classification for registration/status endpoints (E07S07):
+ *   - 429 → DeviceLimitError (registration limit reached; AC6)
+ *   - 404 from status poll → DeviceRemovedError (device deleted by admin; AC7)
+ *   - other non-2xx → ApiError
  *
- * DEC-16 / AC7: these endpoints are served by the local TM instance over LAN;
- * no external calls are made by this module.
+ * DEC-16 / AC8 offline compatibility: all endpoints are served by the local TM instance
+ * over LAN; no external calls are made by this module.
  *
- * localStorage key constant (AC11, E07S07 alignment):
- * The key 'vvwt_device_token' matches the key written by E07S07 (display device
- * registration). E07S05 only reads the token; E07S07 writes it.
+ * localStorage key constant (AC11):
+ * The key 'vvwt_device_token' is written by E07S07 (registerDisplayDevice / writeDeviceToken)
+ * and read by E07S05 (readDeviceToken). One key, two modules.
  */
 
-/** localStorage key for the display device token. Written by E07S07, read here. */
+/** localStorage key for the display device token (AC11). Written by E07S07, read by E07S05. */
 export const DEVICE_TOKEN_STORAGE_KEY = 'vvwt_device_token';
+
+/** Device type identifier for DISPLAY devices sent to POST /api/devices/register (AC1). */
+export const DISPLAY_DEVICE_TYPE = 'DISPLAY';
+
+/** The only valid display_schema value in V1 — triggers redirect to /display/overview (AC4). */
+export const DISPLAY_SCHEMA_OVERVIEW = 'OVERVIEW';
 
 // ---------------------------------------------------------------------------
 // Error types (AC9)
@@ -37,11 +48,33 @@ export class UnauthorizedError extends Error {
   }
 }
 
-/** Thrown when no active tournament phase exists (HTTP 404). */
+/** Thrown when no active tournament phase exists (HTTP 404) in overview context. */
 export class NoActivePhaseError extends Error {
   constructor() {
     super('No active tournament phase');
     this.name = 'NoActivePhaseError';
+  }
+}
+
+/**
+ * Thrown when the device registration limit has been reached (HTTP 429).
+ * E07S07 AC6 — E07S02 AC2.
+ */
+export class DeviceLimitError extends Error {
+  constructor() {
+    super('Device registration limit reached');
+    this.name = 'DeviceLimitError';
+  }
+}
+
+/**
+ * Thrown when the device has been removed by the admin (HTTP 404 during status poll).
+ * E07S07 AC7 — the caller must clear the stored token and show the registration page.
+ */
+export class DeviceRemovedError extends Error {
+  constructor() {
+    super('Device not found — removed by admin');
+    this.name = 'DeviceRemovedError';
   }
 }
 
@@ -211,7 +244,7 @@ export async function fetchGroupStandings(token: string): Promise<DisplayGroupSt
 }
 
 /**
- * Read the display device token from localStorage (AC5, AC11).
+ * Read the display device token from localStorage (E07S05 AC5, E07S07 AC11).
  *
  * Returns the stored token or null if not present.
  * The Svelte app redirects to /display/register if this returns null (E07S07).
@@ -223,4 +256,128 @@ export function readDeviceToken(): string | null {
     // localStorage unavailable (e.g., private browsing on some browsers)
     return null;
   }
+}
+
+/**
+ * Write the display device token to localStorage (E07S07 AC11).
+ *
+ * Called after successful registration to persist the token for subsequent visits.
+ * Uses the shared DEVICE_TOKEN_STORAGE_KEY so E07S05 (readDeviceToken) can read it.
+ *
+ * @param token the device token returned by POST /api/devices/register
+ */
+export function writeDeviceToken(token: string): void {
+  try {
+    window.localStorage.setItem(DEVICE_TOKEN_STORAGE_KEY, token);
+  } catch {
+    // localStorage unavailable — best-effort; the session will work without persistence
+  }
+}
+
+/**
+ * Remove the display device token from localStorage (E07S07 AC7).
+ *
+ * Called when the status poll returns 404 (device removed by admin) so the page
+ * can restart the registration flow with a fresh registration.
+ */
+export function clearDeviceToken(): void {
+  try {
+    window.localStorage.removeItem(DEVICE_TOKEN_STORAGE_KEY);
+  } catch {
+    // localStorage unavailable — best-effort
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Device registration response type (E07S07 AC1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Response from POST /api/devices/register for a DISPLAY device (E07S07 AC1).
+ *
+ * Mirrors DeviceRegisterResponse DTO. For DISPLAY devices, `pin` is null
+ * (E07S02 AC1 — no PIN for display devices).
+ */
+export interface DisplayRegisterResult {
+  /** Opaque cryptographically random token stored in localStorage (AC11). */
+  deviceToken: string;
+  /** Always null for DISPLAY devices — pin is only issued to scoring tablets. */
+  pin: string | null;
+}
+
+/**
+ * Status result from GET /api/devices/status?token={token} (E07S07 AC3, AC5).
+ *
+ * Mirrors DeviceStatusResponse DTO (E07S02 AC3).
+ */
+export interface DeviceStatusResult {
+  /** Current device lifecycle status: REGISTERED, ASSIGNED, or DISCONNECTED. */
+  status: string;
+  /**
+   * JSON configuration string set by the admin (E07S02 AC4).
+   * Null until the admin configures the device. When non-null, the page transitions
+   * to the assigned view (AC3 polling exit condition).
+   */
+  configuration: string | null;
+  /** Human-readable device name set by the admin. Null until named. */
+  deviceName: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Device registration and status functions (E07S07)
+// ---------------------------------------------------------------------------
+
+/**
+ * Register a new DISPLAY device: POST /api/devices/register (E07S07 AC1).
+ *
+ * Sends `{ "deviceType": "DISPLAY" }` to the public registration endpoint (E07S02 AC1).
+ * The server resolves tenant and location from the request context (DEC-5).
+ *
+ * @returns the registration result with `deviceToken`
+ * @throws {DeviceLimitError} on HTTP 429 — registration limit reached (E07S07 AC6, E07S02 AC2)
+ * @throws {ApiError} on other non-2xx responses
+ */
+export async function registerDisplayDevice(): Promise<DisplayRegisterResult> {
+  const response = await fetch('/api/devices/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ deviceType: DISPLAY_DEVICE_TYPE }),
+  });
+
+  if (response.ok) {
+    return (await response.json()) as DisplayRegisterResult;
+  }
+
+  if (response.status === 429) {
+    throw new DeviceLimitError();
+  }
+
+  throw new ApiError(response.status, `Registration failed: HTTP ${response.status}`);
+}
+
+/**
+ * Poll the device status endpoint: GET /api/devices/status?token={token} (E07S07 AC3, AC5).
+ *
+ * Used to:
+ *   - Check if an existing token is still valid before re-registering (AC5)
+ *   - Poll for configuration assignment after registration (AC3)
+ *
+ * @param token display device token from localStorage
+ * @returns current device status and configuration
+ * @throws {DeviceRemovedError} on HTTP 404 — device deleted by admin (E07S07 AC7)
+ * @throws {ApiError} on other non-2xx responses
+ */
+export async function pollDeviceStatus(token: string): Promise<DeviceStatusResult> {
+  const url = `/api/devices/status?token=${encodeURIComponent(token)}`;
+  const response = await fetch(url);
+
+  if (response.ok) {
+    return (await response.json()) as DeviceStatusResult;
+  }
+
+  if (response.status === 404) {
+    throw new DeviceRemovedError();
+  }
+
+  throw new ApiError(response.status, `Status poll failed: HTTP ${response.status}`);
 }
