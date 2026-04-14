@@ -172,6 +172,12 @@ public class SecurityConfig {
                         // authentication. Device token is validated at the service layer
                         // (UnauthorizedException → 401). Only DISPLAY device tokens are accepted.
                         .requestMatchers("/api/display/**").permitAll()
+                        // E07S05 AC8, AC11: Display SPA routes — served without authentication.
+                        // /display/overview serves the Svelte bundle HTML shell.
+                        // /display/assets/** serves Vite-compiled JS/CSS (static resources).
+                        // Data access is protected by device-token auth at the /api/display/** layer.
+                        // E07S07 (display device registration page) is also under /display/.
+                        .requestMatchers("/display/**").permitAll()
                         // AC4: Admin UI and REST API require authentication
                         .requestMatchers("/admin/**").authenticated()
                         .requestMatchers("/api/**").authenticated()
