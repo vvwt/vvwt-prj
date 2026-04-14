@@ -160,8 +160,9 @@ public class SecurityConfig {
                         // The device token (returned by /register) is the tablet's credential for
                         // subsequent polling. Admin assign/unassign/find-by-PIN remain protected.
                         .requestMatchers("/api/devices/register").permitAll()
-                        // E06S03 AC3: Device status polling — public; tablet provides device token
+                        // E06S03 AC3: Device status polling — public; device provides device token
                         // as a query param. Token validation is done at the service layer (AC8).
+                        // E07S02 AC10: Status endpoint remains public for display devices.
                         .requestMatchers("/api/devices/status").permitAll()
                         // E06S06 AC9: Score entry API is accessible without admin authentication.
                         // Device identity is validated at the service layer via device token

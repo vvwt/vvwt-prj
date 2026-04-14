@@ -39,6 +39,14 @@ spring:
     fail-on-missing-locations: false
 
 # ---------------------------------------------------------------------------
+# Device registration limits (E07S02 AC2)
+# ---------------------------------------------------------------------------
+vvwt:
+  devices:
+    # Maximum DISPLAY devices per tenant+location. 0 = disabled. Override via -Dvvwt.devices.max-display-count.
+    max-display-count: 10
+
+# ---------------------------------------------------------------------------
 # Slot-optimization configuration (E04S02, AC6)
 # ---------------------------------------------------------------------------
 tm:

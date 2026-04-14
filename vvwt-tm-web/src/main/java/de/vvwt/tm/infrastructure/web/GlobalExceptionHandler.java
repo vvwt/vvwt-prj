@@ -1,6 +1,7 @@
 package de.vvwt.tm.infrastructure.web;
 
 import de.vvwt.tm.domain.ForbiddenException;
+import de.vvwt.tm.domain.TooManyRequestsException;
 import de.vvwt.tm.domain.UnauthorizedException;
 import de.vvwt.tm.domain.ValidationException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -321,6 +322,37 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+    }
+
+    // -------------------------------------------------------------------------
+    // E07S02 AC2, AC8 — 429: Device registration limit exceeded
+    // -------------------------------------------------------------------------
+
+    /**
+     * Handles {@link TooManyRequestsException} — thrown when DISPLAY device registration
+     * exceeds {@code vvwt.devices.max-display-count} (E07S02 AC2 → HTTP 429).
+     *
+     * <p>Returns a {@link DeviceLimitErrorResponse} with {@code currentCount} and
+     * {@code maxCount} fields as required by AC8.
+     *
+     * @param ex      the exception
+     * @param request the current HTTP request
+     * @return 429 response with device limit details
+     */
+    @ExceptionHandler(TooManyRequestsException.class)
+    public ResponseEntity<DeviceLimitErrorResponse> handleTooManyRequests(
+            TooManyRequestsException ex, HttpServletRequest request) {
+
+        DeviceLimitErrorResponse body = new DeviceLimitErrorResponse(
+                429,
+                "Too Many Requests",
+                ex.getMessage(),
+                "error.device.limitExceeded",
+                request.getRequestURI(),
+                ex.getCurrentCount(),
+                ex.getMaxCount());
+
+        return ResponseEntity.status(429).body(body);
     }
 
     // -------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 package de.vvwt.tm.domain;
 
+import de.vvwt.tm.config.DeviceLimitConfig;
 import de.vvwt.tm.domain.repo.DeviceRepository;
 import de.vvwt.tm.domain.repo.TournamentRepository;
 import de.vvwt.tm.infrastructure.web.ConflictException;
@@ -16,9 +17,9 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Business logic for device registration and assignment (E06S03).
+ * Business logic for device registration, assignment, and management (E06S03, E07S02).
  *
- * <h2>Responsibilities</h2>
+ * <h2>E06S03 Responsibilities</h2>
  * <ul>
  *   <li>AC2 — Register a device: generate device token + PIN, persist</li>
  *   <li>AC3 — Get device status by token</li>
@@ -70,33 +71,64 @@ public class DeviceService {
 
     private final DeviceRepository deviceRepository;
     private final TournamentRepository tournamentRepository;
+    private final DeviceLimitConfig deviceLimitConfig;
     private final SecureRandom secureRandom;
 
     public DeviceService(DeviceRepository deviceRepository,
-                         TournamentRepository tournamentRepository) {
+                         TournamentRepository tournamentRepository,
+                         DeviceLimitConfig deviceLimitConfig) {
         this.deviceRepository = deviceRepository;
         this.tournamentRepository = tournamentRepository;
+        this.deviceLimitConfig = deviceLimitConfig;
         this.secureRandom = new SecureRandom();
     }
 
     // -------------------------------------------------------------------------
-    // AC2 — Register device
+    // AC2 (E06S03) + AC1, AC2, AC6 (E07S02) — Register device
     // -------------------------------------------------------------------------
 
     /**
-     * Registers a new device and returns its device token and PIN (AC2).
+     * Registers a new SCORING_TABLET device — backward-compatible overload (E06S03 AC2, E07S02 AC6).
      *
-     * <p>The device token is a cryptographically random UUID string (AC11).
-     * The PIN is a 4–6 digit numeric string, unique within the tenant (AC7).
+     * <p>Delegates to {@link #registerDevice(UUID, UUID, String)} with {@code SCORING_TABLET}.
+     * Called by controllers that do not supply a deviceType (pre-E07S02 callers).
      *
      * @param tenantId   the tenant ID (resolved from request context)
      * @param locationId the location ID (resolved from request context)
-     * @return the newly registered device
-     * @throws IllegalStateException if PIN generation is exhausted at all digit lengths (AC10)
+     * @return the newly registered scoring tablet
      */
     public Device registerDevice(UUID tenantId, UUID locationId) {
+        return registerDevice(tenantId, locationId, Device.TYPE_SCORING_TABLET);
+    }
+
+    /**
+     * Registers a new device of the specified type (E07S02 AC1).
+     *
+     * <p>SCORING_TABLET path: generates a device token + PIN; limit not applied.
+     * DISPLAY path: generates a device token only (pin=null); checks the display device
+     * limit ({@code vvwt.devices.max-display-count}) and throws
+     * {@link TooManyRequestsException} (→ HTTP 429) if the limit is reached (AC2).
+     *
+     * @param tenantId   the tenant ID (resolved from request context)
+     * @param locationId the location ID (resolved from request context)
+     * @param deviceType the device type: {@code SCORING_TABLET} or {@code DISPLAY}
+     * @return the newly registered device
+     * @throws TooManyRequestsException if {@code DISPLAY} and limit is reached (E07S02 AC2)
+     * @throws IllegalArgumentException if {@code deviceType} is not a recognised value
+     * @throws IllegalStateException    if PIN generation is exhausted for SCORING_TABLET (AC10)
+     */
+    public Device registerDevice(UUID tenantId, UUID locationId, String deviceType) {
+        if (Device.TYPE_DISPLAY.equals(deviceType)) {
+            checkDisplayLimit(locationId);
+        } else if (!Device.TYPE_SCORING_TABLET.equals(deviceType)) {
+            throw new IllegalArgumentException(
+                    "Unknown deviceType: '" + deviceType + "'. Valid values: SCORING_TABLET, DISPLAY");
+        }
+
         String deviceToken = UUID.randomUUID().toString();
-        String pin = generateUniquePinForTenant();
+        String pin = Device.TYPE_SCORING_TABLET.equals(deviceType)
+                ? generateUniquePinForTenant()
+                : null;
 
         Device device = new Device(
                 UUID.randomUUID(),
@@ -104,18 +136,99 @@ public class DeviceService {
                 locationId,
                 deviceToken,
                 pin,
-                Device.TYPE_SCORING_TABLET,
-                null,
+                deviceType,
+                null,                  // assignedField: null (unassigned)
                 Device.STATUS_REGISTERED,
                 LocalDateTime.now(),   // registered_at: set explicitly (Spring Data JDBC passes null for DB-default cols)
                 null,                  // last_seen_at: null until first heartbeat
-                null,                  // deviceName: null for scoring tablets (E07S01 AC2)
-                null                   // configuration: null for scoring tablets (E07S01 AC2)
+                null,                  // deviceName: null at registration time
+                null                   // configuration: null at registration time
         );
 
         Device saved = deviceRepository.save(device);
-        log.info("[devices] Registered device id={} pin={} tenant={}", saved.getId(), pin, tenantId);
+        log.info("[devices] Registered {} id={} pin={} tenant={}",
+                deviceType, saved.getId(), pin, tenantId);
         return saved;
+    }
+
+    // -------------------------------------------------------------------------
+    // E07S02 AC2 — Display device limit check
+    // -------------------------------------------------------------------------
+
+    /**
+     * Checks the display device limit for the given location (E07S02 AC2).
+     *
+     * <p>Counts existing DISPLAY devices in the active tenant+location. If the count
+     * equals or exceeds {@code vvwt.devices.max-display-count}, throws
+     * {@link TooManyRequestsException} (→ HTTP 429).
+     *
+     * @param locationId the location UUID to check (active tenant scoped via repository)
+     * @throws TooManyRequestsException if the limit has been reached
+     */
+    private void checkDisplayLimit(UUID locationId) {
+        int maxCount = deviceLimitConfig.getMaxDisplayCount();
+        long currentCount = deviceRepository.countByDeviceType(locationId, Device.TYPE_DISPLAY);
+        if (currentCount >= maxCount) {
+            throw new TooManyRequestsException(
+                    "Display device limit reached. Current: " + currentCount + ", Max: " + maxCount,
+                    currentCount,
+                    maxCount);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // E07S02 AC4 — Configure display device
+    // -------------------------------------------------------------------------
+
+    /**
+     * Sets the device name and configuration for a DISPLAY device (E07S02 AC4).
+     *
+     * <p>Returns 400 if the device is not of type DISPLAY.
+     *
+     * @param deviceId    the device UUID
+     * @param deviceName  the human-readable device name (must not be null)
+     * @param configuration the JSON configuration string (null clears the configuration)
+     * @return the updated device
+     * @throws NoSuchElementException   if the device is not found for the active tenant (→ 404)
+     * @throws IllegalArgumentException if the device is not of type DISPLAY (→ 400)
+     */
+    public Device configureDevice(UUID deviceId, String deviceName, String configuration) {
+        Device device = deviceRepository.findById(deviceId)
+                .orElseThrow(() -> new NoSuchElementException("Device not found: " + deviceId));
+
+        if (!Device.TYPE_DISPLAY.equals(device.getDeviceType())) {
+            throw new IllegalArgumentException(
+                    "Configure is only allowed for DISPLAY devices. "
+                    + "Device " + deviceId + " is of type: " + device.getDeviceType());
+        }
+
+        device.setDeviceName(deviceName);
+        device.setConfiguration(configuration);
+        Device saved = deviceRepository.save(device);
+        log.info("[devices] Configured display device id={} name='{}' tenant={}",
+                deviceId, deviceName, device.getTenantId());
+        return saved;
+    }
+
+    // -------------------------------------------------------------------------
+    // E07S02 AC5 — Delete device
+    // -------------------------------------------------------------------------
+
+    /**
+     * Deletes a device by its ID (E07S02 AC5).
+     *
+     * <p>Works for both SCORING_TABLET and DISPLAY devices. The deletion is scoped to the
+     * active tenant (DEC-5). Throws {@link NoSuchElementException} (→ 404) if not found.
+     *
+     * @param deviceId the device UUID to delete
+     * @throws NoSuchElementException if the device is not found for the active tenant (→ 404)
+     */
+    public void deleteDevice(UUID deviceId) {
+        boolean deleted = deviceRepository.deleteDevice(deviceId);
+        if (!deleted) {
+            throw new NoSuchElementException("Device not found: " + deviceId);
+        }
+        log.info("[devices] Deleted device id={}", deviceId);
     }
 
     // -------------------------------------------------------------------------

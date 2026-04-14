@@ -3,12 +3,15 @@ package de.vvwt.tm.infrastructure.web;
 import de.vvwt.tm.domain.Device;
 import de.vvwt.tm.domain.DeviceService;
 import de.vvwt.tm.infrastructure.web.dto.DeviceAssignRequest;
+import de.vvwt.tm.infrastructure.web.dto.DeviceConfigureRequest;
+import de.vvwt.tm.infrastructure.web.dto.DeviceRegisterRequest;
 import de.vvwt.tm.infrastructure.web.dto.DeviceRegisterResponse;
 import de.vvwt.tm.infrastructure.web.dto.DeviceStatusResponse;
 import de.vvwt.tm.infrastructure.web.dto.DeviceSummaryResponse;
 import de.vvwt.tm.tenant.DefaultTenantProvider;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,21 +24,22 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.UUID;
 
 /**
- * REST controller for device registration and management (E06S03).
+ * REST controller for device registration and management (E06S03, E07S02).
  *
  * <h2>Endpoints</h2>
  * <ul>
- *   <li>POST /api/devices/register — register a new tablet (AC2); public (no auth required)</li>
- *   <li>GET  /api/devices/status   — tablet polls its own status (AC3); public (device token auth)</li>
- *   <li>GET  /api/devices          — admin finds device by PIN (AC4); requires admin auth</li>
- *   <li>PUT  /api/devices/{id}/assign — admin assigns device to field (AC5); requires admin auth</li>
- *   <li>PUT  /api/devices/{id}/unassign — admin unassigns device (AC6); requires admin auth</li>
+ *   <li>POST /api/devices/register — register a scoring tablet or display device (E06S03 AC2, E07S02 AC1); public</li>
+ *   <li>GET  /api/devices/status   — device polls its own status + config (E06S03 AC3, E07S02 AC3); public</li>
+ *   <li>GET  /api/devices          — admin finds device by PIN (E06S03 AC4); requires admin auth</li>
+ *   <li>PUT  /api/devices/{id}/assign — admin assigns device to field (E06S03 AC5); requires admin auth</li>
+ *   <li>PUT  /api/devices/{id}/unassign — admin unassigns device (E06S03 AC6); requires admin auth</li>
+ *   <li>PUT  /api/devices/{id}/configure — admin configures display device (E07S02 AC4); requires admin auth</li>
+ *   <li>DELETE /api/devices/{id}   — admin deletes a device (E07S02 AC5); requires admin auth</li>
  * </ul>
  *
- * <h2>Authentication (AC2, AC8)</h2>
- * <p>Register and status endpoints are public (tablets don't log in). The device token
- * acts as the tablet's credential for status polling. Assign/unassign/find-by-PIN endpoints
- * require admin authentication (HTTP Basic, see {@link de.vvwt.tm.auth.SecurityConfig}).
+ * <h2>Authentication (E07S02 AC10)</h2>
+ * <p>Register and status endpoints are public (devices don't log in). Configure and delete
+ * endpoints require admin authentication (HTTP Basic, see {@link de.vvwt.tm.auth.SecurityConfig}).
  *
  * <h2>Tenant and location scope (DEC-5, DEC-17)</h2>
  * <p>In V1 default-tenant-LAN mode, all requests resolve to the default tenant via the
@@ -43,6 +47,7 @@ import java.util.UUID;
  * The location is resolved via {@link DefaultTenantProvider#getDefaultLocationId()}.
  *
  * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E06S03.story.md">Story E06S03</a>
+ * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E07S02.story.md">Story E07S02</a>
  */
 @RestController
 @RequestMapping("/api/devices")
@@ -58,23 +63,35 @@ public class DeviceController {
     }
 
     // -------------------------------------------------------------------------
-    // AC2 — POST /api/devices/register
+    // E06S03 AC2 + E07S02 AC1, AC6 — POST /api/devices/register
     // -------------------------------------------------------------------------
 
     /**
-     * Registers a new scoring tablet device and returns its device token and PIN (AC2).
+     * Registers a new device (scoring tablet or display device) and returns its device token.
      *
-     * <p>No authentication required. Tenant and location are resolved from the request
-     * context (default-tenant-LAN per DEC-17).
+     * <p>No authentication required. Tenant and location are resolved from the request context.
      *
-     * @return 201 Created with {@code { deviceToken, pin }}
+     * <ul>
+     *   <li>No body or {@code deviceType=SCORING_TABLET}: creates a scoring tablet with a PIN (AC6 backward compat)</li>
+     *   <li>{@code deviceType=DISPLAY}: creates a display device with no PIN (E07S02 AC1)</li>
+     * </ul>
+     *
+     * <p>Returns 429 if the DISPLAY device limit is reached (E07S02 AC2).
+     *
+     * @param registerRequest optional request body; null body defaults to SCORING_TABLET
+     * @return 201 Created with {@code { deviceToken }} (and {@code pin} for scoring tablets)
      */
     @PostMapping("/register")
-    public ResponseEntity<DeviceRegisterResponse> registerDevice() {
+    public ResponseEntity<DeviceRegisterResponse> registerDevice(
+            @RequestBody(required = false) DeviceRegisterRequest registerRequest) {
         UUID tenantId = defaultTenantProvider.getDefaultTenantId();
         UUID locationId = defaultTenantProvider.getDefaultLocationId();
 
-        Device device = deviceService.registerDevice(tenantId, locationId);
+        String deviceType = (registerRequest != null && registerRequest.getDeviceType() != null)
+                ? registerRequest.getDeviceType()
+                : Device.TYPE_SCORING_TABLET;
+
+        Device device = deviceService.registerDevice(tenantId, locationId, deviceType);
         return ResponseEntity.status(201).body(DeviceRegisterResponse.from(device));
     }
 
@@ -162,5 +179,54 @@ public class DeviceController {
     public ResponseEntity<DeviceSummaryResponse> unassignDevice(@PathVariable("id") UUID id) {
         Device device = deviceService.unassignDevice(id);
         return ResponseEntity.ok(DeviceSummaryResponse.from(device));
+    }
+
+    // -------------------------------------------------------------------------
+    // E07S02 AC4 — PUT /api/devices/{id}/configure
+    // -------------------------------------------------------------------------
+
+    /**
+     * Sets the device name and configuration for a DISPLAY device (E07S02 AC4).
+     *
+     * <p>Requires admin authentication. Returns:
+     * <ul>
+     *   <li>200 OK on success</li>
+     *   <li>400 Bad Request if the device is not of type DISPLAY</li>
+     *   <li>400 Bad Request if {@code deviceName} is blank</li>
+     *   <li>404 Not Found if the device does not exist</li>
+     * </ul>
+     *
+     * @param id      the device UUID
+     * @param request {@code { deviceName, configuration }}
+     * @return 200 OK with updated device summary
+     */
+    @PutMapping(value = "/{id}/configure", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<DeviceSummaryResponse> configureDevice(
+            @PathVariable("id") UUID id,
+            @Valid @RequestBody DeviceConfigureRequest request) {
+        Device device = deviceService.configureDevice(id, request.deviceName(), request.configuration());
+        return ResponseEntity.ok(DeviceSummaryResponse.from(device));
+    }
+
+    // -------------------------------------------------------------------------
+    // E07S02 AC5 — DELETE /api/devices/{id}
+    // -------------------------------------------------------------------------
+
+    /**
+     * Deletes a device (scoring tablet or display device) by its ID (E07S02 AC5).
+     *
+     * <p>Requires admin authentication. Returns:
+     * <ul>
+     *   <li>204 No Content on successful deletion</li>
+     *   <li>404 Not Found if the device does not exist</li>
+     * </ul>
+     *
+     * @param id the device UUID
+     * @return 204 No Content
+     */
+    @DeleteMapping(value = "/{id}")
+    public ResponseEntity<Void> deleteDevice(@PathVariable("id") UUID id) {
+        deviceService.deleteDevice(id);
+        return ResponseEntity.noContent().build();
     }
 }
