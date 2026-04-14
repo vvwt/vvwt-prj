@@ -99,4 +99,39 @@ public class DeviceRepository extends TenantScopedRepository<Device, UUID> {
     public boolean isPinTaken(String pin) {
         return findByPin(pin).isPresent();
     }
+
+    /**
+     * Counts devices of the given type within the active tenant and specified location (E07S02 AC2).
+     *
+     * <p>Used to enforce the configurable device limit before registration. The count is
+     * scoped to both tenant (DEC-5 isolation) and location (devices are per-location per DEC-5).
+     *
+     * @param locationId the location UUID
+     * @param deviceType the device type to count (e.g., {@code Device.TYPE_DISPLAY})
+     * @return number of registered devices of that type for the active tenant+location
+     */
+    public long countByDeviceType(UUID locationId, String deviceType) {
+        UUID tenantId = activeTenantId();
+        return delegate.countByTenantIdAndLocationIdAndDeviceType(tenantId, locationId, deviceType);
+    }
+
+    /**
+     * Deletes a device by its ID, scoped to the active tenant (E07S02 AC5).
+     *
+     * <p>First looks up the device by ID within the active tenant scope (DEC-5 isolation).
+     * If found, deletes it. Returns {@code false} if the device does not exist for the
+     * active tenant (→ caller should return 404).
+     *
+     * @param deviceId the device UUID to delete
+     * @return {@code true} if the device was found and deleted; {@code false} if not found
+     */
+    public boolean deleteDevice(UUID deviceId) {
+        // Tenant-scoped findById: only returns device if it belongs to the active tenant
+        return findById(deviceId)
+                .map(device -> {
+                    delegate.deleteById(device.getId());
+                    return true;
+                })
+                .orElse(false);
+    }
 }
