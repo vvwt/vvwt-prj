@@ -20,6 +20,15 @@
       "reconnecting": "Erneut verbinden …",
       "polling": "Offline-Modus (Polling)",
       "disconnected": "Nicht verbunden"
+    },
+    "register": {
+      "waitingTitle": "Warte auf Zuordnung ...",
+      "tokenLabel": "Gerät-ID",
+      "registering": "Registrierung läuft ...",
+      "limitReached": "Gerät-Limit erreicht. Bitte den Organisator kontaktieren.",
+      "connectionLost": "Verbindung unterbrochen – Erneuter Verbindungsversuch ...",
+      "registerError": "Registrierung fehlgeschlagen. Bitte erneut versuchen.",
+      "retryButton": "Erneut versuchen"
     }
   }
 }

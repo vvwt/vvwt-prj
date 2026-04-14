@@ -38,9 +38,18 @@ import java.util.UUID;
  *   <li>{@link PhaseStatusChangedEvent} — AC5: phase transitioned</li>
  * </ul>
  *
+ * <p>The tenant-scoped topic ensures a display device subscribed to tenant A's topic never
+ * receives events from tenant B (AC11). The device-token interceptor in
+ * {@link WebSocketSecurityConfig} ensures each device can only subscribe to its own tenant's topic.
+ *
  * <h2>Decoupling (AC8)</h2>
  * <p>If broadcasting fails, the {@link MessagingException} is caught and logged at {@code WARN}.
  * It is NOT re-thrown — broadcast failures must not propagate to the committed transaction.
+ *
+ * <h2>Security — read-only display topics (AC12)</h2>
+ * <p>Display topics are under {@code /topic/display/...} — Spring STOMP only routes SUBSCRIBEs
+ * to {@code /topic/**}. No SEND frames from display clients can target these topics via the
+ * {@code /app} prefix. Display devices are structurally read-only at the WebSocket layer.
  *
  * @see WebSocketConfig
  * @see WebSocketSecurityConfig

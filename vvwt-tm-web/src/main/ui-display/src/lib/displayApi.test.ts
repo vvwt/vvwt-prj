@@ -1,14 +1,23 @@
 /**
- * Unit tests for displayApi.ts (E07S05, AC9).
+ * Unit tests for displayApi.ts (E07S05, E07S07).
  *
- * Tests focus on error classification: the displayFetch helper must throw the
- * correct typed error based on HTTP status code:
+ * E07S05 tests — error classification for overview endpoints:
  *   - 401 → UnauthorizedError
  *   - 404 → NoActivePhaseError
  *   - 500 → ApiError with status 500
  *   - 200 → returns parsed JSON body
+ *   - localStorage token reader (readDeviceToken)
  *
- * Also tests the localStorage token reader (readDeviceToken).
+ * E07S07 tests — device registration and status polling:
+ *   - registerDisplayDevice(): 201 → returns deviceToken
+ *   - registerDisplayDevice(): 429 → throws DeviceLimitError (AC6)
+ *   - registerDisplayDevice(): 500 → throws ApiError (AC9)
+ *   - registerDisplayDevice(): sends DISPLAY deviceType (AC1)
+ *   - pollDeviceStatus(): 200 → returns status result
+ *   - pollDeviceStatus(): 404 → throws DeviceRemovedError (AC7)
+ *   - pollDeviceStatus(): 500 → throws ApiError (AC9)
+ *   - writeDeviceToken(): stores token in localStorage (AC11)
+ *   - clearDeviceToken(): removes token from localStorage (AC7)
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -17,10 +26,17 @@ import {
   fetchMatches,
   fetchGroupStandings,
   readDeviceToken,
+  writeDeviceToken,
+  clearDeviceToken,
+  registerDisplayDevice,
+  pollDeviceStatus,
   UnauthorizedError,
   NoActivePhaseError,
+  DeviceLimitError,
+  DeviceRemovedError,
   ApiError,
   DEVICE_TOKEN_STORAGE_KEY,
+  DISPLAY_DEVICE_TYPE,
 } from './displayApi.js';
 
 // ---------------------------------------------------------------------------
@@ -173,7 +189,7 @@ describe('fetchGroupStandings', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Token reader tests (AC5, AC11)
+// Token reader tests (E07S05 AC5, E07S07 AC11)
 // ---------------------------------------------------------------------------
 
 describe('readDeviceToken', () => {
@@ -192,5 +208,193 @@ describe('readDeviceToken', () => {
 
   it('uses the correct localStorage key (AC11)', () => {
     expect(DEVICE_TOKEN_STORAGE_KEY).toBe('vvwt_device_token');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// E07S07 — writeDeviceToken and clearDeviceToken (AC11, AC7)
+// ---------------------------------------------------------------------------
+
+describe('writeDeviceToken', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('writes the token to localStorage with the correct key (AC11)', () => {
+    writeDeviceToken('my-device-token');
+
+    expect(localStorage.getItem(DEVICE_TOKEN_STORAGE_KEY)).toBe('my-device-token');
+  });
+
+  it('overwrites an existing token (AC11)', () => {
+    localStorage.setItem(DEVICE_TOKEN_STORAGE_KEY, 'old-token');
+
+    writeDeviceToken('new-token');
+
+    expect(localStorage.getItem(DEVICE_TOKEN_STORAGE_KEY)).toBe('new-token');
+  });
+});
+
+describe('clearDeviceToken', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('removes the token from localStorage (AC7)', () => {
+    localStorage.setItem(DEVICE_TOKEN_STORAGE_KEY, 'token-to-clear');
+
+    clearDeviceToken();
+
+    expect(localStorage.getItem(DEVICE_TOKEN_STORAGE_KEY)).toBeNull();
+  });
+
+  it('is idempotent — no error when no token exists (AC7)', () => {
+    // Should not throw
+    expect(() => clearDeviceToken()).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// E07S07 — registerDisplayDevice (AC1, AC6, AC9)
+// ---------------------------------------------------------------------------
+
+describe('registerDisplayDevice', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('returns deviceToken on HTTP 201 (AC1)', async () => {
+    const mockResponse = {
+      ok: true,
+      status: 201,
+      json: async () => ({ deviceToken: 'tok-abc123', pin: null }),
+    } as unknown as Response;
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockResponse));
+
+    const result = await registerDisplayDevice();
+
+    expect(result.deviceToken).toBe('tok-abc123');
+    expect(result.pin).toBeNull();
+  });
+
+  it('sends POST /api/devices/register with deviceType DISPLAY (AC1)', async () => {
+    const mockResponse = {
+      ok: true,
+      status: 201,
+      json: async () => ({ deviceToken: 'tok-xyz', pin: null }),
+    } as unknown as Response;
+    const fetchSpy = vi.fn().mockResolvedValue(mockResponse);
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await registerDisplayDevice();
+
+    expect(fetchSpy).toHaveBeenCalledWith('/api/devices/register', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ deviceType: DISPLAY_DEVICE_TYPE }),
+    }));
+  });
+
+  it('throws DeviceLimitError on HTTP 429 (AC6)', async () => {
+    const mockResponse = {
+      ok: false,
+      status: 429,
+      json: async () => ({}),
+    } as unknown as Response;
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockResponse));
+
+    await expect(registerDisplayDevice()).rejects.toBeInstanceOf(DeviceLimitError);
+  });
+
+  it('throws ApiError on HTTP 500 (AC9)', async () => {
+    const mockResponse = {
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+    } as unknown as Response;
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockResponse));
+
+    await expect(registerDisplayDevice()).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it('DISPLAY_DEVICE_TYPE constant is "DISPLAY" (AC1)', () => {
+    expect(DISPLAY_DEVICE_TYPE).toBe('DISPLAY');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// E07S07 — pollDeviceStatus (AC3, AC5, AC7, AC9)
+// ---------------------------------------------------------------------------
+
+describe('pollDeviceStatus', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('returns status result on HTTP 200 (AC3)', async () => {
+    const statusBody = { status: 'REGISTERED', configuration: null, deviceName: null };
+    const mockResponse = {
+      ok: true,
+      status: 200,
+      json: async () => statusBody,
+    } as unknown as Response;
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockResponse));
+
+    const result = await pollDeviceStatus('test-token');
+
+    expect(result.status).toBe('REGISTERED');
+    expect(result.configuration).toBeNull();
+  });
+
+  it('returns non-null configuration when device is configured (AC3, AC4)', async () => {
+    const config = JSON.stringify({ display_schema: 'OVERVIEW' });
+    const statusBody = { status: 'REGISTERED', configuration: config, deviceName: 'Screen A' };
+    const mockResponse = {
+      ok: true,
+      status: 200,
+      json: async () => statusBody,
+    } as unknown as Response;
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockResponse));
+
+    const result = await pollDeviceStatus('test-token');
+
+    expect(result.configuration).toBe(config);
+    expect(result.deviceName).toBe('Screen A');
+  });
+
+  it('throws DeviceRemovedError on HTTP 404 (AC7)', async () => {
+    const mockResponse = {
+      ok: false,
+      status: 404,
+      json: async () => ({}),
+    } as unknown as Response;
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockResponse));
+
+    await expect(pollDeviceStatus('stale-token')).rejects.toBeInstanceOf(DeviceRemovedError);
+  });
+
+  it('throws ApiError on HTTP 500 (AC9)', async () => {
+    const mockResponse = {
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+    } as unknown as Response;
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockResponse));
+
+    await expect(pollDeviceStatus('test-token')).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it('encodes token in URL query parameter (AC3)', async () => {
+    const mockResponse = {
+      ok: true,
+      status: 200,
+      json: async () => ({ status: 'REGISTERED', configuration: null, deviceName: null }),
+    } as unknown as Response;
+    const fetchSpy = vi.fn().mockResolvedValue(mockResponse);
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await pollDeviceStatus('tok with spaces');
+
+    const calledUrl = fetchSpy.mock.calls[0][0] as string;
+    expect(calledUrl).toContain('token=tok%20with%20spaces');
   });
 });
