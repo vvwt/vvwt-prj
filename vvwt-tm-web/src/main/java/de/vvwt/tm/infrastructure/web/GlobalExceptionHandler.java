@@ -7,6 +7,9 @@ import de.vvwt.tm.domain.ValidationException;
 import de.vvwt.tm.domain.audio.AudioFormatException;
 import de.vvwt.tm.domain.audio.AudioSizeLimitException;
 import de.vvwt.tm.domain.audio.AudioStorageException;
+import de.vvwt.tm.domain.photo.PhotoFormatException;
+import de.vvwt.tm.domain.photo.PhotoSizeException;
+import de.vvwt.tm.domain.photo.PhotoStorageException;
 import de.vvwt.tm.domain.timer.InvalidTimerUrlException;
 import de.vvwt.tm.domain.timer.NoActiveTournamentException;
 import de.vvwt.tm.infrastructure.display.NoActivePhaseException;
@@ -587,6 +590,93 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+    }
+
+    // -------------------------------------------------------------------------
+    // E12S02 — 400: Photo format rejection (AC7)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Handles {@link PhotoFormatException} — thrown when an uploaded file is not JPEG or PNG
+     * (E12S02 AC7 → HTTP 400 Bad Request).
+     *
+     * @param ex      the exception
+     * @param request the current HTTP request
+     * @return 400 response with message naming allowed formats
+     */
+    @ExceptionHandler(PhotoFormatException.class)
+    public ResponseEntity<ApiErrorResponse> handlePhotoFormat(
+            PhotoFormatException ex, HttpServletRequest request) {
+
+        ApiErrorResponse body = new ApiErrorResponse.Builder(
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                ex.getMessage(),
+                "error.photo.format")
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.badRequest().body(body);
+    }
+
+    // -------------------------------------------------------------------------
+    // E12S02 — 400: Photo file too large (AC7)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Handles {@link PhotoSizeException} — thrown when a photo file exceeds the configured
+     * size limit (E12S02 AC7 → HTTP 400 Bad Request).
+     *
+     * <p>HTTP 400 is used (not 413) because the limit is story-specific (5 MB) and is enforced
+     * at the service layer before Spring's multipart limit is reached. The global multipart
+     * limit (10 MB for audio) must not be reduced to avoid breaking E11S01.
+     *
+     * @param ex      the exception
+     * @param request the current HTTP request
+     * @return 400 response
+     */
+    @ExceptionHandler(PhotoSizeException.class)
+    public ResponseEntity<ApiErrorResponse> handlePhotoSize(
+            PhotoSizeException ex, HttpServletRequest request) {
+
+        ApiErrorResponse body = new ApiErrorResponse.Builder(
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                ex.getMessage(),
+                "error.photo.tooLarge")
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.badRequest().body(body);
+    }
+
+    // -------------------------------------------------------------------------
+    // E12S02 — 500: Photo I/O error (AC8)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Handles {@link PhotoStorageException} — thrown when a disk I/O error occurs during
+     * photo file storage (E12S02 AC8 → HTTP 500 with meaningful message, no stack trace).
+     *
+     * @param ex      the exception
+     * @param request the current HTTP request
+     * @return 500 response with the descriptive message from the exception
+     */
+    @ExceptionHandler(PhotoStorageException.class)
+    public ResponseEntity<ApiErrorResponse> handlePhotoStorage(
+            PhotoStorageException ex, HttpServletRequest request) {
+
+        log.error("[tm-api] Photo storage I/O error at {}", request.getRequestURI(), ex);
+
+        ApiErrorResponse body = new ApiErrorResponse.Builder(
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
+                ex.getMessage(),
+                "error.photo.storage")
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }
 
     // -------------------------------------------------------------------------
