@@ -197,7 +197,7 @@ class TournamentControllerIT {
                 new URI(baseUrl + "/api/tournaments"), create, TournamentResponse.class).getBody();
 
         TournamentUpdateRequest update = new TournamentUpdateRequest(
-                "Updated Name", null, null, null, null, null, null, null);
+                "Updated Name", null, null, null, null, null, null, null, null);
 
         ResponseEntity<TournamentResponse> response = authed.exchange(
                 new URI(baseUrl + "/api/tournaments/" + created.id()),

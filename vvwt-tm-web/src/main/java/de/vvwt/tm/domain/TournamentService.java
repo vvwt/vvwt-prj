@@ -8,6 +8,8 @@ import de.vvwt.tm.domain.rules.SetValidationRuleRegistry;
 import de.vvwt.tm.infrastructure.web.ConflictException;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalTime;
+
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
@@ -184,7 +186,8 @@ public class TournamentService {
                                        String matchFormat,
                                        String scoringRuleId,
                                        String setValidationRuleId,
-                                       String matchGeneratorId) {
+                                       String matchGeneratorId,
+                                       LocalTime plannedStartTime) {
         Tournament tournament = getTournament(id);
 
         if (!"DRAFT".equals(tournament.getStatus())) {
@@ -218,6 +221,8 @@ public class TournamentService {
         if (matchGeneratorId != null) {
             tournament.setMatchGeneratorId(matchGeneratorId);
         }
+        // plannedStartTime: always apply (null means clear; E08S05 AC1)
+        tournament.setPlannedStartTime(plannedStartTime);
 
         // Validate bean IDs (all current values — may be original or updated)
         validateBeanIds(tournament.getMatchFormat(), tournament.getScoringRuleId(),

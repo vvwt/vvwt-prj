@@ -42,9 +42,17 @@ import java.util.UUID;
  * <p>E08S01 addition: {@code plannedStartTime} (optional time-of-day for print timeline calculation)
  * added via V11 migration. Nullable — tournaments without print output do not require it.
  *
+ * <p>E08S05 addition: {@code draftJson} (nullable TEXT) stores the organizer's draft
+ * configuration as a JSON blob (backfilled from E05S06 — migration moved to V14 due to slot
+ * conflict). Also introduces the {@code PLANNED} lifecycle status:
+ * <ul>
+ *   <li>{@code PLANNED} — draft applied; phases created; no phase is active yet</li>
+ * </ul>
+ *
  * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E03S01.story.md">Story E03S01</a>
  * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E05S04.story.md">Story E05S04</a>
  * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S01.story.md">Story E08S01</a>
+ * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S05.story.md">Story E08S05</a>
  */
 @Table("tournament")
 public class Tournament {
@@ -115,6 +123,15 @@ public class Tournament {
      */
     @Column("planned_start_time")
     private LocalTime plannedStartTime;
+
+    /**
+     * Draft configuration stored as a JSON text blob (AC2 — E08S05 / E05S06).
+     * Nullable: {@code null} means no draft has been configured yet (returns empty sections list
+     * per AC3). Cleared when the draft is applied (AC7) — phases are the source of truth
+     * from that point on.
+     */
+    @Column("draft_json")
+    private String draftJson;
 
     // -------------------------------------------------------------------------
     // Constructors
@@ -246,4 +263,7 @@ public class Tournament {
 
     public LocalTime getPlannedStartTime() { return plannedStartTime; }
     public void setPlannedStartTime(LocalTime plannedStartTime) { this.plannedStartTime = plannedStartTime; }
+
+    public String getDraftJson() { return draftJson; }
+    public void setDraftJson(String draftJson) { this.draftJson = draftJson; }
 }

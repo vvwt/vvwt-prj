@@ -20,6 +20,7 @@
   import TournamentForm from './routes/TournamentForm.svelte';
   import Teams from './routes/Teams.svelte';
   import Devices from './routes/Devices.svelte';
+  import DraftConfig from './routes/DraftConfig.svelte';
 
   /** Route map: URL pattern → Svelte component. */
   const routes = new Map([
@@ -28,6 +29,7 @@
     ['/tournaments/new', TournamentForm],
     ['/tournaments/:id/edit', TournamentForm],
     ['/tournaments/:tournamentId/teams', Teams],
+    ['/tournaments/:tournamentId/draft', DraftConfig],
     ['/devices', Devices],
   ]);
 

@@ -27,7 +27,7 @@ export interface Tournament {
     id: string;
     description: string;
     appointment: string | null;   // ISO-8601 LocalDateTime or null
-    status: 'DRAFT' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+    status: 'DRAFT' | 'PLANNED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
     matchFormat: string;
     fieldCount: number;
     teamCount: number;
@@ -35,6 +35,7 @@ export interface Tournament {
     setValidationRuleId: string;
     matchGeneratorId: string;
     createdAt: string;
+    plannedStartTime: string | null;  // HH:mm LocalTime or null (E08S05 AC1)
 }
 
 /** Available rule options returned by GET /api/tournament-rules. */
@@ -67,6 +68,7 @@ export interface TournamentUpdateRequest {
     scoringRuleId?: string | null;
     setValidationRuleId?: string | null;
     matchGeneratorId?: string | null;
+    plannedStartTime?: string | null;  // HH:mm or null to clear (E08S05 AC1)
 }
 
 // ─────────────────────────────────────────────────────────────────
