@@ -38,6 +38,16 @@ spring:
     # fail-on-missing-locations defaults to false — empty migration dir is OK (AC6).
     fail-on-missing-locations: false
 
+  # ---------------------------------------------------------------------------
+  # Multipart upload limits — audio file upload (E11S01 AC7)
+  # Default: 10 MB max file and request size.
+  # Override via TM_AUDIO_MAX_FILE_SIZE env var or -Dspring.servlet.multipart.max-file-size.
+  # ---------------------------------------------------------------------------
+  servlet:
+    multipart:
+      max-file-size: ${TM_AUDIO_MAX_FILE_SIZE:10MB}
+      max-request-size: ${TM_AUDIO_MAX_FILE_SIZE:10MB}
+
 # ---------------------------------------------------------------------------
 # Device registration limits (E07S02 AC2)
 # ---------------------------------------------------------------------------
@@ -50,6 +60,14 @@ vvwt:
 # Slot-optimization configuration (E04S02, AC6)
 # ---------------------------------------------------------------------------
 tm:
+  # ---------------------------------------------------------------------------
+  # Audio file storage (E11S01)
+  # DEC-15: files stored outside the jlink archive in a user-writable data directory.
+  # Default: ~/.tournament-manager/audio/{tournamentId}/{category}.mp3
+  # Override: export TM_AUDIO_DATA_DIR=/your/path or -Dtm.audio.data-dir=/your/path
+  # ---------------------------------------------------------------------------
+  audio:
+    data-dir: ${TM_AUDIO_DATA_DIR:${user.home}/.tournament-manager/audio}
   slotopt:
     fallback:
       # Number of courts (fields) available per lap for slot assignment.
