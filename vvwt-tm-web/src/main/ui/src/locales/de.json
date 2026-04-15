@@ -21,6 +21,7 @@
     "deleteButton": "Löschen",
     "teamsButton": "Teams",
     "teamPhotosButton": "Fotos",
+    "certificateTemplateButton": "Urkunden-Vorlage",
     "deleteConfirm": "Turnier wirklich löschen?",
     "deleteError": "Fehler beim Löschen.",
     "columns": {
@@ -288,6 +289,37 @@
     "uploadError": "Fehler beim Hochladen.",
     "uploadFormatError": "Nur JPEG- und PNG-Dateien sind erlaubt.",
     "deleteError": "Fehler beim Löschen.",
+    "error": {
+      "noTournament": "Kein Turnier ausgewählt."
+    }
+  },
+  "certificateTemplate": {
+    "title": "Urkunden-Vorlage",
+    "backButton": "Zurück",
+    "noTemplate": "Keine Vorlage hochgeladen",
+    "uploadButton": "Vorlage hochladen",
+    "replaceButton": "Vorlage ersetzen",
+    "uploadingButton": "Wird hochgeladen…",
+    "deleteButton": "Vorlage löschen",
+    "deleteConfirm": "Urkunden-Vorlage wirklich löschen?",
+    "deleteError": "Fehler beim Löschen.",
+    "uploadError": "Fehler beim Hochladen.",
+    "loadError": "Fehler beim Laden.",
+    "previewTitle": "Vorschau",
+    "previewError": "Vorschau nicht verfügbar.",
+    "variablesTitle": "Verfügbare Vorlagenvariablen",
+    "variablesLoadError": "Fehler beim Laden der Variablen.",
+    "columns": {
+      "variable": "Variable",
+      "type": "Typ",
+      "example": "Beispiel"
+    },
+    "metaFilename": "Dateiname",
+    "metaFormat": "Format",
+    "metaUploadedAt": "Hochgeladen",
+    "metaFileSize": "Größe",
+    "sizeLabel": "{size} KB",
+    "replaceConfirm": "Bestehende Vorlage ersetzen?",
     "error": {
       "noTournament": "Kein Turnier ausgewählt."
     }
