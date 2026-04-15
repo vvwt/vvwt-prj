@@ -2,6 +2,7 @@
   /**
    * Tournaments list view — Story E05S04 AC7, AC9, AC11; updated E05S05 (teams nav button).
    * Updated E12S03: adds "Fotos" navigation button to team photo management.
+   * Updated E12S07: adds "Urkunden" navigation button to certificate generation (AC1–AC8).
    *
    * Shows all tournaments for the current tenant. The organizer can:
    *   - View tournament list (AC7)
@@ -11,6 +12,7 @@
    *   - Delete a tournament (DRAFT only, via confirmation)
    *   - Navigate to team management for any tournament (E05S05)
    *   - Navigate to team photo management for any tournament (E12S03)
+   *   - Navigate to certificate generation for any tournament (E12S07)
    *
    * All visible strings use the svelte-i18n `$_()` function (AC11 — no hardcoded strings).
    */
@@ -127,6 +129,11 @@
               <button class="btn btn--secondary btn--sm"
                       onclick={() => push(`/tournaments/${t.id}/photos`)}>
                 {$_('tournaments.teamPhotosButton')}
+              </button>
+              <!-- E12S07: navigate to certificate generation -->
+              <button class="btn btn--secondary btn--sm"
+                      onclick={() => push(`/tournaments/${t.id}/certificates`)}>
+                {$_('tournaments.certificatesButton')}
               </button>
               <!-- E11S06: navigate to timer audio management -->
               <button class="btn btn--secondary btn--sm"

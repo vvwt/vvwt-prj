@@ -21,6 +21,8 @@
     "deleteButton": "Löschen",
     "teamsButton": "Teams",
     "teamPhotosButton": "Fotos",
+    "certificateTemplateButton": "Urkunden-Vorlage",
+    "certificatesButton": "Urkunden",
     "deleteConfirm": "Turnier wirklich löschen?",
     "deleteError": "Fehler beim Löschen.",
     "columns": {
@@ -288,6 +290,75 @@
     "uploadError": "Fehler beim Hochladen.",
     "uploadFormatError": "Nur JPEG- und PNG-Dateien sind erlaubt.",
     "deleteError": "Fehler beim Löschen.",
+    "error": {
+      "noTournament": "Kein Turnier ausgewählt."
+    }
+  },
+  "certificateTemplate": {
+    "title": "Urkunden-Vorlage",
+    "backButton": "Zurück",
+    "noTemplate": "Keine Vorlage hochgeladen",
+    "uploadButton": "Vorlage hochladen",
+    "replaceButton": "Vorlage ersetzen",
+    "uploadingButton": "Wird hochgeladen…",
+    "deleteButton": "Vorlage löschen",
+    "deleteConfirm": "Urkunden-Vorlage wirklich löschen?",
+    "deleteError": "Fehler beim Löschen.",
+    "uploadError": "Fehler beim Hochladen.",
+    "loadError": "Fehler beim Laden.",
+    "previewTitle": "Vorschau",
+    "previewError": "Vorschau nicht verfügbar.",
+    "variablesTitle": "Verfügbare Vorlagenvariablen",
+    "variablesLoadError": "Fehler beim Laden der Variablen.",
+    "columns": {
+      "variable": "Variable",
+      "type": "Typ",
+      "example": "Beispiel"
+    },
+    "metaFilename": "Dateiname",
+    "metaFormat": "Format",
+    "metaUploadedAt": "Hochgeladen",
+    "metaFileSize": "Größe",
+    "sizeLabel": "{size} KB",
+    "replaceConfirm": "Bestehende Vorlage ersetzen?",
+    "error": {
+      "noTournament": "Kein Turnier ausgewählt."
+    }
+  },
+  "certificates": {
+    "title": "Urkunden",
+    "backButton": "Zurück",
+    "readinessTitle": "Bereitschaft",
+    "readiness": {
+      "templateOk": "Vorlage hochgeladen",
+      "templateMissing": "Keine Vorlage — ",
+      "templateLink": "hier hochladen",
+      "photoStatus": "{withPhoto} von {total} Mannschaften haben ein Foto",
+      "photoLink": "Fotos verwalten",
+      "standingsOk": "Platzierungen verfügbar",
+      "standingsMissing": "Noch keine Ergebnisse"
+    },
+    "generateTitle": "Urkunden erstellen",
+    "generateDescription": "Erstellt Urkunden für alle Mannschaften. Das Ergebnis (SVG-Download oder Druckseite) hängt vom Format der hochgeladenen Vorlage ab.",
+    "generateAllButton": "Alle Urkunden erstellen",
+    "generatingButton": "Wird erstellt…",
+    "disabledNoTemplate": "Keine Urkunden-Vorlage hochgeladen.",
+    "disabledNoStandings": "Noch keine Spielergebnisse vorhanden.",
+    "hintBothMissing": "Bitte laden Sie eine Vorlage hoch und spielen Sie die Spiele, bevor Sie Urkunden erstellen.",
+    "hintNoTemplate": "Bitte laden Sie zuerst eine Urkunden-Vorlage hoch.",
+    "hintNoStandings": "Bitte spielen Sie die Spiele, bevor Sie Urkunden erstellen.",
+    "previewTitle": "Einzelvorschau",
+    "previewDescription": "Überprüfen Sie das Aussehen der Urkunde für eine einzelne Mannschaft, bevor Sie alle erstellen.",
+    "previewTeamLabel": "Mannschaft auswählen",
+    "previewButton": "Vorschau öffnen",
+    "previewNoTeams": "Keine Teams vorhanden.",
+    "photoWarning": {
+      "title": "Fehlende Fotos",
+      "message": "{missing} Mannschaften haben kein Foto. Urkunden für diese Mannschaften werden ohne Foto erstellt.",
+      "proceedButton": "Trotzdem erstellen",
+      "uploadPhotosButton": "Fotos hochladen",
+      "cancelButton": "Abbrechen"
+    },
     "error": {
       "noTournament": "Kein Turnier ausgewählt."
     }
