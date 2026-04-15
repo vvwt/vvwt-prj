@@ -28,7 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Verifies that the V12__e08s02_activity_types.sql Flyway migration is applied correctly
+ * Verifies that the V13__e08s02_activity_types.sql Flyway migration is applied correctly
  * and that the {@link ActivityType} domain model satisfies all E08S02 acceptance criteria.
  *
  * <p>Checks:
@@ -40,7 +40,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  *   <li>AC5 — Duplicate name within the same tournament is rejected</li>
  *   <li>AC6 — capacity_per_round &le; 0 is rejected; null and positive values are accepted</li>
  *   <li>AC7 — Repository guard fires when no tenant context is active</li>
- *   <li>AC9 — Existing migrations V1–V11 unaffected; V12 applies cleanly (context loads)</li>
+ *   <li>AC9 — Existing migrations V1–V12 unaffected; V13 applies cleanly (context loads)</li>
  * </ul>
  *
  * @see <a href="../../../../../.gaai/project/contexts/artefacts/stories/E08S02.story.md">Story E08S02</a>
@@ -48,7 +48,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @SpringBootTest(
         classes = TournamentManagerApplication.class,
         properties = {
-            "spring.datasource.url=jdbc:h2:mem:e08s02migdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
+            "spring.datasource.url=jdbc:h2:mem:e08s02v13db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
                     + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
@@ -421,7 +421,7 @@ class E08S02MigrationIT {
     @Test
     void springContextLoadedWithAllMigrationsApplied() {
         // If the Spring context loaded successfully (this class is @SpringBootTest), all
-        // Flyway migrations V1–V12 have been applied in sequence without error.
+        // Flyway migrations V1–V13 have been applied in sequence without error.
         // This test is the presence proof for AC9.
         assertThat(activityTypeRepository)
                 .as("AC9 — Spring context and all Flyway migrations must apply cleanly")

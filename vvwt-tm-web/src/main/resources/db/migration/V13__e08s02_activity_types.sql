@@ -1,5 +1,5 @@
 -- ============================================================
--- V12__e08s02_activity_types.sql — activity_types table
+-- V13__e08s02_activity_types.sql — activity_types table
 -- Story:  E08S02
 -- DECs:   DEC-5  (multi-tenant invariants)
 --         DEC-14 (H2 + Flyway persistence)
