@@ -1,8 +1,18 @@
 package de.vvwt.tm.infrastructure.print;
 
+import de.vvwt.tm.domain.ActivityType;
+import de.vvwt.tm.domain.Match;
 import de.vvwt.tm.domain.Phase;
+import de.vvwt.tm.domain.PhaseBreak;
+import de.vvwt.tm.domain.Team;
+import de.vvwt.tm.domain.TeamAvatar;
 import de.vvwt.tm.domain.Tournament;
+import de.vvwt.tm.domain.repo.ActivityTypeRepository;
+import de.vvwt.tm.domain.repo.MatchRepository;
+import de.vvwt.tm.domain.repo.PhaseBreakRepository;
 import de.vvwt.tm.domain.repo.PhaseRepository;
+import de.vvwt.tm.domain.repo.TeamAvatarRepository;
+import de.vvwt.tm.domain.repo.TeamRepository;
 import de.vvwt.tm.domain.repo.TournamentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.info.BuildProperties;
@@ -14,10 +24,14 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -38,6 +52,16 @@ import java.util.UUID;
  *       access is impossible because the repository guards tenant scope on every query.</li>
  * </ul>
  *
+ * <h2>Story E08S08 — AC1, AC2, AC13, AC14, AC15</h2>
+ * <ul>
+ *   <li>AC1: {@code GET /print/{tournamentId}/team-schedules/{teamId}} renders a single team's
+ *       Laufzettel.</li>
+ *   <li>AC2: {@code GET /print/{tournamentId}/team-schedules} renders all teams' Laufzettel.</li>
+ *   <li>AC13: No matches → error page; non-existent team → 404.</li>
+ *   <li>AC14: All static text via {@link MessageSource} (German default).</li>
+ *   <li>AC15: Print routes inherit E08S07's basic auth enforcement (same {@code /print/**} rule).</li>
+ * </ul>
+ *
  * <h2>DEC-12, DEC-15</h2>
  * <p>Templates resolved from {@code classpath:/templates/print/} by the auto-configured Mustache
  * {@code ViewResolver}. Shared partials ({@code print-header}, {@code print-page-break}) live at
@@ -46,6 +70,7 @@ import java.util.UUID;
  * jlink archive automatically per DEC-15).</p>
  *
  * @see de.vvwt.tm.auth.SecurityConfig — configures /print/** as authenticated, /print/assets/** as permitAll
+ * @see LaufzettelAssembler
  */
 @Controller
 @RequestMapping("/print")
@@ -55,6 +80,12 @@ public class PrintController {
 
     private final TournamentRepository tournamentRepository;
     private final PhaseRepository phaseRepository;
+    private final MatchRepository matchRepository;
+    private final TeamRepository teamRepository;
+    private final TeamAvatarRepository teamAvatarRepository;
+    private final PhaseBreakRepository phaseBreakRepository;
+    private final ActivityTypeRepository activityTypeRepository;
+    private final LaufzettelAssembler laufzettelAssembler;
     private final MessageSource messageSource;
     private final String appVersion;
 
@@ -67,18 +98,34 @@ public class PrintController {
     @Autowired
     public PrintController(TournamentRepository tournamentRepository,
                            PhaseRepository phaseRepository,
+                           MatchRepository matchRepository,
+                           TeamRepository teamRepository,
+                           TeamAvatarRepository teamAvatarRepository,
+                           PhaseBreakRepository phaseBreakRepository,
+                           ActivityTypeRepository activityTypeRepository,
+                           LaufzettelAssembler laufzettelAssembler,
                            MessageSource messageSource,
                            @Autowired(required = false) BuildProperties buildProperties) {
         this.tournamentRepository = tournamentRepository;
         this.phaseRepository = phaseRepository;
+        this.matchRepository = matchRepository;
+        this.teamRepository = teamRepository;
+        this.teamAvatarRepository = teamAvatarRepository;
+        this.phaseBreakRepository = phaseBreakRepository;
+        this.activityTypeRepository = activityTypeRepository;
+        this.laufzettelAssembler = laufzettelAssembler;
         this.messageSource = messageSource;
         this.appVersion = buildProperties != null ? buildProperties.getVersion() : "dev";
     }
 
+    // =========================================================================
+    // E08S07: Print index route
+    // =========================================================================
+
     /**
      * Print index page for a tournament.
      *
-     * <p>Mapped to {@code GET /print/{tournamentId}} (AC1).
+     * <p>Mapped to {@code GET /print/{tournamentId}} (AC1 — E08S07).
      *
      * <ul>
      *   <li>If the tournament does not exist in the active tenant's scope: {@code HTTP 404} (AC7, AC9).</li>
@@ -112,9 +159,9 @@ public class PrintController {
         model.addAttribute("title",   msg("print.index.title",   "Tournament Schedule", locale));
         model.addAttribute("heading", msg("print.index.heading", "Print Documents",     locale));
 
-        // Links to E08S08 / E08S09 templates (rendered by those stories)
+        // Links to E08S08 / E08S09 templates
         model.addAttribute("tournamentId",      tournamentId.toString());
-        model.addAttribute("laufzettelUrl",     "/print/" + tournamentId + "/laufzettel");
+        model.addAttribute("laufzettelUrl",     "/print/" + tournamentId + "/team-schedules");
         model.addAttribute("fotosUrl",          "/print/" + tournamentId + "/fotos");
         model.addAttribute("msgLaufzettelLink", msg("print.index.laufzettel.link", "Team Schedule (Laufzettel)", locale));
         model.addAttribute("msgFotosLink",      msg("print.index.fotos.link",      "Photo Schedule",             locale));
@@ -122,77 +169,298 @@ public class PrintController {
         return "print/index";
     }
 
-    // -------------------------------------------------------------------------
-    // Private helpers
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // E08S08: Laufzettel routes
+    // =========================================================================
 
     /**
-     * Populates model attributes consumed by the {@code {{> print-header}}} partial (AC5, AC8).
+     * Renders the Laufzettel (team schedule) for a single team.
      *
-     * <p>The partial template uses: {@code tournamentName}, {@code tournamentDate},
-     * {@code phaseName}, {@code msgTournamentLabel}, {@code msgDateLabel}, {@code cssPath}.
+     * <p>Mapped to {@code GET /print/{tournamentId}/team-schedules/{teamId}} (AC1 — E08S08).
      *
-     * @param model      Spring MVC model to populate
-     * @param tournament the current tournament
-     * @param locale     the active locale for i18n resolution
+     * <ul>
+     *   <li>Tournament not found → 404 (AC13, AC15 — tenant-scoped per E08S07 AC9).</li>
+     *   <li>No phases → human-readable error page (AC13).</li>
+     *   <li>No matches in any phase → {@code print/laufzettel-no-matches.mustache} (AC13).</li>
+     *   <li>Team not found in this tournament → 404 (AC13).</li>
+     *   <li>Otherwise: renders {@code print/laufzettel.mustache} for the single team (AC1).</li>
+     * </ul>
+     *
+     * @param tournamentId the tournament UUID (tenant-scoped)
+     * @param teamId       the team UUID
+     * @param model        Spring MVC model
+     * @return Mustache view name
+     */
+    @GetMapping("/{tournamentId}/team-schedules/{teamId}")
+    public String singleTeamSchedule(@PathVariable("tournamentId") UUID tournamentId,
+                                      @PathVariable("teamId") UUID teamId,
+                                      Model model) {
+        Locale locale = LocaleContextHolder.getLocale();
+
+        Tournament tournament = tournamentRepository.findById(tournamentId)
+                .orElseThrow(() -> new TournamentNotFoundException(tournamentId));
+
+        // AC13: unknown team → 404 (must be checked before phases/matches to return 404 not error page)
+        List<Team> teams = teamRepository.findByTournamentId(tournamentId);
+        teams.sort(java.util.Comparator.comparingInt(Team::getTeamNumber));
+
+        Team requestedTeam = teams.stream()
+                .filter(t -> teamId.equals(t.getId()))
+                .findFirst()
+                .orElseThrow(() -> new TournamentNotFoundException(teamId));  // 404 for unknown team
+
+        List<Phase> phases = phaseRepository.findByTournamentId(tournamentId);
+        if (phases.isEmpty()) {
+            populateErrorModel(model, tournament, locale);
+            return "print/error";
+        }
+
+        // Check for matches — AC13
+        if (!hasAnyMatches(phases)) {
+            populateNoMatchesErrorModel(model, tournament, locale);
+            return "print/laufzettel-no-matches";
+        }
+
+        // Load supporting data
+        Map<UUID, List<TeamAvatar>> avatarsByPhase = loadAvatarsByPhase(phases);
+        Map<UUID, List<Match>> matchesByPhase = loadMatchesByPhase(phases);
+        Map<UUID, List<PhaseBreak>> breaksByPhase = loadBreaksByPhase(phases);
+        List<ActivityType> activityTypes = activityTypeRepository.findByTournamentId(tournamentId);
+
+        // Assemble — only for the requested team
+        List<Team> singleTeam = Collections.singletonList(requestedTeam);
+        Map<UUID, List<LaufzettelRow>> rowsByTeam = laufzettelAssembler.assemble(
+                tournament, phases, singleTeam, avatarsByPhase, matchesByPhase,
+                breaksByPhase, activityTypes, 0);
+
+        List<LaufzettelRow> rows = rowsByTeam.getOrDefault(requestedTeam.getId(), Collections.emptyList());
+
+        // Populate model
+        populateCommonModel(model, tournament, locale);
+        model.addAttribute("title",   msg("print.laufzettel.title.single", "VVWT Turniermanager — Laufzettel", locale));
+        model.addAttribute("heading", msg("print.laufzettel.heading.team", "Laufzettel Team", locale)
+                + " " + requestedTeam.getTeamNumber());
+        model.addAttribute("teamName",   requestedTeam.getDescription() != null ? requestedTeam.getDescription() : "");
+        model.addAttribute("teamNumber", requestedTeam.getTeamNumber());
+        model.addAttribute("hasTime",    laufzettelAssembler.hasTime(tournament));
+        model.addAttribute("rows",       toMustacheMaps(rows));
+        populateLaufzettelI18n(model, locale);
+
+        return "print/laufzettel";
+    }
+
+    /**
+     * Renders Laufzettel for ALL teams in team-number order with page breaks between them.
+     *
+     * <p>Mapped to {@code GET /print/{tournamentId}/team-schedules} (AC2 — E08S08).
+     *
+     * <p>The organizer prints this single page to get all schedules at once (AC2).
+     * CSS page breaks ({@code .page-break}) are inserted between teams (AC12).
+     *
+     * @param tournamentId the tournament UUID (tenant-scoped)
+     * @param model        Spring MVC model
+     * @return Mustache view name
+     */
+    @GetMapping("/{tournamentId}/team-schedules")
+    public String allTeamSchedules(@PathVariable("tournamentId") UUID tournamentId, Model model) {
+        Locale locale = LocaleContextHolder.getLocale();
+
+        Tournament tournament = tournamentRepository.findById(tournamentId)
+                .orElseThrow(() -> new TournamentNotFoundException(tournamentId));
+
+        List<Phase> phases = phaseRepository.findByTournamentId(tournamentId);
+        if (phases.isEmpty()) {
+            populateErrorModel(model, tournament, locale);
+            return "print/error";
+        }
+
+        if (!hasAnyMatches(phases)) {
+            populateNoMatchesErrorModel(model, tournament, locale);
+            return "print/laufzettel-no-matches";
+        }
+
+        List<Team> teams = teamRepository.findByTournamentId(tournamentId);
+        teams.sort(java.util.Comparator.comparingInt(Team::getTeamNumber));
+
+        Map<UUID, List<TeamAvatar>> avatarsByPhase = loadAvatarsByPhase(phases);
+        Map<UUID, List<Match>> matchesByPhase = loadMatchesByPhase(phases);
+        Map<UUID, List<PhaseBreak>> breaksByPhase = loadBreaksByPhase(phases);
+        List<ActivityType> activityTypes = activityTypeRepository.findByTournamentId(tournamentId);
+
+        Map<UUID, List<LaufzettelRow>> rowsByTeam = laufzettelAssembler.assemble(
+                tournament, phases, teams, avatarsByPhase, matchesByPhase,
+                breaksByPhase, activityTypes, 0);
+
+        boolean hasTime = laufzettelAssembler.hasTime(tournament);
+        String headingTeam = msg("print.laufzettel.heading.team", "Laufzettel Team", locale);
+
+        // Build list of per-team schedule maps for Mustache iteration
+        List<Map<String, Object>> schedules = new ArrayList<>();
+        for (int i = 0; i < teams.size(); i++) {
+            Team team = teams.get(i);
+            Map<String, Object> schedule = new LinkedHashMap<>();
+            schedule.put("teamNumber", team.getTeamNumber());
+            schedule.put("teamName", team.getDescription() != null ? team.getDescription() : "");
+            schedule.put("heading", headingTeam + " " + team.getTeamNumber());
+            schedule.put("hasTime", hasTime);
+            schedule.put("rows", toMustacheMaps(rowsByTeam.getOrDefault(team.getId(), Collections.emptyList())));
+            // AC12: page break before every team except the first
+            schedule.put("showPageBreak", i > 0);
+            schedules.add(schedule);
+        }
+
+        populateCommonModel(model, tournament, locale);
+        model.addAttribute("title",     msg("print.laufzettel.title.all", "VVWT Turniermanager — Alle Laufzettel", locale));
+        model.addAttribute("heading",   msg("print.laufzettel.title.all", "Alle Laufzettel", locale));
+        model.addAttribute("schedules", schedules);
+        populateLaufzettelI18n(model, locale);
+
+        return "print/laufzettel-all";
+    }
+
+    // =========================================================================
+    // Private helpers
+    // =========================================================================
+
+    /**
+     * Returns true if any phase in the list has at least one match with an assigned lap number.
+     */
+    private boolean hasAnyMatches(List<Phase> phases) {
+        for (Phase phase : phases) {
+            List<Match> matches = matchRepository.findByPhaseId(phase.getId());
+            for (Match m : matches) {
+                if (m.getLapNumber() != null) return true;
+            }
+        }
+        return false;
+    }
+
+    /** Loads TeamAvatars grouped by phaseId. */
+    private Map<UUID, List<TeamAvatar>> loadAvatarsByPhase(List<Phase> phases) {
+        Map<UUID, List<TeamAvatar>> map = new HashMap<>();
+        for (Phase phase : phases) {
+            map.put(phase.getId(), teamAvatarRepository.findByPhaseId(phase.getId()));
+        }
+        return map;
+    }
+
+    /** Loads Matches grouped by phaseId. */
+    private Map<UUID, List<Match>> loadMatchesByPhase(List<Phase> phases) {
+        Map<UUID, List<Match>> map = new HashMap<>();
+        for (Phase phase : phases) {
+            map.put(phase.getId(), matchRepository.findByPhaseId(phase.getId()));
+        }
+        return map;
+    }
+
+    /** Loads PhaseBreaks grouped by phaseId. */
+    private Map<UUID, List<PhaseBreak>> loadBreaksByPhase(List<Phase> phases) {
+        Map<UUID, List<PhaseBreak>> map = new HashMap<>();
+        for (Phase phase : phases) {
+            map.put(phase.getId(), phaseBreakRepository.findByPhaseId(phase.getId()));
+        }
+        return map;
+    }
+
+    /**
+     * Converts a list of {@link LaufzettelRow} to jmustache-compatible list of attribute maps.
+     *
+     * <p>jmustache renders {@code {{#rows}}} where rows is a {@code List<Map<String, Object>>}.
+     * Each map entry is directly accessible as {@code {{fieldName}}} inside the section.
+     * Boolean fields use Java boolean so jmustache treats them as truthy/falsy for section guards.
+     *
+     * @param rows list of LaufzettelRow objects
+     * @return list of attribute maps ready for jmustache
+     */
+    private List<Map<String, Object>> toMustacheMaps(List<LaufzettelRow> rows) {
+        List<Map<String, Object>> result = new ArrayList<>(rows.size());
+        for (LaufzettelRow row : rows) {
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("isPhaseHeader",   row.isPhaseHeader());
+            map.put("phaseHeaderName", row.getPhaseHeaderName());
+            map.put("isBreak",         row.isBreak());
+            map.put("breakLabel",      row.getBreakLabel());
+            map.put("breakTimeWindow", row.getBreakTimeWindow());
+            map.put("roundNumber",     row.getRoundNumber());
+            map.put("timeWindow",      row.getTimeWindow());
+            map.put("isPlaying",       row.isPlaying());
+            map.put("opponentName",    row.getOpponentName());
+            map.put("fieldNumber",     row.getFieldNumber());
+            map.put("isRefereeing",    row.isRefereeing());
+            map.put("isActivity",      row.isActivity());
+            map.put("activityName",    row.getActivityName());
+            map.put("isFree",          row.isFree());
+            result.add(map);
+        }
+        return result;
+    }
+
+    /**
+     * Populates i18n model attributes consumed by the Laufzettel templates (AC14 — E08S08).
+     *
+     * <p>All static text (column headers, labels) is sourced from the message bundle.
+     * German is the default locale.
+     */
+    private void populateLaufzettelI18n(Model model, Locale locale) {
+        model.addAttribute("msgColRound",    msg("print.laufzettel.col.round",    "Runde",          locale));
+        model.addAttribute("msgColTime",     msg("print.laufzettel.col.time",     "Zeit",           locale));
+        model.addAttribute("msgColActivity", msg("print.laufzettel.col.activity", "Aktivit\u00e4t", locale));
+        model.addAttribute("msgColField",    msg("print.laufzettel.col.field",    "Feld",           locale));
+        model.addAttribute("msgReferee",     msg("print.laufzettel.label.referee","Schiedsrichter", locale));
+        model.addAttribute("msgFree",        msg("print.laufzettel.label.free",   "Frei",           locale));
+        model.addAttribute("msgBreak",       msg("print.laufzettel.label.break",  "Pause",          locale));
+    }
+
+    /**
+     * Populates model for the no-matches error page (AC13 — E08S08).
+     */
+    private void populateNoMatchesErrorModel(Model model, Tournament tournament, Locale locale) {
+        populateCommonModel(model, tournament, locale);
+        model.addAttribute("title",         msg("print.laufzettel.error.nomatches.title",
+                "VVWT Turniermanager \u2014 Laufzettel", locale));
+        model.addAttribute("heading",       msg("print.laufzettel.error.nomatches.heading",
+                "Spielplan nicht verf\u00fcgbar", locale));
+        model.addAttribute("msgNoMatches",  msg("print.laufzettel.error.nomatches.message",
+                "Die Spielpaarungen wurden noch nicht erstellt. " +
+                "Bitte erstellen Sie den Spielplan, bevor Sie den Laufzettel drucken.", locale));
+    }
+
+    /**
+     * Populates model attributes consumed by the {@code {{> print-header}}} partial (AC5, AC8 — E08S07).
      */
     private void populateCommonModel(Model model, Tournament tournament, Locale locale) {
-        // Tournament name (description field per Tournament entity)
         model.addAttribute("tournamentName", tournament.getDescription() != null
                 ? tournament.getDescription()
                 : msg("print.header.unnamedTournament", "Unnamed Tournament", locale));
 
-        // Tournament date from appointment field (LocalDateTime) — formatted as dd.MM.yyyy
         String dateStr = tournament.getAppointment() != null
                 ? tournament.getAppointment().toLocalDate().format(DATE_FORMATTER)
                 : "";
         model.addAttribute("tournamentDate", dateStr);
 
-        // AC5: i18n labels consumed by print-header partial
         model.addAttribute("msgTournamentLabel", msg("print.header.tournamentLabel", "Tournament", locale));
         model.addAttribute("msgDateLabel",       msg("print.header.dateLabel",       "Date",       locale));
-
-        // AC5: phaseName and msgPhaseLabel are always set in the model.
-        // jmustache throws MustacheException for missing keys even inside {{#phaseName}}...{{/phaseName}}
-        // sections (strict mode by default). E08S08/S09 will override phaseName with a non-empty
-        // string when rendering phase-specific print templates. Here we set empty string so the
-        // conditional section renders as empty (jmustache treats empty string as falsy).
-        model.addAttribute("phaseName",      "");
-        model.addAttribute("msgPhaseLabel",  msg("print.header.phaseLabel", "Phase", locale));
-
-        // AC3, AC6: path to print CSS (served as static resource — DEC-15)
-        model.addAttribute("cssPath", "/print/assets/print.css");
-
-        model.addAttribute("appVersion",   appVersion);
-        model.addAttribute("locale",       locale.toLanguageTag());
+        model.addAttribute("phaseName",          "");
+        model.addAttribute("msgPhaseLabel",      msg("print.header.phaseLabel",      "Phase",      locale));
+        model.addAttribute("cssPath",            "/print/assets/print.css");
+        model.addAttribute("appVersion",         appVersion);
+        model.addAttribute("locale",             locale.toLanguageTag());
     }
 
     /**
-     * Populates model for the no-phases error page (AC7).
-     *
-     * @param model      Spring MVC model to populate
-     * @param tournament the current tournament (exists, but has no phases)
-     * @param locale     the active locale
+     * Populates model for the no-phases error page (AC7 — E08S07).
      */
     private void populateErrorModel(Model model, Tournament tournament, Locale locale) {
         populateCommonModel(model, tournament, locale);
-        model.addAttribute("title",         msg("print.error.title",   "Print — Not Available", locale));
-        model.addAttribute("heading",       msg("print.error.heading", "Cannot Print",          locale));
-        model.addAttribute("msgNophase",    msg("print.error.nophase",
+        model.addAttribute("title",      msg("print.error.title",   "Print — Not Available", locale));
+        model.addAttribute("heading",    msg("print.error.heading", "Cannot Print",          locale));
+        model.addAttribute("msgNophase", msg("print.error.nophase",
                 "The tournament schedule has not been generated yet. " +
                 "Please apply the draft in the admin panel before printing.", locale));
     }
 
     /**
-     * Resolve a message from the {@link MessageSource} with a safe fallback.
-     *
-     * <p>Returns {@code fallback} if the key is absent or resolution fails, preventing
-     * Mustache template rendering errors on missing keys.
-     *
-     * @param key      message key
-     * @param fallback value to return if the key is absent
-     * @param locale   target locale
-     * @return resolved message string
+     * Resolves a message from {@link MessageSource} with a safe fallback.
      */
     private String msg(String key, String fallback, Locale locale) {
         try {
