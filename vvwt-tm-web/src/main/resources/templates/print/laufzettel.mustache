@@ -1,0 +1,100 @@
+{{!
+  laufzettel.mustache — single team's Laufzettel (team schedule) print template.
+
+  E08S08 AC1, AC3–AC12, AC14:
+  - Renders a single team's schedule with round rows, break separators, and phase headers.
+  - All static text via model attributes (i18n — AC14).
+  - Time column shown only when {{hasTime}} is truthy (AC10).
+  - Uses print-header partial for tournament/phase metadata (AC3).
+  - CSS @media print from print.css ensures A4 portrait fit (AC12).
+
+  Required model attributes (all set by PrintController):
+    {{tournamentName}}, {{tournamentDate}}, {{phaseName}}, {{msgTournamentLabel}},
+    {{msgDateLabel}}, {{msgPhaseLabel}}, {{cssPath}}  — shared header model
+    {{title}}         — page title (browser tab)
+    {{heading}}       — e.g. "Laufzettel Team 1"
+    {{teamName}}      — team description (may be empty)
+    {{hasTime}}       — boolean: show time column
+    {{rows}}          — list of row attribute maps (from LaufzettelAssembler)
+    {{msgColRound}}, {{msgColTime}}, {{msgColActivity}}, {{msgColField}} — column headers
+    {{msgReferee}}, {{msgFree}}, {{msgBreak}} — row labels
+}}
+<!DOCTYPE html>
+<html lang="{{locale}}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{title}}</title>
+    <link rel="stylesheet" href="{{cssPath}}">
+</head>
+<body class="print-body">
+
+{{> print-header}}
+
+<main class="laufzettel-main">
+    <h2 class="laufzettel-team-heading">{{heading}}{{#teamName}} — {{teamName}}{{/teamName}}</h2>
+
+    <table class="laufzettel-table">
+        <thead>
+            <tr>
+                <th class="laufzettel-col-round">{{msgColRound}}</th>
+                {{#hasTime}}<th class="laufzettel-col-time">{{msgColTime}}</th>{{/hasTime}}
+                <th class="laufzettel-col-activity">{{msgColActivity}}</th>
+                <th class="laufzettel-col-field">{{msgColField}}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#rows}}
+            {{#isPhaseHeader}}
+            <tr class="laufzettel-phase-header">
+                <td colspan="4">{{phaseHeaderName}}</td>
+            </tr>
+            {{/isPhaseHeader}}
+            {{#isBreak}}
+            <tr class="laufzettel-row-break">
+                <td colspan="4" class="laufzettel-break-cell">
+                    {{breakLabel}}{{#breakTimeWindow}} ({{breakTimeWindow}}){{/breakTimeWindow}}
+                </td>
+            </tr>
+            {{/isBreak}}
+            {{#isPlaying}}
+            <tr class="laufzettel-row-playing">
+                <td class="laufzettel-col-round">{{roundNumber}}</td>
+                {{#timeWindow}}<td class="laufzettel-col-time">{{timeWindow}}</td>{{/timeWindow}}
+                {{^timeWindow}}<td class="laufzettel-col-time"></td>{{/timeWindow}}
+                <td class="laufzettel-col-activity">{{opponentName}}</td>
+                <td class="laufzettel-col-field">{{fieldNumber}}</td>
+            </tr>
+            {{/isPlaying}}
+            {{#isRefereeing}}
+            <tr class="laufzettel-row-refereeing">
+                <td class="laufzettel-col-round">{{roundNumber}}</td>
+                {{#timeWindow}}<td class="laufzettel-col-time">{{timeWindow}}</td>{{/timeWindow}}
+                {{^timeWindow}}<td class="laufzettel-col-time"></td>{{/timeWindow}}
+                <td class="laufzettel-col-activity">{{msgReferee}}</td>
+                <td class="laufzettel-col-field">{{fieldNumber}}</td>
+            </tr>
+            {{/isRefereeing}}
+            {{#isActivity}}
+            <tr class="laufzettel-row-activity">
+                <td class="laufzettel-col-round">{{roundNumber}}</td>
+                {{#timeWindow}}<td class="laufzettel-col-time">{{timeWindow}}</td>{{/timeWindow}}
+                {{^timeWindow}}<td class="laufzettel-col-time"></td>{{/timeWindow}}
+                <td class="laufzettel-col-activity" colspan="2">{{activityName}}</td>
+            </tr>
+            {{/isActivity}}
+            {{#isFree}}
+            <tr class="laufzettel-row-free">
+                <td class="laufzettel-col-round">{{roundNumber}}</td>
+                {{#timeWindow}}<td class="laufzettel-col-time">{{timeWindow}}</td>{{/timeWindow}}
+                {{^timeWindow}}<td class="laufzettel-col-time"></td>{{/timeWindow}}
+                <td class="laufzettel-col-activity" colspan="2">{{msgFree}}</td>
+            </tr>
+            {{/isFree}}
+            {{/rows}}
+        </tbody>
+    </table>
+</main>
+
+</body>
+</html>
