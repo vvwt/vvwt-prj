@@ -1,0 +1,43 @@
+{{!
+  print/error.mustache — Human-readable print error page (E08S07 AC7).
+
+  Rendered by PrintController.printIndex() when the tournament exists but has no phases
+  (draft not applied yet). This is NOT a raw JSON error response — it is a Mustache-rendered,
+  fully formatted HTML page with a meaningful message.
+
+  Required model attributes (see PrintController.populateErrorModel):
+    {{locale}}                — HTML lang attribute
+    {{title}}                 — page title (i18n: print.error.title)
+    {{cssPath}}               — path to print CSS
+    {{tournamentName}}        — tournament description
+    {{tournamentDate}}        — formatted date (dd.MM.yyyy) or empty
+    {{msgTournamentLabel}}    — i18n label "Tournament"
+    {{msgDateLabel}}          — i18n label "Date"
+    {{heading}}               — error heading (i18n: print.error.heading)
+    {{msgNophase}}            — no-phases explanation text (i18n: print.error.nophase)
+    {{appVersion}}            — application version string
+}}
+<!DOCTYPE html>
+<html lang="{{locale}}">
+<head>
+    <meta charset="UTF-8">
+    <title>{{title}}</title>
+    <!-- E08S07 AC3, AC6: print stylesheet — bundled, no CDN (DEC-15) -->
+    <link rel="stylesheet" href="{{cssPath}}">
+</head>
+<body>
+
+    {{! E08S07 AC5: shared print header partial }}
+    {{> print-header}}
+
+    <div class="print-error">
+        <p class="print-error__heading">{{heading}}</p>
+        <p>{{msgNophase}}</p>
+    </div>
+
+    <div class="print-footer">
+        <small>v{{appVersion}}</small>
+    </div>
+
+</body>
+</html>

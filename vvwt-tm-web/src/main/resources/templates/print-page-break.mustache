@@ -1,0 +1,12 @@
+{{!
+  print-page-break.mustache — shared Mustache partial for CSS page breaks.
+
+  E08S07 AC5:
+  - Inserts a <div class="page-break"></div> that triggers a CSS page break.
+  - Included via {{> print-page-break}} in any print page template between logical sections.
+
+  The .page-break CSS class is defined in print.css:
+    @media screen: renders as a dashed horizontal divider for visual separation
+    @media print:  page-break-before: always / break-before: page
+}}
+<div class="page-break"></div>
