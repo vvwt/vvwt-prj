@@ -20,6 +20,7 @@
     "editButton": "Bearbeiten",
     "deleteButton": "Löschen",
     "teamsButton": "Teams",
+    "teamPhotosButton": "Fotos",
     "deleteConfirm": "Turnier wirklich löschen?",
     "deleteError": "Fehler beim Löschen.",
     "columns": {
@@ -265,6 +266,28 @@
     "noScheduleNote": "Timer-Seite zeigt \"Kein Zeitplan\" bis Phasen konfiguriert sind.",
     "qrLabel": "QR-Code (zum Scannen)",
     "qrError": "QR-Code konnte nicht generiert werden.",
+    "error": {
+      "noTournament": "Kein Turnier ausgewählt."
+    }
+  },
+  "photos": {
+    "title": "Mannschaftsfotos",
+    "backButton": "Zurück",
+    "summary": "{withPhoto} von {total} Mannschaften haben ein Foto",
+    "empty": "Keine Teams vorhanden.",
+    "uploadButton": "Foto hochladen",
+    "replaceButton": "Foto ersetzen",
+    "uploadingButton": "Wird hochgeladen…",
+    "deleteButton": "Löschen",
+    "deleteConfirm": "Foto von \"{name}\" wirklich löschen?",
+    "previewHint": "Foto vergrößern",
+    "previewLabel": "Foto von {name} anzeigen",
+    "previewAlt": "Foto: {name}",
+    "previewCloseButton": "Schließen",
+    "noPhotoLabel": "Kein Foto",
+    "uploadError": "Fehler beim Hochladen.",
+    "uploadFormatError": "Nur JPEG- und PNG-Dateien sind erlaubt.",
+    "deleteError": "Fehler beim Löschen.",
     "error": {
       "noTournament": "Kein Turnier ausgewählt."
     }
