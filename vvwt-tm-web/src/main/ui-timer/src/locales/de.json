@@ -1,0 +1,40 @@
+{
+  "timer": {
+    "title": "Timer",
+    "header": {
+      "phase": "Phase",
+      "lap": "Runde"
+    },
+    "clockSync": {
+      "title": "Uhrzeit bestätigen",
+      "prompt": "Aktuelle Gerätezeit:",
+      "hint": "Bitte die Gerätezeit mit der Hallenuhr abgleichen. Abweichungen werden für alle Zeitanzeigen berücksichtigt.",
+      "accept": "Zeit bestätigen",
+      "adjustLabel": "Hallenuhr-Zeit eingeben (HH:MM):",
+      "save": "Speichern",
+      "invalidTime": "Ungültige Uhrzeit. Bitte Format HH:MM verwenden."
+    },
+    "schedule": {
+      "roundLabel": "Runde",
+      "breakRegular": "Pause",
+      "breakAdditional": "Zusatzpause",
+      "categoryStart": "Start",
+      "categoryEnd": "Ende",
+      "categoryPause": "Pause",
+      "statusUpcoming": "Ausstehend",
+      "statusPlaying": "Läuft",
+      "statusDone": "Fertig",
+      "editedIndicator": "*",
+      "noTime": "—",
+      "phase": "Phase",
+      "editTimeHint": "Uhrzeit anpassen (HH:MM:SS)"
+    },
+    "error": {
+      "network": "Netzwerkfehler beim Laden der Daten.",
+      "retry": "Erneut versuchen",
+      "invalidUrl": "Timer nicht gefunden.",
+      "noTournament": "Kein aktives Turnier.",
+      "noSchedule": "Kein Zeitplan konfiguriert."
+    }
+  }
+}

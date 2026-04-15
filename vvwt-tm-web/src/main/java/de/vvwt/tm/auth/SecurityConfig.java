@@ -182,6 +182,12 @@ public class SecurityConfig {
                         // Data access is protected by device-token auth at the /api/display/** layer.
                         // E07S07 (display device registration page) is also under /display/.
                         .requestMatchers("/display/**").permitAll()
+                        // E11S03 AC1: Timer SPA routes — served without authentication.
+                        // /timer/{tournamentId} serves the Svelte timer bundle HTML shell.
+                        // /timer/assets/** serves Vite-compiled JS/CSS (static resources).
+                        // The underlying data endpoint /api/timer/** is already permitted above (E11S02).
+                        // No admin credentials required — the timer is a venue-facing display page.
+                        .requestMatchers("/timer/**").permitAll()
                         // E11S01 AC5a: Audio streaming endpoint — accessible without authentication.
                         // The timer page (E11S03+) has no admin auth; it must preload audio files
                         // at page load. Upload (POST), list (GET /audio), and delete (DELETE) remain
