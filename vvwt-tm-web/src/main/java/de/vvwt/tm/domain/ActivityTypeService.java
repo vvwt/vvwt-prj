@@ -14,7 +14,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Domain service for {@link ActivityType} operations (E08S02, AC4–AC8).
+ * Domain service for {@link ActivityType} operations (E08S02, AC4–AC8; E08S06, AC1, AC7).
  *
  * <h2>Validation rules enforced</h2>
  * <ul>
@@ -37,6 +37,7 @@ import java.util.stream.Collectors;
  * @see ActivityType
  * @see AssignmentRule
  * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S02.story.md">Story E08S02</a>
+ * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S06.story.md">Story E08S06</a>
  */
 @Service
 public class ActivityTypeService {
@@ -126,6 +127,88 @@ public class ActivityTypeService {
                 .orElseThrow(() -> new NoSuchElementException(
                         "Tournament not found: " + tournamentId));
         return activityTypeRepository.findByTournamentId(tournamentId);
+    }
+
+    // -------------------------------------------------------------------------
+    // Update (E08S06, AC1)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Updates an existing activity type for the given tournament (E08S06, AC1 — PUT).
+     *
+     * <p>Validates all constraints before persisting (AC4, AC5, AC6). A name change that
+     * collides with an existing activity type in the same tournament is rejected (AC5).
+     *
+     * @param tournamentId     the parent tournament UUID (NOT NULL)
+     * @param id               the activity type UUID to update (NOT NULL)
+     * @param name             new activity name — must be unique within tournament (NOT NULL)
+     * @param assignmentRule   the new rule identifier — must match an {@link AssignmentRule} value
+     * @param capacityPerRound max teams per round ({@code null} = unlimited; non-null must be &gt; 0)
+     * @param sortOrder        new display ordering (NOT NULL)
+     * @return the updated {@link ActivityType}
+     * @throws NoSuchElementException   if the tournament or activity type does not exist
+     * @throws IllegalArgumentException if {@code assignmentRule} is unrecognized (AC4) or
+     *                                  {@code capacityPerRound} is &le; 0 (AC6)
+     * @throws ConflictException        if a different activity type already uses the same name (AC5)
+     * @throws IllegalStateException    if no tenant context is active (AC7)
+     */
+    public ActivityType update(UUID tournamentId, UUID id,
+                                String name, String assignmentRule,
+                                Integer capacityPerRound, int sortOrder) {
+        // Ownership checks
+        tournamentRepository.findById(tournamentId)
+                .orElseThrow(() -> new NoSuchElementException(
+                        "Tournament not found: " + tournamentId));
+
+        ActivityType existing = activityTypeRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException(
+                        "ActivityType not found: " + id));
+
+        // AC4: validate assignment rule
+        validateAssignmentRule(assignmentRule);
+
+        // AC6: validate capacity
+        validateCapacity(capacityPerRound);
+
+        // AC5: check for duplicate name — ignore the current entity (name may be unchanged)
+        if (!name.equals(existing.getName())
+                && activityTypeRepository.existsByTournamentIdAndName(tournamentId, name)) {
+            String message = messageSource.getMessage(
+                    "error.activityType.duplicateName", null, Locale.getDefault());
+            throw new ConflictException(message);
+        }
+
+        existing.setName(name);
+        existing.setAssignmentRule(assignmentRule);
+        existing.setCapacityPerRound(capacityPerRound);
+        existing.setSortOrder(sortOrder);
+
+        return activityTypeRepository.save(existing);
+    }
+
+    // -------------------------------------------------------------------------
+    // Delete (E08S06, AC1, AC7)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Deletes an activity type for the given tournament (E08S06, AC1 — DELETE, AC7 note).
+     *
+     * <p>Deletion is immediate — assignments are computed, never persisted (E08S02 notes),
+     * so there is no dependent data to clean up.
+     *
+     * @param tournamentId the parent tournament UUID (NOT NULL)
+     * @param id           the activity type UUID to delete (NOT NULL)
+     * @throws NoSuchElementException if the tournament or activity type does not exist
+     * @throws IllegalStateException  if no tenant context is active
+     */
+    public void delete(UUID tournamentId, UUID id) {
+        tournamentRepository.findById(tournamentId)
+                .orElseThrow(() -> new NoSuchElementException(
+                        "Tournament not found: " + tournamentId));
+        activityTypeRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException(
+                        "ActivityType not found: " + id));
+        activityTypeRepository.deleteById(id);
     }
 
     // -------------------------------------------------------------------------

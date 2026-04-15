@@ -20,6 +20,7 @@
     "editButton": "Bearbeiten",
     "deleteButton": "Löschen",
     "teamsButton": "Teams",
+    "activitiesButton": "Aktivitäten",
     "deleteConfirm": "Turnier wirklich löschen?",
     "deleteError": "Fehler beim Löschen.",
     "columns": {
@@ -143,5 +144,50 @@
     "removeButton": "Entfernen",
     "removeConfirm": "Gerät \"{name}\" wirklich entfernen? Dies kann nicht rückgängig gemacht werden.",
     "removeError": "Fehler beim Entfernen des Geräts."
+  },
+  "activityTypes": {
+    "title": "Aktivitätstypen",
+    "loadError": "Fehler beim Laden der Aktivitätstypen.",
+    "empty": "Keine Aktivitätstypen konfiguriert.",
+    "createButton": "Aktivitätstyp hinzufügen",
+    "editButton": "Bearbeiten",
+    "deleteButton": "Löschen",
+    "deleteConfirm": "Aktivitätstyp \"{name}\" wirklich löschen?",
+    "deleteError": "Fehler beim Löschen.",
+    "saveButton": "Speichern",
+    "cancelButton": "Abbrechen",
+    "saveError": "Fehler beim Speichern.",
+    "duplicateNameError": "Ein Aktivitätstyp mit diesem Namen existiert bereits.",
+    "noTournament": "Kein Turnier ausgewählt.",
+    "backButton": "Zurück",
+    "columns": {
+      "name": "Name",
+      "rule": "Zuweisungsregel",
+      "capacity": "Kapazität/Runde",
+      "sortOrder": "Reihenfolge"
+    },
+    "capacityUnlimited": "Unbegrenzt",
+    "rules": {
+      "FIRST_FREE_ROUND": "Erste freie Runde"
+    },
+    "form": {
+      "nameLabel": "Name",
+      "namePlaceholder": "z.B. Mannschaftsfoto",
+      "ruleLabel": "Zuweisungsregel",
+      "capacityLabel": "Kapazität pro Runde (leer = unbegrenzt)",
+      "sortOrderLabel": "Sortierreihenfolge",
+      "capacityInvalid": "Kapazität muss eine Zahl größer als 0 sein.",
+      "createTitle": "Neuer Aktivitätstyp",
+      "editTitle": "Aktivitätstyp bearbeiten"
+    },
+    "preview": {
+      "title": "Zuweisungsvorschau",
+      "notPrepared": "Spielplan noch nicht erstellt. Bitte zuerst den Spielplan im Turnier anwenden.",
+      "empty": "Keine Zuweisung möglich (keine Teams oder keine Runden).",
+      "loadError": "Fehler beim Laden der Vorschau.",
+      "lapLabel": "Runde {lap}",
+      "unassignedTitle": "Nicht zugewiesen",
+      "unassignedNote": "Diese Teams konnten keiner Runde zugewiesen werden:"
+    }
   }
 }

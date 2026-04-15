@@ -121,6 +121,11 @@
                       onclick={() => push(`/tournaments/${t.id}/teams`)}>
                 {$_('tournaments.teamsButton')}
               </button>
+              <!-- E08S06: navigate to activity type management -->
+              <button class="btn btn--secondary btn--sm"
+                      onclick={() => push(`/tournaments/${t.id}/activities`)}>
+                {$_('tournaments.activitiesButton')}
+              </button>
               {#if t.status === 'DRAFT'}
                 <button class="btn btn--secondary btn--sm"
                         onclick={() => push(`/tournaments/${t.id}/edit`)}>

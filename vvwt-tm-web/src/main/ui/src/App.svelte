@@ -6,6 +6,7 @@
    * Story E05S04 — adds /tournaments, /tournaments/new, /tournaments/:id/edit routes.
    * Story E05S05 — adds /tournaments/:tournamentId/teams route.
    * Story E06S05 — adds /devices route (AC8).
+   * Story E08S06 — adds /tournaments/:tournamentId/activities route (AC3, AC5).
    *
    * Hash-based routing decision (Brief H-2): No server-side catch-all is needed for
    * deep-link URLs because the hash fragment is never sent to the server.
@@ -20,6 +21,7 @@
   import TournamentForm from './routes/TournamentForm.svelte';
   import Teams from './routes/Teams.svelte';
   import Devices from './routes/Devices.svelte';
+  import ActivityTypes from './routes/ActivityTypes.svelte';
 
   /** Route map: URL pattern → Svelte component. */
   const routes = new Map([
@@ -28,6 +30,7 @@
     ['/tournaments/new', TournamentForm],
     ['/tournaments/:id/edit', TournamentForm],
     ['/tournaments/:tournamentId/teams', Teams],
+    ['/tournaments/:tournamentId/activities', ActivityTypes],
     ['/devices', Devices],
   ]);
 
