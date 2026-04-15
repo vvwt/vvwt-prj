@@ -78,6 +78,17 @@ tm:
   photos:
     data-dir: ${TM_PHOTOS_DATA_DIR:${user.home}/.tournament-manager/photos}
     max-size-bytes: ${TM_PHOTOS_MAX_SIZE_BYTES:5242880}
+  # ---------------------------------------------------------------------------
+  # Certificate template storage (E12S04)
+  # DEC-15: files stored outside the jlink archive in a user-writable data directory.
+  # Default: ~/.tournament-manager/certificate-templates/{tournamentId}/certificate-template.{ext}
+  # Override: export TM_CERT_TEMPLATES_DATA_DIR=/your/path or
+  #           -Dtm.certificate-templates.data-dir=/your/path
+  # Max upload size: 2 MB per AC7. Override via -Dtm.certificate-templates.max-size-bytes.
+  # ---------------------------------------------------------------------------
+  certificate-templates:
+    data-dir: ${TM_CERT_TEMPLATES_DATA_DIR:${user.home}/.tournament-manager/certificate-templates}
+    max-size-bytes: ${TM_CERT_TEMPLATES_MAX_SIZE_BYTES:2097152}
   slotopt:
     fallback:
       # Number of courts (fields) available per lap for slot assignment.
