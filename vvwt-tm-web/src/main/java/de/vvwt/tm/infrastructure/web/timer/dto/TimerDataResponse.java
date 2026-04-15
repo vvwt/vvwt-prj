@@ -48,6 +48,12 @@ public class TimerDataResponse {
     private UUID tournamentId;
 
     /**
+     * Tenant UUID — used by the timer SPA to build the WebSocket subscription topic
+     * {@code /topic/display/{tenantId}/events} (E11S05 AC1, DEC-5).
+     */
+    private UUID tenantId;
+
+    /**
      * Tournament lifecycle status: {@code "PLANNED"}, {@code "ACTIVE"}, or {@code "COMPLETED"}.
      * (AC5 — timer page uses this to render its current position)
      */
@@ -115,6 +121,9 @@ public class TimerDataResponse {
 
     public UUID getTournamentId() { return tournamentId; }
     public void setTournamentId(UUID tournamentId) { this.tournamentId = tournamentId; }
+
+    public UUID getTenantId() { return tenantId; }
+    public void setTenantId(UUID tenantId) { this.tenantId = tenantId; }
 
     public String getTournamentStatus() { return tournamentStatus; }
     public void setTournamentStatus(String tournamentStatus) { this.tournamentStatus = tournamentStatus; }
