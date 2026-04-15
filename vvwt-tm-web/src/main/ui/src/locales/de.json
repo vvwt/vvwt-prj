@@ -31,6 +31,7 @@
     },
     "draftButton": "Phasenplan",
     "timerAudioButton": "Timer-Audio",
+    "timerLinkButton": "Timer-Link",
     "status": {
       "DRAFT": "Entwurf",
       "PLANNED": "Geplant",
@@ -249,6 +250,21 @@
     "deleteError": "Fehler beim Löschen.",
     "loadError": "Fehler beim Laden der Audio-Konfiguration.",
     "sizeLabel": "{size} KB",
+    "error": {
+      "noTournament": "Kein Turnier ausgewählt."
+    },
+    "timerLinkButton": "Timer-Link"
+  },
+  "timerLink": {
+    "title": "Timer-Link & QR-Code",
+    "backButton": "Zurück",
+    "urlLabel": "Timer-URL",
+    "copyButton": "URL kopieren",
+    "copiedButton": "Kopiert!",
+    "openButton": "Timer öffnen",
+    "noScheduleNote": "Timer-Seite zeigt \"Kein Zeitplan\" bis Phasen konfiguriert sind.",
+    "qrLabel": "QR-Code (zum Scannen)",
+    "qrError": "QR-Code konnte nicht generiert werden.",
     "error": {
       "noTournament": "Kein Turnier ausgewählt."
     }

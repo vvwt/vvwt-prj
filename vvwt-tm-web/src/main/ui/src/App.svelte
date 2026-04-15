@@ -7,6 +7,7 @@
    * Story E05S05 — adds /tournaments/:tournamentId/teams route.
    * Story E06S05 — adds /devices route (AC8).
    * Story E11S06 — adds /tournaments/:tournamentId/audio route (AC1).
+   * Story E11S07 — adds /tournaments/:tournamentId/timer-link route (AC1).
    *
    * Hash-based routing decision (Brief H-2): No server-side catch-all is needed for
    * deep-link URLs because the hash fragment is never sent to the server.
@@ -23,6 +24,7 @@
   import Devices from './routes/Devices.svelte';
   import DraftConfig from './routes/DraftConfig.svelte';
   import TimerAudio from './routes/TimerAudio.svelte';
+  import TimerLink from './routes/TimerLink.svelte';
 
   /** Route map: URL pattern → Svelte component. */
   const routes = new Map([
@@ -33,6 +35,7 @@
     ['/tournaments/:tournamentId/teams', Teams],
     ['/tournaments/:tournamentId/draft', DraftConfig],
     ['/tournaments/:tournamentId/audio', TimerAudio],
+    ['/tournaments/:tournamentId/timer-link', TimerLink],
     ['/devices', Devices],
   ]);
 

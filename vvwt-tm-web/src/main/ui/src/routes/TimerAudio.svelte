@@ -10,11 +10,16 @@
    * AC6: Play/Stop button for inline audio preview.
    * AC7: Inline per-row error messages for upload/delete failures.
    *
+   * E11S07 AC3: "Timer-Link" header button navigates to the timer link & QR code view
+   *   (#/tournaments/:tournamentId/timer-link). The button is always shown in the header
+   *   because TimerAudio does not carry tournament status; the link is useful pre-tournament
+   *   (for DRAFT) to allow organizers to prepare the QR code in advance.
+   *
    * Props:
    *   params.tournamentId — the tournament UUID from the route (#/tournaments/:tournamentId/audio)
    */
   import { onMount } from 'svelte';
-  import { pop } from 'svelte-spa-router';
+  import { pop, push } from 'svelte-spa-router';
   import { _ } from 'svelte-i18n';
   import {
     listAudio,
@@ -252,6 +257,12 @@
 <main class="timer-audio">
   <div class="timer-audio__header">
     <h1>{$_('audio.title')}</h1>
+    <!-- E11S07 AC3: quick navigation to the timer link & QR code view -->
+    {#if tournamentId}
+      <button class="btn btn--secondary" onclick={() => push(`/tournaments/${tournamentId}/timer-link`)}>
+        {$_('audio.timerLinkButton')}
+      </button>
+    {/if}
     <button class="btn btn--secondary" onclick={() => pop()}>
       {$_('audio.backButton')}
     </button>

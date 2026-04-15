@@ -126,6 +126,13 @@
                       onclick={() => push(`/tournaments/${t.id}/audio`)}>
                 {$_('tournaments.timerAudioButton')}
               </button>
+              <!-- E11S07 AC1/AC3: timer link + QR code — shown for PLANNED and ACTIVE tournaments -->
+              {#if t.status === 'PLANNED' || t.status === 'ACTIVE'}
+                <button class="btn btn--secondary btn--sm"
+                        onclick={() => push(`/tournaments/${t.id}/timer-link`)}>
+                  {$_('tournaments.timerLinkButton')}
+                </button>
+              {/if}
               {#if t.status === 'DRAFT'}
                 <button class="btn btn--secondary btn--sm"
                         onclick={() => push(`/tournaments/${t.id}/edit`)}>
