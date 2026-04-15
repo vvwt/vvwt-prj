@@ -35,6 +35,26 @@
       "invalidUrl": "Timer nicht gefunden.",
       "noTournament": "Kein aktives Turnier.",
       "noSchedule": "Kein Zeitplan konfiguriert."
+    },
+    "countdown": {
+      "label": "Countdown bis zum nächsten Ereignis",
+      "finished": "Zeitplan abgeschlossen"
+    },
+    "transport": {
+      "label": "Wiedergabesteuerung",
+      "play": "Starten",
+      "pause": "Pausieren",
+      "stop": "Stoppen"
+    },
+    "round": {
+      "label": "Runde"
+    },
+    "audio": {
+      "warningStart": "Start-Sound nicht verfügbar",
+      "warningEnd": "Ende-Sound nicht verfügbar",
+      "warningPause": "Pausen-Musik nicht verfügbar",
+      "warningNone": "Keine Audiodateien konfiguriert",
+      "contextBlocked": "Bitte Seite antippen, um Audio zu aktivieren"
     }
   }
 }
