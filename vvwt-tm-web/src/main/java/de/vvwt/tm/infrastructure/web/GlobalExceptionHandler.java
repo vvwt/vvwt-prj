@@ -7,6 +7,8 @@ import de.vvwt.tm.domain.ValidationException;
 import de.vvwt.tm.domain.audio.AudioFormatException;
 import de.vvwt.tm.domain.audio.AudioSizeLimitException;
 import de.vvwt.tm.domain.audio.AudioStorageException;
+import de.vvwt.tm.domain.timer.InvalidTimerUrlException;
+import de.vvwt.tm.domain.timer.NoActiveTournamentException;
 import de.vvwt.tm.infrastructure.display.NoActivePhaseException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
@@ -534,6 +536,57 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+    }
+
+    // -------------------------------------------------------------------------
+    // E11S02 — 404: Timer URL not found / tournament not accessible
+    // -------------------------------------------------------------------------
+
+    /**
+     * Handles {@link InvalidTimerUrlException} — thrown when no tournament exists for the
+     * given timer URL UUID (E11S02 AC7 → HTTP 404 with {@code errorCode: "INVALID_TIMER_URL"}).
+     *
+     * @param ex      the exception
+     * @param request the current HTTP request
+     * @return 404 response with {@code errorCode: "INVALID_TIMER_URL"}
+     */
+    @ExceptionHandler(InvalidTimerUrlException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidTimerUrl(
+            InvalidTimerUrlException ex, HttpServletRequest request) {
+
+        ApiErrorResponse body = new ApiErrorResponse.Builder(
+                HttpStatus.NOT_FOUND.value(),
+                HttpStatus.NOT_FOUND.getReasonPhrase(),
+                ex.getMessage(),
+                ex.getErrorCode())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+    }
+
+    /**
+     * Handles {@link NoActiveTournamentException} — thrown when the tournament is in
+     * DRAFT or CANCELLED status (E11S02 AC7 → HTTP 404 with
+     * {@code errorCode: "NO_ACTIVE_TOURNAMENT"}).
+     *
+     * @param ex      the exception
+     * @param request the current HTTP request
+     * @return 404 response with {@code errorCode: "NO_ACTIVE_TOURNAMENT"}
+     */
+    @ExceptionHandler(NoActiveTournamentException.class)
+    public ResponseEntity<ApiErrorResponse> handleNoActiveTournament(
+            NoActiveTournamentException ex, HttpServletRequest request) {
+
+        ApiErrorResponse body = new ApiErrorResponse.Builder(
+                HttpStatus.NOT_FOUND.value(),
+                HttpStatus.NOT_FOUND.getReasonPhrase(),
+                ex.getMessage(),
+                ex.getErrorCode())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
     }
 
     // -------------------------------------------------------------------------

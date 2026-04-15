@@ -198,6 +198,9 @@ public class SecurityConfig {
                         // E08S07 AC2: Print routes require authentication — same basic auth as
                         // /admin/**. Print is an admin-only function (organizer access only).
                         .requestMatchers("/print/**").authenticated()
+                        // E11S02 AC6a: Timer data endpoint — public; timer page has no admin auth.
+                        // Must be listed before the /api/** catch-all that requires authentication.
+                        .requestMatchers("/api/timer/**").permitAll()
                         // E05S02 AC4: Admin UI and REST API require authentication
                         .requestMatchers("/admin/**").authenticated()
                         .requestMatchers("/api/**").authenticated()
