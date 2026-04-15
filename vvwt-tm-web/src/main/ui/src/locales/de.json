@@ -30,6 +30,7 @@
       "fieldCount": "Felder"
     },
     "draftButton": "Phasenplan",
+    "timerAudioButton": "Timer-Audio",
     "status": {
       "DRAFT": "Entwurf",
       "PLANNED": "Geplant",
@@ -227,5 +228,29 @@
     "removeButton": "Entfernen",
     "removeConfirm": "Gerät \"{name}\" wirklich entfernen? Dies kann nicht rückgängig gemacht werden.",
     "removeError": "Fehler beim Entfernen des Geräts."
+  },
+  "audio": {
+    "title": "Timer-Audio",
+    "backButton": "Zurück",
+    "categories": {
+      "START": "Rundenanfang",
+      "END": "Rundenende",
+      "PAUSE": "Pausenmusik"
+    },
+    "noFile": "Keine Datei hochgeladen",
+    "uploadButton": "Hochladen",
+    "uploadingButton": "Wird hochgeladen…",
+    "replaceConfirm": "Vorhandene {category}-Audiodatei ersetzen?",
+    "deleteButton": "Löschen",
+    "deleteConfirm": "Audiodatei für {category} wirklich löschen?",
+    "playButton": "Abspielen",
+    "stopButton": "Stopp",
+    "uploadError": "Fehler beim Hochladen.",
+    "deleteError": "Fehler beim Löschen.",
+    "loadError": "Fehler beim Laden der Audio-Konfiguration.",
+    "sizeLabel": "{size} KB",
+    "error": {
+      "noTournament": "Kein Turnier ausgewählt."
+    }
   }
 }
