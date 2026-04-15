@@ -55,6 +55,11 @@
       "warningPause": "Pausen-Musik nicht verfügbar",
       "warningNone": "Keine Audiodateien konfiguriert",
       "contextBlocked": "Bitte Seite antippen, um Audio zu aktivieren"
+    },
+    "ws": {
+      "disconnected": "Verbindung unterbrochen – lokaler Zeitplan aktiv",
+      "reconnecting": "Verbindungsversuch…",
+      "connected": "Verbunden"
     }
   }
 }

@@ -204,6 +204,7 @@ public class TimerDataService {
         TimerDataResponse response = new TimerDataResponse();
         response.setTournamentName(tournament.getDescription());
         response.setTournamentId(tournamentId);
+        response.setTenantId(tournament.getTenantId());
         response.setTournamentStatus(tournament.getStatus());
         response.setCurrentPhaseNumber(currentPhaseNumber);
         response.setCurrentLapNumber(currentLapNumber);
@@ -226,6 +227,7 @@ public class TimerDataService {
         TimerDataResponse response = new TimerDataResponse();
         response.setTournamentName(tournament.getDescription());
         response.setTournamentId(tournament.getId());
+        response.setTenantId(tournament.getTenantId());
         response.setTournamentStatus(tournament.getStatus());
         response.setCurrentPhaseNumber(0);
         response.setCurrentLapNumber(0);

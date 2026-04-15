@@ -44,17 +44,31 @@ import java.util.UUID;
  *       {@code /topic/display/{tenantId}/events}.</li>
  * </ol>
  *
+ * <h2>E11S05 — Timer client (unauthenticated, D-7)</h2>
+ * <p>The timer SPA connects without admin credentials or a device token. It signals its
+ * identity via the header {@link #TIMER_CONNECT_HEADER} ({@code X-Timer-Connect: true}) and
+ * supplies the tenant UUID via {@link #TIMER_TENANT_ID_HEADER} ({@code X-Timer-Tenant-Id}).
+ * The interceptor creates a synthetic Principal {@code "timer-client:{tenantId}"} and
+ * allows the connection through (D-7: timer is a public venue-facing page).
+ *
+ * <p>Security rationale: the display topic ({@code /topic/display/{tenantId}/events}) only
+ * carries minimal event notifications (event type + entity UUID). No match scores, admin
+ * credentials, or private data are transmitted on this topic. The timer client is structurally
+ * read-only at the WebSocket layer (no {@code /app} sends).
+ *
  * <h2>Auth priority on CONNECT</h2>
  * <ol>
- *   <li>{@code X-Device-Token} present → device-token auth</li>
- *   <li>{@code Authorization: Basic …} present → admin Basic auth</li>
- *   <li>Neither → {@link AccessDeniedException}</li>
+ *   <li>{@code X-Timer-Connect: true} present → timer client (unauthenticated, E11S05 D-7)</li>
+ *   <li>{@code X-Device-Token} present → device-token auth (E07S06)</li>
+ *   <li>{@code Authorization: Basic …} present → admin Basic auth (E05S03)</li>
+ *   <li>None → {@link AccessDeniedException}</li>
  * </ol>
  *
  * @see WebSocketConfig
  * @see DomainEventBridge
  * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E05S03.story.md">Story E05S03</a>
  * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E07S06.story.md">Story E07S06</a>
+ * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E11S05.story.md">Story E11S05</a>
  */
 @Configuration
 public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer {
@@ -66,6 +80,19 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
      * The frontend passes the device token here instead of an admin password.
      */
     public static final String DEVICE_TOKEN_HEADER = "X-Device-Token";
+
+    /**
+     * STOMP CONNECT header name that identifies a timer client (E11S05 AC1, D-7).
+     * Value must be {@code "true"}. Sent by the timer SPA instead of admin credentials.
+     */
+    public static final String TIMER_CONNECT_HEADER = "X-Timer-Connect";
+
+    /**
+     * STOMP CONNECT header carrying the tenant UUID for the timer client (E11S05 AC1).
+     * The timer SPA reads the tenant UUID from the E11S02 API response and passes it here.
+     * Used to construct the Principal name {@code "timer-client:{tenantId}"}.
+     */
+    public static final String TIMER_TENANT_ID_HEADER = "X-Timer-Tenant-Id";
 
     private static final String DEVICE_TYPE_DISPLAY = "DISPLAY";
 
@@ -106,14 +133,21 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
                 return message; // Not a CONNECT frame — already authenticated, pass through
             }
 
-            // Priority 1: display device token (E07S06 AC1)
+            // Priority 1: timer client (E11S05 AC1, D-7) — unauthenticated venue display
+            String timerConnect = accessor.getFirstNativeHeader(TIMER_CONNECT_HEADER);
+            if ("true".equals(timerConnect)) {
+                authenticateTimerClient(accessor);
+                return message;
+            }
+
+            // Priority 2: display device token (E07S06 AC1)
             String deviceToken = accessor.getFirstNativeHeader(DEVICE_TOKEN_HEADER);
             if (deviceToken != null && !deviceToken.isBlank()) {
                 authenticateDisplayDevice(accessor, deviceToken);
                 return message;
             }
 
-            // Priority 2: admin HTTP Basic (E05S03 AC6)
+            // Priority 3: admin HTTP Basic (E05S03 AC6)
             String authHeader = accessor.getFirstNativeHeader("Authorization");
             if (authHeader != null && authHeader.startsWith("Basic ")) {
                 authenticateAdminBasic(accessor, authHeader);
@@ -121,8 +155,30 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
             }
 
             throw new AccessDeniedException(
-                    "WebSocket CONNECT requires X-Device-Token (display) "
+                    "WebSocket CONNECT requires X-Timer-Connect (timer), X-Device-Token (display) "
                     + "or Authorization: Basic (admin) header");
+        }
+
+        // -----------------------------------------------------------------------
+        // Timer client auth (E11S05 AC1, D-7) — unauthenticated venue display
+        // -----------------------------------------------------------------------
+
+        private void authenticateTimerClient(StompHeaderAccessor accessor) {
+            String tenantIdHeader = accessor.getFirstNativeHeader(TIMER_TENANT_ID_HEADER);
+
+            // Build a synthetic principal for the timer client.
+            // tenantId may be null/blank for legacy timer clients or when the topic
+            // subscription is constructed from the initial API data. A missing tenantId
+            // is valid — the timer still connects but must supply the topic explicitly.
+            String principalName = "timer-client:"
+                    + (tenantIdHeader != null ? tenantIdHeader.trim() : "unknown");
+
+            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                    principalName, null,
+                    List.of(new SimpleGrantedAuthority("ROLE_TIMER")));
+            accessor.setUser(auth);
+
+            log.debug("[ws-auth] Timer client connected principalName={}", principalName);
         }
 
         // -----------------------------------------------------------------------

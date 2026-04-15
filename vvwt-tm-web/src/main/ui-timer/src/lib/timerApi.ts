@@ -54,10 +54,15 @@ export interface TimerAudio {
   pauseUrl: string | null;
 }
 
-/** Top-level timer data response — mirrors TimerDataResponse.java (E11S02). */
+/** Top-level timer data response — mirrors TimerDataResponse.java (E11S02 + E11S05). */
 export interface TimerData {
   tournamentName: string;
   tournamentId: string;
+  /**
+   * Tenant UUID — used by the timer SPA to build the WebSocket subscription topic
+   * {@code /topic/display/{tenantId}/events} (E11S05 AC1).
+   */
+  tenantId: string;
   tournamentStatus: string;
   currentPhaseNumber: number;
   currentLapNumber: number;

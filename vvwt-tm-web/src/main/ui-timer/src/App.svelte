@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * Root component for the Timer SPA (E11S03 + E11S04).
+   * Root component for the Timer SPA (E11S03 + E11S04 + E11S05).
    *
    * E11S03 lifecycle (retained):
    *   1. Mount: extract tournamentId from URL pathname (AC1/E11S03, AC5/E11S03)
@@ -23,6 +23,14 @@
    *   - Manual time override integration with countdown (AC7/E11S04)
    *   - Audio error warnings (AC8/E11S04)
    *
+   * E11S05 additions (in 'loaded' state):
+   *   - WebSocket connection to /topic/display/{tenantId}/events (AC1/E11S05)
+   *   - LAP_ADVANCED → schedule reload + countdown reset (AC2/E11S05)
+   *   - PHASE_STATUS_CHANGED → full schedule reload (AC3/E11S05)
+   *   - Disconnect resilience: local countdown continues, disconnect banner shown (AC4/E11S05)
+   *   - Reconnect recovery: schedule reconciled to current server state (AC5/E11S05)
+   *   - Initial connection error → local-only mode with disconnect indicator (AC6/E11S05)
+   *
    * Note: ClockSyncDialog provides the user gesture needed to unlock Web Audio API.
    */
   import { onMount, onDestroy } from 'svelte';
@@ -35,6 +43,7 @@
     NoScheduleConfiguredError,
     type TimerData,
   } from './lib/timerApi.js';
+  import { TimerWsClient } from './lib/timerWs.js';
   import {
     buildSnapshot,
     getAudioEventOnActivate,
@@ -72,6 +81,12 @@
   /** Index of the last "playing" entry for which deactivate audio was fired. */
   let lastPlayingIndex = $state<number>(-2);
 
+  // ── E11S05: WebSocket client + status ─────────────────────────────────────
+  /** 'connected' | 'disconnected' — drives the disconnect banner (AC4/E11S05). */
+  let wsStatus = $state<'connected' | 'disconnected' | null>(null);
+  /** WebSocket client instance (created when schedule loads). */
+  let wsClient: TimerWsClient | null = null;
+
   // ── E11S04: Audio engine ───────────────────────────────────────────────────
   const audioEngine = new AudioEngine();
 
@@ -93,6 +108,11 @@
   onDestroy(() => {
     stopTick();
     audioEngine.stopAll();
+    // E11S05: disconnect WebSocket and stop reconnect loop (AC4)
+    if (wsClient) {
+      wsClient.disconnect();
+      wsClient = null;
+    }
   });
 
   // ── Clock sync handler (AC2/E11S03) ───────────────────────────────────────
@@ -116,6 +136,18 @@
       audioEngine.preload(data.audio.startUrl, data.audio.endUrl, data.audio.pauseUrl);
       // E11S04: initialise snapshot (STOPPED state)
       refreshSnapshot();
+      // E11S05: start WebSocket client on first load (AC1)
+      // On subsequent calls (reconnect/reload), skip — wsClient already manages reconnect.
+      if (!wsClient && data.tenantId) {
+        wsClient = new TimerWsClient({
+          tenantId: data.tenantId,
+          onLapAdvanced: handleWsLapAdvanced,
+          onPhaseChanged: handleWsPhaseChanged,
+          onDisconnected: handleWsDisconnected,
+          onReconnected: handleWsReconnected,
+        });
+        wsClient.connect();
+      }
     } catch (e: unknown) {
       if (e instanceof InvalidTimerUrlError) {
         errorType = 'invalid-url';
@@ -143,6 +175,63 @@
     timeOverrides = new Map(timeOverrides).set(entryIndex, newTimeSeconds);
     // AC7: override changes → immediately refresh snapshot
     if (appState === 'loaded') refreshSnapshot();
+  }
+
+  // ── E11S05: WebSocket event handlers ─────────────────────────────────────
+
+  /**
+   * AC2/E11S05: Lap advanced — reload schedule and reset audio event tracking.
+   * The countdown engine continues; the schedule reload updates the display.
+   */
+  async function handleWsLapAdvanced(): Promise<void> {
+    if (appState !== 'loaded') return;
+    await loadTimerDataSilent();
+    // Reset audio event tracking so events fire again from the new position
+    lastFiredActiveIndex = -2;
+    lastPlayingIndex = -2;
+  }
+
+  /**
+   * AC3/E11S05: Phase status changed — reload full schedule.
+   */
+  async function handleWsPhaseChanged(): Promise<void> {
+    if (appState !== 'loaded') return;
+    await loadTimerDataSilent();
+  }
+
+  /**
+   * AC4/E11S05: WebSocket disconnected — show disconnect banner.
+   * The countdown engine continues locally (D-6).
+   */
+  function handleWsDisconnected(): void {
+    wsStatus = 'disconnected';
+  }
+
+  /**
+   * AC5/E11S05: WebSocket reconnected — hide banner and reload schedule to reconcile.
+   */
+  async function handleWsReconnected(): Promise<void> {
+    wsStatus = 'connected';
+    if (appState === 'loaded') {
+      await loadTimerDataSilent();
+    }
+  }
+
+  /**
+   * Silently reload timer data without changing appState (used for WS-triggered reloads).
+   * Does not reset wsClient — only refreshes schedule and audio config.
+   */
+  async function loadTimerDataSilent(): Promise<void> {
+    if (!tournamentId) return;
+    try {
+      const data = await fetchTimerData(tournamentId);
+      timerData = data;
+      timeOverrides = new Map();
+      audioEngine.preload(data.audio.startUrl, data.audio.endUrl, data.audio.pauseUrl);
+      refreshSnapshot();
+    } catch {
+      // Silent reload failure — keep existing schedule; disconnect banner already visible
+    }
   }
 
   // ── Current phase description (AC5/E11S03) ────────────────────────────────
@@ -367,6 +456,13 @@
       </div>
     {/if}
 
+    <!-- E11S05: AC4 — Disconnect indicator (shown when WS is disconnected) -->
+    {#if wsStatus === 'disconnected'}
+      <div class="timer-app__ws-disconnected" role="status" aria-live="polite">
+        {$_('timer.ws.disconnected')}
+      </div>
+    {/if}
+
     <!-- E11S04: AC2 (Countdown) + AC6 (Round counter) + AC5 (Transport controls) -->
     <div class="timer-app__controls-bar">
       <!-- AC6: Round counter -->
@@ -538,6 +634,18 @@
     font-weight: 600;
     text-align: center;
     padding: 0.6rem 1rem;
+  }
+
+  /* ── WebSocket disconnect indicator (AC4/E11S05) ─────────────────────────── */
+
+  .timer-app__ws-disconnected {
+    background: #fff3cd;
+    color: #664d03;
+    border-left: 3px solid #ffc107;
+    padding: 0.35rem 1rem;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    text-align: center;
   }
 
   /* ── Controls bar (AC2, AC5, AC6 / E11S04) ─────────────────────────────── */
