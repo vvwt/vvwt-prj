@@ -7,6 +7,9 @@ import de.vvwt.tm.domain.ValidationException;
 import de.vvwt.tm.domain.audio.AudioFormatException;
 import de.vvwt.tm.domain.audio.AudioSizeLimitException;
 import de.vvwt.tm.domain.audio.AudioStorageException;
+import de.vvwt.tm.domain.certificate.CertificateTemplateFormatException;
+import de.vvwt.tm.domain.certificate.CertificateTemplateSizeException;
+import de.vvwt.tm.domain.certificate.CertificateTemplateStorageException;
 import de.vvwt.tm.domain.photo.PhotoFormatException;
 import de.vvwt.tm.domain.photo.PhotoSizeException;
 import de.vvwt.tm.domain.photo.PhotoStorageException;
@@ -673,6 +676,90 @@ public class GlobalExceptionHandler {
                 HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
                 ex.getMessage(),
                 "error.photo.storage")
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+    }
+
+    // -------------------------------------------------------------------------
+    // E12S04 — 400: Certificate template format rejection (AC7)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Handles {@link CertificateTemplateFormatException} — thrown when an uploaded file is not
+     * HTML or SVG, or is not well-formed (E12S04 AC7 → HTTP 400 Bad Request).
+     *
+     * @param ex      the exception
+     * @param request the current HTTP request
+     * @return 400 response with message naming allowed formats
+     */
+    @ExceptionHandler(CertificateTemplateFormatException.class)
+    public ResponseEntity<ApiErrorResponse> handleCertificateTemplateFormat(
+            CertificateTemplateFormatException ex, HttpServletRequest request) {
+
+        ApiErrorResponse body = new ApiErrorResponse.Builder(
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                ex.getMessage(),
+                "error.certificateTemplate.format")
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.badRequest().body(body);
+    }
+
+    // -------------------------------------------------------------------------
+    // E12S04 — 400: Certificate template file too large (AC7)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Handles {@link CertificateTemplateSizeException} — thrown when a certificate template
+     * file exceeds the configured size limit (E12S04 AC7 → HTTP 400 Bad Request).
+     *
+     * @param ex      the exception
+     * @param request the current HTTP request
+     * @return 400 response
+     */
+    @ExceptionHandler(CertificateTemplateSizeException.class)
+    public ResponseEntity<ApiErrorResponse> handleCertificateTemplateSize(
+            CertificateTemplateSizeException ex, HttpServletRequest request) {
+
+        ApiErrorResponse body = new ApiErrorResponse.Builder(
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                ex.getMessage(),
+                "error.certificateTemplate.tooLarge")
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.badRequest().body(body);
+    }
+
+    // -------------------------------------------------------------------------
+    // E12S04 — 500: Certificate template I/O error (AC9)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Handles {@link CertificateTemplateStorageException} — thrown when a disk I/O error
+     * occurs during certificate template storage (E12S04 AC9 → HTTP 500).
+     *
+     * @param ex      the exception
+     * @param request the current HTTP request
+     * @return 500 response with descriptive message, no stack trace
+     */
+    @ExceptionHandler(CertificateTemplateStorageException.class)
+    public ResponseEntity<ApiErrorResponse> handleCertificateTemplateStorage(
+            CertificateTemplateStorageException ex, HttpServletRequest request) {
+
+        log.error("[tm-api] Certificate template storage I/O error at {}",
+                request.getRequestURI(), ex);
+
+        ApiErrorResponse body = new ApiErrorResponse.Builder(
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
+                ex.getMessage(),
+                "error.certificateTemplate.storage")
                 .path(request.getRequestURI())
                 .build();
 
