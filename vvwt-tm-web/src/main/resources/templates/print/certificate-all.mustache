@@ -1,0 +1,95 @@
+{{!
+  certificate-all.mustache — all-teams HTML certificate print template.
+
+  E12S06 AC4, AC6, AC10, AC11:
+  - Renders all teams' certificates in placement order.
+  - CSS page breaks between certificates ({{#showPageBreak}}).
+  - All 6 D-4 template variables provided per certificate entry.
+  - Organizer prints this single page to get all certificates at once (AC4).
+  - Inherits /print/** auth enforcement (AC11).
+
+  Required model attributes (set by PrintController):
+    {{tournamentName}}, {{tournamentDate}}, {{phaseName}}, {{msgTournamentLabel}},
+    {{msgDateLabel}}, {{msgPhaseLabel}}, {{cssPath}}  — shared header model
+    {{title}}         — page title
+    {{certificates}}  — list of certificate attribute maps:
+      each: {{placement}}, {{teamName}}, {{teamPhoto}}, {{tournamentName}}, {{date}},
+            {{location}}, {{hasPhoto}}, {{showPageBreak}}
+}}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{title}}</title>
+    <link rel="stylesheet" href="{{cssPath}}">
+    <style>
+        .certificate-page {
+            width: 297mm;
+            min-height: 210mm;
+            margin: 0 auto;
+            padding: 20mm;
+            box-sizing: border-box;
+            border: 4px double #8B6914;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            position: relative;
+        }
+        .certificate-placement {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #8B6914;
+            margin: 10mm 0 5mm 0;
+        }
+        .certificate-team-name {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 5mm 0;
+        }
+        .certificate-tournament-name {
+            font-size: 1.4em;
+            margin: 5mm 0;
+        }
+        .certificate-meta {
+            font-size: 1em;
+            color: #555;
+            margin: 3mm 0;
+        }
+        .certificate-photo {
+            max-width: 80mm;
+            max-height: 60mm;
+            margin: 8mm auto;
+            display: block;
+        }
+        @media print {
+            @page {
+                size: A4 landscape;
+                margin: 0;
+            }
+            body { margin: 0; }
+            .certificate-page {
+                page-break-after: always;
+                border: 4px double #8B6914;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body class="print-body">
+
+{{> print-header}}
+
+{{#certificates}}
+{{#showPageBreak}}{{> print-page-break}}{{/showPageBreak}}
+<div class="certificate-page">
+    <div class="certificate-placement">Platz {{placement}}</div>
+    <div class="certificate-team-name">{{teamName}}</div>
+    {{#hasPhoto}}<img class="certificate-photo" src="{{teamPhoto}}" alt="Mannschaftsfoto">{{/hasPhoto}}
+    <div class="certificate-tournament-name">{{tournamentName}}</div>
+    <div class="certificate-meta">{{date}} &mdash; {{location}}</div>
+</div>
+{{/certificates}}
+
+</body>
+</html>

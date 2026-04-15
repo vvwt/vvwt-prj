@@ -1,5 +1,6 @@
 package de.vvwt.tm.infrastructure.print;
 
+import com.samskivert.mustache.MustacheException;
 import de.vvwt.tm.domain.ActivityType;
 import de.vvwt.tm.domain.Match;
 import de.vvwt.tm.domain.Phase;
@@ -7,6 +8,7 @@ import de.vvwt.tm.domain.PhaseBreak;
 import de.vvwt.tm.domain.Team;
 import de.vvwt.tm.domain.TeamAvatar;
 import de.vvwt.tm.domain.Tournament;
+import de.vvwt.tm.domain.certificate.CertificateTemplateService;
 import de.vvwt.tm.domain.repo.ActivityTypeRepository;
 import de.vvwt.tm.domain.repo.MatchRepository;
 import de.vvwt.tm.domain.repo.PhaseBreakRepository;
@@ -14,16 +16,27 @@ import de.vvwt.tm.domain.repo.PhaseRepository;
 import de.vvwt.tm.domain.repo.TeamAvatarRepository;
 import de.vvwt.tm.domain.repo.TeamRepository;
 import de.vvwt.tm.domain.repo.TournamentRepository;
+import de.vvwt.tm.domain.repo.TenantContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.info.BuildProperties;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -32,7 +45,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /**
  * Spring MVC controller for print routes ({@code /print/**}).
@@ -85,9 +101,25 @@ import java.util.UUID;
  * Static print CSS is served from {@code classpath:/static/print/assets/print.css} (bundled in the
  * jlink archive automatically per DEC-15).</p>
  *
+ * <h2>Story E12S06 — AC1–AC11</h2>
+ * <ul>
+ *   <li>AC1: {@code GET /print/tournaments/{tournamentId}/certificates/{teamId}} → SVG certificate.</li>
+ *   <li>AC2: Same route → HTML certificate when template format is HTML.</li>
+ *   <li>AC3: {@code GET /print/tournaments/{tournamentId}/certificates} → ZIP of SVG certificates.</li>
+ *   <li>AC4: Same route → HTML all-certificates page when template format is HTML.</li>
+ *   <li>AC5: Placement derived from final-phase D-33 TeamAvatarRating order.</li>
+ *   <li>AC6: All 6 D-4 template variables filled by {@link CertificateAssembler}.</li>
+ *   <li>AC7: No template → 400 with i18n message.</li>
+ *   <li>AC8: No standings (no ratings) → 400 with i18n message.</li>
+ *   <li>AC9: Mustache errors → 500; unknown team/tournament → 404.</li>
+ *   <li>AC10: Error messages from message bundle (German default).</li>
+ *   <li>AC11: Admin auth enforced by {@code /print/**} security rule; tenant isolation via repo.</li>
+ * </ul>
+ *
  * @see de.vvwt.tm.auth.SecurityConfig — configures /print/** as authenticated, /print/assets/** as permitAll
  * @see LaufzettelAssembler
  * @see ActivityScheduleAssembler
+ * @see CertificateAssembler
  */
 @Controller
 @RequestMapping("/print")
@@ -104,6 +136,9 @@ public class PrintController {
     private final ActivityTypeRepository activityTypeRepository;
     private final LaufzettelAssembler laufzettelAssembler;
     private final ActivityScheduleAssembler activityScheduleAssembler;
+    private final CertificateAssembler certificateAssembler;
+    private final CertificateTemplateService certificateTemplateService;
+    private final TenantContext tenantContext;
     private final MessageSource messageSource;
     private final String appVersion;
 
@@ -123,6 +158,9 @@ public class PrintController {
                            ActivityTypeRepository activityTypeRepository,
                            LaufzettelAssembler laufzettelAssembler,
                            ActivityScheduleAssembler activityScheduleAssembler,
+                           CertificateAssembler certificateAssembler,
+                           CertificateTemplateService certificateTemplateService,
+                           TenantContext tenantContext,
                            MessageSource messageSource,
                            @Autowired(required = false) BuildProperties buildProperties) {
         this.tournamentRepository = tournamentRepository;
@@ -134,6 +172,9 @@ public class PrintController {
         this.activityTypeRepository = activityTypeRepository;
         this.laufzettelAssembler = laufzettelAssembler;
         this.activityScheduleAssembler = activityScheduleAssembler;
+        this.certificateAssembler = certificateAssembler;
+        this.certificateTemplateService = certificateTemplateService;
+        this.tenantContext = tenantContext;
         this.messageSource = messageSource;
         this.appVersion = buildProperties != null ? buildProperties.getVersion() : "dev";
     }
@@ -656,5 +697,310 @@ public class PrintController {
         } catch (Exception e) {
             return fallback;
         }
+    }
+
+    // =========================================================================
+    // E12S06: Certificate routes
+    // =========================================================================
+
+    /**
+     * Renders a single certificate for a team (AC1 + AC2).
+     *
+     * <p>The response format is determined by the uploaded template:
+     * <ul>
+     *   <li>SVG template (AC1): returns the rendered SVG file with
+     *       {@code Content-Type: image/svg+xml} and {@code Content-Disposition: attachment}.</li>
+     *   <li>HTML template (AC2): returns a rendered HTML page using the Mustache view resolver.</li>
+     * </ul>
+     *
+     * <p>Error responses (AC7–AC10):
+     * <ul>
+     *   <li>No template uploaded → 400 with German message.</li>
+     *   <li>No standings (no ratings) → 400 with German message.</li>
+     *   <li>Unknown tournament or team → 404 via {@link TournamentNotFoundException}.</li>
+     *   <li>Mustache rendering failure → 500 with error detail (AC9).</li>
+     * </ul>
+     *
+     * @param tournamentId the tournament UUID (tenant-scoped)
+     * @param teamId       the team UUID
+     * @param model        Spring MVC model (used for HTML path)
+     * @return view name (HTML path) or handled via ResponseEntity (SVG path)
+     */
+    @GetMapping("/tournaments/{tournamentId}/certificates/{teamId}")
+    public Object singleCertificate(@PathVariable("tournamentId") UUID tournamentId,
+                                     @PathVariable("teamId") UUID teamId,
+                                     Model model) {
+        Locale locale = LocaleContextHolder.getLocale();
+
+        // AC11: tenant-scoped — returns 404 for wrong-tenant or missing tournament
+        Tournament tournament = tournamentRepository.findById(tournamentId)
+                .orElseThrow(() -> new TournamentNotFoundException(tournamentId));
+
+        // AC7: no template uploaded
+        Optional<CertificateTemplateService.TemplateFile> templateOpt =
+                certificateTemplateService.retrieveFile(tournamentId);
+        if (templateOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body(msg("print.certificate.error.noTemplate",
+                            "Keine Urkunden-Vorlage hochgeladen. Bitte laden Sie zuerst eine Vorlage hoch.",
+                            locale));
+        }
+
+        // AC8: no standings (check final phase exists and has ratings)
+        Optional<Phase> finalPhaseOpt = certificateAssembler.getFinalPhase(tournamentId);
+        if (finalPhaseOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body(msg("print.certificate.error.noStandings",
+                            "Es sind keine Spielergebnisse vorhanden. Bitte spielen Sie zuerst die Spiele.",
+                            locale));
+        }
+
+        List<CertificateAssembler.AvatarPlacement> placements =
+                certificateAssembler.computePlacementOrder(tournamentId, finalPhaseOpt.get());
+        if (placements.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body(msg("print.certificate.error.noStandings",
+                            "Es sind keine Spielergebnisse vorhanden. Bitte spielen Sie zuerst die Spiele.",
+                            locale));
+        }
+
+        // AC9: unknown team → 404
+        CertificateAssembler.AvatarPlacement teamPlacement = placements.stream()
+                .filter(ap -> teamId.equals(ap.teamId()))
+                .findFirst()
+                .orElseThrow(() -> new TournamentNotFoundException(teamId));
+
+        String locationDisplayName = certificateAssembler.resolveLocationDisplayName(
+                tenantContext.getTenantId());
+
+        CertificateTemplateService.TemplateFile templateFile = templateOpt.get();
+        String format = templateFile.metadata().format(); // "svg" or "html"
+
+        if ("svg".equals(format)) {
+            // AC1: SVG path — render and return as binary attachment
+            String templateContent = readTemplateContent(templateFile);
+            List<CertificatePlacementRow> svgRows = certificateAssembler.buildSvgRows(
+                    tournament, List.of(teamPlacement), locationDisplayName);
+
+            try {
+                String renderedSvg = certificateAssembler.renderSvgTemplate(
+                        templateContent, svgRows.get(0));
+                byte[] svgBytes = renderedSvg.getBytes(StandardCharsets.UTF_8);
+
+                // AC1: filename = "{placement}-{teamName}.svg"
+                String safeTeamName = sanitizeFilename(svgRows.get(0).teamName());
+                String filename = teamPlacement.placement() + "-" + safeTeamName + ".svg";
+
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.parseMediaType("image/svg+xml"));
+                headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"");
+                return ResponseEntity.ok().headers(headers).body(svgBytes);
+
+            } catch (MustacheException ex) {
+                // AC9: Mustache rendering error → 500 with detail for admin debugging
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .contentType(MediaType.TEXT_PLAIN)
+                        .body("Mustache rendering error: " + ex.getMessage());
+            }
+
+        } else {
+            // AC2: HTML path — Mustache view rendering
+            List<CertificatePlacementRow> htmlRows = certificateAssembler.buildHtmlRows(
+                    tournament, List.of(teamPlacement), locationDisplayName);
+            CertificatePlacementRow row = htmlRows.get(0);
+
+            populateCommonModel(model, tournament, locale);
+            model.addAttribute("title",   msg("print.certificate.title.single",
+                    "VVWT Turniermanager \u2014 Urkunde", locale));
+            model.addAttribute("certificates", List.of(certificateAssembler.toMustacheMap(row)));
+            model.addAttribute("singleCertificate", certificateAssembler.toMustacheMap(row));
+            return "print/certificate";
+        }
+    }
+
+    /**
+     * Renders all certificates for a tournament in batch (AC3 + AC4).
+     *
+     * <p>The response format is determined by the uploaded template:
+     * <ul>
+     *   <li>SVG template (AC3): returns a ZIP archive with one SVG per team.
+     *       Content-Type: {@code application/zip}.</li>
+     *   <li>HTML template (AC4): returns a single HTML page with all certificates sequentially,
+     *       with CSS page breaks between teams.</li>
+     * </ul>
+     *
+     * @param tournamentId the tournament UUID (tenant-scoped)
+     * @param model        Spring MVC model (used for HTML path)
+     * @return view name (HTML path) or {@link ResponseEntity} (SVG/ZIP path)
+     */
+    @GetMapping("/tournaments/{tournamentId}/certificates")
+    public Object allCertificates(@PathVariable("tournamentId") UUID tournamentId,
+                                   Model model) {
+        Locale locale = LocaleContextHolder.getLocale();
+
+        Tournament tournament = tournamentRepository.findById(tournamentId)
+                .orElseThrow(() -> new TournamentNotFoundException(tournamentId));
+
+        // AC7
+        Optional<CertificateTemplateService.TemplateFile> templateOpt =
+                certificateTemplateService.retrieveFile(tournamentId);
+        if (templateOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body(msg("print.certificate.error.noTemplate",
+                            "Keine Urkunden-Vorlage hochgeladen. Bitte laden Sie zuerst eine Vorlage hoch.",
+                            locale));
+        }
+
+        // AC8
+        Optional<Phase> finalPhaseOpt = certificateAssembler.getFinalPhase(tournamentId);
+        if (finalPhaseOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body(msg("print.certificate.error.noStandings",
+                            "Es sind keine Spielergebnisse vorhanden. Bitte spielen Sie zuerst die Spiele.",
+                            locale));
+        }
+
+        List<CertificateAssembler.AvatarPlacement> placements =
+                certificateAssembler.computePlacementOrder(tournamentId, finalPhaseOpt.get());
+        if (placements.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body(msg("print.certificate.error.noStandings",
+                            "Es sind keine Spielergebnisse vorhanden. Bitte spielen Sie zuerst die Spiele.",
+                            locale));
+        }
+
+        String locationDisplayName = certificateAssembler.resolveLocationDisplayName(
+                tenantContext.getTenantId());
+
+        CertificateTemplateService.TemplateFile templateFile = templateOpt.get();
+        String format = templateFile.metadata().format();
+
+        if ("svg".equals(format)) {
+            // AC3: ZIP of SVG files
+            String templateContent = readTemplateContent(templateFile);
+            List<CertificatePlacementRow> svgRows = certificateAssembler.buildSvgRows(
+                    tournament, placements, locationDisplayName);
+
+            try {
+                byte[] zipBytes = buildSvgZip(svgRows, templateContent);
+                String tournamentName = sanitizeFilename(
+                        tournament.getDescription() != null ? tournament.getDescription() : "urkunden");
+                String zipFilename = tournamentName + "-urkunden.zip";
+
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.parseMediaType("application/zip"));
+                headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + zipFilename + "\"");
+                return ResponseEntity.ok().headers(headers).body(zipBytes);
+
+            } catch (MustacheException ex) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .contentType(MediaType.TEXT_PLAIN)
+                        .body("Mustache rendering error: " + ex.getMessage());
+            } catch (IOException ex) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .contentType(MediaType.TEXT_PLAIN)
+                        .body("ZIP creation error: " + ex.getMessage());
+            }
+
+        } else {
+            // AC4: HTML all-certificates page with page breaks
+            List<CertificatePlacementRow> htmlRows = certificateAssembler.buildHtmlRows(
+                    tournament, placements, locationDisplayName);
+
+            List<Map<String, Object>> certificateMaps = new ArrayList<>();
+            for (int i = 0; i < htmlRows.size(); i++) {
+                Map<String, Object> certMap = new LinkedHashMap<>(
+                        certificateAssembler.toMustacheMap(htmlRows.get(i)));
+                // AC4: CSS page break before every certificate except the first
+                certMap.put("showPageBreak", i > 0);
+                certificateMaps.add(certMap);
+            }
+
+            populateCommonModel(model, tournament, locale);
+            model.addAttribute("title", msg("print.certificate.title.all",
+                    "VVWT Turniermanager \u2014 Alle Urkunden", locale));
+            model.addAttribute("certificates", certificateMaps);
+            return "print/certificate-all";
+        }
+    }
+
+    /**
+     * Reads the full template content from a {@link CertificateTemplateService.TemplateFile}.
+     *
+     * <p>Closes the InputStream after reading.
+     *
+     * @param templateFile the template file result from {@link CertificateTemplateService}
+     * @return the template content as a UTF-8 string
+     * @throws de.vvwt.tm.domain.certificate.CertificateTemplateStorageException on I/O failure (re-thrown as-is)
+     */
+    private String readTemplateContent(CertificateTemplateService.TemplateFile templateFile) {
+        try (InputStream is = templateFile.inputStream()) {
+            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException ex) {
+            throw new de.vvwt.tm.domain.certificate.CertificateTemplateStorageException(
+                    "Failed to read certificate template: " + ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Builds a ZIP archive containing one rendered SVG per team (AC3).
+     *
+     * <p>Files inside the ZIP are named {@code {placement}-{teamName}.svg} with placement
+     * zero-padded to 2 digits for sort order consistency (e.g., {@code 01-Musterteam.svg}).
+     *
+     * @param svgRows         ordered list of placement rows (placement-ordered)
+     * @param templateContent the raw SVG Mustache template
+     * @return the ZIP archive as a byte array
+     * @throws IOException       on ZIP streaming failure
+     * @throws MustacheException on Mustache rendering failure
+     */
+    private byte[] buildSvgZip(List<CertificatePlacementRow> svgRows, String templateContent)
+            throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (ZipOutputStream zos = new ZipOutputStream(baos, StandardCharsets.UTF_8)) {
+            for (CertificatePlacementRow row : svgRows) {
+                String renderedSvg = certificateAssembler.renderSvgTemplate(templateContent, row);
+                byte[] svgBytes = renderedSvg.getBytes(StandardCharsets.UTF_8);
+
+                // AC3: filenames zero-padded to 2 digits for ≤99 teams
+                String paddedPlacement = String.format("%02d", row.placement());
+                String safeTeamName = sanitizeFilename(row.teamName());
+                String entryName = paddedPlacement + "-" + safeTeamName + ".svg";
+
+                ZipEntry entry = new ZipEntry(entryName);
+                entry.setSize(svgBytes.length);
+                zos.putNextEntry(entry);
+                zos.write(svgBytes);
+                zos.closeEntry();
+            }
+        }
+        return baos.toByteArray();
+    }
+
+    /**
+     * Sanitizes a string for use as a filename component — replaces characters that are
+     * problematic on common filesystems (Windows, macOS, Linux) with underscores.
+     *
+     * <p>Characters replaced: {@code / \ : * ? " < > | space tab}.
+     * Leading/trailing dots and spaces are trimmed.
+     * An empty result is replaced with "team".
+     *
+     * @param name the raw team name or tournament name
+     * @return a filesystem-safe filename fragment
+     */
+    private String sanitizeFilename(String name) {
+        if (name == null || name.isBlank()) {
+            return "team";
+        }
+        // Replace filesystem-unsafe characters with underscores
+        String safe = name.replaceAll("[/\\\\:*?\"<>| \t]", "_")
+                          .replaceAll("^[. ]+|[. ]+$", "");
+        return safe.isBlank() ? "team" : safe;
     }
 }
