@@ -184,7 +184,7 @@ class TournamentServiceTest {
         when(tournamentRepository.save(any(Tournament.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Tournament result = service.updateTournament(
-                id, "New Name", null, 6, 3, VALID_FORMAT, VALID_SCORING, VALID_VALIDATION, VALID_GENERATOR);
+                id, "New Name", null, 6, 3, VALID_FORMAT, VALID_SCORING, VALID_VALIDATION, VALID_GENERATOR, null);
 
         assertThat(result.getDescription()).isEqualTo("New Name");
         assertThat(result.getTeamCount()).isEqualTo(6);
@@ -197,7 +197,7 @@ class TournamentServiceTest {
         when(tournamentRepository.findById(id)).thenReturn(Optional.of(active));
 
         assertThatThrownBy(() -> service.updateTournament(
-                id, null, null, 0, 0, VALID_FORMAT, VALID_SCORING, VALID_VALIDATION, VALID_GENERATOR))
+                id, null, null, 0, 0, VALID_FORMAT, VALID_SCORING, VALID_VALIDATION, VALID_GENERATOR, null))
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("ACTIVE");
     }
@@ -209,7 +209,7 @@ class TournamentServiceTest {
         when(tournamentRepository.findById(id)).thenReturn(Optional.of(completed));
 
         assertThatThrownBy(() -> service.updateTournament(
-                id, null, null, 0, 0, VALID_FORMAT, VALID_SCORING, VALID_VALIDATION, VALID_GENERATOR))
+                id, null, null, 0, 0, VALID_FORMAT, VALID_SCORING, VALID_VALIDATION, VALID_GENERATOR, null))
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("COMPLETED");
     }

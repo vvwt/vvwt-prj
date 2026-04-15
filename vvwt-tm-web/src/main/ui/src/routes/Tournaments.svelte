@@ -126,6 +126,11 @@
                         onclick={() => push(`/tournaments/${t.id}/edit`)}>
                   {$_('tournaments.editButton')}
                 </button>
+                <!-- E08S05 AC5: navigate to draft configuration (breaks + start time + preview) -->
+                <button class="btn btn--secondary btn--sm"
+                        onclick={() => push(`/tournaments/${t.id}/draft`)}>
+                  {$_('tournaments.draftButton')}
+                </button>
                 <button class="btn btn--danger btn--sm" onclick={() => handleDelete(t.id)}>
                   {$_('tournaments.deleteButton')}
                 </button>

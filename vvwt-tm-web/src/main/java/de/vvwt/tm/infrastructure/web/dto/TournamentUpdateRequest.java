@@ -3,9 +3,10 @@ package de.vvwt.tm.infrastructure.web.dto;
 import jakarta.validation.constraints.Min;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 /**
- * Request body for PUT /api/tournaments/{id} (AC4 — E05S04).
+ * Request body for PUT /api/tournaments/{id} (AC4 — E05S04; extended by E08S05).
  *
  * <p>All fields are optional in the HTTP sense — a {@code null} value means "do not change
  * this field". The service applies only non-null (and valid) values. The appointment field
@@ -14,7 +15,11 @@ import java.time.LocalDateTime;
  * <p>Bean validation is applied only to fields that are present (non-null). Null values
  * are skipped by the service layer rather than rejected — this is a partial-update pattern.
  *
+ * <p>E08S05: {@code plannedStartTime} is added to allow the organizer to set the tournament
+ * start time for print timeline calculation (AC1). Setting to {@code null} clears the field.
+ *
  * @see <a href="../../../../../../../../../.gaai/project/contexts/artefacts/stories/E05S04.story.md">Story E05S04</a>
+ * @see <a href="../../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S05.story.md">Story E08S05 AC1</a>
  */
 public record TournamentUpdateRequest(
 
@@ -42,5 +47,12 @@ public record TournamentUpdateRequest(
         String setValidationRuleId,
 
         /** New match generator bean ID. Applied if not {@code null}. */
-        String matchGeneratorId
+        String matchGeneratorId,
+
+        /**
+         * Optional planned start time (HH:mm) for timeline calculation (AC1 — E08S05).
+         * Applied unconditionally — {@code null} clears the existing value.
+         * Jackson deserializes from ISO-8601 time string (e.g., {@code "10:00"}).
+         */
+        LocalTime plannedStartTime
 ) {}

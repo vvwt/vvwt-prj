@@ -29,8 +29,10 @@
       "teamCount": "Teams",
       "fieldCount": "Felder"
     },
+    "draftButton": "Phasenplan",
     "status": {
       "DRAFT": "Entwurf",
+      "PLANNED": "Geplant",
       "ACTIVE": "Aktiv",
       "COMPLETED": "Abgeschlossen",
       "CANCELLED": "Abgebrochen"
@@ -50,7 +52,89 @@
       "matchFormat": "Spielmodus",
       "scoringRuleId": "Wertungsregel",
       "setValidationRuleId": "Satzregel",
-      "matchGeneratorId": "Spielgenerator"
+      "matchGeneratorId": "Spielgenerator",
+      "plannedStartTime": "Geplante Startzeit (optional, HH:mm)"
+    }
+  },
+  "draft": {
+    "title": "Phasenplan",
+    "backButton": "Zurück",
+    "startTimeLabel": "Startzeit",
+    "addSectionButton": "Phase hinzufügen",
+    "saveButton": "Speichern",
+    "savingButton": "Wird gespeichert…",
+    "previewButton": "Vorschau",
+    "previewingButton": "Vorschau wird berechnet…",
+    "applyButton": "Phasenplan anwenden",
+    "applyingButton": "Wird angewendet…",
+    "applyConfirm": "Phasenplan wirklich anwenden? Dieser Schritt kann nicht rückgängig gemacht werden.",
+    "applySuccess": "Phasenplan wurde erfolgreich angewendet. Das Turnier hat jetzt den Status GEPLANT.",
+    "section": {
+      "title": "Phase {number}",
+      "removeButton": "Entfernen",
+      "fields": {
+        "sortType": "Sortiermodus",
+        "groupCount": "Gruppenanzahl",
+        "lapTimeMinutes": "Rundenzeit (Minuten)",
+        "lapBreakTimeMinutes": "Pause zwischen Runden (Minuten)",
+        "sectionBreakTimeMinutes": "Pause nach Phase (Minuten)",
+        "setQuantity": "Sätze pro Spiel"
+      }
+    },
+    "sortType": {
+      "team_number": "Teamnummer",
+      "placement_group": "Platzierung / Gruppe",
+      "group_placement": "Gruppe / Platzierung"
+    },
+    "break": {
+      "title": "Pausen innerhalb der Phase",
+      "empty": "Keine Pausen konfiguriert.",
+      "addButton": "Pause hinzufügen",
+      "removeButton": "Entfernen",
+      "fields": {
+        "afterLapNumber": "Nach Runde Nr.",
+        "durationMinutes": "Dauer (Minuten)",
+        "label": "Bezeichnung (optional)",
+        "labelPlaceholder": "z.B. Mittagspause"
+      },
+      "error": {
+        "afterLapMin": "Rundennummer muss ≥ 1 sein.",
+        "durationMin": "Dauer muss mindestens 1 Minute betragen.",
+        "duplicate": "Es gibt bereits eine Pause nach dieser Runde."
+      }
+    },
+    "preview": {
+      "title": "Vorschau",
+      "minutesSuffix": "Min.",
+      "timelineTitle": "Zeitplan",
+      "columns": {
+        "phase": "Phase",
+        "groups": "Gruppen",
+        "teamsPerGroup": "Teams/Gruppe",
+        "matchesPerGroup": "Spiele/Gruppe",
+        "totalLaps": "Runden",
+        "totalMatches": "Spiele gesamt",
+        "estimatedTime": "Geschätzte Zeit"
+      },
+      "timeline": {
+        "phase": "Phase",
+        "lap": "Runde",
+        "type": "Typ",
+        "time": "Zeit",
+        "label": "Bezeichnung"
+      },
+      "entryType": {
+        "MATCH_ROUND": "Spielrunde",
+        "LAP_BREAK": "Rundenpause",
+        "INTRA_PHASE_BREAK": "Pause",
+        "SECTION_BREAK": "Phasenpause"
+      }
+    },
+    "error": {
+      "noTournament": "Kein Turnier ausgewählt.",
+      "saveFailed": "Fehler beim Speichern.",
+      "previewFailed": "Fehler beim Berechnen der Vorschau.",
+      "applyFailed": "Fehler beim Anwenden des Phasenplans."
     }
   },
   "teams": {

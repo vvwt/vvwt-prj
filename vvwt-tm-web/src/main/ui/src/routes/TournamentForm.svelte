@@ -36,6 +36,7 @@
   // ── Form state ───────────────────────────────────────────────────────────
   let description = $state('');
   let appointment = $state('');      // string in datetime-local input format, or ''
+  let plannedStartTime = $state(''); // string in HH:mm format, or '' (E08S05 AC4)
   let teamCount = $state(2);
   let fieldCount = $state(1);
   let matchFormat = $state('');
@@ -65,6 +66,7 @@
         const t = await getTournament(editId);
         description = t.description;
         appointment = t.appointment ? t.appointment.substring(0, 16) : '';  // datetime-local format
+        plannedStartTime = t.plannedStartTime ?? '';  // HH:mm or '' (E08S05 AC4)
         teamCount = t.teamCount;
         fieldCount = t.fieldCount;
         matchFormat = t.matchFormat;
@@ -100,6 +102,7 @@
           scoringRuleId,
           setValidationRuleId,
           matchGeneratorId,
+          plannedStartTime: plannedStartTime.trim() ? plannedStartTime.trim() : null,  // E08S05 AC4
         });
       } else {
         const req: TournamentCreateRequest = {
@@ -166,6 +169,15 @@
         <input id="appointment" type="datetime-local" bind:value={appointment} />
         {#if fieldErrors['appointment']}
           <span class="form__field-error">{fieldErrors['appointment']}</span>
+        {/if}
+      </div>
+
+      <!-- Planned start time (optional, E08S05 AC4) -->
+      <div class="form__field">
+        <label for="plannedStartTime">{$_('tournamentForm.fields.plannedStartTime')}</label>
+        <input id="plannedStartTime" type="time" bind:value={plannedStartTime} />
+        {#if fieldErrors['plannedStartTime']}
+          <span class="form__field-error">{fieldErrors['plannedStartTime']}</span>
         {/if}
       </div>
 

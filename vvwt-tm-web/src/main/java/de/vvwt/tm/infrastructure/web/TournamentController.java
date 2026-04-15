@@ -148,7 +148,8 @@ public class TournamentController {
                 request.matchFormat(),
                 request.scoringRuleId(),
                 request.setValidationRuleId(),
-                request.matchGeneratorId());
+                request.matchGeneratorId(),
+                request.plannedStartTime());
 
         return ResponseEntity.ok(TournamentResponse.from(tournament));
     }
