@@ -23,6 +23,8 @@ export interface Team {
     refereeAssignment: boolean;
     withoutAssessment: boolean;
     createdAt: string;
+    /** Whether a team photo has been uploaded for this team (E12S02 AC4, E12S03 AC1). */
+    hasPhoto: boolean;
 }
 
 /** Request body for POST /api/tournaments/{id}/teams (AC2). */

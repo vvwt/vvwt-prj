@@ -1,6 +1,7 @@
 <script lang="ts">
   /**
    * Tournaments list view — Story E05S04 AC7, AC9, AC11; updated E05S05 (teams nav button).
+   * Updated E12S03: adds "Fotos" navigation button to team photo management.
    *
    * Shows all tournaments for the current tenant. The organizer can:
    *   - View tournament list (AC7)
@@ -9,6 +10,7 @@
    *   - Navigate to the edit form (DRAFT only)
    *   - Delete a tournament (DRAFT only, via confirmation)
    *   - Navigate to team management for any tournament (E05S05)
+   *   - Navigate to team photo management for any tournament (E12S03)
    *
    * All visible strings use the svelte-i18n `$_()` function (AC11 — no hardcoded strings).
    */
@@ -120,6 +122,11 @@
               <button class="btn btn--secondary btn--sm"
                       onclick={() => push(`/tournaments/${t.id}/teams`)}>
                 {$_('tournaments.teamsButton')}
+              </button>
+              <!-- E12S03: navigate to team photo management -->
+              <button class="btn btn--secondary btn--sm"
+                      onclick={() => push(`/tournaments/${t.id}/photos`)}>
+                {$_('tournaments.teamPhotosButton')}
               </button>
               <!-- E11S06: navigate to timer audio management -->
               <button class="btn btn--secondary btn--sm"
