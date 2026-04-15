@@ -31,3 +31,8 @@ vvwt-tm-web/src/main/ui/.vite/
 vvwt-tm-web/src/main/ui-display/node_modules/
 vvwt-tm-web/src/main/ui-display/dist-display/
 vvwt-tm-web/src/main/ui-display/.vite/
+
+# Timer SPA (E11S03): generated assets and node_modules
+vvwt-tm-web/src/main/ui-timer/node_modules/
+vvwt-tm-web/src/main/ui-timer/dist-timer/
+vvwt-tm-web/src/main/ui-timer/.vite/

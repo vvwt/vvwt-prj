@@ -247,6 +247,55 @@
                         </configuration>
                     </execution>
 
+                    <!--
+                        E11S03 — Timer SPA build steps.
+                        The timer SPA lives in src/main/ui-timer/ (separate npm project).
+                        Follows the same pattern as the display SPA (E07S05).
+
+                        DEC-2: Vite + Svelte + TypeScript, no SvelteKit.
+                        DEC-15 / AC1: Vite produces only local asset paths (/timer/assets/...) —
+                        no CDN references. The integration test TimerViewControllerIT verifies this.
+                    -->
+
+                    <!-- Step 7: npm install for timer SPA -->
+                    <execution>
+                        <id>npm-install-timer</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <workingDirectory>src/main/ui-timer</workingDirectory>
+                            <arguments>install</arguments>
+                        </configuration>
+                    </execution>
+
+                    <!-- Step 8: npm run build → src/main/ui-timer/dist-timer/ -->
+                    <execution>
+                        <id>npm-build-timer</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <workingDirectory>src/main/ui-timer</workingDirectory>
+                            <arguments>run build</arguments>
+                        </configuration>
+                    </execution>
+
+                    <!-- Step 9: npm test (vitest) for timer SPA unit tests -->
+                    <execution>
+                        <id>npm-test-timer</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <workingDirectory>src/main/ui-timer</workingDirectory>
+                            <arguments>test</arguments>
+                        </configuration>
+                    </execution>
+
                 </executions>
             </plugin>
 
@@ -310,6 +359,38 @@
                             <resources>
                                 <resource>
                                     <directory>src/main/ui-display/dist-display</directory>
+                                    <filtering>false</filtering>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+
+                    <!--
+                        E11S03 — copy timer SPA assets → target/classes/static/timer/.
+                        Story E11S03 — AC1, DEC-15.
+
+                        After npm-build-timer produces src/main/ui-timer/dist-timer/, this
+                        execution copies the Vite output to target/classes/static/timer/ so:
+                          - Spring Boot ResourceHttpRequestHandler serves /timer/assets/** from
+                            classpath:/static/timer/assets/ (static resources, no controller needed)
+                          - TimerViewController forwards /timer/{tournamentId} to
+                            classpath:/static/timer/index.html (served as static resource)
+                          - The jlink distribution (fat JAR) includes static/timer/ (DEC-15: self-host).
+
+                        filtering=false: SPA assets are binary/JS; Maven property substitution would
+                        corrupt hashed filenames (e.g. main.abc123.js → main.{project.version}.js).
+                    -->
+                    <execution>
+                        <id>copy-timer-spa-assets</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.outputDirectory}/static/timer</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>src/main/ui-timer/dist-timer</directory>
                                     <filtering>false</filtering>
                                 </resource>
                             </resources>
