@@ -62,6 +62,22 @@ import java.util.UUID;
  *   <li>AC15: Print routes inherit E08S07's basic auth enforcement (same {@code /print/**} rule).</li>
  * </ul>
  *
+ * <h2>Story E08S09 — AC1–AC11</h2>
+ * <ul>
+ *   <li>AC1: {@code GET /print/{tournamentId}/activity-schedule/{activityTypeId}} renders the
+ *       Mannschaftsfoto-Übersicht for the specified activity type.</li>
+ *   <li>AC2: Page header shows tournament name and activity type name.</li>
+ *   <li>AC3: Schedule table ordered by round number; empty rounds omitted.</li>
+ *   <li>AC4: Break separator rows inserted from timeline context.</li>
+ *   <li>AC5: Summary line — N teams total, across M rounds.</li>
+ *   <li>AC6: Unassigned warning section when some teams have no free round.</li>
+ *   <li>AC7: Time column omitted when tournament has no plannedStartTime.</li>
+ *   <li>AC8: CSS print styling — compact A4 layout.</li>
+ *   <li>AC9: Non-existent activityTypeId → 404.</li>
+ *   <li>AC10: All static text from MessageSource (German default).</li>
+ *   <li>AC11: Route inherits E08S07's basic auth enforcement.</li>
+ * </ul>
+ *
  * <h2>DEC-12, DEC-15</h2>
  * <p>Templates resolved from {@code classpath:/templates/print/} by the auto-configured Mustache
  * {@code ViewResolver}. Shared partials ({@code print-header}, {@code print-page-break}) live at
@@ -71,6 +87,7 @@ import java.util.UUID;
  *
  * @see de.vvwt.tm.auth.SecurityConfig — configures /print/** as authenticated, /print/assets/** as permitAll
  * @see LaufzettelAssembler
+ * @see ActivityScheduleAssembler
  */
 @Controller
 @RequestMapping("/print")
@@ -86,6 +103,7 @@ public class PrintController {
     private final PhaseBreakRepository phaseBreakRepository;
     private final ActivityTypeRepository activityTypeRepository;
     private final LaufzettelAssembler laufzettelAssembler;
+    private final ActivityScheduleAssembler activityScheduleAssembler;
     private final MessageSource messageSource;
     private final String appVersion;
 
@@ -104,6 +122,7 @@ public class PrintController {
                            PhaseBreakRepository phaseBreakRepository,
                            ActivityTypeRepository activityTypeRepository,
                            LaufzettelAssembler laufzettelAssembler,
+                           ActivityScheduleAssembler activityScheduleAssembler,
                            MessageSource messageSource,
                            @Autowired(required = false) BuildProperties buildProperties) {
         this.tournamentRepository = tournamentRepository;
@@ -114,6 +133,7 @@ public class PrintController {
         this.phaseBreakRepository = phaseBreakRepository;
         this.activityTypeRepository = activityTypeRepository;
         this.laufzettelAssembler = laufzettelAssembler;
+        this.activityScheduleAssembler = activityScheduleAssembler;
         this.messageSource = messageSource;
         this.appVersion = buildProperties != null ? buildProperties.getVersion() : "dev";
     }
@@ -319,6 +339,123 @@ public class PrintController {
     }
 
     // =========================================================================
+    // E08S09: Mannschaftsfoto-Übersicht — activity schedule route
+    // =========================================================================
+
+    /**
+     * Renders the Mannschaftsfoto-Übersicht (activity schedule) for a single activity type.
+     *
+     * <p>Mapped to {@code GET /print/{tournamentId}/activity-schedule/{activityTypeId}} (AC1 — E08S09).
+     *
+     * <ul>
+     *   <li>Tournament not found → 404 (AC9, AC11).</li>
+     *   <li>Activity type not found (or not belonging to this tournament/tenant) → 404 (AC9).</li>
+     *   <li>No phases (draft tournament) → human-readable error page (same as E08S07 AC7).</li>
+     *   <li>No matches in any phase → human-readable error page (AC9).</li>
+     *   <li>Otherwise: renders {@code print/activity-schedule.mustache} (AC1).</li>
+     * </ul>
+     *
+     * <p>The route is generalized — it accepts any {@code activityTypeId}, not only "Mannschaftsfoto".
+     * The activity type name (e.g., "Mannschaftsfoto") is resolved from the entity and rendered in
+     * the header (AC2).
+     *
+     * @param tournamentId   the tournament UUID (tenant-scoped)
+     * @param activityTypeId the UUID of the activity type to render
+     * @param model          Spring MVC model
+     * @return Mustache view name
+     */
+    @GetMapping("/{tournamentId}/activity-schedule/{activityTypeId}")
+    public String activitySchedule(@PathVariable("tournamentId") UUID tournamentId,
+                                    @PathVariable("activityTypeId") UUID activityTypeId,
+                                    Model model) {
+        Locale locale = LocaleContextHolder.getLocale();
+
+        // AC11: tenant-scoped repository — cross-tenant access returns empty Optional → 404
+        Tournament tournament = tournamentRepository.findById(tournamentId)
+                .orElseThrow(() -> new TournamentNotFoundException(tournamentId));
+
+        // AC9: non-existent activity type → 404
+        // findByTournamentId returns all activity types for this tournament in tenant scope.
+        // We filter to the requested ID — if not found, it is either non-existent or belongs
+        // to a different tournament/tenant.
+        List<ActivityType> activityTypes = activityTypeRepository.findByTournamentId(tournamentId);
+        ActivityType targetType = activityTypes.stream()
+                .filter(at -> activityTypeId.equals(at.getId()))
+                .findFirst()
+                .orElseThrow(() -> new TournamentNotFoundException(activityTypeId));  // 404
+
+        // Draft tournament (no phases) → error page
+        List<Phase> phases = phaseRepository.findByTournamentId(tournamentId);
+        if (phases.isEmpty()) {
+            populateErrorModel(model, tournament, locale);
+            return "print/error";
+        }
+
+        // No matches → error page (AC9: cannot assign without match schedule)
+        if (!hasAnyMatches(phases)) {
+            populateActivityScheduleNoMatchesErrorModel(model, tournament, locale);
+            return "print/error";
+        }
+
+        // Load supporting data
+        List<Team> teams = teamRepository.findByTournamentId(tournamentId);
+        Map<UUID, List<TeamAvatar>> avatarsByPhase = loadAvatarsByPhase(phases);
+        Map<UUID, List<Match>> matchesByPhase = loadMatchesByPhase(phases);
+        Map<UUID, List<PhaseBreak>> breaksByPhase = loadBreaksByPhase(phases);
+
+        // Assemble activity schedule
+        ActivityScheduleModel scheduleModel = activityScheduleAssembler.assemble(
+                tournament, phases, teams, avatarsByPhase, matchesByPhase,
+                breaksByPhase, activityTypes, targetType);
+
+        // Build row maps for jmustache (List<Map<String, Object>>)
+        List<Map<String, Object>> rowMaps = toActivityScheduleRowMaps(scheduleModel.rows());
+
+        // Unassigned team names for warning section (AC6)
+        List<Map<String, Object>> unassignedMaps = new ArrayList<>();
+        for (String name : scheduleModel.unassignedTeamNames()) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("teamName", name);
+            unassignedMaps.add(m);
+        }
+
+        // Populate common model (shared print header partial — AC2, AC10)
+        populateCommonModel(model, tournament, locale);
+
+        // AC2: activity type name in header
+        String activityName = targetType.getName();
+        String pageTitle    = msg("print.activitySchedule.title", "VVWT Turniermanager \u2014 Zeitplan", locale)
+                + " \u2014 " + activityName;
+        String pageHeading  = activityName + " \u2014 "
+                + msg("print.activitySchedule.headingSuffix", "Zeitplan", locale);
+
+        model.addAttribute("title",       pageTitle);
+        model.addAttribute("heading",     pageHeading);
+        model.addAttribute("activityName", activityName);
+
+        // AC7: time column guard
+        model.addAttribute("hasTime", scheduleModel.hasTime());
+
+        // AC3: schedule rows
+        model.addAttribute("rows", rowMaps);
+
+        // AC4: break rows are interleaved inside rowMaps (isBreak flag)
+
+        // AC5: summary line
+        model.addAttribute("totalTeams",   scheduleModel.totalAssignedTeams());
+        model.addAttribute("totalRounds",  scheduleModel.roundCount());
+
+        // AC6: unassigned warning
+        model.addAttribute("hasUnassigned",    scheduleModel.hasUnassigned());
+        model.addAttribute("unassignedTeams",  unassignedMaps);
+
+        // AC10: i18n keys for column headers and labels
+        populateActivityScheduleI18n(model, locale);
+
+        return "print/activity-schedule";
+    }
+
+    // =========================================================================
     // Private helpers
     // =========================================================================
 
@@ -457,6 +594,57 @@ public class PrintController {
         model.addAttribute("msgNophase", msg("print.error.nophase",
                 "The tournament schedule has not been generated yet. " +
                 "Please apply the draft in the admin panel before printing.", locale));
+    }
+
+    /**
+     * Converts a list of {@link ActivityScheduleRow} to jmustache-compatible list of attribute maps.
+     *
+     * <p>Each map has the same keys regardless of row type (isDataRow / isBreak), so that
+     * jmustache strict mode does not throw {@code MustacheException} on absent keys.
+     *
+     * @param rows list of ActivityScheduleRow objects
+     * @return list of attribute maps ready for jmustache
+     */
+    private List<Map<String, Object>> toActivityScheduleRowMaps(List<ActivityScheduleRow> rows) {
+        List<Map<String, Object>> result = new ArrayList<>(rows.size());
+        for (ActivityScheduleRow row : rows) {
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("isDataRow",       row.isDataRow());
+            map.put("roundNumber",     row.getRoundNumber());
+            map.put("timeWindow",      row.getTimeWindow());
+            map.put("teamNames",       row.getTeamNames());
+            map.put("isBreak",         row.isBreak());
+            map.put("breakLabel",      row.getBreakLabel());
+            map.put("breakTimeWindow", row.getBreakTimeWindow());
+            result.add(map);
+        }
+        return result;
+    }
+
+    /**
+     * Populates i18n model attributes consumed by the activity-schedule template (AC10 — E08S09).
+     */
+    private void populateActivityScheduleI18n(Model model, Locale locale) {
+        model.addAttribute("msgColRound",       msg("print.activitySchedule.col.round",    "Runde",         locale));
+        model.addAttribute("msgColTime",        msg("print.activitySchedule.col.time",     "Zeit",          locale));
+        model.addAttribute("msgColTeams",       msg("print.activitySchedule.col.teams",    "Mannschaften",  locale));
+        model.addAttribute("msgSummary",        msg("print.activitySchedule.summary",
+                "{totalTeams} Mannschaften, verteilt auf {totalRounds} Runden.", locale));
+        model.addAttribute("msgUnassignedTitle",msg("print.activitySchedule.unassigned.title",
+                "Keine freie Runde verf\u00fcgbar", locale));
+        model.addAttribute("msgBreakLabel",     msg("print.activitySchedule.break",        "Pause",         locale));
+    }
+
+    /**
+     * Populates model for the no-matches error page in the activity schedule context (AC9 — E08S09).
+     */
+    private void populateActivityScheduleNoMatchesErrorModel(Model model, Tournament tournament, Locale locale) {
+        populateCommonModel(model, tournament, locale);
+        model.addAttribute("title",      msg("print.error.title",   "Print \u2014 Not Available", locale));
+        model.addAttribute("heading",    msg("print.error.heading", "Cannot Print",               locale));
+        model.addAttribute("msgNophase", msg("print.activitySchedule.error.nomatches",
+                "Der Spielplan wurde noch nicht erstellt. " +
+                "Bitte erstellen Sie die Spielpaarungen, bevor Sie den Aktivit\u00e4tsplan drucken.", locale));
     }
 
     /**
