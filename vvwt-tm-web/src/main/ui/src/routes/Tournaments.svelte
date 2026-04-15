@@ -121,6 +121,11 @@
                       onclick={() => push(`/tournaments/${t.id}/teams`)}>
                 {$_('tournaments.teamsButton')}
               </button>
+              <!-- E11S06: navigate to timer audio management -->
+              <button class="btn btn--secondary btn--sm"
+                      onclick={() => push(`/tournaments/${t.id}/audio`)}>
+                {$_('tournaments.timerAudioButton')}
+              </button>
               {#if t.status === 'DRAFT'}
                 <button class="btn btn--secondary btn--sm"
                         onclick={() => push(`/tournaments/${t.id}/edit`)}>
