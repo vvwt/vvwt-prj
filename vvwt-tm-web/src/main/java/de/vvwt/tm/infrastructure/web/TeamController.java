@@ -1,6 +1,7 @@
 package de.vvwt.tm.infrastructure.web;
 
 import de.vvwt.tm.domain.TeamService;
+import de.vvwt.tm.domain.photo.PhotoStorageService;
 import de.vvwt.tm.infrastructure.web.dto.TeamBulkCreateRequest;
 import de.vvwt.tm.infrastructure.web.dto.TeamBulkCreateResponse;
 import de.vvwt.tm.infrastructure.web.dto.TeamCreateRequest;
@@ -28,7 +29,7 @@ import java.util.stream.Collectors;
  *
  * <h2>Endpoints</h2>
  * <ul>
- *   <li>GET    /api/tournaments/{tournamentId}/teams            — list teams, ordered by team_number (AC1)</li>
+ *   <li>GET    /api/tournaments/{tournamentId}/teams            — list teams, ordered by team_number (AC1, E12S02 AC4)</li>
  *   <li>POST   /api/tournaments/{tournamentId}/teams            — create team (AC2)</li>
  *   <li>PUT    /api/tournaments/{tournamentId}/teams/{id}       — update team (AC3)</li>
  *   <li>DELETE /api/tournaments/{tournamentId}/teams/{id}       — delete team (AC4)</li>
@@ -49,15 +50,18 @@ import java.util.stream.Collectors;
  * cross-tenant tournament IDs produce 404, not 403.
  *
  * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E05S05.story.md">Story E05S05</a>
+ * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E12S02.story.md">Story E12S02 AC4</a>
  */
 @RestController
 @RequestMapping("/api/tournaments/{tournamentId}/teams")
 public class TeamController {
 
     private final TeamService teamService;
+    private final PhotoStorageService photoStorageService;
 
-    public TeamController(TeamService teamService) {
+    public TeamController(TeamService teamService, PhotoStorageService photoStorageService) {
         this.teamService = teamService;
+        this.photoStorageService = photoStorageService;
     }
 
     // -------------------------------------------------------------------------
@@ -67,6 +71,9 @@ public class TeamController {
     /**
      * Returns all teams for the given tournament, ordered by team_number ascending.
      *
+     * <p>E12S02 AC4: Each team entry includes a {@code hasPhoto} boolean indicating whether
+     * a team photo has been uploaded for this team in this tournament.
+     *
      * @param tournamentId the tournament UUID (path variable)
      * @return 200 OK with a JSON array; 404 if tournament not found or cross-tenant
      */
@@ -75,7 +82,9 @@ public class TeamController {
             @PathVariable("tournamentId") UUID tournamentId) {
 
         List<TeamResponse> responses = teamService.listTeams(tournamentId).stream()
-                .map(TeamResponse::from)
+                .map(team -> TeamResponse.from(
+                        team,
+                        photoStorageService.hasPhoto(tournamentId, team.getId())))
                 .toList();
         return ResponseEntity.ok(responses);
     }

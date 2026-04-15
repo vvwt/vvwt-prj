@@ -68,6 +68,16 @@ tm:
   # ---------------------------------------------------------------------------
   audio:
     data-dir: ${TM_AUDIO_DATA_DIR:${user.home}/.tournament-manager/audio}
+  # ---------------------------------------------------------------------------
+  # Team photo storage (E12S02)
+  # DEC-15: files stored outside the jlink archive in a user-writable data directory.
+  # Default: ~/.tournament-manager/photos/{tournamentId}/{teamId}.{ext}
+  # Override: export TM_PHOTOS_DATA_DIR=/your/path or -Dtm.photos.data-dir=/your/path
+  # Max upload size enforced at service layer (5 MB default per AC7).
+  # ---------------------------------------------------------------------------
+  photos:
+    data-dir: ${TM_PHOTOS_DATA_DIR:${user.home}/.tournament-manager/photos}
+    max-size-bytes: ${TM_PHOTOS_MAX_SIZE_BYTES:5242880}
   slotopt:
     fallback:
       # Number of courts (fields) available per lap for slot assignment.
