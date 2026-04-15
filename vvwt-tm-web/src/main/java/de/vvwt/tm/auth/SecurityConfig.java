@@ -34,6 +34,9 @@ import org.springframework.security.web.SecurityFilterChain;
  *   <li>{@code /api/devices/status} — permit all (device status polling, E06S03)</li>
  *   <li>{@code /api/score/**} — permit all (score entry API, E06S06 AC9 — device-token auth at service layer)</li>
  *   <li>{@code /score/**} — permit all (no auth — scoring tablet routes, DEC-19, E06S02 AC9)</li>
+ *   <li>{@code /display/**} — permit all (display SPA routes and registration page, E07S05 AC8, E07S07)</li>
+ *   <li>{@code /print/assets/**} — permit all (print CSS static assets — E08S07 AC6)</li>
+ *   <li>{@code /print/**} — requires authentication (print is admin-only — E08S07 AC2)</li>
  *   <li>{@code /admin/**} — requires authentication</li>
  *   <li>{@code /api/**} — requires authentication</li>
  *   <li>All other paths — requires authentication (default deny)</li>
@@ -179,7 +182,18 @@ public class SecurityConfig {
                         // Data access is protected by device-token auth at the /api/display/** layer.
                         // E07S07 (display device registration page) is also under /display/.
                         .requestMatchers("/display/**").permitAll()
-                        // AC4: Admin UI and REST API require authentication
+                        // E08S07 AC6: Print static assets (CSS) are served without authentication.
+                        // The CSS file at /print/assets/print.css must load in the browser after
+                        // the authenticated HTML page has been delivered. Modern browsers send
+                        // credentials on same-origin requests for subresources of authenticated
+                        // pages, so in practice the browser will include Basic Auth here too.
+                        // We permit it explicitly to avoid surprises in non-browser access and
+                        // to align with the pattern used for /score/assets/** (DEC-15 static).
+                        .requestMatchers("/print/assets/**").permitAll()
+                        // E08S07 AC2: Print routes require authentication — same basic auth as
+                        // /admin/**. Print is an admin-only function (organizer access only).
+                        .requestMatchers("/print/**").authenticated()
+                        // E05S02 AC4: Admin UI and REST API require authentication
                         .requestMatchers("/admin/**").authenticated()
                         .requestMatchers("/api/**").authenticated()
                         // Default: require authentication for all other paths

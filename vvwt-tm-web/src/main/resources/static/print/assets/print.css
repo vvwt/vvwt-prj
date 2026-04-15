@@ -1,0 +1,223 @@
+/*
+ * Tournament Manager — Print Stylesheet
+ *
+ * E08S07 — AC4, AC6, AC10
+ *
+ * Purpose: CSS for all /print/** Mustache-rendered pages. Loaded via a <link> tag in
+ * print-layout.mustache. Served as a static resource from classpath:/static/print/assets/
+ * at URL /print/assets/print.css (DEC-15: bundled in jlink archive automatically).
+ *
+ * AC4: @media print rules, .page-break class, table styling, header styling, break-row styling.
+ * AC6: CSS file and any print-specific static assets are served from the same static asset path
+ *      as the existing application, bundled in the jlink archive.
+ * AC10: Produces acceptable output in Chrome, Firefox, Safari, and Edge current + previous major.
+ *
+ * Design notes:
+ * - Screen styles are minimal — print pages are not interactive admin UI elements.
+ * - All meaningful styling lives in @media print to ensure accurate print preview.
+ * - No external fonts, no CDN references (DEC-16: offline-first).
+ * - No JavaScript required on print pages.
+ */
+
+/* ============================================================
+   SCREEN STYLES (minimal — print pages are not interactive)
+   ============================================================ */
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 14px;
+    color: #222;
+    margin: 0;
+    padding: 20px 24px;
+    background: #f9f9f9;
+}
+
+/* Print page header (screen view) */
+.print-header {
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #333;
+}
+
+.print-header__tournament-name {
+    font-size: 1.4em;
+    font-weight: bold;
+    margin: 0 0 4px;
+}
+
+.print-header__meta {
+    font-size: 0.9em;
+    color: #555;
+}
+
+/* Tables (screen view) */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+}
+
+th,
+td {
+    border: 1px solid #aaa;
+    padding: 6px 8px;
+    text-align: left;
+}
+
+th {
+    background-color: #e8e8e8;
+    font-weight: bold;
+}
+
+/* Zebra striping */
+tbody tr:nth-child(even) {
+    background-color: #f4f4f4;
+}
+
+/* Break rows (intra-phase breaks — visually distinct from match rows) */
+tr.break-row {
+    background-color: #fff3cd;
+    font-style: italic;
+    color: #7a6000;
+}
+
+/* Page break helper (screen view — acts as a horizontal divider) */
+.page-break {
+    border: none;
+    border-top: 2px dashed #bbb;
+    margin: 24px 0;
+}
+
+/* Error page */
+.print-error {
+    padding: 20px;
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 4px;
+    color: #7a6000;
+}
+
+.print-error__heading {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin: 0 0 8px;
+}
+
+/* Version footer */
+.print-footer {
+    margin-top: 24px;
+    font-size: 0.8em;
+    color: #aaa;
+    border-top: 1px solid #ddd;
+    padding-top: 8px;
+}
+
+/* ============================================================
+   @MEDIA PRINT — authoritative print styles
+   All print-specific behaviour is here.
+   ============================================================ */
+
+@media print {
+
+    /* AC4: Page setup — A4 portrait, narrow margins to maximise usable area */
+    @page {
+        size: A4 portrait;
+        margin: 12mm 10mm 12mm 10mm;
+    }
+
+    /* AC4: Hide browser chrome hints, navigation, footer */
+    body {
+        font-size: 11pt;
+        background: white;
+        color: black;
+        padding: 0;
+        margin: 0;
+    }
+
+    /* Print header */
+    .print-header {
+        margin-bottom: 8pt;
+        padding-bottom: 4pt;
+        border-bottom: 1.5pt solid black;
+    }
+
+    .print-header__tournament-name {
+        font-size: 14pt;
+        font-weight: bold;
+    }
+
+    .print-header__meta {
+        font-size: 9pt;
+        color: #333;
+    }
+
+    /* Tables */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 8pt;
+        page-break-inside: auto;
+    }
+
+    th,
+    td {
+        border: 0.5pt solid #555;
+        padding: 3pt 5pt;
+        text-align: left;
+        font-size: 9pt;
+    }
+
+    th {
+        background-color: #ddd !important;   /* !important needed: some browsers strip backgrounds in print */
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        font-weight: bold;
+    }
+
+    /* Zebra striping in print */
+    tbody tr:nth-child(even) {
+        background-color: #f5f5f5 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    /* Header row: do not break after header */
+    thead {
+        display: table-header-group;
+    }
+
+    /* AC4: Break rows — visually distinct (background + italic) */
+    tr.break-row {
+        background-color: #fff0b0 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        font-style: italic;
+        color: #5a4500;
+    }
+
+    /* AC4: .page-break class — triggers CSS page break */
+    .page-break {
+        page-break-before: always;
+        break-before: page;
+        border: none;
+        margin: 0;
+        padding: 0;
+        height: 0;
+        display: block;
+    }
+
+    /* Version footer: hide in print — not relevant on paper */
+    .print-footer {
+        display: none;
+    }
+
+    /* Suppress links — print pages have no interactive elements */
+    a {
+        text-decoration: none;
+        color: black;
+    }
+}

@@ -1,0 +1,42 @@
+{{!
+  print-layout.mustache — base HTML layout for all print pages (E08S07 AC3).
+
+  This template serves as the canonical HTML skeleton that all print page templates follow.
+  It is not rendered directly by a controller endpoint — instead, it documents the structure
+  that each concrete print page template (index.mustache, error.mustache, and future templates
+  in E08S08/S09) replicates.
+
+  Note on jmustache and layout composition:
+  Spring Boot's auto-configured MustacheViewResolver uses jmustache, which does not support
+  layout inheritance (Handlebars-style {{{{layout}}}} blocks) natively. Each concrete print
+  page template is therefore self-contained, includes {{> print-header}} for the header partial,
+  and follows the structure below. This template documents the shared structure.
+
+  Required model attributes for any print page:
+    {{locale}}           — HTML lang attribute value (e.g. "de")
+    {{title}}            — <title> element text (i18n key: print.*.title)
+    {{cssPath}}          — path to print CSS (/print/assets/print.css)
+    [+ print-header attributes: tournamentName, tournamentDate, etc.]
+    [+ page-specific content attributes]
+}}
+<!DOCTYPE html>
+<html lang="{{locale}}">
+<head>
+    <meta charset="UTF-8">
+    <title>{{title}}</title>
+    <!-- E08S07 AC3, AC6: print-specific stylesheet — no screen framework, no CDN -->
+    <link rel="stylesheet" href="{{cssPath}}">
+</head>
+<body>
+
+    {{! E08S07 AC5: shared print header partial }}
+    {{> print-header}}
+
+    {{! Page-specific content goes here in concrete page templates }}
+
+    <div class="print-footer">
+        <small>v{{appVersion}}</small>
+    </div>
+
+</body>
+</html>
