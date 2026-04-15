@@ -4,6 +4,9 @@ import de.vvwt.tm.domain.ForbiddenException;
 import de.vvwt.tm.domain.TooManyRequestsException;
 import de.vvwt.tm.domain.UnauthorizedException;
 import de.vvwt.tm.domain.ValidationException;
+import de.vvwt.tm.domain.audio.AudioFormatException;
+import de.vvwt.tm.domain.audio.AudioSizeLimitException;
+import de.vvwt.tm.domain.audio.AudioStorageException;
 import de.vvwt.tm.infrastructure.display.NoActivePhaseException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
@@ -17,6 +20,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -420,6 +424,116 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(body);
+    }
+
+    // -------------------------------------------------------------------------
+    // E11S01 — 415: Audio format rejection
+    // -------------------------------------------------------------------------
+
+    /**
+     * Handles {@link AudioFormatException} — thrown when an uploaded file is not .mp3
+     * (E11S01 AC7 → HTTP 415 Unsupported Media Type).
+     *
+     * @param ex      the exception
+     * @param request the current HTTP request
+     * @return 415 response with message naming allowed formats
+     */
+    @ExceptionHandler(AudioFormatException.class)
+    public ResponseEntity<ApiErrorResponse> handleAudioFormat(
+            AudioFormatException ex, HttpServletRequest request) {
+
+        ApiErrorResponse body = new ApiErrorResponse.Builder(
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE.value(),
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE.getReasonPhrase(),
+                ex.getMessage(),
+                "error.audio.format")
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(body);
+    }
+
+    // -------------------------------------------------------------------------
+    // E11S01 — 413: Audio file too large
+    // -------------------------------------------------------------------------
+
+    /**
+     * Handles {@link AudioSizeLimitException} — thrown when an audio file exceeds the
+     * configured size limit (E11S01 AC7 → HTTP 413 Content Too Large).
+     *
+     * @param ex      the exception
+     * @param request the current HTTP request
+     * @return 413 response
+     */
+    @ExceptionHandler(AudioSizeLimitException.class)
+    public ResponseEntity<ApiErrorResponse> handleAudioSizeLimit(
+            AudioSizeLimitException ex, HttpServletRequest request) {
+
+        ApiErrorResponse body = new ApiErrorResponse.Builder(
+                HttpStatus.PAYLOAD_TOO_LARGE.value(),
+                HttpStatus.PAYLOAD_TOO_LARGE.getReasonPhrase(),
+                ex.getMessage(),
+                "error.audio.tooLarge")
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(body);
+    }
+
+    /**
+     * Handles Spring's {@link MaxUploadSizeExceededException} — thrown by the multipart resolver
+     * when a request exceeds {@code spring.servlet.multipart.max-file-size}
+     * (E11S01 AC7 → HTTP 413 Content Too Large).
+     *
+     * <p>This catches size violations detected at the servlet layer (before the controller is
+     * reached), complementing the service-layer {@link AudioSizeLimitException} guard.
+     *
+     * @param ex      the exception
+     * @param request the current HTTP request
+     * @return 413 response
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiErrorResponse> handleMaxUploadSize(
+            MaxUploadSizeExceededException ex, HttpServletRequest request) {
+
+        ApiErrorResponse body = new ApiErrorResponse.Builder(
+                HttpStatus.PAYLOAD_TOO_LARGE.value(),
+                HttpStatus.PAYLOAD_TOO_LARGE.getReasonPhrase(),
+                "Uploaded file exceeds the maximum allowed size",
+                "error.audio.tooLarge")
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(body);
+    }
+
+    // -------------------------------------------------------------------------
+    // E11S01 — 500: Audio I/O error
+    // -------------------------------------------------------------------------
+
+    /**
+     * Handles {@link AudioStorageException} — thrown when a disk I/O error occurs during
+     * audio file storage (E11S01 AC7 → HTTP 500 with descriptive message).
+     *
+     * @param ex      the exception
+     * @param request the current HTTP request
+     * @return 500 response with the descriptive message from the exception
+     */
+    @ExceptionHandler(AudioStorageException.class)
+    public ResponseEntity<ApiErrorResponse> handleAudioStorage(
+            AudioStorageException ex, HttpServletRequest request) {
+
+        log.error("[tm-api] Audio storage I/O error at {}", request.getRequestURI(), ex);
+
+        ApiErrorResponse body = new ApiErrorResponse.Builder(
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
+                ex.getMessage(),
+                "error.audio.storage")
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }
 
     // -------------------------------------------------------------------------

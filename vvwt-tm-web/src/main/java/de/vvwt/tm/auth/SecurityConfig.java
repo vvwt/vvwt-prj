@@ -182,6 +182,11 @@ public class SecurityConfig {
                         // Data access is protected by device-token auth at the /api/display/** layer.
                         // E07S07 (display device registration page) is also under /display/.
                         .requestMatchers("/display/**").permitAll()
+                        // E11S01 AC5a: Audio streaming endpoint — accessible without authentication.
+                        // The timer page (E11S03+) has no admin auth; it must preload audio files
+                        // at page load. Upload (POST), list (GET /audio), and delete (DELETE) remain
+                        // protected by the /api/** rule below (admin-only operations per AC5a).
+                        .requestMatchers("/api/tournaments/*/audio/*/stream").permitAll()
                         // E08S07 AC6: Print static assets (CSS) are served without authentication.
                         // The CSS file at /print/assets/print.css must load in the browser after
                         // the authenticated HTML page has been delivered. Modern browsers send
