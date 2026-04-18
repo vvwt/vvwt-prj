@@ -116,6 +116,20 @@ public class DeviceRepository extends TenantScopedRepository<Device, UUID> {
     }
 
     /**
+     * Counts devices of the given type within the active tenant (E14S08 — location-agnostic).
+     *
+     * <p>Used to enforce the configurable display device limit when devices register without a
+     * location (DEC-24 device-model carve-out). The count is scoped to the active tenant only.
+     *
+     * @param deviceType the device type to count (e.g., {@code Device.TYPE_DISPLAY})
+     * @return number of registered devices of that type for the active tenant
+     */
+    public long countDisplayDevicesByTenant(String deviceType) {
+        UUID tenantId = activeTenantId();
+        return delegate.countByTenantIdAndDeviceType(tenantId, deviceType);
+    }
+
+    /**
      * Deletes a device by its ID, scoped to the active tenant (E07S02 AC5).
      *
      * <p>First looks up the device by ID within the active tenant scope (DEC-5 isolation).
