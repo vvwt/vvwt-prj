@@ -9,7 +9,7 @@ import de.vvwt.tm.domain.repo.ActivityTypeRepository;
 import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.domain.repo.TournamentRepository;
 import de.vvwt.tm.infrastructure.web.ConflictException;
-import de.vvwt.tm.tenant.DefaultTenantProvider;
+import de.vvwt.tm.tenant.TenantRegistryPort;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -61,7 +61,7 @@ class E08S02MigrationIT {
     private TenantContext tenantContext;
 
     @Autowired
-    private DefaultTenantProvider defaultTenantProvider;
+    private TenantRegistryPort tenantRegistryPort;
 
     @Autowired
     private ActivityTypeRepository activityTypeRepository;
@@ -76,7 +76,7 @@ class E08S02MigrationIT {
 
     @BeforeEach
     void setUpTenantContext() {
-        defaultTenantId = defaultTenantProvider.getDefaultTenantId();
+        defaultTenantId = tenantRegistryPort.findAll().get(0).tenantId();
         tenantContext.set(defaultTenantId);
     }
 

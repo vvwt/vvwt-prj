@@ -4,7 +4,7 @@ import de.vvwt.tm.domain.Tournament;
 import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.domain.repo.TenantContextTestHelper;
 import de.vvwt.tm.domain.repo.TournamentRepository;
-import de.vvwt.tm.tenant.DefaultTenantProvider;
+import de.vvwt.tm.tenant.TenantRegistryPort;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,7 +39,7 @@ class E05S04MigrationIT {
     private TenantContext tenantContext;
 
     @Autowired
-    private DefaultTenantProvider defaultTenantProvider;
+    private TenantRegistryPort tenantRegistryPort;
 
     @Autowired
     private TournamentRepository tournamentRepository;
@@ -48,7 +48,7 @@ class E05S04MigrationIT {
 
     @BeforeEach
     void setUpTenantContext() {
-        defaultTenantId = defaultTenantProvider.getDefaultTenantId();
+        defaultTenantId = tenantRegistryPort.findAll().get(0).tenantId();
         TenantContextTestHelper.set(tenantContext, defaultTenantId);
     }
 

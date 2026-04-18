@@ -27,7 +27,7 @@ import de.vvwt.tm.domain.repo.TeamAvatarRepository;
 import de.vvwt.tm.domain.repo.TeamRepository;
 import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.domain.repo.TournamentRepository;
-import de.vvwt.tm.tenant.DefaultTenantProvider;
+import de.vvwt.tm.tenant.TenantRegistryPort;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -99,7 +99,7 @@ class CascadeRecomputeServiceIT {
 
     @Autowired private CascadeRecomputeService cascadeService;
     @Autowired private TenantContext tenantContext;
-    @Autowired private DefaultTenantProvider defaultTenantProvider;
+    @Autowired private TenantRegistryPort tenantRegistryPort;
     @Autowired private TournamentRepository tournamentRepository;
     @Autowired private PhaseRepository phaseRepository;
     @Autowired private TeamRepository teamRepository;
@@ -115,7 +115,7 @@ class CascadeRecomputeServiceIT {
 
     @BeforeEach
     void setUp() {
-        defaultTenantId = defaultTenantProvider.getDefaultTenantId();
+        defaultTenantId = tenantRegistryPort.findAll().get(0).tenantId();
         tenantContext.set(defaultTenantId);
         testEventCapture.reset();
     }

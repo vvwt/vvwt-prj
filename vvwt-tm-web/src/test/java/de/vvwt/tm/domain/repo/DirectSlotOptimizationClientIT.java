@@ -12,7 +12,7 @@ import de.vvwt.tm.slotopt.DirectSlotOptimizationClient;
 import de.vvwt.tm.slotopt.MappingResult;
 import de.vvwt.tm.slotopt.PhaseToRawPhaseDefMapper;
 import de.vvwt.tm.slotopt.SlotOptimizationClient;
-import de.vvwt.tm.tenant.DefaultTenantProvider;
+import de.vvwt.tm.tenant.TenantRegistryPort;
 import de.vvwt.worker.score.VarietyScorer;
 import de.vvwt.worker.solver.PacketSolver;
 import de.vvwt.worker.types.CanonicalPhaseDef;
@@ -80,7 +80,7 @@ class DirectSlotOptimizationClientIT {
     @Autowired private PhasePreparationService phasePreparationService;
     @Autowired private PhaseToRawPhaseDefMapper phaseToRawPhaseDefMapper;
     @Autowired private TenantContext tenantContext;
-    @Autowired private DefaultTenantProvider defaultTenantProvider;
+    @Autowired private TenantRegistryPort tenantRegistryPort;
     @Autowired private TournamentRepository tournamentRepository;
     @Autowired private PhaseRepository phaseRepository;
     @Autowired private TeamRepository teamRepository;
@@ -91,7 +91,7 @@ class DirectSlotOptimizationClientIT {
 
     @BeforeEach
     void setUpTenantContext() {
-        defaultTenantId = defaultTenantProvider.getDefaultTenantId();
+        defaultTenantId = tenantRegistryPort.findAll().get(0).tenantId();
         tenantContext.set(defaultTenantId);
     }
 

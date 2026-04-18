@@ -5,7 +5,7 @@ import de.vvwt.tm.domain.MatchFormat;
 import de.vvwt.tm.domain.Phase;
 import de.vvwt.tm.domain.PhaseBreak;
 import de.vvwt.tm.domain.Tournament;
-import de.vvwt.tm.tenant.DefaultTenantProvider;
+import de.vvwt.tm.tenant.TenantRegistryPort;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,7 +51,7 @@ class PhaseBreakRepositoryIT {
     private TenantContext tenantContext;
 
     @Autowired
-    private DefaultTenantProvider defaultTenantProvider;
+    private TenantRegistryPort tenantRegistryPort;
 
     @Autowired
     private TournamentRepository tournamentRepository;
@@ -67,7 +67,7 @@ class PhaseBreakRepositoryIT {
 
     @BeforeEach
     void setUpTenantContext() {
-        tenantId = defaultTenantProvider.getDefaultTenantId();
+        tenantId = tenantRegistryPort.findAll().get(0).tenantId();
         otherTenantId = UUID.randomUUID();
         TenantContextTestHelper.set(tenantContext, tenantId);
     }

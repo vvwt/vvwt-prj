@@ -10,7 +10,7 @@ import de.vvwt.tm.domain.generator.MatchGenerator;
 import de.vvwt.tm.domain.generator.MatchGeneratorRegistry;
 import de.vvwt.tm.domain.generator.RoundRobinMatchGenerator;
 import de.vvwt.tm.domain.rules.TournamentRuleResolver;
-import de.vvwt.tm.tenant.DefaultTenantProvider;
+import de.vvwt.tm.tenant.TenantRegistryPort;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -58,7 +58,7 @@ class E03S09MatchGeneratorIT {
     private TenantContext tenantContext;
 
     @Autowired
-    private DefaultTenantProvider defaultTenantProvider;
+    private TenantRegistryPort tenantRegistryPort;
 
     @Autowired
     private TournamentRepository tournamentRepository;
@@ -85,7 +85,7 @@ class E03S09MatchGeneratorIT {
 
     @BeforeEach
     void setUp() {
-        defaultTenantId = defaultTenantProvider.getDefaultTenantId();
+        defaultTenantId = tenantRegistryPort.findAll().get(0).tenantId();
         tenantContext.set(defaultTenantId);
     }
 
