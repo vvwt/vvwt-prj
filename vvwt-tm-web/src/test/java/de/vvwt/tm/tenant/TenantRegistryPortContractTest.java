@@ -2,7 +2,9 @@ package de.vvwt.tm.tenant;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,13 +41,19 @@ class TenantRegistryPortContractTest {
 
         private final Map<UUID, TenantRecord> registry = new HashMap<>();
 
-        void register(UUID tenantId, String displayName) {
+        @Override
+        public void register(UUID tenantId, String displayName) {
             registry.put(tenantId, new TenantRecord(tenantId, displayName));
         }
 
         @Override
         public Optional<TenantRecord> lookup(UUID tenantId) {
             return Optional.ofNullable(registry.get(tenantId));
+        }
+
+        @Override
+        public List<TenantRecord> findAll() {
+            return new ArrayList<>(registry.values());
         }
     }
 
