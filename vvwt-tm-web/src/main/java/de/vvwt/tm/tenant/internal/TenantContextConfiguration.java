@@ -1,5 +1,6 @@
 package de.vvwt.tm.tenant.internal;
 
+import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantDataSourceResolver;
 import de.vvwt.tm.tenant.TenantRegistryPort;
@@ -18,6 +19,12 @@ import org.springframework.context.annotation.Configuration;
  *   <li>{@link TenantFileRegistryDataSourceResolver} as {@link TenantDataSourceResolver}
  *       (singleton, backed by {@link TenantFileRegistry})</li>
  * </ul>
+ *
+ * <h2>E14S04 — PerTenantFlywayRunner bean</h2>
+ * <p>{@link PerTenantFlywayRunner} is registered as a Spring bean here. It consumes
+ * {@link TenantDataSourceResolver} and the main application class to derive per-module
+ * migration locations from {@code ApplicationModules.of(TournamentManagerApplication.class)}.
+ * It is invoked by E14S05 (default-tenant bootstrap) and future Wave-2 lifecycle operations.
  *
  * <h2>Reconstruction-in-place (DEC-21) — RoutingTenantDataSource wiring deferred to E14S07</h2>
  * <p>Following the atomic cutover protocol (DEC-21), the {@link RoutingTenantDataSource} is
@@ -100,5 +107,27 @@ public class TenantContextConfiguration {
             TenantRegistryPort tenantRegistryPort,
             TmDataDirProperties dataDirProperties) {
         return new TenantFileRegistryDataSourceResolver(tenantRegistryPort, dataDirProperties);
+    }
+
+    /**
+     * {@link PerTenantFlywayRunner} bean — runs per-module Flyway migrations for a single tenant.
+     *
+     * <p>Consumes {@link TenantDataSourceResolver} and uses
+     * {@code ApplicationModules.of(TournamentManagerApplication.class)} internally to derive
+     * module-dependency-ordered migration locations (DEC-21). Invoked by E14S05 (default-tenant
+     * bootstrap) and future Wave-2 tenant lifecycle operations.
+     *
+     * <p>{@link ConditionalOnMissingBean} allows test configurations to override (e.g., for
+     * testing E14S05 without running real Flyway migrations in the test context).
+     *
+     * @see PerTenantFlywayRunner
+     * @see <a href="../../../../../../../../docs/governance/stories/E14S04.story.md">Story E14S04</a>
+     * @see <a href="../../../../../../../../docs/governance/decisions/DEC-20.md">DEC-20</a>
+     * @see <a href="../../../../../../../../docs/governance/decisions/DEC-21.md">DEC-21</a>
+     */
+    @Bean
+    @ConditionalOnMissingBean(PerTenantFlywayRunner.class)
+    public PerTenantFlywayRunner perTenantFlywayRunner(TenantDataSourceResolver tenantDataSourceResolver) {
+        return new PerTenantFlywayRunner(tenantDataSourceResolver, TournamentManagerApplication.class);
     }
 }

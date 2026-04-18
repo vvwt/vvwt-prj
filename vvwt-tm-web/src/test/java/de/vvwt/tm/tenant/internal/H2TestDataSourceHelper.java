@@ -45,13 +45,13 @@ final class H2TestDataSourceHelper {
      */
     static int countFlywayHistoryRows(DataSource ds) throws SQLException {
         try (Connection conn = ds.getConnection()) {
-            // Check if flyway_schema_history exists first
-            ResultSet tables = conn.getMetaData().getTables(null, null, "FLYWAY_SCHEMA_HISTORY", null);
-            if (!tables.next()) {
+            if (!tableExistsViaSql(conn, "flyway_schema_history")) {
                 return 0;
             }
+            // H2 2.x: unquoted identifiers are folded to uppercase.
+            // The table was created by Flyway with lowercase name — must quote to preserve case.
             try (var stmt = conn.createStatement();
-                 var rs = stmt.executeQuery("SELECT COUNT(*) FROM flyway_schema_history")) {
+                 var rs = stmt.executeQuery("SELECT COUNT(*) FROM \"flyway_schema_history\"")) {
                 rs.next();
                 return rs.getInt(1);
             }
@@ -60,13 +60,11 @@ final class H2TestDataSourceHelper {
 
     /**
      * Returns true if a table with the given name exists in the given DataSource.
-     * Case-insensitive (H2 stores table names uppercase by default).
+     * Uses an H2 information_schema query for reliable case-insensitive detection.
      */
     static boolean tableExists(DataSource ds, String tableName) throws SQLException {
         try (Connection conn = ds.getConnection()) {
-            ResultSet rs = conn.getMetaData().getTables(
-                    null, null, tableName.toUpperCase(), new String[]{"TABLE"});
-            return rs.next();
+            return tableExistsViaSql(conn, tableName.toLowerCase());
         }
     }
 
@@ -75,5 +73,21 @@ final class H2TestDataSourceHelper {
      */
     static boolean tableAbsent(DataSource ds, String tableName) throws SQLException {
         return !tableExists(ds, tableName);
+    }
+
+    /**
+     * Checks table existence via H2's INFORMATION_SCHEMA.TABLES query.
+     * This is more reliable than {@link java.sql.DatabaseMetaData#getTables} with H2 file mode.
+     */
+    private static boolean tableExistsViaSql(Connection conn, String lowerTableName) throws SQLException {
+        // H2 stores table names lowercase by default when created without quoting.
+        // Using LOWER() comparison for case-insensitive but reliable detection.
+        try (var stmt = conn.createStatement();
+             var rs = stmt.executeQuery(
+                     "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE LOWER(TABLE_NAME) = '"
+                     + lowerTableName.toLowerCase() + "'")) {
+            rs.next();
+            return rs.getInt(1) > 0;
+        }
     }
 }
