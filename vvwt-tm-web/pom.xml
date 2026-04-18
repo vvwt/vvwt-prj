@@ -111,6 +111,36 @@
             <artifactId>spring-boot-starter-mustache</artifactId>
         </dependency>
 
+        <!-- Spring Modulith — bounded-context enforcement (DEC-21, E13S01).
+             1.4.x line: matches SB 3.4.7 baseline (DEC-10 fallback period; upgrade to 2.x when SB → 4.x).
+             spring-modulith-starter-core: ApplicationModules scanning + verify() test support.
+             spring-modulith-starter-jpa: event-publication integration for future cross-context events.
+             NOTE (E13S01): spring-modulith-events-jpa is EXCLUDED from spring-modulith-starter-jpa
+             because it requires a jakarta.persistence.EntityManager which is not available in this
+             JDBC-only project. Only the event API/core modules are included; JPA-backed event
+             publication storage is deferred until JPA is introduced (future story).
+             Versions managed by parent POM spring-modulith-bom (DEC-10 C-1 — no version pin here). -->
+        <dependency>
+            <groupId>org.springframework.modulith</groupId>
+            <artifactId>spring-modulith-starter-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.modulith</groupId>
+            <artifactId>spring-modulith-starter-jpa</artifactId>
+            <exclusions>
+                <!-- spring-modulith-events-jpa auto-configures JpaEventPublicationRepository,
+                     which requires EntityManager. This project uses Spring Data JDBC (not JPA) —
+                     EntityManager is unavailable. Exclude to prevent ApplicationContext failure.
+                     Consequence: Modulith JPA event publication is disabled; domain events can still
+                     be published via ApplicationEventPublisher but won't be persisted in a JPA store.
+                     Re-enable when JPA is introduced to this project. -->
+                <exclusion>
+                    <groupId>org.springframework.modulith</groupId>
+                    <artifactId>spring-modulith-events-jpa</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
         <!-- Test dependencies -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

@@ -87,6 +87,11 @@
         <!-- Node.js version pinned here so it can be updated in one place. -->
         <node.version>v22.22.2</node.version>
         <maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
+
+        <!-- Spring Modulith version — 1.4.x line for Spring Boot 3.4.x (DEC-10 fallback period).
+             2.x line targets SB 4.x; upgrade here when SB is promoted to 4.x per DEC-10.
+             E13S01 (DEC-21): Wave-1 foundation dependency for bounded-context enforcement. -->
+        <spring-modulith.version>1.4.6</spring-modulith.version>
     </properties>
 
     <!-- ===================================================================
@@ -100,6 +105,18 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
                 <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Spring Modulith BOM — 1.4.x for SB 3.4.x (see spring-modulith.version property).
+                 Manages versions for spring-modulith-starter-core, -starter-jpa, -test, etc.
+                 DEC-21: adopt Modulith for vvwt-tm-web bounded-context enforcement.
+                 DEC-10 C-1: version coordinate lives here; child modules MUST NOT pin. -->
+            <dependency>
+                <groupId>org.springframework.modulith</groupId>
+                <artifactId>spring-modulith-bom</artifactId>
+                <version>${spring-modulith.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
