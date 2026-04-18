@@ -1,5 +1,6 @@
 package de.vvwt.tm.tenant;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -46,7 +47,8 @@ import java.util.UUID;
  *
  * @see TenantContext
  * @see TenantDataSourceResolver
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E14S01.story.md">Story E14S01</a>
+ * @see <a href="../../../../../../../../docs/governance/stories/E14S01.story.md">Story E14S01</a>
+ * @see <a href="../../../../../../../../docs/governance/stories/E14S02.story.md">Story E14S02 (register/findAll added)</a>
  */
 public interface TenantRegistryPort {
 
@@ -63,6 +65,41 @@ public interface TenantRegistryPort {
      *         {@link Optional#empty()} if no such tenant is registered (AC3)
      */
     Optional<TenantRecord> lookup(UUID tenantId);
+
+    /**
+     * Registers a new tenant with the given UUID and display name.
+     *
+     * <p>This is a write operation that persists the registration durably (per AC3 of E14S02).
+     * Implementations are thread-safe: concurrent calls with DIFFERENT {@code tenantId} values
+     * must both succeed; concurrent calls with the SAME {@code tenantId} must result in exactly
+     * one success — the other must fail with a deterministic exception (AC-CONCURRENT-REGISTER).
+     *
+     * <h2>Concurrency contract (AC-CONCURRENT-REGISTER)</h2>
+     * <p>Two threads simultaneously calling {@code register(tenantId)} for DIFFERENT tenant IDs
+     * MUST both succeed without partial-write corruption.
+     * Two threads simultaneously calling {@code register(tenantId)} for the SAME tenant ID
+     * MUST result in exactly one success; the other receives a typed exception (implementation-defined,
+     * e.g. {@code DuplicateTenantException} in {@code tenant.internal}).
+     *
+     * @param tenantId    the UUID of the new tenant; must not be {@code null}
+     * @param displayName a human-readable label for the tenant; must not be {@code null}
+     * @throws IllegalArgumentException if {@code tenantId} or {@code displayName} is null
+     * @throws RuntimeException         (implementation-defined subtype) if {@code tenantId} is
+     *                                  already registered — no silent overwrite (AC6 of E14S02)
+     * @see <a href="../../../../../../../../docs/governance/stories/E14S02.story.md">Story E14S02 AC6, AC-CONCURRENT-REGISTER</a>
+     */
+    void register(UUID tenantId, String displayName);
+
+    /**
+     * Returns all currently registered tenants.
+     *
+     * <p>The returned list is a snapshot of the registry at the time of the call.
+     * Concurrent modifications after this method returns are not reflected.
+     *
+     * @return an unmodifiable list of all {@link TenantRecord}s; never {@code null}; may be empty
+     * @see <a href="../../../../../../../../docs/governance/stories/E14S02.story.md">Story E14S02 AC1 enumeration</a>
+     */
+    List<TenantRecord> findAll();
 
     /**
      * An immutable record representing a registered tenant entry in the registry.
