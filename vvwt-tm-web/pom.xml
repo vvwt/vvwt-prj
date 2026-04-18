@@ -124,6 +124,16 @@
             <groupId>org.springframework.modulith</groupId>
             <artifactId>spring-modulith-starter-core</artifactId>
         </dependency>
+        <!-- spring-modulith-core: compile-scope explicit dependency (E14S04).
+             spring-modulith-starter-core brings spring-modulith-core as a runtime dependency only;
+             PerTenantFlywayRunner uses ApplicationModules + ApplicationModule from this artifact at
+             compile time to derive module-ordered Flyway locations (AC3, DEC-21). Explicit compile
+             scope overrides the transitive runtime scope. No version pin — managed by parent BOM. -->
+        <dependency>
+            <groupId>org.springframework.modulith</groupId>
+            <artifactId>spring-modulith-core</artifactId>
+            <scope>compile</scope>
+        </dependency>
         <dependency>
             <groupId>org.springframework.modulith</groupId>
             <artifactId>spring-modulith-starter-jpa</artifactId>
