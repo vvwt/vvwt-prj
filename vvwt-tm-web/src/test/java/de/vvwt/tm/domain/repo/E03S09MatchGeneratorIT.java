@@ -10,13 +10,14 @@ import de.vvwt.tm.domain.generator.MatchGenerator;
 import de.vvwt.tm.domain.generator.MatchGeneratorRegistry;
 import de.vvwt.tm.domain.generator.RoundRobinMatchGenerator;
 import de.vvwt.tm.domain.rules.TournamentRuleResolver;
-import de.vvwt.tm.tenant.TenantRegistryPort;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,14 +52,12 @@ import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException
                     + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
+@Import(TenantContextTestSupport.class)
 @DisplayName("RoundRobinMatchGenerator integration tests (E03S09)")
 class E03S09MatchGeneratorIT {
 
     @Autowired
-    private TenantContext tenantContext;
-
-    @Autowired
-    private TenantRegistryPort tenantRegistryPort;
+    private TenantContextTestSupport.Binder tenantContextBinder;
 
     @Autowired
     private TournamentRepository tournamentRepository;
@@ -85,13 +84,12 @@ class E03S09MatchGeneratorIT {
 
     @BeforeEach
     void setUp() {
-        defaultTenantId = tenantRegistryPort.findAll().get(0).tenantId();
-        tenantContext.set(defaultTenantId);
+        defaultTenantId = tenantContextBinder.bindDefaultTenant();
     }
 
     @AfterEach
     void tearDown() {
-        tenantContext.clear();
+        tenantContextBinder.unbind();
     }
 
     // =========================================================================

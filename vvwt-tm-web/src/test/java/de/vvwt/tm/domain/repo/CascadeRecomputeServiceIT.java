@@ -27,13 +27,14 @@ import de.vvwt.tm.domain.repo.TeamAvatarRepository;
 import de.vvwt.tm.domain.repo.TeamRepository;
 import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.domain.repo.TournamentRepository;
-import de.vvwt.tm.tenant.TenantRegistryPort;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.test.context.ActiveProfiles;
@@ -69,6 +70,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
                     + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
+@Import(TenantContextTestSupport.class)
 class CascadeRecomputeServiceIT {
 
     // -------------------------------------------------------------------------
@@ -99,7 +101,7 @@ class CascadeRecomputeServiceIT {
 
     @Autowired private CascadeRecomputeService cascadeService;
     @Autowired private TenantContext tenantContext;
-    @Autowired private TenantRegistryPort tenantRegistryPort;
+    @Autowired private TenantContextTestSupport.Binder tenantContextBinder;
     @Autowired private TournamentRepository tournamentRepository;
     @Autowired private PhaseRepository phaseRepository;
     @Autowired private TeamRepository teamRepository;
@@ -115,14 +117,13 @@ class CascadeRecomputeServiceIT {
 
     @BeforeEach
     void setUp() {
-        defaultTenantId = tenantRegistryPort.findAll().get(0).tenantId();
-        tenantContext.set(defaultTenantId);
+        defaultTenantId = tenantContextBinder.bindDefaultTenant();
         testEventCapture.reset();
     }
 
     @AfterEach
     void tearDown() {
-        tenantContext.clear();
+        tenantContextBinder.unbind();
     }
 
     // =========================================================================
@@ -477,16 +478,15 @@ class CascadeRecomputeServiceIT {
     void ac27_tenantScopeEnforced() {
         TestFixture f = createFixture(MatchFormat.BEST_OF_3, "setPoints", "standardVolleyball");
 
-        // Switch to a different tenant — the match should be invisible
+        // Switch to a different tenant via new tenant::api — the match should be invisible
         UUID otherTenant = UUID.randomUUID();
-        tenantContext.set(otherTenant);
-
-        // Match is not found under the other tenant
-        assertThat(matchRepository.findById(f.matchId)).isEmpty()
-                .as("AC27: match must not be visible under a different tenant");
-
-        // Restore tenant for cleanup
-        tenantContext.set(defaultTenantId);
+        try (de.vvwt.tm.tenant.TenantContext.Scope otherScope =
+                     tenantContextBinder.tenantContext().bind(otherTenant)) {
+            // Match is not found under the other tenant
+            assertThat(matchRepository.findById(f.matchId)).isEmpty()
+                    .as("AC27: match must not be visible under a different tenant");
+        }
+        // After scope closes, default-tenant binding (from @BeforeEach) is restored
     }
 
     // =========================================================================

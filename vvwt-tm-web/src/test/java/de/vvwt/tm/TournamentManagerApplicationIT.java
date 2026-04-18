@@ -5,12 +5,16 @@ import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.net.URI;
@@ -57,6 +61,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         classes = TournamentManagerApplication.class,
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
+@Import(TenantContextTestSupport.class)
 class TournamentManagerApplicationIT {
 
     @LocalServerPort

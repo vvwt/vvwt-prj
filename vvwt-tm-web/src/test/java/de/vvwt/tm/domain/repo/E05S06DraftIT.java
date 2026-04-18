@@ -11,12 +11,13 @@ import de.vvwt.tm.domain.draft.DraftPreviewResult;
 import de.vvwt.tm.domain.draft.DraftPreviewSection;
 import de.vvwt.tm.domain.draft.DraftSection;
 import de.vvwt.tm.infrastructure.web.ConflictException;
-import de.vvwt.tm.tenant.TenantRegistryPort;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,6 +53,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
                     + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
+@Import(TenantContextTestSupport.class)
 @Transactional
 class E05S06DraftIT {
 
@@ -60,15 +62,14 @@ class E05S06DraftIT {
     @Autowired private PhaseRepository phaseRepository;
     @Autowired private TeamRepository teamRepository;
     @Autowired private TeamAvatarRepository teamAvatarRepository;
-    @Autowired private TenantContext tenantContext;
-    @Autowired private TenantRegistryPort tenantRegistryPort;
+    @Autowired private TenantContextTestSupport.Binder tenantContextBinder;
 
+    private UUID defaultTenantId;
     private UUID tournamentId;
 
     @BeforeEach
     void setUp() {
-        UUID defaultTenantId = tenantRegistryPort.findAll().get(0).tenantId();
-        tenantContext.set(defaultTenantId);
+        defaultTenantId = tenantContextBinder.bindDefaultTenant();
 
         // Create a DRAFT tournament
         Tournament tournament = new Tournament(
@@ -89,12 +90,7 @@ class E05S06DraftIT {
 
     @AfterEach
     void tearDown() {
-        tenantContext.clear();
-    }
-
-    // Helper to expose package-private clear for this test class
-    private void clearTenantContext() {
-        tenantContext.clear();
+        tenantContextBinder.unbind();
     }
 
     // =========================================================================

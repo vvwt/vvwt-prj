@@ -5,6 +5,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import org.springframework.context.annotation.Import;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -20,6 +22,7 @@ import static org.assertj.core.api.Assertions.*;
  * </ul>
  */
 @SpringBootTest
+@Import(TenantContextTestSupport.class)
 @DisplayName("TournamentRuleResolver integration")
 class TournamentRuleResolverIT {
 

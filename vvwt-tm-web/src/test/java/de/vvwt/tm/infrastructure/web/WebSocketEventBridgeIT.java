@@ -19,7 +19,7 @@ import de.vvwt.tm.domain.repo.TeamRepository;
 import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.domain.repo.TenantContextTestHelper;
 import de.vvwt.tm.domain.repo.TournamentRepository;
-import de.vvwt.tm.tenant.TenantRegistryPort;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,6 +36,7 @@ import org.springframework.messaging.simp.stomp.StompHeaders;
 import org.springframework.messaging.simp.stomp.StompSession;
 import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
@@ -87,6 +88,7 @@ import static org.assertj.core.api.Assertions.assertThat;
                         + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
+@Import(TenantContextTestSupport.class)
 class WebSocketEventBridgeIT {
 
     static final String TEST_PASSWORD = "BridgeTestPass77ZZ";
@@ -96,7 +98,7 @@ class WebSocketEventBridgeIT {
 
     @Autowired private CascadeRecomputeService cascadeService;
     @Autowired private TenantContext tenantContext;
-    @Autowired private TenantRegistryPort tenantRegistryPort;
+    @Autowired private TenantContextTestSupport.Binder tenantContextBinder;
     @Autowired private TournamentRepository tournamentRepository;
     @Autowired private PhaseRepository phaseRepository;
     @Autowired private TeamRepository teamRepository;
@@ -108,14 +110,15 @@ class WebSocketEventBridgeIT {
 
     @BeforeEach
     void setUp() {
-        defaultTenantId = tenantRegistryPort.findAll().get(0).tenantId();
-        TenantContextTestHelper.set(tenantContext, defaultTenantId);
+        defaultTenantId = tenantContextBinder.bindDefaultTenant();
+        tenantContext.set(defaultTenantId);
         matchId = createMinimalFixture();
     }
 
     @AfterEach
     void tearDown() {
-        TenantContextTestHelper.clear(tenantContext);
+        tenantContext.clear();
+        tenantContextBinder.unbind();
     }
 
     // -------------------------------------------------------------------------

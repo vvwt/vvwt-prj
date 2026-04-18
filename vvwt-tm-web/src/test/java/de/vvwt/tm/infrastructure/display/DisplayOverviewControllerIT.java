@@ -19,11 +19,11 @@ import de.vvwt.tm.domain.repo.TeamRepository;
 import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.domain.repo.TenantContextTestHelper;
 import de.vvwt.tm.domain.repo.TournamentRepository;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.infrastructure.display.dto.DisplayGroupStandingsResponse;
 import de.vvwt.tm.infrastructure.display.dto.DisplayMatchesResponse;
 import de.vvwt.tm.infrastructure.display.dto.DisplayPhaseOverviewResponse;
 import de.vvwt.tm.infrastructure.web.GlobalExceptionHandler;
-import de.vvwt.tm.tenant.TenantRegistryPort;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,6 +39,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDateTime;
@@ -76,6 +77,7 @@ import static org.assertj.core.api.Assertions.assertThat;
                     + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
+@Import(TenantContextTestSupport.class)
 class DisplayOverviewControllerIT {
 
     static final String TEST_PASSWORD = "DisplayCtrlIT01";
@@ -90,7 +92,7 @@ class DisplayOverviewControllerIT {
     private TenantContext tenantContext;
 
     @Autowired
-    private TenantRegistryPort tenantRegistryPort;
+    private TenantContextTestSupport.Binder tenantContextBinder;
 
     @Autowired
     private DeviceRepository deviceRepository;
@@ -133,8 +135,8 @@ class DisplayOverviewControllerIT {
     @BeforeEach
     void setUp() {
         baseUrl = "http://localhost:" + port;
-        defaultTenantId = tenantRegistryPort.findAll().get(0).tenantId();
-        TenantContextTestHelper.set(tenantContext, defaultTenantId);
+        defaultTenantId = tenantContextBinder.bindDefaultTenant();
+        tenantContext.set(defaultTenantId);
         cleanupTestData();
         setupTestData();
     }
@@ -142,7 +144,8 @@ class DisplayOverviewControllerIT {
     @AfterEach
     void tearDown() {
         cleanupTestData();
-        TenantContextTestHelper.clear(tenantContext);
+        tenantContext.clear();
+        tenantContextBinder.unbind();
     }
 
     // =========================================================================

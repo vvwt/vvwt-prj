@@ -12,7 +12,7 @@ import de.vvwt.tm.slotopt.DirectSlotOptimizationClient;
 import de.vvwt.tm.slotopt.MappingResult;
 import de.vvwt.tm.slotopt.PhaseToRawPhaseDefMapper;
 import de.vvwt.tm.slotopt.SlotOptimizationClient;
-import de.vvwt.tm.tenant.TenantRegistryPort;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.worker.score.VarietyScorer;
 import de.vvwt.worker.solver.PacketSolver;
 import de.vvwt.worker.types.CanonicalPhaseDef;
@@ -24,6 +24,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -74,13 +75,13 @@ import static org.assertj.core.api.Assertions.assertThat;
             "tm.slotopt.exhaustive-max-n=10"
         })
 @ActiveProfiles("test")
+@Import(TenantContextTestSupport.class)
 class DirectSlotOptimizationClientIT {
 
     @Autowired private SlotOptimizationClient slotOptimizationClient;
     @Autowired private PhasePreparationService phasePreparationService;
     @Autowired private PhaseToRawPhaseDefMapper phaseToRawPhaseDefMapper;
-    @Autowired private TenantContext tenantContext;
-    @Autowired private TenantRegistryPort tenantRegistryPort;
+    @Autowired private TenantContextTestSupport.Binder tenantContextBinder;
     @Autowired private TournamentRepository tournamentRepository;
     @Autowired private PhaseRepository phaseRepository;
     @Autowired private TeamRepository teamRepository;
@@ -91,13 +92,12 @@ class DirectSlotOptimizationClientIT {
 
     @BeforeEach
     void setUpTenantContext() {
-        defaultTenantId = tenantRegistryPort.findAll().get(0).tenantId();
-        tenantContext.set(defaultTenantId);
+        defaultTenantId = tenantContextBinder.bindDefaultTenant();
     }
 
     @AfterEach
     void clearTenantContext() {
-        tenantContext.clear();
+        tenantContextBinder.unbind();
     }
 
     // =========================================================================

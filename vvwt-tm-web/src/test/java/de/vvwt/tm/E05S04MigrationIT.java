@@ -1,15 +1,14 @@
 package de.vvwt.tm;
 
 import de.vvwt.tm.domain.Tournament;
-import de.vvwt.tm.domain.repo.TenantContext;
-import de.vvwt.tm.domain.repo.TenantContextTestHelper;
 import de.vvwt.tm.domain.repo.TournamentRepository;
-import de.vvwt.tm.tenant.TenantRegistryPort;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,13 +32,11 @@ import static org.assertj.core.api.Assertions.assertThat;
                     + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
+@Import(TenantContextTestSupport.class)
 class E05S04MigrationIT {
 
     @Autowired
-    private TenantContext tenantContext;
-
-    @Autowired
-    private TenantRegistryPort tenantRegistryPort;
+    private TenantContextTestSupport.Binder tenantContextBinder;
 
     @Autowired
     private TournamentRepository tournamentRepository;
@@ -48,13 +45,12 @@ class E05S04MigrationIT {
 
     @BeforeEach
     void setUpTenantContext() {
-        defaultTenantId = tenantRegistryPort.findAll().get(0).tenantId();
-        TenantContextTestHelper.set(tenantContext, defaultTenantId);
+        defaultTenantId = tenantContextBinder.bindDefaultTenant();
     }
 
     @AfterEach
     void clearTenantContext() {
-        TenantContextTestHelper.clear(tenantContext);
+        tenantContextBinder.unbind();
     }
 
     @Test

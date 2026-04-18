@@ -3,8 +3,12 @@ package de.vvwt.tm.auth;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -48,6 +52,7 @@ import static org.assertj.core.api.Assertions.assertThat;
                 SecurityConfigIT.TestAdminCredentials.class
         })
 @ActiveProfiles("test")
+@Import(TenantContextTestSupport.class)
 class SecurityConfigIT {
 
     /** Fixed test password used by TestAdminCredentials — known at compile time. */

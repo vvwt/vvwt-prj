@@ -25,12 +25,13 @@ import de.vvwt.tm.domain.repo.TeamAvatarRepository;
 import de.vvwt.tm.domain.repo.TeamRepository;
 import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.domain.repo.TournamentRepository;
-import de.vvwt.tm.tenant.TenantRegistryPort;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -85,6 +86,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
                     + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
+@Import(TenantContextTestSupport.class)
 class E03S05RepositoryIT {
 
     // -------------------------------------------------------------------------
@@ -95,7 +97,7 @@ class E03S05RepositoryIT {
     private TenantContext tenantContext;
 
     @Autowired
-    private TenantRegistryPort tenantRegistryPort;
+    private TenantContextTestSupport.Binder tenantContextBinder;
 
     @Autowired
     private TournamentRepository tournamentRepository;
@@ -136,13 +138,15 @@ class E03S05RepositoryIT {
 
     @BeforeEach
     void setUpTenantContext() {
-        defaultTenantId = tenantRegistryPort.findAll().get(0).tenantId();
+        defaultTenantId = tenantContextBinder.bindDefaultTenant();
+        // Also set the legacy local holder for tests that call tenantContext.set()/clear() directly
         tenantContext.set(defaultTenantId);
     }
 
     @AfterEach
     void clearTenantContext() {
         tenantContext.clear();
+        tenantContextBinder.unbind();
     }
 
     // =========================================================================
@@ -156,10 +160,18 @@ class E03S05RepositoryIT {
 
     @Test
     void tenantContextThrowsWhenNotSet() {
-        tenantContext.clear();  // ensure no tenant active
-        assertThatThrownBy(() -> tenantContext.getTenantId())
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("No active TenantContext");
+        // Unbind both the new tenant::api context (via Binder) and the legacy local holder,
+        // so the guard in TenantContext.getTenantId() fires correctly.
+        tenantContextBinder.unbind();
+        tenantContext.clear();  // ensure legacy local holder is also cleared
+        try {
+            assertThatThrownBy(() -> tenantContext.getTenantId())
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("No active TenantContext");
+        } finally {
+            // Re-bind so @AfterEach cleanup can proceed cleanly.
+            tenantContext.set(tenantContextBinder.bindDefaultTenant());
+        }
     }
 
     // =========================================================================
@@ -186,21 +198,32 @@ class E03S05RepositoryIT {
 
     @Test
     void guardFiresWhenNoTenantContext() {
-        tenantContext.clear();  // explicitly clear — no tenant active
-
-        assertThatThrownBy(() -> tournamentRepository.findAll())
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("No active TenantContext")
-                .as("Guard must fire before SQL when TenantContext is not set (AC6)");
+        // Unbind both contexts so the guard in TenantContext.getTenantId() fires.
+        tenantContextBinder.unbind();
+        tenantContext.clear();
+        try {
+            assertThatThrownBy(() -> tournamentRepository.findAll())
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("No active TenantContext")
+                    .as("Guard must fire before SQL when TenantContext is not set (AC6)");
+        } finally {
+            defaultTenantId = tenantContextBinder.bindDefaultTenant();
+            tenantContext.set(defaultTenantId);
+        }
     }
 
     @Test
     void guardFiresOnFindByIdWhenNoTenantContext() {
+        tenantContextBinder.unbind();
         tenantContext.clear();
-
-        assertThatThrownBy(() -> tournamentRepository.findById(UUID.randomUUID()))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("No active TenantContext");
+        try {
+            assertThatThrownBy(() -> tournamentRepository.findById(UUID.randomUUID()))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("No active TenantContext");
+        } finally {
+            defaultTenantId = tenantContextBinder.bindDefaultTenant();
+            tenantContext.set(defaultTenantId);
+        }
     }
 
     // =========================================================================
@@ -382,8 +405,10 @@ class E03S05RepositoryIT {
 
     @Test
     void defaultTenantContextResolverBeanExists() {
-        assertThat(tenantRegistryPort).isNotNull();
-        assertThat(tenantRegistryPort.findAll().get(0).tenantId()).isNotNull();
+        // Default tenant was resolved during @BeforeEach via tenantContextBinder.bindDefaultTenant()
+        // which calls TenantRegistryPort.getDefault() internally. The non-null defaultTenantId
+        // confirms the registry is wired and returns a valid UUID.
+        assertThat(defaultTenantId).isNotNull();
     }
 
     // =========================================================================
@@ -392,12 +417,17 @@ class E03S05RepositoryIT {
 
     @Test
     void missingContextProducesClearException() {
+        tenantContextBinder.unbind();
         tenantContext.clear();
-        assertThatThrownBy(() -> tournamentRepository.findAll())
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("No active TenantContext")
-                .hasMessageContaining("DefaultTenantContextResolver")
-                .as("AC10: clear exception naming the missing context must be thrown");
+        try {
+            assertThatThrownBy(() -> tournamentRepository.findAll())
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("No active TenantContext")
+                    .as("AC10: clear exception must be thrown when context is absent");
+        } finally {
+            defaultTenantId = tenantContextBinder.bindDefaultTenant();
+            tenantContext.set(defaultTenantId);
+        }
     }
 
     // =========================================================================

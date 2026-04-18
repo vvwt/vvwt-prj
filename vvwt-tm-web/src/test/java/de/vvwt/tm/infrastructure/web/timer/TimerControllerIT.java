@@ -9,8 +9,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
@@ -63,6 +67,7 @@ import static org.assertj.core.api.Assertions.assertThat;
                 "tm.audio.data-dir=${java.io.tmpdir}/tm-audio-it-e11s02"
         })
 @ActiveProfiles("test")
+@Import(TenantContextTestSupport.class)
 @DisplayName("TimerController IT — E11S02: timer data endpoint")
 @SuppressWarnings({"rawtypes", "unchecked"})
 class TimerControllerIT {

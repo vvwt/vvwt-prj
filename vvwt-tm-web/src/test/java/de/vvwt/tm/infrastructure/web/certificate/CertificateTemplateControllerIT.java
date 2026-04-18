@@ -9,8 +9,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
@@ -64,6 +68,7 @@ import static org.assertj.core.api.Assertions.assertThat;
                 "tm.certificate-templates.max-size-bytes=1048576"   // 1 MB for faster tests
         })
 @ActiveProfiles("test")
+@Import(TenantContextTestSupport.class)
 @DisplayName("CertificateTemplateController IT — E12S04: certificate template REST API")
 class CertificateTemplateControllerIT {
 
