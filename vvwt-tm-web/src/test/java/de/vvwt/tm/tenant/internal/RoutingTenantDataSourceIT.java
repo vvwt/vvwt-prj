@@ -56,8 +56,8 @@ class RoutingTenantDataSourceIT {
 
     /** Initialises a simple marker table and inserts a row in the current DS. */
     static void createTableAndInsertRow(JdbcTemplate jdbc, String markerValue) {
-        jdbc.execute("CREATE TABLE IF NOT EXISTS marker (value VARCHAR(100))");
-        jdbc.update("INSERT INTO marker (value) VALUES (?)", markerValue);
+        jdbc.execute("CREATE TABLE IF NOT EXISTS marker (marker_value VARCHAR(100))");
+        jdbc.update("INSERT INTO marker (marker_value) VALUES (?)", markerValue);
     }
 
     // -------------------------------------------------------------------------
@@ -100,7 +100,7 @@ class RoutingTenantDataSourceIT {
         // Read from tenant A — must see only A's row
         try (TenantContext.Scope ignored = ctx.bind(TENANT_A)) {
             JdbcTemplate jdbc = new JdbcTemplate(routing);
-            java.util.List<String> rows = jdbc.queryForList("SELECT value FROM marker", String.class);
+            java.util.List<String> rows = jdbc.queryForList("SELECT marker_value FROM marker", String.class);
             assertThat(rows)
                     .as("Tenant A context must see only tenant A's row (AC2)")
                     .containsExactly("marker-for-tenant-A")
@@ -110,7 +110,7 @@ class RoutingTenantDataSourceIT {
         // Read from tenant B — must see only B's row
         try (TenantContext.Scope ignored = ctx.bind(TENANT_B)) {
             JdbcTemplate jdbc = new JdbcTemplate(routing);
-            java.util.List<String> rows = jdbc.queryForList("SELECT value FROM marker", String.class);
+            java.util.List<String> rows = jdbc.queryForList("SELECT marker_value FROM marker", String.class);
             assertThat(rows)
                     .as("Tenant B context must see only tenant B's row (AC2)")
                     .containsExactly("marker-for-tenant-B")

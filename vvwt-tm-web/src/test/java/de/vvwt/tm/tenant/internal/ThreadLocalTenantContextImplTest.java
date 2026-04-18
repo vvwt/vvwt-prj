@@ -181,9 +181,8 @@ class ThreadLocalTenantContextImplTest {
 
         try (TenantContext.Scope ignored = ctx.bind(tenantId)) {
             // In a separate thread, current() must throw — ThreadLocal is per-thread
-            Thread[] slot = new Thread[1];
-            RuntimeException[] result = new RuntimeException[1];
-            slot[0] = new Thread(() -> {
+            AssertionError[] result = new AssertionError[1];
+            Thread thread = new Thread(() -> {
                 try {
                     ctx.current(); // must throw
                     result[0] = new AssertionError("Expected IllegalStateException — not thrown");
@@ -191,8 +190,8 @@ class ThreadLocalTenantContextImplTest {
                     // expected — binding is not visible across threads
                 }
             });
-            slot[0].start();
-            slot[0].join(3000);
+            thread.start();
+            thread.join(3000);
 
             assertThat(result[0])
                     .as("Other thread must not see this thread's tenant binding")
