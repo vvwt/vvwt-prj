@@ -1,9 +1,9 @@
 package de.vvwt.tm.infrastructure.web;
 
-import de.vvwt.tm.domain.Device;
 import de.vvwt.tm.domain.repo.DeviceRepository;
 import de.vvwt.tm.domain.repo.TenantContext;
-import de.vvwt.tm.tenant.DefaultTenantProvider;
+import de.vvwt.tm.tenant.LocationContext;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Configuration;
@@ -24,7 +24,6 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -32,16 +31,21 @@ import java.util.UUID;
  *
  * <h2>E05S03 — Admin auth (HTTP Basic)</h2>
  * <p>Admin SPA clients connect with {@code Authorization: Basic …} in the STOMP CONNECT frame.
+ * The admin path binds {@link de.vvwt.tm.tenant.TenantContext} to the default tenant UUID
+ * (Wave-1: resolved from {@link TenantRegistryPort#findAll()}) and does NOT bind
+ * {@link LocationContext} — admin sessions are not location-scoped (DEC-24 D3).
  *
- * <h2>E07S06 — Display device auth (device token, AC1, AC11, AC12)</h2>
- * <p>Display devices use a device token in the STOMP CONNECT frame header
- * {@link #DEVICE_TOKEN_HEADER} ({@code X-Device-Token}). The interceptor:
+ * <h2>E14S09 — Device auth via device token (DEC-24 D2)</h2>
+ * <p>Device clients (DISPLAY) use a device token in the STOMP CONNECT frame header
+ * {@link #DEVICE_TOKEN_HEADER} ({@code X-Device-Token}). Authentication is delegated to
+ * {@link DeviceTokenHandshakeInterceptor}, which:
  * <ol>
- *   <li>Sets TenantContext to the default tenant and looks up the device by token.</li>
- *   <li>Validates type={@code DISPLAY} and status={@code REGISTERED|ASSIGNED}.</li>
- *   <li>Sets a synthetic Principal {@code "display-device:{tenantId}"} on the STOMP session.
- *       The frontend uses this tenantId to build the subscription topic
- *       {@code /topic/display/{tenantId}/events}.</li>
+ *   <li>Looks up the device by token against the default-tenant DataSource (Wave-1 assumption).</li>
+ *   <li>Binds {@link de.vvwt.tm.tenant.TenantContext} to the device's tenant UUID.</li>
+ *   <li>Binds {@link LocationContext} to the device's location (if assigned), or marks the
+ *       session as "overview mode" if the device has no assigned location (DISPLAY only).</li>
+ *   <li>Rejects SCORING_TABLET devices without an assigned location.</li>
+ *   <li>Rejects missing, invalid, or DISCONNECTED tokens.</li>
  * </ol>
  *
  * <h2>E11S05 — Timer client (unauthenticated, D-7)</h2>
@@ -50,25 +54,31 @@ import java.util.UUID;
  * supplies the tenant UUID via {@link #TIMER_TENANT_ID_HEADER} ({@code X-Timer-Tenant-Id}).
  * The interceptor creates a synthetic Principal {@code "timer-client:{tenantId}"} and
  * allows the connection through (D-7: timer is a public venue-facing page).
- *
- * <p>Security rationale: the display topic ({@code /topic/display/{tenantId}/events}) only
- * carries minimal event notifications (event type + entity UUID). No match scores, admin
- * credentials, or private data are transmitted on this topic. The timer client is structurally
- * read-only at the WebSocket layer (no {@code /app} sends).
+ * This path is RETAINED UNCHANGED per E14S09 out-of-scope statement.
  *
  * <h2>Auth priority on CONNECT</h2>
  * <ol>
  *   <li>{@code X-Timer-Connect: true} present → timer client (unauthenticated, E11S05 D-7)</li>
- *   <li>{@code X-Device-Token} present → device-token auth (E07S06)</li>
- *   <li>{@code Authorization: Basic …} present → admin Basic auth (E05S03)</li>
+ *   <li>{@code X-Device-Token} present → device-token auth (E14S09, DEC-24 D2)</li>
+ *   <li>{@code Authorization: Basic …} present → admin Basic auth (E05S03, DEC-24 D3)</li>
  *   <li>None → {@link AccessDeniedException}</li>
  * </ol>
  *
+ * <h2>Default-tenant resolution (AC9, E14S09)</h2>
+ * <p>After E14S09, {@code WebSocketSecurityConfig} no longer injects or references the legacy
+ * default-tenant helper. The default tenant UUID is resolved via a direct SQL query
+ * ({@code SELECT id FROM tenants WHERE is_default = TRUE}) against the shared JPA DataSource —
+ * this matches the UUID that actually exists in the shared {@code tenants} table during the
+ * parallel-development phase (before E14S07 atomic cutover). Using {@code TenantRegistryPort}
+ * here would return the per-tenant H2 file UUID, which diverges from the shared DataSource UUID.
+ *
  * @see WebSocketConfig
  * @see DomainEventBridge
+ * @see DeviceTokenHandshakeInterceptor
  * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E05S03.story.md">Story E05S03</a>
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E07S06.story.md">Story E07S06</a>
  * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E11S05.story.md">Story E11S05</a>
+ * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E14S09.story.md">Story E14S09</a>
+ * @see <a href="../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-24.md">DEC-24</a>
  */
 @Configuration
 public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer {
@@ -76,8 +86,8 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
     private static final Logger log = LoggerFactory.getLogger(WebSocketSecurityConfig.class);
 
     /**
-     * STOMP CONNECT header name for display device token (E07S06 AC1).
-     * The frontend passes the device token here instead of an admin password.
+     * STOMP CONNECT header name for device token (E14S09, formerly E07S06).
+     * The device client passes the device token here. Transport choice: STOMP header (AC4).
      */
     public static final String DEVICE_TOKEN_HEADER = "X-Device-Token";
 
@@ -94,24 +104,40 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
      */
     public static final String TIMER_TENANT_ID_HEADER = "X-Timer-Tenant-Id";
 
-    private static final String DEVICE_TYPE_DISPLAY = "DISPLAY";
-
     private final UserDetailsService userDetailsService;
     private final PasswordEncoder passwordEncoder;
     private final DeviceRepository deviceRepository;
+    /** Legacy domain-layer TenantContext (coexists until E14S07 atomic cutover). */
     private final TenantContext tenantContext;
-    private final DefaultTenantProvider defaultTenantProvider;
+    /** New tenant-api TenantContext (de.vvwt.tm.tenant.TenantContext). */
+    private final de.vvwt.tm.tenant.TenantContext newTenantContext;
+    private final LocationContext locationContext;
+    /**
+     * JdbcTemplate for Wave-1 default-tenant resolution (parallel-phase coexistence).
+     * Queries {@code SELECT id FROM tenants WHERE is_default = TRUE} against the shared DataSource —
+     * the same approach as {@code DefaultTenantBootstrap}. This resolves the UUID that actually
+     * exists in the shared JPA DataSource (tenants table), ensuring the legacy TenantContext
+     * and DeviceRepository can query correctly until E14S07 atomic cutover.
+     *
+     * TODO(Wave-2): Multi-tenant deployments will need a cross-tenant device registry.
+     * TODO(E14S07): Remove this field when the legacy shared DataSource is retired.
+     */
+    private final JdbcTemplate jdbcTemplate;
 
     public WebSocketSecurityConfig(UserDetailsService userDetailsService,
                                    PasswordEncoder passwordEncoder,
                                    DeviceRepository deviceRepository,
                                    TenantContext tenantContext,
-                                   DefaultTenantProvider defaultTenantProvider) {
+                                   de.vvwt.tm.tenant.TenantContext newTenantContext,
+                                   LocationContext locationContext,
+                                   JdbcTemplate jdbcTemplate) {
         this.userDetailsService = userDetailsService;
         this.passwordEncoder = passwordEncoder;
         this.deviceRepository = deviceRepository;
         this.tenantContext = tenantContext;
-        this.defaultTenantProvider = defaultTenantProvider;
+        this.newTenantContext = newTenantContext;
+        this.locationContext = locationContext;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Override
@@ -120,9 +146,18 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
     }
 
     /**
-     * STOMP ChannelInterceptor that accepts device token OR admin Basic credentials.
+     * STOMP ChannelInterceptor that accepts device token, timer, or admin Basic credentials.
+     *
+     * <p>The {@link DeviceTokenHandshakeInterceptor} is created lazily on the first CONNECT frame
+     * (not at bean instantiation time) to ensure that {@link #resolveDefaultTenantId()} is called
+     * AFTER {@code DefaultTenantBootstrap} (ApplicationRunner, @Order(1)) has populated the
+     * {@code tenants} table. During Spring context refresh, the table is empty; ApplicationRunners
+     * run after context refresh completes.
      */
     private final class CombinedAuthStompInterceptor implements ChannelInterceptor {
+
+        /** Lazily-initialized interceptor; resolved on first STOMP CONNECT. */
+        private volatile DeviceTokenHandshakeInterceptor deviceInterceptor;
 
         @Override
         public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -140,14 +175,14 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
                 return message;
             }
 
-            // Priority 2: display device token (E07S06 AC1)
+            // Priority 2: device token (E14S09, DEC-24 D2)
             String deviceToken = accessor.getFirstNativeHeader(DEVICE_TOKEN_HEADER);
             if (deviceToken != null && !deviceToken.isBlank()) {
-                authenticateDisplayDevice(accessor, deviceToken);
-                return message;
+                // Delegate to DeviceTokenHandshakeInterceptor (sets principal + context)
+                return ensureDeviceInterceptor().preSend(message, channel);
             }
 
-            // Priority 3: admin HTTP Basic (E05S03 AC6)
+            // Priority 3: admin HTTP Basic (E05S03 AC6, DEC-24 D3)
             String authHeader = accessor.getFirstNativeHeader("Authorization");
             if (authHeader != null && authHeader.startsWith("Basic ")) {
                 authenticateAdminBasic(accessor, authHeader);
@@ -155,8 +190,31 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
             }
 
             throw new AccessDeniedException(
-                    "WebSocket CONNECT requires X-Timer-Connect (timer), X-Device-Token (display) "
+                    "WebSocket CONNECT requires X-Timer-Connect (timer), X-Device-Token (device) "
                     + "or Authorization: Basic (admin) header");
+        }
+
+        /**
+         * Returns the {@link DeviceTokenHandshakeInterceptor}, creating it on first call.
+         *
+         * <p>Double-checked locking with {@code volatile} field — correct under Java Memory Model.
+         * Safe because the interceptor is stateless after creation (immutable fields).
+         */
+        private DeviceTokenHandshakeInterceptor ensureDeviceInterceptor() {
+            DeviceTokenHandshakeInterceptor interceptor = deviceInterceptor;
+            if (interceptor == null) {
+                synchronized (this) {
+                    interceptor = deviceInterceptor;
+                    if (interceptor == null) {
+                        UUID defaultTenantId = resolveDefaultTenantId();
+                        interceptor = new DeviceTokenHandshakeInterceptor(
+                                deviceRepository, tenantContext, newTenantContext,
+                                locationContext, defaultTenantId);
+                        deviceInterceptor = interceptor;
+                    }
+                }
+            }
+            return interceptor;
         }
 
         // -----------------------------------------------------------------------
@@ -167,9 +225,6 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
             String tenantIdHeader = accessor.getFirstNativeHeader(TIMER_TENANT_ID_HEADER);
 
             // Build a synthetic principal for the timer client.
-            // tenantId may be null/blank for legacy timer clients or when the topic
-            // subscription is constructed from the initial API data. A missing tenantId
-            // is valid — the timer still connects but must supply the topic explicitly.
             String principalName = "timer-client:"
                     + (tenantIdHeader != null ? tenantIdHeader.trim() : "unknown");
 
@@ -182,55 +237,7 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
         }
 
         // -----------------------------------------------------------------------
-        // Display device token auth (E07S06 AC1, AC11, AC12)
-        // -----------------------------------------------------------------------
-
-        private void authenticateDisplayDevice(StompHeaderAccessor accessor, String deviceToken) {
-            UUID defaultTenantId = defaultTenantProvider.getDefaultTenantId();
-            tenantContext.set(defaultTenantId);
-            try {
-                Optional<Device> deviceOpt = deviceRepository.findByDeviceToken(deviceToken);
-
-                if (deviceOpt.isEmpty()) {
-                    log.debug("[ws-auth] Display device token not found");
-                    throw new AccessDeniedException(
-                            "WebSocket CONNECT rejected: invalid device token (E07S06 AC12)");
-                }
-
-                Device device = deviceOpt.get();
-
-                if (!DEVICE_TYPE_DISPLAY.equals(device.getDeviceType())) {
-                    log.debug("[ws-auth] Device rejected: wrong type={}", device.getDeviceType());
-                    throw new AccessDeniedException(
-                            "WebSocket CONNECT rejected: token is not for a DISPLAY device (E07S06 AC12)");
-                }
-
-                if (!Device.STATUS_REGISTERED.equals(device.getStatus())
-                        && !Device.STATUS_ASSIGNED.equals(device.getStatus())) {
-                    log.debug("[ws-auth] Device rejected: inactive status={}", device.getStatus());
-                    throw new AccessDeniedException(
-                            "WebSocket CONNECT rejected: display device is not active (E07S06 AC12)");
-                }
-
-                // Synthetic principal: "display-device:{tenantId}"
-                // The ROLE_DISPLAY authority marks this as a display-device session.
-                String principalName = "display-device:" + device.getTenantId();
-                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                        principalName, null,
-                        List.of(new SimpleGrantedAuthority("ROLE_DISPLAY")));
-                auth.setDetails(device.getTenantId()); // tenantId available for topic subscription
-
-                accessor.setUser(auth);
-
-                log.debug("[ws-auth] Display device authenticated tenantId={}", device.getTenantId());
-
-            } finally {
-                tenantContext.clear();
-            }
-        }
-
-        // -----------------------------------------------------------------------
-        // Admin HTTP Basic auth (E05S03 AC6 — unchanged)
+        // Admin HTTP Basic auth (E05S03 AC6, DEC-24 D3)
         // -----------------------------------------------------------------------
 
         private void authenticateAdminBasic(StompHeaderAccessor accessor, String authHeader) {
@@ -262,6 +269,43 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
                     new UsernamePasswordAuthenticationToken(
                             userDetails, null, userDetails.getAuthorities());
             accessor.setUser(authentication);
+
+            // DEC-24 D3: admin sessions bind TenantContext to default tenant in Wave-1.
+            // LocationContext is NOT bound — admin sessions are not location-scoped (AC12).
+            UUID defaultTenantId = resolveDefaultTenantId();
+            if (defaultTenantId != null) {
+                de.vvwt.tm.tenant.TenantContext.Scope scope = newTenantContext.bind(defaultTenantId);
+                if (accessor.getSessionAttributes() != null) {
+                    accessor.getSessionAttributes().put("_adminTenantScope", scope);
+                }
+            }
+
+            log.debug("[ws-auth] Admin authenticated username={}", username);
         }
+    }
+
+    /**
+     * Resolves the default tenant UUID for Wave-1 single-tenant deployments (DEC-24 D3).
+     *
+     * <p>Queries {@code SELECT id FROM tenants WHERE is_default = TRUE} against the shared
+     * DataSource — same approach as {@code DefaultTenantBootstrap}. This ensures the UUID matches
+     * what actually exists in the shared {@code tenants} table during the parallel-development
+     * phase (before E14S07 atomic cutover). Using {@link de.vvwt.tm.tenant.TenantRegistryPort}
+     * here would return the per-tenant H2 file UUID (a different UUID registered by
+     * {@code DefaultTenantBootstrapRunner}), which does NOT exist in the shared DataSource.
+     *
+     * <p>TODO(E14S07): Remove this method when the shared DataSource is retired and the
+     * routing DataSource is the only one.
+     * <p>TODO(Wave-2): Multi-tenant deployments will need a cross-tenant device registry.
+     */
+    private UUID resolveDefaultTenantId() {
+        List<UUID> tenantIds = jdbcTemplate.query(
+                "SELECT id FROM tenants WHERE is_default = TRUE",
+                (rs, rowNum) -> rs.getObject(1, UUID.class));
+        if (tenantIds.isEmpty()) {
+            log.warn("[ws-auth] Default tenant not found in tenants table — cannot resolve default tenant");
+            return null;
+        }
+        return tenantIds.get(0);
     }
 }

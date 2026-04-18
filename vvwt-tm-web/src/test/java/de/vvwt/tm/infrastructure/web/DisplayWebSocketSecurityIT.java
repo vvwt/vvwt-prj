@@ -84,13 +84,11 @@ class DisplayWebSocketSecurityIT {
     @Autowired private DefaultTenantProvider defaultTenantProvider;
 
     private UUID defaultTenantId;
-    private UUID defaultLocationId;
     private String wsUrl;
 
     @BeforeEach
     void setUp() {
         defaultTenantId = defaultTenantProvider.getDefaultTenantId();
-        defaultLocationId = defaultTenantProvider.getDefaultLocationId();
         wsUrl = "http://localhost:" + port + "/ws";
         TenantContextTestHelper.set(tenantContext, defaultTenantId);
     }
@@ -281,11 +279,12 @@ class DisplayWebSocketSecurityIT {
 
     /**
      * Saves a DISPLAY device with the given token and status to the database.
-     * Uses the default tenant + default location from {@link DefaultTenantProvider}.
+     * Uses null locationId per DEC-24: location_id is nullable; DISPLAY device with null
+     * location is accepted in overview mode (AC7a — no DefaultTenantProvider needed).
      */
     private void saveDisplayDevice(String token, String status) {
         deviceRepository.save(new Device(
-                UUID.randomUUID(), defaultTenantId, defaultLocationId,
+                UUID.randomUUID(), defaultTenantId, null,
                 token, null,
                 Device.TYPE_DISPLAY, null, status,
                 LocalDateTime.now(), null,
@@ -293,13 +292,13 @@ class DisplayWebSocketSecurityIT {
     }
 
     /**
-     * Saves a SCORING_TABLET device with the given token and status.
-     * Used to verify wrong-type rejection (AC12).
+     * Saves a SCORING_TABLET device with null locationId and the given token and status.
+     * SCORING_TABLET with null locationId must be rejected (AC6).
      */
     private void saveScoringTabletDevice(String token, String status) {
         String pin = "9901"; // arbitrary unique PIN for this test device
         deviceRepository.save(new Device(
-                UUID.randomUUID(), defaultTenantId, defaultLocationId,
+                UUID.randomUUID(), defaultTenantId, null,
                 token, pin,
                 Device.TYPE_SCORING_TABLET, null, status,
                 LocalDateTime.now(), null, null, null));

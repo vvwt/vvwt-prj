@@ -1,6 +1,7 @@
 package de.vvwt.tm.tenant.internal;
 
 import de.vvwt.tm.TournamentManagerApplication;
+import de.vvwt.tm.tenant.LocationContext;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantDataSourceResolver;
 import de.vvwt.tm.tenant.TenantRegistryPort;
@@ -78,6 +79,27 @@ public class TenantContextConfiguration {
     @ConditionalOnMissingBean(TenantContext.class)
     public TenantContext tenantRoutingContext() {
         return new ThreadLocalTenantContextImpl();
+    }
+
+    /**
+     * {@link LocationContext} bean — provides per-thread location binding (E14S09, DEC-24 D2).
+     *
+     * <p>Backed by {@link ThreadLocalLocationContextImpl} (stack-based, mirrors TenantContext).
+     * Lives in {@code tenant::api} public surface per DEC-24: location context is resolved at
+     * WebSocket handshake time from the device's {@code location_id} field.
+     *
+     * <p>{@link ConditionalOnMissingBean} allows test configurations to supply a test-specific
+     * {@link LocationContext} implementation.
+     *
+     * @see ThreadLocalLocationContextImpl
+     * @see de.vvwt.tm.tenant.LocationContext
+     * @see <a href="../../../../../../../../docs/governance/stories/E14S09.story.md">Story E14S09</a>
+     * @see <a href="../../../../../../../../docs/governance/decisions/DEC-24.md">DEC-24</a>
+     */
+    @Bean
+    @ConditionalOnMissingBean(LocationContext.class)
+    public LocationContext locationContext() {
+        return new ThreadLocalLocationContextImpl();
     }
 
     /**

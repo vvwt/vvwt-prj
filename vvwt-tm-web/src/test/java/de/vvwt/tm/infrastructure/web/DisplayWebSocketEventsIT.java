@@ -106,14 +106,12 @@ class DisplayWebSocketEventsIT {
     @Autowired private MatchRepository matchRepository;
 
     private UUID defaultTenantId;
-    private UUID defaultLocationId;
     private UUID matchId;
     private String displayToken;
 
     @BeforeEach
     void setUp() {
         defaultTenantId = defaultTenantProvider.getDefaultTenantId();
-        defaultLocationId = defaultTenantProvider.getDefaultLocationId();
         TenantContextTestHelper.set(tenantContext, defaultTenantId);
 
         displayToken = UUID.randomUUID().toString();
@@ -299,8 +297,9 @@ class DisplayWebSocketEventsIT {
     }
 
     private void saveDisplayDevice(String token, String status) {
+        // DEC-24: location_id is nullable; DISPLAY device with null location → overview mode (AC7a)
         deviceRepository.save(new Device(
-                UUID.randomUUID(), defaultTenantId, defaultLocationId,
+                UUID.randomUUID(), defaultTenantId, null,
                 token, null,
                 Device.TYPE_DISPLAY, null, status,
                 LocalDateTime.now(), null,
