@@ -7,7 +7,7 @@ import de.vvwt.tm.domain.Device;
 import de.vvwt.tm.domain.repo.DeviceRepository;
 import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.domain.repo.TenantContextTestHelper;
-import de.vvwt.tm.tenant.DefaultTenantProvider;
+import de.vvwt.tm.tenant.TenantRegistryPort;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -81,14 +81,14 @@ class DisplayWebSocketSecurityIT {
 
     @Autowired private DeviceRepository deviceRepository;
     @Autowired private TenantContext tenantContext;
-    @Autowired private DefaultTenantProvider defaultTenantProvider;
+    @Autowired private TenantRegistryPort tenantRegistryPort;
 
     private UUID defaultTenantId;
     private String wsUrl;
 
     @BeforeEach
     void setUp() {
-        defaultTenantId = defaultTenantProvider.getDefaultTenantId();
+        defaultTenantId = tenantRegistryPort.findAll().get(0).tenantId();
         wsUrl = "http://localhost:" + port + "/ws";
         TenantContextTestHelper.set(tenantContext, defaultTenantId);
     }

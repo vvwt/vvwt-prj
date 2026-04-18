@@ -25,7 +25,7 @@ import de.vvwt.tm.domain.repo.TeamAvatarRepository;
 import de.vvwt.tm.domain.repo.TeamRepository;
 import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.domain.repo.TournamentRepository;
-import de.vvwt.tm.tenant.DefaultTenantProvider;
+import de.vvwt.tm.tenant.TenantRegistryPort;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -95,7 +95,7 @@ class E03S05RepositoryIT {
     private TenantContext tenantContext;
 
     @Autowired
-    private DefaultTenantProvider defaultTenantProvider;
+    private TenantRegistryPort tenantRegistryPort;
 
     @Autowired
     private TournamentRepository tournamentRepository;
@@ -136,7 +136,7 @@ class E03S05RepositoryIT {
 
     @BeforeEach
     void setUpTenantContext() {
-        defaultTenantId = defaultTenantProvider.getDefaultTenantId();
+        defaultTenantId = tenantRegistryPort.findAll().get(0).tenantId();
         tenantContext.set(defaultTenantId);
     }
 
@@ -382,8 +382,8 @@ class E03S05RepositoryIT {
 
     @Test
     void defaultTenantContextResolverBeanExists() {
-        assertThat(defaultTenantProvider).isNotNull();
-        assertThat(defaultTenantProvider.getDefaultTenantId()).isNotNull();
+        assertThat(tenantRegistryPort).isNotNull();
+        assertThat(tenantRegistryPort.findAll().get(0).tenantId()).isNotNull();
     }
 
     // =========================================================================

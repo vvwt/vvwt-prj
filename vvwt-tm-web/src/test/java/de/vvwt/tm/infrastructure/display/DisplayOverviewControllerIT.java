@@ -23,7 +23,7 @@ import de.vvwt.tm.infrastructure.display.dto.DisplayGroupStandingsResponse;
 import de.vvwt.tm.infrastructure.display.dto.DisplayMatchesResponse;
 import de.vvwt.tm.infrastructure.display.dto.DisplayPhaseOverviewResponse;
 import de.vvwt.tm.infrastructure.web.GlobalExceptionHandler;
-import de.vvwt.tm.tenant.DefaultTenantProvider;
+import de.vvwt.tm.tenant.TenantRegistryPort;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -90,7 +90,7 @@ class DisplayOverviewControllerIT {
     private TenantContext tenantContext;
 
     @Autowired
-    private DefaultTenantProvider defaultTenantProvider;
+    private TenantRegistryPort tenantRegistryPort;
 
     @Autowired
     private DeviceRepository deviceRepository;
@@ -118,7 +118,6 @@ class DisplayOverviewControllerIT {
 
     private String baseUrl;
     private UUID defaultTenantId;
-    private UUID defaultLocationId;
 
     // -----------------------------------------------------------------------
     // Shared test-data state (set by setupTestData)
@@ -134,8 +133,7 @@ class DisplayOverviewControllerIT {
     @BeforeEach
     void setUp() {
         baseUrl = "http://localhost:" + port;
-        defaultTenantId = defaultTenantProvider.getDefaultTenantId();
-        defaultLocationId = defaultTenantProvider.getDefaultLocationId();
+        defaultTenantId = tenantRegistryPort.findAll().get(0).tenantId();
         TenantContextTestHelper.set(tenantContext, defaultTenantId);
         cleanupTestData();
         setupTestData();
@@ -179,7 +177,7 @@ class DisplayOverviewControllerIT {
         // Register a DISPLAY device
         displayDeviceToken = UUID.randomUUID().toString();
         Device displayDevice = new Device(
-                UUID.randomUUID(), defaultTenantId, defaultLocationId,
+                UUID.randomUUID(), defaultTenantId, null,
                 displayDeviceToken, null,
                 "DISPLAY", null, Device.STATUS_REGISTERED,
                 LocalDateTime.now(), null, "Display Device", null);
@@ -188,7 +186,7 @@ class DisplayOverviewControllerIT {
         // Register a SCORING_TABLET device (used for AC4 wrong-type test)
         scoringTabletToken = UUID.randomUUID().toString();
         Device tabletDevice = new Device(
-                UUID.randomUUID(), defaultTenantId, defaultLocationId,
+                UUID.randomUUID(), defaultTenantId, null,
                 scoringTabletToken, "1234",
                 Device.TYPE_SCORING_TABLET, null, Device.STATUS_REGISTERED,
                 LocalDateTime.now(), null, null, null);

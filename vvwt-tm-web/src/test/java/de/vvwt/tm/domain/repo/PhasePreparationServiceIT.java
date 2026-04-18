@@ -9,7 +9,7 @@ import de.vvwt.tm.domain.PhasePreparationService;
 import de.vvwt.tm.domain.Team;
 import de.vvwt.tm.domain.TeamAvatar;
 import de.vvwt.tm.domain.Tournament;
-import de.vvwt.tm.tenant.DefaultTenantProvider;
+import de.vvwt.tm.tenant.TenantRegistryPort;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -56,7 +56,7 @@ class PhasePreparationServiceIT {
 
     @Autowired private PhasePreparationService phasePreparationService;
     @Autowired private TenantContext tenantContext;
-    @Autowired private DefaultTenantProvider defaultTenantProvider;
+    @Autowired private TenantRegistryPort tenantRegistryPort;
     @Autowired private TournamentRepository tournamentRepository;
     @Autowired private PhaseRepository phaseRepository;
     @Autowired private TeamRepository teamRepository;
@@ -67,7 +67,7 @@ class PhasePreparationServiceIT {
 
     @BeforeEach
     void setUpTenantContext() {
-        defaultTenantId = defaultTenantProvider.getDefaultTenantId();
+        defaultTenantId = tenantRegistryPort.findAll().get(0).tenantId();
         tenantContext.set(defaultTenantId);
     }
 

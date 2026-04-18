@@ -107,7 +107,7 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
     private final UserDetailsService userDetailsService;
     private final PasswordEncoder passwordEncoder;
     private final DeviceRepository deviceRepository;
-    /** Legacy domain-layer TenantContext (coexists until E14S07 atomic cutover). */
+    /** Legacy domain-layer TenantContext (needed until E14S11 activates RoutingTenantDataSource). */
     private final TenantContext tenantContext;
     /** New tenant-api TenantContext (de.vvwt.tm.tenant.TenantContext). */
     private final de.vvwt.tm.tenant.TenantContext newTenantContext;
@@ -120,7 +120,7 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
      * and DeviceRepository can query correctly until E14S07 atomic cutover.
      *
      * TODO(Wave-2): Multi-tenant deployments will need a cross-tenant device registry.
-     * TODO(E14S07): Remove this field when the legacy shared DataSource is retired.
+     * TODO(E14S11): Remove this field when RoutingTenantDataSource is activated as @Primary.
      */
     private final JdbcTemplate jdbcTemplate;
 
@@ -294,7 +294,7 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
      * here would return the per-tenant H2 file UUID (a different UUID registered by
      * {@code DefaultTenantBootstrapRunner}), which does NOT exist in the shared DataSource.
      *
-     * <p>TODO(E14S07): Remove this method when the shared DataSource is retired and the
+     * <p>TODO(E14S11): Remove this method when RoutingTenantDataSource is activated as @Primary and the
      * routing DataSource is the only one.
      * <p>TODO(Wave-2): Multi-tenant deployments will need a cross-tenant device registry.
      */

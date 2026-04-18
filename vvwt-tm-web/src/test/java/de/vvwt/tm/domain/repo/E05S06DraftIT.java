@@ -11,7 +11,7 @@ import de.vvwt.tm.domain.draft.DraftPreviewResult;
 import de.vvwt.tm.domain.draft.DraftPreviewSection;
 import de.vvwt.tm.domain.draft.DraftSection;
 import de.vvwt.tm.infrastructure.web.ConflictException;
-import de.vvwt.tm.tenant.DefaultTenantProvider;
+import de.vvwt.tm.tenant.TenantRegistryPort;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -61,13 +61,13 @@ class E05S06DraftIT {
     @Autowired private TeamRepository teamRepository;
     @Autowired private TeamAvatarRepository teamAvatarRepository;
     @Autowired private TenantContext tenantContext;
-    @Autowired private DefaultTenantProvider defaultTenantProvider;
+    @Autowired private TenantRegistryPort tenantRegistryPort;
 
     private UUID tournamentId;
 
     @BeforeEach
     void setUp() {
-        UUID defaultTenantId = defaultTenantProvider.getDefaultTenantId();
+        UUID defaultTenantId = tenantRegistryPort.findAll().get(0).tenantId();
         tenantContext.set(defaultTenantId);
 
         // Create a DRAFT tournament
