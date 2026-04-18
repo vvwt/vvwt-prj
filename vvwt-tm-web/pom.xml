@@ -157,6 +157,16 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- spring-modulith-test: provides @ApplicationModuleTest annotation (E14S06).
+             Enables per-module Spring context bootstrapping in integration tests — only the
+             module under test and its declared dependencies are loaded. Used by
+             CrossTenantIsolationTest to bootstrap only the tenant context and prove
+             cross-tenant isolation (DEC-20, DEC-21, DEC-22). Version managed by parent BOM. -->
+        <dependency>
+            <groupId>org.springframework.modulith</groupId>
+            <artifactId>spring-modulith-test</artifactId>
+            <scope>test</scope>
+        </dependency>
 
     </dependencies>
 
