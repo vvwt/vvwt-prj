@@ -3,12 +3,13 @@ package de.vvwt.tm.domain;
 import de.vvwt.tm.config.DeviceLimitConfig;
 import de.vvwt.tm.domain.event.DeviceRegisteredEvent;
 import de.vvwt.tm.domain.repo.DeviceRepository;
+import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.domain.repo.TournamentRepository;
 import de.vvwt.tm.infrastructure.web.ConflictException;
-import de.vvwt.tm.tenant.DefaultTenantProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
@@ -44,10 +45,10 @@ import java.util.UUID;
  * ascending/descending) are excluded. The PIN is NOT a security token — it is a short
  * human-readable assignment code.
  *
- * <h2>Tenant and location scope (DEC-5, DEC-17)</h2>
- * <p>In V1 default-tenant-LAN mode the location is resolved from the default location
- * of the active tenant. {@link DefaultTenantProvider} supplies the default tenant ID;
- * location resolution uses the first location associated with that tenant.
+ * <h2>Tenant scope (DEC-5, DEC-24)</h2>
+ * <p>Tenant context is resolved per-request by the interceptor chain.
+ * Location is no longer required at device registration time (DEC-24 carve-out from DEC-17):
+ * devices register with {@code location_id = NULL} and are assigned to a location separately.
  *
  * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E06S03.story.md">Story E06S03</a>
  */
@@ -79,16 +80,22 @@ public class DeviceService {
     private final DeviceLimitConfig deviceLimitConfig;
     private final ApplicationEventPublisher eventPublisher;
     private final SecureRandom secureRandom;
+    private final JdbcTemplate jdbcTemplate;
+    private final TenantContext tenantContext;
 
     public DeviceService(DeviceRepository deviceRepository,
                          TournamentRepository tournamentRepository,
                          DeviceLimitConfig deviceLimitConfig,
-                         ApplicationEventPublisher eventPublisher) {
+                         ApplicationEventPublisher eventPublisher,
+                         JdbcTemplate jdbcTemplate,
+                         TenantContext tenantContext) {
         this.deviceRepository = deviceRepository;
         this.tournamentRepository = tournamentRepository;
         this.deviceLimitConfig = deviceLimitConfig;
         this.eventPublisher = eventPublisher;
         this.secureRandom = new SecureRandom();
+        this.jdbcTemplate = jdbcTemplate;
+        this.tenantContext = tenantContext;
     }
 
     // -------------------------------------------------------------------------
@@ -127,7 +134,7 @@ public class DeviceService {
      */
     public Device registerDevice(UUID tenantId, UUID locationId, String deviceType) {
         if (Device.TYPE_DISPLAY.equals(deviceType)) {
-            checkDisplayLimit(locationId);
+            checkDisplayLimit();
         } else if (!Device.TYPE_SCORING_TABLET.equals(deviceType)) {
             throw new IllegalArgumentException(
                     "Unknown deviceType: '" + deviceType + "'. Valid values: SCORING_TABLET, DISPLAY");
@@ -166,18 +173,17 @@ public class DeviceService {
     // -------------------------------------------------------------------------
 
     /**
-     * Checks the display device limit for the given location (E07S02 AC2).
+     * Checks the display device limit (E07S02 AC2, E14S08).
      *
-     * <p>Counts existing DISPLAY devices in the active tenant+location. If the count
-     * equals or exceeds {@code vvwt.devices.max-display-count}, throws
-     * {@link TooManyRequestsException} (→ HTTP 429).
+     * <p>Counts existing DISPLAY devices in the active tenant (location is not required at
+     * registration time per DEC-24). If the count equals or exceeds
+     * {@code vvwt.devices.max-display-count}, throws {@link TooManyRequestsException} (→ HTTP 429).
      *
-     * @param locationId the location UUID to check (active tenant scoped via repository)
      * @throws TooManyRequestsException if the limit has been reached
      */
-    private void checkDisplayLimit(UUID locationId) {
+    private void checkDisplayLimit() {
         int maxCount = deviceLimitConfig.getMaxDisplayCount();
-        long currentCount = deviceRepository.countByDeviceType(locationId, Device.TYPE_DISPLAY);
+        long currentCount = deviceRepository.countDisplayDevicesByTenant(Device.TYPE_DISPLAY);
         if (currentCount >= maxCount) {
             throw new TooManyRequestsException(
                     "Display device limit reached. Current: " + currentCount + ", Max: " + maxCount,
@@ -239,6 +245,78 @@ public class DeviceService {
             throw new NoSuchElementException("Device not found: " + deviceId);
         }
         log.info("[devices] Deleted device id={}", deviceId);
+    }
+
+    // -------------------------------------------------------------------------
+    // E14S08 AC4, AC5, AC8 — Assign / unassign device location
+    // -------------------------------------------------------------------------
+
+    /**
+     * Assigns a device to a location (E14S08 AC4, AC5).
+     *
+     * <p>Validates that the {@code locationId} belongs to the active tenant (AC8).
+     * Returns the updated device on success. Idempotent: re-assigning the same location
+     * returns 200 without error (AC5 — reassign allowed).
+     *
+     * @param deviceId   the device UUID to assign
+     * @param locationId the location UUID to assign to
+     * @return the updated device
+     * @throws NoSuchElementException   if the device is not found for the active tenant (→ 404)
+     * @throws IllegalArgumentException if {@code locationId} does not exist within the active tenant (→ 400, AC8)
+     */
+    public Device assignDeviceLocation(UUID deviceId, UUID locationId) {
+        Device device = deviceRepository.findById(deviceId)
+                .orElseThrow(() -> new NoSuchElementException("Device not found: " + deviceId));
+
+        // AC8 — cross-tenant guard: locationId must belong to the active tenant
+        UUID tenantId = tenantContext.getTenantId();
+        validateLocationBelongsToTenant(locationId, tenantId);
+
+        device.setLocationId(locationId);
+        Device saved = deviceRepository.save(device);
+        log.info("[devices] Assigned device id={} to location={} tenant={}", deviceId, locationId, tenantId);
+        return saved;
+    }
+
+    /**
+     * Removes the location assignment from a device (E14S08 AC5 — unassign step).
+     *
+     * <p>Sets {@code location_id = NULL}. Idempotent: unassigning an already-unassigned
+     * device returns normally without error.
+     *
+     * @param deviceId the device UUID to unassign
+     * @return the updated device
+     * @throws NoSuchElementException if the device is not found for the active tenant (→ 404)
+     */
+    public Device unassignDeviceLocation(UUID deviceId) {
+        Device device = deviceRepository.findById(deviceId)
+                .orElseThrow(() -> new NoSuchElementException("Device not found: " + deviceId));
+
+        device.setLocationId(null);
+        Device saved = deviceRepository.save(device);
+        log.info("[devices] Unassigned location from device id={} tenant={}", deviceId, device.getTenantId());
+        return saved;
+    }
+
+    /**
+     * Validates that {@code locationId} exists in the {@code locations} table for the given tenant (AC8).
+     *
+     * <p>Uses a direct JDBC query — no LocationRepository exists in this codebase.
+     *
+     * @param locationId the location UUID to validate
+     * @param tenantId   the active tenant UUID
+     * @throws IllegalArgumentException if the location does not exist for this tenant (→ 400)
+     */
+    private void validateLocationBelongsToTenant(UUID locationId, UUID tenantId) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM locations WHERE id = ? AND tenant_id = ?",
+                Integer.class,
+                locationId.toString(),
+                tenantId.toString());
+        if (count == null || count == 0) {
+            throw new IllegalArgumentException(
+                    "Location " + locationId + " does not exist for the active tenant");
+        }
     }
 
     // -------------------------------------------------------------------------

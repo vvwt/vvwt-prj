@@ -3,13 +3,13 @@ package de.vvwt.tm.infrastructure.web;
 import de.vvwt.tm.config.DeviceLimitConfig;
 import de.vvwt.tm.domain.Device;
 import de.vvwt.tm.domain.DeviceService;
+import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.infrastructure.web.dto.DeviceAssignRequest;
 import de.vvwt.tm.infrastructure.web.dto.DeviceConfigureRequest;
 import de.vvwt.tm.infrastructure.web.dto.DeviceRegisterRequest;
 import de.vvwt.tm.infrastructure.web.dto.DeviceRegisterResponse;
 import de.vvwt.tm.infrastructure.web.dto.DeviceStatusResponse;
 import de.vvwt.tm.infrastructure.web.dto.DeviceSummaryResponse;
-import de.vvwt.tm.tenant.DefaultTenantProvider;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * REST controller for device registration and management (E06S03, E06S05, E07S02).
+ * REST controller for device registration and management (E06S03, E06S05, E07S02, E14S08).
  *
  * <h2>Endpoints</h2>
  * <ul>
@@ -45,38 +45,43 @@ import java.util.UUID;
  * <p>Register and status endpoints are public (devices don't log in). Configure and delete
  * endpoints require admin authentication (HTTP Basic, see {@link de.vvwt.tm.auth.SecurityConfig}).
  *
- * <h2>Tenant and location scope (DEC-5, DEC-17)</h2>
- * <p>In V1 default-tenant-LAN mode, all requests resolve to the default tenant via the
- * {@link de.vvwt.tm.domain.repo.DefaultTenantContextResolver} interceptor.
- * The location is resolved via {@link DefaultTenantProvider#getDefaultLocationId()}.
+ * <h2>Tenant scope (DEC-5, DEC-24)</h2>
+ * <p>The tenant context is resolved per HTTP request by {@link de.vvwt.tm.domain.repo.DefaultTenantContextResolver}.
+ * Device registration no longer requires a location at creation time (DEC-24 device-model carve-out):
+ * {@code location_id} is persisted as {@code NULL} and assigned later via
+ * {@link DeviceAdminController} (AC9: {@code DefaultTenantProvider} is NOT used by this class).
  *
+ * @see DeviceAdminController
  * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E06S03.story.md">Story E06S03</a>
  * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E07S02.story.md">Story E07S02</a>
+ * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E14S08.story.md">Story E14S08</a>
  */
 @RestController
 @RequestMapping("/api/devices")
 public class DeviceController {
 
     private final DeviceService deviceService;
-    private final DefaultTenantProvider defaultTenantProvider;
+    private final TenantContext tenantContext;
     private final DeviceLimitConfig deviceLimitConfig;
 
     public DeviceController(DeviceService deviceService,
-                            DefaultTenantProvider defaultTenantProvider,
+                            TenantContext tenantContext,
                             DeviceLimitConfig deviceLimitConfig) {
         this.deviceService = deviceService;
-        this.defaultTenantProvider = defaultTenantProvider;
+        this.tenantContext = tenantContext;
         this.deviceLimitConfig = deviceLimitConfig;
     }
 
     // -------------------------------------------------------------------------
-    // E06S03 AC2 + E07S02 AC1, AC6 — POST /api/devices/register
+    // E06S03 AC2 + E07S02 AC1, AC6 + E14S08 AC3 — POST /api/devices/register
     // -------------------------------------------------------------------------
 
     /**
      * Registers a new device (scoring tablet or display device) and returns its device token.
      *
-     * <p>No authentication required. Tenant and location are resolved from the request context.
+     * <p>No authentication required. Tenant is resolved from the active request context.
+     * Location is NOT required at registration time — per DEC-24, devices are assigned to a
+     * location via a separate admin action ({@link DeviceAdminController}).
      *
      * <ul>
      *   <li>No body or {@code deviceType=SCORING_TABLET}: creates a scoring tablet with a PIN (AC6 backward compat)</li>
@@ -91,14 +96,14 @@ public class DeviceController {
     @PostMapping("/register")
     public ResponseEntity<DeviceRegisterResponse> registerDevice(
             @RequestBody(required = false) DeviceRegisterRequest registerRequest) {
-        UUID tenantId = defaultTenantProvider.getDefaultTenantId();
-        UUID locationId = defaultTenantProvider.getDefaultLocationId();
+        UUID tenantId = tenantContext.getTenantId();
 
         String deviceType = (registerRequest != null && registerRequest.getDeviceType() != null)
                 ? registerRequest.getDeviceType()
                 : Device.TYPE_SCORING_TABLET;
 
-        Device device = deviceService.registerDevice(tenantId, locationId, deviceType);
+        // E14S08 AC3: location_id is null at registration time (DEC-24 device-model carve-out)
+        Device device = deviceService.registerDevice(tenantId, null, deviceType);
         return ResponseEntity.status(201).body(DeviceRegisterResponse.from(device));
     }
 

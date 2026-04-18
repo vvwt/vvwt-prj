@@ -42,6 +42,12 @@ interface DeviceCrudRepository extends CrudRepository<Device, UUID> {
      */
     long countByTenantIdAndLocationIdAndDeviceType(UUID tenantId, UUID locationId, String deviceType);
 
+    /**
+     * Counts devices of a given type within a tenant (E14S08 — location-agnostic display limit).
+     * Used when devices register without a location (DEC-24).
+     */
+    long countByTenantIdAndDeviceType(UUID tenantId, String deviceType);
+
     // Note: No deleteByIdAndTenantId — Spring Data JDBC does not support compound deletes cleanly.
     // Deletion is performed via findById (tenant-scoped) + deleteById in DeviceRepository.
 }
