@@ -8,6 +8,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import javax.sql.DataSource;
 import java.io.IOException;
@@ -58,6 +60,24 @@ import java.util.UUID;
  * <p>This class does NOT import or reference any {@code de.vvwt.tm.auth.*} type.
  * Admin credentials are E15's concern. This runner produces a tenant and registers it, nothing more.
  *
+ * <h2>AC11 — Idempotency guard for UUID reconciliation (E14S12)</h2>
+ * <p>Before generating a new UUID, this runner executes a
+ * {@code SELECT id FROM tenants LIMIT 1} query on the shared JPA {@link JdbcTemplate}.
+ * If the legacy {@code DefaultTenantBootstrap} ({@code @Order(1)}) has already written UUID-A
+ * to the shared {@code TENANTS} JPA table, this runner picks up UUID-A and uses it as the
+ * file-registry UUID — ensuring the HTTP interceptor resolves the same UUID as the JPA layer.
+ * Without this guard, the runner would generate an independent UUID-B, causing FK violations
+ * on every JPA insert (135 test failures observed in the initial E14S12 delivery attempt).
+ *
+ * <p>When the legacy {@code DefaultTenantBootstrap} is deleted at E14S07 cutover, the JPA
+ * {@code TENANTS} table is empty on true fresh-start. The {@code orElseGet} fallback
+ * generates a new UUID via {@code UUID.randomUUID()}, which is then the UUID-of-record
+ * (per DEC-17 amendment). The guard is forward-compatible.
+ *
+ * <p>If the shared JPA query throws {@link DataAccessException} (connectivity failure),
+ * the runner surfaces an {@link IllegalStateException} with message containing
+ * "idempotency guard" and does NOT write the file registry with a guessed UUID.
+ *
  * <h2>@Order(2) rationale</h2>
  * <p>The legacy {@code DefaultTenantBootstrap} runs at {@code @Order(1)}. This runner is placed
  * at {@code @Order(2)} to ensure the legacy infrastructure has run first during the parallel phase.
@@ -70,6 +90,7 @@ import java.util.UUID;
  * @see TenantDirectoryHelper
  * @see PerTenantFlywayRunner
  * @see <a href="../../../../../../../../docs/governance/stories/E14S05.story.md">Story E14S05</a>
+ * @see <a href="../../../../../../../../docs/governance/stories/E14S12.story.md">Story E14S12 (AC11 idempotency guard)</a>
  * @see <a href="../../../../../../../../docs/governance/decisions/DEC-17.md">DEC-17 (generated UUID)</a>
  * @see <a href="../../../../../../../../docs/governance/decisions/DEC-20.md">DEC-20 (DB-per-Tenant)</a>
  * @see <a href="../../../../../../../../docs/governance/decisions/DEC-21.md">DEC-21 (no feature flags)</a>
@@ -88,16 +109,26 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
     private final Path dataDir;
 
     /**
+     * Shared JPA {@link JdbcTemplate} — used by the AC11 idempotency guard to query
+     * the {@code TENANTS} table before generating a new UUID.
+     *
+     * <p>Never {@code null}. Injected from the shared (legacy) Spring DataSource bean.
+     */
+    private final JdbcTemplate sharedJdbcTemplate;
+
+    /**
      * Constructs a {@code DefaultTenantBootstrapRunner}.
      *
-     * @param registry     the tenant registry for existence checks and registration; must not be {@code null}
-     * @param flywayRunner the per-tenant Flyway runner for applying schema migrations; must not be {@code null}
-     * @param dataDir      the root data directory ({@code ${tm.data.dir}}); must not be {@code null}
+     * @param registry             the tenant registry for existence checks and registration; must not be {@code null}
+     * @param flywayRunner         the per-tenant Flyway runner for applying schema migrations; must not be {@code null}
+     * @param dataDir              the root data directory ({@code ${tm.data.dir}}); must not be {@code null}
+     * @param sharedJdbcTemplate   the shared JPA JdbcTemplate for the AC11 idempotency guard; must not be {@code null}
      * @throws IllegalArgumentException if any argument is {@code null}
      */
     public DefaultTenantBootstrapRunner(TenantRegistryPort registry,
                                         PerTenantFlywayRunner flywayRunner,
-                                        Path dataDir) {
+                                        Path dataDir,
+                                        JdbcTemplate sharedJdbcTemplate) {
         if (registry == null) {
             throw new IllegalArgumentException("registry must not be null");
         }
@@ -107,9 +138,13 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
         if (dataDir == null) {
             throw new IllegalArgumentException("dataDir must not be null");
         }
+        if (sharedJdbcTemplate == null) {
+            throw new IllegalArgumentException("sharedJdbcTemplate must not be null");
+        }
         this.registry = registry;
         this.flywayRunner = flywayRunner;
         this.dataDir = dataDir;
+        this.sharedJdbcTemplate = sharedJdbcTemplate;
     }
 
     // -------------------------------------------------------------------------
@@ -148,19 +183,27 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
     // -------------------------------------------------------------------------
 
     /**
-     * Full first-start creation flow: generate UUID, create directory, run Flyway, register.
+     * Full first-start creation flow: reconcile UUID via AC11 guard, create directory,
+     * run Flyway, register.
      *
      * <p>Ordering invariant (AC5): Flyway runs BEFORE registry registration. A failed migration
      * leaves NO registry entry — the application startup fails fast with the Flyway exception.
+     *
+     * <p>AC11 — idempotency guard (E14S12): before generating a new UUID, queries the shared
+     * JPA DataSource for an existing {@code TENANTS} row. If one exists (written by the legacy
+     * {@code DefaultTenantBootstrap} at {@code @Order(1)}), that UUID is used — reconciling
+     * the parallel-phase divergence between UUID-A (JPA) and UUID-B (file registry).
      *
      * <p>Concurrent-race handling (AC6): if {@link TenantFileRegistry.DuplicateTenantException}
      * is thrown on register(), this runner was the loser. It deletes its own newly-created
      * directory (self-cleanup) and logs the outcome. The winner's entry is already in the registry.
      */
     private void createDefaultTenant() {
-        // AC4 / DEC-17: UUID.randomUUID() uses SecureRandom per the Java SE spec.
-        // Never hardcoded — each self-hosted instance generates its own UUID.
-        UUID tenantId = UUID.randomUUID();
+        // AC11 / DEC-17: read-before-generate idempotency guard.
+        // Query the shared JPA TENANTS table for an existing default tenant UUID.
+        // If the legacy DefaultTenantBootstrap (@Order(1)) already wrote UUID-A, use it.
+        // If the table is empty (true fresh-start or post-E14S07-cutover), generate UUID.
+        UUID tenantId = resolveOrGenerateTenantUuid();
 
         // Step 4: Create the tenant H2 directory
         TenantDirectoryHelper.createTenantDirectory(dataDir, tenantId);
@@ -186,6 +229,49 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
                     + "'Default (LAN)'. Self-cleaning our directory UUID={} and deferring to winner. (AC6)",
                     tenantId);
             deleteTenantDirectory(tenantId);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Internal — AC11 idempotency guard
+    // -------------------------------------------------------------------------
+
+    /**
+     * AC11 idempotency guard — reads the shared JPA {@code TENANTS} table for an existing UUID.
+     *
+     * <p>Query: {@code SELECT id FROM TENANTS LIMIT 1}.
+     * <ul>
+     *   <li>If a row exists → parse the UUID string and return it (UUID-A from legacy bootstrap).</li>
+     *   <li>If the table is empty (null result) → generate {@code UUID.randomUUID()} (true fresh-start).</li>
+     *   <li>If the query throws {@link DataAccessException} → surface typed
+     *       {@link IllegalStateException} with message containing "idempotency guard";
+     *       do NOT fall back to a random UUID (AC11: no guessed write).</li>
+     * </ul>
+     *
+     * @return the UUID to use for this bootstrap run; never {@code null}
+     * @throws IllegalStateException if the shared JPA DataSource cannot be queried (AC11)
+     */
+    private UUID resolveOrGenerateTenantUuid() {
+        try {
+            String existingId = sharedJdbcTemplate.queryForObject(
+                    "SELECT id FROM TENANTS LIMIT 1", String.class);
+            if (existingId != null) {
+                UUID resolved = UUID.fromString(existingId);
+                log.info("[tm-e14s12] AC11 idempotency guard: found existing JPA tenant UUID={} — "
+                        + "using this UUID for file registry (UUID reconciliation, parallel-phase). ", resolved);
+                return resolved;
+            }
+            // JPA table empty — true fresh-start or post-E14S07-cutover
+            UUID generated = UUID.randomUUID();
+            log.info("[tm-e14s12] AC11 idempotency guard: JPA TENANTS table empty — "
+                    + "generating new UUID={} (DEC-17 amendment).", generated);
+            return generated;
+        } catch (DataAccessException e) {
+            throw new IllegalStateException(
+                    "[tm-e14s12] AC11 idempotency guard: cannot query shared JPA TENANTS table to reconcile UUID. "
+                    + "Bootstrap will NOT proceed to avoid writing the file registry with a guessed UUID. "
+                    + "Ensure the shared DataSource is healthy before starting. "
+                    + "Underlying error: " + e.getMessage(), e);
         }
     }
 

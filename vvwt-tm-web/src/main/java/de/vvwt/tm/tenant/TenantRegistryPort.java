@@ -102,6 +102,43 @@ public interface TenantRegistryPort {
     List<TenantRecord> findAll();
 
     /**
+     * Returns the UUID of the unique default tenant (the tenant whose display name is
+     * {@code "Default (LAN)"}, as bootstrapped by E14S05).
+     *
+     * <p>In Wave-1 LAN mode, exactly one default tenant exists at all times after the bootstrap
+     * phase completes. This method provides direct access to its UUID without requiring callers
+     * to filter {@link #findAll()}.
+     *
+     * <h2>DEC-24 mandate</h2>
+     * <p>DEC-24 mandates that all consumers of the legacy {@code DefaultTenantProvider} interface
+     * migrate to the new {@code tenant::api}. This method is the replacement for
+     * {@code DefaultTenantProvider.getDefaultTenantId()} — mandated by DEC-24.
+     *
+     * <h2>Caching semantics</h2>
+     * <p>Implementations MAY cache the default tenant's UUID after the first successful lookup.
+     * In Wave-1 LAN mode the default tenant UUID is stable for the lifetime of the process
+     * (bootstrapped once, never changed). Cache invalidation is out of Wave-1 scope.
+     * Implementations that do NOT cache re-scan the registry on every call — acceptable for
+     * small registries (Wave-1 has at most one tenant).
+     *
+     * <h2>Error semantics</h2>
+     * <p>If the registry contains zero tenants with the default display name, the implementation
+     * throws {@link IllegalStateException} with message
+     * {@code "no default tenant registered \u2014 bootstrap not complete"}.
+     * If the registry contains more than one tenant with the default display name (invariant
+     * violation), the implementation throws {@link IllegalStateException} with message
+     * {@code "registry violates single-default invariant"}.
+     *
+     * @return the UUID of the unique default tenant; never {@code null}
+     * @throws IllegalStateException if no default tenant is registered (bootstrap not complete)
+     * @throws IllegalStateException if multiple default tenants are registered (invariant violated)
+     * @see <a href="../../../../../../../../docs/governance/decisions/DEC-24.md">DEC-24 (mandate)</a>
+     * @see <a href="../../../../../../../../docs/governance/stories/E14S05.story.md">E14S05 (bootstrap)</a>
+     * @see <a href="../../../../../../../../docs/governance/stories/E14S12.story.md">E14S12 (this extension)</a>
+     */
+    UUID getDefault();
+
+    /**
      * An immutable record representing a registered tenant entry in the registry.
      *
      * <p>The tenant identifier is UUID-based per DEC-17. The {@code displayName} is a
