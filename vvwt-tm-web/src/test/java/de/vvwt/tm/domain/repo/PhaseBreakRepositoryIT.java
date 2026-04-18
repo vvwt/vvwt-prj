@@ -5,12 +5,13 @@ import de.vvwt.tm.domain.MatchFormat;
 import de.vvwt.tm.domain.Phase;
 import de.vvwt.tm.domain.PhaseBreak;
 import de.vvwt.tm.domain.Tournament;
-import de.vvwt.tm.tenant.TenantRegistryPort;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,13 +46,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
                     + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
+@Import(TenantContextTestSupport.class)
 class PhaseBreakRepositoryIT {
 
     @Autowired
     private TenantContext tenantContext;
 
     @Autowired
-    private TenantRegistryPort tenantRegistryPort;
+    private TenantContextTestSupport.Binder tenantContextBinder;
 
     @Autowired
     private TournamentRepository tournamentRepository;
@@ -67,14 +69,15 @@ class PhaseBreakRepositoryIT {
 
     @BeforeEach
     void setUpTenantContext() {
-        tenantId = tenantRegistryPort.findAll().get(0).tenantId();
+        tenantId = tenantContextBinder.bindDefaultTenant();
         otherTenantId = UUID.randomUUID();
-        TenantContextTestHelper.set(tenantContext, tenantId);
+        tenantContext.set(tenantId);
     }
 
     @AfterEach
     void clearTenantContext() {
-        TenantContextTestHelper.clear(tenantContext);
+        tenantContext.clear();
+        tenantContextBinder.unbind();
     }
 
     // =========================================================================
@@ -176,10 +179,15 @@ class PhaseBreakRepositoryIT {
      */
     @Test
     void findByPhaseId_withoutTenantContext_throwsIllegalStateException() {
-        TenantContextTestHelper.clear(tenantContext);
-
-        assertThatThrownBy(() -> phaseBreakRepository.findByPhaseId(UUID.randomUUID()))
-                .isInstanceOf(IllegalStateException.class);
+        tenantContextBinder.unbind();
+        tenantContext.clear();
+        try {
+            assertThatThrownBy(() -> phaseBreakRepository.findByPhaseId(UUID.randomUUID()))
+                    .isInstanceOf(IllegalStateException.class);
+        } finally {
+            tenantId = tenantContextBinder.bindDefaultTenant();
+            tenantContext.set(tenantId);
+        }
     }
 
     /**
@@ -187,10 +195,15 @@ class PhaseBreakRepositoryIT {
      */
     @Test
     void findByPhaseIdAndAfterLapNumber_withoutTenantContext_throwsIllegalStateException() {
-        TenantContextTestHelper.clear(tenantContext);
-
-        assertThatThrownBy(() -> phaseBreakRepository.findByPhaseIdAndAfterLapNumber(UUID.randomUUID(), 1))
-                .isInstanceOf(IllegalStateException.class);
+        tenantContextBinder.unbind();
+        tenantContext.clear();
+        try {
+            assertThatThrownBy(() -> phaseBreakRepository.findByPhaseIdAndAfterLapNumber(UUID.randomUUID(), 1))
+                    .isInstanceOf(IllegalStateException.class);
+        } finally {
+            tenantId = tenantContextBinder.bindDefaultTenant();
+            tenantContext.set(tenantId);
+        }
     }
 
     // =========================================================================

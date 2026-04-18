@@ -9,12 +9,13 @@ import de.vvwt.tm.domain.repo.ActivityTypeRepository;
 import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.domain.repo.TournamentRepository;
 import de.vvwt.tm.infrastructure.web.ConflictException;
-import de.vvwt.tm.tenant.TenantRegistryPort;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,6 +53,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
                     + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
+@Import(TenantContextTestSupport.class)
 class E08S02MigrationIT {
 
     @Autowired
@@ -61,7 +63,7 @@ class E08S02MigrationIT {
     private TenantContext tenantContext;
 
     @Autowired
-    private TenantRegistryPort tenantRegistryPort;
+    private TenantContextTestSupport.Binder tenantContextBinder;
 
     @Autowired
     private ActivityTypeRepository activityTypeRepository;
@@ -76,13 +78,12 @@ class E08S02MigrationIT {
 
     @BeforeEach
     void setUpTenantContext() {
-        defaultTenantId = tenantRegistryPort.findAll().get(0).tenantId();
-        tenantContext.set(defaultTenantId);
+        defaultTenantId = tenantContextBinder.bindDefaultTenant();
     }
 
     @AfterEach
     void clearTenantContext() {
-        tenantContext.clear();
+        tenantContextBinder.unbind();
     }
 
     // =========================================================================
@@ -396,22 +397,30 @@ class E08S02MigrationIT {
 
     @Test
     void repositoryGuardFiresWithoutTenantContext() {
+        tenantContextBinder.unbind();
         tenantContext.clear();
-
-        assertThatThrownBy(() -> activityTypeRepository.findAll())
-                .as("AC7 — repository guard must fire before SQL when no tenant context")
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("No active TenantContext");
+        try {
+            assertThatThrownBy(() -> activityTypeRepository.findAll())
+                    .as("AC7 — repository guard must fire before SQL when no tenant context")
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("No active TenantContext");
+        } finally {
+            defaultTenantId = tenantContextBinder.bindDefaultTenant();
+        }
     }
 
     @Test
     void repositoryGuardFiresOnFindByTournamentIdWithoutTenantContext() {
+        tenantContextBinder.unbind();
         tenantContext.clear();
-
-        assertThatThrownBy(() -> activityTypeRepository.findByTournamentId(UUID.randomUUID()))
-                .as("AC7 — findByTournamentId must guard on tenant context")
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("No active TenantContext");
+        try {
+            assertThatThrownBy(() -> activityTypeRepository.findByTournamentId(UUID.randomUUID()))
+                    .as("AC7 — findByTournamentId must guard on tenant context")
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("No active TenantContext");
+        } finally {
+            defaultTenantId = tenantContextBinder.bindDefaultTenant();
+        }
     }
 
     // =========================================================================

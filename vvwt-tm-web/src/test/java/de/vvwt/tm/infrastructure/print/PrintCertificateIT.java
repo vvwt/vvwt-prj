@@ -9,8 +9,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
@@ -21,6 +25,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -81,6 +87,7 @@ import static org.assertj.core.api.Assertions.assertThat;
                 "tm.certificate-templates.max-size-bytes=1048576"
         })
 @ActiveProfiles("test")
+@Import(TenantContextTestSupport.class)
 @DisplayName("PrintController IT — E12S06: certificate rendering routes")
 class PrintCertificateIT {
 

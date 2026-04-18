@@ -9,12 +9,13 @@ import de.vvwt.tm.domain.PhasePreparationService;
 import de.vvwt.tm.domain.Team;
 import de.vvwt.tm.domain.TeamAvatar;
 import de.vvwt.tm.domain.Tournament;
-import de.vvwt.tm.tenant.TenantRegistryPort;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,11 +53,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
                     + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
+@Import(TenantContextTestSupport.class)
 class PhasePreparationServiceIT {
 
     @Autowired private PhasePreparationService phasePreparationService;
-    @Autowired private TenantContext tenantContext;
-    @Autowired private TenantRegistryPort tenantRegistryPort;
+    @Autowired private TenantContextTestSupport.Binder tenantContextBinder;
     @Autowired private TournamentRepository tournamentRepository;
     @Autowired private PhaseRepository phaseRepository;
     @Autowired private TeamRepository teamRepository;
@@ -67,13 +68,12 @@ class PhasePreparationServiceIT {
 
     @BeforeEach
     void setUpTenantContext() {
-        defaultTenantId = tenantRegistryPort.findAll().get(0).tenantId();
-        tenantContext.set(defaultTenantId);
+        defaultTenantId = tenantContextBinder.bindDefaultTenant();
     }
 
     @AfterEach
     void clearTenantContext() {
-        tenantContext.clear();
+        tenantContextBinder.unbind();
     }
 
     // =========================================================================

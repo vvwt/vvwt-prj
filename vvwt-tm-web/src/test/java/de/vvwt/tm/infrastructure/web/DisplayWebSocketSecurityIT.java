@@ -7,7 +7,7 @@ import de.vvwt.tm.domain.Device;
 import de.vvwt.tm.domain.repo.DeviceRepository;
 import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.domain.repo.TenantContextTestHelper;
-import de.vvwt.tm.tenant.TenantRegistryPort;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,6 +22,7 @@ import org.springframework.messaging.simp.stomp.StompHeaders;
 import org.springframework.messaging.simp.stomp.StompSession;
 import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
@@ -72,6 +73,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
                         + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
+@Import(TenantContextTestSupport.class)
 class DisplayWebSocketSecurityIT {
 
     static final String TEST_PASSWORD = "DisplayWsTest22AB";
@@ -81,21 +83,22 @@ class DisplayWebSocketSecurityIT {
 
     @Autowired private DeviceRepository deviceRepository;
     @Autowired private TenantContext tenantContext;
-    @Autowired private TenantRegistryPort tenantRegistryPort;
+    @Autowired private TenantContextTestSupport.Binder tenantContextBinder;
 
     private UUID defaultTenantId;
     private String wsUrl;
 
     @BeforeEach
     void setUp() {
-        defaultTenantId = tenantRegistryPort.findAll().get(0).tenantId();
+        defaultTenantId = tenantContextBinder.bindDefaultTenant();
         wsUrl = "http://localhost:" + port + "/ws";
-        TenantContextTestHelper.set(tenantContext, defaultTenantId);
+        tenantContext.set(defaultTenantId);
     }
 
     @AfterEach
     void tearDown() {
-        TenantContextTestHelper.clear(tenantContext);
+        tenantContext.clear();
+        tenantContextBinder.unbind();
     }
 
     // -------------------------------------------------------------------------

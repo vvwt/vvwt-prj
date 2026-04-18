@@ -7,8 +7,12 @@ import de.vvwt.tm.infrastructure.web.dto.DeviceSummaryResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
@@ -17,6 +21,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 import javax.sql.DataSource;
@@ -53,6 +59,7 @@ import static org.assertj.core.api.Assertions.assertThat;
                         + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
+@Import(TenantContextTestSupport.class)
 class DeviceE14S08IT {
 
     static final String TEST_PASSWORD = "E14S08ItTest01";

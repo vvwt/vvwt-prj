@@ -7,6 +7,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
@@ -17,6 +19,8 @@ import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.messaging.simp.stomp.StompSession;
 import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
@@ -56,6 +60,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         },
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
+@Import(TenantContextTestSupport.class)
 class WebSocketSecurityIT {
 
     static final String TEST_PASSWORD = "WsTestPass99XY";
