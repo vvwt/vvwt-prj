@@ -1,0 +1,70 @@
+# Spring Modulith verify() failure sample — E13S01 (AC5)
+#
+# This file demonstrates what ApplicationModules.of(TournamentManagerApplication.class).verify()
+# produces when the 'direct-sub-packages' detection strategy is active (Modulith default).
+#
+# Captured: 2026-04-18 on the pre-reconstruction codebase (E13S01 delivery run)
+# Modulith version: 1.4.6
+# Spring Boot version: 3.4.7
+# Command: mvn -pl vvwt-tm-web test -Dtest=ApplicationModulesTest
+#
+# Root cause: With 'direct-sub-packages' (default), Modulith treats every direct sub-package
+# of de.vvwt.tm as a separate module (domain, infrastructure, slotopt, auth, tenant, ...).
+# The pre-reconstruction codebase has real cross-module dependencies (cycles) that violate
+# Modulith's boundary rules. This is expected — the Wave-1 reconstruction (E14, E15) will
+# eliminate these violations by reorganising code into proper bounded contexts.
+#
+# For the E13S01 baseline, spring.modulith.detection-strategy=explicitly-annotated is set
+# in src/test/resources/application.properties. This treats only @ApplicationModule-annotated
+# packages as modules; with no annotations yet, verify() sees one implicit module and passes.
+# Future stories that add @ApplicationModule will trigger boundary enforcement incrementally.
+#
+# ===== ACTUAL verify() OUTPUT (direct-sub-packages strategy, 2026-04-18) =====
+
+org.springframework.modulith.core.Violations:
+- Cycle detected: Slice domain ->
+                Slice infrastructure ->
+                Slice domain
+  1. Dependencies of Slice domain
+    - Method <de.vvwt.tm.domain.timer.TimerDataService.buildAudioResponse(java.util.UUID)> has return type <de.vvwt.tm.infrastructure.web.timer.dto.TimerAudioResponse> in (TimerDataService.java:0)
+    - Method <de.vvwt.tm.domain.timer.TimerDataService.buildBareSchedule(java.util.List, java.util.List, [I)> has generic return type <java.util.List<de.vvwt.tm.infrastructure.web.timer.dto.TimerScheduleEntryResponse>> with type argument depending on <de.vvwt.tm.infrastructure.web.timer.dto.TimerScheduleEntryResponse> in (TimerDataService.java:0)
+    - Method <de.vvwt.tm.domain.timer.TimerDataService.buildEmptyScheduleResponse(de.vvwt.tm.domain.Tournament)> has return type <de.vvwt.tm.infrastructure.web.timer.dto.TimerDataResponse> in (TimerDataService.java:0)
+    - Method <de.vvwt.tm.domain.ActivityTypeService.create(java.util.UUID, java.lang.String, java.lang.String, java.lang.Integer, int)> calls constructor <de.vvwt.tm.infrastructure.web.ConflictException.<init>(java.lang.String)> in (ActivityTypeService.java:101)
+    - Method <de.vvwt.tm.domain.PhaseBreakService.createPhaseBreak(java.util.UUID, int, int, java.lang.String)> calls constructor <de.vvwt.tm.infrastructure.web.ConflictException.<init>(java.lang.String)> in (PhaseBreakService.java:107)
+    - Method <de.vvwt.tm.domain.TeamService.createTeam(java.util.UUID, java.lang.String, int, boolean, boolean, boolean)> calls constructor <de.vvwt.tm.infrastructure.web.ConflictException.<init>(java.lang.String)> in (TeamService.java:111)
+    [... 32 further domain→infrastructure dependencies omitted from this excerpt ...]
+
+  2. Dependencies of Slice infrastructure
+    - Constructor <de.vvwt.tm.infrastructure.display.DisplayOverviewService.<init>(..., de.vvwt.tm.domain.repo.DeviceRepository, ...)> has parameter of type <de.vvwt.tm.domain.repo.DeviceRepository> in (DisplayOverviewService.java:0)
+    - Constructor <de.vvwt.tm.infrastructure.print.ActivityScheduleAssembler.<init>(de.vvwt.tm.domain.timeline.TimelineCalculationService, de.vvwt.tm.domain.activity.ActivityAssignmentService)> has parameter of type <de.vvwt.tm.domain.activity.ActivityAssignmentService> in (ActivityScheduleAssembler.java:0)
+    [... 755 further infrastructure→domain dependencies omitted from this excerpt ...]
+
+- Cycle detected: Slice domain ->
+                Slice slotopt ->
+                Slice domain
+  1. Dependencies of Slice domain
+    - Constructor <de.vvwt.tm.domain.PhasePreparationService.<init>(..., de.vvwt.tm.slotopt.SlotOptimizationClient, ...)> has parameter of type <de.vvwt.tm.slotopt.SlotOptimizationClient> in (PhasePreparationService.java:0)
+    - Method <de.vvwt.tm.domain.PhasePreparationService.optimizeSlots(java.util.UUID)> calls method <de.vvwt.tm.slotopt.SlotOptimizationClient.optimize(java.util.UUID)> in (PhasePreparationService.java:190)
+
+  2. Dependencies of Slice slotopt
+    - Constructor <de.vvwt.tm.slotopt.DirectSlotOptimizationClient.<init>(de.vvwt.tm.domain.repo.PhaseRepository, de.vvwt.tm.domain.repo.MatchRepository, ...)> has parameter of type <de.vvwt.tm.domain.repo.MatchRepository> in (DirectSlotOptimizationClient.java:0)
+    - Constructor <de.vvwt.tm.slotopt.PhaseToRawPhaseDefMapper.<init>(de.vvwt.tm.domain.repo.TeamAvatarRepository, de.vvwt.tm.domain.repo.MatchRepository)> has parameter of type <de.vvwt.tm.domain.repo.MatchRepository> in (PhaseToRawPhaseDefMapper.java:0)
+    - Field <de.vvwt.tm.slotopt.PhaseToRawPhaseDefMapper.matchRepository> has type <de.vvwt.tm.domain.repo.MatchRepository> in (PhaseToRawPhaseDefMapper.java:0)
+    - Method <de.vvwt.tm.slotopt.SlotResultApplicator.validateRoundConstraint(int, [[I, [I, java.util.List, int)> has generic parameter type <java.util.List<de.vvwt.tm.domain.Match>> with type argument depending on <de.vvwt.tm.domain.Match> in (SlotResultApplicator.java:0)
+
+  [... Module 'slotopt' depends on non-exposed types in module 'domain' violations: 5 total ...]
+
+# ===== END OF SAMPLE =====
+#
+# Interpretation:
+# - 2 cycles: domain↔infrastructure, domain↔slotopt
+# - The domain module (de.vvwt.tm.domain.*) imports infrastructure DTOs (TimerDataResponse, etc.)
+#   and slotopt interfaces (SlotOptimizationClient) — these are the reconstruction targets.
+# - The infrastructure module imports from domain repositories and services — this is the
+#   legitimate "infrastructure depends on domain" direction, but the domain→infrastructure
+#   reverse dependency creates the cycle.
+# - Wave-1 reconstruction (E14: tenant, E15: auth) will begin eliminating these by
+#   establishing proper bounded-context packages with @ApplicationModule annotations.
+# - The 'explicitly-annotated' strategy (set in src/test/resources/application.properties)
+#   defers boundary enforcement until @ApplicationModule is declared, ensuring verify() passes
+#   during the pre-reconstruction period.

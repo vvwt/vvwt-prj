@@ -114,16 +114,16 @@
         <!-- Spring Modulith — bounded-context enforcement (DEC-21, E13S01).
              1.4.x line: matches SB 3.4.7 baseline (DEC-10 fallback period; upgrade to 2.x when SB → 4.x).
              spring-modulith-starter-core: ApplicationModules scanning + verify() test support.
-             spring-modulith-starter-jpa: event-publication integration for future cross-context events
-             (E14+ will publish domain events; included here so the integration is wire-ready).
+             NOTE (E13S01): spring-modulith-starter-jpa is intentionally EXCLUDED at this stage.
+             The JPA starter auto-configures JpaEventPublicationRepository which requires a
+             jakarta.persistence.EntityManager. The project uses Spring Data JDBC (not JPA) —
+             EntityManager is not available in the application context. Adding JPA event
+             publication will be deferred to a future story when full JPA support is introduced.
+             See impl-report E13S01 friction log.
              Versions managed by parent POM spring-modulith-bom (DEC-10 C-1 — no version pin here). -->
         <dependency>
             <groupId>org.springframework.modulith</groupId>
             <artifactId>spring-modulith-starter-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.modulith</groupId>
-            <artifactId>spring-modulith-starter-jpa</artifactId>
         </dependency>
 
         <!-- Test dependencies -->
