@@ -8,11 +8,12 @@
  * <p>Types in {@code de.vvwt.tm.tenant.internal} are implementation details
  * and MUST NOT be accessed by any other module.
  *
- * <p>Public API surface defined in E14S01:
+ * <p>Public API surface:
  * <ul>
- *   <li>{@link de.vvwt.tm.tenant.TenantContext} — current-thread tenant identifier</li>
- *   <li>{@link de.vvwt.tm.tenant.TenantDataSourceResolver} — per-tenant DataSource routing</li>
- *   <li>{@link de.vvwt.tm.tenant.TenantRegistryPort} — tenant existence lookup</li>
+ *   <li>{@link de.vvwt.tm.tenant.TenantContext} — current-thread tenant identifier (E14S01)</li>
+ *   <li>{@link de.vvwt.tm.tenant.TenantDataSourceResolver} — per-tenant DataSource routing (E14S01)</li>
+ *   <li>{@link de.vvwt.tm.tenant.TenantRegistryPort} — tenant existence lookup (E14S01)</li>
+ *   <li>{@link de.vvwt.tm.tenant.LocationContext} — current-thread location identifier (E14S09, DEC-24 D2)</li>
  * </ul>
  *
  * <p>Legacy types ({@link de.vvwt.tm.tenant.DefaultTenantProvider},
