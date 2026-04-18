@@ -157,6 +157,56 @@ public class TenantFileRegistry implements TenantRegistryPort {
         return Collections.unmodifiableList(new ArrayList<>(inMemoryRegistry.values()));
     }
 
+    /**
+     * Atomically registers the tenant only if no entry with the given {@code displayName}
+     * is already present in the registry. Used by {@link DefaultTenantBootstrapRunner} to
+     * prevent duplicate default-tenant entries under concurrent first-start scenarios (E14S05 AC6).
+     *
+     * <p>This method is intentionally package-private — it is an implementation detail of the
+     * {@code tenant.internal} package and MUST NOT be called from outside this package.
+     * It is NOT part of the {@link de.vvwt.tm.tenant.TenantRegistryPort} public API.
+     *
+     * <h2>Atomicity</h2>
+     * <p>Both the existence check and the write are performed inside the same {@code synchronized}
+     * block. This makes "check + register" atomic with respect to other threads that call
+     * {@link #register} or {@link #findAll} on the same instance.
+     *
+     * @param tenantId    the UUID of the new tenant; must not be {@code null}
+     * @param displayName the display name to check for uniqueness; must not be {@code null}
+     * @return {@code true} if the registration succeeded (no prior entry with this displayName);
+     *         {@code false} if an entry with the same displayName already existed (concurrent winner)
+     * @throws IllegalArgumentException if {@code tenantId} or {@code displayName} is null
+     * @throws IllegalStateException    if the registry file cannot be written
+     * @see DefaultTenantBootstrapRunner
+     * @see <a href="../../../../../../../../docs/governance/stories/E14S05.story.md">Story E14S05 AC6</a>
+     */
+    synchronized boolean registerIfDisplayNameAbsent(UUID tenantId, String displayName) {
+        if (tenantId == null) {
+            throw new IllegalArgumentException("tenantId must not be null");
+        }
+        if (displayName == null) {
+            throw new IllegalArgumentException("displayName must not be null");
+        }
+
+        // Check if any entry with this displayName already exists
+        boolean alreadyExists = inMemoryRegistry.values().stream()
+                .anyMatch(r -> displayName.equals(r.displayName()));
+
+        if (alreadyExists) {
+            return false; // Concurrent winner already registered this displayName
+        }
+
+        // Also check by UUID (DuplicateTenantException safety)
+        if (inMemoryRegistry.containsKey(tenantId)) {
+            throw new DuplicateTenantException(tenantId);
+        }
+
+        TenantRecord record = new TenantRecord(tenantId, displayName);
+        inMemoryRegistry.put(tenantId, record);
+        persistRegistryToFile();
+        return true;
+    }
+
     // -------------------------------------------------------------------------
     // Internal helpers
     // -------------------------------------------------------------------------

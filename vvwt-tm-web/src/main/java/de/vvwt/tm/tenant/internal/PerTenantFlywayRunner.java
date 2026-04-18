@@ -112,6 +112,37 @@ public class PerTenantFlywayRunner {
         // AC6: resolve() throws UnknownTenantException for unregistered tenants — propagated unchanged
         DataSource dataSource = resolver.resolve(tenantId);
 
+        runWithDataSource(tenantId, dataSource);
+    }
+
+    /**
+     * Runs all pending Flyway migrations against the provided DataSource, using the same
+     * module-ordered migration locations as {@link #run(UUID)}.
+     *
+     * <p>Package-private to allow {@link DefaultTenantBootstrapRunner} to run migrations
+     * BEFORE registering the tenant in the registry — which is necessary to ensure that a
+     * failed migration does NOT leave a registry entry pointing to an incomplete database
+     * (E14S05 AC5). This method does NOT perform a registry existence check; callers are
+     * responsible for providing a valid DataSource.
+     *
+     * <p>Subsequent calls with the same DataSource are idempotent — Flyway skips already-applied
+     * migrations based on {@code flyway_schema_history}.
+     *
+     * @param tenantId   the tenant UUID (used only for logging context); must not be {@code null}
+     * @param dataSource the DataSource to run migrations against; must not be {@code null}
+     * @throws IllegalArgumentException                        if {@code tenantId} or {@code dataSource} is {@code null}
+     * @throws org.flywaydb.core.api.FlywayException           if a migration fails; propagated unchanged
+     * @see DefaultTenantBootstrapRunner
+     * @see <a href="../../../../../../../../docs/governance/stories/E14S05.story.md">Story E14S05 AC5</a>
+     */
+    public void runWithDataSource(UUID tenantId, DataSource dataSource) {
+        if (tenantId == null) {
+            throw new IllegalArgumentException("tenantId must not be null");
+        }
+        if (dataSource == null) {
+            throw new IllegalArgumentException("dataSource must not be null");
+        }
+
         List<String> locations = buildLocations();
 
         if (locations.isEmpty()) {
@@ -124,7 +155,7 @@ public class PerTenantFlywayRunner {
                 .locations(locations.toArray(String[]::new))
                 .load();
 
-        // AC4: FlywayException propagates — no try/catch. AC5: Flyway skips applied migrations.
+        // FlywayException propagates — no try/catch. Flyway skips applied migrations (idempotent).
         flyway.migrate();
     }
 

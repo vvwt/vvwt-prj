@@ -130,4 +130,33 @@ public class TenantContextConfiguration {
     public PerTenantFlywayRunner perTenantFlywayRunner(TenantDataSourceResolver tenantDataSourceResolver) {
         return new PerTenantFlywayRunner(tenantDataSourceResolver, TournamentManagerApplication.class);
     }
+
+    /**
+     * {@link DefaultTenantBootstrapRunner} bean — bootstraps the default tenant on first start.
+     *
+     * <p>Runs as an {@link ApplicationRunner} at {@code @Order(2)}, after the legacy
+     * {@code DefaultTenantBootstrap} at {@code @Order(1)} (parallel-phase coexistence per DEC-21).
+     * Uses {@link TenantRegistryPort}, {@link PerTenantFlywayRunner}, and the data directory
+     * to: detect orphans, check for prior registration, create the default tenant's H2 file,
+     * run per-tenant Flyway migrations, and register the tenant in the JSON registry.
+     *
+     * <p>{@link ConditionalOnMissingBean} allows test configurations to supply a no-op
+     * {@link ApplicationRunner} instead (avoids real Flyway runs in Spring context tests
+     * that use the default {@code application-test.yml} with an in-memory DataSource).
+     *
+     * @see DefaultTenantBootstrapRunner
+     * @see <a href="../../../../../../../../docs/governance/stories/E14S05.story.md">Story E14S05</a>
+     * @see <a href="../../../../../../../../docs/governance/decisions/DEC-17.md">DEC-17</a>
+     * @see <a href="../../../../../../../../docs/governance/decisions/DEC-20.md">DEC-20</a>
+     * @see <a href="../../../../../../../../docs/governance/decisions/DEC-21.md">DEC-21</a>
+     */
+    @Bean
+    @ConditionalOnMissingBean(DefaultTenantBootstrapRunner.class)
+    public DefaultTenantBootstrapRunner defaultTenantBootstrapRunner(
+            TenantRegistryPort tenantRegistryPort,
+            PerTenantFlywayRunner perTenantFlywayRunner,
+            TmDataDirProperties dataDirProperties) {
+        return new DefaultTenantBootstrapRunner(tenantRegistryPort, perTenantFlywayRunner,
+                dataDirProperties.asPath());
+    }
 }
