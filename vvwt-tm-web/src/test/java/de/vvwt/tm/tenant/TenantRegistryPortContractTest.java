@@ -55,6 +55,20 @@ class TenantRegistryPortContractTest {
         public List<TenantRecord> findAll() {
             return new ArrayList<>(registry.values());
         }
+
+        @Override
+        public UUID getDefault() {
+            List<TenantRecord> defaults = registry.values().stream()
+                    .filter(r -> "Default (LAN)".equals(r.displayName()))
+                    .toList();
+            if (defaults.isEmpty()) {
+                throw new IllegalStateException("no default tenant registered \u2014 bootstrap not complete");
+            }
+            if (defaults.size() > 1) {
+                throw new IllegalStateException("registry violates single-default invariant");
+            }
+            return defaults.get(0).tenantId();
+        }
     }
 
     // -------------------------------------------------------------------------

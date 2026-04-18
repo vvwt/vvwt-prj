@@ -9,6 +9,8 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.dao.DataAccessException;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -39,7 +41,9 @@ import static org.mockito.Mockito.when;
  * <p>Covers AC1 (TDD test-first), AC2 (first-start behaviour), AC3 (subsequent-start no-op),
  * AC4 (UUID generated+persisted), AC5 (Flyway failure → no registry entry), AC6
  * (concurrent first-start), AC7 (ApplicationModulesTest — verified in final mvn verify step),
- * AC8 (no auth coupling — structural), AC-ORPHAN-RECOVERY, AC-PARALLEL-PHASE (structural).
+ * AC8 (no auth coupling — structural), AC-ORPHAN-RECOVERY, AC-PARALLEL-PHASE (structural),
+ * AC11 (JdbcTemplate-based idempotency guard — read-before-generate for UUID reconciliation),
+ * AC12 (transactional consistency of the guard).
  *
  * <p>The test class uses {@code @TempDir} for filesystem isolation. Mocks are used for
  * {@link TenantRegistryPort} and {@link PerTenantFlywayRunner} where real behavior is not
@@ -47,6 +51,7 @@ import static org.mockito.Mockito.when;
  *
  * @see DefaultTenantBootstrapRunner
  * @see <a href="../../../../../../../../docs/governance/stories/E14S05.story.md">Story E14S05</a>
+ * @see <a href="../../../../../../../../docs/governance/stories/E14S12.story.md">Story E14S12 (AC11/AC12)</a>
  * @see <a href="../../../../../../../../docs/governance/decisions/DEC-20.md">DEC-20</a>
  * @see <a href="../../../../../../../../docs/governance/decisions/DEC-21.md">DEC-21</a>
  * @see <a href="../../../../../../../../docs/governance/decisions/DEC-22.md">DEC-22</a>
@@ -59,6 +64,9 @@ class DefaultTenantBootstrapRunnerTest {
 
     @Mock
     private PerTenantFlywayRunner flywayRunner;
+
+    @Mock
+    private JdbcTemplate sharedJdbcTemplate;
 
     @TempDir
     Path tempDir;
@@ -74,9 +82,12 @@ class DefaultTenantBootstrapRunnerTest {
     @Test
     void firstStart_registersDefaultTenantAndRunsFlyway() throws Exception {
         when(registry.findAll()).thenReturn(List.of());
+        // AC11: JPA table also empty on fresh start → runner generates new UUID
+        when(sharedJdbcTemplate.queryForObject(any(String.class), eq(String.class)))
+                .thenReturn(null);
 
         DefaultTenantBootstrapRunner runner = new DefaultTenantBootstrapRunner(
-                registry, flywayRunner, tempDir);
+                registry, flywayRunner, tempDir, sharedJdbcTemplate);
 
         runner.run(null);
 
@@ -110,7 +121,7 @@ class DefaultTenantBootstrapRunnerTest {
                 List.of(new TenantRecord(existingId, "Default (LAN)")));
 
         DefaultTenantBootstrapRunner runner = new DefaultTenantBootstrapRunner(
-                registry, flywayRunner, tempDir);
+                registry, flywayRunner, tempDir, sharedJdbcTemplate);
 
         runner.run(null);
 
@@ -125,6 +136,7 @@ class DefaultTenantBootstrapRunnerTest {
     /**
      * AC4: Two separate bootstrap instances operating on fresh registries generate different UUIDs.
      * This is the regression test for DEC-17 "no hardcoded UUID" requirement.
+     * With AC11: only applies when JPA table is empty (orElseGet path).
      */
     @Test
     void firstStart_generatesDifferentUUIDsForSeparateInstances(@TempDir Path tempDirB) throws Exception {
@@ -132,15 +144,19 @@ class DefaultTenantBootstrapRunnerTest {
         TenantRegistryPort registryA = org.mockito.Mockito.mock(TenantRegistryPort.class);
         when(registryA.findAll()).thenReturn(List.of());
         PerTenantFlywayRunner flywayA = org.mockito.Mockito.mock(PerTenantFlywayRunner.class);
+        JdbcTemplate jdbcA = org.mockito.Mockito.mock(JdbcTemplate.class);
+        when(jdbcA.queryForObject(any(String.class), eq(String.class))).thenReturn(null);
         DefaultTenantBootstrapRunner runnerA = new DefaultTenantBootstrapRunner(
-                registryA, flywayA, tempDir);
+                registryA, flywayA, tempDir, jdbcA);
 
         // Instance B
         TenantRegistryPort registryB = org.mockito.Mockito.mock(TenantRegistryPort.class);
         when(registryB.findAll()).thenReturn(List.of());
         PerTenantFlywayRunner flywayB = org.mockito.Mockito.mock(PerTenantFlywayRunner.class);
+        JdbcTemplate jdbcB = org.mockito.Mockito.mock(JdbcTemplate.class);
+        when(jdbcB.queryForObject(any(String.class), eq(String.class))).thenReturn(null);
         DefaultTenantBootstrapRunner runnerB = new DefaultTenantBootstrapRunner(
-                registryB, flywayB, tempDirB);
+                registryB, flywayB, tempDirB, jdbcB);
 
         runnerA.run(null);
         runnerB.run(null);
@@ -166,11 +182,12 @@ class DefaultTenantBootstrapRunnerTest {
     @Test
     void flywayFailure_doesNotLeaveRegistryEntry() throws Exception {
         when(registry.findAll()).thenReturn(List.of());
+        when(sharedJdbcTemplate.queryForObject(any(String.class), eq(String.class))).thenReturn(null);
         doThrow(new FlywayException("simulated migration failure"))
                 .when(flywayRunner).runWithDataSource(any(), any());
 
         DefaultTenantBootstrapRunner runner = new DefaultTenantBootstrapRunner(
-                registry, flywayRunner, tempDir);
+                registry, flywayRunner, tempDir, sharedJdbcTemplate);
 
         assertThatThrownBy(() -> runner.run(null))
                 .as("Bootstrap must propagate the Flyway exception (fail-fast AC5)")
@@ -199,9 +216,10 @@ class DefaultTenantBootstrapRunnerTest {
 
         // Registry is empty (registration never completed)
         when(registry.findAll()).thenReturn(List.of());
+        when(sharedJdbcTemplate.queryForObject(any(String.class), eq(String.class))).thenReturn(null);
 
         DefaultTenantBootstrapRunner runner = new DefaultTenantBootstrapRunner(
-                registry, flywayRunner, tempDir);
+                registry, flywayRunner, tempDir, sharedJdbcTemplate);
 
         // Act: should not throw
         runner.run(null);
@@ -229,11 +247,12 @@ class DefaultTenantBootstrapRunnerTest {
         Files.createDirectories(orphanDir);
 
         when(registry.findAll()).thenReturn(List.of());
+        when(sharedJdbcTemplate.queryForObject(any(String.class), eq(String.class))).thenReturn(null);
         doThrow(new FlywayException("migration failure after orphan cleanup"))
                 .when(flywayRunner).runWithDataSource(any(), any());
 
         DefaultTenantBootstrapRunner runner = new DefaultTenantBootstrapRunner(
-                registry, flywayRunner, tempDir);
+                registry, flywayRunner, tempDir, sharedJdbcTemplate);
 
         assertThatThrownBy(() -> runner.run(null))
                 .isInstanceOf(FlywayException.class);
@@ -310,6 +329,7 @@ class DefaultTenantBootstrapRunnerTest {
      *
      * <p>Uses a real {@link TenantFileRegistry} (not a mock) to exercise the synchronized
      * register() + DuplicateTenantException handling in {@link DefaultTenantBootstrapRunner}.
+     * AC11: both runners see an empty JPA table (null from SELECT) → each generates own UUID.
      */
     @Test
     void concurrentFirstStart_exactlyOneRegistration() throws Exception {
@@ -323,8 +343,14 @@ class DefaultTenantBootstrapRunnerTest {
         CountDownLatch startGate = new CountDownLatch(1);
         AtomicInteger exceptionCount = new AtomicInteger(0);
 
-        DefaultTenantBootstrapRunner runnerA = new DefaultTenantBootstrapRunner(realRegistry, flywayRunner, dataDirA);
-        DefaultTenantBootstrapRunner runnerB = new DefaultTenantBootstrapRunner(realRegistry, flywayRunner, dataDirB);
+        // AC11: JPA empty for concurrent test (both see null → each picks own UUID; registry race decides winner)
+        JdbcTemplate jdbcConcA = org.mockito.Mockito.mock(JdbcTemplate.class);
+        JdbcTemplate jdbcConcB = org.mockito.Mockito.mock(JdbcTemplate.class);
+        org.mockito.Mockito.when(jdbcConcA.queryForObject(any(String.class), eq(String.class))).thenReturn(null);
+        org.mockito.Mockito.when(jdbcConcB.queryForObject(any(String.class), eq(String.class))).thenReturn(null);
+
+        DefaultTenantBootstrapRunner runnerA = new DefaultTenantBootstrapRunner(realRegistry, flywayRunner, dataDirA, jdbcConcA);
+        DefaultTenantBootstrapRunner runnerB = new DefaultTenantBootstrapRunner(realRegistry, flywayRunner, dataDirB, jdbcConcB);
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
 
@@ -367,5 +393,99 @@ class DefaultTenantBootstrapRunnerTest {
         assertThat(allTenants.get(0).displayName())
                 .as("The registered tenant must be the default tenant")
                 .isEqualTo("Default (LAN)");
+    }
+
+    // =========================================================================
+    // AC11 — JdbcTemplate idempotency guard (read-before-generate)
+    // =========================================================================
+
+    /**
+     * AC11 path (a): JPA TENANTS table already has a row → runner uses THAT UUID
+     * (UUID reconciliation: legacy DefaultTenantBootstrap wrote UUID-A to JPA first;
+     * this runner picks it up instead of generating UUID-B).
+     *
+     * <p>Story: E14S12 AC11.
+     */
+    @Test
+    void ac11_jpaTenantExists_runnerUsesExistingUuid() throws Exception {
+        UUID existingJpaUuid = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001");
+        when(registry.findAll()).thenReturn(List.of());
+        // AC11: JPA has an existing tenant row → return its UUID as String
+        when(sharedJdbcTemplate.queryForObject(any(String.class), eq(String.class)))
+                .thenReturn(existingJpaUuid.toString());
+
+        DefaultTenantBootstrapRunner runner = new DefaultTenantBootstrapRunner(
+                registry, flywayRunner, tempDir, sharedJdbcTemplate);
+
+        runner.run(null);
+
+        // The runner must register the UUID-from-JPA, not a randomly generated one
+        ArgumentCaptor<UUID> uuidCaptor = ArgumentCaptor.forClass(UUID.class);
+        verify(registry).register(uuidCaptor.capture(), eq("Default (LAN)"));
+        assertThat(uuidCaptor.getValue())
+                .as("AC11: runner must use the UUID already in JPA TENANTS table (not generate a new one)")
+                .isEqualTo(existingJpaUuid);
+    }
+
+    /**
+     * AC11 path (b): JPA TENANTS table is empty (true fresh-start) →
+     * runner generates a new UUID via UUID.randomUUID().
+     *
+     * <p>Story: E14S12 AC11.
+     */
+    @Test
+    void ac11_jpaEmpty_runnerGeneratesNewUuid() throws Exception {
+        when(registry.findAll()).thenReturn(List.of());
+        // AC11: JPA empty → queryForObject returns null (no row)
+        when(sharedJdbcTemplate.queryForObject(any(String.class), eq(String.class)))
+                .thenReturn(null);
+
+        DefaultTenantBootstrapRunner runner = new DefaultTenantBootstrapRunner(
+                registry, flywayRunner, tempDir, sharedJdbcTemplate);
+
+        runner.run(null);
+
+        // Runner must have registered some non-null UUID (generated by UUID.randomUUID())
+        ArgumentCaptor<UUID> uuidCaptor = ArgumentCaptor.forClass(UUID.class);
+        verify(registry).register(uuidCaptor.capture(), eq("Default (LAN)"));
+        assertThat(uuidCaptor.getValue())
+                .as("AC11: runner must generate a non-null UUID when JPA table is empty")
+                .isNotNull();
+    }
+
+    /**
+     * AC11 path (c): JPA SELECT throws DataAccessException (connectivity issue) →
+     * runner must surface a typed error and must NOT write the file registry with a guessed UUID.
+     *
+     * <p>Story: E14S12 AC11.
+     */
+    @Test
+    void ac11_jpaQueryThrows_runnerSurfacesErrorAndDoesNotRegister() throws Exception {
+        when(registry.findAll()).thenReturn(List.of());
+        // AC11: JPA unavailable → DataAccessException
+        when(sharedJdbcTemplate.queryForObject(any(String.class), eq(String.class)))
+                .thenThrow(new org.springframework.dao.TransientDataAccessException("connection failed") {});
+
+        DefaultTenantBootstrapRunner runner = new DefaultTenantBootstrapRunner(
+                registry, flywayRunner, tempDir, sharedJdbcTemplate);
+
+        assertThatThrownBy(() -> runner.run(null))
+                .as("AC11: JPA query failure must propagate as a typed error — no registry write with guessed UUID")
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("idempotency guard");
+
+        // Registry must NOT have been updated
+        verify(registry, never()).register(any(), anyString());
+    }
+
+    /**
+     * AC12: null JdbcTemplate constructor guard — must throw IllegalArgumentException.
+     */
+    @Test
+    void ac12_nullJdbcTemplate_throwsIllegalArgumentException() {
+        assertThatThrownBy(() -> new DefaultTenantBootstrapRunner(registry, flywayRunner, tempDir, null))
+                .as("AC12: null JdbcTemplate must throw IllegalArgumentException")
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("sharedJdbcTemplate must not be null");
     }
 }

@@ -8,6 +8,7 @@ import de.vvwt.tm.tenant.TenantRegistryPort;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * Spring configuration for the {@code tenant} bounded context.
@@ -177,8 +178,9 @@ public class TenantContextConfiguration {
     public DefaultTenantBootstrapRunner defaultTenantBootstrapRunner(
             TenantRegistryPort tenantRegistryPort,
             PerTenantFlywayRunner perTenantFlywayRunner,
-            TmDataDirProperties dataDirProperties) {
+            TmDataDirProperties dataDirProperties,
+            JdbcTemplate jdbcTemplate) {
         return new DefaultTenantBootstrapRunner(tenantRegistryPort, perTenantFlywayRunner,
-                dataDirProperties.asPath());
+                dataDirProperties.asPath(), jdbcTemplate);
     }
 }

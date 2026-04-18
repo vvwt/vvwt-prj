@@ -158,6 +158,36 @@ public class TenantFileRegistry implements TenantRegistryPort {
     }
 
     /**
+     * {@inheritDoc}
+     *
+     * <p>Scans the in-memory registry for the unique tenant entry whose
+     * {@code displayName} equals {@link DefaultTenantBootstrapRunner#DEFAULT_TENANT_DISPLAY_NAME}
+     * ({@code "Default (LAN)"}), which is the display name assigned by E14S05.
+     *
+     * <h2>Thread safety</h2>
+     * <p>Synchronized on this instance — consistent with all other registry operations.
+     * For Wave-1 with a single default tenant bootstrapped at app start, the value is stable
+     * for the lifetime of the process. Caching is an acceptable future optimization (Wave-2 scope).
+     *
+     * @throws IllegalStateException if zero or multiple default tenants are registered
+     */
+    @Override
+    public synchronized UUID getDefault() {
+        List<TenantRecord> defaults = inMemoryRegistry.values().stream()
+                .filter(r -> DefaultTenantBootstrapRunner.DEFAULT_TENANT_DISPLAY_NAME.equals(r.displayName()))
+                .toList();
+        if (defaults.isEmpty()) {
+            throw new IllegalStateException(
+                    "no default tenant registered \u2014 bootstrap not complete");
+        }
+        if (defaults.size() > 1) {
+            throw new IllegalStateException(
+                    "registry violates single-default invariant");
+        }
+        return defaults.get(0).tenantId();
+    }
+
+    /**
      * Atomically registers the tenant only if no entry with the given {@code displayName}
      * is already present in the registry. Used by {@link DefaultTenantBootstrapRunner} to
      * prevent duplicate default-tenant entries under concurrent first-start scenarios (E14S05 AC6).
