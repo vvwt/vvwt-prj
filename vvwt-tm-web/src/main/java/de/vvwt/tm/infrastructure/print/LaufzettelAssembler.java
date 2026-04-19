@@ -15,8 +15,6 @@ import de.vvwt.tm.domain.timeline.PhaseConfig;
 import de.vvwt.tm.domain.timeline.TimelineCalculationService;
 import de.vvwt.tm.domain.timeline.TimelineEntry;
 import de.vvwt.tm.domain.timeline.TimelineEntryType;
-import org.springframework.stereotype.Service;
-
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -27,38 +25,42 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.stereotype.Service;
 
 /**
  * Assembles per-team {@link LaufzettelRow} lists for the Laufzettel print template.
  *
- * <p>This service joins data from four sources — match schedule, referee assignments,
- * activity assignments, and timeline — into a flat list of display rows per team.
- * It has no database access: all inputs are pre-loaded by {@link PrintController}.
+ * <p>This service joins data from four sources — match schedule, referee assignments, activity
+ * assignments, and timeline — into a flat list of display rows per team. It has no database access:
+ * all inputs are pre-loaded by {@link PrintController}.
  *
  * <h2>Round state priority (AC6 — E08S08)</h2>
- * <p>Each round yields exactly one row per team, determined by priority:
- * PLAYING &gt; REFEREEING &gt; ACTIVITY &gt; FREE.
- * By E03S10 / E08S04 design, PLAYING and REFEREEING are mutually exclusive (a team
- * refereeing cannot be playing), and ACTIVITY is only assigned to free rounds —
- * so the priority is a safety-net against future rule violations, not a common case.
+ *
+ * <p>Each round yields exactly one row per team, determined by priority: PLAYING &gt; REFEREEING
+ * &gt; ACTIVITY &gt; FREE. By E03S10 / E08S04 design, PLAYING and REFEREEING are mutually exclusive
+ * (a team refereeing cannot be playing), and ACTIVITY is only assigned to free rounds — so the
+ * priority is a safety-net against future rule violations, not a common case.
  *
  * <h2>Break row rendering (AC9)</h2>
- * <p>LAP_BREAK entries are skipped (implicit gap — not shown on Laufzettel).
- * INTRA_PHASE_BREAK and SECTION_BREAK entries become break separator rows.
+ *
+ * <p>LAP_BREAK entries are skipped (implicit gap — not shown on Laufzettel). INTRA_PHASE_BREAK and
+ * SECTION_BREAK entries become break separator rows.
  *
  * <h2>No-start-time path (AC10)</h2>
- * <p>If {@code tournament.getPlannedStartTime()} is null, the timeline is empty
- * and all time windows default to {@code ""}. The outer model's {@code hasTime}
- * flag is set accordingly.
+ *
+ * <p>If {@code tournament.getPlannedStartTime()} is null, the timeline is empty and all time
+ * windows default to {@code ""}. The outer model's {@code hasTime} flag is set accordingly.
  *
  * <h2>Multi-phase support (AC11)</h2>
- * <p>Phases are processed in {@code sequenceNumber} order. A phase header row is
- * inserted before each phase's rounds. Section breaks appear between phases as
- * break separator rows.
+ *
+ * <p>Phases are processed in {@code sequenceNumber} order. A phase header row is inserted before
+ * each phase's rounds. Section breaks appear between phases as break separator rows.
  *
  * @see LaufzettelRow
  * @see PrintController
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S08.story.md">Story E08S08</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S08.story.md">Story
+ *     E08S08</a>
  */
 @Service
 public class LaufzettelAssembler {
@@ -66,21 +68,20 @@ public class LaufzettelAssembler {
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
 
     /**
-     * Default lap time in minutes used when no explicit phase configuration is provided.
-     * Used only as a fallback for timeline display when E08S05 draft config is not yet available.
+     * Default lap time in minutes used when no explicit phase configuration is provided. Used only
+     * as a fallback for timeline display when E08S05 draft config is not yet available.
      */
     static final int DEFAULT_LAP_TIME_MINUTES = 15;
 
-    /**
-     * Default lap break time in minutes used when no explicit phase configuration is provided.
-     */
+    /** Default lap break time in minutes used when no explicit phase configuration is provided. */
     static final int DEFAULT_LAP_BREAK_MINUTES = 5;
 
     private final TimelineCalculationService timelineCalculationService;
     private final ActivityAssignmentService activityAssignmentService;
 
-    public LaufzettelAssembler(TimelineCalculationService timelineCalculationService,
-                               ActivityAssignmentService activityAssignmentService) {
+    public LaufzettelAssembler(
+            TimelineCalculationService timelineCalculationService,
+            ActivityAssignmentService activityAssignmentService) {
         this.timelineCalculationService = timelineCalculationService;
         this.activityAssignmentService = activityAssignmentService;
     }
@@ -92,17 +93,17 @@ public class LaufzettelAssembler {
     /**
      * Assembles a map of team UUID → list of Laufzettel rows for all teams.
      *
-     * <p>Uses default lap time ({@value DEFAULT_LAP_TIME_MINUTES} min) and lap break
-     * ({@value DEFAULT_LAP_BREAK_MINUTES} min) for timeline calculation. For accurate time
-     * windows, use {@link #assembleWithPhaseConfig(Tournament, List, List, Map, Map, Map, List, int, Map, Map)}.
+     * <p>Uses default lap time ({@value DEFAULT_LAP_TIME_MINUTES} min) and lap break ({@value
+     * DEFAULT_LAP_BREAK_MINUTES} min) for timeline calculation. For accurate time windows, use
+     * {@link #assembleWithPhaseConfig(Tournament, List, List, Map, Map, Map, List, int, Map, Map)}.
      *
-     * @param tournament          the tournament (for start time)
-     * @param phases              phases sorted by sequenceNumber ascending; must not be null
-     * @param teams               all participating teams; must not be null
-     * @param avatarsByPhase      phaseId → TeamAvatars; must not be null
-     * @param matchesByPhase      phaseId → Matches; must not be null
-     * @param breaksByPhase       phaseId → PhaseBreaks; must not be null
-     * @param activityTypes       activity types to assign; must not be null
+     * @param tournament the tournament (for start time)
+     * @param phases phases sorted by sequenceNumber ascending; must not be null
+     * @param teams all participating teams; must not be null
+     * @param avatarsByPhase phaseId → TeamAvatars; must not be null
+     * @param matchesByPhase phaseId → Matches; must not be null
+     * @param breaksByPhase phaseId → PhaseBreaks; must not be null
+     * @param activityTypes activity types to assign; must not be null
      * @param sectionBreakMinutes section break between phases in minutes (≥ 0)
      * @return map of teamId → ordered list of {@link LaufzettelRow}; never null
      */
@@ -115,16 +116,25 @@ public class LaufzettelAssembler {
             Map<UUID, List<PhaseBreak>> breaksByPhase,
             List<ActivityType> activityTypes,
             int sectionBreakMinutes) {
-        return assembleWithPhaseConfig(tournament, phases, teams, avatarsByPhase, matchesByPhase,
-                breaksByPhase, activityTypes, sectionBreakMinutes,
-                Collections.emptyMap(), Collections.emptyMap());
+        return assembleWithPhaseConfig(
+                tournament,
+                phases,
+                teams,
+                avatarsByPhase,
+                matchesByPhase,
+                breaksByPhase,
+                activityTypes,
+                sectionBreakMinutes,
+                Collections.emptyMap(),
+                Collections.emptyMap());
     }
 
     /**
      * Assembles Laufzettel rows with explicit per-phase lap time and break time overrides.
      *
-     * @param lapTimeByPhase  phaseId → lap time in minutes; missing entries fall back to default
-     * @param lapBreakByPhase phaseId → lap break time in minutes; missing entries fall back to default
+     * @param lapTimeByPhase phaseId → lap time in minutes; missing entries fall back to default
+     * @param lapBreakByPhase phaseId → lap break time in minutes; missing entries fall back to
+     *     default
      */
     public Map<UUID, List<LaufzettelRow>> assembleWithPhaseConfig(
             Tournament tournament,
@@ -196,15 +206,20 @@ public class LaufzettelAssembler {
                     opponentByLap.computeIfAbsent(lap, k -> new HashMap<>()).put(t1, t2);
                     opponentByLap.computeIfAbsent(lap, k -> new HashMap<>()).put(t2, t1);
                     if (match.getFieldNumber() != null) {
-                        fieldByLap.computeIfAbsent(lap, k -> new HashMap<>()).put(t1, match.getFieldNumber());
-                        fieldByLap.computeIfAbsent(lap, k -> new HashMap<>()).put(t2, match.getFieldNumber());
+                        fieldByLap
+                                .computeIfAbsent(lap, k -> new HashMap<>())
+                                .put(t1, match.getFieldNumber());
+                        fieldByLap
+                                .computeIfAbsent(lap, k -> new HashMap<>())
+                                .put(t2, match.getFieldNumber());
                     }
                 }
                 if (match.getRefereeTeamId() != null) {
                     UUID refId = match.getRefereeTeamId();
                     refereeByLap.computeIfAbsent(lap, k -> new HashSet<>()).add(refId);
                     if (match.getFieldNumber() != null) {
-                        refereeFieldByLap.computeIfAbsent(lap, k -> new HashMap<>())
+                        refereeFieldByLap
+                                .computeIfAbsent(lap, k -> new HashMap<>())
                                 .putIfAbsent(refId, match.getFieldNumber());
                     }
                 }
@@ -229,17 +244,19 @@ public class LaufzettelAssembler {
                 continue;
             }
             Set<UUID> allTeamIds = new HashSet<>(teamById.keySet());
-            ActivityAssignmentResult assignResult = activityAssignmentService.assignActivities(
-                    activityTypes,
-                    playingByPhase.getOrDefault(phaseId, Collections.emptyMap()),
-                    refereeByPhase.getOrDefault(phaseId, Collections.emptyMap()),
-                    maxLap,
-                    allTeamIds);
+            ActivityAssignmentResult assignResult =
+                    activityAssignmentService.assignActivities(
+                            activityTypes,
+                            playingByPhase.getOrDefault(phaseId, Collections.emptyMap()),
+                            refereeByPhase.getOrDefault(phaseId, Collections.emptyMap()),
+                            maxLap,
+                            allTeamIds);
 
             Map<UUID, Map<Integer, String>> teamActivityMap = new HashMap<>();
             for (List<ActivityAssignment> assignments : assignResult.getAssignments().values()) {
                 for (ActivityAssignment a : assignments) {
-                    teamActivityMap.computeIfAbsent(a.getTeamId(), k -> new HashMap<>())
+                    teamActivityMap
+                            .computeIfAbsent(a.getTeamId(), k -> new HashMap<>())
                             .putIfAbsent(a.getLapNumber(), a.getActivityTypeName());
                 }
             }
@@ -251,12 +268,15 @@ public class LaufzettelAssembler {
         LocalTime startTime = tournament.getPlannedStartTime();
         boolean hasTime = (startTime != null);
 
-        List<PhaseConfig> phaseConfigs = buildPhaseConfigs(phases, breaksByPhase,
-                maxLapByPhase, lapTimeByPhase, lapBreakByPhase);
+        List<PhaseConfig> phaseConfigs =
+                buildPhaseConfigs(
+                        phases, breaksByPhase, maxLapByPhase, lapTimeByPhase, lapBreakByPhase);
 
-        List<TimelineEntry> timeline = hasTime
-                ? timelineCalculationService.calculate(startTime, phaseConfigs, sectionBreakMinutes)
-                : Collections.emptyList();
+        List<TimelineEntry> timeline =
+                hasTime
+                        ? timelineCalculationService.calculate(
+                                startTime, phaseConfigs, sectionBreakMinutes)
+                        : Collections.emptyList();
 
         // ── Step 5: Initialize result rows ────────────────────────────────────
 
@@ -269,13 +289,33 @@ public class LaufzettelAssembler {
         // ── Step 6: Assemble rows ─────────────────────────────────────────────
 
         if (!hasTime) {
-            assembleWithoutTimeline(teams, phases, playingByPhase, fieldByPhase,
-                    opponentByPhase, refereeByPhase, refereeFieldByPhase,
-                    activityByPhase, maxLapByPhase, teamById, result, multiPhase);
+            assembleWithoutTimeline(
+                    teams,
+                    phases,
+                    playingByPhase,
+                    fieldByPhase,
+                    opponentByPhase,
+                    refereeByPhase,
+                    refereeFieldByPhase,
+                    activityByPhase,
+                    maxLapByPhase,
+                    teamById,
+                    result,
+                    multiPhase);
         } else {
-            assembleWithTimeline(teams, phases, timeline, playingByPhase,
-                    fieldByPhase, opponentByPhase, refereeByPhase, refereeFieldByPhase,
-                    activityByPhase, teamById, result, multiPhase);
+            assembleWithTimeline(
+                    teams,
+                    phases,
+                    timeline,
+                    playingByPhase,
+                    fieldByPhase,
+                    opponentByPhase,
+                    refereeByPhase,
+                    refereeFieldByPhase,
+                    activityByPhase,
+                    teamById,
+                    result,
+                    multiPhase);
         }
 
         return result;
@@ -295,9 +335,7 @@ public class LaufzettelAssembler {
     // Private assembly helpers
     // -------------------------------------------------------------------------
 
-    /**
-     * Assembles rows using the computed timeline for time windows.
-     */
+    /** Assembles rows using the computed timeline for time windows. */
     private void assembleWithTimeline(
             List<Team> teams,
             List<Phase> phases,
@@ -328,9 +366,10 @@ public class LaufzettelAssembler {
 
             // Phase header on first entry of each phase (multi-phase only) — AC11
             if (multiPhase && phaseNumber != lastPhaseNumber) {
-                String phaseName = phase.getDescription() != null && !phase.getDescription().isBlank()
-                        ? phase.getDescription()
-                        : "Phase " + phaseNumber;
+                String phaseName =
+                        phase.getDescription() != null && !phase.getDescription().isBlank()
+                                ? phase.getDescription()
+                                : "Phase " + phaseNumber;
                 for (Team team : teams) {
                     List<LaufzettelRow> rows = result.get(team.getId());
                     if (rows != null) rows.add(LaufzettelRow.phaseHeader(phaseName));
@@ -343,10 +382,13 @@ public class LaufzettelAssembler {
             // LAP_BREAK: implicit gap — skip (per domain documentation in TimelineEntryType)
             if (type == TimelineEntryType.LAP_BREAK) continue;
 
-            if (type == TimelineEntryType.INTRA_PHASE_BREAK || type == TimelineEntryType.SECTION_BREAK) {
+            if (type == TimelineEntryType.INTRA_PHASE_BREAK
+                    || type == TimelineEntryType.SECTION_BREAK) {
                 // AC9: break separator rows
-                String label = (entry.label() != null && !entry.label().isBlank())
-                        ? entry.label() : "Pause";
+                String label =
+                        (entry.label() != null && !entry.label().isBlank())
+                                ? entry.label()
+                                : "Pause";
                 String tw = formatTimeWindow(entry.startTime(), entry.endTime());
                 for (Team team : teams) {
                     List<LaufzettelRow> rows = result.get(team.getId());
@@ -360,15 +402,25 @@ public class LaufzettelAssembler {
             if (lapNumber <= 0) continue;
 
             String timeWindow = formatTimeWindow(entry.startTime(), entry.endTime());
-            appendRoundRows(teams, phaseId, lapNumber, timeWindow,
-                    playingByPhase, fieldByPhase, opponentByPhase,
-                    refereeByPhase, refereeFieldByPhase, activityByPhase, teamById, result);
+            appendRoundRows(
+                    teams,
+                    phaseId,
+                    lapNumber,
+                    timeWindow,
+                    playingByPhase,
+                    fieldByPhase,
+                    opponentByPhase,
+                    refereeByPhase,
+                    refereeFieldByPhase,
+                    activityByPhase,
+                    teamById,
+                    result);
         }
     }
 
     /**
-     * Assembles rows without a timeline (no planned start time — AC10).
-     * Derives lap range from match data; all time windows are empty string.
+     * Assembles rows without a timeline (no planned start time — AC10). Derives lap range from
+     * match data; all time windows are empty string.
      */
     private void assembleWithoutTimeline(
             List<Team> teams,
@@ -388,9 +440,10 @@ public class LaufzettelAssembler {
             UUID phaseId = phase.getId();
 
             if (multiPhase) {
-                String phaseName = phase.getDescription() != null && !phase.getDescription().isBlank()
-                        ? phase.getDescription()
-                        : "Phase " + phase.getSequenceNumber();
+                String phaseName =
+                        phase.getDescription() != null && !phase.getDescription().isBlank()
+                                ? phase.getDescription()
+                                : "Phase " + phase.getSequenceNumber();
                 for (Team team : teams) {
                     List<LaufzettelRow> rows = result.get(team.getId());
                     if (rows != null) rows.add(LaufzettelRow.phaseHeader(phaseName));
@@ -399,15 +452,26 @@ public class LaufzettelAssembler {
 
             int maxLap = maxLapByPhase.getOrDefault(phaseId, 0);
             for (int lap = 1; lap <= maxLap; lap++) {
-                appendRoundRows(teams, phaseId, lap, "", playingByPhase, fieldByPhase, opponentByPhase,
-                        refereeByPhase, refereeFieldByPhase, activityByPhase, teamById, result);
+                appendRoundRows(
+                        teams,
+                        phaseId,
+                        lap,
+                        "",
+                        playingByPhase,
+                        fieldByPhase,
+                        opponentByPhase,
+                        refereeByPhase,
+                        refereeFieldByPhase,
+                        activityByPhase,
+                        teamById,
+                        result);
             }
         }
     }
 
     /**
-     * Appends one round row per team for the given lap in the given phase.
-     * Determines round state via PLAYING &gt; REFEREEING &gt; ACTIVITY &gt; FREE (AC6).
+     * Appends one round row per team for the given lap in the given phase. Determines round state
+     * via PLAYING &gt; REFEREEING &gt; ACTIVITY &gt; FREE (AC6).
      */
     private void appendRoundRows(
             List<Team> teams,
@@ -423,17 +487,28 @@ public class LaufzettelAssembler {
             Map<UUID, Team> teamById,
             Map<UUID, List<LaufzettelRow>> result) {
 
-        Set<UUID> playingTeams = playingByPhase.getOrDefault(phaseId, Collections.emptyMap())
-                .getOrDefault(lapNumber, Collections.emptySet());
-        Map<UUID, Integer> fieldByTeam = fieldByPhase.getOrDefault(phaseId, Collections.emptyMap())
-                .getOrDefault(lapNumber, Collections.emptyMap());
-        Map<UUID, UUID> opponentByTeam = opponentByPhase.getOrDefault(phaseId, Collections.emptyMap())
-                .getOrDefault(lapNumber, Collections.emptyMap());
-        Set<UUID> refereeTeams = refereeByPhase.getOrDefault(phaseId, Collections.emptyMap())
-                .getOrDefault(lapNumber, Collections.emptySet());
-        Map<UUID, Integer> refereeFieldByTeam = refereeFieldByPhase.getOrDefault(phaseId, Collections.emptyMap())
-                .getOrDefault(lapNumber, Collections.emptyMap());
-        Map<UUID, Map<Integer, String>> teamActivityMap = activityByPhase.getOrDefault(phaseId, Collections.emptyMap());
+        Set<UUID> playingTeams =
+                playingByPhase
+                        .getOrDefault(phaseId, Collections.emptyMap())
+                        .getOrDefault(lapNumber, Collections.emptySet());
+        Map<UUID, Integer> fieldByTeam =
+                fieldByPhase
+                        .getOrDefault(phaseId, Collections.emptyMap())
+                        .getOrDefault(lapNumber, Collections.emptyMap());
+        Map<UUID, UUID> opponentByTeam =
+                opponentByPhase
+                        .getOrDefault(phaseId, Collections.emptyMap())
+                        .getOrDefault(lapNumber, Collections.emptyMap());
+        Set<UUID> refereeTeams =
+                refereeByPhase
+                        .getOrDefault(phaseId, Collections.emptyMap())
+                        .getOrDefault(lapNumber, Collections.emptySet());
+        Map<UUID, Integer> refereeFieldByTeam =
+                refereeFieldByPhase
+                        .getOrDefault(phaseId, Collections.emptyMap())
+                        .getOrDefault(lapNumber, Collections.emptyMap());
+        Map<UUID, Map<Integer, String>> teamActivityMap =
+                activityByPhase.getOrDefault(phaseId, Collections.emptyMap());
 
         for (Team team : teams) {
             UUID teamId = team.getId();
@@ -460,8 +535,8 @@ public class LaufzettelAssembler {
 
             } else {
                 // ACTIVITY or FREE — AC7, AC8
-                String activityName = teamActivityMap.getOrDefault(teamId, Collections.emptyMap())
-                        .get(lapNumber);
+                String activityName =
+                        teamActivityMap.getOrDefault(teamId, Collections.emptyMap()).get(lapNumber);
                 if (activityName != null) {
                     rows.add(LaufzettelRow.activity(lapNumber, timeWindow, activityName));
                 } else {
@@ -492,16 +567,18 @@ public class LaufzettelAssembler {
     /**
      * Builds {@link PhaseConfig} objects from phase data and their match-derived lap counts.
      *
-     * <p>The lap count is the maximum {@code lapNumber} across all matches in the phase
-     * (i.e., the number of rounds played). The {@link Phase#getCurrentLapNumber()} is NOT
-     * used here — it is a progress counter that increments during the tournament, not a
-     * total count (which is known only after slot-optimization).
+     * <p>The lap count is the maximum {@code lapNumber} across all matches in the phase (i.e., the
+     * number of rounds played). The {@link Phase#getCurrentLapNumber()} is NOT used here — it is a
+     * progress counter that increments during the tournament, not a total count (which is known
+     * only after slot-optimization).
      *
-     * @param phases          phases in sequenceNumber order
-     * @param breaksByPhase   phaseId → phase breaks
-     * @param maxLapByPhase   phaseId → max lap number (from match data)
-     * @param lapTimeByPhase  phaseId → lap duration override (falls back to {@value DEFAULT_LAP_TIME_MINUTES} min)
-     * @param lapBreakByPhase phaseId → lap break duration override (falls back to {@value DEFAULT_LAP_BREAK_MINUTES} min)
+     * @param phases phases in sequenceNumber order
+     * @param breaksByPhase phaseId → phase breaks
+     * @param maxLapByPhase phaseId → max lap number (from match data)
+     * @param lapTimeByPhase phaseId → lap duration override (falls back to {@value
+     *     DEFAULT_LAP_TIME_MINUTES} min)
+     * @param lapBreakByPhase phaseId → lap break duration override (falls back to {@value
+     *     DEFAULT_LAP_BREAK_MINUTES} min)
      * @return list of PhaseConfig in phase order
      */
     private List<PhaseConfig> buildPhaseConfigs(
@@ -512,7 +589,7 @@ public class LaufzettelAssembler {
             Map<UUID, Integer> lapBreakByPhase) {
 
         List<PhaseConfig> configs = new ArrayList<>();
-        int seqNumber = 1;  // phaseNumber in timeline is 1-based sequenceNumber
+        int seqNumber = 1; // phaseNumber in timeline is 1-based sequenceNumber
         for (Phase phase : phases) {
             UUID phaseId = phase.getId();
             int lapCount = maxLapByPhase.getOrDefault(phaseId, 0);
@@ -522,8 +599,9 @@ public class LaufzettelAssembler {
             List<PhaseBreak> breaks = breaksByPhase.getOrDefault(phaseId, Collections.emptyList());
             List<PhaseBreakConfig> breakConfigs = new ArrayList<>();
             for (PhaseBreak pb : breaks) {
-                breakConfigs.add(new PhaseBreakConfig(
-                        pb.getAfterLapNumber(), pb.getDurationMinutes(), pb.getLabel()));
+                breakConfigs.add(
+                        new PhaseBreakConfig(
+                                pb.getAfterLapNumber(), pb.getDurationMinutes(), pb.getLabel()));
             }
 
             configs.add(new PhaseConfig(seqNumber, lapCount, lapTime, lapBreak, breakConfigs));

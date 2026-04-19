@@ -1,39 +1,39 @@
 package de.vvwt.tm.domain.photo;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.when;
+
 import de.vvwt.tm.domain.Team;
 import de.vvwt.tm.domain.Tournament;
 import de.vvwt.tm.domain.repo.TeamRepository;
 import de.vvwt.tm.domain.repo.TournamentRepository;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.nio.file.Path;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mockito;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.nio.file.Path;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.when;
-
 /**
  * Unit tests for {@link PhotoStorageServiceImpl} (E12S02).
  *
- * <p>Verifies validation logic, filesystem storage, and error paths without
- * requiring a Spring context or real database — dependencies are mocked.
+ * <p>Verifies validation logic, filesystem storage, and error paths without requiring a Spring
+ * context or real database — dependencies are mocked.
  *
  * @see PhotoStorageServiceImpl
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E12S02.story.md">Story E12S02</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E12S02.story.md">Story
+ *     E12S02</a>
  */
 @DisplayName("PhotoStorageServiceImpl unit tests — E12S02")
 class PhotoStorageServiceImplTest {
 
-    @TempDir
-    Path tempDir;
+    @TempDir Path tempDir;
 
     private PhotoStorageConfig config;
     private TournamentRepository tournamentRepo;
@@ -42,7 +42,8 @@ class PhotoStorageServiceImplTest {
 
     private static final UUID TOURNAMENT_ID = UUID.randomUUID();
     private static final UUID TEAM_ID = UUID.randomUUID();
-    private static final byte[] SAMPLE_JPEG = new byte[]{(byte)0xFF, (byte)0xD8, (byte)0xFF, 0x00};
+    private static final byte[] SAMPLE_JPEG =
+            new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x00};
 
     @BeforeEach
     void setUp() {
@@ -72,8 +73,13 @@ class PhotoStorageServiceImplTest {
     @Test
     @DisplayName("AC1: upload JPEG returns metadata with filename and size")
     void uploadJpegReturnsMetadata() {
-        PhotoFileMetadata result = service.upload(TOURNAMENT_ID, TEAM_ID,
-                "team.jpg", inputStream(SAMPLE_JPEG), SAMPLE_JPEG.length);
+        PhotoFileMetadata result =
+                service.upload(
+                        TOURNAMENT_ID,
+                        TEAM_ID,
+                        "team.jpg",
+                        inputStream(SAMPLE_JPEG),
+                        SAMPLE_JPEG.length);
 
         assertThat(result.filename()).isEqualTo("team.jpg");
         assertThat(result.sizeBytes()).isEqualTo(SAMPLE_JPEG.length);
@@ -83,9 +89,10 @@ class PhotoStorageServiceImplTest {
     @Test
     @DisplayName("AC1: upload PNG is accepted")
     void uploadPngIsAccepted() {
-        byte[] pngBytes = new byte[]{(byte)0x89, 0x50, 0x4E, 0x47};
-        PhotoFileMetadata result = service.upload(TOURNAMENT_ID, TEAM_ID,
-                "team.png", inputStream(pngBytes), pngBytes.length);
+        byte[] pngBytes = new byte[] {(byte) 0x89, 0x50, 0x4E, 0x47};
+        PhotoFileMetadata result =
+                service.upload(
+                        TOURNAMENT_ID, TEAM_ID, "team.png", inputStream(pngBytes), pngBytes.length);
 
         assertThat(result.filename()).isEqualTo("team.png");
     }
@@ -93,8 +100,13 @@ class PhotoStorageServiceImplTest {
     @Test
     @DisplayName("AC1: upload .jpeg extension is accepted")
     void uploadJpegExtensionIsAccepted() {
-        PhotoFileMetadata result = service.upload(TOURNAMENT_ID, TEAM_ID,
-                "photo.jpeg", inputStream(SAMPLE_JPEG), SAMPLE_JPEG.length);
+        PhotoFileMetadata result =
+                service.upload(
+                        TOURNAMENT_ID,
+                        TEAM_ID,
+                        "photo.jpeg",
+                        inputStream(SAMPLE_JPEG),
+                        SAMPLE_JPEG.length);
 
         assertThat(result.filename()).isEqualTo("photo.jpeg");
     }
@@ -102,10 +114,16 @@ class PhotoStorageServiceImplTest {
     @Test
     @DisplayName("AC1: second upload replaces first photo")
     void uploadReplacesPreviousPhoto() {
-        service.upload(TOURNAMENT_ID, TEAM_ID, "old.jpg", inputStream(SAMPLE_JPEG), SAMPLE_JPEG.length);
-        byte[] newContent = new byte[]{0x01, 0x02};
-        PhotoFileMetadata result = service.upload(TOURNAMENT_ID, TEAM_ID,
-                "new.jpg", inputStream(newContent), newContent.length);
+        service.upload(
+                TOURNAMENT_ID, TEAM_ID, "old.jpg", inputStream(SAMPLE_JPEG), SAMPLE_JPEG.length);
+        byte[] newContent = new byte[] {0x01, 0x02};
+        PhotoFileMetadata result =
+                service.upload(
+                        TOURNAMENT_ID,
+                        TEAM_ID,
+                        "new.jpg",
+                        inputStream(newContent),
+                        newContent.length);
 
         assertThat(result.sizeBytes()).isEqualTo(newContent.length);
         // Only one photo should exist after replacement
@@ -119,8 +137,14 @@ class PhotoStorageServiceImplTest {
     @Test
     @DisplayName("AC7: non-image filename (.pdf) → PhotoFormatException")
     void rejectNonImageFormat() {
-        assertThatThrownBy(() ->
-                service.upload(TOURNAMENT_ID, TEAM_ID, "doc.pdf", inputStream(SAMPLE_JPEG), SAMPLE_JPEG.length))
+        assertThatThrownBy(
+                        () ->
+                                service.upload(
+                                        TOURNAMENT_ID,
+                                        TEAM_ID,
+                                        "doc.pdf",
+                                        inputStream(SAMPLE_JPEG),
+                                        SAMPLE_JPEG.length))
                 .isInstanceOf(PhotoFormatException.class)
                 .hasMessageContaining("JPEG")
                 .hasMessageContaining("PNG");
@@ -129,8 +153,14 @@ class PhotoStorageServiceImplTest {
     @Test
     @DisplayName("AC7: null filename → PhotoFormatException")
     void rejectNullFilename() {
-        assertThatThrownBy(() ->
-                service.upload(TOURNAMENT_ID, TEAM_ID, null, inputStream(SAMPLE_JPEG), SAMPLE_JPEG.length))
+        assertThatThrownBy(
+                        () ->
+                                service.upload(
+                                        TOURNAMENT_ID,
+                                        TEAM_ID,
+                                        null,
+                                        inputStream(SAMPLE_JPEG),
+                                        SAMPLE_JPEG.length))
                 .isInstanceOf(PhotoFormatException.class);
     }
 
@@ -138,8 +168,14 @@ class PhotoStorageServiceImplTest {
     @DisplayName("AC7: file exceeding 5 MB limit → PhotoSizeException")
     void rejectOversizedFile() {
         long oversizeBytes = 5L * 1024 * 1024 + 1;
-        assertThatThrownBy(() ->
-                service.upload(TOURNAMENT_ID, TEAM_ID, "big.jpg", inputStream(SAMPLE_JPEG), oversizeBytes))
+        assertThatThrownBy(
+                        () ->
+                                service.upload(
+                                        TOURNAMENT_ID,
+                                        TEAM_ID,
+                                        "big.jpg",
+                                        inputStream(SAMPLE_JPEG),
+                                        oversizeBytes))
                 .isInstanceOf(PhotoSizeException.class)
                 .hasMessageContaining("5 MB");
     }
@@ -148,8 +184,9 @@ class PhotoStorageServiceImplTest {
     @DisplayName("AC7: file exactly at 5 MB limit is accepted")
     void acceptFileAtSizeLimit() {
         long exactLimit = 5L * 1024 * 1024;
-        PhotoFileMetadata result = service.upload(TOURNAMENT_ID, TEAM_ID,
-                "edge.jpg", inputStream(SAMPLE_JPEG), exactLimit);
+        PhotoFileMetadata result =
+                service.upload(
+                        TOURNAMENT_ID, TEAM_ID, "edge.jpg", inputStream(SAMPLE_JPEG), exactLimit);
         // size reported from filesystem — 4 bytes actually written
         assertThat(result).isNotNull();
     }
@@ -164,8 +201,14 @@ class PhotoStorageServiceImplTest {
         UUID unknownTournament = UUID.randomUUID();
         when(tournamentRepo.findById(unknownTournament)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() ->
-                service.upload(unknownTournament, TEAM_ID, "p.jpg", inputStream(SAMPLE_JPEG), SAMPLE_JPEG.length))
+        assertThatThrownBy(
+                        () ->
+                                service.upload(
+                                        unknownTournament,
+                                        TEAM_ID,
+                                        "p.jpg",
+                                        inputStream(SAMPLE_JPEG),
+                                        SAMPLE_JPEG.length))
                 .isInstanceOf(java.util.NoSuchElementException.class);
     }
 
@@ -175,8 +218,14 @@ class PhotoStorageServiceImplTest {
         UUID unknownTeam = UUID.randomUUID();
         when(teamRepo.findById(unknownTeam)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() ->
-                service.upload(TOURNAMENT_ID, unknownTeam, "p.jpg", inputStream(SAMPLE_JPEG), SAMPLE_JPEG.length))
+        assertThatThrownBy(
+                        () ->
+                                service.upload(
+                                        TOURNAMENT_ID,
+                                        unknownTeam,
+                                        "p.jpg",
+                                        inputStream(SAMPLE_JPEG),
+                                        SAMPLE_JPEG.length))
                 .isInstanceOf(java.util.NoSuchElementException.class);
     }
 
@@ -188,8 +237,14 @@ class PhotoStorageServiceImplTest {
         when(tournamentRepo.findById(otherTournament)).thenReturn(Optional.of(otherTmt));
         // TEAM_ID belongs to TOURNAMENT_ID, not otherTournament
 
-        assertThatThrownBy(() ->
-                service.upload(otherTournament, TEAM_ID, "p.jpg", inputStream(SAMPLE_JPEG), SAMPLE_JPEG.length))
+        assertThatThrownBy(
+                        () ->
+                                service.upload(
+                                        otherTournament,
+                                        TEAM_ID,
+                                        "p.jpg",
+                                        inputStream(SAMPLE_JPEG),
+                                        SAMPLE_JPEG.length))
                 .isInstanceOf(java.util.NoSuchElementException.class);
     }
 
@@ -200,7 +255,8 @@ class PhotoStorageServiceImplTest {
     @Test
     @DisplayName("AC2: retrieve after upload returns content and correct MIME type (JPEG)")
     void retrieveAfterUploadJpeg() throws Exception {
-        service.upload(TOURNAMENT_ID, TEAM_ID, "t.jpg", inputStream(SAMPLE_JPEG), SAMPLE_JPEG.length);
+        service.upload(
+                TOURNAMENT_ID, TEAM_ID, "t.jpg", inputStream(SAMPLE_JPEG), SAMPLE_JPEG.length);
 
         Optional<PhotoStorageService.PhotoResult> result = service.retrieve(TOURNAMENT_ID, TEAM_ID);
 
@@ -212,7 +268,7 @@ class PhotoStorageServiceImplTest {
     @Test
     @DisplayName("AC2: retrieve for PNG returns image/png content type")
     void retrievePngHasPngContentType() throws Exception {
-        byte[] png = new byte[]{(byte)0x89, 0x50, 0x4E, 0x47};
+        byte[] png = new byte[] {(byte) 0x89, 0x50, 0x4E, 0x47};
         service.upload(TOURNAMENT_ID, TEAM_ID, "t.png", inputStream(png), png.length);
 
         Optional<PhotoStorageService.PhotoResult> result = service.retrieve(TOURNAMENT_ID, TEAM_ID);
@@ -236,7 +292,8 @@ class PhotoStorageServiceImplTest {
     @Test
     @DisplayName("AC3: delete after upload returns true and photo is gone")
     void deleteAfterUploadReturnsTrue() {
-        service.upload(TOURNAMENT_ID, TEAM_ID, "t.jpg", inputStream(SAMPLE_JPEG), SAMPLE_JPEG.length);
+        service.upload(
+                TOURNAMENT_ID, TEAM_ID, "t.jpg", inputStream(SAMPLE_JPEG), SAMPLE_JPEG.length);
 
         boolean deleted = service.delete(TOURNAMENT_ID, TEAM_ID);
 
@@ -264,14 +321,16 @@ class PhotoStorageServiceImplTest {
     @Test
     @DisplayName("AC4: hasPhoto returns true after upload")
     void hasPhotoTrueAfterUpload() {
-        service.upload(TOURNAMENT_ID, TEAM_ID, "t.jpg", inputStream(SAMPLE_JPEG), SAMPLE_JPEG.length);
+        service.upload(
+                TOURNAMENT_ID, TEAM_ID, "t.jpg", inputStream(SAMPLE_JPEG), SAMPLE_JPEG.length);
         assertThat(service.hasPhoto(TOURNAMENT_ID, TEAM_ID)).isTrue();
     }
 
     @Test
     @DisplayName("AC4: hasPhoto returns false after delete")
     void hasPhotoFalseAfterDelete() {
-        service.upload(TOURNAMENT_ID, TEAM_ID, "t.jpg", inputStream(SAMPLE_JPEG), SAMPLE_JPEG.length);
+        service.upload(
+                TOURNAMENT_ID, TEAM_ID, "t.jpg", inputStream(SAMPLE_JPEG), SAMPLE_JPEG.length);
         service.delete(TOURNAMENT_ID, TEAM_ID);
         assertThat(service.hasPhoto(TOURNAMENT_ID, TEAM_ID)).isFalse();
     }

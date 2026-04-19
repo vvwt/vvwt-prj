@@ -5,11 +5,11 @@ import java.util.Arrays;
 /**
  * The combined output of {@link StructuralFingerprint#transform(RawPhaseDef)}.
  *
- * <p>Holds both the 32-byte SHA-256 fingerprint of the canonical form and the
- * canonical form itself, so callers do not need to recompute either.
+ * <p>Holds both the 32-byte SHA-256 fingerprint of the canonical form and the canonical form
+ * itself, so callers do not need to recompute either.
  *
  * @param fingerprint 32-byte SHA-256 digest of the serialized {@link CanonicalPhaseDef}
- * @param canonical   the canonicalized form of the input {@link RawPhaseDef}
+ * @param canonical the canonicalized form of the input {@link RawPhaseDef}
  */
 public record TransformResult(byte[] fingerprint, CanonicalPhaseDef canonical) {
 
@@ -30,9 +30,9 @@ public record TransformResult(byte[] fingerprint, CanonicalPhaseDef canonical) {
     }
 
     /**
-     * Returns a defensive copy of the fingerprint bytes.
-     * The backing array of the record component is already a private copy,
-     * but record accessors return the field directly, so we override to copy again.
+     * Returns a defensive copy of the fingerprint bytes. The backing array of the record component
+     * is already a private copy, but record accessors return the field directly, so we override to
+     * copy again.
      */
     @Override
     public byte[] fingerprint() {

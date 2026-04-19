@@ -4,6 +4,9 @@ import de.vvwt.tm.domain.Device;
 import de.vvwt.tm.domain.repo.DeviceRepository;
 import de.vvwt.tm.tenant.LocationContext;
 import de.vvwt.tm.tenant.TenantContext;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.messaging.Message;
@@ -16,54 +19,59 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
 /**
  * STOMP {@link ChannelInterceptor} that authenticates WebSocket connections via a device token.
  *
  * <h2>Purpose (DEC-24 D2, E14S09)</h2>
- * <p>At STOMP CONNECT time, extracts the {@code X-Device-Token} STOMP header, looks up the
- * device in the repository (using the default tenant in Wave-1 single-tenant mode), and binds
- * the appropriate contexts:
+ *
+ * <p>At STOMP CONNECT time, extracts the {@code X-Device-Token} STOMP header, looks up the device
+ * in the repository (using the default tenant in Wave-1 single-tenant mode), and binds the
+ * appropriate contexts:
+ *
  * <ol>
  *   <li>Sets the legacy {@link de.vvwt.tm.domain.repo.TenantContext} for repository access
- *       (parallel-phase coexistence; removed at E14S07 cutover).</li>
- *   <li>Binds the new {@link TenantContext} to the device's tenant UUID.</li>
+ *       (parallel-phase coexistence; removed at E14S07 cutover).
+ *   <li>Binds the new {@link TenantContext} to the device's tenant UUID.
  *   <li>If SCORING_TABLET with {@code location_id = NULL}: rejects with "no assigned location"
- *       (DEC-24 D1 usage constraint, E14S09 AC6).</li>
- *   <li>If DISPLAY with {@code location_id = NULL}: accepts, marks session attribute
- *       {@value #SESSION_ATTR_OVERVIEW_MODE} = {@code true} (overview mode, E14S09 AC7).</li>
- *   <li>If DISPLAY with {@code location_id != NULL}: binds {@link LocationContext} (AC7b).</li>
- *   <li>Rejects for: no token, unknown token, DISCONNECTED device (AC5).</li>
+ *       (DEC-24 D1 usage constraint, E14S09 AC6).
+ *   <li>If DISPLAY with {@code location_id = NULL}: accepts, marks session attribute {@value
+ *       #SESSION_ATTR_OVERVIEW_MODE} = {@code true} (overview mode, E14S09 AC7).
+ *   <li>If DISPLAY with {@code location_id != NULL}: binds {@link LocationContext} (AC7b).
+ *   <li>Rejects for: no token, unknown token, DISCONNECTED device (AC5).
  * </ol>
  *
  * <h2>Transport (AC4)</h2>
- * <p>Token arrives via STOMP CONNECT frame header {@code X-Device-Token}
- * (constant {@link WebSocketSecurityConfig#DEVICE_TOKEN_HEADER}), matching the existing STOMP
- * pattern from E07S06 — no client-side changes needed for the display SPA.
+ *
+ * <p>Token arrives via STOMP CONNECT frame header {@code X-Device-Token} (constant {@link
+ * WebSocketSecurityConfig#DEVICE_TOKEN_HEADER}), matching the existing STOMP pattern from E07S06 —
+ * no client-side changes needed for the display SPA.
  *
  * <h2>Wave-1 assumption (DEC-24 D2)</h2>
+ *
  * <p>The device lookup runs against the default tenant's DataSource. In a multi-tenant Wave-2
  * deployment this would require a cross-tenant device registry; for Wave-1, setting the legacy
- * TenantContext to the default tenant UUID before the lookup is the correct approach.
- * A {@code // TODO(Wave-2)} comment marks this assumption inline.
+ * TenantContext to the default tenant UUID before the lookup is the correct approach. A {@code //
+ * TODO(Wave-2)} comment marks this assumption inline.
  *
  * <h2>Context scope (AC8)</h2>
- * <p>Legacy TenantContext is set and cleared in a try-finally block around the device lookup.
- * The new TenantContext scope is stored in session attributes for cleanup on session close.
- * On rejection, all contexts are cleaned up immediately.
+ *
+ * <p>Legacy TenantContext is set and cleared in a try-finally block around the device lookup. The
+ * new TenantContext scope is stored in session attributes for cleanup on session close. On
+ * rejection, all contexts are cleaned up immediately.
  *
  * @see WebSocketSecurityConfig
  * @see LocationContext
  * @see TenantContext
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E14S09.story.md">Story E14S09</a>
- * @see <a href="../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-24.md">DEC-24</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E14S09.story.md">Story
+ *     E14S09</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-24.md">DEC-24</a>
  */
 public class DeviceTokenHandshakeInterceptor implements ChannelInterceptor {
 
-    private static final Logger log = LoggerFactory.getLogger(DeviceTokenHandshakeInterceptor.class);
+    private static final Logger log =
+            LoggerFactory.getLogger(DeviceTokenHandshakeInterceptor.class);
 
     /**
      * WebSocket session attribute key for "overview mode" marker (AC7).
@@ -74,27 +82,34 @@ public class DeviceTokenHandshakeInterceptor implements ChannelInterceptor {
     public static final String SESSION_ATTR_OVERVIEW_MODE = "LOCATION_CONTEXT_OVERVIEW";
 
     private final DeviceRepository deviceRepository;
-    /** Legacy domain-layer TenantContext — needed for DeviceRepository queries during parallel phase. */
+
+    /**
+     * Legacy domain-layer TenantContext — needed for DeviceRepository queries during parallel
+     * phase.
+     */
     private final de.vvwt.tm.domain.repo.TenantContext legacyTenantContext;
+
     /** New tenant-api TenantContext (de.vvwt.tm.tenant.TenantContext). */
     private final TenantContext tenantContext;
+
     private final LocationContext locationContext;
     private final UUID defaultTenantId;
 
     /**
      * Constructor used by {@link WebSocketSecurityConfig}.
      *
-     * @param deviceRepository   repository for device lookup (uses legacy TenantContext internally)
+     * @param deviceRepository repository for device lookup (uses legacy TenantContext internally)
      * @param legacyTenantContext legacy domain-layer TenantContext for repository access
-     * @param tenantContext       new tenant-api TenantContext for session binding
-     * @param locationContext     thread-local location context
-     * @param defaultTenantId     the default tenant UUID for Wave-1 device lookup
+     * @param tenantContext new tenant-api TenantContext for session binding
+     * @param locationContext thread-local location context
+     * @param defaultTenantId the default tenant UUID for Wave-1 device lookup
      */
-    public DeviceTokenHandshakeInterceptor(DeviceRepository deviceRepository,
-                                           de.vvwt.tm.domain.repo.TenantContext legacyTenantContext,
-                                           TenantContext tenantContext,
-                                           LocationContext locationContext,
-                                           UUID defaultTenantId) {
+    public DeviceTokenHandshakeInterceptor(
+            DeviceRepository deviceRepository,
+            de.vvwt.tm.domain.repo.TenantContext legacyTenantContext,
+            TenantContext tenantContext,
+            LocationContext locationContext,
+            UUID defaultTenantId) {
         this.deviceRepository = deviceRepository;
         this.legacyTenantContext = legacyTenantContext;
         this.tenantContext = tenantContext;
@@ -103,22 +118,22 @@ public class DeviceTokenHandshakeInterceptor implements ChannelInterceptor {
     }
 
     /**
-     * Constructor for unit testing (mocks legacyTenantContext and tenantContext separately).
-     * Used when defaultTenantId is provided by the test.
+     * Constructor for unit testing (mocks legacyTenantContext and tenantContext separately). Used
+     * when defaultTenantId is provided by the test.
      */
-    DeviceTokenHandshakeInterceptor(DeviceRepository deviceRepository,
-                                    TenantContext tenantContext,
-                                    LocationContext locationContext,
-                                    UUID defaultTenantId) {
+    DeviceTokenHandshakeInterceptor(
+            DeviceRepository deviceRepository,
+            TenantContext tenantContext,
+            LocationContext locationContext,
+            UUID defaultTenantId) {
         this(deviceRepository, null, tenantContext, locationContext, defaultTenantId);
     }
 
-    /**
-     * Constructor for unit testing (no-token path only, no defaultTenantId needed).
-     */
-    DeviceTokenHandshakeInterceptor(DeviceRepository deviceRepository,
-                                    TenantContext tenantContext,
-                                    LocationContext locationContext) {
+    /** Constructor for unit testing (no-token path only, no defaultTenantId needed). */
+    DeviceTokenHandshakeInterceptor(
+            DeviceRepository deviceRepository,
+            TenantContext tenantContext,
+            LocationContext locationContext) {
         this(deviceRepository, null, tenantContext, locationContext, null);
     }
 
@@ -131,14 +146,15 @@ public class DeviceTokenHandshakeInterceptor implements ChannelInterceptor {
             return message; // Not a CONNECT frame — pass through
         }
 
-        String deviceToken = accessor.getFirstNativeHeader(WebSocketSecurityConfig.DEVICE_TOKEN_HEADER);
+        String deviceToken =
+                accessor.getFirstNativeHeader(WebSocketSecurityConfig.DEVICE_TOKEN_HEADER);
         if (deviceToken == null || deviceToken.isBlank()) {
             // No device token — pass through to let admin-basic or timer paths handle it
             return message;
         }
 
         authenticateDevice(accessor, deviceToken.trim());
-        return message;  // accessor is mutable; headers mutated in place
+        return message; // accessor is mutable; headers mutated in place
     }
 
     private void authenticateDevice(StompHeaderAccessor accessor, String deviceToken) {
@@ -162,7 +178,8 @@ public class DeviceTokenHandshakeInterceptor implements ChannelInterceptor {
             Device device = deviceOpt.get();
 
             if (Device.STATUS_DISCONNECTED.equals(device.getStatus())) {
-                log.warn("[ws-auth] Device rejected: status=DISCONNECTED deviceId={}",
+                log.warn(
+                        "[ws-auth] Device rejected: status=DISCONNECTED deviceId={}",
                         device.getId());
                 throw new AccessDeniedException(
                         "WebSocket CONNECT rejected: device is DISCONNECTED (E14S09 AC5c)");
@@ -170,19 +187,22 @@ public class DeviceTokenHandshakeInterceptor implements ChannelInterceptor {
 
             if (!Device.STATUS_REGISTERED.equals(device.getStatus())
                     && !Device.STATUS_ASSIGNED.equals(device.getStatus())) {
-                log.warn("[ws-auth] Device rejected: unexpected status={} deviceId={}",
-                        device.getStatus(), device.getId());
+                log.warn(
+                        "[ws-auth] Device rejected: unexpected status={} deviceId={}",
+                        device.getStatus(),
+                        device.getId());
                 throw new AccessDeniedException(
                         "WebSocket CONNECT rejected: device has inactive status (E14S09 AC5)");
             }
 
             if (Device.TYPE_SCORING_TABLET.equals(device.getDeviceType())
                     && device.getLocationId() == null) {
-                log.warn("[ws-auth] SCORING_TABLET rejected: no assigned location deviceId={}",
+                log.warn(
+                        "[ws-auth] SCORING_TABLET rejected: no assigned location deviceId={}",
                         device.getId());
                 throw new AccessDeniedException(
                         "WebSocket CONNECT rejected: SCORING_TABLET has no assigned location "
-                        + "(E14S09 AC6)");
+                                + "(E14S09 AC6)");
             }
 
             // Bind new TenantContext to device's tenant for session duration
@@ -197,23 +217,29 @@ public class DeviceTokenHandshakeInterceptor implements ChannelInterceptor {
                     accessor.getSessionAttributes().put("_locationContextScope", locationScope);
                     accessor.getSessionAttributes().put("_tenantContextScope", tenantScope);
                 }
-                log.debug("[ws-auth] Device authenticated: type={} locationId={} tenantId={}",
-                        device.getDeviceType(), device.getLocationId(), device.getTenantId());
+                log.debug(
+                        "[ws-auth] Device authenticated: type={} locationId={} tenantId={}",
+                        device.getDeviceType(),
+                        device.getLocationId(),
+                        device.getTenantId());
             } else {
                 // DISPLAY with null location → overview mode (AC7a)
                 if (accessor.getSessionAttributes() != null) {
                     accessor.getSessionAttributes().put(SESSION_ATTR_OVERVIEW_MODE, Boolean.TRUE);
                     accessor.getSessionAttributes().put("_tenantContextScope", tenantScope);
                 }
-                log.debug("[ws-auth] DISPLAY device in overview mode (no location) tenantId={}",
+                log.debug(
+                        "[ws-auth] DISPLAY device in overview mode (no location) tenantId={}",
                         device.getTenantId());
             }
 
             // Build principal for the session
             String principalName = "display-device:" + device.getTenantId();
-            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                    principalName, null,
-                    List.of(new SimpleGrantedAuthority("ROLE_DISPLAY")));
+            UsernamePasswordAuthenticationToken auth =
+                    new UsernamePasswordAuthenticationToken(
+                            principalName,
+                            null,
+                            List.of(new SimpleGrantedAuthority("ROLE_DISPLAY")));
             auth.setDetails(device.getLocationId()); // null = overview mode
             accessor.setUser(auth);
 
@@ -230,9 +256,7 @@ public class DeviceTokenHandshakeInterceptor implements ChannelInterceptor {
         }
     }
 
-    /**
-     * Returns a safe prefix of the token for logging (avoids logging full tokens).
-     */
+    /** Returns a safe prefix of the token for logging (avoids logging full tokens). */
     private static String safePrefix(String token) {
         return token.length() > 8 ? token.substring(0, 8) : "***";
     }

@@ -1,7 +1,5 @@
 package de.vvwt.worker.identity;
 
-import org.slf4j.Logger;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,11 +28,13 @@ import java.util.EnumSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Set;
+import org.slf4j.Logger;
 
 /**
  * Manages the per-installation Ed25519 keypair for a worker node.
  *
  * <h2>Lifecycle</h2>
+ *
  * <ol>
  *   <li>On first invocation in a given {@code dataDir}, generates an Ed25519 keypair and persists
  *       it as {@code optimizer-worker.key} (PKCS#8 DER) and {@code optimizer-worker.pub}
@@ -44,9 +44,10 @@ import java.util.Set;
  * </ol>
  *
  * <h2>Thread safety</h2>
- * <p>Instances of this class are NOT thread-safe. In particular, {@link #rotateKeypair()} must
- * not be called concurrently. The expected usage pattern is single-threaded initialisation on
- * worker startup.
+ *
+ * <p>Instances of this class are NOT thread-safe. In particular, {@link #rotateKeypair()} must not
+ * be called concurrently. The expected usage pattern is single-threaded initialisation on worker
+ * startup.
  *
  * <p>See Story E01S04 and DEC-6.
  */
@@ -83,8 +84,8 @@ public class WorkerKeyManager {
      * <p>On construction, the manager either generates a new keypair or loads the existing one.
      *
      * @param dataDir the directory in which the keypair files are stored; created with 0700
-     *                permissions if it does not exist
-     * @param logger  the SLF4J logger to use for INFO-level fingerprint messages
+     *     permissions if it does not exist
+     * @param logger the SLF4J logger to use for INFO-level fingerprint messages
      * @throws WorkerKeyCorruptException if the private key file exists but cannot be parsed
      * @throws WorkerKeyGenerationException if keypair generation fails (entropy starvation, JCE)
      * @throws IOException if {@code dataDir} cannot be created or key files cannot be read/written
@@ -112,8 +113,8 @@ public class WorkerKeyManager {
     /**
      * Signs the given canonical result bytes using the worker's Ed25519 private key.
      *
-     * <p>Ed25519 is deterministic by specification (RFC 8032 §5.1): two calls with the same
-     * {@code canonicalResultBytes} will produce identical signature bytes.
+     * <p>Ed25519 is deterministic by specification (RFC 8032 §5.1): two calls with the same {@code
+     * canonicalResultBytes} will produce identical signature bytes.
      *
      * @param canonicalResultBytes the byte array to sign; must not be {@code null}
      * @return a 64-byte raw Ed25519 detached signature
@@ -129,7 +130,7 @@ public class WorkerKeyManager {
             sig.update(canonicalResultBytes);
             byte[] signature = sig.sign();
             assert signature.length == SIGNATURE_LENGTH
-                : "Ed25519 signature must be exactly 64 bytes, got: " + signature.length;
+                    : "Ed25519 signature must be exactly 64 bytes, got: " + signature.length;
             return signature;
         } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
             throw new IllegalStateException("Failed to sign result bytes with Ed25519 key", e);
@@ -147,7 +148,8 @@ public class WorkerKeyManager {
         byte[] encoded = publicKey.getEncoded(); // SubjectPublicKeyInfo DER, 44 bytes for Ed25519
         // The raw 32-byte key occupies the last 32 bytes of the DER encoding
         byte[] raw = new byte[RAW_PUBLIC_KEY_LENGTH];
-        System.arraycopy(encoded, encoded.length - RAW_PUBLIC_KEY_LENGTH, raw, 0, RAW_PUBLIC_KEY_LENGTH);
+        System.arraycopy(
+                encoded, encoded.length - RAW_PUBLIC_KEY_LENGTH, raw, 0, RAW_PUBLIC_KEY_LENGTH);
         return raw;
     }
 
@@ -165,8 +167,8 @@ public class WorkerKeyManager {
      * </ol>
      *
      * <p><strong>Caller responsibility:</strong> after rotation, the caller must re-register the
-     * new public key with the dispatcher via the {@code register-key} endpoint, passing the
-     * old fingerprint as the {@code supersedes} field.
+     * new public key with the dispatcher via the {@code register-key} endpoint, passing the old
+     * fingerprint as the {@code supersedes} field.
      *
      * <p>This method is NOT thread-safe. Do not call concurrently.
      *
@@ -189,13 +191,18 @@ public class WorkerKeyManager {
 
         // Atomically replace old private key with the new one
         try {
-            Files.move(newPrivatePath, privateKeyPath,
-                StandardCopyOption.REPLACE_EXISTING,
-                StandardCopyOption.ATOMIC_MOVE);
+            Files.move(
+                    newPrivatePath,
+                    privateKeyPath,
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE);
         } catch (java.nio.file.AtomicMoveNotSupportedException e) {
             // Windows antivirus lock or FS limitation — fall back to non-atomic replace
-            logger.warn("ATOMIC_MOVE not supported on this platform; using non-atomic replace for key rotation. "
-                + "This is safe on single-threaded startup. File: {}", privateKeyPath, e);
+            logger.warn(
+                    "ATOMIC_MOVE not supported on this platform; using non-atomic replace for key"
+                            + " rotation. This is safe on single-threaded startup. File: {}",
+                    privateKeyPath,
+                    e);
             Files.move(newPrivatePath, privateKeyPath, StandardCopyOption.REPLACE_EXISTING);
         }
 
@@ -242,8 +249,10 @@ public class WorkerKeyManager {
         Files.write(publicKeyPath, publicKey.getEncoded());
 
         String fp = fingerprint(getPublicKeyBytes());
-        logger.info("generated new worker keypair at {} (public key fingerprint: {})",
-            privateKeyPath.toAbsolutePath(), fp);
+        logger.info(
+                "generated new worker keypair at {} (public key fingerprint: {})",
+                privateKeyPath.toAbsolutePath(),
+                fp);
     }
 
     /**
@@ -270,15 +279,18 @@ public class WorkerKeyManager {
         }
 
         String fp = fingerprint(getPublicKeyBytes());
-        logger.info("loaded worker keypair from {} (public key fingerprint: {})",
-            privateKeyPath.toAbsolutePath(), fp);
+        logger.info(
+                "loaded worker keypair from {} (public key fingerprint: {})",
+                privateKeyPath.toAbsolutePath(),
+                fp);
     }
 
     /**
      * Generates a fresh Ed25519 keypair using the JDK native provider (available since JDK 15).
      *
      * @return the generated keypair
-     * @throws WorkerKeyGenerationException if generation fails due to entropy starvation or JCE policy
+     * @throws WorkerKeyGenerationException if generation fails due to entropy starvation or JCE
+     *     policy
      */
     private static KeyPair generateKeyPair() {
         try {
@@ -286,20 +298,21 @@ public class WorkerKeyManager {
             return kpg.generateKeyPair();
         } catch (NoSuchAlgorithmException e) {
             throw new WorkerKeyGenerationException(
-                "Ed25519 is not available in this JVM — JDK 21 is required (DEC-10). "
-                + "Algorithm: " + KEY_ALGORITHM,
-                e
-            );
+                    "Ed25519 is not available in this JVM — JDK 21 is required (DEC-10). "
+                            + "Algorithm: "
+                            + KEY_ALGORITHM,
+                    e);
         } catch (Exception e) {
             throw new WorkerKeyGenerationException(
-                "Keypair generation failed — possible entropy starvation or JCE policy restriction",
-                e
-            );
+                    "Keypair generation failed — possible entropy starvation or JCE policy"
+                            + " restriction",
+                    e);
         }
     }
 
     /**
-     * Sets the private key file to owner-read/write only (0600 on POSIX, equivalent ACL on Windows).
+     * Sets the private key file to owner-read/write only (0600 on POSIX, equivalent ACL on
+     * Windows).
      *
      * @param path the private key file path
      * @throws IOException if permissions cannot be set
@@ -321,21 +334,23 @@ public class WorkerKeyManager {
     /**
      * Sets file or directory permissions to owner-only on POSIX or Windows.
      *
-     * <p>On POSIX systems: sets {@code rw-------} for files, {@code rwx------} for directories.
-     * On Windows (ACL): grants the current owner Read, Write, Execute on the file/directory only.
-     * If neither attribute view is supported, logs a warning and leaves platform defaults.
+     * <p>On POSIX systems: sets {@code rw-------} for files, {@code rwx------} for directories. On
+     * Windows (ACL): grants the current owner Read, Write, Execute on the file/directory only. If
+     * neither attribute view is supported, logs a warning and leaves platform defaults.
      *
-     * @param path      the path to apply permissions to
-     * @param isPrivateFile {@code true} if this is a private key file (0600), {@code false} for
-     *                      a directory (0700)
+     * @param path the path to apply permissions to
+     * @param isPrivateFile {@code true} if this is a private key file (0600), {@code false} for a
+     *     directory (0700)
      * @throws IOException if setting permissions fails
      */
     private void setPosixOrAclPermissions(Path path, boolean isPrivateFile) throws IOException {
-        PosixFileAttributeView posixView = Files.getFileAttributeView(path, PosixFileAttributeView.class);
+        PosixFileAttributeView posixView =
+                Files.getFileAttributeView(path, PosixFileAttributeView.class);
         if (posixView != null) {
-            Set<PosixFilePermission> permissions = isPrivateFile
-                ? PosixFilePermissions.fromString("rw-------")
-                : PosixFilePermissions.fromString("rwx------");
+            Set<PosixFilePermission> permissions =
+                    isPrivateFile
+                            ? PosixFilePermissions.fromString("rw-------")
+                            : PosixFilePermissions.fromString("rwx------");
             posixView.setPermissions(permissions);
             return;
         }
@@ -344,46 +359,48 @@ public class WorkerKeyManager {
         if (aclView != null) {
             // On Windows: clear existing ACLs and set owner-only permissions
             java.nio.file.attribute.UserPrincipal owner = Files.getOwner(path);
-            Set<AclEntryPermission> filePermissions = isPrivateFile
-                ? EnumSet.of(
-                    AclEntryPermission.READ_DATA,
-                    AclEntryPermission.WRITE_DATA,
-                    AclEntryPermission.READ_ATTRIBUTES,
-                    AclEntryPermission.WRITE_ATTRIBUTES,
-                    AclEntryPermission.READ_NAMED_ATTRS,
-                    AclEntryPermission.WRITE_NAMED_ATTRS,
-                    AclEntryPermission.READ_ACL,
-                    AclEntryPermission.SYNCHRONIZE
-                )
-                : EnumSet.of(
-                    AclEntryPermission.READ_DATA,
-                    AclEntryPermission.WRITE_DATA,
-                    AclEntryPermission.EXECUTE,
-                    AclEntryPermission.READ_ATTRIBUTES,
-                    AclEntryPermission.WRITE_ATTRIBUTES,
-                    AclEntryPermission.READ_NAMED_ATTRS,
-                    AclEntryPermission.WRITE_NAMED_ATTRS,
-                    AclEntryPermission.READ_ACL,
-                    AclEntryPermission.SYNCHRONIZE
-                );
-            AclEntry ownerEntry = AclEntry.newBuilder()
-                .setType(AclEntryType.ALLOW)
-                .setPrincipal(owner)
-                .setPermissions(filePermissions)
-                .build();
+            Set<AclEntryPermission> filePermissions =
+                    isPrivateFile
+                            ? EnumSet.of(
+                                    AclEntryPermission.READ_DATA,
+                                    AclEntryPermission.WRITE_DATA,
+                                    AclEntryPermission.READ_ATTRIBUTES,
+                                    AclEntryPermission.WRITE_ATTRIBUTES,
+                                    AclEntryPermission.READ_NAMED_ATTRS,
+                                    AclEntryPermission.WRITE_NAMED_ATTRS,
+                                    AclEntryPermission.READ_ACL,
+                                    AclEntryPermission.SYNCHRONIZE)
+                            : EnumSet.of(
+                                    AclEntryPermission.READ_DATA,
+                                    AclEntryPermission.WRITE_DATA,
+                                    AclEntryPermission.EXECUTE,
+                                    AclEntryPermission.READ_ATTRIBUTES,
+                                    AclEntryPermission.WRITE_ATTRIBUTES,
+                                    AclEntryPermission.READ_NAMED_ATTRS,
+                                    AclEntryPermission.WRITE_NAMED_ATTRS,
+                                    AclEntryPermission.READ_ACL,
+                                    AclEntryPermission.SYNCHRONIZE);
+            AclEntry ownerEntry =
+                    AclEntry.newBuilder()
+                            .setType(AclEntryType.ALLOW)
+                            .setPrincipal(owner)
+                            .setPermissions(filePermissions)
+                            .build();
             aclView.setAcl(List.of(ownerEntry));
             return;
         }
 
-        logger.warn("Neither POSIX nor ACL file attribute views are supported on this platform. "
-            + "Skipping permission hardening for: {}. Review manually.", path);
+        logger.warn(
+                "Neither POSIX nor ACL file attribute views are supported on this platform. "
+                        + "Skipping permission hardening for: {}. Review manually.",
+                path);
     }
 
     /**
      * Computes a short fingerprint for a raw 32-byte Ed25519 public key.
      *
-     * <p>The fingerprint is the first 8 bytes of the SHA-256 digest, encoded as lowercase hex.
-     * This is sufficient for ops correlation without exposing any key material.
+     * <p>The fingerprint is the first 8 bytes of the SHA-256 digest, encoded as lowercase hex. This
+     * is sufficient for ops correlation without exposing any key material.
      *
      * @param rawPublicKeyBytes the 32-byte raw Ed25519 public key
      * @return a 16-character lowercase hex string (8 bytes = 16 hex chars)
@@ -396,7 +413,8 @@ public class WorkerKeyManager {
             return HexFormat.of().formatHex(first8);
         } catch (NoSuchAlgorithmException e) {
             // SHA-256 is mandated to be present in every Java SE implementation (JDK docs)
-            throw new IllegalStateException("SHA-256 not available — this should never happen on a compliant JDK", e);
+            throw new IllegalStateException(
+                    "SHA-256 not available — this should never happen on a compliant JDK", e);
         }
     }
 }

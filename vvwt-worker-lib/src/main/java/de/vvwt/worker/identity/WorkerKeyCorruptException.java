@@ -20,15 +20,15 @@ public class WorkerKeyCorruptException extends Exception {
      * Constructs a new {@code WorkerKeyCorruptException}.
      *
      * @param keyFilePath the absolute path of the corrupt private key file
-     * @param cause       the underlying parsing exception
+     * @param cause the underlying parsing exception
      */
     public WorkerKeyCorruptException(Path keyFilePath, Throwable cause) {
         super(
-            "Worker private key file is corrupt and cannot be parsed — manual remediation required."
-            + " File: " + keyFilePath.toAbsolutePath()
-            + " Delete the file to trigger fresh keypair generation on next startup.",
-            cause
-        );
+                "Worker private key file is corrupt and cannot be parsed — manual remediation"
+                        + " required. File: "
+                        + keyFilePath.toAbsolutePath()
+                        + " Delete the file to trigger fresh keypair generation on next startup.",
+                cause);
         this.keyFilePath = keyFilePath;
     }
 

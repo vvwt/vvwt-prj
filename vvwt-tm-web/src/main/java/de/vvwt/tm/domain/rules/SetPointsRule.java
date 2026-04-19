@@ -9,11 +9,11 @@ import org.springframework.stereotype.Component;
 /**
  * Scoring rule: 1 point per set won by each team (legacy simplification, D-15).
  *
- * <p>A 3:2 match awards 3 points to the winner and 2 to the loser. A 1:1 tie in
- * {@code FIXED_2_SETS} awards 1 point each. Works for all V1 {@link MatchFormat} values.
+ * <p>A 3:2 match awards 3 points to the winner and 2 to the loser. A 1:1 tie in {@code
+ * FIXED_2_SETS} awards 1 point each. Works for all V1 {@link MatchFormat} values.
  *
- * <p>This rule is stateless and thread-safe. Spring registers it as a singleton bean
- * named {@code "setPoints"}.
+ * <p>This rule is stateless and thread-safe. Spring registers it as a singleton bean named {@code
+ * "setPoints"}.
  */
 @Component("setPoints")
 public class SetPointsRule implements ScoringRule {
@@ -29,8 +29,12 @@ public class SetPointsRule implements ScoringRule {
 
         ScoringResult result = new ScoringResult(team1Points, team2Points);
 
-        log.debug("setPoints: outcome={}, format={} → result=({}, {})",
-                outcome, format, team1Points, team2Points);
+        log.debug(
+                "setPoints: outcome={}, format={} → result=({}, {})",
+                outcome,
+                format,
+                team1Points,
+                team2Points);
 
         return result;
     }
@@ -65,9 +69,13 @@ public class SetPointsRule implements ScoringRule {
         }
         if (outcome.getSetCount() != outcome.getTeam1SetsWon() + outcome.getTeam2SetsWon()) {
             throw new IllegalArgumentException(
-                    "setCount (" + outcome.getSetCount() + ") must equal team1SetsWon ("
-                    + outcome.getTeam1SetsWon() + ") + team2SetsWon ("
-                    + outcome.getTeam2SetsWon() + ")");
+                    "setCount ("
+                            + outcome.getSetCount()
+                            + ") must equal team1SetsWon ("
+                            + outcome.getTeam1SetsWon()
+                            + ") + team2SetsWon ("
+                            + outcome.getTeam2SetsWon()
+                            + ")");
         }
     }
 }

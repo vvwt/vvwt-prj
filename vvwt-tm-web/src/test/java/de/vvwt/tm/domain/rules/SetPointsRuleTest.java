@@ -1,18 +1,16 @@
 package de.vvwt.tm.domain.rules;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import de.vvwt.tm.domain.MatchFormat;
 import de.vvwt.tm.domain.MatchOutcome;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import org.junit.jupiter.api.Test;
-
-/**
- * Unit tests for {@link SetPointsRule} (AC8 + AC12 null/negative guards).
- */
+/** Unit tests for {@link SetPointsRule} (AC8 + AC12 null/negative guards). */
 class SetPointsRuleTest {
 
     private SetPointsRule rule;
@@ -29,13 +27,13 @@ class SetPointsRuleTest {
     @ParameterizedTest(name = "format={0} team1={1} team2={2} sets={3} → ({4},{5})")
     @CsvSource({
         // format,           t1, t2, sc, expected1, expected2
-        "BEST_OF_5,          3,  0,  3,  3, 0",   // AC8 row 1
-        "BEST_OF_5,          3,  1,  4,  3, 1",   // AC8 row 2
-        "BEST_OF_5,          3,  2,  5,  3, 2",   // AC8 row 3
-        "BEST_OF_3,          2,  0,  2,  2, 0",   // AC8 row 4
-        "BEST_OF_1,          1,  0,  1,  1, 0",   // AC8 row 5
-        "FIXED_2_SETS,       2,  0,  2,  2, 0",   // AC8 row 6
-        "FIXED_2_SETS,       1,  1,  2,  1, 1",   // AC8 row 7 (tie)
+        "BEST_OF_5,          3,  0,  3,  3, 0", // AC8 row 1
+        "BEST_OF_5,          3,  1,  4,  3, 1", // AC8 row 2
+        "BEST_OF_5,          3,  2,  5,  3, 2", // AC8 row 3
+        "BEST_OF_3,          2,  0,  2,  2, 0", // AC8 row 4
+        "BEST_OF_1,          1,  0,  1,  1, 0", // AC8 row 5
+        "FIXED_2_SETS,       2,  0,  2,  2, 0", // AC8 row 6
+        "FIXED_2_SETS,       1,  1,  2,  1, 1", // AC8 row 7 (tie)
     })
     void calculatePoints_returnsSetCounts(
             MatchFormat format, int t1, int t2, int sc, int exp1, int exp2) {

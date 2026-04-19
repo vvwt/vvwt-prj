@@ -1,8 +1,12 @@
 package de.vvwt.worker.identity;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.slf4j.Logger;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assumptions.assumeThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -11,20 +15,15 @@ import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.Arrays;
 import java.util.Set;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Assumptions.assumeThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.any;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.Logger;
 
 /**
  * Unit tests for {@link WorkerKeyManager}.
  *
- * <p>Covers Story E01S04 AC1–AC10. Platform-specific assertions (POSIX permissions) are
- * skipped on non-POSIX systems via {@link org.assertj.core.api.Assumptions#assumeThat}.
+ * <p>Covers Story E01S04 AC1–AC10. Platform-specific assertions (POSIX permissions) are skipped on
+ * non-POSIX systems via {@link org.assertj.core.api.Assumptions#assumeThat}.
  */
 class WorkerKeyManagerTest {
 
@@ -52,8 +51,8 @@ class WorkerKeyManagerTest {
         byte[] publicKeySecond = second.getPublicKeyBytes();
 
         assertThat(publicKeySecond)
-            .as("Same public key must be returned on subsequent load")
-            .isEqualTo(publicKeyFirst);
+                .as("Same public key must be returned on subsequent load")
+                .isEqualTo(publicKeyFirst);
     }
 
     // -------------------------------------------------------------------------
@@ -69,15 +68,12 @@ class WorkerKeyManagerTest {
         new WorkerKeyManager(tempDir, logger);
 
         Path privateKeyFile = tempDir.resolve("optimizer-worker.key");
-        Set<PosixFilePermission> permissions =
-            Files.getPosixFilePermissions(privateKeyFile);
+        Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(privateKeyFile);
 
         assertThat(permissions)
-            .as("Private key must have owner read+write only (0600)")
-            .containsExactlyInAnyOrder(
-                PosixFilePermission.OWNER_READ,
-                PosixFilePermission.OWNER_WRITE
-            );
+                .as("Private key must have owner read+write only (0600)")
+                .containsExactlyInAnyOrder(
+                        PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE);
     }
 
     // -------------------------------------------------------------------------
@@ -93,26 +89,27 @@ class WorkerKeyManagerTest {
 
         // Corrupt the private key file by overwriting with garbage
         Path privateKeyFile = tempDir.resolve("optimizer-worker.key");
-        byte[] garbageBytes = new byte[]{0x00, 0x01, 0x02, 0x03};
+        byte[] garbageBytes = new byte[] {0x00, 0x01, 0x02, 0x03};
         Files.write(privateKeyFile, garbageBytes);
         long corruptFileTimestamp = Files.getLastModifiedTime(privateKeyFile).toMillis();
 
         // Second manager instantiation must throw WorkerKeyCorruptException
         assertThatThrownBy(() -> new WorkerKeyManager(tempDir, logger))
-            .isInstanceOf(WorkerKeyCorruptException.class)
-            .satisfies(ex -> {
-                WorkerKeyCorruptException wkce = (WorkerKeyCorruptException) ex;
-                assertThat(wkce.getKeyFilePath().toAbsolutePath().toString())
-                    .contains("optimizer-worker.key");
-            });
+                .isInstanceOf(WorkerKeyCorruptException.class)
+                .satisfies(
+                        ex -> {
+                            WorkerKeyCorruptException wkce = (WorkerKeyCorruptException) ex;
+                            assertThat(wkce.getKeyFilePath().toAbsolutePath().toString())
+                                    .contains("optimizer-worker.key");
+                        });
 
         // File must NOT have been overwritten (timestamp unchanged)
         assertThat(Files.getLastModifiedTime(privateKeyFile).toMillis())
-            .as("Corrupt private key file must NOT be overwritten")
-            .isEqualTo(corruptFileTimestamp);
+                .as("Corrupt private key file must NOT be overwritten")
+                .isEqualTo(corruptFileTimestamp);
         assertThat(Files.readAllBytes(privateKeyFile))
-            .as("Corrupt private key file contents must be unchanged")
-            .isEqualTo(garbageBytes);
+                .as("Corrupt private key file contents must be unchanged")
+                .isEqualTo(garbageBytes);
     }
 
     // -------------------------------------------------------------------------
@@ -136,7 +133,7 @@ class WorkerKeyManagerTest {
         WorkerKeyManager manager = new WorkerKeyManager(tempDir, logger);
 
         assertThatThrownBy(() -> manager.signResult(null))
-            .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     // -------------------------------------------------------------------------
@@ -153,8 +150,10 @@ class WorkerKeyManagerTest {
         byte[] sig2 = manager.signResult(payload);
 
         assertThat(sig1)
-            .as("Ed25519 signatures of the same input must be identical (deterministic by spec)")
-            .isEqualTo(sig2);
+                .as(
+                        "Ed25519 signatures of the same input must be identical (deterministic by"
+                                + " spec)")
+                .isEqualTo(sig2);
     }
 
     // -------------------------------------------------------------------------
@@ -181,8 +180,8 @@ class WorkerKeyManagerTest {
         byte[] second = manager.getPublicKeyBytes();
 
         assertThat(second[0])
-            .as("Mutation of returned array must not affect subsequent calls")
-            .isNotEqualTo(first[0]);
+                .as("Mutation of returned array must not affect subsequent calls")
+                .isNotEqualTo(first[0]);
     }
 
     // -------------------------------------------------------------------------
@@ -206,23 +205,23 @@ class WorkerKeyManagerTest {
         assumeThat(isPosix).as("This test requires POSIX file permission support").isTrue();
 
         // Make tempDir read-only to prevent subdirectory creation
-        Files.setPosixFilePermissions(tempDir,
-            Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_EXECUTE));
+        Files.setPosixFilePermissions(
+                tempDir, Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_EXECUTE));
 
         try {
             Logger logger = mock(Logger.class);
             Path childDir = tempDir.resolve("locked-child");
 
             assertThatThrownBy(() -> new WorkerKeyManager(childDir, logger))
-                .isInstanceOf(IOException.class);
+                    .isInstanceOf(IOException.class);
         } finally {
             // Restore so @TempDir cleanup can remove it
-            Files.setPosixFilePermissions(tempDir,
-                Set.of(
-                    PosixFilePermission.OWNER_READ,
-                    PosixFilePermission.OWNER_WRITE,
-                    PosixFilePermission.OWNER_EXECUTE
-                ));
+            Files.setPosixFilePermissions(
+                    tempDir,
+                    Set.of(
+                            PosixFilePermission.OWNER_READ,
+                            PosixFilePermission.OWNER_WRITE,
+                            PosixFilePermission.OWNER_EXECUTE));
         }
     }
 
@@ -234,7 +233,7 @@ class WorkerKeyManagerTest {
     void workerKeyGenerationExceptionIsRuntimeException() {
         // Verify the exception class hierarchy — runtime exception means no forced catch
         WorkerKeyGenerationException ex =
-            new WorkerKeyGenerationException("test", new RuntimeException("cause"));
+                new WorkerKeyGenerationException("test", new RuntimeException("cause"));
         assertThat(ex).isInstanceOf(RuntimeException.class);
         assertThat(ex.getCause()).isNotNull();
     }
@@ -281,14 +280,14 @@ class WorkerKeyManagerTest {
         assertThat(result.oldFingerprint()).isNotNull().hasSize(16); // 8 bytes = 16 hex chars
         assertThat(result.newFingerprint()).isNotNull().hasSize(16);
         assertThat(result.oldFingerprint())
-            .as("Old and new fingerprints must differ after rotation")
-            .isNotEqualTo(result.newFingerprint());
+                .as("Old and new fingerprints must differ after rotation")
+                .isNotEqualTo(result.newFingerprint());
 
         // Internal state must reflect new key
         byte[] newPublicKey = manager.getPublicKeyBytes();
         assertThat(newPublicKey)
-            .as("Public key bytes must change after rotation")
-            .isNotEqualTo(originalPublicKey);
+                .as("Public key bytes must change after rotation")
+                .isNotEqualTo(originalPublicKey);
     }
 
     @Test
@@ -301,13 +300,13 @@ class WorkerKeyManagerTest {
         byte[] newPubKeyBytes = Files.readAllBytes(tempDir.resolve("optimizer-worker.pub"));
 
         assertThat(newPubKeyBytes)
-            .as("Public key file must be updated after rotation")
-            .isNotEqualTo(originalPubKeyBytes);
+                .as("Public key file must be updated after rotation")
+                .isNotEqualTo(originalPubKeyBytes);
 
         // The .new file must have been moved (renamed) — should not exist after rotation
         assertThat(tempDir.resolve("optimizer-worker.key.new"))
-            .as("Temporary .new key file must not exist after successful rotation")
-            .doesNotExist();
+                .as("Temporary .new key file must not exist after successful rotation")
+                .doesNotExist();
     }
 
     @Test
@@ -334,9 +333,7 @@ class WorkerKeyManagerTest {
         byte[] fakePublicKey = new byte[32];
         Arrays.fill(fakePublicKey, (byte) 0xAB);
         String fp = WorkerKeyManager.fingerprint(fakePublicKey);
-        assertThat(fp)
-            .hasSize(16)
-            .matches("[0-9a-f]+");
+        assertThat(fp).hasSize(16).matches("[0-9a-f]+");
     }
 
     @Test

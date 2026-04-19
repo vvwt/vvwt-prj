@@ -1,7 +1,6 @@
 package de.vvwt.tm.infrastructure.web.dto;
 
 import de.vvwt.tm.domain.draft.DraftSection;
-
 import java.util.List;
 
 /**
@@ -11,8 +10,12 @@ import java.util.List;
  *
  * @see DraftResponse
  * @see DraftBreakResponse
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E05S06.story.md">Story E05S06</a>
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S05.story.md">Story E08S05 AC2</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E05S06.story.md">Story
+ *     E05S06</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S05.story.md">Story
+ *     E08S05 AC2</a>
  */
 public record DraftSectionResponse(
         int sectionNumber,
@@ -23,8 +26,7 @@ public record DraftSectionResponse(
         int sectionBreakTimeMinutes,
         int lapTimeMinutes,
         int setQuantity,
-        List<DraftBreakResponse> breaks
-) {
+        List<DraftBreakResponse> breaks) {
 
     /**
      * Maps a {@link DraftSection} domain object to this response DTO.
@@ -42,7 +44,6 @@ public record DraftSectionResponse(
                 section.getSectionBreakTimeMinutes(),
                 section.getLapTimeMinutes(),
                 section.getSetQuantity(),
-                section.getBreaks().stream().map(DraftBreakResponse::from).toList()
-        );
+                section.getBreaks().stream().map(DraftBreakResponse::from).toList());
     }
 }

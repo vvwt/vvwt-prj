@@ -1,20 +1,5 @@
 package de.vvwt.dispatcher.identity;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import de.vvwt.dispatcher.audit.AuditService;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
-
-import java.time.Instant;
-import java.util.Base64;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
@@ -24,26 +9,34 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import de.vvwt.dispatcher.audit.AuditService;
+import java.time.Instant;
+import java.util.Base64;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
 /**
  * {@code @WebMvcTest} slice for {@link KeyRegistrationController}.
  *
- * <p>Tests AC1 (happy path), AC2 (invalid key), AC3 (rotation via service mock),
- * AC4 (idempotent + role conflict), and AC12 (audit logging on every call).
+ * <p>Tests AC1 (happy path), AC2 (invalid key), AC3 (rotation via service mock), AC4 (idempotent +
+ * role conflict), and AC12 (audit logging on every call).
  */
 @WebMvcTest(KeyRegistrationController.class)
 class KeyRegistrationControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    @Autowired private MockMvc mockMvc;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    @Autowired private ObjectMapper objectMapper;
 
-    @MockitoBean
-    private KeyRegistrationService keyRegistrationService;
+    @MockitoBean private KeyRegistrationService keyRegistrationService;
 
-    @MockitoBean
-    private AuditService auditService;
+    @MockitoBean private AuditService auditService;
 
     // -------------------------------------------------------------------------
     // AC1: happy path
@@ -62,11 +55,15 @@ class KeyRegistrationControllerTest {
         fakeKeyBytes[0] = 0x42;
         String base64Key = Base64.getEncoder().encodeToString(fakeKeyBytes);
 
-        mockMvc.perform(post("/register-key")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
+        mockMvc.perform(
+                        post("/register-key")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
                                 {"role":"worker","publicKey":"%s","supersedes":null,"name":"test-worker"}
-                                """.formatted(base64Key).trim()))
+                                """
+                                                .formatted(base64Key)
+                                                .trim()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.keyId").value(expectedKeyId.toString()))
                 .andExpect(jsonPath("$.role").value("worker"));
@@ -83,11 +80,15 @@ class KeyRegistrationControllerTest {
 
         String base64Key = Base64.getEncoder().encodeToString(new byte[20]); // wrong length
 
-        mockMvc.perform(post("/register-key")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
+        mockMvc.perform(
+                        post("/register-key")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
                                 {"role":"worker","publicKey":"%s"}
-                                """.formatted(base64Key).trim()))
+                                """
+                                                .formatted(base64Key)
+                                                .trim()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("invalid public key"));
     }
@@ -99,16 +100,21 @@ class KeyRegistrationControllerTest {
     @Test
     void registerKey_roleConflict_returns409() throws Exception {
         when(keyRegistrationService.register(any()))
-                .thenThrow(new RoleConflictException("Key registered as worker; cannot be submitter"));
+                .thenThrow(
+                        new RoleConflictException("Key registered as worker; cannot be submitter"));
 
         byte[] fakeKeyBytes = new byte[32];
         String base64Key = Base64.getEncoder().encodeToString(fakeKeyBytes);
 
-        mockMvc.perform(post("/register-key")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
+        mockMvc.perform(
+                        post("/register-key")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
                                 {"role":"submitter","publicKey":"%s"}
-                                """.formatted(base64Key).trim()))
+                                """
+                                                .formatted(base64Key)
+                                                .trim()))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value("role conflict"));
     }
@@ -128,11 +134,15 @@ class KeyRegistrationControllerTest {
         byte[] fakeKeyBytes = new byte[32];
         String base64Key = Base64.getEncoder().encodeToString(fakeKeyBytes);
 
-        mockMvc.perform(post("/register-key")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
+        mockMvc.perform(
+                        post("/register-key")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
                                 {"role":"worker","publicKey":"%s"}
-                                """.formatted(base64Key).trim()))
+                                """
+                                                .formatted(base64Key)
+                                                .trim()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.keyId").value(existingKeyId.toString()));
     }
@@ -150,11 +160,15 @@ class KeyRegistrationControllerTest {
         byte[] fakeKeyBytes = new byte[32];
         String base64Key = Base64.getEncoder().encodeToString(fakeKeyBytes);
 
-        mockMvc.perform(post("/register-key")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
+        mockMvc.perform(
+                        post("/register-key")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
                                 {"role":"worker","publicKey":"%s"}
-                                """.formatted(base64Key).trim()))
+                                """
+                                                .formatted(base64Key)
+                                                .trim()))
                 .andExpect(status().isOk());
 
         // Verify audit log was written exactly once (AC12)
@@ -166,9 +180,10 @@ class KeyRegistrationControllerTest {
         when(keyRegistrationService.register(any()))
                 .thenThrow(new IllegalArgumentException("invalid public key"));
 
-        mockMvc.perform(post("/register-key")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"role\":\"worker\",\"publicKey\":\"invalid\"}"))
+        mockMvc.perform(
+                        post("/register-key")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"role\":\"worker\",\"publicKey\":\"invalid\"}"))
                 .andExpect(status().isBadRequest());
 
         // Verify audit log was written even on failure (AC12)

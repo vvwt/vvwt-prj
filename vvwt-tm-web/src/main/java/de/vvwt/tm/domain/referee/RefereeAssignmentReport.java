@@ -10,11 +10,13 @@ import java.util.UUID;
 /**
  * Immutable summary of a {@link RefereeAssigner#assignReferees(UUID)} execution.
  *
- * <p>Returned by the service after a successful (or partially successful) run. The human or
- * calling code can inspect counts and warnings to determine if manual intervention is needed.
+ * <p>Returned by the service after a successful (or partially successful) run. The human or calling
+ * code can inspect counts and warnings to determine if manual intervention is needed.
  *
  * @see RefereeAssigner
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E03S10.story.md">Story E03S10 AC15</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E03S10.story.md">Story
+ *     E03S10 AC15</a>
  */
 public final class RefereeAssignmentReport {
 
@@ -28,21 +30,20 @@ public final class RefereeAssignmentReport {
     private final int overriddenCount;
 
     /**
-     * Number of matches left without a referee team because no eligible non-playing team
-     * was available. These matches require manual organiser intervention.
+     * Number of matches left without a referee team because no eligible non-playing team was
+     * available. These matches require manual organiser intervention.
      */
     private final int noRefereeCount;
 
     /**
-     * Per-team assignment count.
-     * Key: team UUID. Value: number of matches that team was assigned to referee.
-     * Only teams that received at least one assignment appear in this map.
+     * Per-team assignment count. Key: team UUID. Value: number of matches that team was assigned to
+     * referee. Only teams that received at least one assignment appear in this map.
      */
     private final Map<UUID, Integer> perTeamAssignmentCount;
 
     /**
-     * Human-readable warnings generated during the assignment run.
-     * Typically "Lap X: no eligible referee for match Y".
+     * Human-readable warnings generated during the assignment run. Typically "Lap X: no eligible
+     * referee for match Y".
      */
     private final List<String> warnings;
 
@@ -51,8 +52,8 @@ public final class RefereeAssignmentReport {
         this.assignedCount = builder.assignedCount;
         this.overriddenCount = builder.overriddenCount;
         this.noRefereeCount = builder.noRefereeCount;
-        this.perTeamAssignmentCount = Collections.unmodifiableMap(
-                new LinkedHashMap<>(builder.perTeamAssignmentCount));
+        this.perTeamAssignmentCount =
+                Collections.unmodifiableMap(new LinkedHashMap<>(builder.perTeamAssignmentCount));
         this.warnings = Collections.unmodifiableList(new ArrayList<>(builder.warnings));
     }
 
@@ -61,22 +62,34 @@ public final class RefereeAssignmentReport {
     // -------------------------------------------------------------------------
 
     /** Total matches in the phase. */
-    public int getTotalMatches() { return totalMatches; }
+    public int getTotalMatches() {
+        return totalMatches;
+    }
 
     /** Matches auto-assigned a referee. */
-    public int getAssignedCount() { return assignedCount; }
+    public int getAssignedCount() {
+        return assignedCount;
+    }
 
     /** Matches with existing {@code refereeDescription} override — left unchanged. */
-    public int getOverriddenCount() { return overriddenCount; }
+    public int getOverriddenCount() {
+        return overriddenCount;
+    }
 
     /** Matches with no eligible referee — left with null {@code refereeTeamId}. */
-    public int getNoRefereeCount() { return noRefereeCount; }
+    public int getNoRefereeCount() {
+        return noRefereeCount;
+    }
 
     /** Per-team referee assignment count (team ID → matches refereed). */
-    public Map<UUID, Integer> getPerTeamAssignmentCount() { return perTeamAssignmentCount; }
+    public Map<UUID, Integer> getPerTeamAssignmentCount() {
+        return perTeamAssignmentCount;
+    }
 
     /** Human-readable warnings from the assignment run. */
-    public List<String> getWarnings() { return warnings; }
+    public List<String> getWarnings() {
+        return warnings;
+    }
 
     // -------------------------------------------------------------------------
     // Builder
@@ -88,8 +101,8 @@ public final class RefereeAssignmentReport {
     }
 
     /**
-     * Mutable builder for {@link RefereeAssignmentReport}.
-     * The Orchestrator (RefereeAssigner) assembles the report incrementally during the algorithm.
+     * Mutable builder for {@link RefereeAssignmentReport}. The Orchestrator (RefereeAssigner)
+     * assembles the report incrementally during the algorithm.
      */
     public static final class Builder {
 
@@ -161,11 +174,16 @@ public final class RefereeAssignmentReport {
     @Override
     public String toString() {
         return "RefereeAssignmentReport{"
-                + "totalMatches=" + totalMatches
-                + ", assignedCount=" + assignedCount
-                + ", overriddenCount=" + overriddenCount
-                + ", noRefereeCount=" + noRefereeCount
-                + ", warnings=" + warnings.size()
+                + "totalMatches="
+                + totalMatches
+                + ", assignedCount="
+                + assignedCount
+                + ", overriddenCount="
+                + overriddenCount
+                + ", noRefereeCount="
+                + noRefereeCount
+                + ", warnings="
+                + warnings.size()
                 + '}';
     }
 }

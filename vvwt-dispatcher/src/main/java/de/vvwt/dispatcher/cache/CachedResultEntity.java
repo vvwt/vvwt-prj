@@ -4,7 +4,6 @@ import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
-
 import java.time.Instant;
 import java.util.UUID;
 
@@ -12,6 +11,7 @@ import java.util.UUID;
  * JPA entity for the {@code cached_results} table (AC6 of E01S09).
  *
  * <p>Schema (Postgres preferred, H2 acceptable for embedded per DEC-3):
+ *
  * <pre>
  *   cached_results(
  *     fingerprint              BYTEA         NOT NULL,
@@ -30,8 +30,7 @@ import java.util.UUID;
 @Table(name = "cached_results")
 public class CachedResultEntity {
 
-    @EmbeddedId
-    private CachedResultId id;
+    @EmbeddedId private CachedResultId id;
 
     @Column(name = "best_rank", nullable = false)
     private long bestRank;
@@ -49,26 +48,30 @@ public class CachedResultEntity {
     private UUID sourceJobId;
 
     /** JPA no-arg constructor. */
-    protected CachedResultEntity() {
-    }
+    protected CachedResultEntity() {}
 
     /**
      * Creates a fully-populated entity.
      *
-     * @param id          composite primary key
-     * @param bestRank    best permutation rank found by workers
-     * @param bestScore   variety score for {@code bestRank}
-     * @param n           number of avatars in the phase
-     * @param computedAt  timestamp when the result was finalized
+     * @param id composite primary key
+     * @param bestRank best permutation rank found by workers
+     * @param bestScore variety score for {@code bestRank}
+     * @param n number of avatars in the phase
+     * @param computedAt timestamp when the result was finalized
      * @param sourceJobId the job that produced this result first
      */
-    public CachedResultEntity(CachedResultId id, long bestRank, double bestScore,
-                               int n, Instant computedAt, UUID sourceJobId) {
-        this.id          = id;
-        this.bestRank    = bestRank;
-        this.bestScore   = bestScore;
-        this.n           = n;
-        this.computedAt  = computedAt;
+    public CachedResultEntity(
+            CachedResultId id,
+            long bestRank,
+            double bestScore,
+            int n,
+            Instant computedAt,
+            UUID sourceJobId) {
+        this.id = id;
+        this.bestRank = bestRank;
+        this.bestScore = bestScore;
+        this.n = n;
+        this.computedAt = computedAt;
         this.sourceJobId = sourceJobId;
     }
 

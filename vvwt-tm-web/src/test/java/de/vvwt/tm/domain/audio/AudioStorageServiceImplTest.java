@@ -1,12 +1,13 @@
 package de.vvwt.tm.domain.audio;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import de.vvwt.tm.domain.Tournament;
 import de.vvwt.tm.domain.repo.TournamentRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -16,12 +17,10 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Unit tests for {@link AudioStorageServiceImpl}.
@@ -30,20 +29,22 @@ import static org.mockito.Mockito.when;
  * scoping), AC7 (error handling) at the service layer without a running Spring context.
  *
  * @see AudioStorageServiceImpl
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E11S01.story.md">Story E11S01</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E11S01.story.md">Story
+ *     E11S01</a>
  */
 @DisplayName("AudioStorageServiceImpl unit tests — E11S01")
 class AudioStorageServiceImplTest {
 
-    @TempDir
-    Path tempDir;
+    @TempDir Path tempDir;
 
     private AudioStorageConfig config;
     private TournamentRepository tournamentRepository;
     private AudioStorageServiceImpl service;
 
     private static final UUID TOURNAMENT_ID = UUID.randomUUID();
-    private static final byte[] SAMPLE_MP3_BYTES = new byte[]{0x49, 0x44, 0x33, 0x00, 0x00}; // minimal
+    private static final byte[] SAMPLE_MP3_BYTES =
+            new byte[] {0x49, 0x44, 0x33, 0x00, 0x00}; // minimal
 
     @BeforeEach
     void setUp() {
@@ -55,16 +56,16 @@ class AudioStorageServiceImplTest {
         Tournament fakeTournament = new Tournament();
         fakeTournament.setId(TOURNAMENT_ID);
 
-        when(tournamentRepository.findById(TOURNAMENT_ID))
-                .thenReturn(Optional.of(fakeTournament));
+        when(tournamentRepository.findById(TOURNAMENT_ID)).thenReturn(Optional.of(fakeTournament));
         when(tournamentRepository.findById(any(UUID.class)))
-                .thenAnswer(invocation -> {
-                    UUID id = invocation.getArgument(0);
-                    if (TOURNAMENT_ID.equals(id)) {
-                        return Optional.of(fakeTournament);
-                    }
-                    return Optional.empty();
-                });
+                .thenAnswer(
+                        invocation -> {
+                            UUID id = invocation.getArgument(0);
+                            if (TOURNAMENT_ID.equals(id)) {
+                                return Optional.of(fakeTournament);
+                            }
+                            return Optional.empty();
+                        });
 
         service = new AudioStorageServiceImpl(config, tournamentRepository);
     }
@@ -76,9 +77,13 @@ class AudioStorageServiceImplTest {
     @Test
     @DisplayName("AC1: upload stores file and returns metadata")
     void uploadStoresFileAndReturnsMetadata() {
-        AudioFileMetadata meta = service.upload(
-                TOURNAMENT_ID, AudioCategory.START, "start.mp3",
-                new ByteArrayInputStream(SAMPLE_MP3_BYTES), SAMPLE_MP3_BYTES.length);
+        AudioFileMetadata meta =
+                service.upload(
+                        TOURNAMENT_ID,
+                        AudioCategory.START,
+                        "start.mp3",
+                        new ByteArrayInputStream(SAMPLE_MP3_BYTES),
+                        SAMPLE_MP3_BYTES.length);
 
         assertThat(meta.category()).isEqualTo(AudioCategory.START);
         assertThat(meta.filename()).isEqualTo("start.mp3");
@@ -93,13 +98,21 @@ class AudioStorageServiceImplTest {
     @Test
     @DisplayName("AC1: upload replaces existing file for same category")
     void uploadReplacesExistingFile() throws IOException {
-        byte[] firstUpload = new byte[]{0x01, 0x02};
-        byte[] secondUpload = new byte[]{0x03, 0x04, 0x05};
+        byte[] firstUpload = new byte[] {0x01, 0x02};
+        byte[] secondUpload = new byte[] {0x03, 0x04, 0x05};
 
-        service.upload(TOURNAMENT_ID, AudioCategory.START, "first.mp3",
-                new ByteArrayInputStream(firstUpload), firstUpload.length);
-        service.upload(TOURNAMENT_ID, AudioCategory.START, "second.mp3",
-                new ByteArrayInputStream(secondUpload), secondUpload.length);
+        service.upload(
+                TOURNAMENT_ID,
+                AudioCategory.START,
+                "first.mp3",
+                new ByteArrayInputStream(firstUpload),
+                firstUpload.length);
+        service.upload(
+                TOURNAMENT_ID,
+                AudioCategory.START,
+                "second.mp3",
+                new ByteArrayInputStream(secondUpload),
+                secondUpload.length);
 
         Path storedFile = tempDir.resolve(TOURNAMENT_ID.toString()).resolve("start.mp3");
         byte[] storedBytes = Files.readAllBytes(storedFile);
@@ -111,8 +124,12 @@ class AudioStorageServiceImplTest {
     void uploadCreatesParentDirectory() {
         assertThat(tempDir.resolve(TOURNAMENT_ID.toString())).doesNotExist();
 
-        service.upload(TOURNAMENT_ID, AudioCategory.END, "end.mp3",
-                new ByteArrayInputStream(SAMPLE_MP3_BYTES), SAMPLE_MP3_BYTES.length);
+        service.upload(
+                TOURNAMENT_ID,
+                AudioCategory.END,
+                "end.mp3",
+                new ByteArrayInputStream(SAMPLE_MP3_BYTES),
+                SAMPLE_MP3_BYTES.length);
 
         assertThat(tempDir.resolve(TOURNAMENT_ID.toString()).resolve("end.mp3")).exists();
     }
@@ -124,8 +141,12 @@ class AudioStorageServiceImplTest {
     @Test
     @DisplayName("AC2: stream returns content of uploaded file")
     void streamReturnsUploadedFileContent() throws IOException {
-        service.upload(TOURNAMENT_ID, AudioCategory.START, "start.mp3",
-                new ByteArrayInputStream(SAMPLE_MP3_BYTES), SAMPLE_MP3_BYTES.length);
+        service.upload(
+                TOURNAMENT_ID,
+                AudioCategory.START,
+                "start.mp3",
+                new ByteArrayInputStream(SAMPLE_MP3_BYTES),
+                SAMPLE_MP3_BYTES.length);
 
         Optional<InputStream> streamOpt = service.stream(TOURNAMENT_ID, AudioCategory.START);
         assertThat(streamOpt).isPresent();
@@ -148,15 +169,24 @@ class AudioStorageServiceImplTest {
     @Test
     @DisplayName("AC3: list returns only uploaded categories")
     void listReturnsOnlyUploadedCategories() {
-        service.upload(TOURNAMENT_ID, AudioCategory.START, "start.mp3",
-                new ByteArrayInputStream(SAMPLE_MP3_BYTES), SAMPLE_MP3_BYTES.length);
-        service.upload(TOURNAMENT_ID, AudioCategory.END, "end.mp3",
-                new ByteArrayInputStream(SAMPLE_MP3_BYTES), SAMPLE_MP3_BYTES.length);
+        service.upload(
+                TOURNAMENT_ID,
+                AudioCategory.START,
+                "start.mp3",
+                new ByteArrayInputStream(SAMPLE_MP3_BYTES),
+                SAMPLE_MP3_BYTES.length);
+        service.upload(
+                TOURNAMENT_ID,
+                AudioCategory.END,
+                "end.mp3",
+                new ByteArrayInputStream(SAMPLE_MP3_BYTES),
+                SAMPLE_MP3_BYTES.length);
 
         List<AudioFileMetadata> list = service.list(TOURNAMENT_ID);
 
         assertThat(list).hasSize(2);
-        assertThat(list).extracting(AudioFileMetadata::category)
+        assertThat(list)
+                .extracting(AudioFileMetadata::category)
                 .containsExactlyInAnyOrder(AudioCategory.START, AudioCategory.END);
     }
 
@@ -174,8 +204,12 @@ class AudioStorageServiceImplTest {
     @Test
     @DisplayName("AC4: delete removes file and returns true")
     void deleteRemovesFileAndReturnsTrue() {
-        service.upload(TOURNAMENT_ID, AudioCategory.PAUSE, "pause.mp3",
-                new ByteArrayInputStream(SAMPLE_MP3_BYTES), SAMPLE_MP3_BYTES.length);
+        service.upload(
+                TOURNAMENT_ID,
+                AudioCategory.PAUSE,
+                "pause.mp3",
+                new ByteArrayInputStream(SAMPLE_MP3_BYTES),
+                SAMPLE_MP3_BYTES.length);
 
         boolean deleted = service.delete(TOURNAMENT_ID, AudioCategory.PAUSE);
 
@@ -199,8 +233,14 @@ class AudioStorageServiceImplTest {
     void uploadThrowsForUnknownTournament() {
         UUID unknownId = UUID.randomUUID();
 
-        assertThatThrownBy(() -> service.upload(unknownId, AudioCategory.START, "start.mp3",
-                new ByteArrayInputStream(SAMPLE_MP3_BYTES), SAMPLE_MP3_BYTES.length))
+        assertThatThrownBy(
+                        () ->
+                                service.upload(
+                                        unknownId,
+                                        AudioCategory.START,
+                                        "start.mp3",
+                                        new ByteArrayInputStream(SAMPLE_MP3_BYTES),
+                                        SAMPLE_MP3_BYTES.length))
                 .isInstanceOf(NoSuchElementException.class)
                 .hasMessageContaining(unknownId.toString());
     }
@@ -239,8 +279,14 @@ class AudioStorageServiceImplTest {
     @Test
     @DisplayName("AC7: upload rejects non-.mp3 file with AudioFormatException")
     void uploadRejectsNonMp3File() {
-        assertThatThrownBy(() -> service.upload(TOURNAMENT_ID, AudioCategory.START, "audio.wav",
-                new ByteArrayInputStream(SAMPLE_MP3_BYTES), SAMPLE_MP3_BYTES.length))
+        assertThatThrownBy(
+                        () ->
+                                service.upload(
+                                        TOURNAMENT_ID,
+                                        AudioCategory.START,
+                                        "audio.wav",
+                                        new ByteArrayInputStream(SAMPLE_MP3_BYTES),
+                                        SAMPLE_MP3_BYTES.length))
                 .isInstanceOf(AudioFormatException.class)
                 .hasMessageContaining(".mp3");
     }
@@ -248,8 +294,14 @@ class AudioStorageServiceImplTest {
     @Test
     @DisplayName("AC7: upload rejects null filename with AudioFormatException")
     void uploadRejectsNullFilename() {
-        assertThatThrownBy(() -> service.upload(TOURNAMENT_ID, AudioCategory.START, null,
-                new ByteArrayInputStream(SAMPLE_MP3_BYTES), SAMPLE_MP3_BYTES.length))
+        assertThatThrownBy(
+                        () ->
+                                service.upload(
+                                        TOURNAMENT_ID,
+                                        AudioCategory.START,
+                                        null,
+                                        new ByteArrayInputStream(SAMPLE_MP3_BYTES),
+                                        SAMPLE_MP3_BYTES.length))
                 .isInstanceOf(AudioFormatException.class);
     }
 
@@ -258,8 +310,14 @@ class AudioStorageServiceImplTest {
     void uploadRejectsOversizedFile() {
         long oversized = AudioStorageServiceImpl.MAX_UPLOAD_BYTES + 1;
 
-        assertThatThrownBy(() -> service.upload(TOURNAMENT_ID, AudioCategory.START, "big.mp3",
-                new ByteArrayInputStream(SAMPLE_MP3_BYTES), oversized))
+        assertThatThrownBy(
+                        () ->
+                                service.upload(
+                                        TOURNAMENT_ID,
+                                        AudioCategory.START,
+                                        "big.mp3",
+                                        new ByteArrayInputStream(SAMPLE_MP3_BYTES),
+                                        oversized))
                 .isInstanceOf(AudioSizeLimitException.class)
                 .hasMessageContaining("too large");
     }
@@ -268,7 +326,10 @@ class AudioStorageServiceImplTest {
     @DisplayName("AC7: upload accepts file at exactly the size limit")
     void uploadAcceptsFileAtSizeLimit() {
         // Should not throw
-        service.upload(TOURNAMENT_ID, AudioCategory.START, "exact.mp3",
+        service.upload(
+                TOURNAMENT_ID,
+                AudioCategory.START,
+                "exact.mp3",
                 new ByteArrayInputStream(SAMPLE_MP3_BYTES),
                 AudioStorageServiceImpl.MAX_UPLOAD_BYTES);
     }

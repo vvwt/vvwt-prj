@@ -6,7 +6,9 @@ import de.vvwt.tm.domain.draft.DraftPreviewSection;
  * REST response DTO for one section in a draft preview (AC4 — E05S06).
  *
  * @see DraftPreviewResponse
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E05S06.story.md">Story E05S06 AC4</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E05S06.story.md">Story
+ *     E05S06 AC4</a>
  */
 public record DraftPreviewSectionResponse(
         int phaseNumber,
@@ -15,8 +17,7 @@ public record DraftPreviewSectionResponse(
         int matchesPerGroup,
         int totalLaps,
         int totalMatches,
-        int estimatedTimeMinutes
-) {
+        int estimatedTimeMinutes) {
 
     /**
      * Maps a {@link DraftPreviewSection} domain object to this response DTO.
@@ -32,7 +33,6 @@ public record DraftPreviewSectionResponse(
                 preview.getMatchesPerGroup(),
                 preview.getTotalLaps(),
                 preview.getTotalMatches(),
-                preview.getEstimatedTimeMinutes()
-        );
+                preview.getEstimatedTimeMinutes());
     }
 }

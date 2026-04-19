@@ -1,13 +1,13 @@
 package de.vvwt.standalone.log;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.Test;
 import org.slf4j.helpers.NOPLogger;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 /**
- * Unit tests for {@link StructuredLogger} — JSON vs plain output and JSON escaping.
- * Implements Story E01S05 AC8.
+ * Unit tests for {@link StructuredLogger} — JSON vs plain output and JSON escaping. Implements
+ * Story E01S05 AC8.
  */
 class StructuredLoggerTest {
 

@@ -1,61 +1,57 @@
 package de.vvwt.tm.infrastructure.score;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import de.vvwt.tm.auth.AdminCredentialsProvider;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import java.net.URI;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import de.vvwt.tm.tenant.TenantContextTestSupport;
-import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import de.vvwt.tm.tenant.TenantContextTestSupport;
-import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.net.URI;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
 /**
  * Integration tests for {@link ScoreController} — E06S02: Mustache + ES5 scoring route skeleton.
  *
  * <p>Tests the full HTTP stack to verify:
+ *
  * <ul>
- *   <li>AC3: /score/test accessible and returns Mustache-rendered HTML</li>
- *   <li>AC4: /score/assets/vvwt-tablet.js served correctly (ES5 utility script)</li>
- *   <li>AC7: No Svelte SPA bundle loaded on scoring page (no Svelte contamination)</li>
- *   <li>AC9: /score/** accessible without authentication</li>
- *   <li>AC10: Rendered page contains i18n strings from MessageSource</li>
+ *   <li>AC3: /score/test accessible and returns Mustache-rendered HTML
+ *   <li>AC4: /score/assets/vvwt-tablet.js served correctly (ES5 utility script)
+ *   <li>AC7: No Svelte SPA bundle loaded on scoring page (no Svelte contamination)
+ *   <li>AC9: /score/** accessible without authentication
+ *   <li>AC10: Rendered page contains i18n strings from MessageSource
  * </ul>
  */
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         classes = {
-                de.vvwt.tm.TournamentManagerApplication.class,
-                ScoreControllerIT.TestAdminCredentials.class
+            de.vvwt.tm.TournamentManagerApplication.class,
+            ScoreControllerIT.TestAdminCredentials.class
         },
         properties = {
-                "spring.datasource.url=jdbc:h2:mem:e06s02scoredb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
-                        + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
+            "spring.datasource.url=jdbc:h2:mem:e06s02scoredb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
+                + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
 @Import(TenantContextTestSupport.class)
 @DisplayName("ScoreController IT — E06S02: Mustache + ES5 route skeleton")
 class ScoreControllerIT {
 
-    @LocalServerPort
-    private int port;
+    @LocalServerPort private int port;
 
-    @Autowired
-    private TestRestTemplate restTemplate;
+    @Autowired private TestRestTemplate restTemplate;
 
     private String baseUrl;
 
@@ -71,8 +67,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("AC3: GET /score/test returns 200 with Mustache-rendered HTML")
     void scoreTestPage_returns200() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/test"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/test"), String.class);
 
         assertThat(response.getStatusCode())
                 .as("GET /score/test must return 200 OK")
@@ -85,8 +81,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("AC3: /score/test is served from /score/** route, not /admin/** or /api/**")
     void scoreTestPage_isOnScoreRoute() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/test"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/test"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         // Verify it's the scoring tablet page, not a redirect to /admin/
@@ -102,8 +98,9 @@ class ScoreControllerIT {
     @Test
     @DisplayName("AC4: GET /score/assets/vvwt-tablet.js returns 200")
     void tabletJs_returns200() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/assets/vvwt-tablet.js"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(
+                        new URI(baseUrl + "/score/assets/vvwt-tablet.js"), String.class);
 
         assertThat(response.getStatusCode())
                 .as("ES5 utility script must be accessible")
@@ -129,36 +126,44 @@ class ScoreControllerIT {
     @Test
     @DisplayName("AC5: vvwt-tablet.js contains no 'const' (ES6+ keyword) outside comments")
     void tabletJs_containsNoConst() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/assets/vvwt-tablet.js"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(
+                        new URI(baseUrl + "/score/assets/vvwt-tablet.js"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        // Strip comment lines (both // and block comment lines starting with optional whitespace + *)
+        // Strip comment lines (both // and block comment lines starting with optional whitespace +
+        // *)
         // before checking for ES6+ keywords. This avoids false positives from comment text.
         String codeOnly = stripCommentLines(response.getBody());
         assertThat(codeOnly)
-                .as("vvwt-tablet.js must not use 'const' (ES6+) in non-comment code — DEC-19 ES5 constraint")
+                .as(
+                        "vvwt-tablet.js must not use 'const' (ES6+) in non-comment code — DEC-19"
+                                + " ES5 constraint")
                 .doesNotContainPattern("\\bconst\\b");
     }
 
     @Test
     @DisplayName("AC5: vvwt-tablet.js contains no 'let' (ES6+ keyword) outside comments")
     void tabletJs_containsNoLet() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/assets/vvwt-tablet.js"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(
+                        new URI(baseUrl + "/score/assets/vvwt-tablet.js"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         String codeOnly = stripCommentLines(response.getBody());
         assertThat(codeOnly)
-                .as("vvwt-tablet.js must not use 'let' (ES6+) in non-comment code — DEC-19 ES5 constraint")
+                .as(
+                        "vvwt-tablet.js must not use 'let' (ES6+) in non-comment code — DEC-19 ES5"
+                                + " constraint")
                 .doesNotContainPattern("\\blet\\b");
     }
 
     @Test
     @DisplayName("AC5: vvwt-tablet.js contains no arrow functions (ES6+ syntax) outside comments")
     void tabletJs_containsNoArrowFunctions() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/assets/vvwt-tablet.js"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(
+                        new URI(baseUrl + "/score/assets/vvwt-tablet.js"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         String codeOnly = stripCommentLines(response.getBody());
@@ -171,8 +176,9 @@ class ScoreControllerIT {
     @Test
     @DisplayName("AC5: vvwt-tablet.js contains no template literals (ES6+ syntax) outside comments")
     void tabletJs_containsNoTemplateLiterals() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/assets/vvwt-tablet.js"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(
+                        new URI(baseUrl + "/score/assets/vvwt-tablet.js"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         String codeOnly = stripCommentLines(response.getBody());
@@ -182,17 +188,22 @@ class ScoreControllerIT {
     }
 
     /**
-     * Strip single-line ({@code //}) and block comment lines ({@code * ...}) from JS source.
-     * Used by ES5 compliance checks to avoid false positives on comment text.
+     * Strip single-line ({@code //}) and block comment lines ({@code * ...}) from JS source. Used
+     * by ES5 compliance checks to avoid false positives on comment text.
      */
     private static String stripCommentLines(String jsSource) {
-        if (jsSource == null) { return ""; }
+        if (jsSource == null) {
+            return "";
+        }
         StringBuilder sb = new StringBuilder();
         for (String line : jsSource.split("\n")) {
             String trimmed = line.trim();
-            // Skip: // comments, block comment openers (/*), block comment lines (* ...), closers (*/)
-            if (trimmed.startsWith("//") || trimmed.startsWith("/*")
-                    || trimmed.startsWith("*") || trimmed.equals("*/")) {
+            // Skip: // comments, block comment openers (/*), block comment lines (* ...), closers
+            // (*/)
+            if (trimmed.startsWith("//")
+                    || trimmed.startsWith("/*")
+                    || trimmed.startsWith("*")
+                    || trimmed.equals("*/")) {
                 continue;
             }
             sb.append(line).append('\n');
@@ -207,8 +218,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("AC7: /score/test page does NOT load Svelte SPA bundle")
     void scoreTestPage_doesNotLoadSvelteBundle() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/test"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/test"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         String body = response.getBody();
@@ -223,8 +234,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("AC7: /score/test page DOES load the ES5 utility script")
     void scoreTestPage_loadsTabletJs() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/test"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/test"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody())
@@ -239,8 +250,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("AC8: /score/test page contains error-banner element for window.onerror")
     void scoreTestPage_containsErrorBannerElement() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/test"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/test"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody())
@@ -256,19 +267,22 @@ class ScoreControllerIT {
     @DisplayName("AC9: GET /score/test returns 200 without Authorization header")
     void scoreTestPage_accessibleWithoutAuth() throws Exception {
         // TestRestTemplate without credentials
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/test"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/test"), String.class);
 
         assertThat(response.getStatusCode())
-                .as("GET /score/test must return 200 without auth (AC9 — scorekeepers do not log in)")
+                .as(
+                        "GET /score/test must return 200 without auth (AC9 — scorekeepers do not"
+                                + " log in)")
                 .isEqualTo(HttpStatus.OK);
     }
 
     @Test
     @DisplayName("AC9: GET /score/assets/vvwt-tablet.js accessible without auth")
     void tabletJs_accessibleWithoutAuth() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/assets/vvwt-tablet.js"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(
+                        new URI(baseUrl + "/score/assets/vvwt-tablet.js"), String.class);
 
         assertThat(response.getStatusCode())
                 .as("ES5 utility script must be accessible without auth (AC9)")
@@ -278,8 +292,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("AC9: GET /admin/ still requires authentication (no regression)")
     void adminRoute_stillRequiresAuth() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/admin/"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/admin/"), String.class);
 
         // Without credentials: Spring Security returns 401
         assertThat(response.getStatusCode())
@@ -294,8 +308,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("AC10: /score/test page contains i18n heading from MessageSource")
     void scoreTestPage_containsI18nHeading() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/test"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/test"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody())
@@ -314,8 +328,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("E06S04 AC1: GET /score/register returns 200 with Mustache-rendered HTML")
     void registerPage_returns200() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/register"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/register"), String.class);
 
         assertThat(response.getStatusCode())
                 .as("GET /score/register must return 200 OK")
@@ -332,8 +346,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("E06S04 AC2: /score/register contains PIN display element")
     void registerPage_containsPinDisplayElement() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/register"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/register"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody())
@@ -347,8 +361,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("E06S04 AC2: /score/register contains PIN instruction text from i18n")
     void registerPage_containsPinInstructionText() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/register"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/register"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         // German default: "Bitte sagen Sie diese PIN dem Organisator"
@@ -364,8 +378,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("E06S04 AC7: /score/register page contains no 'const' in inline script")
     void registerPage_inlineScript_containsNoConst() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/register"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/register"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         String codeOnly = stripCommentLines(response.getBody());
@@ -377,8 +391,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("E06S04 AC7: /score/register page contains no 'let' in inline script")
     void registerPage_inlineScript_containsNoLet() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/register"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/register"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         String codeOnly = stripCommentLines(response.getBody());
@@ -390,8 +404,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("E06S04 AC7: /score/register page contains no arrow functions in inline script")
     void registerPage_inlineScript_containsNoArrowFunctions() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/register"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/register"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         String codeOnly = stripCommentLines(response.getBody());
@@ -403,8 +417,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("E06S04 AC7: /score/register page loads vvwt-tablet.js ES5 utility script")
     void registerPage_loadsTabletJs() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/register"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/register"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody())
@@ -419,8 +433,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("E06S04 AC8: /score/register contains error-banner and retry-btn elements")
     void registerPage_containsErrorAndRetryElements() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/register"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/register"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody())
@@ -439,8 +453,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("E06S04 AC9: GET /score/register returns 200 without Authorization header")
     void registerPage_accessibleWithoutAuth() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/register"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/register"), String.class);
 
         assertThat(response.getStatusCode())
                 .as("GET /score/register must return 200 without auth (AC9)")
@@ -450,8 +464,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("E06S04 AC9: rendered /score/register page does not expose deviceToken in HTML")
     void registerPage_doesNotExposeDeviceToken() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/register"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/register"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         // The device token is a UUID — it is never in the model, so the Mustache template
@@ -470,8 +484,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("E06S04 AC10: /score/register page contains i18n heading")
     void registerPage_containsI18nHeading() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/register"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/register"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody())
@@ -490,8 +504,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("E06S06 AC2: GET /score/field/1 returns 200 with Mustache-rendered HTML")
     void fieldPage_returns200() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/field/1"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/field/1"), String.class);
 
         assertThat(response.getStatusCode())
                 .as("GET /score/field/1 must return 200 OK")
@@ -504,8 +518,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("E06S06 AC2: GET /score/field/1 is accessible without authentication")
     void fieldPage_accessibleWithoutAuth() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/field/1"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/field/1"), String.class);
 
         assertThat(response.getStatusCode())
                 .as("GET /score/field/1 must return 200 without auth")
@@ -515,8 +529,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("E06S06 AC2: field page template renders field number from URL path")
     void fieldPage_containsFieldNumber() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/field/3"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/field/3"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         // The field number is passed to the template and should appear in the rendered HTML
@@ -532,8 +546,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("E06S06 AC9: field page contains no-match-panel element")
     void fieldPage_containsNoMatchPanel() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/field/1"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/field/1"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody())
@@ -548,8 +562,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("E06S06 AC5: field page contains confirm dialog elements")
     void fieldPage_containsConfirmDialog() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/field/1"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/field/1"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody())
@@ -570,8 +584,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("E06S06 DEC-19: field page inline script contains no 'const'")
     void fieldPage_inlineScript_containsNoConst() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/field/1"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/field/1"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         String codeOnly = stripCommentLines(response.getBody());
@@ -583,8 +597,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("E06S06 DEC-19: field page inline script contains no 'let'")
     void fieldPage_inlineScript_containsNoLet() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/field/1"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/field/1"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         String codeOnly = stripCommentLines(response.getBody());
@@ -596,8 +610,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("E06S06 DEC-19: field page inline script contains no arrow functions")
     void fieldPage_inlineScript_containsNoArrowFunctions() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/field/1"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/field/1"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         String codeOnly = stripCommentLines(response.getBody());
@@ -609,8 +623,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("E06S06 DEC-19: field page loads vvwt-tablet.js ES5 utility script")
     void fieldPage_loadsTabletJs() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/field/1"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/field/1"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody())
@@ -625,8 +639,8 @@ class ScoreControllerIT {
     @Test
     @DisplayName("E06S06 AC13: field page contains i18n heading")
     void fieldPage_containsI18nHeading() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/score/field/1"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/field/1"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody())

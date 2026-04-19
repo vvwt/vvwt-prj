@@ -2,39 +2,43 @@ package de.vvwt.tm.tenant.internal;
 
 import de.vvwt.tm.tenant.TenantDataSourceResolver;
 import de.vvwt.tm.tenant.TenantRegistryPort;
-import org.h2.jdbcx.JdbcDataSource;
-import org.springframework.jdbc.datasource.SmartDataSource;
-
-import javax.sql.DataSource;
 import java.nio.file.Path;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import javax.sql.DataSource;
+import org.h2.jdbcx.JdbcDataSource;
 
 /**
- * {@link TenantDataSourceResolver} backed by {@link TenantFileRegistry} and
- * {@link TenantDirectoryHelper}.
+ * {@link TenantDataSourceResolver} backed by {@link TenantFileRegistry} and {@link
+ * TenantDirectoryHelper}.
  *
  * <h2>Responsibility</h2>
+ *
  * <p>For each tenant UUID, this resolver:
+ *
  * <ol>
- *   <li>Verifies the tenant is registered in {@link TenantRegistryPort} (existence check).</li>
- *   <li>Computes the H2 file path via {@link TenantDirectoryHelper}.</li>
- *   <li>Creates and caches the H2 {@link DataSource} for that tenant (lazy, first access).</li>
+ *   <li>Verifies the tenant is registered in {@link TenantRegistryPort} (existence check).
+ *   <li>Computes the H2 file path via {@link TenantDirectoryHelper}.
+ *   <li>Creates and caches the H2 {@link DataSource} for that tenant (lazy, first access).
  * </ol>
  *
  * <h2>Caching</h2>
- * <p>DataSource instances are cached in a {@link ConcurrentHashMap} keyed by tenant UUID.
- * Once created, a DataSource is reused for all subsequent connections from the same tenant
- * context — H2 file-mode datasources are stateless factory objects, safe to cache.
+ *
+ * <p>DataSource instances are cached in a {@link ConcurrentHashMap} keyed by tenant UUID. Once
+ * created, a DataSource is reused for all subsequent connections from the same tenant context — H2
+ * file-mode datasources are stateless factory objects, safe to cache.
  *
  * <h2>Unknown tenants</h2>
- * <p>If a tenant UUID is not in the registry, {@link TenantDataSourceResolver.UnknownTenantException}
- * is thrown immediately (fail-fast, AC3). No lazy-failing DataSource is ever returned.
+ *
+ * <p>If a tenant UUID is not in the registry, {@link
+ * TenantDataSourceResolver.UnknownTenantException} is thrown immediately (fail-fast, AC3). No
+ * lazy-failing DataSource is ever returned.
  *
  * <h2>Thread safety</h2>
- * <p>{@link ConcurrentHashMap#computeIfAbsent} provides atomic first-creation semantics.
- * The H2 JDBC connection factory itself is thread-safe.
+ *
+ * <p>{@link ConcurrentHashMap#computeIfAbsent} provides atomic first-creation semantics. The H2
+ * JDBC connection factory itself is thread-safe.
  *
  * @see TenantDirectoryHelper
  * @see TenantRegistryPort
@@ -53,14 +57,14 @@ public class TenantFileRegistryDataSourceResolver implements TenantDataSourceRes
     /**
      * Constructs a {@code TenantFileRegistryDataSourceResolver}.
      *
-     * @param tenantRegistryPort the registry that tracks registered tenants; must not be
-     *                           {@code null}
-     * @param dataDirProperties  the data directory configuration used by {@link TenantDirectoryHelper}
-     *                           to compute H2 file paths; must not be {@code null}
+     * @param tenantRegistryPort the registry that tracks registered tenants; must not be {@code
+     *     null}
+     * @param dataDirProperties the data directory configuration used by {@link
+     *     TenantDirectoryHelper} to compute H2 file paths; must not be {@code null}
      * @throws IllegalArgumentException if either argument is {@code null}
      */
-    public TenantFileRegistryDataSourceResolver(TenantRegistryPort tenantRegistryPort,
-                                                TmDataDirProperties dataDirProperties) {
+    public TenantFileRegistryDataSourceResolver(
+            TenantRegistryPort tenantRegistryPort, TmDataDirProperties dataDirProperties) {
         if (tenantRegistryPort == null) {
             throw new IllegalArgumentException("tenantRegistryPort must not be null");
         }
@@ -74,14 +78,14 @@ public class TenantFileRegistryDataSourceResolver implements TenantDataSourceRes
     /**
      * {@inheritDoc}
      *
-     * <p>Verifies the tenant is registered, then creates (or returns the cached) H2 file
-     * {@link DataSource} for that tenant. The DataSource is created lazily on first access
-     * and cached thereafter.
+     * <p>Verifies the tenant is registered, then creates (or returns the cached) H2 file {@link
+     * DataSource} for that tenant. The DataSource is created lazily on first access and cached
+     * thereafter.
      *
-     * @throws UnknownTenantException   if the tenant UUID is not registered (fail-fast, AC3)
+     * @throws UnknownTenantException if the tenant UUID is not registered (fail-fast, AC3)
      * @throws IllegalArgumentException if {@code tenantId} is {@code null}
-     * @throws IllegalStateException    if the H2 path exceeds the safety limit
-     *                                  (from {@link TenantDirectoryHelper})
+     * @throws IllegalStateException if the H2 path exceeds the safety limit (from {@link
+     *     TenantDirectoryHelper})
      */
     @Override
     public DataSource resolve(UUID tenantId) {
@@ -90,8 +94,7 @@ public class TenantFileRegistryDataSourceResolver implements TenantDataSourceRes
         }
 
         // Verify the tenant exists in the registry — fail-fast (AC3)
-        tenantRegistryPort.lookup(tenantId)
-                .orElseThrow(() -> new UnknownTenantException(tenantId));
+        tenantRegistryPort.lookup(tenantId).orElseThrow(() -> new UnknownTenantException(tenantId));
 
         // Create the DataSource once and cache it
         return cache.computeIfAbsent(tenantId, this::createH2DataSource);
@@ -100,8 +103,8 @@ public class TenantFileRegistryDataSourceResolver implements TenantDataSourceRes
     /**
      * Creates an H2 file-based {@link DataSource} for the given tenant.
      *
-     * <p>File layout (DEC-20): {@code ${tm.data.dir}/tenants/{uuid}/db.mv.db}
-     * The H2 JDBC URL uses the path WITHOUT the {@code .mv.db} extension — H2 appends it.
+     * <p>File layout (DEC-20): {@code ${tm.data.dir}/tenants/{uuid}/db.mv.db} The H2 JDBC URL uses
+     * the path WITHOUT the {@code .mv.db} extension — H2 appends it.
      *
      * @param tenantId the tenant UUID for which to create the DataSource
      * @return a new H2 JDBC DataSource pointing to the tenant's file

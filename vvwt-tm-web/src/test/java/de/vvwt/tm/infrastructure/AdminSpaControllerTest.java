@@ -1,23 +1,23 @@
 package de.vvwt.tm.infrastructure;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 /**
  * Unit tests for {@link AdminSpaController} using standalone MockMvc (no Spring context).
  *
- * <p>Story E05S01 — AC3 (serving SPA at /admin/), AC4 (deep-link fallback),
- * AC8 (SPA fallback for /admin/**).
+ * <p>Story E05S01 — AC3 (serving SPA at /admin/), AC4 (deep-link fallback), AC8 (SPA fallback for
+ * /admin/**).
  *
- * <p>Standalone MockMvc avoids the full Spring Boot context while still validating
- * MVC dispatch, URL pattern matching, and forward() behavior of the controller.
+ * <p>Standalone MockMvc avoids the full Spring Boot context while still validating MVC dispatch,
+ * URL pattern matching, and forward() behavior of the controller.
  */
 @DisplayName("AdminSpaController — SPA routing tests (E05S01)")
 class AdminSpaControllerTest {
@@ -28,9 +28,7 @@ class AdminSpaControllerTest {
     void setUp() {
         // Standalone setup: only AdminSpaController is registered, no Spring Boot scanning.
         // This is the correct approach for testing a single @Controller without its dependencies.
-        mockMvc = MockMvcBuilders
-                .standaloneSetup(new AdminSpaController())
-                .build();
+        mockMvc = MockMvcBuilders.standaloneSetup(new AdminSpaController()).build();
     }
 
     // -----------------------------------------------------------------------
@@ -58,7 +56,9 @@ class AdminSpaControllerTest {
     // -----------------------------------------------------------------------
 
     @Test
-    @DisplayName("AC4: GET /admin/tournaments (deep-link) is forwarded to index.html for client-side routing")
+    @DisplayName(
+            "AC4: GET /admin/tournaments (deep-link) is forwarded to index.html for client-side"
+                    + " routing")
     void adminDeepLink_tournaments_forwardsToIndexHtml() throws Exception {
         mockMvc.perform(get("/admin/tournaments"))
                 .andExpect(status().isOk())
@@ -78,7 +78,8 @@ class AdminSpaControllerTest {
     // -----------------------------------------------------------------------
 
     @Test
-    @DisplayName("AC8: GET /admin/unknown-path is forwarded to index.html (SPA handles 404 client-side)")
+    @DisplayName(
+            "AC8: GET /admin/unknown-path is forwarded to index.html (SPA handles 404 client-side)")
     void adminUnknownPath_forwardsToIndexHtml() throws Exception {
         mockMvc.perform(get("/admin/unknown-path"))
                 .andExpect(status().isOk())

@@ -1,5 +1,6 @@
 package de.vvwt.worker.codec;
 
+import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.Runner;
@@ -7,17 +8,15 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-import java.util.concurrent.TimeUnit;
-
 /**
  * JMH micro-benchmark for {@link LehmerCodec} — AC8.
  *
- * <p>Measures throughput of {@code rankToPermutation} at N=14 (the reference workload per
- * Brief D-10). The documented baseline target is ≥ 5 million ops/sec per core on the
- * reference hardware.
+ * <p>Measures throughput of {@code rankToPermutation} at N=14 (the reference workload per Brief
+ * D-10). The documented baseline target is ≥ 5 million ops/sec per core on the reference hardware.
  *
  * <p>This benchmark is advisory only — it does NOT gate the build. It is intended to be run
  * manually or in a dedicated CI profiling job via:
+ *
  * <pre>
  *   mvn -pl vvwt-worker-lib test-compile exec:java \
  *     -Dexec.mainClass=de.vvwt.worker.codec.LehmerCodecBenchmark \
@@ -36,28 +35,26 @@ import java.util.concurrent.TimeUnit;
 public class LehmerCodecBenchmark {
 
     /**
-     * Element count for the benchmark. N=14 is chosen per Brief D-10 reference hardware spec.
-     * 14! = 87,178,291,200 — a realistic large job size.
+     * Element count for the benchmark. N=14 is chosen per Brief D-10 reference hardware spec. 14! =
+     * 87,178,291,200 — a realistic large job size.
      */
     private static final int BENCH_N = 14;
 
-    /**
-     * Pre-computed max rank for N=14 to avoid recomputing in the hot loop.
-     */
+    /** Pre-computed max rank for N=14 to avoid recomputing in the hot loop. */
     private static final long MAX_RANK_14 = LehmerCodec.FACTORIAL[BENCH_N] - 1L;
 
     /**
-     * Rank counter — cycles through the full n=14 space. Using a long field
-     * ensures JMH can serialize state per-thread (Scope.Benchmark = single shared instance,
-     * but @Threads(1) so no contention).
+     * Rank counter — cycles through the full n=14 space. Using a long field ensures JMH can
+     * serialize state per-thread (Scope.Benchmark = single shared instance, but @Threads(1) so no
+     * contention).
      */
     private long rank = 0L;
 
     /**
      * AC8 benchmark: throughput of {@link LehmerCodec#rankToPermutation(long, int)} at N=14.
      *
-     * <p>The result is consumed by a {@link Blackhole} to prevent dead-code elimination.
-     * The rank cycles through all valid values to exercise the full algorithm uniformly.
+     * <p>The result is consumed by a {@link Blackhole} to prevent dead-code elimination. The rank
+     * cycles through all valid values to exercise the full algorithm uniformly.
      */
     @Benchmark
     public void rankToPermutationN14(Blackhole blackhole) {
@@ -72,8 +69,8 @@ public class LehmerCodecBenchmark {
     }
 
     /**
-     * Additional benchmark: round-trip throughput (both directions) at N=14.
-     * Not the primary AC8 metric, but useful for full-pipeline profiling.
+     * Additional benchmark: round-trip throughput (both directions) at N=14. Not the primary AC8
+     * metric, but useful for full-pipeline profiling.
      */
     @Benchmark
     public void roundTripN14(Blackhole blackhole) {
@@ -88,14 +85,13 @@ public class LehmerCodecBenchmark {
     }
 
     /**
-     * Standalone entry point for running the benchmark without Maven exec plugin.
-     * Not invoked during {@code mvn test} — this class is compiled into test-classes
-     * but the JMH runner is never triggered by Surefire.
+     * Standalone entry point for running the benchmark without Maven exec plugin. Not invoked
+     * during {@code mvn test} — this class is compiled into test-classes but the JMH runner is
+     * never triggered by Surefire.
      */
     public static void main(String[] args) throws RunnerException {
-        Options opt = new OptionsBuilder()
-                .include(LehmerCodecBenchmark.class.getSimpleName())
-                .build();
+        Options opt =
+                new OptionsBuilder().include(LehmerCodecBenchmark.class.getSimpleName()).build();
         new Runner(opt).run();
     }
 }

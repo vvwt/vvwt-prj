@@ -1,9 +1,11 @@
 package de.vvwt.dispatcher.packet;
 
-import de.vvwt.dispatcher.identity.KeyRegistration;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import de.vvwt.dispatcher.identity.KeyRegistration;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
@@ -14,20 +16,18 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.Optional;
 import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for {@link PullPacketService#authenticate} (AC3, AC4).
  *
  * <p>These tests verify:
+ *
  * <ul>
- *   <li>AC3: canonical bytes composition and Ed25519 signature verification</li>
- *   <li>AC4: nonce window (stale, future, role check, expired key)</li>
- *   <li>AC9: error body on malformed payload</li>
+ *   <li>AC3: canonical bytes composition and Ed25519 signature verification
+ *   <li>AC4: nonce window (stale, future, role check, expired key)
+ *   <li>AC9: error body on malformed payload
  * </ul>
  *
  * <p>No database access — mocked key repository.
@@ -54,7 +54,8 @@ class PullPacketServiceAuthTest {
         byte[] rawPublicKeyBytes = new byte[32];
         System.arraycopy(spki, spki.length - 32, rawPublicKeyBytes, 0, 32);
 
-        workerKey = new KeyRegistration(workerKeyId, "worker", rawPublicKeyBytes, Instant.now(), null);
+        workerKey =
+                new KeyRegistration(workerKeyId, "worker", rawPublicKeyBytes, Instant.now(), null);
         when(keyRepository.findById(workerKeyId)).thenReturn(Optional.of(workerKey));
     }
 
@@ -85,8 +86,12 @@ class PullPacketServiceAuthTest {
 
         assertThatThrownBy(() -> service.authenticate(workerKeyId, badSig, nonce))
                 .isInstanceOf(PullPacketService.UnauthorizedException.class)
-                .satisfies(ex -> assertThat(((PullPacketService.UnauthorizedException) ex).getErrorCode())
-                        .isEqualTo("unauthorized"));
+                .satisfies(
+                        ex ->
+                                assertThat(
+                                                ((PullPacketService.UnauthorizedException) ex)
+                                                        .getErrorCode())
+                                        .isEqualTo("unauthorized"));
     }
 
     @Test
@@ -111,8 +116,12 @@ class PullPacketServiceAuthTest {
 
         assertThatThrownBy(() -> service.authenticate(workerKeyId, sig, staleNonce))
                 .isInstanceOf(PullPacketService.UnauthorizedException.class)
-                .satisfies(ex -> assertThat(((PullPacketService.UnauthorizedException) ex).getErrorCode())
-                        .isEqualTo("stale-or-future-timestamp"));
+                .satisfies(
+                        ex ->
+                                assertThat(
+                                                ((PullPacketService.UnauthorizedException) ex)
+                                                        .getErrorCode())
+                                        .isEqualTo("stale-or-future-timestamp"));
     }
 
     @Test
@@ -123,8 +132,12 @@ class PullPacketServiceAuthTest {
 
         assertThatThrownBy(() -> service.authenticate(workerKeyId, sig, futureNonce))
                 .isInstanceOf(PullPacketService.UnauthorizedException.class)
-                .satisfies(ex -> assertThat(((PullPacketService.UnauthorizedException) ex).getErrorCode())
-                        .isEqualTo("stale-or-future-timestamp"));
+                .satisfies(
+                        ex ->
+                                assertThat(
+                                                ((PullPacketService.UnauthorizedException) ex)
+                                                        .getErrorCode())
+                                        .isEqualTo("stale-or-future-timestamp"));
     }
 
     @Test
@@ -151,7 +164,8 @@ class PullPacketServiceAuthTest {
     void authenticate_submitterKeyCallingPullPacket_throwsForbidden() throws Exception {
         UUID submitterKeyId = UUID.randomUUID();
         byte[] rawKey = new byte[32];
-        KeyRegistration submitterKey = new KeyRegistration(submitterKeyId, "submitter", rawKey, Instant.now(), null);
+        KeyRegistration submitterKey =
+                new KeyRegistration(submitterKeyId, "submitter", rawKey, Instant.now(), null);
         when(keyRepository.findById(submitterKeyId)).thenReturn(Optional.of(submitterKey));
         String nonce = Instant.now().toString();
 

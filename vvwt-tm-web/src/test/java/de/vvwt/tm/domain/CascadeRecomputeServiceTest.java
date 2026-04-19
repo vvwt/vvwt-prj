@@ -1,6 +1,15 @@
 package de.vvwt.tm.domain;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import de.vvwt.tm.domain.event.MatchResultChangedEvent;
+import de.vvwt.tm.domain.generator.MatchGeneratorRegistry;
 import de.vvwt.tm.domain.repo.AuditLogRepository;
 import de.vvwt.tm.domain.repo.MatchOutcomeRepository;
 import de.vvwt.tm.domain.repo.MatchRepository;
@@ -11,12 +20,15 @@ import de.vvwt.tm.domain.repo.TeamAvatarRepository;
 import de.vvwt.tm.domain.repo.TournamentRepository;
 import de.vvwt.tm.domain.rules.ScoringResult;
 import de.vvwt.tm.domain.rules.ScoringRule;
-import de.vvwt.tm.domain.rules.SetValidationRule;
-import de.vvwt.tm.domain.generator.MatchGeneratorRegistry;
 import de.vvwt.tm.domain.rules.ScoringRuleRegistry;
+import de.vvwt.tm.domain.rules.SetValidationRule;
 import de.vvwt.tm.domain.rules.SetValidationRuleRegistry;
 import de.vvwt.tm.domain.rules.TournamentRuleResolver;
 import de.vvwt.tm.domain.rules.ValidationResult;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,25 +38,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 /**
  * Unit tests for {@link CascadeRecomputeService} with mocked repositories (E03S11, AC17).
  *
- * <p>Verifies the step ordering and rollback semantics without a database.
- * Integration-level correctness (actual SQL, event publishing, lap advance) is covered
- * by {@code CascadeRecomputeServiceIT}.
+ * <p>Verifies the step ordering and rollback semantics without a database. Integration-level
+ * correctness (actual SQL, event publishing, lap advance) is covered by {@code
+ * CascadeRecomputeServiceIT}.
  */
 @ExtendWith(MockitoExtension.class)
 class CascadeRecomputeServiceTest {
@@ -82,21 +81,33 @@ class CascadeRecomputeServiceTest {
     @BeforeEach
     void setUp() {
         when(scoringRule.getBeanId()).thenReturn("setPoints");
-        SetValidationRuleRegistry validationRegistry = new SetValidationRuleRegistry(
-                java.util.Map.of("standardVolleyball", setValidationRule));
-        ScoringRuleRegistry scoringRegistry = new ScoringRuleRegistry(
-                java.util.List.of(scoringRule));
-        // MatchGeneratorRegistry added in E03S09 (TournamentRuleResolver constructor now requires 3 args).
-        // CascadeRecomputeService unit tests do not exercise match generation, so an empty registry is correct.
-        MatchGeneratorRegistry matchGeneratorRegistry = new MatchGeneratorRegistry(java.util.List.of());
-        TournamentRuleResolver resolver = new TournamentRuleResolver(validationRegistry, scoringRegistry,
-                matchGeneratorRegistry);
+        SetValidationRuleRegistry validationRegistry =
+                new SetValidationRuleRegistry(
+                        java.util.Map.of("standardVolleyball", setValidationRule));
+        ScoringRuleRegistry scoringRegistry =
+                new ScoringRuleRegistry(java.util.List.of(scoringRule));
+        // MatchGeneratorRegistry added in E03S09 (TournamentRuleResolver constructor now requires 3
+        // args).
+        // CascadeRecomputeService unit tests do not exercise match generation, so an empty registry
+        // is correct.
+        MatchGeneratorRegistry matchGeneratorRegistry =
+                new MatchGeneratorRegistry(java.util.List.of());
+        TournamentRuleResolver resolver =
+                new TournamentRuleResolver(
+                        validationRegistry, scoringRegistry, matchGeneratorRegistry);
 
-        service = new CascadeRecomputeService(
-                matchRepository, tournamentRepository, phaseRepository,
-                setResultRepository, matchOutcomeRepository,
-                teamAvatarRatingRepository, teamAvatarRepository,
-                auditLogRepository, resolver, eventPublisher);
+        service =
+                new CascadeRecomputeService(
+                        matchRepository,
+                        tournamentRepository,
+                        phaseRepository,
+                        setResultRepository,
+                        matchOutcomeRepository,
+                        teamAvatarRatingRepository,
+                        teamAvatarRepository,
+                        auditLogRepository,
+                        resolver,
+                        eventPublisher);
     }
 
     // =========================================================================
@@ -107,7 +118,7 @@ class CascadeRecomputeServiceTest {
     void registerMatchResult_firesStepsInOrder_firstEntry() {
         // Arrange
         SetResultInput input = SetResultInput.legacy(matchId, 0, 15, 10, null, null);
-        Match match = makeMatch(MatchState.OPEN, 3, 1);  // lapNumber=1
+        Match match = makeMatch(MatchState.OPEN, 3, 1); // lapNumber=1
         Tournament tournament = makeTournament(MatchFormat.BEST_OF_3);
         Phase phase = makePhase(phaseId, 0);
 
@@ -119,16 +130,24 @@ class CascadeRecomputeServiceTest {
                 .thenReturn(ValidationResult.winner1());
 
         // Step 2: no existing set result → INSERT path
-        when(setResultRepository.findByMatchIdAndSetIndex(matchId, 0))
-                .thenReturn(Optional.empty());
+        when(setResultRepository.findByMatchIdAndSetIndex(matchId, 0)).thenReturn(Optional.empty());
 
         // Step 3: aggregate — return the newly inserted set
         SetResult sr = makeSetResult(matchId, 0, 15, 10, SetState.WINNER1);
         when(setResultRepository.findByMatchId(matchId)).thenReturn(List.of(sr));
 
         // Step 4: MatchOutcome save (upsert) — return new outcome
-        MatchOutcome savedOutcome = new MatchOutcome(matchId, tenantId, 1, 15, 0, 10, 1,
-                MatchState.ONCHECK.getLegacyCode(), null);
+        MatchOutcome savedOutcome =
+                new MatchOutcome(
+                        matchId,
+                        tenantId,
+                        1,
+                        15,
+                        0,
+                        10,
+                        1,
+                        MatchState.ONCHECK.getLegacyCode(),
+                        null);
         when(matchOutcomeRepository.save(any())).thenReturn(savedOutcome);
 
         // Step 7/8: no terminal matches yet for either avatar
@@ -151,8 +170,15 @@ class CascadeRecomputeServiceTest {
         service.registerMatchResult(input);
 
         // Assert — key steps fired
-        InOrder order = inOrder(setResultRepository, auditLogRepository, matchOutcomeRepository,
-                matchRepository, teamAvatarRatingRepository, phaseRepository, eventPublisher);
+        InOrder order =
+                inOrder(
+                        setResultRepository,
+                        auditLogRepository,
+                        matchOutcomeRepository,
+                        matchRepository,
+                        teamAvatarRatingRepository,
+                        phaseRepository,
+                        eventPublisher);
         order.verify(setResultRepository).findByMatchIdAndSetIndex(matchId, 0);
         order.verify(setResultRepository).insert(any());
         order.verify(auditLogRepository).save(any());
@@ -189,11 +215,22 @@ class CascadeRecomputeServiceTest {
         SetResult updatedSr = makeSetResult(matchId, 0, 14, 12, SetState.WINNER1);
         when(setResultRepository.findByMatchId(matchId)).thenReturn(List.of(updatedSr));
 
-        MatchOutcome savedOutcome = new MatchOutcome(matchId, tenantId, 1, 14, 0, 12, 1,
-                MatchState.ONCHECK.getLegacyCode(), null);
+        MatchOutcome savedOutcome =
+                new MatchOutcome(
+                        matchId,
+                        tenantId,
+                        1,
+                        14,
+                        0,
+                        12,
+                        1,
+                        MatchState.ONCHECK.getLegacyCode(),
+                        null);
         when(matchOutcomeRepository.save(any())).thenReturn(savedOutcome);
-        when(matchRepository.findTerminalByPhaseIdAndAvatarId(phaseId, avatar1Id)).thenReturn(List.of());
-        when(matchRepository.findTerminalByPhaseIdAndAvatarId(phaseId, avatar2Id)).thenReturn(List.of());
+        when(matchRepository.findTerminalByPhaseIdAndAvatarId(phaseId, avatar1Id))
+                .thenReturn(List.of());
+        when(matchRepository.findTerminalByPhaseIdAndAvatarId(phaseId, avatar2Id))
+                .thenReturn(List.of());
         when(teamAvatarRatingRepository.findById(avatar1Id)).thenReturn(Optional.empty());
         when(teamAvatarRatingRepository.findById(avatar2Id)).thenReturn(Optional.empty());
         when(teamAvatarRatingRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -268,11 +305,22 @@ class CascadeRecomputeServiceTest {
         SetResult s1 = makeSetResult(matchId, 1, 8, 15, SetState.WINNER2);
         when(setResultRepository.findByMatchId(matchId)).thenReturn(List.of(s0, s1));
 
-        MatchOutcome savedOutcome = new MatchOutcome(matchId, tenantId, 1, 15, 1, 25, 2,
-                MatchState.ONCHECK.getLegacyCode(), null);
+        MatchOutcome savedOutcome =
+                new MatchOutcome(
+                        matchId,
+                        tenantId,
+                        1,
+                        15,
+                        1,
+                        25,
+                        2,
+                        MatchState.ONCHECK.getLegacyCode(),
+                        null);
         when(matchOutcomeRepository.save(any())).thenReturn(savedOutcome);
-        when(matchRepository.findTerminalByPhaseIdAndAvatarId(phaseId, avatar1Id)).thenReturn(List.of());
-        when(matchRepository.findTerminalByPhaseIdAndAvatarId(phaseId, avatar2Id)).thenReturn(List.of());
+        when(matchRepository.findTerminalByPhaseIdAndAvatarId(phaseId, avatar1Id))
+                .thenReturn(List.of());
+        when(matchRepository.findTerminalByPhaseIdAndAvatarId(phaseId, avatar2Id))
+                .thenReturn(List.of());
         when(teamAvatarRatingRepository.findById(any())).thenReturn(Optional.empty());
         when(teamAvatarRatingRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
@@ -308,8 +356,17 @@ class CascadeRecomputeServiceTest {
         SetResult s2 = makeSetResult(matchId, 2, 15, 5, SetState.WINNER1);
         when(setResultRepository.findByMatchId(matchId)).thenReturn(List.of(s0, s1, s2));
 
-        MatchOutcome savedOutcome = new MatchOutcome(matchId, tenantId, 2, 38, 1, 30, 3,
-                MatchState.FINISHED_WINNER1.getLegacyCode(), null);
+        MatchOutcome savedOutcome =
+                new MatchOutcome(
+                        matchId,
+                        tenantId,
+                        2,
+                        38,
+                        1,
+                        30,
+                        3,
+                        MatchState.FINISHED_WINNER1.getLegacyCode(),
+                        null);
         when(matchOutcomeRepository.save(any())).thenReturn(savedOutcome);
 
         // Two terminal matches for each avatar (this match itself now finished)
@@ -343,28 +400,52 @@ class CascadeRecomputeServiceTest {
     // =========================================================================
 
     private Match makeMatch(MatchState state, int setLimit, Integer lapNumber) {
-        Match m = new Match(matchId, tenantId, tournamentId, phaseId,
-                avatar1Id, avatar2Id,
-                state.getLegacyCode(), setLimit,
-                lapNumber, null, null, null, null,
-                LocalDateTime.now());
+        Match m =
+                new Match(
+                        matchId,
+                        tenantId,
+                        tournamentId,
+                        phaseId,
+                        avatar1Id,
+                        avatar2Id,
+                        state.getLegacyCode(),
+                        setLimit,
+                        lapNumber,
+                        null,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
         return m;
     }
 
     private Tournament makeTournament(MatchFormat format) {
-        return new Tournament(tournamentId, tenantId, "Test Tournament",
-                format.name(), "setPoints", "standardVolleyball", "roundRobin",
-                "ACTIVE", LocalDateTime.now());
-    }
-
-    private Phase makePhase(UUID id, int currentLap) {
-        return new Phase(id, tenantId, tournamentId, 1, "Vorrunde", "ACTIVE", currentLap,
+        return new Tournament(
+                tournamentId,
+                tenantId,
+                "Test Tournament",
+                format.name(),
+                "setPoints",
+                "standardVolleyball",
+                "roundRobin",
+                "ACTIVE",
                 LocalDateTime.now());
     }
 
-    private SetResult makeSetResult(UUID matchId, int setIndex,
-                                    int t1, int t2, SetState state) {
-        return new SetResult(matchId, setIndex, tenantId, phaseId,
-                t1, t2, state.getLegacyCode(), null, null);
+    private Phase makePhase(UUID id, int currentLap) {
+        return new Phase(
+                id,
+                tenantId,
+                tournamentId,
+                1,
+                "Vorrunde",
+                "ACTIVE",
+                currentLap,
+                LocalDateTime.now());
+    }
+
+    private SetResult makeSetResult(UUID matchId, int setIndex, int t1, int t2, SetState state) {
+        return new SetResult(
+                matchId, setIndex, tenantId, phaseId, t1, t2, state.getLegacyCode(), null, null);
     }
 }

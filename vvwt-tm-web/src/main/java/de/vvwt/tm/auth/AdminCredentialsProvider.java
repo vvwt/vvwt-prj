@@ -3,8 +3,8 @@ package de.vvwt.tm.auth;
 /**
  * Provides the bcrypt hash of the admin password after bootstrap.
  *
- * <p>Implemented by {@link AdminCredentialsBootstrap}. Consumed by {@link SecurityConfig}
- * to wire the {@code UserDetailsService} without coupling to the bootstrap implementation.
+ * <p>Implemented by {@link AdminCredentialsBootstrap}. Consumed by {@link SecurityConfig} to wire
+ * the {@code UserDetailsService} without coupling to the bootstrap implementation.
  *
  * @see AdminCredentialsBootstrap
  * @see SecurityConfig

@@ -1,9 +1,17 @@
 package de.vvwt.tm.infrastructure.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.*;
+
 import de.vvwt.tm.domain.Device;
 import de.vvwt.tm.domain.repo.DeviceRepository;
 import de.vvwt.tm.tenant.LocationContext;
 import de.vvwt.tm.tenant.TenantContext;
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,22 +24,13 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.security.access.AccessDeniedException;
 
-import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.*;
-
 /**
  * Unit tests for {@link DeviceTokenHandshakeInterceptor} (E14S09, AC1).
  *
- * <p>Verifies token extraction, context binding, and rejection semantics using Mockito
- * doubles for {@link DeviceRepository}, {@link TenantContext}, and {@link LocationContext}.
- * Characterization tests against the legacy {@code authenticateDisplayDevice} path in
- * {@link WebSocketSecurityConfig} are forbidden per DEC-22.
+ * <p>Verifies token extraction, context binding, and rejection semantics using Mockito doubles for
+ * {@link DeviceRepository}, {@link TenantContext}, and {@link LocationContext}. Characterization
+ * tests against the legacy {@code authenticateDisplayDevice} path in {@link
+ * WebSocketSecurityConfig} are forbidden per DEC-22.
  *
  * @see DeviceTokenHandshakeInterceptor
  */
@@ -50,8 +49,9 @@ class DeviceTokenHandshakeInterceptorTest {
 
     @BeforeEach
     void setUp() {
-        interceptor = new DeviceTokenHandshakeInterceptor(
-                deviceRepository, tenantContext, locationContext);
+        interceptor =
+                new DeviceTokenHandshakeInterceptor(
+                        deviceRepository, tenantContext, locationContext);
     }
 
     // -------------------------------------------------------------------------
@@ -66,8 +66,7 @@ class DeviceTokenHandshakeInterceptorTest {
 
         Message<?> result = interceptor.preSend(msg, channel);
 
-        assertThat(result).as("AC5a: no-token message passed through unchanged")
-                .isSameAs(msg);
+        assertThat(result).as("AC5a: no-token message passed through unchanged").isSameAs(msg);
         verifyNoInteractions(deviceRepository);
     }
 
@@ -80,8 +79,9 @@ class DeviceTokenHandshakeInterceptorTest {
         String token = UUID.randomUUID().toString();
         // Device not found
         when(deviceRepository.findByDeviceToken(token)).thenReturn(Optional.empty());
-        interceptor = new DeviceTokenHandshakeInterceptor(
-                deviceRepository, tenantContext, locationContext, DEFAULT_TENANT_ID);
+        interceptor =
+                new DeviceTokenHandshakeInterceptor(
+                        deviceRepository, tenantContext, locationContext, DEFAULT_TENANT_ID);
 
         Message<?> msg = buildConnectMessage(token);
 
@@ -101,9 +101,15 @@ class DeviceTokenHandshakeInterceptorTest {
     void disconnectedDevice_preSend_throwsAccessDenied() {
         String token = UUID.randomUUID().toString();
         when(deviceRepository.findByDeviceToken(token))
-                .thenReturn(Optional.of(makeDevice(Device.TYPE_DISPLAY, Device.STATUS_DISCONNECTED, LOCATION_ID)));
-        interceptor = new DeviceTokenHandshakeInterceptor(
-                deviceRepository, tenantContext, locationContext, DEFAULT_TENANT_ID);
+                .thenReturn(
+                        Optional.of(
+                                makeDevice(
+                                        Device.TYPE_DISPLAY,
+                                        Device.STATUS_DISCONNECTED,
+                                        LOCATION_ID)));
+        interceptor =
+                new DeviceTokenHandshakeInterceptor(
+                        deviceRepository, tenantContext, locationContext, DEFAULT_TENANT_ID);
 
         Message<?> msg = buildConnectMessage(token);
 
@@ -123,9 +129,15 @@ class DeviceTokenHandshakeInterceptorTest {
     void scoringTablet_nullLocation_preSend_throwsAccessDeniedWithLocationMessage() {
         String token = UUID.randomUUID().toString();
         when(deviceRepository.findByDeviceToken(token))
-                .thenReturn(Optional.of(makeDevice(Device.TYPE_SCORING_TABLET, Device.STATUS_REGISTERED, null)));
-        interceptor = new DeviceTokenHandshakeInterceptor(
-                deviceRepository, tenantContext, locationContext, DEFAULT_TENANT_ID);
+                .thenReturn(
+                        Optional.of(
+                                makeDevice(
+                                        Device.TYPE_SCORING_TABLET,
+                                        Device.STATUS_REGISTERED,
+                                        null)));
+        interceptor =
+                new DeviceTokenHandshakeInterceptor(
+                        deviceRepository, tenantContext, locationContext, DEFAULT_TENANT_ID);
 
         Message<?> msg = buildConnectMessage(token);
 
@@ -148,9 +160,12 @@ class DeviceTokenHandshakeInterceptorTest {
         TenantContext.Scope mockScope = mock(TenantContext.Scope.class);
         when(tenantContext.bind(any())).thenReturn(mockScope);
         when(deviceRepository.findByDeviceToken(token))
-                .thenReturn(Optional.of(makeDevice(Device.TYPE_DISPLAY, Device.STATUS_REGISTERED, null)));
-        interceptor = new DeviceTokenHandshakeInterceptor(
-                deviceRepository, tenantContext, locationContext, DEFAULT_TENANT_ID);
+                .thenReturn(
+                        Optional.of(
+                                makeDevice(Device.TYPE_DISPLAY, Device.STATUS_REGISTERED, null)));
+        interceptor =
+                new DeviceTokenHandshakeInterceptor(
+                        deviceRepository, tenantContext, locationContext, DEFAULT_TENANT_ID);
 
         Message<?> msg = buildConnectMessageWithAttributes(token);
         Message<?> result = interceptor.preSend(msg, channel);
@@ -182,9 +197,15 @@ class DeviceTokenHandshakeInterceptorTest {
         when(tenantContext.bind(any())).thenReturn(tenantScope);
         when(locationContext.bind(LOCATION_ID)).thenReturn(locationScope);
         when(deviceRepository.findByDeviceToken(token))
-                .thenReturn(Optional.of(makeDevice(Device.TYPE_DISPLAY, Device.STATUS_REGISTERED, LOCATION_ID)));
-        interceptor = new DeviceTokenHandshakeInterceptor(
-                deviceRepository, tenantContext, locationContext, DEFAULT_TENANT_ID);
+                .thenReturn(
+                        Optional.of(
+                                makeDevice(
+                                        Device.TYPE_DISPLAY,
+                                        Device.STATUS_REGISTERED,
+                                        LOCATION_ID)));
+        interceptor =
+                new DeviceTokenHandshakeInterceptor(
+                        deviceRepository, tenantContext, locationContext, DEFAULT_TENANT_ID);
 
         Message<?> msg = buildConnectMessageWithAttributes(token);
         Message<?> result = interceptor.preSend(msg, channel);
@@ -231,10 +252,18 @@ class DeviceTokenHandshakeInterceptorTest {
     }
 
     private Device makeDevice(String type, String status, UUID locationId) {
-        return new Device(UUID.randomUUID(), DEFAULT_TENANT_ID, locationId,
-                "token-" + UUID.randomUUID(), null,
-                type, null, status,
-                LocalDateTime.now(), null,
-                type.equals(Device.TYPE_DISPLAY) ? "Test Display" : null, null);
+        return new Device(
+                UUID.randomUUID(),
+                DEFAULT_TENANT_ID,
+                locationId,
+                "token-" + UUID.randomUUID(),
+                null,
+                type,
+                null,
+                status,
+                LocalDateTime.now(),
+                null,
+                type.equals(Device.TYPE_DISPLAY) ? "Test Display" : null,
+                null);
     }
 }

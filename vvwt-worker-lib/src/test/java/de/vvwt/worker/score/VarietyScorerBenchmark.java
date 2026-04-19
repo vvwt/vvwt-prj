@@ -1,6 +1,9 @@
 package de.vvwt.worker.score;
 
 import de.vvwt.worker.types.CanonicalPhaseDef;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -16,21 +19,19 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
 /**
  * JMH micro-benchmark for {@link VarietyScorer} — AC8 advisory baseline.
  *
- * <p>Target: ≥ 3 million score computations per second per core at N=14 avatars
- * (Brief D-10 / E01S02 AC8). This is an advisory gate — it does not fail the
- * Maven build. The hard ship-gate benchmark is E01S12.
+ * <p>Target: ≥ 3 million score computations per second per core at N=14 avatars (Brief D-10 /
+ * E01S02 AC8). This is an advisory gate — it does not fail the Maven build. The hard ship-gate
+ * benchmark is E01S12.
  *
  * <p>Run standalone via:
+ *
  * <pre>
  *   mvn -pl vvwt-worker-lib test -Dtest=VarietyScorerBenchmark#main
  * </pre>
+ *
  * or via the JMH runner entry point below.
  */
 @State(Scope.Benchmark)
@@ -48,8 +49,8 @@ public class VarietyScorerBenchmark {
     private int avatarCount;
 
     /**
-     * N=14 setup: 14 avatars, 14 rows, 2 avatars active per row (round-robin).
-     * This represents a realistic dense phase used in slot optimization.
+     * N=14 setup: 14 avatars, 14 rows, 2 avatars active per row (round-robin). This represents a
+     * realistic dense phase used in slot optimization.
      */
     @Setup
     public void setUp() {
@@ -84,8 +85,8 @@ public class VarietyScorerBenchmark {
     }
 
     /**
-     * Hot-path benchmark: score a single permutation.
-     * This is the innermost loop of the PacketSolver (E01S03).
+     * Hot-path benchmark: score a single permutation. This is the innermost loop of the
+     * PacketSolver (E01S03).
      *
      * <p>Advisory target: ≥ 3 million ops/sec on reference hardware (Brief D-10).
      */
@@ -98,12 +99,13 @@ public class VarietyScorerBenchmark {
      * Standalone runner — invoke directly to see benchmark results without full Maven lifecycle.
      */
     public static void main(String[] args) throws RunnerException {
-        Options opt = new OptionsBuilder()
-            .include(VarietyScorerBenchmark.class.getSimpleName())
-            .forks(1)
-            .warmupIterations(3)
-            .measurementIterations(5)
-            .build();
+        Options opt =
+                new OptionsBuilder()
+                        .include(VarietyScorerBenchmark.class.getSimpleName())
+                        .forks(1)
+                        .warmupIterations(3)
+                        .measurementIterations(5)
+                        .build();
         new Runner(opt).run();
     }
 }

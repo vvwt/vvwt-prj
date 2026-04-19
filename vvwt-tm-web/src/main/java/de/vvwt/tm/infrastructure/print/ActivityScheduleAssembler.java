@@ -15,8 +15,6 @@ import de.vvwt.tm.domain.timeline.PhaseConfig;
 import de.vvwt.tm.domain.timeline.TimelineCalculationService;
 import de.vvwt.tm.domain.timeline.TimelineEntry;
 import de.vvwt.tm.domain.timeline.TimelineEntryType;
-import org.springframework.stereotype.Service;
-
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -29,31 +27,36 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.stereotype.Service;
 
 /**
  * Assembles the row list for the Mannschaftsfoto-Übersicht (activity schedule) print template.
  *
  * <p>This service is round-centric (photographer's view): for a given activity type, it produces
  * one row per round that has ≥ 1 assigned team — ordered by round number, empty rounds omitted
- * (AC3). Break separator rows are interleaved where the timeline has intra-phase or section
- * breaks between displayed rounds (AC4).
+ * (AC3). Break separator rows are interleaved where the timeline has intra-phase or section breaks
+ * between displayed rounds (AC4).
  *
  * <p>Unlike {@link LaufzettelAssembler} (team-centric), this assembler produces a single flat list
  * of rows (not a per-team map) for the specified activity type.
  *
  * <h2>No-start-time path (AC7)</h2>
- * <p>When {@code tournament.getPlannedStartTime()} is null, the timeline is empty. All time
- * windows are empty string, and no break separators are emitted (breaks are not determinable
- * without a timeline).
+ *
+ * <p>When {@code tournament.getPlannedStartTime()} is null, the timeline is empty. All time windows
+ * are empty string, and no break separators are emitted (breaks are not determinable without a
+ * timeline).
  *
  * <h2>Unassigned teams (AC6)</h2>
- * <p>Teams that could not be assigned (no free round) are returned separately from the row list
- * in the {@link ActivityScheduleModel} result.
+ *
+ * <p>Teams that could not be assigned (no free round) are returned separately from the row list in
+ * the {@link ActivityScheduleModel} result.
  *
  * @see ActivityScheduleRow
  * @see ActivityScheduleModel
  * @see PrintController
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S09.story.md">Story E08S09</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S09.story.md">Story
+ *     E08S09</a>
  */
 @Service
 public class ActivityScheduleAssembler {
@@ -69,8 +72,9 @@ public class ActivityScheduleAssembler {
     private final TimelineCalculationService timelineCalculationService;
     private final ActivityAssignmentService activityAssignmentService;
 
-    public ActivityScheduleAssembler(TimelineCalculationService timelineCalculationService,
-                                     ActivityAssignmentService activityAssignmentService) {
+    public ActivityScheduleAssembler(
+            TimelineCalculationService timelineCalculationService,
+            ActivityAssignmentService activityAssignmentService) {
         this.timelineCalculationService = timelineCalculationService;
         this.activityAssignmentService = activityAssignmentService;
     }
@@ -82,15 +86,15 @@ public class ActivityScheduleAssembler {
     /**
      * Assembles the activity schedule for a single activity type.
      *
-     * @param tournament     the tournament (for start time and tenant context)
-     * @param phases         all phases sorted by {@code sequenceNumber} ascending; must not be null
-     * @param teams          all teams participating; must not be null
+     * @param tournament the tournament (for start time and tenant context)
+     * @param phases all phases sorted by {@code sequenceNumber} ascending; must not be null
+     * @param teams all teams participating; must not be null
      * @param avatarsByPhase phaseId → TeamAvatars; must not be null
      * @param matchesByPhase phaseId → Matches; must not be null
-     * @param breaksByPhase  phaseId → PhaseBreaks; must not be null
-     * @param activityTypes  ALL activity types for this tournament (used to compute assignments
-     *                       respecting capacity constraints across all types); must not be null
-     * @param targetType     the specific activity type whose schedule to render; must not be null
+     * @param breaksByPhase phaseId → PhaseBreaks; must not be null
+     * @param activityTypes ALL activity types for this tournament (used to compute assignments
+     *     respecting capacity constraints across all types); must not be null
+     * @param targetType the specific activity type whose schedule to render; must not be null
      * @return assembled model with rows, summary, and unassigned teams; never null
      */
     public ActivityScheduleModel assemble(
@@ -144,7 +148,9 @@ public class ActivityScheduleAssembler {
                 if (t2 != null) playingByLap.computeIfAbsent(lap, k -> new HashSet<>()).add(t2);
 
                 if (match.getRefereeTeamId() != null) {
-                    refereeByLap.computeIfAbsent(lap, k -> new HashSet<>()).add(match.getRefereeTeamId());
+                    refereeByLap
+                            .computeIfAbsent(lap, k -> new HashSet<>())
+                            .add(match.getRefereeTeamId());
                 }
             }
             playingByPhase.put(phaseId, playingByLap);
@@ -166,25 +172,28 @@ public class ActivityScheduleAssembler {
             int maxLap = maxLapByPhase.getOrDefault(phaseId, 0);
             if (maxLap == 0 || activityTypes.isEmpty()) continue;
 
-            ActivityAssignmentResult result = activityAssignmentService.assignActivities(
-                    activityTypes,
-                    playingByPhase.getOrDefault(phaseId, Collections.emptyMap()),
-                    refereeByPhase.getOrDefault(phaseId, Collections.emptyMap()),
-                    maxLap,
-                    allTeamIds);
+            ActivityAssignmentResult result =
+                    activityAssignmentService.assignActivities(
+                            activityTypes,
+                            playingByPhase.getOrDefault(phaseId, Collections.emptyMap()),
+                            refereeByPhase.getOrDefault(phaseId, Collections.emptyMap()),
+                            maxLap,
+                            allTeamIds);
 
             // Filter to targetType
             for (Map.Entry<ActivityType, List<ActivityAssignment>> entry :
                     result.getAssignments().entrySet()) {
                 if (!targetType.getId().equals(entry.getKey().getId())) continue;
                 for (ActivityAssignment a : entry.getValue()) {
-                    assignedByLap.computeIfAbsent(a.getLapNumber(), k -> new ArrayList<>())
+                    assignedByLap
+                            .computeIfAbsent(a.getLapNumber(), k -> new ArrayList<>())
                             .add(a.getTeamId());
                 }
             }
 
             // Collect unassigned for targetType
-            for (Map.Entry<ActivityType, Set<UUID>> entry : result.getUnassignedTeams().entrySet()) {
+            for (Map.Entry<ActivityType, Set<UUID>> entry :
+                    result.getUnassignedTeams().entrySet()) {
                 if (targetType.getId().equals(entry.getKey().getId())) {
                     unassignedTeamIds.addAll(entry.getValue());
                 }
@@ -205,7 +214,8 @@ public class ActivityScheduleAssembler {
 
         List<TimelineEntry> timeline = Collections.emptyList();
         if (hasTime) {
-            List<PhaseConfig> phaseConfigs = buildPhaseConfigs(phases, breaksByPhase, maxLapByPhase);
+            List<PhaseConfig> phaseConfigs =
+                    buildPhaseConfigs(phases, breaksByPhase, maxLapByPhase);
             timeline = timelineCalculationService.calculate(startTime, phaseConfigs, 0);
         }
 
@@ -260,13 +270,16 @@ public class ActivityScheduleAssembler {
                     continue;
                 }
 
-                if (type == TimelineEntryType.INTRA_PHASE_BREAK || type == TimelineEntryType.SECTION_BREAK) {
+                if (type == TimelineEntryType.INTRA_PHASE_BREAK
+                        || type == TimelineEntryType.SECTION_BREAK) {
                     // Emit break separator only if previous row was a data row and there is a
                     // data row ahead (i.e., more assigned laps remain after this break)
                     boolean moreDataAhead = hasAssignedLapAfter(timeline, entry, assignedLaps);
                     if (lastWasData && moreDataAhead) {
-                        String label = (entry.label() != null && !entry.label().isBlank())
-                                ? entry.label() : "Pause";
+                        String label =
+                                (entry.label() != null && !entry.label().isBlank())
+                                        ? entry.label()
+                                        : "Pause";
                         String tw = formatTimeWindow(entry.startTime(), entry.endTime());
                         rows.add(ActivityScheduleRow.breakRow(label, tw));
                     }
@@ -276,7 +289,7 @@ public class ActivityScheduleAssembler {
 
                 if (type == TimelineEntryType.MATCH_ROUND) {
                     int lap = entry.lapNumber();
-                    if (lap <= 0) continue;  // zero-lap phase marker
+                    if (lap <= 0) continue; // zero-lap phase marker
                     if (!assignedLaps.contains(lap)) {
                         // No assignment in this round — skip (AC3: empty rounds omitted)
                         continue;
@@ -307,7 +320,8 @@ public class ActivityScheduleAssembler {
         }
         Collections.sort(unassignedNames);
 
-        return new ActivityScheduleModel(rows, totalAssignedTeams, roundCount, unassignedNames, hasTime);
+        return new ActivityScheduleModel(
+                rows, totalAssignedTeams, roundCount, unassignedNames, hasTime);
     }
 
     // -------------------------------------------------------------------------
@@ -315,20 +329,21 @@ public class ActivityScheduleAssembler {
     // -------------------------------------------------------------------------
 
     /**
-     * Returns true if there is a MATCH_ROUND entry in the timeline after {@code breakEntry}
-     * whose lapNumber is in {@code assignedLaps}.
+     * Returns true if there is a MATCH_ROUND entry in the timeline after {@code breakEntry} whose
+     * lapNumber is in {@code assignedLaps}.
      */
-    private boolean hasAssignedLapAfter(List<TimelineEntry> timeline,
-                                         TimelineEntry breakEntry,
-                                         Set<Integer> assignedLaps) {
+    private boolean hasAssignedLapAfter(
+            List<TimelineEntry> timeline, TimelineEntry breakEntry, Set<Integer> assignedLaps) {
         boolean pastBreak = false;
         for (TimelineEntry e : timeline) {
             if (e == breakEntry) {
                 pastBreak = true;
                 continue;
             }
-            if (pastBreak && e.type() == TimelineEntryType.MATCH_ROUND
-                    && e.lapNumber() > 0 && assignedLaps.contains(e.lapNumber())) {
+            if (pastBreak
+                    && e.type() == TimelineEntryType.MATCH_ROUND
+                    && e.lapNumber() > 0
+                    && assignedLaps.contains(e.lapNumber())) {
                 return true;
             }
         }
@@ -361,9 +376,9 @@ public class ActivityScheduleAssembler {
     }
 
     /**
-     * Builds {@link PhaseConfig} objects from phase data and match-derived lap counts.
-     * Uses default lap time / break time when no explicit config is available (E08S05 not yet
-     * applied for this tournament).
+     * Builds {@link PhaseConfig} objects from phase data and match-derived lap counts. Uses default
+     * lap time / break time when no explicit config is available (E08S05 not yet applied for this
+     * tournament).
      */
     private List<PhaseConfig> buildPhaseConfigs(
             List<Phase> phases,
@@ -379,14 +394,18 @@ public class ActivityScheduleAssembler {
             List<PhaseBreak> breaks = breaksByPhase.getOrDefault(phaseId, Collections.emptyList());
             List<PhaseBreakConfig> breakConfigs = new ArrayList<>();
             for (PhaseBreak pb : breaks) {
-                breakConfigs.add(new PhaseBreakConfig(
-                        pb.getAfterLapNumber(), pb.getDurationMinutes(), pb.getLabel()));
+                breakConfigs.add(
+                        new PhaseBreakConfig(
+                                pb.getAfterLapNumber(), pb.getDurationMinutes(), pb.getLabel()));
             }
 
-            configs.add(new PhaseConfig(
-                    seqNumber, lapCount,
-                    DEFAULT_LAP_TIME_MINUTES, DEFAULT_LAP_BREAK_MINUTES,
-                    breakConfigs));
+            configs.add(
+                    new PhaseConfig(
+                            seqNumber,
+                            lapCount,
+                            DEFAULT_LAP_TIME_MINUTES,
+                            DEFAULT_LAP_BREAK_MINUTES,
+                            breakConfigs));
             seqNumber++;
         }
         return configs;

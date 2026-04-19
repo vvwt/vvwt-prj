@@ -3,18 +3,17 @@ package de.vvwt.tm.domain;
 /**
  * Lifecycle states for a Match entity.
  *
- * <p>Ported from legacy {@code TournamentPlatform} state constants (D-25/D-17).
- * Integer codes are preserved for wire/DB compatibility with the legacy system.
+ * <p>Ported from legacy {@code TournamentPlatform} state constants (D-25/D-17). Integer codes are
+ * preserved for wire/DB compatibility with the legacy system.
  *
- * <p>{@code FINISHED_STANDOFF} is only structurally reachable when the tournament's
- * {@link MatchFormat} has {@code allowsTies=true} (i.e., {@code FIXED_2_SETS}).
- * For all {@code BEST_OF_N} formats every set has a winner and the match stops at
- * {@code requiredToWin}, so {@code FINISHED_STANDOFF} never fires.
+ * <p>{@code FINISHED_STANDOFF} is only structurally reachable when the tournament's {@link
+ * MatchFormat} has {@code allowsTies=true} (i.e., {@code FIXED_2_SETS}). For all {@code BEST_OF_N}
+ * formats every set has a winner and the match stops at {@code requiredToWin}, so {@code
+ * FINISHED_STANDOFF} never fires.
  *
- * <p>State transitions are owned by the cascade service (E03S11).
- * The {@link MatchFormat#deriveMatchState} helper derives a terminal/ongoing verdict
- * from set scores but does <em>not</em> assign {@code INPROGRESS} — that is set
- * externally when play begins.
+ * <p>State transitions are owned by the cascade service (E03S11). The {@link
+ * MatchFormat#deriveMatchState} helper derives a terminal/ongoing verdict from set scores but does
+ * <em>not</em> assign {@code INPROGRESS} — that is set externally when play begins.
  */
 public enum MatchState {
 
@@ -28,8 +27,8 @@ public enum MatchState {
     INPROGRESS(30),
 
     /**
-     * All sets have been played; cascade service is computing the outcome.
-     * Transitions to one of the {@code FINISHED_*} states.
+     * All sets have been played; cascade service is computing the outcome. Transitions to one of
+     * the {@code FINISHED_*} states.
      */
     ONCHECK(35),
 
@@ -40,8 +39,8 @@ public enum MatchState {
     FINISHED_WINNER2(52),
 
     /**
-     * Match ended in a draw ({@code FIXED_2_SETS} 1-1).
-     * Only reachable when {@link MatchFormat#isAllowsTies()} is {@code true}.
+     * Match ended in a draw ({@code FIXED_2_SETS} 1-1). Only reachable when {@link
+     * MatchFormat#isAllowsTies()} is {@code true}.
      */
     FINISHED_STANDOFF(50),
 
@@ -78,8 +77,10 @@ public enum MatchState {
             }
         }
         throw new IllegalArgumentException(
-                "Unknown MatchState legacy code: " + code
-                + ". Known codes: 0 (OPEN), 10 (ENABLED), 30 (INPROGRESS), 35 (ONCHECK), "
-                + "50 (FINISHED_STANDOFF), 51 (FINISHED_WINNER1), 52 (FINISHED_WINNER2), -10 (CANCELED)");
+                "Unknown MatchState legacy code: "
+                        + code
+                        + ". Known codes: 0 (OPEN), 10 (ENABLED), 30 (INPROGRESS), 35 (ONCHECK), 50"
+                        + " (FINISHED_STANDOFF), 51 (FINISHED_WINNER1), 52 (FINISHED_WINNER2), -10"
+                        + " (CANCELED)");
     }
 }

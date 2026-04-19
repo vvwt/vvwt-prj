@@ -1,38 +1,39 @@
 package de.vvwt.tm.infrastructure.testsupport;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.db.api.Assertions.assertThat;
+
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import javax.sql.DataSource;
 import org.assertj.db.type.Table;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import javax.sql.DataSource;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.db.api.Assertions.assertThat;
-
 /**
  * Reference DAO test demonstrating TDD-first three-rule DEC-26 compliance.
  *
- * <p>This class is the acceptance proof for {@link TenantDaoTestSupport} (Story E16S01 AC9).
- * It is entirely test-scope — {@link MarkerDao} is also a test-scope class, not production code.
+ * <p>This class is the acceptance proof for {@link TenantDaoTestSupport} (Story E16S01 AC9). It is
+ * entirely test-scope — {@link MarkerDao} is also a test-scope class, not production code.
  *
  * <h2>Three DEC-26 rules applied (AC9)</h2>
+ *
  * <ol>
- *   <li><b>Rule 1 — Schema from production migration:</b> {@code applyMigration} loads
- *       the schema from the SQL file at {@code db/migration/testsupport/marker_schema.sql}
- *       (the canonical schema source for this test-only table).</li>
- *   <li><b>Rule 2 — Independent persistence verifier:</b> {@code insert_*} tests verify
- *       that a row was written to the database via {@code assertDbOf} — NOT via
- *       {@code MarkerDao.findAll()}.</li>
- *   <li><b>Rule 3 — Read/write decoupling:</b> {@code findAll_*} tests seed the fixture
- *       via {@code insertDirectly} — NOT via {@code MarkerDao.insert()}.</li>
+ *   <li><b>Rule 1 — Schema from production migration:</b> {@code applyMigration} loads the schema
+ *       from the SQL file at {@code db/migration/testsupport/marker_schema.sql} (the canonical
+ *       schema source for this test-only table).
+ *   <li><b>Rule 2 — Independent persistence verifier:</b> {@code insert_*} tests verify that a row
+ *       was written to the database via {@code assertDbOf} — NOT via {@code MarkerDao.findAll()}.
+ *   <li><b>Rule 3 — Read/write decoupling:</b> {@code findAll_*} tests seed the fixture via {@code
+ *       insertDirectly} — NOT via {@code MarkerDao.insert()}.
  * </ol>
  *
  * @see TenantDaoTestSupport
  * @see MarkerDao
- * @see <a href="../../../../../../../../../../../../.gaai/project/contexts/artefacts/stories/E16S01.story.md">Story E16S01</a>
+ * @see <a
+ *     href="../../../../../../../../../../../../.gaai/project/contexts/artefacts/stories/E16S01.story.md">Story
+ *     E16S01</a>
  */
 class MarkerDaoTest {
 
@@ -44,7 +45,7 @@ class MarkerDaoTest {
     @BeforeEach
     void setUp() {
         dataSource = TenantDaoTestSupport.freshDataSource();
-        TenantDaoTestSupport.applyMigration(dataSource, SCHEMA_RESOURCE);    // Rule 1
+        TenantDaoTestSupport.applyMigration(dataSource, SCHEMA_RESOURCE); // Rule 1
         dao = new MarkerDao(dataSource);
     }
 
@@ -54,8 +55,8 @@ class MarkerDaoTest {
 
     /**
      * M1 (Rule 2 — independent persistence verifier): {@link MarkerDao#insert(String, String)}
-     * writes a row to the database. Verified via {@code TenantDaoTestSupport.assertDbOf}
-     * — NOT via {@code dao.findAll()}.
+     * writes a row to the database. Verified via {@code TenantDaoTestSupport.assertDbOf} — NOT via
+     * {@code dao.findAll()}.
      */
     @Test
     void insert_newMarker_rowAppearsInDatabase() {
@@ -70,8 +71,10 @@ class MarkerDaoTest {
                 .as("insert() must persist exactly one row in marker table (Rule 2)")
                 .hasNumberOfRows(1)
                 .row(0)
-                .value("id").isEqualTo(id)
-                .value("note").isEqualTo(note);
+                .value("id")
+                .isEqualTo(id)
+                .value("note")
+                .isEqualTo(note);
     }
 
     // =========================================================================
@@ -79,9 +82,8 @@ class MarkerDaoTest {
     // =========================================================================
 
     /**
-     * M2 (Rule 3 — read/write decoupling): {@link MarkerDao#findAll()} returns only
-     * rows that were seeded via {@code TenantDaoTestSupport.insertDirectly}
-     * — NOT via {@code dao.insert()}.
+     * M2 (Rule 3 — read/write decoupling): {@link MarkerDao#findAll()} returns only rows that were
+     * seeded via {@code TenantDaoTestSupport.insertDirectly} — NOT via {@code dao.insert()}.
      *
      * <p>This ensures that a broken {@code insert()} cannot mask a broken {@code findAll()}.
      */
@@ -91,8 +93,7 @@ class MarkerDaoTest {
         String note = "rule-3-test-marker";
 
         // Rule 3: seed via direct JDBC (not via dao.insert())
-        TenantDaoTestSupport.insertDirectly(dataSource, "marker",
-                Map.of("id", id, "note", note));
+        TenantDaoTestSupport.insertDirectly(dataSource, "marker", Map.of("id", id, "note", note));
 
         List<MarkerDao.MarkerRecord> records = dao.findAll();
 
@@ -111,15 +112,11 @@ class MarkerDaoTest {
     // M3 — findAll: empty table returns empty list
     // =========================================================================
 
-    /**
-     * M3 (base): Empty table → {@code findAll()} returns an empty list.
-     */
+    /** M3 (base): Empty table → {@code findAll()} returns an empty list. */
     @Test
     void findAll_emptyTable_returnsEmptyList() {
         List<MarkerDao.MarkerRecord> records = dao.findAll();
 
-        assertThat(records)
-                .as("findAll() on empty table must return empty list")
-                .isEmpty();
+        assertThat(records).as("findAll() on empty table must return empty list").isEmpty();
     }
 }

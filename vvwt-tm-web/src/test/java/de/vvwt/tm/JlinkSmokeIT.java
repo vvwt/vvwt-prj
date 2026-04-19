@@ -1,35 +1,33 @@
 package de.vvwt.tm;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.fail;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 
 /**
  * End-to-end smoke test for the jlink distribution archive.
  *
- * <p>Runs as a Failsafe integration test (class name ends in {@code IT}) during
- * {@code mvn verify}. Locates the distribution archive produced by
- * {@code maven-assembly-plugin} in {@code target/}, extracts it to a temporary
- * directory, launches the application via its bundled launcher script, and
- * validates the health endpoint responds with {@code "status":"UP"}.
+ * <p>Runs as a Failsafe integration test (class name ends in {@code IT}) during {@code mvn verify}.
+ * Locates the distribution archive produced by {@code maven-assembly-plugin} in {@code target/},
+ * extracts it to a temporary directory, launches the application via its bundled launcher script,
+ * and validates the health endpoint responds with {@code "status":"UP"}.
  *
  * <p>AC5: end-to-end smoke test — extract → run → health check → DB file exists → stop → clean up.
  * AC6: logs archive size and extracted size.
  *
- * @see <a href="../../../../../../../../../../.gaai/project/contexts/artefacts/stories/E02S05.story.md">Story E02S05</a>
+ * @see <a
+ *     href="../../../../../../../../../../.gaai/project/contexts/artefacts/stories/E02S05.story.md">Story
+ *     E02S05</a>
  */
 @Tag("smoke")
 @DisplayName("E02S05 — jlink distribution smoke test")
@@ -70,8 +68,9 @@ class JlinkSmokeIT {
         // does NOT copy test scripts to target/. Use the source tree path via the
         // project base dir system property set by maven-failsafe-plugin.)
         // --------------------------------------------------------------------------
-        Path smokeScript = Paths.get(System.getProperty("user.dir"),
-                "src", "test", "scripts", "smoke-test.sh");
+        Path smokeScript =
+                Paths.get(
+                        System.getProperty("user.dir"), "src", "test", "scripts", "smoke-test.sh");
 
         assertThat(smokeScript)
                 .as("smoke-test.sh must exist at " + smokeScript)
@@ -86,12 +85,12 @@ class JlinkSmokeIT {
         // --------------------------------------------------------------------------
         // Run smoke-test.sh
         // --------------------------------------------------------------------------
-        ProcessBuilder pb = new ProcessBuilder(
-                smokeScript.toAbsolutePath().toString(),
-                archive.toAbsolutePath().toString(),
-                extractDir.toAbsolutePath().toString(),
-                String.valueOf(port)
-        );
+        ProcessBuilder pb =
+                new ProcessBuilder(
+                        smokeScript.toAbsolutePath().toString(),
+                        archive.toAbsolutePath().toString(),
+                        extractDir.toAbsolutePath().toString(),
+                        String.valueOf(port));
         pb.redirectErrorStream(true);
         pb.directory(targetDir.toFile());
 
@@ -99,17 +98,21 @@ class JlinkSmokeIT {
         Process process = pb.start();
 
         // Stream output while waiting
-        Thread outputThread = new Thread(() -> {
-            try (var reader = new java.io.BufferedReader(
-                    new java.io.InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    System.out.println("[smoke-test.sh] " + line);
-                }
-            } catch (IOException e) {
-                // ignore on shutdown
-            }
-        });
+        Thread outputThread =
+                new Thread(
+                        () -> {
+                            try (var reader =
+                                    new java.io.BufferedReader(
+                                            new java.io.InputStreamReader(
+                                                    process.getInputStream()))) {
+                                String line;
+                                while ((line = reader.readLine()) != null) {
+                                    System.out.println("[smoke-test.sh] " + line);
+                                }
+                            } catch (IOException e) {
+                                // ignore on shutdown
+                            }
+                        });
         outputThread.start();
 
         boolean finished = process.waitFor(60, TimeUnit.SECONDS);
@@ -123,9 +126,7 @@ class JlinkSmokeIT {
         int exitCode = process.exitValue();
         System.out.println("[JlinkSmokeIT] smoke-test.sh exit code: " + exitCode);
 
-        assertThat(exitCode)
-                .as("smoke-test.sh must exit 0 — all AC5 checks passed")
-                .isEqualTo(0);
+        assertThat(exitCode).as("smoke-test.sh must exit 0 — all AC5 checks passed").isEqualTo(0);
 
         // --------------------------------------------------------------------------
         // AC6: log extracted size
@@ -133,10 +134,12 @@ class JlinkSmokeIT {
         // Extract dir was cleaned up by smoke-test.sh trap — report only if it still exists.
         if (Files.exists(extractDir)) {
             long extractedBytes = directorySize(extractDir);
-            System.out.printf("[JlinkSmokeIT] Extracted size: %.1f MB%n", extractedBytes / 1_048_576.0);
+            System.out.printf(
+                    "[JlinkSmokeIT] Extracted size: %.1f MB%n", extractedBytes / 1_048_576.0);
         }
 
-        System.out.printf("[JlinkSmokeIT] Archive size summary: %.1f MB (archive)%n",
+        System.out.printf(
+                "[JlinkSmokeIT] Archive size summary: %.1f MB (archive)%n",
                 archiveBytes / 1_048_576.0);
         System.out.println("[JlinkSmokeIT] Smoke test: PASS");
     }
@@ -150,11 +153,12 @@ class JlinkSmokeIT {
             return Optional.empty();
         }
         try (var stream = Files.list(targetDir)) {
-            return stream
-                    .filter(p -> {
-                        String name = p.getFileName().toString();
-                        return name.startsWith("tournament-manager-") && name.endsWith(".tar.gz");
-                    })
+            return stream.filter(
+                            p -> {
+                                String name = p.getFileName().toString();
+                                return name.startsWith("tournament-manager-")
+                                        && name.endsWith(".tar.gz");
+                            })
                     .findFirst();
         }
     }
@@ -171,15 +175,15 @@ class JlinkSmokeIT {
             return 0L;
         }
         try (var stream = Files.walk(dir)) {
-            return stream
-                    .filter(Files::isRegularFile)
-                    .mapToLong(p -> {
-                        try {
-                            return Files.size(p);
-                        } catch (IOException e) {
-                            return 0L;
-                        }
-                    })
+            return stream.filter(Files::isRegularFile)
+                    .mapToLong(
+                            p -> {
+                                try {
+                                    return Files.size(p);
+                                } catch (IOException e) {
+                                    return 0L;
+                                }
+                            })
                     .sum();
         }
     }

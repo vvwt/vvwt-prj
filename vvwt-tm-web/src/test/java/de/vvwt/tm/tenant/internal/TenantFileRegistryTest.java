@@ -1,10 +1,9 @@
 package de.vvwt.tm.tenant.internal;
 
-import de.vvwt.tm.tenant.TenantRegistryPort;
-import de.vvwt.tm.tenant.TenantRegistryPort.TenantRecord;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import de.vvwt.tm.tenant.TenantRegistryPort.TenantRecord;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -18,26 +17,26 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Unit and integration tests for {@link TenantFileRegistry}.
  *
- * <p>All tests use JUnit 5 {@code @TempDir} for real filesystem I/O.
- * Tests MUST NOT write into the real {@code ${tm.data.dir}} during testing.
+ * <p>All tests use JUnit 5 {@code @TempDir} for real filesystem I/O. Tests MUST NOT write into the
+ * real {@code ${tm.data.dir}} during testing.
  *
  * <p>Acceptance criteria covered:
+ *
  * <ul>
- *   <li>AC1 — test-first: this file was committed before the implementation</li>
- *   <li>AC2 — tenant directories are distinct per tenant</li>
- *   <li>AC3 — registry persists across instantiations (survives restart)</li>
- *   <li>AC4 — missing data dir created; non-writable fails fast</li>
- *   <li>AC5 — corrupt registry fails fast without silent recreation</li>
- *   <li>AC6 — duplicate registration throws {@link TenantFileRegistry.DuplicateTenantException}</li>
- *   <li>AC-CONCURRENT-REGISTER — concurrent different IDs: both succeed;
- *       concurrent same ID: exactly one succeeds</li>
+ *   <li>AC1 — test-first: this file was committed before the implementation
+ *   <li>AC2 — tenant directories are distinct per tenant
+ *   <li>AC3 — registry persists across instantiations (survives restart)
+ *   <li>AC4 — missing data dir created; non-writable fails fast
+ *   <li>AC5 — corrupt registry fails fast without silent recreation
+ *   <li>AC6 — duplicate registration throws {@link TenantFileRegistry.DuplicateTenantException}
+ *   <li>AC-CONCURRENT-REGISTER — concurrent different IDs: both succeed; concurrent same ID:
+ *       exactly one succeeds
  * </ul>
  *
  * <p>Story: E14S02 — DEC-10/DEC-17/DEC-20/DEC-21/DEC-22.
@@ -100,7 +99,9 @@ class TenantFileRegistryTest {
         Optional<TenantRecord> result = second.lookup(tenantId);
 
         assertThat(result)
-                .as("Registry must persist across instantiations — simulating application restart (AC3)")
+                .as(
+                        "Registry must persist across instantiations — simulating application"
+                                + " restart (AC3)")
                 .isPresent();
         assertThat(result.get().displayName())
                 .as("Display name must survive persistence round-trip")
@@ -152,13 +153,15 @@ class TenantFileRegistryTest {
         Files.createDirectories(nonWritable);
         org.junit.jupiter.api.Assumptions.assumeTrue(
                 nonWritable.toFile().setWritable(false),
-                "OS does not support restricting write permissions — skipping AC4 non-writable test");
+                "OS does not support restricting write permissions — skipping AC4 non-writable"
+                        + " test");
 
-        assertThatThrownBy(() -> {
-            TenantFileRegistry registry = new TenantFileRegistry(nonWritable);
-            // Force a write by registering a tenant
-            registry.register(UUID.randomUUID(), "Tenant");
-        })
+        assertThatThrownBy(
+                        () -> {
+                            TenantFileRegistry registry = new TenantFileRegistry(nonWritable);
+                            // Force a write by registering a tenant
+                            registry.register(UUID.randomUUID(), "Tenant");
+                        })
                 .as("Non-writable data dir must fail fast with actionable message (AC4)")
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(nonWritable.toString());
@@ -193,7 +196,9 @@ class TenantFileRegistryTest {
         // Second instance (simulating restart) must also reject duplicate
         TenantFileRegistry second = new TenantFileRegistry(dataDir);
         assertThatThrownBy(() -> second.register(tenantId, "Duplicate"))
-                .as("Duplicate registration across restarts must throw DuplicateTenantException (AC6)")
+                .as(
+                        "Duplicate registration across restarts must throw DuplicateTenantException"
+                                + " (AC6)")
                 .isInstanceOf(TenantFileRegistry.DuplicateTenantException.class);
     }
 
@@ -210,22 +215,30 @@ class TenantFileRegistryTest {
         List<Exception> errors = new ArrayList<>();
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
-        Future<?> futureA = executor.submit(() -> {
-            try {
-                startLatch.await();
-                registry.register(tenantA, "Tenant A");
-            } catch (Exception e) {
-                synchronized (errors) { errors.add(e); }
-            }
-        });
-        Future<?> futureB = executor.submit(() -> {
-            try {
-                startLatch.await();
-                registry.register(tenantB, "Tenant B");
-            } catch (Exception e) {
-                synchronized (errors) { errors.add(e); }
-            }
-        });
+        Future<?> futureA =
+                executor.submit(
+                        () -> {
+                            try {
+                                startLatch.await();
+                                registry.register(tenantA, "Tenant A");
+                            } catch (Exception e) {
+                                synchronized (errors) {
+                                    errors.add(e);
+                                }
+                            }
+                        });
+        Future<?> futureB =
+                executor.submit(
+                        () -> {
+                            try {
+                                startLatch.await();
+                                registry.register(tenantB, "Tenant B");
+                            } catch (Exception e) {
+                                synchronized (errors) {
+                                    errors.add(e);
+                                }
+                            }
+                        });
 
         startLatch.countDown();
         futureA.get();
@@ -233,7 +246,9 @@ class TenantFileRegistryTest {
         executor.shutdown();
 
         assertThat(errors)
-                .as("Concurrent registration of DIFFERENT tenants must both succeed (AC-CONCURRENT-REGISTER)")
+                .as(
+                        "Concurrent registration of DIFFERENT tenants must both succeed"
+                                + " (AC-CONCURRENT-REGISTER)")
                 .isEmpty();
         assertThat(registry.lookup(tenantA)).isPresent();
         assertThat(registry.lookup(tenantB)).isPresent();
@@ -252,17 +267,18 @@ class TenantFileRegistryTest {
         AtomicInteger duplicateCount = new AtomicInteger(0);
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
-        Runnable task = () -> {
-            try {
-                startLatch.await();
-                registry.register(tenantId, "Shared Tenant");
-                successCount.incrementAndGet();
-            } catch (TenantFileRegistry.DuplicateTenantException e) {
-                duplicateCount.incrementAndGet();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        };
+        Runnable task =
+                () -> {
+                    try {
+                        startLatch.await();
+                        registry.register(tenantId, "Shared Tenant");
+                        successCount.incrementAndGet();
+                    } catch (TenantFileRegistry.DuplicateTenantException e) {
+                        duplicateCount.incrementAndGet();
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                };
 
         Future<?> f1 = executor.submit(task);
         Future<?> f2 = executor.submit(task);
@@ -272,10 +288,14 @@ class TenantFileRegistryTest {
         executor.shutdown();
 
         assertThat(successCount.get())
-                .as("Exactly one thread must succeed for concurrent same-ID registration (AC-CONCURRENT-REGISTER)")
+                .as(
+                        "Exactly one thread must succeed for concurrent same-ID registration"
+                                + " (AC-CONCURRENT-REGISTER)")
                 .isEqualTo(1);
         assertThat(duplicateCount.get())
-                .as("The other thread must receive DuplicateTenantException (AC-CONCURRENT-REGISTER)")
+                .as(
+                        "The other thread must receive DuplicateTenantException"
+                                + " (AC-CONCURRENT-REGISTER)")
                 .isEqualTo(1);
     }
 
@@ -306,8 +326,6 @@ class TenantFileRegistryTest {
 
         List<TenantRecord> all = registry.findAll();
 
-        assertThat(all)
-                .as("findAll() must return empty list when no tenants registered")
-                .isEmpty();
+        assertThat(all).as("findAll() must return empty list when no tenants registered").isEmpty();
     }
 }

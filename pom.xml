@@ -93,6 +93,14 @@
              2.x line targets SB 4.x; upgrade here when SB is promoted to 4.x per DEC-10.
              E13S01 (DEC-21): Wave-1 foundation dependency for bounded-context enforcement. -->
         <spring-modulith.version>1.4.6</spring-modulith.version>
+
+        <!-- Spotless + google-java-format (E18S02 — DEC-30): project-wide formatting +
+             unused-import removal. AOSP style (4-space indent) chosen over GOOGLE (2-space)
+             to minimize first-run reformat blast radius on existing codebase.
+             spotless-maven-plugin 2.44.x: latest stable compatible with Java 21.
+             google-java-format 1.19.x: matches JDK 21 AST support. -->
+        <spotless-maven-plugin.version>2.44.3</spotless-maven-plugin.version>
+        <google-java-format.version>1.19.2</google-java-format.version>
     </properties>
 
     <!-- ===================================================================
@@ -311,8 +319,48 @@
                     <version>${frontend-maven-plugin.version}</version>
                 </plugin>
 
+                <!-- Spotless code formatter (E18S02 — DEC-30).
+                     Scope: googleJavaFormat (AOSP) + removeUnusedImports + importOrder only.
+                     No license headers, no trailing-whitespace rules, no custom rulesets —
+                     narrow start per DEC-30 § Decision #6. Any scope addition requires a
+                     DEC-30 amendment.
+                     Execution: spotless:check binds to verify phase; developers run
+                     spotless:apply locally before committing (see patterns/conventions.md). -->
+                <plugin>
+                    <groupId>com.diffplug.spotless</groupId>
+                    <artifactId>spotless-maven-plugin</artifactId>
+                    <version>${spotless-maven-plugin.version}</version>
+                    <configuration>
+                        <java>
+                            <googleJavaFormat>
+                                <version>${google-java-format.version}</version>
+                                <style>AOSP</style>
+                                <reflowLongStrings>true</reflowLongStrings>
+                            </googleJavaFormat>
+                            <removeUnusedImports/>
+                            <importOrder/>
+                        </java>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>spotless-check</id>
+                            <phase>verify</phase>
+                            <goals><goal>check</goal></goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
             </plugins>
         </pluginManagement>
+
+        <!-- Activate Spotless in all modules via parent-POM inheritance (DEC-30).
+             spotless:check runs at verify; spotless:apply is the manual fix command. -->
+        <plugins>
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
     </build>
 
 </project>

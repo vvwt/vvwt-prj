@@ -1,27 +1,27 @@
 package de.vvwt.tm.tenant.internal;
 
-import de.vvwt.tm.tenant.TenantContext;
-import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import de.vvwt.tm.tenant.TenantContext;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for {@link ThreadLocalTenantContextImpl}.
  *
- * <p>Tests are written TDD-first (DEC-22). This file was committed before
- * the implementation class existed (AC1 red-phase proof).
+ * <p>Tests are written TDD-first (DEC-22). This file was committed before the implementation class
+ * existed (AC1 red-phase proof).
  *
  * <p>Acceptance criteria covered:
+ *
  * <ul>
- *   <li>AC1 — test-first: committed before implementation (RED verified)</li>
- *   <li>AC3 — unbound current() → IllegalStateException (not NPE, not fallback DS)</li>
- *   <li>AC4 — context leak: after exception in scoped work, context clears to unbound</li>
- *   <li>AC5 — ApplicationModulesTest remains green (structural — verified separately)</li>
- *   <li>AC6 — internal placement: ThreadLocalTenantContextImpl in tenant.internal (structural)</li>
- *   <li>AC7 — AC-NESTED-BIND contract: nested bind/close restores outer</li>
+ *   <li>AC1 — test-first: committed before implementation (RED verified)
+ *   <li>AC3 — unbound current() → IllegalStateException (not NPE, not fallback DS)
+ *   <li>AC4 — context leak: after exception in scoped work, context clears to unbound
+ *   <li>AC5 — ApplicationModulesTest remains green (structural — verified separately)
+ *   <li>AC6 — internal placement: ThreadLocalTenantContextImpl in tenant.internal (structural)
+ *   <li>AC7 — AC-NESTED-BIND contract: nested bind/close restores outer
  * </ul>
  *
  * <p>Story: E14S03 — DEC-10/DEC-14/DEC-20/DEC-21/DEC-22.
@@ -33,8 +33,8 @@ class ThreadLocalTenantContextImplTest {
     // -------------------------------------------------------------------------
 
     /**
-     * AC3: {@code current()} MUST throw {@link IllegalStateException} — not return null,
-     * not return a fallback DataSource silently.
+     * AC3: {@code current()} MUST throw {@link IllegalStateException} — not return null, not return
+     * a fallback DataSource silently.
      */
     @Test
     void currentThrowsIllegalStateExceptionWhenNoBind() {
@@ -89,9 +89,9 @@ class ThreadLocalTenantContextImplTest {
     // -------------------------------------------------------------------------
 
     /**
-     * AC7: The {@link TenantContext} implementation honours AC-NESTED-BIND from E14S01.
-     * Inner {@code bind} overrides the outer for the inner's scope only; closing the inner
-     * scope restores the outer. E14S03 does NOT re-open this contract — it implements it.
+     * AC7: The {@link TenantContext} implementation honours AC-NESTED-BIND from E14S01. Inner
+     * {@code bind} overrides the outer for the inner's scope only; closing the inner scope restores
+     * the outer. E14S03 does NOT re-open this contract — it implements it.
      */
     @Test
     void nestedBindOverridesOuterAndRestoresOnClose() {
@@ -118,9 +118,7 @@ class ThreadLocalTenantContextImplTest {
                 .isInstanceOf(IllegalStateException.class);
     }
 
-    /**
-     * AC7: Three levels of nesting — outer→middle→inner. Each level restores correctly.
-     */
+    /** AC7: Three levels of nesting — outer→middle→inner. Each level restores correctly. */
     @Test
     void tripleNestedBindRestoresEachLevelOnClose() {
         TenantContext ctx = new ThreadLocalTenantContextImpl();
@@ -148,8 +146,8 @@ class ThreadLocalTenantContextImplTest {
     // -------------------------------------------------------------------------
 
     /**
-     * AC4: After a tenant-scoped operation throws, {@code current()} returns to the unbound
-     * state. No context leaks across requests/operations.
+     * AC4: After a tenant-scoped operation throws, {@code current()} returns to the unbound state.
+     * No context leaks across requests/operations.
      */
     @Test
     void contextClearsAfterExceptionInScopedWork() {
@@ -182,14 +180,18 @@ class ThreadLocalTenantContextImplTest {
         try (TenantContext.Scope ignored = ctx.bind(tenantId)) {
             // In a separate thread, current() must throw — ThreadLocal is per-thread
             AssertionError[] result = new AssertionError[1];
-            Thread thread = new Thread(() -> {
-                try {
-                    ctx.current(); // must throw
-                    result[0] = new AssertionError("Expected IllegalStateException — not thrown");
-                } catch (IllegalStateException e) {
-                    // expected — binding is not visible across threads
-                }
-            });
+            Thread thread =
+                    new Thread(
+                            () -> {
+                                try {
+                                    ctx.current(); // must throw
+                                    result[0] =
+                                            new AssertionError(
+                                                    "Expected IllegalStateException — not thrown");
+                                } catch (IllegalStateException e) {
+                                    // expected — binding is not visible across threads
+                                }
+                            });
             thread.start();
             thread.join(3000);
 

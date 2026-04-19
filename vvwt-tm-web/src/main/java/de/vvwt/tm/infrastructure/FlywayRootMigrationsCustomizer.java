@@ -1,12 +1,5 @@
 package de.vvwt.tm.infrastructure;
 
-import org.flywaydb.core.api.ResourceProvider;
-import org.flywaydb.core.api.resource.LoadableResource;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
-import org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration;
-import org.springframework.boot.autoconfigure.flyway.FlywayConfigurationCustomizer;
-import org.springframework.context.annotation.Bean;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -19,12 +12,19 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import org.flywaydb.core.api.ResourceProvider;
+import org.flywaydb.core.api.resource.LoadableResource;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration;
+import org.springframework.boot.autoconfigure.flyway.FlywayConfigurationCustomizer;
+import org.springframework.context.annotation.Bean;
 
 /**
- * Restricts Spring Boot's auto-configured Flyway to root-level migration files only
- * (i.e., files directly in {@code classpath:db/migration/}, not in per-module sub-directories).
+ * Restricts Spring Boot's auto-configured Flyway to root-level migration files only (i.e., files
+ * directly in {@code classpath:db/migration/}, not in per-module sub-directories).
  *
  * <h2>Problem (E15S05)</h2>
+ *
  * <p>DEC-21 establishes the convention {@code db/migration/{module}/V1__*.sql} for per-module
  * Flyway migrations. These are applied exclusively by {@link
  * de.vvwt.tm.tenant.internal.PerTenantFlywayRunner} — NOT by Spring Boot's auto-configured Flyway.
@@ -32,38 +32,44 @@ import java.util.jar.JarFile;
  * <p>Spring Boot's Flyway scans {@code classpath:db/migration} <em>recursively</em>, discovering
  * per-module files (e.g., {@code db/migration/auth/V1__admin_credentials.sql}) and reporting a
  * version conflict with root-level {@code V1__initial_schema.sql}. This customizer prevents that
- * conflict by providing a {@link ResourceProvider} that only returns SQL files at the root level
- * of {@code db/migration/} — files in sub-directories are silently excluded from Spring Boot's
- * startup Flyway scan.
+ * conflict by providing a {@link ResourceProvider} that only returns SQL files at the root level of
+ * {@code db/migration/} — files in sub-directories are silently excluded from Spring Boot's startup
+ * Flyway scan.
  *
  * <h2>Architecture (DEC-20, DEC-21)</h2>
+ *
  * <ul>
  *   <li><b>Spring Boot startup Flyway (this customizer):</b> root-level legacy migrations only
  *       ({@code V1..V16__*.sql} directly in {@code db/migration/}). Used during the parallel
- *       development phase against the shared Spring Boot datasource.</li>
- *   <li><b>PerTenantFlywayRunner:</b> per-module migrations ({@code db/migration/{module}/V1__*.sql}),
- *       applied at tenant-creation time against per-tenant H2 files.</li>
+ *       development phase against the shared Spring Boot datasource.
+ *   <li><b>PerTenantFlywayRunner:</b> per-module migrations ({@code
+ *       db/migration/{module}/V1__*.sql}), applied at tenant-creation time against per-tenant H2
+ *       files.
  * </ul>
  *
  * <h2>Lifecycle</h2>
- * <p>This bean is a parallel-development-phase artifact. At E15S07 atomic cutover, the legacy
- * root migrations are deleted and Spring Boot Flyway becomes a no-op. At that point
- * ({@code spring.flyway.enabled=false}) this customizer can be removed.
+ *
+ * <p>This bean is a parallel-development-phase artifact. At E15S07 atomic cutover, the legacy root
+ * migrations are deleted and Spring Boot Flyway becomes a no-op. At that point ({@code
+ * spring.flyway.enabled=false}) this customizer can be removed.
  *
  * @see de.vvwt.tm.tenant.internal.PerTenantFlywayRunner
- * @see <a href="../../../../../../../../../../../.gaai/project/contexts/artefacts/stories/E15S05.story.md">Story E15S05</a>
+ * @see <a
+ *     href="../../../../../../../../../../../.gaai/project/contexts/artefacts/stories/E15S05.story.md">Story
+ *     E15S05</a>
  * @since E15S05
  */
 @AutoConfiguration(before = FlywayAutoConfiguration.class)
 public class FlywayRootMigrationsCustomizer {
 
     /**
-     * Registers the {@link RootLevelOnlyResourceProvider} as a {@link FlywayConfigurationCustomizer}
-     * bean, which restricts Flyway to root-level migration files only.
+     * Registers the {@link RootLevelOnlyResourceProvider} as a {@link
+     * FlywayConfigurationCustomizer} bean, which restricts Flyway to root-level migration files
+     * only.
      *
      * <p>Registered as a Spring Boot auto-configuration so it is active in ALL Spring contexts,
-     * including partial {@code @ApplicationModuleTest} contexts (which only load beans from
-     * the tested module's package but DO load all Spring Boot auto-configurations).
+     * including partial {@code @ApplicationModuleTest} contexts (which only load beans from the
+     * tested module's package but DO load all Spring Boot auto-configurations).
      */
     @Bean
     public FlywayConfigurationCustomizer flywayRootOnlyCustomizer() {
@@ -74,8 +80,8 @@ public class FlywayRootMigrationsCustomizer {
     static final String MIGRATION_CLASSPATH_PATH = "db/migration";
 
     /**
-     * A Flyway {@link ResourceProvider} that scans only the root level of
-     * {@code classpath:db/migration/}, excluding files in any sub-directory.
+     * A Flyway {@link ResourceProvider} that scans only the root level of {@code
+     * classpath:db/migration/}, excluding files in any sub-directory.
      *
      * <p>Supports both exploded-classpath (file system) and JAR-packaged deployments.
      */
@@ -114,8 +120,12 @@ public class FlywayRootMigrationsCustomizer {
          * Supports both file-system (exploded) and JAR-based classpaths.
          */
         private static void collectRootLevelFiles(
-                URL baseUrl, String prefix, String[] suffixes,
-                List<LoadableResource> results, ClassLoader cl) throws IOException {
+                URL baseUrl,
+                String prefix,
+                String[] suffixes,
+                List<LoadableResource> results,
+                ClassLoader cl)
+                throws IOException {
 
             String protocol = baseUrl.getProtocol();
 
@@ -152,7 +162,8 @@ public class FlywayRootMigrationsCustomizer {
                         JarEntry entry = entries.nextElement();
                         String entryName = entry.getName(); // e.g., "db/migration/V1__foo.sql"
                         if (!entryName.startsWith(jarEntry) || entry.isDirectory()) continue;
-                        String relative = entryName.substring(jarEntry.length()); // e.g., "V1__foo.sql"
+                        String relative =
+                                entryName.substring(jarEntry.length()); // e.g., "V1__foo.sql"
                         if (relative.contains("/")) continue; // sub-directory entry — skip
                         if (!matchesPrefixAndSuffixes(relative, prefix, suffixes)) continue;
                         URL resourceUrl = cl.getResource(entryName);
@@ -166,7 +177,8 @@ public class FlywayRootMigrationsCustomizer {
             // no migrations from those URLs, which is acceptable for test environments.
         }
 
-        private static boolean matchesPrefixAndSuffixes(String name, String prefix, String[] suffixes) {
+        private static boolean matchesPrefixAndSuffixes(
+                String name, String prefix, String[] suffixes) {
             if (prefix != null && !name.startsWith(prefix)) return false;
             if (suffixes == null || suffixes.length == 0) return true;
             for (String suffix : suffixes) {
@@ -214,8 +226,8 @@ public class FlywayRootMigrationsCustomizer {
         }
 
         /**
-         * Returns the relative path within the migration location.
-         * For root-level files this equals the filename.
+         * Returns the relative path within the migration location. For root-level files this equals
+         * the filename.
          */
         @Override
         public String getRelativePath() {

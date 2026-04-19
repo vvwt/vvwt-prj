@@ -1,41 +1,33 @@
 package de.vvwt.tm.slotopt;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
+import static org.mockito.Mockito.when;
+
 import de.vvwt.tm.domain.Match;
 import de.vvwt.tm.domain.MatchState;
 import de.vvwt.tm.domain.TeamAvatar;
 import de.vvwt.tm.domain.repo.MatchRepository;
 import de.vvwt.tm.domain.repo.TeamAvatarRepository;
 import de.vvwt.worker.types.PositionTuple;
-import de.vvwt.worker.types.RawPhaseDef;
 import de.vvwt.worker.types.StructuralFingerprint;
 import de.vvwt.worker.types.TransformResult;
-
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
-import static org.mockito.Mockito.when;
-
-/**
- * Unit tests for {@link PhaseToRawPhaseDefMapper} — covers AC8–AC11 and AC13 of story E04S02.
- */
+/** Unit tests for {@link PhaseToRawPhaseDefMapper} — covers AC8–AC11 and AC13 of story E04S02. */
 @ExtendWith(MockitoExtension.class)
 class PhaseToRawPhaseDefMapperTest {
 
-    @Mock
-    private TeamAvatarRepository teamAvatarRepository;
+    @Mock private TeamAvatarRepository teamAvatarRepository;
 
-    @Mock
-    private MatchRepository matchRepository;
+    @Mock private MatchRepository matchRepository;
 
     private PhaseToRawPhaseDefMapper mapper;
 
@@ -57,7 +49,8 @@ class PhaseToRawPhaseDefMapperTest {
 
         // Build 6 TeamAvatars with distinct (groupNumber, groupPosition) tuples
         // groupNumber in 1..2, groupPosition in 1..3 (6 = 2 groups × 3 positions)
-        List<TeamAvatar> avatars = buildAvatars(phaseId, new int[][]{{1,1},{1,2},{1,3},{2,1},{2,2},{2,3}});
+        List<TeamAvatar> avatars =
+                buildAvatars(phaseId, new int[][] {{1, 1}, {1, 2}, {1, 3}, {2, 1}, {2, 2}, {2, 3}});
 
         // Build 15 matches (C(6,2) = 15) — all pairs
         List<Match> matches = buildAllPairMatches(phaseId, avatars);
@@ -108,7 +101,8 @@ class PhaseToRawPhaseDefMapperTest {
     @Test
     void map_determinism_sameInputProducesSameFingerprint() {
         UUID phaseId = UUID.randomUUID();
-        List<TeamAvatar> avatars = buildAvatars(phaseId, new int[][]{{1,1},{1,2},{1,3},{2,1},{2,2},{2,3}});
+        List<TeamAvatar> avatars =
+                buildAvatars(phaseId, new int[][] {{1, 1}, {1, 2}, {1, 3}, {2, 1}, {2, 2}, {2, 3}});
         List<Match> matches = buildAllPairMatches(phaseId, avatars);
 
         when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(avatars);
@@ -137,7 +131,7 @@ class PhaseToRawPhaseDefMapperTest {
     @Test
     void map_throwsISE_whenNoMatchesExist() {
         UUID phaseId = UUID.randomUUID();
-        List<TeamAvatar> avatars = buildAvatars(phaseId, new int[][]{{1,1},{1,2}});
+        List<TeamAvatar> avatars = buildAvatars(phaseId, new int[][] {{1, 1}, {1, 2}});
 
         when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(avatars);
         when(matchRepository.findByPhaseId(phaseId)).thenReturn(List.of());
@@ -171,7 +165,7 @@ class PhaseToRawPhaseDefMapperTest {
     @Test
     void map_throwsISE_whenMatchReferencesUnknownAvatar() {
         UUID phaseId = UUID.randomUUID();
-        List<TeamAvatar> avatars = buildAvatars(phaseId, new int[][]{{1,1},{1,2}});
+        List<TeamAvatar> avatars = buildAvatars(phaseId, new int[][] {{1, 1}, {1, 2}});
 
         // Build a match referencing an avatar NOT in the loaded set
         UUID unknownAvatarId = UUID.randomUUID();
@@ -194,8 +188,9 @@ class PhaseToRawPhaseDefMapperTest {
     @Test
     void map_phaseIdField_isDeterministicFromUUID() {
         UUID phaseId = UUID.randomUUID();
-        List<TeamAvatar> avatars = buildAvatars(phaseId, new int[][]{{1,1},{1,2}});
-        List<Match> matches = List.of(buildMatch(phaseId, avatars.get(0).getId(), avatars.get(1).getId()));
+        List<TeamAvatar> avatars = buildAvatars(phaseId, new int[][] {{1, 1}, {1, 2}});
+        List<Match> matches =
+                List.of(buildMatch(phaseId, avatars.get(0).getId(), avatars.get(1).getId()));
 
         when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(avatars);
         when(matchRepository.findByPhaseId(phaseId)).thenReturn(matches);
@@ -212,24 +207,28 @@ class PhaseToRawPhaseDefMapperTest {
     // Helpers
     // -------------------------------------------------------------------------
 
-    /**
-     * Builds a list of {@link TeamAvatar}s with the given (groupNumber, groupPosition) pairs.
-     */
+    /** Builds a list of {@link TeamAvatar}s with the given (groupNumber, groupPosition) pairs. */
     private List<TeamAvatar> buildAvatars(UUID phaseId, int[][] groupPos) {
         List<TeamAvatar> result = new ArrayList<>();
         UUID tournamentId = UUID.randomUUID();
         for (int[] gp : groupPos) {
-            TeamAvatar avatar = new TeamAvatar(
-                    UUID.randomUUID(), TENANT_ID, tournamentId, phaseId,
-                    gp[0], gp[1], UUID.randomUUID(), null, null);
+            TeamAvatar avatar =
+                    new TeamAvatar(
+                            UUID.randomUUID(),
+                            TENANT_ID,
+                            tournamentId,
+                            phaseId,
+                            gp[0],
+                            gp[1],
+                            UUID.randomUUID(),
+                            null,
+                            null);
             result.add(avatar);
         }
         return result;
     }
 
-    /**
-     * Builds all C(n, 2) match pairs for a list of avatars.
-     */
+    /** Builds all C(n, 2) match pairs for a list of avatars. */
     private List<Match> buildAllPairMatches(UUID phaseId, List<TeamAvatar> avatars) {
         List<Match> matches = new ArrayList<>();
         for (int i = 0; i < avatars.size(); i++) {
@@ -240,15 +239,22 @@ class PhaseToRawPhaseDefMapperTest {
         return matches;
     }
 
-    /**
-     * Builds a single {@link Match} between two avatar IDs.
-     */
+    /** Builds a single {@link Match} between two avatar IDs. */
     private Match buildMatch(UUID phaseId, UUID avatar1Id, UUID avatar2Id) {
         return new Match(
-                UUID.randomUUID(), TENANT_ID, TOURNAMENT_ID, phaseId,
-                avatar1Id, avatar2Id,
-                MatchState.OPEN.getLegacyCode(), 1,
-                null, null,
-                null, null, null, null);
+                UUID.randomUUID(),
+                TENANT_ID,
+                TOURNAMENT_ID,
+                phaseId,
+                avatar1Id,
+                avatar2Id,
+                MatchState.OPEN.getLegacyCode(),
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
     }
 }

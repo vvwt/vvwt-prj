@@ -3,21 +3,22 @@ package de.vvwt.tm.infrastructure.web;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.time.Instant;
 
 /**
  * Structured error response for device registration limit exceeded (E07S02 AC2, AC8).
  *
- * <p>Extends the standard error shape with {@code currentCount} and {@code maxCount}
- * fields as required by AC8: "the device limit error (AC2) includes the current count
- * and the maximum in the error body."
+ * <p>Extends the standard error shape with {@code currentCount} and {@code maxCount} fields as
+ * required by AC8: "the device limit error (AC2) includes the current count and the maximum in the
+ * error body."
  *
- * <p>Returned with HTTP 429 (Too Many Requests) when a DISPLAY device registration
- * would exceed {@code vvwt.devices.max-display-count}.
+ * <p>Returned with HTTP 429 (Too Many Requests) when a DISPLAY device registration would exceed
+ * {@code vvwt.devices.max-display-count}.
  *
  * @see GlobalExceptionHandler#handleTooManyRequests
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E07S02.story.md">Story E07S02</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E07S02.story.md">Story
+ *     E07S02</a>
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public final class DeviceLimitErrorResponse {
@@ -50,20 +51,37 @@ public final class DeviceLimitErrorResponse {
         this.maxCount = maxCount;
     }
 
-    public int getStatus() { return status; }
-    public String getError() { return error; }
-    public String getMessage() { return message; }
-    public String getMessageKey() { return messageKey; }
-    public String getPath() { return path; }
-    public Instant getTimestamp() { return timestamp; }
+    public int getStatus() {
+        return status;
+    }
 
-    /**
-     * Current number of registered DISPLAY devices for this tenant+location (AC8).
-     */
-    public long getCurrentCount() { return currentCount; }
+    public String getError() {
+        return error;
+    }
 
-    /**
-     * Configured maximum number of DISPLAY devices per tenant+location (AC8).
-     */
-    public int getMaxCount() { return maxCount; }
+    public String getMessage() {
+        return message;
+    }
+
+    public String getMessageKey() {
+        return messageKey;
+    }
+
+    public String getPath() {
+        return path;
+    }
+
+    public Instant getTimestamp() {
+        return timestamp;
+    }
+
+    /** Current number of registered DISPLAY devices for this tenant+location (AC8). */
+    public long getCurrentCount() {
+        return currentCount;
+    }
+
+    /** Configured maximum number of DISPLAY devices per tenant+location (AC8). */
+    public int getMaxCount() {
+        return maxCount;
+    }
 }

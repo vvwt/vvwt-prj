@@ -1,5 +1,12 @@
 package de.vvwt.tm.domain.referee;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.domain.Match;
 import de.vvwt.tm.domain.MatchFormat;
@@ -11,33 +18,26 @@ import de.vvwt.tm.domain.repo.MatchRepository;
 import de.vvwt.tm.domain.repo.PhaseRepository;
 import de.vvwt.tm.domain.repo.TeamAvatarRepository;
 import de.vvwt.tm.domain.repo.TeamRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Unit tests for {@link RefereeAssigner}.
  *
- * <p>Uses Mockito to stub repository calls — no Spring context needed.
- * Tests verify the algorithm's core logic and edge-case handling.
+ * <p>Uses Mockito to stub repository calls — no Spring context needed. Tests verify the algorithm's
+ * core logic and edge-case handling.
  *
- * @see <a href="../../../../../../.gaai/project/contexts/artefacts/stories/E03S10.story.md">Story E03S10 AC7–AC10</a>
+ * @see <a href="../../../../../../.gaai/project/contexts/artefacts/stories/E03S10.story.md">Story
+ *     E03S10 AC7–AC10</a>
  */
 @ExtendWith(MockitoExtension.class)
 class RefereeAssignerTest {
@@ -54,8 +54,13 @@ class RefereeAssignerTest {
 
     @BeforeEach
     void setUp() {
-        assigner = new RefereeAssigner(phaseRepository, matchRepository, teamRepository,
-                teamAvatarRepository, new ObjectMapper());
+        assigner =
+                new RefereeAssigner(
+                        phaseRepository,
+                        matchRepository,
+                        teamRepository,
+                        teamAvatarRepository,
+                        new ObjectMapper());
     }
 
     // =========================================================================
@@ -63,10 +68,9 @@ class RefereeAssignerTest {
     // =========================================================================
 
     /**
-     * AC7: Phase with 6 teams, 2 fields per lap.
-     * Each lap: 4 teams play (2 matches), 2 teams are free (on bye).
-     * All 6 teams have refereeAssignment=true.
-     * Expected: every match assigned a referee; no team both plays and refs in the same lap.
+     * AC7: Phase with 6 teams, 2 fields per lap. Each lap: 4 teams play (2 matches), 2 teams are
+     * free (on bye). All 6 teams have refereeAssignment=true. Expected: every match assigned a
+     * referee; no team both plays and refs in the same lap.
      */
     @Test
     void ac7_basicCase_sixTeams_twoFieldsPerLap() {
@@ -95,12 +99,12 @@ class RefereeAssignerTest {
         UUID matchId3 = UUID.randomUUID();
         UUID matchId4 = UUID.randomUUID();
 
-        List<Match> allMatches = List.of(
-                buildMatch(matchId1, phaseId, avatarIds[0], avatarIds[1], 1, 1, null),
-                buildMatch(matchId2, phaseId, avatarIds[2], avatarIds[3], 1, 2, null),
-                buildMatch(matchId3, phaseId, avatarIds[2], avatarIds[4], 2, 1, null),
-                buildMatch(matchId4, phaseId, avatarIds[0], avatarIds[5], 2, 2, null)
-        );
+        List<Match> allMatches =
+                List.of(
+                        buildMatch(matchId1, phaseId, avatarIds[0], avatarIds[1], 1, 1, null),
+                        buildMatch(matchId2, phaseId, avatarIds[2], avatarIds[3], 1, 2, null),
+                        buildMatch(matchId3, phaseId, avatarIds[2], avatarIds[4], 2, 1, null),
+                        buildMatch(matchId4, phaseId, avatarIds[0], avatarIds[5], 2, 2, null));
 
         when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
         when(matchRepository.findByPhaseId(phaseId)).thenReturn(allMatches);
@@ -140,11 +144,9 @@ class RefereeAssignerTest {
     // =========================================================================
 
     /**
-     * AC8: Phase with 5 teams, 2 fields per lap.
-     * Each lap: 2 matches (4 teams playing), 1 team on bye.
-     * The bye team is the only candidate — can ref at most 1 match per lap.
-     * The other match gets no referee (null refereeTeamId) → warning.
-     * Hard constraint must not be violated.
+     * AC8: Phase with 5 teams, 2 fields per lap. Each lap: 2 matches (4 teams playing), 1 team on
+     * bye. The bye team is the only candidate — can ref at most 1 match per lap. The other match
+     * gets no referee (null refereeTeamId) → warning. Hard constraint must not be violated.
      */
     @Test
     void ac8_oddTeamCount_byeTeamOnlyCandidate() {
@@ -167,11 +169,12 @@ class RefereeAssignerTest {
         UUID matchId1 = UUID.randomUUID();
         UUID matchId2 = UUID.randomUUID();
 
-        // Sort match IDs so we can predict which one gets team4 (the lower UUID comes first in sort)
-        List<Match> allMatches = List.of(
-                buildMatch(matchId1, phaseId, avatarIds[0], avatarIds[1], 1, 1, null),
-                buildMatch(matchId2, phaseId, avatarIds[2], avatarIds[3], 1, 2, null)
-        );
+        // Sort match IDs so we can predict which one gets team4 (the lower UUID comes first in
+        // sort)
+        List<Match> allMatches =
+                List.of(
+                        buildMatch(matchId1, phaseId, avatarIds[0], avatarIds[1], 1, 1, null),
+                        buildMatch(matchId2, phaseId, avatarIds[2], avatarIds[3], 1, 2, null));
 
         when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
         when(matchRepository.findByPhaseId(phaseId)).thenReturn(allMatches);
@@ -188,9 +191,8 @@ class RefereeAssignerTest {
         assertThat(report.getWarnings()).hasSize(1);
 
         // Count how many matches have team4 as referee
-        long assignedToTeam4 = allMatches.stream()
-                .filter(m -> teamIds[4].equals(m.getRefereeTeamId()))
-                .count();
+        long assignedToTeam4 =
+                allMatches.stream().filter(m -> teamIds[4].equals(m.getRefereeTeamId())).count();
         assertThat(assignedToTeam4).as("team4 can ref at most 1 match (AC8)").isEqualTo(1);
 
         // Hard constraint: the one assigned match's referee is NOT playing in lap 1
@@ -207,8 +209,8 @@ class RefereeAssignerTest {
     // =========================================================================
 
     /**
-     * AC9: A team with refereeAssignment=FALSE must never be selected as referee,
-     * even if it has a bye.
+     * AC9: A team with refereeAssignment=FALSE must never be selected as referee, even if it has a
+     * bye.
      */
     @Test
     void ac9_refereeAssignmentFalse_excluded() {
@@ -237,9 +239,8 @@ class RefereeAssignerTest {
         // team3 not eligible (refereeAssignment=false) → excluded.
         UUID matchId1 = UUID.randomUUID();
 
-        List<Match> allMatches = List.of(
-                buildMatch(matchId1, phaseId, avatarIds[0], avatarIds[1], 1, 1, null)
-        );
+        List<Match> allMatches =
+                List.of(buildMatch(matchId1, phaseId, avatarIds[0], avatarIds[1], 1, 1, null));
 
         when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
         when(matchRepository.findByPhaseId(phaseId)).thenReturn(allMatches);
@@ -267,8 +268,8 @@ class RefereeAssignerTest {
     // =========================================================================
 
     /**
-     * AC10: A match with refereeDescription pre-set must be left unchanged.
-     * The final report must count it as "manually overridden".
+     * AC10: A match with refereeDescription pre-set must be left unchanged. The final report must
+     * count it as "manually overridden".
      */
     @Test
     void ac10_manualOverridePreserved() {
@@ -292,10 +293,9 @@ class RefereeAssignerTest {
         UUID matchId2 = UUID.randomUUID();
         String manualDescription = "Alice Schiedsrichter (extern)";
 
-        Match overriddenMatch = buildMatch(matchId1, phaseId, avatarIds[0], avatarIds[1],
-                1, 1, manualDescription);
-        Match normalMatch = buildMatch(matchId2, phaseId, avatarIds[2], avatarIds[3],
-                1, 2, null);
+        Match overriddenMatch =
+                buildMatch(matchId1, phaseId, avatarIds[0], avatarIds[1], 1, 1, manualDescription);
+        Match normalMatch = buildMatch(matchId2, phaseId, avatarIds[2], avatarIds[3], 1, 2, null);
         // Note: lap1 has all 4 teams playing — no eligible non-playing team for match2.
         // But match1 is already overridden, so only match2 needs assignment.
         // Since all 4 teams play, nobody is free → noRefereeCount=1 for match2.
@@ -351,8 +351,8 @@ class RefereeAssignerTest {
 
         UUID[] teamIds = buildTeamIds(2);
         UUID[] avatarIds = buildAvatarIds(2);
-        Match badMatch = buildMatch(UUID.randomUUID(), phaseId, avatarIds[0], avatarIds[1],
-                null, 1, null);
+        Match badMatch =
+                buildMatch(UUID.randomUUID(), phaseId, avatarIds[0], avatarIds[1], null, 1, null);
 
         when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
         when(matchRepository.findByPhaseId(phaseId)).thenReturn(List.of(badMatch));
@@ -375,7 +375,7 @@ class RefereeAssignerTest {
         UUID[] teamIds = buildTeamIds(4);
         List<Team> teams = new ArrayList<>();
         for (UUID teamId : teamIds) {
-            teams.add(buildTeam(teamId, TOURNAMENT_ID, false));  // all ineligible
+            teams.add(buildTeam(teamId, TOURNAMENT_ID, false)); // all ineligible
         }
 
         UUID[] avatarIds = buildAvatarIds(4);
@@ -385,9 +385,8 @@ class RefereeAssignerTest {
         }
 
         UUID matchId1 = UUID.randomUUID();
-        List<Match> allMatches = List.of(
-                buildMatch(matchId1, phaseId, avatarIds[0], avatarIds[1], 1, 1, null)
-        );
+        List<Match> allMatches =
+                List.of(buildMatch(matchId1, phaseId, avatarIds[0], avatarIds[1], 1, 1, null));
 
         when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
         when(matchRepository.findByPhaseId(phaseId)).thenReturn(allMatches);
@@ -410,31 +409,67 @@ class RefereeAssignerTest {
     // =========================================================================
 
     private static Phase buildPhase(UUID phaseId) {
-        return new Phase(phaseId, TENANT_ID, TOURNAMENT_ID, 1, "Vorrunde", "PENDING", 0,
+        return new Phase(
+                phaseId,
+                TENANT_ID,
+                TOURNAMENT_ID,
+                1,
+                "Vorrunde",
+                "PENDING",
+                0,
                 LocalDateTime.now());
     }
 
     private static Team buildTeam(UUID teamId, UUID tournamentId, boolean refereeAssignment) {
-        return new Team(teamId, TENANT_ID, tournamentId, 1, "Team " + teamId,
-                true, refereeAssignment, false, LocalDateTime.now());
+        return new Team(
+                teamId,
+                TENANT_ID,
+                tournamentId,
+                1,
+                "Team " + teamId,
+                true,
+                refereeAssignment,
+                false,
+                LocalDateTime.now());
     }
 
     private static TeamAvatar buildAvatar(UUID avatarId, UUID phaseId, UUID teamId) {
-        return new TeamAvatar(avatarId, TENANT_ID, TOURNAMENT_ID, phaseId,
-                1, 1, teamId, null, LocalDateTime.now());
+        return new TeamAvatar(
+                avatarId,
+                TENANT_ID,
+                TOURNAMENT_ID,
+                phaseId,
+                1,
+                1,
+                teamId,
+                null,
+                LocalDateTime.now());
     }
 
-    /**
-     * Builds a Match entity. {@code lapNumber} is nullable to support the AC13 null-lap test.
-     */
-    private static Match buildMatch(UUID matchId, UUID phaseId,
-                                    UUID avatar1Id, UUID avatar2Id,
-                                    Integer lapNumber, Integer fieldNumber,
-                                    String refereeDescription) {
-        return new Match(matchId, TENANT_ID, TOURNAMENT_ID, phaseId,
-                avatar1Id, avatar2Id,
-                MatchState.OPEN.getLegacyCode(), MatchFormat.BEST_OF_3.getMaxSets(),
-                lapNumber, fieldNumber, null, refereeDescription, null, LocalDateTime.now());
+    /** Builds a Match entity. {@code lapNumber} is nullable to support the AC13 null-lap test. */
+    private static Match buildMatch(
+            UUID matchId,
+            UUID phaseId,
+            UUID avatar1Id,
+            UUID avatar2Id,
+            Integer lapNumber,
+            Integer fieldNumber,
+            String refereeDescription) {
+        return new Match(
+                matchId,
+                TENANT_ID,
+                TOURNAMENT_ID,
+                phaseId,
+                avatar1Id,
+                avatar2Id,
+                MatchState.OPEN.getLegacyCode(),
+                MatchFormat.BEST_OF_3.getMaxSets(),
+                lapNumber,
+                fieldNumber,
+                null,
+                refereeDescription,
+                null,
+                LocalDateTime.now());
     }
 
     private static UUID[] buildTeamIds(int count) {

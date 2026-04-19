@@ -1,46 +1,51 @@
 package de.vvwt.tm.domain.repo;
 
-import org.springframework.data.jdbc.core.JdbcAggregateOperations;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jdbc.core.JdbcAggregateOperations;
 
 /**
  * Abstract base class for all tenant-scoped repositories in the Tournament Manager domain.
  *
  * <p>Every method in this class calls {@link TenantContext#getTenantId()} before any database
- * operation. If no tenant context is active, {@link TenantContext#getTenantId()} throws
- * {@link IllegalStateException}, which propagates to the caller — satisfying the AC6 runtime
- * guard requirement ("guard fires before any SQL is executed").
+ * operation. If no tenant context is active, {@link TenantContext#getTenantId()} throws {@link
+ * IllegalStateException}, which propagates to the caller — satisfying the AC6 runtime guard
+ * requirement ("guard fires before any SQL is executed").
  *
  * <h2>Delegator pattern (AC2)</h2>
+ *
  * <p>This class wraps a Spring Data JDBC {@link org.springframework.data.repository.CrudRepository}
- * instance for read/delete operations and a {@link JdbcAggregateOperations} template for
- * write operations. The template is used for writes because Spring Data JDBC's
- * {@code CrudRepository.save()} determines "new vs existing" via the {@code @Id} field's
- * null-check. Our entities always have pre-assigned UUIDs, so {@code save()} would issue an
- * UPDATE on a new entity. We bypass this by calling {@code insert()} or {@code update()}
- * explicitly based on a prior existence check.
+ * instance for read/delete operations and a {@link JdbcAggregateOperations} template for write
+ * operations. The template is used for writes because Spring Data JDBC's {@code
+ * CrudRepository.save()} determines "new vs existing" via the {@code @Id} field's null-check. Our
+ * entities always have pre-assigned UUIDs, so {@code save()} would issue an UPDATE on a new entity.
+ * We bypass this by calling {@code insert()} or {@code update()} explicitly based on a prior
+ * existence check.
  *
  * <h2>Read filtering (AC2)</h2>
+ *
  * <p>For V1 single-tenant runtime, all rows in the database belong to the default tenant, so
  * in-memory filtering after {@code findAll()} always returns the full result set. The
- * <em>structural guarantee</em> is provided by the guard that fires before SQL — an unscoped
- * call throws before reaching the database.
+ * <em>structural guarantee</em> is provided by the guard that fires before SQL — an unscoped call
+ * throws before reaching the database.
  *
  * <h2>Write enforcement (AC3)</h2>
+ *
  * <p>{@link #save(Object)} reads the entity's {@code tenantId} field via {@link #extractTenantId}
  * and compares it to the active TenantContext. A mismatch fails fast with a clear error.
  *
  * <h2>AC13 — no unscoped escape hatch</h2>
+ *
  * <p>There is no {@code findAllUnscoped()} method. Subclasses MUST NOT add one.
  *
- * @param <T>  the entity type
+ * @param <T> the entity type
  * @param <ID> the entity's primary-key type
  * @see TenantContext
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E03S05.story.md">Story E03S05</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E03S05.story.md">Story
+ *     E03S05</a>
  */
 public abstract class TenantScopedRepository<T, ID> {
 
@@ -71,8 +76,8 @@ public abstract class TenantScopedRepository<T, ID> {
     // -------------------------------------------------------------------------
 
     /**
-     * Returns the active tenant ID, or throws {@link IllegalStateException} if no tenant context
-     * is active. All repository methods call this before any database operation.
+     * Returns the active tenant ID, or throws {@link IllegalStateException} if no tenant context is
+     * active. All repository methods call this before any database operation.
      *
      * @return the active tenant ID; never {@code null}
      * @throws IllegalStateException if no tenant context is active (AC6 guard)
@@ -92,7 +97,7 @@ public abstract class TenantScopedRepository<T, ID> {
      * @throws IllegalStateException if no tenant context is active
      */
     public List<T> findAll() {
-        UUID tenantId = activeTenantId();  // guard fires here — before any SQL
+        UUID tenantId = activeTenantId(); // guard fires here — before any SQL
         List<T> results = new ArrayList<>();
         for (T entity : delegate().findAll()) {
             if (tenantId.equals(extractTenantId(entity))) {
@@ -110,9 +115,8 @@ public abstract class TenantScopedRepository<T, ID> {
      * @throws IllegalStateException if no tenant context is active
      */
     public Optional<T> findById(ID id) {
-        UUID tenantId = activeTenantId();  // guard fires here — before any SQL
-        return delegate().findById(id)
-                .filter(entity -> tenantId.equals(extractTenantId(entity)));
+        UUID tenantId = activeTenantId(); // guard fires here — before any SQL
+        return delegate().findById(id).filter(entity -> tenantId.equals(extractTenantId(entity)));
     }
 
     /**
@@ -122,7 +126,7 @@ public abstract class TenantScopedRepository<T, ID> {
      * @throws IllegalStateException if no tenant context is active
      */
     public long count() {
-        UUID tenantId = activeTenantId();  // guard fires here — before any SQL
+        UUID tenantId = activeTenantId(); // guard fires here — before any SQL
         long count = 0;
         for (T entity : delegate().findAll()) {
             if (tenantId.equals(extractTenantId(entity))) {
@@ -159,18 +163,21 @@ public abstract class TenantScopedRepository<T, ID> {
      *
      * @param entity the entity to save
      * @return the saved entity
-     * @throws IllegalStateException    if no tenant context is active
+     * @throws IllegalStateException if no tenant context is active
      * @throws IllegalArgumentException if the entity's tenantId does not match the active tenant
      */
     @SuppressWarnings("unchecked")
     public <S extends T> S save(S entity) {
-        UUID activeTenant = activeTenantId();  // guard fires here — before any SQL
+        UUID activeTenant = activeTenantId(); // guard fires here — before any SQL
         UUID entityTenant = extractTenantId(entity);
         if (entityTenant != null && !activeTenant.equals(entityTenant)) {
             throw new IllegalArgumentException(
-                    "Tenant spoof rejected: entity carries tenantId=" + entityTenant
-                    + " but the active TenantContext is tenantId=" + activeTenant
-                    + ". Entity type: " + entity.getClass().getSimpleName());
+                    "Tenant spoof rejected: entity carries tenantId="
+                            + entityTenant
+                            + " but the active TenantContext is tenantId="
+                            + activeTenant
+                            + ". Entity type: "
+                            + entity.getClass().getSimpleName());
         }
         if (entityTenant == null) {
             setTenantId(entity, activeTenant);
@@ -211,8 +218,9 @@ public abstract class TenantScopedRepository<T, ID> {
      * @throws IllegalStateException if no tenant context is active
      */
     public void deleteById(ID id) {
-        UUID tenantId = activeTenantId();  // guard fires here — before any SQL
-        delegate().findById(id)
+        UUID tenantId = activeTenantId(); // guard fires here — before any SQL
+        delegate()
+                .findById(id)
                 .filter(entity -> tenantId.equals(extractTenantId(entity)))
                 .ifPresent(entity -> delegate().deleteById(id));
     }

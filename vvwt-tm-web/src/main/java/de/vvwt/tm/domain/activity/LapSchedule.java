@@ -11,12 +11,13 @@ import java.util.UUID;
  * <p>Used by {@link FirstFreeRoundAssigner} to determine which teams are free in a given lap
  * without exposing the raw map pair to the algorithm.
  *
- * <p>A team is considered busy in a lap if it appears in either the match schedule
- * (playing) or the referee schedule (refereeing). A free team is neither playing nor
- * refereeing in that lap.
+ * <p>A team is considered busy in a lap if it appears in either the match schedule (playing) or the
+ * referee schedule (refereeing). A free team is neither playing nor refereeing in that lap.
  *
  * @see FirstFreeRoundAssigner
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S04.story.md">Story E08S04 AC1, AC2</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S04.story.md">Story
+ *     E08S04 AC1, AC2</a>
  */
 final class LapSchedule {
 
@@ -29,7 +30,7 @@ final class LapSchedule {
     /**
      * Constructs a lap schedule from the raw input maps.
      *
-     * @param matchSchedule   lap → playing team IDs (NOT NULL)
+     * @param matchSchedule lap → playing team IDs (NOT NULL)
      * @param refereeSchedule lap → refereeing team IDs (NOT NULL)
      */
     LapSchedule(Map<Integer, Set<UUID>> matchSchedule, Map<Integer, Set<UUID>> refereeSchedule) {
@@ -47,7 +48,7 @@ final class LapSchedule {
      * Returns {@code true} if the given team is busy (playing or refereeing) in the given lap.
      *
      * @param lapNumber the lap to check (1-indexed)
-     * @param teamId    the team to check (NOT NULL)
+     * @param teamId the team to check (NOT NULL)
      * @return true if the team is playing or refereeing in that lap
      */
     boolean isBusy(int lapNumber, UUID teamId) {

@@ -1,24 +1,27 @@
 package de.vvwt.tm.infrastructure.web.photo;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.auth.SecurityConfig;
 import de.vvwt.tm.infrastructure.web.dto.TeamCreateRequest;
 import de.vvwt.tm.infrastructure.web.dto.TeamResponse;
 import de.vvwt.tm.infrastructure.web.dto.TournamentCreateRequest;
 import de.vvwt.tm.infrastructure.web.dto.TournamentResponse;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import java.net.URI;
+import java.time.Instant;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import de.vvwt.tm.tenant.TenantContextTestSupport;
-import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import de.vvwt.tm.tenant.TenantContextTestSupport;
-import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
@@ -32,41 +35,39 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
-import java.net.URI;
-import java.time.Instant;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
 /**
  * Integration tests for {@link TeamPhotoController} — E12S02: Team photo upload REST API.
  *
  * <p>Tests the full HTTP stack (Spring MVC, Security, routing) to verify:
+ *
  * <ul>
- *   <li>AC1: Upload accepts JPEG/PNG, returns 200 with metadata; rejects invalid formats/sizes → 400</li>
- *   <li>AC2: Retrieve returns 200 + correct Content-Type; 404 if no photo</li>
- *   <li>AC3: Delete returns 204; 404 if no photo</li>
- *   <li>AC4: Team listing includes {@code hasPhoto} boolean per team</li>
- *   <li>AC8: Unknown team/tournament → 404</li>
- *   <li>AC10: All endpoints require admin auth; unauthenticated → 401</li>
+ *   <li>AC1: Upload accepts JPEG/PNG, returns 200 with metadata; rejects invalid formats/sizes →
+ *       400
+ *   <li>AC2: Retrieve returns 200 + correct Content-Type; 404 if no photo
+ *   <li>AC3: Delete returns 204; 404 if no photo
+ *   <li>AC4: Team listing includes {@code hasPhoto} boolean per team
+ *   <li>AC8: Unknown team/tournament → 404
+ *   <li>AC10: All endpoints require admin auth; unauthenticated → 401
  * </ul>
  *
  * <p>Uses an isolated in-memory H2 database and a temp directory for photo storage.
  *
  * @see TeamPhotoController
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E12S02.story.md">Story E12S02</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E12S02.story.md">Story
+ *     E12S02</a>
  */
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         classes = {
-                de.vvwt.tm.TournamentManagerApplication.class,
-                TeamPhotoControllerIT.TestAdminCredentials.class
+            de.vvwt.tm.TournamentManagerApplication.class,
+            TeamPhotoControllerIT.TestAdminCredentials.class
         },
         properties = {
-                "spring.datasource.url=jdbc:h2:mem:e12s02photodb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
-                        + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE",
-                "tm.photos.data-dir=${java.io.tmpdir}/tm-photos-it-e12s02",
-                "tm.photos.max-size-bytes=1048576"   // 1 MB for faster tests
+            "spring.datasource.url=jdbc:h2:mem:e12s02photodb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
+                + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE",
+            "tm.photos.data-dir=${java.io.tmpdir}/tm-photos-it-e12s02",
+            "tm.photos.max-size-bytes=1048576" // 1 MB for faster tests
         })
 @ActiveProfiles("test")
 @Import(TenantContextTestSupport.class)
@@ -74,20 +75,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TeamPhotoControllerIT {
 
     private static final String TEST_PASSWORD = "PhotoTestPass12S02";
+
     /** Minimal valid JPEG header bytes. */
-    private static final byte[] SAMPLE_JPEG = new byte[]{
-            (byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 0x00, 0x10
-    };
+    private static final byte[] SAMPLE_JPEG =
+            new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 0x00, 0x10};
+
     /** Minimal valid PNG header bytes. */
-    private static final byte[] SAMPLE_PNG = new byte[]{
-            (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A
-    };
+    private static final byte[] SAMPLE_PNG =
+            new byte[] {(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
 
-    @LocalServerPort
-    private int port;
+    @LocalServerPort private int port;
 
-    @Autowired
-    private TestRestTemplate restTemplate;
+    @Autowired private TestRestTemplate restTemplate;
 
     private String baseUrl;
     private TestRestTemplate authed;
@@ -108,8 +107,14 @@ class TeamPhotoControllerIT {
         UUID tournamentId = createTournament("Photo Upload Test");
         UUID teamId = createTeam(tournamentId, "Team 1");
 
-        ResponseEntity<PhotoMetadataResponse> response = uploadPhoto(
-                authed, tournamentId, teamId, "team1.jpg", SAMPLE_JPEG, MediaType.IMAGE_JPEG);
+        ResponseEntity<PhotoMetadataResponse> response =
+                uploadPhoto(
+                        authed,
+                        tournamentId,
+                        teamId,
+                        "team1.jpg",
+                        SAMPLE_JPEG,
+                        MediaType.IMAGE_JPEG);
 
         assertThat(response.getStatusCode())
                 .as("AC1: JPEG upload must return 200 OK")
@@ -126,8 +131,9 @@ class TeamPhotoControllerIT {
         UUID tournamentId = createTournament("PNG Upload Test");
         UUID teamId = createTeam(tournamentId, "Team PNG");
 
-        ResponseEntity<PhotoMetadataResponse> response = uploadPhoto(
-                authed, tournamentId, teamId, "team.png", SAMPLE_PNG, MediaType.IMAGE_PNG);
+        ResponseEntity<PhotoMetadataResponse> response =
+                uploadPhoto(
+                        authed, tournamentId, teamId, "team.png", SAMPLE_PNG, MediaType.IMAGE_PNG);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     }
@@ -139,8 +145,9 @@ class TeamPhotoControllerIT {
         UUID teamId = createTeam(tournamentId, "Team R");
 
         uploadPhoto(authed, tournamentId, teamId, "old.jpg", SAMPLE_JPEG, MediaType.IMAGE_JPEG);
-        ResponseEntity<PhotoMetadataResponse> second = uploadPhoto(
-                authed, tournamentId, teamId, "new.jpg", SAMPLE_JPEG, MediaType.IMAGE_JPEG);
+        ResponseEntity<PhotoMetadataResponse> second =
+                uploadPhoto(
+                        authed, tournamentId, teamId, "new.jpg", SAMPLE_JPEG, MediaType.IMAGE_JPEG);
 
         assertThat(second.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(second.getBody().filename()).isEqualTo("new.jpg");
@@ -152,8 +159,14 @@ class TeamPhotoControllerIT {
         UUID tournamentId = createTournament("Format Reject Test");
         UUID teamId = createTeam(tournamentId, "Team FMT");
 
-        ResponseEntity<String> response = uploadPhotoAsString(
-                authed, tournamentId, teamId, "doc.pdf", SAMPLE_JPEG, MediaType.APPLICATION_OCTET_STREAM);
+        ResponseEntity<String> response =
+                uploadPhotoAsString(
+                        authed,
+                        tournamentId,
+                        teamId,
+                        "doc.pdf",
+                        SAMPLE_JPEG,
+                        MediaType.APPLICATION_OCTET_STREAM);
 
         assertThat(response.getStatusCode())
                 .as("AC7: non-image format must return 400")
@@ -168,8 +181,9 @@ class TeamPhotoControllerIT {
 
         // 1 MB + 1 byte — exceeds the test-configured 1 MB limit
         byte[] oversized = new byte[1024 * 1024 + 1];
-        ResponseEntity<String> response = uploadPhotoAsString(
-                authed, tournamentId, teamId, "big.jpg", oversized, MediaType.IMAGE_JPEG);
+        ResponseEntity<String> response =
+                uploadPhotoAsString(
+                        authed, tournamentId, teamId, "big.jpg", oversized, MediaType.IMAGE_JPEG);
 
         assertThat(response.getStatusCode())
                 .as("AC7: oversized photo must return 400")
@@ -182,8 +196,14 @@ class TeamPhotoControllerIT {
         UUID tournamentId = createTournament("Auth Test Upload");
         UUID teamId = createTeam(tournamentId, "Team AUTH");
 
-        ResponseEntity<String> response = uploadPhotoAsString(
-                restTemplate, tournamentId, teamId, "t.jpg", SAMPLE_JPEG, MediaType.IMAGE_JPEG);
+        ResponseEntity<String> response =
+                uploadPhotoAsString(
+                        restTemplate,
+                        tournamentId,
+                        teamId,
+                        "t.jpg",
+                        SAMPLE_JPEG,
+                        MediaType.IMAGE_JPEG);
 
         assertThat(response.getStatusCode())
                 .as("AC10: upload without auth must return 401")
@@ -196,8 +216,14 @@ class TeamPhotoControllerIT {
         UUID unknownTournament = UUID.randomUUID();
         UUID teamId = UUID.randomUUID();
 
-        ResponseEntity<String> response = uploadPhotoAsString(
-                authed, unknownTournament, teamId, "t.jpg", SAMPLE_JPEG, MediaType.IMAGE_JPEG);
+        ResponseEntity<String> response =
+                uploadPhotoAsString(
+                        authed,
+                        unknownTournament,
+                        teamId,
+                        "t.jpg",
+                        SAMPLE_JPEG,
+                        MediaType.IMAGE_JPEG);
 
         assertThat(response.getStatusCode())
                 .as("AC8: unknown tournament must return 404")
@@ -210,8 +236,14 @@ class TeamPhotoControllerIT {
         UUID tournamentId = createTournament("Unknown Team Test");
         UUID unknownTeam = UUID.randomUUID();
 
-        ResponseEntity<String> response = uploadPhotoAsString(
-                authed, tournamentId, unknownTeam, "t.jpg", SAMPLE_JPEG, MediaType.IMAGE_JPEG);
+        ResponseEntity<String> response =
+                uploadPhotoAsString(
+                        authed,
+                        tournamentId,
+                        unknownTeam,
+                        "t.jpg",
+                        SAMPLE_JPEG,
+                        MediaType.IMAGE_JPEG);
 
         assertThat(response.getStatusCode())
                 .as("AC8: unknown team must return 404")
@@ -229,8 +261,8 @@ class TeamPhotoControllerIT {
         UUID teamId = createTeam(tournamentId, "Team RJ");
         uploadPhoto(authed, tournamentId, teamId, "t.jpg", SAMPLE_JPEG, MediaType.IMAGE_JPEG);
 
-        ResponseEntity<byte[]> response = authed.getForEntity(
-                new URI(photoUrl(tournamentId, teamId)), byte[].class);
+        ResponseEntity<byte[]> response =
+                authed.getForEntity(new URI(photoUrl(tournamentId, teamId)), byte[].class);
 
         assertThat(response.getStatusCode())
                 .as("AC2: retrieve must return 200 OK")
@@ -238,8 +270,7 @@ class TeamPhotoControllerIT {
         assertThat(response.getHeaders().getContentType())
                 .as("AC2: Content-Type must be image/jpeg")
                 .isNotNull();
-        assertThat(response.getHeaders().getContentType().toString())
-                .startsWith("image/jpeg");
+        assertThat(response.getHeaders().getContentType().toString()).startsWith("image/jpeg");
     }
 
     @Test
@@ -249,8 +280,8 @@ class TeamPhotoControllerIT {
         UUID teamId = createTeam(tournamentId, "Team RP");
         uploadPhoto(authed, tournamentId, teamId, "t.png", SAMPLE_PNG, MediaType.IMAGE_PNG);
 
-        ResponseEntity<byte[]> response = authed.getForEntity(
-                new URI(photoUrl(tournamentId, teamId)), byte[].class);
+        ResponseEntity<byte[]> response =
+                authed.getForEntity(new URI(photoUrl(tournamentId, teamId)), byte[].class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getHeaders().getContentType().toString()).startsWith("image/png");
@@ -262,8 +293,8 @@ class TeamPhotoControllerIT {
         UUID tournamentId = createTournament("No Photo Retrieve Test");
         UUID teamId = createTeam(tournamentId, "Team NP");
 
-        ResponseEntity<String> response = authed.getForEntity(
-                new URI(photoUrl(tournamentId, teamId)), String.class);
+        ResponseEntity<String> response =
+                authed.getForEntity(new URI(photoUrl(tournamentId, teamId)), String.class);
 
         assertThat(response.getStatusCode())
                 .as("AC2: retrieve without prior upload must return 404")
@@ -276,8 +307,8 @@ class TeamPhotoControllerIT {
         UUID tournamentId = createTournament("Auth Retrieve Test");
         UUID teamId = createTeam(tournamentId, "Team AR");
 
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(photoUrl(tournamentId, teamId)), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(photoUrl(tournamentId, teamId)), String.class);
 
         assertThat(response.getStatusCode())
                 .as("AC10: retrieve without auth must return 401")
@@ -295,9 +326,12 @@ class TeamPhotoControllerIT {
         UUID teamId = createTeam(tournamentId, "Team DEL");
         uploadPhoto(authed, tournamentId, teamId, "t.jpg", SAMPLE_JPEG, MediaType.IMAGE_JPEG);
 
-        ResponseEntity<Void> response = authed.exchange(
-                new URI(photoUrl(tournamentId, teamId)),
-                HttpMethod.DELETE, null, Void.class);
+        ResponseEntity<Void> response =
+                authed.exchange(
+                        new URI(photoUrl(tournamentId, teamId)),
+                        HttpMethod.DELETE,
+                        null,
+                        Void.class);
 
         assertThat(response.getStatusCode())
                 .as("AC3: delete existing photo must return 204")
@@ -310,9 +344,12 @@ class TeamPhotoControllerIT {
         UUID tournamentId = createTournament("Delete Missing Photo Test");
         UUID teamId = createTeam(tournamentId, "Team DMP");
 
-        ResponseEntity<String> response = authed.exchange(
-                new URI(photoUrl(tournamentId, teamId)),
-                HttpMethod.DELETE, null, String.class);
+        ResponseEntity<String> response =
+                authed.exchange(
+                        new URI(photoUrl(tournamentId, teamId)),
+                        HttpMethod.DELETE,
+                        null,
+                        String.class);
 
         assertThat(response.getStatusCode())
                 .as("AC3: delete non-existent photo must return 404")
@@ -325,9 +362,12 @@ class TeamPhotoControllerIT {
         UUID tournamentId = createTournament("Auth Delete Test");
         UUID teamId = createTeam(tournamentId, "Team AD");
 
-        ResponseEntity<String> response = restTemplate.exchange(
-                new URI(photoUrl(tournamentId, teamId)),
-                HttpMethod.DELETE, null, String.class);
+        ResponseEntity<String> response =
+                restTemplate.exchange(
+                        new URI(photoUrl(tournamentId, teamId)),
+                        HttpMethod.DELETE,
+                        null,
+                        String.class);
 
         assertThat(response.getStatusCode())
                 .as("AC10: delete without auth must return 401")
@@ -345,9 +385,10 @@ class TeamPhotoControllerIT {
         UUID teamId = createTeam(tournamentId, "Team HP");
 
         // Before upload: hasPhoto should be false
-        TeamResponse[] beforeUpload = authed.getForObject(
-                new URI(baseUrl + "/api/tournaments/" + tournamentId + "/teams"),
-                TeamResponse[].class);
+        TeamResponse[] beforeUpload =
+                authed.getForObject(
+                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/teams"),
+                        TeamResponse[].class);
 
         assertThat(beforeUpload).hasSize(1);
         assertThat(beforeUpload[0].hasPhoto())
@@ -358,9 +399,10 @@ class TeamPhotoControllerIT {
         uploadPhoto(authed, tournamentId, teamId, "photo.jpg", SAMPLE_JPEG, MediaType.IMAGE_JPEG);
 
         // After upload: hasPhoto should be true
-        TeamResponse[] afterUpload = authed.getForObject(
-                new URI(baseUrl + "/api/tournaments/" + tournamentId + "/teams"),
-                TeamResponse[].class);
+        TeamResponse[] afterUpload =
+                authed.getForObject(
+                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/teams"),
+                        TeamResponse[].class);
 
         assertThat(afterUpload).hasSize(1);
         assertThat(afterUpload[0].hasPhoto())
@@ -375,15 +417,15 @@ class TeamPhotoControllerIT {
         UUID teamId = createTeam(tournamentId, "Team HPD");
 
         uploadPhoto(authed, tournamentId, teamId, "photo.jpg", SAMPLE_JPEG, MediaType.IMAGE_JPEG);
-        authed.exchange(new URI(photoUrl(tournamentId, teamId)), HttpMethod.DELETE, null, Void.class);
+        authed.exchange(
+                new URI(photoUrl(tournamentId, teamId)), HttpMethod.DELETE, null, Void.class);
 
-        TeamResponse[] teams = authed.getForObject(
-                new URI(baseUrl + "/api/tournaments/" + tournamentId + "/teams"),
-                TeamResponse[].class);
+        TeamResponse[] teams =
+                authed.getForObject(
+                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/teams"),
+                        TeamResponse[].class);
 
-        assertThat(teams[0].hasPhoto())
-                .as("AC4: hasPhoto must be false after delete")
-                .isFalse();
+        assertThat(teams[0].hasPhoto()).as("AC4: hasPhoto must be false after delete").isFalse();
     }
 
     // =========================================================================
@@ -395,12 +437,20 @@ class TeamPhotoControllerIT {
     }
 
     private UUID createTournament(String description) throws Exception {
-        TournamentCreateRequest request = new TournamentCreateRequest(
-                description, null, 8, 4, "BEST_OF_3",
-                "setPoints", "standardVolleyball", "roundRobin");
+        TournamentCreateRequest request =
+                new TournamentCreateRequest(
+                        description,
+                        null,
+                        8,
+                        4,
+                        "BEST_OF_3",
+                        "setPoints",
+                        "standardVolleyball",
+                        "roundRobin");
 
-        ResponseEntity<TournamentResponse> created = authed.postForEntity(
-                new URI(baseUrl + "/api/tournaments"), request, TournamentResponse.class);
+        ResponseEntity<TournamentResponse> created =
+                authed.postForEntity(
+                        new URI(baseUrl + "/api/tournaments"), request, TournamentResponse.class);
 
         assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(created.getBody()).isNotNull();
@@ -410,9 +460,11 @@ class TeamPhotoControllerIT {
     private UUID createTeam(UUID tournamentId, String description) throws Exception {
         TeamCreateRequest request = new TeamCreateRequest(description, null, null, null, null);
 
-        ResponseEntity<TeamResponse> created = authed.postForEntity(
-                new URI(baseUrl + "/api/tournaments/" + tournamentId + "/teams"),
-                request, TeamResponse.class);
+        ResponseEntity<TeamResponse> created =
+                authed.postForEntity(
+                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/teams"),
+                        request,
+                        TeamResponse.class);
 
         assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(created.getBody()).isNotNull();
@@ -420,8 +472,13 @@ class TeamPhotoControllerIT {
     }
 
     private ResponseEntity<PhotoMetadataResponse> uploadPhoto(
-            TestRestTemplate template, UUID tournamentId, UUID teamId,
-            String filename, byte[] content, MediaType imageMediaType) throws Exception {
+            TestRestTemplate template,
+            UUID tournamentId,
+            UUID teamId,
+            String filename,
+            byte[] content,
+            MediaType imageMediaType)
+            throws Exception {
 
         return template.postForEntity(
                 new URI(photoUrl(tournamentId, teamId)),
@@ -430,8 +487,13 @@ class TeamPhotoControllerIT {
     }
 
     private ResponseEntity<String> uploadPhotoAsString(
-            TestRestTemplate template, UUID tournamentId, UUID teamId,
-            String filename, byte[] content, MediaType imageMediaType) throws Exception {
+            TestRestTemplate template,
+            UUID tournamentId,
+            UUID teamId,
+            String filename,
+            byte[] content,
+            MediaType imageMediaType)
+            throws Exception {
 
         return template.postForEntity(
                 new URI(photoUrl(tournamentId, teamId)),
@@ -445,12 +507,13 @@ class TeamPhotoControllerIT {
         HttpHeaders fileHeaders = new HttpHeaders();
         fileHeaders.setContentType(imageMediaType);
 
-        ByteArrayResource fileResource = new ByteArrayResource(content) {
-            @Override
-            public String getFilename() {
-                return filename;
-            }
-        };
+        ByteArrayResource fileResource =
+                new ByteArrayResource(content) {
+                    @Override
+                    public String getFilename() {
+                        return filename;
+                    }
+                };
 
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
         body.add("file", new HttpEntity<>(fileResource, fileHeaders));
@@ -465,11 +528,7 @@ class TeamPhotoControllerIT {
     // Response DTO (mirror of PhotoMetadataResponse for deserialization)
     // =========================================================================
 
-    record PhotoMetadataResponse(
-            String filename,
-            long sizeBytes,
-            Instant uploadedAt
-    ) {}
+    record PhotoMetadataResponse(String filename, long sizeBytes, Instant uploadedAt) {}
 
     // =========================================================================
     // Test configuration — known test admin password

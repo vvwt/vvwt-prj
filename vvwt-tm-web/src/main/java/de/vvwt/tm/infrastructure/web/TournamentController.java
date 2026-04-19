@@ -5,6 +5,9 @@ import de.vvwt.tm.infrastructure.web.dto.TournamentCreateRequest;
 import de.vvwt.tm.infrastructure.web.dto.TournamentResponse;
 import de.vvwt.tm.infrastructure.web.dto.TournamentUpdateRequest;
 import jakarta.validation.Valid;
+import java.net.URI;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,38 +19,39 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.net.URI;
-import java.util.List;
-import java.util.UUID;
-
 /**
  * REST controller for Tournament CRUD operations (E05S04).
  *
  * <h2>Endpoints</h2>
+ *
  * <ul>
- *   <li>GET  /api/tournaments      — list all (AC1)</li>
- *   <li>GET  /api/tournaments/{id} — get one (AC2)</li>
- *   <li>POST /api/tournaments      — create new in DRAFT (AC3)</li>
- *   <li>PUT  /api/tournaments/{id} — update DRAFT only (AC4)</li>
- *   <li>DELETE /api/tournaments/{id} — delete DRAFT with no phases (AC5)</li>
+ *   <li>GET /api/tournaments — list all (AC1)
+ *   <li>GET /api/tournaments/{id} — get one (AC2)
+ *   <li>POST /api/tournaments — create new in DRAFT (AC3)
+ *   <li>PUT /api/tournaments/{id} — update DRAFT only (AC4)
+ *   <li>DELETE /api/tournaments/{id} — delete DRAFT with no phases (AC5)
  * </ul>
  *
  * <h2>Error handling</h2>
- * <p>All exceptions are mapped to structured JSON responses by
- * {@link GlobalExceptionHandler}:
+ *
+ * <p>All exceptions are mapped to structured JSON responses by {@link GlobalExceptionHandler}:
+ *
  * <ul>
- *   <li>{@link java.util.NoSuchElementException} → 404</li>
- *   <li>{@link ConflictException} → 409</li>
- *   <li>{@link org.springframework.web.bind.MethodArgumentNotValidException} → 400</li>
- *   <li>{@link IllegalArgumentException} → 400 (invalid enum / bean ID)</li>
+ *   <li>{@link java.util.NoSuchElementException} → 404
+ *   <li>{@link ConflictException} → 409
+ *   <li>{@link org.springframework.web.bind.MethodArgumentNotValidException} → 400
+ *   <li>{@link IllegalArgumentException} → 400 (invalid enum / bean ID)
  * </ul>
  *
  * <h2>Security</h2>
- * <p>All /api/** endpoints require HTTP Basic authentication per
- * {@link de.vvwt.tm.auth.SecurityConfig}. Tenant scoping is enforced at the repository
- * layer (DEC-5, DEC-17).
  *
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E05S04.story.md">Story E05S04</a>
+ * <p>All /api/** endpoints require HTTP Basic authentication per {@link
+ * de.vvwt.tm.auth.SecurityConfig}. Tenant scoping is enforced at the repository layer (DEC-5,
+ * DEC-17).
+ *
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E05S04.story.md">Story
+ *     E05S04</a>
  */
 @RestController
 @RequestMapping("/api/tournaments")
@@ -70,9 +74,8 @@ public class TournamentController {
      */
     @GetMapping
     public ResponseEntity<List<TournamentResponse>> listTournaments() {
-        List<TournamentResponse> responses = tournamentService.listTournaments().stream()
-                .map(TournamentResponse::from)
-                .toList();
+        List<TournamentResponse> responses =
+                tournamentService.listTournaments().stream().map(TournamentResponse::from).toList();
         return ResponseEntity.ok(responses);
     }
 
@@ -105,20 +108,22 @@ public class TournamentController {
     public ResponseEntity<TournamentResponse> createTournament(
             @RequestBody @Valid TournamentCreateRequest request) {
 
-        var tournament = tournamentService.createTournament(
-                request.description(),
-                request.appointment(),
-                request.teamCount(),
-                request.fieldCount(),
-                request.matchFormat(),
-                request.scoringRuleId(),
-                request.setValidationRuleId(),
-                request.matchGeneratorId());
+        var tournament =
+                tournamentService.createTournament(
+                        request.description(),
+                        request.appointment(),
+                        request.teamCount(),
+                        request.fieldCount(),
+                        request.matchFormat(),
+                        request.scoringRuleId(),
+                        request.setValidationRuleId(),
+                        request.matchGeneratorId());
 
-        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
-                .path("/{id}")
-                .buildAndExpand(tournament.getId())
-                .toUri();
+        URI location =
+                ServletUriComponentsBuilder.fromCurrentRequest()
+                        .path("/{id}")
+                        .buildAndExpand(tournament.getId())
+                        .toUri();
 
         return ResponseEntity.created(location).body(TournamentResponse.from(tournament));
     }
@@ -130,26 +135,26 @@ public class TournamentController {
     /**
      * Updates a tournament. Only DRAFT tournaments may be edited.
      *
-     * @param id      the tournament UUID (from path)
+     * @param id the tournament UUID (from path)
      * @param request the update request body; null fields mean "no change"
      * @return 200 OK with the updated tournament, 404 if not found, 409 if not in DRAFT
      */
     @PutMapping("/{id}")
     public ResponseEntity<TournamentResponse> updateTournament(
-            @PathVariable("id") UUID id,
-            @RequestBody @Valid TournamentUpdateRequest request) {
+            @PathVariable("id") UUID id, @RequestBody @Valid TournamentUpdateRequest request) {
 
-        var tournament = tournamentService.updateTournament(
-                id,
-                request.description(),
-                request.appointment(),
-                request.teamCount() != null ? request.teamCount() : 0,
-                request.fieldCount() != null ? request.fieldCount() : 0,
-                request.matchFormat(),
-                request.scoringRuleId(),
-                request.setValidationRuleId(),
-                request.matchGeneratorId(),
-                request.plannedStartTime());
+        var tournament =
+                tournamentService.updateTournament(
+                        id,
+                        request.description(),
+                        request.appointment(),
+                        request.teamCount() != null ? request.teamCount() : 0,
+                        request.fieldCount() != null ? request.fieldCount() : 0,
+                        request.matchFormat(),
+                        request.scoringRuleId(),
+                        request.setValidationRuleId(),
+                        request.matchGeneratorId(),
+                        request.plannedStartTime());
 
         return ResponseEntity.ok(TournamentResponse.from(tournament));
     }

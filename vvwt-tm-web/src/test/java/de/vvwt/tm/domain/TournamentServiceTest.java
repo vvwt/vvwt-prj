@@ -1,24 +1,5 @@
 package de.vvwt.tm.domain;
 
-import de.vvwt.tm.domain.generator.MatchGeneratorRegistry;
-import de.vvwt.tm.domain.repo.PhaseRepository;
-import de.vvwt.tm.domain.repo.TournamentRepository;
-import de.vvwt.tm.domain.rules.ScoringRuleRegistry;
-import de.vvwt.tm.domain.rules.SetValidationRuleRegistry;
-import de.vvwt.tm.infrastructure.web.ConflictException;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -26,17 +7,35 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import de.vvwt.tm.domain.generator.MatchGeneratorRegistry;
+import de.vvwt.tm.domain.repo.PhaseRepository;
+import de.vvwt.tm.domain.repo.TournamentRepository;
+import de.vvwt.tm.domain.rules.ScoringRuleRegistry;
+import de.vvwt.tm.domain.rules.SetValidationRuleRegistry;
+import de.vvwt.tm.infrastructure.web.ConflictException;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Optional;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 /**
  * Unit tests for {@link TournamentService} (E05S04).
  *
  * <p>Mocks all dependencies to isolate the service logic. Verifies:
+ *
  * <ul>
- *   <li>AC1 — list returns tournaments ordered by createdAt descending</li>
- *   <li>AC2 — getTournament returns entity or throws NoSuchElementException</li>
- *   <li>AC3 — createTournament sets DRAFT status and validates bean IDs</li>
- *   <li>AC4 — updateTournament rejects non-DRAFT with ConflictException</li>
- *   <li>AC5 — deleteTournament rejects ACTIVE and tournaments with phases</li>
- *   <li>AC6 — new tournaments are always DRAFT (DEC-5 enforced on transition)</li>
+ *   <li>AC1 — list returns tournaments ordered by createdAt descending
+ *   <li>AC2 — getTournament returns entity or throws NoSuchElementException
+ *   <li>AC3 — createTournament sets DRAFT status and validates bean IDs
+ *   <li>AC4 — updateTournament rejects non-DRAFT with ConflictException
+ *   <li>AC5 — deleteTournament rejects ACTIVE and tournaments with phases
+ *   <li>AC6 — new tournaments are always DRAFT (DEC-5 enforced on transition)
  * </ul>
  *
  * @see <a href="../../../.gaai/project/contexts/artefacts/stories/E05S04.story.md">Story E05S04</a>
@@ -44,20 +43,15 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class TournamentServiceTest {
 
-    @Mock
-    private TournamentRepository tournamentRepository;
+    @Mock private TournamentRepository tournamentRepository;
 
-    @Mock
-    private PhaseRepository phaseRepository;
+    @Mock private PhaseRepository phaseRepository;
 
-    @Mock
-    private ScoringRuleRegistry scoringRuleRegistry;
+    @Mock private ScoringRuleRegistry scoringRuleRegistry;
 
-    @Mock
-    private SetValidationRuleRegistry setValidationRuleRegistry;
+    @Mock private SetValidationRuleRegistry setValidationRuleRegistry;
 
-    @Mock
-    private MatchGeneratorRegistry matchGeneratorRegistry;
+    @Mock private MatchGeneratorRegistry matchGeneratorRegistry;
 
     private TournamentService service;
 
@@ -69,12 +63,13 @@ class TournamentServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new TournamentService(
-                tournamentRepository,
-                phaseRepository,
-                scoringRuleRegistry,
-                setValidationRuleRegistry,
-                matchGeneratorRegistry);
+        service =
+                new TournamentService(
+                        tournamentRepository,
+                        phaseRepository,
+                        scoringRuleRegistry,
+                        setValidationRuleRegistry,
+                        matchGeneratorRegistry);
     }
 
     // =========================================================================
@@ -94,7 +89,7 @@ class TournamentServiceTest {
         List<Tournament> result = service.listTournaments();
 
         assertThat(result).hasSize(2);
-        assertThat(result.get(0).getDescription()).isEqualTo("New");  // newer first
+        assertThat(result.get(0).getDescription()).isEqualTo("New"); // newer first
         assertThat(result.get(1).getDescription()).isEqualTo("Old");
     }
 
@@ -138,20 +133,22 @@ class TournamentServiceTest {
     void createTournamentPersistsNewDraftTournament() {
         // Stub registry validations (no-op — mocks return null by default, which is fine)
         // Stub save to return the entity
-        when(tournamentRepository.save(any(Tournament.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(tournamentRepository.save(any(Tournament.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
 
-        Tournament result = service.createTournament(
-                "Hallenturnier 2026",
-                null,
-                8,
-                4,
-                VALID_FORMAT,
-                VALID_SCORING,
-                VALID_VALIDATION,
-                VALID_GENERATOR);
+        Tournament result =
+                service.createTournament(
+                        "Hallenturnier 2026",
+                        null,
+                        8,
+                        4,
+                        VALID_FORMAT,
+                        VALID_SCORING,
+                        VALID_VALIDATION,
+                        VALID_GENERATOR);
 
         assertThat(result.getDescription()).isEqualTo("Hallenturnier 2026");
-        assertThat(result.getStatus()).isEqualTo("DRAFT");  // AC6: always DRAFT
+        assertThat(result.getStatus()).isEqualTo("DRAFT"); // AC6: always DRAFT
         assertThat(result.getTeamCount()).isEqualTo(8);
         assertThat(result.getFieldCount()).isEqualTo(4);
         assertThat(result.getId()).isNotNull();
@@ -162,11 +159,19 @@ class TournamentServiceTest {
     @Test
     void createTournamentAlwaysCreatesDraftRegardlessOfOtherTournaments() {
         // AC6: creating a tournament always succeeds; DRAFT is always the initial status
-        when(tournamentRepository.save(any(Tournament.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(tournamentRepository.save(any(Tournament.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
 
-        Tournament result = service.createTournament(
-                "Second Tournament",
-                null, 4, 2, VALID_FORMAT, VALID_SCORING, VALID_VALIDATION, VALID_GENERATOR);
+        Tournament result =
+                service.createTournament(
+                        "Second Tournament",
+                        null,
+                        4,
+                        2,
+                        VALID_FORMAT,
+                        VALID_SCORING,
+                        VALID_VALIDATION,
+                        VALID_GENERATOR);
 
         assertThat(result.getStatus()).isEqualTo("DRAFT");
         // DEC-5 single-active enforcement happens at transition time, not create time
@@ -181,10 +186,21 @@ class TournamentServiceTest {
         UUID id = UUID.randomUUID();
         Tournament t = makeDraftTournament(id, "Old Name", LocalDateTime.now());
         when(tournamentRepository.findById(id)).thenReturn(Optional.of(t));
-        when(tournamentRepository.save(any(Tournament.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(tournamentRepository.save(any(Tournament.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
 
-        Tournament result = service.updateTournament(
-                id, "New Name", null, 6, 3, VALID_FORMAT, VALID_SCORING, VALID_VALIDATION, VALID_GENERATOR, null);
+        Tournament result =
+                service.updateTournament(
+                        id,
+                        "New Name",
+                        null,
+                        6,
+                        3,
+                        VALID_FORMAT,
+                        VALID_SCORING,
+                        VALID_VALIDATION,
+                        VALID_GENERATOR,
+                        null);
 
         assertThat(result.getDescription()).isEqualTo("New Name");
         assertThat(result.getTeamCount()).isEqualTo(6);
@@ -196,8 +212,19 @@ class TournamentServiceTest {
         Tournament active = makeTournament(id, "Active", "ACTIVE", LocalDateTime.now());
         when(tournamentRepository.findById(id)).thenReturn(Optional.of(active));
 
-        assertThatThrownBy(() -> service.updateTournament(
-                id, null, null, 0, 0, VALID_FORMAT, VALID_SCORING, VALID_VALIDATION, VALID_GENERATOR, null))
+        assertThatThrownBy(
+                        () ->
+                                service.updateTournament(
+                                        id,
+                                        null,
+                                        null,
+                                        0,
+                                        0,
+                                        VALID_FORMAT,
+                                        VALID_SCORING,
+                                        VALID_VALIDATION,
+                                        VALID_GENERATOR,
+                                        null))
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("ACTIVE");
     }
@@ -208,8 +235,19 @@ class TournamentServiceTest {
         Tournament completed = makeTournament(id, "Done", "COMPLETED", LocalDateTime.now());
         when(tournamentRepository.findById(id)).thenReturn(Optional.of(completed));
 
-        assertThatThrownBy(() -> service.updateTournament(
-                id, null, null, 0, 0, VALID_FORMAT, VALID_SCORING, VALID_VALIDATION, VALID_GENERATOR, null))
+        assertThatThrownBy(
+                        () ->
+                                service.updateTournament(
+                                        id,
+                                        null,
+                                        null,
+                                        0,
+                                        0,
+                                        VALID_FORMAT,
+                                        VALID_SCORING,
+                                        VALID_VALIDATION,
+                                        VALID_GENERATOR,
+                                        null))
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("COMPLETED");
     }
@@ -249,7 +287,16 @@ class TournamentServiceTest {
         Tournament t = makeDraftTournament(id, "Has Phases", LocalDateTime.now());
         when(tournamentRepository.findById(id)).thenReturn(Optional.of(t));
 
-        Phase mockPhase = new Phase(UUID.randomUUID(), TENANT_ID, id, 1, "Vorrunde", "PENDING", 0, LocalDateTime.now());
+        Phase mockPhase =
+                new Phase(
+                        UUID.randomUUID(),
+                        TENANT_ID,
+                        id,
+                        1,
+                        "Vorrunde",
+                        "PENDING",
+                        0,
+                        LocalDateTime.now());
         when(phaseRepository.findByTournamentId(id)).thenReturn(List.of(mockPhase));
 
         assertThatThrownBy(() -> service.deleteTournament(id))
@@ -265,9 +312,20 @@ class TournamentServiceTest {
         return makeTournament(id, description, "DRAFT", createdAt);
     }
 
-    private Tournament makeTournament(UUID id, String description, String status, LocalDateTime createdAt) {
-        return new Tournament(id, TENANT_ID, description,
-                VALID_FORMAT, VALID_SCORING, VALID_VALIDATION, VALID_GENERATOR,
-                status, createdAt, null, 2, 4);
+    private Tournament makeTournament(
+            UUID id, String description, String status, LocalDateTime createdAt) {
+        return new Tournament(
+                id,
+                TENANT_ID,
+                description,
+                VALID_FORMAT,
+                VALID_SCORING,
+                VALID_VALIDATION,
+                VALID_GENERATOR,
+                status,
+                createdAt,
+                null,
+                2,
+                4);
     }
 }

@@ -1,8 +1,9 @@
 package de.vvwt.tm.domain.repo;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import de.vvwt.tm.TournamentManagerApplication;
-import de.vvwt.tm.domain.referee.RefereeAssignmentReport;
-import de.vvwt.tm.domain.referee.RefereeAssigner;
 import de.vvwt.tm.domain.Match;
 import de.vvwt.tm.domain.MatchFormat;
 import de.vvwt.tm.domain.MatchState;
@@ -10,13 +11,16 @@ import de.vvwt.tm.domain.Phase;
 import de.vvwt.tm.domain.Team;
 import de.vvwt.tm.domain.TeamAvatar;
 import de.vvwt.tm.domain.Tournament;
-import de.vvwt.tm.domain.repo.MatchRepository;
-import de.vvwt.tm.domain.repo.PhaseRepository;
-import de.vvwt.tm.domain.repo.TeamAvatarRepository;
-import de.vvwt.tm.domain.repo.TeamRepository;
-import de.vvwt.tm.domain.repo.TenantContext;
-import de.vvwt.tm.domain.repo.TournamentRepository;
+import de.vvwt.tm.domain.referee.RefereeAssigner;
+import de.vvwt.tm.domain.referee.RefereeAssignmentReport;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,34 +31,25 @@ import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 /**
  * Integration tests for {@link RefereeAssigner} — E03S10.
  *
- * <p>Uses the "test" profile: in-memory H2 with all Flyway migrations applied.
- * Tests interact with the full Spring context.
+ * <p>Uses the "test" profile: in-memory H2 with all Flyway migrations applied. Tests interact with
+ * the full Spring context.
  *
  * <h2>Coverage</h2>
+ *
  * <ul>
- *   <li>AC11 — full phase assignment (9 teams, 12 laps × 3 fields)</li>
- *   <li>AC12 — phase not found → IllegalArgumentException</li>
- *   <li>AC13 — slot coordinates missing → IllegalStateException</li>
- *   <li>AC14 — all teams ineligible (refereeAssignment=false) → completes with warnings</li>
- *   <li>AC17 — tenant scoping (tenant-scoped repos used throughout)</li>
- *   <li>AC18 — transactionality (forced rollback verifies no partial assignments)</li>
+ *   <li>AC11 — full phase assignment (9 teams, 12 laps × 3 fields)
+ *   <li>AC12 — phase not found → IllegalArgumentException
+ *   <li>AC13 — slot coordinates missing → IllegalStateException
+ *   <li>AC14 — all teams ineligible (refereeAssignment=false) → completes with warnings
+ *   <li>AC17 — tenant scoping (tenant-scoped repos used throughout)
+ *   <li>AC18 — transactionality (forced rollback verifies no partial assignments)
  * </ul>
  *
- * @see <a href="../../../../../../.gaai/project/contexts/artefacts/stories/E03S10.story.md">Story E03S10</a>
+ * @see <a href="../../../../../../.gaai/project/contexts/artefacts/stories/E03S10.story.md">Story
+ *     E03S10</a>
  */
 @SpringBootTest(
         classes = TournamentManagerApplication.class,
@@ -151,15 +146,13 @@ class RefereeAssignerIT {
     // =========================================================================
 
     /**
-     * AC11: Setup 9 teams, 9 avatars, 36 matches (all C(9,2) pairs).
-     * Matches are manually distributed into 12 laps × 3 fields:
-     * - Each lap has 3 matches (6 teams play, 3 on bye).
-     * - All 9 teams have refereeAssignment=true.
+     * AC11: Setup 9 teams, 9 avatars, 36 matches (all C(9,2) pairs). Matches are manually
+     * distributed into 12 laps × 3 fields: - Each lap has 3 matches (6 teams play, 3 on bye). - All
+     * 9 teams have refereeAssignment=true.
      *
-     * After assignReferees:
-     * - Every match must have a non-null refereeTeamId (no no-referee cases: 3 free teams per lap).
-     * - No team is both playing and refereeing in the same lap.
-     * - Report: assignedCount == 36, overriddenCount == 0, noRefereeCount == 0.
+     * <p>After assignReferees: - Every match must have a non-null refereeTeamId (no no-referee
+     * cases: 3 free teams per lap). - No team is both playing and refereeing in the same lap. -
+     * Report: assignedCount == 36, overriddenCount == 0, noRefereeCount == 0.
      */
     @Test
     @Transactional
@@ -183,19 +176,25 @@ class RefereeAssignerIT {
         List<int[]> pairs = new ArrayList<>();
         for (int i = 0; i < 9; i++) {
             for (int j = i + 1; j < 9; j++) {
-                pairs.add(new int[]{i, j});
+                pairs.add(new int[] {i, j});
             }
         }
         // pairs.size() == 36
 
         List<Match> allCreatedMatches = new ArrayList<>();
         for (int pairIndex = 0; pairIndex < pairs.size(); pairIndex++) {
-            int lapNumber = (pairIndex / 3) + 1;   // laps 1–12 (3 matches per lap)
+            int lapNumber = (pairIndex / 3) + 1; // laps 1–12 (3 matches per lap)
             int fieldNumber = (pairIndex % 3) + 1; // fields 1–3
             int[] pair = pairs.get(pairIndex);
-            UUID matchId = createMatch(tournamentId, phaseId,
-                    avatarIds[pair[0]], avatarIds[pair[1]],
-                    lapNumber, fieldNumber, null);
+            UUID matchId =
+                    createMatch(
+                            tournamentId,
+                            phaseId,
+                            avatarIds[pair[0]],
+                            avatarIds[pair[1]],
+                            lapNumber,
+                            fieldNumber,
+                            null);
             allCreatedMatches.add(matchRepository.findById(matchId).orElseThrow());
         }
 
@@ -209,7 +208,8 @@ class RefereeAssignerIT {
         // AC11 assertion 1: all matches have a refereeTeamId
         for (Match match : matchesAfterAssignment) {
             assertThat(match.getRefereeTeamId())
-                    .as("match %s (lap %d, field %d) must have a referee assigned",
+                    .as(
+                            "match %s (lap %d, field %d) must have a referee assigned",
                             match.getId(), match.getLapNumber(), match.getFieldNumber())
                     .isNotNull();
         }
@@ -251,17 +251,17 @@ class RefereeAssignerIT {
     // =========================================================================
 
     /**
-     * AC17: Verify that the TenantContext is active during the test.
-     * The fact that all data is created and read via tenant-scoped repos (from E03S05)
-     * means cross-tenant access is structurally impossible.
-     * This test verifies the context is active and the service runs under it.
+     * AC17: Verify that the TenantContext is active during the test. The fact that all data is
+     * created and read via tenant-scoped repos (from E03S05) means cross-tenant access is
+     * structurally impossible. This test verifies the context is active and the service runs under
+     * it.
      */
     @Test
     @Transactional
     void ac17_tenantScopingActive_serviceRunsUnderTenantContext() {
         // Verify tenant context is active
         assertThat(defaultTenantId).isNotNull();
-        UUID activeTenant = tenantContext.getTenantId();  // throws if not set
+        UUID activeTenant = tenantContext.getTenantId(); // throws if not set
         assertThat(activeTenant).isEqualTo(defaultTenantId);
 
         // Run a minimal phase — if any cross-tenant access occurred, tenant-scoped repos
@@ -278,18 +278,18 @@ class RefereeAssignerIT {
     // =========================================================================
 
     /**
-     * AC18: Partial assignment must be rolled back if the transaction fails.
-     * Strategy: run assignReferees inside a @Transactional test method with @Rollback(true),
-     * then verify after rollback that no match has a refereeTeamId assigned.
+     * AC18: Partial assignment must be rolled back if the transaction fails. Strategy: run
+     * assignReferees inside a @Transactional test method with @Rollback(true), then verify after
+     * rollback that no match has a refereeTeamId assigned.
      *
-     * We verify rollback semantics by reading match state BEFORE calling assignReferees,
-     * calling it successfully WITHIN a transaction that the test framework rolls back,
-     * and observing that the state is reverted.
+     * <p>We verify rollback semantics by reading match state BEFORE calling assignReferees, calling
+     * it successfully WITHIN a transaction that the test framework rolls back, and observing that
+     * the state is reverted.
      *
-     * Note: direct rollback simulation (forcing a mid-run exception on the underlying
-     * transactional boundary) is structurally guaranteed by Spring @Transactional —
-     * any RuntimeException from within assignReferees rolls back all saves.
-     * This test verifies the happy-path transactional state is wiped by the test rollback.
+     * <p>Note: direct rollback simulation (forcing a mid-run exception on the underlying
+     * transactional boundary) is structurally guaranteed by Spring @Transactional — any
+     * RuntimeException from within assignReferees rolls back all saves. This test verifies the
+     * happy-path transactional state is wiped by the test rollback.
      */
     @Test
     @Transactional
@@ -335,48 +335,97 @@ class RefereeAssignerIT {
 
     private UUID createTournament() {
         UUID id = UUID.randomUUID();
-        Tournament t = new Tournament(
-                id, defaultTenantId, "Test Tournament " + id,
-                MatchFormat.BEST_OF_3.name(), "setPoints", "standardVolleyball", "roundRobin",
-                "DRAFT", LocalDateTime.now());
+        Tournament t =
+                new Tournament(
+                        id,
+                        defaultTenantId,
+                        "Test Tournament " + id,
+                        MatchFormat.BEST_OF_3.name(),
+                        "setPoints",
+                        "standardVolleyball",
+                        "roundRobin",
+                        "DRAFT",
+                        LocalDateTime.now());
         tournamentRepository.save(t);
         return id;
     }
 
     private UUID createPhase(UUID tournamentId) {
         UUID id = UUID.randomUUID();
-        Phase p = new Phase(id, defaultTenantId, tournamentId, 1, "Vorrunde", "PENDING", 0,
-                LocalDateTime.now());
+        Phase p =
+                new Phase(
+                        id,
+                        defaultTenantId,
+                        tournamentId,
+                        1,
+                        "Vorrunde",
+                        "PENDING",
+                        0,
+                        LocalDateTime.now());
         phaseRepository.save(p);
         return id;
     }
 
     private UUID createTeam(UUID tournamentId, int teamNumber, boolean refereeAssignment) {
         UUID id = UUID.randomUUID();
-        Team t = new Team(id, defaultTenantId, tournamentId, teamNumber,
-                "Team " + teamNumber, true, refereeAssignment, false, LocalDateTime.now());
+        Team t =
+                new Team(
+                        id,
+                        defaultTenantId,
+                        tournamentId,
+                        teamNumber,
+                        "Team " + teamNumber,
+                        true,
+                        refereeAssignment,
+                        false,
+                        LocalDateTime.now());
         teamRepository.save(t);
         return id;
     }
 
-    private UUID createAvatar(UUID tournamentId, UUID phaseId, UUID teamId,
-                               int groupNumber, int groupPosition) {
+    private UUID createAvatar(
+            UUID tournamentId, UUID phaseId, UUID teamId, int groupNumber, int groupPosition) {
         UUID id = UUID.randomUUID();
-        TeamAvatar ta = new TeamAvatar(id, defaultTenantId, tournamentId, phaseId,
-                groupNumber, groupPosition, teamId, null, LocalDateTime.now());
+        TeamAvatar ta =
+                new TeamAvatar(
+                        id,
+                        defaultTenantId,
+                        tournamentId,
+                        phaseId,
+                        groupNumber,
+                        groupPosition,
+                        teamId,
+                        null,
+                        LocalDateTime.now());
         teamAvatarRepository.save(ta);
         return id;
     }
 
-    private UUID createMatch(UUID tournamentId, UUID phaseId,
-                              UUID avatar1Id, UUID avatar2Id,
-                              Integer lapNumber, Integer fieldNumber,
-                              String refereeDescription) {
+    private UUID createMatch(
+            UUID tournamentId,
+            UUID phaseId,
+            UUID avatar1Id,
+            UUID avatar2Id,
+            Integer lapNumber,
+            Integer fieldNumber,
+            String refereeDescription) {
         UUID id = UUID.randomUUID();
-        Match m = new Match(id, defaultTenantId, tournamentId, phaseId,
-                avatar1Id, avatar2Id,
-                MatchState.OPEN.getLegacyCode(), MatchFormat.BEST_OF_3.getMaxSets(),
-                lapNumber, fieldNumber, null, refereeDescription, null, LocalDateTime.now());
+        Match m =
+                new Match(
+                        id,
+                        defaultTenantId,
+                        tournamentId,
+                        phaseId,
+                        avatar1Id,
+                        avatar2Id,
+                        MatchState.OPEN.getLegacyCode(),
+                        MatchFormat.BEST_OF_3.getMaxSets(),
+                        lapNumber,
+                        fieldNumber,
+                        null,
+                        refereeDescription,
+                        null,
+                        LocalDateTime.now());
         matchRepository.save(m);
         return id;
     }

@@ -1,10 +1,9 @@
 package de.vvwt.worker.types;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.Test;
 
 /** Unit tests for {@link RawPhaseDef} validation (AC11). */
 class RawPhaseDefTest {

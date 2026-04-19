@@ -1,12 +1,10 @@
 package de.vvwt.worker.codec;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Example-based tests for {@link LehmerCodec}.
@@ -46,14 +44,14 @@ class LehmerCodecTest {
     @Test
     @DisplayName("AC4: permutationToRank([0,1,2]) == 0")
     void identityPermutationHasRankZero() {
-        long rank = LehmerCodec.permutationToRank(new int[]{0, 1, 2});
+        long rank = LehmerCodec.permutationToRank(new int[] {0, 1, 2});
         assertThat(rank).isZero();
     }
 
     @Test
     @DisplayName("AC4: permutationToRank([2,1,0]) == 5 (for n=3)")
     void reversePermutationRankIsLastForNThree() {
-        long rank = LehmerCodec.permutationToRank(new int[]{2, 1, 0});
+        long rank = LehmerCodec.permutationToRank(new int[] {2, 1, 0});
         assertThat(rank).isEqualTo(5L);
     }
 
@@ -186,7 +184,7 @@ class LehmerCodecTest {
     @DisplayName("AC6: perm with out-of-range element throws IAE")
     void permutationToRankOutOfRangeElementThrows() {
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> LehmerCodec.permutationToRank(new int[]{0, 1, 5})) // 5 >= n=3
+                .isThrownBy(() -> LehmerCodec.permutationToRank(new int[] {0, 1, 5})) // 5 >= n=3
                 .withMessageContaining("out of range");
     }
 
@@ -194,7 +192,7 @@ class LehmerCodecTest {
     @DisplayName("AC6: perm with duplicate element throws IAE mentioning duplicate")
     void permutationToRankDuplicateElementThrows() {
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> LehmerCodec.permutationToRank(new int[]{0, 1, 1}))
+                .isThrownBy(() -> LehmerCodec.permutationToRank(new int[] {0, 1, 1}))
                 .withMessageContaining("duplicate");
     }
 
@@ -202,7 +200,7 @@ class LehmerCodecTest {
     @DisplayName("AC6: perm with negative element throws IAE")
     void permutationToRankNegativeElementThrows() {
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> LehmerCodec.permutationToRank(new int[]{-1, 0, 1}))
+                .isThrownBy(() -> LehmerCodec.permutationToRank(new int[] {-1, 0, 1}))
                 .withMessageContaining("out of range");
     }
 
@@ -239,8 +237,6 @@ class LehmerCodecTest {
     @Test
     @DisplayName("AC7: VERSION constant is non-null and non-empty")
     void versionConstantIsNonEmpty() {
-        assertThat(LehmerCodec.VERSION)
-                .isNotNull()
-                .isNotEmpty();
+        assertThat(LehmerCodec.VERSION).isNotNull().isNotEmpty();
     }
 }

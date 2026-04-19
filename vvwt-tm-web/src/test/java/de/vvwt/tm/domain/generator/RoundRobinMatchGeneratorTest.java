@@ -1,36 +1,36 @@
 package de.vvwt.tm.domain.generator;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import de.vvwt.tm.domain.Match;
 import de.vvwt.tm.domain.Phase;
 import de.vvwt.tm.domain.TeamAvatar;
 import de.vvwt.tm.domain.Tournament;
 import de.vvwt.tm.domain.repo.TournamentRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
-
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * Unit tests for {@link RoundRobinMatchGenerator} (AC8, AC9, AC10, AC12, AC13).
  *
  * <p>Uses Mockito to mock {@link TournamentRepository} so no Spring context is needed.
  *
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E03S09.story.md">Story E03S09</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E03S09.story.md">Story
+ *     E03S09</a>
  */
 @DisplayName("RoundRobinMatchGenerator unit tests")
 class RoundRobinMatchGeneratorTest {
@@ -53,7 +53,7 @@ class RoundRobinMatchGeneratorTest {
         tournament = new Tournament();
         tournament.setId(TOURNAMENT_ID);
         tournament.setTenantId(TENANT_ID);
-        tournament.setMatchFormat("BEST_OF_3");       // maxSets = 3
+        tournament.setMatchFormat("BEST_OF_3"); // maxSets = 3
         tournament.setMatchGeneratorId("roundRobin");
 
         phase = new Phase();
@@ -131,11 +131,14 @@ class RoundRobinMatchGeneratorTest {
         //   Round 4: (0,6); (7,5); (8,4); (phantom,3)→skip → (0,6),(7,5),(8,4)
         //   After rotation: slot[1]=6, slot[2]=7, slot[3]=8, slot[4]=phantom, slot[5..9]=1,2,3,4,5
         //   Round 5: (0,5); (6,4); (7,3); (8,2); (phantom,1)→skip → (0,5),(6,4),(7,3),(8,2)
-        //   After rotation: slot[1]=5, slot[2]=6, slot[3]=7, slot[4]=8, slot[5]=phantom, slot[6..9]=1,2,3,4
+        //   After rotation: slot[1]=5, slot[2]=6, slot[3]=7, slot[4]=8, slot[5]=phantom,
+        // slot[6..9]=1,2,3,4
         //   Round 6: (0,4); (5,3); (6,2); (7,1); (8,phantom)→skip → (0,4),(5,3),(6,2),(7,1)
-        //   After rotation: slot[1]=4, slot[2]=5, slot[3]=6, slot[4]=7, slot[5]=8, slot[6]=phantom, slot[7..9]=1,2,3
+        //   After rotation: slot[1]=4, slot[2]=5, slot[3]=6, slot[4]=7, slot[5]=8, slot[6]=phantom,
+        // slot[7..9]=1,2,3
         //   Round 7: (0,3); (4,2); (5,1); (6,phantom)→skip; (7,8)... wait 10/2=5 pairs
-        //            slot pairs: (0,9), (1,8), (2,7), (3,6), (4,5) where slot now is [0,4,5,6,7,8,phantom,1,2,3]
+        //            slot pairs: (0,9), (1,8), (2,7), (3,6), (4,5) where slot now is
+        // [0,4,5,6,7,8,phantom,1,2,3]
         //            → (0,slot[9]=3), (4,2), (5,1), (6=slot[3]=6,phantom)→skip, (7,8)
         //            Wait I need to recount. Let me just verify the algorithm produces 36 pairs
         //            with no duplicates and no phantom, which AC9 already checks.
@@ -234,7 +237,9 @@ class RoundRobinMatchGeneratorTest {
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("AC2: match fields — tournamentId, phaseId, tenantId, state=0, setLimit=3, lap/field=null")
+    @DisplayName(
+            "AC2: match fields — tournamentId, phaseId, tenantId, state=0, setLimit=3,"
+                    + " lap/field=null")
     void matchFieldsAreCorrect() {
         List<Match> matches = generator.generate(phase, makeAvatars(4));
         assertThat(matches).hasSize(6);
@@ -284,8 +289,8 @@ class RoundRobinMatchGeneratorTest {
     }
 
     /**
-     * Asserts that every pair (i, j) with i &lt; j (by list index) appears exactly once
-     * in {@code matches}, and no additional pairs are present.
+     * Asserts that every pair (i, j) with i &lt; j (by list index) appears exactly once in {@code
+     * matches}, and no additional pairs are present.
      */
     private void assertEveryPairExactlyOnce(List<TeamAvatar> avatars, List<Match> matches) {
         // Build expected canonical pair set: {min(id_i, id_j) → max(id_i, id_j)} for all i<j
@@ -305,9 +310,7 @@ class RoundRobinMatchGeneratorTest {
             UUID a = match.getMemberAvatar1Id();
             UUID b = match.getMemberAvatar2Id();
             String key = a.compareTo(b) < 0 ? a + ":" + b : b + ":" + a;
-            assertThat(actualPairs.add(key))
-                    .as("Duplicate pair (%s, %s)", a, b)
-                    .isTrue();
+            assertThat(actualPairs.add(key)).as("Duplicate pair (%s, %s)", a, b).isTrue();
         }
 
         assertThat(actualPairs).isEqualTo(expectedPairs);

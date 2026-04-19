@@ -1,5 +1,8 @@
 package de.vvwt.tm.domain.rules;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import de.vvwt.tm.domain.MatchFormat;
 import de.vvwt.tm.domain.MatchOutcome;
 import org.junit.jupiter.api.BeforeEach;
@@ -7,12 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-/**
- * Unit tests for {@link TwoPointMatchRule} (AC9 + AC12 null/negative guards).
- */
+/** Unit tests for {@link TwoPointMatchRule} (AC9 + AC12 null/negative guards). */
 class TwoPointMatchRuleTest {
 
     private TwoPointMatchRule rule;
@@ -29,12 +27,12 @@ class TwoPointMatchRuleTest {
     @ParameterizedTest(name = "format={0} team1={1} team2={2} sets={3} → ({4},{5})")
     @CsvSource({
         // format,           t1, t2, sc, expected1, expected2
-        "BEST_OF_5,          3,  0,  3,  2, 0",  // AC9 row 1: team1 wins → 2/0
-        "BEST_OF_5,          3,  1,  4,  2, 0",  // AC9 row 2: team1 wins → 2/0
-        "BEST_OF_5,          3,  2,  5,  2, 0",  // AC9 row 3: team1 wins tie-break → still 2/0
-        "BEST_OF_5,          0,  3,  3,  0, 2",  // AC9 row 4: team2 wins → 0/2
-        "FIXED_2_SETS,       2,  0,  2,  2, 0",  // AC9 row 5: team1 wins → 2/0
-        "FIXED_2_SETS,       1,  1,  2,  1, 1",  // AC9 row 6: tie allowed → 1/1
+        "BEST_OF_5,          3,  0,  3,  2, 0", // AC9 row 1: team1 wins → 2/0
+        "BEST_OF_5,          3,  1,  4,  2, 0", // AC9 row 2: team1 wins → 2/0
+        "BEST_OF_5,          3,  2,  5,  2, 0", // AC9 row 3: team1 wins tie-break → still 2/0
+        "BEST_OF_5,          0,  3,  3,  0, 2", // AC9 row 4: team2 wins → 0/2
+        "FIXED_2_SETS,       2,  0,  2,  2, 0", // AC9 row 5: team1 wins → 2/0
+        "FIXED_2_SETS,       1,  1,  2,  1, 1", // AC9 row 6: tie allowed → 1/1
     })
     void calculatePoints_winner2Loser0_tie11(
             MatchFormat format, int t1, int t2, int sc, int exp1, int exp2) {

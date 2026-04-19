@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.vvwt.worker.types.CanonicalPhaseDef;
 import de.vvwt.worker.types.PacketResult;
-
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -19,14 +18,15 @@ import java.util.UUID;
 
 /**
  * HTTP client for the three dispatcher endpoints used by the worker:
+ *
  * <ol>
- *   <li>{@code POST /register-key} — E01S06 AC1</li>
- *   <li>{@code POST /pull-packet} — E01S07 AC3</li>
- *   <li>{@code POST /submit-result} — E01S08 AC1</li>
+ *   <li>{@code POST /register-key} — E01S06 AC1
+ *   <li>{@code POST /pull-packet} — E01S07 AC3
+ *   <li>{@code POST /submit-result} — E01S08 AC1
  * </ol>
  *
- * <p>This class is a thin adapter. It does not implement retry or back-off logic —
- * that is the responsibility of {@code WorkerLoop}.
+ * <p>This class is a thin adapter. It does not implement retry or back-off logic — that is the
+ * responsibility of {@code WorkerLoop}.
  *
  * <p>Implements Story E01S05 AC2, AC3, AC4, AC5, AC6 (HTTP layer only).
  */
@@ -45,24 +45,23 @@ public final class DispatcherClient {
      * @param dispatcherBaseUrl base URL of the dispatcher (no trailing slash)
      */
     public DispatcherClient(String dispatcherBaseUrl) {
-        this(dispatcherBaseUrl, HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(10))
-                .build());
+        this(
+                dispatcherBaseUrl,
+                HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build());
     }
 
-    /**
-     * Package-visible constructor for testing — allows injecting a custom {@link HttpClient}.
-     */
+    /** Package-visible constructor for testing — allows injecting a custom {@link HttpClient}. */
     DispatcherClient(String dispatcherBaseUrl, HttpClient httpClient) {
         if (dispatcherBaseUrl == null || dispatcherBaseUrl.isBlank()) {
             throw new IllegalArgumentException("dispatcherBaseUrl must not be null or blank");
         }
         this.dispatcherBaseUrl = dispatcherBaseUrl;
         this.httpClient = httpClient;
-        this.objectMapper = new ObjectMapper()
-                .registerModule(new JavaTimeModule())
-                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        this.objectMapper =
+                new ObjectMapper()
+                        .registerModule(new JavaTimeModule())
+                        .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
 
     // -------------------------------------------------------------------------
@@ -81,21 +80,23 @@ public final class DispatcherClient {
      * Calls {@code POST /register-key} with role=worker.
      *
      * @param publicKeyBytes raw 32-byte Ed25519 public key
-     * @param name           optional human-readable label (may be null)
+     * @param name optional human-readable label (may be null)
      * @return {@link RegisterResult} on success
      * @throws DispatcherException on 4xx / 5xx / network error
      */
-    public RegisterResult registerKey(byte[] publicKeyBytes, String name) throws DispatcherException {
+    public RegisterResult registerKey(byte[] publicKeyBytes, String name)
+            throws DispatcherException {
         String base64Key = Base64.getEncoder().encodeToString(publicKeyBytes);
         RegisterKeyRequestBody body = new RegisterKeyRequestBody("worker", base64Key, null, name);
         String bodyJson = toJson(body);
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(dispatcherBaseUrl + "/register-key"))
-                .header("Content-Type", "application/json")
-                .timeout(REQUEST_TIMEOUT)
-                .POST(HttpRequest.BodyPublishers.ofString(bodyJson))
-                .build();
+        HttpRequest request =
+                HttpRequest.newBuilder()
+                        .uri(URI.create(dispatcherBaseUrl + "/register-key"))
+                        .header("Content-Type", "application/json")
+                        .timeout(REQUEST_TIMEOUT)
+                        .POST(HttpRequest.BodyPublishers.ofString(bodyJson))
+                        .build();
 
         HttpResponse<String> response = sendRequest(request);
 
@@ -110,9 +111,7 @@ public final class DispatcherClient {
     // pull-packet (AC3)
     // -------------------------------------------------------------------------
 
-    /**
-     * Result type for pull-packet calls.
-     */
+    /** Result type for pull-packet calls. */
     public sealed interface PullResult permits PullResult.PacketAssigned, PullResult.NoWork {
 
         /** A packet was assigned. */
@@ -123,8 +122,8 @@ public final class DispatcherClient {
                 int n,
                 long rankFrom,
                 long rankTo,
-                Instant deadline
-        ) implements PullResult {}
+                Instant deadline)
+                implements PullResult {}
 
         /** No packets are currently available (dispatcher returned 204). */
         record NoWork() implements PullResult {}
@@ -133,9 +132,9 @@ public final class DispatcherClient {
     /**
      * Calls {@code POST /pull-packet} with a signed nonce.
      *
-     * @param workerKeyId  UUID of the registered worker key
-     * @param signature    Base64-encoded Ed25519 signature of the canonical nonce bytes
-     * @param signedNonce  ISO-8601 instant string that was signed
+     * @param workerKeyId UUID of the registered worker key
+     * @param signature Base64-encoded Ed25519 signature of the canonical nonce bytes
+     * @param signedNonce ISO-8601 instant string that was signed
      * @return {@link PullResult.PacketAssigned} or {@link PullResult.NoWork}
      * @throws DispatcherException on 4xx / 5xx / network error
      */
@@ -144,12 +143,13 @@ public final class DispatcherClient {
         PullPacketRequestBody body = new PullPacketRequestBody(workerKeyId, signature, signedNonce);
         String bodyJson = toJson(body);
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(dispatcherBaseUrl + "/pull-packet"))
-                .header("Content-Type", "application/json")
-                .timeout(REQUEST_TIMEOUT)
-                .POST(HttpRequest.BodyPublishers.ofString(bodyJson))
-                .build();
+        HttpRequest request =
+                HttpRequest.newBuilder()
+                        .uri(URI.create(dispatcherBaseUrl + "/pull-packet"))
+                        .header("Content-Type", "application/json")
+                        .timeout(REQUEST_TIMEOUT)
+                        .POST(HttpRequest.BodyPublishers.ofString(bodyJson))
+                        .build();
 
         HttpResponse<String> response = sendRequest(request);
 
@@ -168,8 +168,7 @@ public final class DispatcherClient {
                     n,
                     resp.rankFrom(),
                     resp.rankTo(),
-                    resp.deadline()
-            );
+                    resp.deadline());
         }
         throw new DispatcherException(response.statusCode(), response.body(), "pull-packet");
     }
@@ -181,11 +180,11 @@ public final class DispatcherClient {
     /**
      * Calls {@code POST /submit-result}.
      *
-     * @param packetId            UUID of the solved packet
-     * @param jobId               UUID of the owning job
-     * @param result              the PacketResult from PacketSolver
-     * @param workerKeyId         UUID of the registered worker key
-     * @param base64Signature     Base64-encoded Ed25519 signature over the 72-byte canonical payload
+     * @param packetId UUID of the solved packet
+     * @param jobId UUID of the owning job
+     * @param result the PacketResult from PacketSolver
+     * @param workerKeyId UUID of the registered worker key
+     * @param base64Signature Base64-encoded Ed25519 signature over the 72-byte canonical payload
      * @return true if this was the first accepted result; false if late-logged
      * @throws DispatcherException on 4xx / 5xx / network error
      */
@@ -194,31 +193,33 @@ public final class DispatcherClient {
             UUID jobId,
             PacketResult result,
             UUID workerKeyId,
-            String base64Signature
-    ) throws DispatcherException {
-        SubmitResultRequestBody body = new SubmitResultRequestBody(
-                packetId,
-                jobId,
-                result.bestRank(),
-                Double.toString(result.bestScore()),
-                result.permutationsScored(),
-                result.wallClockNanos(),
-                workerKeyId,
-                base64Signature
-        );
+            String base64Signature)
+            throws DispatcherException {
+        SubmitResultRequestBody body =
+                new SubmitResultRequestBody(
+                        packetId,
+                        jobId,
+                        result.bestRank(),
+                        Double.toString(result.bestScore()),
+                        result.permutationsScored(),
+                        result.wallClockNanos(),
+                        workerKeyId,
+                        base64Signature);
         String bodyJson = toJson(body);
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(dispatcherBaseUrl + "/submit-result"))
-                .header("Content-Type", "application/json")
-                .timeout(REQUEST_TIMEOUT)
-                .POST(HttpRequest.BodyPublishers.ofString(bodyJson))
-                .build();
+        HttpRequest request =
+                HttpRequest.newBuilder()
+                        .uri(URI.create(dispatcherBaseUrl + "/submit-result"))
+                        .header("Content-Type", "application/json")
+                        .timeout(REQUEST_TIMEOUT)
+                        .POST(HttpRequest.BodyPublishers.ofString(bodyJson))
+                        .build();
 
         HttpResponse<String> response = sendRequest(request);
 
         if (response.statusCode() == 200) {
-            SubmitResultResponseBody resp = fromJson(response.body(), SubmitResultResponseBody.class);
+            SubmitResultResponseBody resp =
+                    fromJson(response.body(), SubmitResultResponseBody.class);
             return resp.firstResult();
         }
         throw new DispatcherException(response.statusCode(), response.body(), "submit-result");
@@ -251,7 +252,8 @@ public final class DispatcherClient {
         try {
             return objectMapper.readValue(json, type);
         } catch (Exception e) {
-            throw new IllegalStateException("Failed to deserialize response body: " + e.getMessage(), e);
+            throw new IllegalStateException(
+                    "Failed to deserialize response body: " + e.getMessage(), e);
         }
     }
 
@@ -271,8 +273,7 @@ public final class DispatcherClient {
             CanonicalPhaseDef jobDef,
             long rankFrom,
             long rankTo,
-            Instant deadline
-    ) {}
+            Instant deadline) {}
 
     record SubmitResultRequestBody(
             UUID packetId,
@@ -282,14 +283,12 @@ public final class DispatcherClient {
             Long permutationsScored,
             Long wallClockNanos,
             UUID workerKeyId,
-            String signature
-    ) {}
+            String signature) {}
 
     record SubmitResultResponseBody(
             boolean accepted,
             boolean firstResult,
             Boolean latentlyLogged,
             Boolean duplicate,
-            String deadline
-    ) {}
+            String deadline) {}
 }

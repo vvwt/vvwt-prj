@@ -1,5 +1,11 @@
 package de.vvwt.tm.infrastructure.score;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import de.vvwt.tm.domain.CascadeRecomputeService;
 import de.vvwt.tm.domain.Device;
 import de.vvwt.tm.domain.ForbiddenException;
@@ -19,36 +25,27 @@ import de.vvwt.tm.domain.repo.TeamRepository;
 import de.vvwt.tm.domain.repo.TournamentRepository;
 import de.vvwt.tm.infrastructure.score.dto.MatchScoreResponse;
 import de.vvwt.tm.infrastructure.score.dto.SetSubmitRequest;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 /**
  * Unit tests for {@link ScoreEntryService} (E06S06).
  *
  * <p>All collaborators are mocked. Tests verify:
+ *
  * <ul>
- *   <li>AC1/AC4: Match resolution by field+lap</li>
- *   <li>AC8: Device token validation (401/403 paths)</li>
- *   <li>AC9: Empty Optional returned when no match</li>
- *   <li>AC12: ForbiddenException thrown for wrong field</li>
- *   <li>AC7/AC8: SetResultInput built with sourceType=TABLET and sourceDeviceId</li>
+ *   <li>AC1/AC4: Match resolution by field+lap
+ *   <li>AC8: Device token validation (401/403 paths)
+ *   <li>AC9: Empty Optional returned when no match
+ *   <li>AC12: ForbiddenException thrown for wrong field
+ *   <li>AC7/AC8: SetResultInput built with sourceType=TABLET and sourceDeviceId
  * </ul>
  */
 @DisplayName("ScoreEntryService unit tests (E06S06)")
@@ -71,32 +68,38 @@ class ScoreEntryServiceTest {
     // -------------------------------------------------------------------------
     // Fixtures
     // -------------------------------------------------------------------------
-    private static final UUID TENANT_ID   = UUID.randomUUID();
-    private static final UUID DEVICE_ID   = UUID.randomUUID();
+    private static final UUID TENANT_ID = UUID.randomUUID();
+    private static final UUID DEVICE_ID = UUID.randomUUID();
     private static final String DEV_TOKEN = UUID.randomUUID().toString();
-    private static final UUID TOUR_ID     = UUID.randomUUID();
-    private static final UUID PHASE_ID    = UUID.randomUUID();
-    private static final UUID MATCH_ID    = UUID.randomUUID();
-    private static final UUID AVATAR1_ID  = UUID.randomUUID();
-    private static final UUID AVATAR2_ID  = UUID.randomUUID();
-    private static final UUID TEAM1_ID    = UUID.randomUUID();
-    private static final UUID TEAM2_ID    = UUID.randomUUID();
+    private static final UUID TOUR_ID = UUID.randomUUID();
+    private static final UUID PHASE_ID = UUID.randomUUID();
+    private static final UUID MATCH_ID = UUID.randomUUID();
+    private static final UUID AVATAR1_ID = UUID.randomUUID();
+    private static final UUID AVATAR2_ID = UUID.randomUUID();
+    private static final UUID TEAM1_ID = UUID.randomUUID();
+    private static final UUID TEAM2_ID = UUID.randomUUID();
 
     @BeforeEach
     void setUp() {
-        deviceRepository       = mock(DeviceRepository.class);
-        tournamentRepository   = mock(TournamentRepository.class);
-        phaseRepository        = mock(PhaseRepository.class);
-        matchRepository        = mock(MatchRepository.class);
-        teamAvatarRepository   = mock(TeamAvatarRepository.class);
-        teamRepository         = mock(TeamRepository.class);
+        deviceRepository = mock(DeviceRepository.class);
+        tournamentRepository = mock(TournamentRepository.class);
+        phaseRepository = mock(PhaseRepository.class);
+        matchRepository = mock(MatchRepository.class);
+        teamAvatarRepository = mock(TeamAvatarRepository.class);
+        teamRepository = mock(TeamRepository.class);
         cascadeRecomputeService = mock(CascadeRecomputeService.class);
-        messagingTemplate      = mock(SimpMessagingTemplate.class);
+        messagingTemplate = mock(SimpMessagingTemplate.class);
 
-        service = new ScoreEntryService(
-                deviceRepository, tournamentRepository, phaseRepository,
-                matchRepository, teamAvatarRepository, teamRepository,
-                cascadeRecomputeService, messagingTemplate);
+        service =
+                new ScoreEntryService(
+                        deviceRepository,
+                        tournamentRepository,
+                        phaseRepository,
+                        matchRepository,
+                        teamAvatarRepository,
+                        teamRepository,
+                        cascadeRecomputeService,
+                        messagingTemplate);
     }
 
     // =========================================================================
@@ -113,7 +116,9 @@ class ScoreEntryServiceTest {
     }
 
     @Test
-    @DisplayName("AC8: getMatchForField throws UnauthorizedException when device is REGISTERED (not ASSIGNED)")
+    @DisplayName(
+            "AC8: getMatchForField throws UnauthorizedException when device is REGISTERED (not"
+                    + " ASSIGNED)")
     void getMatchForField_registeredDevice_throws401() {
         Device device = stubDevice(1, Device.STATUS_REGISTERED);
         when(deviceRepository.findByDeviceToken(DEV_TOKEN)).thenReturn(Optional.of(device));
@@ -127,9 +132,11 @@ class ScoreEntryServiceTest {
     // =========================================================================
 
     @Test
-    @DisplayName("AC12: getMatchForField throws ForbiddenException when device is on field 2 but request is for field 1")
+    @DisplayName(
+            "AC12: getMatchForField throws ForbiddenException when device is on field 2 but request"
+                    + " is for field 1")
     void getMatchForField_wrongField_throws403() {
-        Device device = stubDevice(2, Device.STATUS_ASSIGNED);  // assigned to field 2
+        Device device = stubDevice(2, Device.STATUS_ASSIGNED); // assigned to field 2
         when(deviceRepository.findByDeviceToken(DEV_TOKEN)).thenReturn(Optional.of(device));
 
         assertThatThrownBy(() -> service.getMatchForField(1, DEV_TOKEN))
@@ -180,7 +187,8 @@ class ScoreEntryServiceTest {
         Phase phase = stubPhase("ACTIVE", 1);
         when(phaseRepository.findByTournamentId(TOUR_ID)).thenReturn(List.of(phase));
 
-        when(matchRepository.findByFieldNumberAndLapNumber(1, 1)).thenReturn(Collections.emptyList());
+        when(matchRepository.findByFieldNumberAndLapNumber(1, 1))
+                .thenReturn(Collections.emptyList());
 
         Optional<MatchScoreResponse> result = service.getMatchForField(1, DEV_TOKEN);
 

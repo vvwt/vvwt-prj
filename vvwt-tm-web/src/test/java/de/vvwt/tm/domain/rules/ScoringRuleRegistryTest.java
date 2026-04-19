@@ -1,23 +1,21 @@
 package de.vvwt.tm.domain.rules;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import de.vvwt.tm.domain.MatchFormat;
 import de.vvwt.tm.domain.MatchOutcome;
 import de.vvwt.tm.domain.Tournament;
 import de.vvwt.tm.domain.generator.MatchGeneratorRegistry;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
- * Unit tests for {@link ScoringRuleRegistry} (AC6, AC11) and
- * {@link TournamentRuleResolver} (AC7, AC11).
- * Also covers AC14 (non-negative points guard) and AC12 (unknown bean ID).
+ * Unit tests for {@link ScoringRuleRegistry} (AC6, AC11) and {@link TournamentRuleResolver} (AC7,
+ * AC11). Also covers AC14 (non-negative points guard) and AC12 (unknown bean ID).
  */
 class ScoringRuleRegistryTest {
 
@@ -26,22 +24,20 @@ class ScoringRuleRegistryTest {
 
     @BeforeEach
     void setUp() {
-        List<ScoringRule> rules = List.of(
-                new SetPointsRule(),
-                new TwoPointMatchRule(),
-                new ThreePointMatchRule()
-        );
+        List<ScoringRule> rules =
+                List.of(new SetPointsRule(), new TwoPointMatchRule(), new ThreePointMatchRule());
         registry = new ScoringRuleRegistry(rules);
 
         // TournamentRuleResolver (E03S07 + E03S08 merged) requires both registries.
         // Use a minimal SetValidationRuleRegistry for this unit test scope.
-        List<SetValidationRule> setRules = List.of(
-                new StandardVolleyballSet(),
-                new TimeBoundedSet()
-        );
-        SetValidationRuleRegistry setRegistry = new SetValidationRuleRegistry(
-                setRules.stream().collect(
-                        java.util.stream.Collectors.toMap(SetValidationRule::getBeanId, r -> r)));
+        List<SetValidationRule> setRules =
+                List.of(new StandardVolleyballSet(), new TimeBoundedSet());
+        SetValidationRuleRegistry setRegistry =
+                new SetValidationRuleRegistry(
+                        setRules.stream()
+                                .collect(
+                                        java.util.stream.Collectors.toMap(
+                                                SetValidationRule::getBeanId, r -> r)));
         // E03S09 adds MatchGeneratorRegistry as a third parameter — use an empty registry here
         // since this test only exercises the ScoringRule resolution path.
         MatchGeneratorRegistry genRegistry = new MatchGeneratorRegistry(Collections.emptyList());
@@ -79,19 +75,19 @@ class ScoringRuleRegistryTest {
         assertThatThrownBy(() -> registry.get("unknown"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("unknown")
-                .satisfies(ex -> {
-                    String msg = ex.getMessage();
-                    // Known IDs must appear in the error message
-                    assertThat(msg).contains("setPoints");
-                    assertThat(msg).contains("twoPoint");
-                    assertThat(msg).contains("threePoint");
-                });
+                .satisfies(
+                        ex -> {
+                            String msg = ex.getMessage();
+                            // Known IDs must appear in the error message
+                            assertThat(msg).contains("setPoints");
+                            assertThat(msg).contains("twoPoint");
+                            assertThat(msg).contains("threePoint");
+                        });
     }
 
     @Test
     void get_emptyId_throwsWithKnownIds() {
-        assertThatThrownBy(() -> registry.get(""))
-                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> registry.get("")).isInstanceOf(IllegalArgumentException.class);
     }
 
     // -----------------------------------------------------------------------
@@ -182,7 +178,6 @@ class ScoringRuleRegistryTest {
                 "standardVolleyball",
                 "roundRobin",
                 "DRAFT",
-                null
-        );
+                null);
     }
 }

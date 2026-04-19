@@ -1,24 +1,23 @@
 package de.vvwt.tm.tenant.internal;
 
-import de.vvwt.tm.tenant.TenantRegistryPort;
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import de.vvwt.tm.tenant.TenantRegistryPort;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.Test;
 
 /**
  * TDD Red-Green tests for {@link TenantRegistryPort#getDefault()} — AC1 (DEC-22 Iron Law).
  *
- * <p>This test file was written BEFORE {@code getDefault()} was added to the interface,
- * proving the RED state (compilation failure) as mandated by DEC-22.
+ * <p>This test file was written BEFORE {@code getDefault()} was added to the interface, proving the
+ * RED state (compilation failure) as mandated by DEC-22.
  *
- * <p>Tests use an in-memory stub that extends {@link StubTenantRegistryPort} to implement
- * the new method, proving behaviour without coupling to production {@link TenantFileRegistry}.
+ * <p>Tests use an in-memory stub that extends {@link StubTenantRegistryPort} to implement the new
+ * method, proving behaviour without coupling to production {@link TenantFileRegistry}.
  *
  * <p>Story: E14S12 — DEC-22/DEC-24/DEC-20/DEC-21.
  */
@@ -29,9 +28,9 @@ class TenantRegistryPortGetDefaultTest {
     // -------------------------------------------------------------------------
 
     /**
-     * In-memory stub that implements {@link TenantRegistryPort} including the new
-     * {@code getDefault()} method. Stores tenants in a list. The last registered tenant
-     * is not designated "default" unless it has displayName "Default (LAN)".
+     * In-memory stub that implements {@link TenantRegistryPort} including the new {@code
+     * getDefault()} method. Stores tenants in a list. The last registered tenant is not designated
+     * "default" unless it has displayName "Default (LAN)".
      */
     static class StubTenantRegistryPort implements TenantRegistryPort {
 
@@ -57,24 +56,24 @@ class TenantRegistryPortGetDefaultTest {
         /**
          * Returns the UUID of the unique default tenant (displayName "Default (LAN)").
          *
-         * <p>AC2 (DEC-24): cross-references DEC-24 for mandate, caching semantics: this stub
-         * does not cache (Wave-1 test scope).
+         * <p>AC2 (DEC-24): cross-references DEC-24 for mandate, caching semantics: this stub does
+         * not cache (Wave-1 test scope).
          *
          * @throws IllegalStateException if no default tenant is registered
          * @throws IllegalStateException if multiple default tenants are registered
          */
         @Override
         public UUID getDefault() {
-            List<TenantRecord> defaults = records.stream()
-                    .filter(r -> DEFAULT_DISPLAY_NAME.equals(r.displayName()))
-                    .toList();
+            List<TenantRecord> defaults =
+                    records.stream()
+                            .filter(r -> DEFAULT_DISPLAY_NAME.equals(r.displayName()))
+                            .toList();
             if (defaults.isEmpty()) {
                 throw new IllegalStateException(
                         "no default tenant registered — bootstrap not complete");
             }
             if (defaults.size() > 1) {
-                throw new IllegalStateException(
-                        "registry violates single-default invariant");
+                throw new IllegalStateException("registry violates single-default invariant");
             }
             return defaults.get(0).tenantId();
         }
@@ -105,8 +104,8 @@ class TenantRegistryPortGetDefaultTest {
     // -------------------------------------------------------------------------
 
     /**
-     * AC3: when no default tenant is registered, {@code getDefault()} throws
-     * {@link IllegalStateException} with message "no default tenant registered".
+     * AC3: when no default tenant is registered, {@code getDefault()} throws {@link
+     * IllegalStateException} with message "no default tenant registered".
      */
     @Test
     void getDefaultThrowsWhenNoDefaultTenantRegistered() {
@@ -114,7 +113,9 @@ class TenantRegistryPortGetDefaultTest {
         // No tenants registered at all
 
         assertThatThrownBy(port::getDefault)
-                .as("getDefault() must throw IllegalStateException when no default tenant is present (AC3)")
+                .as(
+                        "getDefault() must throw IllegalStateException when no default tenant is"
+                                + " present (AC3)")
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("no default tenant registered");
     }
@@ -123,9 +124,7 @@ class TenantRegistryPortGetDefaultTest {
     // AC3 — zero default tenants even with non-default tenants present
     // -------------------------------------------------------------------------
 
-    /**
-     * AC3: {@code getDefault()} throws even when non-default tenants exist.
-     */
+    /** AC3: {@code getDefault()} throws even when non-default tenants exist. */
     @Test
     void getDefaultThrowsWhenOnlyNonDefaultTenantsRegistered() {
         StubTenantRegistryPort port = new StubTenantRegistryPort();
@@ -142,9 +141,9 @@ class TenantRegistryPortGetDefaultTest {
     // -------------------------------------------------------------------------
 
     /**
-     * AC3: when multiple default tenants are registered (invariant violation),
-     * {@code getDefault()} throws {@link IllegalStateException} with message
-     * "registry violates single-default invariant".
+     * AC3: when multiple default tenants are registered (invariant violation), {@code getDefault()}
+     * throws {@link IllegalStateException} with message "registry violates single-default
+     * invariant".
      */
     @Test
     void getDefaultThrowsWhenMultipleDefaultTenantsRegistered() {
@@ -153,7 +152,9 @@ class TenantRegistryPortGetDefaultTest {
         port.register(UUID.randomUUID(), "Default (LAN)"); // duplicate — invariant violation
 
         assertThatThrownBy(port::getDefault)
-                .as("getDefault() must throw when multiple default tenants exist (single-default invariant, AC3)")
+                .as(
+                        "getDefault() must throw when multiple default tenants exist"
+                                + " (single-default invariant, AC3)")
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("registry violates single-default invariant");
     }
@@ -163,8 +164,8 @@ class TenantRegistryPortGetDefaultTest {
     // -------------------------------------------------------------------------
 
     /**
-     * AC3: when both a default and a non-default tenant are registered,
-     * {@code getDefault()} returns only the default tenant's UUID.
+     * AC3: when both a default and a non-default tenant are registered, {@code getDefault()}
+     * returns only the default tenant's UUID.
      */
     @Test
     void getDefaultIgnoresNonDefaultTenantsAndReturnsOnlyDefault() {

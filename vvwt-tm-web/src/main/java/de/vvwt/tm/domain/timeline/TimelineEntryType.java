@@ -8,16 +8,19 @@ package de.vvwt.tm.domain.timeline;
  * respective views.
  *
  * <p>Values:
+ *
  * <ul>
- *   <li>{@link #MATCH_ROUND}      — an actual competition round; laps have assigned matches</li>
- *   <li>{@link #LAP_BREAK}        — the short gap between consecutive laps within a phase</li>
- *   <li>{@link #INTRA_PHASE_BREAK}— an organiser-configured pause within a phase (e.g. lunch)</li>
- *   <li>{@link #SECTION_BREAK}    — the transition gap between two consecutive phases</li>
+ *   <li>{@link #MATCH_ROUND} — an actual competition round; laps have assigned matches
+ *   <li>{@link #LAP_BREAK} — the short gap between consecutive laps within a phase
+ *   <li>{@link #INTRA_PHASE_BREAK}— an organiser-configured pause within a phase (e.g. lunch)
+ *   <li>{@link #SECTION_BREAK} — the transition gap between two consecutive phases
  * </ul>
  *
  * @see TimelineEntry
  * @see TimelineCalculationService
- * @see <a href="../../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S03.story.md">Story E08S03</a>
+ * @see <a
+ *     href="../../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S03.story.md">Story
+ *     E08S03</a>
  */
 public enum TimelineEntryType {
 
@@ -25,21 +28,20 @@ public enum TimelineEntryType {
     MATCH_ROUND,
 
     /**
-     * A short break between two consecutive laps within a phase.
-     * Omitted from Laufzettel display (implicit gap) but included in the timeline for completeness.
+     * A short break between two consecutive laps within a phase. Omitted from Laufzettel display
+     * (implicit gap) but included in the timeline for completeness.
      */
     LAP_BREAK,
 
     /**
-     * An organiser-configured pause that interrupts a phase at a specific lap boundary.
-     * Carries an optional display label (e.g., "Mittagspause") in the enclosing {@link TimelineEntry}.
+     * An organiser-configured pause that interrupts a phase at a specific lap boundary. Carries an
+     * optional display label (e.g., "Mittagspause") in the enclosing {@link TimelineEntry}.
      */
     INTRA_PHASE_BREAK,
 
     /**
-     * The gap between the end of one phase and the start of the next phase.
-     * Duration is set by the {@code sectionBreakMinutes} parameter in
-     * {@link TimelineCalculationService#calculate}.
+     * The gap between the end of one phase and the start of the next phase. Duration is set by the
+     * {@code sectionBreakMinutes} parameter in {@link TimelineCalculationService#calculate}.
      */
     SECTION_BREAK
 }

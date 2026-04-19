@@ -2,7 +2,6 @@ package de.vvwt.dispatcher.cache;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
-
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Objects;
@@ -10,12 +9,13 @@ import java.util.Objects;
 /**
  * Composite primary key for {@link CachedResultEntity}.
  *
- * <p>The three-column PK {@code (fingerprint, score_fn_version, canonicalization_version)}
- * captures all three dimensions of cache correctness per AC6 of E01S09:
+ * <p>The three-column PK {@code (fingerprint, score_fn_version, canonicalization_version)} captures
+ * all three dimensions of cache correctness per AC6 of E01S09:
+ *
  * <ul>
- *   <li>{@code fingerprint} — identifies the structural input</li>
- *   <li>{@code scoreFnVersion} — invalidates on scorer changes</li>
- *   <li>{@code canonicalizationVersion} — invalidates if the 5-step fingerprint rule changes</li>
+ *   <li>{@code fingerprint} — identifies the structural input
+ *   <li>{@code scoreFnVersion} — invalidates on scorer changes
+ *   <li>{@code canonicalizationVersion} — invalidates if the 5-step fingerprint rule changes
  * </ul>
  */
 @Embeddable
@@ -31,14 +31,13 @@ public class CachedResultId implements Serializable {
     private int canonicalizationVersion;
 
     /** JPA no-arg constructor. */
-    protected CachedResultId() {
-    }
+    protected CachedResultId() {}
 
     /**
      * Creates a composite key.
      *
-     * @param fingerprint            32-byte SHA-256 fingerprint; must not be {@code null}
-     * @param scoreFnVersion         scorer algorithm version
+     * @param fingerprint 32-byte SHA-256 fingerprint; must not be {@code null}
+     * @param scoreFnVersion scorer algorithm version
      * @param canonicalizationVersion canonicalization algorithm version
      */
     public CachedResultId(byte[] fingerprint, int scoreFnVersion, int canonicalizationVersion) {
@@ -47,8 +46,8 @@ public class CachedResultId implements Serializable {
             throw new IllegalArgumentException(
                     "fingerprint must be 32 bytes but was: " + fingerprint.length);
         }
-        this.fingerprint             = Arrays.copyOf(fingerprint, fingerprint.length);
-        this.scoreFnVersion          = scoreFnVersion;
+        this.fingerprint = Arrays.copyOf(fingerprint, fingerprint.length);
+        this.scoreFnVersion = scoreFnVersion;
         this.canonicalizationVersion = canonicalizationVersion;
     }
 

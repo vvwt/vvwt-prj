@@ -1,6 +1,6 @@
 package de.vvwt.tm.tenant;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -8,8 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
 
 /**
  * Contract tests for {@link TenantRegistryPort}.
@@ -17,12 +16,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>Uses a hand-rolled test double — no Mockito (AC7, DEC-22 anti-patterns ref).
  *
  * <p>Acceptance criteria covered:
+ *
  * <ul>
- *   <li>AC1 — test-first discipline: this file exists BEFORE the interface</li>
- *   <li>AC3 — lookup-by-identifier: known → {@code Optional} with value; unknown → {@code Optional.empty()}.
- *       This is explicitly distinct from {@link TenantDataSourceResolver#resolve(UUID)}, which throws
- *       on unknown tenants (documented distinction per AC3).</li>
- *   <li>AC8 — Javadoc coverage (verified in interface source)</li>
+ *   <li>AC1 — test-first discipline: this file exists BEFORE the interface
+ *   <li>AC3 — lookup-by-identifier: known → {@code Optional} with value; unknown → {@code
+ *       Optional.empty()}. This is explicitly distinct from {@link
+ *       TenantDataSourceResolver#resolve(UUID)}, which throws on unknown tenants (documented
+ *       distinction per AC3).
+ *   <li>AC8 — Javadoc coverage (verified in interface source)
  * </ul>
  *
  * <p>Story: E14S01 — DEC-20/DEC-21/DEC-22.
@@ -34,8 +35,8 @@ class TenantRegistryPortContractTest {
     // -------------------------------------------------------------------------
 
     /**
-     * In-memory test double for {@link TenantRegistryPort}.
-     * Known tenants return a {@code TenantRecord}; unknown tenants return {@code Optional.empty()}.
+     * In-memory test double for {@link TenantRegistryPort}. Known tenants return a {@code
+     * TenantRecord}; unknown tenants return {@code Optional.empty()}.
      */
     static class MapTenantRegistryPort implements TenantRegistryPort {
 
@@ -58,11 +59,13 @@ class TenantRegistryPortContractTest {
 
         @Override
         public UUID getDefault() {
-            List<TenantRecord> defaults = registry.values().stream()
-                    .filter(r -> "Default (LAN)".equals(r.displayName()))
-                    .toList();
+            List<TenantRecord> defaults =
+                    registry.values().stream()
+                            .filter(r -> "Default (LAN)".equals(r.displayName()))
+                            .toList();
             if (defaults.isEmpty()) {
-                throw new IllegalStateException("no default tenant registered \u2014 bootstrap not complete");
+                throw new IllegalStateException(
+                        "no default tenant registered \u2014 bootstrap not complete");
             }
             if (defaults.size() > 1) {
                 throw new IllegalStateException("registry violates single-default invariant");
@@ -76,8 +79,8 @@ class TenantRegistryPortContractTest {
     // -------------------------------------------------------------------------
 
     /**
-     * AC3: {@code lookup()} for a known tenant MUST return a non-empty {@link Optional}
-     * containing the tenant record.
+     * AC3: {@code lookup()} for a known tenant MUST return a non-empty {@link Optional} containing
+     * the tenant record.
      */
     @Test
     void lookupKnownTenantReturnsNonEmptyOptional() {
@@ -103,9 +106,9 @@ class TenantRegistryPortContractTest {
     // -------------------------------------------------------------------------
 
     /**
-     * AC3: {@code lookup()} for an unknown tenant MUST return {@link Optional#empty()}.
-     * This is the intentional contract difference from {@link TenantDataSourceResolver#resolve(UUID)},
-     * which throws — the distinction is: registry lookup is an existence check; resolution is routing.
+     * AC3: {@code lookup()} for an unknown tenant MUST return {@link Optional#empty()}. This is the
+     * intentional contract difference from {@link TenantDataSourceResolver#resolve(UUID)}, which
+     * throws — the distinction is: registry lookup is an existence check; resolution is routing.
      */
     @Test
     void lookupUnknownTenantReturnsEmptyOptional() {
@@ -115,8 +118,9 @@ class TenantRegistryPortContractTest {
         Optional<TenantRegistryPort.TenantRecord> result = port.lookup(unknownId);
 
         assertThat(result)
-                .as("lookup() for an unknown tenant must return Optional.empty() — "
-                    + "not throw, not return null (AC3 distinction from resolve())")
+                .as(
+                        "lookup() for an unknown tenant must return Optional.empty() — "
+                                + "not throw, not return null (AC3 distinction from resolve())")
                 .isEmpty();
     }
 
@@ -125,8 +129,8 @@ class TenantRegistryPortContractTest {
     // -------------------------------------------------------------------------
 
     /**
-     * DEC-17: the tenant identifier in the registry is UUID-based.
-     * Verifies that {@link TenantRegistryPort.TenantRecord#tenantId()} returns a {@link UUID}.
+     * DEC-17: the tenant identifier in the registry is UUID-based. Verifies that {@link
+     * TenantRegistryPort.TenantRecord#tenantId()} returns a {@link UUID}.
      */
     @Test
     void tenantRecordExposesUuidBasedTenantId() {

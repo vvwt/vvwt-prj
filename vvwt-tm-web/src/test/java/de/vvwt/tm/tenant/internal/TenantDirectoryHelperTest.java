@@ -1,24 +1,24 @@
 package de.vvwt.tm.tenant.internal;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Unit tests for {@link TenantDirectoryHelper}.
  *
  * <p>Acceptance criteria covered:
+ *
  * <ul>
- *   <li>AC2 — file layout: {@code ${tm.data.dir}/tenants/{uuid}/db.mv.db}</li>
- *   <li>AC4 — missing data dir created; non-writable dir fails fast</li>
- *   <li>AC-PATH-LENGTH — path length exceeding 250 chars fails fast with actionable message</li>
+ *   <li>AC2 — file layout: {@code ${tm.data.dir}/tenants/{uuid}/db.mv.db}
+ *   <li>AC4 — missing data dir created; non-writable dir fails fast
+ *   <li>AC-PATH-LENGTH — path length exceeding 250 chars fails fast with actionable message
  * </ul>
  *
  * <p>Story: E14S02 — DEC-10/DEC-20/DEC-21/DEC-22.
@@ -36,10 +36,13 @@ class TenantDirectoryHelperTest {
         Path dbPath = TenantDirectoryHelper.tenantDbPath(dataDir, tenantId);
 
         assertThat(dbPath)
-                .as("Tenant DB path must follow layout ${tm.data.dir}/tenants/{uuid}/db.mv.db (AC2)")
-                .isEqualTo(dataDir.resolve("tenants")
-                        .resolve(tenantId.toString())
-                        .resolve("db.mv.db"));
+                .as(
+                        "Tenant DB path must follow layout ${tm.data.dir}/tenants/{uuid}/db.mv.db"
+                                + " (AC2)")
+                .isEqualTo(
+                        dataDir.resolve("tenants")
+                                .resolve(tenantId.toString())
+                                .resolve("db.mv.db"));
     }
 
     // -------------------------------------------------------------------------
@@ -72,12 +75,15 @@ class TenantDirectoryHelperTest {
         TenantDirectoryHelper.createTenantDirectory(dataDir, tenantId);
 
         assertThat(tenantDir)
-                .as("createTenantDirectory must create the tenant directory if it does not exist (AC4)")
+                .as(
+                        "createTenantDirectory must create the tenant directory if it does not"
+                                + " exist (AC4)")
                 .isDirectory();
     }
 
     @Test
-    void createTenantDirectoryIsIdempotentIfDirectoryAlreadyExists(@TempDir Path dataDir) throws IOException {
+    void createTenantDirectoryIsIdempotentIfDirectoryAlreadyExists(@TempDir Path dataDir)
+            throws IOException {
         UUID tenantId = UUID.fromString("33333333-3333-3333-3333-333333333333");
         Path tenantDir = dataDir.resolve("tenants").resolve(tenantId.toString());
         Files.createDirectories(tenantDir);
@@ -85,16 +91,17 @@ class TenantDirectoryHelperTest {
         // Should not throw if directory already exists
         TenantDirectoryHelper.createTenantDirectory(dataDir, tenantId);
 
-        assertThat(tenantDir)
-                .as("createTenantDirectory must be idempotent (AC4)")
-                .isDirectory();
+        assertThat(tenantDir).as("createTenantDirectory must be idempotent (AC4)").isDirectory();
     }
 
     @Test
-    void createTenantDirectoryWithNonWritableParentFailsFast(@TempDir Path dataDir) throws IOException {
+    void createTenantDirectoryWithNonWritableParentFailsFast(@TempDir Path dataDir)
+            throws IOException {
         // Make the data dir non-writable if supported by this OS
-        org.junit.jupiter.api.Assumptions.assumeTrue(dataDir.toFile().setWritable(false),
-                "OS does not support restricting write permissions — skipping AC4 non-writable test");
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                dataDir.toFile().setWritable(false),
+                "OS does not support restricting write permissions — skipping AC4 non-writable"
+                        + " test");
 
         UUID tenantId = UUID.fromString("44444444-4444-4444-4444-444444444444");
 
@@ -122,7 +129,9 @@ class TenantDirectoryHelperTest {
         UUID tenantId = UUID.randomUUID();
 
         assertThatThrownBy(() -> TenantDirectoryHelper.tenantDbPath(longDataDir, tenantId))
-                .as("Path length exceeding 250 chars must throw with actionable message (AC-PATH-LENGTH)")
+                .as(
+                        "Path length exceeding 250 chars must throw with actionable message"
+                                + " (AC-PATH-LENGTH)")
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("250")
                 .hasMessageContaining(longDataDir.toString());

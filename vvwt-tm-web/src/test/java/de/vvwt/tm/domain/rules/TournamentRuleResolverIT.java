@@ -1,24 +1,26 @@
 package de.vvwt.tm.domain.rules;
 
+import static org.assertj.core.api.Assertions.*;
+
 import de.vvwt.tm.domain.Tournament;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import de.vvwt.tm.tenant.TenantContextTestSupport;
 import org.springframework.context.annotation.Import;
 
-import static org.assertj.core.api.Assertions.*;
-
 /**
- * Integration test for {@link TournamentRuleResolver} and {@link SetValidationRuleRegistry} (AC9, AC10).
+ * Integration test for {@link TournamentRuleResolver} and {@link SetValidationRuleRegistry} (AC9,
+ * AC10).
  *
  * <p>Loads the full Spring application context and verifies:
+ *
  * <ul>
- *   <li>AC9: {@code "standardVolleyball"} resolves to {@link StandardVolleyballSet}</li>
- *   <li>AC9: {@code "timeBounded"} resolves to {@link TimeBoundedSet}</li>
- *   <li>AC10: unknown id fails fast with {@link IllegalArgumentException} naming the unknown id
- *       and the list of known ids</li>
+ *   <li>AC9: {@code "standardVolleyball"} resolves to {@link StandardVolleyballSet}
+ *   <li>AC9: {@code "timeBounded"} resolves to {@link TimeBoundedSet}
+ *   <li>AC10: unknown id fails fast with {@link IllegalArgumentException} naming the unknown id and
+ *       the list of known ids
  * </ul>
  */
 @SpringBootTest
@@ -26,11 +28,9 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("TournamentRuleResolver integration")
 class TournamentRuleResolverIT {
 
-    @Autowired
-    private TournamentRuleResolver resolver;
+    @Autowired private TournamentRuleResolver resolver;
 
-    @Autowired
-    private SetValidationRuleRegistry registry;
+    @Autowired private SetValidationRuleRegistry registry;
 
     // -----------------------------------------------------------------------
     // AC9 — correct bean resolution via Tournament

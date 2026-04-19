@@ -1,22 +1,24 @@
 package de.vvwt.tm.infrastructure.print;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.auth.SecurityConfig;
 import de.vvwt.tm.infrastructure.web.dto.TournamentCreateRequest;
 import de.vvwt.tm.infrastructure.web.dto.TournamentResponse;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import java.net.URI;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import de.vvwt.tm.tenant.TenantContextTestSupport;
-import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import de.vvwt.tm.tenant.TenantContextTestSupport;
-import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
@@ -25,46 +27,41 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import de.vvwt.tm.tenant.TenantContextTestSupport;
-import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-
-import java.net.URI;
-import java.time.Instant;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for certificate print routes — E12S06.
  *
  * <p>Tests the full HTTP stack to verify:
+ *
  * <ul>
  *   <li>AC1: {@code GET /print/tournaments/{id}/certificates/{teamId}} — SVG path (not tested
- *       end-to-end without standings; route existence and error paths are verified)</li>
- *   <li>AC2: same route → HTML path (template format = html)</li>
- *   <li>AC3: {@code GET /print/tournaments/{id}/certificates} → ZIP path (SVG)</li>
- *   <li>AC4: same route → HTML all-certificates page</li>
- *   <li>AC5: Placement order from D-33 (verified via assembler unit test; here route delegates)</li>
- *   <li>AC6: All 6 template variables present in rendered output (HTML path)</li>
- *   <li>AC7: No template uploaded → 400 with German error message</li>
- *   <li>AC8: No standings (no matches played) → 400 with German error message</li>
- *   <li>AC9: Unknown tournament → 404; unknown team (not in standings) → 404</li>
- *   <li>AC10: Error messages are in German (default locale)</li>
- *   <li>AC11: All routes require admin auth → 401 without credentials; tenant isolation</li>
+ *       end-to-end without standings; route existence and error paths are verified)
+ *   <li>AC2: same route → HTML path (template format = html)
+ *   <li>AC3: {@code GET /print/tournaments/{id}/certificates} → ZIP path (SVG)
+ *   <li>AC4: same route → HTML all-certificates page
+ *   <li>AC5: Placement order from D-33 (verified via assembler unit test; here route delegates)
+ *   <li>AC6: All 6 template variables present in rendered output (HTML path)
+ *   <li>AC7: No template uploaded → 400 with German error message
+ *   <li>AC8: No standings (no matches played) → 400 with German error message
+ *   <li>AC9: Unknown tournament → 404; unknown team (not in standings) → 404
+ *   <li>AC10: Error messages are in German (default locale)
+ *   <li>AC11: All routes require admin auth → 401 without credentials; tenant isolation
  * </ul>
  *
  * <h2>Test data strategy</h2>
- * <p>Setting up full match+standings data requires running the slot optimizer (apply-draft),
- * which is too expensive here. We rely on:
+ *
+ * <p>Setting up full match+standings data requires running the slot optimizer (apply-draft), which
+ * is too expensive here. We rely on:
+ *
  * <ul>
- *   <li>Tournament created via REST API (draft status, no phases, no matches)</li>
- *   <li>HTML certificate template uploaded via the template API</li>
- *   <li>SVG certificate template uploaded via the template API</li>
- *   <li>Error-path tests (AC7, AC8) exercise the 400 responses</li>
- *   <li>Auth tests (AC11) and 404 tests (AC9) work without full data</li>
+ *   <li>Tournament created via REST API (draft status, no phases, no matches)
+ *   <li>HTML certificate template uploaded via the template API
+ *   <li>SVG certificate template uploaded via the template API
+ *   <li>Error-path tests (AC7, AC8) exercise the 400 responses
+ *   <li>Auth tests (AC11) and 404 tests (AC9) work without full data
  * </ul>
  *
  * <p>The {@link CertificateAssemblerTest} covers data assembly and rendering logic with
@@ -72,19 +69,21 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * @see PrintController
  * @see CertificateAssembler
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E12S06.story.md">Story E12S06</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E12S06.story.md">Story
+ *     E12S06</a>
  */
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         classes = {
-                de.vvwt.tm.TournamentManagerApplication.class,
-                PrintCertificateIT.TestAdminCredentials.class
+            de.vvwt.tm.TournamentManagerApplication.class,
+            PrintCertificateIT.TestAdminCredentials.class
         },
         properties = {
-                "spring.datasource.url=jdbc:h2:mem:e12s06certprintdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
-                        + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE",
-                "tm.certificate-templates.data-dir=${java.io.tmpdir}/tm-cert-print-it-e12s06",
-                "tm.certificate-templates.max-size-bytes=1048576"
+            "spring.datasource.url=jdbc:h2:mem:e12s06certprintdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
+                + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE",
+            "tm.certificate-templates.data-dir=${java.io.tmpdir}/tm-cert-print-it-e12s06",
+            "tm.certificate-templates.max-size-bytes=1048576"
         })
 @ActiveProfiles("test")
 @Import(TenantContextTestSupport.class)
@@ -95,28 +94,26 @@ class PrintCertificateIT {
 
     /** Minimal valid HTML certificate template with all 6 D-4 variable placeholders. */
     private static final byte[] SAMPLE_HTML_TEMPLATE =
-            ("<html><body>" +
-             "<h1>{{placement}} — {{teamName}}</h1>" +
-             "<p>{{tournamentName}}</p>" +
-             "<p>{{date}} — {{location}}</p>" +
-             "{{#hasPhoto}}<img src=\"{{teamPhoto}}\">{{/hasPhoto}}" +
-             "</body></html>")
+            ("<html><body>"
+                            + "<h1>{{placement}} — {{teamName}}</h1>"
+                            + "<p>{{tournamentName}}</p>"
+                            + "<p>{{date}} — {{location}}</p>"
+                            + "{{#hasPhoto}}<img src=\"{{teamPhoto}}\">{{/hasPhoto}}"
+                            + "</body></html>")
                     .getBytes(java.nio.charset.StandardCharsets.UTF_8);
 
     /** Minimal valid SVG certificate template with all 6 D-4 variable placeholders. */
     private static final byte[] SAMPLE_SVG_TEMPLATE =
-            ("<svg xmlns='http://www.w3.org/2000/svg'>" +
-             "<text>{{placement}} — {{teamName}}</text>" +
-             "<text>{{tournamentName}}</text>" +
-             "<text>{{date}} — {{location}}</text>" +
-             "</svg>")
+            ("<svg xmlns='http://www.w3.org/2000/svg'>"
+                            + "<text>{{placement}} — {{teamName}}</text>"
+                            + "<text>{{tournamentName}}</text>"
+                            + "<text>{{date}} — {{location}}</text>"
+                            + "</svg>")
                     .getBytes(java.nio.charset.StandardCharsets.UTF_8);
 
-    @LocalServerPort
-    private int port;
+    @LocalServerPort private int port;
 
-    @Autowired
-    private TestRestTemplate restTemplate;
+    @Autowired private TestRestTemplate restTemplate;
 
     private String baseUrl;
     private TestRestTemplate authed;
@@ -132,14 +129,22 @@ class PrintCertificateIT {
     // =========================================================================
 
     @Test
-    @DisplayName("AC11: GET /print/tournaments/{id}/certificates/{teamId} without credentials returns 401")
+    @DisplayName(
+            "AC11: GET /print/tournaments/{id}/certificates/{teamId} without credentials returns"
+                    + " 401")
     void singleCertificateRequiresAuthentication() throws Exception {
         UUID randomTournament = UUID.randomUUID();
-        UUID randomTeam       = UUID.randomUUID();
+        UUID randomTeam = UUID.randomUUID();
 
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/print/tournaments/" + randomTournament + "/certificates/" + randomTeam),
-                String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(
+                        new URI(
+                                baseUrl
+                                        + "/print/tournaments/"
+                                        + randomTournament
+                                        + "/certificates/"
+                                        + randomTeam),
+                        String.class);
 
         assertThat(response.getStatusCode())
                 .as("AC11: single certificate route must require authentication")
@@ -151,9 +156,14 @@ class PrintCertificateIT {
     void allCertificatesRequiresAuthentication() throws Exception {
         UUID randomTournament = UUID.randomUUID();
 
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/print/tournaments/" + randomTournament + "/certificates"),
-                String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(
+                        new URI(
+                                baseUrl
+                                        + "/print/tournaments/"
+                                        + randomTournament
+                                        + "/certificates"),
+                        String.class);
 
         assertThat(response.getStatusCode())
                 .as("AC11: all-certificates route must require authentication")
@@ -168,12 +178,17 @@ class PrintCertificateIT {
     @DisplayName("AC9: GET /print/tournaments/{unknownId}/certificates/{teamId} returns 404")
     void singleCertificateReturns404ForUnknownTournament() throws Exception {
         UUID unknownTournament = UUID.randomUUID();
-        UUID randomTeam        = UUID.randomUUID();
+        UUID randomTeam = UUID.randomUUID();
 
-        ResponseEntity<String> response = authed.getForEntity(
-                new URI(baseUrl + "/print/tournaments/" + unknownTournament +
-                        "/certificates/" + randomTeam),
-                String.class);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(
+                                baseUrl
+                                        + "/print/tournaments/"
+                                        + unknownTournament
+                                        + "/certificates/"
+                                        + randomTeam),
+                        String.class);
 
         assertThat(response.getStatusCode())
                 .as("AC9: unknown tournament must return 404")
@@ -185,9 +200,14 @@ class PrintCertificateIT {
     void allCertificatesReturns404ForUnknownTournament() throws Exception {
         UUID unknownTournament = UUID.randomUUID();
 
-        ResponseEntity<String> response = authed.getForEntity(
-                new URI(baseUrl + "/print/tournaments/" + unknownTournament + "/certificates"),
-                String.class);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(
+                                baseUrl
+                                        + "/print/tournaments/"
+                                        + unknownTournament
+                                        + "/certificates"),
+                        String.class);
 
         assertThat(response.getStatusCode())
                 .as("AC9: unknown tournament (all-certs route) must return 404")
@@ -202,12 +222,17 @@ class PrintCertificateIT {
     @DisplayName("AC7: GET single certificate without uploaded template returns 400")
     void singleCertificateReturns400WhenNoTemplateUploaded() throws Exception {
         UUID tournamentId = createTournament("Cert Route No Template Single");
-        UUID randomTeam   = UUID.randomUUID();
+        UUID randomTeam = UUID.randomUUID();
 
-        ResponseEntity<String> response = authed.getForEntity(
-                new URI(baseUrl + "/print/tournaments/" + tournamentId +
-                        "/certificates/" + randomTeam),
-                String.class);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(
+                                baseUrl
+                                        + "/print/tournaments/"
+                                        + tournamentId
+                                        + "/certificates/"
+                                        + randomTeam),
+                        String.class);
 
         assertThat(response.getStatusCode())
                 .as("AC7: no template uploaded must return 400")
@@ -219,9 +244,10 @@ class PrintCertificateIT {
     void allCertificatesReturns400WhenNoTemplateUploaded() throws Exception {
         UUID tournamentId = createTournament("Cert Route No Template All");
 
-        ResponseEntity<String> response = authed.getForEntity(
-                new URI(baseUrl + "/print/tournaments/" + tournamentId + "/certificates"),
-                String.class);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(baseUrl + "/print/tournaments/" + tournamentId + "/certificates"),
+                        String.class);
 
         assertThat(response.getStatusCode())
                 .as("AC7: no template uploaded (all route) must return 400")
@@ -232,12 +258,17 @@ class PrintCertificateIT {
     @DisplayName("AC10: 400 error message is in German when no template uploaded")
     void noTemplateErrorMessageIsGerman() throws Exception {
         UUID tournamentId = createTournament("German Error Message Test");
-        UUID randomTeam   = UUID.randomUUID();
+        UUID randomTeam = UUID.randomUUID();
 
-        ResponseEntity<String> response = authed.getForEntity(
-                new URI(baseUrl + "/print/tournaments/" + tournamentId +
-                        "/certificates/" + randomTeam),
-                String.class);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(
+                                baseUrl
+                                        + "/print/tournaments/"
+                                        + tournamentId
+                                        + "/certificates/"
+                                        + randomTeam),
+                        String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody())
@@ -256,10 +287,15 @@ class PrintCertificateIT {
         uploadHtmlTemplate(tournamentId);
 
         UUID randomTeam = UUID.randomUUID();
-        ResponseEntity<String> response = authed.getForEntity(
-                new URI(baseUrl + "/print/tournaments/" + tournamentId +
-                        "/certificates/" + randomTeam),
-                String.class);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(
+                                baseUrl
+                                        + "/print/tournaments/"
+                                        + tournamentId
+                                        + "/certificates/"
+                                        + randomTeam),
+                        String.class);
 
         assertThat(response.getStatusCode())
                 .as("AC8: no standings (no phases/ratings) must return 400")
@@ -272,9 +308,10 @@ class PrintCertificateIT {
         UUID tournamentId = createTournament("Cert Route No Standings All");
         uploadHtmlTemplate(tournamentId);
 
-        ResponseEntity<String> response = authed.getForEntity(
-                new URI(baseUrl + "/print/tournaments/" + tournamentId + "/certificates"),
-                String.class);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(baseUrl + "/print/tournaments/" + tournamentId + "/certificates"),
+                        String.class);
 
         assertThat(response.getStatusCode())
                 .as("AC8: no standings (all route) must return 400")
@@ -288,10 +325,15 @@ class PrintCertificateIT {
         uploadHtmlTemplate(tournamentId);
         UUID randomTeam = UUID.randomUUID();
 
-        ResponseEntity<String> response = authed.getForEntity(
-                new URI(baseUrl + "/print/tournaments/" + tournamentId +
-                        "/certificates/" + randomTeam),
-                String.class);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(
+                                baseUrl
+                                        + "/print/tournaments/"
+                                        + tournamentId
+                                        + "/certificates/"
+                                        + randomTeam),
+                        String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody())
@@ -306,10 +348,15 @@ class PrintCertificateIT {
         uploadHtmlTemplate(tournamentId);
         UUID randomTeam = UUID.randomUUID();
 
-        ResponseEntity<String> response = authed.getForEntity(
-                new URI(baseUrl + "/print/tournaments/" + tournamentId +
-                        "/certificates/" + randomTeam),
-                String.class);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(
+                                baseUrl
+                                        + "/print/tournaments/"
+                                        + tournamentId
+                                        + "/certificates/"
+                                        + randomTeam),
+                        String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         // Error is plain text, not JSON (AC10: no raw JSON errors)
@@ -327,9 +374,10 @@ class PrintCertificateIT {
     void allCertificatesSvgPathReturns400WhenNoTemplateUploaded() throws Exception {
         UUID tournamentId = createTournament("Cert Route SVG No Template All");
 
-        ResponseEntity<String> response = authed.getForEntity(
-                new URI(baseUrl + "/print/tournaments/" + tournamentId + "/certificates"),
-                String.class);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(baseUrl + "/print/tournaments/" + tournamentId + "/certificates"),
+                        String.class);
 
         assertThat(response.getStatusCode())
                 .as("AC7: SVG all-certs route without template must return 400")
@@ -346,9 +394,10 @@ class PrintCertificateIT {
         UUID tournamentId = createTournament("Cert Route SVG No Standings");
         uploadSvgTemplate(tournamentId);
 
-        ResponseEntity<String> response = authed.getForEntity(
-                new URI(baseUrl + "/print/tournaments/" + tournamentId + "/certificates"),
-                String.class);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(baseUrl + "/print/tournaments/" + tournamentId + "/certificates"),
+                        String.class);
 
         assertThat(response.getStatusCode())
                 .as("AC8: SVG all-certs route with no standings must return 400")
@@ -356,16 +405,22 @@ class PrintCertificateIT {
     }
 
     @Test
-    @DisplayName("AC8: GET single certificate (SVG path) with template but no standings returns 400")
+    @DisplayName(
+            "AC8: GET single certificate (SVG path) with template but no standings returns 400")
     void singleCertificateSvgPathReturns400WhenNoStandings() throws Exception {
         UUID tournamentId = createTournament("Cert Route SVG Single No Standings");
         uploadSvgTemplate(tournamentId);
         UUID randomTeam = UUID.randomUUID();
 
-        ResponseEntity<String> response = authed.getForEntity(
-                new URI(baseUrl + "/print/tournaments/" + tournamentId +
-                        "/certificates/" + randomTeam),
-                String.class);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(
+                                baseUrl
+                                        + "/print/tournaments/"
+                                        + tournamentId
+                                        + "/certificates/"
+                                        + randomTeam),
+                        String.class);
 
         assertThat(response.getStatusCode())
                 .as("AC8: SVG single-cert route with no standings must return 400")
@@ -377,13 +432,15 @@ class PrintCertificateIT {
     // =========================================================================
 
     @Test
-    @DisplayName("AC11: GET /print/tournaments/{randomId}/certificates returns 404 (tenant isolation)")
+    @DisplayName(
+            "AC11: GET /print/tournaments/{randomId}/certificates returns 404 (tenant isolation)")
     void allCertificatesReturns404ForRandomUuid() throws Exception {
         UUID neverCreated = UUID.randomUUID();
 
-        ResponseEntity<String> response = authed.getForEntity(
-                new URI(baseUrl + "/print/tournaments/" + neverCreated + "/certificates"),
-                String.class);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(baseUrl + "/print/tournaments/" + neverCreated + "/certificates"),
+                        String.class);
 
         assertThat(response.getStatusCode())
                 .as("AC11: tenant-isolated repository returns 404 for unknown tournament UUID")
@@ -395,21 +452,20 @@ class PrintCertificateIT {
     // =========================================================================
 
     private UUID createTournament(String description) throws Exception {
-        TournamentCreateRequest request = new TournamentCreateRequest(
-                description,
-                null,
-                8,
-                4,
-                "BEST_OF_3",
-                "setPoints",
-                "standardVolleyball",
-                "roundRobin"
-        );
+        TournamentCreateRequest request =
+                new TournamentCreateRequest(
+                        description,
+                        null,
+                        8,
+                        4,
+                        "BEST_OF_3",
+                        "setPoints",
+                        "standardVolleyball",
+                        "roundRobin");
 
-        ResponseEntity<TournamentResponse> created = authed.postForEntity(
-                new URI(baseUrl + "/api/tournaments"),
-                request,
-                TournamentResponse.class);
+        ResponseEntity<TournamentResponse> created =
+                authed.postForEntity(
+                        new URI(baseUrl + "/api/tournaments"), request, TournamentResponse.class);
 
         assertThat(created.getStatusCode())
                 .as("Tournament creation must succeed (201)")
@@ -426,10 +482,13 @@ class PrintCertificateIT {
         HttpHeaders fileHeaders = new HttpHeaders();
         fileHeaders.setContentType(MediaType.TEXT_HTML);
 
-        ByteArrayResource fileResource = new ByteArrayResource(SAMPLE_HTML_TEMPLATE) {
-            @Override
-            public String getFilename() { return "certificate.html"; }
-        };
+        ByteArrayResource fileResource =
+                new ByteArrayResource(SAMPLE_HTML_TEMPLATE) {
+                    @Override
+                    public String getFilename() {
+                        return "certificate.html";
+                    }
+                };
 
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
         body.add("file", new HttpEntity<>(fileResource, fileHeaders));
@@ -437,10 +496,15 @@ class PrintCertificateIT {
         HttpHeaders requestHeaders = new HttpHeaders();
         requestHeaders.setContentType(MediaType.MULTIPART_FORM_DATA);
 
-        ResponseEntity<String> response = authed.postForEntity(
-                new URI(baseUrl + "/api/tournaments/" + tournamentId + "/certificate-template"),
-                new HttpEntity<>(body, requestHeaders),
-                String.class);
+        ResponseEntity<String> response =
+                authed.postForEntity(
+                        new URI(
+                                baseUrl
+                                        + "/api/tournaments/"
+                                        + tournamentId
+                                        + "/certificate-template"),
+                        new HttpEntity<>(body, requestHeaders),
+                        String.class);
 
         assertThat(response.getStatusCode())
                 .as("HTML template upload must succeed")
@@ -455,10 +519,13 @@ class PrintCertificateIT {
         HttpHeaders fileHeaders = new HttpHeaders();
         fileHeaders.setContentType(MediaType.parseMediaType("image/svg+xml"));
 
-        ByteArrayResource fileResource = new ByteArrayResource(SAMPLE_SVG_TEMPLATE) {
-            @Override
-            public String getFilename() { return "certificate.svg"; }
-        };
+        ByteArrayResource fileResource =
+                new ByteArrayResource(SAMPLE_SVG_TEMPLATE) {
+                    @Override
+                    public String getFilename() {
+                        return "certificate.svg";
+                    }
+                };
 
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
         body.add("file", new HttpEntity<>(fileResource, fileHeaders));
@@ -466,10 +533,15 @@ class PrintCertificateIT {
         HttpHeaders requestHeaders = new HttpHeaders();
         requestHeaders.setContentType(MediaType.MULTIPART_FORM_DATA);
 
-        ResponseEntity<String> response = authed.postForEntity(
-                new URI(baseUrl + "/api/tournaments/" + tournamentId + "/certificate-template"),
-                new HttpEntity<>(body, requestHeaders),
-                String.class);
+        ResponseEntity<String> response =
+                authed.postForEntity(
+                        new URI(
+                                baseUrl
+                                        + "/api/tournaments/"
+                                        + tournamentId
+                                        + "/certificate-template"),
+                        new HttpEntity<>(body, requestHeaders),
+                        String.class);
 
         assertThat(response.getStatusCode())
                 .as("SVG template upload must succeed")

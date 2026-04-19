@@ -1,18 +1,17 @@
 package de.vvwt.dispatcher.crypto;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link JcsCanonicalizer} (RFC 8785 JCS).
  *
- * <p>Test vectors are derived from the RFC 8785 specification:
- * sorted object keys, compact output, no whitespace, UTF-8.
+ * <p>Test vectors are derived from the RFC 8785 specification: sorted object keys, compact output,
+ * no whitespace, UTF-8.
  */
 class JcsCanonicalizerTest {
 
@@ -31,11 +30,14 @@ class JcsCanonicalizerTest {
 
     @Test
     void sortsNestedObjectKeysRecursively() throws IOException {
-        String input = """
+        String input =
+                """
                 {"outer_z": {"inner_z": 1, "inner_a": 2}, "outer_a": 3}
-                """.trim();
+                """
+                        .trim();
         String canonical = JcsCanonicalizer.canonicalizeToString(input);
-        assertThat(canonical).isEqualTo("{\"outer_a\":3,\"outer_z\":{\"inner_a\":2,\"inner_z\":1}}");
+        assertThat(canonical)
+                .isEqualTo("{\"outer_a\":3,\"outer_z\":{\"inner_a\":2,\"inner_z\":1}}");
     }
 
     @Test
@@ -50,9 +52,11 @@ class JcsCanonicalizerTest {
 
     @Test
     void sortsKeysInObjectsInsideArrays() throws IOException {
-        String input = """
+        String input =
+                """
                 {"rows": [{"z": 1, "a": 2}, {"z": 3, "a": 4}]}
-                """.trim();
+                """
+                        .trim();
         String canonical = JcsCanonicalizer.canonicalizeToString(input);
         assertThat(canonical).isEqualTo("{\"rows\":[{\"a\":2,\"z\":1},{\"a\":4,\"z\":3}]}");
     }
@@ -64,7 +68,8 @@ class JcsCanonicalizerTest {
     @Test
     void canonicalizesPhaseDefShape() throws IOException {
         // Whitespace variant — should produce compact form
-        String input = """
+        String input =
+                """
                 {
                   "phaseId": 1,
                   "rowCount": 2,
@@ -73,19 +78,17 @@ class JcsCanonicalizerTest {
                     {"positions": [{"group": 1, "pos": 0}, {"group": 0, "pos": 2}]}
                   ]
                 }
-                """.trim();
+                """
+                        .trim();
         String canonical = JcsCanonicalizer.canonicalizeToString(input);
         // Verify compact + key-sorted
         assertThat(canonical).doesNotContain(" ");
         assertThat(canonical).doesNotContain("\n");
         // phaseId before rowCount before rows (lex order)
-        assertThat(canonical.indexOf("\"phaseId\""))
-                .isLessThan(canonical.indexOf("\"rowCount\""));
-        assertThat(canonical.indexOf("\"rowCount\""))
-                .isLessThan(canonical.indexOf("\"rows\""));
+        assertThat(canonical.indexOf("\"phaseId\"")).isLessThan(canonical.indexOf("\"rowCount\""));
+        assertThat(canonical.indexOf("\"rowCount\"")).isLessThan(canonical.indexOf("\"rows\""));
         // within positions: group before pos
-        assertThat(canonical.indexOf("\"group\""))
-                .isLessThan(canonical.indexOf("\"pos\""));
+        assertThat(canonical.indexOf("\"group\"")).isLessThan(canonical.indexOf("\"pos\""));
     }
 
     // -------------------------------------------------------------------------
@@ -116,8 +119,7 @@ class JcsCanonicalizerTest {
     void outputIsUtf8Encoded() throws IOException {
         String input = "{\"key\": \"value\"}";
         byte[] canonical = JcsCanonicalizer.canonicalize(input);
-        assertThat(new String(canonical, StandardCharsets.UTF_8))
-                .isEqualTo("{\"key\":\"value\"}");
+        assertThat(new String(canonical, StandardCharsets.UTF_8)).isEqualTo("{\"key\":\"value\"}");
     }
 
     // -------------------------------------------------------------------------

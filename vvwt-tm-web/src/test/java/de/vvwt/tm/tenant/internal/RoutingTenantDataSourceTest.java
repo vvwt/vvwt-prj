@@ -1,30 +1,30 @@
 package de.vvwt.tm.tenant.internal;
 
-import de.vvwt.tm.tenant.TenantContext;
-import de.vvwt.tm.tenant.TenantDataSourceResolver;
-import org.junit.jupiter.api.Test;
-
-import javax.sql.DataSource;
-import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import de.vvwt.tm.tenant.TenantContext;
+import de.vvwt.tm.tenant.TenantDataSourceResolver;
+import java.util.UUID;
+import javax.sql.DataSource;
+import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for {@link RoutingTenantDataSource}.
  *
- * <p>These tests exercise the routing key determination and unbound-context error handling.
- * They do NOT test full JDBC routing — that is covered by {@link RoutingTenantDataSourceIT}.
+ * <p>These tests exercise the routing key determination and unbound-context error handling. They do
+ * NOT test full JDBC routing — that is covered by {@link RoutingTenantDataSourceIT}.
  *
- * <p>Uses real {@link ThreadLocalTenantContextImpl} and a hand-rolled
- * {@link TenantDataSourceResolver} stub — no Mockito.
+ * <p>Uses real {@link ThreadLocalTenantContextImpl} and a hand-rolled {@link
+ * TenantDataSourceResolver} stub — no Mockito.
  *
  * <p>Acceptance criteria covered:
+ *
  * <ul>
- *   <li>AC1 — test-first (RED verified before implementation)</li>
- *   <li>AC3 — unbound context → typed exception, NOT NullPointerException, NOT fallback DS</li>
- *   <li>AC5 — ApplicationModulesTest remains green (structural)</li>
- *   <li>AC6 — RoutingTenantDataSource lives in tenant.internal (structural)</li>
+ *   <li>AC1 — test-first (RED verified before implementation)
+ *   <li>AC3 — unbound context → typed exception, NOT NullPointerException, NOT fallback DS
+ *   <li>AC5 — ApplicationModulesTest remains green (structural)
+ *   <li>AC6 — RoutingTenantDataSource lives in tenant.internal (structural)
  * </ul>
  *
  * <p>Story: E14S03 — DEC-10/DEC-14/DEC-20/DEC-21/DEC-22.
@@ -64,8 +64,8 @@ class RoutingTenantDataSourceTest {
 
     /**
      * AC3: When no tenant is bound, {@code RoutingTenantDataSource} must surface the typed
-     * exception from {@code TenantContext.current()} — NOT a NullPointerException and NOT a
-     * silent fallback to a "default" DataSource.
+     * exception from {@code TenantContext.current()} — NOT a NullPointerException and NOT a silent
+     * fallback to a "default" DataSource.
      */
     @Test
     void determineCurrentLookupKeyThrowsIllegalStateExceptionWhenNoTenantBound() {
@@ -76,7 +76,9 @@ class RoutingTenantDataSourceTest {
         // Verify that the routing DS (via determineCurrentLookupKey) propagates
         // the IllegalStateException from TenantContext.current()
         assertThatThrownBy(routing::determineCurrentLookupKey)
-                .as("No tenant bound — must propagate IllegalStateException from TenantContext.current() (AC3)")
+                .as(
+                        "No tenant bound — must propagate IllegalStateException from"
+                                + " TenantContext.current() (AC3)")
                 .isInstanceOf(IllegalStateException.class)
                 .isNotInstanceOf(NullPointerException.class);
     }
@@ -95,9 +97,7 @@ class RoutingTenantDataSourceTest {
 
         try (TenantContext.Scope ignored = ctx.bind(tenantId)) {
             Object key = routing.determineCurrentLookupKey();
-            assertThat(key)
-                    .as("Routing key must match the bound tenant UUID")
-                    .isEqualTo(tenantId);
+            assertThat(key).as("Routing key must match the bound tenant UUID").isEqualTo(tenantId);
         }
     }
 

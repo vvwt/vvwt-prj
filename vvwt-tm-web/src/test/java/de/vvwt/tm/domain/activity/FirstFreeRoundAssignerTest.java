@@ -1,27 +1,25 @@
 package de.vvwt.tm.domain.activity;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import de.vvwt.tm.domain.ActivityType;
 import de.vvwt.tm.domain.AssignmentRule;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for {@link FirstFreeRoundAssigner} covering AC2, AC3, AC4, AC6, AC7.
  *
- * <p>All tests use fixed UUIDs for determinism. The UUID values are chosen so their
- * natural ordering is predictable: UUID comparison is lexicographic on the canonical
- * string representation (most-significant bits first).
+ * <p>All tests use fixed UUIDs for determinism. The UUID values are chosen so their natural
+ * ordering is predictable: UUID comparison is lexicographic on the canonical string representation
+ * (most-significant bits first).
  */
 class FirstFreeRoundAssignerTest {
 
@@ -61,13 +59,12 @@ class FirstFreeRoundAssignerTest {
                 AssignmentRule.FIRST_FREE_ROUND.name(),
                 capacityPerRound,
                 1,
-                TENANT_ID
-        );
+                TENANT_ID);
     }
 
     /**
-     * Builds a match schedule where teams[i] and teams[i+step] play in each lap.
-     * Simplified: for AC2/AC3 scenarios, create explicit schedules below.
+     * Builds a match schedule where teams[i] and teams[i+step] play in each lap. Simplified: for
+     * AC2/AC3 scenarios, create explicit schedules below.
      */
     private Map<Integer, Set<UUID>> buildMatchSchedule(Map<Integer, Set<UUID>> schedule) {
         return schedule;
@@ -105,11 +102,10 @@ class FirstFreeRoundAssignerTest {
         assertThat(result.getAssignments()).hasSize(6);
         assertThat(result.getUnassignedTeams()).isEmpty();
         // All assigned in lap 1 (their first free lap)
-        result.getAssignments().forEach(a ->
-                assertThat(a.getLapNumber()).isEqualTo(1));
+        result.getAssignments().forEach(a -> assertThat(a.getLapNumber()).isEqualTo(1));
         // Each team appears exactly once
-        List<UUID> assignedTeams = result.getAssignments().stream()
-                .map(ActivityAssignment::getTeamId).toList();
+        List<UUID> assignedTeams =
+                result.getAssignments().stream().map(ActivityAssignment::getTeamId).toList();
         assertThat(assignedTeams).containsExactlyInAnyOrder(T1, T2, T3, T4, T5, T6);
     }
 
@@ -176,8 +172,10 @@ class FirstFreeRoundAssignerTest {
         // No lap exceeds capacity
         for (int lap = 1; lap <= 5; lap++) {
             int finalLap = lap;
-            long assignedInLap = result.getAssignments().stream()
-                    .filter(a -> a.getLapNumber() == finalLap).count();
+            long assignedInLap =
+                    result.getAssignments().stream()
+                            .filter(a -> a.getLapNumber() == finalLap)
+                            .count();
             assertThat(assignedInLap).isLessThanOrEqualTo(2);
         }
     }
@@ -201,17 +199,21 @@ class FirstFreeRoundAssignerTest {
         // No lap exceeds capacity of 2
         for (int lap = 1; lap <= 10; lap++) {
             int finalLap = lap;
-            long assignedInLap = result.getAssignments().stream()
-                    .filter(a -> a.getLapNumber() == finalLap).count();
-            assertThat(assignedInLap).as("lap %d must not exceed capacity", lap).isLessThanOrEqualTo(2);
+            long assignedInLap =
+                    result.getAssignments().stream()
+                            .filter(a -> a.getLapNumber() == finalLap)
+                            .count();
+            assertThat(assignedInLap)
+                    .as("lap %d must not exceed capacity", lap)
+                    .isLessThanOrEqualTo(2);
         }
 
         // All 12 teams assigned exactly once
-        List<UUID> assignedTeams = result.getAssignments().stream()
-                .map(ActivityAssignment::getTeamId).toList();
+        List<UUID> assignedTeams =
+                result.getAssignments().stream().map(ActivityAssignment::getTeamId).toList();
         assertThat(assignedTeams).hasSize(12);
-        assertThat(new HashSet<>(assignedTeams)).containsExactlyInAnyOrder(
-                T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
+        assertThat(new HashSet<>(assignedTeams))
+                .containsExactlyInAnyOrder(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
     }
 
     // -------------------------------------------------------------------------
@@ -235,8 +237,8 @@ class FirstFreeRoundAssignerTest {
 
         // T2 and T3 are assigned; T1 is unassigned
         assertThat(result.getAssignments()).hasSize(2);
-        List<UUID> assignedIds = result.getAssignments().stream()
-                .map(ActivityAssignment::getTeamId).toList();
+        List<UUID> assignedIds =
+                result.getAssignments().stream().map(ActivityAssignment::getTeamId).toList();
         assertThat(assignedIds).containsExactlyInAnyOrder(T2, T3);
         assertThat(result.getUnassignedTeams()).containsExactly(T1);
     }
@@ -244,10 +246,10 @@ class FirstFreeRoundAssignerTest {
     @Test
     void ac6_allTeamsBusy_allUnassigned() {
         // All teams busy in all laps
-        Map<Integer, Set<UUID>> matchSched = Map.of(
-                1, Set.of(T1, T2),
-                2, Set.of(T1, T2)
-        );
+        Map<Integer, Set<UUID>> matchSched =
+                Map.of(
+                        1, Set.of(T1, T2),
+                        2, Set.of(T1, T2));
         ActivityType photoType = makeActivityType("Team Photo", null);
         Set<UUID> allTeams = Set.of(T1, T2);
         LapSchedule schedule = new LapSchedule(matchSched, Map.of());
@@ -290,8 +292,8 @@ class FirstFreeRoundAssignerTest {
                 assigner.assign(photoType, schedule, 1, allTeams);
 
         // All 6 assigned in lap 1; order should be T1..T6 ascending
-        List<UUID> assignedOrder = result.getAssignments().stream()
-                .map(ActivityAssignment::getTeamId).toList();
+        List<UUID> assignedOrder =
+                result.getAssignments().stream().map(ActivityAssignment::getTeamId).toList();
         assertThat(assignedOrder).containsExactly(T1, T2, T3, T4, T5, T6);
     }
 
@@ -311,8 +313,7 @@ class FirstFreeRoundAssignerTest {
 
     @Test
     void guardNullActivityType_throwsIllegalArgument() {
-        assertThatThrownBy(() ->
-                assigner.assign(null, emptySchedule(), 3, Set.of(T1)))
+        assertThatThrownBy(() -> assigner.assign(null, emptySchedule(), 3, Set.of(T1)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("activityType");
     }
@@ -320,8 +321,7 @@ class FirstFreeRoundAssignerTest {
     @Test
     void guardNullLapSchedule_throwsIllegalArgument() {
         ActivityType photoType = makeActivityType("Photo", null);
-        assertThatThrownBy(() ->
-                assigner.assign(photoType, null, 3, Set.of(T1)))
+        assertThatThrownBy(() -> assigner.assign(photoType, null, 3, Set.of(T1)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("lapSchedule");
     }
@@ -329,8 +329,7 @@ class FirstFreeRoundAssignerTest {
     @Test
     void guardZeroTotalLapCount_throwsIllegalArgument() {
         ActivityType photoType = makeActivityType("Photo", null);
-        assertThatThrownBy(() ->
-                assigner.assign(photoType, emptySchedule(), 0, Set.of(T1)))
+        assertThatThrownBy(() -> assigner.assign(photoType, emptySchedule(), 0, Set.of(T1)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("totalLapCount");
     }
@@ -375,23 +374,26 @@ class FirstFreeRoundAssignerTest {
                 assigner.assign(photoType, schedule, 1, allTeams);
 
         assertThat(result.getAssignments()).hasSize(1);
-        assertThat(result.getAssignments().get(0).getActivityTypeName()).isEqualTo("Mannschaftsfoto");
+        assertThat(result.getAssignments().get(0).getActivityTypeName())
+                .isEqualTo("Mannschaftsfoto");
     }
 
     // -------------------------------------------------------------------------
     // Helper
     // -------------------------------------------------------------------------
 
-    private void assertLapForTeam(FirstFreeRoundAssigner.FirstFreeRoundResult result,
-                                   UUID teamId, int expectedLap) {
+    private void assertLapForTeam(
+            FirstFreeRoundAssigner.FirstFreeRoundResult result, UUID teamId, int expectedLap) {
         result.getAssignments().stream()
                 .filter(a -> a.getTeamId().equals(teamId))
                 .findFirst()
                 .ifPresentOrElse(
-                        a -> assertThat(a.getLapNumber())
-                                .as("Team %s should be in lap %d", teamId, expectedLap)
-                                .isEqualTo(expectedLap),
-                        () -> { throw new AssertionError("No assignment found for team " + teamId); }
-                );
+                        a ->
+                                assertThat(a.getLapNumber())
+                                        .as("Team %s should be in lap %d", teamId, expectedLap)
+                                        .isEqualTo(expectedLap),
+                        () -> {
+                            throw new AssertionError("No assignment found for team " + teamId);
+                        });
     }
 }

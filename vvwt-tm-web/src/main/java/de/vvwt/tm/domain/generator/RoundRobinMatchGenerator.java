@@ -7,10 +7,6 @@ import de.vvwt.tm.domain.Phase;
 import de.vvwt.tm.domain.TeamAvatar;
 import de.vvwt.tm.domain.Tournament;
 import de.vvwt.tm.domain.repo.TournamentRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -19,32 +15,38 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 /**
  * Round-robin match generator: every avatar plays every other avatar exactly once (AC2).
  *
- * <p>For N avatars, produces {@code N * (N-1) / 2} matches. Handles odd team counts via
- * the standard bye-round technique: a phantom "bye" entry is added to make the count even,
- * pairings are computed for all N+1 slots, and any pairing involving the phantom is dropped
- * (AC3). The real match count is still {@code N * (N-1) / 2}.
+ * <p>For N avatars, produces {@code N * (N-1) / 2} matches. Handles odd team counts via the
+ * standard bye-round technique: a phantom "bye" entry is added to make the count even, pairings are
+ * computed for all N+1 slots, and any pairing involving the phantom is dropped (AC3). The real
+ * match count is still {@code N * (N-1) / 2}.
  *
- * <p>The classic <em>circle method</em> (also called <em>polygon method</em>) is used to
- * generate all rounds deterministically. In this method, one team is fixed at the "top"
- * while the others rotate clockwise around a polygon. This guarantees that every pair
- * appears in exactly one round and the pairing list is deterministic for the same input
- * avatar order (AC5). Legacy {@code MatchGenerator4roundrobin} uses the same method
- * (see Brief O-14, AC10 regression gate).
+ * <p>The classic <em>circle method</em> (also called <em>polygon method</em>) is used to generate
+ * all rounds deterministically. In this method, one team is fixed at the "top" while the others
+ * rotate clockwise around a polygon. This guarantees that every pair appears in exactly one round
+ * and the pairing list is deterministic for the same input avatar order (AC5). Legacy {@code
+ * MatchGenerator4roundrobin} uses the same method (see Brief O-14, AC10 regression gate).
  *
  * <h2>Tenant scope (DEC-5, DEC-17)</h2>
+ *
  * <p>{@code tenantId} is propagated from the {@link Phase} on every generated {@link Match}.
  *
  * <h2>set_limit derivation (AC4)</h2>
- * <p>The generator reads the parent {@link Tournament} via {@link TournamentRepository} and
- * derives {@code set_limit = MatchFormat.fromPersistedName(tournament.matchFormat).maxSets}.
+ *
+ * <p>The generator reads the parent {@link Tournament} via {@link TournamentRepository} and derives
+ * {@code set_limit = MatchFormat.fromPersistedName(tournament.matchFormat).maxSets}.
  *
  * @see MatchGenerator
  * @see MatchGeneratorRegistry
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E03S09.story.md">Story E03S09</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E03S09.story.md">Story
+ *     E03S09</a>
  */
 @Component("roundRobin")
 public class RoundRobinMatchGenerator implements MatchGenerator {
@@ -76,10 +78,10 @@ public class RoundRobinMatchGenerator implements MatchGenerator {
     /**
      * {@inheritDoc}
      *
-     * <p>Generates the full round-robin pairing set using the circle method.
-     * Delegates to {@link #generatePairs(List)} for the core algorithm.
+     * <p>Generates the full round-robin pairing set using the circle method. Delegates to {@link
+     * #generatePairs(List)} for the core algorithm.
      *
-     * @param phase   phase for which matches are generated (AC2 — tenant, tournament, phase FKs)
+     * @param phase phase for which matches are generated (AC2 — tenant, tournament, phase FKs)
      * @param avatars already-persisted avatars to pair (AC2, AC3)
      * @return deterministically-ordered list of new {@link Match} entities (not yet persisted)
      */
@@ -109,7 +111,9 @@ public class RoundRobinMatchGenerator implements MatchGenerator {
 
         // AC12 — fewer than 2 avatars → empty list
         if (avatars.size() < 2) {
-            log.info("[roundRobin] generate: avatarCount={}, matches=0 (< 2 avatars — no matches possible)",
+            log.info(
+                    "[roundRobin] generate: avatarCount={}, matches=0 (< 2 avatars — no matches"
+                            + " possible)",
                     avatars.size());
             return Collections.emptyList();
         }
@@ -119,8 +123,11 @@ public class RoundRobinMatchGenerator implements MatchGenerator {
         Optional<Tournament> tournamentOpt = tournamentRepository.findById(tournamentId);
         if (tournamentOpt.isEmpty()) {
             throw new IllegalStateException(
-                    "Tournament not found for id=" + tournamentId
-                    + " (referenced by phase " + phase.getId() + ")");
+                    "Tournament not found for id="
+                            + tournamentId
+                            + " (referenced by phase "
+                            + phase.getId()
+                            + ")");
         }
         Tournament tournament = tournamentOpt.get();
         int setLimit = MatchFormat.fromPersistedName(tournament.getMatchFormat()).getMaxSets();
@@ -132,28 +139,31 @@ public class RoundRobinMatchGenerator implements MatchGenerator {
         LocalDateTime now = LocalDateTime.now();
         List<Match> matches = new ArrayList<>(pairs.size());
         for (UUID[] pair : pairs) {
-            Match match = new Match(
-                    UUID.randomUUID(),          // id
-                    phase.getTenantId(),        // tenantId (DEC-5, DEC-17)
-                    phase.getTournamentId(),    // tournamentId
-                    phase.getId(),             // phaseId
-                    pair[0],                   // memberAvatar1Id
-                    pair[1],                   // memberAvatar2Id
-                    MatchState.OPEN.getLegacyCode(),  // state = 0
-                    setLimit,                  // set_limit (AC4)
-                    null,                      // lapNumber — null until E04 (AC2)
-                    null,                      // fieldNumber — null until E04 (AC2)
-                    null,                      // refereeTeamId — null
-                    null,                      // refereeDescription — null
-                    null,                      // refereePreferenceConfig — null
-                    now                        // createdAt — set by generator (schema has NOT NULL DEFAULT)
-            );
+            Match match =
+                    new Match(
+                            UUID.randomUUID(), // id
+                            phase.getTenantId(), // tenantId (DEC-5, DEC-17)
+                            phase.getTournamentId(), // tournamentId
+                            phase.getId(), // phaseId
+                            pair[0], // memberAvatar1Id
+                            pair[1], // memberAvatar2Id
+                            MatchState.OPEN.getLegacyCode(), // state = 0
+                            setLimit, // set_limit (AC4)
+                            null, // lapNumber — null until E04 (AC2)
+                            null, // fieldNumber — null until E04 (AC2)
+                            null, // refereeTeamId — null
+                            null, // refereeDescription — null
+                            null, // refereePreferenceConfig — null
+                            now // createdAt — set by generator (schema has NOT NULL DEFAULT)
+                            );
             matches.add(match);
             log.debug("[roundRobin] pairing: {} vs {}", pair[0], pair[1]);
         }
 
-        log.info("[roundRobin] generate: beanId=roundRobin, avatarCount={}, matchesGenerated={}",
-                avatars.size(), matches.size());
+        log.info(
+                "[roundRobin] generate: beanId=roundRobin, avatarCount={}, matchesGenerated={}",
+                avatars.size(),
+                matches.size());
 
         return Collections.unmodifiableList(matches);
     }
@@ -161,24 +171,25 @@ public class RoundRobinMatchGenerator implements MatchGenerator {
     /**
      * Core round-robin pairing algorithm (circle method).
      *
-     * <p>Produces all {@code N*(N-1)/2} pairs for N avatars. For odd N, a phantom entry
-     * (UUID = {@link #PHANTOM_ID}) is added to make N even; any pair involving the phantom
-     * is dropped from the result (AC3).
+     * <p>Produces all {@code N*(N-1)/2} pairs for N avatars. For odd N, a phantom entry (UUID =
+     * {@link #PHANTOM_ID}) is added to make N even; any pair involving the phantom is dropped from
+     * the result (AC3).
      *
      * <p>The circle method:
+     *
      * <ol>
-     *   <li>Build a slot array of size N (or N+1 for odd). Slot 0 is "fixed".</li>
-     *   <li>For each of the N-1 (or N for odd) rounds, pair slot 0 with the last slot,
-     *       then pair slot 1 with slot N-2, slot 2 with slot N-3, etc.</li>
-     *   <li>After each round, rotate slots 1..N-1 one position clockwise.</li>
+     *   <li>Build a slot array of size N (or N+1 for odd). Slot 0 is "fixed".
+     *   <li>For each of the N-1 (or N for odd) rounds, pair slot 0 with the last slot, then pair
+     *       slot 1 with slot N-2, slot 2 with slot N-3, etc.
+     *   <li>After each round, rotate slots 1..N-1 one position clockwise.
      * </ol>
      *
-     * <p>This is the same algorithm as the legacy {@code MatchGenerator4roundrobin}
-     * and produces an identical pair set for the same input (AC10 regression gate).
+     * <p>This is the same algorithm as the legacy {@code MatchGenerator4roundrobin} and produces an
+     * identical pair set for the same input (AC10 regression gate).
      *
      * @param avatars the (non-null, non-empty, duplicate-free) avatar list; must have size &ge; 2
-     * @return list of pairs (each a 2-element UUID array [avatar1Id, avatar2Id]);
-     *         never contains the phantom ID; deterministic for the same input
+     * @return list of pairs (each a 2-element UUID array [avatar1Id, avatar2Id]); never contains
+     *     the phantom ID; deterministic for the same input
      */
     List<UUID[]> generatePairs(List<TeamAvatar> avatars) {
         int n = avatars.size();
@@ -204,7 +215,7 @@ public class RoundRobinMatchGenerator implements MatchGenerator {
                 UUID b = slot[slots - 1 - i];
                 // Skip any pairing involving the phantom (bye round)
                 if (!PHANTOM_ID.equals(a) && !PHANTOM_ID.equals(b)) {
-                    pairs.add(new UUID[]{a, b});
+                    pairs.add(new UUID[] {a, b});
                 }
             }
 

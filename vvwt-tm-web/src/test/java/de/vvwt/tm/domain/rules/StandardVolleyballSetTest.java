@@ -1,13 +1,13 @@
 package de.vvwt.tm.domain.rules;
 
+import static org.assertj.core.api.Assertions.*;
+
 import de.vvwt.tm.domain.MatchFormat;
 import de.vvwt.tm.domain.MatchState;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-
-import static org.assertj.core.api.Assertions.*;
 
 /**
  * Unit tests for {@link StandardVolleyballSet} (AC7, AC11).
@@ -26,28 +26,44 @@ class StandardVolleyballSetTest {
     /**
      * Cases: (team1Pts, team2Pts, setIndex, format, expectedClosed, expectedWinner)
      *
-     * setIndex is 0-based. BEST_OF_3 deciding set index = 2, BEST_OF_5 = 4.
+     * <p>setIndex is 0-based. BEST_OF_3 deciding set index = 2, BEST_OF_5 = 4.
      *
-     * expectedWinner: W1 = WINNER1, W2 = WINNER2, - = open (no winner)
+     * <p>expectedWinner: W1 = WINNER1, W2 = WINNER2, - = open (no winner)
      */
     @ParameterizedTest(name = "[{index}] {6}")
-    @CsvSource(delimiter = '|', value = {
-        // team1|team2|setIdx|format         |closed|winner|description
-        "25    |23   |0     |BEST_OF_3      |true  |W1    |25-23 BEST_OF_3 set1 → closed winner1",
-        "25    |24   |0     |BEST_OF_3      |false |-     |25-24 BEST_OF_3 set1 → open no-2-lead",
-        "23    |25   |0     |BEST_OF_3      |true  |W2    |23-25 BEST_OF_3 set1 → closed winner2",
-        "26    |24   |0     |BEST_OF_3      |true  |W1    |26-24 BEST_OF_3 set1 → closed winner1",
-        "24    |24   |0     |BEST_OF_3      |false |-     |24-24 BEST_OF_3 set1 → open",
-        "15    |13   |2     |BEST_OF_3      |true  |W1    |15-13 BEST_OF_3 set3 deciding → closed winner1",
-        "15    |14   |2     |BEST_OF_3      |false |-     |15-14 BEST_OF_3 set3 deciding → open no-2-lead",
-        "16    |14   |2     |BEST_OF_3      |true  |W1    |16-14 BEST_OF_3 set3 deciding → closed",
-        "14    |12   |2     |BEST_OF_3      |false |-     |14-12 BEST_OF_3 set3 deciding → open target-not-reached",
-        "15    |13   |4     |BEST_OF_5      |true  |W1    |15-13 BEST_OF_5 set5 deciding(index4) → closed winner1"
-    })
+    @CsvSource(
+            delimiter = '|',
+            value = {
+                // team1|team2|setIdx|format         |closed|winner|description
+                "25    |23   |0     |BEST_OF_3      |true  |W1    |25-23 BEST_OF_3 set1 → closed"
+                        + " winner1",
+                "25    |24   |0     |BEST_OF_3      |false |-     |25-24 BEST_OF_3 set1 → open"
+                        + " no-2-lead",
+                "23    |25   |0     |BEST_OF_3      |true  |W2    |23-25 BEST_OF_3 set1 → closed"
+                        + " winner2",
+                "26    |24   |0     |BEST_OF_3      |true  |W1    |26-24 BEST_OF_3 set1 → closed"
+                        + " winner1",
+                "24    |24   |0     |BEST_OF_3      |false |-     |24-24 BEST_OF_3 set1 → open",
+                "15    |13   |2     |BEST_OF_3      |true  |W1    |15-13 BEST_OF_3 set3 deciding →"
+                        + " closed winner1",
+                "15    |14   |2     |BEST_OF_3      |false |-     |15-14 BEST_OF_3 set3 deciding →"
+                        + " open no-2-lead",
+                "16    |14   |2     |BEST_OF_3      |true  |W1    |16-14 BEST_OF_3 set3 deciding →"
+                        + " closed",
+                "14    |12   |2     |BEST_OF_3      |false |-     |14-12 BEST_OF_3 set3 deciding →"
+                        + " open target-not-reached",
+                "15    |13   |4     |BEST_OF_5      |true  |W1    |15-13 BEST_OF_5 set5"
+                        + " deciding(index4) → closed winner1"
+            })
     @DisplayName("parametrized AC7 cases")
-    void parametrizedCases(int team1Pts, int team2Pts, int setIndex,
-                           String formatName, boolean expectedClosed, String expectedWinner,
-                           @SuppressWarnings("unused") String description) {
+    void parametrizedCases(
+            int team1Pts,
+            int team2Pts,
+            int setIndex,
+            String formatName,
+            boolean expectedClosed,
+            String expectedWinner,
+            @SuppressWarnings("unused") String description) {
         MatchFormat format = MatchFormat.valueOf(formatName.trim());
         ValidationResult result = rule.isSetClosed(team1Pts, team2Pts, setIndex, format);
 
@@ -93,7 +109,8 @@ class StandardVolleyballSetTest {
     void fixedTwoSetsThrows() {
         assertThatIllegalArgumentException()
                 .isThrownBy(() -> rule.isSetClosed(15, 13, 0, MatchFormat.FIXED_2_SETS))
-                .withMessageContaining("StandardVolleyballSet is not compatible with format FIXED_2_SETS");
+                .withMessageContaining(
+                        "StandardVolleyballSet is not compatible with format FIXED_2_SETS");
     }
 
     // -----------------------------------------------------------------------

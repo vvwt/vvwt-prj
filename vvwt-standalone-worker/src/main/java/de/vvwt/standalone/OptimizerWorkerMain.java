@@ -10,32 +10,32 @@ import de.vvwt.standalone.runtime.CpuThrottle;
 import de.vvwt.standalone.runtime.WorkerLoop;
 import de.vvwt.worker.identity.WorkerKeyManager;
 import de.vvwt.worker.score.VarietyScorer;
+import java.io.IOException;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Option;
-
-import java.io.IOException;
-import java.util.UUID;
 
 /**
  * Entry point for the standalone headless optimizer worker.
  *
  * <p>Lifecycle:
+ *
  * <ol>
- *   <li>Parse CLI + config file via {@link WorkerConfigLoader} (AC1)</li>
- *   <li>Warn if dispatcher URL uses plain HTTP (AC10)</li>
- *   <li>Initialize keypair via {@link WorkerKeyManager} (AC2)</li>
- *   <li>Register public key with dispatcher if first run (AC2)</li>
- *   <li>Enter the main pull → solve → submit loop via {@link WorkerLoop} (AC3)</li>
+ *   <li>Parse CLI + config file via {@link WorkerConfigLoader} (AC1)
+ *   <li>Warn if dispatcher URL uses plain HTTP (AC10)
+ *   <li>Initialize keypair via {@link WorkerKeyManager} (AC2)
+ *   <li>Register public key with dispatcher if first run (AC2)
+ *   <li>Enter the main pull → solve → submit loop via {@link WorkerLoop} (AC3)
  * </ol>
  *
  * <p>Exit codes follow sysexits.h:
+ *
  * <ul>
- *   <li>0 — clean stop</li>
- *   <li>75 (EX_TEMPFAIL) — transient failures; supervisor should restart</li>
- *   <li>78 (EX_CONFIG) — permanent error; manual intervention required</li>
+ *   <li>0 — clean stop
+ *   <li>75 (EX_TEMPFAIL) — transient failures; supervisor should restart
+ *   <li>78 (EX_CONFIG) — permanent error; manual intervention required
  * </ul>
  *
  * <p>Implements Story E01S05 AC1–AC10.
@@ -44,8 +44,7 @@ import java.util.UUID;
         name = "optimizer-worker",
         description = "VVW standalone headless worker.",
         mixinStandardHelpOptions = true,
-        versionProvider = OptimizerWorkerMain.VersionProvider.class
-)
+        versionProvider = OptimizerWorkerMain.VersionProvider.class)
 public class OptimizerWorkerMain {
 
     private static final Logger ROOT_LOGGER = LoggerFactory.getLogger(OptimizerWorkerMain.class);
@@ -99,8 +98,7 @@ public class OptimizerWorkerMain {
     }
 
     /**
-     * Runs the worker with the provided configuration.
-     * Package-visible for integration testing.
+     * Runs the worker with the provided configuration. Package-visible for integration testing.
      *
      * @param config validated worker configuration
      * @return process exit code
@@ -109,19 +107,29 @@ public class OptimizerWorkerMain {
         StructuredLogger log = new StructuredLogger(ROOT_LOGGER, config.logFormatJson());
 
         // AC8: log effective config at startup
-        log.info("startup", "Optimizer worker starting",
-                "dispatcherUrl", config.dispatcherUrl(),
-                "dataDir", config.dataDir(),
-                "maxCpuPercent", config.maxCpuPercent(),
-                "idlePollSeconds", config.idlePollSeconds(),
-                "name", config.name() != null ? config.name() : "(unset)",
-                "logFormat", config.logFormatJson() ? "json" : "plain");
+        log.info(
+                "startup",
+                "Optimizer worker starting",
+                "dispatcherUrl",
+                config.dispatcherUrl(),
+                "dataDir",
+                config.dataDir(),
+                "maxCpuPercent",
+                config.maxCpuPercent(),
+                "idlePollSeconds",
+                config.idlePollSeconds(),
+                "name",
+                config.name() != null ? config.name() : "(unset)",
+                "logFormat",
+                config.logFormatJson() ? "json" : "plain");
 
         // AC10: warn on plain HTTP
         if (config.dispatcherUrl().startsWith("http://")) {
-            log.warn("insecure-url",
+            log.warn(
+                    "insecure-url",
                     "Dispatcher URL uses plain HTTP — communication is unencrypted",
-                    "dispatcherUrl", config.dispatcherUrl());
+                    "dispatcherUrl",
+                    config.dispatcherUrl());
         }
 
         // AC2: initialize keypair
@@ -129,8 +137,11 @@ public class OptimizerWorkerMain {
         try {
             keyManager = new WorkerKeyManager(config.dataDir(), ROOT_LOGGER);
         } catch (Exception e) {
-            log.error("keypair-error", "Failed to initialize keypair: " + e.getMessage(),
-                    "dataDir", config.dataDir());
+            log.error(
+                    "keypair-error",
+                    "Failed to initialize keypair: " + e.getMessage(),
+                    "dataDir",
+                    config.dataDir());
             return EXIT_CONFIG;
         }
 
@@ -141,29 +152,35 @@ public class OptimizerWorkerMain {
             workerKeyId = registerIfNeeded(keyManager, dispatcherClient, config, log);
         } catch (DispatcherException ex) {
             if (ex.isClientError()) {
-                log.error("registration-rejected",
+                log.error(
+                        "registration-rejected",
                         "Dispatcher rejected key registration — exiting (EX_CONFIG)",
-                        "statusCode", ex.getStatusCode(),
-                        "responseBody", ex.getResponseBody());
+                        "statusCode",
+                        ex.getStatusCode(),
+                        "responseBody",
+                        ex.getResponseBody());
                 return EXIT_CONFIG;
             }
             // Network or 5xx during registration — propagate as transient failure
-            log.error("registration-failed",
+            log.error(
+                    "registration-failed",
                     "Failed to register with dispatcher — exiting (EX_TEMPFAIL)",
-                    "statusCode", ex.getStatusCode(),
-                    "error", ex.getMessage());
+                    "statusCode",
+                    ex.getStatusCode(),
+                    "error",
+                    ex.getMessage());
             return EXIT_TEMPFAIL;
         } catch (IOException e) {
-            log.error("registration-io-error",
-                    "I/O error during registration: " + e.getMessage());
+            log.error("registration-io-error", "I/O error during registration: " + e.getMessage());
             return EXIT_TEMPFAIL;
         }
 
         // AC3–AC7: main loop
         ResultSigner resultSigner = new ResultSigner(keyManager);
         CpuThrottle cpuThrottle = new CpuThrottle(config.maxCpuPercent());
-        WorkerLoop loop = new WorkerLoop(
-                config, dispatcherClient, resultSigner, cpuThrottle, log, workerKeyId);
+        WorkerLoop loop =
+                new WorkerLoop(
+                        config, dispatcherClient, resultSigner, cpuThrottle, log, workerKeyId);
 
         return loop.run();
     }
@@ -173,13 +190,13 @@ public class OptimizerWorkerMain {
     // -------------------------------------------------------------------------
 
     /**
-     * Registers the worker key with the dispatcher on first run.
-     * On subsequent runs (key file already exists before startup), checks if the key
-     * is already registered by attempting registration — the dispatcher is idempotent (200 on match).
+     * Registers the worker key with the dispatcher on first run. On subsequent runs (key file
+     * already exists before startup), checks if the key is already registered by attempting
+     * registration — the dispatcher is idempotent (200 on match).
      *
-     * <p>Per AC2: on first run, generate + register. On subsequent runs, skip re-registration
-     * (the dispatcher already knows the public key). The implementation calls register-key
-     * only on the first session; subsequent startups detect the existing key file and skip the call.
+     * <p>Per AC2: on first run, generate + register. On subsequent runs, skip re-registration (the
+     * dispatcher already knows the public key). The implementation calls register-key only on the
+     * first session; subsequent startups detect the existing key file and skip the call.
      *
      * @return the worker key UUID assigned by the dispatcher
      */
@@ -187,20 +204,21 @@ public class OptimizerWorkerMain {
             WorkerKeyManager keyManager,
             DispatcherClient dispatcherClient,
             WorkerConfig config,
-            StructuredLogger log
-    ) throws DispatcherException, IOException {
+            StructuredLogger log)
+            throws DispatcherException, IOException {
         // Check if keypair was freshly generated (no .registered marker) or pre-existing
-        boolean registrationMarkerExists = config.dataDir()
-                .resolve(".registered")
-                .toFile()
-                .exists();
+        boolean registrationMarkerExists =
+                config.dataDir().resolve(".registered").toFile().exists();
 
         if (registrationMarkerExists) {
             // Read the stored key ID
             String storedKeyId = readRegisteredKeyId(config);
             if (storedKeyId != null) {
-                log.info("registration-skipped", "Key already registered, skipping re-registration",
-                        "keyId", storedKeyId);
+                log.info(
+                        "registration-skipped",
+                        "Key already registered, skipping re-registration",
+                        "keyId",
+                        storedKeyId);
                 return UUID.fromString(storedKeyId);
             }
         }
@@ -208,11 +226,16 @@ public class OptimizerWorkerMain {
         // Register (first run or missing marker)
         log.info("registering", "Registering worker key with dispatcher");
         byte[] publicKeyBytes = keyManager.getPublicKeyBytes();
-        DispatcherClient.RegisterResult result = dispatcherClient.registerKey(publicKeyBytes, config.name());
+        DispatcherClient.RegisterResult result =
+                dispatcherClient.registerKey(publicKeyBytes, config.name());
 
-        log.info("registered", "Worker key registered successfully",
-                "keyId", result.keyId(),
-                "alreadyRegistered", result.alreadyRegistered());
+        log.info(
+                "registered",
+                "Worker key registered successfully",
+                "keyId",
+                result.keyId(),
+                "alreadyRegistered",
+                result.alreadyRegistered());
 
         // Persist the registration marker
         writeRegisteredKeyId(config, result.keyId().toString());
@@ -255,12 +278,12 @@ public class OptimizerWorkerMain {
             String osVersion = System.getProperty("os.version", "unknown");
             String osArch = System.getProperty("os.arch", "unknown");
 
-            return new String[]{
-                    "optimizer-worker",
-                    "  worker-lib version : " + workerLibVersion,
-                    "  SCORE_FN_VERSION   : " + scoreFnVersion,
-                    "  JVM               : " + jvmVersion + " (" + jvmVendor + ")",
-                    "  OS                : " + osName + " " + osVersion + " (" + osArch + ")"
+            return new String[] {
+                "optimizer-worker",
+                "  worker-lib version : " + workerLibVersion,
+                "  SCORE_FN_VERSION   : " + scoreFnVersion,
+                "  JVM               : " + jvmVersion + " (" + jvmVendor + ")",
+                "  OS                : " + osName + " " + osVersion + " (" + osArch + ")"
             };
         }
 

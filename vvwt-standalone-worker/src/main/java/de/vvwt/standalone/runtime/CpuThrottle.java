@@ -1,18 +1,18 @@
 package de.vvwt.standalone.runtime;
 
 /**
- * Enforces a maximum CPU utilisation percentage by tracking the ratio of work time to
- * total elapsed time (work + sleep) and computing how long to sleep after each packet.
+ * Enforces a maximum CPU utilisation percentage by tracking the ratio of work time to total elapsed
+ * time (work + sleep) and computing how long to sleep after each packet.
  *
- * <p>The implementation tracks cumulative nanoseconds spent working vs. sleeping and
- * returns the sleep duration needed to keep the observed ratio at or below the target.
- * It does NOT use thread-pinning, cgroups, or any platform-specific mechanism — this
- * ensures portability (AC7 of E01S05).
+ * <p>The implementation tracks cumulative nanoseconds spent working vs. sleeping and returns the
+ * sleep duration needed to keep the observed ratio at or below the target. It does NOT use
+ * thread-pinning, cgroups, or any platform-specific mechanism — this ensures portability (AC7 of
+ * E01S05).
  *
  * <h2>Steady-state behaviour</h2>
- * <p>At 50%: after solving a packet that took W nanoseconds, sleep W nanoseconds.
- * At 100%: never sleep.
- * At 1%: sleep approximately 99W nanoseconds.
+ *
+ * <p>At 50%: after solving a packet that took W nanoseconds, sleep W nanoseconds. At 100%: never
+ * sleep. At 1%: sleep approximately 99W nanoseconds.
  *
  * <p>Implements Story E01S05 AC7.
  */
@@ -71,16 +71,12 @@ public final class CpuThrottle {
         return sleepNeeded;
     }
 
-    /**
-     * Returns total cumulative work time in nanoseconds.
-     */
+    /** Returns total cumulative work time in nanoseconds. */
     public long getTotalWorkNanos() {
         return totalWorkNanos;
     }
 
-    /**
-     * Returns total cumulative sleep time in nanoseconds.
-     */
+    /** Returns total cumulative sleep time in nanoseconds. */
     public long getTotalSleepNanos() {
         return totalSleepNanos;
     }

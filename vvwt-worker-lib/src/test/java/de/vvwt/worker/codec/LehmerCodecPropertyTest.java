@@ -1,11 +1,9 @@
 package de.vvwt.worker.codec;
 
+import java.util.Arrays;
 import net.jqwik.api.*;
 import net.jqwik.api.constraints.IntRange;
 import net.jqwik.api.constraints.LongRange;
-import org.assertj.core.api.Assertions;
-
-import java.util.Arrays;
 
 /**
  * Property-based tests for {@link LehmerCodec} using jqwik.
@@ -21,11 +19,11 @@ class LehmerCodecPropertyTest {
     // -----------------------------------------------------------------
 
     /**
-     * AC2: for all n ∈ [1,17] and all ranks r ∈ [0, n!), the round-trip holds:
-     * {@code permutationToRank(rankToPermutation(r, n)) == r}.
+     * AC2: for all n ∈ [1,17] and all ranks r ∈ [0, n!), the round-trip holds: {@code
+     * permutationToRank(rankToPermutation(r, n)) == r}.
      *
-     * <p>jqwik generates random (n, r) pairs from the valid domain.
-     * For small n the entire space is explored; for large n jqwik samples.
+     * <p>jqwik generates random (n, r) pairs from the valid domain. For small n the entire space is
+     * explored; for large n jqwik samples.
      */
     @Property(tries = 2000)
     @Label("AC2: round-trip rankToPermutation ∘ permutationToRank == identity")
@@ -46,8 +44,8 @@ class LehmerCodecPropertyTest {
     }
 
     /**
-     * AC2 (exhaustive small n): for n ∈ [1,7] enumerate all ranks exhaustively.
-     * 7! = 5040, so all 28 full ranges are checked in milliseconds.
+     * AC2 (exhaustive small n): for n ∈ [1,7] enumerate all ranks exhaustively. 7! = 5040, so all
+     * 28 full ranges are checked in milliseconds.
      */
     @Property(tries = 7)
     @Label("AC2: exhaustive round-trip for small n (1..7)")
@@ -80,8 +78,8 @@ class LehmerCodecPropertyTest {
     // -----------------------------------------------------------------
 
     /**
-     * AC3: for all n ∈ [1,8] the sequence produced by rankToPermutation(0..n!-1, n) matches
-     * the sequence produced by a reference next-permutation walker bit-identically.
+     * AC3: for all n ∈ [1,8] the sequence produced by rankToPermutation(0..n!-1, n) matches the
+     * sequence produced by a reference next-permutation walker bit-identically.
      *
      * <p>n is capped at 8 (8! = 40320) to keep the test fast while still covering all n ≤ 8
      * exhaustively. For n > 8 the round-trip property (AC2) provides the equivalent guarantee.
@@ -131,8 +129,8 @@ class LehmerCodecPropertyTest {
     }
 
     /**
-     * AC4: sample 500 random ranks in the N=17 space and verify round-trip.
-     * 17! ≈ 3.56e14; uniform sampling verifies there are no local overflows in the high range.
+     * AC4: sample 500 random ranks in the N=17 space and verify round-trip. 17! ≈ 3.56e14; uniform
+     * sampling verifies there are no local overflows in the high range.
      */
     @Property(tries = 500)
     @Label("AC4: N=17 sampled ranks all round-trip (no overflow)")
@@ -147,17 +145,20 @@ class LehmerCodecPropertyTest {
     // Arbitrary providers
     // -----------------------------------------------------------------
 
-    /**
-     * Generates valid random permutations of [0, n-1] for n ∈ [1, 17].
-     */
+    /** Generates valid random permutations of [0, n-1] for n ∈ [1, 17]. */
     @Provide
     Arbitrary<int[]> validPermutations() {
-        return Arbitraries.integers().between(1, 17).flatMap(n -> {
-            // Generate rank in [0, n!) and convert — this guarantees a valid permutation
-            long maxRank = LehmerCodec.FACTORIAL[n] - 1L;
-            return Arbitraries.longs().between(0L, maxRank)
-                    .map(rank -> LehmerCodec.rankToPermutation(rank, n));
-        });
+        return Arbitraries.integers()
+                .between(1, 17)
+                .flatMap(
+                        n -> {
+                            // Generate rank in [0, n!) and convert — this guarantees a valid
+                            // permutation
+                            long maxRank = LehmerCodec.FACTORIAL[n] - 1L;
+                            return Arbitraries.longs()
+                                    .between(0L, maxRank)
+                                    .map(rank -> LehmerCodec.rankToPermutation(rank, n));
+                        });
     }
 
     // -----------------------------------------------------------------
@@ -165,8 +166,8 @@ class LehmerCodecPropertyTest {
     // -----------------------------------------------------------------
 
     /**
-     * Computes the next lexicographic permutation of {@code perm} in place.
-     * Standard Narayana Pandita algorithm (O(n) time). Returns false if already at last permutation.
+     * Computes the next lexicographic permutation of {@code perm} in place. Standard Narayana
+     * Pandita algorithm (O(n) time). Returns false if already at last permutation.
      *
      * <p>This reference implementation is intentionally separate from {@link LehmerCodec} so that
      * the AC3 property test exercises two independent algorithms.

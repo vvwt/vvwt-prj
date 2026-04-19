@@ -1,16 +1,15 @@
 package de.vvwt.tm.tenant.internal;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.file.Paths;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for {@link TmDataDirProperties}.
  *
- * <p>AC9: {@code ${tm.data.dir}} must have a documented default (platform-appropriate
- * app-data directory) and an {@code application.yml} override key.
+ * <p>AC9: {@code ${tm.data.dir}} must have a documented default (platform-appropriate app-data
+ * directory) and an {@code application.yml} override key.
  *
  * <p>Story: E14S02 — DEC-10/DEC-20/DEC-22.
  */

@@ -5,21 +5,21 @@ import jakarta.validation.constraints.NotBlank;
 /**
  * Request body for POST /api/tournaments/{tournamentId}/teams (AC2 — E05S05).
  *
- * <p>{@code teamNumber} is optional. If omitted (null or absent) it defaults to 0,
- * which signals the service to auto-assign max+1 (AC2).
+ * <p>{@code teamNumber} is optional. If omitted (null or absent) it defaults to 0, which signals
+ * the service to auto-assign max+1 (AC2).
  *
- * @see <a href="../../../../../../../../../.gaai/project/contexts/artefacts/stories/E05S05.story.md">Story E05S05</a>
+ * @see <a
+ *     href="../../../../../../../../../.gaai/project/contexts/artefacts/stories/E05S05.story.md">Story
+ *     E05S05</a>
  */
 public record TeamCreateRequest(
 
         /** Team name or label (required). */
-        @NotBlank(message = "description is required")
-        String description,
+        @NotBlank(message = "description is required") String description,
 
         /**
-         * Team number within the tournament (optional).
-         * If null or absent, auto-assigned as max(existing) + 1.
-         * Minimum value 1 when provided.
+         * Team number within the tournament (optional). If null or absent, auto-assigned as
+         * max(existing) + 1. Minimum value 1 when provided.
          */
         Integer teamNumber,
 
@@ -30,11 +30,10 @@ public record TeamCreateRequest(
         Boolean refereeAssignment,
 
         /** Whether the team is excluded from standings (default: false). */
-        Boolean withoutAssessment
-) {
+        Boolean withoutAssessment) {
     /**
-     * Resolves {@code teamNumber} to an int for service consumption.
-     * Returns 0 when not provided, signalling auto-assignment.
+     * Resolves {@code teamNumber} to an int for service consumption. Returns 0 when not provided,
+     * signalling auto-assignment.
      */
     public int resolvedTeamNumber() {
         return teamNumber != null && teamNumber >= 1 ? teamNumber : 0;

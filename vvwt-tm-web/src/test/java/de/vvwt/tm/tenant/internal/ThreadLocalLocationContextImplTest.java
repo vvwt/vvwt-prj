@@ -1,19 +1,18 @@
 package de.vvwt.tm.tenant.internal;
 
-import de.vvwt.tm.tenant.LocationContext;
-import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import de.vvwt.tm.tenant.LocationContext;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
+
 /**
- * Unit tests for {@link ThreadLocalLocationContextImpl} — verifies the AC3 nested-bind contract
- * for {@link LocationContext} (E14S09).
+ * Unit tests for {@link ThreadLocalLocationContextImpl} — verifies the AC3 nested-bind contract for
+ * {@link LocationContext} (E14S09).
  *
- * <p>Mirrors the contract from {@link ThreadLocalTenantContextImplTest} for symmetry
- * (E14S09 requires LocationContext to have the same nested-bind semantics as TenantContext).
+ * <p>Mirrors the contract from {@link ThreadLocalTenantContextImplTest} for symmetry (E14S09
+ * requires LocationContext to have the same nested-bind semantics as TenantContext).
  *
  * @see ThreadLocalLocationContextImpl
  * @see LocationContext

@@ -1,5 +1,8 @@
 package de.vvwt.dispatcher.cache;
 
+import java.time.Instant;
+import java.util.HexFormat;
+import java.util.Optional;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -11,29 +14,27 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.Instant;
-import java.util.HexFormat;
-import java.util.Optional;
-import java.util.UUID;
-
 /**
  * Public read-only REST endpoint for the results cache (AC9 of E01S09).
  *
  * <h2>Security (AC9, AC10)</h2>
+ *
  * <ul>
- *   <li>Read-public: no authentication required on this endpoint.</li>
- *   <li>Write access is handled by {@link ResultsCacheService} using a local DB
- *       connection credential held only by the dispatcher process. This controller
- *       exposes read operations ONLY.</li>
+ *   <li>Read-public: no authentication required on this endpoint.
+ *   <li>Write access is handled by {@link ResultsCacheService} using a local DB connection
+ *       credential held only by the dispatcher process. This controller exposes read operations
+ *       ONLY.
  * </ul>
  *
  * <h2>Endpoint</h2>
+ *
  * {@code GET /cache/{fingerprintHex}?scoreFnVersion=N&canonicalizationVersion=M}
+ *
  * <ul>
- *   <li>200 — cache hit with result body</li>
- *   <li>404 — cache miss</li>
- *   <li>400 — malformed fingerprint hex (not exactly 64 hex chars = 32 bytes)</li>
- *   <li>503 — DB connection failure (with {@code Retry-After: 5} header)</li>
+ *   <li>200 — cache hit with result body
+ *   <li>404 — cache miss
+ *   <li>400 — malformed fingerprint hex (not exactly 64 hex chars = 32 bytes)
+ *   <li>503 — DB connection failure (with {@code Retry-After: 5} header)
  * </ul>
  */
 @RestController
@@ -51,8 +52,8 @@ public class CacheController {
     /**
      * Retrieves a cached result by structural fingerprint and version identifiers.
      *
-     * @param fingerprintHex          64-char hex string encoding the 32-byte fingerprint
-     * @param scoreFnVersion          scorer algorithm version
+     * @param fingerprintHex 64-char hex string encoding the 32-byte fingerprint
+     * @param scoreFnVersion scorer algorithm version
      * @param canonicalizationVersion canonicalization algorithm version
      * @return 200 with result body, 404 on miss, 400 on bad fingerprint
      */
@@ -67,28 +68,28 @@ public class CacheController {
         }
 
         byte[] fingerprint = HexFormat.of().parseHex(fingerprintHex);
-        Optional<CachedResult> result = cacheService.lookup(fingerprint, scoreFnVersion,
-                canonicalizationVersion);
+        Optional<CachedResult> result =
+                cacheService.lookup(fingerprint, scoreFnVersion, canonicalizationVersion);
 
         if (result.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
 
         CachedResult hit = result.get();
-        CacheResponseBody body = new CacheResponseBody(
-                fingerprintHex,
-                hit.scoreFnVersion(),
-                hit.canonicalizationVersion(),
-                hit.bestRank(),
-                hit.bestScore(),
-                hit.n(),
-                hit.computedAt());
+        CacheResponseBody body =
+                new CacheResponseBody(
+                        fingerprintHex,
+                        hit.scoreFnVersion(),
+                        hit.canonicalizationVersion(),
+                        hit.bestRank(),
+                        hit.bestScore(),
+                        hit.n(),
+                        hit.computedAt());
         return ResponseEntity.ok(body);
     }
 
     /**
-     * Handles DB connectivity failures: returns 503 with {@code Retry-After: 5}
-     * header per AC11.
+     * Handles DB connectivity failures: returns 503 with {@code Retry-After: 5} header per AC11.
      */
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<Void> handleDataAccessException(DataAccessException exception) {
@@ -126,13 +127,13 @@ public class CacheController {
     /**
      * JSON response body for a cache hit (AC9).
      *
-     * @param fingerprint            64-char hex fingerprint
-     * @param scoreFnVersion         scorer algorithm version
+     * @param fingerprint 64-char hex fingerprint
+     * @param scoreFnVersion scorer algorithm version
      * @param canonicalizationVersion canonicalization algorithm version
-     * @param bestRank               best permutation rank
-     * @param bestScore              variety score for {@code bestRank}
-     * @param n                      number of avatars
-     * @param computedAt             when the result was finalized
+     * @param bestRank best permutation rank
+     * @param bestScore variety score for {@code bestRank}
+     * @param n number of avatars
+     * @param computedAt when the result was finalized
      */
     public record CacheResponseBody(
             String fingerprint,
@@ -141,6 +142,5 @@ public class CacheController {
             long bestRank,
             double bestScore,
             int n,
-            Instant computedAt) {
-    }
+            Instant computedAt) {}
 }

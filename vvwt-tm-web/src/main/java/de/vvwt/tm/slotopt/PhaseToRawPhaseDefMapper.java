@@ -10,40 +10,43 @@ import de.vvwt.worker.types.RawPhaseDef;
 import de.vvwt.worker.types.RawRow;
 import de.vvwt.worker.types.StructuralFingerprint;
 import de.vvwt.worker.types.TransformResult;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
 /**
- * Forward mapper: converts TM domain objects ({@link Match}, {@link TeamAvatar})
- * for a given phase into a {@link RawPhaseDef} and associated structures needed by
- * the slot-optimization compute kernel.
+ * Forward mapper: converts TM domain objects ({@link Match}, {@link TeamAvatar}) for a given phase
+ * into a {@link RawPhaseDef} and associated structures needed by the slot-optimization compute
+ * kernel.
  *
  * <h2>DEC-9 compliance</h2>
- * <p>UUIDs never cross the optimizer service boundary. The mapper extracts the structural
- * identity tuple {@code (groupNumber, groupPosition)} from each {@link TeamAvatar} and
- * constructs {@link PositionTuple}s from them. No team UUID, name, or identity-bearing
- * attribute is included in the {@link RawPhaseDef}.
+ *
+ * <p>UUIDs never cross the optimizer service boundary. The mapper extracts the structural identity
+ * tuple {@code (groupNumber, groupPosition)} from each {@link TeamAvatar} and constructs {@link
+ * PositionTuple}s from them. No team UUID, name, or identity-bearing attribute is included in the
+ * {@link RawPhaseDef}.
  *
  * <h2>Tenant scoping (AC14)</h2>
+ *
  * <p>All repository calls delegate to tenant-scoped repositories from E03S05. The TenantContext
  * must be active before calling any method on this service.
  *
  * <h2>Determinism (AC7)</h2>
- * <p>Matches are sorted by UUID (ascending) before being added to the {@link RawPhaseDef}.
- * This guarantees that two calls with the same phase data always produce identical row ordering.
+ *
+ * <p>Matches are sorted by UUID (ascending) before being added to the {@link RawPhaseDef}. This
+ * guarantees that two calls with the same phase data always produce identical row ordering.
  *
  * @see SlotResultApplicator
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E04S02.story.md">Story E04S02</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E04S02.story.md">Story
+ *     E04S02</a>
  */
 @Service
 public class PhaseToRawPhaseDefMapper {
@@ -54,9 +57,8 @@ public class PhaseToRawPhaseDefMapper {
     private final MatchRepository matchRepository;
 
     /**
-     * Number of courts (fields) for slot assignment.
-     * Sourced from the same config property used by FallbackSlotOptimizationClient (AC6).
-     * Default: 3.
+     * Number of courts (fields) for slot assignment. Sourced from the same config property used by
+     * FallbackSlotOptimizationClient (AC6). Default: 3.
      */
     @Value("${tm.slotopt.fallback.field-count:3}")
     private int fieldCount;
@@ -65,10 +67,10 @@ public class PhaseToRawPhaseDefMapper {
      * Constructs the mapper with the required repositories.
      *
      * @param teamAvatarRepository tenant-scoped repository for TeamAvatar entities (AC14)
-     * @param matchRepository      tenant-scoped repository for Match entities (AC14)
+     * @param matchRepository tenant-scoped repository for Match entities (AC14)
      */
-    public PhaseToRawPhaseDefMapper(TeamAvatarRepository teamAvatarRepository,
-                                    MatchRepository matchRepository) {
+    public PhaseToRawPhaseDefMapper(
+            TeamAvatarRepository teamAvatarRepository, MatchRepository matchRepository) {
         this.teamAvatarRepository = teamAvatarRepository;
         this.matchRepository = matchRepository;
     }
@@ -79,33 +81,37 @@ public class PhaseToRawPhaseDefMapper {
      * <p>Performs the forward mapping (TM domain → worker-lib types) per AC1–AC3 and AC7–AC10.
      *
      * @param phaseId the UUID of the phase to map
-     * @return the mapping result containing the RawPhaseDef, canonical form, N, and match-to-row index
+     * @return the mapping result containing the RawPhaseDef, canonical form, N, and match-to-row
+     *     index
      * @throws IllegalArgumentException if {@code phaseId} is {@code null}
-     * @throws IllegalStateException    if no matches exist (AC8), no avatars exist (AC9),
-     *                                  or a match references an unknown avatar (AC10)
-     * @throws IllegalStateException    if no tenant context is active (E03S05 guard)
+     * @throws IllegalStateException if no matches exist (AC8), no avatars exist (AC9), or a match
+     *     references an unknown avatar (AC10)
+     * @throws IllegalStateException if no tenant context is active (E03S05 guard)
      */
     public MappingResult map(UUID phaseId) {
         if (phaseId == null) {
             throw new IllegalArgumentException("phaseId must not be null");
         }
 
-        // AC14: all repository calls use tenant-scoped repositories — TenantContext guard fires here
+        // AC14: all repository calls use tenant-scoped repositories — TenantContext guard fires
+        // here
         List<TeamAvatar> avatars = teamAvatarRepository.findByPhaseId(phaseId);
         List<Match> matches = matchRepository.findByPhaseId(phaseId);
 
         // AC9: no avatars
         if (avatars.isEmpty()) {
             throw new IllegalStateException(
-                    "No TeamAvatars found for phase " + phaseId
-                    + ". Cannot construct RawPhaseDef for an empty phase.");
+                    "No TeamAvatars found for phase "
+                            + phaseId
+                            + ". Cannot construct RawPhaseDef for an empty phase.");
         }
 
         // AC8: no matches
         if (matches.isEmpty()) {
             throw new IllegalStateException(
-                    "No matches found for phase " + phaseId
-                    + ". Cannot construct RawPhaseDef with zero rows.");
+                    "No matches found for phase "
+                            + phaseId
+                            + ". Cannot construct RawPhaseDef with zero rows.");
         }
 
         // Build avatar-ID-to-PositionTuple index for DEC-9 mapping and AC10 validation
@@ -122,7 +128,8 @@ public class PhaseToRawPhaseDefMapper {
         List<Match> sortedMatches = new ArrayList<>(matches);
         sortedMatches.sort(Comparator.comparing(m -> m.getId().toString()));
 
-        // Build RawPhaseDef rows — each Match becomes one RawRow with exactly 2 PositionTuples (AC1)
+        // Build RawPhaseDef rows — each Match becomes one RawRow with exactly 2 PositionTuples
+        // (AC1)
         List<RawRow> rows = new ArrayList<>(sortedMatches.size());
         int[][] denseIdsByRawRow = new int[sortedMatches.size()][];
 
@@ -137,25 +144,30 @@ public class PhaseToRawPhaseDefMapper {
             PositionTuple pt1 = positionByAvatarId.get(match.getMemberAvatar1Id());
             if (pt1 == null) {
                 throw new IllegalStateException(
-                        "Match " + match.getId() + " references memberAvatar1Id="
-                        + match.getMemberAvatar1Id()
-                        + " which is not present in the loaded avatar set for phase "
-                        + phaseId);
+                        "Match "
+                                + match.getId()
+                                + " references memberAvatar1Id="
+                                + match.getMemberAvatar1Id()
+                                + " which is not present in the loaded avatar set for phase "
+                                + phaseId);
             }
             PositionTuple pt2 = positionByAvatarId.get(match.getMemberAvatar2Id());
             if (pt2 == null) {
                 throw new IllegalStateException(
-                        "Match " + match.getId() + " references memberAvatar2Id="
-                        + match.getMemberAvatar2Id()
-                        + " which is not present in the loaded avatar set for phase "
-                        + phaseId);
+                        "Match "
+                                + match.getId()
+                                + " references memberAvatar2Id="
+                                + match.getMemberAvatar2Id()
+                                + " which is not present in the loaded avatar set for phase "
+                                + phaseId);
             }
 
             rows.add(new RawRow(List.of(pt1, pt2)));
-            rawTuplesByRow.add(new PositionTuple[]{pt1, pt2});
+            rawTuplesByRow.add(new PositionTuple[] {pt1, pt2});
         }
 
-        // AC1: phaseId field uses deterministic derivation from UUID (audit-only, not in fingerprint)
+        // AC1: phaseId field uses deterministic derivation from UUID (audit-only, not in
+        // fingerprint)
         int auditPhaseId = Math.abs(phaseId.hashCode());
 
         RawPhaseDef raw = new RawPhaseDef(auditPhaseId, rows.size(), rows);
@@ -171,17 +183,19 @@ public class PhaseToRawPhaseDefMapper {
         // Populate denseIdsByRawRow: for each raw row, the two dense IDs (AC3 bridge data)
         for (int rowIdx = 0; rowIdx < sortedMatches.size(); rowIdx++) {
             PositionTuple[] tuples = rawTuplesByRow.get(rowIdx);
-            denseIdsByRawRow[rowIdx] = new int[]{
-                    denseIdByTuple.get(tuples[0]),
-                    denseIdByTuple.get(tuples[1])
-            };
+            denseIdsByRawRow[rowIdx] =
+                    new int[] {denseIdByTuple.get(tuples[0]), denseIdByTuple.get(tuples[1])};
         }
 
         // AC2: N = number of distinct avatars
         int n = canonical.avatarCount();
 
-        LOG.info("PhaseToRawPhaseDefMapper: phase={}, avatars={}, matches={}, N={}",
-                phaseId, avatars.size(), sortedMatches.size(), n);
+        LOG.info(
+                "PhaseToRawPhaseDefMapper: phase={}, avatars={}, matches={}, N={}",
+                phaseId,
+                avatars.size(),
+                sortedMatches.size(),
+                n);
 
         return new MappingResult(raw, canonical, n, sortedMatches, denseIdsByRawRow);
     }
@@ -206,9 +220,10 @@ public class PhaseToRawPhaseDefMapper {
      */
     static Map<PositionTuple, Integer> buildDenseIdMapping(RawPhaseDef raw) {
         // Step 1 of StructuralFingerprint: collect distinct tuples, sort lex, assign dense IDs
-        java.util.TreeSet<PositionTuple> distinct = new java.util.TreeSet<>(
-                Comparator.comparingInt(PositionTuple::group)
-                          .thenComparingInt(PositionTuple::pos));
+        java.util.TreeSet<PositionTuple> distinct =
+                new java.util.TreeSet<>(
+                        Comparator.comparingInt(PositionTuple::group)
+                                .thenComparingInt(PositionTuple::pos));
         for (RawRow row : raw.rows()) {
             distinct.addAll(row.positions());
         }
