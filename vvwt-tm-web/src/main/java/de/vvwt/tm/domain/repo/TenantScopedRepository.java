@@ -187,9 +187,13 @@ public abstract class TenantScopedRepository<T, ID> {
         // not tenant-filtered existence, to decide INSERT vs UPDATE).
         ID id = extractId(entity);
         if (id != null && delegate().existsById(id)) {
-            return (S) jdbcOperations().update(entity);
+            return jdbcOperations()
+                    .update(entity); // cast removed: update(S) returns S via type inference
+            // (E18S01/DEC-29)
         } else {
-            return (S) jdbcOperations().insert(entity);
+            return jdbcOperations()
+                    .insert(entity); // cast removed: insert(S) returns S via type inference
+            // (E18S01/DEC-29)
         }
     }
 

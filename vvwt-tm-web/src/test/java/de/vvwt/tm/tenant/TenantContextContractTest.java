@@ -86,6 +86,9 @@ class TenantContextContractTest {
 
     /** AC3 / DEC-17: bind() accepts a {@link UUID} and current() returns the same UUID. */
     @Test
+    @SuppressWarnings(
+            "try") // scope opened for RAII side-effect (bind+auto-restore); not referenced in body
+    // by design (E18S01/DEC-29)
     void currentReturnsBoundTenantIdAsUuid() {
         TenantContext ctx = new ThreadLocalTenantContext();
         UUID tenantId = UUID.fromString("00000000-0000-0000-0000-000000000001");
@@ -106,6 +109,9 @@ class TenantContextContractTest {
      * the inner scope closes, the outer UUID is restored.
      */
     @Test
+    @SuppressWarnings(
+            "try") // outerScope/innerScope opened for RAII side-effect (bind+auto-restore); not
+    // referenced in body by design (E18S01/DEC-29)
     void nestedBindRestoresOuterContextOnClose() {
         TenantContext ctx = new ThreadLocalTenantContext();
         UUID outer = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001");

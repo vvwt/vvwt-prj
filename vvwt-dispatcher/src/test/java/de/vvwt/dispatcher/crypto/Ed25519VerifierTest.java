@@ -63,7 +63,8 @@ class Ed25519VerifierTest {
     @Test
     void corruptedSignatureCausesVerificationFailure() throws Exception {
         byte[] signature = sign(TEST_MESSAGE);
-        signature[0] ^= 0xFF; // flip first byte
+        signature[0] =
+                (byte) (signature[0] ^ 0xFF); // flip first byte (explicit cast, E18S01/DEC-29)
         assertThatThrownBy(() -> Ed25519Verifier.verify(rawPublicKeyBytes, TEST_MESSAGE, signature))
                 .isInstanceOf(InvalidSignatureException.class);
     }

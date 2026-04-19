@@ -410,7 +410,13 @@ public class TimerDataService {
      *
      * <p>The URL path is deterministic and stable per AC note: same tournament + category always
      * produces the same URL (E11S02 stability requirement).
+     *
+     * <p>@SuppressWarnings("try"): the try-with-resources block intentionally opens and immediately
+     * closes the stream to verify real file access. AudioStorageService has no separate exists()
+     * method; stream() is the only presence check. The variable is named "ignored" to document
+     * intent. (E18S01 / DEC-29)
      */
+    @SuppressWarnings("try")
     private String buildAudioUrl(UUID tournamentId, AudioCategory category) {
         try {
             Optional<InputStream> maybeStream = audioStorageService.stream(tournamentId, category);

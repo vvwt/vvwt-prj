@@ -38,6 +38,9 @@ class ThreadLocalLocationContextImplTest {
     // -------------------------------------------------------------------------
 
     @Test
+    @SuppressWarnings(
+            "try") // scope opened for RAII side-effect (bind+auto-restore); not referenced in body
+    // by design (E18S01/DEC-29)
     void bind_and_close_roundtrip() {
         UUID locationId = UUID.randomUUID();
 
@@ -57,6 +60,9 @@ class ThreadLocalLocationContextImplTest {
     // -------------------------------------------------------------------------
 
     @Test
+    @SuppressWarnings(
+            "try") // outerScope/innerScope opened for RAII side-effect (bind+auto-restore); not
+    // referenced in body by design (E18S01/DEC-29)
     void nestedBind_innerOverridesOuter_closeRestoresOuter() {
         UUID outer = UUID.randomUUID();
         UUID inner = UUID.randomUUID();
