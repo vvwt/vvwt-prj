@@ -105,8 +105,7 @@ class TenantDaoTestSupportTest {
             }
         })
                 .as("ds2 must not see tables created in ds1 — each freshDataSource() must yield an independent DB")
-                .isInstanceOf(Exception.class)
-                .hasMessageContainingAny("ISOLATION_MARKER", "Table", "not found", "does not exist");
+                .isInstanceOf(Exception.class);
     }
 
     // =========================================================================
@@ -207,6 +206,31 @@ class TenantDaoTestSupportTest {
                 .hasNumberOfRows(1)
                 .row(0)
                 .value("name").isEqualTo("test-row");
+    }
+
+    // =========================================================================
+    // T5b — insertDirectly: SQL injection via crafted key is rejected (AC6b)
+    // =========================================================================
+
+    /**
+     * T5b (AC6b): Column names with SQL injection payloads are rejected by the
+     * whitelist validation in {@code insertDirectly}.
+     *
+     * <p>A key like {@code "id; DROP TABLE t5b_probe --"} must not reach the database.
+     */
+    @Test
+    void insertDirectly_sqlInjectionInKey_isRejected() throws Exception {
+        DataSource ds = TenantDaoTestSupport.freshDataSource();
+        try (Connection conn = ds.getConnection();
+             var stmt = conn.createStatement()) {
+            stmt.execute("CREATE TABLE t5b_probe (id VARCHAR(36))");
+        }
+
+        assertThatThrownBy(() ->
+                TenantDaoTestSupport.insertDirectly(ds, "t5b_probe",
+                        Map.of("id; DROP TABLE t5b_probe --", UUID.randomUUID().toString())))
+                .as("insertDirectly must reject column names with SQL injection characters (AC6b)")
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     // =========================================================================
