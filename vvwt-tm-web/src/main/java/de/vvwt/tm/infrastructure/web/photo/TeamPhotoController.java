@@ -35,7 +35,7 @@ import org.springframework.web.multipart.MultipartFile;
  * <h2>Authentication (AC10)</h2>
  *
  * <p>All endpoints are under {@code /api/**} which requires admin HTTP Basic auth via {@link
- * de.vvwt.tm.auth.SecurityConfig}. No public access — photo uploads are admin-only.
+ * de.vvwt.tm.auth.internal.SecurityConfig}. No public access — photo uploads are admin-only.
  *
  * <h2>Tenant scoping (AC10, DEC-5)</h2>
  *
@@ -56,7 +56,7 @@ import org.springframework.web.multipart.MultipartFile;
  * </ul>
  *
  * @see PhotoStorageService
- * @see de.vvwt.tm.auth.SecurityConfig
+ * @see de.vvwt.tm.auth.internal.SecurityConfig
  * @see <a
  *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E12S02.story.md">Story
  *     E12S02</a>

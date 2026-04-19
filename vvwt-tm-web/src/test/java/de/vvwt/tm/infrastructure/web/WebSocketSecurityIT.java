@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.auth.SecurityConfig;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -117,7 +116,7 @@ class WebSocketSecurityIT {
 
         StompHeaders connectHeaders = new StompHeaders();
         connectHeaders.add(
-                "Authorization", basicAuth(SecurityConfig.ADMIN_USERNAME, TEST_PASSWORD));
+                "Authorization", basicAuth(AdminCredentialsProvider.ADMIN_USERNAME, TEST_PASSWORD));
 
         StompSession session =
                 client.connectAsync(
@@ -147,7 +146,8 @@ class WebSocketSecurityIT {
 
         StompHeaders connectHeaders = new StompHeaders();
         connectHeaders.add(
-                "Authorization", basicAuth(SecurityConfig.ADMIN_USERNAME, "wrongpassword"));
+                "Authorization",
+                basicAuth(AdminCredentialsProvider.ADMIN_USERNAME, "wrongpassword"));
 
         CompletableFuture<StompSession> future =
                 client.connectAsync(

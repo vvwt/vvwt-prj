@@ -70,11 +70,11 @@ class DisplayViewControllerIT {
     /**
      * Provides a fixed, known admin password hash for the test context.
      *
-     * <p>The production {@link de.vvwt.tm.auth.AdminCredentialsBootstrap} generates a random
-     * password on startup and stores it in the H2 database. In the test context, we override the
-     * provider with a hard-coded BCrypt hash so the test can authenticate if needed. (For display
-     * route tests, auth is not required, but Spring needs a valid {@link AdminCredentialsProvider}
-     * bean to start the context.)
+     * <p>The production {@link de.vvwt.tm.auth.internal.AdminCredentialsBootstrap} generates a
+     * random password on startup and stores it in the H2 database. In the test context, we override
+     * the provider with a hard-coded BCrypt hash so the test can authenticate if needed. (For
+     * display route tests, auth is not required, but Spring needs a valid {@link
+     * AdminCredentialsProvider} bean to start the context.)
      */
     @TestConfiguration
     static class TestAdminCredentials {

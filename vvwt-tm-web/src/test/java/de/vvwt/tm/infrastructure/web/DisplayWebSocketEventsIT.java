@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.auth.SecurityConfig;
 import de.vvwt.tm.domain.CascadeRecomputeService;
 import de.vvwt.tm.domain.Device;
 import de.vvwt.tm.domain.Match;
@@ -246,7 +245,8 @@ class DisplayWebSocketEventsIT {
         // (simulates a scenario where a rogue client tries to subscribe cross-tenant)
         String fakeOtherTenantId = UUID.randomUUID().toString();
         StompHeaders adminHeaders = new StompHeaders();
-        adminHeaders.add("Authorization", basicAuth(SecurityConfig.ADMIN_USERNAME, TEST_PASSWORD));
+        adminHeaders.add(
+                "Authorization", basicAuth(AdminCredentialsProvider.ADMIN_USERNAME, TEST_PASSWORD));
         StompSession wrongTenantSession =
                 buildStompClient()
                         .connectAsync(

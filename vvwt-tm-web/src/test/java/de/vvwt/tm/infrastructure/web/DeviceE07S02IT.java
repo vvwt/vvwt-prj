@@ -3,7 +3,6 @@ package de.vvwt.tm.infrastructure.web;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.auth.SecurityConfig;
 import de.vvwt.tm.infrastructure.web.dto.DeviceRegisterRequest;
 import de.vvwt.tm.infrastructure.web.dto.DeviceRegisterResponse;
 import de.vvwt.tm.infrastructure.web.dto.DeviceStatusResponse;
@@ -87,7 +86,7 @@ class DeviceE07S02IT {
     @BeforeEach
     void setUp() {
         baseUrl = "http://localhost:" + port;
-        authed = restTemplate.withBasicAuth(SecurityConfig.ADMIN_USERNAME, TEST_PASSWORD);
+        authed = restTemplate.withBasicAuth(AdminCredentialsProvider.ADMIN_USERNAME, TEST_PASSWORD);
         // Clean devices table before each test to avoid cross-test limit/state pollution.
         // The limit is set to 3 in the test properties; tests that register DISPLAY devices
         // would exhaust the limit and cause subsequent tests to fail without this cleanup.

@@ -7,7 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.auth.SecurityConfig;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import java.util.NoSuchElementException;
@@ -17,6 +17,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -58,6 +59,7 @@ import org.springframework.web.bind.annotation.RestController;
         webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(TenantContextTestSupport.class)
 class GlobalExceptionHandlerTest {
 
     static final String TEST_PASSWORD = "ExHandlerTest11CC";
@@ -72,7 +74,10 @@ class GlobalExceptionHandlerTest {
     void validationError_returns400WithFieldErrors() throws Exception {
         mockMvc.perform(
                         post("/test-exhandler/validate")
-                                .with(httpBasic(SecurityConfig.ADMIN_USERNAME, TEST_PASSWORD))
+                                .with(
+                                        httpBasic(
+                                                AdminCredentialsProvider.ADMIN_USERNAME,
+                                                TEST_PASSWORD))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{\"name\": \"\"}"))
                 .andExpect(status().isBadRequest())
@@ -94,7 +99,10 @@ class GlobalExceptionHandlerTest {
     void notFoundException_returns404() throws Exception {
         mockMvc.perform(
                         get("/test-exhandler/notfound")
-                                .with(httpBasic(SecurityConfig.ADMIN_USERNAME, TEST_PASSWORD)))
+                                .with(
+                                        httpBasic(
+                                                AdminCredentialsProvider.ADMIN_USERNAME,
+                                                TEST_PASSWORD)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.messageKey").value("error.notFound"))
@@ -109,7 +117,10 @@ class GlobalExceptionHandlerTest {
     void conflictException_returns409() throws Exception {
         mockMvc.perform(
                         get("/test-exhandler/conflict")
-                                .with(httpBasic(SecurityConfig.ADMIN_USERNAME, TEST_PASSWORD)))
+                                .with(
+                                        httpBasic(
+                                                AdminCredentialsProvider.ADMIN_USERNAME,
+                                                TEST_PASSWORD)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409))
                 .andExpect(jsonPath("$.messageKey").value("error.conflict"))
@@ -124,7 +135,10 @@ class GlobalExceptionHandlerTest {
     void unexpectedException_returns500WithGenericMessage() throws Exception {
         mockMvc.perform(
                         get("/test-exhandler/unexpected")
-                                .with(httpBasic(SecurityConfig.ADMIN_USERNAME, TEST_PASSWORD)))
+                                .with(
+                                        httpBasic(
+                                                AdminCredentialsProvider.ADMIN_USERNAME,
+                                                TEST_PASSWORD)))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.status").value(500))
                 .andExpect(jsonPath("$.messageKey").value("error.internal"))

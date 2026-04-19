@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <h2>Security (AC6a)</h2>
  *
- * <p>{@code /api/timer/**} is listed in {@link de.vvwt.tm.auth.SecurityConfig} as {@code
+ * <p>{@code /api/timer/**} is listed in {@link de.vvwt.tm.auth.internal.SecurityConfig} as {@code
  * permitAll()}. The {@code /api/**} catch-all rule that requires authentication is declared AFTER
  * this, so the timer endpoint remains public.
  *

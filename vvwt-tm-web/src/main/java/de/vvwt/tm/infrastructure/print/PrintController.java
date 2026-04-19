@@ -55,8 +55,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
  * <ul>
  *   <li>AC1: All print routes are served under {@code /print/**} by this controller.
  *   <li>AC2: {@code /print/**} is protected by basic auth in {@link
- *       de.vvwt.tm.auth.SecurityConfig}. Unauthenticated requests receive 401 — enforced by Spring
- *       Security before this controller is invoked.
+ *       de.vvwt.tm.auth.internal.SecurityConfig}. Unauthenticated requests receive 401 — enforced
+ *       by Spring Security before this controller is invoked.
  *   <li>AC5: Mustache partials {@code print-header} and {@code print-page-break} are included in
  *       templates; the controller populates the model attributes they consume.
  *   <li>AC7: Non-existent tournament → 404. Tournament with no phases (draft) → human-readable
@@ -118,8 +118,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
  *   <li>AC11: Admin auth enforced by {@code /print/**} security rule; tenant isolation via repo.
  * </ul>
  *
- * @see de.vvwt.tm.auth.SecurityConfig — configures /print/** as authenticated, /print/assets/** as
- *     permitAll
+ * @see de.vvwt.tm.auth.internal.SecurityConfig — configures /print/** as authenticated,
+ *     /print/assets/** as permitAll
  * @see LaufzettelAssembler
  * @see ActivityScheduleAssembler
  * @see CertificateAssembler

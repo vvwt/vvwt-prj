@@ -37,7 +37,7 @@ import org.springframework.web.multipart.MultipartFile;
  * <h2>Authentication (AC11)</h2>
  *
  * <p>All endpoints fall under {@code /api/**} which requires admin authentication per {@link
- * de.vvwt.tm.auth.SecurityConfig}. No separate permit-all rules are needed.
+ * de.vvwt.tm.auth.internal.SecurityConfig}. No separate permit-all rules are needed.
  *
  * <h2>Tenant scoping (AC8, DEC-5)</h2>
  *

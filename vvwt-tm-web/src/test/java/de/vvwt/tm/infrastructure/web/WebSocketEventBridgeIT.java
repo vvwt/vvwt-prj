@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.auth.SecurityConfig;
 import de.vvwt.tm.domain.CascadeRecomputeService;
 import de.vvwt.tm.domain.Match;
 import de.vvwt.tm.domain.MatchFormat;
@@ -143,7 +142,7 @@ class WebSocketEventBridgeIT {
         // Connect with valid credentials
         StompHeaders connectHeaders = new StompHeaders();
         connectHeaders.add(
-                "Authorization", basicAuth(SecurityConfig.ADMIN_USERNAME, TEST_PASSWORD));
+                "Authorization", basicAuth(AdminCredentialsProvider.ADMIN_USERNAME, TEST_PASSWORD));
 
         StompSession session =
                 stompClient

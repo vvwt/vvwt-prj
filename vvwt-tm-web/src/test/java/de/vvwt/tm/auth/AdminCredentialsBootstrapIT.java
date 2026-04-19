@@ -3,8 +3,11 @@ package de.vvwt.tm.auth;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import de.vvwt.tm.tenant.TenantDataSourceResolver;
+import de.vvwt.tm.tenant.TenantRegistryPort;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -14,14 +17,20 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * Integration tests for {@link AdminCredentialsBootstrap}.
+ * Integration tests for {@link de.vvwt.tm.auth.internal.AdminCredentialsBootstrap}.
  *
  * <p>Verifies AC1 (first-boot generation), AC2 (persistence), AC3 (startup logging proxy), AC9 (DB
  * integrity), and AC11 (password strength and hash storage).
  *
- * <p>Uses the "test" profile: in-memory H2 with Flyway migrations (including V6). Each context load
- * triggers a fresh in-memory DB, so these tests always exercise the "first boot" path (no
- * pre-existing admin_credentials row).
+ * <p>Uses the "test" profile. Each context load triggers a fresh start: the per-tenant Flyway
+ * runner applies {@code db/migration/auth/V1__admin_credentials.sql} to the default tenant's H2
+ * database during {@code DefaultTenantBootstrapRunner.run()} ({@code @Order(1)}). These tests
+ * always exercise the "first boot" path (no pre-existing admin_credentials row).
+ *
+ * <p>The {@code jdbcTemplate} used in assertions is built from the <em>per-tenant</em> DataSource
+ * (resolved via {@link TenantDataSourceResolver} + {@link TenantRegistryPort#getDefault()}) because
+ * the {@code admin_credentials} table is created there by {@code auth/V1__admin_credentials.sql},
+ * not in the shared Spring Boot DataSource (DEC-20, DEC-25).
  *
  * <p>Acceptance criteria covered:
  *
@@ -35,7 +44,7 @@ import org.springframework.test.context.ActiveProfiles;
  *   <li>AC11 — {@link #passwordHashIsBcrypt()} and {@link #generatedPasswordMeetsMinEntropy()}
  * </ul>
  *
- * @see AdminCredentialsBootstrap
+ * @see de.vvwt.tm.auth.internal.AdminCredentialsBootstrap
  * @see <a
  *     href="../../../../../../../.gaai/project/contexts/artefacts/stories/E05S02.story.md">Story
  *     E05S02</a>
@@ -49,7 +58,28 @@ class AdminCredentialsBootstrapIT {
 
     @Autowired private PasswordEncoder passwordEncoder;
 
-    @Autowired private JdbcTemplate jdbcTemplate;
+    @Autowired private TenantRegistryPort tenantRegistryPort;
+
+    @Autowired private TenantDataSourceResolver tenantDataSourceResolver;
+
+    /**
+     * Per-tenant JdbcTemplate — built from the default tenant's DataSource in {@link #setUp()}.
+     *
+     * <p>The {@code admin_credentials} table lives in the per-tenant H2 database (created by {@code
+     * auth/V1__admin_credentials.sql} via {@code PerTenantFlywayRunner}). Using the shared Spring
+     * Boot DataSource (the autowired {@link JdbcTemplate}) would fail because the root V6 migration
+     * is deleted post-E15S07 (DEC-25).
+     */
+    private JdbcTemplate jdbcTemplate;
+
+    @BeforeEach
+    void setUp() {
+        // Build a JdbcTemplate against the default tenant's per-tenant DataSource.
+        // The default tenant was registered by DefaultTenantBootstrapRunner.run() (@Order(1))
+        // before this test method runs — safe to call getDefault() here.
+        jdbcTemplate =
+                new JdbcTemplate(tenantDataSourceResolver.resolve(tenantRegistryPort.getDefault()));
+    }
 
     /**
      * AC1 — Verifies that exactly one row is created in {@code admin_credentials} on first boot.
@@ -113,7 +143,7 @@ class AdminCredentialsBootstrapIT {
      * plaintext password matching the hash would pass bcrypt verification. Since we cannot recover
      * the plaintext from the hash, we verify the hash format only and trust that the bootstrap's
      * entropy is correct (16 chars × log2(62) ≈ 5.95 bits each = ~95 bits total — see {@link
-     * AdminCredentialsBootstrap} class javadoc).
+     * de.vvwt.tm.auth.internal.AdminCredentialsBootstrap} class javadoc).
      */
     @Test
     void passwordHashIsBcrypt() {

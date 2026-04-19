@@ -50,7 +50,8 @@ import org.springframework.web.bind.annotation.RestController;
  * <h2>Authentication (E07S02 AC10)</h2>
  *
  * <p>Register and status endpoints are public (devices don't log in). Configure and delete
- * endpoints require admin authentication (HTTP Basic, see {@link de.vvwt.tm.auth.SecurityConfig}).
+ * endpoints require admin authentication (HTTP Basic, see {@link
+ * de.vvwt.tm.auth.internal.SecurityConfig}).
  *
  * <h2>Tenant scope (DEC-5, DEC-24)</h2>
  *

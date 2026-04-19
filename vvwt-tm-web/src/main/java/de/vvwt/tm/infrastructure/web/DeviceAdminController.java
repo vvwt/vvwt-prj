@@ -25,8 +25,8 @@ import org.springframework.web.bind.annotation.RestController;
  * <h2>Authentication</h2>
  *
  * <p>All endpoints require admin HTTP Basic auth. The {@code /api/admin/**} path is covered by the
- * existing {@link de.vvwt.tm.auth.SecurityConfig} rule that requires authentication for all {@code
- * /api/**} paths.
+ * existing {@link de.vvwt.tm.auth.internal.SecurityConfig} rule that requires authentication for
+ * all {@code /api/**} paths.
  *
  * <h2>Tenant scope (DEC-5, DEC-24)</h2>
  *

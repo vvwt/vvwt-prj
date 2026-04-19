@@ -23,9 +23,9 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <h2>Security (AC1)</h2>
  *
- * <p>{@code /timer/**} is listed in {@link de.vvwt.tm.auth.SecurityConfig} as {@code permitAll()}.
- * No authentication is required — the timer page is for venue use without admin credentials. The
- * underlying data endpoint ({@code /api/timer/**}) is also public per E11S02 AC6a.
+ * <p>{@code /timer/**} is listed in {@link de.vvwt.tm.auth.internal.SecurityConfig} as {@code
+ * permitAll()}. No authentication is required — the timer page is for venue use without admin
+ * credentials. The underlying data endpoint ({@code /api/timer/**}) is also public per E11S02 AC6a.
  *
  * <h2>SPA serving strategy</h2>
  *
