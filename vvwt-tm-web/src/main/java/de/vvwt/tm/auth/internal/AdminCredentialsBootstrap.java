@@ -53,15 +53,15 @@ import org.springframework.security.crypto.password.PasswordEncoder;
  * <h2>Reconstruction-in-place note (DEC-21, DEC-22)</h2>
  *
  * <p>This class lives in {@code de.vvwt.tm.auth.internal} — the new Modulith-compliant location.
- * The legacy {@code de.vvwt.tm.auth.AdminCredentialsBootstrap} is left untouched until E15S07
- * (atomic cutover). During the parallel-development phase, this class coexists without collision
- * via two mechanisms: (a) This class is <em>not</em> annotated with {@code @Component} — it is a
- * plain POJO that will be registered as a Spring bean by the {@code @Configuration} class in E15S04
- * ({@code AuthConfiguration}). Until E15S04 lands, the legacy bean handles the runtime bootstrap.
- * The {@code @Order(2)} annotation is present here and will be honoured when E15S04 wires this
- * class into the Spring context. (b) This class does NOT implement {@code AdminCredentialsProvider}
- * — that interface is exposed via the root {@code auth} package and wired in {@code
- * AuthConfiguration} (E15S04) as a lambda delegate to {@link #getPasswordHash()}.
+ * The legacy {@code de.vvwt.tm.auth.internal.AdminCredentialsBootstrap} is left untouched until
+ * E15S07 (atomic cutover). During the parallel-development phase, this class coexists without
+ * collision via two mechanisms: (a) This class is <em>not</em> annotated with {@code @Component} —
+ * it is a plain POJO that will be registered as a Spring bean by the {@code @Configuration} class
+ * in E15S04 ({@code AuthConfiguration}). Until E15S04 lands, the legacy bean handles the runtime
+ * bootstrap. The {@code @Order(2)} annotation is present here and will be honoured when E15S04
+ * wires this class into the Spring context. (b) This class does NOT implement {@code
+ * AdminCredentialsProvider} — that interface is exposed via the root {@code auth} package and wired
+ * in {@code AuthConfiguration} (E15S04) as a lambda delegate to {@link #getPasswordHash()}.
  *
  * <h2>Hash exposure (E15S04)</h2>
  *

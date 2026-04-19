@@ -1,96 +1,162 @@
 package de.vvwt.tm.auth.internal;
 
+import de.vvwt.tm.auth.AdminCredentialsProvider;
+import de.vvwt.tm.tenant.TenantDataSourceResolver;
+import de.vvwt.tm.tenant.TenantRegistryPort;
 import java.security.SecureRandom;
-import javax.sql.DataSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
 
 /**
- * Spring {@code @Configuration} that wires the new {@code auth} module beans (E15S04).
+ * Spring {@code @Configuration} that wires the {@code auth} module beans after the E15S07 atomic
+ * cutover.
  *
- * <p>This class is the single {@code @Configuration} entry point for the new
- * reconstruction-in-place {@code auth} bounded context. It registers all new beans in {@code
- * de.vvwt.tm.auth.internal} as Spring beans.
+ * <p>This class is the single {@code @Configuration} + {@code @EnableWebSecurity} entry point for
+ * the {@code auth} bounded context. It replaces the deleted legacy the deleted legacy root-package
+ * SecurityConfig and activates all new beans as the sole implementations.
  *
- * <h2>Parallel-phase co-existence (AC8, DEC-21)</h2>
- *
- * <p>During the parallel phase, the legacy {@code de.vvwt.tm.auth.SecurityConfig} is also active.
- * To avoid bean collisions:
+ * <h2>Post-cutover bean registry (E15S07)</h2>
  *
  * <ul>
- *   <li>This class is {@code @Configuration} only — NOT {@code @EnableWebSecurity}. The legacy
- *       {@code SecurityConfig} owns {@code @EnableWebSecurity}.
- *   <li>No {@code SecurityFilterChain} bean is registered here during the parallel phase — Spring
- *       Security 6 forbids two "any request" filter chains in the same context. The new {@link
- *       SecurityConfig} factory class is validated via unit/IT tests that exercise its static
- *       factory methods; the live chain is activated at E15S07 cutover.
- *   <li>No {@code @Profile}, {@code @ConditionalOnProperty}, {@code @ConditionalOnBean},
- *       {@code @ConditionalOnMissingBean}, or any other {@code @Conditional*} annotation is used
- *       anywhere in this class or in {@link SecurityConfig} (AC8, DEC-21).
+ *   <li>{@code passwordEncoder} — BCrypt(10) encoder.
+ *   <li>{@code adminCredentialsBootstrap} — {@link AdminCredentialsBootstrap} with per-tenant
+ *       DataSource. Bean name has no suffix — the legacy {@code @Component} bean is gone.
+ *   <li>{@code adminCredentialsProvider} — {@link AdminCredentialsProvider} lambda delegating to
+ *       {@link AdminCredentialsBootstrap#getPasswordHash()}.
+ *   <li>{@code userDetailsService} — lazy {@link UserDetailsService} backed by {@link
+ *       AdminCredentialsProvider}; consumed by {@code WebSocketSecurityConfig}.
+ *   <li>{@code securityFilterChain} — the active {@link SecurityFilterChain}.
  * </ul>
  *
- * <h2>Bean registry (E15S04)</h2>
+ * <h2>DEC-21 compliance</h2>
  *
- * <ul>
- *   <li>{@code adminCredentialsBootstrapNew} — {@link AdminCredentialsBootstrap} wired with the new
- *       internal DAO and generator; reuses the existing {@code passwordEncoder} bean from the
- *       legacy {@code SecurityConfig} (no duplicate encoder in parallel phase).
- * </ul>
+ * <p>No {@code @Profile}, {@code @ConditionalOnProperty}, {@code @ConditionalOnBean},
+ * {@code @ConditionalOnMissingBean}, {@code @ConditionalOnClass}, {@code @ConditionalOnExpression},
+ * {@code @ConditionalOnJava}, {@code @ConditionalOnResource}, {@code @ConditionalOnWebApplication}
+ * is used. The collision sources (legacy beans) are gone.
  *
- * <p>Note: {@code adminCredentialsProvider} ({@code de.vvwt.tm.auth.AdminCredentialsProvider}
- * lambda) is NOT registered during the parallel phase. The legacy {@code adminCredentialsBootstrap}
- * component is the sole {@code AdminCredentialsProvider} in the running context until E15S07 atomic
- * cutover. Registering a second {@code AdminCredentialsProvider} bean without {@code @Primary}
- * causes {@code NoUniqueBeanDefinitionException} at the legacy {@code
- * SecurityConfig.userDetailsService()} injection point.
- *
- * <h2>E15S07 cutover</h2>
- *
- * <p>At cutover: this class gains {@code @EnableWebSecurity}, an {@code adminCredentialsProvider}
- * bean method, and a {@code securityFilterChain} bean method (replacing the legacy chain); legacy
- * {@code de.vvwt.tm.auth.SecurityConfig} is deleted. No {@code @Order} disambiguation is needed
- * after cutover.
- *
- * @see SecurityConfig
  * @see AdminCredentialsBootstrap
+ * @see SecurityConfig
+ * @see AdminCredentialsProvider
  * @see <a
- *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E15S04.story.md">Story
- *     E15S04</a>
- * @since E15S04
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E15S07.story.md">Story
+ *     E15S07</a>
+ * @since E15S04 (created); E15S07 (promoted to full @EnableWebSecurity configuration)
  */
 @Configuration
+@EnableWebSecurity
 public class AuthConfiguration {
+
+    // -------------------------------------------------------------------------
+    // Password encoder
+    // -------------------------------------------------------------------------
+
+    /**
+     * BCrypt password encoder (cost 10).
+     *
+     * <p>Moved here from the deleted legacy root-package SecurityConfig at E15S07.
+     */
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
 
     // -------------------------------------------------------------------------
     // Bootstrap + credentials provider
     // -------------------------------------------------------------------------
 
     /**
-     * New admin-credentials bootstrap ({@link AdminCredentialsBootstrap} from {@code
-     * auth.internal}).
+     * Admin-credentials bootstrap ({@link AdminCredentialsBootstrap}).
      *
-     * <p>Named {@code adminCredentialsBootstrapNew} to avoid collision with the legacy {@code
-     * adminCredentialsBootstrap} bean (registered by the legacy {@code
-     * de.vvwt.tm.auth.AdminCredentialsBootstrap @Component}).
+     * <p>Receives the default tenant's per-tenant DataSource at {@code run()} time via {@link
+     * DefaultTenantDataSourceAdapter} — a lazy {@link javax.sql.DataSource} wrapper that resolves
+     * {@link TenantRegistryPort#getDefault()} + {@link
+     * TenantDataSourceResolver#resolve(java.util.UUID)} on the first {@code getConnection()} call.
+     * Resolution is deferred to {@code run()} time because the default tenant is registered by
+     * {@code DefaultTenantBootstrapRunner} ({@code @Order(1)}) before this bean's {@code run()}
+     * method fires ({@code @Order(2)}).
      *
-     * <p>Receives a per-tenant DataSource from Spring (DEC-20: {@code RoutingTenantDataSource} is
-     * {@code @Primary} since E14S11). The DAO wraps this DataSource for per-tenant credential
-     * isolation.
+     * <p>Bean name is {@code adminCredentialsBootstrap} — the legacy {@code @Component} bean is
+     * gone, so no name suffix is needed.
      *
-     * <p>Reuses the existing {@code passwordEncoder} bean from the legacy {@code
-     * de.vvwt.tm.auth.SecurityConfig} (same BCrypt(10) encoder). During the parallel phase,
-     * registering a duplicate encoder would cause autowire ambiguity. At E15S07 cutover, the legacy
-     * encoder is deleted and this bean becomes the sole encoder.
-     *
-     * @param dataSource the per-tenant DataSource (resolved by {@code RoutingTenantDataSource})
-     * @param passwordEncoder the existing BCrypt encoder bean (from legacy {@code SecurityConfig})
+     * @param tenantRegistryPort provides {@link TenantRegistryPort#getDefault()} for default-tenant
+     *     lookup
+     * @param tenantDataSourceResolver resolves the per-tenant DataSource from a tenant UUID
+     * @param passwordEncoder BCrypt encoder (defined above)
      */
     @Bean
-    public AdminCredentialsBootstrap adminCredentialsBootstrapNew(
-            DataSource dataSource, PasswordEncoder passwordEncoder) {
-        AdminCredentialsDao dao = new AdminCredentialsDao(dataSource);
+    public AdminCredentialsBootstrap adminCredentialsBootstrap(
+            TenantRegistryPort tenantRegistryPort,
+            TenantDataSourceResolver tenantDataSourceResolver,
+            PasswordEncoder passwordEncoder) {
+        DefaultTenantDataSourceAdapter perTenantDataSource =
+                new DefaultTenantDataSourceAdapter(tenantRegistryPort, tenantDataSourceResolver);
+        AdminCredentialsDao dao = new AdminCredentialsDao(perTenantDataSource);
         PasswordGenerator generator = new PasswordGenerator(new SecureRandom());
         return new AdminCredentialsBootstrap(generator, dao, passwordEncoder);
+    }
+
+    /**
+     * {@link AdminCredentialsProvider} bean — delegates to {@link
+     * AdminCredentialsBootstrap#getPasswordHash()} at authentication time.
+     *
+     * <p>Previously absent during the parallel phase to avoid {@code
+     * NoUniqueBeanDefinitionException}. Post-cutover, the legacy bean is gone and this is the sole
+     * {@code AdminCredentialsProvider}.
+     *
+     * @param bootstrap the credentials bootstrap bean (wired above)
+     */
+    @Bean
+    public AdminCredentialsProvider adminCredentialsProvider(AdminCredentialsBootstrap bootstrap) {
+        return bootstrap::getPasswordHash;
+    }
+
+    // -------------------------------------------------------------------------
+    // UserDetailsService + Spring Security filter chain
+    // -------------------------------------------------------------------------
+
+    /**
+     * Lazy {@link UserDetailsService} bean backed by the admin credentials loaded at startup.
+     *
+     * <p>The {@link AdminCredentialsProvider#getPasswordHash()} call is deferred to the first
+     * {@code loadUserByUsername()} invocation — which is guaranteed to occur after all {@code
+     * ApplicationRunner} instances (including {@code AdminCredentialsBootstrap}) have finished.
+     * This prevents a circular initialization failure at bean-creation time.
+     *
+     * <p>Exposed as a named bean so that {@code WebSocketSecurityConfig} can autowire it directly
+     * (preserved behaviour from the deleted legacy root-package {@code SecurityConfig}).
+     *
+     * @param credentialsProvider the admin credentials provider (wired above)
+     * @param passwordEncoder the BCrypt encoder (wired above)
+     * @return a lazy {@link UserDetailsService} that resolves the admin user on demand
+     */
+    @Bean
+    public UserDetailsService userDetailsService(
+            AdminCredentialsProvider credentialsProvider, PasswordEncoder passwordEncoder) {
+        return SecurityConfig.buildUserDetailsService(credentialsProvider, passwordEncoder);
+    }
+
+    /**
+     * The active {@link SecurityFilterChain}.
+     *
+     * <p>Registers the {@code UserDetailsService} and builds the chain via {@link SecurityConfig}'s
+     * static factory methods. Authorization rules, CSRF policy, session policy, and HTTP Basic
+     * realm are identical to the deleted legacy chain (AC2).
+     *
+     * @param http the {@link HttpSecurity} builder
+     * @param userDetailsService the admin user-details service (wired above)
+     * @throws Exception if Spring Security configuration fails
+     */
+    @Bean
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http, UserDetailsService userDetailsService) throws Exception {
+        http.userDetailsService(userDetailsService);
+        return SecurityConfig.buildSecurityFilterChain(http);
     }
 }

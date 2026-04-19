@@ -49,7 +49,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
  * renders them via {@code {{key}}} placeholders. Missing keys fall back to a safe default string to
  * avoid template rendering errors.
  *
- * @see de.vvwt.tm.auth.SecurityConfig — permits /score/** without auth
+ * @see de.vvwt.tm.auth.internal.SecurityConfig — permits /score/** without auth
  */
 @Controller
 @RequestMapping("/score")

@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.auth.SecurityConfig;
 import de.vvwt.tm.domain.Device;
 import de.vvwt.tm.domain.repo.DeviceRepository;
 import de.vvwt.tm.domain.repo.TenantContext;
@@ -237,7 +236,7 @@ class DisplayWebSocketSecurityIT {
     void adminBasicAuth_stillWorks() throws Exception {
         StompHeaders connectHeaders = new StompHeaders();
         connectHeaders.add(
-                "Authorization", basicAuth(SecurityConfig.ADMIN_USERNAME, TEST_PASSWORD));
+                "Authorization", basicAuth(AdminCredentialsProvider.ADMIN_USERNAME, TEST_PASSWORD));
 
         StompSession session =
                 buildStompClient()

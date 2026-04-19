@@ -24,8 +24,8 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>All endpoints require a valid display device token as a query parameter. Spring Security
  * permits the {@code /api/display/**} path without admin authentication (see {@link
- * de.vvwt.tm.auth.SecurityConfig}). Device-type validation and active-status checks are performed
- * at the service layer — invalid tokens return 401 via {@link
+ * de.vvwt.tm.auth.internal.SecurityConfig}). Device-type validation and active-status checks are
+ * performed at the service layer — invalid tokens return 401 via {@link
  * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler#handleUnauthorized}.
  *
  * <h2>Read-only (AC11)</h2>

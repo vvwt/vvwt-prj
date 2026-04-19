@@ -22,9 +22,9 @@ import org.springframework.web.bind.annotation.ResponseBody;
  * <h2>Security (AC9)</h2>
  *
  * <p>The {@code /score/spike/**} path is permitted without authentication in {@link
- * de.vvwt.tm.auth.SecurityConfig} to allow spike testing on devices without admin credentials. This
- * is a spike-only route — production scoring tablet routes will use device-based authentication
- * (E06S03).
+ * de.vvwt.tm.auth.internal.SecurityConfig} to allow spike testing on devices without admin
+ * credentials. This is a spike-only route — production scoring tablet routes will use device-based
+ * authentication (E06S03).
  *
  * @see <a href="../../../../../../.gaai/project/contexts/artefacts/stories/E06S01.story.md">Story
  *     E06S01</a>

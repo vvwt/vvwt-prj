@@ -3,7 +3,6 @@ package de.vvwt.tm.infrastructure.print;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.auth.SecurityConfig;
 import de.vvwt.tm.infrastructure.web.dto.TournamentCreateRequest;
 import de.vvwt.tm.infrastructure.web.dto.TournamentResponse;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
@@ -47,7 +46,7 @@ import org.springframework.test.context.ActiveProfiles;
  * default-tenant resolver).
  *
  * @see PrintController
- * @see de.vvwt.tm.auth.SecurityConfig
+ * @see de.vvwt.tm.auth.internal.SecurityConfig
  * @see <a
  *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S07.story.md">Story
  *     E08S07</a>
@@ -80,7 +79,7 @@ class PrintControllerIT {
     @BeforeEach
     void setUp() {
         baseUrl = "http://localhost:" + port;
-        authed = restTemplate.withBasicAuth(SecurityConfig.ADMIN_USERNAME, TEST_PASSWORD);
+        authed = restTemplate.withBasicAuth(AdminCredentialsProvider.ADMIN_USERNAME, TEST_PASSWORD);
     }
 
     // =========================================================================

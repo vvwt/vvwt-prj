@@ -11,36 +11,27 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
- * New (reconstruction-in-place) Security configuration for Tournament Manager (E15S04).
+ * Security configuration factory for the Tournament Manager (E15S04, activated E15S07).
  *
  * <p>This class is NOT annotated with {@code @Configuration} or {@code @EnableWebSecurity}. It is a
  * factory class that provides the {@link SecurityFilterChain} and {@link UserDetailsService}
  * creation logic. All Spring wiring is done in {@link AuthConfiguration} — the
- * {@code @Configuration} class that registers the beans.
- *
- * <h2>Parallel-phase co-existence (AC8, DEC-21)</h2>
- *
- * <p>The legacy {@code de.vvwt.tm.auth.SecurityConfig} remains active until E15S07 (atomic
- * cutover). To avoid {@code BeanDefinitionOverrideException}, this class carries no Spring
- * annotations — {@link AuthConfiguration} registers the new {@link SecurityFilterChain} bean under
- * the name {@code newSecurityFilterChain}. At E15S07 cutover, the legacy class is deleted and the
- * new bean takes the default name.
+ * {@code @Configuration} + {@code @EnableWebSecurity} class.
  *
  * <p>No {@code @Profile}, {@code @ConditionalOnProperty}, {@code @ConditionalOnBean}, or any other
- * {@code @Conditional*} annotation is used here or in {@link AuthConfiguration} (AC8, DEC-21 line
- * 61: "No feature flags").
+ * {@code @Conditional*} annotation is used here or in {@link AuthConfiguration} (AC2, DEC-21 "No
+ * feature flags" — explicit enumeration of the {@code @Conditional*} family).
  *
  * <h2>Public API</h2>
  *
  * <p>The only type from this package exposed to other modules is {@link
  * de.vvwt.tm.auth.AdminCredentialsProvider} in the root {@code auth} package. {@link
- * SecurityConfig} itself stays in {@code auth.internal} — other modules cannot import it (AC4,
- * DEC-21).
+ * SecurityConfig} itself stays in {@code auth.internal} — other modules cannot import it (DEC-21).
  *
  * <h2>Authorization rules</h2>
  *
- * <p>Identical to the legacy {@code de.vvwt.tm.auth.SecurityConfig} — preserved verbatim to ensure
- * session-behaviour (AC6) and authorization-rule compatibility:
+ * <p>Identical to the deleted legacy {@code SecurityConfig} — preserved verbatim to ensure
+ * session-behaviour and authorization-rule compatibility:
  *
  * <ul>
  *   <li>{@code /actuator/health} — public
@@ -63,12 +54,11 @@ import org.springframework.security.web.SecurityFilterChain;
  *
  * <h2>Session policy</h2>
  *
- * <p>STATELESS — matches the legacy {@code SecurityConfig} (AC6 preservation).
+ * <p>STATELESS — HTTP Basic auth is stateless; no session cookies needed.
  *
  * <h2>CSRF</h2>
  *
- * <p>Disabled — HTTP Basic is stateless; no session cookies to protect. Decision from legacy E05S02
- * AC12 is preserved.
+ * <p>Disabled — HTTP Basic sends credentials on every request; no session cookies to protect.
  *
  * @see AuthConfiguration
  * @see AdminCredentialsProvider
@@ -79,8 +69,11 @@ import org.springframework.security.web.SecurityFilterChain;
  */
 public final class SecurityConfig {
 
-    /** Fixed admin username (V1 — not configurable). Package-visible for tests. */
-    static final String ADMIN_USERNAME = "admin";
+    /**
+     * Fixed admin username (V1 — not configurable). Also exposed via {@link
+     * AdminCredentialsProvider#ADMIN_USERNAME}.
+     */
+    public static final String ADMIN_USERNAME = "admin";
 
     // Not instantiable — all methods are static factories used by AuthConfiguration.
     private SecurityConfig() {}
@@ -90,14 +83,12 @@ public final class SecurityConfig {
      * (lazy — not at bean creation time).
      *
      * <p>The {@link AdminCredentialsProvider#getPasswordHash()} call is deferred to the first
-     * authentication attempt. This is safe because the {@code ApplicationRunner} that populates the
-     * hash (the new {@link AdminCredentialsBootstrap}) completes before Spring accepts any HTTP
-     * requests.
+     * authentication attempt, which is guaranteed to be after all {@code ApplicationRunner}
+     * instances — including {@code AdminCredentialsBootstrap} — have finished.
      *
      * @param credentialsProvider the provider of the bcrypt hash (injected by {@link
      *     AuthConfiguration})
-     * @param passwordEncoder the BCrypt encoder bean (for Spring Security's {@code
-     *     UserDetailsService} to use during verification)
+     * @param passwordEncoder the BCrypt encoder bean
      * @return a {@link UserDetailsService} that returns the single admin user on demand
      */
     static UserDetailsService buildUserDetailsService(
@@ -121,8 +112,7 @@ public final class SecurityConfig {
      * Configures and builds the {@link SecurityFilterChain}.
      *
      * <p>Authorization rules, CSRF policy, session policy, and HTTP Basic realm are identical to
-     * the legacy {@code de.vvwt.tm.auth.SecurityConfig#securityFilterChain} (AC6 — session
-     * behaviour preserved; DEC-21 — no feature flags).
+     * the deleted legacy auth {@code SecurityConfig} (E15S07 atomic cutover).
      *
      * @param http the {@link HttpSecurity} builder provided by Spring Security
      * @return the configured filter chain

@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.GetMapping;
  * <p>Both routes forward to the same Vite-built {@code index.html}. The Svelte app uses {@code
  * window.location.pathname} to decide which "page" to render client-side (E07S07 plan §2). Spring
  * Security permits the entire {@code /display/**} path space without authentication (see {@link
- * de.vvwt.tm.auth.SecurityConfig}).
+ * de.vvwt.tm.auth.internal.SecurityConfig}).
  *
  * <h2>SPA serving strategy</h2>
  *

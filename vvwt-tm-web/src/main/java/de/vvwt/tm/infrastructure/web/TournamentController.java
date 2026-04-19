@@ -46,8 +46,8 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
  * <h2>Security</h2>
  *
  * <p>All /api/** endpoints require HTTP Basic authentication per {@link
- * de.vvwt.tm.auth.SecurityConfig}. Tenant scoping is enforced at the repository layer (DEC-5,
- * DEC-17).
+ * de.vvwt.tm.auth.internal.SecurityConfig}. Tenant scoping is enforced at the repository layer
+ * (DEC-5, DEC-17).
  *
  * @see <a
  *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E05S04.story.md">Story

@@ -28,8 +28,8 @@ import org.springframework.test.context.ActiveProfiles;
  *
  * <h2>Parallel-phase co-existence (AC8)</h2>
  *
- * <p>The legacy {@code de.vvwt.tm.auth.SecurityConfig} is still active during this phase. The new
- * {@link AuthConfiguration} registers beans with distinct names (no collision). {@code git grep
+ * <p>The legacy {@code de.vvwt.tm.auth.SecurityConfig} was deleted at E15S07 (atomic cutover). The
+ * new {@link AuthConfiguration} registers beans with distinct names (no collision). {@code git grep
  * '@Profile\|@Conditional'} on new sources returns zero results.
  *
  * <p>Story: E15S04 (DEC-21, DEC-22).

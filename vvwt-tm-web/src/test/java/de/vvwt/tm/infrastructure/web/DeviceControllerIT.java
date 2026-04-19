@@ -3,7 +3,6 @@ package de.vvwt.tm.infrastructure.web;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.auth.SecurityConfig;
 import de.vvwt.tm.infrastructure.web.dto.DeviceAssignRequest;
 import de.vvwt.tm.infrastructure.web.dto.DeviceRegisterResponse;
 import de.vvwt.tm.infrastructure.web.dto.DeviceStatusResponse;
@@ -88,7 +87,7 @@ class DeviceControllerIT {
     @BeforeEach
     void setUp() {
         baseUrl = "http://localhost:" + port;
-        authed = restTemplate.withBasicAuth(SecurityConfig.ADMIN_USERNAME, TEST_PASSWORD);
+        authed = restTemplate.withBasicAuth(AdminCredentialsProvider.ADMIN_USERNAME, TEST_PASSWORD);
     }
 
     // =========================================================================

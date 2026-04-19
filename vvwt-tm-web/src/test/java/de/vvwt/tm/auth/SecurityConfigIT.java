@@ -17,14 +17,15 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * Integration tests for {@link SecurityConfig}.
+ * Integration tests for {@link de.vvwt.tm.auth.internal.SecurityConfig}.
  *
  * <p>Verifies AC4 (Spring Security filter chain), AC5 (401 without credentials), AC6 (200 with
  * valid credentials), and AC12 (CSRF disabled).
  *
  * <p>Uses the "test" profile (in-memory H2). The Spring context loads fully including {@link
- * AdminCredentialsBootstrap} and {@link SecurityConfig}, so the admin password is generated and
- * available for authentication.
+ * de.vvwt.tm.auth.internal.AdminCredentialsBootstrap} and {@link
+ * de.vvwt.tm.auth.internal.SecurityConfig}, so the admin password is generated and available for
+ * authentication.
  *
  * <p>Authentication: the test needs the plaintext password to authenticate. Since the plaintext is
  * not exposed via an API after first boot, the test uses Spring Security's {@link
@@ -37,7 +38,7 @@ import org.springframework.test.context.ActiveProfiles;
  * with a test-specific {@link TestAdminCredentials} configuration that sets a predictable password.
  * This avoids the circular dependency of needing to know the password to test auth.
  *
- * @see SecurityConfig
+ * @see de.vvwt.tm.auth.internal.SecurityConfig
  * @see <a
  *     href="../../../../../../../.gaai/project/contexts/artefacts/stories/E05S02.story.md">Story
  *     E05S02</a>
@@ -125,7 +126,7 @@ class SecurityConfigIT {
     void adminRootReturns200WithValidCredentials() throws Exception {
         ResponseEntity<String> response =
                 restTemplate
-                        .withBasicAuth(SecurityConfig.ADMIN_USERNAME, TEST_PASSWORD)
+                        .withBasicAuth(AdminCredentialsProvider.ADMIN_USERNAME, TEST_PASSWORD)
                         .getForEntity(new URI(baseUrl + "/admin/"), String.class);
 
         // AC6: valid credentials must NOT return 401 — Spring Security accepted them.
@@ -183,14 +184,14 @@ class SecurityConfigIT {
     /**
      * Test-specific Spring configuration that provides a predictable admin password.
      *
-     * <p>Overrides {@link AdminCredentialsBootstrap} as the {@link AdminCredentialsProvider} bean
-     * with a test-specific implementation that uses a known plaintext password. This allows {@link
-     * TestRestTemplate#withBasicAuth} to authenticate with a compile-time-known password rather
-     * than the ephemeral generated one.
+     * <p>Overrides {@link de.vvwt.tm.auth.internal.AdminCredentialsBootstrap} as the {@link
+     * AdminCredentialsProvider} bean with a test-specific implementation that uses a known
+     * plaintext password. This allows {@link TestRestTemplate#withBasicAuth} to authenticate with a
+     * compile-time-known password rather than the ephemeral generated one.
      *
      * <p>Spring Boot's bean override mechanism applies because this class is loaded as a primary
      * test configuration class — its {@code AdminCredentialsProvider} bean takes precedence over
-     * the one provided by {@link AdminCredentialsBootstrap}.
+     * the one provided by {@link de.vvwt.tm.auth.internal.AdminCredentialsBootstrap}.
      */
     @org.springframework.boot.test.context.TestConfiguration
     static class TestAdminCredentials {

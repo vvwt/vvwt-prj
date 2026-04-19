@@ -68,10 +68,10 @@ class TimerViewControllerIT {
     /**
      * Provides a fixed, known admin password hash for the test context.
      *
-     * <p>The production {@link de.vvwt.tm.auth.AdminCredentialsBootstrap} generates a random
-     * password at startup. In the test context we override with a known BCrypt hash so the Spring
-     * context can start without I/O. (Timer route tests do not require authentication, but the
-     * context needs a valid {@link AdminCredentialsProvider} to boot.)
+     * <p>The production {@link de.vvwt.tm.auth.internal.AdminCredentialsBootstrap} generates a
+     * random password at startup. In the test context we override with a known BCrypt hash so the
+     * Spring context can start without I/O. (Timer route tests do not require authentication, but
+     * the context needs a valid {@link AdminCredentialsProvider} to boot.)
      */
     @TestConfiguration
     static class TestAdminCredentials {

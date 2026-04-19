@@ -28,8 +28,9 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
  * <h2>Security (AC6)</h2>
  *
  * <p>Authentication on the STOMP CONNECT frame is enforced by {@link WebSocketSecurityConfig}. The
- * HTTP-level {@code /ws/**} path is permitted in {@link de.vvwt.tm.auth.SecurityConfig} to allow
- * the upgrade handshake through — Spring WebSocket then enforces auth at the STOMP protocol level.
+ * HTTP-level {@code /ws/**} path is permitted in {@link de.vvwt.tm.auth.internal.SecurityConfig} to
+ * allow the upgrade handshake through — Spring WebSocket then enforces auth at the STOMP protocol
+ * level.
  *
  * <h2>Extensibility (AC5 notes)</h2>
  *

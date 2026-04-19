@@ -41,8 +41,8 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
  *
  * <p>The streaming endpoint ({@code /stream}) is accessible without authentication — the timer page
  * has no auth and must preload audio files. Upload, list, and delete require admin HTTP Basic auth
- * via {@link de.vvwt.tm.auth.SecurityConfig} (all other {@code /api/**} endpoints are already
- * protected). The streaming path is added to the permitAll list in {@code SecurityConfig}.
+ * via {@link de.vvwt.tm.auth.internal.SecurityConfig} (all other {@code /api/**} endpoints are
+ * already protected). The streaming path is added to the permitAll list in {@code SecurityConfig}.
  *
  * <h2>Tenant scoping (AC5, DEC-5)</h2>
  *
@@ -64,7 +64,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
  * </ul>
  *
  * @see AudioStorageService
- * @see de.vvwt.tm.auth.SecurityConfig
+ * @see de.vvwt.tm.auth.internal.SecurityConfig
  * @see <a
  *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E11S01.story.md">Story
  *     E11S01</a>
@@ -141,7 +141,7 @@ public class AudioController {
      *
      * <p>AC5a: This endpoint is accessible without authentication — the timer page has no auth and
      * must preload audio files. The path pattern {@code /api/tournaments/*\/audio/*\/stream} is
-     * listed in {@link de.vvwt.tm.auth.SecurityConfig} as {@code permitAll()}.
+     * listed in {@link de.vvwt.tm.auth.internal.SecurityConfig} as {@code permitAll()}.
      *
      * @param tournamentId the tournament UUID (path variable)
      * @param category the audio category (path variable, case-insensitive)
