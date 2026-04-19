@@ -25,7 +25,13 @@ import org.junit.jupiter.api.Test;
  * </ul>
  *
  * <p>Story: E14S03 — DEC-10/DEC-14/DEC-20/DEC-21/DEC-22.
+ *
+ * <p>@SuppressWarnings("try") at class level: all try-with-resources blocks in this test class use
+ * TenantContext.Scope for its RAII side-effect (bind+auto-restore) — the scope variable is
+ * intentionally unreferenced in the body. This is the correct usage of AutoCloseable context
+ * guards. (E18S01 / DEC-29)
  */
+@SuppressWarnings("try")
 class ThreadLocalTenantContextImplTest {
 
     // -------------------------------------------------------------------------

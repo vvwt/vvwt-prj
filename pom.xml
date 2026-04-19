@@ -236,6 +236,26 @@
                     <version>${maven-compiler-plugin.version}</version>
                     <configuration>
                         <release>${maven.compiler.release}</release>
+                        <!--
+                             DEC-29: compiler-hygiene gate (E18S01).
+                             -Xlint:all activates all javac quality warnings.
+                             -Xlint:-serial: defers serial-keyset category pending
+                               serialization-contract decision (DEC-29 Decision #4).
+                             -Xlint:-processing: suppresses "annotations not claimed by any
+                               processor" - false-positive for JUnit 5 / jqwik annotations that
+                               use runtime reflection, not compile-time annotation processing.
+                             -Xlint:-options: suppresses "class files found on classpath" -
+                               false-positive from the release flag + annotation classpath combo;
+                               not a source-quality issue.
+                             failOnWarning promotes any remaining warning to BUILD FAILURE.
+                        -->
+                        <failOnWarning>true</failOnWarning>
+                        <compilerArgs>
+                            <arg>-Xlint:all</arg>
+                            <arg>-Xlint:-serial</arg>
+                            <arg>-Xlint:-processing</arg>
+                            <arg>-Xlint:-options</arg>
+                        </compilerArgs>
                     </configuration>
                 </plugin>
 

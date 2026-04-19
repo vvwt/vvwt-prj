@@ -426,6 +426,9 @@ class CertificateAssemblerTest {
 
     @Test
     @DisplayName("resolveLocationDisplayName returns display name from locations table")
+    @SuppressWarnings(
+            "unchecked") // any(RowMapper.class) is a raw Mockito matcher — semantics preserved;
+    // cast is safe (E18S01/DEC-29)
     void resolveLocationDisplayName_returnsDisplayName() {
         when(jdbcTemplate.query(anyString(), any(RowMapper.class), eq(TENANT_ID)))
                 .thenReturn(List.of("Sporthalle Musterstadt"));
@@ -437,6 +440,9 @@ class CertificateAssemblerTest {
 
     @Test
     @DisplayName("resolveLocationDisplayName returns empty string when no location found")
+    @SuppressWarnings(
+            "unchecked") // any(RowMapper.class) is a raw Mockito matcher — semantics preserved;
+    // cast is safe (E18S01/DEC-29)
     void resolveLocationDisplayName_returnsEmptyString_whenNoLocation() {
         when(jdbcTemplate.query(anyString(), any(RowMapper.class), eq(TENANT_ID)))
                 .thenReturn(List.of());

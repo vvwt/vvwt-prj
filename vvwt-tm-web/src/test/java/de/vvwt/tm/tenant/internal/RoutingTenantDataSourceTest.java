@@ -88,6 +88,9 @@ class RoutingTenantDataSourceTest {
     // -------------------------------------------------------------------------
 
     @Test
+    @SuppressWarnings(
+            "try") // scope opened for RAII side-effect (bind+auto-restore); not referenced in body
+    // by design (E18S01/DEC-29)
     void determineCurrentLookupKeyReturnsBoundTenantId() {
         TenantContext ctx = new ThreadLocalTenantContextImpl();
         StubDataSourceResolver resolver = new StubDataSourceResolver();
@@ -106,6 +109,9 @@ class RoutingTenantDataSourceTest {
     // -------------------------------------------------------------------------
 
     @Test
+    @SuppressWarnings(
+            "try") // scope opened for RAII side-effect (bind+auto-restore); not referenced in body
+    // by design (E18S01/DEC-29)
     void unknownTenantAtRoutingTimeThrowsUnknownTenantException() {
         TenantContext ctx = new ThreadLocalTenantContextImpl();
         StubDataSourceResolver resolver = new StubDataSourceResolver();

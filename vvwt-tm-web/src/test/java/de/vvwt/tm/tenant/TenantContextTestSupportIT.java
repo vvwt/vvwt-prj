@@ -116,6 +116,9 @@ class TenantContextTestSupportIT {
      * E14S01).
      */
     @Test
+    @SuppressWarnings(
+            "try") // innerScope opened for RAII side-effect (bind+auto-restore); not referenced in
+    // body by design (E18S01/DEC-29)
     void nestedBind_innerOverridesOuter_closingInnerRestoresOuter() {
         UUID outerTenantId = binder.bindDefaultTenant();
         try {

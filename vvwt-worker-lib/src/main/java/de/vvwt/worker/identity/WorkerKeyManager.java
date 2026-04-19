@@ -90,6 +90,11 @@ public class WorkerKeyManager {
      * @throws WorkerKeyGenerationException if keypair generation fails (entropy starvation, JCE)
      * @throws IOException if {@code dataDir} cannot be created or key files cannot be read/written
      */
+    // this-escape: loadExisting()/generateAndPersist() are private final methods that only access
+    // fields set earlier in this constructor body (dataDir, privateKeyPath, publicKeyPath, logger).
+    // No subclass exists — this class is not declared final but is not designed for extension.
+    // The warning is a false positive in this single-class composition context (E18S01 / DEC-29).
+    @SuppressWarnings("this-escape")
     public WorkerKeyManager(Path dataDir, Logger logger)
             throws WorkerKeyCorruptException, IOException {
         this.dataDir = dataDir;

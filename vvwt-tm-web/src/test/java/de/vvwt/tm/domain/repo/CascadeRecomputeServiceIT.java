@@ -492,6 +492,9 @@ class CascadeRecomputeServiceIT {
 
     @Test
     @Transactional
+    @SuppressWarnings(
+            "try") // otherScope.close() restores tenant binding — used for RAII, not for explicit
+    // method calls (E18S01/DEC-29)
     void ac27_tenantScopeEnforced() {
         TestFixture f = createFixture(MatchFormat.BEST_OF_3, "setPoints", "standardVolleyball");
 

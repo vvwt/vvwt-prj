@@ -293,7 +293,11 @@ class TournamentControllerIT {
     // =========================================================================
 
     @Test
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({
+        "unchecked",
+        "rawtypes"
+    }) // raw Map used for dynamic JSON response; type-safe alternative is Map<String, Object> but
+    // changes test readability minimally (E18S01/DEC-29)
     void getTournamentRulesReturns200WithAllDropdowns() throws Exception {
         ResponseEntity<java.util.Map> response =
                 authed.getForEntity(

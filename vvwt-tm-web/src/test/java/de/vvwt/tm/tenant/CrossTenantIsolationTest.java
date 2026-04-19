@@ -335,6 +335,9 @@ class CrossTenantIsolationTest {
      * transaction begins). This test verifies the CONTEXT layer semantics.
      */
     @Test
+    @SuppressWarnings(
+            "try") // outerScope/innerScope opened for RAII side-effect (bind+auto-restore); not
+    // referenced in body by design (E18S01/DEC-29)
     void nestedBind_midScopeSwitch_restoresOuterTenantOnClose() {
         UUID outerTenantId = UUID.randomUUID();
         UUID innerTenantId = UUID.randomUUID();
@@ -382,6 +385,9 @@ class CrossTenantIsolationTest {
      * tenant.internal}.
      */
     @Test
+    @SuppressWarnings(
+            "try") // scope opened for RAII side-effect (bind+auto-restore); not referenced in body
+    // by design (E18S01/DEC-29)
     void tenantPublicApi_isFullySufficientForIsolationProof() {
         // Functional demonstration: a full register → resolve → query cycle is achievable
         // using only the public API interfaces.

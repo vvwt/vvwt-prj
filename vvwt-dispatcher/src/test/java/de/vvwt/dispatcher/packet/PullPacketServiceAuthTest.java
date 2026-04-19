@@ -81,7 +81,7 @@ class PullPacketServiceAuthTest {
 
         // Corrupt one byte
         byte[] sigBytes = Base64.getDecoder().decode(validSig);
-        sigBytes[0] ^= 0xFF;
+        sigBytes[0] = (byte) (sigBytes[0] ^ 0xFF); // explicit cast, E18S01/DEC-29
         String badSig = Base64.getEncoder().encodeToString(sigBytes);
 
         assertThatThrownBy(() -> service.authenticate(workerKeyId, badSig, nonce))

@@ -66,7 +66,12 @@ class AuthModuleAnnotationTest {
      */
     @Test
     void authPackageDeclaresApplicationModuleAnnotation() throws Exception {
-        Package authPackage = Package.getPackage("de.vvwt.tm.auth");
+        // Package.getPackage(String) is deprecated since Java 9 - use ClassLoader.getDefinedPackage
+        // (E18S01/DEC-29)
+        Package authPackage =
+                AuthModuleAnnotationTest.class
+                        .getClassLoader()
+                        .getDefinedPackage("de.vvwt.tm.auth");
         assertThat(authPackage)
                 .as(
                         "Package de.vvwt.tm.auth must be present on the classpath"

@@ -70,6 +70,9 @@ class RoutingTenantDataSourceIT {
      * does not leak connections.
      */
     @Test
+    @SuppressWarnings(
+            "try") // "ignored" scopes opened for RAII side-effect (bind+auto-restore for JDBC
+    // routing); not referenced in body by design (E18S01/DEC-29)
     void tenantAAndBSeeOnlyTheirOwnRows(@TempDir Path tempDir) {
         // Set up real H2 file DataSources
         DataSource dsA = h2FileDataSource(tempDir, TENANT_A);

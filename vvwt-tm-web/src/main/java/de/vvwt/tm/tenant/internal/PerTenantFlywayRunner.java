@@ -197,7 +197,10 @@ public class PerTenantFlywayRunner {
 
         List<String> locations = new ArrayList<>();
         for (ApplicationModule module : orderedModules) {
-            String moduleName = module.getName();
+            String moduleName =
+                    module.getIdentifier()
+                            .toString(); // getName() deprecated; getIdentifier().toString() is the
+            // replacement (E18S01/DEC-29)
             // AC8: Skip any module whose name is empty or blank (guard against edge case)
             if (moduleName == null || moduleName.isBlank()) {
                 continue;
