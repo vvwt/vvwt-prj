@@ -6,6 +6,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.security.SecureRandom;
 import java.util.HashSet;
+import java.util.Random;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -113,16 +114,19 @@ class PasswordGeneratorTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void seededSecureRandom_producesReproducibleOutput() {
-        // AC3a: a SecureRandom seeded for reproducibility produces expected outputs
-        // Two generators with the same seed must produce the same password
-        byte[] seed = {1, 2, 3, 4, 5, 6, 7, 8};
-        SecureRandom rng1 = new SecureRandom(seed);
-        SecureRandom rng2 = new SecureRandom(seed);
+    void seededRandom_producesReproducibleOutput() {
+        // AC3a: a Random seeded for reproducibility produces expected outputs in a deterministic test.
+        // Uses java.util.Random (which SecureRandom extends) with a fixed seed for determinism.
+        // Two generators with the same seed must produce the same password.
+        long seed = 42L;
+        Random rng1 = new Random(seed);
+        Random rng2 = new Random(seed);
 
-        PasswordGenerator gen1 = new PasswordGenerator(rng1);
-        PasswordGenerator gen2 = new PasswordGenerator(rng2);
+        // Use the package-private constructor (same package) with default alphabet/length
+        PasswordGenerator gen1 = new PasswordGenerator(rng1, PasswordGenerator.DEFAULT_ALPHABET, PasswordGenerator.DEFAULT_LENGTH);
+        PasswordGenerator gen2 = new PasswordGenerator(rng2, PasswordGenerator.DEFAULT_ALPHABET, PasswordGenerator.DEFAULT_LENGTH);
 
+        // Same seed → same output
         assertThat(gen1.generate()).isEqualTo(gen2.generate());
     }
 
