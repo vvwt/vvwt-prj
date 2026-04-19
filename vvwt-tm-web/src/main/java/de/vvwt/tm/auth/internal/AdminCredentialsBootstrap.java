@@ -58,17 +58,34 @@ import java.util.UUID;
  *     the runtime bootstrap. The {@code @Order(2)} annotation is present here and will
  *     be honoured when E15S04 wires this class into the Spring context.
  * (b) This class does NOT implement {@code AdminCredentialsProvider} — that interface
- *     remains wired to the legacy bean until E15S04 (SecurityConfig reconstruction).
+ *     is exposed via the root {@code auth} package and wired in {@code AuthConfiguration}
+ *     (E15S04) as a lambda delegate to {@link #getPasswordHash()}.
+ *
+ * <h2>Hash exposure (E15S04)</h2>
+ * <p>{@link #getPasswordHash()} is called by the {@code AdminCredentialsProvider}
+ * lambda registered in {@code AuthConfiguration}. It returns the bcrypt hash stored
+ * at the end of {@link #run(ApplicationArguments)}. Callers must not invoke this
+ * method before {@code run()} has completed (Spring guarantees this — the
+ * {@code UserDetailsService} is called only on the first HTTP request, which arrives
+ * after all {@code ApplicationRunner} instances have finished).
  *
  * @see PasswordGenerator
  * @see AdminCredentialsDao
  * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E15S03.story.md">Story E15S03</a>
+ * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E15S04.story.md">Story E15S04</a>
  * @since E15S03
  */
 @Order(2)
 public class AdminCredentialsBootstrap implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(AdminCredentialsBootstrap.class);
+
+    /**
+     * Holds the bcrypt hash after bootstrap completes.
+     * {@code null} before {@link #run(ApplicationArguments)} — callers must not
+     * invoke {@link #getPasswordHash()} before startup has finished.
+     */
+    private volatile String passwordHash;
 
     private final PasswordGenerator generator;
     private final AdminCredentialsDao dao;
@@ -114,6 +131,7 @@ public class AdminCredentialsBootstrap implements ApplicationRunner {
 
         if (existing.isPresent()) {
             // AC4: subsequent-start — load existing hash, log notice, return without regenerating
+            this.passwordHash = existing.get().passwordHash();
             log.info("[tm-auth] ====================================================");
             log.info("[tm-auth] Admin password: (set at first start — check startup log)");
             log.info("[tm-auth] Username: admin");
@@ -148,6 +166,7 @@ public class AdminCredentialsBootstrap implements ApplicationRunner {
 
         try {
             dao.insertNew(id, hash);
+            this.passwordHash = hash;
 
             // AC3: log plaintext at INFO only — never at DEBUG or TRACE
             log.info("[tm-auth] ====================================================");
@@ -170,8 +189,37 @@ public class AdminCredentialsBootstrap implements ApplicationRunner {
                         + "subsequent re-query found no row. Database is in an inconsistent state. "
                         + "Root cause: " + race.getMessage(), race);
             }
+            this.passwordHash = winner.get().passwordHash();
             log.info("[tm-auth] Admin credentials loaded from concurrent-start winner "
                     + "(plaintext shown by the primary process — check its startup log)");
         }
     }
+
+    // -------------------------------------------------------------------------
+    // AdminCredentialsProvider bridge (E15S04)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns the bcrypt hash of the admin password after bootstrap completes.
+     *
+     * <p>Called by the {@code AdminCredentialsProvider} lambda registered in
+     * {@code AuthConfiguration} (E15S04). This method is invoked at authentication
+     * time (first HTTP request), which is guaranteed to be after all
+     * {@code ApplicationRunner} instances — including this one — have finished.
+     *
+     * @return the bcrypt hash of the admin password; never {@code null} after bootstrap
+     * @throws IllegalStateException if called before {@link #run(ApplicationArguments)}
+     *                               has completed (should not happen in production)
+     */
+    public String getPasswordHash() {
+        String hash = this.passwordHash;
+        if (hash == null) {
+            throw new IllegalStateException(
+                    "AdminCredentialsBootstrap.getPasswordHash() called before bootstrap "
+                    + "completed. Ensure callers are invoked after ApplicationRunner "
+                    + "(@Order(2)) has run.");
+        }
+        return hash;
+    }
 }
+

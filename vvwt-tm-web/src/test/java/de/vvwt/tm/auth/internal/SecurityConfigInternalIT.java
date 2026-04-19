@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.net.URI;
 
@@ -41,6 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
                 de.vvwt.tm.TournamentManagerApplication.class,
                 SecurityConfigInternalIT.TestAdminCredentialsOverride.class
         })
+@ActiveProfiles("test")
 @Import(TenantContextTestSupport.class)
 class SecurityConfigInternalIT {
 
