@@ -16,6 +16,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.transaction.AfterTransaction;
+import org.springframework.test.context.transaction.BeforeTransaction;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -52,13 +54,47 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @SpringBootTest(
         classes = TournamentManagerApplication.class,
-        webEnvironment = SpringBootTest.WebEnvironment.NONE)
+        webEnvironment = SpringBootTest.WebEnvironment.NONE,
+        properties = {
+            "spring.datasource.url=jdbc:h2:mem:e03s02migdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
+                    + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
+        })
 @ActiveProfiles("test")
 @Import(TenantContextTestSupport.class)
 @Transactional
 class E03S02MigrationIT {
 
     @Autowired private JdbcTemplate jdbcTemplate;
+
+    @Autowired private TenantContextTestSupport.Binder tenantContextBinder;
+
+    @BeforeTransaction
+    void bindTenantBeforeTransaction() {
+        tenantContextBinder.bindDefaultTenant();
+    }
+
+    @AfterTransaction
+    void unbindTenantAfterTransaction() {
+        tenantContextBinder.unbind();
+    }
+
+    /**
+     * E14S11: clean up any data left in the per-tenant routing DB from previous test runs. Runs
+     * inside the test transaction and is rolled back after each test.
+     */
+    @org.junit.jupiter.api.BeforeEach
+    void cleanUpPerTenantDb() {
+        jdbcTemplate.update("DELETE FROM set_result");
+        jdbcTemplate.update("DELETE FROM match_outcome");
+        jdbcTemplate.update("DELETE FROM audit_log");
+        jdbcTemplate.update("DELETE FROM match");
+        jdbcTemplate.update("DELETE FROM team_avatar_rating");
+        jdbcTemplate.update("DELETE FROM team_avatar");
+        jdbcTemplate.update("DELETE FROM phase");
+        jdbcTemplate.update("DELETE FROM team");
+        jdbcTemplate.update("DELETE FROM activity_types");
+        jdbcTemplate.update("DELETE FROM tournament");
+    }
 
     // -------------------------------------------------------------------------
     // AC1 + AC9 — Flyway V3 idempotency

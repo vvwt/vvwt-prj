@@ -9,6 +9,7 @@ import de.vvwt.tm.infrastructure.web.dto.DeviceStatusResponse;
 import de.vvwt.tm.infrastructure.web.dto.DeviceSummaryResponse;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -78,15 +79,23 @@ class DeviceE07S02IT {
 
     @Autowired private PasswordEncoder passwordEncoder;
 
+    @Autowired private TenantContextTestSupport.Binder tenantBinder;
+
+    // Primary routing DataSource — resolves per-tenant connections when tenant is bound.
+    @Autowired private javax.sql.DataSource dataSource;
+
     private String baseUrl;
     private TestRestTemplate authed;
-
-    @Autowired private javax.sql.DataSource dataSource;
 
     @BeforeEach
     void setUp() {
         baseUrl = "http://localhost:" + port;
         authed = restTemplate.withBasicAuth(AdminCredentialsProvider.ADMIN_USERNAME, TEST_PASSWORD);
+        // Bind the default tenant for the duration of this test. The routing DataSource (primary
+        // after E14S11) requires a bound tenant for any direct JDBC call in the test thread.
+        // HTTP requests handled by the server also bind the tenant (TenantContextResolver), but
+        // that binding is scoped to the request thread — the test thread needs its own binding.
+        tenantBinder.bindDefaultTenant();
         // Clean devices table before each test to avoid cross-test limit/state pollution.
         // The limit is set to 3 in the test properties; tests that register DISPLAY devices
         // would exhaust the limit and cause subsequent tests to fail without this cleanup.
@@ -96,6 +105,11 @@ class DeviceE07S02IT {
         } catch (java.sql.SQLException e) {
             throw new RuntimeException("Failed to clean devices table before test", e);
         }
+    }
+
+    @AfterEach
+    void tearDown() {
+        tenantBinder.unbind();
     }
 
     // =========================================================================

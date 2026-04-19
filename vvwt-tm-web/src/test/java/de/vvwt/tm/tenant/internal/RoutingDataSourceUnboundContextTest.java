@@ -44,7 +44,8 @@ class RoutingDataSourceUnboundContextTest {
      * thread".
      *
      * <p>This is the unit-level proof of the fast-fail contract. The Spring-level proof is in
-     * {@link de.vvwt.tm.tenant.RoutingDataSourceActivationIT#routingDataSource_withoutTenantContext_throwsIllegalStateException()}.
+     * {@link
+     * de.vvwt.tm.tenant.RoutingDataSourceActivationIT#routingDataSource_withoutTenantContext_throwsIllegalStateException()}.
      */
     @Test
     void getConnection_withNoTenantBound_throwsIllegalStateException() {

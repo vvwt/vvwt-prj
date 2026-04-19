@@ -123,7 +123,15 @@ public class TenantFileRegistryDataSourceResolver implements TenantDataSourceRes
         TenantDirectoryHelper.createTenantDirectory(dataDir, tenantId);
 
         JdbcDataSource ds = new JdbcDataSource();
-        ds.setURL("jdbc:h2:file:" + dbPath + ";AUTO_SERVER=FALSE");
+        // CASE_INSENSITIVE_IDENTIFIERS=TRUE: Spring Data JDBC generates quoted lowercase
+        // identifiers
+        // (e.g. SELECT COUNT("tournament"."ID")) but H2 stores unquoted names as uppercase.
+        // Without this flag, H2 treats quoted "tournament" ≠ stored TOURNAMENT (case-sensitive).
+        // This matches the behaviour of the flat DataSource (H2 mem) which also has
+        // case-insensitive
+        // identifier matching via H2Dialect's IdentifierProcessing.
+        ds.setURL(
+                "jdbc:h2:file:" + dbPath + ";AUTO_SERVER=FALSE;CASE_INSENSITIVE_IDENTIFIERS=TRUE");
         ds.setUser("sa");
         ds.setPassword("");
         return ds;

@@ -1,5 +1,6 @@
 package de.vvwt.tm.tenant.internal;
 
+import de.vvwt.tm.tenant.TenantDataSourceResolver;
 import de.vvwt.tm.tenant.TenantRegistryPort;
 import de.vvwt.tm.tenant.TenantRegistryPort.TenantRecord;
 import java.io.IOException;
@@ -128,6 +129,7 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
 
     private final TenantRegistryPort registry;
     private final PerTenantFlywayRunner flywayRunner;
+    private final TenantDataSourceResolver tenantDataSourceResolver;
     private final Path dataDir;
 
     /**
@@ -164,6 +166,7 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
     public DefaultTenantBootstrapRunner(
             TenantRegistryPort registry,
             PerTenantFlywayRunner flywayRunner,
+            TenantDataSourceResolver tenantDataSourceResolver,
             Path dataDir,
             JdbcTemplate sharedJdbcTemplate,
             TransactionTemplate transactionTemplate) {
@@ -172,6 +175,9 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
         }
         if (flywayRunner == null) {
             throw new IllegalArgumentException("flywayRunner must not be null");
+        }
+        if (tenantDataSourceResolver == null) {
+            throw new IllegalArgumentException("tenantDataSourceResolver must not be null");
         }
         if (dataDir == null) {
             throw new IllegalArgumentException("dataDir must not be null");
@@ -184,6 +190,7 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
         }
         this.registry = registry;
         this.flywayRunner = flywayRunner;
+        this.tenantDataSourceResolver = tenantDataSourceResolver;
         this.dataDir = dataDir;
         this.sharedJdbcTemplate = sharedJdbcTemplate;
         this.transactionTemplate = transactionTemplate;
@@ -219,6 +226,20 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
             // Idempotent main-DB upsert: ensures the tenants row exists even if the main DB
             // is a fresh in-memory H2 (e.g. integration tests) while the file registry persists.
             upsertMainDbTenantRow(existingId);
+            // E14S11 — Idempotent per-tenant Flyway run on subsequent starts.
+            // Applies any migrations that were not present when the DB was first created (e.g.
+            // wave-1 migration bootstrap: per-tenant DB was created with empty locations, now
+            // re-runs with classpath:db/migration fallback). Flyway skips already-applied
+            // migrations.
+            flywayRunner.run(existingId);
+            // E14S11 — Also upsert tenant/location rows into the per-tenant DB.
+            // In wave-1 the per-tenant DB has the same schema as the flat DB (including tenants
+            // and locations tables). FK constraints on tournament, device etc. require the tenant
+            // row to exist in the per-tenant DB too (not only in the flat DB).
+            // Use the resolver (not createDataSourceForTenant) so that test overrides that
+            // provide an in-memory TenantDataSourceResolver are honoured here too.
+            DataSource perTenantDs = tenantDataSourceResolver.resolve(existingId);
+            upsertDbTenantRow(existingId, new JdbcTemplate(perTenantDs));
             return;
         }
 
@@ -253,19 +274,24 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
         // Step 4: Create the tenant H2 directory
         TenantDirectoryHelper.createTenantDirectory(dataDir, tenantId);
 
-        // Step 5: Create DataSource pointing to the new directory
-        DataSource dataSource = createDataSourceForTenant(tenantId);
+        // Step 5: Create DataSource pointing to the new directory (production file-based path).
+        DataSource fileDataSource = createDataSourceForTenant(tenantId);
 
         // Step 6: Run Flyway migrations BEFORE registering (AC5: failed migration → no registry
-        // entry)
-        // FlywayException propagates unchanged — fail fast, no registry entry created.
-        flywayRunner.runWithDataSource(tenantId, dataSource);
+        // entry). FlywayException propagates unchanged — fail fast, no registry entry created.
+        flywayRunner.runWithDataSource(tenantId, fileDataSource);
 
         // Step 6b: Insert the tenant row into the main application DB (idempotent).
         // This populates the shared `tenants` table that other entities (devices, tournaments,
         // etc.)
         // reference via FK. Runs after per-tenant Flyway but before file-registry registration.
         upsertMainDbTenantRow(tenantId);
+
+        // Step 6c (E14S11 wave-1): Also upsert tenant/location rows into the per-tenant DB via
+        // the FILE-based DataSource. The resolver is NOT used here because the tenant has not been
+        // registered yet — TenantFileRegistryDataSourceResolver would throw UnknownTenantException.
+        // The resolver-based idempotent upsert is deferred to step 7b (after registration).
+        upsertDbTenantRow(tenantId, new JdbcTemplate(fileDataSource));
 
         // Step 7: Atomically register if no "Default (LAN)" entry exists yet (AC6).
         // Uses TenantFileRegistry.registerIfDisplayNameAbsent() for atomic check+write when
@@ -277,6 +303,15 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
                     "[tm-e14s05] Default tenant bootstrap complete — UUID={} registered"
                             + " (first-start, AC2)",
                     tenantId);
+            // Step 7b (E14S11 wave-1): Now that the tenant is registered, apply Flyway and upsert
+            // to the resolver's DataSource too. In production the resolver returns the SAME
+            // file-based DataSource (idempotent no-ops). In tests
+            // (InMemoryTenantDataSourceResolver)
+            // the resolver returns a fresh in-memory H2 that needs schema + tenant rows for
+            // subsequent integration-test queries.
+            DataSource resolverDs = tenantDataSourceResolver.resolve(tenantId);
+            flywayRunner.runWithDataSource(tenantId, resolverDs);
+            upsertDbTenantRow(tenantId, new JdbcTemplate(resolverDs));
         } else {
             // Concurrent winner already registered — self-clean our directory (AC6)
             log.info(
@@ -494,6 +529,69 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
     }
 
     /**
+     * Upserts the default-tenant and default-location rows into the given database.
+     *
+     * <h2>E14S11 Wave-1 purpose</h2>
+     *
+     * <p>In wave-1 the per-tenant DB schema is bootstrapped from {@code classpath:db/migration}
+     * (the legacy root) which includes V1 ({@code tenants} table) through V16. FK constraints on
+     * {@code tournament}, {@code devices}, etc. require the tenant row to exist in the same DB.
+     * Since {@link #upsertMainDbTenantRow} only populates the flat DataSource's {@code tenants}
+     * table, the per-tenant DB's table is empty — causing FK violations on repository inserts. This
+     * method populates both the tenant and location rows in the given DataSource.
+     *
+     * <p>Idempotent: checks row existence before inserting. {@link DataIntegrityViolationException}
+     * from a concurrent insert is swallowed (rows are present — the race loser catches this case).
+     *
+     * @param tenantId the tenant UUID to upsert; must not be {@code null}
+     * @param jdbcTemplate the JdbcTemplate backed by the target DataSource (flat or per-tenant)
+     */
+    void upsertDbTenantRow(UUID tenantId, JdbcTemplate jdbcTemplate) {
+        try {
+            Integer count =
+                    jdbcTemplate.queryForObject(SELECT_TENANT_BY_ID_SQL, Integer.class, tenantId);
+            if (count != null && count > 0) {
+                log.debug(
+                        "[tm-e14s11] Tenant row already present in target DB for UUID={}",
+                        tenantId);
+                // Check location too
+                Integer locationCount =
+                        jdbcTemplate.queryForObject(
+                                SELECT_LOCATION_COUNT_SQL, Integer.class, tenantId);
+                if (locationCount == null || locationCount == 0) {
+                    try {
+                        jdbcTemplate.update(INSERT_LOCATION_SQL, UUID.randomUUID(), tenantId);
+                        log.info(
+                                "[tm-e14s11] Location row inserted in target DB for UUID={}",
+                                tenantId);
+                    } catch (DataIntegrityViolationException ignored) {
+                        // Concurrent insert won
+                    }
+                }
+                return;
+            }
+            jdbcTemplate.update(INSERT_TENANT_SQL, tenantId);
+            jdbcTemplate.update(INSERT_LOCATION_SQL, UUID.randomUUID(), tenantId);
+            log.info(
+                    "[tm-e14s11] Tenant+location rows inserted in target DB for UUID={}", tenantId);
+        } catch (DataIntegrityViolationException race) {
+            log.info(
+                    "[tm-e14s11] Tenant row insert race in target DB for UUID={}: {}",
+                    tenantId,
+                    race.getMessage());
+        } catch (org.springframework.jdbc.BadSqlGrammarException noTable) {
+            // The tenants table does not exist in this DB (Flyway may have run with empty
+            // locations).
+            // This is a no-op — wave-1 fallback will ensure the table exists on next start.
+            log.debug(
+                    "[tm-e14s11] Tenant table absent in target DB for UUID={} — skipping upsert"
+                            + " (wave-1 no-op): {}",
+                    tenantId,
+                    noTable.getMessage());
+        }
+    }
+
+    /**
      * Atomically registers a tenant if no entry with the same {@code displayName} exists.
      *
      * <p>When the underlying registry is a {@link TenantFileRegistry} (same package), uses {@link
@@ -550,7 +648,11 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
             urlPath = urlPath.substring(0, urlPath.length() - ".mv.db".length());
         }
         JdbcDataSource ds = new JdbcDataSource();
-        ds.setURL("jdbc:h2:file:" + urlPath + ";AUTO_SERVER=FALSE");
+        // CASE_INSENSITIVE_IDENTIFIERS=TRUE: required so that Spring Data JDBC quoted identifiers
+        // (e.g. "tournament") match H2 uppercase-stored names (TOURNAMENT). Must match the URL
+        // used by TenantFileRegistryDataSourceResolver for the operational connection.
+        ds.setURL(
+                "jdbc:h2:file:" + urlPath + ";AUTO_SERVER=FALSE;CASE_INSENSITIVE_IDENTIFIERS=TRUE");
         ds.setUser("sa");
         ds.setPassword("");
         return ds;

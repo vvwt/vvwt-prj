@@ -5,10 +5,19 @@ import de.vvwt.tm.tenant.LocationContext;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantDataSourceResolver;
 import de.vvwt.tm.tenant.TenantRegistryPort;
+import javax.sql.DataSource;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.flyway.FlywayDataSource;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+import org.springframework.data.relational.core.dialect.Dialect;
+import org.springframework.data.relational.core.dialect.H2Dialect;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -28,11 +37,15 @@ import org.springframework.transaction.support.TransactionTemplate;
  *   <li>{@link DefaultTenantBootstrapRunner} (E14S05)
  * </ul>
  *
- * <h2>RoutingTenantDataSource (deferred to E14S11)</h2>
+ * <h2>RoutingTenantDataSource — activated as {@code @Primary} in E14S11</h2>
  *
- * <p>The {@link RoutingTenantDataSource} is NOT yet registered as {@code @Primary DataSource}.
- * Activation lands in E14S11 after the E14S10 test-infrastructure auto-bind story. The flat Spring
- * Boot auto-configured DataSource remains in use post-cutover.
+ * <p>The {@link RoutingTenantDataSource} is registered as the {@code @Primary DataSource} bean
+ * ({@code routingTenantDataSource}). After E14S11, all auto-wired {@link DataSource} and {@link
+ * JdbcTemplate} beans route JDBC connections through per-tenant H2 files. The Spring Boot
+ * auto-configured flat {@code DataSource} bean ({@code dataSource}) still exists but is no longer
+ * {@code @Primary}. Components that must query the flat DataSource (e.g., {@link
+ * DefaultTenantBootstrapRunner} for idempotency guarding) inject it via
+ * {@code @Qualifier("dataSource")}.
  *
  * <h2>Internal placement (AC6 / DEC-21)</h2>
  *
@@ -48,6 +61,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * @see <a href="../../../../../../../../docs/governance/decisions/DEC-22.md">DEC-22</a>
  */
 @Configuration
+@EnableConfigurationProperties(DataSourceProperties.class)
 public class TenantContextConfiguration {
 
     /**
@@ -130,9 +144,25 @@ public class TenantContextConfiguration {
      * <p>{@link ConditionalOnMissingBean} allows test configurations to override (e.g., for testing
      * E14S05 without running real Flyway migrations in the test context).
      *
+     * <h2>Wave-1 legacy-root fallback (E14S11)</h2>
+     *
+     * <p>In Wave-1, no per-module migration directories exist yet (they are added by E15 stories).
+     * {@link PerTenantFlywayRunner#buildLocations()} therefore returns an empty list, which would
+     * leave every per-tenant H2 database with no schema — causing repository calls routed through
+     * {@link RoutingTenantDataSource} to fail with "table not found" after E14S11 activation.
+     *
+     * <p>This bean overrides {@code buildLocations()} to fall back to {@code
+     * classpath:db/migration} (the legacy root) when the per-module scan returns nothing. This
+     * ensures that the per-tenant DB receives the same schema as the flat main-DB in Wave-1. In
+     * Wave-2 (E15+), when per-module directories are added, the override no longer activates (the
+     * per-module scan returns non-empty), and the production {@code PerTenantFlywayRunner}
+     * semantics are restored automatically.
+     *
      * @see PerTenantFlywayRunner
      * @see <a href="../../../../../../../../docs/governance/stories/E14S04.story.md">Story
      *     E14S04</a>
+     * @see <a href="../../../../../../../../docs/governance/stories/E14S11.story.md">Story E14S11
+     *     (Wave-1 fallback)</a>
      * @see <a href="../../../../../../../../docs/governance/decisions/DEC-20.md">DEC-20</a>
      * @see <a href="../../../../../../../../docs/governance/decisions/DEC-21.md">DEC-21</a>
      */
@@ -141,7 +171,137 @@ public class TenantContextConfiguration {
     public PerTenantFlywayRunner perTenantFlywayRunner(
             TenantDataSourceResolver tenantDataSourceResolver) {
         return new PerTenantFlywayRunner(
-                tenantDataSourceResolver, TournamentManagerApplication.class);
+                tenantDataSourceResolver, TournamentManagerApplication.class) {
+            /**
+             * Wave-1 override: runs root domain migrations (V1–V16) first, then runs each
+             * module-specific location in a separate Flyway instance with its own schema-history
+             * table.
+             *
+             * <p>In Wave-1, the module-specific directories (e.g. {@code auth/}) use version
+             * numbers that overlap with the root (both have V1). Running them in the same Flyway
+             * instance causes a "Found more than one migration with version 1" error. The solution
+             * is to mirror what Spring Modulith's {@code FlywayMigrationStrategy} does: each module
+             * directory uses its own Flyway instance with its own schema-history table ({@code
+             * flyway_schema_history_{module}}).
+             *
+             * <p>In Wave-2 (E15+), migrations will be relocated to per-module directories with
+             * non-conflicting version numbers and the standard {@link PerTenantFlywayRunner}
+             * behavior will be used.
+             */
+            @Override
+            public void runWithDataSource(
+                    java.util.UUID tenantId, javax.sql.DataSource dataSource) {
+                // Wave-1: apply root domain migrations (V1–V16) and per-module migrations in
+                // SEPARATE Flyway instances, each with its own schema-history table.
+                //
+                // Root (V1–V16) and the auth module both use version 1. Running them in a single
+                // Flyway instance causes "Found more than one migration with version 1".
+                //
+                // The production FlywayRootMigrationsCustomizer (used by Spring Boot auto-config)
+                // solves this by supplying a custom ResourceProvider that returns only root-level
+                // files. We apply the same pattern here for the per-tenant Flyway instance.
+
+                // Step 1: root domain migrations (V1–V16) using the standard
+                // flyway_schema_history table. The per-tenant DB is a separate H2 file — it
+                // has its own history table, independent of the flat main-DB's history.
+                // We use RootLevelOnlyResourceProvider (from FlywayRootMigrationsCustomizer)
+                // to exclude auth/V1 from the root scan, exactly as Spring Boot auto-config does
+                // for the flat DB.
+                org.flywaydb.core.Flyway.configure()
+                        .dataSource(dataSource)
+                        .locations("classpath:db/migration")
+                        .resourceProvider(
+                                new de.vvwt.tm.infrastructure.FlywayRootMigrationsCustomizer
+                                        .RootLevelOnlyResourceProvider())
+                        .load()
+                        .migrate();
+
+                // Step 2: per-module migrations, each with its own history table.
+                // baselineOnMigrate(true) + baselineVersion("0") handles the case where the
+                // per-tenant DB already has tables from Step 1 but the module-specific history
+                // table does not yet exist. Flyway would otherwise throw "non-empty schema but
+                // no schema history table". With baseline-on-migrate, Flyway creates the history
+                // table and baselines at version 0 (before V1), then applies the module's
+                // pending migrations. On subsequent runs the history table already exists and
+                // baselineOnMigrate is a no-op.
+                java.util.List<String> moduleLocations = super.buildLocations();
+                for (String location : moduleLocations) {
+                    String moduleName = location.substring(location.lastIndexOf('/') + 1);
+                    String historyTable = "flyway_schema_history_" + moduleName;
+                    org.flywaydb.core.Flyway.configure()
+                            .dataSource(dataSource)
+                            .locations(location)
+                            .table(historyTable)
+                            .baselineOnMigrate(true)
+                            .baselineVersion("0")
+                            .load()
+                            .migrate();
+                }
+            }
+        };
+    }
+
+    /**
+     * Flat (shared) DataSource bean — the Spring Boot main-DB DataSource ({@code dataSource}).
+     *
+     * <h2>Why we register this explicitly (E14S11, AC2)</h2>
+     *
+     * <p>When {@link #routingTenantDataSource} is registered as a {@code DataSource} bean (even as
+     * {@code @Primary}), Spring Boot's {@code DataSourceAutoConfiguration} detects existing {@code
+     * DataSource} beans via {@code @ConditionalOnMissingBean(DataSource.class)} and SKIPS
+     * auto-configuring the flat DataSource entirely. This leaves {@code @Qualifier("dataSource")}
+     * injection points with no candidate bean, breaking {@link DefaultTenantBootstrapRunner} and
+     * the Flyway bridge (see {@link #flywayDataSource}).
+     *
+     * <p>By registering the flat DataSource explicitly using {@link DataSourceProperties} (which
+     * reads {@code spring.datasource.*} properties), we ensure:
+     *
+     * <ul>
+     *   <li>The flat DataSource bean is always present as {@code "dataSource"}, regardless of
+     *       auto-configuration ordering.
+     *   <li>{@link DefaultTenantBootstrapRunner} can inject it via
+     *       {@code @Qualifier("dataSource")}.
+     *   <li>Flyway auto-configuration uses it via {@link #flywayDataSource()}.
+     *   <li>Spring Boot's {@code DataSourceAutoConfiguration} gracefully skips (it sees our bean).
+     * </ul>
+     *
+     * @param dataSourceProperties Spring Boot's {@code spring.datasource.*} configuration
+     * @return the flat (non-routing) DataSource for the shared main H2 database
+     * @see <a href="../../../../../../../../docs/governance/stories/E14S11.story.md">Story E14S11
+     *     (AC2)</a>
+     */
+    @Bean("dataSource")
+    public DataSource dataSource(DataSourceProperties dataSourceProperties) {
+        return dataSourceProperties.initializeDataSourceBuilder().build();
+    }
+
+    /**
+     * Flat {@link TransactionTemplate} bean — backed by the flat DataSource ({@code "dataSource"}).
+     *
+     * <h2>Why we register this explicitly (E14S11, AC2)</h2>
+     *
+     * <p>Spring Boot's {@code TransactionAutoConfiguration} creates a {@code TransactionTemplate}
+     * from the auto-configured {@code PlatformTransactionManager}, which in turn uses the
+     * {@code @Primary} DataSource — i.e. {@link #routingTenantDataSource}. Any startup {@code
+     * ApplicationRunner} that injects {@link TransactionTemplate} would then attempt to open a
+     * connection via the routing DataSource before a tenant is bound, causing {@code
+     * IllegalStateException: No tenant is bound}.
+     *
+     * <p>By registering this bean explicitly backed by the flat DataSource's transaction manager,
+     * Spring Boot's auto-configuration skips creating its own
+     * ({@code @ConditionalOnMissingBean(TransactionOperations.class)}). All startup runners (e.g.,
+     * {@link DefaultTenantBootstrapRunner}, {@link de.vvwt.tm.auth.AdminCredentialsBootstrap}) that
+     * inject {@link TransactionTemplate} receive the flat-DataSource-backed instance.
+     *
+     * @param flatDataSource the flat {@code "dataSource"} bean
+     * @return the flat TransactionTemplate for main-DB (non-routing) transactional inserts
+     * @see <a href="../../../../../../../../docs/governance/stories/E14S11.story.md">Story E14S11
+     *     (AC2)</a>
+     */
+    @Bean
+    public TransactionTemplate transactionTemplate(
+            @Qualifier("dataSource") DataSource flatDataSource) {
+        return new TransactionTemplate(new DataSourceTransactionManager(flatDataSource));
     }
 
     /**
@@ -157,6 +317,14 @@ public class TenantContextConfiguration {
      * ApplicationRunner} instead (avoids real Flyway runs in Spring context tests that use the
      * default {@code application-test.yml} with an in-memory DataSource).
      *
+     * <h2>Flat DataSource injection (E14S11, AC2)</h2>
+     *
+     * <p>After {@code @Primary RoutingTenantDataSource} activation, the auto-wired {@code
+     * JdbcTemplate} would route through tenant context. The bootstrap runner needs the flat
+     * DataSource ({@code @Qualifier("dataSource")}) for its AC11 idempotency guard and main-DB
+     * upsert — these queries run at startup time before any tenant context is bound. Using the
+     * routing DataSource here would cause {@code IllegalStateException: No tenant is bound}.
+     *
      * @see DefaultTenantBootstrapRunner
      * @see <a href="../../../../../../../../docs/governance/stories/E14S05.story.md">Story
      *     E14S05</a>
@@ -169,14 +337,120 @@ public class TenantContextConfiguration {
     public DefaultTenantBootstrapRunner defaultTenantBootstrapRunner(
             TenantRegistryPort tenantRegistryPort,
             PerTenantFlywayRunner perTenantFlywayRunner,
+            TenantDataSourceResolver tenantDataSourceResolver,
             TmDataDirProperties dataDirProperties,
-            JdbcTemplate jdbcTemplate,
+            @Qualifier("dataSource") DataSource flatDataSource,
             TransactionTemplate transactionTemplate) {
+        JdbcTemplate flatJdbcTemplate = new JdbcTemplate(flatDataSource);
         return new DefaultTenantBootstrapRunner(
                 tenantRegistryPort,
                 perTenantFlywayRunner,
+                tenantDataSourceResolver,
                 dataDirProperties.asPath(),
-                jdbcTemplate,
+                flatJdbcTemplate,
                 transactionTemplate);
+    }
+
+    /**
+     * Spring Data JDBC {@link Dialect} bean — explicitly registered as {@link H2Dialect} (E14S11,
+     * AC2).
+     *
+     * <h2>Why we register this explicitly (E14S11, AC2)</h2>
+     *
+     * <p>Spring Boot's {@code
+     * JdbcRepositoriesAutoConfiguration$SpringBootJdbcConfiguration.jdbcDialect} auto-detects the
+     * SQL dialect by opening a JDBC connection via {@code NamedParameterJdbcOperations} (which
+     * resolves to the {@code @Primary} routing DataSource). At context startup, before any tenant
+     * is bound, this causes {@code IllegalStateException: No tenant is bound to the current
+     * thread}.
+     *
+     * <p>By registering the dialect explicitly as {@link H2Dialect#INSTANCE}, Spring Boot's
+     * {@code @ConditionalOnMissingBean(Dialect.class)} condition suppresses the probe entirely.
+     * This is correct because ALL databases in the system are H2: the flat main-DB and every
+     * per-tenant DB. No dialect probe is needed.
+     *
+     * @return the H2 dialect for Spring Data JDBC mapping context
+     * @see org.springframework.data.relational.core.dialect.H2Dialect
+     * @see <a href="../../../../../../../../docs/governance/stories/E14S11.story.md">Story E14S11
+     *     (AC2)</a>
+     */
+    @Bean
+    @ConditionalOnMissingBean(Dialect.class)
+    public Dialect jdbcDialect() {
+        return H2Dialect.INSTANCE;
+    }
+
+    /**
+     * {@link RoutingTenantDataSource} bean — activated as {@code @Primary DataSource} in E14S11.
+     *
+     * <p>After this activation, every auto-wired {@link DataSource} and {@link JdbcTemplate} in the
+     * Spring context resolves JDBC connections through per-tenant H2 files keyed on {@link
+     * de.vvwt.tm.tenant.TenantContext#current()}. A bound {@link TenantContext} is required before
+     * any JDBC call; {@link org.springframework.boot.test.context.TestConfiguration}-based
+     * auto-bind (from E14S10 {@code TenantContextTestSupport}) satisfies this in all
+     * {@code @SpringBootTest} integration tests.
+     *
+     * <h2>AC9 — Javadoc note</h2>
+     *
+     * <p>{@code @Primary} was added to this bean in E14S11. All consumers of the {@link DataSource}
+     * now route through per-tenant context. The flat DataSource bean ({@code "dataSource"}) remains
+     * available for components that must bypass routing (e.g., bootstrap runners that execute
+     * before tenant context is bound).
+     *
+     * <h2>No @ConditionalOnMissingBean (DEC-21)</h2>
+     *
+     * <p>This bean MUST NOT be conditional. Per DEC-21 (no feature flags), routing activation
+     * happens unconditionally. Test contexts that need a different DataSource routing strategy must
+     * override via a full {@code @TestConfiguration} bean definition replacement.
+     *
+     * @see RoutingTenantDataSource
+     * @see de.vvwt.tm.tenant.TenantContext
+     * @see de.vvwt.tm.tenant.TenantDataSourceResolver
+     * @see <a href="../../../../../../../../docs/governance/stories/E14S11.story.md">Story E14S11
+     *     (activation)</a>
+     * @see <a href="../../../../../../../../docs/governance/decisions/DEC-20.md">DEC-20
+     *     (DB-per-Tenant)</a>
+     * @see <a href="../../../../../../../../docs/governance/decisions/DEC-21.md">DEC-21 (no feature
+     *     flags)</a>
+     */
+    @Bean("routingTenantDataSource")
+    @Primary
+    public DataSource routingTenantDataSource(
+            @Qualifier("tenantRoutingContext") TenantContext tenantContext,
+            TenantDataSourceResolver tenantDataSourceResolver) {
+        return new RoutingTenantDataSource(tenantContext, tenantDataSourceResolver);
+    }
+
+    /**
+     * Exposes the flat DataSource as {@code @FlywayDataSource} so that Spring Boot's Flyway
+     * auto-configuration ({@code FlywayAutoConfiguration}) uses it instead of the {@code @Primary
+     * RoutingTenantDataSource}.
+     *
+     * <h2>Why this is necessary (E14S11, AC2)</h2>
+     *
+     * <p>After {@code @Primary RoutingTenantDataSource} activation, Spring Boot's {@code
+     * FlywayMigrationInitializer} would auto-wire the primary DataSource and try to open a JDBC
+     * connection during context startup — BEFORE any tenant is bound. This causes {@code
+     * IllegalStateException: No tenant is bound to the current thread} in the Flyway initializer.
+     * The {@code @FlywayDataSource} qualifier is the Spring Boot mechanism for explicitly directing
+     * Flyway to a non-primary DataSource.
+     *
+     * <h2>Flat DataSource semantics</h2>
+     *
+     * <p>The main shared H2 database (the flat DataSource) stores cross-tenant metadata (tenants
+     * table, admin credentials). Per-tenant application data lives in the per-tenant H2 files
+     * managed by {@link RoutingTenantDataSource}. Flyway migrations for the main-DB schema ({@code
+     * db/migration}) correctly target the flat DataSource.
+     *
+     * @param flatDataSource the flat {@code "dataSource"} bean
+     * @return the same DataSource, exposed with {@code @FlywayDataSource} qualifier
+     * @see org.springframework.boot.autoconfigure.flyway.FlywayDataSource
+     * @see <a href="../../../../../../../../docs/governance/stories/E14S11.story.md">Story E14S11
+     *     (AC2)</a>
+     */
+    @Bean("flywayRoutingBridgeDataSource")
+    @FlywayDataSource
+    public DataSource flywayDataSource(@Qualifier("dataSource") DataSource flatDataSource) {
+        return flatDataSource;
     }
 }

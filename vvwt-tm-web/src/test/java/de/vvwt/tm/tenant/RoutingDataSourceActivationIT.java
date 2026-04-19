@@ -19,8 +19,8 @@ import org.springframework.test.context.ActiveProfiles;
  *
  * <h2>RED-then-GREEN discipline (DEC-22 Iron Law)</h2>
  *
- * <p>This test was committed in RED state BEFORE {@code @Primary} was added to the
- * {@code routingTenantDataSource} bean. Before activation, all JdbcTemplate calls share the flat
+ * <p>This test was committed in RED state BEFORE {@code @Primary} was added to the {@code
+ * routingTenantDataSource} bean. Before activation, all JdbcTemplate calls share the flat
  * DataSource (both tenants write to {@code testdb}), so tenant-B's row IS visible from tenant-A's
  * context. After activation, each tenant uses its own per-tenant H2 file — isolation holds and the
  * test turns GREEN.
@@ -28,14 +28,14 @@ import org.springframework.test.context.ActiveProfiles;
  * <h2>AC1 — Cross-tenant write isolation</h2>
  *
  * <p>Writes under {@code tenantB} are NOT visible when reading under {@code tenantA} once routing
- * is active. This is the canonical proof that {@code @Primary RoutingTenantDataSource} delivers
- * the DEC-20 DB-per-Tenant guarantee at the Spring integration level.
+ * is active. This is the canonical proof that {@code @Primary RoutingTenantDataSource} delivers the
+ * DEC-20 DB-per-Tenant guarantee at the Spring integration level.
  *
  * <h2>AC3 — E14S06 regression (re-execution)</h2>
  *
- * <p>Structural: the {@link CrossTenantIsolationTest} ({@code @ApplicationModuleTest}) must
- * remain GREEN with the routing DataSource as {@code @Primary}. That test is re-executed as part
- * of the full {@code mvn verify} run and is not duplicated here.
+ * <p>Structural: the {@link CrossTenantIsolationTest} ({@code @ApplicationModuleTest}) must remain
+ * GREEN with the routing DataSource as {@code @Primary}. That test is re-executed as part of the
+ * full {@code mvn verify} run and is not duplicated here.
  *
  * <h2>AC6 — Unbound context fast-fail</h2>
  *
@@ -48,7 +48,8 @@ import org.springframework.test.context.ActiveProfiles;
  * @see de.vvwt.tm.tenant.internal.RoutingTenantDataSourceTest
  * @see TenantContextTestSupport
  * @see <a href="../../../../../../../../docs/governance/stories/E14S11.story.md">Story E14S11</a>
- * @see <a href="../../../../../../../../docs/governance/decisions/DEC-20.md">DEC-20 (DB-per-Tenant)</a>
+ * @see <a href="../../../../../../../../docs/governance/decisions/DEC-20.md">DEC-20
+ *     (DB-per-Tenant)</a>
  * @see <a href="../../../../../../../../docs/governance/decisions/DEC-22.md">DEC-22 (TDD)</a>
  * @since E14S11
  */
@@ -100,9 +101,9 @@ class RoutingDataSourceActivationIT {
      * DataSource ({@code jdbc:h2:mem:testdb}). A write under tenantB is therefore visible from
      * tenantA — the assertion {@code doesNotContain("marker-from-tenantB")} fails.
      *
-     * <p><strong>GREEN state (after @Primary):</strong> each tenant routes to its own per-tenant
-     * H2 file. tenantA reads from its own H2 file, which does not contain tenantB's row. The
-     * assertion passes.
+     * <p><strong>GREEN state (after @Primary):</strong> each tenant routes to its own per-tenant H2
+     * file. tenantA reads from its own H2 file, which does not contain tenantB's row. The assertion
+     * passes.
      */
     @Test
     @SuppressWarnings(
@@ -110,15 +111,13 @@ class RoutingDataSourceActivationIT {
     // body by design (E18S01/DEC-29)
     void writtenUnderTenantB_isNotVisibleFromTenantA() {
         // Write a marker row under tenantB's context
-        JdbcTemplate tenantBJdbc =
-                new JdbcTemplate(tenantDataSourceResolver.resolve(tenantBId));
+        JdbcTemplate tenantBJdbc = new JdbcTemplate(tenantDataSourceResolver.resolve(tenantBId));
         tenantBJdbc.execute(
                 "CREATE TABLE IF NOT EXISTS e14s11_isolation_marker"
                         + " (tenant_label VARCHAR(100) NOT NULL)");
 
         // Switch to tenantB to write (the @Primary JdbcTemplate routes via TenantContext)
-        try (TenantContext.Scope ignored =
-                tenantContextBinder.tenantContext().bind(tenantBId)) {
+        try (TenantContext.Scope ignored = tenantContextBinder.tenantContext().bind(tenantBId)) {
             jdbcTemplate.execute(
                     "INSERT INTO e14s11_isolation_marker VALUES ('marker-from-tenantB')");
         }
@@ -137,5 +136,4 @@ class RoutingDataSourceActivationIT {
                                 + "FAIL before @Primary activation; PASS after.")
                 .doesNotContain("marker-from-tenantB");
     }
-
 }

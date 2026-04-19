@@ -50,8 +50,7 @@ import org.springframework.web.bind.annotation.RestController;
  * <h2>Authentication (E07S02 AC10)</h2>
  *
  * <p>Register and status endpoints are public (devices don't log in). Configure and delete
- * endpoints require admin authentication (HTTP Basic, see {@link
- * de.vvwt.tm.auth.internal.SecurityConfig}).
+ * endpoints require admin authentication (HTTP Basic, see {@link de.vvwt.tm.auth.SecurityConfig}).
  *
  * <h2>Tenant scope (DEC-5, DEC-24)</h2>
  *
@@ -304,6 +303,22 @@ public class DeviceController {
     @DeleteMapping(value = "/{id}")
     public ResponseEntity<Void> deleteDevice(@PathVariable("id") UUID id) {
         deviceService.deleteDevice(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    // E06S05-AC7 — DELETE /api/devices (clear all devices)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Clears all devices for the active tenant (E06S05-AC7).
+     *
+     * <p>Requires admin authentication. Returns 204 No Content.
+     *
+     * @return 204 No Content
+     */
+    @DeleteMapping
+    public ResponseEntity<Void> clearAllDevices() {
+        deviceService.clearAllDevices();
         return ResponseEntity.noContent().build();
     }
 }

@@ -8,6 +8,7 @@ import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringBootVersion;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -45,7 +46,7 @@ public class TmStartupLogger {
     private final int serverPort;
 
     public TmStartupLogger(
-            DataSource dataSource,
+            @Qualifier("dataSource") DataSource dataSource,
             Flyway flyway,
             @Value("${spring.datasource.url}") String datasourceUrl,
             @Value("${server.port}") int serverPort) {

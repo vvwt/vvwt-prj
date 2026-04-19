@@ -7,6 +7,8 @@ import de.vvwt.tm.tenant.TenantContextTestSupport;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -44,6 +46,18 @@ import org.springframework.test.context.ActiveProfiles;
 class E07S01MigrationIT {
 
     @Autowired private JdbcTemplate jdbcTemplate;
+
+    @Autowired private TenantContextTestSupport.Binder tenantContextBinder;
+
+    @BeforeEach
+    void bindTenant() {
+        tenantContextBinder.bindDefaultTenant();
+    }
+
+    @AfterEach
+    void unbindTenant() {
+        tenantContextBinder.unbind();
+    }
 
     // -------------------------------------------------------------------------
     // AC1 — Schema verification: new columns present and nullable

@@ -157,26 +157,40 @@ public class DeviceTokenHandshakeInterceptor implements ChannelInterceptor {
         return message; // accessor is mutable; headers mutated in place
     }
 
+    @SuppressWarnings(
+            "try") // lookupScope opened for RAII side-effect (bind+auto-close before device
+    // lookup); not referenced in body by design — E14S11/DEC-29
     private void authenticateDevice(StompHeaderAccessor accessor, String deviceToken) {
         // TODO(Wave-2): for multi-tenant deployments, the device lookup must use a cross-tenant
         // device registry or a token-prefix-based routing mechanism. For Wave-1 single-tenant
         // mode, setting the legacy TenantContext to the default tenant before lookup is correct.
 
+        // --- Phase 1: look up the device (temporary tenant binding for DB routing) ---
         // Set legacy TenantContext for DeviceRepository access (parallel-phase coexistence)
         if (legacyTenantContext != null && defaultTenantId != null) {
             legacyTenantContext.set(defaultTenantId);
         }
+        // E14S11: bind NEW TenantContext so RoutingTenantDataSource can resolve the per-tenant DB.
+        // This scope is closed immediately after the lookup; the session-duration scope is opened
+        // in Phase 2 after all validation checks pass (avoiding nested-bind stack corruption).
+        Device device;
         try {
-            Optional<Device> deviceOpt = deviceRepository.findByDeviceToken(deviceToken);
-
-            if (deviceOpt.isEmpty()) {
-                log.warn("[ws-auth] Device token not found: token={}***", safePrefix(deviceToken));
-                throw new AccessDeniedException(
-                        "WebSocket CONNECT rejected: invalid device token (E14S09 AC5b)");
+            if (defaultTenantId != null) {
+                try (TenantContext.Scope lookupScope = tenantContext.bind(defaultTenantId)) {
+                    device = doLookupDevice(deviceToken);
+                }
+            } else {
+                device = doLookupDevice(deviceToken);
             }
+        } finally {
+            // Always clear legacy TenantContext — it was only needed for the repository lookup
+            if (legacyTenantContext != null) {
+                legacyTenantContext.clear();
+            }
+        }
 
-            Device device = deviceOpt.get();
-
+        // --- Phase 2: validate device and bind session-duration contexts ---
+        try {
             if (Device.STATUS_DISCONNECTED.equals(device.getStatus())) {
                 log.warn(
                         "[ws-auth] Device rejected: status=DISCONNECTED deviceId={}",
@@ -248,12 +262,21 @@ public class DeviceTokenHandshakeInterceptor implements ChannelInterceptor {
         } catch (Exception ex) {
             log.error("[ws-auth] Unexpected error during device auth", ex);
             throw new AccessDeniedException("WebSocket CONNECT rejected: internal error");
-        } finally {
-            // Always clear legacy TenantContext — it was only needed for the repository lookup
-            if (legacyTenantContext != null) {
-                legacyTenantContext.clear();
-            }
         }
+    }
+
+    /**
+     * Looks up the device by token; throws {@link AccessDeniedException} if not found. Caller is
+     * responsible for establishing the correct TenantContext scope before calling.
+     */
+    private Device doLookupDevice(String deviceToken) {
+        Optional<Device> deviceOpt = deviceRepository.findByDeviceToken(deviceToken);
+        if (deviceOpt.isEmpty()) {
+            log.warn("[ws-auth] Device token not found: token={}***", safePrefix(deviceToken));
+            throw new AccessDeniedException(
+                    "WebSocket CONNECT rejected: invalid device token (E14S09 AC5b)");
+        }
+        return deviceOpt.get();
     }
 
     /** Returns a safe prefix of the token for logging (avoids logging full tokens). */

@@ -21,6 +21,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.transaction.AfterTransaction;
+import org.springframework.test.context.transaction.BeforeTransaction;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -62,6 +64,16 @@ class PhaseBreakRepositoryIT {
 
     private UUID tenantId;
     private UUID otherTenantId;
+
+    @BeforeTransaction
+    void bindTenantBeforeTransaction() {
+        tenantContextBinder.bindDefaultTenant();
+    }
+
+    @AfterTransaction
+    void unbindTenantAfterTransaction() {
+        tenantContextBinder.unbind();
+    }
 
     @BeforeEach
     void setUpTenantContext() {

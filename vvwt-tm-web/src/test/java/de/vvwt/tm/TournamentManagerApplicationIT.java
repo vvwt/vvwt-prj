@@ -14,10 +14,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -68,7 +70,23 @@ class TournamentManagerApplicationIT {
 
     @Autowired private TestRestTemplate restTemplate;
 
-    @Autowired private JdbcTemplate jdbcTemplate;
+    /**
+     * Flat (non-routing) DataSource — used to query main-DB tables ({@code flyway_schema_history},
+     * {@code tenants}) that are managed by the flat DataSource, not the per-tenant routing
+     * DataSource. Using the auto-wired {@link JdbcTemplate} (which resolves to the {@code @Primary}
+     * routing DS) would fail with "No tenant is bound" since no tenant context is set up in this
+     * test class.
+     */
+    @Autowired
+    @Qualifier("dataSource")
+    private DataSource flatDataSource;
+
+    private JdbcTemplate jdbcTemplate;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setUpJdbcTemplate() {
+        jdbcTemplate = new JdbcTemplate(flatDataSource);
+    }
 
     // -------------------------------------------------------------------------
     // E02S02 baseline tests
