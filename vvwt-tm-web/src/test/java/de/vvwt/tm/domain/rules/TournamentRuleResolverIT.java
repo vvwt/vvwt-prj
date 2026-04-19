@@ -23,7 +23,11 @@ import org.springframework.context.annotation.Import;
  *       the list of known ids
  * </ul>
  */
-@SpringBootTest
+@SpringBootTest(
+        properties = {
+            "spring.datasource.url=jdbc:h2:mem:ruleResolverDb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
+                + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
+        })
 @Import(TenantContextTestSupport.class)
 @DisplayName("TournamentRuleResolver integration")
 class TournamentRuleResolverIT {

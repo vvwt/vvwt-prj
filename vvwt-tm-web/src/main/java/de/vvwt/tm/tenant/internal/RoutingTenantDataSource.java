@@ -2,6 +2,7 @@ package de.vvwt.tm.tenant.internal;
 
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantDataSourceResolver;
+import java.util.Collections;
 import java.util.UUID;
 import javax.sql.DataSource;
 import org.springframework.jdbc.datasource.lookup.AbstractRoutingDataSource;
@@ -37,10 +38,18 @@ import org.springframework.jdbc.datasource.lookup.AbstractRoutingDataSource;
  * API surface: {@link TenantContext}, {@link TenantDataSourceResolver}, {@link
  * de.vvwt.tm.tenant.TenantRegistryPort}.
  *
+ * <h2>{@code @Primary} activation — E14S11 (AC9)</h2>
+ *
+ * <p>{@code @Primary} was added to the {@link TenantContextConfiguration#routingTenantDataSource()}
+ * {@code @Bean} declaration in E14S11. From that commit onwards, all consumers of the {@link
+ * DataSource} abstraction in the Spring context route through per-tenant context.
+ *
  * @see TenantContext
  * @see TenantDataSourceResolver
  * @see TenantContextConfiguration
  * @see <a href="../../../../../../../../docs/governance/stories/E14S03.story.md">Story E14S03</a>
+ * @see <a href="../../../../../../../../docs/governance/stories/E14S11.story.md">Story E14S11
+ *     (@Primary activation)</a>
  * @see <a href="../../../../../../../../docs/governance/decisions/DEC-20.md">DEC-20</a>
  * @see <a href="../../../../../../../../docs/governance/decisions/DEC-21.md">DEC-21</a>
  * @see <a href="../../../../../../../../docs/governance/decisions/DEC-22.md">DEC-22</a>
@@ -69,6 +78,21 @@ public class RoutingTenantDataSource extends AbstractRoutingDataSource {
         }
         this.tenantContext = tenantContext;
         this.tenantDataSourceResolver = tenantDataSourceResolver;
+    }
+
+    /**
+     * Satisfies the {@link AbstractRoutingDataSource#afterPropertiesSet()} lifecycle contract.
+     *
+     * <p>{@link AbstractRoutingDataSource#afterPropertiesSet()} calls {@link
+     * AbstractRoutingDataSource#initialize()}, which requires {@code targetDataSources} to be
+     * non-null. We set an empty map before delegating: the map is never consulted because {@link
+     * #determineTargetDataSource()} is fully overridden to delegate to {@link
+     * TenantDataSourceResolver} (E14S11).
+     */
+    @Override
+    public void afterPropertiesSet() {
+        setTargetDataSources(Collections.emptyMap());
+        super.afterPropertiesSet();
     }
 
     /**

@@ -10,6 +10,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -81,6 +82,8 @@ class TimerControllerIT {
 
     @Autowired private JdbcTemplate jdbcTemplate;
 
+    @Autowired private TenantContextTestSupport.Binder tenantBinder;
+
     private String baseUrl;
     private TestRestTemplate authed;
 
@@ -88,6 +91,12 @@ class TimerControllerIT {
     void setUp() {
         baseUrl = "http://localhost:" + port;
         authed = restTemplate.withBasicAuth(AdminCredentialsProvider.ADMIN_USERNAME, TEST_PASSWORD);
+        tenantBinder.bindDefaultTenant();
+    }
+
+    @AfterEach
+    void tearDown() {
+        tenantBinder.unbind();
     }
 
     // =========================================================================

@@ -34,6 +34,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.transaction.AfterTransaction;
+import org.springframework.test.context.transaction.BeforeTransaction;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -104,6 +106,16 @@ class CascadeRecomputeServiceIT {
     @Autowired private TestEventCapture testEventCapture;
 
     private UUID defaultTenantId;
+
+    @BeforeTransaction
+    void bindTenantBeforeTransaction() {
+        defaultTenantId = tenantContextBinder.bindDefaultTenant();
+    }
+
+    @AfterTransaction
+    void unbindTenantAfterTransaction() {
+        tenantContextBinder.unbind();
+    }
 
     @BeforeEach
     void setUp() {
@@ -493,8 +505,8 @@ class CascadeRecomputeServiceIT {
     @Test
     @Transactional
     @SuppressWarnings(
-            "try") // otherScope.close() restores tenant binding — used for RAII, not for explicit
-    // method calls (E18S01/DEC-29)
+            "try") // otherScope opened for RAII (bind+auto-restore); not referenced in body —
+    // DEC-29
     void ac27_tenantScopeEnforced() {
         TestFixture f = createFixture(MatchFormat.BEST_OF_3, "setPoints", "standardVolleyball");
 

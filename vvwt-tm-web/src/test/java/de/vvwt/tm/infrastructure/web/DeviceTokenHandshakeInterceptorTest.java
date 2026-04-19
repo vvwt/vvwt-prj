@@ -79,6 +79,9 @@ class DeviceTokenHandshakeInterceptorTest {
         String token = UUID.randomUUID().toString();
         // Device not found
         when(deviceRepository.findByDeviceToken(token)).thenReturn(Optional.empty());
+        // E14S11: lookup scope is opened and closed even when device is not found
+        TenantContext.Scope lookupScope = mock(TenantContext.Scope.class);
+        when(tenantContext.bind(DEFAULT_TENANT_ID)).thenReturn(lookupScope);
         interceptor =
                 new DeviceTokenHandshakeInterceptor(
                         deviceRepository, tenantContext, locationContext, DEFAULT_TENANT_ID);
@@ -89,8 +92,11 @@ class DeviceTokenHandshakeInterceptorTest {
                 .as("AC5b: unknown token must throw AccessDeniedException")
                 .isInstanceOf(AccessDeniedException.class);
 
-        // TenantContext.bind() is not called when device lookup fails — no scope to close
-        verifyNoInteractions(tenantContext);
+        // E14S11: TenantContext.bind() is called for the lookup scope, then closed
+        verify(tenantContext).bind(DEFAULT_TENANT_ID);
+        verify(lookupScope).close();
+        // No session-duration scope is opened — only the lookup scope
+        verifyNoMoreInteractions(tenantContext);
     }
 
     // -------------------------------------------------------------------------
@@ -107,6 +113,9 @@ class DeviceTokenHandshakeInterceptorTest {
                                         Device.TYPE_DISPLAY,
                                         Device.STATUS_DISCONNECTED,
                                         LOCATION_ID)));
+        // E14S11: lookup scope is opened and closed; device validation rejects in Phase 2
+        TenantContext.Scope lookupScope = mock(TenantContext.Scope.class);
+        when(tenantContext.bind(DEFAULT_TENANT_ID)).thenReturn(lookupScope);
         interceptor =
                 new DeviceTokenHandshakeInterceptor(
                         deviceRepository, tenantContext, locationContext, DEFAULT_TENANT_ID);
@@ -117,8 +126,10 @@ class DeviceTokenHandshakeInterceptorTest {
                 .as("AC5c: DISCONNECTED device must throw AccessDeniedException")
                 .isInstanceOf(AccessDeniedException.class);
 
-        // TenantContext.bind() is not called for DISCONNECTED devices — status rejected before bind
-        verifyNoInteractions(tenantContext);
+        // E14S11: lookup scope bind+close is called; no session-duration bind after rejection
+        verify(tenantContext).bind(DEFAULT_TENANT_ID);
+        verify(lookupScope).close();
+        verifyNoMoreInteractions(tenantContext);
     }
 
     // -------------------------------------------------------------------------
@@ -135,6 +146,9 @@ class DeviceTokenHandshakeInterceptorTest {
                                         Device.TYPE_SCORING_TABLET,
                                         Device.STATUS_REGISTERED,
                                         null)));
+        // E14S11: lookup scope is opened and closed; type+location check rejects in Phase 2
+        TenantContext.Scope lookupScope = mock(TenantContext.Scope.class);
+        when(tenantContext.bind(DEFAULT_TENANT_ID)).thenReturn(lookupScope);
         interceptor =
                 new DeviceTokenHandshakeInterceptor(
                         deviceRepository, tenantContext, locationContext, DEFAULT_TENANT_ID);
@@ -146,8 +160,10 @@ class DeviceTokenHandshakeInterceptorTest {
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("no assigned location");
 
-        // TenantContext.bind() is not called — type+location check precedes bind
-        verifyNoInteractions(tenantContext);
+        // E14S11: lookup scope bind+close is called; no session-duration bind after rejection
+        verify(tenantContext).bind(DEFAULT_TENANT_ID);
+        verify(lookupScope).close();
+        verifyNoMoreInteractions(tenantContext);
     }
 
     // -------------------------------------------------------------------------

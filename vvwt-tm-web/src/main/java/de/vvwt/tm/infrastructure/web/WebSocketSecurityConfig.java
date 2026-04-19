@@ -3,6 +3,7 @@ package de.vvwt.tm.infrastructure.web;
 import de.vvwt.tm.domain.repo.DeviceRepository;
 import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.tenant.LocationContext;
+import de.vvwt.tm.tenant.TenantRegistryPort;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
@@ -10,7 +11,6 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.config.ChannelRegistration;
@@ -68,14 +68,15 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
  *   <li>None → {@link AccessDeniedException}
  * </ol>
  *
- * <h2>Default-tenant resolution (AC9, E14S09)</h2>
+ * <h2>Default-tenant resolution (E14S11)</h2>
  *
- * <p>After E14S09, {@code WebSocketSecurityConfig} no longer injects or references the legacy
- * default-tenant helper. The default tenant UUID is resolved via a direct SQL query ({@code SELECT
- * id FROM tenants WHERE is_default = TRUE}) against the shared JPA DataSource — this matches the
- * UUID that actually exists in the shared {@code tenants} table during the parallel-development
- * phase (before E14S07 atomic cutover). Using {@code TenantRegistryPort} here would return the
- * per-tenant H2 file UUID, which diverges from the shared DataSource UUID.
+ * <p>After E14S11 (RoutingTenantDataSource activated as {@code @Primary}), the default tenant UUID
+ * is resolved via {@link TenantRegistryPort#getDefault()} — the authoritative source in the file
+ * registry, which now matches the routing DataSource. The legacy SQL-query approach ({@code SELECT
+ * id FROM tenants WHERE is_default = TRUE}) was removed in E14S11 because the auto-wired {@code
+ * JdbcTemplate} would now route through tenant context (requiring a bound {@link
+ * de.vvwt.tm.tenant.TenantContext}), and resolving the default tenant before the context is bound
+ * is a circular dependency.
  *
  * @see WebSocketConfig
  * @see DomainEventBridge
@@ -120,9 +121,7 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
     private final PasswordEncoder passwordEncoder;
     private final DeviceRepository deviceRepository;
 
-    /**
-     * Legacy domain-layer TenantContext (needed until E14S11 activates RoutingTenantDataSource).
-     */
+    /** Legacy domain-layer TenantContext (needed until E15 auth cutover). */
     private final TenantContext tenantContext;
 
     /** New tenant-api TenantContext (de.vvwt.tm.tenant.TenantContext). */
@@ -131,16 +130,18 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
     private final LocationContext locationContext;
 
     /**
-     * JdbcTemplate for Wave-1 default-tenant resolution (parallel-phase coexistence). Queries
-     * {@code SELECT id FROM tenants WHERE is_default = TRUE} against the shared DataSource — the
-     * same approach as {@code DefaultTenantBootstrap}. This resolves the UUID that actually exists
-     * in the shared JPA DataSource (tenants table), ensuring the legacy TenantContext and
-     * DeviceRepository can query correctly until E14S07 atomic cutover.
+     * {@link TenantRegistryPort} for default-tenant UUID resolution (E14S11, DEC-24 D3).
+     *
+     * <p>After {@code @Primary RoutingTenantDataSource} activation in E14S11, the auto-wired {@code
+     * JdbcTemplate} routes through tenant context. The previous SQL-query approach ({@code SELECT
+     * id FROM tenants WHERE is_default = TRUE}) was removed because querying the routing DataSource
+     * before a tenant context is bound would throw {@code IllegalStateException}. {@link
+     * TenantRegistryPort#getDefault()} reads the file registry directly — no tenant context binding
+     * required.
      *
      * <p>TODO(Wave-2): Multi-tenant deployments will need a cross-tenant device registry.
-     * TODO(E14S11): Remove this field when RoutingTenantDataSource is activated as @Primary.
      */
-    private final JdbcTemplate jdbcTemplate;
+    private final TenantRegistryPort tenantRegistryPort;
 
     public WebSocketSecurityConfig(
             UserDetailsService userDetailsService,
@@ -149,14 +150,14 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
             TenantContext tenantContext,
             de.vvwt.tm.tenant.TenantContext newTenantContext,
             LocationContext locationContext,
-            JdbcTemplate jdbcTemplate) {
+            TenantRegistryPort tenantRegistryPort) {
         this.userDetailsService = userDetailsService;
         this.passwordEncoder = passwordEncoder;
         this.deviceRepository = deviceRepository;
         this.tenantContext = tenantContext;
         this.newTenantContext = newTenantContext;
         this.locationContext = locationContext;
-        this.jdbcTemplate = jdbcTemplate;
+        this.tenantRegistryPort = tenantRegistryPort;
     }
 
     @Override
@@ -312,29 +313,25 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
     /**
      * Resolves the default tenant UUID for Wave-1 single-tenant deployments (DEC-24 D3).
      *
-     * <p>Queries {@code SELECT id FROM tenants WHERE is_default = TRUE} against the shared
-     * DataSource — same approach as {@code DefaultTenantBootstrap}. This ensures the UUID matches
-     * what actually exists in the shared {@code tenants} table during the parallel-development
-     * phase (before E14S07 atomic cutover). Using {@link de.vvwt.tm.tenant.TenantRegistryPort} here
-     * would return the per-tenant H2 file UUID (a different UUID registered by {@code
-     * DefaultTenantBootstrapRunner}), which does NOT exist in the shared DataSource.
+     * <p>Uses {@link TenantRegistryPort#getDefault()} (E14S11, replacing the legacy SQL-query
+     * approach removed per the E14S11 TODO). The registry is the authoritative source after
+     * {@code @Primary RoutingTenantDataSource} activation — it returns the UUID registered by
+     * {@code DefaultTenantBootstrapRunner}, which is the same UUID that routes per-tenant JDBC.
      *
-     * <p>TODO(E14S11): Remove this method when RoutingTenantDataSource is activated as @Primary and
-     * the routing DataSource is the only one.
+     * <p>Returns {@code null} (with a warning) if the registry has no default tenant registered yet
+     * (e.g. before bootstrap completes in edge-case integration scenarios).
      *
      * <p>TODO(Wave-2): Multi-tenant deployments will need a cross-tenant device registry.
      */
     private UUID resolveDefaultTenantId() {
-        List<UUID> tenantIds =
-                jdbcTemplate.query(
-                        "SELECT id FROM tenants WHERE is_default = TRUE",
-                        (rs, rowNum) -> rs.getObject(1, UUID.class));
-        if (tenantIds.isEmpty()) {
+        try {
+            return tenantRegistryPort.getDefault();
+        } catch (IllegalStateException e) {
             log.warn(
-                    "[ws-auth] Default tenant not found in tenants table — cannot resolve default"
-                            + " tenant");
+                    "[ws-auth] Default tenant not yet registered in tenant registry — "
+                            + "cannot resolve default tenant UUID: {}",
+                    e.getMessage());
             return null;
         }
-        return tenantIds.get(0);
     }
 }

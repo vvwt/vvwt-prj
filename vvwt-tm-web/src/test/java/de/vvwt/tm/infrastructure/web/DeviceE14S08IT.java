@@ -6,12 +6,14 @@ import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.infrastructure.web.dto.DeviceRegisterResponse;
 import de.vvwt.tm.infrastructure.web.dto.DeviceSummaryResponse;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import de.vvwt.tm.tenant.TenantRegistryPort;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.UUID;
 import javax.sql.DataSource;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,9 +65,14 @@ class DeviceE14S08IT {
 
     @Autowired private TestRestTemplate restTemplate;
 
+    // Primary routing DataSource — routes to the per-tenant DB when tenant is bound.
     @Autowired private DataSource dataSource;
 
     @Autowired private PasswordEncoder passwordEncoder;
+
+    @Autowired private TenantContextTestSupport.Binder tenantBinder;
+
+    @Autowired private TenantRegistryPort tenantRegistryPort;
 
     private String baseUrl;
     private TestRestTemplate authed;
@@ -74,11 +81,19 @@ class DeviceE14S08IT {
     void setUp() throws SQLException {
         baseUrl = "http://localhost:" + port;
         authed = restTemplate.withBasicAuth(AdminCredentialsProvider.ADMIN_USERNAME, TEST_PASSWORD);
+        // Bind the default tenant so that routing DataSource queries work in the test thread.
+        // The routing DataSource (primary after E14S11) requires a bound tenant for any JDBC call.
+        tenantBinder.bindDefaultTenant();
         // Clean devices table before each test
         try (Connection conn = dataSource.getConnection();
                 PreparedStatement ps = conn.prepareStatement("DELETE FROM devices")) {
             ps.executeUpdate();
         }
+    }
+
+    @AfterEach
+    void tearDown() {
+        tenantBinder.unbind();
     }
 
     // =========================================================================
@@ -311,10 +326,16 @@ class DeviceE14S08IT {
     }
 
     private UUID resolveDefaultLocationId() {
+        UUID defaultTenantId = tenantRegistryPort.getDefault();
         try (Connection conn = dataSource.getConnection();
-                PreparedStatement ps = conn.prepareStatement("SELECT id FROM locations LIMIT 1")) {
+                PreparedStatement ps =
+                        conn.prepareStatement(
+                                "SELECT id FROM locations WHERE tenant_id = ? LIMIT 1")) {
+            ps.setString(1, defaultTenantId.toString());
             try (ResultSet rs = ps.executeQuery()) {
-                assertThat(rs.next()).as("At least one location must exist").isTrue();
+                assertThat(rs.next())
+                        .as("At least one location must exist for the default tenant")
+                        .isTrue();
                 return UUID.fromString(rs.getString("id"));
             }
         } catch (SQLException e) {

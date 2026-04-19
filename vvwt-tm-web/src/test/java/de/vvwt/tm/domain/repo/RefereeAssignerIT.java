@@ -29,6 +29,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.transaction.AfterTransaction;
+import org.springframework.test.context.transaction.BeforeTransaction;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -72,6 +74,16 @@ class RefereeAssignerIT {
     @Autowired private MatchRepository matchRepository;
 
     private UUID defaultTenantId;
+
+    @BeforeTransaction
+    void bindTenantBeforeTransaction() {
+        defaultTenantId = tenantContextBinder.bindDefaultTenant();
+    }
+
+    @AfterTransaction
+    void unbindTenantAfterTransaction() {
+        tenantContextBinder.unbind();
+    }
 
     @BeforeEach
     void setUpTenantContext() {

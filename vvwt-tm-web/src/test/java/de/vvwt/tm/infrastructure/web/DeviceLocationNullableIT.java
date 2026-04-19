@@ -11,6 +11,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.UUID;
 import javax.sql.DataSource;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -48,7 +50,20 @@ class DeviceLocationNullableIT {
 
     static final String TEST_PASSWORD = "E14S08NullableTest01";
 
+    // Primary routing DataSource — routes to the per-tenant DB when tenant is bound.
     @Autowired private DataSource dataSource;
+
+    @Autowired private TenantContextTestSupport.Binder tenantBinder;
+
+    @BeforeEach
+    void bindTenant() {
+        tenantBinder.bindDefaultTenant();
+    }
+
+    @AfterEach
+    void unbindTenant() {
+        tenantBinder.unbind();
+    }
 
     // =========================================================================
     // AC1 — devices.location_id is nullable after V16 migration

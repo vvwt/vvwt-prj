@@ -148,11 +148,13 @@ class DisplayOverviewControllerIT {
     private void cleanupTestData() {
         jdbcTemplate.update("DELETE FROM set_result");
         jdbcTemplate.update("DELETE FROM match_outcome");
+        jdbcTemplate.update("DELETE FROM audit_log");
         jdbcTemplate.update("DELETE FROM match");
         jdbcTemplate.update("DELETE FROM team_avatar_rating");
         jdbcTemplate.update("DELETE FROM team_avatar");
         jdbcTemplate.update("DELETE FROM phase");
         jdbcTemplate.update("DELETE FROM team");
+        jdbcTemplate.update("DELETE FROM activity_types");
         jdbcTemplate.update("DELETE FROM tournament");
         jdbcTemplate.update("DELETE FROM devices");
     }

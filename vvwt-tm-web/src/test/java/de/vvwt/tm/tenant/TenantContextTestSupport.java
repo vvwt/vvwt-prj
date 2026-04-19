@@ -1,7 +1,13 @@
 package de.vvwt.tm.tenant;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import javax.sql.DataSource;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
+import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 
@@ -89,6 +95,66 @@ public class TenantContextTestSupport {
         return new Binder(tenantContext, tenantRegistryPort);
     }
 
+    /**
+     * In-memory {@link TenantDataSourceResolver} for integration tests (E14S11).
+     *
+     * <p>Replaces the production {@link
+     * de.vvwt.tm.tenant.internal.TenantFileRegistryDataSourceResolver} in {@code @SpringBootTest}
+     * contexts that {@code @Import} this configuration. Each tenant UUID gets its own isolated
+     * in-memory H2 database — avoiding file-based H2 sharing across Spring test contexts (which
+     * causes {@code UQ_TEAM_AVATAR} / {@code FK_ACTIVITY_TYPES} violations).
+     *
+     * <p>The {@link ConditionalOnMissingBean} guard in {@link
+     * de.vvwt.tm.tenant.internal.TenantContextConfiguration#tenantDataSourceResolver} defers to
+     * this bean when present, per DEC-21 (no {@code @Profile} or {@code @Conditional} added to
+     * production code).
+     *
+     * <p>DataSources are cached per UUID and reused within the same Spring context (idempotent).
+     * Each in-memory H2 URL is unique per tenant so cross-tenant isolation still holds in
+     * multi-tenant test scenarios (e.g., {@link de.vvwt.tm.tenant.RoutingDataSourceActivationIT}).
+     */
+    @Bean
+    public TenantDataSourceResolver inMemoryTenantDataSourceResolver(
+            DataSourceProperties dataSourceProperties) {
+        return new InMemoryTenantDataSourceResolver(dataSourceProperties);
+    }
+
+    /**
+     * In-memory {@link TenantDataSourceResolver} implementation.
+     *
+     * <p>Each tenant UUID maps to a distinct {@code jdbc:h2:mem:{uuid}} database. Schema is applied
+     * by the production {@link de.vvwt.tm.tenant.internal.PerTenantFlywayRunner} (same as
+     * production — no test-only Flyway config).
+     */
+    public static final class InMemoryTenantDataSourceResolver implements TenantDataSourceResolver {
+
+        private final ConcurrentHashMap<UUID, DataSource> cache = new ConcurrentHashMap<>();
+        private final DataSourceProperties dataSourceProperties;
+
+        public InMemoryTenantDataSourceResolver(DataSourceProperties dataSourceProperties) {
+            this.dataSourceProperties = dataSourceProperties;
+        }
+
+        @Override
+        public DataSource resolve(UUID tenantId) {
+            return cache.computeIfAbsent(
+                    tenantId,
+                    id -> {
+                        String url =
+                                "jdbc:h2:mem:tenant-"
+                                        + id
+                                        + ";DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
+                                        + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE";
+                        return DataSourceBuilder.create()
+                                .url(url)
+                                .username(dataSourceProperties.determineUsername())
+                                .password(dataSourceProperties.determinePassword())
+                                .driverClassName("org.h2.Driver")
+                                .build();
+                    });
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Binder
     // -------------------------------------------------------------------------
@@ -114,8 +180,19 @@ public class TenantContextTestSupport {
         private final TenantContext tenantContext;
         private final TenantRegistryPort tenantRegistryPort;
 
-        /** Active scope held between {@link #bindDefaultTenant()} and {@link #unbind()}. */
-        private TenantContext.Scope activeScope;
+        /**
+         * Stack of active scopes held between paired {@link #bindDefaultTenant()} and {@link
+         * #unbind()} calls.
+         *
+         * <p>A {@code Deque} (LIFO) is used instead of a single field to support safe
+         * double-binding: when {@code @Transactional} test methods require a tenant before the
+         * transaction starts (via {@code @BeforeTransaction}) AND the standard {@code @BeforeEach}
+         * also calls {@link #bindDefaultTenant()}, both calls push onto the stack. Each paired
+         * {@link #unbind()} call pops the most-recent scope. This preserves the stack-based
+         * semantics of {@link TenantContext#bind(UUID)} and avoids scope leaks when both lifecycle
+         * hooks are used.
+         */
+        private final Deque<TenantContext.Scope> scopeStack = new ArrayDeque<>();
 
         /**
          * Constructs a {@link Binder} with the required dependencies.
@@ -150,7 +227,8 @@ public class TenantContextTestSupport {
          */
         public UUID bindDefaultTenant() {
             UUID defaultTenantId = tenantRegistryPort.getDefault();
-            activeScope = tenantContext.bind(defaultTenantId);
+            TenantContext.Scope scope = tenantContext.bind(defaultTenantId);
+            scopeStack.push(scope);
             return defaultTenantId;
         }
 
@@ -165,9 +243,9 @@ public class TenantContextTestSupport {
          * binding, this is a no-op.
          */
         public void unbind() {
-            if (activeScope != null) {
-                activeScope.close();
-                activeScope = null;
+            TenantContext.Scope scope = scopeStack.poll();
+            if (scope != null) {
+                scope.close();
             }
         }
 

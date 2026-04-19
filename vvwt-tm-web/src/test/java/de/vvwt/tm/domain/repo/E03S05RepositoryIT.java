@@ -30,6 +30,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.transaction.AfterTransaction;
+import org.springframework.test.context.transaction.BeforeTransaction;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -110,6 +112,16 @@ class E03S05RepositoryIT {
 
     /** UUID used as the default tenant in all tests (provided by DefaultTenantBootstrap). */
     private UUID defaultTenantId;
+
+    @BeforeTransaction
+    void bindTenantBeforeTransaction() {
+        tenantContextBinder.bindDefaultTenant();
+    }
+
+    @AfterTransaction
+    void unbindTenantAfterTransaction() {
+        tenantContextBinder.unbind();
+    }
 
     @BeforeEach
     void setUpTenantContext() {

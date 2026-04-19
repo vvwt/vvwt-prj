@@ -85,7 +85,7 @@ public class FlywayRootMigrationsCustomizer {
      *
      * <p>Supports both exploded-classpath (file system) and JAR-packaged deployments.
      */
-    static final class RootLevelOnlyResourceProvider implements ResourceProvider {
+    public static final class RootLevelOnlyResourceProvider implements ResourceProvider {
 
         @Override
         public LoadableResource getResource(String name) {
