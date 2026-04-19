@@ -127,13 +127,28 @@ public class ActivityTypeService {
     }
 
     // -------------------------------------------------------------------------
-    // Update (RED stub — implementation intentionally absent for AC1 anti-spoof)
+    // Update
     // -------------------------------------------------------------------------
 
     /**
-     * Updates an existing activity type (RED stub — not yet implemented).
+     * Updates an existing activity type for the given tournament.
      *
-     * @throws UnsupportedOperationException always — RED stub for AC1 anti-spoof
+     * <p>Validates all constraints before persisting (AC4, AC5, AC6). The name uniqueness check
+     * allows the activity type to keep its own name (self-reference is not a conflict).
+     *
+     * @param tournamentId the parent tournament UUID (NOT NULL)
+     * @param id the activity type UUID (NOT NULL)
+     * @param name new activity name — must be unique within the tournament (NOT NULL)
+     * @param assignmentRule the rule identifier — must match an {@link AssignmentRule} value
+     * @param capacityPerRound max teams per round ({@code null} = unlimited; non-null must be &gt;
+     *     0)
+     * @param sortOrder display ordering (NOT NULL)
+     * @return the saved {@link ActivityType}
+     * @throws NoSuchElementException if the tournament or activity type does not exist
+     * @throws IllegalArgumentException if {@code assignmentRule} is unrecognized or {@code
+     *     capacityPerRound} is &le; 0
+     * @throws ConflictException if a DIFFERENT activity type with the same name exists
+     * @throws IllegalStateException if no tenant context is active
      */
     public ActivityType update(
             UUID tournamentId,
@@ -142,20 +157,70 @@ public class ActivityTypeService {
             String assignmentRule,
             Integer capacityPerRound,
             int sortOrder) {
-        throw new UnsupportedOperationException("update() not yet implemented — RED stub");
+        // Ownership check: tournament must exist
+        tournamentRepository
+                .findById(tournamentId)
+                .orElseThrow(
+                        () -> new NoSuchElementException("Tournament not found: " + tournamentId));
+
+        // Existence check: activity type must exist
+        ActivityType existing =
+                activityTypeRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () -> new NoSuchElementException("ActivityType not found: " + id));
+
+        // AC4: validate assignment rule
+        validateAssignmentRule(assignmentRule);
+
+        // AC6: validate capacity
+        validateCapacity(capacityPerRound);
+
+        // AC5: check for duplicate name within the tournament (self-reference is allowed)
+        boolean nameConflict =
+                activityTypeRepository.findByTournamentId(tournamentId).stream()
+                        .anyMatch(at -> name.equals(at.getName()) && !id.equals(at.getId()));
+        if (nameConflict) {
+            String message =
+                    messageSource.getMessage(
+                            "error.activityType.duplicateName", null, Locale.getDefault());
+            throw new ConflictException(message);
+        }
+
+        existing.setName(name);
+        existing.setAssignmentRule(assignmentRule);
+        existing.setCapacityPerRound(capacityPerRound);
+        existing.setSortOrder(sortOrder);
+        return activityTypeRepository.save(existing);
     }
 
     // -------------------------------------------------------------------------
-    // Delete (RED stub — implementation intentionally absent for AC1 anti-spoof)
+    // Delete
     // -------------------------------------------------------------------------
 
     /**
-     * Deletes an activity type (RED stub — not yet implemented).
+     * Deletes an activity type for the given tournament.
      *
-     * @throws UnsupportedOperationException always — RED stub for AC1 anti-spoof
+     * <p>Assignments are computed on-demand (not persisted), so deletion has no cascade effect.
+     *
+     * @param tournamentId the parent tournament UUID (NOT NULL)
+     * @param id the activity type UUID (NOT NULL)
+     * @throws NoSuchElementException if the tournament or activity type does not exist
+     * @throws IllegalStateException if no tenant context is active
      */
     public void delete(UUID tournamentId, UUID id) {
-        throw new UnsupportedOperationException("delete() not yet implemented — RED stub");
+        // Ownership check: tournament must exist
+        tournamentRepository
+                .findById(tournamentId)
+                .orElseThrow(
+                        () -> new NoSuchElementException("Tournament not found: " + tournamentId));
+
+        // Existence check: activity type must exist and belong to this tournament
+        activityTypeRepository
+                .findById(id)
+                .orElseThrow(() -> new NoSuchElementException("ActivityType not found: " + id));
+
+        activityTypeRepository.deleteById(id);
     }
 
     // -------------------------------------------------------------------------

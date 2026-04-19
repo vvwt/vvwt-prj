@@ -42,10 +42,10 @@ import java.util.UUID;
  *
  * <h2>Co-location</h2>
  *
- * <p>Located at {@code de.vvwt.tm.infrastructure.testsupport} alongside {@link TenantDaoTestSupport}
- * per AC6 and DEC-26 test-utility-convention precedent. This is intentionally a different location
- * from {@link de.vvwt.tm.tenant.TenantContextTestSupport}, which is oriented toward full-context
- * {@code @SpringBootTest} ITs.
+ * <p>Located at {@code de.vvwt.tm.infrastructure.testsupport} alongside {@link
+ * TenantDaoTestSupport} per AC6 and DEC-26 test-utility-convention precedent. This is intentionally
+ * a different location from {@link de.vvwt.tm.tenant.TenantContextTestSupport}, which is oriented
+ * toward full-context {@code @SpringBootTest} ITs.
  *
  * @see TenantDaoTestSupport
  * @see de.vvwt.tm.tenant.TenantContextTestSupport
@@ -74,8 +74,8 @@ public final class TenantContextSliceTestSupport {
      * <p>Does not configure {@link TenantContext#bind(UUID)} — slice tests do not call {@code
      * bind()} directly; the controller accesses {@code current()} only.
      *
-     * @param tenantContextMock the Mockito mock for {@link TenantContext} (from {@code
-     *     @MockitoBean}); must not be {@code null}
+     * @param tenantContextMock the Mockito mock for {@link TenantContext} (from
+     *     {@code @MockitoBean}); must not be {@code null}
      * @param tenantId the UUID that {@code current()} should return; must not be {@code null}
      */
     public static void configureMock(TenantContext tenantContextMock, UUID tenantId) {
