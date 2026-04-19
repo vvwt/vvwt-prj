@@ -1,73 +1,73 @@
 package de.vvwt.tm.infrastructure.print;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.auth.SecurityConfig;
 import de.vvwt.tm.infrastructure.web.dto.TournamentCreateRequest;
 import de.vvwt.tm.infrastructure.web.dto.TournamentResponse;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import java.net.URI;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import de.vvwt.tm.tenant.TenantContextTestSupport;
-import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import de.vvwt.tm.tenant.TenantContextTestSupport;
-import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import de.vvwt.tm.tenant.TenantContextTestSupport;
-import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
-
-import java.net.URI;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for Laufzettel routes — E08S08.
  *
  * <p>Tests the full HTTP stack to verify:
+ *
  * <ul>
- *   <li>AC1: {@code GET /print/{id}/team-schedules/{teamId}} requires auth and returns 200 HTML</li>
- *   <li>AC2: {@code GET /print/{id}/team-schedules} requires auth and returns 200 HTML</li>
- *   <li>AC12: All-teams page contains CSS page-break separator between teams</li>
- *   <li>AC13: No matches → error page (HTML, not JSON); non-existent team → 404</li>
- *   <li>AC15: Routes enforce tenant-scoped basic auth (inherited from E08S07 security config)</li>
+ *   <li>AC1: {@code GET /print/{id}/team-schedules/{teamId}} requires auth and returns 200 HTML
+ *   <li>AC2: {@code GET /print/{id}/team-schedules} requires auth and returns 200 HTML
+ *   <li>AC12: All-teams page contains CSS page-break separator between teams
+ *   <li>AC13: No matches → error page (HTML, not JSON); non-existent team → 404
+ *   <li>AC15: Routes enforce tenant-scoped basic auth (inherited from E08S07 security config)
  * </ul>
  *
  * <h2>Test data strategy</h2>
- * <p>The tests create tournament data via the REST API (same approach as PrintControllerIT).
- * Full match data (requiring slot-optimization via apply-draft) is too expensive to set up
- * in a pure IT. Instead:
+ *
+ * <p>The tests create tournament data via the REST API (same approach as PrintControllerIT). Full
+ * match data (requiring slot-optimization via apply-draft) is too expensive to set up in a pure IT.
+ * Instead:
+ *
  * <ul>
- *   <li>Route existence, auth, 404, and no-matches paths use tournament+phases with no matches.</li>
- *   <li>The "renders HTML with team data" tests set up tournaments with phases and verify
- *       the page renders without error (200 OK, DOCTYPE present).</li>
+ *   <li>Route existence, auth, 404, and no-matches paths use tournament+phases with no matches.
+ *   <li>The "renders HTML with team data" tests set up tournaments with phases and verify the page
+ *       renders without error (200 OK, DOCTYPE present).
  * </ul>
  *
- * <p>The {@link LaufzettelAssemblerTest} covers the data assembly logic with full match data
- * in isolated unit tests.
+ * <p>The {@link LaufzettelAssemblerTest} covers the data assembly logic with full match data in
+ * isolated unit tests.
  *
  * @see PrintController
  * @see LaufzettelAssembler
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S08.story.md">Story E08S08</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S08.story.md">Story
+ *     E08S08</a>
  */
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         classes = {
-                de.vvwt.tm.TournamentManagerApplication.class,
-                PrintLaufzettelIT.TestAdminCredentials.class
+            de.vvwt.tm.TournamentManagerApplication.class,
+            PrintLaufzettelIT.TestAdminCredentials.class
         },
         properties = {
-                "spring.datasource.url=jdbc:h2:mem:e08s08laufzetteldb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
-                        + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
+            "spring.datasource.url=jdbc:h2:mem:e08s08laufzetteldb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
+                + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
 @Import(TenantContextTestSupport.class)
@@ -76,11 +76,9 @@ class PrintLaufzettelIT {
 
     private static final String TEST_PASSWORD = "LaufzettelTestPass08S08";
 
-    @LocalServerPort
-    private int port;
+    @LocalServerPort private int port;
 
-    @Autowired
-    private TestRestTemplate restTemplate;
+    @Autowired private TestRestTemplate restTemplate;
 
     private String baseUrl;
     private TestRestTemplate authed;
@@ -100,12 +98,14 @@ class PrintLaufzettelIT {
     void allTeamSchedulesRequiresAuthentication() throws Exception {
         UUID randomId = UUID.randomUUID();
 
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/print/" + randomId + "/team-schedules"),
-                String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(
+                        new URI(baseUrl + "/print/" + randomId + "/team-schedules"), String.class);
 
         assertThat(response.getStatusCode())
-                .as("AC15: /print/**/team-schedules must require authentication — unauthenticated returns 401")
+                .as(
+                        "AC15: /print/**/team-schedules must require authentication —"
+                                + " unauthenticated returns 401")
                 .isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
@@ -115,12 +115,15 @@ class PrintLaufzettelIT {
         UUID randomId = UUID.randomUUID();
         UUID randomTeamId = UUID.randomUUID();
 
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/print/" + randomId + "/team-schedules/" + randomTeamId),
-                String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(
+                        new URI(baseUrl + "/print/" + randomId + "/team-schedules/" + randomTeamId),
+                        String.class);
 
         assertThat(response.getStatusCode())
-                .as("AC15: /print/**/team-schedules/{teamId} must require authentication — unauthenticated returns 401")
+                .as(
+                        "AC15: /print/**/team-schedules/{teamId} must require authentication —"
+                                + " unauthenticated returns 401")
                 .isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
@@ -133,9 +136,9 @@ class PrintLaufzettelIT {
     void allTeamSchedules404ForUnknownTournament() throws Exception {
         UUID unknownId = UUID.randomUUID();
 
-        ResponseEntity<String> response = authed.getForEntity(
-                new URI(baseUrl + "/print/" + unknownId + "/team-schedules"),
-                String.class);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(baseUrl + "/print/" + unknownId + "/team-schedules"), String.class);
 
         assertThat(response.getStatusCode())
                 .as("AC13: Non-existent tournament must return 404")
@@ -143,14 +146,22 @@ class PrintLaufzettelIT {
     }
 
     @Test
-    @DisplayName("AC13: GET /print/{unknownId}/team-schedules/{teamId} returns 404 for unknown tournament")
+    @DisplayName(
+            "AC13: GET /print/{unknownId}/team-schedules/{teamId} returns 404 for unknown"
+                    + " tournament")
     void singleTeamSchedule404ForUnknownTournament() throws Exception {
         UUID unknownId = UUID.randomUUID();
         UUID randomTeamId = UUID.randomUUID();
 
-        ResponseEntity<String> response = authed.getForEntity(
-                new URI(baseUrl + "/print/" + unknownId + "/team-schedules/" + randomTeamId),
-                String.class);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(
+                                baseUrl
+                                        + "/print/"
+                                        + unknownId
+                                        + "/team-schedules/"
+                                        + randomTeamId),
+                        String.class);
 
         assertThat(response.getStatusCode())
                 .as("AC13: Non-existent tournament must return 404")
@@ -158,14 +169,21 @@ class PrintLaufzettelIT {
     }
 
     @Test
-    @DisplayName("AC13: GET /print/{id}/team-schedules/{unknownTeamId} returns 404 for unknown team")
+    @DisplayName(
+            "AC13: GET /print/{id}/team-schedules/{unknownTeamId} returns 404 for unknown team")
     void singleTeamSchedule404ForUnknownTeam() throws Exception {
         UUID tournamentId = createTournament("Laufzettel 404 Team Test");
         UUID unknownTeamId = UUID.randomUUID();
 
-        ResponseEntity<String> response = authed.getForEntity(
-                new URI(baseUrl + "/print/" + tournamentId + "/team-schedules/" + unknownTeamId),
-                String.class);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(
+                                baseUrl
+                                        + "/print/"
+                                        + tournamentId
+                                        + "/team-schedules/"
+                                        + unknownTeamId),
+                        String.class);
 
         assertThat(response.getStatusCode())
                 .as("AC13: Unknown team ID in tournament must return 404")
@@ -177,13 +195,16 @@ class PrintLaufzettelIT {
     // =========================================================================
 
     @Test
-    @DisplayName("AC13: /team-schedules for draft tournament (no phases) returns human-readable error HTML")
+    @DisplayName(
+            "AC13: /team-schedules for draft tournament (no phases) returns human-readable error"
+                    + " HTML")
     void allTeamSchedulesForDraftTournamentReturnsErrorPage() throws Exception {
         UUID tournamentId = createTournament("Laufzettel Draft Tournament");
 
-        ResponseEntity<String> response = authed.getForEntity(
-                new URI(baseUrl + "/print/" + tournamentId + "/team-schedules"),
-                String.class);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(baseUrl + "/print/" + tournamentId + "/team-schedules"),
+                        String.class);
 
         // Inherits E08S07 behavior: no-phases → print/error.mustache (200 HTML, not JSON)
         assertThat(response.getStatusCode())
@@ -210,19 +231,29 @@ class PrintLaufzettelIT {
     // =========================================================================
 
     @Test
-    @DisplayName("AC1: GET /print/{id}/team-schedules/{teamId} route exists (404 for unknown team, not route missing)")
+    @DisplayName(
+            "AC1: GET /print/{id}/team-schedules/{teamId} route exists (404 for unknown team, not"
+                    + " route missing)")
     void singleTeamScheduleRouteExists() throws Exception {
         UUID tournamentId = createTournament("Laufzettel Single Route Test");
         UUID unknownTeamId = UUID.randomUUID();
 
-        ResponseEntity<String> response = authed.getForEntity(
-                new URI(baseUrl + "/print/" + tournamentId + "/team-schedules/" + unknownTeamId),
-                String.class);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(
+                                baseUrl
+                                        + "/print/"
+                                        + tournamentId
+                                        + "/team-schedules/"
+                                        + unknownTeamId),
+                        String.class);
 
         // With no phases → 200 with print/error.mustache (no-phases path fires first)
         // The route IS handled by the controller (not missing), which confirms AC1
         assertThat(response.getStatusCode())
-                .as("AC1: Route /print/**/team-schedules/{teamId} must be handled by the controller")
+                .as(
+                        "AC1: Route /print/**/team-schedules/{teamId} must be handled by the"
+                                + " controller")
                 .isIn(HttpStatus.OK, HttpStatus.NOT_FOUND);
     }
 
@@ -231,13 +262,16 @@ class PrintLaufzettelIT {
     void allTeamSchedulesRouteExistsAndReturnsHtml() throws Exception {
         UUID tournamentId = createTournament("Laufzettel All Route Test");
 
-        ResponseEntity<String> response = authed.getForEntity(
-                new URI(baseUrl + "/print/" + tournamentId + "/team-schedules"),
-                String.class);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(baseUrl + "/print/" + tournamentId + "/team-schedules"),
+                        String.class);
 
         // With no phases → 200 with print/error.mustache. Route IS handled by the controller.
         assertThat(response.getStatusCode())
-                .as("AC2: /print/**/team-schedules must be handled by the controller (200 response)")
+                .as(
+                        "AC2: /print/**/team-schedules must be handled by the controller (200"
+                                + " response)")
                 .isEqualTo(HttpStatus.OK);
 
         assertThat(response.getBody())
@@ -250,9 +284,10 @@ class PrintLaufzettelIT {
     void allTeamSchedulesReturnsHtmlNotJson() throws Exception {
         UUID tournamentId = createTournament("All Teams HTML Test");
 
-        ResponseEntity<String> response = authed.getForEntity(
-                new URI(baseUrl + "/print/" + tournamentId + "/team-schedules"),
-                String.class);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(baseUrl + "/print/" + tournamentId + "/team-schedules"),
+                        String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody())
@@ -265,25 +300,24 @@ class PrintLaufzettelIT {
     // =========================================================================
 
     /**
-     * Creates a tournament via the admin REST API and returns its UUID.
-     * The created tournament starts as DRAFT with no phases and no matches.
+     * Creates a tournament via the admin REST API and returns its UUID. The created tournament
+     * starts as DRAFT with no phases and no matches.
      */
     private UUID createTournament(String description) throws Exception {
-        TournamentCreateRequest request = new TournamentCreateRequest(
-                description,
-                null,
-                8,
-                4,
-                "BEST_OF_3",
-                "setPoints",
-                "standardVolleyball",
-                "roundRobin"
-        );
+        TournamentCreateRequest request =
+                new TournamentCreateRequest(
+                        description,
+                        null,
+                        8,
+                        4,
+                        "BEST_OF_3",
+                        "setPoints",
+                        "standardVolleyball",
+                        "roundRobin");
 
-        ResponseEntity<TournamentResponse> created = authed.postForEntity(
-                new URI(baseUrl + "/api/tournaments"),
-                request,
-                TournamentResponse.class);
+        ResponseEntity<TournamentResponse> created =
+                authed.postForEntity(
+                        new URI(baseUrl + "/api/tournaments"), request, TournamentResponse.class);
 
         assertThat(created.getStatusCode())
                 .as("Tournament creation must succeed (201)")

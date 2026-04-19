@@ -1,18 +1,17 @@
 package de.vvwt.worker.types;
 
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.List;
+import org.junit.jupiter.api.Test;
+
 /**
- * Unit tests for {@link StructuralFingerprint} — basic determinism, known-vector
- * checks, and input-validation paths (AC2, AC3, AC11).
+ * Unit tests for {@link StructuralFingerprint} — basic determinism, known-vector checks, and
+ * input-validation paths (AC2, AC3, AC11).
  *
- * <p>Property-based collapse and no-false-collapse tests live in
- * {@link StructuralFingerprintPropertyTest} (AC4, AC5).
+ * <p>Property-based collapse and no-false-collapse tests live in {@link
+ * StructuralFingerprintPropertyTest} (AC4, AC5).
  */
 class StructuralFingerprintTest {
 
@@ -30,18 +29,12 @@ class StructuralFingerprintTest {
     // -------------------------------------------------------------------------
 
     /**
-     * 3 rows, each with 2 avatars. Row content (group, pos):
-     *   row0: (0,0), (0,1)
-     *   row1: (1,0), (1,1)
-     *   row2: (0,0), (1,1)
+     * 3 rows, each with 2 avatars. Row content (group, pos): row0: (0,0), (0,1) row1: (1,0), (1,1)
+     * row2: (0,0), (1,1)
      *
-     * Step 1: distinct tuples sorted lex → (0,0)=0, (0,1)=1, (1,0)=2, (1,1)=3
-     * Step 2: translate rows:
-     *   row0 → [0,1]
-     *   row1 → [2,3]
-     *   row2 → [0,3]
-     * Step 3: lex sort rows: [0,1], [0,3], [2,3]
-     * → canonical rows: [[0,1],[0,3],[2,3]], avatarCount=4, rowCount=3
+     * <p>Step 1: distinct tuples sorted lex → (0,0)=0, (0,1)=1, (1,0)=2, (1,1)=3 Step 2: translate
+     * rows: row0 → [0,1] row1 → [2,3] row2 → [0,3] Step 3: lex sort rows: [0,1], [0,3], [2,3] →
+     * canonical rows: [[0,1],[0,3],[2,3]], avatarCount=4, rowCount=3
      */
     @Test
     void canonicalize_simpleThreeRowExample_producesExpectedCanonicalForm() {
@@ -51,10 +44,7 @@ class StructuralFingerprintTest {
 
         assertThat(canonical.rowCount()).isEqualTo(3);
         assertThat(canonical.avatarCount()).isEqualTo(4);
-        assertThat(canonical.rows()).containsExactly(
-                List.of(0, 1),
-                List.of(0, 3),
-                List.of(2, 3));
+        assertThat(canonical.rows()).containsExactly(List.of(0, 1), List.of(0, 3), List.of(2, 3));
     }
 
     @Test
@@ -91,10 +81,24 @@ class StructuralFingerprintTest {
 
     @Test
     void fingerprint_differentPhaseId_sameStructure_producesIdenticalFingerprint() {
-        RawPhaseDef raw1 = new RawPhaseDef(10, 1,
-                List.of(new RawRow(List.of(new PositionTuple(0, 0), new PositionTuple(0, 1)))));
-        RawPhaseDef raw2 = new RawPhaseDef(99, 1,
-                List.of(new RawRow(List.of(new PositionTuple(0, 0), new PositionTuple(0, 1)))));
+        RawPhaseDef raw1 =
+                new RawPhaseDef(
+                        10,
+                        1,
+                        List.of(
+                                new RawRow(
+                                        List.of(
+                                                new PositionTuple(0, 0),
+                                                new PositionTuple(0, 1)))));
+        RawPhaseDef raw2 =
+                new RawPhaseDef(
+                        99,
+                        1,
+                        List.of(
+                                new RawRow(
+                                        List.of(
+                                                new PositionTuple(0, 0),
+                                                new PositionTuple(0, 1)))));
 
         assertThat(StructuralFingerprint.transform(raw1).fingerprint())
                 .isEqualTo(StructuralFingerprint.transform(raw2).fingerprint());
@@ -109,7 +113,7 @@ class StructuralFingerprintTest {
         RawRow rowA = new RawRow(List.of(new PositionTuple(0, 0), new PositionTuple(0, 1)));
         RawRow rowB = new RawRow(List.of(new PositionTuple(1, 0), new PositionTuple(1, 1)));
 
-        RawPhaseDef ordered   = new RawPhaseDef(0, 2, List.of(rowA, rowB));
+        RawPhaseDef ordered = new RawPhaseDef(0, 2, List.of(rowA, rowB));
         RawPhaseDef reordered = new RawPhaseDef(0, 2, List.of(rowB, rowA));
 
         assertThat(StructuralFingerprint.transform(ordered).fingerprint())
@@ -142,19 +146,22 @@ class StructuralFingerprintTest {
         // This is the static-analysis check required by AC13.
         for (var field : RawPhaseDef.class.getDeclaredFields()) {
             assertThat(field.getType())
-                    .as("RawPhaseDef field '%s' must not be String (AC13 PII guarantee)",
+                    .as(
+                            "RawPhaseDef field '%s' must not be String (AC13 PII guarantee)",
                             field.getName())
                     .isNotEqualTo(String.class);
         }
         for (var field : PositionTuple.class.getDeclaredFields()) {
             assertThat(field.getType())
-                    .as("PositionTuple field '%s' must not be String (AC13 PII guarantee)",
+                    .as(
+                            "PositionTuple field '%s' must not be String (AC13 PII guarantee)",
                             field.getName())
                     .isNotEqualTo(String.class);
         }
         for (var field : RawRow.class.getDeclaredFields()) {
             assertThat(field.getType())
-                    .as("RawRow field '%s' must not be String (AC13 PII guarantee)",
+                    .as(
+                            "RawRow field '%s' must not be String (AC13 PII guarantee)",
                             field.getName())
                     .isNotEqualTo(String.class);
         }
@@ -165,12 +172,9 @@ class StructuralFingerprintTest {
     // -------------------------------------------------------------------------
 
     private RawPhaseDef buildSimpleThreeRowDef() {
-        RawRow row0 = new RawRow(List.of(
-                new PositionTuple(0, 0), new PositionTuple(0, 1)));
-        RawRow row1 = new RawRow(List.of(
-                new PositionTuple(1, 0), new PositionTuple(1, 1)));
-        RawRow row2 = new RawRow(List.of(
-                new PositionTuple(0, 0), new PositionTuple(1, 1)));
+        RawRow row0 = new RawRow(List.of(new PositionTuple(0, 0), new PositionTuple(0, 1)));
+        RawRow row1 = new RawRow(List.of(new PositionTuple(1, 0), new PositionTuple(1, 1)));
+        RawRow row2 = new RawRow(List.of(new PositionTuple(0, 0), new PositionTuple(1, 1)));
         return new RawPhaseDef(42, 3, List.of(row0, row1, row2));
     }
 }

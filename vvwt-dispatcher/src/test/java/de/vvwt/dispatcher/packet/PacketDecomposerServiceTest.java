@@ -1,17 +1,16 @@
 package de.vvwt.dispatcher.packet;
 
-import org.junit.jupiter.api.Test;
-
-import java.math.BigInteger;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.math.BigInteger;
+import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for {@link PacketDecomposerService} decomposition logic (AC1, AC2).
  *
- * <p>Tests focus on the packet sizing formula, small-N boundary rule, and
- * factorial computation — isolated from the database.
+ * <p>Tests focus on the packet sizing formula, small-N boundary rule, and factorial computation —
+ * isolated from the database.
  *
  * <p>See Story E01S07 AC1, AC2.
  */
@@ -68,9 +67,7 @@ class PacketDecomposerServiceTest {
         assertThat(count).isEqualTo(PacketDecomposerService.MIN_PACKET_COUNT);
     }
 
-    /**
-     * AC2 small-N boundary: N=5 with default config (5! = 120 < 4 × 100M) → 4 packets.
-     */
+    /** AC2 small-N boundary: N=5 with default config (5! = 120 < 4 × 100M) → 4 packets. */
     @Test
     void computePacketCount_n5DefaultConfig_returnsFour() {
         PacketDecomposerService svc = serviceWithConfig(30, 3_333_333);
@@ -81,8 +78,8 @@ class PacketDecomposerServiceTest {
     }
 
     /**
-     * AC2 large-N: N=14 with default config.
-     * 14! = 87_178_291_200 perms / 100M perms-per-packet ≈ 872 packets.
+     * AC2 large-N: N=14 with default config. 14! = 87_178_291_200 perms / 100M perms-per-packet ≈
+     * 872 packets.
      */
     @Test
     void computePacketCount_n14DefaultConfig_approximatelyCorrect() {
@@ -95,22 +92,19 @@ class PacketDecomposerServiceTest {
         assertThat(count).isBetween(860, 900); // allow rounding variation
     }
 
-    /**
-     * AC2 exact-divisor: ensure no off-by-one when n! divides permsPerPacket exactly.
-     */
+    /** AC2 exact-divisor: ensure no off-by-one when n! divides permsPerPacket exactly. */
     @Test
     void computePacketCount_exactDivision_noRemainder() {
         PacketDecomposerService svc = serviceWithConfig(30, 3_333_333);
         BigInteger permsPerPacket = BigInteger.valueOf(100L);
-        BigInteger nFactorial = BigInteger.valueOf(400L); // 400 / 100 = 4 exactly (equals MIN threshold)
+        BigInteger nFactorial =
+                BigInteger.valueOf(400L); // 400 / 100 = 4 exactly (equals MIN threshold)
         // 400 == 4 × 100 → compare: 400 < 400? No → ceil(400/100) = 4
         int count = svc.computePacketCount(nFactorial, permsPerPacket);
         assertThat(count).isEqualTo(4);
     }
 
-    /**
-     * AC2 ceil behaviour: when there is a remainder, rounds up.
-     */
+    /** AC2 ceil behaviour: when there is a remainder, rounds up. */
     @Test
     void computePacketCount_withRemainder_roundsUp() {
         PacketDecomposerService svc = serviceWithConfig(30, 3_333_333);

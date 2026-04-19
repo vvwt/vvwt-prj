@@ -1,11 +1,24 @@
 package de.vvwt.dispatcher.result;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
 import de.vvwt.dispatcher.identity.KeyRegistration;
 import de.vvwt.dispatcher.identity.KeyRegistrationRepository;
 import de.vvwt.dispatcher.job.JobRecord;
 import de.vvwt.dispatcher.job.JobRepository;
 import de.vvwt.dispatcher.packet.PacketRecord;
 import de.vvwt.dispatcher.packet.PacketRepository;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.Signature;
+import java.time.Instant;
+import java.util.Base64;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,26 +28,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.Signature;
-import java.time.Instant;
-import java.util.Base64;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
 /**
- * Integration tests for {@code POST /submit-result} and {@code GET /jobs/{jobId}}
- * (E01S08 AC1–AC12).
+ * Integration tests for {@code POST /submit-result} and {@code GET /jobs/{jobId}} (E01S08
+ * AC1–AC12).
  *
- * <p>Uses H2 in-memory database (PostgreSQL compatibility mode) and full Spring context.
- * Tests the full HTTP request/response cycle including persistence.
+ * <p>Uses H2 in-memory database (PostgreSQL compatibility mode) and full Spring context. Tests the
+ * full HTTP request/response cycle including persistence.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -64,7 +63,7 @@ class SubmitResultIntegrationTest {
         // Generate Ed25519 keypair
         keyPair = KeyPairGenerator.getInstance("Ed25519").generateKeyPair();
         byte[] spki = keyPair.getPublic().getEncoded();
-        byte[] raw  = new byte[32];
+        byte[] raw = new byte[32];
         System.arraycopy(spki, spki.length - 32, raw, 0, 32);
 
         workerKeyId = UUID.randomUUID();
@@ -73,8 +72,16 @@ class SubmitResultIntegrationTest {
 
         // Create a job
         jobId = UUID.randomUUID();
-        JobRecord job = new JobRecord(jobId, UUID.randomUUID(), 3,
-                "{}", "{\"rowCount\":3}", new byte[32], "ready", Instant.now());
+        JobRecord job =
+                new JobRecord(
+                        jobId,
+                        UUID.randomUUID(),
+                        3,
+                        "{}",
+                        "{\"rowCount\":3}",
+                        new byte[32],
+                        "ready",
+                        Instant.now());
         job.setPacketCount(1);
         jobRepo.save(job);
 
@@ -94,9 +101,10 @@ class SubmitResultIntegrationTest {
     void submitResult_firstResult_200() throws Exception {
         String body = buildRequestJson(42L, 1.5);
 
-        mockMvc.perform(post("/submit-result")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
+        mockMvc.perform(
+                        post("/submit-result")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accepted", is(true)))
                 .andExpect(jsonPath("$.firstResult", is(true)));
@@ -115,7 +123,9 @@ class SubmitResultIntegrationTest {
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("AC4: late result for already-done packet → 200 {firstResult:false, latentlyLogged:true}")
+    @DisplayName(
+            "AC4: late result for already-done packet → 200 {firstResult:false,"
+                    + " latentlyLogged:true}")
     void submitResult_lateResult_200_logged() throws Exception {
         // Accept first result directly
         PacketRecord packet = packetRepo.findById(packetId).orElseThrow();
@@ -126,15 +136,16 @@ class SubmitResultIntegrationTest {
         UUID otherWorkerId = UUID.randomUUID();
         KeyPair otherKp = KeyPairGenerator.getInstance("Ed25519").generateKeyPair();
         byte[] otherSpki = otherKp.getPublic().getEncoded();
-        byte[] otherRaw  = new byte[32];
+        byte[] otherRaw = new byte[32];
         System.arraycopy(otherSpki, otherSpki.length - 32, otherRaw, 0, 32);
         keyRepo.save(new KeyRegistration(otherWorkerId, "worker", otherRaw, Instant.now(), null));
 
         String body = buildRequestJson(42L, 1.5, otherWorkerId, otherKp);
 
-        mockMvc.perform(post("/submit-result")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
+        mockMvc.perform(
+                        post("/submit-result")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accepted", is(true)))
                 .andExpect(jsonPath("$.firstResult", is(false)))
@@ -157,9 +168,10 @@ class SubmitResultIntegrationTest {
 
         String body = buildRequestJsonForPacket(otherPacketId, 42L, 1.5, workerKeyId, keyPair);
 
-        mockMvc.perform(post("/submit-result")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
+        mockMvc.perform(
+                        post("/submit-result")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error", is("not-assigned-to-this-worker")));
     }
@@ -176,15 +188,16 @@ class SubmitResultIntegrationTest {
         // Manually set a past deadline by creating a new packet
         packetRepo.delete(packet);
         PacketRecord expiredPacket = new PacketRecord(packetId, jobId, 0, 6);
-        expiredPacket.assign(workerKeyId, Instant.now().minusSeconds(600),
-                Instant.now().minusSeconds(300));
+        expiredPacket.assign(
+                workerKeyId, Instant.now().minusSeconds(600), Instant.now().minusSeconds(300));
         packetRepo.save(expiredPacket);
 
         String body = buildRequestJson(42L, 1.5);
 
-        mockMvc.perform(post("/submit-result")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
+        mockMvc.perform(
+                        post("/submit-result")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
                 .andExpect(status().isGone())
                 .andExpect(jsonPath("$.error", is("deadline-exceeded")))
                 .andExpect(jsonPath("$.deadline", notNullValue()));
@@ -200,9 +213,10 @@ class SubmitResultIntegrationTest {
         // Unknown packetId → 404, must still log
         String body = buildRequestJsonForPacket(UUID.randomUUID(), 42L, 1.5, workerKeyId, keyPair);
 
-        mockMvc.perform(post("/submit-result")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
+        mockMvc.perform(
+                        post("/submit-result")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
                 .andExpect(status().isNotFound());
 
         assertThat(resultAuditRepo.count()).isEqualTo(1L);
@@ -215,9 +229,10 @@ class SubmitResultIntegrationTest {
     @Test
     @DisplayName("AC11: malformed JSON → 400")
     void submitResult_malformedJson_400() throws Exception {
-        mockMvc.perform(post("/submit-result")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{not-json"))
+        mockMvc.perform(
+                        post("/submit-result")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{not-json"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -226,9 +241,10 @@ class SubmitResultIntegrationTest {
     void submitResult_unknownPacketId_404() throws Exception {
         String body = buildRequestJsonForPacket(UUID.randomUUID(), 42L, 1.5, workerKeyId, keyPair);
 
-        mockMvc.perform(post("/submit-result")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
+        mockMvc.perform(
+                        post("/submit-result")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
                 .andExpect(status().isNotFound());
     }
 
@@ -243,9 +259,10 @@ class SubmitResultIntegrationTest {
         // Same worker submits same result again → duplicate
         String body = buildRequestJson(42L, 1.5);
 
-        mockMvc.perform(post("/submit-result")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
+        mockMvc.perform(
+                        post("/submit-result")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.duplicate", is(true)))
                 .andExpect(jsonPath("$.latentlyLogged", is(true)));
@@ -275,9 +292,10 @@ class SubmitResultIntegrationTest {
         // Accept first result — triggers finalization (1 packet job)
         String body = buildRequestJson(42L, 1.5);
 
-        mockMvc.perform(post("/submit-result")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
+        mockMvc.perform(
+                        post("/submit-result")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/jobs/" + jobId))
@@ -290,8 +308,7 @@ class SubmitResultIntegrationTest {
     @Test
     @DisplayName("AC12: GET /jobs/{unknown} → 404")
     void getJobStatus_unknownJob_404() throws Exception {
-        mockMvc.perform(get("/jobs/" + UUID.randomUUID()))
-                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/jobs/" + UUID.randomUUID())).andExpect(status().isNotFound());
     }
 
     // -------------------------------------------------------------------------
@@ -302,22 +319,23 @@ class SubmitResultIntegrationTest {
         return buildRequestJson(rank, score, workerKeyId, keyPair);
     }
 
-    private String buildRequestJson(long rank, double score,
-                                     UUID keyId, KeyPair kp) throws Exception {
+    private String buildRequestJson(long rank, double score, UUID keyId, KeyPair kp)
+            throws Exception {
         return buildRequestJsonForPacket(packetId, rank, score, keyId, kp);
     }
 
-    private String buildRequestJsonForPacket(UUID pId, long rank, double score,
-                                              UUID keyId, KeyPair kp) throws Exception {
+    private String buildRequestJsonForPacket(
+            UUID pId, long rank, double score, UUID keyId, KeyPair kp) throws Exception {
         long perms = 720L;
-        byte[] canonical = SubmitResultService.buildCanonicalBytes72(
-                pId, jobId, rank, score, perms, keyId);
+        byte[] canonical =
+                SubmitResultService.buildCanonicalBytes72(pId, jobId, rank, score, perms, keyId);
         Signature signer = Signature.getInstance("Ed25519");
         signer.initSign(kp.getPrivate());
         signer.update(canonical);
         String sig = Base64.getEncoder().encodeToString(signer.sign());
 
-        return String.format("""
+        return String.format(
+                """
                 {
                   "packetId": "%s",
                   "jobId": "%s",

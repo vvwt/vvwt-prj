@@ -6,7 +6,9 @@ package de.vvwt.tm.domain.photo;
  * <p>Maps to HTTP 400 via {@link de.vvwt.tm.infrastructure.web.GlobalExceptionHandler}.
  *
  * @see PhotoStorageService
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E12S02.story.md">Story E12S02</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E12S02.story.md">Story
+ *     E12S02</a>
  */
 public class PhotoSizeException extends RuntimeException {
 

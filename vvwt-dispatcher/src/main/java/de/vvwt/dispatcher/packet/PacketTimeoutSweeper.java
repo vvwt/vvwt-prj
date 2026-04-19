@@ -1,5 +1,8 @@
 package de.vvwt.dispatcher.packet;
 
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -7,34 +10,30 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
-
 /**
- * Background sweeper that reissues timed-out packets and permanently fails packets
- * that have exceeded the maximum reissue count (E01S07 AC8).
+ * Background sweeper that reissues timed-out packets and permanently fails packets that have
+ * exceeded the maximum reissue count (E01S07 AC8).
  *
  * <h2>Sweep logic</h2>
+ *
  * <ol>
- *   <li>Compute {@code cutoff = now() - packetTimeoutMinutes}.</li>
- *   <li>Load all {@code "assigned"} packets where {@code assigned_at < cutoff}.</li>
+ *   <li>Compute {@code cutoff = now() - packetTimeoutMinutes}.
+ *   <li>Load all {@code "assigned"} packets where {@code assigned_at < cutoff}.
  *   <li>For each:
  *       <ul>
- *         <li>Append a reissue entry to {@code reissue_history} recording
- *             {@code (timestamp, workerKeyId, attemptNumber)} (AC8 audit trail).</li>
- *         <li>If {@code attempts >= maxReissueCount}:
- *             mark {@code status='failed'}; log at ERROR (AC8).</li>
- *         <li>Else: mark {@code status='pending'}, clear {@code assignedTo}/{@code assignedAt};
- *             log at INFO (AC8).</li>
+ *         <li>Append a reissue entry to {@code reissue_history} recording {@code (timestamp,
+ *             workerKeyId, attemptNumber)} (AC8 audit trail).
+ *         <li>If {@code attempts >= maxReissueCount}: mark {@code status='failed'}; log at ERROR
+ *             (AC8).
+ *         <li>Else: mark {@code status='pending'}, clear {@code assignedTo}/{@code assignedAt}; log
+ *             at INFO (AC8).
  *       </ul>
- *   </li>
  * </ol>
  *
  * <p>The sweeper does NOT immediately fail the owning job when a packet is failed — that
- * cross-cutting job-level failure state is deferred to E01S08 (result intake & finalization).
- * In Phase 1, the failed packet is logged at ERROR and remains visible in the {@code packets}
- * table with {@code status='failed'} so operators can observe it.
+ * cross-cutting job-level failure state is deferred to E01S08 (result intake & finalization). In
+ * Phase 1, the failed packet is logged at ERROR and remains visible in the {@code packets} table
+ * with {@code status='failed'} so operators can observe it.
  *
  * <p>Requires {@code @EnableScheduling} on {@link de.vvwt.dispatcher.DispatcherApplication}.
  *
@@ -83,15 +82,23 @@ public class PacketTimeoutSweeper {
                 // Max reissue threshold reached — permanently fail (AC8)
                 packet.markFailed();
                 log.error(
-                        "Packet FAILED after max reissues: packetId={} jobId={} attempts={} maxReissueCount={}",
-                        packet.getPacketId(), packet.getJobId(), packet.getAttempts(), maxReissueCount);
+                        "Packet FAILED after max reissues: packetId={} jobId={} attempts={}"
+                                + " maxReissueCount={}",
+                        packet.getPacketId(),
+                        packet.getJobId(),
+                        packet.getAttempts(),
+                        maxReissueCount);
             } else {
                 // Reissue: return to pending pool (AC8)
                 UUID previousWorker = packet.getAssignedTo();
                 packet.reissueToPending();
                 log.info(
-                        "Packet reissued to pending: packetId={} jobId={} previousWorkerKeyId={} attemptNumber={}",
-                        packet.getPacketId(), packet.getJobId(), previousWorker, packet.getAttempts());
+                        "Packet reissued to pending: packetId={} jobId={} previousWorkerKeyId={}"
+                                + " attemptNumber={}",
+                        packet.getPacketId(),
+                        packet.getJobId(),
+                        previousWorker,
+                        packet.getAttempts());
             }
 
             packetRepository.save(packet);
@@ -107,9 +114,7 @@ public class PacketTimeoutSweeper {
     private static String buildReissueHistoryEntry(PacketRecord packet) {
         return String.format(
                 "{\"timestamp\":\"%s\",\"workerKeyId\":\"%s\",\"attemptNumber\":%d}",
-                Instant.now(),
-                packet.getAssignedTo(),
-                packet.getAttempts());
+                Instant.now(), packet.getAssignedTo(), packet.getAttempts());
     }
 
     // -------------------------------------------------------------------------

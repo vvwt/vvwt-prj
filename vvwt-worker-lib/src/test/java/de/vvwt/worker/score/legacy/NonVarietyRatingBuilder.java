@@ -5,13 +5,13 @@ import java.util.Objects;
 /**
  * Legacy reference copy — TEST SCOPE ONLY.
  *
- * <p>Copied verbatim from:
- * {@code vvw-tournaments/vvw-tournaments-services/src/main/java/de/vvwerratal/vvw/tournaments/services/utils/NonVarietyRatingBuilder.java}
+ * <p>Copied verbatim from: {@code
+ * vvw-tournaments/vvw-tournaments-services/src/main/java/de/vvwerratal/vvw/tournaments/services/utils/NonVarietyRatingBuilder.java}
  * (legacy project, read-only per DEC-7).
  *
- * <p>This class is placed here exclusively to support the characterization test (E01S02 AC3)
- * that verifies mathematical equivalence between the new {@code VarietyScorer} and the legacy
- * scoring algorithm. It must NEVER be imported from production code.
+ * <p>This class is placed here exclusively to support the characterization test (E01S02 AC3) that
+ * verifies mathematical equivalence between the new {@code VarietyScorer} and the legacy scoring
+ * algorithm. It must NEVER be imported from production code.
  *
  * <p>Known issue (documented per E01S02 AC4 / Brief C-7): {@code getRating()} returns {@code int}.
  * At large N or adversarially-chosen sequences the multiplication {@code rating *= phaseCounter}

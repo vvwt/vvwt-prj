@@ -4,33 +4,34 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.dispatcher.job.JobRecord;
 import de.vvwt.dispatcher.job.JobRepository;
 import de.vvwt.worker.types.CanonicalPhaseDef;
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-
 /**
  * Decomposes a queued job into rank-interval packets and transitions the job to {@code "ready"}.
  *
  * <h2>Decomposition algorithm (AC1, AC2)</h2>
+ *
  * <ol>
- *   <li>Claim the job atomically: {@code UPDATE jobs SET status='decomposing' WHERE status='queued'}.
- *       If another process already claimed it, abort.</li>
- *   <li>Parse {@code canonicalPhaseDefJson} → {@link CanonicalPhaseDef}; read {@code rowCount} = N.</li>
- *   <li>Compute {@code permsPerPacket = targetWallClockSec × refRateHz}.</li>
- *   <li>Compute {@code n!} using BigInteger (handles N=15 with 1.3 trillion perms).</li>
- *   <li>If {@code n! < 4 × permsPerPacket}: use exactly 4 packets (guarantees parallelism on small N).</li>
- *   <li>Else: {@code packetCount = ceil(n! / permsPerPacket)}.</li>
- *   <li>Divide {@code [0, n!)} into {@code packetCount} even rank intervals
- *       (last packet absorbs the remainder if any).</li>
- *   <li>Insert all {@link PacketRecord} rows with {@code status='pending'}, {@code attempts=0}.</li>
- *   <li>Update job: {@code status='ready'}, {@code packetCount=packetCount}.</li>
+ *   <li>Claim the job atomically: {@code UPDATE jobs SET status='decomposing' WHERE
+ *       status='queued'}. If another process already claimed it, abort.
+ *   <li>Parse {@code canonicalPhaseDefJson} → {@link CanonicalPhaseDef}; read {@code rowCount} = N.
+ *   <li>Compute {@code permsPerPacket = targetWallClockSec × refRateHz}.
+ *   <li>Compute {@code n!} using BigInteger (handles N=15 with 1.3 trillion perms).
+ *   <li>If {@code n! < 4 × permsPerPacket}: use exactly 4 packets (guarantees parallelism on small
+ *       N).
+ *   <li>Else: {@code packetCount = ceil(n! / permsPerPacket)}.
+ *   <li>Divide {@code [0, n!)} into {@code packetCount} even rank intervals (last packet absorbs
+ *       the remainder if any).
+ *   <li>Insert all {@link PacketRecord} rows with {@code status='pending'}, {@code attempts=0}.
+ *   <li>Update job: {@code status='ready'}, {@code packetCount=packetCount}.
  * </ol>
  *
  * <p>See Story E01S07 AC1, AC2 and DEC-11.
@@ -53,9 +54,10 @@ public class PacketDecomposerService {
     @Value("${dispatcher.packet.ref-rate-hz:3333333}")
     private long refRateHz;
 
-    public PacketDecomposerService(JobRepository jobRepository,
-                                   PacketRepository packetRepository,
-                                   ObjectMapper objectMapper) {
+    public PacketDecomposerService(
+            JobRepository jobRepository,
+            PacketRepository packetRepository,
+            ObjectMapper objectMapper) {
         this.jobRepository = jobRepository;
         this.packetRepository = packetRepository;
         this.objectMapper = objectMapper;
@@ -71,14 +73,19 @@ public class PacketDecomposerService {
     @Transactional
     public int decompose(UUID jobId) {
         // Load the job to get its canonical phase def
-        JobRecord job = jobRepository.findById(jobId)
-                .orElseThrow(() -> new IllegalStateException("Job not found: " + jobId));
+        JobRecord job =
+                jobRepository
+                        .findById(jobId)
+                        .orElseThrow(() -> new IllegalStateException("Job not found: " + jobId));
 
         // Atomically claim: only succeeds if status is still 'queued'
         int claimed = jobRepository.claimForDecomposition(jobId);
         if (claimed == 0) {
             throw new IllegalStateException(
-                    "Job " + jobId + " has already been claimed for decomposition (status was not 'queued')");
+                    "Job "
+                            + jobId
+                            + " has already been claimed for decomposition (status was not"
+                            + " 'queued')");
         }
 
         // Parse the canonical phase definition to get N
@@ -87,8 +94,8 @@ public class PacketDecomposerService {
 
         // Compute packet boundaries
         BigInteger nFactorial = factorial(n);
-        BigInteger permsPerPacket = BigInteger.valueOf(targetWallClockSec)
-                .multiply(BigInteger.valueOf(refRateHz));
+        BigInteger permsPerPacket =
+                BigInteger.valueOf(targetWallClockSec).multiply(BigInteger.valueOf(refRateHz));
 
         int packetCount = computePacketCount(nFactorial, permsPerPacket);
 
@@ -101,8 +108,12 @@ public class PacketDecomposerService {
         job.setPacketCount(packetCount);
         jobRepository.save(job);
 
-        log.info("Decomposed job {} (N={}) into {} packets (permsPerPacket={})",
-                jobId, n, packetCount, permsPerPacket);
+        log.info(
+                "Decomposed job {} (N={}) into {} packets (permsPerPacket={})",
+                jobId,
+                n,
+                packetCount,
+                permsPerPacket);
         return packetCount;
     }
 
@@ -113,8 +124,8 @@ public class PacketDecomposerService {
     /**
      * Computes the number of packets for a job.
      *
-     * <p>AC2 rule: if {@code n! < 4 × permsPerPacket} → use exactly 4 packets.
-     * Otherwise: {@code packetCount = ceil(n! / permsPerPacket)}.
+     * <p>AC2 rule: if {@code n! < 4 × permsPerPacket} → use exactly 4 packets. Otherwise: {@code
+     * packetCount = ceil(n! / permsPerPacket)}.
      */
     int computePacketCount(BigInteger nFactorial, BigInteger permsPerPacket) {
         BigInteger minThreshold = permsPerPacket.multiply(BigInteger.valueOf(MIN_PACKET_COUNT));
@@ -123,7 +134,8 @@ public class PacketDecomposerService {
         }
         // ceil(nFactorial / permsPerPacket) = (nFactorial + permsPerPacket - 1) / permsPerPacket
         BigInteger[] divRem = nFactorial.divideAndRemainder(permsPerPacket);
-        BigInteger count = divRem[1].equals(BigInteger.ZERO) ? divRem[0] : divRem[0].add(BigInteger.ONE);
+        BigInteger count =
+                divRem[1].equals(BigInteger.ZERO) ? divRem[0] : divRem[0].add(BigInteger.ONE);
         // packetCount fits in an int for all practical N (N=15 yields ~13000 packets)
         return count.intValueExact();
     }
@@ -177,7 +189,8 @@ public class PacketDecomposerService {
             return objectMapper.readValue(json, CanonicalPhaseDef.class);
         } catch (Exception parseError) {
             throw new IllegalStateException(
-                    "Failed to parse canonicalPhaseDefJson: " + parseError.getMessage(), parseError);
+                    "Failed to parse canonicalPhaseDefJson: " + parseError.getMessage(),
+                    parseError);
         }
     }
 }

@@ -1,25 +1,21 @@
 package de.vvwt.worker.solver;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+
 import de.vvwt.worker.codec.LehmerCodec;
 import de.vvwt.worker.score.VarietyScorer;
 import de.vvwt.worker.types.CanonicalPhaseDef;
 import de.vvwt.worker.types.JobDef;
 import de.vvwt.worker.types.PacketResult;
-
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
-
-/**
- * Unit tests for {@link PacketSolver} — covers AC1–AC8 of story E01S03.
- */
+/** Unit tests for {@link PacketSolver} — covers AC1–AC8 of story E01S03. */
 class PacketSolverTest {
 
     // -------------------------------------------------------------------------
@@ -36,9 +32,9 @@ class PacketSolverTest {
     }
 
     /**
-     * Builds a minimal but non-trivial {@link CanonicalPhaseDef} for n rows with
-     * one avatar per row (avatar index = row index). Produces a valid phase that
-     * exercises the scorer with non-degenerate data.
+     * Builds a minimal but non-trivial {@link CanonicalPhaseDef} for n rows with one avatar per row
+     * (avatar index = row index). Produces a valid phase that exercises the scorer with
+     * non-degenerate data.
      */
     private static CanonicalPhaseDef buildSimplePhaseDef(int n) {
         List<List<Integer>> rows = new ArrayList<>();
@@ -55,9 +51,9 @@ class PacketSolverTest {
     }
 
     /**
-     * Brute-force reference implementation (AC4): scores all permutations in [0, n!)
-     * using the non-matrix {@link VarietyScorer#score(int[], CanonicalPhaseDef)} overload —
-     * an independent code path from PacketSolver.
+     * Brute-force reference implementation (AC4): scores all permutations in [0, n!) using the
+     * non-matrix {@link VarietyScorer#score(int[], CanonicalPhaseDef)} overload — an independent
+     * code path from PacketSolver.
      */
     private static long bruteForceReference(JobDef jobDef) {
         final VarietyScorer scorer = new VarietyScorer();
@@ -103,7 +99,7 @@ class PacketSolverTest {
         JobDef jobDef = buildJobDef(6);
         long rankTo = factorial(6);
 
-        PacketResult first  = PacketSolver.solvePacket(jobDef, 0L, rankTo);
+        PacketResult first = PacketSolver.solvePacket(jobDef, 0L, rankTo);
         PacketResult second = PacketSolver.solvePacket(jobDef, 0L, rankTo);
 
         assertThat(first.bestRank()).isEqualTo(second.bestRank());
@@ -116,7 +112,7 @@ class PacketSolverTest {
         // Same subrange, called twice — must be identical
         JobDef jobDef = buildJobDef(5);
 
-        PacketResult first  = PacketSolver.solvePacket(jobDef, 10L, 50L);
+        PacketResult first = PacketSolver.solvePacket(jobDef, 10L, 50L);
         PacketResult second = PacketSolver.solvePacket(jobDef, 10L, 50L);
 
         assertThat(first.bestRank()).isEqualTo(second.bestRank());
@@ -277,11 +273,11 @@ class PacketSolverTest {
         // CanonicalPhaseDef itself doesn't validate avatar indices (it only checks rowCount).
         // PacketSolver must catch this at the activeMatrix boundary.
         int n = 3;
-        List<List<Integer>> rows = List.of(
-                List.of(-1),  // negative avatar index — malformed
-                List.of(0),
-                List.of(0)
-        );
+        List<List<Integer>> rows =
+                List.of(
+                        List.of(-1), // negative avatar index — malformed
+                        List.of(0),
+                        List.of(0));
         CanonicalPhaseDef malformedPhaseDef = new CanonicalPhaseDef(n, 1, rows);
         JobDef jobDef = new JobDef(UUID.randomUUID(), n, malformedPhaseDef);
 
@@ -320,7 +316,7 @@ class PacketSolverTest {
         long midpoint = nFactorial / 2;
 
         PacketResult fullRange = PacketSolver.solvePacket(jobDef, 0L, nFactorial);
-        PacketResult firstHalf  = PacketSolver.solvePacket(jobDef, 0L, midpoint);
+        PacketResult firstHalf = PacketSolver.solvePacket(jobDef, 0L, midpoint);
         PacketResult secondHalf = PacketSolver.solvePacket(jobDef, midpoint, nFactorial);
 
         // Combined best rank across both halves

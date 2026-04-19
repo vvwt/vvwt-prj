@@ -1,5 +1,8 @@
 package de.vvwt.tm.domain.repo;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.domain.Match;
 import de.vvwt.tm.domain.MatchFormat;
@@ -10,6 +13,9 @@ import de.vvwt.tm.domain.Team;
 import de.vvwt.tm.domain.TeamAvatar;
 import de.vvwt.tm.domain.Tournament;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,30 +26,25 @@ import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 /**
  * Integration tests for {@link PhasePreparationService} — AC16 through AC19 (E03S12).
  *
- * <p>Uses a full Spring context with H2 in-memory database and all Flyway migrations applied.
- * The test is in the {@code de.vvwt.tm.domain.repo} package to access package-private
- * {@link TenantContext#set} and {@link TenantContext#clear} methods (same pattern as
- * E03S05RepositoryIT).
+ * <p>Uses a full Spring context with H2 in-memory database and all Flyway migrations applied. The
+ * test is in the {@code de.vvwt.tm.domain.repo} package to access package-private {@link
+ * TenantContext#set} and {@link TenantContext#clear} methods (same pattern as E03S05RepositoryIT).
  *
  * <h2>Coverage</h2>
+ *
  * <ul>
- *   <li>AC16 — full 9-team preparation flow (Tournament → Phase → 9 Teams → 9 Avatars → all 4 steps)</li>
- *   <li>AC17 — phase not found → IllegalArgumentException</li>
- *   <li>AC18 — wrong phase status (ACTIVE) → IllegalStateException</li>
- *   <li>AC19 — transactional rollback on partial failure</li>
+ *   <li>AC16 — full 9-team preparation flow (Tournament → Phase → 9 Teams → 9 Avatars → all 4
+ *       steps)
+ *   <li>AC17 — phase not found → IllegalArgumentException
+ *   <li>AC18 — wrong phase status (ACTIVE) → IllegalStateException
+ *   <li>AC19 — transactional rollback on partial failure
  * </ul>
  *
- * @see <a href="../../../../../../.gaai/project/contexts/artefacts/stories/E03S12.story.md">Story E03S12</a>
+ * @see <a href="../../../../../../.gaai/project/contexts/artefacts/stories/E03S12.story.md">Story
+ *     E03S12</a>
  */
 @SpringBootTest(
         classes = TournamentManagerApplication.class,
@@ -81,9 +82,8 @@ class PhasePreparationServiceIT {
     // =========================================================================
 
     /**
-     * AC16: Setup Tournament → Phase → 9 Teams → 9 TeamAvatars.
-     * Run all 4 preparation methods in sequence.
-     * Verify: phase is ACTIVE, 36 matches generated (C(9,2)), all have slot coords,
+     * AC16: Setup Tournament → Phase → 9 Teams → 9 TeamAvatars. Run all 4 preparation methods in
+     * sequence. Verify: phase is ACTIVE, 36 matches generated (C(9,2)), all have slot coords,
      * referees assigned where possible, all matches state = ENABLED.
      */
     @Test
@@ -123,9 +123,11 @@ class PhasePreparationServiceIT {
         List<Match> matchesAfterSlots = matchRepository.findByPhaseId(phaseId);
         assertThat(matchesAfterSlots).hasSize(36);
         for (Match m : matchesAfterSlots) {
-            assertThat(m.getLapNumber()).as("lapNumber must be set after optimizeSlots")
+            assertThat(m.getLapNumber())
+                    .as("lapNumber must be set after optimizeSlots")
                     .isNotNull();
-            assertThat(m.getFieldNumber()).as("fieldNumber must be set after optimizeSlots")
+            assertThat(m.getFieldNumber())
+                    .as("fieldNumber must be set after optimizeSlots")
                     .isNotNull();
         }
 
@@ -221,16 +223,14 @@ class PhasePreparationServiceIT {
     // =========================================================================
 
     /**
-     * AC19: The DELETE-then-INSERT in generateMatches is transactional.
-     * Strategy: run generateMatches twice inside the same test-managed transaction.
-     * The test framework rolls back after the test — neither run's data persists.
-     * The service-level @Transactional boundary guarantees that if INSERT fails mid-way,
-     * the DELETE (and any partial INSERT) is rolled back.
+     * AC19: The DELETE-then-INSERT in generateMatches is transactional. Strategy: run
+     * generateMatches twice inside the same test-managed transaction. The test framework rolls back
+     * after the test — neither run's data persists. The service-level @Transactional boundary
+     * guarantees that if INSERT fails mid-way, the DELETE (and any partial INSERT) is rolled back.
      *
-     * We verify the structural guarantee by:
-     * 1. Running generateMatches once → 36 matches created.
-     * 2. Running generateMatches again → old 36 deleted, new 36 inserted.
-     * 3. Count is still 36 (not 0 or 72).
+     * <p>We verify the structural guarantee by: 1. Running generateMatches once → 36 matches
+     * created. 2. Running generateMatches again → old 36 deleted, new 36 inserted. 3. Count is
+     * still 36 (not 0 or 72).
      */
     @Test
     @Transactional
@@ -267,43 +267,84 @@ class PhasePreparationServiceIT {
 
     private UUID createTournament() {
         UUID id = UUID.randomUUID();
-        Tournament t = new Tournament(
-                id, defaultTenantId, "Test Tournament " + id,
-                MatchFormat.BEST_OF_3.name(), "setPoints", "standardVolleyball", "roundRobin",
-                "DRAFT", LocalDateTime.now());
+        Tournament t =
+                new Tournament(
+                        id,
+                        defaultTenantId,
+                        "Test Tournament " + id,
+                        MatchFormat.BEST_OF_3.name(),
+                        "setPoints",
+                        "standardVolleyball",
+                        "roundRobin",
+                        "DRAFT",
+                        LocalDateTime.now());
         tournamentRepository.save(t);
         return id;
     }
 
     private UUID createPhase(UUID tournamentId) {
         UUID id = UUID.randomUUID();
-        Phase p = new Phase(id, defaultTenantId, tournamentId, 1, "Vorrunde", "PENDING", 0,
-                LocalDateTime.now());
+        Phase p =
+                new Phase(
+                        id,
+                        defaultTenantId,
+                        tournamentId,
+                        1,
+                        "Vorrunde",
+                        "PENDING",
+                        0,
+                        LocalDateTime.now());
         phaseRepository.save(p);
         return id;
     }
 
     private UUID createActivePhase(UUID tournamentId) {
         UUID id = UUID.randomUUID();
-        Phase p = new Phase(id, defaultTenantId, tournamentId, 1, "Vorrunde", "ACTIVE", 0,
-                LocalDateTime.now());
+        Phase p =
+                new Phase(
+                        id,
+                        defaultTenantId,
+                        tournamentId,
+                        1,
+                        "Vorrunde",
+                        "ACTIVE",
+                        0,
+                        LocalDateTime.now());
         phaseRepository.save(p);
         return id;
     }
 
     private UUID createTeam(UUID tournamentId, int teamNumber, boolean refereeAssignment) {
         UUID id = UUID.randomUUID();
-        Team t = new Team(id, defaultTenantId, tournamentId, teamNumber,
-                "Team " + teamNumber, true, refereeAssignment, false, LocalDateTime.now());
+        Team t =
+                new Team(
+                        id,
+                        defaultTenantId,
+                        tournamentId,
+                        teamNumber,
+                        "Team " + teamNumber,
+                        true,
+                        refereeAssignment,
+                        false,
+                        LocalDateTime.now());
         teamRepository.save(t);
         return id;
     }
 
-    private UUID createAvatar(UUID tournamentId, UUID phaseId, UUID teamId,
-                               int groupNumber, int groupPosition) {
+    private UUID createAvatar(
+            UUID tournamentId, UUID phaseId, UUID teamId, int groupNumber, int groupPosition) {
         UUID id = UUID.randomUUID();
-        TeamAvatar ta = new TeamAvatar(id, defaultTenantId, tournamentId, phaseId,
-                groupNumber, groupPosition, teamId, null, LocalDateTime.now());
+        TeamAvatar ta =
+                new TeamAvatar(
+                        id,
+                        defaultTenantId,
+                        tournamentId,
+                        phaseId,
+                        groupNumber,
+                        groupPosition,
+                        teamId,
+                        null,
+                        LocalDateTime.now());
         teamAvatarRepository.save(ta);
         return id;
     }

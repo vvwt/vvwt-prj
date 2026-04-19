@@ -1,24 +1,25 @@
 package de.vvwt.worker.score;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import de.vvwt.worker.score.legacy.NonVarietyRatingBuilder;
 import de.vvwt.worker.types.CanonicalPhaseDef;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Assertions.within;
-
 /**
  * Tests for {@link VarietyScorer}.
  *
  * <p>AC3: Characterization test against legacy {@code NonVarietyRatingBuilder}.
+ *
  * <p>AC4: Overflow regression test at N=17.
+ *
  * <p>AC6: VERSION constant present and equals 1.
+ *
  * <p>AC7: Error-path tests for invalid inputs.
  */
 class VarietyScorerTest {
@@ -45,13 +46,14 @@ class VarietyScorerTest {
     // =========================================================================
 
     /**
-     * Helper: compute the legacy score for a given rowSequence and active-matrix,
-     * using the original {@code NonVarietyRatingBuilder} logic.
+     * Helper: compute the legacy score for a given rowSequence and active-matrix, using the
+     * original {@code NonVarietyRatingBuilder} logic.
      *
-     * <p>This exactly mirrors the inner loop in
-     * {@code MatchDistributor.optimizeMatchSlotsForVariety}.
+     * <p>This exactly mirrors the inner loop in {@code
+     * MatchDistributor.optimizeMatchSlotsForVariety}.
      */
-    private static double legacyScore(int[] rowSequence, boolean[][] activeMatrix, int avatarCount) {
+    private static double legacyScore(
+            int[] rowSequence, boolean[][] activeMatrix, int avatarCount) {
         NonVarietyRatingBuilder[] builders = new NonVarietyRatingBuilder[avatarCount];
         for (int i = 0; i < avatarCount; i++) {
             builders[i] = new NonVarietyRatingBuilder();
@@ -70,8 +72,8 @@ class VarietyScorerTest {
     }
 
     /**
-     * Build a simple phase where each row has exactly 2 avatars playing (round-robin style).
-     * This keeps values small enough to stay in the non-overflow zone for the legacy int scorer.
+     * Build a simple phase where each row has exactly 2 avatars playing (round-robin style). This
+     * keeps values small enough to stay in the non-overflow zone for the legacy int scorer.
      */
     private static CanonicalPhaseDef simplePhase(int rowCount, int avatarCount) {
         // Each row activates 2 consecutive avatars (modulo avatarCount)
@@ -91,15 +93,15 @@ class VarietyScorerTest {
         boolean[][] active = scorer.buildActiveMatrix(phase.rows(), 3, 3);
 
         // Test all 6 permutations of [0,1,2]
-        int[][] permutations = {
-            {0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}
-        };
+        int[][] permutations = {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}};
         for (int[] perm : permutations) {
             double newScore = scorer.scoreWithMatrix(perm, 3, 3, active);
             double legacyScoreVal = legacyScore(perm, active, 3);
             assertThat(newScore)
-                .as("Perm %s: new=%.6f legacy=%.6f", java.util.Arrays.toString(perm), newScore, legacyScoreVal)
-                .isEqualTo(legacyScoreVal);
+                    .as(
+                            "Perm %s: new=%.6f legacy=%.6f",
+                            java.util.Arrays.toString(perm), newScore, legacyScoreVal)
+                    .isEqualTo(legacyScoreVal);
         }
     }
 
@@ -120,8 +122,8 @@ class VarietyScorerTest {
             double newScore = scorer.scoreWithMatrix(perm, 5, 5, active);
             double legacyScoreVal = legacyScore(perm, active, 5);
             assertThat(newScore)
-                .as("Perm %s", java.util.Arrays.toString(perm))
-                .isEqualTo(legacyScoreVal);
+                    .as("Perm %s", java.util.Arrays.toString(perm))
+                    .isEqualTo(legacyScoreVal);
         }
     }
 
@@ -140,8 +142,8 @@ class VarietyScorerTest {
             double newScore = scorer.scoreWithMatrix(perm, 7, 7, active);
             double legacyScoreVal = legacyScore(perm, active, 7);
             assertThat(newScore)
-                .as("Perm %s", java.util.Arrays.toString(perm))
-                .isEqualTo(legacyScoreVal);
+                    .as("Perm %s", java.util.Arrays.toString(perm))
+                    .isEqualTo(legacyScoreVal);
         }
     }
 
@@ -160,8 +162,8 @@ class VarietyScorerTest {
             double newScore = scorer.scoreWithMatrix(perm, 10, 10, active);
             double legacyScoreVal = legacyScore(perm, active, 10);
             assertThat(newScore)
-                .as("Perm %s", java.util.Arrays.toString(perm))
-                .isEqualTo(legacyScoreVal);
+                    .as("Perm %s", java.util.Arrays.toString(perm))
+                    .isEqualTo(legacyScoreVal);
         }
     }
 
@@ -172,8 +174,8 @@ class VarietyScorerTest {
         // Row 0: avatars 0,1 active; Row 1: avatars 2,3 active; Row 2: avatars 0,1 active
         // Avatar 0: active, idle, active → two runs of 1 and one run of 1 — product = 1*1*1 = 1
         // Avatar 2: idle, active, idle → 1*1*1 = 1
-        CanonicalPhaseDef phase = new CanonicalPhaseDef(3, 4,
-            List.of(List.of(0, 1), List.of(2, 3), List.of(0, 1)));
+        CanonicalPhaseDef phase =
+                new CanonicalPhaseDef(3, 4, List.of(List.of(0, 1), List.of(2, 3), List.of(0, 1)));
         boolean[][] active = scorer.buildActiveMatrix(phase.rows(), 3, 4);
 
         int[] perm = {0, 1, 2};
@@ -241,7 +243,8 @@ class VarietyScorerTest {
         // e.g. active-idle-active-idle... (17 alternations, each run=1) → product = 1 (no overflow)
         // For overflow: runs must be long. With 17 rows max run multiplier is 17.
         // Integer.MAX_VALUE = 2^31-1 ≈ 2.1e9.
-        // 17^3 = 4913; 17^4 = 83521; 17^5 = 1419857; 17^6 = 24137569; 17^7 = 410338673; 17^8 = 6975757441 > 2^32
+        // 17^3 = 4913; 17^4 = 83521; 17^5 = 1419857; 17^6 = 24137569; 17^7 = 410338673; 17^8 =
+        // 6975757441 > 2^32
         // So with 8 run-length multiplications of average 17 each, we overflow int.
         //
         // Construct: avatar has state-changes that produce many large multiplications.
@@ -269,7 +272,8 @@ class VarietyScorerTest {
         //
         // To make the overflow observable: we construct a phase where the legacy int
         // rating * phaseCounter overflows. This requires many large consecutive runs.
-        // With 17 rows, the absolute worst case: 8 state changes, each run=2 → 8 multiplications of 2
+        // With 17 rows, the absolute worst case: 8 state changes, each run=2 → 8 multiplications of
+        // 2
         // → 2^8 = 256, no overflow.
         //
         // Reality check: with N=17 rows and the NonVarietyRatingBuilder algorithm,
@@ -304,7 +308,8 @@ class VarietyScorerTest {
         // prior run was long. We can force this:
         //
         // Use rowCount=17, one avatar, run pattern: 1 row idle, 16 rows active.
-        // Legacy: register(false) → counter=1; register(true) → state change, rating=1*1=1, counter=1;
+        // Legacy: register(false) → counter=1; register(true) → state change, rating=1*1=1,
+        // counter=1;
         //         register(true)*15 more → counter=16; getRating = 1*16 = 16. No overflow.
         //
         // Alternative: rowCount can exceed 17 for this test since it's about the ALGORITHM.
@@ -337,7 +342,8 @@ class VarietyScorerTest {
         // ratings after transitions: 20, 20, 400, 400
         // final: 400*20 = 8000. No overflow.
         // rowCount = 1000, blocks of 100:
-        // 100, 100*100=10000, 10000*100=1000000, 1000000*100=100000000, 100000000*100=10000000000 > 2^31!
+        // 100, 100*100=10000, 10000*100=1000000, 1000000*100=100000000, 100000000*100=10000000000 >
+        // 2^31!
         // So: 5 blocks of 100 → overflow at 5th multiplication.
         //
         // Use: rowCount=500, avatarCount=17, pattern: 5 equal runs of 100 rows each.
@@ -357,13 +363,13 @@ class VarietyScorerTest {
         int avatarCount = 1;
         List<List<Integer>> rows = new java.util.ArrayList<>();
         for (int r = 0; r < rowCount; r++) {
-            int block = r / 100;           // 0,1,2,3,4
+            int block = r / 100; // 0,1,2,3,4
             boolean active = (block % 2 == 0); // blocks 0,2,4 active; blocks 1,3 idle
             rows.add(active ? List.of(0) : List.of());
         }
         CanonicalPhaseDef phase = new CanonicalPhaseDef(rowCount, avatarCount, rows);
         int[] perm = new int[rowCount];
-        for (int r = 0; r < rowCount; r++) perm[r] = r;  // identity permutation
+        for (int r = 0; r < rowCount; r++) perm[r] = r; // identity permutation
 
         // Legacy scorer — int-based, will overflow
         boolean[][] active2 = scorer.buildActiveMatrix(phase.rows(), rowCount, avatarCount);
@@ -374,11 +380,9 @@ class VarietyScorerTest {
 
         // The new result MUST be finite and non-NaN
         assertThat(newResult)
-            .as("New scorer must return finite result at adversarial N=500 overflow test")
-            .isFinite();
-        assertThat(newResult)
-            .as("New scorer must return non-NaN result")
-            .isNotNaN();
+                .as("New scorer must return finite result at adversarial N=500 overflow test")
+                .isFinite();
+        assertThat(newResult).as("New scorer must return non-NaN result").isNotNaN();
 
         // The legacy result should be an overflowed (wrong) integer value.
         // Expected correct result (double arithmetic):
@@ -386,15 +390,15 @@ class VarietyScorerTest {
         //   score = 10^10 / 1 = 1.0e10
         double expectedCorrectScore = 1.0e10;
         assertThat(newResult)
-            .as("New scorer must equal correct double result %.1f", expectedCorrectScore)
-            .isEqualTo(expectedCorrectScore);
+                .as("New scorer must equal correct double result %.1f", expectedCorrectScore)
+                .isEqualTo(expectedCorrectScore);
 
         // The legacy result is WRONG due to int overflow: it will NOT equal 1e10
         // (it will be some wrapped negative or small integer due to overflow).
         // This assertion documents the overflow behavior.
         assertThat(legacyResult)
-            .as("Legacy scorer produces wrong result due to int overflow (expected != 1e10)")
-            .isNotEqualTo(expectedCorrectScore);
+                .as("Legacy scorer produces wrong result due to int overflow (expected != 1e10)")
+                .isNotEqualTo(expectedCorrectScore);
     }
 
     // =========================================================================
@@ -408,9 +412,9 @@ class VarietyScorerTest {
         @Test
         @DisplayName("AC7: phaseDef null throws IllegalArgumentException")
         void nullPhaseDef() {
-            assertThatThrownBy(() -> scorer.score(new int[]{0}, null))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("phaseDef must not be null");
+            assertThatThrownBy(() -> scorer.score(new int[] {0}, null))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("phaseDef must not be null");
         }
 
         @Test
@@ -418,39 +422,38 @@ class VarietyScorerTest {
         void nullRowSequence() {
             CanonicalPhaseDef phase = new CanonicalPhaseDef(1, 2, List.of(List.of(0, 1)));
             assertThatThrownBy(() -> scorer.score(null, phase))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("rowSequence must not be null");
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("rowSequence must not be null");
         }
 
         @Test
         @DisplayName("AC7: rowSequence.length != phaseDef.rowCount throws")
         void rowSequenceLengthMismatch() {
-            CanonicalPhaseDef phase = new CanonicalPhaseDef(3, 2,
-                List.of(List.of(0), List.of(1), List.of(0, 1)));
-            assertThatThrownBy(() -> scorer.score(new int[]{0, 1}, phase))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("rowSequence.length=2")
-                .hasMessageContaining("phaseDef.rowCount=3");
+            CanonicalPhaseDef phase =
+                    new CanonicalPhaseDef(3, 2, List.of(List.of(0), List.of(1), List.of(0, 1)));
+            assertThatThrownBy(() -> scorer.score(new int[] {0, 1}, phase))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("rowSequence.length=2")
+                    .hasMessageContaining("phaseDef.rowCount=3");
         }
 
         @Test
         @DisplayName("AC7: rowSequence with out-of-range index throws")
         void rowSequenceOutOfRange() {
-            CanonicalPhaseDef phase = new CanonicalPhaseDef(2, 2,
-                List.of(List.of(0), List.of(1)));
-            assertThatThrownBy(() -> scorer.score(new int[]{0, 5}, phase))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("out of range");
+            CanonicalPhaseDef phase = new CanonicalPhaseDef(2, 2, List.of(List.of(0), List.of(1)));
+            assertThatThrownBy(() -> scorer.score(new int[] {0, 5}, phase))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("out of range");
         }
 
         @Test
         @DisplayName("AC7: rowSequence with duplicate value throws")
         void rowSequenceDuplicate() {
-            CanonicalPhaseDef phase = new CanonicalPhaseDef(3, 2,
-                List.of(List.of(0), List.of(1), List.of(0, 1)));
-            assertThatThrownBy(() -> scorer.score(new int[]{0, 0, 2}, phase))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("duplicate value");
+            CanonicalPhaseDef phase =
+                    new CanonicalPhaseDef(3, 2, List.of(List.of(0), List.of(1), List.of(0, 1)));
+            assertThatThrownBy(() -> scorer.score(new int[] {0, 0, 2}, phase))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("duplicate value");
         }
 
         @Test
@@ -468,9 +471,9 @@ class VarietyScorerTest {
             // Actually CanonicalPhaseDef uses List.copyOf which accepts any elements.
             // We need avatarCount >= 0. Use avatarCount=1 (even though -1 is invalid).
             CanonicalPhaseDef phase = new CanonicalPhaseDef(1, 1, rows);
-            assertThatThrownBy(() -> scorer.score(new int[]{0}, phase))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Negative avatar index");
+            assertThatThrownBy(() -> scorer.score(new int[] {0}, phase))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Negative avatar index");
         }
     }
 
@@ -490,12 +493,12 @@ class VarietyScorerTest {
     @DisplayName("Edge case: single row, single avatar")
     void singleRowSingleAvatar() {
         CanonicalPhaseDef phase = new CanonicalPhaseDef(1, 1, List.of(List.of(0)));
-        double result = scorer.score(new int[]{0}, phase);
+        double result = scorer.score(new int[] {0}, phase);
         // Single run of length 1 → product=1, score = 1/1 = 1.0
         assertThat(result).isEqualTo(1.0);
         // Also verify legacy match
         boolean[][] active = scorer.buildActiveMatrix(phase.rows(), 1, 1);
-        assertThat(result).isEqualTo(legacyScore(new int[]{0}, active, 1));
+        assertThat(result).isEqualTo(legacyScore(new int[] {0}, active, 1));
     }
 
     @Test
@@ -503,10 +506,10 @@ class VarietyScorerTest {
     void singleRowAvatarIdle() {
         CanonicalPhaseDef phase = new CanonicalPhaseDef(1, 1, List.of(List.of()));
         // Avatar 0 is idle in the only row
-        double result = scorer.score(new int[]{0}, phase);
+        double result = scorer.score(new int[] {0}, phase);
         // Single idle run of length 1 → product=1, score = 1/1 = 1.0
         assertThat(result).isEqualTo(1.0);
         boolean[][] active = scorer.buildActiveMatrix(phase.rows(), 1, 1);
-        assertThat(result).isEqualTo(legacyScore(new int[]{0}, active, 1));
+        assertThat(result).isEqualTo(legacyScore(new int[] {0}, active, 1));
     }
 }

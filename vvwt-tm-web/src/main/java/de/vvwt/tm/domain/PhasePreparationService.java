@@ -10,44 +10,49 @@ import de.vvwt.tm.domain.repo.TeamAvatarRepository;
 import de.vvwt.tm.domain.repo.TournamentRepository;
 import de.vvwt.tm.domain.rules.TournamentRuleResolver;
 import de.vvwt.tm.slotopt.SlotOptimizationClient;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-
 /**
  * Spring service that exposes the four-step phase preparation flow (D-29, AC1).
  *
  * <p>Each of the four methods is a distinct, idempotent, transactional service call:
+ *
  * <ol>
- *   <li>{@link #generateMatches(UUID)} — generate the match schedule for the phase</li>
- *   <li>{@link #optimizeSlots(UUID)} — assign lap/field coordinates to each match</li>
- *   <li>{@link #assignReferees(UUID)} — assign referee teams to each match</li>
- *   <li>{@link #startPhase(UUID)} — transition the phase from PENDING to ACTIVE</li>
+ *   <li>{@link #generateMatches(UUID)} — generate the match schedule for the phase
+ *   <li>{@link #optimizeSlots(UUID)} — assign lap/field coordinates to each match
+ *   <li>{@link #assignReferees(UUID)} — assign referee teams to each match
+ *   <li>{@link #startPhase(UUID)} — transition the phase from PENDING to ACTIVE
  * </ol>
  *
  * <h2>Phase lifecycle (AC7)</h2>
- * <p>Only the {@code PENDING → ACTIVE} transition is managed here. The
- * {@code ACTIVE → COMPLETED} transition is owned by the cascade service (E03S11, step 10).
- * Backward transitions (COMPLETED → ACTIVE, ACTIVE → PENDING) are not supported in V1.
+ *
+ * <p>Only the {@code PENDING → ACTIVE} transition is managed here. The {@code ACTIVE → COMPLETED}
+ * transition is owned by the cascade service (E03S11, step 10). Backward transitions (COMPLETED →
+ * ACTIVE, ACTIVE → PENDING) are not supported in V1.
  *
  * <h2>Idempotency (AC6)</h2>
- * <p>Steps 1–3 ({@code generateMatches}, {@code optimizeSlots}, {@code assignReferees}) are
- * safe to re-run in PENDING state. {@code startPhase} is NOT idempotent — calling it twice
- * throws {@link IllegalStateException} because the phase is already ACTIVE.
+ *
+ * <p>Steps 1–3 ({@code generateMatches}, {@code optimizeSlots}, {@code assignReferees}) are safe to
+ * re-run in PENDING state. {@code startPhase} is NOT idempotent — calling it twice throws {@link
+ * IllegalStateException} because the phase is already ACTIVE.
  *
  * <h2>Tenant scope (DEC-5, DEC-17, AC22)</h2>
- * <p>All repository calls go through tenant-scoped repositories (E03S05). Cross-tenant access
- * is structurally impossible.
+ *
+ * <p>All repository calls go through tenant-scoped repositories (E03S05). Cross-tenant access is
+ * structurally impossible.
  *
  * @see de.vvwt.tm.slotopt.SlotOptimizationClient
  * @see RefereeAssigner
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E03S12.story.md">Story E03S12</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E03S12.story.md">Story
+ *     E03S12</a>
  */
 @Service
 public class PhasePreparationService {
@@ -67,25 +72,26 @@ public class PhasePreparationService {
     /**
      * Constructs the service. Spring injects all collaborators.
      *
-     * @param phaseRepository          repository for {@link Phase} entities
-     * @param matchRepository          repository for {@link Match} entities
-     * @param matchOutcomeRepository   repository for {@link MatchOutcome} entities (cascade delete)
-     * @param teamAvatarRepository     repository for {@link TeamAvatar} entities
-     * @param tournamentRepository     repository for {@link Tournament} entities
-     * @param tournamentRuleResolver   strategy resolver for match generator
-     * @param slotOptimizationClient   E04 client (or fallback) for slot assignment
-     * @param refereeAssigner          E03S10 referee assignment service
-     * @param eventPublisher           Spring event publisher for domain events (E07S06)
+     * @param phaseRepository repository for {@link Phase} entities
+     * @param matchRepository repository for {@link Match} entities
+     * @param matchOutcomeRepository repository for {@link MatchOutcome} entities (cascade delete)
+     * @param teamAvatarRepository repository for {@link TeamAvatar} entities
+     * @param tournamentRepository repository for {@link Tournament} entities
+     * @param tournamentRuleResolver strategy resolver for match generator
+     * @param slotOptimizationClient E04 client (or fallback) for slot assignment
+     * @param refereeAssigner E03S10 referee assignment service
+     * @param eventPublisher Spring event publisher for domain events (E07S06)
      */
-    public PhasePreparationService(PhaseRepository phaseRepository,
-                                   MatchRepository matchRepository,
-                                   MatchOutcomeRepository matchOutcomeRepository,
-                                   TeamAvatarRepository teamAvatarRepository,
-                                   TournamentRepository tournamentRepository,
-                                   TournamentRuleResolver tournamentRuleResolver,
-                                   SlotOptimizationClient slotOptimizationClient,
-                                   RefereeAssigner refereeAssigner,
-                                   ApplicationEventPublisher eventPublisher) {
+    public PhasePreparationService(
+            PhaseRepository phaseRepository,
+            MatchRepository matchRepository,
+            MatchOutcomeRepository matchOutcomeRepository,
+            TeamAvatarRepository teamAvatarRepository,
+            TournamentRepository tournamentRepository,
+            TournamentRuleResolver tournamentRuleResolver,
+            SlotOptimizationClient slotOptimizationClient,
+            RefereeAssigner refereeAssigner,
+            ApplicationEventPublisher eventPublisher) {
         this.phaseRepository = phaseRepository;
         this.matchRepository = matchRepository;
         this.matchOutcomeRepository = matchOutcomeRepository;
@@ -104,14 +110,14 @@ public class PhasePreparationService {
     /**
      * Generates the match schedule for the given phase (D-29 step 1, AC2).
      *
-     * <p>This method is idempotent: if matches already exist for the phase, they are deleted
-     * first (cascade: set_result and match_outcome rows are also removed if present) before
-     * new matches are inserted. The audit log is NOT cleared — the append-only invariant
-     * is preserved (AC2 note).
+     * <p>This method is idempotent: if matches already exist for the phase, they are deleted first
+     * (cascade: set_result and match_outcome rows are also removed if present) before new matches
+     * are inserted. The audit log is NOT cleared — the append-only invariant is preserved (AC2
+     * note).
      *
      * @param phaseId the phase for which to generate matches; must not be {@code null}
      * @throws IllegalArgumentException if the phase does not exist (AC17)
-     * @throws IllegalStateException    if the phase is not in PENDING status (AC18)
+     * @throws IllegalStateException if the phase is not in PENDING status (AC18)
      */
     @Transactional
     public void generateMatches(UUID phaseId) {
@@ -140,8 +146,10 @@ public class PhasePreparationService {
                 matchOutcomeRepository.deleteByMatchId(existing.getId());
             }
             matchRepository.deleteByPhaseId(phaseId);
-            LOG.info("generateMatches: phase={} — deleted {} existing matches before re-generation",
-                    phaseId, existingMatches.size());
+            LOG.info(
+                    "generateMatches: phase={} — deleted {} existing matches before re-generation",
+                    phaseId,
+                    existingMatches.size());
         }
 
         // Generate new matches
@@ -150,8 +158,12 @@ public class PhasePreparationService {
         // Insert all new matches
         matchRepository.saveAll(newMatches);
 
-        LOG.info("generateMatches: phase={}, avatars={}, generated {} matches, generator={}",
-                phaseId, avatars.size(), newMatches.size(), generator.getBeanId());
+        LOG.info(
+                "generateMatches: phase={}, avatars={}, generated {} matches, generator={}",
+                phaseId,
+                avatars.size(),
+                newMatches.size(),
+                generator.getBeanId());
     }
 
     // =========================================================================
@@ -159,17 +171,17 @@ public class PhasePreparationService {
     // =========================================================================
 
     /**
-     * Assigns slot coordinates ({@code lap_number}, {@code field_number}) to every match in
-     * the phase (D-29 step 2, AC3).
+     * Assigns slot coordinates ({@code lap_number}, {@code field_number}) to every match in the
+     * phase (D-29 step 2, AC3).
      *
      * <p>This method is idempotent: if matches already have non-null slot coordinates, they are
-     * overwritten by the optimization result. Delegates to the {@link SlotOptimizationClient}
-     * (E04 real implementation or {@code FallbackSlotOptimizationClient} for V1).
+     * overwritten by the optimization result. Delegates to the {@link SlotOptimizationClient} (E04
+     * real implementation or {@code FallbackSlotOptimizationClient} for V1).
      *
      * @param phaseId the phase whose matches should receive slot assignments
      * @throws IllegalArgumentException if the phase does not exist (AC17)
-     * @throws IllegalStateException    if the phase is not PENDING (AC18), or if no matches
-     *                                  have been generated yet (AC3 precondition)
+     * @throws IllegalStateException if the phase is not PENDING (AC18), or if no matches have been
+     *     generated yet (AC3 precondition)
      */
     @Transactional
     public void optimizeSlots(UUID phaseId) {
@@ -183,14 +195,18 @@ public class PhasePreparationService {
         List<Match> matches = matchRepository.findByPhaseId(phaseId);
         if (matches.isEmpty()) {
             throw new IllegalStateException(
-                    "optimizeSlots: phase " + phaseId
-                    + " has no matches — run generateMatches first.");
+                    "optimizeSlots: phase "
+                            + phaseId
+                            + " has no matches — run generateMatches first.");
         }
 
         slotOptimizationClient.optimize(phaseId);
 
-        LOG.info("optimizeSlots: phase={}, {} matches slot-optimized via {}",
-                phaseId, matches.size(), slotOptimizationClient.getClass().getSimpleName());
+        LOG.info(
+                "optimizeSlots: phase={}, {} matches slot-optimized via {}",
+                phaseId,
+                matches.size(),
+                slotOptimizationClient.getClass().getSimpleName());
     }
 
     // =========================================================================
@@ -200,14 +216,14 @@ public class PhasePreparationService {
     /**
      * Assigns referee teams to every eligible match in the phase (D-29 step 3, AC4).
      *
-     * <p>Delegates to {@link RefereeAssigner#assignReferees(UUID)} from E03S10.
-     * Precondition: all matches must have non-null slot coordinates (enforced by
-     * {@link RefereeAssigner} itself — AC4 note).
+     * <p>Delegates to {@link RefereeAssigner#assignReferees(UUID)} from E03S10. Precondition: all
+     * matches must have non-null slot coordinates (enforced by {@link RefereeAssigner} itself — AC4
+     * note).
      *
      * @param phaseId the phase whose matches should have referees assigned
      * @throws IllegalArgumentException if the phase does not exist (AC17)
-     * @throws IllegalStateException    if the phase is not PENDING (AC18), or if any match
-     *                                  lacks slot coordinates
+     * @throws IllegalStateException if the phase is not PENDING (AC18), or if any match lacks slot
+     *     coordinates
      */
     @Transactional
     public void assignReferees(UUID phaseId) {
@@ -223,8 +239,11 @@ public class PhasePreparationService {
         for (Match match : matches) {
             if (match.getLapNumber() == null || match.getFieldNumber() == null) {
                 throw new IllegalStateException(
-                        "assignReferees: match " + match.getId() + " in phase " + phaseId
-                        + " has no slot coordinates. Run optimizeSlots first.");
+                        "assignReferees: match "
+                                + match.getId()
+                                + " in phase "
+                                + phaseId
+                                + " has no slot coordinates. Run optimizeSlots first.");
             }
         }
 
@@ -240,28 +259,32 @@ public class PhasePreparationService {
     /**
      * Transitions the phase from PENDING to ACTIVE and enables all matches (D-29 step 4, AC5).
      *
-     * <p>This method is NOT idempotent — calling it when the phase is already ACTIVE or
-     * COMPLETED throws {@link IllegalStateException} (AC6 note, AC7).
+     * <p>This method is NOT idempotent — calling it when the phase is already ACTIVE or COMPLETED
+     * throws {@link IllegalStateException} (AC6 note, AC7).
      *
      * <p>Preconditions verified before transition:
+     *
      * <ul>
-     *   <li>Every match has non-null {@code lap_number} and {@code field_number}</li>
-     *   <li>Every match has EITHER non-null {@code referee_team_id} OR
-     *       non-null {@code referee_description} (per D-35)</li>
+     *   <li>Every match has non-null {@code lap_number} and {@code field_number}
+     *   <li>Every match has EITHER non-null {@code referee_team_id} OR non-null {@code
+     *       referee_description} (per D-35)
      * </ul>
-     * If any precondition fails, throws {@link IllegalStateException} naming the failing
-     * matches (AC5, AC14).
+     *
+     * If any precondition fails, throws {@link IllegalStateException} naming the failing matches
+     * (AC5, AC14).
      *
      * <p>On success:
+     *
      * <ul>
-     *   <li>{@code phase.status} transitions to {@code ACTIVE}</li>
-     *   <li>{@code phase.current_lap_number} is set to 0 (if not already)</li>
-     *   <li>All matches in the phase transition from {@code OPEN(0)} to {@code ENABLED(10)}</li>
+     *   <li>{@code phase.status} transitions to {@code ACTIVE}
+     *   <li>{@code phase.current_lap_number} is set to 0 (if not already)
+     *   <li>All matches in the phase transition from {@code OPEN(0)} to {@code ENABLED(10)}
      * </ul>
      *
      * @param phaseId the phase to start
      * @throws IllegalArgumentException if the phase does not exist (AC17)
-     * @throws IllegalStateException    if the phase is not PENDING, or if preconditions fail (AC5, AC7)
+     * @throws IllegalStateException if the phase is not PENDING, or if preconditions fail (AC5,
+     *     AC7)
      */
     @Transactional
     public void startPhase(UUID phaseId) {
@@ -291,17 +314,25 @@ public class PhasePreparationService {
 
         if (!missingSlots.isEmpty()) {
             throw new IllegalStateException(
-                    "startPhase: phase " + phaseId + " has " + missingSlots.size()
-                    + " match(es) without slot coordinates: " + missingSlots
-                    + ". Run optimizeSlots first.");
+                    "startPhase: phase "
+                            + phaseId
+                            + " has "
+                            + missingSlots.size()
+                            + " match(es) without slot coordinates: "
+                            + missingSlots
+                            + ". Run optimizeSlots first.");
         }
 
         if (!missingReferees.isEmpty()) {
             throw new IllegalStateException(
-                    "startPhase: phase " + phaseId + " has " + missingReferees.size()
-                    + " match(es) without referee assignment: " + missingReferees
-                    + ". Run assignReferees first, or set a manual override via"
-                    + " Match.referee_description.");
+                    "startPhase: phase "
+                            + phaseId
+                            + " has "
+                            + missingReferees.size()
+                            + " match(es) without referee assignment: "
+                            + missingReferees
+                            + ". Run assignReferees first, or set a manual override via"
+                            + " Match.referee_description.");
         }
 
         // Transition phase: PENDING → ACTIVE
@@ -318,19 +349,30 @@ public class PhasePreparationService {
             enabledCount++;
         }
 
-        LOG.info("startPhase: phase={}, status {} → ACTIVE, currentLapNumber=0, {} matches OPEN → ENABLED",
-                phaseId, statusBefore, enabledCount);
+        LOG.info(
+                "startPhase: phase={}, status {} → ACTIVE, currentLapNumber=0, {} matches OPEN →"
+                        + " ENABLED",
+                phaseId,
+                statusBefore,
+                enabledCount);
 
         // E07S06 AC5: Publish PhaseStatusChangedEvent after the PENDING → ACTIVE transition.
         // Listeners annotated with @TransactionalEventListener(phase = AFTER_COMMIT) fire
         // after this transaction commits, ensuring display devices see the committed ACTIVE state.
-        PhaseStatusChangedEvent phaseEvent = new PhaseStatusChangedEvent(
-                this, phase.getTenantId(), phase.getTournamentId(), phaseId, statusBefore,
-                Phase.PhaseStatus.ACTIVE.name());
+        PhaseStatusChangedEvent phaseEvent =
+                new PhaseStatusChangedEvent(
+                        this,
+                        phase.getTenantId(),
+                        phase.getTournamentId(),
+                        phaseId,
+                        statusBefore,
+                        Phase.PhaseStatus.ACTIVE.name());
         eventPublisher.publishEvent(phaseEvent);
 
-        LOG.info("startPhase: PhaseStatusChangedEvent published phaseId={} {} → ACTIVE",
-                phaseId, statusBefore);
+        LOG.info(
+                "startPhase: PhaseStatusChangedEvent published phaseId={} {} → ACTIVE",
+                phaseId,
+                statusBefore);
     }
 
     // =========================================================================
@@ -338,15 +380,18 @@ public class PhasePreparationService {
     // =========================================================================
 
     private Phase requirePhase(UUID phaseId) {
-        return phaseRepository.findById(phaseId)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Phase not found: " + phaseId));
+        return phaseRepository
+                .findById(phaseId)
+                .orElseThrow(() -> new IllegalArgumentException("Phase not found: " + phaseId));
     }
 
     private Tournament requireTournament(UUID tournamentId) {
-        return tournamentRepository.findById(tournamentId)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Tournament not found: " + tournamentId));
+        return tournamentRepository
+                .findById(tournamentId)
+                .orElseThrow(
+                        () ->
+                                new IllegalArgumentException(
+                                        "Tournament not found: " + tournamentId));
     }
 
     private void requireStatus(Phase phase, Phase.PhaseStatus expected, String operationName) {
@@ -355,14 +400,22 @@ public class PhasePreparationService {
             actual = Phase.PhaseStatus.valueOf(phase.getStatus());
         } catch (IllegalArgumentException | NullPointerException e) {
             throw new IllegalStateException(
-                    operationName + ": phase " + phase.getId()
-                    + " has unknown status '" + phase.getStatus() + "'");
+                    operationName
+                            + ": phase "
+                            + phase.getId()
+                            + " has unknown status '"
+                            + phase.getStatus()
+                            + "'");
         }
         if (actual != expected) {
             throw new IllegalStateException(
-                    operationName + ": phase " + phase.getId()
-                    + " must be in status " + expected.name()
-                    + " but is " + actual.name());
+                    operationName
+                            + ": phase "
+                            + phase.getId()
+                            + " must be in status "
+                            + expected.name()
+                            + " but is "
+                            + actual.name());
         }
     }
 }

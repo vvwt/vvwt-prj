@@ -1,36 +1,35 @@
 package de.vvwt.tm.tenant.internal;
 
-import de.vvwt.tm.tenant.TenantContext;
-import de.vvwt.tm.tenant.TenantRegistryPort;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
+import de.vvwt.tm.tenant.TenantContext;
+import de.vvwt.tm.tenant.TenantRegistryPort;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 /**
  * Unit tests for {@link TenantContextResolver} — AC5 (E14S12).
  *
- * <p>Tests are written test-first per DEC-22 (TDD Iron Law) and use hand-rolled stubs
- * for {@link TenantContext} and {@link TenantRegistryPort} to avoid the Spring wiring
- * anti-pattern (testing-anti-patterns-java.md §6). No {@code @SpringBootTest} here.
+ * <p>Tests are written test-first per DEC-22 (TDD Iron Law) and use hand-rolled stubs for {@link
+ * TenantContext} and {@link TenantRegistryPort} to avoid the Spring wiring anti-pattern
+ * (testing-anti-patterns-java.md §6). No {@code @SpringBootTest} here.
  *
  * <p>Acceptance criteria covered:
+ *
  * <ul>
- *   <li>AC5a — {@code preHandle} binds the correct UUID on the context</li>
- *   <li>AC5b — {@code afterCompletion} closes the scope even when the handler threw</li>
- *   <li>AC5c — null-safety: registry throws (no default) → error propagates, 500 response</li>
- *   <li>AC5d — nested-bind: if inner handler also binds, outer is restored after</li>
- *   <li>AC4 — constructor null-safety</li>
+ *   <li>AC5a — {@code preHandle} binds the correct UUID on the context
+ *   <li>AC5b — {@code afterCompletion} closes the scope even when the handler threw
+ *   <li>AC5c — null-safety: registry throws (no default) → error propagates, 500 response
+ *   <li>AC5d — nested-bind: if inner handler also binds, outer is restored after
+ *   <li>AC4 — constructor null-safety
  * </ul>
  *
  * <p>Story: E14S12 — DEC-21/DEC-22/DEC-24.
@@ -42,9 +41,9 @@ class TenantContextResolverTest {
     // -------------------------------------------------------------------------
 
     /**
-     * Minimal stub for {@link TenantContext} that records bind/close calls.
-     * Delegates to a real {@link ThreadLocalTenantContextImpl} so actual binding semantics
-     * are exercised — not just mock interactions (anti-pattern §1).
+     * Minimal stub for {@link TenantContext} that records bind/close calls. Delegates to a real
+     * {@link ThreadLocalTenantContextImpl} so actual binding semantics are exercised — not just
+     * mock interactions (anti-pattern §1).
      */
     static class RecordingTenantContext implements TenantContext {
 
@@ -68,9 +67,7 @@ class TenantContextResolverTest {
         }
     }
 
-    /**
-     * Stub for {@link TenantRegistryPort} that returns a configurable default tenant.
-     */
+    /** Stub for {@link TenantRegistryPort} that returns a configurable default tenant. */
     static class StubRegistryPort implements TenantRegistryPort {
 
         private UUID defaultTenantId;
@@ -87,7 +84,8 @@ class TenantContextResolverTest {
         @Override
         public UUID getDefault() {
             if (throwOnGetDefault) {
-                throw new IllegalStateException("no default tenant registered \u2014 bootstrap not complete");
+                throw new IllegalStateException(
+                        "no default tenant registered \u2014 bootstrap not complete");
             }
             return defaultTenantId;
         }
@@ -154,16 +152,12 @@ class TenantContextResolverTest {
     // AC5a — preHandle binds the correct UUID
     // -------------------------------------------------------------------------
 
-    /**
-     * AC5a: {@code preHandle} must bind the default-tenant UUID to the TenantContext.
-     */
+    /** AC5a: {@code preHandle} must bind the default-tenant UUID to the TenantContext. */
     @Test
     void preHandleBindsDefaultTenantUuid() {
         boolean result = resolver.preHandle(request, response, handler);
 
-        assertThat(result)
-                .as("preHandle must return true to continue processing (AC5a)")
-                .isTrue();
+        assertThat(result).as("preHandle must return true to continue processing (AC5a)").isTrue();
         assertThat(tenantContext.current())
                 .as("preHandle must bind the default-tenant UUID to TenantContext (AC5a)")
                 .isEqualTo(DEFAULT_ID);
@@ -176,9 +170,7 @@ class TenantContextResolverTest {
     // AC5b — afterCompletion closes the scope (normal completion)
     // -------------------------------------------------------------------------
 
-    /**
-     * AC5b: {@code afterCompletion} must close the scope when the handler completed normally.
-     */
+    /** AC5b: {@code afterCompletion} must close the scope when the handler completed normally. */
     @Test
     void afterCompletionClosesScopeOnNormalCompletion() {
         resolver.preHandle(request, response, handler);
@@ -219,15 +211,17 @@ class TenantContextResolverTest {
     // -------------------------------------------------------------------------
 
     /**
-     * AC5c: when {@link TenantRegistryPort#getDefault()} throws (no default tenant),
-     * the exception propagates from {@code preHandle}, producing a 500 response from Spring MVC.
+     * AC5c: when {@link TenantRegistryPort#getDefault()} throws (no default tenant), the exception
+     * propagates from {@code preHandle}, producing a 500 response from Spring MVC.
      */
     @Test
     void preHandlePropagatesExceptionWhenNoDefaultTenant() {
         registry.configureThrowOnGetDefault();
 
         assertThatThrownBy(() -> resolver.preHandle(request, response, handler))
-                .as("preHandle must propagate IllegalStateException when no default tenant is present (AC5c)")
+                .as(
+                        "preHandle must propagate IllegalStateException when no default tenant is"
+                                + " present (AC5c)")
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("no default tenant registered");
     }
@@ -237,9 +231,9 @@ class TenantContextResolverTest {
     // -------------------------------------------------------------------------
 
     /**
-     * AC5d: if an inner handler also calls {@link TenantContext#bind(UUID)}, the outer tenant
-     * (set by this resolver) is restored after the inner scope is closed. The outer bind stack
-     * frame is then cleared by {@code afterCompletion}.
+     * AC5d: if an inner handler also calls {@link TenantContext#bind(UUID)}, the outer tenant (set
+     * by this resolver) is restored after the inner scope is closed. The outer bind stack frame is
+     * then cleared by {@code afterCompletion}.
      *
      * <p>This verifies nested-bind compatibility per E14S01 AC-NESTED-BIND.
      */
@@ -260,7 +254,9 @@ class TenantContextResolverTest {
         // Close inner scope — outer should be restored
         innerScope.close();
         assertThat(tenantContext.current())
-                .as("After inner scope closes, outer tenant (DEFAULT_ID) must be restored (AC5d, E14S01 AC-NESTED-BIND)")
+                .as(
+                        "After inner scope closes, outer tenant (DEFAULT_ID) must be restored"
+                                + " (AC5d, E14S01 AC-NESTED-BIND)")
                 .isEqualTo(DEFAULT_ID);
 
         // afterCompletion closes the outer scope
@@ -275,8 +271,8 @@ class TenantContextResolverTest {
     // -------------------------------------------------------------------------
 
     /**
-     * Safety guard: {@code afterCompletion} is a no-op when no scope was set
-     * (e.g., if an upstream interceptor aborted the chain before our preHandle ran).
+     * Safety guard: {@code afterCompletion} is a no-op when no scope was set (e.g., if an upstream
+     * interceptor aborted the chain before our preHandle ran).
      */
     @Test
     void afterCompletionIsNoOpWhenNoScopeSet() {

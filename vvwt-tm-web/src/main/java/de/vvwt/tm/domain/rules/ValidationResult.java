@@ -1,25 +1,24 @@
 package de.vvwt.tm.domain.rules;
 
 import de.vvwt.tm.domain.MatchState;
-
 import java.util.Optional;
 
 /**
  * Immutable result returned by a {@link SetValidationRule} evaluation (AC2).
  *
  * <p>Carries three fields:
+ *
  * <ul>
- *   <li>{@code closed} — whether the set may be closed at this point</li>
- *   <li>{@code reason} — human-readable explanation when {@code closed = false}
- *       (e.g. "no 2-point lead", "target not reached", "tied").
- *       Empty string when {@code closed = true}.</li>
- *   <li>{@code winnerHint} — {@link MatchState#FINISHED_WINNER1},
- *       {@link MatchState#FINISHED_WINNER2}, or {@link MatchState#FINISHED_STANDOFF}
- *       when {@code closed = true}; {@link Optional#empty()} otherwise.</li>
+ *   <li>{@code closed} — whether the set may be closed at this point
+ *   <li>{@code reason} — human-readable explanation when {@code closed = false} (e.g. "no 2-point
+ *       lead", "target not reached", "tied"). Empty string when {@code closed = true}.
+ *   <li>{@code winnerHint} — {@link MatchState#FINISHED_WINNER1}, {@link
+ *       MatchState#FINISHED_WINNER2}, or {@link MatchState#FINISHED_STANDOFF} when {@code closed =
+ *       true}; {@link Optional#empty()} otherwise.
  * </ul>
  *
- * <p>Use the static factory methods to construct instances — the constructor
- * is package-private to enforce invariants.
+ * <p>Use the static factory methods to construct instances — the constructor is package-private to
+ * enforce invariants.
  */
 public final class ValidationResult {
 
@@ -93,8 +92,8 @@ public final class ValidationResult {
     }
 
     /**
-     * Returns the human-readable explanation for an open result.
-     * Empty string when {@code closed = true}.
+     * Returns the human-readable explanation for an open result. Empty string when {@code closed =
+     * true}.
      *
      * @return rejection reason or empty string
      */
@@ -103,8 +102,8 @@ public final class ValidationResult {
     }
 
     /**
-     * Returns the winner hint when {@code closed = true}.
-     * {@link Optional#empty()} when {@code closed = false}.
+     * Returns the winner hint when {@code closed = true}. {@link Optional#empty()} when {@code
+     * closed = false}.
      *
      * @return winner hint or empty
      */
@@ -118,8 +117,13 @@ public final class ValidationResult {
 
     @Override
     public String toString() {
-        return "ValidationResult{closed=" + closed
-                + ", reason='" + reason + "'"
-                + ", winnerHint=" + winnerHint + "}";
+        return "ValidationResult{closed="
+                + closed
+                + ", reason='"
+                + reason
+                + "'"
+                + ", winnerHint="
+                + winnerHint
+                + "}";
     }
 }

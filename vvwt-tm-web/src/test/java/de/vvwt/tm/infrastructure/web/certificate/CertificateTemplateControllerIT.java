@@ -1,22 +1,25 @@
 package de.vvwt.tm.infrastructure.web.certificate;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.auth.SecurityConfig;
 import de.vvwt.tm.infrastructure.web.dto.TournamentCreateRequest;
 import de.vvwt.tm.infrastructure.web.dto.TournamentResponse;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import java.net.URI;
+import java.time.Instant;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import de.vvwt.tm.tenant.TenantContextTestSupport;
-import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import de.vvwt.tm.tenant.TenantContextTestSupport;
-import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
@@ -30,42 +33,39 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
-import java.net.URI;
-import java.time.Instant;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
 /**
  * Integration tests for {@link CertificateTemplateController} (E12S04).
  *
  * <p>Tests the full HTTP stack (Spring MVC, Security, Flyway, H2, filesystem) to verify:
+ *
  * <ul>
- *   <li>AC1: Upload HTML/SVG returns 200 with metadata; replaces existing template</li>
- *   <li>AC2: GET returns file with correct Content-Type; 404 if no template</li>
- *   <li>AC3: GET /info returns metadata; 404 if no template</li>
- *   <li>AC5: DELETE returns 204; 404 if no template</li>
- *   <li>AC6: GET /api/certificate-template/variables returns 6 variables</li>
- *   <li>AC7: Unsupported format → 400; Oversized file → 400</li>
- *   <li>AC8: Unknown tournament → 404</li>
- *   <li>AC9: Error messages are descriptive (not generic 500)</li>
- *   <li>AC11: All endpoints require admin auth; unauthenticated → 401</li>
+ *   <li>AC1: Upload HTML/SVG returns 200 with metadata; replaces existing template
+ *   <li>AC2: GET returns file with correct Content-Type; 404 if no template
+ *   <li>AC3: GET /info returns metadata; 404 if no template
+ *   <li>AC5: DELETE returns 204; 404 if no template
+ *   <li>AC6: GET /api/certificate-template/variables returns 6 variables
+ *   <li>AC7: Unsupported format → 400; Oversized file → 400
+ *   <li>AC8: Unknown tournament → 404
+ *   <li>AC9: Error messages are descriptive (not generic 500)
+ *   <li>AC11: All endpoints require admin auth; unauthenticated → 401
  * </ul>
  *
  * @see CertificateTemplateController
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E12S04.story.md">Story E12S04</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E12S04.story.md">Story
+ *     E12S04</a>
  */
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         classes = {
-                de.vvwt.tm.TournamentManagerApplication.class,
-                CertificateTemplateControllerIT.TestAdminCredentials.class
+            de.vvwt.tm.TournamentManagerApplication.class,
+            CertificateTemplateControllerIT.TestAdminCredentials.class
         },
         properties = {
-                "spring.datasource.url=jdbc:h2:mem:e12s04certdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
-                        + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE",
-                "tm.certificate-templates.data-dir=${java.io.tmpdir}/tm-cert-templates-it-e12s04",
-                "tm.certificate-templates.max-size-bytes=1048576"   // 1 MB for faster tests
+            "spring.datasource.url=jdbc:h2:mem:e12s04certdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
+                + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE",
+            "tm.certificate-templates.data-dir=${java.io.tmpdir}/tm-cert-templates-it-e12s04",
+            "tm.certificate-templates.max-size-bytes=1048576" // 1 MB for faster tests
         })
 @ActiveProfiles("test")
 @Import(TenantContextTestSupport.class)
@@ -81,11 +81,9 @@ class CertificateTemplateControllerIT {
             "<svg xmlns='http://www.w3.org/2000/svg'><text>{{placement}} — {{teamName}}</text></svg>"
                     .getBytes();
 
-    @LocalServerPort
-    private int port;
+    @LocalServerPort private int port;
 
-    @Autowired
-    private TestRestTemplate restTemplate;
+    @Autowired private TestRestTemplate restTemplate;
 
     private String baseUrl;
     private TestRestTemplate authed;
@@ -105,8 +103,13 @@ class CertificateTemplateControllerIT {
     void uploadHtmlReturns200WithMetadata() throws Exception {
         UUID tournamentId = createTournament("HTML Template Upload Test");
 
-        ResponseEntity<TemplateMetadataResponse> response = uploadTemplate(
-                authed, tournamentId, "my-certificate.html", SAMPLE_HTML, MediaType.TEXT_HTML);
+        ResponseEntity<TemplateMetadataResponse> response =
+                uploadTemplate(
+                        authed,
+                        tournamentId,
+                        "my-certificate.html",
+                        SAMPLE_HTML,
+                        MediaType.TEXT_HTML);
 
         assertThat(response.getStatusCode())
                 .as("AC1: HTML upload must return 200 OK")
@@ -128,8 +131,13 @@ class CertificateTemplateControllerIT {
     void uploadSvgReturns200WithMetadata() throws Exception {
         UUID tournamentId = createTournament("SVG Template Upload Test");
 
-        ResponseEntity<TemplateMetadataResponse> response = uploadTemplate(
-                authed, tournamentId, "cert.svg", SAMPLE_SVG, MediaType.parseMediaType("image/svg+xml"));
+        ResponseEntity<TemplateMetadataResponse> response =
+                uploadTemplate(
+                        authed,
+                        tournamentId,
+                        "cert.svg",
+                        SAMPLE_SVG,
+                        MediaType.parseMediaType("image/svg+xml"));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
@@ -149,8 +157,8 @@ class CertificateTemplateControllerIT {
         uploadTemplate(authed, tournamentId, "v1.html", SAMPLE_HTML, MediaType.TEXT_HTML);
 
         byte[] updated = "<html><body>Updated {{teamName}}</body></html>".getBytes();
-        ResponseEntity<TemplateMetadataResponse> second = uploadTemplate(
-                authed, tournamentId, "v2.html", updated, MediaType.TEXT_HTML);
+        ResponseEntity<TemplateMetadataResponse> second =
+                uploadTemplate(authed, tournamentId, "v2.html", updated, MediaType.TEXT_HTML);
 
         assertThat(second.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(second.getBody()).isNotNull();
@@ -167,8 +175,13 @@ class CertificateTemplateControllerIT {
     void uploadPdfReturns400() throws Exception {
         UUID tournamentId = createTournament("Format Reject Test");
 
-        ResponseEntity<String> response = uploadTemplateAsString(
-                authed, tournamentId, "document.pdf", SAMPLE_HTML, MediaType.APPLICATION_OCTET_STREAM);
+        ResponseEntity<String> response =
+                uploadTemplateAsString(
+                        authed,
+                        tournamentId,
+                        "document.pdf",
+                        SAMPLE_HTML,
+                        MediaType.APPLICATION_OCTET_STREAM);
 
         assertThat(response.getStatusCode())
                 .as("AC7: non-HTML/SVG format must return 400")
@@ -183,8 +196,9 @@ class CertificateTemplateControllerIT {
     void uploadPngReturns400() throws Exception {
         UUID tournamentId = createTournament("Image Format Reject Test");
 
-        ResponseEntity<String> response = uploadTemplateAsString(
-                authed, tournamentId, "cert.png", SAMPLE_HTML, MediaType.IMAGE_PNG);
+        ResponseEntity<String> response =
+                uploadTemplateAsString(
+                        authed, tournamentId, "cert.png", SAMPLE_HTML, MediaType.IMAGE_PNG);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
@@ -196,8 +210,9 @@ class CertificateTemplateControllerIT {
 
         // 1 MB + 1 byte — exceeds the test-configured 1 MB limit
         byte[] oversized = new byte[1024 * 1024 + 1];
-        ResponseEntity<String> response = uploadTemplateAsString(
-                authed, tournamentId, "huge.html", oversized, MediaType.TEXT_HTML);
+        ResponseEntity<String> response =
+                uploadTemplateAsString(
+                        authed, tournamentId, "huge.html", oversized, MediaType.TEXT_HTML);
 
         assertThat(response.getStatusCode())
                 .as("AC7: oversized template must return 400")
@@ -210,8 +225,13 @@ class CertificateTemplateControllerIT {
         UUID tournamentId = createTournament("Invalid SVG Test");
 
         byte[] invalidSvg = "This is not an SVG".getBytes();
-        ResponseEntity<String> response = uploadTemplateAsString(
-                authed, tournamentId, "invalid.svg", invalidSvg, MediaType.parseMediaType("image/svg+xml"));
+        ResponseEntity<String> response =
+                uploadTemplateAsString(
+                        authed,
+                        tournamentId,
+                        "invalid.svg",
+                        invalidSvg,
+                        MediaType.parseMediaType("image/svg+xml"));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
@@ -225,8 +245,9 @@ class CertificateTemplateControllerIT {
     void uploadRequiresAuth() throws Exception {
         UUID tournamentId = createTournament("Auth Upload Test");
 
-        ResponseEntity<String> response = uploadTemplateAsString(
-                restTemplate, tournamentId, "cert.html", SAMPLE_HTML, MediaType.TEXT_HTML);
+        ResponseEntity<String> response =
+                uploadTemplateAsString(
+                        restTemplate, tournamentId, "cert.html", SAMPLE_HTML, MediaType.TEXT_HTML);
 
         assertThat(response.getStatusCode())
                 .as("AC11: upload without auth must return 401")
@@ -242,8 +263,9 @@ class CertificateTemplateControllerIT {
     void uploadForUnknownTournamentReturns404() throws Exception {
         UUID unknownTournament = UUID.randomUUID();
 
-        ResponseEntity<String> response = uploadTemplateAsString(
-                authed, unknownTournament, "cert.html", SAMPLE_HTML, MediaType.TEXT_HTML);
+        ResponseEntity<String> response =
+                uploadTemplateAsString(
+                        authed, unknownTournament, "cert.html", SAMPLE_HTML, MediaType.TEXT_HTML);
 
         assertThat(response.getStatusCode())
                 .as("AC8: unknown tournament must return 404")
@@ -260,8 +282,8 @@ class CertificateTemplateControllerIT {
         UUID tournamentId = createTournament("Retrieve HTML Test");
         uploadTemplate(authed, tournamentId, "cert.html", SAMPLE_HTML, MediaType.TEXT_HTML);
 
-        ResponseEntity<byte[]> response = authed.getForEntity(
-                new URI(templateFileUrl(tournamentId)), byte[].class);
+        ResponseEntity<byte[]> response =
+                authed.getForEntity(new URI(templateFileUrl(tournamentId)), byte[].class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getHeaders().getContentType()).isNotNull();
@@ -274,10 +296,15 @@ class CertificateTemplateControllerIT {
     @DisplayName("AC2: GET after SVG upload returns 200 with image/svg+xml Content-Type")
     void retrieveSvgFileReturns200WithSvgContentType() throws Exception {
         UUID tournamentId = createTournament("Retrieve SVG Test");
-        uploadTemplate(authed, tournamentId, "cert.svg", SAMPLE_SVG, MediaType.parseMediaType("image/svg+xml"));
+        uploadTemplate(
+                authed,
+                tournamentId,
+                "cert.svg",
+                SAMPLE_SVG,
+                MediaType.parseMediaType("image/svg+xml"));
 
-        ResponseEntity<byte[]> response = authed.getForEntity(
-                new URI(templateFileUrl(tournamentId)), byte[].class);
+        ResponseEntity<byte[]> response =
+                authed.getForEntity(new URI(templateFileUrl(tournamentId)), byte[].class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getHeaders().getContentType().toString())
@@ -290,8 +317,8 @@ class CertificateTemplateControllerIT {
     void retrieveFileWhenNoTemplateReturns404() throws Exception {
         UUID tournamentId = createTournament("No Template Retrieve Test");
 
-        ResponseEntity<String> response = authed.getForEntity(
-                new URI(templateFileUrl(tournamentId)), String.class);
+        ResponseEntity<String> response =
+                authed.getForEntity(new URI(templateFileUrl(tournamentId)), String.class);
 
         assertThat(response.getStatusCode())
                 .as("AC2: retrieve without prior upload must return 404")
@@ -303,8 +330,8 @@ class CertificateTemplateControllerIT {
     void retrieveFileRequiresAuth() throws Exception {
         UUID tournamentId = createTournament("Auth Retrieve File Test");
 
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(templateFileUrl(tournamentId)), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(templateFileUrl(tournamentId)), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
@@ -319,8 +346,9 @@ class CertificateTemplateControllerIT {
         UUID tournamentId = createTournament("Retrieve Metadata Test");
         uploadTemplate(authed, tournamentId, "cert.html", SAMPLE_HTML, MediaType.TEXT_HTML);
 
-        ResponseEntity<TemplateMetadataResponse> response = authed.getForEntity(
-                new URI(templateInfoUrl(tournamentId)), TemplateMetadataResponse.class);
+        ResponseEntity<TemplateMetadataResponse> response =
+                authed.getForEntity(
+                        new URI(templateInfoUrl(tournamentId)), TemplateMetadataResponse.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
@@ -335,8 +363,8 @@ class CertificateTemplateControllerIT {
     void retrieveMetadataWhenNoTemplateReturns404() throws Exception {
         UUID tournamentId = createTournament("No Template Metadata Test");
 
-        ResponseEntity<String> response = authed.getForEntity(
-                new URI(templateInfoUrl(tournamentId)), String.class);
+        ResponseEntity<String> response =
+                authed.getForEntity(new URI(templateInfoUrl(tournamentId)), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
@@ -346,8 +374,8 @@ class CertificateTemplateControllerIT {
     void retrieveMetadataRequiresAuth() throws Exception {
         UUID tournamentId = createTournament("Auth Retrieve Meta Test");
 
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(templateInfoUrl(tournamentId)), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(templateInfoUrl(tournamentId)), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
@@ -362,9 +390,12 @@ class CertificateTemplateControllerIT {
         UUID tournamentId = createTournament("Delete Template Test");
         uploadTemplate(authed, tournamentId, "cert.html", SAMPLE_HTML, MediaType.TEXT_HTML);
 
-        ResponseEntity<Void> response = authed.exchange(
-                new URI(templateBaseUrl(tournamentId)),
-                HttpMethod.DELETE, null, Void.class);
+        ResponseEntity<Void> response =
+                authed.exchange(
+                        new URI(templateBaseUrl(tournamentId)),
+                        HttpMethod.DELETE,
+                        null,
+                        Void.class);
 
         assertThat(response.getStatusCode())
                 .as("AC5: delete existing template must return 204")
@@ -376,9 +407,12 @@ class CertificateTemplateControllerIT {
     void deleteWhenNoTemplateReturns404() throws Exception {
         UUID tournamentId = createTournament("Delete Missing Template Test");
 
-        ResponseEntity<String> response = authed.exchange(
-                new URI(templateBaseUrl(tournamentId)),
-                HttpMethod.DELETE, null, String.class);
+        ResponseEntity<String> response =
+                authed.exchange(
+                        new URI(templateBaseUrl(tournamentId)),
+                        HttpMethod.DELETE,
+                        null,
+                        String.class);
 
         assertThat(response.getStatusCode())
                 .as("AC5: delete non-existent template must return 404")
@@ -391,10 +425,11 @@ class CertificateTemplateControllerIT {
         UUID tournamentId = createTournament("Get After Delete Test");
         uploadTemplate(authed, tournamentId, "cert.html", SAMPLE_HTML, MediaType.TEXT_HTML);
 
-        authed.exchange(new URI(templateBaseUrl(tournamentId)), HttpMethod.DELETE, null, Void.class);
+        authed.exchange(
+                new URI(templateBaseUrl(tournamentId)), HttpMethod.DELETE, null, Void.class);
 
-        ResponseEntity<String> getResponse = authed.getForEntity(
-                new URI(templateFileUrl(tournamentId)), String.class);
+        ResponseEntity<String> getResponse =
+                authed.getForEntity(new URI(templateFileUrl(tournamentId)), String.class);
 
         assertThat(getResponse.getStatusCode())
                 .as("AC5: file must not be accessible after delete")
@@ -406,9 +441,12 @@ class CertificateTemplateControllerIT {
     void deleteRequiresAuth() throws Exception {
         UUID tournamentId = createTournament("Auth Delete Test");
 
-        ResponseEntity<String> response = restTemplate.exchange(
-                new URI(templateBaseUrl(tournamentId)),
-                HttpMethod.DELETE, null, String.class);
+        ResponseEntity<String> response =
+                restTemplate.exchange(
+                        new URI(templateBaseUrl(tournamentId)),
+                        HttpMethod.DELETE,
+                        null,
+                        String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
@@ -420,39 +458,43 @@ class CertificateTemplateControllerIT {
     @Test
     @DisplayName("AC6: GET /variables returns 200 with 6 variables")
     void variablesEndpointReturns6Variables() throws Exception {
-        ResponseEntity<VariableResponse[]> response = authed.getForEntity(
-                new URI(baseUrl + "/api/certificate-template/variables"),
-                VariableResponse[].class);
+        ResponseEntity<VariableResponse[]> response =
+                authed.getForEntity(
+                        new URI(baseUrl + "/api/certificate-template/variables"),
+                        VariableResponse[].class);
 
         assertThat(response.getStatusCode())
                 .as("AC6: variables endpoint must return 200 OK")
                 .isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody())
-                .as("AC6: must return exactly 6 variables")
-                .hasSize(6);
+        assertThat(response.getBody()).as("AC6: must return exactly 6 variables").hasSize(6);
     }
 
     @Test
-    @DisplayName("AC6: Variables include placement, teamName, teamPhoto, tournamentName, date, location")
+    @DisplayName(
+            "AC6: Variables include placement, teamName, teamPhoto, tournamentName, date, location")
     void variablesEndpointContainsExpectedVariableNames() throws Exception {
-        ResponseEntity<VariableResponse[]> response = authed.getForEntity(
-                new URI(baseUrl + "/api/certificate-template/variables"),
-                VariableResponse[].class);
+        ResponseEntity<VariableResponse[]> response =
+                authed.getForEntity(
+                        new URI(baseUrl + "/api/certificate-template/variables"),
+                        VariableResponse[].class);
 
         assertThat(response.getBody()).isNotNull();
-        String[] names = java.util.Arrays.stream(response.getBody())
-                .map(VariableResponse::name).toArray(String[]::new);
+        String[] names =
+                java.util.Arrays.stream(response.getBody())
+                        .map(VariableResponse::name)
+                        .toArray(String[]::new);
 
-        assertThat(names).containsExactly(
-                "placement", "teamName", "teamPhoto",
-                "tournamentName", "date", "location");
+        assertThat(names)
+                .containsExactly(
+                        "placement", "teamName", "teamPhoto", "tournamentName", "date", "location");
     }
 
     @Test
     @DisplayName("AC11: GET /variables without credentials returns 401")
     void variablesRequiresAuth() throws Exception {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                new URI(baseUrl + "/api/certificate-template/variables"), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(
+                        new URI(baseUrl + "/api/certificate-template/variables"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
@@ -474,8 +516,12 @@ class CertificateTemplateControllerIT {
     }
 
     private ResponseEntity<TemplateMetadataResponse> uploadTemplate(
-            TestRestTemplate template, UUID tournamentId,
-            String filename, byte[] content, MediaType fileMediaType) throws Exception {
+            TestRestTemplate template,
+            UUID tournamentId,
+            String filename,
+            byte[] content,
+            MediaType fileMediaType)
+            throws Exception {
 
         return template.postForEntity(
                 new URI(templateBaseUrl(tournamentId)),
@@ -484,8 +530,12 @@ class CertificateTemplateControllerIT {
     }
 
     private ResponseEntity<String> uploadTemplateAsString(
-            TestRestTemplate template, UUID tournamentId,
-            String filename, byte[] content, MediaType fileMediaType) throws Exception {
+            TestRestTemplate template,
+            UUID tournamentId,
+            String filename,
+            byte[] content,
+            MediaType fileMediaType)
+            throws Exception {
 
         return template.postForEntity(
                 new URI(templateBaseUrl(tournamentId)),
@@ -499,12 +549,13 @@ class CertificateTemplateControllerIT {
         HttpHeaders fileHeaders = new HttpHeaders();
         fileHeaders.setContentType(fileMediaType);
 
-        ByteArrayResource fileResource = new ByteArrayResource(content) {
-            @Override
-            public String getFilename() {
-                return filename;
-            }
-        };
+        ByteArrayResource fileResource =
+                new ByteArrayResource(content) {
+                    @Override
+                    public String getFilename() {
+                        return filename;
+                    }
+                };
 
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
         body.add("file", new HttpEntity<>(fileResource, fileHeaders));
@@ -516,12 +567,20 @@ class CertificateTemplateControllerIT {
     }
 
     private UUID createTournament(String description) throws Exception {
-        TournamentCreateRequest request = new TournamentCreateRequest(
-                description, null, 8, 4, "BEST_OF_3",
-                "setPoints", "standardVolleyball", "roundRobin");
+        TournamentCreateRequest request =
+                new TournamentCreateRequest(
+                        description,
+                        null,
+                        8,
+                        4,
+                        "BEST_OF_3",
+                        "setPoints",
+                        "standardVolleyball",
+                        "roundRobin");
 
-        ResponseEntity<TournamentResponse> created = authed.postForEntity(
-                new URI(baseUrl + "/api/tournaments"), request, TournamentResponse.class);
+        ResponseEntity<TournamentResponse> created =
+                authed.postForEntity(
+                        new URI(baseUrl + "/api/tournaments"), request, TournamentResponse.class);
 
         assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(created.getBody()).isNotNull();
@@ -537,14 +596,9 @@ class CertificateTemplateControllerIT {
             String filename,
             String format,
             Instant uploadedAt,
-            long fileSizeBytes
-    ) {}
+            long fileSizeBytes) {}
 
-    record VariableResponse(
-            String name,
-            String type,
-            String example
-    ) {}
+    record VariableResponse(String name, String type, String example) {}
 
     // =========================================================================
     // Test configuration — known test admin password

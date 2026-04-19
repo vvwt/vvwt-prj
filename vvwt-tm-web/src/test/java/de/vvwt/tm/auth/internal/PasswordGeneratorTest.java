@@ -1,22 +1,21 @@
 package de.vvwt.tm.auth.internal;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.security.SecureRandom;
 import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Pure JUnit 5 tests for {@link PasswordGenerator}.
  *
- * <p>No {@code @SpringBootTest} — enforces the "pure Java" contract (AC6, DEC-22).
- * Tests are written strictly before the implementation (TDD, DEC-22).
+ * <p>No {@code @SpringBootTest} — enforces the "pure Java" contract (AC6, DEC-22). Tests are
+ * written strictly before the implementation (TDD, DEC-22).
  *
  * <p>Story: E15S01 — PasswordGenerator reconstruction-in-place with TDD.
  */
@@ -115,7 +114,8 @@ class PasswordGeneratorTest {
 
     @Test
     void seededRandom_producesReproducibleOutput() {
-        // AC3a: a Random seeded for reproducibility produces expected outputs in a deterministic test.
+        // AC3a: a Random seeded for reproducibility produces expected outputs in a deterministic
+        // test.
         // Uses java.util.Random (which SecureRandom extends) with a fixed seed for determinism.
         // Two generators with the same seed must produce the same password.
         long seed = 42L;
@@ -123,8 +123,12 @@ class PasswordGeneratorTest {
         Random rng2 = new Random(seed);
 
         // Use the package-private constructor (same package) with default alphabet/length
-        PasswordGenerator gen1 = new PasswordGenerator(rng1, PasswordGenerator.DEFAULT_ALPHABET, PasswordGenerator.DEFAULT_LENGTH);
-        PasswordGenerator gen2 = new PasswordGenerator(rng2, PasswordGenerator.DEFAULT_ALPHABET, PasswordGenerator.DEFAULT_LENGTH);
+        PasswordGenerator gen1 =
+                new PasswordGenerator(
+                        rng1, PasswordGenerator.DEFAULT_ALPHABET, PasswordGenerator.DEFAULT_LENGTH);
+        PasswordGenerator gen2 =
+                new PasswordGenerator(
+                        rng2, PasswordGenerator.DEFAULT_ALPHABET, PasswordGenerator.DEFAULT_LENGTH);
 
         // Same seed → same output
         assertThat(gen1.generate()).isEqualTo(gen2.generate());
@@ -138,7 +142,7 @@ class PasswordGeneratorTest {
     @ValueSource(ints = {1, 2, 3, 4, 5})
     void multipleGenerations_withDifferentSeeds_produceDistinctOutputs(int seed) {
         // AC2: generation with distinct SecureRandom seeds produces distinct outputs (smoke)
-        SecureRandom rng = new SecureRandom(new byte[]{(byte) seed});
+        SecureRandom rng = new SecureRandom(new byte[] {(byte) seed});
         PasswordGenerator gen = new PasswordGenerator(rng);
         // Generate 10 passwords from the same seeded RNG — all must be alphabet-only
         Set<String> passwords = new HashSet<>();

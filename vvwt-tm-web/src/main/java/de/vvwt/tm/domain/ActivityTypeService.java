@@ -3,40 +3,44 @@ package de.vvwt.tm.domain;
 import de.vvwt.tm.domain.repo.ActivityTypeRepository;
 import de.vvwt.tm.domain.repo.TournamentRepository;
 import de.vvwt.tm.infrastructure.web.ConflictException;
-import org.springframework.context.MessageSource;
-import org.springframework.stereotype.Service;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.context.MessageSource;
+import org.springframework.stereotype.Service;
 
 /**
  * Domain service for {@link ActivityType} operations (E08S02, AC4–AC8).
  *
  * <h2>Validation rules enforced</h2>
+ *
  * <ul>
- *   <li>AC4: {@code assignmentRule} must be a recognized {@link AssignmentRule} value —
- *       unknown values are rejected with a {@link IllegalArgumentException}.</li>
- *   <li>AC5: {@code name} must be unique within the tournament —
- *       duplicates are rejected with a {@link ConflictException}.</li>
- *   <li>AC6: {@code capacityPerRound} must be {@code null} (unlimited) or &gt; 0 —
- *       non-positive non-null values are rejected with {@link IllegalArgumentException}.</li>
+ *   <li>AC4: {@code assignmentRule} must be a recognized {@link AssignmentRule} value — unknown
+ *       values are rejected with a {@link IllegalArgumentException}.
+ *   <li>AC5: {@code name} must be unique within the tournament — duplicates are rejected with a
+ *       {@link ConflictException}.
+ *   <li>AC6: {@code capacityPerRound} must be {@code null} (unlimited) or &gt; 0 — non-positive
+ *       non-null values are rejected with {@link IllegalArgumentException}.
  * </ul>
  *
  * <h2>i18n (AC8)</h2>
+ *
  * <p>All validation error messages are resolved from the {@link MessageSource} translation layer
  * (classpath:{@code messages.properties}) rather than being hardcoded as string literals.
  *
  * <h2>Tenant scoping</h2>
+ *
  * <p>All repository calls are tenant-scoped via {@link de.vvwt.tm.domain.repo.TenantContext}
  * resolved per-request (DEC-5, DEC-17).
  *
  * @see ActivityType
  * @see AssignmentRule
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S02.story.md">Story E08S02</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S02.story.md">Story
+ *     E08S02</a>
  */
 @Service
 public class ActivityTypeService {
@@ -49,12 +53,13 @@ public class ActivityTypeService {
      * Constructs the service with its required collaborators.
      *
      * @param activityTypeRepository activity type persistence (tenant-scoped)
-     * @param tournamentRepository   tournament persistence — for ownership checks
-     * @param messageSource          Spring MessageSource for i18n error messages (AC8)
+     * @param tournamentRepository tournament persistence — for ownership checks
+     * @param messageSource Spring MessageSource for i18n error messages (AC8)
      */
-    public ActivityTypeService(ActivityTypeRepository activityTypeRepository,
-                                TournamentRepository tournamentRepository,
-                                MessageSource messageSource) {
+    public ActivityTypeService(
+            ActivityTypeRepository activityTypeRepository,
+            TournamentRepository tournamentRepository,
+            MessageSource messageSource) {
         this.activityTypeRepository = activityTypeRepository;
         this.tournamentRepository = tournamentRepository;
         this.messageSource = messageSource;
@@ -69,24 +74,30 @@ public class ActivityTypeService {
      *
      * <p>Validates all constraints before persisting (AC4, AC5, AC6).
      *
-     * @param tournamentId     the parent tournament UUID (NOT NULL)
-     * @param name             activity name — must be unique within the tournament (NOT NULL)
-     * @param assignmentRule   the rule identifier — must match an {@link AssignmentRule} value
-     * @param capacityPerRound max teams per round ({@code null} = unlimited; non-null must be &gt; 0)
-     * @param sortOrder        display ordering (NOT NULL)
+     * @param tournamentId the parent tournament UUID (NOT NULL)
+     * @param name activity name — must be unique within the tournament (NOT NULL)
+     * @param assignmentRule the rule identifier — must match an {@link AssignmentRule} value
+     * @param capacityPerRound max teams per round ({@code null} = unlimited; non-null must be &gt;
+     *     0)
+     * @param sortOrder display ordering (NOT NULL)
      * @return the saved {@link ActivityType}
-     * @throws NoSuchElementException   if the tournament does not exist for the current tenant
-     * @throws IllegalArgumentException if {@code assignmentRule} is unrecognized (AC4)
-     *                                  or {@code capacityPerRound} is &le; 0 (AC6)
-     * @throws ConflictException        if a duplicate name exists for the tournament (AC5)
-     * @throws IllegalStateException    if no tenant context is active (AC7)
+     * @throws NoSuchElementException if the tournament does not exist for the current tenant
+     * @throws IllegalArgumentException if {@code assignmentRule} is unrecognized (AC4) or {@code
+     *     capacityPerRound} is &le; 0 (AC6)
+     * @throws ConflictException if a duplicate name exists for the tournament (AC5)
+     * @throws IllegalStateException if no tenant context is active (AC7)
      */
-    public ActivityType create(UUID tournamentId, String name, String assignmentRule,
-                                Integer capacityPerRound, int sortOrder) {
+    public ActivityType create(
+            UUID tournamentId,
+            String name,
+            String assignmentRule,
+            Integer capacityPerRound,
+            int sortOrder) {
         // Ownership check: tournament must exist and belong to the active tenant
-        tournamentRepository.findById(tournamentId)
-                .orElseThrow(() -> new NoSuchElementException(
-                        "Tournament not found: " + tournamentId));
+        tournamentRepository
+                .findById(tournamentId)
+                .orElseThrow(
+                        () -> new NoSuchElementException("Tournament not found: " + tournamentId));
 
         // AC4: validate assignment rule
         validateAssignmentRule(assignmentRule);
@@ -96,15 +107,22 @@ public class ActivityTypeService {
 
         // AC5: check for duplicate name within the tournament
         if (activityTypeRepository.existsByTournamentIdAndName(tournamentId, name)) {
-            String message = messageSource.getMessage(
-                    "error.activityType.duplicateName", null, Locale.getDefault());
+            String message =
+                    messageSource.getMessage(
+                            "error.activityType.duplicateName", null, Locale.getDefault());
             throw new ConflictException(message);
         }
 
-        ActivityType activityType = new ActivityType(
-                UUID.randomUUID(), tournamentId, name, assignmentRule,
-                capacityPerRound, sortOrder, null  // tenantId set by TenantScopedRepository
-        );
+        ActivityType activityType =
+                new ActivityType(
+                        UUID.randomUUID(),
+                        tournamentId,
+                        name,
+                        assignmentRule,
+                        capacityPerRound,
+                        sortOrder,
+                        null // tenantId set by TenantScopedRepository
+                        );
         return activityTypeRepository.save(activityType);
     }
 
@@ -113,18 +131,19 @@ public class ActivityTypeService {
     // -------------------------------------------------------------------------
 
     /**
-     * Returns all activity types for the given tournament, ordered by {@code sort_order}
-     * ascending, scoped to the active tenant.
+     * Returns all activity types for the given tournament, ordered by {@code sort_order} ascending,
+     * scoped to the active tenant.
      *
      * @param tournamentId the tournament UUID
      * @return list of activity types; never {@code null}; may be empty
      * @throws NoSuchElementException if the tournament does not exist for the current tenant
-     * @throws IllegalStateException  if no tenant context is active
+     * @throws IllegalStateException if no tenant context is active
      */
     public List<ActivityType> findByTournamentId(UUID tournamentId) {
-        tournamentRepository.findById(tournamentId)
-                .orElseThrow(() -> new NoSuchElementException(
-                        "Tournament not found: " + tournamentId));
+        tournamentRepository
+                .findById(tournamentId)
+                .orElseThrow(
+                        () -> new NoSuchElementException("Tournament not found: " + tournamentId));
         return activityTypeRepository.findByTournamentId(tournamentId);
     }
 
@@ -137,19 +156,21 @@ public class ActivityTypeService {
      *
      * @param assignmentRule the rule identifier to validate
      * @throws IllegalArgumentException if the rule is not recognized, with an i18n message listing
-     *                                  all supported rules
+     *     all supported rules
      */
     private void validateAssignmentRule(String assignmentRule) {
-        String supported = Arrays.stream(AssignmentRule.values())
-                .map(Enum::name)
-                .collect(Collectors.joining(", "));
+        String supported =
+                Arrays.stream(AssignmentRule.values())
+                        .map(Enum::name)
+                        .collect(Collectors.joining(", "));
         try {
             AssignmentRule.valueOf(assignmentRule);
         } catch (IllegalArgumentException | NullPointerException e) {
-            String message = messageSource.getMessage(
-                    "error.activityType.unknownRule",
-                    new Object[]{assignmentRule, supported},
-                    Locale.getDefault());
+            String message =
+                    messageSource.getMessage(
+                            "error.activityType.unknownRule",
+                            new Object[] {assignmentRule, supported},
+                            Locale.getDefault());
             throw new IllegalArgumentException(message);
         }
     }
@@ -162,8 +183,9 @@ public class ActivityTypeService {
      */
     private void validateCapacity(Integer capacityPerRound) {
         if (capacityPerRound != null && capacityPerRound <= 0) {
-            String message = messageSource.getMessage(
-                    "error.activityType.invalidCapacity", null, Locale.getDefault());
+            String message =
+                    messageSource.getMessage(
+                            "error.activityType.invalidCapacity", null, Locale.getDefault());
             throw new IllegalArgumentException(message);
         }
     }

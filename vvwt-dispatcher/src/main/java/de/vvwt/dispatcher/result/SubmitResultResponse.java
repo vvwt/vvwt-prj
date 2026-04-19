@@ -6,10 +6,11 @@ package de.vvwt.dispatcher.result;
  * <p>All fields use {@code Boolean} (boxed) so absent/null fields serialize as JSON null.
  *
  * <p>Variants:
+ *
  * <ul>
- *   <li>First result accepted: {@code accepted=true, firstResult=true}</li>
- *   <li>Late result logged: {@code accepted=true, firstResult=false, latentlyLogged=true}</li>
- *   <li>Duplicate: {@code accepted=true, firstResult=false, latentlyLogged=true, duplicate=true}</li>
+ *   <li>First result accepted: {@code accepted=true, firstResult=true}
+ *   <li>Late result logged: {@code accepted=true, firstResult=false, latentlyLogged=true}
+ *   <li>Duplicate: {@code accepted=true, firstResult=false, latentlyLogged=true, duplicate=true}
  * </ul>
  *
  * <p>See Story E01S08 AC3, AC4, AC11.

@@ -1,5 +1,14 @@
 package de.vvwt.dispatcher.result;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
+
 import de.vvwt.dispatcher.cache.ResultsCacheService;
 import de.vvwt.dispatcher.identity.KeyRegistration;
 import de.vvwt.dispatcher.identity.KeyRegistrationRepository;
@@ -7,10 +16,6 @@ import de.vvwt.dispatcher.job.JobRecord;
 import de.vvwt.dispatcher.job.JobRepository;
 import de.vvwt.dispatcher.packet.PacketRecord;
 import de.vvwt.dispatcher.packet.PacketRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.Signature;
@@ -19,15 +24,9 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
-import static org.mockito.ArgumentMatchers.anyDouble;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for {@link SubmitResultService} business logic (E01S08 AC3–AC11).
@@ -51,20 +50,21 @@ class SubmitResultServiceTest {
 
     @BeforeEach
     void setup() throws Exception {
-        packetRepo    = mock(PacketRepository.class);
-        jobRepo       = mock(JobRepository.class);
-        keyRepo       = mock(KeyRegistrationRepository.class);
+        packetRepo = mock(PacketRepository.class);
+        jobRepo = mock(JobRepository.class);
+        keyRepo = mock(KeyRegistrationRepository.class);
         lateResultRepo = mock(LateResultRepository.class);
-        cacheService  = mock(ResultsCacheService.class);
-        service = new SubmitResultService(packetRepo, jobRepo, keyRepo, lateResultRepo, cacheService);
+        cacheService = mock(ResultsCacheService.class);
+        service =
+                new SubmitResultService(packetRepo, jobRepo, keyRepo, lateResultRepo, cacheService);
 
         workerKeyId = UUID.randomUUID();
-        packetId    = UUID.randomUUID();
-        jobId       = UUID.randomUUID();
+        packetId = UUID.randomUUID();
+        jobId = UUID.randomUUID();
 
         keyPair = KeyPairGenerator.getInstance("Ed25519").generateKeyPair();
         byte[] spki = keyPair.getPublic().getEncoded();
-        byte[] raw  = new byte[32];
+        byte[] raw = new byte[32];
         System.arraycopy(spki, spki.length - 32, raw, 0, 32);
         workerKey = new KeyRegistration(workerKeyId, "worker", raw, Instant.now(), null);
 
@@ -137,7 +137,7 @@ class SubmitResultServiceTest {
     @Test
     @DisplayName("AC5: late result diverging → logged + WARN (matchesFirst=false)")
     void process_lateResult_diverging_logsWarn() throws Exception {
-        PacketRecord packet = donePacket(42L, 1.5);  // first result: rank=42, score=1.5
+        PacketRecord packet = donePacket(42L, 1.5); // first result: rank=42, score=1.5
         when(packetRepo.findById(packetId)).thenReturn(Optional.of(packet));
 
         // Late result: different score
@@ -160,7 +160,10 @@ class SubmitResultServiceTest {
     @DisplayName("AC6: packet assigned to different worker → 409 NotAssignedException")
     void process_notAssignedToThisWorker_throws409() throws Exception {
         PacketRecord packet = new PacketRecord(packetId, jobId, 0, 100);
-        packet.assign(UUID.randomUUID(), Instant.now(), Instant.now().plusSeconds(300)); // different worker
+        packet.assign(
+                UUID.randomUUID(),
+                Instant.now(),
+                Instant.now().plusSeconds(300)); // different worker
         when(packetRepo.findById(packetId)).thenReturn(Optional.of(packet));
 
         SubmitResultRequest req = buildRequest(1.0);
@@ -170,7 +173,8 @@ class SubmitResultServiceTest {
     }
 
     @Test
-    @DisplayName("AC6: packet in pending state (never assigned to anyone) → 409 NotAssignedException")
+    @DisplayName(
+            "AC6: packet in pending state (never assigned to anyone) → 409 NotAssignedException")
     void process_packetPending_throws409() throws Exception {
         PacketRecord packet = new PacketRecord(packetId, jobId, 0, 100); // status=pending
         when(packetRepo.findById(packetId)).thenReturn(Optional.of(packet));
@@ -190,7 +194,9 @@ class SubmitResultServiceTest {
     void process_afterDeadline_throws410() throws Exception {
         PacketRecord packet = new PacketRecord(packetId, jobId, 0, 100);
         // Assign with a past deadline
-        packet.assign(workerKeyId, Instant.now().minusSeconds(600),
+        packet.assign(
+                workerKeyId,
+                Instant.now().minusSeconds(600),
                 Instant.now().minusSeconds(300)); // deadline 5 minutes ago
         when(packetRepo.findById(packetId)).thenReturn(Optional.of(packet));
 
@@ -198,8 +204,12 @@ class SubmitResultServiceTest {
 
         assertThatThrownBy(() -> service.process(req))
                 .isInstanceOf(SubmitResultService.DeadlineExceededException.class)
-                .satisfies(ex -> assertThat(((SubmitResultService.DeadlineExceededException) ex)
-                        .getDeadline()).isNotNull());
+                .satisfies(
+                        ex ->
+                                assertThat(
+                                                ((SubmitResultService.DeadlineExceededException) ex)
+                                                        .getDeadline())
+                                        .isNotNull());
     }
 
     @Test
@@ -253,8 +263,9 @@ class SubmitResultServiceTest {
     @Test
     @DisplayName("AC11: missing required field bestRank → 400 BadRequestException")
     void process_missingBestRank_throws400() {
-        SubmitResultRequest req = new SubmitResultRequest(
-                packetId, jobId, null, "1.0", 1000L, 500L, workerKeyId, "sig");
+        SubmitResultRequest req =
+                new SubmitResultRequest(
+                        packetId, jobId, null, "1.0", 1000L, 500L, workerKeyId, "sig");
 
         assertThatThrownBy(() -> service.process(req))
                 .isInstanceOf(SubmitResultService.BadRequestException.class)
@@ -264,8 +275,9 @@ class SubmitResultServiceTest {
     @Test
     @DisplayName("AC11: non-parseable bestScore → 400 BadRequestException")
     void process_invalidBestScore_throws400() {
-        SubmitResultRequest req = new SubmitResultRequest(
-                packetId, jobId, 42L, "NOT_A_DOUBLE", 1000L, 500L, workerKeyId, "sig");
+        SubmitResultRequest req =
+                new SubmitResultRequest(
+                        packetId, jobId, 42L, "NOT_A_DOUBLE", 1000L, 500L, workerKeyId, "sig");
 
         assertThatThrownBy(() -> service.process(req))
                 .isInstanceOf(SubmitResultService.BadRequestException.class);
@@ -278,9 +290,10 @@ class SubmitResultServiceTest {
     @Test
     @DisplayName("AC9: two-packet job — last packet done triggers finalization (lowest score wins)")
     void process_lastPacket_triggersFinalization() throws Exception {
-        // Two packets: one already done (score=2.0, rank=10), one being submitted (score=1.0, rank=5)
+        // Two packets: one already done (score=2.0, rank=10), one being submitted (score=1.0,
+        // rank=5)
         PacketRecord packet1 = donePacket(10L, 2.0); // already done before this submission
-        PacketRecord packet2 = assignedPacket();     // the one being submitted (still assigned)
+        PacketRecord packet2 = assignedPacket(); // the one being submitted (still assigned)
 
         when(packetRepo.findById(packetId)).thenReturn(Optional.of(packet2));
         // When save is called, packet2 will have been mutated to done by acceptFirstResult
@@ -297,9 +310,7 @@ class SubmitResultServiceTest {
         service.process(buildRequest(1.0, 5L));
 
         // Cache must be written with best result (score=1.0, rank=5)
-        verify(cacheService).write(
-                any(), anyInt(), anyInt(),
-                eq(5L), eq(1.0), anyInt(), eq(jobId));
+        verify(cacheService).write(any(), anyInt(), anyInt(), eq(5L), eq(1.0), anyInt(), eq(jobId));
         assertThat(job.getStatus()).isEqualTo("done");
     }
 
@@ -308,7 +319,7 @@ class SubmitResultServiceTest {
     void process_finalization_tieBrakeByRank() throws Exception {
         // Two already-done packets, both score=1.0 but different ranks
         PacketRecord p1 = donePacket(10L, 1.0);
-        PacketRecord p2 = donePacket(5L, 1.0);   // lower rank = winner
+        PacketRecord p2 = donePacket(5L, 1.0); // lower rank = winner
 
         // submittedPacket is still assigned — process() will accept it with rank=8, score=1.0
         // but p2 (rank=5) should still win the finalization
@@ -324,7 +335,8 @@ class SubmitResultServiceTest {
         // Submit with rank=8 and score=1.0 — submittedPacket will be done with rank=8
         service.process(buildRequest(1.0, 8L));
 
-        // Should write rank=5 (lowest rank among score=1.0 packets: p2 rank=5 < submittedPacket rank=8 < p1 rank=10)
+        // Should write rank=5 (lowest rank among score=1.0 packets: p2 rank=5 < submittedPacket
+        // rank=8 < p1 rank=10)
         verify(cacheService).write(any(), anyInt(), anyInt(), eq(5L), eq(1.0), anyInt(), eq(jobId));
     }
 
@@ -333,7 +345,7 @@ class SubmitResultServiceTest {
     void process_finalization_deterministic() throws Exception {
         // Build a list of already-done packets with fixed results
         PacketRecord p1 = donePacket(10L, 2.0);
-        PacketRecord p2 = donePacket(5L, 1.0);  // best: lowest score, lowest rank
+        PacketRecord p2 = donePacket(5L, 1.0); // best: lowest score, lowest rank
         PacketRecord p3 = donePacket(7L, 1.5);
 
         // submittedPacket will be accepted with rank=20, score=3.0 — not the winner
@@ -342,7 +354,8 @@ class SubmitResultServiceTest {
         when(packetRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(packetRepo.countByJobIdAndStatus(jobId, "pending")).thenReturn(0L);
         when(packetRepo.countByJobIdAndStatus(jobId, "assigned")).thenReturn(0L);
-        when(packetRepo.findDonePacketsByJobId(jobId)).thenReturn(List.of(p1, p2, p3, submittedPacket));
+        when(packetRepo.findDonePacketsByJobId(jobId))
+                .thenReturn(List.of(p1, p2, p3, submittedPacket));
 
         stubJobForFinalization(jobId);
 
@@ -369,12 +382,22 @@ class SubmitResultServiceTest {
     }
 
     private JobRecord stubJobForFinalization(UUID jId) {
-        JobRecord job = new JobRecord(jId, UUID.randomUUID(), 1, "{}", "{\"rowCount\":5}",
-                new byte[32], "ready", Instant.now());
+        JobRecord job =
+                new JobRecord(
+                        jId,
+                        UUID.randomUUID(),
+                        1,
+                        "{}",
+                        "{\"rowCount\":5}",
+                        new byte[32],
+                        "ready",
+                        Instant.now());
         job.setPacketCount(2);
         when(jobRepo.findById(jId)).thenReturn(Optional.of(job));
         when(jobRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        doNothing().when(cacheService).write(any(), anyInt(), anyInt(), anyLong(), anyDouble(), anyInt(), any());
+        doNothing()
+                .when(cacheService)
+                .write(any(), anyInt(), anyInt(), anyLong(), anyDouble(), anyInt(), any());
         return job;
     }
 
@@ -384,15 +407,22 @@ class SubmitResultServiceTest {
 
     private SubmitResultRequest buildRequest(double score, long rank) throws Exception {
         long perms = 1_000_000L;
-        byte[] canonical = SubmitResultService.buildCanonicalBytes72(
-                packetId, jobId, rank, score, perms, workerKeyId);
+        byte[] canonical =
+                SubmitResultService.buildCanonicalBytes72(
+                        packetId, jobId, rank, score, perms, workerKeyId);
         Signature signer = Signature.getInstance("Ed25519");
         signer.initSign(keyPair.getPrivate());
         signer.update(canonical);
         String sig = Base64.getEncoder().encodeToString(signer.sign());
 
         return new SubmitResultRequest(
-                packetId, jobId, rank, Double.toString(score),
-                perms, 500_000_000L, workerKeyId, sig);
+                packetId,
+                jobId,
+                rank,
+                Double.toString(score),
+                perms,
+                500_000_000L,
+                workerKeyId,
+                sig);
     }
 }

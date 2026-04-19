@@ -1,5 +1,12 @@
 package de.vvwt.tm.infrastructure.print;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import de.vvwt.tm.domain.Phase;
 import de.vvwt.tm.domain.Team;
 import de.vvwt.tm.domain.TeamAvatar;
@@ -10,36 +17,29 @@ import de.vvwt.tm.domain.repo.PhaseRepository;
 import de.vvwt.tm.domain.repo.TeamAvatarRatingRepository;
 import de.vvwt.tm.domain.repo.TeamAvatarRepository;
 import de.vvwt.tm.domain.repo.TeamRepository;
+import java.io.ByteArrayInputStream;
+import java.time.LocalDateTime;
+import java.util.Base64;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 
-import java.io.ByteArrayInputStream;
-import java.time.LocalDateTime;
-import java.util.Base64;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 /**
  * Unit tests for {@link CertificateAssembler} — E12S06.
  *
- * <p>Covers placement calculation (AC5, D-33), photo embedding (AC6 SVG and HTML paths),
- * Mustache rendering (AC1, AC9 error mode), and location lookup.
- * All dependencies are mocked — no Spring context required.
+ * <p>Covers placement calculation (AC5, D-33), photo embedding (AC6 SVG and HTML paths), Mustache
+ * rendering (AC1, AC9 error mode), and location lookup. All dependencies are mocked — no Spring
+ * context required.
  *
  * @see CertificateAssembler
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E12S06.story.md">Story E12S06</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E12S06.story.md">Story
+ *     E12S06</a>
  */
 @DisplayName("CertificateAssembler — E12S06 unit tests")
 class CertificateAssemblerTest {
@@ -48,15 +48,16 @@ class CertificateAssemblerTest {
     // Shared test IDs
     // -------------------------------------------------------------------------
 
-    private static final UUID TENANT_ID     = UUID.fromString("00000000-0000-0000-0000-000000000001");
-    private static final UUID TOURNAMENT_ID = UUID.fromString("00000000-0000-0000-0000-000000000002");
-    private static final UUID PHASE_ID      = UUID.fromString("00000000-0000-0000-0000-000000000003");
-    private static final UUID TEAM_A_ID     = UUID.fromString("00000000-0000-0000-0000-000000000004");
-    private static final UUID TEAM_B_ID     = UUID.fromString("00000000-0000-0000-0000-000000000005");
-    private static final UUID TEAM_C_ID     = UUID.fromString("00000000-0000-0000-0000-000000000006");
-    private static final UUID AVATAR_A_ID   = UUID.fromString("00000000-0000-0000-0000-000000000007");
-    private static final UUID AVATAR_B_ID   = UUID.fromString("00000000-0000-0000-0000-000000000008");
-    private static final UUID AVATAR_C_ID   = UUID.fromString("00000000-0000-0000-0000-000000000009");
+    private static final UUID TENANT_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+    private static final UUID TOURNAMENT_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000002");
+    private static final UUID PHASE_ID = UUID.fromString("00000000-0000-0000-0000-000000000003");
+    private static final UUID TEAM_A_ID = UUID.fromString("00000000-0000-0000-0000-000000000004");
+    private static final UUID TEAM_B_ID = UUID.fromString("00000000-0000-0000-0000-000000000005");
+    private static final UUID TEAM_C_ID = UUID.fromString("00000000-0000-0000-0000-000000000006");
+    private static final UUID AVATAR_A_ID = UUID.fromString("00000000-0000-0000-0000-000000000007");
+    private static final UUID AVATAR_B_ID = UUID.fromString("00000000-0000-0000-0000-000000000008");
+    private static final UUID AVATAR_C_ID = UUID.fromString("00000000-0000-0000-0000-000000000009");
 
     // -------------------------------------------------------------------------
     // Mocks
@@ -76,24 +77,43 @@ class CertificateAssemblerTest {
     // -------------------------------------------------------------------------
 
     private static Phase makePhase(int sequenceNumber) {
-        return new Phase(PHASE_ID, TENANT_ID, TOURNAMENT_ID, sequenceNumber,
-                "Final Phase", "COMPLETED", 3, LocalDateTime.now());
+        return new Phase(
+                PHASE_ID,
+                TENANT_ID,
+                TOURNAMENT_ID,
+                sequenceNumber,
+                "Final Phase",
+                "COMPLETED",
+                3,
+                LocalDateTime.now());
     }
 
     private static TeamAvatar makeAvatar(UUID avatarId, UUID teamId) {
-        return new TeamAvatar(avatarId, TENANT_ID, TOURNAMENT_ID, PHASE_ID,
-                1, 1, teamId, null, null);
+        return new TeamAvatar(
+                avatarId, TENANT_ID, TOURNAMENT_ID, PHASE_ID, 1, 1, teamId, null, null);
     }
 
-    /**
-     * Builds a TeamAvatarRating with the given points and quotients for sorting tests.
-     */
-    private static TeamAvatarRating makeRating(UUID avatarId, int points,
-                                               double setQuotient, double ballQuotient,
-                                               boolean withoutAssessment) {
-        return new TeamAvatarRating(avatarId, TENANT_ID,
-                3, 6, points, 3, 3, 60, 30,
-                setQuotient, ballQuotient, withoutAssessment, null);
+    /** Builds a TeamAvatarRating with the given points and quotients for sorting tests. */
+    private static TeamAvatarRating makeRating(
+            UUID avatarId,
+            int points,
+            double setQuotient,
+            double ballQuotient,
+            boolean withoutAssessment) {
+        return new TeamAvatarRating(
+                avatarId,
+                TENANT_ID,
+                3,
+                6,
+                points,
+                3,
+                3,
+                60,
+                30,
+                setQuotient,
+                ballQuotient,
+                withoutAssessment,
+                null);
     }
 
     private static Team makeTeam(UUID teamId, String description) {
@@ -107,9 +127,19 @@ class CertificateAssemblerTest {
     }
 
     private static Tournament makeTournament() {
-        return new Tournament(TOURNAMENT_ID, TENANT_ID, "Stadtmeisterschaft 2026",
-                "BEST_OF_3", "setPoints", "standardVolleyball", "roundRobin",
-                "COMPLETED", null, LocalDateTime.of(2026, 4, 15, 9, 0), 4, 8);
+        return new Tournament(
+                TOURNAMENT_ID,
+                TENANT_ID,
+                "Stadtmeisterschaft 2026",
+                "BEST_OF_3",
+                "setPoints",
+                "standardVolleyball",
+                "roundRobin",
+                "COMPLETED",
+                null,
+                LocalDateTime.of(2026, 4, 15, 9, 0),
+                4,
+                8);
     }
 
     @BeforeEach
@@ -121,13 +151,14 @@ class CertificateAssemblerTest {
         photoStorageService = mock(PhotoStorageService.class);
         jdbcTemplate = mock(JdbcTemplate.class);
 
-        assembler = new CertificateAssembler(
-                phaseRepository,
-                teamAvatarRepository,
-                teamAvatarRatingRepository,
-                teamRepository,
-                photoStorageService,
-                jdbcTemplate);
+        assembler =
+                new CertificateAssembler(
+                        phaseRepository,
+                        teamAvatarRepository,
+                        teamAvatarRatingRepository,
+                        teamRepository,
+                        photoStorageService,
+                        jdbcTemplate);
     }
 
     // -------------------------------------------------------------------------
@@ -149,7 +180,8 @@ class CertificateAssemblerTest {
     }
 
     @Test
-    @DisplayName("AC5: getFinalPhase returns empty when tournament has no phases (AC8 precondition)")
+    @DisplayName(
+            "AC5: getFinalPhase returns empty when tournament has no phases (AC8 precondition)")
     void getFinalPhase_returnsEmpty_whenNoPhases() {
         when(phaseRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of());
 
@@ -161,7 +193,9 @@ class CertificateAssemblerTest {
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("AC5: placement order follows D-33 (points DESC → setQuotient DESC → ballQuotient DESC)")
+    @DisplayName(
+            "AC5: placement order follows D-33 (points DESC → setQuotient DESC → ballQuotient"
+                    + " DESC)")
     void computePlacementOrder_respectsD33SortOrder() {
         Phase phase = makePhase(1);
 
@@ -195,10 +229,11 @@ class CertificateAssemblerTest {
         TeamAvatar avC = makeAvatar(AVATAR_C_ID, TEAM_C_ID);
         when(teamAvatarRepository.findByPhaseId(PHASE_ID)).thenReturn(List.of(avA, avB, avC));
 
-        // Team A: normal, 6 points. Team B: withoutAssessment (should be last even with more points).
+        // Team A: normal, 6 points. Team B: withoutAssessment (should be last even with more
+        // points).
         // Team C: normal, 4 points.
         TeamAvatarRating ratingA = makeRating(AVATAR_A_ID, 6, 2.0, 1.5, false);
-        TeamAvatarRating ratingB = makeRating(AVATAR_B_ID, 10, 5.0, 5.0, true);  // withoutAssessment
+        TeamAvatarRating ratingB = makeRating(AVATAR_B_ID, 10, 5.0, 5.0, true); // withoutAssessment
         TeamAvatarRating ratingC = makeRating(AVATAR_C_ID, 4, 1.5, 1.2, false);
         when(teamAvatarRatingRepository.findById(AVATAR_A_ID)).thenReturn(Optional.of(ratingA));
         when(teamAvatarRatingRepository.findById(AVATAR_B_ID)).thenReturn(Optional.of(ratingB));
@@ -217,7 +252,9 @@ class CertificateAssemblerTest {
     }
 
     @Test
-    @DisplayName("AC5/AC8: computePlacementOrder returns empty when no ratings exist (no matches played)")
+    @DisplayName(
+            "AC5/AC8: computePlacementOrder returns empty when no ratings exist (no matches"
+                    + " played)")
     void computePlacementOrder_returnsEmpty_whenNoRatings() {
         Phase phase = makePhase(1);
         TeamAvatar av = makeAvatar(AVATAR_A_ID, TEAM_A_ID);
@@ -255,11 +292,13 @@ class CertificateAssemblerTest {
     @Test
     @DisplayName("AC6 (SVG): fetchPhotoAsBase64DataUri returns data URI when photo exists")
     void fetchPhotoAsBase64DataUri_returnDataUri_whenPhotoExists() throws Exception {
-        byte[] fakePhotoBytes = {(byte)0xFF, (byte)0xD8, (byte)0xFF}; // minimal JPEG signature
-        PhotoStorageService.PhotoResult photoResult = new PhotoStorageService.PhotoResult(
-                new ByteArrayInputStream(fakePhotoBytes), "image/jpeg",
-                new de.vvwt.tm.domain.photo.PhotoFileMetadata(
-                        "photo.jpg", fakePhotoBytes.length, java.time.Instant.now()));
+        byte[] fakePhotoBytes = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF}; // minimal JPEG signature
+        PhotoStorageService.PhotoResult photoResult =
+                new PhotoStorageService.PhotoResult(
+                        new ByteArrayInputStream(fakePhotoBytes),
+                        "image/jpeg",
+                        new de.vvwt.tm.domain.photo.PhotoFileMetadata(
+                                "photo.jpg", fakePhotoBytes.length, java.time.Instant.now()));
         when(photoStorageService.retrieve(TOURNAMENT_ID, TEAM_A_ID))
                 .thenReturn(Optional.of(photoResult));
 
@@ -291,8 +330,8 @@ class CertificateAssemblerTest {
 
         String result = assembler.buildPhotoUrl(TOURNAMENT_ID, TEAM_A_ID);
 
-        assertThat(result).isEqualTo(
-                "/api/tournaments/" + TOURNAMENT_ID + "/teams/" + TEAM_A_ID + "/photo");
+        assertThat(result)
+                .isEqualTo("/api/tournaments/" + TOURNAMENT_ID + "/teams/" + TEAM_A_ID + "/photo");
     }
 
     @Test
@@ -310,13 +349,20 @@ class CertificateAssemblerTest {
     @Test
     @DisplayName("AC1: renderSvgTemplate fills all 6 D-4 placeholders")
     void renderSvgTemplate_fillsAllPlaceholders() {
-        String svgTemplate = "<svg><text>{{placement}}</text><text>{{teamName}}</text>" +
-                "<image href=\"{{teamPhoto}}\"/>" +
-                "<text>{{tournamentName}}</text><text>{{date}}</text><text>{{location}}</text></svg>";
+        String svgTemplate =
+                "<svg><text>{{placement}}</text><text>{{teamName}}</text><image"
+                    + " href=\"{{teamPhoto}}\"/>"
+                    + "<text>{{tournamentName}}</text><text>{{date}}</text><text>{{location}}</text></svg>";
 
-        CertificatePlacementRow row = new CertificatePlacementRow(
-                1, TEAM_A_ID, "Team Alpha", "data:image/png;base64,abc==",
-                "Stadtmeisterschaft 2026", "15. April 2026", "Sporthalle Musterstadt");
+        CertificatePlacementRow row =
+                new CertificatePlacementRow(
+                        1,
+                        TEAM_A_ID,
+                        "Team Alpha",
+                        "data:image/png;base64,abc==",
+                        "Stadtmeisterschaft 2026",
+                        "15. April 2026",
+                        "Sporthalle Musterstadt");
 
         String rendered = assembler.renderSvgTemplate(svgTemplate, row);
 
@@ -337,14 +383,16 @@ class CertificateAssemblerTest {
         String svgTemplate = "<image href=\"{{teamPhoto}}\"/>";
         String dataUri = "data:image/jpeg;base64,/9j/4AAQSkZJRgAB==";
 
-        CertificatePlacementRow row = new CertificatePlacementRow(
-                1, TEAM_A_ID, "Team", dataUri,
-                "Tournament", "2026-04-15", "Location");
+        CertificatePlacementRow row =
+                new CertificatePlacementRow(
+                        1, TEAM_A_ID, "Team", dataUri, "Tournament", "2026-04-15", "Location");
 
         String rendered = assembler.renderSvgTemplate(svgTemplate, row);
 
         assertThat(rendered)
-                .as("base64 '==' must not be HTML-escaped (escapeHTML=false mandatory per E12S01 AC6)")
+                .as(
+                        "base64 '==' must not be HTML-escaped (escapeHTML=false mandatory per"
+                                + " E12S01 AC6)")
                 .contains("data:image/jpeg;base64,/9j/4AAQSkZJRgAB==")
                 .doesNotContain("&#x3D;");
     }
@@ -354,9 +402,15 @@ class CertificateAssemblerTest {
     void renderSvgTemplate_rendersEmptyForMissingPhoto() {
         String svgTemplate = "<image href=\"{{teamPhoto}}\"/>";
 
-        CertificatePlacementRow row = new CertificatePlacementRow(
-                1, TEAM_A_ID, "Team", "",  // empty photo
-                "Tournament", "date", "location");
+        CertificatePlacementRow row =
+                new CertificatePlacementRow(
+                        1,
+                        TEAM_A_ID,
+                        "Team",
+                        "", // empty photo
+                        "Tournament",
+                        "date",
+                        "location");
 
         String rendered = assembler.renderSvgTemplate(svgTemplate, row);
 

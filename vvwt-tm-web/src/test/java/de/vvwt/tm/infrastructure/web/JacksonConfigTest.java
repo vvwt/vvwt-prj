@@ -1,37 +1,37 @@
 package de.vvwt.tm.infrastructure.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Instant;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.json.JsonTest;
 import org.springframework.context.annotation.Import;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
 /**
  * Tests for {@link JacksonConfig} serialization rules (AC2, E05S03).
  *
  * <p>Verifies:
+ *
  * <ul>
- *   <li>AC2: {@link LocalDateTime} serializes as ISO-8601 string, not a timestamp array</li>
- *   <li>AC2: {@link Instant} serializes as ISO-8601 string</li>
- *   <li>AC2: enum values serialize as name strings, not ordinal integers</li>
- *   <li>AC2: {@code null} fields are excluded from the serialized JSON</li>
+ *   <li>AC2: {@link LocalDateTime} serializes as ISO-8601 string, not a timestamp array
+ *   <li>AC2: {@link Instant} serializes as ISO-8601 string
+ *   <li>AC2: enum values serialize as name strings, not ordinal integers
+ *   <li>AC2: {@code null} fields are excluded from the serialized JSON
  * </ul>
  *
  * @see JacksonConfig
- * @see <a href="../../../../../../../../../.gaai/project/contexts/artefacts/stories/E05S03.story.md">Story E05S03</a>
+ * @see <a
+ *     href="../../../../../../../../../.gaai/project/contexts/artefacts/stories/E05S03.story.md">Story
+ *     E05S03</a>
  */
 @JsonTest
 @Import(JacksonConfig.class)
 class JacksonConfigTest {
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    @Autowired private ObjectMapper objectMapper;
 
     // -------------------------------------------------------------------------
     // AC2 — Dates as ISO-8601 strings
@@ -88,8 +88,7 @@ class JacksonConfigTest {
         assertThat(json)
                 .as("AC2: null field 'optionalField' must be excluded from JSON")
                 .doesNotContain("optionalField");
-        assertThat(json)
-                .contains("\"requiredField\":\"hello\"");
+        assertThat(json).contains("\"requiredField\":\"hello\"");
     }
 
     // -------------------------------------------------------------------------
@@ -97,7 +96,9 @@ class JacksonConfigTest {
     // -------------------------------------------------------------------------
 
     enum SampleEnum {
-        ALPHA, BETA, GAMMA
+        ALPHA,
+        BETA,
+        GAMMA
     }
 
     static class SampleDto {
@@ -109,7 +110,12 @@ class JacksonConfigTest {
             this.optionalField = optionalField;
         }
 
-        public String getRequiredField() { return requiredField; }
-        public String getOptionalField() { return optionalField; }
+        public String getRequiredField() {
+            return requiredField;
+        }
+
+        public String getOptionalField() {
+            return optionalField;
+        }
     }
 }

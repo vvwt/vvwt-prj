@@ -1,9 +1,9 @@
 package de.vvwt.worker.types;
 
-import org.junit.jupiter.api.Test;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import org.junit.jupiter.api.Test;
 
 /** Unit tests for {@link PositionTuple} validation (AC11). */
 class PositionTupleTest {

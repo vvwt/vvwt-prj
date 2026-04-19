@@ -1,5 +1,13 @@
 package de.vvwt.tm.domain;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import de.vvwt.tm.domain.generator.MatchGenerator;
 import de.vvwt.tm.domain.referee.RefereeAssigner;
 import de.vvwt.tm.domain.referee.RefereeAssignmentReport;
@@ -10,28 +18,17 @@ import de.vvwt.tm.domain.repo.TeamAvatarRepository;
 import de.vvwt.tm.domain.repo.TournamentRepository;
 import de.vvwt.tm.domain.rules.TournamentRuleResolver;
 import de.vvwt.tm.slotopt.SlotOptimizationClient;
-import org.junit.jupiter.api.BeforeEach;
-import org.springframework.context.ApplicationEventPublisher;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 /**
  * Unit tests for {@link PhasePreparationService} — AC9 through AC15 (E03S12).
@@ -60,11 +57,17 @@ class PhasePreparationServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new PhasePreparationService(
-                phaseRepository, matchRepository, matchOutcomeRepository,
-                teamAvatarRepository, tournamentRepository,
-                tournamentRuleResolver, slotOptimizationClient, refereeAssigner,
-                eventPublisher);
+        service =
+                new PhasePreparationService(
+                        phaseRepository,
+                        matchRepository,
+                        matchOutcomeRepository,
+                        teamAvatarRepository,
+                        tournamentRepository,
+                        tournamentRuleResolver,
+                        slotOptimizationClient,
+                        refereeAssigner,
+                        eventPublisher);
     }
 
     // =========================================================================
@@ -136,7 +139,7 @@ class PhasePreparationServiceTest {
     @Test
     void ac11_optimizeSlots_delegatesToClient() {
         Phase phase = pendingPhase();
-        List<Match> matches = makeMatchesWithSlots(15, phase, null, null);  // no slots yet
+        List<Match> matches = makeMatchesWithSlots(15, phase, null, null); // no slots yet
 
         when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
         when(matchRepository.findByPhaseId(phaseId)).thenReturn(matches);
@@ -332,8 +335,15 @@ class PhasePreparationServiceTest {
     }
 
     private Phase phase(Phase.PhaseStatus status) {
-        return new Phase(phaseId, tenantId, tournamentId, 1, "Test Phase",
-                status.name(), 0, LocalDateTime.now());
+        return new Phase(
+                phaseId,
+                tenantId,
+                tournamentId,
+                1,
+                "Test Phase",
+                status.name(),
+                0,
+                LocalDateTime.now());
     }
 
     private Tournament tournament() {
@@ -351,9 +361,17 @@ class PhasePreparationServiceTest {
     private List<TeamAvatar> makeAvatars(int count) {
         List<TeamAvatar> avatars = new ArrayList<>();
         for (int i = 0; i < count; i++) {
-            TeamAvatar avatar = new TeamAvatar(
-                    UUID.randomUUID(), tenantId, tournamentId, phaseId,
-                    0, i, UUID.randomUUID(), null, LocalDateTime.now());
+            TeamAvatar avatar =
+                    new TeamAvatar(
+                            UUID.randomUUID(),
+                            tenantId,
+                            tournamentId,
+                            phaseId,
+                            0,
+                            i,
+                            UUID.randomUUID(),
+                            null,
+                            LocalDateTime.now());
             avatars.add(avatar);
         }
         return avatars;
@@ -362,10 +380,22 @@ class PhasePreparationServiceTest {
     private List<Match> makeMatches(int count, Phase phase) {
         List<Match> matches = new ArrayList<>();
         for (int i = 0; i < count; i++) {
-            Match match = new Match(UUID.randomUUID(), tenantId, tournamentId, phaseId,
-                    UUID.randomUUID(), UUID.randomUUID(),
-                    MatchState.OPEN.getLegacyCode(), 3,
-                    null, null, null, null, null, LocalDateTime.now());
+            Match match =
+                    new Match(
+                            UUID.randomUUID(),
+                            tenantId,
+                            tournamentId,
+                            phaseId,
+                            UUID.randomUUID(),
+                            UUID.randomUUID(),
+                            MatchState.OPEN.getLegacyCode(),
+                            3,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            LocalDateTime.now());
             matches.add(match);
         }
         return matches;
@@ -374,10 +404,22 @@ class PhasePreparationServiceTest {
     private List<Match> makeMatchesWithSlots(int count, Phase phase, Integer lap, Integer field) {
         List<Match> matches = new ArrayList<>();
         for (int i = 0; i < count; i++) {
-            Match match = new Match(UUID.randomUUID(), tenantId, tournamentId, phaseId,
-                    UUID.randomUUID(), UUID.randomUUID(),
-                    MatchState.OPEN.getLegacyCode(), 3,
-                    lap, field, null, null, null, LocalDateTime.now());
+            Match match =
+                    new Match(
+                            UUID.randomUUID(),
+                            tenantId,
+                            tournamentId,
+                            phaseId,
+                            UUID.randomUUID(),
+                            UUID.randomUUID(),
+                            MatchState.OPEN.getLegacyCode(),
+                            3,
+                            lap,
+                            field,
+                            null,
+                            null,
+                            null,
+                            LocalDateTime.now());
             matches.add(match);
         }
         return matches;
@@ -387,10 +429,22 @@ class PhasePreparationServiceTest {
     private List<Match> makeMatchesWithReferees(int count, Phase phase) {
         List<Match> matches = new ArrayList<>();
         for (int i = 0; i < count; i++) {
-            Match match = new Match(UUID.randomUUID(), tenantId, tournamentId, phaseId,
-                    UUID.randomUUID(), UUID.randomUUID(),
-                    MatchState.OPEN.getLegacyCode(), 3,
-                    i / 3, i % 3, UUID.randomUUID(), null, null, LocalDateTime.now());
+            Match match =
+                    new Match(
+                            UUID.randomUUID(),
+                            tenantId,
+                            tournamentId,
+                            phaseId,
+                            UUID.randomUUID(),
+                            UUID.randomUUID(),
+                            MatchState.OPEN.getLegacyCode(),
+                            3,
+                            i / 3,
+                            i % 3,
+                            UUID.randomUUID(),
+                            null,
+                            null,
+                            LocalDateTime.now());
             matches.add(match);
         }
         return matches;
@@ -400,10 +454,22 @@ class PhasePreparationServiceTest {
     private List<Match> makeMatchesWithManualReferees(int count, Phase phase) {
         List<Match> matches = new ArrayList<>();
         for (int i = 0; i < count; i++) {
-            Match match = new Match(UUID.randomUUID(), tenantId, tournamentId, phaseId,
-                    UUID.randomUUID(), UUID.randomUUID(),
-                    MatchState.OPEN.getLegacyCode(), 3,
-                    i / 2, i % 2, null, "Manual referee", null, LocalDateTime.now());
+            Match match =
+                    new Match(
+                            UUID.randomUUID(),
+                            tenantId,
+                            tournamentId,
+                            phaseId,
+                            UUID.randomUUID(),
+                            UUID.randomUUID(),
+                            MatchState.OPEN.getLegacyCode(),
+                            3,
+                            i / 2,
+                            i % 2,
+                            null,
+                            "Manual referee",
+                            null,
+                            LocalDateTime.now());
             matches.add(match);
         }
         return matches;

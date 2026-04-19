@@ -1,5 +1,7 @@
 package de.vvwt.tm.infrastructure.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.auth.SecurityConfig;
@@ -19,32 +21,8 @@ import de.vvwt.tm.domain.repo.PhaseRepository;
 import de.vvwt.tm.domain.repo.TeamAvatarRepository;
 import de.vvwt.tm.domain.repo.TeamRepository;
 import de.vvwt.tm.domain.repo.TenantContext;
-import de.vvwt.tm.domain.repo.TenantContextTestHelper;
 import de.vvwt.tm.domain.repo.TournamentRepository;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
-import org.springframework.messaging.converter.MappingJackson2MessageConverter;
-import org.springframework.messaging.simp.stomp.StompFrameHandler;
-import org.springframework.messaging.simp.stomp.StompHeaders;
-import org.springframework.messaging.simp.stomp.StompSession;
-import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.context.annotation.Import;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.web.socket.WebSocketHttpHeaders;
-import org.springframework.web.socket.client.standard.StandardWebSocketClient;
-import org.springframework.web.socket.messaging.WebSocketStompClient;
-import org.springframework.web.socket.sockjs.client.SockJsClient;
-import org.springframework.web.socket.sockjs.client.WebSocketTransport;
-
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -55,38 +33,62 @@ import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
+import org.springframework.messaging.converter.MappingJackson2MessageConverter;
+import org.springframework.messaging.simp.stomp.StompFrameHandler;
+import org.springframework.messaging.simp.stomp.StompHeaders;
+import org.springframework.messaging.simp.stomp.StompSession;
+import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.web.socket.WebSocketHttpHeaders;
+import org.springframework.web.socket.client.standard.StandardWebSocketClient;
+import org.springframework.web.socket.messaging.WebSocketStompClient;
+import org.springframework.web.socket.sockjs.client.SockJsClient;
+import org.springframework.web.socket.sockjs.client.WebSocketTransport;
 
 /**
  * End-to-end integration tests for display WebSocket event delivery (E07S06 AC2, AC3, AC4, AC5).
  *
  * <h2>Test scenarios</h2>
+ *
  * <ol>
  *   <li>AC2/AC3 — Display device subscribes to its tenant topic, cascade registers match result,
- *       MATCH_RESULT_CHANGED event arrives within 2 seconds.</li>
+ *       MATCH_RESULT_CHANGED event arrives within 2 seconds.
  *   <li>AC11 — Cross-tenant isolation: display device A (tenant A's topic) does NOT receive an
- *       event triggered in the context of a different tenant.
- *       <em>Note: In V1 single-tenant mode, all data is under the default tenant, so cross-tenant
- *       tests verify that an event with a different tenantId produces a different topic path.</em></li>
+ *       event triggered in the context of a different tenant. <em>Note: In V1 single-tenant mode,
+ *       all data is under the default tenant, so cross-tenant tests verify that an event with a
+ *       different tenantId produces a different topic path.</em>
  * </ol>
  *
- * <p>This test does NOT use {@code @Transactional}: {@code @TransactionalEventListener(AFTER_COMMIT)}
- * only fires on real commits, not test-managed rollbacks.
+ * <p>This test does NOT use {@code @Transactional}:
+ * {@code @TransactionalEventListener(AFTER_COMMIT)} only fires on real commits, not test-managed
+ * rollbacks.
  *
  * @see DomainEventBridge
  * @see WebSocketSecurityConfig
- * @see <a href="../../../../../../../../../.gaai/project/contexts/artefacts/stories/E07S06.story.md">Story E07S06</a>
+ * @see <a
+ *     href="../../../../../../../../../.gaai/project/contexts/artefacts/stories/E07S06.story.md">Story
+ *     E07S06</a>
  */
 @SpringBootTest(
         classes = {
-                TournamentManagerApplication.class,
-                DisplayWebSocketEventsIT.TestCredentials.class
+            TournamentManagerApplication.class,
+            DisplayWebSocketEventsIT.TestCredentials.class
         },
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
-                "spring.datasource.url=jdbc:h2:mem:e07s06eventsdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
-                        + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
+            "spring.datasource.url=jdbc:h2:mem:e07s06eventsdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
+                + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
 @Import(TenantContextTestSupport.class)
@@ -94,8 +96,7 @@ class DisplayWebSocketEventsIT {
 
     static final String TEST_PASSWORD = "DisplayEvtTest33ZZ";
 
-    @LocalServerPort
-    private int port;
+    @LocalServerPort private int port;
 
     @Autowired private CascadeRecomputeService cascadeService;
     @Autowired private TenantContext tenantContext;
@@ -146,9 +147,14 @@ class DisplayWebSocketEventsIT {
         StompHeaders connectHeaders = new StompHeaders();
         connectHeaders.add(WebSocketSecurityConfig.DEVICE_TOKEN_HEADER, displayToken);
 
-        StompSession session = stompClient.connectAsync(wsUrl, new WebSocketHttpHeaders(),
-                connectHeaders, new StompSessionHandlerAdapter() {})
-                .get(5, TimeUnit.SECONDS);
+        StompSession session =
+                stompClient
+                        .connectAsync(
+                                wsUrl,
+                                new WebSocketHttpHeaders(),
+                                connectHeaders,
+                                new StompSessionHandlerAdapter() {})
+                        .get(5, TimeUnit.SECONDS);
 
         try {
             assertThat(session.isConnected())
@@ -157,25 +163,28 @@ class DisplayWebSocketEventsIT {
 
             // Subscribe to the tenant-scoped display topic (AC1 — display device topic)
             String displayTopic = DomainEventBridge.displayTopic(defaultTenantId);
-            session.subscribe(displayTopic, new StompFrameHandler() {
-                @Override
-                public Type getPayloadType(StompHeaders headers) {
-                    return Map.class;
-                }
+            session.subscribe(
+                    displayTopic,
+                    new StompFrameHandler() {
+                        @Override
+                        public Type getPayloadType(StompHeaders headers) {
+                            return Map.class;
+                        }
 
-                @Override
-                public void handleFrame(StompHeaders headers, Object payload) {
-                    @SuppressWarnings("unchecked")
-                    Map<?, ?> message = (Map<?, ?>) payload;
-                    receivedMessages.add(message);
-                }
-            });
+                        @Override
+                        public void handleFrame(StompHeaders headers, Object payload) {
+                            @SuppressWarnings("unchecked")
+                            Map<?, ?> message = (Map<?, ?>) payload;
+                            receivedMessages.add(message);
+                        }
+                    });
 
             // Small pause to ensure subscription is registered before triggering the event
             Thread.sleep(200);
 
             // Trigger domain event via service layer (real commit → AFTER_COMMIT fires)
-            cascadeService.registerMatchResult(SetResultInput.legacy(matchId, 0, 15, 10, null, null));
+            cascadeService.registerMatchResult(
+                    SetResultInput.legacy(matchId, 0, 15, 10, null, null));
 
             // AC2/AC3: display client must receive MATCH_RESULT_CHANGED within 2 seconds
             Map<?, ?> received = receivedMessages.poll(2, TimeUnit.SECONDS);
@@ -206,12 +215,12 @@ class DisplayWebSocketEventsIT {
     // -------------------------------------------------------------------------
 
     /**
-     * AC11 — A display device subscribed to its tenant topic does NOT receive events
-     * broadcast to a DIFFERENT tenant's topic.
+     * AC11 — A display device subscribed to its tenant topic does NOT receive events broadcast to a
+     * DIFFERENT tenant's topic.
      *
-     * <p>This test uses two concurrent sessions: one subscribes to the default tenant's
-     * display topic (where the event is broadcast), the other subscribes to an arbitrary
-     * "other-tenant" topic UUID. Only the first session should receive the event.
+     * <p>This test uses two concurrent sessions: one subscribes to the default tenant's display
+     * topic (where the event is broadcast), the other subscribes to an arbitrary "other-tenant"
+     * topic UUID. Only the first session should receive the event.
      */
     @Test
     void crossTenantIsolation_displayDeviceDoesNotReceiveOtherTenantEvents() throws Exception {
@@ -224,42 +233,69 @@ class DisplayWebSocketEventsIT {
         // Session 1: correct tenant display topic
         StompHeaders connectHeaders = new StompHeaders();
         connectHeaders.add(WebSocketSecurityConfig.DEVICE_TOKEN_HEADER, displayToken);
-        StompSession correctSession = stompClient.connectAsync(wsUrl, new WebSocketHttpHeaders(),
-                connectHeaders, new StompSessionHandlerAdapter() {})
-                .get(5, TimeUnit.SECONDS);
+        StompSession correctSession =
+                stompClient
+                        .connectAsync(
+                                wsUrl,
+                                new WebSocketHttpHeaders(),
+                                connectHeaders,
+                                new StompSessionHandlerAdapter() {})
+                        .get(5, TimeUnit.SECONDS);
 
         // Session 2: admin session, subscribe to a DIFFERENT (fake) tenant's display topic
         // (simulates a scenario where a rogue client tries to subscribe cross-tenant)
         String fakeOtherTenantId = UUID.randomUUID().toString();
         StompHeaders adminHeaders = new StompHeaders();
         adminHeaders.add("Authorization", basicAuth(SecurityConfig.ADMIN_USERNAME, TEST_PASSWORD));
-        StompSession wrongTenantSession = buildStompClient().connectAsync(wsUrl,
-                new WebSocketHttpHeaders(), adminHeaders, new StompSessionHandlerAdapter() {})
-                .get(5, TimeUnit.SECONDS);
+        StompSession wrongTenantSession =
+                buildStompClient()
+                        .connectAsync(
+                                wsUrl,
+                                new WebSocketHttpHeaders(),
+                                adminHeaders,
+                                new StompSessionHandlerAdapter() {})
+                        .get(5, TimeUnit.SECONDS);
 
         try {
             // Subscribe correct tenant session to correct display topic
             String correctTopic = DomainEventBridge.displayTopic(defaultTenantId);
-            correctSession.subscribe(correctTopic, new StompFrameHandler() {
-                @Override public Type getPayloadType(StompHeaders h) { return Map.class; }
-                @Override public void handleFrame(StompHeaders h, Object payload) {
-                    correctTenantMessages.add((Map<?, ?>) payload);
-                }
-            });
+            correctSession.subscribe(
+                    correctTopic,
+                    new StompFrameHandler() {
+                        @Override
+                        public Type getPayloadType(StompHeaders h) {
+                            return Map.class;
+                        }
+
+                        @Override
+                        public void handleFrame(StompHeaders h, Object payload) {
+                            correctTenantMessages.add((Map<?, ?>) payload);
+                        }
+                    });
 
             // Subscribe "wrong tenant" session to a different (non-matching) display topic
-            String wrongTopic = String.format(DomainEventBridge.DISPLAY_EVENTS_TOPIC_PATTERN, fakeOtherTenantId);
-            wrongTenantSession.subscribe(wrongTopic, new StompFrameHandler() {
-                @Override public Type getPayloadType(StompHeaders h) { return Map.class; }
-                @Override public void handleFrame(StompHeaders h, Object payload) {
-                    wrongTenantMessages.add((Map<?, ?>) payload);
-                }
-            });
+            String wrongTopic =
+                    String.format(
+                            DomainEventBridge.DISPLAY_EVENTS_TOPIC_PATTERN, fakeOtherTenantId);
+            wrongTenantSession.subscribe(
+                    wrongTopic,
+                    new StompFrameHandler() {
+                        @Override
+                        public Type getPayloadType(StompHeaders h) {
+                            return Map.class;
+                        }
+
+                        @Override
+                        public void handleFrame(StompHeaders h, Object payload) {
+                            wrongTenantMessages.add((Map<?, ?>) payload);
+                        }
+                    });
 
             Thread.sleep(200);
 
             // Trigger event for the DEFAULT tenant
-            cascadeService.registerMatchResult(SetResultInput.legacy(matchId, 0, 15, 10, null, null));
+            cascadeService.registerMatchResult(
+                    SetResultInput.legacy(matchId, 0, 15, 10, null, null));
 
             // AC11: correct tenant topic SHOULD receive the event
             Map<?, ?> correctReceived = correctTenantMessages.poll(2, TimeUnit.SECONDS);
@@ -286,8 +322,8 @@ class DisplayWebSocketEventsIT {
     // -------------------------------------------------------------------------
 
     private WebSocketStompClient buildStompClient() {
-        SockJsClient sockJsClient = new SockJsClient(
-                List.of(new WebSocketTransport(new StandardWebSocketClient())));
+        SockJsClient sockJsClient =
+                new SockJsClient(List.of(new WebSocketTransport(new StandardWebSocketClient())));
         WebSocketStompClient stompClient = new WebSocketStompClient(sockJsClient);
         stompClient.setMessageConverter(new MappingJackson2MessageConverter());
         return stompClient;
@@ -295,55 +331,128 @@ class DisplayWebSocketEventsIT {
 
     private String basicAuth(String username, String password) {
         String credentials = username + ":" + password;
-        return "Basic " + Base64.getEncoder()
-                .encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
+        return "Basic "
+                + Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
     }
 
     private void saveDisplayDevice(String token, String status) {
         // DEC-24: location_id is nullable; DISPLAY device with null location → overview mode (AC7a)
-        deviceRepository.save(new Device(
-                UUID.randomUUID(), defaultTenantId, null,
-                token, null,
-                Device.TYPE_DISPLAY, null, status,
-                LocalDateTime.now(), null,
-                "Events Test Display", "{\"display_schema\":\"OVERVIEW\"}"));
+        deviceRepository.save(
+                new Device(
+                        UUID.randomUUID(),
+                        defaultTenantId,
+                        null,
+                        token,
+                        null,
+                        Device.TYPE_DISPLAY,
+                        null,
+                        status,
+                        LocalDateTime.now(),
+                        null,
+                        "Events Test Display",
+                        "{\"display_schema\":\"OVERVIEW\"}"));
     }
 
     /**
-     * Creates the minimal entity graph for triggering a {@link de.vvwt.tm.domain.event.MatchResultChangedEvent}:
-     * 1 tournament, 1 ACTIVE phase, 2 teams, 2 avatars, 1 BEST_OF_1 match.
+     * Creates the minimal entity graph for triggering a {@link
+     * de.vvwt.tm.domain.event.MatchResultChangedEvent}: 1 tournament, 1 ACTIVE phase, 2 teams, 2
+     * avatars, 1 BEST_OF_1 match.
      *
      * @return the UUID of the created match
      */
     private UUID createMinimalFixture() {
         UUID tournamentId = UUID.randomUUID();
-        tournamentRepository.save(new Tournament(
-                tournamentId, defaultTenantId, "Display Events Fixture " + tournamentId,
-                MatchFormat.BEST_OF_1.name(), "setPoints", "standardVolleyball", "roundRobin",
-                "DRAFT", LocalDateTime.now()));
+        tournamentRepository.save(
+                new Tournament(
+                        tournamentId,
+                        defaultTenantId,
+                        "Display Events Fixture " + tournamentId,
+                        MatchFormat.BEST_OF_1.name(),
+                        "setPoints",
+                        "standardVolleyball",
+                        "roundRobin",
+                        "DRAFT",
+                        LocalDateTime.now()));
 
         UUID phaseId = UUID.randomUUID();
-        phaseRepository.save(new Phase(phaseId, defaultTenantId, tournamentId, 1,
-                "Events Test Phase", "ACTIVE", 0, LocalDateTime.now()));
+        phaseRepository.save(
+                new Phase(
+                        phaseId,
+                        defaultTenantId,
+                        tournamentId,
+                        1,
+                        "Events Test Phase",
+                        "ACTIVE",
+                        0,
+                        LocalDateTime.now()));
 
         UUID team1Id = UUID.randomUUID();
         UUID team2Id = UUID.randomUUID();
-        teamRepository.save(new Team(team1Id, defaultTenantId, tournamentId, 1,
-                "Display Team A", true, false, false, LocalDateTime.now()));
-        teamRepository.save(new Team(team2Id, defaultTenantId, tournamentId, 2,
-                "Display Team B", true, false, false, LocalDateTime.now()));
+        teamRepository.save(
+                new Team(
+                        team1Id,
+                        defaultTenantId,
+                        tournamentId,
+                        1,
+                        "Display Team A",
+                        true,
+                        false,
+                        false,
+                        LocalDateTime.now()));
+        teamRepository.save(
+                new Team(
+                        team2Id,
+                        defaultTenantId,
+                        tournamentId,
+                        2,
+                        "Display Team B",
+                        true,
+                        false,
+                        false,
+                        LocalDateTime.now()));
 
         UUID av1 = UUID.randomUUID();
         UUID av2 = UUID.randomUUID();
-        teamAvatarRepository.save(new TeamAvatar(av1, defaultTenantId, tournamentId, phaseId,
-                1, 1, team1Id, null, LocalDateTime.now()));
-        teamAvatarRepository.save(new TeamAvatar(av2, defaultTenantId, tournamentId, phaseId,
-                1, 2, team2Id, null, LocalDateTime.now()));
+        teamAvatarRepository.save(
+                new TeamAvatar(
+                        av1,
+                        defaultTenantId,
+                        tournamentId,
+                        phaseId,
+                        1,
+                        1,
+                        team1Id,
+                        null,
+                        LocalDateTime.now()));
+        teamAvatarRepository.save(
+                new TeamAvatar(
+                        av2,
+                        defaultTenantId,
+                        tournamentId,
+                        phaseId,
+                        1,
+                        2,
+                        team2Id,
+                        null,
+                        LocalDateTime.now()));
 
         UUID mId = UUID.randomUUID();
-        matchRepository.save(new Match(mId, defaultTenantId, tournamentId, phaseId,
-                av1, av2, MatchState.OPEN.getLegacyCode(), MatchFormat.BEST_OF_1.getMaxSets(),
-                null, null, null, null, null, LocalDateTime.now()));
+        matchRepository.save(
+                new Match(
+                        mId,
+                        defaultTenantId,
+                        tournamentId,
+                        phaseId,
+                        av1,
+                        av2,
+                        MatchState.OPEN.getLegacyCode(),
+                        MatchFormat.BEST_OF_1.getMaxSets(),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now()));
 
         return mId;
     }

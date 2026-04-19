@@ -9,16 +9,16 @@ import org.springframework.stereotype.Component;
 /**
  * Scoring rule: winner 3 / loser 0; if tie-break, winner 2 / loser 1; ties 1/1 (D-15).
  *
- * <p>Tie-break detection delegates to {@link MatchFormat#isTieBreak(int, int)} using
- * {@code (outcome.setCount, loserSetsWon)} — keeping tie-break semantics in one place
- * across all consumers (E03S06 AC3).
+ * <p>Tie-break detection delegates to {@link MatchFormat#isTieBreak(int, int)} using {@code
+ * (outcome.setCount, loserSetsWon)} — keeping tie-break semantics in one place across all consumers
+ * (E03S06 AC3).
  *
- * <p>Tie semantics: ties are only valid when {@code format.isAllowsTies() == true}.
- * A tie in a {@code BEST_OF_N} format is a defensive {@link IllegalStateException}
- * (upstream cascade bug, not a recoverable error).
+ * <p>Tie semantics: ties are only valid when {@code format.isAllowsTies() == true}. A tie in a
+ * {@code BEST_OF_N} format is a defensive {@link IllegalStateException} (upstream cascade bug, not
+ * a recoverable error).
  *
- * <p>This rule is stateless and thread-safe. Spring registers it as a singleton bean
- * named {@code "threePoint"}.
+ * <p>This rule is stateless and thread-safe. Spring registers it as a singleton bean named {@code
+ * "threePoint"}.
  */
 @Component("threePoint")
 public class ThreePointMatchRule implements ScoringRule {
@@ -39,10 +39,12 @@ public class ThreePointMatchRule implements ScoringRule {
             // Tie case
             if (!format.isAllowsTies()) {
                 throw new IllegalStateException(
-                        "Impossible tie detected in format " + format.name()
-                        + " (allowsTies=false). Outcome: " + outcome
-                        + ". This indicates a bug in the cascade service — "
-                        + "a BEST_OF_N match cannot end in a draw.");
+                        "Impossible tie detected in format "
+                                + format.name()
+                                + " (allowsTies=false). Outcome: "
+                                + outcome
+                                + ". This indicates a bug in the cascade service — "
+                                + "a BEST_OF_N match cannot end in a draw.");
             }
             // FIXED_2_SETS 1:1 → 1/1
             team1Points = 1;
@@ -66,8 +68,12 @@ public class ThreePointMatchRule implements ScoringRule {
 
         ScoringResult result = new ScoringResult(team1Points, team2Points);
 
-        log.debug("threePoint: outcome={}, format={} → result=({}, {})",
-                outcome, format, team1Points, team2Points);
+        log.debug(
+                "threePoint: outcome={}, format={} → result=({}, {})",
+                outcome,
+                format,
+                team1Points,
+                team2Points);
 
         return result;
     }
@@ -102,9 +108,13 @@ public class ThreePointMatchRule implements ScoringRule {
         }
         if (outcome.getSetCount() != outcome.getTeam1SetsWon() + outcome.getTeam2SetsWon()) {
             throw new IllegalArgumentException(
-                    "setCount (" + outcome.getSetCount() + ") must equal team1SetsWon ("
-                    + outcome.getTeam1SetsWon() + ") + team2SetsWon ("
-                    + outcome.getTeam2SetsWon() + ")");
+                    "setCount ("
+                            + outcome.getSetCount()
+                            + ") must equal team1SetsWon ("
+                            + outcome.getTeam1SetsWon()
+                            + ") + team2SetsWon ("
+                            + outcome.getTeam2SetsWon()
+                            + ")");
         }
     }
 }

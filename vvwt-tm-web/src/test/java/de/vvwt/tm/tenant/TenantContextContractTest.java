@@ -1,28 +1,26 @@
 package de.vvwt.tm.tenant;
 
-import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
 
 /**
  * Contract tests for {@link TenantContext}.
  *
- * <p>These tests exercise the interface contract via a hand-rolled test double
- * (not Mockito). The test double is a minimal implementation that fulfills
- * the {@link TenantContext} contract as specified — it is kept in
- * {@code src/test/java} and is NOT visible to production code (AC7).
+ * <p>These tests exercise the interface contract via a hand-rolled test double (not Mockito). The
+ * test double is a minimal implementation that fulfills the {@link TenantContext} contract as
+ * specified — it is kept in {@code src/test/java} and is NOT visible to production code (AC7).
  *
  * <p>Acceptance criteria covered:
+ *
  * <ul>
- *   <li>AC1 — test-first discipline: this file exists BEFORE the interface</li>
- *   <li>AC3 — contract coverage: UUID-based tenant id, unbound throws, etc.</li>
- *   <li>AC5 — {@code current()} throws {@link IllegalStateException} when nothing is bound</li>
- *   <li>AC8 — Javadoc enumerates async propagation surfaces (verified in interface source)</li>
- *   <li>AC-NESTED-BIND — nested bind overrides outer; close() restores outer</li>
+ *   <li>AC1 — test-first discipline: this file exists BEFORE the interface
+ *   <li>AC3 — contract coverage: UUID-based tenant id, unbound throws, etc.
+ *   <li>AC5 — {@code current()} throws {@link IllegalStateException} when nothing is bound
+ *   <li>AC8 — Javadoc enumerates async propagation surfaces (verified in interface source)
+ *   <li>AC-NESTED-BIND — nested bind overrides outer; close() restores outer
  * </ul>
  *
  * <p>Story: E14S01 — DEC-20/DEC-21/DEC-22.
@@ -36,8 +34,8 @@ class TenantContextContractTest {
     /**
      * Minimal thread-local-based test double for {@link TenantContext}.
      *
-     * <p>Stack-based: each bind() pushes onto a thread-local stack; close() pops.
-     * This satisfies the nested-bind contract (AC-NESTED-BIND) faithfully.
+     * <p>Stack-based: each bind() pushes onto a thread-local stack; close() pops. This satisfies
+     * the nested-bind contract (AC-NESTED-BIND) faithfully.
      */
     static class ThreadLocalTenantContext implements TenantContext {
 
@@ -50,7 +48,7 @@ class TenantContextContractTest {
             if (top == null) {
                 throw new IllegalStateException(
                         "No tenant is bound to the current thread. "
-                        + "Callers must invoke bind(tenantId) before current().");
+                                + "Callers must invoke bind(tenantId) before current().");
             }
             return top;
         }
@@ -70,8 +68,8 @@ class TenantContextContractTest {
     // -------------------------------------------------------------------------
 
     /**
-     * AC5: {@code current()} MUST throw {@link IllegalStateException} when nothing is bound.
-     * It must NEVER return null and NEVER return a silent default.
+     * AC5: {@code current()} MUST throw {@link IllegalStateException} when nothing is bound. It
+     * must NEVER return null and NEVER return a silent default.
      */
     @Test
     void currentThrowsIllegalStateExceptionWhenNoTenantIsBound() {
@@ -86,9 +84,7 @@ class TenantContextContractTest {
     // AC3 — tenant identifier type is UUID-based (DEC-17)
     // -------------------------------------------------------------------------
 
-    /**
-     * AC3 / DEC-17: bind() accepts a {@link UUID} and current() returns the same UUID.
-     */
+    /** AC3 / DEC-17: bind() accepts a {@link UUID} and current() returns the same UUID. */
     @Test
     void currentReturnsBoundTenantIdAsUuid() {
         TenantContext ctx = new ThreadLocalTenantContext();
@@ -106,8 +102,8 @@ class TenantContextContractTest {
     // -------------------------------------------------------------------------
 
     /**
-     * AC-NESTED-BIND: An inner {@code bind()} overrides the outer for the inner's scope only.
-     * When the inner scope closes, the outer UUID is restored.
+     * AC-NESTED-BIND: An inner {@code bind()} overrides the outer for the inner's scope only. When
+     * the inner scope closes, the outer UUID is restored.
      */
     @Test
     void nestedBindRestoresOuterContextOnClose() {
@@ -140,8 +136,8 @@ class TenantContextContractTest {
     // -------------------------------------------------------------------------
 
     /**
-     * Verifies that after the scope's {@code close()} is invoked, {@code current()} throws.
-     * Ensures the bind/close lifecycle is well-defined.
+     * Verifies that after the scope's {@code close()} is invoked, {@code current()} throws. Ensures
+     * the bind/close lifecycle is well-defined.
      */
     @Test
     void currentThrowsAfterScopeIsClosed() {

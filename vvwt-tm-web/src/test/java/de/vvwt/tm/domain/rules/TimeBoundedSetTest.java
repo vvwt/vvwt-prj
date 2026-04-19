@@ -1,13 +1,13 @@
 package de.vvwt.tm.domain.rules;
 
+import static org.assertj.core.api.Assertions.*;
+
 import de.vvwt.tm.domain.MatchFormat;
 import de.vvwt.tm.domain.MatchState;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-
-import static org.assertj.core.api.Assertions.*;
 
 /**
  * Unit tests for {@link TimeBoundedSet} (AC8, AC11).
@@ -24,18 +24,23 @@ class TimeBoundedSetTest {
     // -----------------------------------------------------------------------
 
     @ParameterizedTest(name = "[{index}] {4}")
-    @CsvSource(delimiter = '|', value = {
-        // team1|team2|expectedClosed|expectedWinner|description
-        "15|14|true |W1|15-14 → closed winner1",
-        "14|15|true |W2|14-15 → closed winner2",
-        "15|15|false|-  |15-15 → open tied",
-        "1 |0 |true |W1|1-0 → closed winner1 (1-point lead sufficient)",
-        "0 |0 |false|-  |0-0 → open tied"
-    })
+    @CsvSource(
+            delimiter = '|',
+            value = {
+                // team1|team2|expectedClosed|expectedWinner|description
+                "15|14|true |W1|15-14 → closed winner1",
+                "14|15|true |W2|14-15 → closed winner2",
+                "15|15|false|-  |15-15 → open tied",
+                "1 |0 |true |W1|1-0 → closed winner1 (1-point lead sufficient)",
+                "0 |0 |false|-  |0-0 → open tied"
+            })
     @DisplayName("parametrized AC8 cases")
-    void parametrizedCases(int team1Pts, int team2Pts, boolean expectedClosed,
-                           String expectedWinner,
-                           @SuppressWarnings("unused") String description) {
+    void parametrizedCases(
+            int team1Pts,
+            int team2Pts,
+            boolean expectedClosed,
+            String expectedWinner,
+            @SuppressWarnings("unused") String description) {
         // format and setIndex are ignored by TimeBoundedSet — use arbitrary values
         ValidationResult result = rule.isSetClosed(team1Pts, team2Pts, 0, MatchFormat.BEST_OF_3);
 
@@ -67,7 +72,9 @@ class TimeBoundedSetTest {
         assertThat(bo3.isClosed()).isTrue();
         assertThat(bo5.isClosed()).isTrue();
         assertThat(fixed.isClosed()).isTrue();
-        assertThat(bo3.getWinnerHint()).isEqualTo(bo5.getWinnerHint()).isEqualTo(fixed.getWinnerHint());
+        assertThat(bo3.getWinnerHint())
+                .isEqualTo(bo5.getWinnerHint())
+                .isEqualTo(fixed.getWinnerHint());
     }
 
     @Test
@@ -75,9 +82,7 @@ class TimeBoundedSetTest {
     void setIndexIndependent() {
         for (int setIndex = 0; setIndex <= 4; setIndex++) {
             ValidationResult result = rule.isSetClosed(15, 14, setIndex, MatchFormat.BEST_OF_5);
-            assertThat(result.isClosed())
-                    .as("closed for setIndex=%d", setIndex)
-                    .isTrue();
+            assertThat(result.isClosed()).as("closed for setIndex=%d", setIndex).isTrue();
         }
     }
 

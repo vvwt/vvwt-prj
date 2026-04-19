@@ -1,7 +1,8 @@
 package de.vvwt.tm.infrastructure.display;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.auth.SecurityConfig;
 import de.vvwt.tm.domain.Device;
 import de.vvwt.tm.domain.Match;
 import de.vvwt.tm.domain.MatchState;
@@ -19,11 +20,13 @@ import de.vvwt.tm.domain.repo.TeamRepository;
 import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.domain.repo.TenantContextTestHelper;
 import de.vvwt.tm.domain.repo.TournamentRepository;
-import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.infrastructure.display.dto.DisplayGroupStandingsResponse;
 import de.vvwt.tm.infrastructure.display.dto.DisplayMatchesResponse;
 import de.vvwt.tm.infrastructure.display.dto.DisplayPhaseOverviewResponse;
 import de.vvwt.tm.infrastructure.web.GlobalExceptionHandler;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import java.time.LocalDateTime;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,44 +36,42 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
-
-import java.time.LocalDateTime;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link DisplayOverviewController} (E07S04).
  *
  * <h2>Test coverage</h2>
+ *
  * <ul>
- *   <li>AC1 — GET /api/display/overview returns 200 with phase data for valid DISPLAY token</li>
- *   <li>AC2 — GET /api/display/overview/matches returns 200 with matches per lap</li>
- *   <li>AC3 — GET /api/display/overview/groups returns 200 with D-33-sorted standings</li>
- *   <li>AC4 — Invalid token → 401; scoring tablet token (wrong type) → 401</li>
- *   <li>AC5 — Tenant scope: display endpoints serve only data for the device's tenant</li>
- *   <li>AC6 — preparationPreview=true when phase is PENDING with scheduled matches</li>
- *   <li>AC7 — No active phase → 404 with {"status":"NO_ACTIVE_PHASE"}</li>
- *   <li>AC9 — Error responses include messageKey (via GlobalExceptionHandler)</li>
- *   <li>AC10 — Missing / empty token → 401</li>
- *   <li>AC11 — POST/PUT/DELETE to overview endpoint → 405</li>
+ *   <li>AC1 — GET /api/display/overview returns 200 with phase data for valid DISPLAY token
+ *   <li>AC2 — GET /api/display/overview/matches returns 200 with matches per lap
+ *   <li>AC3 — GET /api/display/overview/groups returns 200 with D-33-sorted standings
+ *   <li>AC4 — Invalid token → 401; scoring tablet token (wrong type) → 401
+ *   <li>AC5 — Tenant scope: display endpoints serve only data for the device's tenant
+ *   <li>AC6 — preparationPreview=true when phase is PENDING with scheduled matches
+ *   <li>AC7 — No active phase → 404 with {"status":"NO_ACTIVE_PHASE"}
+ *   <li>AC9 — Error responses include messageKey (via GlobalExceptionHandler)
+ *   <li>AC10 — Missing / empty token → 401
+ *   <li>AC11 — POST/PUT/DELETE to overview endpoint → 405
  * </ul>
  *
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E07S04.story.md">Story E07S04</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E07S04.story.md">Story
+ *     E07S04</a>
  */
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         classes = {
-                de.vvwt.tm.TournamentManagerApplication.class,
-                DisplayOverviewControllerIT.TestAdminCredentials.class
+            de.vvwt.tm.TournamentManagerApplication.class,
+            DisplayOverviewControllerIT.TestAdminCredentials.class
         },
         properties = {
             "spring.datasource.url=jdbc:h2:mem:e07s04db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
@@ -82,41 +83,29 @@ class DisplayOverviewControllerIT {
 
     static final String TEST_PASSWORD = "DisplayCtrlIT01";
 
-    @LocalServerPort
-    private int port;
+    @LocalServerPort private int port;
 
-    @Autowired
-    private TestRestTemplate restTemplate;
+    @Autowired private TestRestTemplate restTemplate;
 
-    @Autowired
-    private TenantContext tenantContext;
+    @Autowired private TenantContext tenantContext;
 
-    @Autowired
-    private TenantContextTestSupport.Binder tenantContextBinder;
+    @Autowired private TenantContextTestSupport.Binder tenantContextBinder;
 
-    @Autowired
-    private DeviceRepository deviceRepository;
+    @Autowired private DeviceRepository deviceRepository;
 
-    @Autowired
-    private TournamentRepository tournamentRepository;
+    @Autowired private TournamentRepository tournamentRepository;
 
-    @Autowired
-    private PhaseRepository phaseRepository;
+    @Autowired private PhaseRepository phaseRepository;
 
-    @Autowired
-    private TeamRepository teamRepository;
+    @Autowired private TeamRepository teamRepository;
 
-    @Autowired
-    private TeamAvatarRepository teamAvatarRepository;
+    @Autowired private TeamAvatarRepository teamAvatarRepository;
 
-    @Autowired
-    private TeamAvatarRatingRepository teamAvatarRatingRepository;
+    @Autowired private TeamAvatarRatingRepository teamAvatarRatingRepository;
 
-    @Autowired
-    private MatchRepository matchRepository;
+    @Autowired private MatchRepository matchRepository;
 
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
+    @Autowired private JdbcTemplate jdbcTemplate;
 
     private String baseUrl;
     private UUID defaultTenantId;
@@ -153,9 +142,8 @@ class DisplayOverviewControllerIT {
     // =========================================================================
 
     /**
-     * Removes all test data in FK-safe order (children before parents).
-     * Called both before and after each test to ensure a clean slate even after
-     * a previous failed run left data behind.
+     * Removes all test data in FK-safe order (children before parents). Called both before and
+     * after each test to ensure a clean slate even after a previous failed run left data behind.
      */
     private void cleanupTestData() {
         jdbcTemplate.update("DELETE FROM set_result");
@@ -170,43 +158,79 @@ class DisplayOverviewControllerIT {
     }
 
     /**
-     * Creates a minimal tournament, active phase, two teams, two avatars (group 1),
-     * one match (lap=1, field=1), a DISPLAY device, and a SCORING_TABLET device.
+     * Creates a minimal tournament, active phase, two teams, two avatars (group 1), one match
+     * (lap=1, field=1), a DISPLAY device, and a SCORING_TABLET device.
      *
-     * <p>This gives each test a baseline of one active tournament with one active phase,
-     * two teams, one scheduled match, and valid device tokens for both device types.
+     * <p>This gives each test a baseline of one active tournament with one active phase, two teams,
+     * one scheduled match, and valid device tokens for both device types.
      */
     private void setupTestData() {
         // Register a DISPLAY device
         displayDeviceToken = UUID.randomUUID().toString();
-        Device displayDevice = new Device(
-                UUID.randomUUID(), defaultTenantId, null,
-                displayDeviceToken, null,
-                "DISPLAY", null, Device.STATUS_REGISTERED,
-                LocalDateTime.now(), null, "Display Device", null);
+        Device displayDevice =
+                new Device(
+                        UUID.randomUUID(),
+                        defaultTenantId,
+                        null,
+                        displayDeviceToken,
+                        null,
+                        "DISPLAY",
+                        null,
+                        Device.STATUS_REGISTERED,
+                        LocalDateTime.now(),
+                        null,
+                        "Display Device",
+                        null);
         deviceRepository.save(displayDevice);
 
         // Register a SCORING_TABLET device (used for AC4 wrong-type test)
         scoringTabletToken = UUID.randomUUID().toString();
-        Device tabletDevice = new Device(
-                UUID.randomUUID(), defaultTenantId, null,
-                scoringTabletToken, "1234",
-                Device.TYPE_SCORING_TABLET, null, Device.STATUS_REGISTERED,
-                LocalDateTime.now(), null, null, null);
+        Device tabletDevice =
+                new Device(
+                        UUID.randomUUID(),
+                        defaultTenantId,
+                        null,
+                        scoringTabletToken,
+                        "1234",
+                        Device.TYPE_SCORING_TABLET,
+                        null,
+                        Device.STATUS_REGISTERED,
+                        LocalDateTime.now(),
+                        null,
+                        null,
+                        null);
         deviceRepository.save(tabletDevice);
 
         // Create active tournament
         tournamentId = UUID.randomUUID();
-        Tournament tournament = new Tournament(
-                tournamentId, defaultTenantId, "E07S04 Test Tournament",
-                "BEST_OF_1", "threePointMatchRule", "standardVolleyballSet",
-                "roundRobinMatchGenerator", "ACTIVE", LocalDateTime.now(), null, 3, 4);
+        Tournament tournament =
+                new Tournament(
+                        tournamentId,
+                        defaultTenantId,
+                        "E07S04 Test Tournament",
+                        "BEST_OF_1",
+                        "threePointMatchRule",
+                        "standardVolleyballSet",
+                        "roundRobinMatchGenerator",
+                        "ACTIVE",
+                        LocalDateTime.now(),
+                        null,
+                        3,
+                        4);
         tournamentRepository.save(tournament);
 
         // Create active phase
         phaseId = UUID.randomUUID();
-        Phase phase = new Phase(phaseId, defaultTenantId, tournamentId, 1,
-                "Vorrunde", "ACTIVE", 1, LocalDateTime.now());
+        Phase phase =
+                new Phase(
+                        phaseId,
+                        defaultTenantId,
+                        tournamentId,
+                        1,
+                        "Vorrunde",
+                        "ACTIVE",
+                        1,
+                        LocalDateTime.now());
         phaseRepository.save(phase);
 
         // Create team A and team B
@@ -215,44 +239,99 @@ class DisplayOverviewControllerIT {
         UUID teamAId = UUID.randomUUID();
         UUID teamBId = UUID.randomUUID();
         LocalDateTime now = LocalDateTime.now();
-        Team teamA = new Team(teamAId, defaultTenantId, tournamentId, 1, teamAName,
-                true, false, false, now);
-        Team teamB = new Team(teamBId, defaultTenantId, tournamentId, 2, teamBName,
-                true, false, false, now);
+        Team teamA =
+                new Team(
+                        teamAId,
+                        defaultTenantId,
+                        tournamentId,
+                        1,
+                        teamAName,
+                        true,
+                        false,
+                        false,
+                        now);
+        Team teamB =
+                new Team(
+                        teamBId,
+                        defaultTenantId,
+                        tournamentId,
+                        2,
+                        teamBName,
+                        true,
+                        false,
+                        false,
+                        now);
         teamRepository.save(teamA);
         teamRepository.save(teamB);
 
         // Create avatars in group 1 (positions 1 and 2)
         UUID avatarAId = UUID.randomUUID();
         UUID avatarBId = UUID.randomUUID();
-        TeamAvatar avatarA = new TeamAvatar(avatarAId, defaultTenantId, tournamentId, phaseId,
-                1, 1, teamAId, "Gruppe 1, Platz 1", now);
-        TeamAvatar avatarB = new TeamAvatar(avatarBId, defaultTenantId, tournamentId, phaseId,
-                1, 2, teamBId, "Gruppe 1, Platz 2", now);
+        TeamAvatar avatarA =
+                new TeamAvatar(
+                        avatarAId,
+                        defaultTenantId,
+                        tournamentId,
+                        phaseId,
+                        1,
+                        1,
+                        teamAId,
+                        "Gruppe 1, Platz 1",
+                        now);
+        TeamAvatar avatarB =
+                new TeamAvatar(
+                        avatarBId,
+                        defaultTenantId,
+                        tournamentId,
+                        phaseId,
+                        1,
+                        2,
+                        teamBId,
+                        "Gruppe 1, Platz 2",
+                        now);
         teamAvatarRepository.save(avatarA);
         teamAvatarRepository.save(avatarB);
 
         // Create ratings for each avatar (non-zero for AC3 standings test)
-        TeamAvatarRating ratingA = new TeamAvatarRating(
-                avatarAId, defaultTenantId,
-                1, 1, 3, 1, 0, 25, 15,
-                Double.MAX_VALUE, Double.MAX_VALUE, false, now);
-        TeamAvatarRating ratingB = new TeamAvatarRating(
-                avatarBId, defaultTenantId,
-                1, 1, 0, 0, 1, 15, 25,
-                0.0, 0.6, false, now);
+        TeamAvatarRating ratingA =
+                new TeamAvatarRating(
+                        avatarAId,
+                        defaultTenantId,
+                        1,
+                        1,
+                        3,
+                        1,
+                        0,
+                        25,
+                        15,
+                        Double.MAX_VALUE,
+                        Double.MAX_VALUE,
+                        false,
+                        now);
+        TeamAvatarRating ratingB =
+                new TeamAvatarRating(
+                        avatarBId, defaultTenantId, 1, 1, 0, 0, 1, 15, 25, 0.0, 0.6, false, now);
         teamAvatarRatingRepository.save(ratingA);
         teamAvatarRatingRepository.save(ratingB);
 
         // Create one match: lap=1, field=1, state=ENABLED (PENDING display status)
         UUID matchId = UUID.randomUUID();
-        Match match = new Match(
-                matchId, defaultTenantId, tournamentId, phaseId,
-                avatarAId, avatarBId,
-                MatchState.ENABLED.getLegacyCode(), 1,
-                1, 1,
-                null, null, null,
-                now);
+        Match match =
+                new Match(
+                        matchId,
+                        defaultTenantId,
+                        tournamentId,
+                        phaseId,
+                        avatarAId,
+                        avatarBId,
+                        MatchState.ENABLED.getLegacyCode(),
+                        1,
+                        1,
+                        1,
+                        null,
+                        null,
+                        null,
+                        now);
         matchRepository.save(match);
     }
 
@@ -262,9 +341,10 @@ class DisplayOverviewControllerIT {
 
     @Test
     void phaseOverviewReturns200WithPhaseDataForValidDisplayToken() {
-        ResponseEntity<DisplayPhaseOverviewResponse> response = restTemplate.getForEntity(
-                baseUrl + "/api/display/overview?token=" + displayDeviceToken,
-                DisplayPhaseOverviewResponse.class);
+        ResponseEntity<DisplayPhaseOverviewResponse> response =
+                restTemplate.getForEntity(
+                        baseUrl + "/api/display/overview?token=" + displayDeviceToken,
+                        DisplayPhaseOverviewResponse.class);
 
         assertThat(response.getStatusCode())
                 .as("AC1 — valid DISPLAY token must return 200")
@@ -275,21 +355,13 @@ class DisplayOverviewControllerIT {
         assertThat(body.phaseId())
                 .as("AC1 — phaseId must match the active phase")
                 .isEqualTo(phaseId);
-        assertThat(body.phaseStatus())
-                .as("AC1 — phaseStatus must be ACTIVE")
-                .isEqualTo("ACTIVE");
-        assertThat(body.fieldCount())
-                .as("AC1 — fieldCount from tournament (3)")
-                .isEqualTo(3);
-        assertThat(body.groups())
-                .as("AC1 — one group with 2 teams")
-                .hasSize(1);
+        assertThat(body.phaseStatus()).as("AC1 — phaseStatus must be ACTIVE").isEqualTo("ACTIVE");
+        assertThat(body.fieldCount()).as("AC1 — fieldCount from tournament (3)").isEqualTo(3);
+        assertThat(body.groups()).as("AC1 — one group with 2 teams").hasSize(1);
         assertThat(body.groups().get(0).groupNumber())
                 .as("AC1 — groupNumber must be 1")
                 .isEqualTo(1);
-        assertThat(body.groups().get(0).teamCount())
-                .as("AC1 — teamCount must be 2")
-                .isEqualTo(2);
+        assertThat(body.groups().get(0).teamCount()).as("AC1 — teamCount must be 2").isEqualTo(2);
         assertThat(body.preparationPreview())
                 .as("AC1 — preparationPreview must be false for ACTIVE phase")
                 .isFalse();
@@ -298,9 +370,10 @@ class DisplayOverviewControllerIT {
     @Test
     void phaseOverviewDoesNotRequireAdminAuth() {
         // AC4: display endpoints are public — no admin credentials needed
-        ResponseEntity<DisplayPhaseOverviewResponse> response = restTemplate.getForEntity(
-                baseUrl + "/api/display/overview?token=" + displayDeviceToken,
-                DisplayPhaseOverviewResponse.class);
+        ResponseEntity<DisplayPhaseOverviewResponse> response =
+                restTemplate.getForEntity(
+                        baseUrl + "/api/display/overview?token=" + displayDeviceToken,
+                        DisplayPhaseOverviewResponse.class);
 
         assertThat(response.getStatusCode())
                 .as("AC4 — /api/display/overview must be accessible without admin credentials")
@@ -313,9 +386,13 @@ class DisplayOverviewControllerIT {
 
     @Test
     void matchesByLapReturns200WithMatchDataForValidToken() {
-        ResponseEntity<DisplayMatchesResponse> response = restTemplate.getForEntity(
-                baseUrl + "/api/display/overview/matches?token=" + displayDeviceToken + "&lap=1",
-                DisplayMatchesResponse.class);
+        ResponseEntity<DisplayMatchesResponse> response =
+                restTemplate.getForEntity(
+                        baseUrl
+                                + "/api/display/overview/matches?token="
+                                + displayDeviceToken
+                                + "&lap=1",
+                        DisplayMatchesResponse.class);
 
         assertThat(response.getStatusCode())
                 .as("AC2 — matches endpoint must return 200")
@@ -325,31 +402,24 @@ class DisplayOverviewControllerIT {
         assertThat(body).isNotNull();
         assertThat(body.phaseId()).isEqualTo(phaseId);
         assertThat(body.lap()).isEqualTo(1);
-        assertThat(body.matches())
-                .as("AC2 — must return one match for lap 1")
-                .hasSize(1);
+        assertThat(body.matches()).as("AC2 — must return one match for lap 1").hasSize(1);
 
         DisplayMatchesResponse.MatchEntry entry = body.matches().get(0);
-        assertThat(entry.teamAName())
-                .as("AC2 — teamA name must match")
-                .isEqualTo(teamAName);
-        assertThat(entry.teamBName())
-                .as("AC2 — teamB name must match")
-                .isEqualTo(teamBName);
+        assertThat(entry.teamAName()).as("AC2 — teamA name must match").isEqualTo(teamAName);
+        assertThat(entry.teamBName()).as("AC2 — teamB name must match").isEqualTo(teamBName);
         assertThat(entry.matchStatus())
                 .as("AC2 — ENABLED state maps to PENDING")
                 .isEqualTo("PENDING");
-        assertThat(entry.fieldNumber())
-                .as("AC2 — fieldNumber must be 1")
-                .isEqualTo(1);
+        assertThat(entry.fieldNumber()).as("AC2 — fieldNumber must be 1").isEqualTo(1);
     }
 
     @Test
     void matchesByLapWithoutLapParamUsesCurrentLap() {
         // AC2: when lap is omitted, use current lap (phase.currentLapNumber=1)
-        ResponseEntity<DisplayMatchesResponse> response = restTemplate.getForEntity(
-                baseUrl + "/api/display/overview/matches?token=" + displayDeviceToken,
-                DisplayMatchesResponse.class);
+        ResponseEntity<DisplayMatchesResponse> response =
+                restTemplate.getForEntity(
+                        baseUrl + "/api/display/overview/matches?token=" + displayDeviceToken,
+                        DisplayMatchesResponse.class);
 
         assertThat(response.getStatusCode())
                 .as("AC2 — matches without lap param must use current lap")
@@ -365,9 +435,10 @@ class DisplayOverviewControllerIT {
 
     @Test
     void groupStandingsReturns200WithRankingsInCorrectOrder() {
-        ResponseEntity<DisplayGroupStandingsResponse> response = restTemplate.getForEntity(
-                baseUrl + "/api/display/overview/groups?token=" + displayDeviceToken,
-                DisplayGroupStandingsResponse.class);
+        ResponseEntity<DisplayGroupStandingsResponse> response =
+                restTemplate.getForEntity(
+                        baseUrl + "/api/display/overview/groups?token=" + displayDeviceToken,
+                        DisplayGroupStandingsResponse.class);
 
         assertThat(response.getStatusCode())
                 .as("AC3 — groups endpoint must return 200")
@@ -376,38 +447,26 @@ class DisplayOverviewControllerIT {
         DisplayGroupStandingsResponse body = response.getBody();
         assertThat(body).isNotNull();
         assertThat(body.phaseId()).isEqualTo(phaseId);
-        assertThat(body.groups())
-                .as("AC3 — one group")
-                .hasSize(1);
+        assertThat(body.groups()).as("AC3 — one group").hasSize(1);
 
         DisplayGroupStandingsResponse.GroupStandings group1 = body.groups().get(0);
-        assertThat(group1.groupNumber())
-                .as("AC3 — groupNumber must be 1")
-                .isEqualTo(1);
-        assertThat(group1.rankings())
-                .as("AC3 — two teams in group 1")
-                .hasSize(2);
+        assertThat(group1.groupNumber()).as("AC3 — groupNumber must be 1").isEqualTo(1);
+        assertThat(group1.rankings()).as("AC3 — two teams in group 1").hasSize(2);
 
         // Team Alpha has 3 points → ranks first (D-33: points DESC)
         DisplayGroupStandingsResponse.TeamRanking rank1 = group1.rankings().get(0);
         assertThat(rank1.position())
                 .as("AC3 — D-33: Team Alpha (3 pts) must be position 1")
                 .isEqualTo(1);
-        assertThat(rank1.teamName())
-                .as("AC3 — position 1 must be Team Alpha")
-                .isEqualTo(teamAName);
-        assertThat(rank1.points())
-                .as("AC3 — Team Alpha has 3 points")
-                .isEqualTo(3);
+        assertThat(rank1.teamName()).as("AC3 — position 1 must be Team Alpha").isEqualTo(teamAName);
+        assertThat(rank1.points()).as("AC3 — Team Alpha has 3 points").isEqualTo(3);
 
         // Team Beta has 0 points → ranks second
         DisplayGroupStandingsResponse.TeamRanking rank2 = group1.rankings().get(1);
         assertThat(rank2.position())
                 .as("AC3 — D-33: Team Beta (0 pts) must be position 2")
                 .isEqualTo(2);
-        assertThat(rank2.teamName())
-                .as("AC3 — position 2 must be Team Beta")
-                .isEqualTo(teamBName);
+        assertThat(rank2.teamName()).as("AC3 — position 2 must be Team Beta").isEqualTo(teamBName);
     }
 
     // =========================================================================
@@ -426,7 +485,8 @@ class DisplayOverviewControllerIT {
                 .isEqualTo(HttpStatus.UNAUTHORIZED);
         assertThat(response.getBody().getMessageKey())
                 .as("AC4 — 401 response must include messageKey (AC9)")
-                .isNotNull().isNotBlank();
+                .isNotNull()
+                .isNotBlank();
     }
 
     @Test
@@ -521,9 +581,10 @@ class DisplayOverviewControllerIT {
         phaseRepository.save(phase);
         TenantContextTestHelper.clear(tenantContext);
 
-        ResponseEntity<DisplayPhaseOverviewResponse> response = restTemplate.getForEntity(
-                baseUrl + "/api/display/overview?token=" + displayDeviceToken,
-                DisplayPhaseOverviewResponse.class);
+        ResponseEntity<DisplayPhaseOverviewResponse> response =
+                restTemplate.getForEntity(
+                        baseUrl + "/api/display/overview?token=" + displayDeviceToken,
+                        DisplayPhaseOverviewResponse.class);
 
         assertThat(response.getStatusCode())
                 .as("AC6 — PENDING phase with matches must return 200 (preparationPreview)")
@@ -565,9 +626,12 @@ class DisplayOverviewControllerIT {
 
     @Test
     void postToOverviewEndpointReturns405() {
-        ResponseEntity<Void> response = restTemplate.exchange(
-                baseUrl + "/api/display/overview?token=" + displayDeviceToken,
-                HttpMethod.POST, null, Void.class);
+        ResponseEntity<Void> response =
+                restTemplate.exchange(
+                        baseUrl + "/api/display/overview?token=" + displayDeviceToken,
+                        HttpMethod.POST,
+                        null,
+                        Void.class);
 
         assertThat(response.getStatusCode())
                 .as("AC11 — POST to display overview must return 405")
@@ -576,9 +640,12 @@ class DisplayOverviewControllerIT {
 
     @Test
     void putToOverviewEndpointReturns405() {
-        ResponseEntity<Void> response = restTemplate.exchange(
-                baseUrl + "/api/display/overview?token=" + displayDeviceToken,
-                HttpMethod.PUT, null, Void.class);
+        ResponseEntity<Void> response =
+                restTemplate.exchange(
+                        baseUrl + "/api/display/overview?token=" + displayDeviceToken,
+                        HttpMethod.PUT,
+                        null,
+                        Void.class);
 
         assertThat(response.getStatusCode())
                 .as("AC11 — PUT to display overview must return 405")
@@ -587,9 +654,12 @@ class DisplayOverviewControllerIT {
 
     @Test
     void deleteToOverviewEndpointReturns405() {
-        ResponseEntity<Void> response = restTemplate.exchange(
-                baseUrl + "/api/display/overview?token=" + displayDeviceToken,
-                HttpMethod.DELETE, null, Void.class);
+        ResponseEntity<Void> response =
+                restTemplate.exchange(
+                        baseUrl + "/api/display/overview?token=" + displayDeviceToken,
+                        HttpMethod.DELETE,
+                        null,
+                        Void.class);
 
         assertThat(response.getStatusCode())
                 .as("AC11 — DELETE to display overview must return 405")

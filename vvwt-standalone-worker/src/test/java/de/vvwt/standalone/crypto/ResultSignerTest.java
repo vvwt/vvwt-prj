@@ -1,22 +1,19 @@
 package de.vvwt.standalone.crypto;
 
-import de.vvwt.worker.types.PacketResult;
-import org.junit.jupiter.api.Test;
-
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/**
- * Unit tests for {@link ResultSigner} — canonical byte layout correctness (AC4 of E01S05).
- */
+import de.vvwt.worker.types.PacketResult;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
+
+/** Unit tests for {@link ResultSigner} — canonical byte layout correctness (AC4 of E01S05). */
 class ResultSignerTest {
 
     private static final UUID PACKET_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
-    private static final UUID JOB_ID    = UUID.fromString("22222222-2222-2222-2222-222222222222");
+    private static final UUID JOB_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
     private static final UUID WORKER_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
 
     @Test
@@ -107,7 +104,7 @@ class ResultSignerTest {
     @Test
     void buildCanonicalBytes_deterministic_sameInputSameOutput() {
         PacketResult result = new PacketResult(42L, 1.5, 100L, 999L);
-        byte[] first  = ResultSigner.buildCanonicalBytes(PACKET_ID, JOB_ID, result, WORKER_ID);
+        byte[] first = ResultSigner.buildCanonicalBytes(PACKET_ID, JOB_ID, result, WORKER_ID);
         byte[] second = ResultSigner.buildCanonicalBytes(PACKET_ID, JOB_ID, result, WORKER_ID);
         assertThat(first).isEqualTo(second);
     }

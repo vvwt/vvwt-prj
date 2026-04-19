@@ -1,18 +1,17 @@
 package de.vvwt.tm.tenant.internal;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantDataSourceResolver;
+import java.nio.file.Path;
+import java.util.UUID;
+import javax.sql.DataSource;
 import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.jdbc.core.JdbcTemplate;
-
-import javax.sql.DataSource;
-import java.nio.file.Path;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Integration test for {@link RoutingTenantDataSource} — proves real per-tenant H2 isolation.
@@ -21,10 +20,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * "the isolation claim is only credible if exercised against actual JDBC connections").
  *
  * <p>Acceptance criteria covered:
+ *
  * <ul>
- *   <li>AC2 — data-isolation routing proof: tenant A and B see only their own rows</li>
- *   <li>AC3 — unbound propagation: no tenant bound → typed exception</li>
- *   <li>AC4 — context leak: after exception, context clears to unbound</li>
+ *   <li>AC2 — data-isolation routing proof: tenant A and B see only their own rows
+ *   <li>AC3 — unbound propagation: no tenant bound → typed exception
+ *   <li>AC4 — context leak: after exception, context clears to unbound
  * </ul>
  *
  * <p>Story: E14S03 — DEC-14/DEC-20/DEC-22.
@@ -39,8 +39,8 @@ class RoutingTenantDataSourceIT {
     // -------------------------------------------------------------------------
 
     /**
-     * Creates a real H2 file DataSource at {@code tempDir/tenantId/db.mv.db}.
-     * H2 does NOT use the file extension in the URL — it appends .mv.db itself.
+     * Creates a real H2 file DataSource at {@code tempDir/tenantId/db.mv.db}. H2 does NOT use the
+     * file extension in the URL — it appends .mv.db itself.
      */
     static DataSource h2FileDataSource(Path tempDir, UUID tenantId) {
         Path tenantDir = tempDir.resolve(tenantId.toString());
@@ -65,9 +65,9 @@ class RoutingTenantDataSourceIT {
     // -------------------------------------------------------------------------
 
     /**
-     * AC2: Two tenants (A, B) write distinct marker rows. When reading from A's context,
-     * only A's row is visible. When reading from B's context, only B's row is visible.
-     * Switching context does not leak connections.
+     * AC2: Two tenants (A, B) write distinct marker rows. When reading from A's context, only A's
+     * row is visible. When reading from B's context, only B's row is visible. Switching context
+     * does not leak connections.
      */
     @Test
     void tenantAAndBSeeOnlyTheirOwnRows(@TempDir Path tempDir) {
@@ -100,7 +100,8 @@ class RoutingTenantDataSourceIT {
         // Read from tenant A — must see only A's row
         try (TenantContext.Scope ignored = ctx.bind(TENANT_A)) {
             JdbcTemplate jdbc = new JdbcTemplate(routing);
-            java.util.List<String> rows = jdbc.queryForList("SELECT marker_value FROM marker", String.class);
+            java.util.List<String> rows =
+                    jdbc.queryForList("SELECT marker_value FROM marker", String.class);
             assertThat(rows)
                     .as("Tenant A context must see only tenant A's row (AC2)")
                     .containsExactly("marker-for-tenant-A")
@@ -110,7 +111,8 @@ class RoutingTenantDataSourceIT {
         // Read from tenant B — must see only B's row
         try (TenantContext.Scope ignored = ctx.bind(TENANT_B)) {
             JdbcTemplate jdbc = new JdbcTemplate(routing);
-            java.util.List<String> rows = jdbc.queryForList("SELECT marker_value FROM marker", String.class);
+            java.util.List<String> rows =
+                    jdbc.queryForList("SELECT marker_value FROM marker", String.class);
             assertThat(rows)
                     .as("Tenant B context must see only tenant B's row (AC2)")
                     .containsExactly("marker-for-tenant-B")
@@ -123,8 +125,8 @@ class RoutingTenantDataSourceIT {
     // -------------------------------------------------------------------------
 
     /**
-     * AC3: Attempting JDBC access with no tenant bound must throw the typed exception from
-     * {@code TenantContext.current()} — not a NullPointerException.
+     * AC3: Attempting JDBC access with no tenant bound must throw the typed exception from {@code
+     * TenantContext.current()} — not a NullPointerException.
      */
     @Test
     void jdbcAccessWithNoTenantBoundThrowsTypedException(@TempDir Path tempDir) {

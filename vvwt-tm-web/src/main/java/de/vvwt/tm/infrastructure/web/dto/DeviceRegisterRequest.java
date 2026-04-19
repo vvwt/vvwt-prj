@@ -6,16 +6,19 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 /**
  * Optional request body for POST /api/devices/register (E07S02 AC1).
  *
- * <p>If the body is absent or {@code deviceType} is absent, defaults to
- * {@code SCORING_TABLET} for backward compatibility with E06 tablets (AC6).
+ * <p>If the body is absent or {@code deviceType} is absent, defaults to {@code SCORING_TABLET} for
+ * backward compatibility with E06 tablets (AC6).
  *
  * <p>Valid values for {@code deviceType}:
+ *
  * <ul>
- *   <li>{@code SCORING_TABLET} — creates a device with a generated PIN (default)</li>
- *   <li>{@code DISPLAY} — creates a display device with no PIN (AC1)</li>
+ *   <li>{@code SCORING_TABLET} — creates a device with a generated PIN (default)
+ *   <li>{@code DISPLAY} — creates a display device with no PIN (AC1)
  * </ul>
  *
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E07S02.story.md">Story E07S02</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E07S02.story.md">Story
+ *     E07S02</a>
  */
 public final class DeviceRegisterRequest {
 

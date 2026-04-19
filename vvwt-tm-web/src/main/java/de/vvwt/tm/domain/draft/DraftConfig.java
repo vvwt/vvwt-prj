@@ -2,22 +2,23 @@ package de.vvwt.tm.domain.draft;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.Collections;
 import java.util.List;
 
 /**
  * The draft configuration for a tournament — an ordered list of sections.
  *
- * <p>Each section becomes a {@link de.vvwt.tm.domain.Phase} when the draft is applied (AC5).
- * The draft is a transient planning object: it is stored as a JSON text blob in the
- * {@code tournament.draft_json} column and consumed once during apply. After apply,
- * the Phases are the source of truth.
+ * <p>Each section becomes a {@link de.vvwt.tm.domain.Phase} when the draft is applied (AC5). The
+ * draft is a transient planning object: it is stored as a JSON text blob in the {@code
+ * tournament.draft_json} column and consumed once during apply. After apply, the Phases are the
+ * source of truth.
  *
  * <p>Immutable. Jackson deserializes via the {@link JsonCreator}-annotated constructor.
  *
  * @see DraftSection
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E05S06.story.md">Story E05S06 AC1</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E05S06.story.md">Story
+ *     E05S06 AC1</a>
  */
 public final class DraftConfig {
 

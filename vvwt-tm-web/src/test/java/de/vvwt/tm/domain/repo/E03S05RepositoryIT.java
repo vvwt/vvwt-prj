@@ -1,31 +1,28 @@
 package de.vvwt.tm.domain.repo;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.domain.AuditLogEntry;
 import de.vvwt.tm.domain.Match;
 import de.vvwt.tm.domain.MatchFormat;
-import de.vvwt.tm.domain.MatchOutcome;
 import de.vvwt.tm.domain.MatchState;
 import de.vvwt.tm.domain.Phase;
-import de.vvwt.tm.domain.RoundSnapshot;
 import de.vvwt.tm.domain.SetResult;
 import de.vvwt.tm.domain.SetState;
 import de.vvwt.tm.domain.Team;
 import de.vvwt.tm.domain.TeamAvatar;
-import de.vvwt.tm.domain.TeamAvatarRating;
 import de.vvwt.tm.domain.Tournament;
-import de.vvwt.tm.domain.repo.AuditLogRepository;
-import de.vvwt.tm.domain.repo.MatchOutcomeRepository;
-import de.vvwt.tm.domain.repo.MatchRepository;
-import de.vvwt.tm.domain.repo.PhaseRepository;
-import de.vvwt.tm.domain.repo.RoundSnapshotRepository;
-import de.vvwt.tm.domain.repo.SetResultRepository;
-import de.vvwt.tm.domain.repo.TeamAvatarRatingRepository;
-import de.vvwt.tm.domain.repo.TeamAvatarRepository;
-import de.vvwt.tm.domain.repo.TeamRepository;
-import de.vvwt.tm.domain.repo.TenantContext;
-import de.vvwt.tm.domain.repo.TournamentRepository;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,43 +32,33 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 /**
  * Integration tests for E03S05 — Tenant-scoped repository base layer with runtime guard.
  *
- * <p>Uses the "test" profile: in-memory H2 with all Flyway migrations applied.
- * Tests interact with the full Spring context to verify that:
+ * <p>Uses the "test" profile: in-memory H2 with all Flyway migrations applied. Tests interact with
+ * the full Spring context to verify that:
+ *
  * <ul>
- *   <li>AC1 — TenantContext bean exists and throws when no tenant is set</li>
- *   <li>AC3 — Tenant spoof rejection: saving with wrong tenantId is rejected</li>
- *   <li>AC4 — All 10 concrete repositories exist and are injectable</li>
- *   <li>AC5 — AuditLogRepository: append-only; deleteById throws</li>
- *   <li>AC6 — Guard fires before SQL when TenantContext is not set</li>
- *   <li>AC7 — Tenant spoof rejected on save</li>
- *   <li>AC8 — Normal CRUD: create, read, update, delete round-trip</li>
- *   <li>AC9 — DefaultTenantContextResolver resolves to default tenant (bean exists)</li>
- *   <li>AC10 — Missing context produces clear exception</li>
- *   <li>AC11 — Concurrent threads do not leak context</li>
+ *   <li>AC1 — TenantContext bean exists and throws when no tenant is set
+ *   <li>AC3 — Tenant spoof rejection: saving with wrong tenantId is rejected
+ *   <li>AC4 — All 10 concrete repositories exist and are injectable
+ *   <li>AC5 — AuditLogRepository: append-only; deleteById throws
+ *   <li>AC6 — Guard fires before SQL when TenantContext is not set
+ *   <li>AC7 — Tenant spoof rejected on save
+ *   <li>AC8 — Normal CRUD: create, read, update, delete round-trip
+ *   <li>AC9 — DefaultTenantContextResolver resolves to default tenant (bean exists)
+ *   <li>AC10 — Missing context produces clear exception
+ *   <li>AC11 — Concurrent threads do not leak context
  * </ul>
  *
- * <p><strong>Note on @Transactional:</strong> Most tests are marked @Transactional so that
- * DB mutations are rolled back after each test. The concurrent-thread test (AC11) is NOT
- * @Transactional — it manages its own thread pool and cannot use the test transaction
- * (which is pinned to the main test thread). That test uses direct repo calls with explicit
- * TenantContext setup/teardown.
+ * <p><strong>Note on @Transactional:</strong> Most tests are marked @Transactional so that DB
+ * mutations are rolled back after each test. The concurrent-thread test (AC11) is
+ * NOT @Transactional — it manages its own thread pool and cannot use the test transaction (which is
+ * pinned to the main test thread). That test uses direct repo calls with explicit TenantContext
+ * setup/teardown.
  *
- * @see <a href="../../../../../../.gaai/project/contexts/artefacts/stories/E03S05.story.md">Story E03S05</a>
+ * @see <a href="../../../../../../.gaai/project/contexts/artefacts/stories/E03S05.story.md">Story
+ *     E03S05</a>
  */
 @SpringBootTest(
         classes = TournamentManagerApplication.class,
@@ -93,41 +80,29 @@ class E03S05RepositoryIT {
     // Injected beans
     // -------------------------------------------------------------------------
 
-    @Autowired
-    private TenantContext tenantContext;
+    @Autowired private TenantContext tenantContext;
 
-    @Autowired
-    private TenantContextTestSupport.Binder tenantContextBinder;
+    @Autowired private TenantContextTestSupport.Binder tenantContextBinder;
 
-    @Autowired
-    private TournamentRepository tournamentRepository;
+    @Autowired private TournamentRepository tournamentRepository;
 
-    @Autowired
-    private PhaseRepository phaseRepository;
+    @Autowired private PhaseRepository phaseRepository;
 
-    @Autowired
-    private TeamRepository teamRepository;
+    @Autowired private TeamRepository teamRepository;
 
-    @Autowired
-    private TeamAvatarRepository teamAvatarRepository;
+    @Autowired private TeamAvatarRepository teamAvatarRepository;
 
-    @Autowired
-    private MatchRepository matchRepository;
+    @Autowired private MatchRepository matchRepository;
 
-    @Autowired
-    private SetResultRepository setResultRepository;
+    @Autowired private SetResultRepository setResultRepository;
 
-    @Autowired
-    private MatchOutcomeRepository matchOutcomeRepository;
+    @Autowired private MatchOutcomeRepository matchOutcomeRepository;
 
-    @Autowired
-    private TeamAvatarRatingRepository teamAvatarRatingRepository;
+    @Autowired private TeamAvatarRatingRepository teamAvatarRatingRepository;
 
-    @Autowired
-    private AuditLogRepository auditLogRepository;
+    @Autowired private AuditLogRepository auditLogRepository;
 
-    @Autowired
-    private RoundSnapshotRepository roundSnapshotRepository;
+    @Autowired private RoundSnapshotRepository roundSnapshotRepository;
 
     // -------------------------------------------------------------------------
     // Helpers
@@ -163,7 +138,7 @@ class E03S05RepositoryIT {
         // Unbind both the new tenant::api context (via Binder) and the legacy local holder,
         // so the guard in TenantContext.getTenantId() fires correctly.
         tenantContextBinder.unbind();
-        tenantContext.clear();  // ensure legacy local holder is also cleared
+        tenantContext.clear(); // ensure legacy local holder is also cleared
         try {
             assertThatThrownBy(() -> tenantContext.getTenantId())
                     .isInstanceOf(IllegalStateException.class)
@@ -233,12 +208,19 @@ class E03S05RepositoryIT {
     @Test
     @Transactional
     void tenantSpoofRejectedOnTournamentSave() {
-        UUID otherTenant = UUID.randomUUID();  // not the active tenant
+        UUID otherTenant = UUID.randomUUID(); // not the active tenant
 
-        Tournament spoofed = new Tournament(
-                UUID.randomUUID(), otherTenant, "Spoofed Tournament",
-                MatchFormat.BEST_OF_3.name(), "ruleA", "valA", "genA",
-                "DRAFT", null);
+        Tournament spoofed =
+                new Tournament(
+                        UUID.randomUUID(),
+                        otherTenant,
+                        "Spoofed Tournament",
+                        MatchFormat.BEST_OF_3.name(),
+                        "ruleA",
+                        "valA",
+                        "genA",
+                        "DRAFT",
+                        null);
 
         assertThatThrownBy(() -> tournamentRepository.save(spoofed))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -257,10 +239,17 @@ class E03S05RepositoryIT {
         UUID id = UUID.randomUUID();
 
         // CREATE
-        Tournament created = new Tournament(
-                id, defaultTenantId, "Test Tournament",
-                MatchFormat.BEST_OF_3.name(), "setPoints", "standardVolleyball", "roundRobin",
-                "DRAFT", LocalDateTime.now());
+        Tournament created =
+                new Tournament(
+                        id,
+                        defaultTenantId,
+                        "Test Tournament",
+                        MatchFormat.BEST_OF_3.name(),
+                        "setPoints",
+                        "standardVolleyball",
+                        "roundRobin",
+                        "DRAFT",
+                        LocalDateTime.now());
         Tournament saved = tournamentRepository.save(created);
         assertThat(saved).isNotNull();
 
@@ -311,19 +300,43 @@ class E03S05RepositoryIT {
 
         // Append two audit log entries for the same match + different set indices
         UUID entry1Id = UUID.randomUUID();
-        AuditLogEntry entry1 = new AuditLogEntry(
-                entry1Id, defaultTenantId, matchId, 0,
-                null, null, 15, 10,
-                null, SetState.WINNER1.getLegacyCode(),
-                null, null, LocalDateTime.now(), null, null);
+        AuditLogEntry entry1 =
+                new AuditLogEntry(
+                        entry1Id,
+                        defaultTenantId,
+                        matchId,
+                        0,
+                        null,
+                        null,
+                        15,
+                        10,
+                        null,
+                        SetState.WINNER1.getLegacyCode(),
+                        null,
+                        null,
+                        LocalDateTime.now(),
+                        null,
+                        null);
         auditLogRepository.save(entry1);
 
         UUID entry2Id = UUID.randomUUID();
-        AuditLogEntry entry2 = new AuditLogEntry(
-                entry2Id, defaultTenantId, matchId, 1,
-                null, null, 8, 15,
-                null, SetState.WINNER2.getLegacyCode(),
-                null, null, LocalDateTime.now(), null, null);
+        AuditLogEntry entry2 =
+                new AuditLogEntry(
+                        entry2Id,
+                        defaultTenantId,
+                        matchId,
+                        1,
+                        null,
+                        null,
+                        8,
+                        15,
+                        null,
+                        SetState.WINNER2.getLegacyCode(),
+                        null,
+                        null,
+                        LocalDateTime.now(),
+                        null,
+                        null);
         auditLogRepository.save(entry2);
 
         // Query by matchId + setIndex=0 — should return only entry1
@@ -356,7 +369,8 @@ class E03S05RepositoryIT {
 
         List<TeamAvatar> avatars = teamAvatarRepository.findByPhaseId(phaseId);
         assertThat(avatars).hasSize(2);
-        assertThat(avatars).extracting(TeamAvatar::getId)
+        assertThat(avatars)
+                .extracting(TeamAvatar::getId)
                 .containsExactlyInAnyOrder(avatar1Id, avatar2Id);
     }
 
@@ -387,10 +401,17 @@ class E03S05RepositoryIT {
         UUID avatar2Id = createTeamAvatar(tournamentId, phaseId, team2Id, 1, 2);
         UUID matchId = createMatch(tournamentId, phaseId, avatar1Id, avatar2Id);
 
-        SetResult sr = new SetResult(
-                matchId, 0, defaultTenantId, phaseId,
-                15, 10, SetState.WINNER1.getLegacyCode(),
-                null, null);
+        SetResult sr =
+                new SetResult(
+                        matchId,
+                        0,
+                        defaultTenantId,
+                        phaseId,
+                        15,
+                        10,
+                        SetState.WINNER1.getLegacyCode(),
+                        null,
+                        null);
         setResultRepository.insert(sr);
 
         List<SetResult> results = setResultRepository.findByMatchId(matchId);
@@ -405,7 +426,8 @@ class E03S05RepositoryIT {
 
     @Test
     void defaultTenantContextResolverBeanExists() {
-        // Default tenant was resolved during @BeforeEach via tenantContextBinder.bindDefaultTenant()
+        // Default tenant was resolved during @BeforeEach via
+        // tenantContextBinder.bindDefaultTenant()
         // which calls TenantRegistryPort.getDefault() internally. The non-null defaultTenantId
         // confirms the registry is wired and returns a valid UUID.
         assertThat(defaultTenantId).isNotNull();
@@ -446,39 +468,41 @@ class E03S05RepositoryIT {
 
         List<Throwable> errors = new ArrayList<>();
 
-        Runnable threadA = () -> {
-            try {
-                tenantContext.set(tenantA);
-                bothSet.countDown();
-                bothSet.await();  // wait for both to be set before verifying
-                UUID read = tenantContext.getTenantId();
-                assertThat(read).as("Thread A must see tenantA").isEqualTo(tenantA);
-                bothVerified.countDown();
-            } catch (Throwable t) {
-                errors.add(t);
-                bothSet.countDown();
-                bothVerified.countDown();
-            } finally {
-                tenantContext.clear();
-            }
-        };
+        Runnable threadA =
+                () -> {
+                    try {
+                        tenantContext.set(tenantA);
+                        bothSet.countDown();
+                        bothSet.await(); // wait for both to be set before verifying
+                        UUID read = tenantContext.getTenantId();
+                        assertThat(read).as("Thread A must see tenantA").isEqualTo(tenantA);
+                        bothVerified.countDown();
+                    } catch (Throwable t) {
+                        errors.add(t);
+                        bothSet.countDown();
+                        bothVerified.countDown();
+                    } finally {
+                        tenantContext.clear();
+                    }
+                };
 
-        Runnable threadB = () -> {
-            try {
-                tenantContext.set(tenantB);
-                bothSet.countDown();
-                bothSet.await();
-                UUID read = tenantContext.getTenantId();
-                assertThat(read).as("Thread B must see tenantB").isEqualTo(tenantB);
-                bothVerified.countDown();
-            } catch (Throwable t) {
-                errors.add(t);
-                bothSet.countDown();
-                bothVerified.countDown();
-            } finally {
-                tenantContext.clear();
-            }
-        };
+        Runnable threadB =
+                () -> {
+                    try {
+                        tenantContext.set(tenantB);
+                        bothSet.countDown();
+                        bothSet.await();
+                        UUID read = tenantContext.getTenantId();
+                        assertThat(read).as("Thread B must see tenantB").isEqualTo(tenantB);
+                        bothVerified.countDown();
+                    } catch (Throwable t) {
+                        errors.add(t);
+                        bothSet.countDown();
+                        bothVerified.countDown();
+                    } finally {
+                        tenantContext.clear();
+                    }
+                };
 
         var executor = Executors.newFixedThreadPool(2);
         Future<?> fa = executor.submit(threadA);
@@ -506,7 +530,9 @@ class E03S05RepositoryIT {
             }
         }
         assertThat(found)
-                .as("AC13: TournamentRepository must not expose any method with 'Unscoped' in the name")
+                .as(
+                        "AC13: TournamentRepository must not expose any method with 'Unscoped' in"
+                                + " the name")
                 .isFalse();
     }
 
@@ -516,46 +542,90 @@ class E03S05RepositoryIT {
 
     private UUID createTournament() {
         UUID id = UUID.randomUUID();
-        Tournament t = new Tournament(
-                id, defaultTenantId, "Test Tournament " + id,
-                MatchFormat.BEST_OF_3.name(), "setPoints", "standardVolleyball", "roundRobin",
-                "DRAFT", LocalDateTime.now());
+        Tournament t =
+                new Tournament(
+                        id,
+                        defaultTenantId,
+                        "Test Tournament " + id,
+                        MatchFormat.BEST_OF_3.name(),
+                        "setPoints",
+                        "standardVolleyball",
+                        "roundRobin",
+                        "DRAFT",
+                        LocalDateTime.now());
         tournamentRepository.save(t);
         return id;
     }
 
     private UUID createPhase(UUID tournamentId) {
         UUID id = UUID.randomUUID();
-        Phase p = new Phase(id, defaultTenantId, tournamentId, 1, "Vorrunde", "PENDING", 0,
-                LocalDateTime.now());
+        Phase p =
+                new Phase(
+                        id,
+                        defaultTenantId,
+                        tournamentId,
+                        1,
+                        "Vorrunde",
+                        "PENDING",
+                        0,
+                        LocalDateTime.now());
         phaseRepository.save(p);
         return id;
     }
 
     private UUID createTeam(UUID tournamentId, int teamNumber) {
         UUID id = UUID.randomUUID();
-        Team t = new Team(id, defaultTenantId, tournamentId, teamNumber, "Team " + teamNumber,
-                true, false, false, LocalDateTime.now());
+        Team t =
+                new Team(
+                        id,
+                        defaultTenantId,
+                        tournamentId,
+                        teamNumber,
+                        "Team " + teamNumber,
+                        true,
+                        false,
+                        false,
+                        LocalDateTime.now());
         teamRepository.save(t);
         return id;
     }
 
-    private UUID createTeamAvatar(UUID tournamentId, UUID phaseId, UUID teamId,
-                                   int groupNumber, int groupPosition) {
+    private UUID createTeamAvatar(
+            UUID tournamentId, UUID phaseId, UUID teamId, int groupNumber, int groupPosition) {
         UUID id = UUID.randomUUID();
-        TeamAvatar ta = new TeamAvatar(id, defaultTenantId, tournamentId, phaseId,
-                groupNumber, groupPosition, teamId, null, LocalDateTime.now());
+        TeamAvatar ta =
+                new TeamAvatar(
+                        id,
+                        defaultTenantId,
+                        tournamentId,
+                        phaseId,
+                        groupNumber,
+                        groupPosition,
+                        teamId,
+                        null,
+                        LocalDateTime.now());
         teamAvatarRepository.save(ta);
         return id;
     }
 
-    private UUID createMatch(UUID tournamentId, UUID phaseId,
-                              UUID avatar1Id, UUID avatar2Id) {
+    private UUID createMatch(UUID tournamentId, UUID phaseId, UUID avatar1Id, UUID avatar2Id) {
         UUID id = UUID.randomUUID();
-        Match m = new Match(id, defaultTenantId, tournamentId, phaseId,
-                avatar1Id, avatar2Id,
-                MatchState.OPEN.getLegacyCode(), MatchFormat.BEST_OF_3.getMaxSets(),
-                null, null, null, null, null, LocalDateTime.now());
+        Match m =
+                new Match(
+                        id,
+                        defaultTenantId,
+                        tournamentId,
+                        phaseId,
+                        avatar1Id,
+                        avatar2Id,
+                        MatchState.OPEN.getLegacyCode(),
+                        MatchFormat.BEST_OF_3.getMaxSets(),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
         matchRepository.save(m);
         return id;
     }

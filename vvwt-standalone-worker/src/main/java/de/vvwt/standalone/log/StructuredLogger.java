@@ -3,10 +3,11 @@ package de.vvwt.standalone.log;
 import org.slf4j.Logger;
 
 /**
- * Thin wrapper around an SLF4J {@link Logger} that supports both plain-text and
- * JSON-structured log output, controlled by a {@code jsonMode} flag.
+ * Thin wrapper around an SLF4J {@link Logger} that supports both plain-text and JSON-structured log
+ * output, controlled by a {@code jsonMode} flag.
  *
  * <p>In JSON mode, each log call produces a single-line JSON object:
+ *
  * <pre>{"level":"INFO","event":"...","key1":"value1",...}</pre>
  *
  * <p>In plain mode, the output is a human-readable string delegated to SLF4J.
@@ -21,7 +22,7 @@ public final class StructuredLogger {
     /**
      * Constructs a {@code StructuredLogger}.
      *
-     * @param logger   the backing SLF4J logger
+     * @param logger the backing SLF4J logger
      * @param jsonMode {@code true} to emit single-line JSON; {@code false} for plain text
      */
     public StructuredLogger(Logger logger, boolean jsonMode) {
@@ -32,7 +33,7 @@ public final class StructuredLogger {
     /**
      * Logs an INFO-level event.
      *
-     * @param event   short event tag (e.g., "startup", "packet-pull")
+     * @param event short event tag (e.g., "startup", "packet-pull")
      * @param message human-readable message (used in plain mode)
      * @param kvPairs alternating key/value pairs for JSON fields (must be even count)
      */
@@ -50,7 +51,7 @@ public final class StructuredLogger {
     /**
      * Logs a WARN-level event.
      *
-     * @param event   short event tag
+     * @param event short event tag
      * @param message human-readable message
      * @param kvPairs alternating key/value pairs
      */
@@ -68,7 +69,7 @@ public final class StructuredLogger {
     /**
      * Logs an ERROR-level event.
      *
-     * @param event   short event tag
+     * @param event short event tag
      * @param message human-readable message
      * @param kvPairs alternating key/value pairs
      */
@@ -130,12 +131,12 @@ public final class StructuredLogger {
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
             switch (c) {
-                case '"'  -> sb.append("\\\"");
+                case '"' -> sb.append("\\\"");
                 case '\\' -> sb.append("\\\\");
                 case '\n' -> sb.append("\\n");
                 case '\r' -> sb.append("\\r");
                 case '\t' -> sb.append("\\t");
-                default   -> {
+                default -> {
                     if (c < 0x20) {
                         sb.append(String.format("\\u%04x", (int) c));
                     } else {

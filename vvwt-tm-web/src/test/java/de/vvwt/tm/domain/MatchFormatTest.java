@@ -1,29 +1,29 @@
 package de.vvwt.tm.domain;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.util.OptionalInt;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-
-import java.util.OptionalInt;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for {@link MatchFormat}.
  *
  * <p>Coverage:
+ *
  * <ul>
- *   <li>AC1  — five enum constants exist with correct field values</li>
- *   <li>AC2  — field accessors return correct values including {@code OptionalInt}</li>
- *   <li>AC3  — {@code isTieBreak} helper (AC3 / D-15)</li>
- *   <li>AC4  — {@code deriveMatchState} helper</li>
- *   <li>AC5  — parametrized isTieBreak for every format × outcome combination</li>
- *   <li>AC6  — parametrized deriveMatchState for all formats and edge cases</li>
- *   <li>AC8  — {@code fromPersistedName} fails fast on unknown values</li>
- *   <li>AC9  — invalid helper inputs throw {@link IllegalArgumentException}</li>
- *   <li>AC10 — toString and equality are standard enum semantics</li>
- *   <li>AC11 — public methods validate inputs (no negative counts)</li>
+ *   <li>AC1 — five enum constants exist with correct field values
+ *   <li>AC2 — field accessors return correct values including {@code OptionalInt}
+ *   <li>AC3 — {@code isTieBreak} helper (AC3 / D-15)
+ *   <li>AC4 — {@code deriveMatchState} helper
+ *   <li>AC5 — parametrized isTieBreak for every format × outcome combination
+ *   <li>AC6 — parametrized deriveMatchState for all formats and edge cases
+ *   <li>AC8 — {@code fromPersistedName} fails fast on unknown values
+ *   <li>AC9 — invalid helper inputs throw {@link IllegalArgumentException}
+ *   <li>AC10 — toString and equality are standard enum semantics
+ *   <li>AC11 — public methods validate inputs (no negative counts)
  * </ul>
  */
 class MatchFormatTest {
@@ -82,13 +82,10 @@ class MatchFormatTest {
     // -----------------------------------------------------------------------
 
     /**
-     * AC5 spec:
-     * BEST_OF_1  1:0 → false
-     * BEST_OF_3  2:0 → false, 2:1 → true, 0:2 → false, 1:2 → true
-     * BEST_OF_5  3:0 → false, 3:1 → false, 3:2 → true, 0:3 → false, 1:3 → false, 2:3 → true
-     * BEST_OF_7  4:0 → false, 4:1 → false, 4:2 → false, 4:3 → true,
-     *            0:4 → false, 1:4 → false, 2:4 → false, 3:4 → true
-     * FIXED_2_SETS 2:0, 0:2, 1:1 → all false
+     * AC5 spec: BEST_OF_1 1:0 → false BEST_OF_3 2:0 → false, 2:1 → true, 0:2 → false, 1:2 → true
+     * BEST_OF_5 3:0 → false, 3:1 → false, 3:2 → true, 0:3 → false, 1:3 → false, 2:3 → true
+     * BEST_OF_7 4:0 → false, 4:1 → false, 4:2 → false, 4:3 → true, 0:4 → false, 1:4 → false, 2:4 →
+     * false, 3:4 → true FIXED_2_SETS 2:0, 0:2, 1:1 → all false
      */
     @ParameterizedTest(name = "{0} winner={1} loser={2} → {3}")
     @CsvSource({
@@ -98,7 +95,7 @@ class MatchFormatTest {
         // BEST_OF_3
         "BEST_OF_3, 2, 0, false",
         "BEST_OF_3, 2, 1, true",
-        "BEST_OF_3, 2, 1, true",  // same tie-break regardless of which team won
+        "BEST_OF_3, 2, 1, true", // same tie-break regardless of which team won
         // loser perspective
         "BEST_OF_3, 2, 0, false",
         "BEST_OF_3, 2, 1, true",
@@ -119,7 +116,8 @@ class MatchFormatTest {
         "FIXED_2_SETS, 2, 0, false",
         "FIXED_2_SETS, 1, 1, false"
     })
-    void isTieBreak_parametrized(String formatName, int winnerSets, int loserSets, boolean expected) {
+    void isTieBreak_parametrized(
+            String formatName, int winnerSets, int loserSets, boolean expected) {
         MatchFormat fmt = MatchFormat.valueOf(formatName);
         int setsPlayed = winnerSets + loserSets;
         assertThat(fmt.isTieBreak(setsPlayed, loserSets))
@@ -189,8 +187,7 @@ class MatchFormatTest {
     @Test
     void deriveMatchState_bestOf3_oneOne_oncheck() {
         // set 2 done, still open (set 3 to come)
-        assertThat(MatchFormat.BEST_OF_3.deriveMatchState(1, 1, 2))
-                .isEqualTo(MatchState.ONCHECK);
+        assertThat(MatchFormat.BEST_OF_3.deriveMatchState(1, 1, 2)).isEqualTo(MatchState.ONCHECK);
     }
 
     @Test
@@ -213,8 +210,7 @@ class MatchFormatTest {
 
     @Test
     void deriveMatchState_bestOf5_zeroZero_oncheck() {
-        assertThat(MatchFormat.BEST_OF_5.deriveMatchState(0, 0, 0))
-                .isEqualTo(MatchState.ONCHECK);
+        assertThat(MatchFormat.BEST_OF_5.deriveMatchState(0, 0, 0)).isEqualTo(MatchState.ONCHECK);
     }
 
     @Test
@@ -251,7 +247,8 @@ class MatchFormatTest {
         assertThat(MatchFormat.fromPersistedName("BEST_OF_3")).isEqualTo(MatchFormat.BEST_OF_3);
         assertThat(MatchFormat.fromPersistedName("BEST_OF_5")).isEqualTo(MatchFormat.BEST_OF_5);
         assertThat(MatchFormat.fromPersistedName("BEST_OF_7")).isEqualTo(MatchFormat.BEST_OF_7);
-        assertThat(MatchFormat.fromPersistedName("FIXED_2_SETS")).isEqualTo(MatchFormat.FIXED_2_SETS);
+        assertThat(MatchFormat.fromPersistedName("FIXED_2_SETS"))
+                .isEqualTo(MatchFormat.FIXED_2_SETS);
     }
 
     @Test
@@ -357,8 +354,7 @@ class MatchFormatTest {
     @Test
     void roundTripThroughName_preservesIdentity() {
         for (MatchFormat fmt : MatchFormat.values()) {
-            assertThat(MatchFormat.fromPersistedName(fmt.name()))
-                    .isSameAs(fmt);
+            assertThat(MatchFormat.fromPersistedName(fmt.name())).isSameAs(fmt);
         }
     }
 
@@ -374,7 +370,6 @@ class MatchFormatTest {
 
     @Test
     void deriveMatchState_zeroZeroZero_oncheck() {
-        assertThat(MatchFormat.BEST_OF_5.deriveMatchState(0, 0, 0))
-                .isEqualTo(MatchState.ONCHECK);
+        assertThat(MatchFormat.BEST_OF_5.deriveMatchState(0, 0, 0)).isEqualTo(MatchState.ONCHECK);
     }
 }

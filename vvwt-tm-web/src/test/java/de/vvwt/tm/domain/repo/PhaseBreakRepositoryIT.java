@@ -1,11 +1,19 @@
 package de.vvwt.tm.domain.repo;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.domain.MatchFormat;
 import de.vvwt.tm.domain.Phase;
 import de.vvwt.tm.domain.PhaseBreak;
 import de.vvwt.tm.domain.Tournament;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,28 +23,21 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 /**
  * Integration tests for {@link PhaseBreakRepository} (E08S01 AC3, AC7).
  *
- * <p>Uses the "test" profile: in-memory H2 with all Flyway migrations applied (V1..V12).
- * Tests verify:
+ * <p>Uses the "test" profile: in-memory H2 with all Flyway migrations applied (V1..V12). Tests
+ * verify:
+ *
  * <ul>
- *   <li>AC3 — PhaseBreak entity round-trips through H2 correctly</li>
- *   <li>AC7 — tenant scope: findByPhaseId returns only same-tenant entries</li>
- *   <li>AC7 — guard fires before SQL when TenantContext is not set</li>
- *   <li>AC4 — Tournament.plannedStartTime round-trips through H2 as LocalTime</li>
+ *   <li>AC3 — PhaseBreak entity round-trips through H2 correctly
+ *   <li>AC7 — tenant scope: findByPhaseId returns only same-tenant entries
+ *   <li>AC7 — guard fires before SQL when TenantContext is not set
+ *   <li>AC4 — Tournament.plannedStartTime round-trips through H2 as LocalTime
  * </ul>
  *
- * @see <a href="../../../../../../.gaai/project/contexts/artefacts/stories/E08S01.story.md">Story E08S01</a>
+ * @see <a href="../../../../../../.gaai/project/contexts/artefacts/stories/E08S01.story.md">Story
+ *     E08S01</a>
  */
 @SpringBootTest(
         classes = TournamentManagerApplication.class,
@@ -49,20 +50,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Import(TenantContextTestSupport.class)
 class PhaseBreakRepositoryIT {
 
-    @Autowired
-    private TenantContext tenantContext;
+    @Autowired private TenantContext tenantContext;
 
-    @Autowired
-    private TenantContextTestSupport.Binder tenantContextBinder;
+    @Autowired private TenantContextTestSupport.Binder tenantContextBinder;
 
-    @Autowired
-    private TournamentRepository tournamentRepository;
+    @Autowired private TournamentRepository tournamentRepository;
 
-    @Autowired
-    private PhaseRepository phaseRepository;
+    @Autowired private PhaseRepository phaseRepository;
 
-    @Autowired
-    private PhaseBreakRepository phaseBreakRepository;
+    @Autowired private PhaseBreakRepository phaseBreakRepository;
 
     private UUID tenantId;
     private UUID otherTenantId;
@@ -85,17 +81,31 @@ class PhaseBreakRepositoryIT {
     // =========================================================================
 
     private Tournament createTournament() {
-        Tournament t = new Tournament(
-                UUID.randomUUID(), tenantId, "Test Tournament",
-                MatchFormat.BEST_OF_3.name(), "setPoints", "standardVolleyball",
-                "roundRobin", "DRAFT", LocalDateTime.now());
+        Tournament t =
+                new Tournament(
+                        UUID.randomUUID(),
+                        tenantId,
+                        "Test Tournament",
+                        MatchFormat.BEST_OF_3.name(),
+                        "setPoints",
+                        "standardVolleyball",
+                        "roundRobin",
+                        "DRAFT",
+                        LocalDateTime.now());
         return tournamentRepository.save(t);
     }
 
     private Phase createPhase(UUID tournamentId) {
-        Phase phase = new Phase(
-                UUID.randomUUID(), tenantId, tournamentId, 1, "Vorrunde", "PENDING", 0,
-                LocalDateTime.now());
+        Phase phase =
+                new Phase(
+                        UUID.randomUUID(),
+                        tenantId,
+                        tournamentId,
+                        1,
+                        "Vorrunde",
+                        "PENDING",
+                        0,
+                        LocalDateTime.now());
         return phaseRepository.save(phase);
     }
 
@@ -103,9 +113,7 @@ class PhaseBreakRepositoryIT {
     // AC3 — PhaseBreak entity round-trip
     // =========================================================================
 
-    /**
-     * AC3: PhaseBreak persists and loads back with all fields intact.
-     */
+    /** AC3: PhaseBreak persists and loads back with all fields intact. */
     @Test
     @Transactional
     void saveAndFindById_roundTripsAllFields() {
@@ -126,9 +134,7 @@ class PhaseBreakRepositoryIT {
         assertThat(pb.getTenantId()).isEqualTo(tenantId);
     }
 
-    /**
-     * AC3: PhaseBreak with null label persists correctly (label is nullable).
-     */
+    /** AC3: PhaseBreak with null label persists correctly (label is nullable). */
     @Test
     @Transactional
     void savePhaseBreak_withNullLabel_persists() {
@@ -149,8 +155,8 @@ class PhaseBreakRepositoryIT {
     // =========================================================================
 
     /**
-     * AC7: findByPhaseId returns only phase breaks belonging to the active tenant.
-     * A break inserted with a different tenantId is not visible.
+     * AC7: findByPhaseId returns only phase breaks belonging to the active tenant. A break inserted
+     * with a different tenantId is not visible.
      */
     @Test
     @Transactional
@@ -159,7 +165,8 @@ class PhaseBreakRepositoryIT {
         Phase phase = createPhase(tournament.getId());
 
         // Insert a break for the active tenant
-        PhaseBreak ownBreak = new PhaseBreak(UUID.randomUUID(), tenantId, phase.getId(), 1, 20, "Pause A");
+        PhaseBreak ownBreak =
+                new PhaseBreak(UUID.randomUUID(), tenantId, phase.getId(), 1, 20, "Pause A");
         phaseBreakRepository.save(ownBreak);
 
         // Insert a break with a different tenantId directly via delegate (bypasses guard)
@@ -174,9 +181,7 @@ class PhaseBreakRepositoryIT {
         assertThat(result.get(0).getId()).isEqualTo(ownBreak.getId());
     }
 
-    /**
-     * AC7: calling findByPhaseId without an active tenant context throws IllegalStateException.
-     */
+    /** AC7: calling findByPhaseId without an active tenant context throws IllegalStateException. */
     @Test
     void findByPhaseId_withoutTenantContext_throwsIllegalStateException() {
         tenantContextBinder.unbind();
@@ -190,15 +195,16 @@ class PhaseBreakRepositoryIT {
         }
     }
 
-    /**
-     * AC7: findByPhaseIdAndAfterLapNumber without tenant context throws IllegalStateException.
-     */
+    /** AC7: findByPhaseIdAndAfterLapNumber without tenant context throws IllegalStateException. */
     @Test
     void findByPhaseIdAndAfterLapNumber_withoutTenantContext_throwsIllegalStateException() {
         tenantContextBinder.unbind();
         tenantContext.clear();
         try {
-            assertThatThrownBy(() -> phaseBreakRepository.findByPhaseIdAndAfterLapNumber(UUID.randomUUID(), 1))
+            assertThatThrownBy(
+                            () ->
+                                    phaseBreakRepository.findByPhaseIdAndAfterLapNumber(
+                                            UUID.randomUUID(), 1))
                     .isInstanceOf(IllegalStateException.class);
         } finally {
             tenantId = tenantContextBinder.bindDefaultTenant();
@@ -211,16 +217,28 @@ class PhaseBreakRepositoryIT {
     // =========================================================================
 
     /**
-     * AC4: Tournament.plannedStartTime field persists as LocalTime via H2 TIME column (V11 migration).
+     * AC4: Tournament.plannedStartTime field persists as LocalTime via H2 TIME column (V11
+     * migration).
      */
     @Test
     @Transactional
     void tournament_plannedStartTime_roundTrips() {
         LocalTime startTime = LocalTime.of(9, 30);
-        Tournament tournament = new Tournament(
-                UUID.randomUUID(), tenantId, "Start-Time Test",
-                MatchFormat.BEST_OF_3.name(), "setPoints", "standardVolleyball",
-                "roundRobin", "DRAFT", LocalDateTime.now(), null, 4, 8, startTime);
+        Tournament tournament =
+                new Tournament(
+                        UUID.randomUUID(),
+                        tenantId,
+                        "Start-Time Test",
+                        MatchFormat.BEST_OF_3.name(),
+                        "setPoints",
+                        "standardVolleyball",
+                        "roundRobin",
+                        "DRAFT",
+                        LocalDateTime.now(),
+                        null,
+                        4,
+                        8,
+                        startTime);
         tournamentRepository.save(tournament);
 
         Optional<Tournament> loaded = tournamentRepository.findById(tournament.getId());
@@ -234,10 +252,21 @@ class PhaseBreakRepositoryIT {
     @Test
     @Transactional
     void tournament_plannedStartTime_nullableByDefault() {
-        Tournament tournament = new Tournament(
-                UUID.randomUUID(), tenantId, "No Start Time",
-                MatchFormat.BEST_OF_3.name(), "setPoints", "standardVolleyball",
-                "roundRobin", "DRAFT", LocalDateTime.now(), null, 3, 6, null);
+        Tournament tournament =
+                new Tournament(
+                        UUID.randomUUID(),
+                        tenantId,
+                        "No Start Time",
+                        MatchFormat.BEST_OF_3.name(),
+                        "setPoints",
+                        "standardVolleyball",
+                        "roundRobin",
+                        "DRAFT",
+                        LocalDateTime.now(),
+                        null,
+                        3,
+                        6,
+                        null);
         tournamentRepository.save(tournament);
 
         Optional<Tournament> loaded = tournamentRepository.findById(tournament.getId());

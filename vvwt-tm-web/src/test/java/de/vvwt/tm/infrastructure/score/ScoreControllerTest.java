@@ -1,5 +1,8 @@
 package de.vvwt.tm.infrastructure.score;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.Locale;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -8,16 +11,11 @@ import org.springframework.context.support.StaticMessageSource;
 import org.springframework.ui.ConcurrentModel;
 import org.springframework.ui.Model;
 
-import java.util.Locale;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
 /**
  * Unit tests for {@link ScoreController}.
  *
- * <p>Story E06S02 — AC3, AC9, AC10.
- * Tests are isolated (no Spring context) to verify model population, view name,
- * and i18n message resolution independently of infrastructure.
+ * <p>Story E06S02 — AC3, AC9, AC10. Tests are isolated (no Spring context) to verify model
+ * population, view name, and i18n message resolution independently of infrastructure.
  */
 @DisplayName("ScoreController unit tests")
 class ScoreControllerTest {
@@ -28,25 +26,28 @@ class ScoreControllerTest {
     @BeforeEach
     void setUp() {
         messageSource = new StaticMessageSource();
-        // Register messages for the JVM default locale (may be de_DE in CI/local), ROOT, and ENGLISH
+        // Register messages for the JVM default locale (may be de_DE in CI/local), ROOT, and
+        // ENGLISH
         // to ensure the controller's MessageSource.getMessage() finds the key regardless of locale.
         Locale jvmDefault = Locale.getDefault();
-        for (Locale locale : new Locale[]{Locale.ROOT, Locale.ENGLISH, jvmDefault}) {
-            messageSource.addMessage("score.hello.title",         locale, "Test Title");
-            messageSource.addMessage("score.hello.heading",       locale, "Test Heading");
-            messageSource.addMessage("score.hello.description",   locale, "Test Description");
+        for (Locale locale : new Locale[] {Locale.ROOT, Locale.ENGLISH, jvmDefault}) {
+            messageSource.addMessage("score.hello.title", locale, "Test Title");
+            messageSource.addMessage("score.hello.heading", locale, "Test Heading");
+            messageSource.addMessage("score.hello.description", locale, "Test Description");
             messageSource.addMessage("score.hello.version.label", locale, "Version");
             // E06S04 register page keys
-            messageSource.addMessage("score.register.title",             locale, "Test Register Title");
-            messageSource.addMessage("score.register.heading",           locale, "Test Register Heading");
-            messageSource.addMessage("score.register.registering",       locale, "Registering...");
-            messageSource.addMessage("score.register.waiting",           locale, "Waiting...");
-            messageSource.addMessage("score.register.pin.instruction",   locale, "Tell PIN to organizer");
-            messageSource.addMessage("score.register.polling",           locale, "Being assigned...");
-            messageSource.addMessage("score.register.error.registration", locale, "Registration failed.");
-            messageSource.addMessage("score.register.error.network",     locale, "Network error.");
-            messageSource.addMessage("score.register.retry",             locale, "Retry");
-            messageSource.addMessage("score.register.version.label",     locale, "Version");
+            messageSource.addMessage("score.register.title", locale, "Test Register Title");
+            messageSource.addMessage("score.register.heading", locale, "Test Register Heading");
+            messageSource.addMessage("score.register.registering", locale, "Registering...");
+            messageSource.addMessage("score.register.waiting", locale, "Waiting...");
+            messageSource.addMessage(
+                    "score.register.pin.instruction", locale, "Tell PIN to organizer");
+            messageSource.addMessage("score.register.polling", locale, "Being assigned...");
+            messageSource.addMessage(
+                    "score.register.error.registration", locale, "Registration failed.");
+            messageSource.addMessage("score.register.error.network", locale, "Network error.");
+            messageSource.addMessage("score.register.retry", locale, "Retry");
+            messageSource.addMessage("score.register.version.label", locale, "Version");
         }
 
         controller = new ScoreController(messageSource, null);
@@ -230,7 +231,9 @@ class ScoreControllerTest {
     // -----------------------------------------------------------------------
 
     @Test
-    @DisplayName("E06S04 AC10: missing MessageSource key for register page falls back to default without exception")
+    @DisplayName(
+            "E06S04 AC10: missing MessageSource key for register page falls back to default without"
+                    + " exception")
     void registerPage_missingMessageKeyFallsBackToDefault() {
         MessageSource emptySource = new StaticMessageSource();
         ScoreController controllerWithEmptySource = new ScoreController(emptySource, null);
@@ -250,32 +253,32 @@ class ScoreControllerTest {
 
     private void registerFieldPageMessages() {
         Locale jvmDefault = Locale.getDefault();
-        for (Locale locale : new Locale[]{Locale.ROOT, Locale.ENGLISH, jvmDefault}) {
-            messageSource.addMessage("score.field.title",               locale, "Test Field Title");
-            messageSource.addMessage("score.field.heading",             locale, "Scoring Tablet");
-            messageSource.addMessage("score.field.field.label",         locale, "Field");
-            messageSource.addMessage("score.field.no.match",            locale, "No match");
-            messageSource.addMessage("score.field.lap.label",           locale, "Round");
-            messageSource.addMessage("score.field.set.label",           locale, "Set");
-            messageSource.addMessage("score.field.vs.label",            locale, "vs.");
-            messageSource.addMessage("score.field.referee.label",       locale, "Referee");
-            messageSource.addMessage("score.field.team1.label",         locale, "Team 1");
-            messageSource.addMessage("score.field.team2.label",         locale, "Team 2");
-            messageSource.addMessage("score.field.plus.label",          locale, "+");
-            messageSource.addMessage("score.field.minus.label",         locale, "-");
-            messageSource.addMessage("score.field.confirm.heading",     locale, "Confirm set result");
-            messageSource.addMessage("score.field.confirm.prompt",      locale, "Final score?");
-            messageSource.addMessage("score.field.confirm.yes",         locale, "Confirm");
-            messageSource.addMessage("score.field.confirm.no",          locale, "Cancel");
-            messageSource.addMessage("score.field.loading",             locale, "Loading...");
-            messageSource.addMessage("score.field.error.network",       locale, "Network error.");
-            messageSource.addMessage("score.field.error.token",         locale, "Token error.");
-            messageSource.addMessage("score.field.error.forbidden",     locale, "Forbidden.");
-            messageSource.addMessage("score.field.error.validation",    locale, "Validation error.");
-            messageSource.addMessage("score.field.submit.success",      locale, "Saved.");
-            messageSource.addMessage("score.field.queue.pending",       locale, "Saving...");
-            messageSource.addMessage("score.field.queue.saved",         locale, "Saved.");
-            messageSource.addMessage("score.field.version.label",       locale, "Version");
+        for (Locale locale : new Locale[] {Locale.ROOT, Locale.ENGLISH, jvmDefault}) {
+            messageSource.addMessage("score.field.title", locale, "Test Field Title");
+            messageSource.addMessage("score.field.heading", locale, "Scoring Tablet");
+            messageSource.addMessage("score.field.field.label", locale, "Field");
+            messageSource.addMessage("score.field.no.match", locale, "No match");
+            messageSource.addMessage("score.field.lap.label", locale, "Round");
+            messageSource.addMessage("score.field.set.label", locale, "Set");
+            messageSource.addMessage("score.field.vs.label", locale, "vs.");
+            messageSource.addMessage("score.field.referee.label", locale, "Referee");
+            messageSource.addMessage("score.field.team1.label", locale, "Team 1");
+            messageSource.addMessage("score.field.team2.label", locale, "Team 2");
+            messageSource.addMessage("score.field.plus.label", locale, "+");
+            messageSource.addMessage("score.field.minus.label", locale, "-");
+            messageSource.addMessage("score.field.confirm.heading", locale, "Confirm set result");
+            messageSource.addMessage("score.field.confirm.prompt", locale, "Final score?");
+            messageSource.addMessage("score.field.confirm.yes", locale, "Confirm");
+            messageSource.addMessage("score.field.confirm.no", locale, "Cancel");
+            messageSource.addMessage("score.field.loading", locale, "Loading...");
+            messageSource.addMessage("score.field.error.network", locale, "Network error.");
+            messageSource.addMessage("score.field.error.token", locale, "Token error.");
+            messageSource.addMessage("score.field.error.forbidden", locale, "Forbidden.");
+            messageSource.addMessage("score.field.error.validation", locale, "Validation error.");
+            messageSource.addMessage("score.field.submit.success", locale, "Saved.");
+            messageSource.addMessage("score.field.queue.pending", locale, "Saving...");
+            messageSource.addMessage("score.field.queue.saved", locale, "Saved.");
+            messageSource.addMessage("score.field.version.label", locale, "Version");
         }
     }
 

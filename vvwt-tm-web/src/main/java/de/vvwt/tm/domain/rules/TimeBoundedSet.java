@@ -8,16 +8,16 @@ import org.springframework.stereotype.Component;
 /**
  * Time-bounded set-validation rule (AC4, H-8).
  *
- * <p>Beta tournament variant: a set can be closed at any point score as long as
- * the winning team leads by at least 1 point (no tie at set end). Sets are ended
- * by a referee whistle based on a fixed time duration rather than a point target.
+ * <p>Beta tournament variant: a set can be closed at any point score as long as the winning team
+ * leads by at least 1 point (no tie at set end). Sets are ended by a referee whistle based on a
+ * fixed time duration rather than a point target.
  *
- * <p>The {@code setIndex} and {@code format} parameters are accepted but ignored —
- * time-based sets are format-independent. {@code format} must still not be {@code null}
- * (interface contract compliance; AC11).
+ * <p>The {@code setIndex} and {@code format} parameters are accepted but ignored — time-based sets
+ * are format-independent. {@code format} must still not be {@code null} (interface contract
+ * compliance; AC11).
  *
- * <p>The Spring bean name {@code "timeBounded"} is the identifier stored in
- * {@code Tournament.set_validation_rule_id} and used for registry lookup.
+ * <p>The Spring bean name {@code "timeBounded"} is the identifier stored in {@code
+ * Tournament.set_validation_rule_id} and used for registry lookup.
  *
  * <p>This class is stateless and thread-safe.
  */
@@ -31,14 +31,15 @@ public class TimeBoundedSet implements SetValidationRule {
     /**
      * {@inheritDoc}
      *
-     * <p>Logic: the set is closed if {@code team1Pts != team2Pts} (at least 1-point lead).
-     * The leader wins. If scores are equal the set cannot be closed.
+     * <p>Logic: the set is closed if {@code team1Pts != team2Pts} (at least 1-point lead). The
+     * leader wins. If scores are equal the set cannot be closed.
      *
-     * @throws IllegalArgumentException if {@code format} is {@code null} or if either
-     *         point count is negative
+     * @throws IllegalArgumentException if {@code format} is {@code null} or if either point count
+     *     is negative
      */
     @Override
-    public ValidationResult isSetClosed(int team1Pts, int team2Pts, int setIndex, MatchFormat format) {
+    public ValidationResult isSetClosed(
+            int team1Pts, int team2Pts, int setIndex, MatchFormat format) {
         validateInputs(team1Pts, team2Pts, format);
 
         ValidationResult result;
@@ -51,9 +52,15 @@ public class TimeBoundedSet implements SetValidationRule {
             result = ValidationResult.open("tied");
         }
 
-        log.debug("{} decision for ({},{}) set={} format={}: closed={} reason='{}'",
-                BEAN_ID, team1Pts, team2Pts, setIndex, format,
-                result.isClosed(), result.getReason());
+        log.debug(
+                "{} decision for ({},{}) set={} format={}: closed={} reason='{}'",
+                BEAN_ID,
+                team1Pts,
+                team2Pts,
+                setIndex,
+                format,
+                result.isClosed(),
+                result.getReason());
 
         return result;
     }
@@ -73,12 +80,10 @@ public class TimeBoundedSet implements SetValidationRule {
             throw new IllegalArgumentException("format must not be null");
         }
         if (team1Pts < 0) {
-            throw new IllegalArgumentException(
-                    "team1Pts must be >= 0, got: " + team1Pts);
+            throw new IllegalArgumentException("team1Pts must be >= 0, got: " + team1Pts);
         }
         if (team2Pts < 0) {
-            throw new IllegalArgumentException(
-                    "team2Pts must be >= 0, got: " + team2Pts);
+            throw new IllegalArgumentException("team2Pts must be >= 0, got: " + team2Pts);
         }
     }
 }

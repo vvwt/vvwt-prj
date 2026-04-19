@@ -1,25 +1,5 @@
 package de.vvwt.tm.domain.certificate;
 
-import de.vvwt.tm.domain.Tournament;
-import de.vvwt.tm.domain.repo.CertificateTemplateRepository;
-import de.vvwt.tm.domain.repo.TournamentRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.mockito.Mockito;
-
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.Instant;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Optional;
-import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,20 +7,38 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import de.vvwt.tm.domain.Tournament;
+import de.vvwt.tm.domain.repo.CertificateTemplateRepository;
+import de.vvwt.tm.domain.repo.TournamentRepository;
+import java.io.ByteArrayInputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Optional;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.mockito.Mockito;
+
 /**
  * Unit tests for {@link CertificateTemplateServiceImpl} (E12S04).
  *
- * <p>Tests validation logic, filesystem storage, H2 repository delegation, and error paths
- * without requiring a Spring context or real database. All dependencies are mocked.
+ * <p>Tests validation logic, filesystem storage, H2 repository delegation, and error paths without
+ * requiring a Spring context or real database. All dependencies are mocked.
  *
  * @see CertificateTemplateServiceImpl
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E12S04.story.md">Story E12S04</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E12S04.story.md">Story
+ *     E12S04</a>
  */
 @DisplayName("CertificateTemplateServiceImpl unit tests — E12S04")
 class CertificateTemplateServiceImplTest {
 
-    @TempDir
-    Path tempDir;
+    @TempDir Path tempDir;
 
     private CertificateTemplateStorageConfig config;
     private TournamentRepository tournamentRepo;
@@ -49,13 +47,14 @@ class CertificateTemplateServiceImplTest {
 
     private static final UUID TOURNAMENT_ID = UUID.randomUUID();
     private static final byte[] SAMPLE_HTML = "<html><body>{{teamName}}</body></html>".getBytes();
-    private static final byte[] SAMPLE_SVG = "<svg xmlns='http://www.w3.org/2000/svg'><text>{{placement}}</text></svg>".getBytes();
+    private static final byte[] SAMPLE_SVG =
+            "<svg xmlns='http://www.w3.org/2000/svg'><text>{{placement}}</text></svg>".getBytes();
 
     @BeforeEach
     void setUp() {
         config = new CertificateTemplateStorageConfig();
         config.setDataDir(tempDir.toString());
-        config.setMaxSizeBytes(2L * 1024 * 1024);  // 2 MB
+        config.setMaxSizeBytes(2L * 1024 * 1024); // 2 MB
 
         tournamentRepo = Mockito.mock(TournamentRepository.class);
         templateRepo = Mockito.mock(CertificateTemplateRepository.class);
@@ -77,9 +76,12 @@ class CertificateTemplateServiceImplTest {
     @Test
     @DisplayName("AC1: Upload HTML template stores file and returns metadata")
     void uploadHtmlTemplate_storesFileAndReturnsMetadata() {
-        CertificateTemplateMetadata result = service.upload(
-                TOURNAMENT_ID, "my-certificate.html",
-                new ByteArrayInputStream(SAMPLE_HTML), SAMPLE_HTML.length);
+        CertificateTemplateMetadata result =
+                service.upload(
+                        TOURNAMENT_ID,
+                        "my-certificate.html",
+                        new ByteArrayInputStream(SAMPLE_HTML),
+                        SAMPLE_HTML.length);
 
         assertThat(result.tournamentId()).isEqualTo(TOURNAMENT_ID);
         assertThat(result.filename()).isEqualTo("my-certificate.html");
@@ -88,8 +90,8 @@ class CertificateTemplateServiceImplTest {
         assertThat(result.uploadedAt()).isNotNull();
 
         // File must exist on filesystem
-        Path storedFile = tempDir.resolve(TOURNAMENT_ID.toString())
-                .resolve("certificate-template.html");
+        Path storedFile =
+                tempDir.resolve(TOURNAMENT_ID.toString()).resolve("certificate-template.html");
         assertThat(storedFile).exists();
 
         // Repository must be called with the metadata
@@ -103,15 +105,18 @@ class CertificateTemplateServiceImplTest {
     @Test
     @DisplayName("AC1: Upload SVG template stores file and returns metadata")
     void uploadSvgTemplate_storesFileAndReturnsMetadata() {
-        CertificateTemplateMetadata result = service.upload(
-                TOURNAMENT_ID, "certificate.svg",
-                new ByteArrayInputStream(SAMPLE_SVG), SAMPLE_SVG.length);
+        CertificateTemplateMetadata result =
+                service.upload(
+                        TOURNAMENT_ID,
+                        "certificate.svg",
+                        new ByteArrayInputStream(SAMPLE_SVG),
+                        SAMPLE_SVG.length);
 
         assertThat(result.format()).isEqualTo("svg");
         assertThat(result.filename()).isEqualTo("certificate.svg");
 
-        Path storedFile = tempDir.resolve(TOURNAMENT_ID.toString())
-                .resolve("certificate-template.svg");
+        Path storedFile =
+                tempDir.resolve(TOURNAMENT_ID.toString()).resolve("certificate-template.svg");
         assertThat(storedFile).exists();
     }
 
@@ -123,21 +128,27 @@ class CertificateTemplateServiceImplTest {
     @DisplayName("AC4: Second upload replaces the existing HTML template")
     void uploadSecondTime_replacesExistingTemplate() throws Exception {
         // Upload initial HTML
-        service.upload(TOURNAMENT_ID, "v1.html",
-                new ByteArrayInputStream(SAMPLE_HTML), SAMPLE_HTML.length);
+        service.upload(
+                TOURNAMENT_ID,
+                "v1.html",
+                new ByteArrayInputStream(SAMPLE_HTML),
+                SAMPLE_HTML.length);
 
         // Upload replacement
         byte[] updatedContent = "<html><body>Updated {{teamName}}</body></html>".getBytes();
-        CertificateTemplateMetadata result = service.upload(
-                TOURNAMENT_ID, "v2.html",
-                new ByteArrayInputStream(updatedContent), updatedContent.length);
+        CertificateTemplateMetadata result =
+                service.upload(
+                        TOURNAMENT_ID,
+                        "v2.html",
+                        new ByteArrayInputStream(updatedContent),
+                        updatedContent.length);
 
         assertThat(result.filename()).isEqualTo("v2.html");
         assertThat(result.fileSizeBytes()).isEqualTo(updatedContent.length);
 
         // Only one file should exist
-        Path htmlFile = tempDir.resolve(TOURNAMENT_ID.toString())
-                .resolve("certificate-template.html");
+        Path htmlFile =
+                tempDir.resolve(TOURNAMENT_ID.toString()).resolve("certificate-template.html");
         assertThat(htmlFile).exists();
 
         // Content must be updated
@@ -148,26 +159,27 @@ class CertificateTemplateServiceImplTest {
     @DisplayName("AC4: Replacing HTML with SVG deletes the old HTML file")
     void uploadSvgReplacingHtml_deletesHtmlFile() throws Exception {
         // Upload initial HTML (directly write file to simulate existing)
-        Path htmlFile = tempDir.resolve(TOURNAMENT_ID.toString())
-                .resolve("certificate-template.html");
+        Path htmlFile =
+                tempDir.resolve(TOURNAMENT_ID.toString()).resolve("certificate-template.html");
         Files.createDirectories(htmlFile.getParent());
         Files.write(htmlFile, SAMPLE_HTML);
 
         // Mock that repository knows about the HTML
-        CertificateTemplateMetadata existingMeta = new CertificateTemplateMetadata(
-                TOURNAMENT_ID, "old.html", "html", Instant.now(), SAMPLE_HTML.length);
+        CertificateTemplateMetadata existingMeta =
+                new CertificateTemplateMetadata(
+                        TOURNAMENT_ID, "old.html", "html", Instant.now(), SAMPLE_HTML.length);
         when(templateRepo.findByTournamentId(TOURNAMENT_ID)).thenReturn(Optional.of(existingMeta));
 
         // Now upload SVG
-        service.upload(TOURNAMENT_ID, "new.svg",
-                new ByteArrayInputStream(SAMPLE_SVG), SAMPLE_SVG.length);
+        service.upload(
+                TOURNAMENT_ID, "new.svg", new ByteArrayInputStream(SAMPLE_SVG), SAMPLE_SVG.length);
 
         // HTML file must be deleted
         assertThat(htmlFile).doesNotExist();
 
         // SVG file must exist
-        Path svgFile = tempDir.resolve(TOURNAMENT_ID.toString())
-                .resolve("certificate-template.svg");
+        Path svgFile =
+                tempDir.resolve(TOURNAMENT_ID.toString()).resolve("certificate-template.svg");
         assertThat(svgFile).exists();
     }
 
@@ -178,9 +190,13 @@ class CertificateTemplateServiceImplTest {
     @Test
     @DisplayName("AC7: Upload .pdf returns CertificateTemplateFormatException")
     void uploadPdf_throwsFormatException() {
-        assertThatThrownBy(() ->
-                service.upload(TOURNAMENT_ID, "cert.pdf",
-                        new ByteArrayInputStream(SAMPLE_HTML), SAMPLE_HTML.length))
+        assertThatThrownBy(
+                        () ->
+                                service.upload(
+                                        TOURNAMENT_ID,
+                                        "cert.pdf",
+                                        new ByteArrayInputStream(SAMPLE_HTML),
+                                        SAMPLE_HTML.length))
                 .isInstanceOf(CertificateTemplateFormatException.class)
                 .hasMessageContaining(".html")
                 .hasMessageContaining(".svg");
@@ -191,21 +207,30 @@ class CertificateTemplateServiceImplTest {
     @Test
     @DisplayName("AC7: Upload null filename throws CertificateTemplateFormatException")
     void uploadNullFilename_throwsFormatException() {
-        assertThatThrownBy(() ->
-                service.upload(TOURNAMENT_ID, null,
-                        new ByteArrayInputStream(SAMPLE_HTML), SAMPLE_HTML.length))
+        assertThatThrownBy(
+                        () ->
+                                service.upload(
+                                        TOURNAMENT_ID,
+                                        null,
+                                        new ByteArrayInputStream(SAMPLE_HTML),
+                                        SAMPLE_HTML.length))
                 .isInstanceOf(CertificateTemplateFormatException.class);
     }
 
     @Test
-    @DisplayName("AC7: Upload SVG file with HTML extension does not fail format check (extension-based, V1)")
+    @DisplayName(
+            "AC7: Upload SVG file with HTML extension does not fail format check (extension-based,"
+                    + " V1)")
     void uploadHtmlExtension_acceptsAnyNonEmptyContent() {
         // V1: format validation is extension-based, not deep content inspection
         // HTML extension + any non-empty content is accepted
         byte[] content = "not really html but non-empty".getBytes();
-        CertificateTemplateMetadata result = service.upload(
-                TOURNAMENT_ID, "whatever.html",
-                new ByteArrayInputStream(content), content.length);
+        CertificateTemplateMetadata result =
+                service.upload(
+                        TOURNAMENT_ID,
+                        "whatever.html",
+                        new ByteArrayInputStream(content),
+                        content.length);
         assertThat(result.format()).isEqualTo("html");
     }
 
@@ -213,9 +238,13 @@ class CertificateTemplateServiceImplTest {
     @DisplayName("AC7: Upload SVG with invalid content throws CertificateTemplateFormatException")
     void uploadSvgWithInvalidContent_throwsFormatException() {
         byte[] invalidSvg = "This is not an SVG file at all".getBytes();
-        assertThatThrownBy(() ->
-                service.upload(TOURNAMENT_ID, "bad.svg",
-                        new ByteArrayInputStream(invalidSvg), invalidSvg.length))
+        assertThatThrownBy(
+                        () ->
+                                service.upload(
+                                        TOURNAMENT_ID,
+                                        "bad.svg",
+                                        new ByteArrayInputStream(invalidSvg),
+                                        invalidSvg.length))
                 .isInstanceOf(CertificateTemplateFormatException.class)
                 .hasMessageContaining("valid SVG");
     }
@@ -224,18 +253,22 @@ class CertificateTemplateServiceImplTest {
     @DisplayName("AC7: SVG starting with <?xml is accepted")
     void uploadSvgWithXmlDeclaration_isAccepted() {
         byte[] xmlSvg = "<?xml version='1.0'?><svg><text>{{placement}}</text></svg>".getBytes();
-        CertificateTemplateMetadata result = service.upload(
-                TOURNAMENT_ID, "cert.svg",
-                new ByteArrayInputStream(xmlSvg), xmlSvg.length);
+        CertificateTemplateMetadata result =
+                service.upload(
+                        TOURNAMENT_ID, "cert.svg", new ByteArrayInputStream(xmlSvg), xmlSvg.length);
         assertThat(result.format()).isEqualTo("svg");
     }
 
     @Test
     @DisplayName("AC7: Empty file throws CertificateTemplateFormatException")
     void uploadEmptyFile_throwsFormatException() {
-        assertThatThrownBy(() ->
-                service.upload(TOURNAMENT_ID, "empty.html",
-                        new ByteArrayInputStream(new byte[0]), 0))
+        assertThatThrownBy(
+                        () ->
+                                service.upload(
+                                        TOURNAMENT_ID,
+                                        "empty.html",
+                                        new ByteArrayInputStream(new byte[0]),
+                                        0))
                 .isInstanceOf(CertificateTemplateFormatException.class)
                 .hasMessageContaining("empty");
     }
@@ -248,9 +281,13 @@ class CertificateTemplateServiceImplTest {
     @DisplayName("AC7: File exceeding 2 MB limit throws CertificateTemplateSizeException")
     void uploadOversizedFile_throwsSizeException() {
         long oversizedBytes = 2L * 1024 * 1024 + 1; // 1 byte over 2 MB
-        assertThatThrownBy(() ->
-                service.upload(TOURNAMENT_ID, "big.html",
-                        new ByteArrayInputStream(SAMPLE_HTML), oversizedBytes))
+        assertThatThrownBy(
+                        () ->
+                                service.upload(
+                                        TOURNAMENT_ID,
+                                        "big.html",
+                                        new ByteArrayInputStream(SAMPLE_HTML),
+                                        oversizedBytes))
                 .isInstanceOf(CertificateTemplateSizeException.class)
                 .hasMessageContaining("too large");
     }
@@ -260,9 +297,12 @@ class CertificateTemplateServiceImplTest {
     void uploadFileAtExactLimit_isAccepted() {
         // sizeBytes == maxSizeBytes is OK (not strictly greater than)
         long exactLimit = 2L * 1024 * 1024;
-        CertificateTemplateMetadata result = service.upload(
-                TOURNAMENT_ID, "limit.html",
-                new ByteArrayInputStream(SAMPLE_HTML), exactLimit);
+        CertificateTemplateMetadata result =
+                service.upload(
+                        TOURNAMENT_ID,
+                        "limit.html",
+                        new ByteArrayInputStream(SAMPLE_HTML),
+                        exactLimit);
         assertThat(result).isNotNull();
     }
 
@@ -274,36 +314,43 @@ class CertificateTemplateServiceImplTest {
     @DisplayName("AC2: Retrieve returns inputStream and correct content-type for HTML")
     void retrieveHtmlFile_returnsCorrectContentType() throws Exception {
         // Upload first
-        service.upload(TOURNAMENT_ID, "cert.html",
-                new ByteArrayInputStream(SAMPLE_HTML), SAMPLE_HTML.length);
+        service.upload(
+                TOURNAMENT_ID,
+                "cert.html",
+                new ByteArrayInputStream(SAMPLE_HTML),
+                SAMPLE_HTML.length);
 
-        CertificateTemplateMetadata meta = new CertificateTemplateMetadata(
-                TOURNAMENT_ID, "cert.html", "html", Instant.now(), SAMPLE_HTML.length);
+        CertificateTemplateMetadata meta =
+                new CertificateTemplateMetadata(
+                        TOURNAMENT_ID, "cert.html", "html", Instant.now(), SAMPLE_HTML.length);
         when(templateRepo.findByTournamentId(TOURNAMENT_ID)).thenReturn(Optional.of(meta));
 
         Optional<CertificateTemplateService.TemplateFile> result =
                 service.retrieveFile(TOURNAMENT_ID);
 
         assertThat(result).isPresent();
-        assertThat(result.get().contentType()).isEqualTo(CertificateTemplateServiceImpl.CONTENT_TYPE_HTML);
+        assertThat(result.get().contentType())
+                .isEqualTo(CertificateTemplateServiceImpl.CONTENT_TYPE_HTML);
         result.get().inputStream().close();
     }
 
     @Test
     @DisplayName("AC2: Retrieve returns image/svg+xml for SVG")
     void retrieveSvgFile_returnsSvgContentType() throws Exception {
-        service.upload(TOURNAMENT_ID, "cert.svg",
-                new ByteArrayInputStream(SAMPLE_SVG), SAMPLE_SVG.length);
+        service.upload(
+                TOURNAMENT_ID, "cert.svg", new ByteArrayInputStream(SAMPLE_SVG), SAMPLE_SVG.length);
 
-        CertificateTemplateMetadata meta = new CertificateTemplateMetadata(
-                TOURNAMENT_ID, "cert.svg", "svg", Instant.now(), SAMPLE_SVG.length);
+        CertificateTemplateMetadata meta =
+                new CertificateTemplateMetadata(
+                        TOURNAMENT_ID, "cert.svg", "svg", Instant.now(), SAMPLE_SVG.length);
         when(templateRepo.findByTournamentId(TOURNAMENT_ID)).thenReturn(Optional.of(meta));
 
         Optional<CertificateTemplateService.TemplateFile> result =
                 service.retrieveFile(TOURNAMENT_ID);
 
         assertThat(result).isPresent();
-        assertThat(result.get().contentType()).isEqualTo(CertificateTemplateServiceImpl.CONTENT_TYPE_SVG);
+        assertThat(result.get().contentType())
+                .isEqualTo(CertificateTemplateServiceImpl.CONTENT_TYPE_SVG);
         result.get().inputStream().close();
     }
 
@@ -325,12 +372,12 @@ class CertificateTemplateServiceImplTest {
     @Test
     @DisplayName("AC3: Retrieve metadata returns stored metadata")
     void retrieveMetadata_returnsMetadataFromRepository() {
-        CertificateTemplateMetadata expectedMeta = new CertificateTemplateMetadata(
-                TOURNAMENT_ID, "cert.html", "html", Instant.now(), 42L);
+        CertificateTemplateMetadata expectedMeta =
+                new CertificateTemplateMetadata(
+                        TOURNAMENT_ID, "cert.html", "html", Instant.now(), 42L);
         when(templateRepo.findByTournamentId(TOURNAMENT_ID)).thenReturn(Optional.of(expectedMeta));
 
-        Optional<CertificateTemplateMetadata> result =
-                service.retrieveMetadata(TOURNAMENT_ID);
+        Optional<CertificateTemplateMetadata> result = service.retrieveMetadata(TOURNAMENT_ID);
 
         assertThat(result).isPresent();
         assertThat(result.get()).isEqualTo(expectedMeta);
@@ -341,8 +388,7 @@ class CertificateTemplateServiceImplTest {
     void retrieveMetadata_returnsEmptyWhenNoTemplate() {
         when(templateRepo.findByTournamentId(TOURNAMENT_ID)).thenReturn(Optional.empty());
 
-        Optional<CertificateTemplateMetadata> result =
-                service.retrieveMetadata(TOURNAMENT_ID);
+        Optional<CertificateTemplateMetadata> result = service.retrieveMetadata(TOURNAMENT_ID);
 
         assertThat(result).isEmpty();
     }
@@ -354,11 +400,15 @@ class CertificateTemplateServiceImplTest {
     @Test
     @DisplayName("AC5: Delete after upload returns true and removes file")
     void delete_afterUpload_returnsTrueAndRemovesFile() throws Exception {
-        service.upload(TOURNAMENT_ID, "cert.html",
-                new ByteArrayInputStream(SAMPLE_HTML), SAMPLE_HTML.length);
+        service.upload(
+                TOURNAMENT_ID,
+                "cert.html",
+                new ByteArrayInputStream(SAMPLE_HTML),
+                SAMPLE_HTML.length);
 
-        CertificateTemplateMetadata meta = new CertificateTemplateMetadata(
-                TOURNAMENT_ID, "cert.html", "html", Instant.now(), SAMPLE_HTML.length);
+        CertificateTemplateMetadata meta =
+                new CertificateTemplateMetadata(
+                        TOURNAMENT_ID, "cert.html", "html", Instant.now(), SAMPLE_HTML.length);
         when(templateRepo.findByTournamentId(TOURNAMENT_ID)).thenReturn(Optional.of(meta));
         when(templateRepo.deleteByTournamentId(TOURNAMENT_ID)).thenReturn(true);
 
@@ -366,8 +416,8 @@ class CertificateTemplateServiceImplTest {
 
         assertThat(deleted).isTrue();
 
-        Path storedFile = tempDir.resolve(TOURNAMENT_ID.toString())
-                .resolve("certificate-template.html");
+        Path storedFile =
+                tempDir.resolve(TOURNAMENT_ID.toString()).resolve("certificate-template.html");
         assertThat(storedFile).doesNotExist();
     }
 
@@ -392,9 +442,10 @@ class CertificateTemplateServiceImplTest {
         List<CertificateTemplateVariable> variables = service.listVariables();
 
         assertThat(variables).hasSize(6);
-        assertThat(variables).extracting(CertificateTemplateVariable::name)
-                .containsExactly("placement", "teamName", "teamPhoto",
-                        "tournamentName", "date", "location");
+        assertThat(variables)
+                .extracting(CertificateTemplateVariable::name)
+                .containsExactly(
+                        "placement", "teamName", "teamPhoto", "tournamentName", "date", "location");
     }
 
     @Test
@@ -419,9 +470,13 @@ class CertificateTemplateServiceImplTest {
         UUID unknownId = UUID.randomUUID();
         when(tournamentRepo.findById(unknownId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() ->
-                service.upload(unknownId, "cert.html",
-                        new ByteArrayInputStream(SAMPLE_HTML), SAMPLE_HTML.length))
+        assertThatThrownBy(
+                        () ->
+                                service.upload(
+                                        unknownId,
+                                        "cert.html",
+                                        new ByteArrayInputStream(SAMPLE_HTML),
+                                        SAMPLE_HTML.length))
                 .isInstanceOf(NoSuchElementException.class)
                 .hasMessageContaining(unknownId.toString());
     }

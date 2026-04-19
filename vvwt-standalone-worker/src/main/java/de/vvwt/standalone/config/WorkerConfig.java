@@ -5,17 +5,17 @@ import java.nio.file.Path;
 /**
  * Validated configuration record for the standalone optimizer worker.
  *
- * <p>All fields are immutable after construction. Validation is performed at construction time;
- * the constructor throws {@link IllegalArgumentException} for invalid combinations.
+ * <p>All fields are immutable after construction. Validation is performed at construction time; the
+ * constructor throws {@link IllegalArgumentException} for invalid combinations.
  *
  * <p>Implements Story E01S05 AC1.
  *
- * @param dataDir          directory for keypair and state files
- * @param dispatcherUrl    base URL of the dispatcher service (required)
- * @param maxCpuPercent    maximum CPU utilisation percentage, 1–100 (default 50)
- * @param name             optional human-readable label for audit logs
- * @param idlePollSeconds  seconds to sleep when no packet is available (default 30)
- * @param logFormatJson    when true, emit structured JSON log lines (--log-format json)
+ * @param dataDir directory for keypair and state files
+ * @param dispatcherUrl base URL of the dispatcher service (required)
+ * @param maxCpuPercent maximum CPU utilisation percentage, 1–100 (default 50)
+ * @param name optional human-readable label for audit logs
+ * @param idlePollSeconds seconds to sleep when no packet is available (default 30)
+ * @param logFormatJson when true, emit structured JSON log lines (--log-format json)
  */
 public record WorkerConfig(
         Path dataDir,
@@ -23,8 +23,7 @@ public record WorkerConfig(
         int maxCpuPercent,
         String name,
         int idlePollSeconds,
-        boolean logFormatJson
-) {
+        boolean logFormatJson) {
 
     /** Default CPU utilisation cap (50%). */
     public static final int DEFAULT_MAX_CPU_PERCENT = 50;
@@ -49,8 +48,9 @@ public record WorkerConfig(
                     "idlePollSeconds must be >= 1, got: " + idlePollSeconds);
         }
         // Normalize dispatcherUrl: strip trailing slash for predictable URL construction
-        dispatcherUrl = dispatcherUrl.endsWith("/")
-                ? dispatcherUrl.substring(0, dispatcherUrl.length() - 1)
-                : dispatcherUrl;
+        dispatcherUrl =
+                dispatcherUrl.endsWith("/")
+                        ? dispatcherUrl.substring(0, dispatcherUrl.length() - 1)
+                        : dispatcherUrl;
     }
 }

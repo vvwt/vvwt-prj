@@ -3,15 +3,14 @@ package de.vvwt.worker.types;
 import java.util.List;
 
 /**
- * One row of a {@link RawPhaseDef}: the SET of position tuples that play together
- * in this row (round).
+ * One row of a {@link RawPhaseDef}: the SET of position tuples that play together in this row
+ * (round).
  *
- * <p>Row semantics are SET semantics — order within a row carries no information.
- * The {@link de.vvwt.worker.types.StructuralFingerprint} canonicalizer will sort
- * the positions before hashing.
+ * <p>Row semantics are SET semantics — order within a row carries no information. The {@link
+ * de.vvwt.worker.types.StructuralFingerprint} canonicalizer will sort the positions before hashing.
  *
- * @param positions non-null, non-empty list of position tuples in this row;
- *                  order is irrelevant (the canonicalizer sorts them)
+ * @param positions non-null, non-empty list of position tuples in this row; order is irrelevant
+ *     (the canonicalizer sorts them)
  */
 public record RawRow(List<PositionTuple> positions) {
 

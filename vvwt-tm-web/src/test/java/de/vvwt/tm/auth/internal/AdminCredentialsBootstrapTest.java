@@ -1,5 +1,17 @@
 package de.vvwt.tm.auth.internal;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
@@ -11,63 +23,47 @@ import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 /**
  * Unit tests for {@link AdminCredentialsBootstrap}.
  *
- * <p>Mocking is JUSTIFIED for this SUT: the orchestrator's only job is to wire the
- * collaborators ({@link PasswordGenerator}, {@link AdminCredentialsDao},
- * {@link PasswordEncoder}) correctly. The collaborators' own behaviour is fully tested
- * in {@code PasswordGeneratorTest} (E15S01) and {@code AdminCredentialsDaoTest} (E15S02).
- * Testing only the orchestration logic here avoids re-testing the collaborators.
- * Per story E15S03 AC2 and DEC-22 notes: "the one story where mocking IS appropriate".
+ * <p>Mocking is JUSTIFIED for this SUT: the orchestrator's only job is to wire the collaborators
+ * ({@link PasswordGenerator}, {@link AdminCredentialsDao}, {@link PasswordEncoder}) correctly. The
+ * collaborators' own behaviour is fully tested in {@code PasswordGeneratorTest} (E15S01) and {@code
+ * AdminCredentialsDaoTest} (E15S02). Testing only the orchestration logic here avoids re-testing
+ * the collaborators. Per story E15S03 AC2 and DEC-22 notes: "the one story where mocking IS
+ * appropriate".
  *
  * <h2>TDD cycle (DEC-22)</h2>
+ *
  * <p>This file was committed BEFORE {@link AdminCredentialsBootstrap} existed (RED state:
  * compilation error). See git history for the RED commit preceding the GREEN implementation.
  *
  * @see AdminCredentialsBootstrap
- * @see <a href="../../../../../../../../../.gaai/project/contexts/artefacts/stories/E15S03.story.md">Story E15S03</a>
+ * @see <a
+ *     href="../../../../../../../../../.gaai/project/contexts/artefacts/stories/E15S03.story.md">Story
+ *     E15S03</a>
  */
 @ExtendWith(MockitoExtension.class)
 class AdminCredentialsBootstrapTest {
 
-    @Mock
-    private AdminCredentialsDao dao;
+    @Mock private AdminCredentialsDao dao;
 
-    @Mock
-    private PasswordGenerator generator;
+    @Mock private PasswordGenerator generator;
 
-    @Mock
-    private PasswordEncoder encoder;
+    @Mock private PasswordEncoder encoder;
 
-    @Mock
-    private ApplicationArguments args;
+    @Mock private ApplicationArguments args;
 
-    @InjectMocks
-    private AdminCredentialsBootstrap bootstrap;
+    @InjectMocks private AdminCredentialsBootstrap bootstrap;
 
     // -------------------------------------------------------------------------
     // T1 / AC3 — First-start: four interactions in order (generate → encode → insertNew → log)
     // -------------------------------------------------------------------------
 
     /**
-     * T1 (AC3 — first-start four-interaction order):
-     * When the Dao returns empty, the orchestrator invokes generator → encoder → Dao.insertNew
-     * in that order. All four interactions are asserted via InOrder (AC3: "all four interactions
-     * are asserted in order").
+     * T1 (AC3 — first-start four-interaction order): When the Dao returns empty, the orchestrator
+     * invokes generator → encoder → Dao.insertNew in that order. All four interactions are asserted
+     * via InOrder (AC3: "all four interactions are asserted in order").
      */
     @Test
     void firstStart_emptyDao_generatesHashesInsertsInOrder() throws Exception {
@@ -89,10 +85,9 @@ class AdminCredentialsBootstrapTest {
     // -------------------------------------------------------------------------
 
     /**
-     * T2 (AC4 — subsequent-start no-op):
-     * When the Dao returns an existing record, the Generator is NEVER called.
-     * The "set at first start — check startup log" log line MUST be emitted (preserved behaviour).
-     * We verify the observable side effect: generator is never invoked.
+     * T2 (AC4 — subsequent-start no-op): When the Dao returns an existing record, the Generator is
+     * NEVER called. The "set at first start — check startup log" log line MUST be emitted
+     * (preserved behaviour). We verify the observable side effect: generator is never invoked.
      */
     @Test
     void subsequentStart_existingCredentials_generatorNeverCalled() throws Exception {
@@ -112,10 +107,9 @@ class AdminCredentialsBootstrapTest {
     // -------------------------------------------------------------------------
 
     /**
-     * T3 (AC5 — concurrent-start race fallback):
-     * When {@code dao.insertNew()} throws {@link DataIntegrityViolationException},
-     * the orchestrator re-queries via {@code dao.findExisting()} and uses the existing hash.
-     * No exception is leaked to the caller.
+     * T3 (AC5 — concurrent-start race fallback): When {@code dao.insertNew()} throws {@link
+     * DataIntegrityViolationException}, the orchestrator re-queries via {@code dao.findExisting()}
+     * and uses the existing hash. No exception is leaked to the caller.
      */
     @Test
     void racePath_diveOnInsert_requeriesAndCompletes() throws Exception {
@@ -123,7 +117,7 @@ class AdminCredentialsBootstrapTest {
                 new AdminCredentialsDao.CredentialRecord(UUID.randomUUID(), "$2a$10$winnerhash");
 
         when(dao.findExisting())
-                .thenReturn(Optional.empty())    // first call: empty (trigger first-start path)
+                .thenReturn(Optional.empty()) // first call: empty (trigger first-start path)
                 .thenReturn(Optional.of(winnerRecord)); // second call: winner's record
         when(generator.generate()).thenReturn("GeneratedPwd1");
         when(encoder.encode("GeneratedPwd1")).thenReturn("$2a$10$encodedhash");
@@ -146,9 +140,9 @@ class AdminCredentialsBootstrapTest {
     // -------------------------------------------------------------------------
 
     /**
-     * T4 (AC6 — encoder failure):
-     * When the {@link PasswordEncoder} throws during hashing, the orchestrator must NOT
-     * invoke {@link AdminCredentialsDao#insertNew}. The exception propagates to the caller.
+     * T4 (AC6 — encoder failure): When the {@link PasswordEncoder} throws during hashing, the
+     * orchestrator must NOT invoke {@link AdminCredentialsDao#insertNew}. The exception propagates
+     * to the caller.
      */
     @Test
     void encoderFailure_noInsertAttempted_exceptionPropagates() throws Exception {
@@ -169,9 +163,9 @@ class AdminCredentialsBootstrapTest {
     // -------------------------------------------------------------------------
 
     /**
-     * T5 (AC7 — @Order(2) annotation):
-     * {@link AdminCredentialsBootstrap} must declare {@code @Order(2)} to ensure it runs
-     * after {@code DefaultTenantBootstrapRunner} ({@code @Order(1)}).
+     * T5 (AC7 — @Order(2) annotation): {@link AdminCredentialsBootstrap} must declare
+     * {@code @Order(2)} to ensure it runs after {@code DefaultTenantBootstrapRunner}
+     * ({@code @Order(1)}).
      */
     @Test
     void orderAnnotation_isTwo() {
@@ -182,7 +176,9 @@ class AdminCredentialsBootstrapTest {
                 .isNotNull();
 
         assertThat(order.value())
-                .as("AC7: @Order value must be 2 (runs after DefaultTenantBootstrapRunner @Order(1))")
+                .as(
+                        "AC7: @Order value must be 2 (runs after DefaultTenantBootstrapRunner"
+                                + " @Order(1))")
                 .isEqualTo(2);
     }
 
@@ -191,16 +187,15 @@ class AdminCredentialsBootstrapTest {
     // -------------------------------------------------------------------------
 
     /**
-     * T6 (AC8 — Modulith verify):
-     * {@code ApplicationModules.verify()} must remain green after adding
-     * {@code AdminCredentialsBootstrap} to {@code de.vvwt.tm.auth.internal}.
-     * The class must NOT import from {@code de.vvwt.tm.tenant.internal.*}.
+     * T6 (AC8 — Modulith verify): {@code ApplicationModules.verify()} must remain green after
+     * adding {@code AdminCredentialsBootstrap} to {@code de.vvwt.tm.auth.internal}. The class must
+     * NOT import from {@code de.vvwt.tm.tenant.internal.*}.
      */
     @Test
     void applicationModulesVerify_remainsGreen() {
         org.springframework.modulith.core.ApplicationModules.of(
-                de.vvwt.tm.TournamentManagerApplication.class
-        ).verify();
+                        de.vvwt.tm.TournamentManagerApplication.class)
+                .verify();
     }
 
     // -------------------------------------------------------------------------
@@ -208,9 +203,8 @@ class AdminCredentialsBootstrapTest {
     // -------------------------------------------------------------------------
 
     /**
-     * T7 (AC9 — package placement):
-     * {@link AdminCredentialsBootstrap} (new reconstruction-in-place class) must be in
-     * {@code de.vvwt.tm.auth.internal}, not in {@code de.vvwt.tm.auth}.
+     * T7 (AC9 — package placement): {@link AdminCredentialsBootstrap} (new reconstruction-in-place
+     * class) must be in {@code de.vvwt.tm.auth.internal}, not in {@code de.vvwt.tm.auth}.
      */
     @Test
     void packagePlacement_newBootstrap_isInAuthInternal() {

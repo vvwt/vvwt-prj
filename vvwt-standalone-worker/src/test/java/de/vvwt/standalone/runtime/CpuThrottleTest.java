@@ -1,14 +1,12 @@
 package de.vvwt.standalone.runtime;
 
-import org.junit.jupiter.api.Test;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 
-/**
- * Unit tests for {@link CpuThrottle} — sleep calculation (AC7 of E01S05).
- */
+import org.junit.jupiter.api.Test;
+
+/** Unit tests for {@link CpuThrottle} — sleep calculation (AC7 of E01S05). */
 class CpuThrottleTest {
 
     @Test

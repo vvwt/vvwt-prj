@@ -1,26 +1,26 @@
 package de.vvwt.dispatcher.packet;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
-import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 /**
  * Unit tests for {@link PacketTimeoutSweeper} (AC8).
  *
  * <p>Tests:
+ *
  * <ul>
- *   <li>Packet with {@code attempts < maxReissueCount} is set back to {@code "pending"}</li>
- *   <li>Packet with {@code attempts >= maxReissueCount} is set to {@code "failed"}</li>
- *   <li>Reissue history JSON entry is appended (AC8 audit trail)</li>
- *   <li>No database calls when there are no timed-out packets</li>
+ *   <li>Packet with {@code attempts < maxReissueCount} is set back to {@code "pending"}
+ *   <li>Packet with {@code attempts >= maxReissueCount} is set to {@code "failed"}
+ *   <li>Reissue history JSON entry is appended (AC8 audit trail)
+ *   <li>No database calls when there are no timed-out packets
  * </ul>
  *
  * <p>See Story E01S07 AC8.
@@ -124,7 +124,10 @@ class PacketTimeoutSweeperTest {
         PacketRecord packet = new PacketRecord(packetId, jobId, 0L, 100L);
         // Simulate first reissue already recorded
         packet.assign(worker, Instant.now().minusSeconds(400));
-        packet.appendReissueHistory("{\"timestamp\":\"2026-01-01T00:00:00Z\",\"workerKeyId\":\"" + worker + "\",\"attemptNumber\":1}");
+        packet.appendReissueHistory(
+                "{\"timestamp\":\"2026-01-01T00:00:00Z\",\"workerKeyId\":\""
+                        + worker
+                        + "\",\"attemptNumber\":1}");
         packet.reissueToPending();
         // Second assignment — now timed out again
         packet.assign(worker, Instant.now().minusSeconds(400));

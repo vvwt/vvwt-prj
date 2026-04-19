@@ -1,23 +1,24 @@
 package de.vvwt.tm.infrastructure.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.auth.SecurityConfig;
 import de.vvwt.tm.infrastructure.web.dto.DeviceRegisterRequest;
 import de.vvwt.tm.infrastructure.web.dto.DeviceRegisterResponse;
 import de.vvwt.tm.infrastructure.web.dto.DeviceStatusResponse;
 import de.vvwt.tm.infrastructure.web.dto.DeviceSummaryResponse;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import de.vvwt.tm.tenant.TenantContextTestSupport;
-import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import de.vvwt.tm.tenant.TenantContextTestSupport;
-import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -27,45 +28,42 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
-import de.vvwt.tm.tenant.TenantContextTestSupport;
-import org.springframework.context.annotation.Import;
-import org.springframework.test.context.TestPropertySource;
-
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for E07S02: display device registration, device limit enforcement,
- * configure and delete endpoints.
+ * Integration tests for E07S02: display device registration, device limit enforcement, configure
+ * and delete endpoints.
  *
  * <h2>Acceptance criteria covered</h2>
+ *
  * <ul>
- *   <li>AC1 — POST /api/devices/register with {@code deviceType=DISPLAY} → 201 {@code {deviceToken}}
- *       (no PIN)</li>
- *   <li>AC2 — Device limit enforcement → 429 with {@code currentCount} and {@code maxCount}</li>
+ *   <li>AC1 — POST /api/devices/register with {@code deviceType=DISPLAY} → 201 {@code
+ *       {deviceToken}} (no PIN)
+ *   <li>AC2 — Device limit enforcement → 429 with {@code currentCount} and {@code maxCount}
  *   <li>AC3 — GET /api/devices/status includes {@code configuration} and {@code deviceName} for
- *       display devices (null-safe)</li>
- *   <li>AC4 — PUT /api/devices/{id}/configure sets name + config; 400 on SCORING_TABLET type</li>
- *   <li>AC5 — DELETE /api/devices/{id} removes device; 404 if not found</li>
- *   <li>AC6 — Backward compat: no body → SCORING_TABLET registration unchanged</li>
- *   <li>AC7 — Tenant isolation: DISPLAY device not visible under different tenant context</li>
- *   <li>AC8 — Error responses include {@code messageKey}; 429 includes {@code currentCount}/{@code maxCount}</li>
- *   <li>AC9 — i18n: error messageKey present on all error paths</li>
- *   <li>AC10 — Device tokens are valid UUID strings (cryptographically random)</li>
+ *       display devices (null-safe)
+ *   <li>AC4 — PUT /api/devices/{id}/configure sets name + config; 400 on SCORING_TABLET type
+ *   <li>AC5 — DELETE /api/devices/{id} removes device; 404 if not found
+ *   <li>AC6 — Backward compat: no body → SCORING_TABLET registration unchanged
+ *   <li>AC7 — Tenant isolation: DISPLAY device not visible under different tenant context
+ *   <li>AC8 — Error responses include {@code messageKey}; 429 includes {@code currentCount}/{@code
+ *       maxCount}
+ *   <li>AC9 — i18n: error messageKey present on all error paths
+ *   <li>AC10 — Device tokens are valid UUID strings (cryptographically random)
  * </ul>
  *
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E07S02.story.md">Story E07S02</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E07S02.story.md">Story
+ *     E07S02</a>
  */
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         classes = {
-                de.vvwt.tm.TournamentManagerApplication.class,
-                DeviceE07S02IT.TestAdminCredentials.class
+            de.vvwt.tm.TournamentManagerApplication.class,
+            DeviceE07S02IT.TestAdminCredentials.class
         },
         properties = {
             "spring.datasource.url=jdbc:h2:mem:e07s02ctrldb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
-                    + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE",
+                + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE",
             // Set a low display limit for limit tests (AC2)
             "vvwt.devices.max-display-count=3"
         })
@@ -75,20 +73,16 @@ class DeviceE07S02IT {
 
     static final String TEST_PASSWORD = "DeviceE07Test01";
 
-    @LocalServerPort
-    private int port;
+    @LocalServerPort private int port;
 
-    @Autowired
-    private TestRestTemplate restTemplate;
+    @Autowired private TestRestTemplate restTemplate;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    @Autowired private PasswordEncoder passwordEncoder;
 
     private String baseUrl;
     private TestRestTemplate authed;
 
-    @Autowired
-    private javax.sql.DataSource dataSource;
+    @Autowired private javax.sql.DataSource dataSource;
 
     @BeforeEach
     void setUp() {
@@ -98,7 +92,7 @@ class DeviceE07S02IT {
         // The limit is set to 3 in the test properties; tests that register DISPLAY devices
         // would exhaust the limit and cause subsequent tests to fail without this cleanup.
         try (java.sql.Connection conn = dataSource.getConnection();
-             java.sql.Statement st = conn.createStatement()) {
+                java.sql.Statement st = conn.createStatement()) {
             st.execute("DELETE FROM devices");
         } catch (java.sql.SQLException e) {
             throw new RuntimeException("Failed to clean devices table before test", e);
@@ -116,10 +110,11 @@ class DeviceE07S02IT {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        ResponseEntity<DeviceRegisterResponse> response = restTemplate.postForEntity(
-                baseUrl + "/api/devices/register",
-                new HttpEntity<>(request, headers),
-                DeviceRegisterResponse.class);
+        ResponseEntity<DeviceRegisterResponse> response =
+                restTemplate.postForEntity(
+                        baseUrl + "/api/devices/register",
+                        new HttpEntity<>(request, headers),
+                        DeviceRegisterResponse.class);
 
         assertThat(response.getStatusCode())
                 .as("AC1 — DISPLAY registration must return 201")
@@ -129,7 +124,8 @@ class DeviceE07S02IT {
         assertThat(body).isNotNull();
         assertThat(body.deviceToken())
                 .as("AC1 — deviceToken must be present for DISPLAY device")
-                .isNotNull().isNotBlank();
+                .isNotNull()
+                .isNotBlank();
         assertThat(body.pin())
                 .as("AC1 — PIN must be null for DISPLAY devices (omitted in response)")
                 .isNull();
@@ -142,10 +138,11 @@ class DeviceE07S02IT {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        ResponseEntity<DeviceRegisterResponse> response = restTemplate.postForEntity(
-                baseUrl + "/api/devices/register",
-                new HttpEntity<>(request, headers),
-                DeviceRegisterResponse.class);
+        ResponseEntity<DeviceRegisterResponse> response =
+                restTemplate.postForEntity(
+                        baseUrl + "/api/devices/register",
+                        new HttpEntity<>(request, headers),
+                        DeviceRegisterResponse.class);
 
         String token = response.getBody().deviceToken();
         assertThat(token)
@@ -167,16 +164,20 @@ class DeviceE07S02IT {
 
         // Register up to the limit (3)
         for (int i = 0; i < 3; i++) {
-            ResponseEntity<DeviceRegisterResponse> ok = restTemplate.postForEntity(
-                    baseUrl + "/api/devices/register", entity, DeviceRegisterResponse.class);
+            ResponseEntity<DeviceRegisterResponse> ok =
+                    restTemplate.postForEntity(
+                            baseUrl + "/api/devices/register",
+                            entity,
+                            DeviceRegisterResponse.class);
             assertThat(ok.getStatusCode())
                     .as("AC2 — registration %d should succeed (below limit)", i + 1)
                     .isEqualTo(HttpStatus.CREATED);
         }
 
         // 4th attempt must fail with 429
-        ResponseEntity<DeviceLimitErrorResponse> limitResponse = restTemplate.postForEntity(
-                baseUrl + "/api/devices/register", entity, DeviceLimitErrorResponse.class);
+        ResponseEntity<DeviceLimitErrorResponse> limitResponse =
+                restTemplate.postForEntity(
+                        baseUrl + "/api/devices/register", entity, DeviceLimitErrorResponse.class);
 
         assertThat(limitResponse.getStatusCode())
                 .as("AC2 — 4th DISPLAY registration must return 429")
@@ -197,8 +198,9 @@ class DeviceE07S02IT {
         // AC2: SCORING_TABLET is not limited by max-display-count (AC6 + AC2 scope)
         // Register 4 tablets — must all succeed even when display limit=3
         for (int i = 0; i < 4; i++) {
-            ResponseEntity<DeviceRegisterResponse> response = restTemplate.postForEntity(
-                    baseUrl + "/api/devices/register", null, DeviceRegisterResponse.class);
+            ResponseEntity<DeviceRegisterResponse> response =
+                    restTemplate.postForEntity(
+                            baseUrl + "/api/devices/register", null, DeviceRegisterResponse.class);
             assertThat(response.getStatusCode())
                     .as("Tablet registration %d must not be affected by display limit", i + 1)
                     .isEqualTo(HttpStatus.CREATED);
@@ -215,13 +217,14 @@ class DeviceE07S02IT {
 
         // Fill the limit (3 devices)
         for (int i = 0; i < 3; i++) {
-            restTemplate.postForEntity(baseUrl + "/api/devices/register", entity,
-                    DeviceRegisterResponse.class);
+            restTemplate.postForEntity(
+                    baseUrl + "/api/devices/register", entity, DeviceRegisterResponse.class);
         }
 
         // Trigger 429
-        ResponseEntity<DeviceLimitErrorResponse> response = restTemplate.postForEntity(
-                baseUrl + "/api/devices/register", entity, DeviceLimitErrorResponse.class);
+        ResponseEntity<DeviceLimitErrorResponse> response =
+                restTemplate.postForEntity(
+                        baseUrl + "/api/devices/register", entity, DeviceLimitErrorResponse.class);
 
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getMessageKey())
@@ -242,22 +245,26 @@ class DeviceE07S02IT {
         UUID deviceId = getDeviceIdByToken(reg.deviceToken());
 
         // Configure it
-        String configureBody = "{\"deviceName\":\"Halle Eingang\",\"configuration\":\"{\\\"display_schema\\\":\\\"OVERVIEW\\\"}\"}";
+        String configureBody =
+                "{\"deviceName\":\"Halle"
+                    + " Eingang\",\"configuration\":\"{\\\"display_schema\\\":\\\"OVERVIEW\\\"}\"}";
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        ResponseEntity<DeviceSummaryResponse> configResponse = authed.exchange(
-                baseUrl + "/api/devices/" + deviceId + "/configure",
-                HttpMethod.PUT,
-                new HttpEntity<>(configureBody, headers),
-                DeviceSummaryResponse.class);
+        ResponseEntity<DeviceSummaryResponse> configResponse =
+                authed.exchange(
+                        baseUrl + "/api/devices/" + deviceId + "/configure",
+                        HttpMethod.PUT,
+                        new HttpEntity<>(configureBody, headers),
+                        DeviceSummaryResponse.class);
         assertThat(configResponse.getStatusCode())
                 .as("AC4 setup — configure must return 200")
                 .isEqualTo(HttpStatus.OK);
 
         // Poll status — should include configuration + deviceName
-        ResponseEntity<DeviceStatusResponse> statusResponse = restTemplate.getForEntity(
-                baseUrl + "/api/devices/status?token=" + reg.deviceToken(),
-                DeviceStatusResponse.class);
+        ResponseEntity<DeviceStatusResponse> statusResponse =
+                restTemplate.getForEntity(
+                        baseUrl + "/api/devices/status?token=" + reg.deviceToken(),
+                        DeviceStatusResponse.class);
 
         assertThat(statusResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(statusResponse.getBody().deviceName())
@@ -270,12 +277,14 @@ class DeviceE07S02IT {
 
     @Test
     void statusResponseForUnconfiguredDisplayDeviceOmitsConfigurationAndDeviceName() {
-        // AC3: unconfigured display device — configuration and deviceName absent from JSON (null → NON_NULL)
+        // AC3: unconfigured display device — configuration and deviceName absent from JSON (null →
+        // NON_NULL)
         DeviceRegisterResponse reg = registerDisplayDevice();
 
-        ResponseEntity<DeviceStatusResponse> statusResponse = restTemplate.getForEntity(
-                baseUrl + "/api/devices/status?token=" + reg.deviceToken(),
-                DeviceStatusResponse.class);
+        ResponseEntity<DeviceStatusResponse> statusResponse =
+                restTemplate.getForEntity(
+                        baseUrl + "/api/devices/status?token=" + reg.deviceToken(),
+                        DeviceStatusResponse.class);
 
         assertThat(statusResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(statusResponse.getBody().configuration())
@@ -289,13 +298,15 @@ class DeviceE07S02IT {
     @Test
     void statusResponseForScoringTabletDoesNotIncludeConfigurationOrDeviceName() {
         // AC3: scoring tablet backward compat — no configuration or deviceName in status
-        ResponseEntity<DeviceRegisterResponse> tabletReg = restTemplate.postForEntity(
-                baseUrl + "/api/devices/register", null, DeviceRegisterResponse.class);
+        ResponseEntity<DeviceRegisterResponse> tabletReg =
+                restTemplate.postForEntity(
+                        baseUrl + "/api/devices/register", null, DeviceRegisterResponse.class);
         String tabletToken = tabletReg.getBody().deviceToken();
 
-        ResponseEntity<DeviceStatusResponse> statusResponse = restTemplate.getForEntity(
-                baseUrl + "/api/devices/status?token=" + tabletToken,
-                DeviceStatusResponse.class);
+        ResponseEntity<DeviceStatusResponse> statusResponse =
+                restTemplate.getForEntity(
+                        baseUrl + "/api/devices/status?token=" + tabletToken,
+                        DeviceStatusResponse.class);
 
         assertThat(statusResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(statusResponse.getBody().configuration())
@@ -316,15 +327,18 @@ class DeviceE07S02IT {
         DeviceRegisterResponse reg = registerDisplayDevice();
         UUID deviceId = getDeviceIdByToken(reg.deviceToken());
 
-        String configureBody = "{\"deviceName\":\"Eingang Süd\",\"configuration\":\"{\\\"display_schema\\\":\\\"OVERVIEW\\\"}\"}";
+        String configureBody =
+                "{\"deviceName\":\"Eingang"
+                        + " Süd\",\"configuration\":\"{\\\"display_schema\\\":\\\"OVERVIEW\\\"}\"}";
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        ResponseEntity<DeviceSummaryResponse> response = authed.exchange(
-                baseUrl + "/api/devices/" + deviceId + "/configure",
-                HttpMethod.PUT,
-                new HttpEntity<>(configureBody, headers),
-                DeviceSummaryResponse.class);
+        ResponseEntity<DeviceSummaryResponse> response =
+                authed.exchange(
+                        baseUrl + "/api/devices/" + deviceId + "/configure",
+                        HttpMethod.PUT,
+                        new HttpEntity<>(configureBody, headers),
+                        DeviceSummaryResponse.class);
 
         assertThat(response.getStatusCode())
                 .as("AC4 — configure must return 200")
@@ -343,8 +357,9 @@ class DeviceE07S02IT {
     @Test
     void configureScoringTabletReturns400() {
         // AC4: configure on SCORING_TABLET device → 400
-        ResponseEntity<DeviceRegisterResponse> tabletReg = restTemplate.postForEntity(
-                baseUrl + "/api/devices/register", null, DeviceRegisterResponse.class);
+        ResponseEntity<DeviceRegisterResponse> tabletReg =
+                restTemplate.postForEntity(
+                        baseUrl + "/api/devices/register", null, DeviceRegisterResponse.class);
         String tabletToken = tabletReg.getBody().deviceToken();
         UUID tabletId = getDeviceIdByToken(tabletToken);
 
@@ -352,18 +367,20 @@ class DeviceE07S02IT {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        ResponseEntity<ApiErrorResponse> response = authed.exchange(
-                baseUrl + "/api/devices/" + tabletId + "/configure",
-                HttpMethod.PUT,
-                new HttpEntity<>(configureBody, headers),
-                ApiErrorResponse.class);
+        ResponseEntity<ApiErrorResponse> response =
+                authed.exchange(
+                        baseUrl + "/api/devices/" + tabletId + "/configure",
+                        HttpMethod.PUT,
+                        new HttpEntity<>(configureBody, headers),
+                        ApiErrorResponse.class);
 
         assertThat(response.getStatusCode())
                 .as("AC4 — configure on SCORING_TABLET must return 400")
                 .isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody().getMessageKey())
                 .as("AC4/AC9 — error messageKey must be present")
-                .isNotNull().isNotBlank();
+                .isNotNull()
+                .isNotBlank();
     }
 
     @Test
@@ -376,11 +393,12 @@ class DeviceE07S02IT {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        ResponseEntity<String> response = restTemplate.exchange(
-                baseUrl + "/api/devices/" + deviceId + "/configure",
-                HttpMethod.PUT,
-                new HttpEntity<>(configureBody, headers),
-                String.class);
+        ResponseEntity<String> response =
+                restTemplate.exchange(
+                        baseUrl + "/api/devices/" + deviceId + "/configure",
+                        HttpMethod.PUT,
+                        new HttpEntity<>(configureBody, headers),
+                        String.class);
 
         assertThat(response.getStatusCode())
                 .as("AC4/AC10 — configure without admin auth must return 401")
@@ -395,11 +413,12 @@ class DeviceE07S02IT {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        ResponseEntity<ApiErrorResponse> response = authed.exchange(
-                baseUrl + "/api/devices/" + unknownId + "/configure",
-                HttpMethod.PUT,
-                new HttpEntity<>(configureBody, headers),
-                ApiErrorResponse.class);
+        ResponseEntity<ApiErrorResponse> response =
+                authed.exchange(
+                        baseUrl + "/api/devices/" + unknownId + "/configure",
+                        HttpMethod.PUT,
+                        new HttpEntity<>(configureBody, headers),
+                        ApiErrorResponse.class);
 
         assertThat(response.getStatusCode())
                 .as("AC4 — configure of non-existent device must return 404")
@@ -416,11 +435,12 @@ class DeviceE07S02IT {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        ResponseEntity<ApiErrorResponse> response = authed.exchange(
-                baseUrl + "/api/devices/" + deviceId + "/configure",
-                HttpMethod.PUT,
-                new HttpEntity<>(configureBody, headers),
-                ApiErrorResponse.class);
+        ResponseEntity<ApiErrorResponse> response =
+                authed.exchange(
+                        baseUrl + "/api/devices/" + deviceId + "/configure",
+                        HttpMethod.PUT,
+                        new HttpEntity<>(configureBody, headers),
+                        ApiErrorResponse.class);
 
         assertThat(response.getStatusCode())
                 .as("AC4 — blank deviceName must return 400")
@@ -437,11 +457,9 @@ class DeviceE07S02IT {
         DeviceRegisterResponse reg = registerDisplayDevice();
         UUID deviceId = getDeviceIdByToken(reg.deviceToken());
 
-        ResponseEntity<Void> response = authed.exchange(
-                baseUrl + "/api/devices/" + deviceId,
-                HttpMethod.DELETE,
-                null,
-                Void.class);
+        ResponseEntity<Void> response =
+                authed.exchange(
+                        baseUrl + "/api/devices/" + deviceId, HttpMethod.DELETE, null, Void.class);
 
         assertThat(response.getStatusCode())
                 .as("AC5 — delete DISPLAY device must return 204")
@@ -451,15 +469,14 @@ class DeviceE07S02IT {
     @Test
     void deleteScoringTabletDeviceReturns204() {
         // AC5: delete works for both SCORING_TABLET and DISPLAY devices
-        ResponseEntity<DeviceRegisterResponse> tabletReg = restTemplate.postForEntity(
-                baseUrl + "/api/devices/register", null, DeviceRegisterResponse.class);
+        ResponseEntity<DeviceRegisterResponse> tabletReg =
+                restTemplate.postForEntity(
+                        baseUrl + "/api/devices/register", null, DeviceRegisterResponse.class);
         UUID tabletId = getDeviceIdByToken(tabletReg.getBody().deviceToken());
 
-        ResponseEntity<Void> response = authed.exchange(
-                baseUrl + "/api/devices/" + tabletId,
-                HttpMethod.DELETE,
-                null,
-                Void.class);
+        ResponseEntity<Void> response =
+                authed.exchange(
+                        baseUrl + "/api/devices/" + tabletId, HttpMethod.DELETE, null, Void.class);
 
         assertThat(response.getStatusCode())
                 .as("AC5 — delete SCORING_TABLET device must return 204")
@@ -471,11 +488,12 @@ class DeviceE07S02IT {
         // AC5: device not found → 404
         UUID unknownId = UUID.randomUUID();
 
-        ResponseEntity<ApiErrorResponse> response = authed.exchange(
-                baseUrl + "/api/devices/" + unknownId,
-                HttpMethod.DELETE,
-                null,
-                ApiErrorResponse.class);
+        ResponseEntity<ApiErrorResponse> response =
+                authed.exchange(
+                        baseUrl + "/api/devices/" + unknownId,
+                        HttpMethod.DELETE,
+                        null,
+                        ApiErrorResponse.class);
 
         assertThat(response.getStatusCode())
                 .as("AC5 — delete of non-existent device must return 404")
@@ -488,11 +506,12 @@ class DeviceE07S02IT {
         DeviceRegisterResponse reg = registerDisplayDevice();
         UUID deviceId = getDeviceIdByToken(reg.deviceToken());
 
-        ResponseEntity<String> response = restTemplate.exchange(
-                baseUrl + "/api/devices/" + deviceId,
-                HttpMethod.DELETE,
-                null,
-                String.class);
+        ResponseEntity<String> response =
+                restTemplate.exchange(
+                        baseUrl + "/api/devices/" + deviceId,
+                        HttpMethod.DELETE,
+                        null,
+                        String.class);
 
         assertThat(response.getStatusCode())
                 .as("AC5/AC10 — delete without admin auth must return 401")
@@ -506,18 +525,22 @@ class DeviceE07S02IT {
     @Test
     void registerWithoutBodyDefaultsToScoringTablet() {
         // AC6: no body → SCORING_TABLET with PIN (backward compat)
-        ResponseEntity<DeviceRegisterResponse> response = restTemplate.postForEntity(
-                baseUrl + "/api/devices/register", null, DeviceRegisterResponse.class);
+        ResponseEntity<DeviceRegisterResponse> response =
+                restTemplate.postForEntity(
+                        baseUrl + "/api/devices/register", null, DeviceRegisterResponse.class);
 
         assertThat(response.getStatusCode())
                 .as("AC6 — no-body register must return 201")
                 .isEqualTo(HttpStatus.CREATED);
         assertThat(response.getBody().pin())
                 .as("AC6 — no-body register must return PIN (SCORING_TABLET)")
-                .isNotNull().isNotBlank().matches("\\d{4,6}");
+                .isNotNull()
+                .isNotBlank()
+                .matches("\\d{4,6}");
         assertThat(response.getBody().deviceToken())
                 .as("AC6 — no-body register must return deviceToken")
-                .isNotNull().isNotBlank();
+                .isNotNull()
+                .isNotBlank();
     }
 
     @Test
@@ -527,17 +550,20 @@ class DeviceE07S02IT {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        ResponseEntity<DeviceRegisterResponse> response = restTemplate.postForEntity(
-                baseUrl + "/api/devices/register",
-                new HttpEntity<>(request, headers),
-                DeviceRegisterResponse.class);
+        ResponseEntity<DeviceRegisterResponse> response =
+                restTemplate.postForEntity(
+                        baseUrl + "/api/devices/register",
+                        new HttpEntity<>(request, headers),
+                        DeviceRegisterResponse.class);
 
         assertThat(response.getStatusCode())
                 .as("AC6 — explicit SCORING_TABLET register must return 201")
                 .isEqualTo(HttpStatus.CREATED);
         assertThat(response.getBody().pin())
                 .as("AC6 — explicit SCORING_TABLET must return PIN")
-                .isNotNull().isNotBlank().matches("\\d{4,6}");
+                .isNotNull()
+                .isNotBlank()
+                .matches("\\d{4,6}");
     }
 
     @Test
@@ -547,10 +573,11 @@ class DeviceE07S02IT {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        ResponseEntity<ApiErrorResponse> response = restTemplate.postForEntity(
-                baseUrl + "/api/devices/register",
-                new HttpEntity<>(request, headers),
-                ApiErrorResponse.class);
+        ResponseEntity<ApiErrorResponse> response =
+                restTemplate.postForEntity(
+                        baseUrl + "/api/devices/register",
+                        new HttpEntity<>(request, headers),
+                        ApiErrorResponse.class);
 
         assertThat(response.getStatusCode())
                 .as("AC1 — unknown deviceType must return 400")
@@ -561,29 +588,28 @@ class DeviceE07S02IT {
     // Helpers
     // =========================================================================
 
-    /**
-     * Registers a DISPLAY device and returns the response.
-     */
+    /** Registers a DISPLAY device and returns the response. */
     private DeviceRegisterResponse registerDisplayDevice() {
         DeviceRegisterRequest request = new DeviceRegisterRequest("DISPLAY");
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        ResponseEntity<DeviceRegisterResponse> response = restTemplate.postForEntity(
-                baseUrl + "/api/devices/register",
-                new HttpEntity<>(request, headers),
-                DeviceRegisterResponse.class);
+        ResponseEntity<DeviceRegisterResponse> response =
+                restTemplate.postForEntity(
+                        baseUrl + "/api/devices/register",
+                        new HttpEntity<>(request, headers),
+                        DeviceRegisterResponse.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         return response.getBody();
     }
 
     /**
-     * Looks up the device ID via a direct H2 SQL query (for tests needing the UUID of a
-     * DISPLAY device that has no PIN and therefore cannot be found via GET /api/devices?pin=...).
+     * Looks up the device ID via a direct H2 SQL query (for tests needing the UUID of a DISPLAY
+     * device that has no PIN and therefore cannot be found via GET /api/devices?pin=...).
      */
     private UUID getDeviceIdByToken(String deviceToken) {
         try (java.sql.Connection conn = dataSource.getConnection();
-             java.sql.PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id FROM devices WHERE device_token = ?")) {
+                java.sql.PreparedStatement ps =
+                        conn.prepareStatement("SELECT id FROM devices WHERE device_token = ?")) {
             ps.setString(1, deviceToken);
             try (java.sql.ResultSet rs = ps.executeQuery()) {
                 assertThat(rs.next())

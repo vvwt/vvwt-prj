@@ -9,21 +9,24 @@ import org.springframework.stereotype.Component;
  * <p>Bound to the {@code vvwt.devices} property namespace.
  *
  * <p>Example {@code application.yml} override:
+ *
  * <pre>
  * vvwt:
  *   devices:
  *     max-display-count: 5
  * </pre>
  *
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E07S02.story.md">Story E07S02</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E07S02.story.md">Story
+ *     E07S02</a>
  */
 @Component
 @ConfigurationProperties(prefix = "vvwt.devices")
 public class DeviceLimitConfig {
 
     /**
-     * Maximum number of DISPLAY devices that can be registered per tenant+location (AC2).
-     * Defaults to 10.
+     * Maximum number of DISPLAY devices that can be registered per tenant+location (AC2). Defaults
+     * to 10.
      */
     private int maxDisplayCount = 10;
 

@@ -1,14 +1,13 @@
 package de.vvwt.dispatcher.crypto;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThatNoException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.Signature;
-
-import static org.assertj.core.api.Assertions.assertThatNoException;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link Ed25519Verifier}.
@@ -46,14 +45,18 @@ class Ed25519VerifierTest {
     void validSignatureVerifiesSuccessfully() throws Exception {
         byte[] signature = sign(TEST_MESSAGE);
         assertThatNoException()
-                .isThrownBy(() -> Ed25519Verifier.verify(rawPublicKeyBytes, TEST_MESSAGE, signature));
+                .isThrownBy(
+                        () -> Ed25519Verifier.verify(rawPublicKeyBytes, TEST_MESSAGE, signature));
     }
 
     @Test
     void differentMessageSameKeyCausesVerificationFailure() throws Exception {
         byte[] signature = sign(TEST_MESSAGE);
         byte[] differentMessage = "different message".getBytes();
-        assertThatThrownBy(() -> Ed25519Verifier.verify(rawPublicKeyBytes, differentMessage, signature))
+        assertThatThrownBy(
+                        () ->
+                                Ed25519Verifier.verify(
+                                        rawPublicKeyBytes, differentMessage, signature))
                 .isInstanceOf(InvalidSignatureException.class);
     }
 
@@ -104,7 +107,8 @@ class Ed25519VerifierTest {
     @Test
     void decodePublicKeyAcceptsValidKeyBytes() {
         // The JDK accepts the 32-byte key during decode; validity is checked at verify time.
-        // This test confirms that a structurally valid key (from a real keypair) decodes without error.
+        // This test confirms that a structurally valid key (from a real keypair) decodes without
+        // error.
         assertThatNoException()
                 .isThrownBy(() -> Ed25519Verifier.decodePublicKey(rawPublicKeyBytes));
     }

@@ -9,51 +9,56 @@ import de.vvwt.tm.domain.repo.MatchRepository;
 import de.vvwt.tm.domain.repo.PhaseRepository;
 import de.vvwt.tm.domain.repo.TeamAvatarRepository;
 import de.vvwt.tm.domain.repo.TeamRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Spring service that assigns referee teams to every eligible match in a phase.
  *
  * <h2>Core algorithm (AC4)</h2>
+ *
  * <p>For every lap in the phase the service:
+ *
  * <ol>
- *   <li>Determines which teams are playing in that lap.</li>
- *   <li>Builds a candidate set: teams with {@code referee_assignment = TRUE} that are
- *       NOT playing in this lap.</li>
- *   <li>Applies preference ordering from {@code Match.refereePreferenceConfig}.</li>
- *   <li>Applies round-robin balancing: candidates with fewer prior assignments go first.</li>
- *   <li>Assigns the first candidate to the match, or records a warning if the set is empty.</li>
+ *   <li>Determines which teams are playing in that lap.
+ *   <li>Builds a candidate set: teams with {@code referee_assignment = TRUE} that are NOT playing
+ *       in this lap.
+ *   <li>Applies preference ordering from {@code Match.refereePreferenceConfig}.
+ *   <li>Applies round-robin balancing: candidates with fewer prior assignments go first.
+ *   <li>Assigns the first candidate to the match, or records a warning if the set is empty.
  * </ol>
  *
  * <h2>Manual overrides (AC3)</h2>
- * <p>Any match with a non-null {@code refereeDescription} is left unchanged and counted
- * as "manually overridden" in the final report.
+ *
+ * <p>Any match with a non-null {@code refereeDescription} is left unchanged and counted as
+ * "manually overridden" in the final report.
  *
  * <h2>Transactionality (AC18)</h2>
- * <p>The entire method runs inside a single {@link Transactional} boundary.
- * A mid-run failure rolls back all partial assignments.
+ *
+ * <p>The entire method runs inside a single {@link Transactional} boundary. A mid-run failure rolls
+ * back all partial assignments.
  *
  * <h2>Tenant safety (AC17)</h2>
- * <p>All repository calls go through the tenant-scoped repositories from E03S05.
- * Cross-tenant access is structurally impossible.
+ *
+ * <p>All repository calls go through the tenant-scoped repositories from E03S05. Cross-tenant
+ * access is structurally impossible.
  *
  * @see RefereeAssignmentReport
  * @see RefereePreferenceConfig
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E03S10.story.md">Story E03S10</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E03S10.story.md">Story
+ *     E03S10</a>
  */
 @Service
 public class RefereeAssigner {
@@ -66,11 +71,12 @@ public class RefereeAssigner {
     private final TeamAvatarRepository teamAvatarRepository;
     private final ObjectMapper objectMapper;
 
-    public RefereeAssigner(PhaseRepository phaseRepository,
-                           MatchRepository matchRepository,
-                           TeamRepository teamRepository,
-                           TeamAvatarRepository teamAvatarRepository,
-                           ObjectMapper objectMapper) {
+    public RefereeAssigner(
+            PhaseRepository phaseRepository,
+            MatchRepository matchRepository,
+            TeamRepository teamRepository,
+            TeamAvatarRepository teamAvatarRepository,
+            ObjectMapper objectMapper) {
         this.phaseRepository = phaseRepository;
         this.matchRepository = matchRepository;
         this.teamRepository = teamRepository;
@@ -85,16 +91,16 @@ public class RefereeAssigner {
     /**
      * Assigns referee teams to every eligible match in the given phase.
      *
-     * <p>The method is idempotent on matches that already have a non-null
-     * {@code refereeDescription} — those are counted as "manually overridden" and left
-     * untouched. Matches that already have a {@code refereeTeamId} but no
-     * {@code refereeDescription} are treated as auto-assign targets and may be overwritten.
+     * <p>The method is idempotent on matches that already have a non-null {@code
+     * refereeDescription} — those are counted as "manually overridden" and left untouched. Matches
+     * that already have a {@code refereeTeamId} but no {@code refereeDescription} are treated as
+     * auto-assign targets and may be overwritten.
      *
      * @param phaseId the phase to process; must not be {@code null}
      * @return a summary report of the assignment run; never {@code null}
      * @throws IllegalArgumentException if the phase does not exist
-     * @throws IllegalStateException    if any match in the phase has null {@code lapNumber}
-     *                                  or {@code fieldNumber} (slot optimization not yet run)
+     * @throws IllegalStateException if any match in the phase has null {@code lapNumber} or {@code
+     *     fieldNumber} (slot optimization not yet run)
      */
     @Transactional
     public RefereeAssignmentReport assignReferees(UUID phaseId) {
@@ -105,9 +111,15 @@ public class RefereeAssigner {
         // -----------------------------------------------------------------------
         // Step 1: Load and validate phase (AC12)
         // -----------------------------------------------------------------------
-        Phase phase = phaseRepository.findById(phaseId)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Phase not found: " + phaseId + ". No assignment performed."));
+        Phase phase =
+                phaseRepository
+                        .findById(phaseId)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Phase not found: "
+                                                        + phaseId
+                                                        + ". No assignment performed."));
 
         // -----------------------------------------------------------------------
         // Step 2: Load matches
@@ -125,9 +137,13 @@ public class RefereeAssigner {
         for (Match match : allMatches) {
             if (match.getLapNumber() == null || match.getFieldNumber() == null) {
                 throw new IllegalStateException(
-                        "Phase " + phaseId + " has matches without slot coordinates "
-                        + "(match " + match.getId() + "). "
-                        + "Run slot optimization (D-29 step 2) before calling assignReferees.");
+                        "Phase "
+                                + phaseId
+                                + " has matches without slot coordinates "
+                                + "(match "
+                                + match.getId()
+                                + "). Run slot optimization (D-29 step 2) before calling"
+                                + " assignReferees.");
             }
         }
 
@@ -186,8 +202,12 @@ public class RefereeAssigner {
             for (Match match : lapMatches) {
                 if (match.getRefereeDescription() != null) {
                     lapOverrideCount++;
-                    LOG.debug("RefereeAssigner: lap={} match={} — manual override (refereeDescription='{}'), skipping.",
-                            lapNumber, match.getId(), match.getRefereeDescription());
+                    LOG.debug(
+                            "RefereeAssigner: lap={} match={} — manual override"
+                                    + " (refereeDescription='{}'), skipping.",
+                            lapNumber,
+                            match.getId(),
+                            match.getRefereeDescription());
                 } else {
                     toAssign.add(match);
                 }
@@ -206,7 +226,8 @@ public class RefereeAssigner {
 
                 // 7c-i: Parse preference config (AC5)
                 RefereePreferenceConfig prefs =
-                        RefereePreferenceConfig.parse(match.getRefereePreferenceConfig(), objectMapper);
+                        RefereePreferenceConfig.parse(
+                                match.getRefereePreferenceConfig(), objectMapper);
 
                 // 7c-ii: Build candidate set: eligible AND not playing AND not already refereeing
                 //        in this lap (physical constraint: one team = one court at a time)
@@ -215,16 +236,22 @@ public class RefereeAssigner {
                 candidateSet.removeAll(alreadyRefereesThisLap);
 
                 // 7c-iii & 7c-iv: Build ordered candidate list applying preferences + balancing
-                List<UUID> candidateList = buildCandidateList(
-                        candidateSet, prefs, reportBuilder);
+                List<UUID> candidateList = buildCandidateList(candidateSet, prefs, reportBuilder);
 
                 // 7c-v: No candidates available
                 if (candidateList.isEmpty()) {
-                    String warning = "Lap " + lapNumber + ": no eligible referee available for match "
-                            + match.getId() + ".";
+                    String warning =
+                            "Lap "
+                                    + lapNumber
+                                    + ": no eligible referee available for match "
+                                    + match.getId()
+                                    + ".";
                     LOG.warn("RefereeAssigner: {}", warning);
                     reportBuilder.addWarning(warning).incrementNoReferee();
-                    LOG.debug("RefereeAssigner: lap={} match={} — no eligible referee.", lapNumber, match.getId());
+                    LOG.debug(
+                            "RefereeAssigner: lap={} match={} — no eligible referee.",
+                            lapNumber,
+                            match.getId());
                     continue;
                 }
 
@@ -233,10 +260,14 @@ public class RefereeAssigner {
                 match.setRefereeTeamId(chosenTeamId);
                 matchRepository.save(match);
                 reportBuilder.incrementAssigned().recordAssignment(chosenTeamId);
-                alreadyRefereesThisLap.add(chosenTeamId);  // one court at a time (AC8)
+                alreadyRefereesThisLap.add(chosenTeamId); // one court at a time (AC8)
 
-                LOG.debug("RefereeAssigner: lap={} field={} match={} — assigned refereeTeamId={}.",
-                        lapNumber, match.getFieldNumber(), match.getId(), chosenTeamId);
+                LOG.debug(
+                        "RefereeAssigner: lap={} field={} match={} — assigned refereeTeamId={}.",
+                        lapNumber,
+                        match.getFieldNumber(),
+                        match.getId(),
+                        chosenTeamId);
             }
         }
 
@@ -245,7 +276,9 @@ public class RefereeAssigner {
         // -----------------------------------------------------------------------
         RefereeAssignmentReport report = reportBuilder.build();
 
-        LOG.info("RefereeAssigner: phase={} summary — total={}, assigned={}, overridden={}, noReferee={}, warnings={}",
+        LOG.info(
+                "RefereeAssigner: phase={} summary — total={}, assigned={}, overridden={},"
+                        + " noReferee={}, warnings={}",
                 phaseId,
                 report.getTotalMatches(),
                 report.getAssignedCount(),
@@ -254,11 +287,14 @@ public class RefereeAssigner {
                 report.getWarnings().size());
 
         if (!report.getWarnings().isEmpty()) {
-            LOG.warn("RefereeAssigner: {} match(es) could not be assigned a referee and require manual intervention.",
+            LOG.warn(
+                    "RefereeAssigner: {} match(es) could not be assigned a referee and require"
+                            + " manual intervention.",
                     report.getNoRefereeCount());
         }
 
-        LOG.info("RefereeAssigner: per-team assignment counts — {}",
+        LOG.info(
+                "RefereeAssigner: per-team assignment counts — {}",
                 report.getPerTeamAssignmentCount());
 
         return report;
@@ -269,24 +305,26 @@ public class RefereeAssigner {
     // -------------------------------------------------------------------------
 
     /**
-     * Builds an ordered candidate list from the given candidate set, applying preference
-     * ordering and round-robin balancing.
+     * Builds an ordered candidate list from the given candidate set, applying preference ordering
+     * and round-robin balancing.
      *
      * <p>Ordering priority (highest to lowest):
+     *
      * <ol>
-     *   <li>Preferred teams (in preference order), if they are in the candidate set.</li>
-     *   <li>Remaining candidates, sorted by current assignment count ascending (least assigned first),
-     *       then by team ID for deterministic tie-breaking.</li>
+     *   <li>Preferred teams (in preference order), if they are in the candidate set.
+     *   <li>Remaining candidates, sorted by current assignment count ascending (least assigned
+     *       first), then by team ID for deterministic tie-breaking.
      * </ol>
      *
-     * @param candidateSet  teams eligible to referee this match (eligible AND not playing)
-     * @param prefs         preference configuration for the match
+     * @param candidateSet teams eligible to referee this match (eligible AND not playing)
+     * @param prefs preference configuration for the match
      * @param reportBuilder current report builder to read per-team assignment counts
      * @return ordered candidate list; may be empty if candidateSet is empty
      */
-    private List<UUID> buildCandidateList(Set<UUID> candidateSet,
-                                           RefereePreferenceConfig prefs,
-                                           RefereeAssignmentReport.Builder reportBuilder) {
+    private List<UUID> buildCandidateList(
+            Set<UUID> candidateSet,
+            RefereePreferenceConfig prefs,
+            RefereeAssignmentReport.Builder reportBuilder) {
         if (candidateSet.isEmpty()) {
             return List.of();
         }
@@ -305,8 +343,7 @@ public class RefereeAssigner {
         List<UUID> remainingList = new ArrayList<>(remaining);
         remainingList.sort(
                 Comparator.comparingInt((UUID teamId) -> reportBuilder.getAssignmentCount(teamId))
-                          .thenComparing(Comparator.naturalOrder())
-        );
+                        .thenComparing(Comparator.naturalOrder()));
         result.addAll(remainingList);
 
         return result;

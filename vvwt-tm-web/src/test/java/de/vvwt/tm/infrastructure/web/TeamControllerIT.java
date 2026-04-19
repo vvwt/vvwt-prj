@@ -1,5 +1,7 @@
 package de.vvwt.tm.infrastructure.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.auth.SecurityConfig;
 import de.vvwt.tm.infrastructure.web.dto.TeamBulkCreateRequest;
@@ -9,62 +11,58 @@ import de.vvwt.tm.infrastructure.web.dto.TeamResponse;
 import de.vvwt.tm.infrastructure.web.dto.TeamUpdateRequest;
 import de.vvwt.tm.infrastructure.web.dto.TournamentCreateRequest;
 import de.vvwt.tm.infrastructure.web.dto.TournamentResponse;
+import de.vvwt.tm.tenant.TenantContextTestSupport;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import de.vvwt.tm.tenant.TenantContextTestSupport;
-import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import de.vvwt.tm.tenant.TenantContextTestSupport;
-import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import de.vvwt.tm.tenant.TenantContextTestSupport;
-import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
-
-import java.util.List;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link TeamController} (E05S05).
  *
- * <p>Tests the full HTTP stack including Spring Security (basic auth), Jackson serialization,
- * and the {@link GlobalExceptionHandler}.
+ * <p>Tests the full HTTP stack including Spring Security (basic auth), Jackson serialization, and
+ * the {@link GlobalExceptionHandler}.
  *
  * <h2>Test scenarios</h2>
+ *
  * <ul>
- *   <li>AC1  — GET /api/tournaments/{id}/teams returns 200 with ordered list</li>
- *   <li>AC2  — POST creates a team with 201 + auto team number</li>
- *   <li>AC3  — PUT updates a team; 409 if tournament not DRAFT</li>
- *   <li>AC4  — DELETE removes a team; 409 if tournament not DRAFT</li>
- *   <li>AC5  — POST /bulk creates multiple teams</li>
- *   <li>AC10 — duplicate team_number returns 409</li>
- *   <li>AC11 — non-DRAFT tournament operations return 409</li>
- *   <li>AC13 — cross-tenant access returns 404</li>
+ *   <li>AC1 — GET /api/tournaments/{id}/teams returns 200 with ordered list
+ *   <li>AC2 — POST creates a team with 201 + auto team number
+ *   <li>AC3 — PUT updates a team; 409 if tournament not DRAFT
+ *   <li>AC4 — DELETE removes a team; 409 if tournament not DRAFT
+ *   <li>AC5 — POST /bulk creates multiple teams
+ *   <li>AC10 — duplicate team_number returns 409
+ *   <li>AC11 — non-DRAFT tournament operations return 409
+ *   <li>AC13 — cross-tenant access returns 404
  * </ul>
  *
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E05S05.story.md">Story E05S05</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E05S05.story.md">Story
+ *     E05S05</a>
  */
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         classes = {
-                de.vvwt.tm.TournamentManagerApplication.class,
-                TeamControllerIT.TestAdminCredentials.class
+            de.vvwt.tm.TournamentManagerApplication.class,
+            TeamControllerIT.TestAdminCredentials.class
         },
         properties = {
             "spring.datasource.url=jdbc:h2:mem:e05s05teamdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
-                    + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
+                + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
 @Import(TenantContextTestSupport.class)
@@ -72,11 +70,9 @@ class TeamControllerIT {
 
     static final String TEST_PASSWORD = "TeamCtrlTest01";
 
-    @LocalServerPort
-    private int port;
+    @LocalServerPort private int port;
 
-    @Autowired
-    private TestRestTemplate restTemplate;
+    @Autowired private TestRestTemplate restTemplate;
 
     private String baseUrl;
     private TestRestTemplate authed;
@@ -92,17 +88,19 @@ class TeamControllerIT {
     // =========================================================================
 
     private TournamentResponse createDraftTournament() {
-        var request = new TournamentCreateRequest(
-                "E05S05 Test Tournament",
-                null,
-                8,
-                2,
-                "BEST_OF_3",
-                "threePoint",
-                "standardVolleyball",
-                "roundRobin");
-        ResponseEntity<TournamentResponse> response = authed.postForEntity(
-                baseUrl + "/api/tournaments", request, TournamentResponse.class);
+        var request =
+                new TournamentCreateRequest(
+                        "E05S05 Test Tournament",
+                        null,
+                        8,
+                        2,
+                        "BEST_OF_3",
+                        "threePoint",
+                        "standardVolleyball",
+                        "roundRobin");
+        ResponseEntity<TournamentResponse> response =
+                authed.postForEntity(
+                        baseUrl + "/api/tournaments", request, TournamentResponse.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         return response.getBody();
     }
@@ -119,8 +117,8 @@ class TeamControllerIT {
     void listTeamsReturnsEmptyListForNewTournament() {
         TournamentResponse tournament = createDraftTournament();
 
-        ResponseEntity<TeamResponse[]> response = authed.getForEntity(
-                teamsUrl(tournament.id()), TeamResponse[].class);
+        ResponseEntity<TeamResponse[]> response =
+                authed.getForEntity(teamsUrl(tournament.id()), TeamResponse[].class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull().isEmpty();
@@ -135,15 +133,21 @@ class TeamControllerIT {
         TournamentResponse tournament = createDraftTournament();
 
         // Create teams out of order
-        authed.postForEntity(teamsUrl(tournament.id()),
-                new TeamCreateRequest("Team C", 3, null, null, null), TeamResponse.class);
-        authed.postForEntity(teamsUrl(tournament.id()),
-                new TeamCreateRequest("Team A", 1, null, null, null), TeamResponse.class);
-        authed.postForEntity(teamsUrl(tournament.id()),
-                new TeamCreateRequest("Team B", 2, null, null, null), TeamResponse.class);
+        authed.postForEntity(
+                teamsUrl(tournament.id()),
+                new TeamCreateRequest("Team C", 3, null, null, null),
+                TeamResponse.class);
+        authed.postForEntity(
+                teamsUrl(tournament.id()),
+                new TeamCreateRequest("Team A", 1, null, null, null),
+                TeamResponse.class);
+        authed.postForEntity(
+                teamsUrl(tournament.id()),
+                new TeamCreateRequest("Team B", 2, null, null, null),
+                TeamResponse.class);
 
-        ResponseEntity<TeamResponse[]> response = authed.getForEntity(
-                teamsUrl(tournament.id()), TeamResponse[].class);
+        ResponseEntity<TeamResponse[]> response =
+                authed.getForEntity(teamsUrl(tournament.id()), TeamResponse[].class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         TeamResponse[] teams = response.getBody();
@@ -162,8 +166,8 @@ class TeamControllerIT {
         TournamentResponse tournament = createDraftTournament();
 
         var request = new TeamCreateRequest("Team Alpha", null, null, null, null);
-        ResponseEntity<TeamResponse> response = authed.postForEntity(
-                teamsUrl(tournament.id()), request, TeamResponse.class);
+        ResponseEntity<TeamResponse> response =
+                authed.postForEntity(teamsUrl(tournament.id()), request, TeamResponse.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getHeaders().getLocation()).isNotNull();
@@ -171,7 +175,7 @@ class TeamControllerIT {
         assertThat(body).isNotNull();
         assertThat(body.description()).isEqualTo("Team Alpha");
         assertThat(body.teamNumber()).isEqualTo(1); // auto-assigned
-        assertThat(body.participate()).isTrue();     // default
+        assertThat(body.participate()).isTrue(); // default
         assertThat(body.refereeAssignment()).isFalse(); // default
         assertThat(body.withoutAssessment()).isFalse(); // default
     }
@@ -185,12 +189,17 @@ class TeamControllerIT {
         TournamentResponse tournament = createDraftTournament();
 
         // First team → number 1
-        authed.postForEntity(teamsUrl(tournament.id()),
-                new TeamCreateRequest("Team One", null, null, null, null), TeamResponse.class);
+        authed.postForEntity(
+                teamsUrl(tournament.id()),
+                new TeamCreateRequest("Team One", null, null, null, null),
+                TeamResponse.class);
 
         // Second team → number 2
-        ResponseEntity<TeamResponse> response = authed.postForEntity(teamsUrl(tournament.id()),
-                new TeamCreateRequest("Team Two", null, null, null, null), TeamResponse.class);
+        ResponseEntity<TeamResponse> response =
+                authed.postForEntity(
+                        teamsUrl(tournament.id()),
+                        new TeamCreateRequest("Team Two", null, null, null, null),
+                        TeamResponse.class);
 
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().teamNumber()).isEqualTo(2);
@@ -204,16 +213,20 @@ class TeamControllerIT {
     void updateTeamReturns200() {
         TournamentResponse tournament = createDraftTournament();
 
-        ResponseEntity<TeamResponse> created = authed.postForEntity(teamsUrl(tournament.id()),
-                new TeamCreateRequest("Original Name", null, null, null, null), TeamResponse.class);
+        ResponseEntity<TeamResponse> created =
+                authed.postForEntity(
+                        teamsUrl(tournament.id()),
+                        new TeamCreateRequest("Original Name", null, null, null, null),
+                        TeamResponse.class);
         UUID teamId = created.getBody().id();
 
         var updateRequest = new TeamUpdateRequest("Updated Name", null, true, true, false);
-        ResponseEntity<TeamResponse> response = authed.exchange(
-                teamsUrl(tournament.id()) + "/" + teamId,
-                HttpMethod.PUT,
-                new HttpEntity<>(updateRequest),
-                TeamResponse.class);
+        ResponseEntity<TeamResponse> response =
+                authed.exchange(
+                        teamsUrl(tournament.id()) + "/" + teamId,
+                        HttpMethod.PUT,
+                        new HttpEntity<>(updateRequest),
+                        TeamResponse.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody().description()).isEqualTo("Updated Name");
@@ -228,21 +241,25 @@ class TeamControllerIT {
     void deleteTeamReturns204() {
         TournamentResponse tournament = createDraftTournament();
 
-        ResponseEntity<TeamResponse> created = authed.postForEntity(teamsUrl(tournament.id()),
-                new TeamCreateRequest("To Be Deleted", null, null, null, null), TeamResponse.class);
+        ResponseEntity<TeamResponse> created =
+                authed.postForEntity(
+                        teamsUrl(tournament.id()),
+                        new TeamCreateRequest("To Be Deleted", null, null, null, null),
+                        TeamResponse.class);
         UUID teamId = created.getBody().id();
 
-        ResponseEntity<Void> response = authed.exchange(
-                teamsUrl(tournament.id()) + "/" + teamId,
-                HttpMethod.DELETE,
-                null,
-                Void.class);
+        ResponseEntity<Void> response =
+                authed.exchange(
+                        teamsUrl(tournament.id()) + "/" + teamId,
+                        HttpMethod.DELETE,
+                        null,
+                        Void.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
 
         // Verify no longer in list
-        ResponseEntity<TeamResponse[]> listResponse = authed.getForEntity(
-                teamsUrl(tournament.id()), TeamResponse[].class);
+        ResponseEntity<TeamResponse[]> listResponse =
+                authed.getForEntity(teamsUrl(tournament.id()), TeamResponse[].class);
         assertThat(listResponse.getBody()).isEmpty();
     }
 
@@ -254,14 +271,18 @@ class TeamControllerIT {
     void bulkCreateTeamsReturns200WithResults() {
         TournamentResponse tournament = createDraftTournament();
 
-        var bulkRequest = new TeamBulkCreateRequest(List.of(
-                new TeamCreateRequest("Bulk Team 1", 1, null, null, null),
-                new TeamCreateRequest("Bulk Team 2", 2, null, null, null),
-                new TeamCreateRequest("Bulk Team 3", 3, null, null, null)
-        ));
+        var bulkRequest =
+                new TeamBulkCreateRequest(
+                        List.of(
+                                new TeamCreateRequest("Bulk Team 1", 1, null, null, null),
+                                new TeamCreateRequest("Bulk Team 2", 2, null, null, null),
+                                new TeamCreateRequest("Bulk Team 3", 3, null, null, null)));
 
-        ResponseEntity<TeamBulkCreateResponse> response = authed.postForEntity(
-                teamsUrl(tournament.id()) + "/bulk", bulkRequest, TeamBulkCreateResponse.class);
+        ResponseEntity<TeamBulkCreateResponse> response =
+                authed.postForEntity(
+                        teamsUrl(tournament.id()) + "/bulk",
+                        bulkRequest,
+                        TeamBulkCreateResponse.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         TeamBulkCreateResponse body = response.getBody();
@@ -279,14 +300,17 @@ class TeamControllerIT {
         TournamentResponse tournament = createDraftTournament();
 
         // Create team with number 5
-        authed.postForEntity(teamsUrl(tournament.id()),
-                new TeamCreateRequest("First Team", 5, null, null, null), TeamResponse.class);
+        authed.postForEntity(
+                teamsUrl(tournament.id()),
+                new TeamCreateRequest("First Team", 5, null, null, null),
+                TeamResponse.class);
 
         // Try to create another with same number
-        ResponseEntity<ApiErrorResponse> response = authed.postForEntity(
-                teamsUrl(tournament.id()),
-                new TeamCreateRequest("Second Team", 5, null, null, null),
-                ApiErrorResponse.class);
+        ResponseEntity<ApiErrorResponse> response =
+                authed.postForEntity(
+                        teamsUrl(tournament.id()),
+                        new TeamCreateRequest("Second Team", 5, null, null, null),
+                        ApiErrorResponse.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
     }
@@ -299,8 +323,9 @@ class TeamControllerIT {
     void listTeamsFor404TournamentReturns404() {
         // Use a non-existent tournament UUID — tenant-scoped lookup returns empty → 404
         UUID nonExistent = UUID.randomUUID();
-        ResponseEntity<String> response = authed.getForEntity(
-                baseUrl + "/api/tournaments/" + nonExistent + "/teams", String.class);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        baseUrl + "/api/tournaments/" + nonExistent + "/teams", String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
@@ -313,8 +338,8 @@ class TeamControllerIT {
     void listTeamsReturns401WithoutCredentials() {
         TournamentResponse tournament = createDraftTournament();
 
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                teamsUrl(tournament.id()), String.class);
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(teamsUrl(tournament.id()), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
@@ -328,10 +353,11 @@ class TeamControllerIT {
         TournamentResponse tournament = createDraftTournament();
 
         // description is blank — should return 400
-        ResponseEntity<ApiErrorResponse> response = authed.postForEntity(
-                teamsUrl(tournament.id()),
-                new TeamCreateRequest("", null, null, null, null),
-                ApiErrorResponse.class);
+        ResponseEntity<ApiErrorResponse> response =
+                authed.postForEntity(
+                        teamsUrl(tournament.id()),
+                        new TeamCreateRequest("", null, null, null, null),
+                        ApiErrorResponse.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }

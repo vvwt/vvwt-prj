@@ -1,22 +1,19 @@
 package de.vvwt.standalone.config;
 
-import picocli.CommandLine;
-import picocli.CommandLine.Command;
-import picocli.CommandLine.Option;
-import picocli.CommandLine.Mixin;
-
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Properties;
 import java.util.concurrent.Callable;
+import picocli.CommandLine;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Option;
 
 /**
- * Picocli command that parses CLI arguments and an optional {@code --config} properties file,
- * then produces a validated {@link WorkerConfig}.
+ * Picocli command that parses CLI arguments and an optional {@code --config} properties file, then
+ * produces a validated {@link WorkerConfig}.
  *
  * <p>Precedence (highest wins): explicit CLI args > config file values > built-in defaults.
  *
@@ -24,9 +21,9 @@ import java.util.concurrent.Callable;
  */
 @Command(
         name = "optimizer-worker",
-        description = "VVW standalone headless worker — pulls and scores slot-optimization packets.",
-        mixinStandardHelpOptions = true
-)
+        description =
+                "VVW standalone headless worker — pulls and scores slot-optimization packets.",
+        mixinStandardHelpOptions = true)
 public class WorkerConfigLoader implements Callable<Integer> {
 
     // -------------------------------------------------------------------------
@@ -36,50 +33,45 @@ public class WorkerConfigLoader implements Callable<Integer> {
     @Option(
             names = {"--data-dir"},
             description = "Directory for keypair and state files (default: platform-specific).",
-            paramLabel = "<path>"
-    )
+            paramLabel = "<path>")
     private String dataDirArg;
 
     @Option(
             names = {"--dispatcher-url"},
             description = "Base URL of the dispatcher service (required unless in --config file).",
-            paramLabel = "<url>"
-    )
+            paramLabel = "<url>")
     private String dispatcherUrlArg;
 
     @Option(
             names = {"--max-cpu-percent"},
             description = "Maximum CPU utilisation percentage, 1–100 (default: 50).",
-            paramLabel = "<percent>"
-    )
+            paramLabel = "<percent>")
     private Integer maxCpuPercentArg;
 
     @Option(
             names = {"--name"},
             description = "Human-readable label used in audit logs (optional).",
-            paramLabel = "<name>"
-    )
+            paramLabel = "<name>")
     private String nameArg;
 
     @Option(
             names = {"--idle-poll-seconds"},
             description = "Seconds to sleep when no packet is available (default: 30).",
-            paramLabel = "<seconds>"
-    )
+            paramLabel = "<seconds>")
     private Integer idlePollSecondsArg;
 
     @Option(
             names = {"--config"},
-            description = "Path to a .properties file that provides default values for all options.",
-            paramLabel = "<path>"
-    )
+            description =
+                    "Path to a .properties file that provides default values for all options.",
+            paramLabel = "<path>")
     private String configFileArg;
 
     @Option(
             names = {"--log-format"},
-            description = "Log format: 'json' for structured JSON logs, anything else for plain text.",
-            paramLabel = "<format>"
-    )
+            description =
+                    "Log format: 'json' for structured JSON logs, anything else for plain text.",
+            paramLabel = "<format>")
     private String logFormatArg;
 
     /** Resolved config — set by {@link #buildConfig()}. */
@@ -90,8 +82,8 @@ public class WorkerConfigLoader implements Callable<Integer> {
     // -------------------------------------------------------------------------
 
     /**
-     * Invoked by picocli when the command runs. Builds and validates the config.
-     * Returns exit code 0 on success; the caller uses {@link #getResolvedConfig()}.
+     * Invoked by picocli when the command runs. Builds and validates the config. Returns exit code
+     * 0 on success; the caller uses {@link #getResolvedConfig()}.
      */
     @Override
     public Integer call() {
@@ -107,7 +99,8 @@ public class WorkerConfigLoader implements Callable<Integer> {
      */
     public WorkerConfig getResolvedConfig() {
         if (resolvedConfig == null) {
-            throw new IllegalStateException("Config not yet resolved — call() has not been invoked successfully");
+            throw new IllegalStateException(
+                    "Config not yet resolved — call() has not been invoked successfully");
         }
         return resolvedConfig;
     }
@@ -116,9 +109,7 @@ public class WorkerConfigLoader implements Callable<Integer> {
     // Private helpers
     // -------------------------------------------------------------------------
 
-    /**
-     * Merges config-file defaults with CLI args and applies built-in defaults.
-     */
+    /** Merges config-file defaults with CLI args and applies built-in defaults. */
     WorkerConfig buildConfig() {
         Properties fileProps = new Properties();
         if (configFileArg != null && !configFileArg.isBlank()) {
@@ -133,24 +124,29 @@ public class WorkerConfigLoader implements Callable<Integer> {
         }
 
         String dataDirStr = coalesce(dataDirArg, fileProps.getProperty("data-dir"));
-        Path dataDir = dataDirStr != null
-                ? Paths.get(dataDirStr)
-                : defaultDataDir();
+        Path dataDir = dataDirStr != null ? Paths.get(dataDirStr) : defaultDataDir();
 
-        int maxCpuPercent = resolveInt(maxCpuPercentArg,
-                fileProps.getProperty("max-cpu-percent"),
-                WorkerConfig.DEFAULT_MAX_CPU_PERCENT);
+        int maxCpuPercent =
+                resolveInt(
+                        maxCpuPercentArg,
+                        fileProps.getProperty("max-cpu-percent"),
+                        WorkerConfig.DEFAULT_MAX_CPU_PERCENT);
 
-        int idlePollSeconds = resolveInt(idlePollSecondsArg,
-                fileProps.getProperty("idle-poll-seconds"),
-                WorkerConfig.DEFAULT_IDLE_POLL_SECONDS);
+        int idlePollSeconds =
+                resolveInt(
+                        idlePollSecondsArg,
+                        fileProps.getProperty("idle-poll-seconds"),
+                        WorkerConfig.DEFAULT_IDLE_POLL_SECONDS);
 
         String name = coalesce(nameArg, fileProps.getProperty("name"));
 
-        boolean logFormatJson = "json".equalsIgnoreCase(
-                coalesce(logFormatArg, fileProps.getProperty("log-format")));
+        boolean logFormatJson =
+                "json"
+                        .equalsIgnoreCase(
+                                coalesce(logFormatArg, fileProps.getProperty("log-format")));
 
-        return new WorkerConfig(dataDir, dispatcherUrl, maxCpuPercent, name, idlePollSeconds, logFormatJson);
+        return new WorkerConfig(
+                dataDir, dispatcherUrl, maxCpuPercent, name, idlePollSeconds, logFormatJson);
     }
 
     private static Properties loadPropertiesFile(String path) {
@@ -164,9 +160,8 @@ public class WorkerConfigLoader implements Callable<Integer> {
     }
 
     /**
-     * Platform-appropriate default data directory:
-     * Linux/macOS: {@code ~/.local/share/optimizer-worker}
-     * Windows: {@code %APPDATA%\optimizer-worker}
+     * Platform-appropriate default data directory: Linux/macOS: {@code
+     * ~/.local/share/optimizer-worker} Windows: {@code %APPDATA%\optimizer-worker}
      */
     static Path defaultDataDir() {
         String os = System.getProperty("os.name", "").toLowerCase();
