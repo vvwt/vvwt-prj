@@ -127,6 +127,38 @@ public class ActivityTypeService {
     }
 
     // -------------------------------------------------------------------------
+    // Update (RED stub — implementation intentionally absent for AC1 anti-spoof)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Updates an existing activity type (RED stub — not yet implemented).
+     *
+     * @throws UnsupportedOperationException always — RED stub for AC1 anti-spoof
+     */
+    public ActivityType update(
+            UUID tournamentId,
+            UUID id,
+            String name,
+            String assignmentRule,
+            Integer capacityPerRound,
+            int sortOrder) {
+        throw new UnsupportedOperationException("update() not yet implemented — RED stub");
+    }
+
+    // -------------------------------------------------------------------------
+    // Delete (RED stub — implementation intentionally absent for AC1 anti-spoof)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Deletes an activity type (RED stub — not yet implemented).
+     *
+     * @throws UnsupportedOperationException always — RED stub for AC1 anti-spoof
+     */
+    public void delete(UUID tournamentId, UUID id) {
+        throw new UnsupportedOperationException("delete() not yet implemented — RED stub");
+    }
+
+    // -------------------------------------------------------------------------
     // Query
     // -------------------------------------------------------------------------
 
