@@ -157,6 +157,16 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- assertj-db: independent database-content verification for DAO integration tests.
+             The DAO's own query methods must not be the evaluator of its own write path —
+             assertj-db inspects table state directly via the DataSource. Version managed by
+             parent POM (DEC-10 — no version pin here). -->
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-db</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- spring-modulith-test: provides @ApplicationModuleTest annotation (E14S06).
              Enables per-module Spring context bootstrapping in integration tests — only the
              module under test and its declared dependencies are loaded. Used by

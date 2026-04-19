@@ -1,9 +1,14 @@
 package de.vvwt.tm.auth.internal;
 
+import org.assertj.db.type.AssertDbConnection;
+import org.assertj.db.type.AssertDbConnectionFactory;
+import org.assertj.db.type.Table;
 import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.datasource.init.ScriptUtils;
 
 import javax.sql.DataSource;
 import java.util.Optional;
@@ -13,6 +18,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.db.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link AdminCredentialsDao}.
@@ -21,11 +27,23 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Each test receives a fresh DataSource via {@link #createFreshDataSource()} to guarantee
  * full isolation between test cases.
  *
- * <h2>Schema fixture</h2>
- * <p>E15S05 (Flyway migration for {@code db/migration/auth/V1__admin_credentials.sql}) has not
- * yet been delivered. Tests that require the {@code admin_credentials} table apply the inline
- * SQL fixture in {@link #applySchema(DataSource)} as a scaffold. This fixture will be removed
- * once E15S05 lands (the production Flyway runner will apply the migration instead).
+ * <h2>Schema source-of-truth</h2>
+ * <p>The schema is loaded from the <b>production Flyway migration</b>
+ * ({@code db/migration/auth/V1__admin_credentials.sql}) via Spring's {@code ScriptUtils}.
+ * This eliminates DDL drift between test and production — whatever column types, constraints,
+ * and indexes production uses, the test uses the same bytes.
+ *
+ * <h2>No Spring application context (by design)</h2>
+ * <p>The test deliberately avoids {@code @SpringBootTest} / {@code @JdbcTest} so the DAO
+ * is exercised against a bare H2 DataSource with minimal test overhead. This rules out
+ * {@code @Sql} (which requires a context) — the equivalent is {@code ScriptUtils} against
+ * a raw JDBC {@link java.sql.Connection}.
+ *
+ * <h2>Independent database-state verification</h2>
+ * <p>Assertions about persisted state use <b>assertj-db</b> ({@link Table} against the
+ * DataSource) — not the DAO's own query methods. The DAO must not be the evaluator of its
+ * own write path: calling {@code dao.insertNew(…)} followed by {@code dao.findExisting()}
+ * only proves internal consistency, not that a row reached the database.
  *
  * <h2>DEC-20 compliance</h2>
  * <p>In production, {@code AdminCredentialsDao} receives a {@link DataSource} resolved by
@@ -42,29 +60,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class AdminCredentialsDaoTest {
 
-    // -------------------------------------------------------------------------
-    // Inline schema fixture (E15S05 scaffold — see class Javadoc)
-    // -------------------------------------------------------------------------
-
-    private static final String CREATE_TABLE_SQL =
-            "CREATE TABLE IF NOT EXISTS admin_credentials ("
-            + "id              UUID          NOT NULL, "
-            + "password_hash   VARCHAR(255)  NOT NULL, "
-            + "created_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP, "
-            + "singleton_guard BOOLEAN       NOT NULL DEFAULT TRUE, "
-            + "CONSTRAINT pk_admin_credentials PRIMARY KEY (id), "
-            + "CONSTRAINT chk_singleton_guard CHECK (singleton_guard = TRUE)"
-            + ")";
-
-    private static final String CREATE_INDEX_SQL =
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_admin_credentials_singleton "
-            + "ON admin_credentials (singleton_guard)";
-
-    // -------------------------------------------------------------------------
-    // Test infrastructure
-    // -------------------------------------------------------------------------
+    private static final String SCHEMA_MIGRATION = "db/migration/auth/V1__admin_credentials.sql";
+    private static final String TABLE = "admin_credentials";
 
     private DataSource dataSource;
+    private AssertDbConnection assertDb;
     private AdminCredentialsDao dao;
 
     /**
@@ -75,25 +75,36 @@ class AdminCredentialsDaoTest {
     void setUp() {
         dataSource = createFreshDataSource();
         applySchema(dataSource);
+        assertDb = AssertDbConnectionFactory.of(dataSource).create();
         dao = new AdminCredentialsDao(dataSource);
+    }
+
+    /**
+     * Builds an assertj-db {@link Table} handle for the {@code admin_credentials} table,
+     * reading through the same DataSource as the DAO under test.
+     */
+    private Table credentialsTable() {
+        return assertDb.table(TABLE).build();
     }
 
     private static DataSource createFreshDataSource() {
         JdbcDataSource ds = new JdbcDataSource();
-        // Unique in-memory DB name per test instance to prevent cross-test state leakage
         ds.setURL("jdbc:h2:mem:admin-cred-test-" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1");
         ds.setUser("sa");
         ds.setPassword("");
         return ds;
     }
 
+    /**
+     * Applies the production Flyway migration to the given DataSource — identical DDL bytes
+     * to what production applies, no test-only schema variant.
+     */
     private static void applySchema(DataSource ds) {
-        try (var conn = ds.getConnection();
-             var stmt = conn.createStatement()) {
-            stmt.execute(CREATE_TABLE_SQL);
-            stmt.execute(CREATE_INDEX_SQL);
+        try (var conn = ds.getConnection()) {
+            ScriptUtils.executeSqlScript(conn, new ClassPathResource(SCHEMA_MIGRATION));
         } catch (Exception e) {
-            throw new IllegalStateException("Failed to apply inline admin_credentials schema fixture", e);
+            throw new IllegalStateException(
+                    "Failed to apply production migration " + SCHEMA_MIGRATION + " to test DataSource", e);
         }
     }
 
@@ -103,10 +114,15 @@ class AdminCredentialsDaoTest {
 
     /**
      * T1 (base): Empty {@code admin_credentials} table → {@link AdminCredentialsDao#findExisting()}
-     * returns {@link Optional#empty()}.
+     * returns {@link Optional#empty()}. Independent verification: the table has 0 rows.
      */
     @Test
     void findExisting_emptyTable_returnsEmpty() {
+        Table table = credentialsTable();
+        assertThat(table)
+                .as("Precondition: freshly migrated table must have 0 rows")
+                .hasNumberOfRows(0);
+
         Optional<AdminCredentialsDao.CredentialRecord> result = dao.findExisting();
 
         assertThat(result)
@@ -115,48 +131,53 @@ class AdminCredentialsDaoTest {
     }
 
     // -------------------------------------------------------------------------
-    // T2 — insertNew: row is created and findExisting returns it
+    // T2 — insertNew: row is actually persisted in the database
     // -------------------------------------------------------------------------
 
     /**
-     * T2 (base): {@link AdminCredentialsDao#insertNew(UUID, String)} inserts a row;
-     * subsequent {@link AdminCredentialsDao#findExisting()} returns a non-empty Optional.
+     * T2 (base): {@link AdminCredentialsDao#insertNew(UUID, String)} actually writes a row
+     * to the database. Verified independently via assertj-db against the DataSource —
+     * not via the DAO's own {@code findExisting()} (which would be circular).
      */
     @Test
-    void insertNew_emptyTable_rowIsCreated() {
+    void insertNew_emptyTable_rowIsPersistedToDatabase() {
         UUID id = UUID.randomUUID();
-        dao.insertNew(id, "$2a$10$testhashXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+        String hash = "$2a$10$testhashXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
 
-        Optional<AdminCredentialsDao.CredentialRecord> result = dao.findExisting();
+        dao.insertNew(id, hash);
 
-        assertThat(result)
-                .as("findExisting() after insertNew must return a non-empty Optional")
-                .isPresent();
+        Table table = credentialsTable();
+        assertThat(table)
+                .as("insertNew must persist exactly one row to admin_credentials")
+                .hasNumberOfRows(1)
+                .row(0)
+                .value("id").isEqualTo(id)
+                .value("password_hash").isEqualTo(hash)
+                .value("singleton_guard").isEqualTo(true);
     }
 
     // -------------------------------------------------------------------------
-    // T3 — findExisting: returned record has correct id and passwordHash
+    // T3 — findExisting reads a pre-existing row (decoupled from insertNew)
     // -------------------------------------------------------------------------
 
     /**
-     * T3 (base): The {@link AdminCredentialsDao.CredentialRecord} returned by
-     * {@link AdminCredentialsDao#findExisting()} has the correct id and passwordHash.
+     * T3 (base): {@link AdminCredentialsDao#findExisting()} correctly reads a row that
+     * was inserted by <b>direct SQL</b> (not by the DAO). This decouples the read-path
+     * test from the write-path test: findExisting is verified independently of insertNew.
      */
     @Test
-    void findExisting_afterInsert_returnsCredentialRecord() {
+    void findExisting_withRowInsertedDirectly_returnsCredentialRecord() {
         UUID expectedId = UUID.randomUUID();
         String expectedHash = "$2a$10$testhashXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-
-        dao.insertNew(expectedId, expectedHash);
+        insertRowDirectly(expectedId, expectedHash);
 
         AdminCredentialsDao.CredentialRecord record = dao.findExisting().orElseThrow();
 
         assertThat(record.id())
-                .as("Returned record id must match the inserted UUID")
+                .as("Returned record id must match the directly inserted UUID")
                 .isEqualTo(expectedId);
-
         assertThat(record.passwordHash())
-                .as("Returned record passwordHash must match the inserted hash")
+                .as("Returned record passwordHash must match the directly inserted hash")
                 .isEqualTo(expectedHash);
     }
 
@@ -166,7 +187,7 @@ class AdminCredentialsDaoTest {
 
     /**
      * T4 (AC6): The DAO stores the supplied string verbatim — it performs no hashing.
-     * Pass a non-hash sentinel string and verify it is retrieved unchanged.
+     * Verified against the database column directly (not via findExisting).
      *
      * <p>Hashing is an orchestration concern (handled by {@code AdminCredentialsBootstrap}
      * in E15S03 using Spring Security's {@code PasswordEncoder}).
@@ -178,10 +199,11 @@ class AdminCredentialsDaoTest {
 
         dao.insertNew(id, arbitraryString);
 
-        String stored = dao.findExisting().orElseThrow().passwordHash();
-        assertThat(stored)
-                .as("AC6: DAO must store the supplied string verbatim — no hashing performed")
-                .isEqualTo(arbitraryString);
+        Table table = credentialsTable();
+        assertThat(table)
+                .as("AC6: DAO must store the supplied string verbatim in the password_hash column")
+                .row(0)
+                .value("password_hash").isEqualTo(arbitraryString);
     }
 
     // -------------------------------------------------------------------------
@@ -201,6 +223,11 @@ class AdminCredentialsDaoTest {
                 .as("AC3: second insert must fail with DataIntegrityViolationException "
                     + "(singleton_guard unique constraint)")
                 .isInstanceOf(DataIntegrityViolationException.class);
+
+        Table table = credentialsTable();
+        assertThat(table)
+                .as("AC3: after a rejected second insert, the table must still contain exactly one row")
+                .hasNumberOfRows(1);
     }
 
     // -------------------------------------------------------------------------
@@ -210,7 +237,7 @@ class AdminCredentialsDaoTest {
     /**
      * T6 (AC3 — concurrent race): Two threads attempt to insert simultaneously.
      * One succeeds; the other catches {@link DataIntegrityViolationException}.
-     * Final state: exactly one row in the table.
+     * Final state (verified via assertj-db): exactly one row in the table.
      *
      * <p>Implementation: a {@link CyclicBarrier} synchronizes both threads at the point
      * just before they call {@code insertNew()} so that both see an empty table before
@@ -228,15 +255,12 @@ class AdminCredentialsDaoTest {
         AtomicReference<Exception> thread1Exception = new AtomicReference<>();
         AtomicReference<Exception> thread2Exception = new AtomicReference<>();
 
-        // Both threads share the same DAO (same DataSource)
         AdminCredentialsDao sharedDao = new AdminCredentialsDao(dataSource);
 
         Runnable insertTask1 = () -> {
             try {
-                barrier.await(); // wait for both threads to be ready
+                barrier.await();
                 sharedDao.insertNew(UUID.randomUUID(), "hash-from-thread-1");
-            } catch (DataIntegrityViolationException e) {
-                thread1Exception.set(e);
             } catch (Exception e) {
                 thread1Exception.set(e);
             }
@@ -244,10 +268,8 @@ class AdminCredentialsDaoTest {
 
         Runnable insertTask2 = () -> {
             try {
-                barrier.await(); // wait for both threads to be ready
+                barrier.await();
                 sharedDao.insertNew(UUID.randomUUID(), "hash-from-thread-2");
-            } catch (DataIntegrityViolationException e) {
-                thread2Exception.set(e);
             } catch (Exception e) {
                 thread2Exception.set(e);
             }
@@ -260,7 +282,6 @@ class AdminCredentialsDaoTest {
         t1.join();
         t2.join();
 
-        // Exactly one thread must have won (no exception) and one must have lost (DIVE)
         boolean t1Won = thread1Exception.get() == null;
         boolean t2Won = thread2Exception.get() == null;
 
@@ -270,17 +291,15 @@ class AdminCredentialsDaoTest {
                     + (!t1Won && !t2Won))
                 .isTrue();
 
-        // The losing thread's exception must be a DIVE (singleton_guard constraint)
         Exception loserException = t1Won ? thread2Exception.get() : thread1Exception.get();
         assertThat(loserException)
                 .as("AC3: the losing thread must get a DataIntegrityViolationException")
                 .isInstanceOf(DataIntegrityViolationException.class);
 
-        // Final state: exactly one row in the table
-        long rowCount = countRows(dataSource);
-        assertThat(rowCount)
+        Table table = credentialsTable();
+        assertThat(table)
                 .as("AC3: after concurrent inserts, exactly one row must be in admin_credentials")
-                .isEqualTo(1L);
+                .hasNumberOfRows(1);
     }
 
     // -------------------------------------------------------------------------
@@ -289,24 +308,31 @@ class AdminCredentialsDaoTest {
 
     /**
      * T7 (AC3 — post-race re-query): After a simulated race (first insert wins),
-     * a subsequent {@code findExisting()} returns the winner's credential record consistently.
+     * the database still contains exactly the winner's row (independently verified),
+     * and a subsequent {@code findExisting()} returns it.
      */
     @Test
     void afterRace_findExisting_returnsWinnersRow() {
         UUID winnerId = UUID.randomUUID();
         String winnerHash = "winner-hash-value";
 
-        // Winner inserts first
         dao.insertNew(winnerId, winnerHash);
 
-        // Loser catches the exception (simulated by direct second insertNew call)
         try {
             dao.insertNew(UUID.randomUUID(), "loser-hash");
         } catch (DataIntegrityViolationException ignored) {
             // Expected — loser's INSERT fails
         }
 
-        // Post-race re-query must return the winner's row
+        Table table = credentialsTable();
+        assertThat(table)
+                .as("AC3: after the loser's failed INSERT, the database must still hold "
+                    + "exactly the winner's row, unmodified")
+                .hasNumberOfRows(1)
+                .row(0)
+                .value("id").isEqualTo(winnerId)
+                .value("password_hash").isEqualTo(winnerHash);
+
         AdminCredentialsDao.CredentialRecord record = dao.findExisting().orElseThrow(
                 () -> new AssertionError("Post-race findExisting must return a record — " +
                         "the winner's row must survive the loser's failed INSERT"));
@@ -314,7 +340,6 @@ class AdminCredentialsDaoTest {
         assertThat(record.id())
                 .as("AC3: post-race re-query must return the winner's id")
                 .isEqualTo(winnerId);
-
         assertThat(record.passwordHash())
                 .as("AC3: post-race re-query must return the winner's hash verbatim")
                 .isEqualTo(winnerHash);
@@ -333,7 +358,6 @@ class AdminCredentialsDaoTest {
      */
     @Test
     void missingSchema_findExisting_throwsDescriptiveException() {
-        // Create a fresh DataSource WITHOUT applying the schema fixture
         DataSource noSchemaDs = createFreshDataSource();
         AdminCredentialsDao daoWithoutSchema = new AdminCredentialsDao(noSchemaDs);
 
@@ -394,17 +418,24 @@ class AdminCredentialsDaoTest {
     }
 
     // -------------------------------------------------------------------------
-    // Helper
+    // Helper — direct JDBC insert, used to decouple read-path tests from the DAO's write path
     // -------------------------------------------------------------------------
 
-    private static long countRows(DataSource ds) {
-        try (var conn = ds.getConnection();
-             var stmt = conn.createStatement();
-             var rs = stmt.executeQuery("SELECT COUNT(*) FROM admin_credentials")) {
-            rs.next();
-            return rs.getLong(1);
+    /**
+     * Inserts a credential row using plain JDBC (bypassing {@link AdminCredentialsDao}).
+     * Used by read-path tests so that the row under test is known to exist in the database
+     * without relying on the DAO's own write method to have worked correctly.
+     */
+    private void insertRowDirectly(UUID id, String passwordHash) {
+        String sql = "INSERT INTO " + TABLE
+                + " (id, password_hash, singleton_guard) VALUES (?, ?, TRUE)";
+        try (var conn = dataSource.getConnection();
+             var ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, id);
+            ps.setString(2, passwordHash);
+            ps.executeUpdate();
         } catch (Exception e) {
-            throw new IllegalStateException("Failed to count admin_credentials rows", e);
+            throw new IllegalStateException("Failed to insert admin_credentials row directly", e);
         }
     }
 }
