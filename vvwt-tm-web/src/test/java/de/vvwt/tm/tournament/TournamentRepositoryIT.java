@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.db.api.Assertions.assertThat;
 
 import de.vvwt.tm.TournamentManagerApplication;
+import de.vvwt.tm.infrastructure.testsupport.TenantDaoTestSupport;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -138,10 +140,10 @@ class TournamentRepositoryIT {
 
     @Test
     @DisplayName("findById() retrieves a row inserted directly via JDBC (DEC-26 Rule 3)")
-    void findById_withDirectlyInsertedRow_returnsEntity() throws Exception {
-        // GIVEN — fixture inserted via direct JDBC (DEC-26 Rule 3: no DAO write in read-path test)
+    void findById_withDirectlyInsertedRow_returnsEntity() {
+        // GIVEN — fixture inserted via TenantDaoTestSupport.insertDirectly (DEC-26 Rule 3)
         UUID id = UUID.randomUUID();
-        insertTournamentDirectly(id, tenantId, "Direct-fixture tournament", "BEST_OF_1");
+        insertTournamentViaTestSupport(id, tenantId, "Direct-fixture tournament", "BEST_OF_1");
 
         // WHEN
         Optional<Tournament> result = tournamentRepository.findById(id);
@@ -167,12 +169,12 @@ class TournamentRepositoryIT {
 
     @Test
     @DisplayName("findAll() returns all rows for the current tenant")
-    void findAll_returnsCurrentTenantRows() throws Exception {
+    void findAll_returnsCurrentTenantRows() {
         // GIVEN — two rows for current tenant
         UUID id1 = UUID.randomUUID();
         UUID id2 = UUID.randomUUID();
-        insertTournamentDirectly(id1, tenantId, "Tournament A", "BEST_OF_3");
-        insertTournamentDirectly(id2, tenantId, "Tournament B", "BEST_OF_1");
+        insertTournamentViaTestSupport(id1, tenantId, "Tournament A", "BEST_OF_3");
+        insertTournamentViaTestSupport(id2, tenantId, "Tournament B", "BEST_OF_1");
 
         // WHEN
         List<Tournament> result = tournamentRepository.findAll();
@@ -204,29 +206,23 @@ class TournamentRepositoryIT {
     }
 
     /**
-     * Inserts a tournament row directly via JDBC — DEC-26 Rule 3 compliance for read-path tests.
-     * Must not be replaced with {@code tournamentRepository.save()} in any read-path test.
+     * Inserts a tournament row via {@link TenantDaoTestSupport#insertDirectly} — DEC-26 Rule 3
+     * compliance for read-path tests. Must not be replaced with {@code tournamentRepository.save()}
+     * in any read-path test.
      */
-    private void insertTournamentDirectly(
-            UUID id, UUID tenantId, String description, String matchFormat) throws Exception {
-        String sql =
-                "INSERT INTO tournament (id, tenant_id, description, match_format,"
-                        + " scoring_rule_id, set_validation_rule_id, match_generator_id,"
-                        + " status, field_count, team_count)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        try (var conn = dataSource.getConnection();
-                var ps = conn.prepareStatement(sql)) {
-            ps.setObject(1, id);
-            ps.setObject(2, tenantId);
-            ps.setString(3, description);
-            ps.setString(4, matchFormat);
-            ps.setString(5, "setPoints");
-            ps.setString(6, "standardVolleyball");
-            ps.setString(7, "roundRobin");
-            ps.setString(8, "DRAFT");
-            ps.setInt(9, 2);
-            ps.setInt(10, 4);
-            ps.executeUpdate();
-        }
+    private void insertTournamentViaTestSupport(
+            UUID id, UUID tId, String description, String matchFormat) {
+        var cols = new LinkedHashMap<String, Object>();
+        cols.put("id", id);
+        cols.put("tenant_id", tId);
+        cols.put("description", description);
+        cols.put("match_format", matchFormat);
+        cols.put("scoring_rule_id", "setPoints");
+        cols.put("set_validation_rule_id", "standardVolleyball");
+        cols.put("match_generator_id", "roundRobin");
+        cols.put("status", "DRAFT");
+        cols.put("field_count", 2);
+        cols.put("team_count", 4);
+        TenantDaoTestSupport.insertDirectly(dataSource, "tournament", cols);
     }
 }
