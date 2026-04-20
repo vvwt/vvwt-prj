@@ -1,7 +1,6 @@
 package de.vvwt.tm.tournament;
 
 import de.vvwt.tm.domain.repo.TenantContext;
-import de.vvwt.tm.tournament.internal.TeamAvatarCrudRepository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -29,7 +28,6 @@ import org.springframework.stereotype.Repository;
  * <p>Inventory line 456 ({@code TeamAvatarRepository}).
  *
  * @see TeamAvatar
- * @see TeamAvatarCrudRepository
  * @see <a href="DEC-9">DEC-9 — TeamAvatar structural identity</a>
  * @see <a href="DEC-21">DEC-21 — Spring Modulith, root package = public API surface</a>
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
