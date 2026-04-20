@@ -24,24 +24,25 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * DAO integration tests for {@link TournamentRepository} (E21S02, AC-DAO-3RULES-TournamentRepository).
+ * DAO integration tests for {@link TournamentRepository} (E21S02,
+ * AC-DAO-3RULES-TournamentRepository).
  *
  * <h2>RED state</h2>
  *
- * <p>This test was committed RED: {@link TournamentRepository} at
- * {@code de.vvwt.tm.tournament.TournamentRepository} did not exist at commit time, causing a
- * compile error — satisfying the DEC-22 Iron Law.
+ * <p>This test was committed RED: {@link TournamentRepository} at {@code
+ * de.vvwt.tm.tournament.TournamentRepository} did not exist at commit time, causing a compile error
+ * — satisfying the DEC-22 Iron Law.
  *
  * <h2>DEC-26 three-rule compliance</h2>
  *
  * <ol>
- *   <li><b>Rule 1 — Schema from migration:</b> {@code @SpringBootTest} with Flyway applies all
- *       root migrations in version order. No inline DDL.
+ *   <li><b>Rule 1 — Schema from migration:</b> {@code @SpringBootTest} with Flyway applies all root
+ *       migrations in version order. No inline DDL.
  *   <li><b>Rule 2 — Independent persistence verifier:</b> Write tests verify DB state via
- *       assertj-db ({@link AssertDbConnection}) against the DataSource — never via the
- *       repository's own read methods.
- *   <li><b>Rule 3 — Read/write decoupling:</b> Read-path tests insert fixtures via direct JDBC
- *       — never via the repository's own save/insert methods.
+ *       assertj-db ({@link AssertDbConnection}) against the DataSource — never via the repository's
+ *       own read methods.
+ *   <li><b>Rule 3 — Read/write decoupling:</b> Read-path tests insert fixtures via direct JDBC —
+ *       never via the repository's own save/insert methods.
  * </ol>
  *
  * @see TournamentRepository
@@ -54,7 +55,7 @@ import org.springframework.test.context.ActiveProfiles;
         classes = {TournamentManagerApplication.class},
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
         properties = {
-            "spring.datasource.url=jdbc:h2:mem:e21s02repodb;DB_CLOSE_DELAY=-1;"
+            "spring.datasource.url=jdbc:h2:mem:e21s02-repository-it;DB_CLOSE_DELAY=-1;"
                     + "DB_CLOSE_ON_EXIT=FALSE;CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
@@ -82,11 +83,26 @@ class TournamentRepositoryIT {
 
     @AfterEach
     void tearDown() throws Exception {
-        // Remove test-inserted tournaments via direct JDBC to keep DB clean between tests
-        try (var conn = dataSource.getConnection();
-                var ps = conn.prepareStatement("DELETE FROM tournament WHERE tenant_id = ?")) {
-            ps.setObject(1, tenantId);
-            ps.executeUpdate();
+        // Remove test-inserted data via direct JDBC. Delete child tables first to satisfy FK
+        // constraints (team, phase, match etc. reference tournament). Only clean up the tenant's
+        // rows so other concurrent test contexts are unaffected.
+        try (var conn = dataSource.getConnection()) {
+            // Delete dependent child rows first (ordered by FK depth)
+            for (String sql :
+                    new String[] {
+                        "DELETE FROM set_result WHERE tenant_id = ?",
+                        "DELETE FROM match_entity WHERE tenant_id = ?",
+                        "DELETE FROM team WHERE tenant_id = ?",
+                        "DELETE FROM phase WHERE tenant_id = ?",
+                        "DELETE FROM tournament WHERE tenant_id = ?"
+                    }) {
+                try (var ps = conn.prepareStatement(sql)) {
+                    ps.setObject(1, tenantId);
+                    ps.executeUpdate();
+                } catch (Exception ignored) {
+                    // Best-effort cleanup: ignore tables that do not exist or have no rows
+                }
+            }
         }
         tenantBinder.unbind();
     }
@@ -146,9 +162,7 @@ class TournamentRepositoryIT {
 
         Optional<Tournament> result = tournamentRepository.findById(unknownId);
 
-        assertThat(result)
-                .as("findById() must return empty for an unknown ID")
-                .isEmpty();
+        assertThat(result).as("findById() must return empty for an unknown ID").isEmpty();
     }
 
     @Test

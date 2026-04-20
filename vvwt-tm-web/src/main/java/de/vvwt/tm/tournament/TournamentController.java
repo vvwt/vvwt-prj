@@ -24,10 +24,10 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
  * REST controller for Tournament CRUD operations — reconstruction-in-place target (DEC-21/DEC-22).
  *
  * <p>Mirrors {@code de.vvwt.tm.infrastructure.web.TournamentController} but lives at the Modulith
- * target package {@code de.vvwt.tm.tournament} (public API surface per DEC-21 §Module layout).
- * Uses {@code /api/tm/tournaments} mapping to avoid {@code RequestMappingHandlerMapping} ambiguity
- * with the legacy {@code /api/tournaments} controller during reconstruction-in-place. The mapping
- * will be normalized to {@code /api/tournaments} at the E21S13 atomic cutover.
+ * target package {@code de.vvwt.tm.tournament} (public API surface per DEC-21 §Module layout). Uses
+ * {@code /api/tm/tournaments} mapping to avoid {@code RequestMappingHandlerMapping} ambiguity with
+ * the legacy {@code /api/tournaments} controller during reconstruction-in-place. The mapping will
+ * be normalized to {@code /api/tournaments} at the E21S13 atomic cutover.
  *
  * <h2>Endpoints</h2>
  *

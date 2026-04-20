@@ -57,11 +57,9 @@ public class TournamentRepository {
     private static final String SELECT_BY_ID =
             "SELECT * FROM tournament WHERE id=? AND tenant_id=?";
 
-    private static final String SELECT_ALL =
-            "SELECT * FROM tournament WHERE tenant_id=?";
+    private static final String SELECT_ALL = "SELECT * FROM tournament WHERE tenant_id=?";
 
-    private static final String DELETE_BY_ID =
-            "DELETE FROM tournament WHERE id=? AND tenant_id=?";
+    private static final String DELETE_BY_ID = "DELETE FROM tournament WHERE id=? AND tenant_id=?";
 
     private static final String EXISTS_BY_ID =
             "SELECT COUNT(*) FROM tournament WHERE id=? AND tenant_id=?";
@@ -86,10 +84,10 @@ public class TournamentRepository {
         boolean exists =
                 Boolean.TRUE.equals(
                         jdbc.queryForObject(
-                                EXISTS_BY_ID,
-                                Integer.class,
-                                tournament.getId(),
-                                currentTenantId)
+                                                EXISTS_BY_ID,
+                                                Integer.class,
+                                                tournament.getId(),
+                                                currentTenantId)
                                         != null
                                 && jdbc.queryForObject(
                                                 EXISTS_BY_ID,
@@ -173,8 +171,7 @@ public class TournamentRepository {
     // Row mapper
     // -------------------------------------------------------------------------
 
-    private static final RowMapper<Tournament> ROW_MAPPER =
-            (rs, rowNum) -> mapRow(rs);
+    private static final RowMapper<Tournament> ROW_MAPPER = (rs, rowNum) -> mapRow(rs);
 
     @SuppressWarnings("try") // ResultSet is not AutoCloseable; suppress spurious try-resource lint
     private static Tournament mapRow(ResultSet rs) throws SQLException {
@@ -206,4 +203,3 @@ public class TournamentRepository {
         return t;
     }
 }
-

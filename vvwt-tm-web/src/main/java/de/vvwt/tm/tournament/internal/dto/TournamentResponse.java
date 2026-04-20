@@ -8,12 +8,12 @@ import java.util.UUID;
 /**
  * REST response DTO for a single tournament — reconstruction-in-place target (DEC-21/DEC-22).
  *
- * <p>Mirrors {@code de.vvwt.tm.infrastructure.web.dto.TournamentResponse} but lives in the
- * Modulith target package {@code de.vvwt.tm.tournament.internal.dto}. Uses the new
- * {@link Tournament} entity from {@code de.vvwt.tm.tournament}.
+ * <p>Mirrors {@code de.vvwt.tm.infrastructure.web.dto.TournamentResponse} but lives in the Modulith
+ * target package {@code de.vvwt.tm.tournament.internal.dto}. Uses the new {@link Tournament} entity
+ * from {@code de.vvwt.tm.tournament}.
  *
- * <p>The internal {@code tenantId} is intentionally excluded — it is an implementation detail,
- * not a client-visible field.
+ * <p>The internal {@code tenantId} is intentionally excluded — it is an implementation detail, not
+ * a client-visible field.
  *
  * @see Tournament
  * @see <a href="DEC-21">DEC-21 — Spring Modulith internal.dto package</a>

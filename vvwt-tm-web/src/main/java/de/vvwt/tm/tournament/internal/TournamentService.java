@@ -1,10 +1,10 @@
 package de.vvwt.tm.tournament.internal;
 
+import de.vvwt.tm.domain.MatchFormat;
 import de.vvwt.tm.domain.generator.MatchGeneratorRegistry;
 import de.vvwt.tm.domain.repo.PhaseRepository;
 import de.vvwt.tm.domain.rules.ScoringRuleRegistry;
 import de.vvwt.tm.domain.rules.SetValidationRuleRegistry;
-import de.vvwt.tm.domain.MatchFormat;
 import de.vvwt.tm.infrastructure.web.ConflictException;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
@@ -19,9 +19,9 @@ import org.springframework.stereotype.Service;
 /**
  * Domain service for Tournament CRUD operations — reconstruction-in-place target (DEC-21/DEC-22).
  *
- * <p>Mirrors the logic of {@code de.vvwt.tm.domain.TournamentService} but wired to the new
- * {@link TournamentRepository} and new {@link Tournament} entity at the Modulith target
- * package ({@code de.vvwt.tm.tournament.*}).
+ * <p>Mirrors the logic of {@code de.vvwt.tm.domain.TournamentService} but wired to the new {@link
+ * TournamentRepository} and new {@link Tournament} entity at the Modulith target package ({@code
+ * de.vvwt.tm.tournament.*}).
  *
  * <h2>Business rules enforced</h2>
  *

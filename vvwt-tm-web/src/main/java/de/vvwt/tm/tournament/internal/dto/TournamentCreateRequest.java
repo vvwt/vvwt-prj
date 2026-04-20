@@ -9,12 +9,12 @@ import java.time.LocalDateTime;
  * Request body for POST /api/tm/tournaments — reconstruction-in-place target (DEC-21/DEC-22).
  *
  * <p>Mirrors {@code de.vvwt.tm.infrastructure.web.dto.TournamentCreateRequest} but lives in the
- * Modulith target package {@code de.vvwt.tm.tournament.internal.dto} (implementation surface,
- * not public API per DEC-21 §Module layout).
+ * Modulith target package {@code de.vvwt.tm.tournament.internal.dto} (implementation surface, not
+ * public API per DEC-21 §Module layout).
  *
- * <p>All required fields carry bean-validation constraints. Validation errors are handled by
- * {@link de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} and returned as HTTP 400 with
- * field-level error details.
+ * <p>All required fields carry bean-validation constraints. Validation errors are handled by {@link
+ * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} and returned as HTTP 400 with field-level
+ * error details.
  *
  * @see de.vvwt.tm.tournament.internal.TournamentService
  * @see <a href="DEC-21">DEC-21 — Spring Modulith internal.dto package</a>

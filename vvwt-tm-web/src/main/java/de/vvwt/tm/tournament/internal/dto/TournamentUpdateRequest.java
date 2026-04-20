@@ -11,8 +11,8 @@ import java.time.LocalTime;
  * Modulith target package {@code de.vvwt.tm.tournament.internal.dto}.
  *
  * <p>All fields are optional in the HTTP sense — a {@code null} value means "do not change this
- * field". The service applies only non-null (and valid) values. The appointment and plannedStartTime
- * fields may be set to {@code null} to clear the existing values.
+ * field". The service applies only non-null (and valid) values. The appointment and
+ * plannedStartTime fields may be set to {@code null} to clear the existing values.
  *
  * @see de.vvwt.tm.tournament.internal.TournamentService
  * @see <a href="DEC-21">DEC-21 — Spring Modulith internal.dto package</a>

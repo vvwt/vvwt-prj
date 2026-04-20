@@ -241,7 +241,8 @@ public final class TenantDaoTestSupport {
      * <p>This helper is the entry point for all subsequent E21 DAO stories (S03, S04, S05) that
      * need to set up the tournament-root schema before testing their own aggregate tables.
      *
-     * @param ds the DataSource to apply the migrations to (typically from {@link #freshDataSource()})
+     * @param ds the DataSource to apply the migrations to (typically from {@link
+     *     #freshDataSource()})
      * @throws IllegalStateException if any migration resource is not found or SQL fails
      * @see DEC-26 — DAO test governance (schema-from-migration rule)
      * @see DEC-22 — TDD Iron Law

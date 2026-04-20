@@ -13,12 +13,13 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Unit test for {@link TenantDaoTestSupport#applyTournamentSchema(DataSource)} (E21S02, AC-DAO-SCHEMA-HELPER).
+ * Unit test for {@link TenantDaoTestSupport#applyTournamentSchema(DataSource)} (E21S02,
+ * AC-DAO-SCHEMA-HELPER).
  *
  * <h2>RED state</h2>
  *
- * <p>This test was committed RED: {@link TenantDaoTestSupport#applyTournamentSchema(DataSource)} did
- * not exist at commit time, causing a compile error — satisfying the DEC-22 Iron Law.
+ * <p>This test was committed RED: {@link TenantDaoTestSupport#applyTournamentSchema(DataSource)}
+ * did not exist at commit time, causing a compile error — satisfying the DEC-22 Iron Law.
  *
  * <h2>Coverage</h2>
  *
@@ -102,7 +103,7 @@ class TournamentSchemaHelperTest {
         List<String> tables = new ArrayList<>();
         try (Connection conn = ds.getConnection()) {
             DatabaseMetaData meta = conn.getMetaData();
-            try (ResultSet rs = meta.getTables(null, null, "%", new String[]{"TABLE"})) {
+            try (ResultSet rs = meta.getTables(null, null, "%", new String[] {"TABLE"})) {
                 while (rs.next()) {
                     tables.add(rs.getString("TABLE_NAME").toUpperCase());
                 }

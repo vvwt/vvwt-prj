@@ -39,7 +39,8 @@ import org.springframework.test.context.ActiveProfiles;
  * <p>Exactly 2 {@code @Test} methods per controller:
  *
  * <ol>
- *   <li>Happy-path authenticated POST → 201 + assertj-db independent DB verification (DEC-26 Rule 2)
+ *   <li>Happy-path authenticated POST → 201 + assertj-db independent DB verification (DEC-26 Rule
+ *       2)
  *   <li>Unauthenticated request → 401 (security gate)
  * </ol>
  *
@@ -92,7 +93,8 @@ class TournamentControllerIT {
     // =========================================================================
 
     @Test
-    @DisplayName("authenticated POST /api/tm/tournaments creates tournament; assertj-db verifies row")
+    @DisplayName(
+            "authenticated POST /api/tm/tournaments creates tournament; assertj-db verifies row")
     void authenticatedPostCreatesTournamentAndPersistsRow() throws Exception {
         var request =
                 new TournamentCreateRequest(

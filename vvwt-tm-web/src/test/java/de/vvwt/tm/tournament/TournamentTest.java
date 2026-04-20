@@ -53,9 +53,7 @@ class TournamentTest {
         withId.setId(id);
         Tournament withoutId = new Tournament();
 
-        assertThat(withoutId.getId())
-                .as("Entity without ID must have null getId()")
-                .isNull();
+        assertThat(withoutId.getId()).as("Entity without ID must have null getId()").isNull();
         assertThat(withId.getId())
                 .as("Entity with ID must return the set UUID")
                 .isNotNull()

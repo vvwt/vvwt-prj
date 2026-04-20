@@ -36,9 +36,9 @@ import org.springframework.web.context.WebApplicationContext;
  *
  * <h2>RED state</h2>
  *
- * <p>This test was committed RED: {@link TournamentController} at
- * {@code de.vvwt.tm.tournament.TournamentController} did not exist at commit time, causing a
- * compile error — satisfying the DEC-22 Iron Law.
+ * <p>This test was committed RED: {@link TournamentController} at {@code
+ * de.vvwt.tm.tournament.TournamentController} did not exist at commit time, causing a compile error
+ * — satisfying the DEC-22 Iron Law.
  *
  * <h2>Coverage</h2>
  *
@@ -159,8 +159,13 @@ class TournamentControllerSliceTest {
         Tournament created = buildDraftTournament("New Tournament");
         created.setId(newId);
         when(tournamentService.createTournament(
-                        eq("New Tournament"), any(), eq(4), eq(2),
-                        eq("BEST_OF_3"), eq("setPoints"), eq("standardVolleyball"),
+                        eq("New Tournament"),
+                        any(),
+                        eq(4),
+                        eq(2),
+                        eq("BEST_OF_3"),
+                        eq("setPoints"),
+                        eq("standardVolleyball"),
                         eq("roundRobin")))
                 .thenReturn(created);
 

@@ -3,13 +3,13 @@ package de.vvwt.tm.tournament.internal.dto;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.tournament.Tournament;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Set;
 import java.util.UUID;
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.Validation;
-import jakarta.validation.Validator;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -106,9 +106,7 @@ class TournamentDtoTest {
                         "roundRobin");
 
         Set<ConstraintViolation<TournamentCreateRequest>> violations = validator.validate(req);
-        assertThat(violations)
-                .as("teamCount=1 must produce a @Min violation")
-                .isNotEmpty();
+        assertThat(violations).as("teamCount=1 must produce a @Min violation").isNotEmpty();
         assertThat(violations.stream().map(v -> v.getPropertyPath().toString()))
                 .contains("teamCount");
     }
@@ -128,9 +126,7 @@ class TournamentDtoTest {
                         "roundRobin");
 
         Set<ConstraintViolation<TournamentCreateRequest>> violations = validator.validate(req);
-        assertThat(violations)
-                .as("fieldCount=0 must produce a @Min violation")
-                .isNotEmpty();
+        assertThat(violations).as("fieldCount=0 must produce a @Min violation").isNotEmpty();
         assertThat(violations.stream().map(v -> v.getPropertyPath().toString()))
                 .contains("fieldCount");
     }
@@ -207,7 +203,8 @@ class TournamentDtoTest {
     // =========================================================================
 
     @Test
-    @DisplayName("TournamentUpdateRequest: all-null update request is valid (partial-update semantics)")
+    @DisplayName(
+            "TournamentUpdateRequest: all-null update request is valid (partial-update semantics)")
     void updateRequest_allNull_isValid() {
         TournamentUpdateRequest req =
                 new TournamentUpdateRequest(null, null, null, null, null, null, null, null, null);
