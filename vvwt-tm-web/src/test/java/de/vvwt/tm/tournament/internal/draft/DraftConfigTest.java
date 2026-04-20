@@ -42,8 +42,7 @@ class DraftConfigTest {
     void sections_isImmutable() {
         DraftConfig config = DraftConfig.empty();
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(
-                        () -> config.getSections().add(null))
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> config.getSections().add(null))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 

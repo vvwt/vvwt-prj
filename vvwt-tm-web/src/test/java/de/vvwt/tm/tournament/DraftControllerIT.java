@@ -41,8 +41,7 @@ import org.springframework.test.context.ActiveProfiles;
  * <p>Exactly 2 {@code @Test} methods:
  *
  * <ol>
- *   <li>Happy-path: create tournament → apply draft → assertj-db verifies phase row (DEC-26 Rule
- *       2)
+ *   <li>Happy-path: create tournament → apply draft → assertj-db verifies phase row (DEC-26 Rule 2)
  *   <li>Unauthenticated request → 401 (security gate)
  * </ol>
  *
@@ -53,9 +52,8 @@ import org.springframework.test.context.ActiveProfiles;
  *
  * <h2>assertj-db independent verifier (DEC-26 Rule 2)</h2>
  *
- * <p>Phase row is verified via {@code AssertDbConnection.table("phase")} — not via
- * {@link PhaseRepository} or a GET endpoint. Controller is NOT the instrument of its own
- * verification.
+ * <p>Phase row is verified via {@code AssertDbConnection.table("phase")} — not via {@link
+ * PhaseRepository} or a GET endpoint. Controller is NOT the instrument of its own verification.
  *
  * @see DraftController
  * @see DraftControllerSliceTest
@@ -126,11 +124,7 @@ class DraftControllerIT {
         DraftRequest draftRequest = new DraftRequest(List.of(section));
         ResponseEntity<DraftApplyResponse> applyResponse =
                 authed.postForEntity(
-                        new URI(
-                                baseUrl
-                                        + "/api/tm/tournaments/"
-                                        + tournamentId
-                                        + "/draft/apply"),
+                        new URI(baseUrl + "/api/tm/tournaments/" + tournamentId + "/draft/apply"),
                         draftRequest,
                         DraftApplyResponse.class);
 

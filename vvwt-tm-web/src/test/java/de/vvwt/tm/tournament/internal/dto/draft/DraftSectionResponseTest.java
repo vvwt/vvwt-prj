@@ -42,7 +42,8 @@ class DraftSectionResponseTest {
     @Test
     void jsonRoundTrip_allFields_preserved() throws Exception {
         DraftSectionResponse original =
-                new DraftSectionResponse(1, "team_number", 2, "roundrobin", 5, 10, 15, 1, List.of());
+                new DraftSectionResponse(
+                        1, "team_number", 2, "roundrobin", 5, 10, 15, 1, List.of());
         String json = objectMapper.writeValueAsString(original);
         DraftSectionResponse restored = objectMapper.readValue(json, DraftSectionResponse.class);
 

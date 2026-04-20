@@ -44,8 +44,7 @@ class DraftPreviewResultTest {
         DraftTimelineEntryResponse entry =
                 new DraftTimelineEntryResponse(
                         1, 1, "MATCH_ROUND", LocalTime.of(9, 0), LocalTime.of(9, 15), null);
-        DraftPreviewResult result =
-                new DraftPreviewResult(List.of(), List.of(entry));
+        DraftPreviewResult result = new DraftPreviewResult(List.of(), List.of(entry));
 
         assertThat(result.timeline()).hasSize(1);
         assertThat(result.timeline().get(0).type()).isEqualTo("MATCH_ROUND");

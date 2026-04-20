@@ -57,8 +57,7 @@ class DraftServiceTest {
     private static DraftSection sectionWithBreak(int sectionNumber) {
         DraftBreak breakItem = new DraftBreak(1, 10, "Pause");
         return new DraftSection(
-                sectionNumber, "team_number", 1, "roundrobin", 0, 0, 15, 1,
-                List.of(breakItem));
+                sectionNumber, "team_number", 1, "roundrobin", 0, 0, 15, 1, List.of(breakItem));
     }
 
     // -------------------------------------------------------------------------
@@ -66,8 +65,8 @@ class DraftServiceTest {
     // -------------------------------------------------------------------------
 
     /**
-     * AC-TDD-DraftService: preview returns one DraftPreviewSection per section in config.
-     * No DB side effect (no verify on repository interactions).
+     * AC-TDD-DraftService: preview returns one DraftPreviewSection per section in config. No DB
+     * side effect (no verify on repository interactions).
      */
     @Test
     void preview_withOneSection_returnsOnePreviewSection() {
@@ -83,9 +82,7 @@ class DraftServiceTest {
         assertThat(result.timeline()).isEmpty();
     }
 
-    /**
-     * AC-TDD-DraftService: preview with empty config returns empty sections.
-     */
+    /** AC-TDD-DraftService: preview with empty config returns empty sections. */
     @Test
     void preview_withEmptyConfig_returnsEmptySections() {
         DraftConfig config = DraftConfig.empty();
@@ -99,9 +96,7 @@ class DraftServiceTest {
     // apply() — phase creation
     // -------------------------------------------------------------------------
 
-    /**
-     * AC-TDD-DraftService: apply with one section creates one Phase.
-     */
+    /** AC-TDD-DraftService: apply with one section creates one Phase. */
     @Test
     void apply_withOneSection_createsOnePhase() {
         UUID tournamentId = UUID.randomUUID();
@@ -112,8 +107,14 @@ class DraftServiceTest {
 
         Phase savedPhase =
                 new Phase(
-                        UUID.randomUUID(), UUID.randomUUID(), tournamentId,
-                        1, "Phase 1", "PENDING", 0, LocalDateTime.now());
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        tournamentId,
+                        1,
+                        "Phase 1",
+                        "PENDING",
+                        0,
+                        LocalDateTime.now());
         when(phaseRepository.save(any(Phase.class))).thenReturn(savedPhase);
 
         List<UUID> result = draftService.apply(tournamentId, config);
@@ -123,25 +124,34 @@ class DraftServiceTest {
         verify(phaseRepository, times(1)).save(any(Phase.class));
     }
 
-    /**
-     * AC-TDD-DraftService: apply with two sections creates two Phases.
-     */
+    /** AC-TDD-DraftService: apply with two sections creates two Phases. */
     @Test
     void apply_withTwoSections_createsTwoPhases() {
         UUID tournamentId = UUID.randomUUID();
-        DraftConfig config =
-                new DraftConfig(List.of(simpleSection(1), simpleSection(2)));
+        DraftConfig config = new DraftConfig(List.of(simpleSection(1), simpleSection(2)));
 
         when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of());
 
         Phase phase1 =
                 new Phase(
-                        UUID.randomUUID(), UUID.randomUUID(), tournamentId,
-                        1, "Phase 1", "PENDING", 0, LocalDateTime.now());
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        tournamentId,
+                        1,
+                        "Phase 1",
+                        "PENDING",
+                        0,
+                        LocalDateTime.now());
         Phase phase2 =
                 new Phase(
-                        UUID.randomUUID(), UUID.randomUUID(), tournamentId,
-                        2, "Phase 2", "PENDING", 0, LocalDateTime.now());
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        tournamentId,
+                        2,
+                        "Phase 2",
+                        "PENDING",
+                        0,
+                        LocalDateTime.now());
         when(phaseRepository.save(any(Phase.class))).thenReturn(phase1, phase2);
 
         List<UUID> result = draftService.apply(tournamentId, config);
@@ -150,9 +160,7 @@ class DraftServiceTest {
         verify(phaseRepository, times(2)).save(any(Phase.class));
     }
 
-    /**
-     * AC-TDD-DraftService: apply with a section containing a break persists PhaseBreak.
-     */
+    /** AC-TDD-DraftService: apply with a section containing a break persists PhaseBreak. */
     @Test
     void apply_withSectionContainingBreak_persistsPhaseBreak() {
         UUID tournamentId = UUID.randomUUID();
@@ -162,8 +170,14 @@ class DraftServiceTest {
 
         Phase savedPhase =
                 new Phase(
-                        UUID.randomUUID(), UUID.randomUUID(), tournamentId,
-                        1, "Phase 1", "PENDING", 0, LocalDateTime.now());
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        tournamentId,
+                        1,
+                        "Phase 1",
+                        "PENDING",
+                        0,
+                        LocalDateTime.now());
         when(phaseRepository.save(any(Phase.class))).thenReturn(savedPhase);
 
         draftService.apply(tournamentId, config);
@@ -172,8 +186,8 @@ class DraftServiceTest {
     }
 
     /**
-     * AC-DRAFT-APPLY-IDEMPOTENCY: re-apply throws DraftAlreadyAppliedException (fails-fast).
-     * Legacy behaviour confirmed from domain.DraftService.applyDraft() line 297–305.
+     * AC-DRAFT-APPLY-IDEMPOTENCY: re-apply throws DraftAlreadyAppliedException (fails-fast). Legacy
+     * behaviour confirmed from domain.DraftService.applyDraft() line 297–305.
      */
     @Test
     void apply_whenPhasesAlreadyExist_throwsDraftAlreadyAppliedException() {
@@ -182,10 +196,15 @@ class DraftServiceTest {
 
         Phase existingPhase =
                 new Phase(
-                        UUID.randomUUID(), UUID.randomUUID(), tournamentId,
-                        1, "Phase 1", "PENDING", 0, LocalDateTime.now());
-        when(phaseRepository.findByTournamentId(tournamentId))
-                .thenReturn(List.of(existingPhase));
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        tournamentId,
+                        1,
+                        "Phase 1",
+                        "PENDING",
+                        0,
+                        LocalDateTime.now());
+        when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(existingPhase));
 
         assertThatThrownBy(() -> draftService.apply(tournamentId, config))
                 .isInstanceOf(DraftAlreadyAppliedException.class);

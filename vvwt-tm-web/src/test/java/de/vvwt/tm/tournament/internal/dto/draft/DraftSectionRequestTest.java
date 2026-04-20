@@ -42,8 +42,7 @@ class DraftSectionRequestTest {
         DraftBreakRequest breakRequest = new DraftBreakRequest(2, 15, "Pause");
         DraftSectionRequest request =
                 new DraftSectionRequest(
-                        1, "team_number", 2, "roundrobin", 5, 10, 15, 1,
-                        List.of(breakRequest));
+                        1, "team_number", 2, "roundrobin", 5, 10, 15, 1, List.of(breakRequest));
 
         assertThat(request.breaks()).hasSize(1);
         assertThat(request.breaks().get(0).afterLapNumber()).isEqualTo(2);

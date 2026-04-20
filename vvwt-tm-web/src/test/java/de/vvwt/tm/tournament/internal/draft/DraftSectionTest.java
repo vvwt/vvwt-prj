@@ -73,8 +73,7 @@ class DraftSectionTest {
     /** AC-TDD-DraftSection: validate() throws on null sortType. */
     @Test
     void validate_withNullSortType_throwsIllegalArgument() {
-        DraftSection section =
-                new DraftSection(1, null, 2, "roundrobin", 5, 10, 15, 1, List.of());
+        DraftSection section = new DraftSection(1, null, 2, "roundrobin", 5, 10, 15, 1, List.of());
 
         assertThatThrownBy(section::validate).isInstanceOf(IllegalArgumentException.class);
     }
@@ -110,8 +109,7 @@ class DraftSectionTest {
     @Test
     void validate_withPlacementGroupSortType_passes() {
         DraftSection section =
-                new DraftSection(
-                        1, "placement_group", 2, "roundrobin", 5, 10, 15, 1, List.of());
+                new DraftSection(1, "placement_group", 2, "roundrobin", 5, 10, 15, 1, List.of());
 
         section.validate(); // must not throw
     }

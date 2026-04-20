@@ -48,8 +48,12 @@ class DraftTimelineEntryResponseTest {
     void record_withLabel_storesLabel() {
         DraftTimelineEntryResponse entry =
                 new DraftTimelineEntryResponse(
-                        1, 2, "INTRA_PHASE_BREAK",
-                        LocalTime.of(10, 0), LocalTime.of(10, 15), "Mittagspause");
+                        1,
+                        2,
+                        "INTRA_PHASE_BREAK",
+                        LocalTime.of(10, 0),
+                        LocalTime.of(10, 15),
+                        "Mittagspause");
 
         assertThat(entry.label()).isEqualTo("Mittagspause");
         assertThat(entry.type()).isEqualTo("INTRA_PHASE_BREAK");

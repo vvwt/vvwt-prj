@@ -37,7 +37,8 @@ class DraftPreviewSectionResponseTest {
     /** AC-TDD-DTOs: JSON round-trip preserves all fields. */
     @Test
     void jsonRoundTrip_allFields_preserved() throws Exception {
-        DraftPreviewSectionResponse original = new DraftPreviewSectionResponse(1, 2, 4, 6, 3, 12, 75);
+        DraftPreviewSectionResponse original =
+                new DraftPreviewSectionResponse(1, 2, 4, 6, 3, 12, 75);
         String json = objectMapper.writeValueAsString(original);
         DraftPreviewSectionResponse restored =
                 objectMapper.readValue(json, DraftPreviewSectionResponse.class);
