@@ -1,9 +1,17 @@
-# Test profile overrides — E02S02
-# Replaces file-based H2 with in-memory H2 for test isolation.
-# DatabaseDirectoryInitializer detects the mem: URL and skips directory creation.
+# Test profile overrides — E02S02 (amended by E16S02)
+# E02S02: Replaces file-based H2 with in-memory H2 for test isolation.
+# E16S02: Replaced the shared "testdb" hard-coded URL with generate-unique-name=true.
+# Rationale: the explicit jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1 URL kept a single H2
+# instance alive for the JVM lifetime, causing ordering-dependent Flyway collision
+# flakiness when multiple @SpringBootTest classes loaded the "test" profile in the
+# same mvn verify run (CrossTenantIsolationTest errored mid-E21S05, self-masked after
+# E21S07 due to Surefire class-order shift). With generate-unique-name=true, Spring
+# Boot generates a UUID-based H2 database name for each ApplicationContext load —
+# independent contexts cannot share schema state. DEC-14: remains H2 in-memory.
 spring:
   datasource:
-    url: "jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
+    generate-unique-name: true
+    url:  # override production file-based URL; generate-unique-name=true provides the unique H2 name
     driver-class-name: org.h2.Driver
     username: sa
     password:
