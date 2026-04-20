@@ -1,0 +1,119 @@
+package de.vvwt.tm.tournament;
+
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import de.vvwt.tm.domain.rules.ScoringRuleRegistry;
+import de.vvwt.tm.domain.rules.SetValidationRuleRegistry;
+import de.vvwt.tm.infrastructure.testsupport.TenantContextSliceTestSupport;
+import de.vvwt.tm.tenant.TenantContext;
+import de.vvwt.tm.tenant.TenantRegistryPort;
+import java.util.Set;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
+
+/**
+ * Slice test for {@link TournamentRulesController} (E21S10,
+ * AC-REST-SLICE-TournamentRulesController, DEC-26 C-13 methodology, inventory row 412).
+ *
+ * <p>This test was committed RED: {@link TournamentRulesController} at {@code
+ * de.vvwt.tm.tournament.TournamentRulesController} did not exist at commit time, causing a compile
+ * error — satisfying the DEC-22 Iron Law.
+ *
+ * <h2>Coverage (C-13 methodology)</h2>
+ *
+ * <ul>
+ *   <li>Happy-path GET /api/tournament-rules with admin auth returns 200 + correct JSON shape
+ *   <li>Anonymous GET /api/tournament-rules returns 401 (AC-REST-IT-SEC-TournamentRulesController)
+ * </ul>
+ *
+ * <h2>AC-S08-REGISTRY-IMPORT</h2>
+ *
+ * <p>Verifies that the controller wires {@link MatchGeneratorRegistry} (S08 public package).
+ * Scoring/validation registries are at legacy coordinates (DEC-32 transitional import).
+ *
+ * @see TournamentRulesController
+ * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
+ * @see <a href="DEC-26">DEC-26 — controller test methodology (C-13)</a>
+ * @see <a href="DEC-32">DEC-32 — transitional scoring-rule-registry import</a>
+ * @see <a href="E21S10">E21S10 — inventory row 412</a>
+ */
+@WebMvcTest(TournamentRulesController.class)
+@DisplayName("TournamentRulesController slice tests — E21S10 AC-REST-SLICE")
+class TournamentRulesControllerSliceTest {
+
+    @Autowired private WebApplicationContext context;
+
+    @MockitoBean(name = "tmMatchGeneratorRegistry")
+    private MatchGeneratorRegistry matchGeneratorRegistry;
+
+    @MockitoBean private ScoringRuleRegistry scoringRuleRegistry;
+
+    @MockitoBean private SetValidationRuleRegistry setValidationRuleRegistry;
+
+    @MockitoBean private TenantContext tenantContext;
+
+    @MockitoBean private TenantRegistryPort tenantRegistryPort;
+
+    private MockMvc mockMvc;
+
+    private static final UUID TENANT_ID = UUID.randomUUID();
+
+    @BeforeEach
+    void setUp() {
+        TenantContextSliceTestSupport.configureMock(tenantContext, TENANT_ID);
+        when(tenantRegistryPort.getDefault()).thenReturn(TENANT_ID);
+        when(tenantContext.bind(TENANT_ID)).thenReturn(() -> {});
+
+        when(matchGeneratorRegistry.knownIds()).thenReturn(Set.of("roundRobin"));
+        when(scoringRuleRegistry.knownIds()).thenReturn(Set.of("setPoints", "threePointMatch"));
+        when(setValidationRuleRegistry.getAll())
+                .thenReturn(java.util.Map.of("standardVolleyball", null, "timeBoundedSet", null));
+
+        mockMvc =
+                MockMvcBuilders.webAppContextSetup(context)
+                        .apply(SecurityMockMvcConfigurers.springSecurity())
+                        .build();
+    }
+
+    // =========================================================================
+    // Security: unauthenticated requests return 401
+    // =========================================================================
+
+    @Test
+    @DisplayName("AC-REST-IT-SEC: Anonymous GET /api/tournament-rules returns 401")
+    void anonymousGet_returns401() throws Exception {
+        mockMvc.perform(get("/api/tournament-rules")).andExpect(status().isUnauthorized());
+    }
+
+    // =========================================================================
+    // Happy path: authenticated request returns rule registry JSON
+    // =========================================================================
+
+    @Test
+    @DisplayName(
+            "AC-REST-SLICE-TournamentRulesController: authenticated GET returns 200 + correct"
+                    + " JSON shape")
+    @org.springframework.security.test.context.support.WithMockUser
+    void authenticatedGet_returns200WithRuleRegistries() throws Exception {
+        mockMvc.perform(get("/api/tournament-rules"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.matchGeneratorIds").isArray())
+                .andExpect(jsonPath("$.scoringRuleIds").isArray())
+                .andExpect(jsonPath("$.setValidationRuleIds").isArray())
+                .andExpect(jsonPath("$.matchFormats").isArray())
+                .andExpect(jsonPath("$.matchGeneratorIds[0]").value("roundRobin"))
+                .andExpect(jsonPath("$.matchFormats").isNotEmpty());
+    }
+}

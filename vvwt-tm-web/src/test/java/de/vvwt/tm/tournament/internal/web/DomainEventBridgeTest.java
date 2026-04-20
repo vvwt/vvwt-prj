@@ -87,7 +87,7 @@ class DomainEventBridgeTest {
             SimpMessagingTemplate mockTemplate = mock(SimpMessagingTemplate.class);
             doThrow(new MessagingException("simulated disconnect"))
                     .when(mockTemplate)
-                    .convertAndSend(any(String.class), any(Object.class));
+                    .convertAndSend(any(String.class), any(EventMessage.class));
 
             DomainEventBridge bridge = new DomainEventBridge(mockTemplate);
 
@@ -101,7 +101,7 @@ class DomainEventBridgeTest {
                             UUID.randomUUID(),
                             matchId,
                             MatchState.OPEN,
-                            MatchState.CLOSED,
+                            MatchState.FINISHED_WINNER1,
                             null,
                             0,
                             0,
@@ -111,7 +111,8 @@ class DomainEventBridgeTest {
             assertThatCode(() -> bridge.onMatchResultChanged(event)).doesNotThrowAnyException();
 
             // Template was called (bridge attempted broadcast)
-            verify(mockTemplate).convertAndSend(eq(DomainEventBridge.EVENTS_TOPIC), any());
+            verify(mockTemplate)
+                    .convertAndSend(eq(DomainEventBridge.EVENTS_TOPIC), any(EventMessage.class));
         }
     }
 
@@ -166,7 +167,7 @@ class DomainEventBridgeTest {
                                     new StompSessionHandlerAdapter() {})
                             .get(5, TimeUnit.SECONDS);
 
-            CompletableFuture<Map<?, ?>> received = new CompletableFuture<>();
+            CompletableFuture<Map<String, Object>> received = new CompletableFuture<>();
 
             session.subscribe(
                     DomainEventBridge.EVENTS_TOPIC,
@@ -177,8 +178,9 @@ class DomainEventBridgeTest {
                         }
 
                         @Override
+                        @SuppressWarnings("unchecked")
                         public void handleFrame(StompHeaders headers, Object payload) {
-                            received.complete((Map<?, ?>) payload);
+                            received.complete((Map<String, Object>) payload);
                         }
                     });
 
@@ -195,13 +197,13 @@ class DomainEventBridgeTest {
                             UUID.randomUUID(),
                             matchId,
                             MatchState.OPEN,
-                            MatchState.CLOSED,
+                            MatchState.FINISHED_WINNER1,
                             null,
                             0,
                             0,
                             UUID.randomUUID()));
 
-            Map<?, ?> message = received.get(2, TimeUnit.SECONDS);
+            Map<String, Object> message = received.get(2, TimeUnit.SECONDS);
             assertThat(message)
                     .as("EventMessage must have eventType MATCH_RESULT_CHANGED")
                     .containsEntry("eventType", "MATCH_RESULT_CHANGED");
