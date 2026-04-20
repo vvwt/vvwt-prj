@@ -1,0 +1,170 @@
+package de.vvwt.tm.tournament.internal;
+
+import de.vvwt.tm.tournament.Match;
+import de.vvwt.tm.tournament.MatchGeneratorRegistry;
+import de.vvwt.tm.tournament.MatchRepository;
+import de.vvwt.tm.tournament.Phase;
+import de.vvwt.tm.tournament.PhaseRepository;
+import de.vvwt.tm.tournament.TeamAvatar;
+import de.vvwt.tm.tournament.TeamAvatarRepository;
+import de.vvwt.tm.tournament.internal.referee.RefereeAssigner;
+import de.vvwt.tm.tournament.internal.referee.RefereeAssignmentReport;
+import java.util.List;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * Spring service that orchestrates Phase preparation: match generation + referee assignment (E21S08
+ * reconstruction — CRITICAL-PATH-CONVERGENCE per Brief O-8).
+ *
+ * <p>Reconstruction-in-place counterpart of {@code de.vvwt.tm.domain.PhasePreparationService}
+ * (inventory row 180). Lives at {@code de.vvwt.tm.tournament.internal} per AC-PACKAGE-D8. Uses new
+ * {@code de.vvwt.tm.tournament.*} types.
+ *
+ * <h2>Brief O-8 — Critical-path convergence (AC-ORCHESTRATION-CONVERGENCE)</h2>
+ *
+ * <p>This service is the single convergence gate of the E21 dependency graph. Its four
+ * collaborators come from four upstream stories:
+ *
+ * <ul>
+ *   <li>{@link MatchGeneratorRegistry} — E21S08 (this story, new reconstruction)
+ *   <li>{@link Phase} aggregate ({@link PhaseRepository}) — E21S03
+ *   <li>{@link Match} aggregate persistence ({@link MatchRepository}) — E21S04/E21S05
+ *   <li>Round / referee-pool collaborators ({@link TeamAvatarRepository}, {@link RefereeAssigner})
+ *       — E21S04/E21S05/E21S08 (this story)
+ * </ul>
+ *
+ * <h2>Orchestration flow</h2>
+ *
+ * <ol>
+ *   <li>Load phase; validate phase exists.
+ *   <li>Delete existing matches for the phase (idempotency).
+ *   <li>Load avatars for the phase.
+ *   <li>Resolve generator from {@link MatchGeneratorRegistry} by key.
+ *   <li>Generate matches.
+ *   <li>Persist each generated match.
+ *   <li>Invoke {@link RefereeAssigner#assignReferees(UUID)}.
+ *   <li>Return the assignment report.
+ * </ol>
+ *
+ * <p>Note: Slot optimization ({@code optimizeSlots}) is NOT included here — it remains in the
+ * legacy {@code de.vvwt.tm.domain.PhasePreparationService} for now. This E21S08 reconstruction
+ * covers only match generation + referee assignment, which is the testable scope of the new
+ * boundary-API types.
+ *
+ * <p>Legacy {@code de.vvwt.tm.domain.PhasePreparationService} remains untouched until E21S13 atomic
+ * cutover per DEC-32.
+ *
+ * @see MatchGeneratorRegistry
+ * @see MatchGenerator
+ * @see RefereeAssigner
+ * @see <a href="DEC-21">DEC-21 — Spring Modulith, internal package</a>
+ * @see <a href="DEC-22">DEC-22 — TDD Iron Law (reconstruction-in-place)</a>
+ * @see <a href="E21S08">E21S08 — inventory row 180</a>
+ */
+@Service("tmPhasePreparationService")
+public class PhasePreparationService {
+
+    private static final Logger LOG = LoggerFactory.getLogger(PhasePreparationService.class);
+
+    private final PhaseRepository phaseRepository;
+    private final MatchRepository matchRepository;
+    private final TeamAvatarRepository teamAvatarRepository;
+    private final MatchGeneratorRegistry matchGeneratorRegistry;
+    private final RefereeAssigner refereeAssigner;
+
+    /**
+     * Constructs the service.
+     *
+     * <p>Brief O-8 convergence map — collaborators by upstream story:
+     *
+     * <ul>
+     *   <li>{@code phaseRepository} — E21S03 (Phase aggregate)
+     *   <li>{@code matchRepository} — E21S04/E21S05 (Match aggregate + SetResult)
+     *   <li>{@code teamAvatarRepository} — E21S04 (TeamAvatar aggregate)
+     *   <li>{@code matchGeneratorRegistry} — E21S08 (this story, MatchGenerator SPI)
+     *   <li>{@code refereeAssigner} — E21S08 (this story, referee subsystem)
+     * </ul>
+     */
+    public PhasePreparationService(
+            PhaseRepository phaseRepository,
+            MatchRepository matchRepository,
+            TeamAvatarRepository teamAvatarRepository,
+            MatchGeneratorRegistry matchGeneratorRegistry,
+            RefereeAssigner refereeAssigner) {
+        this.phaseRepository = phaseRepository;
+        this.matchRepository = matchRepository;
+        this.teamAvatarRepository = teamAvatarRepository;
+        this.matchGeneratorRegistry = matchGeneratorRegistry;
+        this.refereeAssigner = refereeAssigner;
+    }
+
+    /**
+     * Prepares a phase by generating matches and assigning referees.
+     *
+     * <p>Idempotent: existing matches are deleted before new ones are generated.
+     *
+     * @param phaseId the phase to prepare; must not be {@code null}
+     * @param generatorKey the key to look up in {@link MatchGeneratorRegistry}; must not be {@code
+     *     null}
+     * @return a referee assignment report; never {@code null}
+     * @throws IllegalArgumentException if {@code phaseId} or {@code generatorKey} is null, or if
+     *     the phase does not exist
+     */
+    @Transactional
+    public RefereeAssignmentReport preparePhase(UUID phaseId, String generatorKey) {
+        if (phaseId == null) {
+            throw new IllegalArgumentException("phaseId must not be null");
+        }
+        if (generatorKey == null) {
+            throw new IllegalArgumentException("generatorKey must not be null");
+        }
+
+        Phase phase =
+                phaseRepository
+                        .findById(phaseId)
+                        .orElseThrow(
+                                () -> new IllegalArgumentException("Phase not found: " + phaseId));
+
+        // Idempotent delete: clear any existing matches before re-generation
+        List<Match> existing = matchRepository.findByPhaseId(phaseId);
+        if (!existing.isEmpty()) {
+            matchRepository.deleteByPhaseId(phaseId);
+            LOG.info(
+                    "preparePhase: phase={} — deleted {} existing matches before re-generation",
+                    phaseId,
+                    existing.size());
+        }
+
+        List<TeamAvatar> avatars =
+                teamAvatarRepository.findByTournamentIdAndPhaseId(phase.getTournamentId(), phaseId);
+
+        MatchGenerator generator = matchGeneratorRegistry.get(generatorKey);
+        List<Match> generatedMatches = generator.generate(phase, avatars);
+
+        for (Match match : generatedMatches) {
+            matchRepository.save(match);
+        }
+
+        LOG.info(
+                "preparePhase: phase={}, generator={}, avatars={}, generated {} matches",
+                phaseId,
+                generatorKey,
+                avatars.size(),
+                generatedMatches.size());
+
+        RefereeAssignmentReport report = refereeAssigner.assignReferees(phaseId);
+
+        LOG.info(
+                "preparePhase: phase={} — assigned={}, overridden={}, noReferee={}",
+                phaseId,
+                report.getAssignedCount(),
+                report.getOverriddenCount(),
+                report.getNoRefereeCount());
+
+        return report;
+    }
+}
