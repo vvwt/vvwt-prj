@@ -178,6 +178,15 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- jqwik: property-based testing framework (E21S11, DEC-22).
+             Used for TimelineCalculationService invariant tests (AC-TDD-TimelineCalculationService-PROPERTY-BASED).
+             Version managed by parent POM (DEC-10 — no version pin here). -->
+        <dependency>
+            <groupId>net.jqwik</groupId>
+            <artifactId>jqwik-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <!-- ===================================================================
