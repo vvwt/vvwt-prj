@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -801,6 +802,36 @@ public class GlobalExceptionHandler {
     }
 
     // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // E21S06 — 403: Access denied (@PreAuthorize violations)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Maps Spring Security {@link AccessDeniedException} to HTTP 403 Forbidden (E21S06, DEC-24).
+     *
+     * <p>Without this handler, the catch-all {@code Exception} handler would intercept {@code
+     * AccessDeniedException} before Spring Security's {@code ExceptionTranslationFilter} can
+     * convert it, resulting in a spurious HTTP 500. This handler ensures that
+     * {@code @PreAuthorize}-enforced role violations return 403 as expected.
+     *
+     * @param ex the access denied exception
+     * @param request the current HTTP request
+     * @return 403 response
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiErrorResponse> handleAccessDenied(
+            AccessDeniedException ex, HttpServletRequest request) {
+        ApiErrorResponse body =
+                new ApiErrorResponse.Builder(
+                                HttpStatus.FORBIDDEN.value(),
+                                HttpStatus.FORBIDDEN.getReasonPhrase(),
+                                "Access denied.",
+                                "error.forbidden")
+                        .path(request.getRequestURI())
+                        .build();
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+    }
+
     // AC1 — 500: Unexpected errors (no stack trace in response — AC1)
     // -------------------------------------------------------------------------
 
