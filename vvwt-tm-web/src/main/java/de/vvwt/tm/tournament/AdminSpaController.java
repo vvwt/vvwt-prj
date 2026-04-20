@@ -1,5 +1,6 @@
 package de.vvwt.tm.tournament;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 
@@ -47,6 +48,10 @@ import org.springframework.web.bind.annotation.GetMapping;
  *
  * @see de.vvwt.tm.infrastructure.AdminSpaController legacy counterpart (untouched until cutover)
  */
+// Suppressed while legacy de.vvwt.tm.infrastructure.AdminSpaController is active (DEC-21).
+// Both classes map to the same HTTP paths — registering both causes ambiguous-mapping exception.
+// Remove @ConditionalOnMissingBean at E21S13 cutover once legacy controller is deleted.
+@ConditionalOnMissingBean(name = "adminSpaController")
 @Controller("tmAdminSpaController")
 public class AdminSpaController {
 
