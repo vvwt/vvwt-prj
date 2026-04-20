@@ -18,7 +18,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -51,8 +54,14 @@ import org.springframework.web.context.WebApplicationContext;
  * @see <a href="E21S06">E21S06 — Device aggregate reconstruction (inventory line 420)</a>
  */
 @WebMvcTest(DeviceAdminController.class)
+@Import(DeviceAdminControllerSliceTest.MethodSecurityConfig.class)
 @DisplayName("DeviceAdminController slice tests — E21S06 AC-REST-SLICE-DeviceAdminController")
 class DeviceAdminControllerSliceTest {
+
+    /** Activates {@code @PreAuthorize} processing in the @WebMvcTest slice (E21S06 DEC-24). */
+    @TestConfiguration
+    @EnableMethodSecurity
+    static class MethodSecurityConfig {}
 
     @Autowired private WebApplicationContext context;
 

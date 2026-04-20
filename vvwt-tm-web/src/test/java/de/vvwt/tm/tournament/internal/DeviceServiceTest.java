@@ -3,6 +3,7 @@ package de.vvwt.tm.tournament.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -32,7 +33,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * <h2>Coverage</h2>
  *
  * <ul>
- *   <li>register-new device: tenantId bound, deviceToken generated, PIN generated for SCORING_TABLET
+ *   <li>register-new device: tenantId bound, deviceToken generated, PIN generated for
+ *       SCORING_TABLET
  *   <li>configure: sets deviceName and configuration on DISPLAY device
  *   <li>assign-location: sets locationId
  *   <li>enforce-DeviceLimit: N-th device succeeds, (N+1)-th throws DeviceLimitExceededException
@@ -65,7 +67,7 @@ class DeviceServiceTest {
     void setUp() {
         limitConfig = new DeviceLimitConfig();
         limitConfig.setMaxDeviceCount(5);
-        when(tenantContext.current()).thenReturn(TENANT_ID);
+        lenient().when(tenantContext.current()).thenReturn(TENANT_ID);
         service = new DeviceService(deviceRepository, tenantContext, limitConfig);
     }
 
@@ -96,7 +98,9 @@ class DeviceServiceTest {
                 .matches("\\d{4,6}");
         assertThat(result.getDeviceType()).isEqualTo(Device.TYPE_SCORING_TABLET);
         assertThat(result.getStatus()).isEqualTo(Device.STATUS_REGISTERED);
-        assertThat(result.getLocationId()).as("locationId null at registration per DEC-24").isNull();
+        assertThat(result.getLocationId())
+                .as("locationId null at registration per DEC-24")
+                .isNull();
     }
 
     @Test
@@ -181,7 +185,8 @@ class DeviceServiceTest {
         when(deviceRepository.findById(deviceId)).thenReturn(Optional.of(existing));
         when(deviceRepository.save(existing)).thenReturn(existing);
 
-        Device result = service.configure(deviceId, "My Display", "{\"display_schema\":\"OVERVIEW\"}");
+        Device result =
+                service.configure(deviceId, "My Display", "{\"display_schema\":\"OVERVIEW\"}");
 
         assertThat(result.getDeviceName()).isEqualTo("My Display");
         assertThat(result.getConfiguration()).isEqualTo("{\"display_schema\":\"OVERVIEW\"}");
