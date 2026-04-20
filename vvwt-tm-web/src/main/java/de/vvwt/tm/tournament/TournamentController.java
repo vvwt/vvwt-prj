@@ -45,7 +45,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
  * @see <a href="E21S02">E21S02 — Tournament aggregate reconstruction</a>
  */
-@RestController
+@RestController("tmTournamentController")
 @RequestMapping("/api/tm/tournaments")
 public class TournamentController {
 
