@@ -61,7 +61,10 @@ import org.springframework.stereotype.Service;
  * @see TimelineEntry
  * @see TimelineEntryType
  */
-@Service
+// Qualifier avoids ConflictingBeanDefinitionException with legacy
+// de.vvwt.tm.domain.timeline.TimelineCalculationService (DEC-21 reconstruction-in-place).
+// Remove qualifier at E21S13 cutover once legacy class is deleted.
+@Service("tmTimelineCalculationService")
 public class TimelineCalculationService {
 
     /**

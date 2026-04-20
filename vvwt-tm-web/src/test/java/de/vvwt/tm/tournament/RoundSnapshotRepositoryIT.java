@@ -3,6 +3,7 @@ package de.vvwt.tm.tournament;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.db.api.Assertions.assertThat;
 
+import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.infrastructure.testsupport.TenantDaoTestSupport;
 import java.util.Map;
 import java.util.Optional;
@@ -10,8 +11,10 @@ import java.util.UUID;
 import javax.sql.DataSource;
 import org.assertj.db.type.AssertDbConnection;
 import org.assertj.db.type.Table;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * Integration test for {@link RoundSnapshotRepository} — DEC-26 three-rule compliance.
@@ -36,6 +39,7 @@ class RoundSnapshotRepositoryIT {
     private DataSource ds;
     private AssertDbConnection assertDb;
     private RoundSnapshotRepository repo;
+    private TenantContext tenantContext;
     private UUID tenantId;
     private UUID tournamentId;
     private UUID phaseId;
@@ -49,6 +53,22 @@ class RoundSnapshotRepositoryIT {
         tenantId = UUID.randomUUID();
         tournamentId = UUID.randomUUID();
         phaseId = UUID.randomUUID();
+        // TenantContext for standalone test — uses LOCAL_HOLDER fallback via set()
+        tenantContext =
+                new TenantContext(
+                        new de.vvwt.tm.tenant.TenantContext() {
+                            @Override
+                            public UUID current() {
+                                throw new IllegalStateException(
+                                        "no new context in standalone test");
+                            }
+
+                            @Override
+                            public de.vvwt.tm.tenant.TenantContext.Scope bind(UUID id) {
+                                return () -> {};
+                            }
+                        });
+        tenantContext.set(tenantId);
         // Insert prerequisite rows for FK constraints
         TenantDaoTestSupport.insertDirectly(
                 ds,
@@ -94,7 +114,12 @@ class RoundSnapshotRepositoryIT {
                         "PENDING",
                         "current_lap_number",
                         0));
-        repo = new RoundSnapshotRepository(ds, tenantId);
+        repo = new RoundSnapshotRepository(new JdbcTemplate(ds), tenantContext);
+    }
+
+    @AfterEach
+    void tearDown() {
+        tenantContext.clear();
     }
 
     /** AC-TDD-RoundSnapshotRepository: save persists a RoundSnapshot row (Rule 2 — assertj-db). */
