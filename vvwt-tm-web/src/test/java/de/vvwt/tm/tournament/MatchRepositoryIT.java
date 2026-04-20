@@ -29,8 +29,8 @@ import org.springframework.test.context.ActiveProfiles;
  *
  * <h2>RED state</h2>
  *
- * <p>This test was committed RED: {@link MatchRepository} at
- * {@code de.vvwt.tm.tournament.MatchRepository} did not exist at commit time — satisfying DEC-22.
+ * <p>This test was committed RED: {@link MatchRepository} at {@code
+ * de.vvwt.tm.tournament.MatchRepository} did not exist at commit time — satisfying DEC-22.
  *
  * <h2>DEC-26 three-rule compliance</h2>
  *
@@ -76,16 +76,15 @@ class MatchRepositoryIT {
 
     @BeforeEach
     void setUp() {
-        tenantId = UUID.randomUUID();
         tournamentId = UUID.randomUUID();
         phaseId = UUID.randomUUID();
         avatar1Id = UUID.randomUUID();
         avatar2Id = UUID.randomUUID();
         assertDb = AssertDbConnectionFactory.of(dataSource).create();
+        // Bind the default tenant — no manual tenants INSERT needed (DEC-26 Rule 3)
+        tenantId = tenantBinder.bindDefaultTenant();
 
         // Insert required FK rows directly via JDBC (DEC-26 Rule 3)
-        jdbcTemplate.update(
-                "INSERT INTO tenants (id, name) VALUES (?, ?)", tenantId, "TestTenant-E21S05");
         jdbcTemplate.update(
                 "INSERT INTO tournament (id, tenant_id, description, match_format,"
                         + " scoring_rule_id, set_validation_rule_id, match_generator_id,"
@@ -100,35 +99,72 @@ class MatchRepositoryIT {
                 "g1",
                 "CREATED");
         jdbcTemplate.update(
-                "INSERT INTO phase (id, tenant_id, tournament_id, name, group_count,"
-                        + " teams_per_group, created_at)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-                phaseId, tenantId, tournamentId, "Group Phase", 1, 4);
+                "INSERT INTO phase (id, tenant_id, tournament_id, sequence_number,"
+                        + " description, status, current_lap_number)"
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                phaseId,
+                tenantId,
+                tournamentId,
+                1,
+                "Group Phase",
+                "PENDING",
+                0);
         // Team for avatars
         UUID teamId1 = UUID.randomUUID();
         UUID teamId2 = UUID.randomUUID();
         jdbcTemplate.update(
-                "INSERT INTO team (id, tenant_id, tournament_id, name) VALUES (?, ?, ?, ?)",
-                teamId1, tenantId, tournamentId, "Team A");
+                "INSERT INTO team (id, tenant_id, tournament_id, team_number, description)"
+                        + " VALUES (?, ?, ?, ?, ?)",
+                teamId1,
+                tenantId,
+                tournamentId,
+                1,
+                "Team A");
         jdbcTemplate.update(
-                "INSERT INTO team (id, tenant_id, tournament_id, name) VALUES (?, ?, ?, ?)",
-                teamId2, tenantId, tournamentId, "Team B");
+                "INSERT INTO team (id, tenant_id, tournament_id, team_number, description)"
+                        + " VALUES (?, ?, ?, ?, ?)",
+                teamId2,
+                tenantId,
+                tournamentId,
+                2,
+                "Team B");
         jdbcTemplate.update(
                 "INSERT INTO team_avatar (id, tenant_id, tournament_id, phase_id, team_id,"
-                        + " group_number, group_position, without_assessment)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                avatar1Id, tenantId, tournamentId, phaseId, teamId1, 1, 1, false);
+                        + " group_number, group_position)"
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                avatar1Id,
+                tenantId,
+                tournamentId,
+                phaseId,
+                teamId1,
+                1,
+                1);
         jdbcTemplate.update(
                 "INSERT INTO team_avatar (id, tenant_id, tournament_id, phase_id, team_id,"
-                        + " group_number, group_position, without_assessment)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                avatar2Id, tenantId, tournamentId, phaseId, teamId2, 1, 2, false);
-
-        tenantBinder.bind(tenantId);
+                        + " group_number, group_position)"
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                avatar2Id,
+                tenantId,
+                tournamentId,
+                phaseId,
+                teamId2,
+                1,
+                2);
     }
 
     @AfterEach
     void tearDown() {
+        // Best-effort cleanup of this test's rows (FK-ordered, child-before-parent)
+        jdbcTemplate.update("DELETE FROM set_result WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM audit_log WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM match_outcome WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM match WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM team_avatar_rating WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM team_avatar WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM team WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM activity_types WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM phase WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM tournament WHERE tenant_id = ?", tenantId);
         tenantBinder.unbind();
     }
 
@@ -153,8 +189,12 @@ class MatchRepositoryIT {
         matchRepository.save(match);
 
         // Rule 2: verify via assertj-db, NOT via matchRepository.findById(...)
+        // Row-presence check (not exact count) for isolation in shared H2 DB.
         Table table = assertDb.table("match").build();
-        assertThat(table).hasNumberOfRows(1);
+        final UUID savedId = matchId;
+        assertThat(table.getRowsList())
+                .as("saved match must appear in the match table")
+                .anyMatch(row -> savedId.equals(row.getColumnValue("ID").getValue()));
     }
 
     // -------------------------------------------------------------------------
@@ -170,7 +210,14 @@ class MatchRepositoryIT {
                 "INSERT INTO match (id, tenant_id, tournament_id, phase_id,"
                         + " member_avatar_1_id, member_avatar_2_id, state, set_limit)"
                         + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                matchId, tenantId, tournamentId, phaseId, avatar1Id, avatar2Id, 0, 3);
+                matchId,
+                tenantId,
+                tournamentId,
+                phaseId,
+                avatar1Id,
+                avatar2Id,
+                0,
+                3);
 
         Optional<Match> found = matchRepository.findById(matchId);
         assertThat(found).isPresent();
@@ -186,12 +233,26 @@ class MatchRepositoryIT {
                 "INSERT INTO match (id, tenant_id, tournament_id, phase_id,"
                         + " member_avatar_1_id, member_avatar_2_id, state, set_limit)"
                         + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                matchId1, tenantId, tournamentId, phaseId, avatar1Id, avatar2Id, 0, 3);
+                matchId1,
+                tenantId,
+                tournamentId,
+                phaseId,
+                avatar1Id,
+                avatar2Id,
+                0,
+                3);
         jdbcTemplate.update(
                 "INSERT INTO match (id, tenant_id, tournament_id, phase_id,"
                         + " member_avatar_1_id, member_avatar_2_id, state, set_limit)"
                         + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                matchId2, tenantId, tournamentId, phaseId, avatar2Id, avatar1Id, 0, 3);
+                matchId2,
+                tenantId,
+                tournamentId,
+                phaseId,
+                avatar2Id,
+                avatar1Id,
+                0,
+                3);
 
         List<Match> matches = matchRepository.findByPhaseId(phaseId);
         assertThat(matches).hasSize(2);

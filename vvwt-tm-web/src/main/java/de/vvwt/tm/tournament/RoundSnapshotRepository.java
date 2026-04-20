@@ -1,11 +1,11 @@
 package de.vvwt.tm.tournament;
 
+import de.vvwt.tm.domain.repo.TenantContext;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import javax.sql.DataSource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -32,7 +32,7 @@ import org.springframework.stereotype.Repository;
 public class RoundSnapshotRepository {
 
     private final JdbcTemplate jdbc;
-    private final UUID tenantId;
+    private final TenantContext tenantContext;
 
     private static final String INSERT_SQL =
             "INSERT INTO round_snapshots"
@@ -50,9 +50,9 @@ public class RoundSnapshotRepository {
     private static final String EXISTS_BY_ID =
             "SELECT COUNT(*) FROM round_snapshots WHERE id=? AND tenant_id=?";
 
-    public RoundSnapshotRepository(DataSource dataSource, UUID tenantId) {
-        this.jdbc = new JdbcTemplate(dataSource);
-        this.tenantId = tenantId;
+    public RoundSnapshotRepository(JdbcTemplate jdbc, TenantContext tenantContext) {
+        this.jdbc = jdbc;
+        this.tenantContext = tenantContext;
     }
 
     /**
@@ -65,6 +65,7 @@ public class RoundSnapshotRepository {
      * @return the saved snapshot
      */
     public RoundSnapshot save(RoundSnapshot snapshot) {
+        UUID tenantId = tenantContext.getTenantId();
         snapshot.setTenantId(tenantId);
         Integer count =
                 jdbc.queryForObject(EXISTS_BY_ID, Integer.class, snapshot.getId(), tenantId);
@@ -89,6 +90,7 @@ public class RoundSnapshotRepository {
      * @return Optional containing the snapshot if found and in tenant scope, empty otherwise
      */
     public Optional<RoundSnapshot> findById(UUID id) {
+        UUID tenantId = tenantContext.getTenantId();
         List<RoundSnapshot> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id, tenantId);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
@@ -99,6 +101,7 @@ public class RoundSnapshotRepository {
      * @return list of snapshots; never null
      */
     public List<RoundSnapshot> findAll() {
+        UUID tenantId = tenantContext.getTenantId();
         return jdbc.query(SELECT_ALL, ROW_MAPPER, tenantId);
     }
 
@@ -108,6 +111,7 @@ public class RoundSnapshotRepository {
      * @param id the snapshot UUID
      */
     public void deleteById(UUID id) {
+        UUID tenantId = tenantContext.getTenantId();
         jdbc.update(DELETE_BY_ID, id, tenantId);
     }
 

@@ -12,9 +12,9 @@ import org.junit.jupiter.api.Test;
  *
  * <h2>RED state</h2>
  *
- * <p>This test was committed RED: {@link AuditLogEntry} at
- * {@code de.vvwt.tm.tournament.internal.AuditLogEntry} did not exist at commit time, causing a
- * compile error — satisfying the DEC-22 Iron Law.
+ * <p>This test was committed RED: {@link AuditLogEntry} at {@code
+ * de.vvwt.tm.tournament.internal.AuditLogEntry} did not exist at commit time, causing a compile
+ * error — satisfying the DEC-22 Iron Law.
  *
  * <h2>Coverage</h2>
  *

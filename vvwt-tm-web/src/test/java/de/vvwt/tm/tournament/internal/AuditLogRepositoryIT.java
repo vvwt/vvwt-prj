@@ -6,7 +6,6 @@ import static org.assertj.db.api.Assertions.assertThat;
 
 import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
-import de.vvwt.tm.tournament.MatchState;
 import de.vvwt.tm.tournament.SetState;
 import java.util.List;
 import java.util.UUID;
@@ -76,56 +75,105 @@ class AuditLogRepositoryIT {
 
     @BeforeEach
     void setUp() {
-        tenantId = UUID.randomUUID();
         tournamentId = UUID.randomUUID();
         phaseId = UUID.randomUUID();
         avatar1Id = UUID.randomUUID();
         avatar2Id = UUID.randomUUID();
         matchId = UUID.randomUUID();
         assertDb = AssertDbConnectionFactory.of(dataSource).create();
-
-        jdbcTemplate.update(
-                "INSERT INTO tenants (id, name) VALUES (?, ?)", tenantId, "Tenant-E21S05-AL");
+        // Bind the default tenant — no manual tenants INSERT needed (DEC-26 Rule 3)
+        tenantId = tenantBinder.bindDefaultTenant();
         jdbcTemplate.update(
                 "INSERT INTO tournament (id, tenant_id, description, match_format,"
                         + " scoring_rule_id, set_validation_rule_id, match_generator_id,"
                         + " status, created_at)"
                         + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-                tournamentId, tenantId, "T", "BEST_OF_3", "r", "v", "g", "CREATED");
+                tournamentId,
+                tenantId,
+                "T",
+                "BEST_OF_3",
+                "r",
+                "v",
+                "g",
+                "CREATED");
         jdbcTemplate.update(
-                "INSERT INTO phase (id, tenant_id, tournament_id, name, group_count,"
-                        + " teams_per_group, created_at)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-                phaseId, tenantId, tournamentId, "P", 1, 2);
+                "INSERT INTO phase (id, tenant_id, tournament_id, sequence_number,"
+                        + " description, status, current_lap_number)"
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                phaseId,
+                tenantId,
+                tournamentId,
+                1,
+                "P",
+                "PENDING",
+                0);
         UUID teamId1 = UUID.randomUUID();
         UUID teamId2 = UUID.randomUUID();
         jdbcTemplate.update(
-                "INSERT INTO team (id, tenant_id, tournament_id, name) VALUES (?, ?, ?, ?)",
-                teamId1, tenantId, tournamentId, "TA");
+                "INSERT INTO team (id, tenant_id, tournament_id, team_number, description)"
+                        + " VALUES (?, ?, ?, ?, ?)",
+                teamId1,
+                tenantId,
+                tournamentId,
+                1,
+                "TA");
         jdbcTemplate.update(
-                "INSERT INTO team (id, tenant_id, tournament_id, name) VALUES (?, ?, ?, ?)",
-                teamId2, tenantId, tournamentId, "TB");
+                "INSERT INTO team (id, tenant_id, tournament_id, team_number, description)"
+                        + " VALUES (?, ?, ?, ?, ?)",
+                teamId2,
+                tenantId,
+                tournamentId,
+                2,
+                "TB");
         jdbcTemplate.update(
                 "INSERT INTO team_avatar (id, tenant_id, tournament_id, phase_id, team_id,"
-                        + " group_number, group_position, without_assessment)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                avatar1Id, tenantId, tournamentId, phaseId, teamId1, 1, 1, false);
+                        + " group_number, group_position)"
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                avatar1Id,
+                tenantId,
+                tournamentId,
+                phaseId,
+                teamId1,
+                1,
+                1);
         jdbcTemplate.update(
                 "INSERT INTO team_avatar (id, tenant_id, tournament_id, phase_id, team_id,"
-                        + " group_number, group_position, without_assessment)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                avatar2Id, tenantId, tournamentId, phaseId, teamId2, 1, 2, false);
+                        + " group_number, group_position)"
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                avatar2Id,
+                tenantId,
+                tournamentId,
+                phaseId,
+                teamId2,
+                1,
+                2);
         jdbcTemplate.update(
                 "INSERT INTO match (id, tenant_id, tournament_id, phase_id,"
                         + " member_avatar_1_id, member_avatar_2_id, state, set_limit)"
                         + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                matchId, tenantId, tournamentId, phaseId, avatar1Id, avatar2Id, 30, 3);
-
-        tenantBinder.bind(tenantId);
+                matchId,
+                tenantId,
+                tournamentId,
+                phaseId,
+                avatar1Id,
+                avatar2Id,
+                30,
+                3);
     }
 
     @AfterEach
     void tearDown() {
+        // Best-effort cleanup of this test's rows (FK-ordered, child-before-parent)
+        jdbcTemplate.update("DELETE FROM set_result WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM audit_log WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM match_outcome WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM match WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM team_avatar_rating WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM team_avatar WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM team WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM activity_types WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM phase WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM tournament WHERE tenant_id = ?", tenantId);
         tenantBinder.unbind();
     }
 
@@ -144,8 +192,12 @@ class AuditLogRepositoryIT {
         auditLogRepository.save(entry);
 
         // DEC-26 Rule 2: verify via assertj-db
+        // Row-presence check (not exact count) for isolation in shared H2 DB.
         Table table = assertDb.table("audit_log").build();
-        assertThat(table).hasNumberOfRows(1);
+        final UUID savedId = entry.getId();
+        assertThat(table.getRowsList())
+                .as("saved audit_log entry must appear in the audit_log table")
+                .anyMatch(row -> savedId.equals(row.getColumnValue("ID").getValue()));
     }
 
     @Test
@@ -157,7 +209,8 @@ class AuditLogRepositoryIT {
     }
 
     @Test
-    @DisplayName("findByMatchIdAndSetIndexOrderByChangedAt returns entries in order (fixture via JDBC)")
+    @DisplayName(
+            "findByMatchIdAndSetIndexOrderByChangedAt returns entries in order (fixture via JDBC)")
     void findByMatchIdAndSetIndexOrderByChangedAtReturnsInOrder() {
         UUID entry1Id = UUID.randomUUID();
         UUID entry2Id = UUID.randomUUID();
@@ -166,12 +219,24 @@ class AuditLogRepositoryIT {
                 "INSERT INTO audit_log (id, tenant_id, match_id, set_index,"
                         + " team1_points_new, team2_points_new, set_state_new)"
                         + " VALUES (?, ?, ?, ?, ?, ?, ?)",
-                entry1Id, tenantId, matchId, 0, 25, 20, 1);
+                entry1Id,
+                tenantId,
+                matchId,
+                0,
+                25,
+                20,
+                1);
         jdbcTemplate.update(
                 "INSERT INTO audit_log (id, tenant_id, match_id, set_index,"
                         + " team1_points_new, team2_points_new, set_state_new)"
                         + " VALUES (?, ?, ?, ?, ?, ?, ?)",
-                entry2Id, tenantId, matchId, 0, 23, 20, 1);
+                entry2Id,
+                tenantId,
+                matchId,
+                0,
+                23,
+                20,
+                1);
 
         List<AuditLogEntry> entries =
                 auditLogRepository.findByMatchIdAndSetIndexOrderByChangedAt(matchId, 0);

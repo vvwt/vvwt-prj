@@ -52,8 +52,7 @@ class MatchTest {
     @DisplayName("setMatchState(null) throws NullPointerException")
     void setMatchStateNullThrows() {
         Match m = new Match();
-        assertThatThrownBy(() -> m.setMatchState(null))
-                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> m.setMatchState(null)).isInstanceOf(NullPointerException.class);
     }
 
     @Test

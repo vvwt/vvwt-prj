@@ -3,6 +3,7 @@ package de.vvwt.tm.tournament;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.db.api.Assertions.assertThat;
 
+import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.infrastructure.testsupport.TenantDaoTestSupport;
 import java.util.List;
 import java.util.Map;
@@ -11,8 +12,10 @@ import java.util.UUID;
 import javax.sql.DataSource;
 import org.assertj.db.type.AssertDbConnection;
 import org.assertj.db.type.Table;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * Integration test for {@link PhaseRepository} — DEC-26 three-rule compliance.
@@ -37,6 +40,7 @@ class PhaseRepositoryIT {
     private DataSource ds;
     private AssertDbConnection assertDb;
     private PhaseRepository repo;
+    private TenantContext tenantContext;
     private UUID tenantId;
     private UUID tournamentId;
 
@@ -48,6 +52,22 @@ class PhaseRepositoryIT {
         assertDb = TenantDaoTestSupport.assertDbOf(ds);
         tenantId = UUID.randomUUID();
         tournamentId = UUID.randomUUID();
+        // TenantContext for standalone test — uses LOCAL_HOLDER fallback via set()
+        tenantContext =
+                new TenantContext(
+                        new de.vvwt.tm.tenant.TenantContext() {
+                            @Override
+                            public UUID current() {
+                                throw new IllegalStateException(
+                                        "no new context in standalone test");
+                            }
+
+                            @Override
+                            public de.vvwt.tm.tenant.TenantContext.Scope bind(UUID id) {
+                                return () -> {};
+                            }
+                        });
+        tenantContext.set(tenantId);
         // Insert prerequisite tenant and tournament rows for FK constraints
         TenantDaoTestSupport.insertDirectly(
                 ds,
@@ -75,7 +95,12 @@ class PhaseRepositoryIT {
                         "status", "DRAFT",
                         "field_count", 2,
                         "team_count", 4));
-        repo = new PhaseRepository(ds, tenantId);
+        repo = new PhaseRepository(new JdbcTemplate(ds), tenantContext);
+    }
+
+    @AfterEach
+    void tearDown() {
+        tenantContext.clear();
     }
 
     /** AC-TDD-PhaseRepository: save persists a Phase row (Rule 2 — assertj-db verifier). */

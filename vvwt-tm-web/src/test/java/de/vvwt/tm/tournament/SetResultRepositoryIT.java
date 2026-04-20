@@ -74,71 +74,131 @@ class SetResultRepositoryIT {
 
     @BeforeEach
     void setUp() {
-        tenantId = UUID.randomUUID();
         tournamentId = UUID.randomUUID();
         phaseId = UUID.randomUUID();
         avatar1Id = UUID.randomUUID();
         avatar2Id = UUID.randomUUID();
         matchId = UUID.randomUUID();
         assertDb = AssertDbConnectionFactory.of(dataSource).create();
-
-        jdbcTemplate.update(
-                "INSERT INTO tenants (id, name) VALUES (?, ?)", tenantId, "Tenant-E21S05-SR");
+        // Bind the default tenant — no manual tenants INSERT needed (DEC-26 Rule 3)
+        tenantId = tenantBinder.bindDefaultTenant();
         jdbcTemplate.update(
                 "INSERT INTO tournament (id, tenant_id, description, match_format,"
                         + " scoring_rule_id, set_validation_rule_id, match_generator_id,"
                         + " status, created_at)"
                         + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-                tournamentId, tenantId, "T", "BEST_OF_3", "r", "v", "g", "CREATED");
+                tournamentId,
+                tenantId,
+                "T",
+                "BEST_OF_3",
+                "r",
+                "v",
+                "g",
+                "CREATED");
         jdbcTemplate.update(
-                "INSERT INTO phase (id, tenant_id, tournament_id, name, group_count,"
-                        + " teams_per_group, created_at)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-                phaseId, tenantId, tournamentId, "P", 1, 2);
+                "INSERT INTO phase (id, tenant_id, tournament_id, sequence_number,"
+                        + " description, status, current_lap_number)"
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                phaseId,
+                tenantId,
+                tournamentId,
+                1,
+                "P",
+                "PENDING",
+                0);
         UUID teamId1 = UUID.randomUUID();
         UUID teamId2 = UUID.randomUUID();
         jdbcTemplate.update(
-                "INSERT INTO team (id, tenant_id, tournament_id, name) VALUES (?, ?, ?, ?)",
-                teamId1, tenantId, tournamentId, "TA");
+                "INSERT INTO team (id, tenant_id, tournament_id, team_number, description)"
+                        + " VALUES (?, ?, ?, ?, ?)",
+                teamId1,
+                tenantId,
+                tournamentId,
+                1,
+                "TA");
         jdbcTemplate.update(
-                "INSERT INTO team (id, tenant_id, tournament_id, name) VALUES (?, ?, ?, ?)",
-                teamId2, tenantId, tournamentId, "TB");
+                "INSERT INTO team (id, tenant_id, tournament_id, team_number, description)"
+                        + " VALUES (?, ?, ?, ?, ?)",
+                teamId2,
+                tenantId,
+                tournamentId,
+                2,
+                "TB");
         jdbcTemplate.update(
                 "INSERT INTO team_avatar (id, tenant_id, tournament_id, phase_id, team_id,"
-                        + " group_number, group_position, without_assessment)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                avatar1Id, tenantId, tournamentId, phaseId, teamId1, 1, 1, false);
+                        + " group_number, group_position)"
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                avatar1Id,
+                tenantId,
+                tournamentId,
+                phaseId,
+                teamId1,
+                1,
+                1);
         jdbcTemplate.update(
                 "INSERT INTO team_avatar (id, tenant_id, tournament_id, phase_id, team_id,"
-                        + " group_number, group_position, without_assessment)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                avatar2Id, tenantId, tournamentId, phaseId, teamId2, 1, 2, false);
+                        + " group_number, group_position)"
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                avatar2Id,
+                tenantId,
+                tournamentId,
+                phaseId,
+                teamId2,
+                1,
+                2);
         jdbcTemplate.update(
                 "INSERT INTO match (id, tenant_id, tournament_id, phase_id,"
                         + " member_avatar_1_id, member_avatar_2_id, state, set_limit)"
                         + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                matchId, tenantId, tournamentId, phaseId, avatar1Id, avatar2Id, 30, 3);
-
-        tenantBinder.bind(tenantId);
+                matchId,
+                tenantId,
+                tournamentId,
+                phaseId,
+                avatar1Id,
+                avatar2Id,
+                30,
+                3);
     }
 
     @AfterEach
     void tearDown() {
+        // Best-effort cleanup of this test's rows (FK-ordered, child-before-parent)
+        jdbcTemplate.update("DELETE FROM set_result WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM audit_log WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM match_outcome WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM match WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM team_avatar WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM team WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM activity_types WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM phase WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM tournament WHERE tenant_id = ?", tenantId);
         tenantBinder.unbind();
     }
 
     @Test
     @DisplayName("insert() creates a set_result row — verified via assertj-db")
     void insertCreatesSetResultRow() {
-        SetResult sr = new SetResult(
-                matchId, 0, tenantId, phaseId, 25, 20,
-                SetState.WINNER1.getLegacyCode(), null, null);
+        SetResult sr =
+                new SetResult(
+                        matchId,
+                        0,
+                        tenantId,
+                        phaseId,
+                        25,
+                        20,
+                        SetState.WINNER1.getLegacyCode(),
+                        null,
+                        null);
 
         setResultRepository.insert(sr);
 
         // DEC-26 Rule 2: verify via assertj-db, not via repository read
+        // Row-presence check (not exact count) for isolation in shared H2 DB.
         Table table = assertDb.table("set_result").build();
-        assertThat(table).hasNumberOfRows(1);
+        final UUID savedMatchId = matchId;
+        assertThat(table.getRowsList())
+                .as("inserted set_result must appear in the set_result table")
+                .anyMatch(row -> savedMatchId.equals(row.getColumnValue("MATCH_ID").getValue()));
     }
 
     @Test
@@ -149,7 +209,13 @@ class SetResultRepositoryIT {
                 "INSERT INTO set_result (match_id, set_index, tenant_id, phase_id,"
                         + " team1_points, team2_points, set_state)"
                         + " VALUES (?, ?, ?, ?, ?, ?, ?)",
-                matchId, 0, tenantId, phaseId, 25, 20, 1);
+                matchId,
+                0,
+                tenantId,
+                phaseId,
+                25,
+                20,
+                1);
 
         List<SetResult> results = setResultRepository.findByMatchId(matchId);
         assertThat(results).hasSize(1);

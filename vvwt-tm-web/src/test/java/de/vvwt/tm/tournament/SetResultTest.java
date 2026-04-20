@@ -12,8 +12,8 @@ import org.junit.jupiter.api.Test;
  *
  * <h2>RED state</h2>
  *
- * <p>This test was committed RED: {@link SetResult} at {@code de.vvwt.tm.tournament.SetResult}
- * did not exist at commit time, causing a compile error — satisfying the DEC-22 Iron Law.
+ * <p>This test was committed RED: {@link SetResult} at {@code de.vvwt.tm.tournament.SetResult} did
+ * not exist at commit time, causing a compile error — satisfying the DEC-22 Iron Law.
  *
  * <h2>Coverage</h2>
  *

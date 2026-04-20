@@ -34,7 +34,8 @@ import org.springframework.test.context.ActiveProfiles;
  * <h2>DEC-26 three-rule compliance</h2>
  *
  * <ol>
- *   <li>Schema from migration: {@code @SpringBootTest} with Flyway (V5 provides {@code match_outcome})
+ *   <li>Schema from migration: {@code @SpringBootTest} with Flyway (V5 provides {@code
+ *       match_outcome})
  *   <li>Independent verifier: assertj-db against {@code match_outcome} table
  *   <li>Read/write decoupling: fixtures via direct JDBC
  * </ol>
@@ -73,57 +74,106 @@ class MatchOutcomeRepositoryIT {
 
     @BeforeEach
     void setUp() {
-        tenantId = UUID.randomUUID();
         tournamentId = UUID.randomUUID();
         phaseId = UUID.randomUUID();
         avatar1Id = UUID.randomUUID();
         avatar2Id = UUID.randomUUID();
         matchId = UUID.randomUUID();
         assertDb = AssertDbConnectionFactory.of(dataSource).create();
+        // Bind the default tenant — no manual tenants INSERT needed (DEC-26 Rule 3)
+        tenantId = tenantBinder.bindDefaultTenant();
 
         // Insert FK dependencies (DEC-26 Rule 3)
-        jdbcTemplate.update(
-                "INSERT INTO tenants (id, name) VALUES (?, ?)", tenantId, "Tenant-E21S05-MOR");
         jdbcTemplate.update(
                 "INSERT INTO tournament (id, tenant_id, description, match_format,"
                         + " scoring_rule_id, set_validation_rule_id, match_generator_id,"
                         + " status, created_at)"
                         + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-                tournamentId, tenantId, "T", "BEST_OF_3", "r", "v", "g", "CREATED");
+                tournamentId,
+                tenantId,
+                "T",
+                "BEST_OF_3",
+                "r",
+                "v",
+                "g",
+                "CREATED");
         jdbcTemplate.update(
-                "INSERT INTO phase (id, tenant_id, tournament_id, name, group_count,"
-                        + " teams_per_group, created_at)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-                phaseId, tenantId, tournamentId, "P", 1, 2);
+                "INSERT INTO phase (id, tenant_id, tournament_id, sequence_number,"
+                        + " description, status, current_lap_number)"
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                phaseId,
+                tenantId,
+                tournamentId,
+                1,
+                "P",
+                "PENDING",
+                0);
         UUID teamId1 = UUID.randomUUID();
         UUID teamId2 = UUID.randomUUID();
         jdbcTemplate.update(
-                "INSERT INTO team (id, tenant_id, tournament_id, name) VALUES (?, ?, ?, ?)",
-                teamId1, tenantId, tournamentId, "TA");
+                "INSERT INTO team (id, tenant_id, tournament_id, team_number, description)"
+                        + " VALUES (?, ?, ?, ?, ?)",
+                teamId1,
+                tenantId,
+                tournamentId,
+                1,
+                "TA");
         jdbcTemplate.update(
-                "INSERT INTO team (id, tenant_id, tournament_id, name) VALUES (?, ?, ?, ?)",
-                teamId2, tenantId, tournamentId, "TB");
+                "INSERT INTO team (id, tenant_id, tournament_id, team_number, description)"
+                        + " VALUES (?, ?, ?, ?, ?)",
+                teamId2,
+                tenantId,
+                tournamentId,
+                2,
+                "TB");
         jdbcTemplate.update(
                 "INSERT INTO team_avatar (id, tenant_id, tournament_id, phase_id, team_id,"
-                        + " group_number, group_position, without_assessment)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                avatar1Id, tenantId, tournamentId, phaseId, teamId1, 1, 1, false);
+                        + " group_number, group_position)"
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                avatar1Id,
+                tenantId,
+                tournamentId,
+                phaseId,
+                teamId1,
+                1,
+                1);
         jdbcTemplate.update(
                 "INSERT INTO team_avatar (id, tenant_id, tournament_id, phase_id, team_id,"
-                        + " group_number, group_position, without_assessment)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                avatar2Id, tenantId, tournamentId, phaseId, teamId2, 1, 2, false);
+                        + " group_number, group_position)"
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                avatar2Id,
+                tenantId,
+                tournamentId,
+                phaseId,
+                teamId2,
+                1,
+                2);
         jdbcTemplate.update(
                 "INSERT INTO match (id, tenant_id, tournament_id, phase_id,"
                         + " member_avatar_1_id, member_avatar_2_id, state, set_limit)"
                         + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                matchId, tenantId, tournamentId, phaseId, avatar1Id, avatar2Id, 51, 3);
-
-        tenantBinder.bind(tenantId);
+                matchId,
+                tenantId,
+                tournamentId,
+                phaseId,
+                avatar1Id,
+                avatar2Id,
+                51,
+                3);
     }
 
     @AfterEach
     void tearDown() {
+        // Best-effort cleanup of this test's rows (FK-ordered, child-before-parent)
+        jdbcTemplate.update("DELETE FROM set_result WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM audit_log WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM match_outcome WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM match WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM team_avatar WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM team WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM activity_types WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM phase WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM tournament WHERE tenant_id = ?", tenantId);
         tenantBinder.unbind();
     }
 
@@ -141,8 +191,12 @@ class MatchOutcomeRepositoryIT {
         matchOutcomeRepository.save(mo);
 
         // DEC-26 Rule 2: independent verifier via assertj-db
+        // Row-presence check (not exact count) for isolation in shared H2 DB.
         Table table = assertDb.table("match_outcome").build();
-        assertThat(table).hasNumberOfRows(1);
+        final UUID savedMatchId = matchId;
+        assertThat(table.getRowsList())
+                .as("saved match_outcome must appear in the match_outcome table")
+                .anyMatch(row -> savedMatchId.equals(row.getColumnValue("MATCH_ID").getValue()));
     }
 
     @Test
@@ -153,7 +207,12 @@ class MatchOutcomeRepositoryIT {
                 "INSERT INTO match_outcome (match_id, tenant_id, team1_sets_won,"
                         + " team2_sets_won, set_count, computed_state, updated_at)"
                         + " VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-                matchId, tenantId, 2, 0, 2, 51);
+                matchId,
+                tenantId,
+                2,
+                0,
+                2,
+                51);
 
         Optional<MatchOutcome> found = matchOutcomeRepository.findById(matchId);
         assertThat(found).isPresent();

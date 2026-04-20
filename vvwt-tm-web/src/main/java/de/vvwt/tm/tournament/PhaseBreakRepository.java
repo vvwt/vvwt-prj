@@ -1,11 +1,11 @@
 package de.vvwt.tm.tournament;
 
+import de.vvwt.tm.domain.repo.TenantContext;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import javax.sql.DataSource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -32,7 +32,7 @@ import org.springframework.stereotype.Repository;
 public class PhaseBreakRepository {
 
     private final JdbcTemplate jdbc;
-    private final UUID tenantId;
+    private final TenantContext tenantContext;
 
     private static final String INSERT_SQL =
             "INSERT INTO phase_breaks"
@@ -55,9 +55,9 @@ public class PhaseBreakRepository {
     private static final String EXISTS_BY_ID =
             "SELECT COUNT(*) FROM phase_breaks WHERE id=? AND tenant_id=?";
 
-    public PhaseBreakRepository(DataSource dataSource, UUID tenantId) {
-        this.jdbc = new JdbcTemplate(dataSource);
-        this.tenantId = tenantId;
+    public PhaseBreakRepository(JdbcTemplate jdbc, TenantContext tenantContext) {
+        this.jdbc = jdbc;
+        this.tenantContext = tenantContext;
     }
 
     /**
@@ -68,6 +68,7 @@ public class PhaseBreakRepository {
      * @return the saved phase break
      */
     public PhaseBreak save(PhaseBreak phaseBreak) {
+        UUID tenantId = tenantContext.getTenantId();
         phaseBreak.setTenantId(tenantId);
         Integer count =
                 jdbc.queryForObject(EXISTS_BY_ID, Integer.class, phaseBreak.getId(), tenantId);
@@ -93,6 +94,7 @@ public class PhaseBreakRepository {
      * @return list of phase breaks for the given phase scoped to the active tenant; never null
      */
     public List<PhaseBreak> findByPhaseId(UUID phaseId) {
+        UUID tenantId = tenantContext.getTenantId();
         return jdbc.query(SELECT_BY_PHASE, ROW_MAPPER, phaseId, tenantId);
     }
 
@@ -107,6 +109,7 @@ public class PhaseBreakRepository {
      * @return the phase break at the given position for the active tenant, or empty
      */
     public Optional<PhaseBreak> findByPhaseIdAndAfterLapNumber(UUID phaseId, int afterLapNumber) {
+        UUID tenantId = tenantContext.getTenantId();
         List<PhaseBreak> results =
                 jdbc.query(SELECT_BY_PHASE_AND_LAP, ROW_MAPPER, phaseId, afterLapNumber, tenantId);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
@@ -119,6 +122,7 @@ public class PhaseBreakRepository {
      * @return Optional containing the phase break if found and in tenant scope, empty otherwise
      */
     public Optional<PhaseBreak> findById(UUID id) {
+        UUID tenantId = tenantContext.getTenantId();
         List<PhaseBreak> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id, tenantId);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
@@ -129,6 +133,7 @@ public class PhaseBreakRepository {
      * @param id the phase break UUID
      */
     public void deleteById(UUID id) {
+        UUID tenantId = tenantContext.getTenantId();
         jdbc.update(DELETE_BY_ID, id, tenantId);
     }
 

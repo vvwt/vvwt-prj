@@ -84,15 +84,15 @@ class MatchFormatTest {
     @Test
     @DisplayName("deriveMatchState returns ONCHECK for ongoing match")
     void deriveMatchStateOnCheck() {
-        assertThat(MatchFormat.BEST_OF_3.deriveMatchState(1, 0, 1))
-                .isEqualTo(MatchState.ONCHECK);
+        assertThat(MatchFormat.BEST_OF_3.deriveMatchState(1, 0, 1)).isEqualTo(MatchState.ONCHECK);
     }
 
     @Test
     @DisplayName("fromPersistedName resolves valid enum names")
     void fromPersistedNameResolvesValidName() {
         assertThat(MatchFormat.fromPersistedName("BEST_OF_3")).isEqualTo(MatchFormat.BEST_OF_3);
-        assertThat(MatchFormat.fromPersistedName("FIXED_2_SETS")).isEqualTo(MatchFormat.FIXED_2_SETS);
+        assertThat(MatchFormat.fromPersistedName("FIXED_2_SETS"))
+                .isEqualTo(MatchFormat.FIXED_2_SETS);
     }
 
     @Test
