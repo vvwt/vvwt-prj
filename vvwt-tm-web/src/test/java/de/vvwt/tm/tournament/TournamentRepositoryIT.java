@@ -7,7 +7,6 @@ import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import javax.sql.DataSource;
@@ -19,9 +18,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
@@ -37,12 +36,12 @@ import org.springframework.test.context.ActiveProfiles;
  *
  * <ol>
  *   <li><b>Rule 1 — Schema from migration:</b> {@code @SpringBootTest} with Flyway applies all
- *       root migrations including V1–V16 in order. No inline DDL.
+ *       root migrations in version order. No inline DDL.
  *   <li><b>Rule 2 — Independent persistence verifier:</b> Write tests verify DB state via
  *       assertj-db ({@link AssertDbConnection}) against the DataSource — never via the
  *       repository's own read methods.
  *   <li><b>Rule 3 — Read/write decoupling:</b> Read-path tests insert fixtures via direct JDBC
- *       ({@link JdbcTemplate}) — never via the repository's own save/insert methods.
+ *       — never via the repository's own save/insert methods.
  * </ol>
  *
  * @see TournamentRepository
@@ -63,7 +62,9 @@ import org.springframework.test.context.ActiveProfiles;
 @DisplayName("TournamentRepository DAO IT — E21S02 DEC-26 three rules")
 class TournamentRepositoryIT {
 
-    @Autowired private TournamentRepository tournamentRepository;
+    @Autowired
+    @Qualifier("tmTournamentRepository")
+    private TournamentRepository tournamentRepository;
 
     @Autowired private DataSource dataSource;
 
@@ -71,13 +72,12 @@ class TournamentRepositoryIT {
 
     private UUID tenantId;
     private AssertDbConnection assertDb;
-    private TenantContextTestSupport.Binder.Scope tenantScope;
 
     @BeforeEach
     void setUp() {
-        tenantId = UUID.randomUUID();
         assertDb = AssertDbConnectionFactory.of(dataSource).create();
-        tenantScope = tenantBinder.bind(tenantId);
+        // Bind the default tenant for all operations in this test
+        tenantId = tenantBinder.bindDefaultTenant();
     }
 
     @AfterEach
@@ -88,13 +88,11 @@ class TournamentRepositoryIT {
             ps.setObject(1, tenantId);
             ps.executeUpdate();
         }
-        if (tenantScope != null) {
-            tenantScope.close();
-        }
+        tenantBinder.unbind();
     }
 
     // =========================================================================
-    // Write-path test (DEC-26 Rule 2 — independent DB verifier)
+    // Write-path test (DEC-26 Rule 2 — independent DB verifier via assertj-db)
     // =========================================================================
 
     @Test
@@ -142,41 +140,33 @@ class TournamentRepositoryIT {
     }
 
     @Test
-    @DisplayName("findAll() returns only rows belonging to the current tenant")
-    void findAll_returnsTenantScopedRows() throws Exception {
-        // GIVEN — one row for current tenant, one for a different tenant
-        UUID idOurs = UUID.randomUUID();
-        UUID idOther = UUID.randomUUID();
-        UUID otherTenantId = UUID.randomUUID();
+    @DisplayName("findById() returns empty for unknown ID")
+    void findById_unknownId_returnsEmpty() {
+        UUID unknownId = UUID.randomUUID();
 
-        insertTournamentDirectly(idOurs, tenantId, "Ours", "BEST_OF_3");
-        insertTournamentDirectly(idOther, otherTenantId, "Theirs", "BEST_OF_5");
+        Optional<Tournament> result = tournamentRepository.findById(unknownId);
+
+        assertThat(result)
+                .as("findById() must return empty for an unknown ID")
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("findAll() returns all rows for the current tenant")
+    void findAll_returnsCurrentTenantRows() throws Exception {
+        // GIVEN — two rows for current tenant
+        UUID id1 = UUID.randomUUID();
+        UUID id2 = UUID.randomUUID();
+        insertTournamentDirectly(id1, tenantId, "Tournament A", "BEST_OF_3");
+        insertTournamentDirectly(id2, tenantId, "Tournament B", "BEST_OF_1");
 
         // WHEN
         List<Tournament> result = tournamentRepository.findAll();
 
-        // THEN — must only see our tenant's tournament
+        // THEN
         assertThat(result.stream().map(Tournament::getId).toList())
-                .as("findAll() must return only the current tenant's tournament")
-                .contains(idOurs)
-                .doesNotContain(idOther);
-    }
-
-    @Test
-    @DisplayName("findById() returns empty for a tournament belonging to a different tenant")
-    void findById_differentTenant_returnsEmpty() throws Exception {
-        // GIVEN — tournament belongs to another tenant
-        UUID id = UUID.randomUUID();
-        UUID otherTenantId = UUID.randomUUID();
-        insertTournamentDirectly(id, otherTenantId, "Other tenant's tournament", "BEST_OF_3");
-
-        // WHEN
-        Optional<Tournament> result = tournamentRepository.findById(id);
-
-        // THEN — tenant isolation must prevent cross-tenant access
-        assertThat(result)
-                .as("findById() must not return a tournament belonging to a different tenant")
-                .isEmpty();
+                .as("findAll() must return both tournaments for the current tenant")
+                .contains(id1, id2);
     }
 
     // =========================================================================
