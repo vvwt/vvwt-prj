@@ -1,6 +1,7 @@
 package de.vvwt.tm.tournament;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.db.api.Assertions.assertThat;
 
 import de.vvwt.tm.infrastructure.testsupport.TenantDaoTestSupport;
 import java.util.List;
@@ -9,6 +10,7 @@ import java.util.Optional;
 import java.util.UUID;
 import javax.sql.DataSource;
 import org.assertj.db.type.AssertDbConnection;
+import org.assertj.db.type.Table;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -80,8 +82,11 @@ class PhaseRepositoryIT {
 
         repo.save(phase);
 
-        // Rule 2: verify via assertj-db, NOT via repo.findById()
-        assertDb.table("phase").row(0)
+        // Rule 2: verify via assertj-db Table, NOT via repo.findById()
+        Table table = assertDb.table("phase").build();
+        assertThat(table)
+                .hasNumberOfRows(1)
+                .row(0)
                 .value("id").isEqualTo(id)
                 .value("description").isEqualTo("Vorrunde")
                 .value("status").isEqualTo("PENDING");
