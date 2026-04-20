@@ -34,8 +34,9 @@ import org.springframework.web.context.WebApplicationContext;
  * <h2>Coverage (C-13 methodology)</h2>
  *
  * <ul>
- *   <li>Happy-path GET /api/tournament-rules with admin auth returns 200 + correct JSON shape
- *   <li>Anonymous GET /api/tournament-rules returns 401 (AC-REST-IT-SEC-TournamentRulesController)
+ *   <li>Happy-path GET /api/tm/tournament-rules with admin auth returns 200 + correct JSON shape
+ *   <li>Anonymous GET /api/tm/tournament-rules returns 401
+ *       (AC-REST-IT-SEC-TournamentRulesController)
  * </ul>
  *
  * <h2>AC-S08-REGISTRY-IMPORT</h2>
@@ -78,8 +79,13 @@ class TournamentRulesControllerSliceTest {
 
         when(matchGeneratorRegistry.knownIds()).thenReturn(Set.of("roundRobin"));
         when(scoringRuleRegistry.knownIds()).thenReturn(Set.of("setPoints", "threePointMatch"));
-        when(setValidationRuleRegistry.getAll())
-                .thenReturn(java.util.Map.of("standardVolleyball", null, "timeBoundedSet", null));
+        // Use HashMap to allow null values (SetValidationRuleRegistry.getAll() returns rule impls,
+        // which are not needed for the controller — only the key set is used)
+        java.util.HashMap<String, de.vvwt.tm.domain.rules.SetValidationRule> validationRules =
+                new java.util.HashMap<>();
+        validationRules.put("standardVolleyball", null);
+        validationRules.put("timeBoundedSet", null);
+        when(setValidationRuleRegistry.getAll()).thenReturn(validationRules);
 
         mockMvc =
                 MockMvcBuilders.webAppContextSetup(context)
@@ -92,9 +98,9 @@ class TournamentRulesControllerSliceTest {
     // =========================================================================
 
     @Test
-    @DisplayName("AC-REST-IT-SEC: Anonymous GET /api/tournament-rules returns 401")
+    @DisplayName("AC-REST-IT-SEC: Anonymous GET /api/tm/tournament-rules returns 401")
     void anonymousGet_returns401() throws Exception {
-        mockMvc.perform(get("/api/tournament-rules")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/tm/tournament-rules")).andExpect(status().isUnauthorized());
     }
 
     // =========================================================================
@@ -107,7 +113,7 @@ class TournamentRulesControllerSliceTest {
                     + " JSON shape")
     @org.springframework.security.test.context.support.WithMockUser
     void authenticatedGet_returns200WithRuleRegistries() throws Exception {
-        mockMvc.perform(get("/api/tournament-rules"))
+        mockMvc.perform(get("/api/tm/tournament-rules"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.matchGeneratorIds").isArray())
                 .andExpect(jsonPath("$.scoringRuleIds").isArray())
