@@ -9,12 +9,14 @@ import de.vvwt.tm.tenant.TenantContextTestSupport;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import javax.sql.DataSource;
 import org.assertj.db.type.AssertDbConnection;
 import org.assertj.db.type.AssertDbConnectionFactory;
 import org.assertj.db.type.Table;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,8 +32,8 @@ import org.springframework.test.context.ActiveProfiles;
  * <h2>RED state</h2>
  *
  * <p>This test was committed RED: {@link TeamAvatarRepository} at {@code
- * de.vvwt.tm.tournament.TeamAvatarRepository} did not exist at commit time, causing a compile
- * error — satisfying the DEC-22 Iron Law.
+ * de.vvwt.tm.tournament.TeamAvatarRepository} did not exist at commit time, causing a compile error
+ * — satisfying the DEC-22 Iron Law.
  *
  * <h2>DEC-26 three-rule compliance</h2>
  *
@@ -79,16 +81,39 @@ class TeamAvatarRepositoryIT {
     private UUID phaseId;
     private UUID teamId;
     private AssertDbConnection assertDb;
+    private int teamNumberCounter = 0;
 
     @BeforeEach
     void setUp() {
-        tenantId = UUID.randomUUID();
-        tenantBinder.bind(tenantId);
         assertDb = AssertDbConnectionFactory.of(dataSource).create();
+        tenantId = tenantBinder.bindDefaultTenant();
+        teamNumberCounter = 0;
 
         tournamentId = insertTournamentFixture();
         phaseId = insertPhaseFixture(tournamentId);
         teamId = insertTeamFixture(tournamentId);
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        try (var conn = dataSource.getConnection()) {
+            for (String sql :
+                    new String[] {
+                        "DELETE FROM team_avatar WHERE tenant_id = ?",
+                        "DELETE FROM team WHERE tenant_id = ?",
+                        "DELETE FROM phase WHERE tenant_id = ?",
+                        "DELETE FROM tournament WHERE tenant_id = ?",
+                        "DELETE FROM tenants WHERE id = ?"
+                    }) {
+                try (var ps = conn.prepareStatement(sql)) {
+                    ps.setObject(1, tenantId);
+                    ps.executeUpdate();
+                } catch (Exception ignored) {
+                    // Best-effort cleanup
+                }
+            }
+        }
+        tenantBinder.unbind();
     }
 
     // -------------------------------------------------------------------------
@@ -101,22 +126,25 @@ class TeamAvatarRepositoryIT {
         TeamAvatar avatar = newAvatar(phaseId, 1, 1, teamId);
         teamAvatarRepository.save(avatar);
 
+        // DEC-26 Rule 2: verify via assertj-db, not repo read.
+        // Row-presence check (not exact row count) for isolation in shared H2 DB.
         Table table = assertDb.table("team_avatar").build();
-        assertThat(table)
-                .column("id")
-                .hasValues(avatar.getId())
-                .column("tenant_id")
-                .hasValues(tenantId)
-                .column("tournament_id")
-                .hasValues(tournamentId)
-                .column("phase_id")
-                .hasValues(phaseId)
-                .column("group_number")
-                .hasValues(1)
-                .column("group_position")
-                .hasValues(1)
-                .column("team_id")
-                .hasValues(teamId);
+        final UUID savedId = avatar.getId();
+        assertThat(table.getRowsList())
+                .as("saved avatar must appear in team_avatar table")
+                .anyMatch(
+                        row ->
+                                savedId.equals(row.getColumnValue("ID").getValue())
+                                        && tenantId.equals(
+                                                row.getColumnValue("TENANT_ID").getValue())
+                                        && tournamentId.equals(
+                                                row.getColumnValue("TOURNAMENT_ID").getValue())
+                                        && phaseId.equals(row.getColumnValue("PHASE_ID").getValue())
+                                        && Objects.equals(
+                                                row.getColumnValue("GROUP_NUMBER").getValue(), 1)
+                                        && Objects.equals(
+                                                row.getColumnValue("GROUP_POSITION").getValue(), 1)
+                                        && teamId.equals(row.getColumnValue("TEAM_ID").getValue()));
     }
 
     // -------------------------------------------------------------------------
@@ -137,7 +165,8 @@ class TeamAvatarRepositoryIT {
 
         List<TeamAvatar> avatars = teamAvatarRepository.findByTeamId(teamId);
         assertThat(avatars).hasSize(2);
-        assertThat(avatars).extracting(TeamAvatar::getId)
+        assertThat(avatars)
+                .extracting(TeamAvatar::getId)
                 .containsExactlyInAnyOrder(avatarId1, avatarId2);
     }
 
@@ -168,8 +197,12 @@ class TeamAvatarRepositoryIT {
 
         teamAvatarRepository.deleteById(avatar.getId());
 
+        // DEC-26 Rule 2: verify the specific row is gone. Row-absence check for isolation.
         Table table = assertDb.table("team_avatar").build();
-        assertThat(table).hasNumberOfRows(0);
+        final UUID deletedId = avatar.getId();
+        assertThat(table.getRowsList())
+                .as("deleted avatar must not appear in team_avatar table")
+                .noneMatch(row -> deletedId.equals(row.getColumnValue("ID").getValue()));
     }
 
     // -------------------------------------------------------------------------
@@ -188,8 +221,7 @@ class TeamAvatarRepositoryIT {
         return a;
     }
 
-    private void insertAvatarDirectly(
-            UUID id, UUID pId, int groupNum, int groupPos, UUID tId) {
+    private void insertAvatarDirectly(UUID id, UUID pId, int groupNum, int groupPos, UUID tId) {
         Map<String, Object> cols = new LinkedHashMap<>();
         cols.put("id", id);
         cols.put("tenant_id", tenantId);
@@ -246,8 +278,8 @@ class TeamAvatarRepositoryIT {
         cols.put("id", id);
         cols.put("tenant_id", tenantId);
         cols.put("tournament_id", trnId);
-        cols.put("team_number", 1);
-        cols.put("description", "Fixture Team");
+        cols.put("team_number", ++teamNumberCounter);
+        cols.put("description", "Fixture Team " + teamNumberCounter);
         cols.put("participate", true);
         cols.put("referee_assignment", false);
         cols.put("without_assessment", false);

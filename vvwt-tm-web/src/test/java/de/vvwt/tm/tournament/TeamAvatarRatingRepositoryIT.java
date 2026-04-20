@@ -8,12 +8,14 @@ import de.vvwt.tm.infrastructure.testsupport.TenantDaoTestSupport;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import javax.sql.DataSource;
 import org.assertj.db.type.AssertDbConnection;
 import org.assertj.db.type.AssertDbConnectionFactory;
 import org.assertj.db.type.Table;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -82,9 +84,8 @@ class TeamAvatarRatingRepositoryIT {
 
     @BeforeEach
     void setUp() {
-        tenantId = UUID.randomUUID();
-        tenantBinder.bind(tenantId);
         assertDb = AssertDbConnectionFactory.of(dataSource).create();
+        tenantId = tenantBinder.bindDefaultTenant();
 
         tournamentId = insertTournamentFixture();
         phaseId = insertPhaseFixture(tournamentId);
@@ -92,28 +93,56 @@ class TeamAvatarRatingRepositoryIT {
         avatarId = insertAvatarFixture(tournamentId, phaseId, teamId);
     }
 
+    @AfterEach
+    void tearDown() throws Exception {
+        try (var conn = dataSource.getConnection()) {
+            for (String sql :
+                    new String[] {
+                        "DELETE FROM team_avatar_rating WHERE tenant_id = ?",
+                        "DELETE FROM team_avatar WHERE tenant_id = ?",
+                        "DELETE FROM team WHERE tenant_id = ?",
+                        "DELETE FROM phase WHERE tenant_id = ?",
+                        "DELETE FROM tournament WHERE tenant_id = ?",
+                        "DELETE FROM tenants WHERE id = ?"
+                    }) {
+                try (var ps = conn.prepareStatement(sql)) {
+                    ps.setObject(1, tenantId);
+                    ps.executeUpdate();
+                } catch (Exception ignored) {
+                    // Best-effort cleanup
+                }
+            }
+        }
+        tenantBinder.unbind();
+    }
+
     // -------------------------------------------------------------------------
     // Write-path tests — DEC-26 Rule 2: verify via assertj-db, not repo read
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("save() — new TeamAvatarRating persists to 'team_avatar_rating' table (assertj-db)")
+    @DisplayName(
+            "save() — new TeamAvatarRating persists to 'team_avatar_rating' table (assertj-db)")
     void save_newRating_persistsToTeamAvatarRatingTable() {
         TeamAvatarRating rating = newRating(avatarId);
         teamAvatarRatingRepository.save(rating);
 
+        // DEC-26 Rule 2: verify via assertj-db, not repo read.
+        // Row-presence check (not exact row count) for isolation in shared H2 DB.
         Table table = assertDb.table("team_avatar_rating").build();
-        assertThat(table)
-                .column("avatar_id")
-                .hasValues(avatarId)
-                .column("tenant_id")
-                .hasValues(tenantId)
-                .column("points")
-                .hasValues(10)
-                .column("sets_won")
-                .hasValues(4)
-                .column("sets_lost")
-                .hasValues(2);
+        assertThat(table.getRowsList())
+                .as("saved rating must appear in team_avatar_rating table")
+                .anyMatch(
+                        row ->
+                                avatarId.equals(row.getColumnValue("AVATAR_ID").getValue())
+                                        && tenantId.equals(
+                                                row.getColumnValue("TENANT_ID").getValue())
+                                        && Objects.equals(
+                                                row.getColumnValue("POINTS").getValue(), 10)
+                                        && Objects.equals(
+                                                row.getColumnValue("SETS_WON").getValue(), 4)
+                                        && Objects.equals(
+                                                row.getColumnValue("SETS_LOST").getValue(), 2));
     }
 
     @Test
@@ -126,12 +155,17 @@ class TeamAvatarRatingRepositoryIT {
         rating.setSetsWon(8);
         teamAvatarRatingRepository.save(rating);
 
+        // Row-presence check for isolation in shared H2 DB.
         Table table = assertDb.table("team_avatar_rating").build();
-        assertThat(table)
-                .column("points")
-                .hasValues(20)
-                .column("sets_won")
-                .hasValues(8);
+        assertThat(table.getRowsList())
+                .as("updated rating must show points=20, sets_won=8 in DB")
+                .anyMatch(
+                        row ->
+                                avatarId.equals(row.getColumnValue("AVATAR_ID").getValue())
+                                        && Objects.equals(
+                                                row.getColumnValue("POINTS").getValue(), 20)
+                                        && Objects.equals(
+                                                row.getColumnValue("SETS_WON").getValue(), 8));
     }
 
     // -------------------------------------------------------------------------
@@ -165,8 +199,11 @@ class TeamAvatarRatingRepositoryIT {
 
         teamAvatarRatingRepository.deleteByAvatarId(avatarId);
 
+        // DEC-26 Rule 2: verify the specific row is gone. Row-absence check for isolation.
         Table table = assertDb.table("team_avatar_rating").build();
-        assertThat(table).hasNumberOfRows(0);
+        assertThat(table.getRowsList())
+                .as("deleted rating must not appear in team_avatar_rating table")
+                .noneMatch(row -> avatarId.equals(row.getColumnValue("AVATAR_ID").getValue()));
     }
 
     // -------------------------------------------------------------------------

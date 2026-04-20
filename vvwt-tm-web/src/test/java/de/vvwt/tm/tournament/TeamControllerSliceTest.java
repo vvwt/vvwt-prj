@@ -17,7 +17,6 @@ import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantRegistryPort;
 import de.vvwt.tm.tournament.internal.TeamService;
 import de.vvwt.tm.tournament.internal.dto.TeamBulkCreateRequest;
-import de.vvwt.tm.tournament.internal.dto.TeamBulkCreateResponse;
 import de.vvwt.tm.tournament.internal.dto.TeamCreateRequest;
 import java.util.List;
 import java.util.UUID;
@@ -158,7 +157,8 @@ class TeamControllerSliceTest {
         UUID newId = UUID.randomUUID();
         Team created = buildTeam(1, "Alpha");
         created.setId(newId);
-        when(teamService.createTeam(eq(TOURNAMENT_ID), eq("Alpha"), eq(0), eq(true), eq(false), eq(false)))
+        when(teamService.createTeam(
+                        eq(TOURNAMENT_ID), eq("Alpha"), eq(0), eq(true), eq(false), eq(false)))
                 .thenReturn(created);
 
         TeamCreateRequest req = new TeamCreateRequest("Alpha", null, null, null, null);
@@ -221,7 +221,14 @@ class TeamControllerSliceTest {
         UUID teamId = UUID.randomUUID();
         Team updated = buildTeam(1, "Updated");
         updated.setId(teamId);
-        when(teamService.updateTeam(eq(TOURNAMENT_ID), eq(teamId), any(), eq(0), eq(true), eq(false), eq(false)))
+        when(teamService.updateTeam(
+                        eq(TOURNAMENT_ID),
+                        eq(teamId),
+                        any(),
+                        eq(0),
+                        eq(true),
+                        eq(false),
+                        eq(false)))
                 .thenReturn(updated);
 
         String body = "{\"description\":\"Updated\"}";
@@ -244,8 +251,7 @@ class TeamControllerSliceTest {
     void delete_returns204() throws Exception {
         UUID teamId = UUID.randomUUID();
 
-        mockMvc.perform(
-                        delete(BASE_URL + "/" + teamId).with(csrf()))
+        mockMvc.perform(delete(BASE_URL + "/" + teamId).with(csrf()))
                 .andExpect(status().isNoContent());
     }
 

@@ -2,8 +2,6 @@ package de.vvwt.tm.tournament;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.relational.core.mapping.Table;
 
 /**
  * TeamAvatar entity — reconstruction-in-place target (DEC-21/DEC-22).
@@ -16,8 +14,8 @@ import org.springframework.data.relational.core.mapping.Table;
  *
  * <p>A TeamAvatar slot is uniquely identified by the composite key {@code (tournamentId, phaseId,
  * groupNumber, groupPosition)}. This structural identity is enforced by the DB UNIQUE constraint
- * {@code uq_team_avatar_structural_identity} in V2. UUIDs do not cross the optimizer boundary —
- * the structural key is the only safe cross-boundary identity.
+ * {@code uq_team_avatar_structural_identity} in V2. UUIDs do not cross the optimizer boundary — the
+ * structural key is the only safe cross-boundary identity.
  *
  * <p>Inventory line 455 ({@code TeamAvatar}).
  *
@@ -27,10 +25,9 @@ import org.springframework.data.relational.core.mapping.Table;
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
  * @see <a href="E21S04">E21S04 — Team aggregate reconstruction (inventory line 455)</a>
  */
-@Table("team_avatar")
 public class TeamAvatar {
 
-    @Id private UUID id;
+    private UUID id;
 
     private UUID tenantId;
 

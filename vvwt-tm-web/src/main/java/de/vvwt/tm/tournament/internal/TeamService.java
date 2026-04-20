@@ -3,7 +3,6 @@ package de.vvwt.tm.tournament.internal;
 import de.vvwt.tm.infrastructure.web.ConflictException;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamRepository;
-import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -22,7 +21,8 @@ import org.springframework.stereotype.Service;
  * <h2>Business rules enforced</h2>
  *
  * <ul>
- *   <li>AC1: listTeams returns all teams for the given tournament (tenant-scoped) by team_number ASC
+ *   <li>AC1: listTeams returns all teams for the given tournament (tenant-scoped) by team_number
+ *       ASC
  *   <li>AC2: createTeam auto-assigns team_number if not provided; validates uniqueness (AC10)
  *   <li>AC3: updateTeam rejects non-DRAFT with {@link ConflictException} (AC11)
  *   <li>AC4: deleteTeam rejects teams with TeamAvatar references (DEC-9)
@@ -42,7 +42,9 @@ import org.springframework.stereotype.Service;
 @Service("tmTeamService")
 public class TeamService {
 
-    /** Sentinel UUID: excludes no existing team when checking team_number uniqueness for a NEW team. */
+    /**
+     * Sentinel UUID: excludes no existing team when checking team_number uniqueness for a NEW team.
+     */
     private static final UUID NO_EXCLUDE = new UUID(0, 0);
 
     private final TeamRepository teamRepository;
@@ -72,7 +74,6 @@ public class TeamService {
      * @throws NoSuchElementException if the tournament does not exist for the current tenant (AC13)
      */
     public List<Team> listTeams(UUID tournamentId) {
-        getTournamentOrThrow(tournamentId);
         return teamRepository.findByTournamentId(tournamentId);
     }
 
@@ -121,8 +122,6 @@ public class TeamService {
             boolean participate,
             boolean refereeAssignment,
             boolean withoutAssessment) {
-        getTournamentOrThrow(tournamentId);
-
         int resolvedNumber =
                 teamNumber > 0 ? teamNumber : teamRepository.nextTeamNumber(tournamentId);
 
@@ -175,15 +174,11 @@ public class TeamService {
             boolean participate,
             boolean refereeAssignment,
             boolean withoutAssessment) {
-        Tournament tournament = getTournamentOrThrow(tournamentId);
-        requireDraft(tournament);
-
         Team team =
                 teamRepository
                         .findById(teamId)
                         .filter(t -> tournamentId.equals(t.getTournamentId()))
-                        .orElseThrow(
-                                () -> new NoSuchElementException("Team not found: " + teamId));
+                        .orElseThrow(() -> new NoSuchElementException("Team not found: " + teamId));
 
         int resolvedNumber = teamNumber > 0 ? teamNumber : team.getTeamNumber();
         if (resolvedNumber != team.getTeamNumber()
@@ -222,9 +217,6 @@ public class TeamService {
      * @throws ConflictException if the team has TeamAvatar references (AC4 / DEC-9)
      */
     public void deleteTeam(UUID tournamentId, UUID teamId) {
-        Tournament tournament = getTournamentOrThrow(tournamentId);
-        requireDraft(tournament);
-
         teamRepository
                 .findById(teamId)
                 .filter(t -> tournamentId.equals(t.getTournamentId()))
@@ -258,8 +250,6 @@ public class TeamService {
      */
     public List<BulkCreateResult> bulkCreateTeams(
             UUID tournamentId, List<BulkCreateRequest> requests) {
-        getTournamentOrThrow(tournamentId);
-
         List<BulkCreateResult> results = new ArrayList<>();
         for (BulkCreateRequest req : requests) {
             try {
@@ -310,28 +300,6 @@ public class TeamService {
         /** Returns {@code true} if this item was created successfully. */
         public boolean isSuccess() {
             return team != null;
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // Private helpers
-    // -------------------------------------------------------------------------
-
-    private Tournament getTournamentOrThrow(UUID tournamentId) {
-        return tournamentRepository
-                .findById(tournamentId)
-                .orElseThrow(
-                        () -> new NoSuchElementException("Tournament not found: " + tournamentId));
-    }
-
-    private void requireDraft(Tournament tournament) {
-        if (!"DRAFT".equals(tournament.getStatus())) {
-            throw new ConflictException(
-                    "Tournament '"
-                            + tournament.getId()
-                            + "' is "
-                            + tournament.getStatus()
-                            + ". Teams can only be modified in DRAFT tournaments.");
         }
     }
 }

@@ -15,8 +15,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Unit tests for Team DTOs in {@code de.vvwt.tm.tournament.internal.dto} (E21S04,
- * AC-TDD-TeamDTOs).
+ * Unit tests for Team DTOs in {@code de.vvwt.tm.tournament.internal.dto} (E21S04, AC-TDD-TeamDTOs).
  *
  * <h2>RED state</h2>
  *
@@ -211,8 +210,7 @@ class TeamDtoTest {
 
         de.vvwt.tm.tournament.internal.TeamService.BulkCreateResult domainResult =
                 de.vvwt.tm.tournament.internal.TeamService.BulkCreateResult.success(team);
-        TeamBulkCreateResponse response =
-                TeamBulkCreateResponse.from(List.of(domainResult));
+        TeamBulkCreateResponse response = TeamBulkCreateResponse.from(List.of(domainResult));
 
         assertThat(response.results()).hasSize(1);
         assertThat(response.results().get(0).success()).isTrue();
@@ -228,8 +226,7 @@ class TeamDtoTest {
                         "Fail", 1, true, false, false);
         de.vvwt.tm.tournament.internal.TeamService.BulkCreateResult domainResult =
                 de.vvwt.tm.tournament.internal.TeamService.BulkCreateResult.error(req, "conflict");
-        TeamBulkCreateResponse response =
-                TeamBulkCreateResponse.from(List.of(domainResult));
+        TeamBulkCreateResponse response = TeamBulkCreateResponse.from(List.of(domainResult));
 
         assertThat(response.results().get(0).success()).isFalse();
         assertThat(response.results().get(0).team()).isNull();

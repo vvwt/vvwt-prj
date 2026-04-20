@@ -28,10 +28,9 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
  *
  * <p>Mirrors {@code de.vvwt.tm.infrastructure.web.TeamController} but lives at the Modulith target
  * package {@code de.vvwt.tm.tournament} (public API surface per DEC-21 §Module layout). Uses {@code
- * /api/tm/tournaments/{tournamentId}/teams} mapping to avoid {@code
- * RequestMappingHandlerMapping} ambiguity with the legacy {@code
- * /api/tournaments/{tournamentId}/teams} controller during reconstruction-in-place. The mapping
- * will be normalized at the E21S13 atomic cutover.
+ * /api/tm/tournaments/{tournamentId}/teams} mapping to avoid {@code RequestMappingHandlerMapping}
+ * ambiguity with the legacy {@code /api/tournaments/{tournamentId}/teams} controller during
+ * reconstruction-in-place. The mapping will be normalized at the E21S13 atomic cutover.
  *
  * <h2>Endpoints</h2>
  *
@@ -116,8 +115,8 @@ public class TeamController {
     // -------------------------------------------------------------------------
 
     /**
-     * Bulk-creates teams within the given tournament. Each item is processed independently; failures
-     * are reported per-item without rolling back successful items.
+     * Bulk-creates teams within the given tournament. Each item is processed independently;
+     * failures are reported per-item without rolling back successful items.
      *
      * @param tournamentId the tournament UUID (from path)
      * @param request the bulk create request body (validated via {@link Valid})

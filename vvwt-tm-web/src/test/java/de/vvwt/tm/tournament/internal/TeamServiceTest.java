@@ -129,7 +129,8 @@ class TeamServiceTest {
         UUID zeroExclude = new UUID(0, 0);
         when(teamRepository.teamNumberExists(TOURNAMENT_ID, 1, zeroExclude)).thenReturn(true);
 
-        assertThatThrownBy(() -> teamService.createTeam(TOURNAMENT_ID, "Alpha", 1, true, false, false))
+        assertThatThrownBy(
+                        () -> teamService.createTeam(TOURNAMENT_ID, "Alpha", 1, true, false, false))
                 .isInstanceOf(ConflictException.class);
     }
 
@@ -179,9 +180,10 @@ class TeamServiceTest {
                 .thenReturn(true);
         when(teamRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        List<TeamService.BulkCreateRequest> requests = List.of(
-                new TeamService.BulkCreateRequest("A", 1, true, false, false),
-                new TeamService.BulkCreateRequest("B", 2, true, false, false));
+        List<TeamService.BulkCreateRequest> requests =
+                List.of(
+                        new TeamService.BulkCreateRequest("A", 1, true, false, false),
+                        new TeamService.BulkCreateRequest("B", 2, true, false, false));
 
         List<TeamService.BulkCreateResult> results =
                 teamService.bulkCreateTeams(TOURNAMENT_ID, requests);

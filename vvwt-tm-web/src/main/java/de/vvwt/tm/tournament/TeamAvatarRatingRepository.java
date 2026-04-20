@@ -16,14 +16,14 @@ import org.springframework.stereotype.Repository;
  *
  * <p>Uses plain {@link JdbcTemplate} (not Spring Data JDBC CrudRepository) to avoid entity-mapping
  * conflicts with the parallel legacy {@code de.vvwt.tm.domain.TeamAvatarRating} during the
- * reconstruction-in-place phase (DEC-21/DEC-22). At the E21S13 atomic cutover, the legacy entity
- * is deleted.
+ * reconstruction-in-place phase (DEC-21/DEC-22). At the E21S13 atomic cutover, the legacy entity is
+ * deleted.
  *
  * <h2>PK semantics</h2>
  *
- * <p>The {@code team_avatar_rating} table uses {@code avatar_id} as both PK and FK to
- * {@code team_avatar(id)}. There is no separate {@code id} column. All lookup/delete operations use
- * {@code avatar_id}.
+ * <p>The {@code team_avatar_rating} table uses {@code avatar_id} as both PK and FK to {@code
+ * team_avatar(id)}. There is no separate {@code id} column. All lookup/delete operations use {@code
+ * avatar_id}.
  *
  * <p>Tenant scoping is enforced via the active {@link TenantContext} binding for all queries.
  *

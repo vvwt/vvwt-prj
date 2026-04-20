@@ -2,8 +2,6 @@ package de.vvwt.tm.tournament;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.relational.core.mapping.Table;
 
 /**
  * TeamAvatarRating entity — reconstruction-in-place target (DEC-21/DEC-22).
@@ -32,11 +30,10 @@ import org.springframework.data.relational.core.mapping.Table;
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
  * @see <a href="E21S04">E21S04 — Team aggregate reconstruction (inventory line 457)</a>
  */
-@Table("team_avatar_rating")
 public class TeamAvatarRating {
 
     /** PK: same as the referenced TeamAvatar's UUID — 1:1 relationship. */
-    @Id private UUID avatarId;
+    private UUID avatarId;
 
     private UUID tenantId;
 

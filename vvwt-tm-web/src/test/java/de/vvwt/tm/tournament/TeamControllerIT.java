@@ -31,8 +31,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * Minimalist integration tests for {@link TeamController} (E21S04,
- * AC-REST-IT-HAPPY-TeamController + AC-REST-IT-SEC-TeamController).
+ * Minimalist integration tests for {@link TeamController} (E21S04, AC-REST-IT-HAPPY-TeamController
+ * + AC-REST-IT-SEC-TeamController).
  *
  * <h2>Approach C minimalist-IT</h2>
  *
@@ -115,7 +115,9 @@ class TeamControllerIT {
     // =========================================================================
 
     @Test
-    @DisplayName("authenticated POST /api/tm/tournaments/{id}/teams creates team; assertj-db verifies row")
+    @DisplayName(
+            "authenticated POST /api/tm/tournaments/{id}/teams creates team; assertj-db verifies"
+                    + " row")
     void authenticatedPostCreatesTeamAndPersistsRow() throws Exception {
         var request = new TeamCreateRequest("Team Alpha IT", null, null, null, null);
 

@@ -19,8 +19,8 @@ import org.springframework.stereotype.Repository;
  * to the same {@code team_avatar} table during reconstruction-in-place (DEC-21/DEC-22). At the
  * E21S13 atomic cutover, the legacy entity is deleted.
  *
- * <p>Structural identity per DEC-9: a slot is uniquely identified by {@code (tournamentId,
- * phaseId, groupNumber, groupPosition)}. The DB enforces this via the unique constraint {@code
+ * <p>Structural identity per DEC-9: a slot is uniquely identified by {@code (tournamentId, phaseId,
+ * groupNumber, groupPosition)}. The DB enforces this via the unique constraint {@code
  * uq_team_avatar_structural_identity}.
  *
  * <p>Tenant scoping is enforced via the active {@link TenantContext} binding for all queries.
@@ -50,14 +50,14 @@ public class TeamAvatarRepository {
             "SELECT * FROM team_avatar WHERE id=? AND tenant_id=?";
 
     private static final String SELECT_BY_TEAM_ID =
-            "SELECT * FROM team_avatar WHERE team_id=? AND tenant_id=? ORDER BY group_number ASC, group_position ASC";
+            "SELECT * FROM team_avatar WHERE team_id=? AND tenant_id=? ORDER BY group_number ASC,"
+                    + " group_position ASC";
 
     private static final String SELECT_BY_TOURNAMENT_AND_PHASE =
             "SELECT * FROM team_avatar WHERE tournament_id=? AND phase_id=? AND tenant_id=?"
                     + " ORDER BY group_number ASC, group_position ASC";
 
-    private static final String DELETE_BY_ID =
-            "DELETE FROM team_avatar WHERE id=? AND tenant_id=?";
+    private static final String DELETE_BY_ID = "DELETE FROM team_avatar WHERE id=? AND tenant_id=?";
 
     private static final String EXISTS_BY_ID =
             "SELECT COUNT(*) FROM team_avatar WHERE id=? AND tenant_id=?";

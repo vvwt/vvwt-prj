@@ -1,7 +1,6 @@
 package de.vvwt.tm.tournament;
 
 import de.vvwt.tm.domain.repo.TenantContext;
-import de.vvwt.tm.tournament.internal.TeamCrudRepository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -21,15 +20,14 @@ import org.springframework.stereotype.Repository;
  *
  * <p>Uses plain {@link JdbcTemplate} (not Spring Data JDBC CrudRepository) to avoid entity-mapping
  * conflicts with the parallel legacy {@code de.vvwt.tm.domain.Team} entity that maps to the same
- * {@code team} table during the reconstruction-in-place phase (DEC-21/DEC-22). At the E21S13
- * atomic cutover, the legacy entity is deleted.
+ * {@code team} table during the reconstruction-in-place phase (DEC-21/DEC-22). At the E21S13 atomic
+ * cutover, the legacy entity is deleted.
  *
  * <p>Tenant scoping is enforced via the active {@link TenantContext} binding for all queries.
  *
  * <p>Inventory line 307: {@code de.vvwt.tm.domain.repo.TeamRepository}.
  *
  * @see Team
- * @see TeamCrudRepository
  * @see <a href="DEC-21">DEC-21 — Spring Modulith, root package = public API surface</a>
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
  * @see <a href="DEC-26">DEC-26 — DAO test governance (three rules)</a>
@@ -41,7 +39,6 @@ public class TeamRepository {
 
     private final JdbcTemplate jdbc;
     private final TenantContext tenantContext;
-    private final TeamCrudRepository crudRepository;
 
     private static final String INSERT_SQL =
             "INSERT INTO team (id, tenant_id, tournament_id, team_number, description,"
@@ -53,8 +50,7 @@ public class TeamRepository {
                     + " referee_assignment=?, without_assessment=?"
                     + " WHERE id=? AND tenant_id=?";
 
-    private static final String SELECT_BY_ID =
-            "SELECT * FROM team WHERE id=? AND tenant_id=?";
+    private static final String SELECT_BY_ID = "SELECT * FROM team WHERE id=? AND tenant_id=?";
 
     private static final String SELECT_BY_TOURNAMENT =
             "SELECT * FROM team WHERE tournament_id=? AND tenant_id=? ORDER BY team_number ASC";
@@ -64,13 +60,18 @@ public class TeamRepository {
     private static final String EXISTS_BY_ID =
             "SELECT COUNT(*) FROM team WHERE id=? AND tenant_id=?";
 
-    public TeamRepository(
-            JdbcTemplate jdbc,
-            TenantContext tenantContext,
-            TeamCrudRepository crudRepository) {
+    private static final String MAX_TEAM_NUMBER =
+            "SELECT COALESCE(MAX(team_number), 0) FROM team WHERE tournament_id=?";
+
+    private static final String COUNT_TEAM_NUMBER_EXCLUDING =
+            "SELECT COUNT(*) FROM team WHERE tournament_id=? AND team_number=? AND id<>?";
+
+    private static final String COUNT_AVATARS_BY_TEAM =
+            "SELECT COUNT(*) FROM team_avatar WHERE team_id=?";
+
+    public TeamRepository(JdbcTemplate jdbc, TenantContext tenantContext) {
         this.jdbc = jdbc;
         this.tenantContext = tenantContext;
-        this.crudRepository = crudRepository;
     }
 
     /**
@@ -155,7 +156,8 @@ public class TeamRepository {
      * @return the next team number (≥ 1)
      */
     public int nextTeamNumber(UUID tournamentId) {
-        return crudRepository.findMaxTeamNumberByTournamentId(tournamentId) + 1;
+        Integer max = jdbc.queryForObject(MAX_TEAM_NUMBER, Integer.class, tournamentId);
+        return (max != null ? max : 0) + 1;
     }
 
     /**
@@ -168,9 +170,14 @@ public class TeamRepository {
      * @return true if another team in the tournament already has this number
      */
     public boolean teamNumberExists(UUID tournamentId, int teamNumber, UUID excludeId) {
-        return crudRepository.countByTournamentIdAndTeamNumberExcluding(
-                        tournamentId, teamNumber, excludeId)
-                > 0;
+        Integer count =
+                jdbc.queryForObject(
+                        COUNT_TEAM_NUMBER_EXCLUDING,
+                        Integer.class,
+                        tournamentId,
+                        teamNumber,
+                        excludeId);
+        return count != null && count > 0;
     }
 
     /**
@@ -180,7 +187,8 @@ public class TeamRepository {
      * @return true if at least one TeamAvatar references this team
      */
     public boolean hasTeamAvatars(UUID teamId) {
-        return crudRepository.countAvatarsByTeamId(teamId) > 0;
+        Integer count = jdbc.queryForObject(COUNT_AVATARS_BY_TEAM, Integer.class, teamId);
+        return count != null && count > 0;
     }
 
     // -------------------------------------------------------------------------

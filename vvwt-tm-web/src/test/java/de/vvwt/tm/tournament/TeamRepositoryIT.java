@@ -9,12 +9,14 @@ import de.vvwt.tm.tenant.TenantContextTestSupport;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import javax.sql.DataSource;
 import org.assertj.db.type.AssertDbConnection;
 import org.assertj.db.type.AssertDbConnectionFactory;
 import org.assertj.db.type.Table;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -80,12 +82,29 @@ class TeamRepositoryIT {
 
     @BeforeEach
     void setUp() {
-        tenantId = UUID.randomUUID();
-        tenantBinder.bind(tenantId);
         assertDb = AssertDbConnectionFactory.of(dataSource).create();
-
-        // Insert tenant row (required by team.tenant_id FK)
+        tenantId = tenantBinder.bindDefaultTenant();
         tournamentId = insertTournamentFixture();
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        try (var conn = dataSource.getConnection()) {
+            for (String sql :
+                    new String[] {
+                        "DELETE FROM team WHERE tenant_id = ?",
+                        "DELETE FROM tournament WHERE tenant_id = ?",
+                        "DELETE FROM tenants WHERE id = ?"
+                    }) {
+                try (var ps = conn.prepareStatement(sql)) {
+                    ps.setObject(1, tenantId);
+                    ps.executeUpdate();
+                } catch (Exception ignored) {
+                    // Best-effort cleanup
+                }
+            }
+        }
+        tenantBinder.unbind();
     }
 
     // -------------------------------------------------------------------------
@@ -98,18 +117,22 @@ class TeamRepositoryIT {
         Team team = newTeam(tenantId, tournamentId, 1, "Alpha");
         teamRepository.save(team);
 
+        // DEC-26 Rule 2: verify via assertj-db, not repo read.
+        // Uses row-presence check (not exact row count) for isolation in shared H2 DB.
         Table table = assertDb.table("team").build();
-        assertThat(table)
-                .column("id")
-                .hasValues(team.getId())
-                .column("tenant_id")
-                .hasValues(tenantId)
-                .column("tournament_id")
-                .hasValues(tournamentId)
-                .column("team_number")
-                .hasValues(1)
-                .column("description")
-                .hasValues("Alpha");
+        final UUID savedId = team.getId();
+        assertThat(table.getRowsList())
+                .as("saved team must appear in the team table")
+                .anyMatch(
+                        row ->
+                                savedId.equals(row.getColumnValue("ID").getValue())
+                                        && tenantId.equals(
+                                                row.getColumnValue("TENANT_ID").getValue())
+                                        && tournamentId.equals(
+                                                row.getColumnValue("TOURNAMENT_ID").getValue())
+                                        && Objects.equals(
+                                                row.getColumnValue("DESCRIPTION").getValue(),
+                                                "Alpha"));
     }
 
     @Test
@@ -123,9 +146,18 @@ class TeamRepositoryIT {
         team.setDescription("After");
         teamRepository.save(team);
 
-        // Assert via assertj-db
+        // Assert via assertj-db: the specific row must show "After" and "Before" must not exist
+        // for this team's ID. Row-presence check for isolation in shared H2 DB.
         Table table = assertDb.table("team").build();
-        assertThat(table).column("description").hasValues("After");
+        final UUID savedId = team.getId();
+        assertThat(table.getRowsList())
+                .as("updated team must have description 'After' in DB")
+                .anyMatch(
+                        row ->
+                                savedId.equals(row.getColumnValue("ID").getValue())
+                                        && Objects.equals(
+                                                row.getColumnValue("DESCRIPTION").getValue(),
+                                                "After"));
     }
 
     // -------------------------------------------------------------------------
@@ -133,7 +165,7 @@ class TeamRepositoryIT {
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("findByTournamentId() — returns teams for the right tenant only (Rule 3)")
+    @DisplayName("findByTournamentId() — returns teams for the queried tournament only (Rule 3)")
     void findByTournamentId_returnsTenantScopedTeams() {
         UUID team1Id = UUID.randomUUID();
         UUID team2Id = UUID.randomUUID();
@@ -142,15 +174,13 @@ class TeamRepositoryIT {
         insertTeamDirectly(team1Id, tenantId, tournamentId, 1, "TeamOne");
         insertTeamDirectly(team2Id, tenantId, tournamentId, 2, "TeamTwo");
 
-        // Also insert a row for a different tenant — must not appear
-        UUID otherTenant = UUID.randomUUID();
-        UUID otherTournament = insertTournamentFixtureForTenant(otherTenant);
-        insertTeamDirectly(UUID.randomUUID(), otherTenant, otherTournament, 1, "OtherTeam");
+        // Also insert a row for a different tournament (same tenant) — must not appear
+        UUID otherTournamentId = insertTournamentFixtureForTenant(tenantId);
+        insertTeamDirectly(UUID.randomUUID(), tenantId, otherTournamentId, 1, "OtherTeam");
 
         List<Team> teams = teamRepository.findByTournamentId(tournamentId);
         assertThat(teams).hasSize(2);
-        assertThat(teams).extracting(Team::getTeamNumber)
-                .containsExactlyInAnyOrder(1, 2);
+        assertThat(teams).extracting(Team::getTeamNumber).containsExactlyInAnyOrder(1, 2);
     }
 
     @Test
@@ -179,8 +209,12 @@ class TeamRepositoryIT {
 
         teamRepository.deleteById(team.getId());
 
+        // DEC-26 Rule 2: verify the specific row is gone. Row-absence check for isolation.
         Table table = assertDb.table("team").build();
-        assertThat(table).hasNumberOfRows(0);
+        final UUID deletedId = team.getId();
+        assertThat(table.getRowsList())
+                .as("deleted team must not appear in the team table")
+                .noneMatch(row -> deletedId.equals(row.getColumnValue("ID").getValue()));
     }
 
     @Test
@@ -223,8 +257,7 @@ class TeamRepositoryIT {
         return t;
     }
 
-    private void insertTeamDirectly(
-            UUID id, UUID tId, UUID trnId, int num, String desc) {
+    private void insertTeamDirectly(UUID id, UUID tId, UUID trnId, int num, String desc) {
         Map<String, Object> cols = new LinkedHashMap<>();
         cols.put("id", id);
         cols.put("tenant_id", tId);

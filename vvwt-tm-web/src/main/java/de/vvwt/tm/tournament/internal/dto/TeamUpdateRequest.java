@@ -31,8 +31,8 @@ public record TeamUpdateRequest(
         Boolean withoutAssessment) {
 
     /**
-     * Resolves {@code teamNumber} for service consumption. Returns 0 when null (signals
-     * "no change" to the service).
+     * Resolves {@code teamNumber} for service consumption. Returns 0 when null (signals "no change"
+     * to the service).
      */
     public int resolvedTeamNumber() {
         return teamNumber != null && teamNumber >= 1 ? teamNumber : 0;

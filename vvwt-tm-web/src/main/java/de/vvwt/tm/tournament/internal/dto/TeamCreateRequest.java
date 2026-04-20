@@ -6,8 +6,8 @@ import jakarta.validation.constraints.NotBlank;
  * Request body for POST /api/tm/tournaments/{tournamentId}/teams (E21S04, AC-TDD-TeamDTOs).
  *
  * <p>Mirrors {@code de.vvwt.tm.infrastructure.web.dto.TeamCreateRequest} but lives in the Modulith
- * target package {@code de.vvwt.tm.tournament.internal.dto} (implementation surface, not public
- * API per DEC-21 §Module layout).
+ * target package {@code de.vvwt.tm.tournament.internal.dto} (implementation surface, not public API
+ * per DEC-21 §Module layout).
  *
  * <p>{@code teamNumber} is optional. If omitted (null or absent) it defaults to 0, which signals
  * the service to auto-assign max+1.

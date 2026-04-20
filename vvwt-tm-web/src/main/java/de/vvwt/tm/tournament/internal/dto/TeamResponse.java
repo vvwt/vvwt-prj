@@ -8,8 +8,8 @@ import java.util.UUID;
  * REST response DTO for a single team (E21S04, AC-TDD-TeamDTOs).
  *
  * <p>Mirrors {@code de.vvwt.tm.infrastructure.web.dto.TeamResponse} but lives in the Modulith
- * target package {@code de.vvwt.tm.tournament.internal.dto}. Wraps the new {@link Team} entity
- * from {@code de.vvwt.tm.tournament} — does NOT import the legacy {@code de.vvwt.tm.domain.Team}.
+ * target package {@code de.vvwt.tm.tournament.internal.dto}. Wraps the new {@link Team} entity from
+ * {@code de.vvwt.tm.tournament} — does NOT import the legacy {@code de.vvwt.tm.domain.Team}.
  *
  * <p>The {@code hasPhoto} field indicates whether a team photo has been uploaded. Defaults to
  * {@code false} for non-listing responses.
