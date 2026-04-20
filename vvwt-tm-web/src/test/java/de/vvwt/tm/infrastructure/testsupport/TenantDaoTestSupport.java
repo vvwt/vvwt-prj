@@ -211,4 +211,63 @@ public final class TenantDaoTestSupport {
                     "insertDirectly into table '" + table + "' failed: " + e.getMessage(), e);
         }
     }
+
+    /**
+     * Applies the full tournament-scope schema subset required by all E21 DAO stories (C-15
+     * contract, AC-DAO-SCHEMA-HELPER — E21S02).
+     *
+     * <p>Loads the following migrations in version order into the provided DataSource:
+     *
+     * <ol>
+     *   <li>{@code auth/V1__admin_credentials.sql} — auth base (FK dependency)
+     *   <li>{@code V1__initial_schema.sql} — tenants + locations base schema
+     *   <li>{@code V2__e03_core_schema.sql} — tournament + phase + team + round_snapshot
+     *   <li>{@code V3__e03_match.sql} — match_entry
+     *   <li>{@code V4__e03_set_result.sql} — set_result
+     *   <li>{@code V5__e03_aggregates_and_audit.sql} — audit_log_entry
+     *   <li>{@code V7__e05s04_tournament_fields.sql} — appointment, field_count, team_count
+     *   <li>{@code V8__e06s03_devices.sql} — devices (tournament FK)
+     *   <li>{@code V9__e06s06_audit_source.sql} — audit source
+     *   <li>{@code V10__e07s01_device_model_extension.sql} — device model extension
+     *   <li>{@code V11__e08s01_planned_start_time.sql} — planned_start_time column
+     *   <li>{@code V12__e08s01_phase_breaks.sql} — phase_break table
+     *   <li>{@code V14__e08s05_draft_config.sql} — draft_json column
+     *   <li>{@code V16__e14s08_device_location_nullable.sql} — device location nullable
+     * </ol>
+     *
+     * <p>Excluded: V6 (auth-only, retired at E15S07 cutover per DEC-25), V13 (activity_types —
+     * E20S02 scope, not tournament-core), V15 (certificate template — E12S04 scope).
+     *
+     * <p>This helper is the entry point for all subsequent E21 DAO stories (S03, S04, S05) that
+     * need to set up the tournament-root schema before testing their own aggregate tables.
+     *
+     * @param ds the DataSource to apply the migrations to (typically from {@link
+     *     #freshDataSource()})
+     * @throws IllegalStateException if any migration resource is not found or SQL fails
+     * @see DEC-26 — DAO test governance (schema-from-migration rule)
+     * @see DEC-22 — TDD Iron Law
+     */
+    public static void applyTournamentSchema(DataSource ds) {
+        // C-15 ordered subset: auth/V1 + V1–V5 + V7–V12 + V14 + V16 (13 root + 1 auth = 14 total)
+        // Applied in version order per DEC-26 Rule 1.
+        String[] migrations = {
+            "db/migration/auth/V1__admin_credentials.sql",
+            "db/migration/V1__initial_schema.sql",
+            "db/migration/V2__e03_core_schema.sql",
+            "db/migration/V3__e03_match.sql",
+            "db/migration/V4__e03_set_result.sql",
+            "db/migration/V5__e03_aggregates_and_audit.sql",
+            "db/migration/V7__e05s04_tournament_fields.sql",
+            "db/migration/V8__e06s03_devices.sql",
+            "db/migration/V9__e06s06_audit_source.sql",
+            "db/migration/V10__e07s01_device_model_extension.sql",
+            "db/migration/V11__e08s01_planned_start_time.sql",
+            "db/migration/V12__e08s01_phase_breaks.sql",
+            "db/migration/V14__e08s05_draft_config.sql",
+            "db/migration/V16__e14s08_device_location_nullable.sql",
+        };
+        for (String migration : migrations) {
+            applyMigration(ds, migration);
+        }
+    }
 }
