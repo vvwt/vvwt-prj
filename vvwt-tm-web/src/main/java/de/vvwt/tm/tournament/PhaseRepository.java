@@ -2,7 +2,6 @@ package de.vvwt.tm.tournament;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -48,8 +47,7 @@ public class PhaseRepository {
                     + " SET description=?, status=?, current_lap_number=?"
                     + " WHERE id=? AND tenant_id=?";
 
-    private static final String SELECT_BY_ID =
-            "SELECT * FROM phase WHERE id=? AND tenant_id=?";
+    private static final String SELECT_BY_ID = "SELECT * FROM phase WHERE id=? AND tenant_id=?";
 
     private static final String SELECT_ALL = "SELECT * FROM phase WHERE tenant_id=?";
 
@@ -65,8 +63,8 @@ public class PhaseRepository {
      * Primary constructor — used by the Spring context with a {@link
      * de.vvwt.tm.domain.repo.TenantContext} resolver.
      *
-     * <p>For production wiring see {@link PhaseRepository#PhaseRepository(JdbcTemplate, UUID)}.
-     * For tests, use the DataSource constructor.
+     * <p>For production wiring see {@link PhaseRepository#PhaseRepository(JdbcTemplate, UUID)}. For
+     * tests, use the DataSource constructor.
      */
     public PhaseRepository(DataSource dataSource, UUID tenantId) {
         this.jdbc = new JdbcTemplate(dataSource);
@@ -82,8 +80,7 @@ public class PhaseRepository {
      */
     public Phase save(Phase phase) {
         phase.setTenantId(tenantId);
-        Integer count =
-                jdbc.queryForObject(EXISTS_BY_ID, Integer.class, phase.getId(), tenantId);
+        Integer count = jdbc.queryForObject(EXISTS_BY_ID, Integer.class, phase.getId(), tenantId);
         boolean exists = count != null && count > 0;
         if (exists) {
             jdbc.update(

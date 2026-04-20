@@ -54,10 +54,14 @@ class PhaseBreakRepositoryIT {
                 ds,
                 "tenants",
                 Map.of(
-                        "id", tenantId,
-                        "display_name", "IT Tenant",
-                        "tenant_location_count", 1,
-                        "is_default", false));
+                        "id",
+                        tenantId,
+                        "display_name",
+                        "IT Tenant",
+                        "tenant_location_count",
+                        1,
+                        "is_default",
+                        false));
         TenantDaoTestSupport.insertDirectly(
                 ds,
                 "tournament",
@@ -76,13 +80,20 @@ class PhaseBreakRepositoryIT {
                 ds,
                 "phase",
                 Map.of(
-                        "id", phaseId,
-                        "tenant_id", tenantId,
-                        "tournament_id", tournamentId,
-                        "sequence_number", 1,
-                        "description", "Vorrunde",
-                        "status", "PENDING",
-                        "current_lap_number", 0));
+                        "id",
+                        phaseId,
+                        "tenant_id",
+                        tenantId,
+                        "tournament_id",
+                        tournamentId,
+                        "sequence_number",
+                        1,
+                        "description",
+                        "Vorrunde",
+                        "status",
+                        "PENDING",
+                        "current_lap_number",
+                        0));
         repo = new PhaseBreakRepository(ds, tenantId);
     }
 
@@ -99,10 +110,14 @@ class PhaseBreakRepositoryIT {
         assertThat(table)
                 .hasNumberOfRows(1)
                 .row(0)
-                .value("id").isEqualTo(id)
-                .value("after_lap_number").isEqualTo(2)
-                .value("duration_minutes").isEqualTo(30)
-                .value("label").isEqualTo("Mittagspause");
+                .value("id")
+                .isEqualTo(id)
+                .value("after_lap_number")
+                .isEqualTo(2)
+                .value("duration_minutes")
+                .isEqualTo(30)
+                .value("label")
+                .isEqualTo("Mittagspause");
     }
 
     /** AC-TDD-PhaseBreakRepository: findByPhaseId returns all breaks for a phase. */

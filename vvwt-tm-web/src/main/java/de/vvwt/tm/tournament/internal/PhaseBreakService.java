@@ -7,7 +7,8 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 /**
- * Domain service for managing intra-phase break configuration (implementation — inventory line 179).
+ * Domain service for managing intra-phase break configuration (implementation — inventory line
+ * 179).
  *
  * <p>Thin CRUD service for {@link PhaseBreak} creation and retrieval. This is the scoped
  * reconstruction-in-place implementation for E21S03 — providing the boundary-API contract that
@@ -70,8 +71,8 @@ public class PhaseBreakService {
                         });
 
         PhaseBreak phaseBreak =
-                new PhaseBreak(UUID.randomUUID(), null, phaseId, afterLapNumber, durationMinutes,
-                        label);
+                new PhaseBreak(
+                        UUID.randomUUID(), null, phaseId, afterLapNumber, durationMinutes, label);
         return phaseBreakRepository.save(phaseBreak);
     }
 

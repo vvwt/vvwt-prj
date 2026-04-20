@@ -14,8 +14,8 @@ import org.springframework.data.relational.core.mapping.Table;
  * {@code timer/TimerDataService}). Legacy {@code de.vvwt.tm.domain.PhaseBreak} remains untouched
  * until the E21S13 atomic cutover per DEC-32.
  *
- * <p>The schema-level UNIQUE constraint on {@code (phase_id, after_lap_number)} ensures at most
- * one break per lap boundary per phase. The application-layer {@link PhaseBreakService} checks this
+ * <p>The schema-level UNIQUE constraint on {@code (phase_id, after_lap_number)} ensures at most one
+ * break per lap boundary per phase. The application-layer {@link PhaseBreakService} checks this
  * before persisting.
  *
  * <p>No {@code @Component} or {@code @Service} annotations — pure Spring Data JDBC entity per

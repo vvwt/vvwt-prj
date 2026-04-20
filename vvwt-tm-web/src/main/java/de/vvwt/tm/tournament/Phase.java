@@ -87,8 +87,8 @@ public class Phase {
     private String status;
 
     /**
-     * Active lap index within this phase. Starts at 0 (no lap completed). Incremented
-     * automatically during cascade recompute at round finalization.
+     * Active lap index within this phase. Starts at 0 (no lap completed). Incremented automatically
+     * during cascade recompute at round finalization.
      */
     private int currentLapNumber;
 

@@ -37,7 +37,9 @@ class RoundSnapshotTest {
         assertThat(snapshot.getCreatedAt()).isNull();
     }
 
-    /** AC-TDD-RoundSnapshot: default constructor produces a mutable instance for Spring Data JDBC. */
+    /**
+     * AC-TDD-RoundSnapshot: default constructor produces a mutable instance for Spring Data JDBC.
+     */
     @Test
     void roundSnapshot_defaultConstructor_producesAMutableInstance() {
         RoundSnapshot snapshot = new RoundSnapshot();

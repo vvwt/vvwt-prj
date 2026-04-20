@@ -54,10 +54,14 @@ class RoundSnapshotRepositoryIT {
                 ds,
                 "tenants",
                 Map.of(
-                        "id", tenantId,
-                        "display_name", "IT Tenant",
-                        "tenant_location_count", 1,
-                        "is_default", false));
+                        "id",
+                        tenantId,
+                        "display_name",
+                        "IT Tenant",
+                        "tenant_location_count",
+                        1,
+                        "is_default",
+                        false));
         TenantDaoTestSupport.insertDirectly(
                 ds,
                 "tournament",
@@ -76,13 +80,20 @@ class RoundSnapshotRepositoryIT {
                 ds,
                 "phase",
                 Map.of(
-                        "id", phaseId,
-                        "tenant_id", tenantId,
-                        "tournament_id", tournamentId,
-                        "sequence_number", 1,
-                        "description", "Vorrunde",
-                        "status", "PENDING",
-                        "current_lap_number", 0));
+                        "id",
+                        phaseId,
+                        "tenant_id",
+                        tenantId,
+                        "tournament_id",
+                        tournamentId,
+                        "sequence_number",
+                        1,
+                        "description",
+                        "Vorrunde",
+                        "status",
+                        "PENDING",
+                        "current_lap_number",
+                        0));
         repo = new RoundSnapshotRepository(ds, tenantId);
     }
 
@@ -91,8 +102,8 @@ class RoundSnapshotRepositoryIT {
     void save_persistsRoundSnapshotRow() {
         UUID id = UUID.randomUUID();
         String payload = "{\"lapNumber\":1,\"standings\":[]}";
-        RoundSnapshot snapshot = new RoundSnapshot(id, tenantId, tournamentId, phaseId, 1, payload,
-                null);
+        RoundSnapshot snapshot =
+                new RoundSnapshot(id, tenantId, tournamentId, phaseId, 1, payload, null);
 
         repo.save(snapshot);
 
@@ -101,9 +112,12 @@ class RoundSnapshotRepositoryIT {
         assertThat(table)
                 .hasNumberOfRows(1)
                 .row(0)
-                .value("id").isEqualTo(id)
-                .value("lap_number").isEqualTo(1)
-                .value("snapshot_payload").isEqualTo(payload);
+                .value("id")
+                .isEqualTo(id)
+                .value("lap_number")
+                .isEqualTo(1)
+                .value("snapshot_payload")
+                .isEqualTo(payload);
     }
 
     /** AC-TDD-RoundSnapshotRepository: findById returns the saved snapshot scoped to tenant. */
@@ -140,10 +154,14 @@ class RoundSnapshotRepositoryIT {
                 ds,
                 "tenants",
                 Map.of(
-                        "id", otherTenantId,
-                        "display_name", "Other Tenant",
-                        "tenant_location_count", 1,
-                        "is_default", false));
+                        "id",
+                        otherTenantId,
+                        "display_name",
+                        "Other Tenant",
+                        "tenant_location_count",
+                        1,
+                        "is_default",
+                        false));
         TenantDaoTestSupport.insertDirectly(
                 ds,
                 "round_snapshots",

@@ -53,10 +53,14 @@ class PhaseRepositoryIT {
                 ds,
                 "tenants",
                 Map.of(
-                        "id", tenantId,
-                        "display_name", "IT Tenant",
-                        "tenant_location_count", 1,
-                        "is_default", false));
+                        "id",
+                        tenantId,
+                        "display_name",
+                        "IT Tenant",
+                        "tenant_location_count",
+                        1,
+                        "is_default",
+                        false));
         TenantDaoTestSupport.insertDirectly(
                 ds,
                 "tournament",
@@ -87,9 +91,12 @@ class PhaseRepositoryIT {
         assertThat(table)
                 .hasNumberOfRows(1)
                 .row(0)
-                .value("id").isEqualTo(id)
-                .value("description").isEqualTo("Vorrunde")
-                .value("status").isEqualTo("PENDING");
+                .value("id")
+                .isEqualTo(id)
+                .value("description")
+                .isEqualTo("Vorrunde")
+                .value("status")
+                .isEqualTo("PENDING");
     }
 
     /** AC-TDD-PhaseRepository: findById returns the saved phase scoped to the tenant. */
@@ -101,13 +108,20 @@ class PhaseRepositoryIT {
                 ds,
                 "phase",
                 Map.of(
-                        "id", id,
-                        "tenant_id", tenantId,
-                        "tournament_id", tournamentId,
-                        "sequence_number", 1,
-                        "description", "Vorrunde",
-                        "status", "PENDING",
-                        "current_lap_number", 0));
+                        "id",
+                        id,
+                        "tenant_id",
+                        tenantId,
+                        "tournament_id",
+                        tournamentId,
+                        "sequence_number",
+                        1,
+                        "description",
+                        "Vorrunde",
+                        "status",
+                        "PENDING",
+                        "current_lap_number",
+                        0));
 
         Optional<Phase> result = repo.findById(id);
 
@@ -126,21 +140,32 @@ class PhaseRepositoryIT {
                 ds,
                 "tenants",
                 Map.of(
-                        "id", otherTenantId,
-                        "display_name", "Other Tenant",
-                        "tenant_location_count", 1,
-                        "is_default", false));
+                        "id",
+                        otherTenantId,
+                        "display_name",
+                        "Other Tenant",
+                        "tenant_location_count",
+                        1,
+                        "is_default",
+                        false));
         TenantDaoTestSupport.insertDirectly(
                 ds,
                 "phase",
                 Map.of(
-                        "id", id,
-                        "tenant_id", otherTenantId,
-                        "tournament_id", tournamentId,
-                        "sequence_number", 1,
-                        "description", "Vorrunde",
-                        "status", "PENDING",
-                        "current_lap_number", 0));
+                        "id",
+                        id,
+                        "tenant_id",
+                        otherTenantId,
+                        "tournament_id",
+                        tournamentId,
+                        "sequence_number",
+                        1,
+                        "description",
+                        "Vorrunde",
+                        "status",
+                        "PENDING",
+                        "current_lap_number",
+                        0));
 
         Optional<Phase> result = repo.findById(id);
 
@@ -156,24 +181,38 @@ class PhaseRepositoryIT {
                 ds,
                 "phase",
                 Map.of(
-                        "id", id1,
-                        "tenant_id", tenantId,
-                        "tournament_id", tournamentId,
-                        "sequence_number", 1,
-                        "description", "Vorrunde",
-                        "status", "PENDING",
-                        "current_lap_number", 0));
+                        "id",
+                        id1,
+                        "tenant_id",
+                        tenantId,
+                        "tournament_id",
+                        tournamentId,
+                        "sequence_number",
+                        1,
+                        "description",
+                        "Vorrunde",
+                        "status",
+                        "PENDING",
+                        "current_lap_number",
+                        0));
         TenantDaoTestSupport.insertDirectly(
                 ds,
                 "phase",
                 Map.of(
-                        "id", id2,
-                        "tenant_id", tenantId,
-                        "tournament_id", tournamentId,
-                        "sequence_number", 2,
-                        "description", "Finale",
-                        "status", "PENDING",
-                        "current_lap_number", 0));
+                        "id",
+                        id2,
+                        "tenant_id",
+                        tenantId,
+                        "tournament_id",
+                        tournamentId,
+                        "sequence_number",
+                        2,
+                        "description",
+                        "Finale",
+                        "status",
+                        "PENDING",
+                        "current_lap_number",
+                        0));
 
         List<Phase> results = repo.findByTournamentId(tournamentId);
 
