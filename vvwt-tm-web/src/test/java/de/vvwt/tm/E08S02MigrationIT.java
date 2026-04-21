@@ -9,7 +9,6 @@ import de.vvwt.tm.domain.AssignmentRule;
 import de.vvwt.tm.domain.MatchFormat;
 import de.vvwt.tm.domain.Tournament;
 import de.vvwt.tm.domain.repo.ActivityTypeRepository;
-import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.domain.repo.TournamentRepository;
 import de.vvwt.tm.infrastructure.web.ConflictException;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
@@ -60,8 +59,6 @@ import org.springframework.transaction.annotation.Transactional;
 class E08S02MigrationIT {
 
     @Autowired private JdbcTemplate jdbcTemplate;
-
-    @Autowired private TenantContext tenantContext;
 
     @Autowired private TenantContextTestSupport.Binder tenantContextBinder;
 
@@ -473,7 +470,6 @@ class E08S02MigrationIT {
     @Test
     void repositoryGuardFiresWithoutTenantContext() {
         tenantContextBinder.unbind();
-        tenantContext.clear();
         try {
             assertThatThrownBy(() -> activityTypeRepository.findAll())
                     .as("AC7 — repository guard must fire before SQL when no tenant context")
@@ -487,7 +483,6 @@ class E08S02MigrationIT {
     @Test
     void repositoryGuardFiresOnFindByTournamentIdWithoutTenantContext() {
         tenantContextBinder.unbind();
-        tenantContext.clear();
         try {
             assertThatThrownBy(() -> activityTypeRepository.findByTournamentId(UUID.randomUUID()))
                     .as("AC7 — findByTournamentId must guard on tenant context")

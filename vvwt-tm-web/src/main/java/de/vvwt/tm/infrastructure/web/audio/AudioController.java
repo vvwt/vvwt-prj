@@ -47,9 +47,8 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
  * <h2>Tenant scoping (AC5, DEC-5)</h2>
  *
  * <p>All endpoints delegate to {@link AudioStorageService}, which validates tournament ownership
- * against the active {@link de.vvwt.tm.domain.repo.TenantContext} before any I/O. A
- * missing/cross-tenant tournament results in {@link NoSuchElementException} → 404 (no tenant
- * enumeration per AC5).
+ * against the active {@link de.vvwt.tm.tenant.TenantContext} before any I/O. A missing/cross-tenant
+ * tournament results in {@link NoSuchElementException} → 404 (no tenant enumeration per AC5).
  *
  * <h2>Error handling (AC7)</h2>
  *

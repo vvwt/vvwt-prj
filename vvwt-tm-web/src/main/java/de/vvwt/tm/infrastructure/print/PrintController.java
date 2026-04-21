@@ -15,8 +15,8 @@ import de.vvwt.tm.domain.repo.PhaseBreakRepository;
 import de.vvwt.tm.domain.repo.PhaseRepository;
 import de.vvwt.tm.domain.repo.TeamAvatarRepository;
 import de.vvwt.tm.domain.repo.TeamRepository;
-import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.domain.repo.TournamentRepository;
+import de.vvwt.tm.tenant.TenantContext;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -882,7 +882,7 @@ public class PrintController {
                         .orElseThrow(() -> new TournamentNotFoundException(teamId));
 
         String locationDisplayName =
-                certificateAssembler.resolveLocationDisplayName(tenantContext.getTenantId());
+                certificateAssembler.resolveLocationDisplayName(tenantContext.current());
 
         CertificateTemplateService.TemplateFile templateFile = templateOpt.get();
         String format = templateFile.metadata().format(); // "svg" or "html"
@@ -1003,7 +1003,7 @@ public class PrintController {
         }
 
         String locationDisplayName =
-                certificateAssembler.resolveLocationDisplayName(tenantContext.getTenantId());
+                certificateAssembler.resolveLocationDisplayName(tenantContext.current());
 
         CertificateTemplateService.TemplateFile templateFile = templateOpt.get();
         String format = templateFile.metadata().format();

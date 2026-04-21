@@ -19,7 +19,6 @@ import de.vvwt.tm.domain.repo.MatchRepository;
 import de.vvwt.tm.domain.repo.PhaseRepository;
 import de.vvwt.tm.domain.repo.TeamAvatarRepository;
 import de.vvwt.tm.domain.repo.TeamRepository;
-import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.domain.repo.TournamentRepository;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import java.lang.reflect.Type;
@@ -98,7 +97,6 @@ class DisplayWebSocketEventsIT {
     @LocalServerPort private int port;
 
     @Autowired private CascadeRecomputeService cascadeService;
-    @Autowired private TenantContext tenantContext;
     @Autowired private TenantContextTestSupport.Binder tenantContextBinder;
     @Autowired private DeviceRepository deviceRepository;
     @Autowired private TournamentRepository tournamentRepository;
@@ -114,7 +112,6 @@ class DisplayWebSocketEventsIT {
     @BeforeEach
     void setUp() {
         defaultTenantId = tenantContextBinder.bindDefaultTenant();
-        tenantContext.set(defaultTenantId);
 
         displayToken = UUID.randomUUID().toString();
         saveDisplayDevice(displayToken, Device.STATUS_REGISTERED);
@@ -123,7 +120,6 @@ class DisplayWebSocketEventsIT {
 
     @AfterEach
     void tearDown() {
-        tenantContext.clear();
         tenantContextBinder.unbind();
     }
 

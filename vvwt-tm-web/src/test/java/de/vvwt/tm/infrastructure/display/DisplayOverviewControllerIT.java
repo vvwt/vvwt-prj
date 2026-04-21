@@ -17,8 +17,6 @@ import de.vvwt.tm.domain.repo.PhaseRepository;
 import de.vvwt.tm.domain.repo.TeamAvatarRatingRepository;
 import de.vvwt.tm.domain.repo.TeamAvatarRepository;
 import de.vvwt.tm.domain.repo.TeamRepository;
-import de.vvwt.tm.domain.repo.TenantContext;
-import de.vvwt.tm.domain.repo.TenantContextTestHelper;
 import de.vvwt.tm.domain.repo.TournamentRepository;
 import de.vvwt.tm.infrastructure.display.dto.DisplayGroupStandingsResponse;
 import de.vvwt.tm.infrastructure.display.dto.DisplayMatchesResponse;
@@ -87,8 +85,6 @@ class DisplayOverviewControllerIT {
 
     @Autowired private TestRestTemplate restTemplate;
 
-    @Autowired private TenantContext tenantContext;
-
     @Autowired private TenantContextTestSupport.Binder tenantContextBinder;
 
     @Autowired private DeviceRepository deviceRepository;
@@ -125,7 +121,6 @@ class DisplayOverviewControllerIT {
     void setUp() {
         baseUrl = "http://localhost:" + port;
         defaultTenantId = tenantContextBinder.bindDefaultTenant();
-        tenantContext.set(defaultTenantId);
         cleanupTestData();
         setupTestData();
     }
@@ -133,7 +128,6 @@ class DisplayOverviewControllerIT {
     @AfterEach
     void tearDown() {
         cleanupTestData();
-        tenantContext.clear();
         tenantContextBinder.unbind();
     }
 
@@ -544,11 +538,9 @@ class DisplayOverviewControllerIT {
         // then call the endpoint
 
         // Mark the tournament as COMPLETED (no more ACTIVE tournaments)
-        TenantContextTestHelper.set(tenantContext, defaultTenantId);
         Tournament t = tournamentRepository.findById(tournamentId).orElseThrow();
         t.setStatus("COMPLETED");
         tournamentRepository.save(t);
-        TenantContextTestHelper.clear(tenantContext);
 
         ResponseEntity<GlobalExceptionHandler.NoActivePhaseResponse> response =
                 restTemplate.getForEntity(
@@ -564,10 +556,8 @@ class DisplayOverviewControllerIT {
                 .isEqualTo("NO_ACTIVE_PHASE");
 
         // Restore tournament to ACTIVE for subsequent tests (shared DB in this test class)
-        TenantContextTestHelper.set(tenantContext, defaultTenantId);
         t.setStatus("ACTIVE");
         tournamentRepository.save(t);
-        TenantContextTestHelper.clear(tenantContext);
     }
 
     // =========================================================================
@@ -577,11 +567,9 @@ class DisplayOverviewControllerIT {
     @Test
     void phaseOverviewReturnsPreparationPreviewTrueForPendingPhaseWithMatches() {
         // Set phase status to PENDING (preparation) — matches already exist with lapNumber=1 (AC6)
-        TenantContextTestHelper.set(tenantContext, defaultTenantId);
         Phase phase = phaseRepository.findById(phaseId).orElseThrow();
         phase.setStatus("PENDING");
         phaseRepository.save(phase);
-        TenantContextTestHelper.clear(tenantContext);
 
         ResponseEntity<DisplayPhaseOverviewResponse> response =
                 restTemplate.getForEntity(
@@ -599,10 +587,8 @@ class DisplayOverviewControllerIT {
                 .isEqualTo("PENDING");
 
         // Restore phase to ACTIVE for subsequent tests
-        TenantContextTestHelper.set(tenantContext, defaultTenantId);
         phase.setStatus("ACTIVE");
         phaseRepository.save(phase);
-        TenantContextTestHelper.clear(tenantContext);
     }
 
     // =========================================================================

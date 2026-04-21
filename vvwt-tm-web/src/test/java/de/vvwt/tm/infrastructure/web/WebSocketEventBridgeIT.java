@@ -17,7 +17,6 @@ import de.vvwt.tm.domain.repo.MatchRepository;
 import de.vvwt.tm.domain.repo.PhaseRepository;
 import de.vvwt.tm.domain.repo.TeamAvatarRepository;
 import de.vvwt.tm.domain.repo.TeamRepository;
-import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.domain.repo.TournamentRepository;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import java.lang.reflect.Type;
@@ -96,7 +95,6 @@ class WebSocketEventBridgeIT {
     @LocalServerPort private int port;
 
     @Autowired private CascadeRecomputeService cascadeService;
-    @Autowired private TenantContext tenantContext;
     @Autowired private TenantContextTestSupport.Binder tenantContextBinder;
     @Autowired private TournamentRepository tournamentRepository;
     @Autowired private PhaseRepository phaseRepository;
@@ -110,13 +108,11 @@ class WebSocketEventBridgeIT {
     @BeforeEach
     void setUp() {
         defaultTenantId = tenantContextBinder.bindDefaultTenant();
-        tenantContext.set(defaultTenantId);
         matchId = createMinimalFixture();
     }
 
     @AfterEach
     void tearDown() {
-        tenantContext.clear();
         tenantContextBinder.unbind();
     }
 
