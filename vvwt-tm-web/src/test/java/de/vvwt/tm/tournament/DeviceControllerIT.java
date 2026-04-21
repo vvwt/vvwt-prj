@@ -31,8 +31,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * Minimalist integration tests for {@link DeviceController} (E21S06, AC-REST-IT-HAPPY-DeviceController
- * + AC-REST-IT-SEC-DeviceController).
+ * Minimalist integration tests for {@link DeviceController} (E21S06,
+ * AC-REST-IT-HAPPY-DeviceController + AC-REST-IT-SEC-DeviceController).
  *
  * <h2>Approach C minimalist-IT</h2>
  *

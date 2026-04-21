@@ -9,8 +9,6 @@ import de.vvwt.tm.tournament.internal.dto.DeviceRegisterRequest;
 import de.vvwt.tm.tournament.internal.dto.DeviceRegisterResponse;
 import de.vvwt.tm.tournament.internal.dto.DeviceSummaryResponse;
 import java.net.URI;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.UUID;
 import javax.sql.DataSource;
 import org.assertj.db.type.AssertDbConnection;
@@ -216,19 +214,22 @@ class DeviceAdminControllerIT {
     // Helpers
     // =========================================================================
 
-    private void insertLocationDirectly(UUID locationId, UUID tenantId) {
-        try (var conn = dataSource.getConnection()) {
-            String sql =
-                    "INSERT INTO location (id, tenant_id, name) VALUES (?, ?, ?) "
-                            + "ON CONFLICT DO NOTHING";
-            try (var ps = conn.prepareStatement(sql)) {
-                ps.setObject(1, locationId);
-                ps.setObject(2, tenantId);
-                ps.setString(3, "IT-Location-" + locationId.toString().substring(0, 8));
-                ps.executeUpdate();
-            }
-        } catch (Exception e) {
-            // location table schema may differ — best-effort
+    private void insertLocationDirectly(UUID locationId, UUID tenantId) throws Exception {
+        // AC-HELPER-INSERTLOCATIONDIRECTLY-FIXED:
+        // (a) table: locations (plural, V1 schema)
+        // (b) column: display_name (V1 schema — not 'name')
+        // (c) no ON CONFLICT DO NOTHING (H2-incompatible Postgres-only syntax)
+        // (d) catch removed — SQL exceptions propagate uncaught (Brief S-3, Q-1)
+        // Default tenant FK parent is already provisioned by DefaultTenantBootstrapRunner.
+        try (var conn = dataSource.getConnection();
+                var ps =
+                        conn.prepareStatement(
+                                "INSERT INTO locations (id, tenant_id, display_name)"
+                                        + " VALUES (?, ?, ?)")) {
+            ps.setObject(1, locationId);
+            ps.setObject(2, tenantId);
+            ps.setString(3, "IT-Location-" + locationId.toString().substring(0, 8));
+            ps.executeUpdate();
         }
     }
 

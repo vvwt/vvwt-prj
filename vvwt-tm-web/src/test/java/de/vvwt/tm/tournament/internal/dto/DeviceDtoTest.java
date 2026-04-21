@@ -156,7 +156,10 @@ class DeviceDtoTest {
 
             assertThat(node.get("deviceToken").asText()).isEqualTo("token-display");
             // pin absent or null in JSON
-            assertThat(node.has("pin") && !node.get("pin").isNull() ? node.get("pin").asText() : null)
+            assertThat(
+                            node.has("pin") && !node.get("pin").isNull()
+                                    ? node.get("pin").asText()
+                                    : null)
                     .isNullOrEmpty();
         }
     }
@@ -204,7 +207,16 @@ class DeviceDtoTest {
         void serializesCoreFields() throws Exception {
             UUID id = UUID.randomUUID();
             DeviceSummaryResponse resp =
-                    new DeviceSummaryResponse(id, "tok-xyz", "4321", "SCORING_TABLET", 1, "ASSIGNED", null, null, null);
+                    new DeviceSummaryResponse(
+                            id,
+                            "tok-xyz",
+                            "4321",
+                            "SCORING_TABLET",
+                            1,
+                            "ASSIGNED",
+                            null,
+                            null,
+                            null);
             String json = mapper.writeValueAsString(resp);
             JsonNode node = mapper.readTree(json);
 

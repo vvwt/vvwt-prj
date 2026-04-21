@@ -55,7 +55,8 @@ import org.springframework.test.context.ActiveProfiles;
  * shapes used by those importers are covered:
  *
  * <ul>
- *   <li>{@code findByDeviceToken} — used by DeviceTokenHandshakeInterceptor, WebSocketSecurityConfig
+ *   <li>{@code findByDeviceToken} — used by DeviceTokenHandshakeInterceptor,
+ *       WebSocketSecurityConfig
  *   <li>{@code findByPin} — used by admin lookup in DeviceController
  *   <li>{@code findByLocationAndField} — conflict check for field assignment
  *   <li>{@code countDisplayDevicesByTenant} / {@code countByTenant} — device limit enforcement
@@ -96,7 +97,6 @@ class DeviceRepositoryIT {
     void setUp() {
         assertDb = AssertDbConnectionFactory.of(dataSource).create();
         tenantId = tenantBinder.bindDefaultTenant();
-        insertTenantIfMissing(tenantId);
     }
 
     @AfterEach
@@ -164,7 +164,8 @@ class DeviceRepositoryIT {
     // =========================================================================
 
     @Test
-    @DisplayName("findByDeviceToken() — returns device when token matches (boundary-API importer 1)")
+    @DisplayName(
+            "findByDeviceToken() — returns device when token matches (boundary-API importer 1)")
     void findByDeviceToken_returnsPresentWhenFound() {
         UUID deviceId = UUID.randomUUID();
         insertDeviceDirectly(deviceId, tenantId, "token-abc", "9999", Device.TYPE_SCORING_TABLET);
@@ -225,7 +226,8 @@ class DeviceRepositoryIT {
     @Test
     @DisplayName("countByTenant() — returns count of all devices for active tenant")
     void countByTenant_returnsCorrectCount() {
-        insertDeviceDirectly(UUID.randomUUID(), tenantId, "t-cnt-1", "1111", Device.TYPE_SCORING_TABLET);
+        insertDeviceDirectly(
+                UUID.randomUUID(), tenantId, "t-cnt-1", "1111", Device.TYPE_SCORING_TABLET);
         insertDeviceDirectly(UUID.randomUUID(), tenantId, "t-cnt-2", null, Device.TYPE_DISPLAY);
 
         long count = deviceRepository.countByTenant(tenantId);
@@ -236,7 +238,8 @@ class DeviceRepositoryIT {
     @Test
     @DisplayName("isPinTaken() — returns true when PIN exists for tenant")
     void isPinTaken_returnsTrueWhenPinExists() {
-        insertDeviceDirectly(UUID.randomUUID(), tenantId, "t-pin-1", "3333", Device.TYPE_SCORING_TABLET);
+        insertDeviceDirectly(
+                UUID.randomUUID(), tenantId, "t-pin-1", "3333", Device.TYPE_SCORING_TABLET);
 
         assertThat(deviceRepository.isPinTaken("3333")).isTrue();
     }
@@ -289,13 +292,16 @@ class DeviceRepositoryIT {
     }
 
     private void insertDeviceDirectlyWithLocation(
-            UUID id,
-            UUID tid,
-            UUID locationId,
-            String token,
-            String pin,
-            int field,
-            String type) {
+            UUID id, UUID tid, UUID locationId, String token, String pin, int field, String type) {
+        // AC-FAILURE-1-FIXED: insert parent locations row first (Parent-First ordering)
+        // to satisfy FK_DEVICES_LOCATION before inserting the devices row.
+        // Default tenant is already provisioned by DefaultTenantBootstrapRunner.
+        Map<String, Object> locationCols = new LinkedHashMap<>();
+        locationCols.put("id", locationId);
+        locationCols.put("tenant_id", tid);
+        locationCols.put("display_name", "IT-Location-" + locationId.toString().substring(0, 8));
+        TenantDaoTestSupport.insertDirectly(dataSource, "locations", locationCols);
+
         Map<String, Object> cols = new LinkedHashMap<>();
         cols.put("id", id);
         cols.put("tenant_id", tid);
@@ -307,16 +313,7 @@ class DeviceRepositoryIT {
         cols.put("status", Device.STATUS_ASSIGNED);
         TenantDaoTestSupport.insertDirectly(dataSource, "devices", cols);
     }
-
-    private void insertTenantIfMissing(UUID tid) {
-        try {
-            Map<String, Object> cols = new LinkedHashMap<>();
-            cols.put("id", tid);
-            cols.put("name", "tenant-" + tid);
-            cols.put("subdomain", "t-" + tid.toString().substring(0, 8));
-            TenantDaoTestSupport.insertDirectly(dataSource, "tenants", cols);
-        } catch (Exception ignored) {
-            // tenant may already exist
-        }
-    }
+    // AC-HELPER-INSERTTENANTIFMISSING-REMOVED: insertTenantIfMissing removed — it was dead code.
+    // Its columns (name, subdomain) do not exist in the V1 tenants schema; the default tenant is
+    // provisioned by DefaultTenantBootstrapRunner at @SpringBootTest context startup.
 }

@@ -141,8 +141,7 @@ class DeviceControllerSliceTest {
     @WithMockUser
     @DisplayName("POST /register when limit exceeded returns 409 with DeviceLimitErrorResponse")
     void registerWhenLimitExceeded_returns409() throws Exception {
-        when(deviceService.register(any()))
-                .thenThrow(new DeviceLimitExceededException(5, 5L));
+        when(deviceService.register(any())).thenThrow(new DeviceLimitExceededException(5, 5L));
 
         DeviceRegisterRequest req = new DeviceRegisterRequest("SCORING_TABLET");
         mockMvc.perform(
