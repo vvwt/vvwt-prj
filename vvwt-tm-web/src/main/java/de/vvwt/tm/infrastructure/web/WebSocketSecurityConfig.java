@@ -1,7 +1,6 @@
 package de.vvwt.tm.infrastructure.web;
 
 import de.vvwt.tm.domain.repo.DeviceRepository;
-import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.tenant.LocationContext;
 import de.vvwt.tm.tenant.TenantRegistryPort;
 import java.nio.charset.StandardCharsets;
@@ -32,8 +31,8 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
  *
  * <p>Admin SPA clients connect with {@code Authorization: Basic …} in the STOMP CONNECT frame. The
  * admin path binds {@link de.vvwt.tm.tenant.TenantContext} to the default tenant UUID (Wave-1:
- * resolved from {@link TenantRegistryPort#findAll()}) and does NOT bind {@link LocationContext} —
- * admin sessions are not location-scoped (DEC-24 D3).
+ * resolved from {@link TenantRegistryPort#getDefault()}) and does NOT bind {@link LocationContext}
+ * — admin sessions are not location-scoped (DEC-24 D3).
  *
  * <h2>E14S09 — Device auth via device token (DEC-24 D2)</h2>
  *
@@ -121,11 +120,7 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
     private final PasswordEncoder passwordEncoder;
     private final DeviceRepository deviceRepository;
 
-    /** Legacy domain-layer TenantContext (needed until E15 auth cutover). */
-    private final TenantContext tenantContext;
-
-    /** New tenant-api TenantContext (de.vvwt.tm.tenant.TenantContext). */
-    private final de.vvwt.tm.tenant.TenantContext newTenantContext;
+    private final de.vvwt.tm.tenant.TenantContext tenantContext;
 
     private final LocationContext locationContext;
 
@@ -147,15 +142,13 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
             UserDetailsService userDetailsService,
             PasswordEncoder passwordEncoder,
             DeviceRepository deviceRepository,
-            TenantContext tenantContext,
-            de.vvwt.tm.tenant.TenantContext newTenantContext,
+            de.vvwt.tm.tenant.TenantContext tenantContext,
             LocationContext locationContext,
             TenantRegistryPort tenantRegistryPort) {
         this.userDetailsService = userDetailsService;
         this.passwordEncoder = passwordEncoder;
         this.deviceRepository = deviceRepository;
         this.tenantContext = tenantContext;
-        this.newTenantContext = newTenantContext;
         this.locationContext = locationContext;
         this.tenantRegistryPort = tenantRegistryPort;
     }
@@ -231,7 +224,6 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
                                 new DeviceTokenHandshakeInterceptor(
                                         deviceRepository,
                                         tenantContext,
-                                        newTenantContext,
                                         locationContext,
                                         defaultTenantId);
                         deviceInterceptor = interceptor;
@@ -299,8 +291,7 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
             // LocationContext is NOT bound — admin sessions are not location-scoped (AC12).
             UUID defaultTenantId = resolveDefaultTenantId();
             if (defaultTenantId != null) {
-                de.vvwt.tm.tenant.TenantContext.Scope scope =
-                        newTenantContext.bind(defaultTenantId);
+                de.vvwt.tm.tenant.TenantContext.Scope scope = tenantContext.bind(defaultTenantId);
                 if (accessor.getSessionAttributes() != null) {
                     accessor.getSessionAttributes().put("_adminTenantScope", scope);
                 }

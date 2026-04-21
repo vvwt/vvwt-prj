@@ -40,8 +40,8 @@ import org.springframework.web.multipart.MultipartFile;
  * <h2>Tenant scoping (AC10, DEC-5)</h2>
  *
  * <p>All endpoints delegate to {@link PhotoStorageService}, which validates tournament and team
- * ownership against the active {@link de.vvwt.tm.domain.repo.TenantContext}. Cross-tenant access
- * yields {@link NoSuchElementException} → 404 (no tenant enumeration).
+ * ownership against the active {@link de.vvwt.tm.tenant.TenantContext}. Cross-tenant access yields
+ * {@link NoSuchElementException} → 404 (no tenant enumeration).
  *
  * <h2>Error handling (AC7, AC8)</h2>
  *

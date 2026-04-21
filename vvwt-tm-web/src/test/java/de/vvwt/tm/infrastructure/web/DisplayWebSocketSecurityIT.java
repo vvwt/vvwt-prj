@@ -7,7 +7,6 @@ import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.domain.Device;
 import de.vvwt.tm.domain.repo.DeviceRepository;
-import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -81,7 +80,6 @@ class DisplayWebSocketSecurityIT {
     @LocalServerPort private int port;
 
     @Autowired private DeviceRepository deviceRepository;
-    @Autowired private TenantContext tenantContext;
     @Autowired private TenantContextTestSupport.Binder tenantContextBinder;
 
     private UUID defaultTenantId;
@@ -91,12 +89,10 @@ class DisplayWebSocketSecurityIT {
     void setUp() {
         defaultTenantId = tenantContextBinder.bindDefaultTenant();
         wsUrl = "http://localhost:" + port + "/ws";
-        tenantContext.set(defaultTenantId);
     }
 
     @AfterEach
     void tearDown() {
-        tenantContext.clear();
         tenantContextBinder.unbind();
     }
 

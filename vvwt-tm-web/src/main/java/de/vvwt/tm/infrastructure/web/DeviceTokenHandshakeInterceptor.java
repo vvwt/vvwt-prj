@@ -29,9 +29,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
  * appropriate contexts:
  *
  * <ol>
- *   <li>Sets the legacy {@link de.vvwt.tm.domain.repo.TenantContext} for repository access
- *       (parallel-phase coexistence; removed at E14S07 cutover).
- *   <li>Binds the new {@link TenantContext} to the device's tenant UUID.
+ *   <li>Binds {@link TenantContext} to the device's tenant UUID.
  *   <li>If SCORING_TABLET with {@code location_id = NULL}: rejects with "no assigned location"
  *       (DEC-24 D1 usage constraint, E14S09 AC6).
  *   <li>If DISPLAY with {@code location_id = NULL}: accepts, marks session attribute {@value
@@ -49,15 +47,15 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
  * <h2>Wave-1 assumption (DEC-24 D2)</h2>
  *
  * <p>The device lookup runs against the default tenant's DataSource. In a multi-tenant Wave-2
- * deployment this would require a cross-tenant device registry; for Wave-1, setting the legacy
- * TenantContext to the default tenant UUID before the lookup is the correct approach. A {@code //
+ * deployment this would require a cross-tenant device registry; for Wave-1, binding {@link
+ * TenantContext} to the default tenant UUID before the lookup is the correct approach. A {@code //
  * TODO(Wave-2)} comment marks this assumption inline.
  *
  * <h2>Context scope (AC8)</h2>
  *
- * <p>Legacy TenantContext is set and cleared in a try-finally block around the device lookup. The
- * new TenantContext scope is stored in session attributes for cleanup on session close. On
- * rejection, all contexts are cleaned up immediately.
+ * <p>A lookup-scoped {@link TenantContext.Scope} is used during device lookup only. The
+ * session-duration scope is opened in Phase 2 after all validation checks pass. On rejection, all
+ * contexts are cleaned up immediately.
  *
  * @see WebSocketSecurityConfig
  * @see LocationContext
@@ -83,13 +81,6 @@ public class DeviceTokenHandshakeInterceptor implements ChannelInterceptor {
 
     private final DeviceRepository deviceRepository;
 
-    /**
-     * Legacy domain-layer TenantContext — needed for DeviceRepository queries during parallel
-     * phase.
-     */
-    private final de.vvwt.tm.domain.repo.TenantContext legacyTenantContext;
-
-    /** New tenant-api TenantContext (de.vvwt.tm.tenant.TenantContext). */
     private final TenantContext tenantContext;
 
     private final LocationContext locationContext;
@@ -98,43 +89,28 @@ public class DeviceTokenHandshakeInterceptor implements ChannelInterceptor {
     /**
      * Constructor used by {@link WebSocketSecurityConfig}.
      *
-     * @param deviceRepository repository for device lookup (uses legacy TenantContext internally)
-     * @param legacyTenantContext legacy domain-layer TenantContext for repository access
-     * @param tenantContext new tenant-api TenantContext for session binding
+     * @param deviceRepository repository for device lookup
+     * @param tenantContext tenant-api TenantContext for lookup and session binding
      * @param locationContext thread-local location context
      * @param defaultTenantId the default tenant UUID for Wave-1 device lookup
      */
     public DeviceTokenHandshakeInterceptor(
             DeviceRepository deviceRepository,
-            de.vvwt.tm.domain.repo.TenantContext legacyTenantContext,
             TenantContext tenantContext,
             LocationContext locationContext,
             UUID defaultTenantId) {
         this.deviceRepository = deviceRepository;
-        this.legacyTenantContext = legacyTenantContext;
         this.tenantContext = tenantContext;
         this.locationContext = locationContext;
         this.defaultTenantId = defaultTenantId;
     }
 
-    /**
-     * Constructor for unit testing (mocks legacyTenantContext and tenantContext separately). Used
-     * when defaultTenantId is provided by the test.
-     */
-    DeviceTokenHandshakeInterceptor(
-            DeviceRepository deviceRepository,
-            TenantContext tenantContext,
-            LocationContext locationContext,
-            UUID defaultTenantId) {
-        this(deviceRepository, null, tenantContext, locationContext, defaultTenantId);
-    }
-
-    /** Constructor for unit testing (no-token path only, no defaultTenantId needed). */
+    /** Constructor for unit testing (no defaultTenantId needed). */
     DeviceTokenHandshakeInterceptor(
             DeviceRepository deviceRepository,
             TenantContext tenantContext,
             LocationContext locationContext) {
-        this(deviceRepository, null, tenantContext, locationContext, null);
+        this(deviceRepository, tenantContext, locationContext, null);
     }
 
     @Override
@@ -163,30 +139,19 @@ public class DeviceTokenHandshakeInterceptor implements ChannelInterceptor {
     private void authenticateDevice(StompHeaderAccessor accessor, String deviceToken) {
         // TODO(Wave-2): for multi-tenant deployments, the device lookup must use a cross-tenant
         // device registry or a token-prefix-based routing mechanism. For Wave-1 single-tenant
-        // mode, setting the legacy TenantContext to the default tenant before lookup is correct.
+        // mode, binding TenantContext to the default tenant before the lookup is correct.
 
         // --- Phase 1: look up the device (temporary tenant binding for DB routing) ---
-        // Set legacy TenantContext for DeviceRepository access (parallel-phase coexistence)
-        if (legacyTenantContext != null && defaultTenantId != null) {
-            legacyTenantContext.set(defaultTenantId);
-        }
-        // E14S11: bind NEW TenantContext so RoutingTenantDataSource can resolve the per-tenant DB.
+        // E14S11: bind TenantContext so RoutingTenantDataSource can resolve the per-tenant DB.
         // This scope is closed immediately after the lookup; the session-duration scope is opened
         // in Phase 2 after all validation checks pass (avoiding nested-bind stack corruption).
         Device device;
-        try {
-            if (defaultTenantId != null) {
-                try (TenantContext.Scope lookupScope = tenantContext.bind(defaultTenantId)) {
-                    device = doLookupDevice(deviceToken);
-                }
-            } else {
+        if (defaultTenantId != null) {
+            try (TenantContext.Scope lookupScope = tenantContext.bind(defaultTenantId)) {
                 device = doLookupDevice(deviceToken);
             }
-        } finally {
-            // Always clear legacy TenantContext — it was only needed for the repository lookup
-            if (legacyTenantContext != null) {
-                legacyTenantContext.clear();
-            }
+        } else {
+            device = doLookupDevice(deviceToken);
         }
 
         // --- Phase 2: validate device and bind session-duration contexts ---
@@ -219,7 +184,7 @@ public class DeviceTokenHandshakeInterceptor implements ChannelInterceptor {
                                 + "(E14S09 AC6)");
             }
 
-            // Bind new TenantContext to device's tenant for session duration
+            // Bind TenantContext to device's tenant for session duration
             TenantContext.Scope tenantScope = tenantContext.bind(device.getTenantId());
 
             // Bind LocationContext (if location assigned) or mark overview mode
