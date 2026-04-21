@@ -1,6 +1,6 @@
 package de.vvwt.tm.tournament;
 
-import de.vvwt.tm.domain.repo.TenantContext;
+import de.vvwt.tm.tenant.TenantContext;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
@@ -72,7 +72,7 @@ public class PhaseRepository {
      * @return the saved phase
      */
     public Phase save(Phase phase) {
-        UUID tenantId = tenantContext.getTenantId();
+        UUID tenantId = tenantContext.current();
         phase.setTenantId(tenantId);
         Integer count = jdbc.queryForObject(EXISTS_BY_ID, Integer.class, phase.getId(), tenantId);
         boolean exists = count != null && count > 0;
@@ -105,7 +105,7 @@ public class PhaseRepository {
      * @return Optional containing the phase if found and in tenant scope, empty otherwise
      */
     public Optional<Phase> findById(UUID id) {
-        UUID tenantId = tenantContext.getTenantId();
+        UUID tenantId = tenantContext.current();
         List<Phase> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id, tenantId);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
@@ -116,7 +116,7 @@ public class PhaseRepository {
      * @return list of phases; never null
      */
     public List<Phase> findAll() {
-        UUID tenantId = tenantContext.getTenantId();
+        UUID tenantId = tenantContext.current();
         return jdbc.query(SELECT_ALL, ROW_MAPPER, tenantId);
     }
 
@@ -129,7 +129,7 @@ public class PhaseRepository {
      * @return list of phases for the given tournament scoped to the active tenant; never null
      */
     public List<Phase> findByTournamentId(UUID tournamentId) {
-        UUID tenantId = tenantContext.getTenantId();
+        UUID tenantId = tenantContext.current();
         return jdbc.query(SELECT_BY_TOURNAMENT, ROW_MAPPER, tournamentId, tenantId);
     }
 
@@ -139,7 +139,7 @@ public class PhaseRepository {
      * @param id the phase UUID
      */
     public void deleteById(UUID id) {
-        UUID tenantId = tenantContext.getTenantId();
+        UUID tenantId = tenantContext.current();
         jdbc.update(DELETE_BY_ID, id, tenantId);
     }
 

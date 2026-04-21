@@ -1,6 +1,6 @@
 package de.vvwt.tm.tournament;
 
-import de.vvwt.tm.domain.repo.TenantContext;
+import de.vvwt.tm.tenant.TenantContext;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -78,7 +78,7 @@ public class TeamAvatarRatingRepository {
      * @return the saved rating
      */
     public TeamAvatarRating save(TeamAvatarRating rating) {
-        UUID currentTenantId = tenantContext.getTenantId();
+        UUID currentTenantId = tenantContext.current();
         rating.setTenantId(currentTenantId);
 
         Integer count =
@@ -131,7 +131,7 @@ public class TeamAvatarRatingRepository {
      * @return Optional.of(rating) if found, Optional.empty() if not found or wrong tenant
      */
     public Optional<TeamAvatarRating> findByAvatarId(UUID avatarId) {
-        UUID tenantId = tenantContext.getTenantId();
+        UUID tenantId = tenantContext.current();
         List<TeamAvatarRating> results =
                 jdbc.query(SELECT_BY_AVATAR_ID, ROW_MAPPER, avatarId, tenantId);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
@@ -143,7 +143,7 @@ public class TeamAvatarRatingRepository {
      * @param avatarId the avatar UUID (PK)
      */
     public void deleteByAvatarId(UUID avatarId) {
-        UUID tenantId = tenantContext.getTenantId();
+        UUID tenantId = tenantContext.current();
         jdbc.update(DELETE_BY_AVATAR_ID, avatarId, tenantId);
     }
 

@@ -1,6 +1,6 @@
 package de.vvwt.tm.tournament;
 
-import de.vvwt.tm.domain.repo.TenantContext;
+import de.vvwt.tm.tenant.TenantContext;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -78,7 +78,7 @@ public class TournamentRepository {
      * @return the saved tournament
      */
     public Tournament save(Tournament tournament) {
-        UUID currentTenantId = tenantContext.getTenantId();
+        UUID currentTenantId = tenantContext.current();
         tournament.setTenantId(currentTenantId);
 
         boolean exists =
@@ -142,7 +142,7 @@ public class TournamentRepository {
      * @return Optional.of(tournament) if found, Optional.empty() if not found or wrong tenant
      */
     public Optional<Tournament> findById(UUID id) {
-        UUID tenantId = tenantContext.getTenantId();
+        UUID tenantId = tenantContext.current();
         List<Tournament> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id, tenantId);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
@@ -153,7 +153,7 @@ public class TournamentRepository {
      * @return immutable list of tournaments; never null
      */
     public List<Tournament> findAll() {
-        UUID tenantId = tenantContext.getTenantId();
+        UUID tenantId = tenantContext.current();
         return jdbc.query(SELECT_ALL, ROW_MAPPER, tenantId);
     }
 
@@ -163,7 +163,7 @@ public class TournamentRepository {
      * @param id the tournament UUID
      */
     public void deleteById(UUID id) {
-        UUID tenantId = tenantContext.getTenantId();
+        UUID tenantId = tenantContext.current();
         jdbc.update(DELETE_BY_ID, id, tenantId);
     }
 

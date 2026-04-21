@@ -1,6 +1,6 @@
 package de.vvwt.tm.tournament;
 
-import de.vvwt.tm.domain.repo.TenantContext;
+import de.vvwt.tm.tenant.TenantContext;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -82,7 +82,7 @@ public class TeamRepository {
      * @return the saved team
      */
     public Team save(Team team) {
-        UUID currentTenantId = tenantContext.getTenantId();
+        UUID currentTenantId = tenantContext.current();
         team.setTenantId(currentTenantId);
 
         Integer count =
@@ -122,7 +122,7 @@ public class TeamRepository {
      * @return Optional.of(team) if found, Optional.empty() if not found or wrong tenant
      */
     public Optional<Team> findById(UUID id) {
-        UUID tenantId = tenantContext.getTenantId();
+        UUID tenantId = tenantContext.current();
         List<Team> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id, tenantId);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
@@ -135,7 +135,7 @@ public class TeamRepository {
      * @return list of teams; never null
      */
     public List<Team> findByTournamentId(UUID tournamentId) {
-        UUID tenantId = tenantContext.getTenantId();
+        UUID tenantId = tenantContext.current();
         return jdbc.query(SELECT_BY_TOURNAMENT, ROW_MAPPER, tournamentId, tenantId);
     }
 
@@ -145,7 +145,7 @@ public class TeamRepository {
      * @param id the team UUID
      */
     public void deleteById(UUID id) {
-        UUID tenantId = tenantContext.getTenantId();
+        UUID tenantId = tenantContext.current();
         jdbc.update(DELETE_BY_ID, id, tenantId);
     }
 

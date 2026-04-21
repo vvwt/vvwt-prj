@@ -1,6 +1,6 @@
 package de.vvwt.tm.tournament;
 
-import de.vvwt.tm.domain.repo.TenantContext;
+import de.vvwt.tm.tenant.TenantContext;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
@@ -65,7 +65,7 @@ public class RoundSnapshotRepository {
      * @return the saved snapshot
      */
     public RoundSnapshot save(RoundSnapshot snapshot) {
-        UUID tenantId = tenantContext.getTenantId();
+        UUID tenantId = tenantContext.current();
         snapshot.setTenantId(tenantId);
         Integer count =
                 jdbc.queryForObject(EXISTS_BY_ID, Integer.class, snapshot.getId(), tenantId);
@@ -90,7 +90,7 @@ public class RoundSnapshotRepository {
      * @return Optional containing the snapshot if found and in tenant scope, empty otherwise
      */
     public Optional<RoundSnapshot> findById(UUID id) {
-        UUID tenantId = tenantContext.getTenantId();
+        UUID tenantId = tenantContext.current();
         List<RoundSnapshot> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id, tenantId);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
@@ -101,7 +101,7 @@ public class RoundSnapshotRepository {
      * @return list of snapshots; never null
      */
     public List<RoundSnapshot> findAll() {
-        UUID tenantId = tenantContext.getTenantId();
+        UUID tenantId = tenantContext.current();
         return jdbc.query(SELECT_ALL, ROW_MAPPER, tenantId);
     }
 
@@ -111,7 +111,7 @@ public class RoundSnapshotRepository {
      * @param id the snapshot UUID
      */
     public void deleteById(UUID id) {
-        UUID tenantId = tenantContext.getTenantId();
+        UUID tenantId = tenantContext.current();
         jdbc.update(DELETE_BY_ID, id, tenantId);
     }
 

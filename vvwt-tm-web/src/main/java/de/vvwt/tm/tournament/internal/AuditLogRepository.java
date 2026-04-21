@@ -1,6 +1,6 @@
 package de.vvwt.tm.tournament.internal;
 
-import de.vvwt.tm.domain.repo.TenantContext;
+import de.vvwt.tm.tenant.TenantContext;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -79,7 +79,7 @@ public class AuditLogRepository {
      * @throws IllegalStateException if no tenant context is active
      */
     public AuditLogEntry save(AuditLogEntry entry) {
-        UUID currentTenantId = tenantContext.getTenantId(); // guard fires here
+        UUID currentTenantId = tenantContext.current(); // guard fires here
         entry.setTenantId(currentTenantId);
         jdbc.update(
                 INSERT_SQL,
@@ -108,7 +108,7 @@ public class AuditLogRepository {
      * @throws IllegalStateException if no tenant context is active
      */
     public Optional<AuditLogEntry> findById(UUID id) {
-        UUID tenantId = tenantContext.getTenantId(); // guard fires here
+        UUID tenantId = tenantContext.current(); // guard fires here
         List<AuditLogEntry> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id, tenantId);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
@@ -124,7 +124,7 @@ public class AuditLogRepository {
      */
     public List<AuditLogEntry> findByMatchIdAndSetIndexOrderByChangedAt(
             UUID matchId, int setIndex) {
-        UUID tenantId = tenantContext.getTenantId(); // guard fires here
+        UUID tenantId = tenantContext.current(); // guard fires here
         return jdbc.query(SELECT_BY_MATCH_SET, ROW_MAPPER, matchId, setIndex, tenantId);
     }
 

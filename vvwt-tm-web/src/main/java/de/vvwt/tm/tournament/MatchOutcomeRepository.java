@@ -1,6 +1,6 @@
 package de.vvwt.tm.tournament;
 
-import de.vvwt.tm.domain.repo.TenantContext;
+import de.vvwt.tm.tenant.TenantContext;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -65,7 +65,7 @@ public class MatchOutcomeRepository {
      * @throws IllegalStateException if no tenant context is active
      */
     public MatchOutcome save(MatchOutcome matchOutcome) {
-        UUID currentTenantId = tenantContext.getTenantId(); // guard fires here
+        UUID currentTenantId = tenantContext.current(); // guard fires here
         matchOutcome.setTenantId(currentTenantId);
 
         Integer count =
@@ -110,7 +110,7 @@ public class MatchOutcomeRepository {
      * @throws IllegalStateException if no tenant context is active
      */
     public Optional<MatchOutcome> findById(UUID matchId) {
-        UUID tenantId = tenantContext.getTenantId(); // guard fires here
+        UUID tenantId = tenantContext.current(); // guard fires here
         List<MatchOutcome> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, matchId, tenantId);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
@@ -122,7 +122,7 @@ public class MatchOutcomeRepository {
      * @throws IllegalStateException if no tenant context is active
      */
     public void deleteByMatchId(UUID matchId) {
-        UUID tenantId = tenantContext.getTenantId(); // guard fires here
+        UUID tenantId = tenantContext.current(); // guard fires here
         jdbc.update(DELETE_BY_MATCH_ID, matchId, tenantId);
     }
 
