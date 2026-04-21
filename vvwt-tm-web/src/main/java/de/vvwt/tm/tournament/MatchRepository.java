@@ -1,6 +1,6 @@
 package de.vvwt.tm.tournament;
 
-import de.vvwt.tm.domain.repo.TenantContext;
+import de.vvwt.tm.tenant.TenantContext;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -93,7 +93,7 @@ public class MatchRepository {
      * @throws IllegalStateException if no tenant context is active
      */
     public Match save(Match match) {
-        UUID currentTenantId = tenantContext.getTenantId(); // guard fires here
+        UUID currentTenantId = tenantContext.current(); // guard fires here
         match.setTenantId(currentTenantId);
 
         Integer count =
@@ -145,7 +145,7 @@ public class MatchRepository {
      * @throws IllegalStateException if no tenant context is active
      */
     public Optional<Match> findById(UUID id) {
-        UUID tenantId = tenantContext.getTenantId(); // guard fires here
+        UUID tenantId = tenantContext.current(); // guard fires here
         List<Match> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id, tenantId);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
@@ -157,7 +157,7 @@ public class MatchRepository {
      * @throws IllegalStateException if no tenant context is active
      */
     public List<Match> findAll() {
-        UUID tenantId = tenantContext.getTenantId(); // guard fires here
+        UUID tenantId = tenantContext.current(); // guard fires here
         return jdbc.query(SELECT_ALL, ROW_MAPPER, tenantId);
     }
 
@@ -169,7 +169,7 @@ public class MatchRepository {
      * @throws IllegalStateException if no tenant context is active
      */
     public List<Match> findByPhaseId(UUID phaseId) {
-        UUID tenantId = tenantContext.getTenantId(); // guard fires here
+        UUID tenantId = tenantContext.current(); // guard fires here
         return jdbc.query(SELECT_BY_PHASE, ROW_MAPPER, phaseId, tenantId);
     }
 
@@ -182,7 +182,7 @@ public class MatchRepository {
      * @throws IllegalStateException if no tenant context is active
      */
     public List<Match> findByFieldNumberAndLapNumber(int fieldNumber, int lapNumber) {
-        UUID tenantId = tenantContext.getTenantId(); // guard fires here
+        UUID tenantId = tenantContext.current(); // guard fires here
         return jdbc.query(SELECT_BY_FIELD_LAP, ROW_MAPPER, fieldNumber, lapNumber, tenantId);
     }
 
@@ -196,7 +196,7 @@ public class MatchRepository {
      * @throws IllegalStateException if no tenant context is active
      */
     public List<Match> findTerminalByPhaseIdAndAvatarId(UUID phaseId, UUID avatarId) {
-        UUID tenantId = tenantContext.getTenantId(); // guard fires here
+        UUID tenantId = tenantContext.current(); // guard fires here
         return jdbc.query(
                 SELECT_TERMINAL_BY_PHASE_AND_AVATAR,
                 ROW_MAPPER,
@@ -213,7 +213,7 @@ public class MatchRepository {
      * @throws IllegalStateException if no tenant context is active
      */
     public void deleteByPhaseId(UUID phaseId) {
-        UUID tenantId = tenantContext.getTenantId(); // guard fires here
+        UUID tenantId = tenantContext.current(); // guard fires here
         jdbc.update(DELETE_BY_PHASE, phaseId, tenantId);
     }
 
@@ -224,7 +224,7 @@ public class MatchRepository {
      * @throws IllegalStateException if no tenant context is active
      */
     public void deleteById(UUID id) {
-        UUID tenantId = tenantContext.getTenantId(); // guard fires here
+        UUID tenantId = tenantContext.current(); // guard fires here
         jdbc.update(DELETE_BY_ID, id, tenantId);
     }
 

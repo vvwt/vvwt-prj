@@ -3,8 +3,9 @@ package de.vvwt.tm.tournament;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.db.api.Assertions.assertThat;
 
-import de.vvwt.tm.domain.repo.TenantContext;
 import de.vvwt.tm.infrastructure.testsupport.TenantDaoTestSupport;
+import de.vvwt.tm.tenant.TenantContext;
+import de.vvwt.tm.tenant.internal.ThreadLocalTenantContextImpl;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -41,6 +42,7 @@ class PhaseBreakRepositoryIT {
     private AssertDbConnection assertDb;
     private PhaseBreakRepository repo;
     private TenantContext tenantContext;
+    private TenantContext.Scope tenantScope;
     private UUID tenantId;
     private UUID phaseId;
 
@@ -53,22 +55,12 @@ class PhaseBreakRepositoryIT {
         tenantId = UUID.randomUUID();
         UUID tournamentId = UUID.randomUUID();
         phaseId = UUID.randomUUID();
-        // TenantContext for standalone test — uses LOCAL_HOLDER fallback via set()
-        tenantContext =
-                new TenantContext(
-                        new de.vvwt.tm.tenant.TenantContext() {
-                            @Override
-                            public UUID current() {
-                                throw new IllegalStateException(
-                                        "no new context in standalone test");
-                            }
-
-                            @Override
-                            public de.vvwt.tm.tenant.TenantContext.Scope bind(UUID id) {
-                                return () -> {};
-                            }
-                        });
-        tenantContext.set(tenantId);
+        // Standalone test — no Spring context; use ThreadLocalTenantContextImpl directly.
+        // TenantContextTestSupport.Binder requires a full @SpringBootTest application context
+        // (AC-TENANT-BINDER-ADOPTION departure: standalone lifecycle differs — documented in
+        // impl-report).
+        tenantContext = new ThreadLocalTenantContextImpl();
+        tenantScope = tenantContext.bind(tenantId);
         // Insert prerequisite tenant, tournament, and phase rows for FK constraints
         TenantDaoTestSupport.insertDirectly(
                 ds,
@@ -119,7 +111,7 @@ class PhaseBreakRepositoryIT {
 
     @AfterEach
     void tearDown() {
-        tenantContext.clear();
+        tenantScope.close();
     }
 
     /** AC-TDD-PhaseBreakRepository: save persists a PhaseBreak row (Rule 2 — assertj-db). */

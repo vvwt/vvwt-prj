@@ -1,6 +1,6 @@
 package de.vvwt.tm.tournament;
 
-import de.vvwt.tm.domain.repo.TenantContext;
+import de.vvwt.tm.tenant.TenantContext;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -75,7 +75,7 @@ public class TeamAvatarRepository {
      * @return the saved avatar
      */
     public TeamAvatar save(TeamAvatar avatar) {
-        UUID currentTenantId = tenantContext.getTenantId();
+        UUID currentTenantId = tenantContext.current();
         avatar.setTenantId(currentTenantId);
 
         Integer count =
@@ -105,7 +105,7 @@ public class TeamAvatarRepository {
      * @return Optional.of(avatar) if found, Optional.empty() if not found or wrong tenant
      */
     public Optional<TeamAvatar> findById(UUID id) {
-        UUID tenantId = tenantContext.getTenantId();
+        UUID tenantId = tenantContext.current();
         List<TeamAvatar> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id, tenantId);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
@@ -117,7 +117,7 @@ public class TeamAvatarRepository {
      * @return list of avatars; never null
      */
     public List<TeamAvatar> findByTeamId(UUID teamId) {
-        UUID tenantId = tenantContext.getTenantId();
+        UUID tenantId = tenantContext.current();
         return jdbc.query(SELECT_BY_TEAM_ID, ROW_MAPPER, teamId, tenantId);
     }
 
@@ -130,7 +130,7 @@ public class TeamAvatarRepository {
      * @return list of avatars; never null
      */
     public List<TeamAvatar> findByTournamentIdAndPhaseId(UUID tournamentId, UUID phaseId) {
-        UUID tenantId = tenantContext.getTenantId();
+        UUID tenantId = tenantContext.current();
         return jdbc.query(
                 SELECT_BY_TOURNAMENT_AND_PHASE, ROW_MAPPER, tournamentId, phaseId, tenantId);
     }
@@ -141,7 +141,7 @@ public class TeamAvatarRepository {
      * @param id the avatar UUID
      */
     public void deleteById(UUID id) {
-        UUID tenantId = tenantContext.getTenantId();
+        UUID tenantId = tenantContext.current();
         jdbc.update(DELETE_BY_ID, id, tenantId);
     }
 

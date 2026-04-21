@@ -1,6 +1,6 @@
 package de.vvwt.tm.tournament;
 
-import de.vvwt.tm.domain.repo.TenantContext;
+import de.vvwt.tm.tenant.TenantContext;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -68,7 +68,7 @@ public class SetResultRepository {
      * @throws IllegalArgumentException if the entity's tenantId does not match the active context
      */
     public void insert(SetResult setResult) {
-        UUID activeTenant = tenantContext.getTenantId(); // guard fires here
+        UUID activeTenant = tenantContext.current(); // guard fires here
         validateTenant(setResult.getTenantId(), activeTenant, setResult);
         jdbc.update(
                 INSERT_SQL,
@@ -88,7 +88,7 @@ public class SetResultRepository {
      * @throws IllegalStateException if no tenant context is active
      */
     public void update(SetResult setResult) {
-        UUID activeTenant = tenantContext.getTenantId(); // guard fires here
+        UUID activeTenant = tenantContext.current(); // guard fires here
         validateTenant(setResult.getTenantId(), activeTenant, setResult);
         jdbc.update(
                 UPDATE_SQL,
@@ -108,7 +108,7 @@ public class SetResultRepository {
      * @throws IllegalStateException if no tenant context is active
      */
     public List<SetResult> findByMatchId(UUID matchId) {
-        UUID activeTenant = tenantContext.getTenantId(); // guard fires here
+        UUID activeTenant = tenantContext.current(); // guard fires here
         return jdbc.query(SELECT_BY_MATCH, ROW_MAPPER, matchId, activeTenant);
     }
 
@@ -122,7 +122,7 @@ public class SetResultRepository {
      * @throws IllegalStateException if no tenant context is active
      */
     public Optional<SetResult> findByMatchIdAndSetIndex(UUID matchId, int setIndex) {
-        UUID activeTenant = tenantContext.getTenantId(); // guard fires here
+        UUID activeTenant = tenantContext.current(); // guard fires here
         List<SetResult> results =
                 jdbc.query(SELECT_BY_PK, ROW_MAPPER, matchId, setIndex, activeTenant);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
@@ -136,7 +136,7 @@ public class SetResultRepository {
      * @throws IllegalStateException if no tenant context is active
      */
     public void deleteByMatchIdAndSetIndex(UUID matchId, int setIndex) {
-        UUID activeTenant = tenantContext.getTenantId(); // guard fires here
+        UUID activeTenant = tenantContext.current(); // guard fires here
         jdbc.update(DELETE_BY_PK, matchId, setIndex, activeTenant);
     }
 
