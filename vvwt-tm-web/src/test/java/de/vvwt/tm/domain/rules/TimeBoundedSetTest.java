@@ -2,8 +2,8 @@ package de.vvwt.tm.domain.rules;
 
 import static org.assertj.core.api.Assertions.*;
 
-import de.vvwt.tm.domain.MatchFormat;
-import de.vvwt.tm.domain.MatchState;
+import de.vvwt.tm.tournament.MatchFormat;
+import de.vvwt.tm.tournament.MatchState;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;

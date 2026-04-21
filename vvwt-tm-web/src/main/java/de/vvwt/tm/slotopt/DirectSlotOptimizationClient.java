@@ -1,8 +1,8 @@
 package de.vvwt.tm.slotopt;
 
-import de.vvwt.tm.domain.Match;
-import de.vvwt.tm.domain.repo.MatchRepository;
-import de.vvwt.tm.domain.repo.PhaseRepository;
+import de.vvwt.tm.tournament.Match;
+import de.vvwt.tm.tournament.MatchRepository;
+import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.worker.codec.LehmerCodec;
 import de.vvwt.worker.solver.PacketSolver;
 import de.vvwt.worker.types.CanonicalPhaseDef;

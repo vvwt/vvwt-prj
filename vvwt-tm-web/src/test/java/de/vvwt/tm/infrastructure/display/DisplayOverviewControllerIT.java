@@ -3,26 +3,27 @@ package de.vvwt.tm.infrastructure.display;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.domain.Device;
-import de.vvwt.tm.domain.Match;
-import de.vvwt.tm.domain.MatchState;
-import de.vvwt.tm.domain.Phase;
-import de.vvwt.tm.domain.Team;
-import de.vvwt.tm.domain.TeamAvatar;
-import de.vvwt.tm.domain.TeamAvatarRating;
-import de.vvwt.tm.domain.Tournament;
-import de.vvwt.tm.domain.repo.DeviceRepository;
-import de.vvwt.tm.domain.repo.MatchRepository;
-import de.vvwt.tm.domain.repo.PhaseRepository;
-import de.vvwt.tm.domain.repo.TeamAvatarRatingRepository;
-import de.vvwt.tm.domain.repo.TeamAvatarRepository;
-import de.vvwt.tm.domain.repo.TeamRepository;
-import de.vvwt.tm.domain.repo.TournamentRepository;
 import de.vvwt.tm.infrastructure.display.dto.DisplayGroupStandingsResponse;
 import de.vvwt.tm.infrastructure.display.dto.DisplayMatchesResponse;
 import de.vvwt.tm.infrastructure.display.dto.DisplayPhaseOverviewResponse;
-import de.vvwt.tm.infrastructure.web.GlobalExceptionHandler;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import de.vvwt.tm.tournament.ApiErrorResponse;
+import de.vvwt.tm.tournament.Device;
+import de.vvwt.tm.tournament.Match;
+import de.vvwt.tm.tournament.MatchRepository;
+import de.vvwt.tm.tournament.MatchState;
+import de.vvwt.tm.tournament.Phase;
+import de.vvwt.tm.tournament.PhaseRepository;
+import de.vvwt.tm.tournament.Team;
+import de.vvwt.tm.tournament.TeamAvatar;
+import de.vvwt.tm.tournament.TeamAvatarRating;
+import de.vvwt.tm.tournament.TeamAvatarRatingRepository;
+import de.vvwt.tm.tournament.TeamAvatarRepository;
+import de.vvwt.tm.tournament.TeamRepository;
+import de.vvwt.tm.tournament.Tournament;
+import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.internal.DeviceRepository;
+import de.vvwt.tm.tournament.internal.web.GlobalExceptionHandler;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -471,10 +472,10 @@ class DisplayOverviewControllerIT {
 
     @Test
     void phaseOverviewReturns401ForInvalidToken() {
-        ResponseEntity<de.vvwt.tm.infrastructure.web.ApiErrorResponse> response =
+        ResponseEntity<ApiErrorResponse> response =
                 restTemplate.getForEntity(
                         baseUrl + "/api/display/overview?token=invalid-token-xyz",
-                        de.vvwt.tm.infrastructure.web.ApiErrorResponse.class);
+                        ApiErrorResponse.class);
 
         assertThat(response.getStatusCode())
                 .as("AC4 — invalid token must return 401")
@@ -488,10 +489,10 @@ class DisplayOverviewControllerIT {
     @Test
     void phaseOverviewReturns401ForScoringTabletToken() {
         // AC4: scoring tablet tokens (SCORING_TABLET type) must be rejected by display endpoints
-        ResponseEntity<de.vvwt.tm.infrastructure.web.ApiErrorResponse> response =
+        ResponseEntity<ApiErrorResponse> response =
                 restTemplate.getForEntity(
                         baseUrl + "/api/display/overview?token=" + scoringTabletToken,
-                        de.vvwt.tm.infrastructure.web.ApiErrorResponse.class);
+                        ApiErrorResponse.class);
 
         assertThat(response.getStatusCode())
                 .as("AC4 — scoring tablet token must return 401 on display endpoint")
@@ -500,10 +501,10 @@ class DisplayOverviewControllerIT {
 
     @Test
     void matchesEndpointReturns401ForInvalidToken() {
-        ResponseEntity<de.vvwt.tm.infrastructure.web.ApiErrorResponse> response =
+        ResponseEntity<ApiErrorResponse> response =
                 restTemplate.getForEntity(
                         baseUrl + "/api/display/overview/matches?token=bad-token",
-                        de.vvwt.tm.infrastructure.web.ApiErrorResponse.class);
+                        ApiErrorResponse.class);
 
         assertThat(response.getStatusCode())
                 .as("AC4 — invalid token on matches endpoint must return 401")
@@ -512,10 +513,10 @@ class DisplayOverviewControllerIT {
 
     @Test
     void groupsEndpointReturns401ForInvalidToken() {
-        ResponseEntity<de.vvwt.tm.infrastructure.web.ApiErrorResponse> response =
+        ResponseEntity<ApiErrorResponse> response =
                 restTemplate.getForEntity(
                         baseUrl + "/api/display/overview/groups?token=bad-token",
-                        de.vvwt.tm.infrastructure.web.ApiErrorResponse.class);
+                        ApiErrorResponse.class);
 
         assertThat(response.getStatusCode())
                 .as("AC4 — invalid token on groups endpoint must return 401")
@@ -598,10 +599,9 @@ class DisplayOverviewControllerIT {
     @Test
     void missingTokenParameterReturns400() {
         // Spring MVC throws MissingServletRequestParameterException for required params
-        ResponseEntity<de.vvwt.tm.infrastructure.web.ApiErrorResponse> response =
+        ResponseEntity<ApiErrorResponse> response =
                 restTemplate.getForEntity(
-                        baseUrl + "/api/display/overview",
-                        de.vvwt.tm.infrastructure.web.ApiErrorResponse.class);
+                        baseUrl + "/api/display/overview", ApiErrorResponse.class);
 
         assertThat(response.getStatusCode())
                 .as("AC10 — missing token parameter must return 400")

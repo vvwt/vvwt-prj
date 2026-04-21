@@ -94,14 +94,14 @@ class DeviceControllerIT {
 
     @Test
     @DisplayName(
-            "authenticated POST /api/tm/devices/register creates SCORING_TABLET; assertj-db"
+            "authenticated POST /api/devices/register creates SCORING_TABLET; assertj-db"
                     + " verifies row")
     void authenticatedPostRegisterCreatesDeviceAndPersistsRow() throws Exception {
         DeviceRegisterRequest request = new DeviceRegisterRequest("SCORING_TABLET");
 
         ResponseEntity<DeviceRegisterResponse> response =
                 authed.postForEntity(
-                        new URI(baseUrl + "/api/tm/devices/register"),
+                        new URI(baseUrl + "/api/devices/register"),
                         request,
                         DeviceRegisterResponse.class);
 
@@ -130,21 +130,25 @@ class DeviceControllerIT {
     }
 
     // =========================================================================
-    // Security: unauthenticated POST → 401
+    // Security: unauthenticated POST → 201 (register is public — devices self-register)
     // =========================================================================
 
     @Test
-    @DisplayName("unauthenticated POST /api/tm/devices/register returns 401")
-    void unauthenticatedPostRegisterReturns401() throws Exception {
+    @DisplayName("unauthenticated POST /api/devices/register returns 201 (public endpoint)")
+    void unauthenticatedPostRegisterReturns201() throws Exception {
+        // POST /api/devices/register is public (permitAll) — scoring tablets register without
+        // admin credentials (E21S13 cutover: transitional /api/tm/devices/register was not
+        // in the permit-list, so this test previously returned 401 on the transitional URL;
+        // after URL normalization to /api/devices/register the correct behavior is 201).
         DeviceRegisterRequest request = new DeviceRegisterRequest("SCORING_TABLET");
 
         ResponseEntity<String> response =
                 restTemplate.postForEntity(
-                        new URI(baseUrl + "/api/tm/devices/register"), request, String.class);
+                        new URI(baseUrl + "/api/devices/register"), request, String.class);
 
         assertThat(response.getStatusCode())
-                .as("unauthenticated request must return 401")
-                .isEqualTo(HttpStatus.UNAUTHORIZED);
+                .as("unauthenticated register must return 201 (public endpoint)")
+                .isEqualTo(HttpStatus.CREATED);
     }
 
     // =========================================================================

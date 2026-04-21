@@ -1,7 +1,7 @@
 package de.vvwt.tm.domain.rules;
 
-import de.vvwt.tm.domain.MatchFormat;
-import de.vvwt.tm.domain.MatchOutcome;
+import de.vvwt.tm.tournament.MatchFormat;
+import de.vvwt.tm.tournament.MatchOutcome;
 
 /**
  * Strategy interface for computing team points from a completed match result (D-15).

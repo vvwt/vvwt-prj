@@ -65,12 +65,18 @@ public class DeviceRepository {
 
     private static final String SELECT_BY_PIN = "SELECT * FROM devices WHERE tenant_id=? AND pin=?";
 
-    private static final String SELECT_BY_LOCATION_AND_FIELD =
+    private static final String SELECT_BY_LOCATION_AND_FIELD_WITH_LOCATION =
             "SELECT * FROM devices WHERE tenant_id=? AND location_id=? AND assigned_field=?";
+
+    private static final String SELECT_BY_FIELD_NO_LOCATION =
+            "SELECT * FROM devices WHERE tenant_id=? AND location_id IS NULL AND assigned_field=?";
 
     private static final String SELECT_ALL_BY_TENANT = "SELECT * FROM devices WHERE tenant_id=?";
 
     private static final String COUNT_BY_TENANT = "SELECT COUNT(*) FROM devices WHERE tenant_id=?";
+
+    private static final String COUNT_DISPLAY_BY_TENANT =
+            "SELECT COUNT(*) FROM devices WHERE tenant_id=? AND device_type='DISPLAY'";
 
     private static final String EXISTS_BY_ID =
             "SELECT COUNT(*) FROM devices WHERE id=? AND tenant_id=?";
@@ -79,6 +85,11 @@ public class DeviceRepository {
             "SELECT COUNT(*) FROM devices WHERE tenant_id=? AND pin=?";
 
     private static final String DELETE_BY_ID = "DELETE FROM devices WHERE id=? AND tenant_id=?";
+
+    private static final String DELETE_ALL_BY_TENANT = "DELETE FROM devices WHERE tenant_id=?";
+
+    private static final String COUNT_LOCATION_BY_TENANT =
+            "SELECT COUNT(*) FROM locations WHERE id=? AND tenant_id=?";
 
     /**
      * Constructs the repository with its required collaborators.
@@ -194,21 +205,27 @@ public class DeviceRepository {
      * Returns the device assigned to the given location and field number for the current tenant.
      *
      * <p>Used for field-assignment conflict checking — ensures no two devices are assigned to the
-     * same location + field.
+     * same location + field. Handles null locationId via a separate IS NULL query (SQL {@code = ?}
+     * with a null parameter does not match rows with {@code location_id IS NULL}).
      *
-     * @param locationId the location UUID
+     * @param locationId the location UUID (may be null for devices without a location assignment)
      * @param assignedField the field number (1-based)
      * @return Optional.of(device) if a device is assigned there, Optional.empty() otherwise
      */
     public Optional<Device> findByLocationAndField(UUID locationId, int assignedField) {
         UUID tenantId = tenantContext.current();
-        List<Device> results =
-                jdbc.query(
-                        SELECT_BY_LOCATION_AND_FIELD,
-                        ROW_MAPPER,
-                        tenantId,
-                        locationId,
-                        assignedField);
+        List<Device> results;
+        if (locationId == null) {
+            results = jdbc.query(SELECT_BY_FIELD_NO_LOCATION, ROW_MAPPER, tenantId, assignedField);
+        } else {
+            results =
+                    jdbc.query(
+                            SELECT_BY_LOCATION_AND_FIELD_WITH_LOCATION,
+                            ROW_MAPPER,
+                            tenantId,
+                            locationId,
+                            assignedField);
+        }
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
@@ -236,6 +253,20 @@ public class DeviceRepository {
     }
 
     /**
+     * Returns the count of DISPLAY devices for the given tenant.
+     *
+     * <p>Used for display-device limit enforcement (E21S13 cutover — DEC-22 refactor phase,
+     * migrated from legacy {@code de.vvwt.tm.config.DeviceLimitConfig}).
+     *
+     * @param tenantId the tenant UUID
+     * @return number of DISPLAY devices registered for this tenant
+     */
+    public long countDisplayByTenant(UUID tenantId) {
+        Long count = jdbc.queryForObject(COUNT_DISPLAY_BY_TENANT, Long.class, tenantId);
+        return count != null ? count : 0L;
+    }
+
+    /**
      * Returns {@code true} if the given PIN is already in use by any device of the current tenant.
      *
      * <p>Used for PIN uniqueness guard during SCORING_TABLET registration.
@@ -257,6 +288,36 @@ public class DeviceRepository {
     public void deleteById(UUID id) {
         UUID tenantId = tenantContext.current();
         jdbc.update(DELETE_BY_ID, id, tenantId);
+    }
+
+    /**
+     * Returns {@code true} if the given location exists for the given tenant.
+     *
+     * <p>Used by {@link DeviceService#assignLocation} to validate cross-tenant location assignment
+     * (AC8 — cross-tenant guard). Migrated from the deleted legacy {@code
+     * de.vvwt.tm.domain.DeviceService#validateLocationBelongsToTenant} during E21S13 cutover
+     * (DEC-22 refactor phase — behavior-preserving).
+     *
+     * @param locationId the location UUID to validate
+     * @param tenantId the active tenant UUID
+     * @return {@code true} if the location exists in this tenant, {@code false} otherwise
+     */
+    public boolean locationExistsForTenant(UUID locationId, UUID tenantId) {
+        Integer count =
+                jdbc.queryForObject(COUNT_LOCATION_BY_TENANT, Integer.class, locationId, tenantId);
+        return count != null && count > 0;
+    }
+
+    /**
+     * Deletes all devices for the current tenant.
+     *
+     * <p>Migrated from the deleted legacy {@code de.vvwt.tm.domain.repo.DeviceRepository} during
+     * E21S13 cutover (DEC-22 refactor phase — behavior-preserving). Used by the admin "clear all
+     * devices" endpoint (E06S05-AC7).
+     */
+    public void deleteAllByTenant() {
+        UUID tenantId = tenantContext.current();
+        jdbc.update(DELETE_ALL_BY_TENANT, tenantId);
     }
 
     // -------------------------------------------------------------------------

@@ -239,8 +239,8 @@ class RoundRobinMatchGeneratorTest extends MatchGeneratorAbstractTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void getBeanId_returnsRoundRobinNew() {
-        assertThat(generator.getBeanId()).isEqualTo("roundRobinNew");
+    void getBeanId_returnsRoundRobin() {
+        assertThat(generator.getBeanId()).isEqualTo("roundRobin");
     }
 
     // -------------------------------------------------------------------------

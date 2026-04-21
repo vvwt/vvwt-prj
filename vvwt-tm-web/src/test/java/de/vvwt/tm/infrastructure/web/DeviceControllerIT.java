@@ -3,11 +3,12 @@ package de.vvwt.tm.infrastructure.web;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.infrastructure.web.dto.DeviceAssignRequest;
-import de.vvwt.tm.infrastructure.web.dto.DeviceRegisterResponse;
-import de.vvwt.tm.infrastructure.web.dto.DeviceStatusResponse;
-import de.vvwt.tm.infrastructure.web.dto.DeviceSummaryResponse;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import de.vvwt.tm.tournament.ApiErrorResponse;
+import de.vvwt.tm.tournament.internal.dto.DeviceAssignRequest;
+import de.vvwt.tm.tournament.internal.dto.DeviceRegisterResponse;
+import de.vvwt.tm.tournament.internal.dto.DeviceStatusResponse;
+import de.vvwt.tm.tournament.internal.dto.DeviceSummaryResponse;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
@@ -67,7 +68,10 @@ import org.springframework.test.context.ActiveProfiles;
         },
         properties = {
             "spring.datasource.url=jdbc:h2:mem:e06s03ctrldb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
-                + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
+                + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE",
+            // Raise the device cap — this IT uses a persistent H2 DB shared across all 23+ test
+            // methods (no per-test cleanup), so devices accumulate beyond the default cap of 10.
+            "vvwt.devices.tm.max-device-count=100"
         })
 @ActiveProfiles("test")
 @Import(TenantContextTestSupport.class)

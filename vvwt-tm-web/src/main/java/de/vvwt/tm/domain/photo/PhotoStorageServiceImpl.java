@@ -1,7 +1,8 @@
 package de.vvwt.tm.domain.photo;
 
-import de.vvwt.tm.domain.repo.TeamRepository;
-import de.vvwt.tm.domain.repo.TournamentRepository;
+import de.vvwt.tm.tournament.Team;
+import de.vvwt.tm.tournament.TeamRepository;
+import de.vvwt.tm.tournament.TournamentRepository;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -399,7 +400,7 @@ public class PhotoStorageServiceImpl implements PhotoStorageService {
      * @throws NoSuchElementException if team not found, wrong tenant, or wrong tournament
      */
     private void requireTeamInTournament(UUID tournamentId, UUID teamId) {
-        de.vvwt.tm.domain.Team team =
+        Team team =
                 teamRepository
                         .findById(teamId)
                         .orElseThrow(() -> new NoSuchElementException("Team not found: " + teamId));

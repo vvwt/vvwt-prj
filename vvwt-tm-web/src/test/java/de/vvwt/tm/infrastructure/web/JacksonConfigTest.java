@@ -3,6 +3,7 @@ package de.vvwt.tm.infrastructure.web;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.vvwt.tm.tournament.internal.web.JacksonConfig;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;

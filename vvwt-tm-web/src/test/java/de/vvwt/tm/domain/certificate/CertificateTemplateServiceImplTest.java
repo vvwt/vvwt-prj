@@ -7,9 +7,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import de.vvwt.tm.domain.Tournament;
 import de.vvwt.tm.domain.repo.CertificateTemplateRepository;
-import de.vvwt.tm.domain.repo.TournamentRepository;
+import de.vvwt.tm.tournament.Tournament;
+import de.vvwt.tm.tournament.TournamentRepository;
 import java.io.ByteArrayInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;

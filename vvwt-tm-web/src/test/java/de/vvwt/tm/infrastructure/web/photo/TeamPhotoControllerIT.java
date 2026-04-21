@@ -3,11 +3,11 @@ package de.vvwt.tm.infrastructure.web.photo;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.infrastructure.web.dto.TeamCreateRequest;
-import de.vvwt.tm.infrastructure.web.dto.TeamResponse;
-import de.vvwt.tm.infrastructure.web.dto.TournamentCreateRequest;
-import de.vvwt.tm.infrastructure.web.dto.TournamentResponse;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import de.vvwt.tm.tournament.internal.dto.TeamCreateRequest;
+import de.vvwt.tm.tournament.internal.dto.TeamResponse;
+import de.vvwt.tm.tournament.internal.dto.TournamentCreateRequest;
+import de.vvwt.tm.tournament.internal.dto.TournamentResponse;
 import java.net.URI;
 import java.time.Instant;
 import java.util.UUID;

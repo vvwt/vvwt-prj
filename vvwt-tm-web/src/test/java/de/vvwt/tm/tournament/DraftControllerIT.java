@@ -111,7 +111,7 @@ class DraftControllerIT {
                         "roundRobin");
         ResponseEntity<TournamentResponse> tournamentResponse =
                 authed.postForEntity(
-                        new URI(baseUrl + "/api/tm/tournaments"),
+                        new URI(baseUrl + "/api/tournaments"),
                         tournamentRequest,
                         TournamentResponse.class);
         assertThat(tournamentResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
@@ -124,7 +124,7 @@ class DraftControllerIT {
         DraftRequest draftRequest = new DraftRequest(List.of(section));
         ResponseEntity<DraftApplyResponse> applyResponse =
                 authed.postForEntity(
-                        new URI(baseUrl + "/api/tm/tournaments/" + tournamentId + "/draft/apply"),
+                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/draft/apply"),
                         draftRequest,
                         DraftApplyResponse.class);
 
@@ -166,11 +166,7 @@ class DraftControllerIT {
 
         ResponseEntity<String> response =
                 restTemplate.postForEntity(
-                        new URI(
-                                baseUrl
-                                        + "/api/tm/tournaments/"
-                                        + anyTournamentId
-                                        + "/draft/apply"),
+                        new URI(baseUrl + "/api/tournaments/" + anyTournamentId + "/draft/apply"),
                         draftRequest,
                         String.class);
 

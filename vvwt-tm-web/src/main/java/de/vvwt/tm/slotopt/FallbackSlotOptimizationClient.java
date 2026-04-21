@@ -1,7 +1,7 @@
 package de.vvwt.tm.slotopt;
 
-import de.vvwt.tm.domain.Match;
-import de.vvwt.tm.domain.repo.MatchRepository;
+import de.vvwt.tm.tournament.Match;
+import de.vvwt.tm.tournament.MatchRepository;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;

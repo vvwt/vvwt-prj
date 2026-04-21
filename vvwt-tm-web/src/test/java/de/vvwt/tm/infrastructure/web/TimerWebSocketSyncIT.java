@@ -5,9 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.domain.event.LapAdvancedEvent;
-import de.vvwt.tm.domain.event.PhaseStatusChangedEvent;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import de.vvwt.tm.tournament.events.LapAdvancedEvent;
+import de.vvwt.tm.tournament.events.PhaseStatusChangedEvent;
+import de.vvwt.tm.tournament.internal.web.DomainEventBridge;
 import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;

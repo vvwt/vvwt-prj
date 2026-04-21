@@ -1,9 +1,9 @@
 package de.vvwt.tm.infrastructure.web;
 
-import de.vvwt.tm.domain.Device;
-import de.vvwt.tm.domain.repo.DeviceRepository;
 import de.vvwt.tm.tenant.LocationContext;
 import de.vvwt.tm.tenant.TenantContext;
+import de.vvwt.tm.tournament.Device;
+import de.vvwt.tm.tournament.internal.DeviceRepository;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;

@@ -35,13 +35,10 @@ import org.springframework.stereotype.Component;
  *
  * <h2>Bean qualifier</h2>
  *
- * <p>{@code @Component("roundRobinNew")} — avoids Spring bean-name collision with the legacy
- * {@code @Component("roundRobin")} in {@code de.vvwt.tm.domain.generator.RoundRobinMatchGenerator}
- * during the reconstruction-in-place phase. At E21S13 cutover the legacy bean is deleted and the
- * qualifier can be renamed to {@code "roundRobin"} if desired.
- *
- * <p>Legacy {@code de.vvwt.tm.domain.generator.RoundRobinMatchGenerator} remains untouched until
- * E21S13 atomic cutover per DEC-32.
+ * <p>{@code @Component("roundRobin")} — renamed from {@code "roundRobin"} at E21S13 atomic cutover
+ * after the legacy {@code @Component("roundRobin")} in {@code
+ * de.vvwt.tm.domain.generator.RoundRobinMatchGenerator} was deleted (DEC-32 — mechanical
+ * FQN-rewrite).
  *
  * @see MatchGenerator
  * @see de.vvwt.tm.tournament.MatchGeneratorRegistry
@@ -49,7 +46,7 @@ import org.springframework.stereotype.Component;
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law (reconstruction-in-place)</a>
  * @see <a href="E21S08">E21S08 — inventory row 258</a>
  */
-@Component("roundRobinNew")
+@Component("roundRobin")
 public class RoundRobinMatchGenerator implements MatchGenerator {
 
     private static final Logger LOG = LoggerFactory.getLogger(RoundRobinMatchGenerator.class);
@@ -74,7 +71,7 @@ public class RoundRobinMatchGenerator implements MatchGenerator {
 
     @Override
     public String getBeanId() {
-        return "roundRobinNew";
+        return "roundRobin";
     }
 
     /**
@@ -107,7 +104,7 @@ public class RoundRobinMatchGenerator implements MatchGenerator {
 
         if (avatars.size() < 2) {
             LOG.info(
-                    "[roundRobinNew] generate: avatarCount={}, matches=0 (< 2 — no matches"
+                    "[roundRobin] generate: avatarCount={}, matches=0 (< 2 — no matches"
                             + " possible)",
                     avatars.size());
             return Collections.emptyList();
@@ -148,11 +145,11 @@ public class RoundRobinMatchGenerator implements MatchGenerator {
                             null,
                             now);
             matches.add(match);
-            LOG.debug("[roundRobinNew] pairing: {} vs {}", pair[0], pair[1]);
+            LOG.debug("[roundRobin] pairing: {} vs {}", pair[0], pair[1]);
         }
 
         LOG.info(
-                "[roundRobinNew] generate: avatarCount={}, matchesGenerated={}",
+                "[roundRobin] generate: avatarCount={}, matchesGenerated={}",
                 avatars.size(),
                 matches.size());
 

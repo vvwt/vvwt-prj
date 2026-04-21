@@ -88,7 +88,7 @@ class TeamControllerIT {
         baseUrl = "http://localhost:" + port;
         authed = restTemplate.withBasicAuth(ADMIN_USER, ADMIN_PASS);
 
-        // Create a tournament fixture via the /api/tm/tournaments endpoint
+        // Create a tournament fixture via the /api/tournaments endpoint
         var tournamentRequest =
                 new de.vvwt.tm.tournament.internal.dto.TournamentCreateRequest(
                         "IT TeamController Tournament E21S04",
@@ -102,7 +102,7 @@ class TeamControllerIT {
 
         ResponseEntity<de.vvwt.tm.tournament.internal.dto.TournamentResponse> tournamentResponse =
                 authed.postForEntity(
-                        new URI(baseUrl + "/api/tm/tournaments"),
+                        new URI(baseUrl + "/api/tournaments"),
                         tournamentRequest,
                         de.vvwt.tm.tournament.internal.dto.TournamentResponse.class);
 
@@ -116,14 +116,14 @@ class TeamControllerIT {
 
     @Test
     @DisplayName(
-            "authenticated POST /api/tm/tournaments/{id}/teams creates team; assertj-db verifies"
+            "authenticated POST /api/tournaments/{id}/teams creates team; assertj-db verifies"
                     + " row")
     void authenticatedPostCreatesTeamAndPersistsRow() throws Exception {
         var request = new TeamCreateRequest("Team Alpha IT", null, null, null, null);
 
         ResponseEntity<TeamResponse> response =
                 authed.postForEntity(
-                        new URI(baseUrl + "/api/tm/tournaments/" + tournamentId + "/teams"),
+                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/teams"),
                         request,
                         TeamResponse.class);
 
@@ -157,13 +157,13 @@ class TeamControllerIT {
     // =========================================================================
 
     @Test
-    @DisplayName("unauthenticated POST /api/tm/tournaments/{id}/teams returns 401")
+    @DisplayName("unauthenticated POST /api/tournaments/{id}/teams returns 401")
     void unauthenticatedPostReturns401() throws Exception {
         var request = new TeamCreateRequest("Unauthorized Team", null, null, null, null);
 
         ResponseEntity<String> response =
                 restTemplate.postForEntity(
-                        new URI(baseUrl + "/api/tm/tournaments/" + tournamentId + "/teams"),
+                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/teams"),
                         request,
                         String.class);
 

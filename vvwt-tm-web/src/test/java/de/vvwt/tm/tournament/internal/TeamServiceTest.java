@@ -7,10 +7,11 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import de.vvwt.tm.infrastructure.web.ConflictException;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamRepository;
+import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.exceptions.ConflictException;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -72,6 +73,9 @@ class TeamServiceTest {
     @DisplayName("listTeams() — delegates to repository.findByTournamentId")
     void listTeams_delegatesToRepository() {
         Team t = team(1, "A");
+        Tournament tournament = new Tournament();
+        tournament.setId(TOURNAMENT_ID);
+        when(tournamentRepository.findById(TOURNAMENT_ID)).thenReturn(Optional.of(tournament));
         when(teamRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(t));
 
         List<Team> result = teamService.listTeams(TOURNAMENT_ID);

@@ -8,8 +8,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import de.vvwt.tm.domain.repo.ActivityTypeRepository;
-import de.vvwt.tm.domain.repo.TournamentRepository;
-import de.vvwt.tm.infrastructure.web.ConflictException;
+import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.exceptions.ConflictException;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
@@ -46,7 +46,7 @@ class ActivityTypeServiceTest {
         messageSource = mock(MessageSource.class);
 
         // Default: tournament exists
-        de.vvwt.tm.domain.Tournament tournament = mock(de.vvwt.tm.domain.Tournament.class);
+        de.vvwt.tm.tournament.Tournament tournament = mock(de.vvwt.tm.tournament.Tournament.class);
         when(tournamentRepository.findById(TOURNAMENT_ID)).thenReturn(Optional.of(tournament));
 
         // Default message source returns fallback strings

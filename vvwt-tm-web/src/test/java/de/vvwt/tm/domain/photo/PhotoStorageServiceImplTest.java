@@ -4,10 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
-import de.vvwt.tm.domain.Team;
-import de.vvwt.tm.domain.Tournament;
-import de.vvwt.tm.domain.repo.TeamRepository;
-import de.vvwt.tm.domain.repo.TournamentRepository;
+import de.vvwt.tm.tournament.Team;
+import de.vvwt.tm.tournament.TeamRepository;
+import de.vvwt.tm.tournament.Tournament;
+import de.vvwt.tm.tournament.TournamentRepository;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.file.Path;

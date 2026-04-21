@@ -93,8 +93,7 @@ class TournamentControllerIT {
     // =========================================================================
 
     @Test
-    @DisplayName(
-            "authenticated POST /api/tm/tournaments creates tournament; assertj-db verifies row")
+    @DisplayName("authenticated POST /api/tournaments creates tournament; assertj-db verifies row")
     void authenticatedPostCreatesTournamentAndPersistsRow() throws Exception {
         var request =
                 new TournamentCreateRequest(
@@ -109,9 +108,7 @@ class TournamentControllerIT {
 
         ResponseEntity<TournamentResponse> response =
                 authed.postForEntity(
-                        new URI(baseUrl + "/api/tm/tournaments"),
-                        request,
-                        TournamentResponse.class);
+                        new URI(baseUrl + "/api/tournaments"), request, TournamentResponse.class);
 
         assertThat(response.getStatusCode())
                 .as("POST must return 201 Created")
@@ -144,7 +141,7 @@ class TournamentControllerIT {
     // =========================================================================
 
     @Test
-    @DisplayName("unauthenticated POST /api/tm/tournaments returns 401")
+    @DisplayName("unauthenticated POST /api/tournaments returns 401")
     void unauthenticatedPostReturns401() throws Exception {
         var request =
                 new TournamentCreateRequest(
@@ -159,7 +156,7 @@ class TournamentControllerIT {
 
         ResponseEntity<String> response =
                 restTemplate.postForEntity(
-                        new URI(baseUrl + "/api/tm/tournaments"), request, String.class);
+                        new URI(baseUrl + "/api/tournaments"), request, String.class);
 
         assertThat(response.getStatusCode())
                 .as("unauthenticated request must return 401")

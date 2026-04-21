@@ -6,14 +6,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import de.vvwt.tm.domain.Phase;
-import de.vvwt.tm.domain.generator.MatchGeneratorRegistry;
-import de.vvwt.tm.domain.repo.PhaseRepository;
 import de.vvwt.tm.domain.rules.ScoringRuleRegistry;
 import de.vvwt.tm.domain.rules.SetValidationRuleRegistry;
-import de.vvwt.tm.infrastructure.web.ConflictException;
+import de.vvwt.tm.tournament.MatchGeneratorRegistry;
+import de.vvwt.tm.tournament.Phase;
+import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.exceptions.ConflictException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.NoSuchElementException;

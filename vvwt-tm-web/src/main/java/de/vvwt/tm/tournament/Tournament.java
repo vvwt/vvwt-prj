@@ -163,6 +163,75 @@ public class Tournament {
         this.plannedStartTime = plannedStartTime;
     }
 
+    /**
+     * 12-param constructor for backward compatibility with pre-E21S10 test code that did not pass
+     * {@code plannedStartTime}.
+     *
+     * <p>Added in E21S13 cutover — DEC-22 refactor phase fix. Delegates to the full constructor
+     * with {@code plannedStartTime = null}.
+     */
+    public Tournament(
+            UUID id,
+            UUID tenantId,
+            String description,
+            String matchFormat,
+            String scoringRuleId,
+            String setValidationRuleId,
+            String matchGeneratorId,
+            String status,
+            LocalDateTime createdAt,
+            LocalDateTime appointment,
+            int fieldCount,
+            int teamCount) {
+        this(
+                id,
+                tenantId,
+                description,
+                matchFormat,
+                scoringRuleId,
+                setValidationRuleId,
+                matchGeneratorId,
+                status,
+                createdAt,
+                appointment,
+                fieldCount,
+                teamCount,
+                null);
+    }
+
+    /**
+     * 9-param constructor for backward compatibility with pre-E21S05 test code that did not pass
+     * {@code appointment}, {@code fieldCount}, {@code teamCount}, or {@code plannedStartTime}.
+     *
+     * <p>Added in E21S13 cutover — DEC-22 refactor phase fix. Delegates to the full constructor
+     * with optional fields as null/zero.
+     */
+    public Tournament(
+            UUID id,
+            UUID tenantId,
+            String description,
+            String matchFormat,
+            String scoringRuleId,
+            String setValidationRuleId,
+            String matchGeneratorId,
+            String status,
+            LocalDateTime createdAt) {
+        this(
+                id,
+                tenantId,
+                description,
+                matchFormat,
+                scoringRuleId,
+                setValidationRuleId,
+                matchGeneratorId,
+                status,
+                createdAt,
+                null,
+                1,
+                2,
+                null);
+    }
+
     // -------------------------------------------------------------------------
     // Accessors
     // -------------------------------------------------------------------------

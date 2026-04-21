@@ -138,6 +138,22 @@ public class TeamAvatarRatingRepository {
     }
 
     /**
+     * Returns the TeamAvatarRating for the given id (alias for {@link #findByAvatarId(UUID)}).
+     *
+     * <p>Added in E21S13 cutover to maintain compatibility with consumer contexts that called
+     * {@code findById(avatar.getId())} on the legacy {@code
+     * domain.repo.TeamAvatarRatingRepository}. The {@code team_avatar_rating} table uses {@code
+     * avatar_id} as both PK and FK, so {@code id} and {@code avatarId} are semantically equivalent
+     * here.
+     *
+     * @param avatarId the avatar UUID (PK)
+     * @return Optional.of(rating) if found, Optional.empty() if not found or wrong tenant
+     */
+    public Optional<TeamAvatarRating> findById(UUID avatarId) {
+        return findByAvatarId(avatarId);
+    }
+
+    /**
      * Deletes the TeamAvatarRating for the given avatarId, scoped to the current tenant.
      *
      * @param avatarId the avatar UUID (PK)

@@ -126,6 +126,8 @@ public final class SecurityConfig {
                         auth ->
                                 auth.requestMatchers("/actuator/health")
                                         .permitAll()
+                                        .requestMatchers("/error")
+                                        .permitAll()
                                         .requestMatchers("/ws/**")
                                         .permitAll()
                                         .requestMatchers("/score/**")

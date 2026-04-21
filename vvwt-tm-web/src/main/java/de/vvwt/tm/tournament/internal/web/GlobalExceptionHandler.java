@@ -1,5 +1,17 @@
 package de.vvwt.tm.tournament.internal.web;
 
+import de.vvwt.tm.domain.audio.AudioFormatException;
+import de.vvwt.tm.domain.audio.AudioSizeLimitException;
+import de.vvwt.tm.domain.audio.AudioStorageException;
+import de.vvwt.tm.domain.certificate.CertificateTemplateFormatException;
+import de.vvwt.tm.domain.certificate.CertificateTemplateSizeException;
+import de.vvwt.tm.domain.certificate.CertificateTemplateStorageException;
+import de.vvwt.tm.domain.photo.PhotoFormatException;
+import de.vvwt.tm.domain.photo.PhotoSizeException;
+import de.vvwt.tm.domain.photo.PhotoStorageException;
+import de.vvwt.tm.domain.timer.InvalidTimerUrlException;
+import de.vvwt.tm.domain.timer.NoActiveTournamentException;
+import de.vvwt.tm.infrastructure.display.NoActivePhaseException;
 import de.vvwt.tm.tournament.ApiErrorResponse;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import de.vvwt.tm.tournament.exceptions.ForbiddenException;
@@ -8,13 +20,20 @@ import de.vvwt.tm.tournament.exceptions.UnauthorizedException;
 import de.vvwt.tm.tournament.exceptions.ValidationException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.sql.SQLException;
+import java.util.NoSuchElementException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.stereotype.Component;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * Global exception handler for the {@code tournament} bounded context (E21S10,
@@ -57,7 +76,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
  * @see <a href="E21S10">E21S10 — inventory row 450</a>
  */
 @Component("tmGlobalExceptionHandler")
-@ControllerAdvice(basePackages = "de.vvwt.tm.tournament")
+@ControllerAdvice(basePackages = {"de.vvwt.tm.tournament", "de.vvwt.tm.infrastructure"})
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
@@ -108,6 +127,340 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), "error.conflict", request);
     }
 
+    /**
+     * Maps {@link NoSuchElementException} to HTTP 404.
+     *
+     * <p>Migrated from the deleted legacy {@code
+     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} during E21S13 cutover (DEC-22 refactor
+     * phase — behavior-preserving). Consumer controllers (e.g., {@code
+     * ActivityAssignmentPreviewController}, {@code ActivityTypeController}) throw {@code
+     * NoSuchElementException} when a referenced entity is not found.
+     */
+    @ExceptionHandler(NoSuchElementException.class)
+    public ResponseEntity<ApiErrorResponse> handleNotFound(
+            NoSuchElementException ex, HttpServletRequest request) {
+        log.debug("[tm-web] NoSuchElementException: {}", ex.getMessage());
+        return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage(), "error.notFound", request);
+    }
+
+    /**
+     * Maps Spring Security's {@link AuthorizationDeniedException} to HTTP 403.
+     *
+     * <p>Spring Security 6 throws {@code AuthorizationDeniedException} (a subclass of {@link
+     * RuntimeException}) for method-security {@code @PreAuthorize} failures. Without this specific
+     * handler, the catch-all {@code RuntimeException} handler would return 500 instead of 403.
+     *
+     * <p>Migrated from the deleted legacy {@code
+     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} during E21S13 cutover (DEC-22 refactor
+     * phase — behavior-preserving).
+     */
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<ApiErrorResponse> handleAuthorizationDenied(
+            AuthorizationDeniedException ex, HttpServletRequest request) {
+        log.debug("[tm-web] AuthorizationDeniedException: {}", ex.getMessage());
+        return buildResponse(HttpStatus.FORBIDDEN, "Access denied.", "error.forbidden", request);
+    }
+
+    /**
+     * Maps {@link IllegalArgumentException} to HTTP 400 Bad Request.
+     *
+     * <p>Migrated from the deleted legacy {@code
+     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} during E21S13 cutover (DEC-22 refactor
+     * phase — behavior-preserving). Consumer services (e.g., {@code ActivityTypeService}) throw
+     * {@code IllegalArgumentException} for invalid input (e.g., unknown rule id, wrong device
+     * type).
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiErrorResponse> handleIllegalArgument(
+            IllegalArgumentException ex, HttpServletRequest request) {
+        log.debug("[tm-web] IllegalArgumentException: {}", ex.getMessage());
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), "error.badRequest", request);
+    }
+
+    /**
+     * Maps {@link MethodArgumentNotValidException} (Spring MVC {@code @Valid} failures) to HTTP 400
+     * Bad Request.
+     *
+     * <p>Migrated from the deleted legacy {@code
+     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} during E21S13 cutover (DEC-22 refactor
+     * phase — behavior-preserving). Spring MVC throws this exception when a {@code @Valid}
+     * annotation triggers a validation failure on a {@code @RequestBody}.
+     */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiErrorResponse> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException ex, HttpServletRequest request) {
+        log.debug("[tm-web] MethodArgumentNotValidException: {}", ex.getMessage());
+        String message =
+                ex.getBindingResult().getFieldErrors().stream()
+                        .findFirst()
+                        .map(org.springframework.validation.FieldError::getDefaultMessage)
+                        .orElse("Validation failed");
+        return buildResponse(HttpStatus.BAD_REQUEST, message, "error.validation", request);
+    }
+
+    // =========================================================================
+    // Photo exceptions (E07S03 — TeamPhotoControllerIT)
+    // =========================================================================
+
+    /**
+     * Maps {@link PhotoFormatException} to HTTP 400 Bad Request.
+     *
+     * <p>Migrated from the deleted legacy {@code
+     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} during E21S13 cutover (DEC-22 refactor
+     * phase — behavior-preserving).
+     */
+    @ExceptionHandler(PhotoFormatException.class)
+    public ResponseEntity<ApiErrorResponse> handlePhotoFormat(
+            PhotoFormatException ex, HttpServletRequest request) {
+        log.debug("[tm-web] PhotoFormatException: {}", ex.getMessage());
+        return buildResponse(
+                HttpStatus.BAD_REQUEST, ex.getMessage(), "error.photo.format", request);
+    }
+
+    /**
+     * Maps {@link PhotoSizeException} to HTTP 400 Bad Request.
+     *
+     * <p>Migrated from the deleted legacy {@code
+     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} during E21S13 cutover (DEC-22 refactor
+     * phase — behavior-preserving).
+     */
+    @ExceptionHandler(PhotoSizeException.class)
+    public ResponseEntity<ApiErrorResponse> handlePhotoSize(
+            PhotoSizeException ex, HttpServletRequest request) {
+        log.debug("[tm-web] PhotoSizeException: {}", ex.getMessage());
+        return buildResponse(
+                HttpStatus.BAD_REQUEST, ex.getMessage(), "error.photo.tooLarge", request);
+    }
+
+    /**
+     * Maps {@link PhotoStorageException} to HTTP 500 Internal Server Error.
+     *
+     * <p>Migrated from the deleted legacy {@code
+     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} during E21S13 cutover (DEC-22 refactor
+     * phase — behavior-preserving).
+     */
+    @ExceptionHandler(PhotoStorageException.class)
+    public ResponseEntity<ApiErrorResponse> handlePhotoStorage(
+            PhotoStorageException ex, HttpServletRequest request) {
+        log.error("[tm-web] PhotoStorageException: {}", ex.getMessage(), ex);
+        return buildResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Photo storage error.",
+                "error.photo.storage",
+                request);
+    }
+
+    // =========================================================================
+    // Audio exceptions (E10S02 — AudioControllerIT)
+    // =========================================================================
+
+    /**
+     * Maps {@link AudioFormatException} to HTTP 415 Unsupported Media Type.
+     *
+     * <p>Migrated from the deleted legacy {@code
+     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} during E21S13 cutover (DEC-22 refactor
+     * phase — behavior-preserving).
+     */
+    @ExceptionHandler(AudioFormatException.class)
+    public ResponseEntity<ApiErrorResponse> handleAudioFormat(
+            AudioFormatException ex, HttpServletRequest request) {
+        log.debug("[tm-web] AudioFormatException: {}", ex.getMessage());
+        return buildResponse(
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE, ex.getMessage(), "error.audio.format", request);
+    }
+
+    /**
+     * Maps {@link AudioSizeLimitException} to HTTP 413 Payload Too Large.
+     *
+     * <p>Migrated from the deleted legacy {@code
+     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} during E21S13 cutover (DEC-22 refactor
+     * phase — behavior-preserving).
+     */
+    @ExceptionHandler(AudioSizeLimitException.class)
+    public ResponseEntity<ApiErrorResponse> handleAudioSizeLimit(
+            AudioSizeLimitException ex, HttpServletRequest request) {
+        log.debug("[tm-web] AudioSizeLimitException: {}", ex.getMessage());
+        return buildResponse(
+                HttpStatus.PAYLOAD_TOO_LARGE, ex.getMessage(), "error.audio.tooLarge", request);
+    }
+
+    /**
+     * Maps Spring's {@link MaxUploadSizeExceededException} to HTTP 413 Payload Too Large.
+     *
+     * <p>Spring throws this exception before the controller is reached when the multipart size
+     * limit is exceeded. Migrated from the deleted legacy {@code
+     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} during E21S13 cutover (DEC-22 refactor
+     * phase — behavior-preserving).
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiErrorResponse> handleMaxUploadSizeExceeded(
+            MaxUploadSizeExceededException ex, HttpServletRequest request) {
+        log.debug("[tm-web] MaxUploadSizeExceededException: {}", ex.getMessage());
+        return buildResponse(
+                HttpStatus.PAYLOAD_TOO_LARGE,
+                "File size exceeds the maximum allowed limit.",
+                "error.audio.tooLarge",
+                request);
+    }
+
+    /**
+     * Maps {@link AudioStorageException} to HTTP 500 Internal Server Error.
+     *
+     * <p>Migrated from the deleted legacy {@code
+     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} during E21S13 cutover (DEC-22 refactor
+     * phase — behavior-preserving).
+     */
+    @ExceptionHandler(AudioStorageException.class)
+    public ResponseEntity<ApiErrorResponse> handleAudioStorage(
+            AudioStorageException ex, HttpServletRequest request) {
+        log.error("[tm-web] AudioStorageException: {}", ex.getMessage(), ex);
+        return buildResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Audio storage error.",
+                "error.audio.storage",
+                request);
+    }
+
+    // =========================================================================
+    // Certificate template exceptions (E13S01 — CertificateTemplateControllerIT)
+    // =========================================================================
+
+    /**
+     * Maps {@link CertificateTemplateFormatException} to HTTP 400 Bad Request.
+     *
+     * <p>Migrated from the deleted legacy {@code
+     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} during E21S13 cutover (DEC-22 refactor
+     * phase — behavior-preserving).
+     */
+    @ExceptionHandler(CertificateTemplateFormatException.class)
+    public ResponseEntity<ApiErrorResponse> handleCertificateTemplateFormat(
+            CertificateTemplateFormatException ex, HttpServletRequest request) {
+        log.debug("[tm-web] CertificateTemplateFormatException: {}", ex.getMessage());
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                ex.getMessage(),
+                "error.certificateTemplate.format",
+                request);
+    }
+
+    /**
+     * Maps {@link CertificateTemplateSizeException} to HTTP 400 Bad Request.
+     *
+     * <p>Migrated from the deleted legacy {@code
+     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} during E21S13 cutover (DEC-22 refactor
+     * phase — behavior-preserving).
+     */
+    @ExceptionHandler(CertificateTemplateSizeException.class)
+    public ResponseEntity<ApiErrorResponse> handleCertificateTemplateSize(
+            CertificateTemplateSizeException ex, HttpServletRequest request) {
+        log.debug("[tm-web] CertificateTemplateSizeException: {}", ex.getMessage());
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                ex.getMessage(),
+                "error.certificateTemplate.tooLarge",
+                request);
+    }
+
+    /**
+     * Maps {@link CertificateTemplateStorageException} to HTTP 500 Internal Server Error.
+     *
+     * <p>Migrated from the deleted legacy {@code
+     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} during E21S13 cutover (DEC-22 refactor
+     * phase — behavior-preserving).
+     */
+    @ExceptionHandler(CertificateTemplateStorageException.class)
+    public ResponseEntity<ApiErrorResponse> handleCertificateTemplateStorage(
+            CertificateTemplateStorageException ex, HttpServletRequest request) {
+        log.error("[tm-web] CertificateTemplateStorageException: {}", ex.getMessage(), ex);
+        return buildResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Certificate template storage error.",
+                "error.certificateTemplate.storage",
+                request);
+    }
+
+    // =========================================================================
+    // Timer exceptions (E11S02 — TimerControllerIT)
+    // =========================================================================
+
+    /**
+     * Maps {@link InvalidTimerUrlException} to HTTP 404 with the exception's error code as the
+     * {@code messageKey} (e.g., {@code "INVALID_TIMER_URL"}).
+     *
+     * <p>Migrated from the deleted legacy {@code
+     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} during E21S13 cutover (DEC-22 refactor
+     * phase — behavior-preserving).
+     */
+    @ExceptionHandler(InvalidTimerUrlException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidTimerUrl(
+            InvalidTimerUrlException ex, HttpServletRequest request) {
+        log.debug("[tm-web] InvalidTimerUrlException: {}", ex.getMessage());
+        return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage(), ex.getErrorCode(), request);
+    }
+
+    /**
+     * Maps {@link NoActiveTournamentException} to HTTP 404 with the exception's error code as the
+     * {@code messageKey} (e.g., {@code "NO_ACTIVE_TOURNAMENT"}).
+     *
+     * <p>Migrated from the deleted legacy {@code
+     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} during E21S13 cutover (DEC-22 refactor
+     * phase — behavior-preserving).
+     */
+    @ExceptionHandler(NoActiveTournamentException.class)
+    public ResponseEntity<ApiErrorResponse> handleNoActiveTournament(
+            NoActiveTournamentException ex, HttpServletRequest request) {
+        log.debug("[tm-web] NoActiveTournamentException: {}", ex.getMessage());
+        return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage(), ex.getErrorCode(), request);
+    }
+
+    // =========================================================================
+    // Spring MVC / infrastructure exceptions
+    // =========================================================================
+
+    /**
+     * Maps {@link MissingServletRequestParameterException} to HTTP 400 Bad Request.
+     *
+     * <p>Spring MVC throws this when a required {@code @RequestParam} is absent from the request.
+     * Migrated from the deleted legacy {@code de.vvwt.tm.infrastructure.web.GlobalExceptionHandler}
+     * during E21S13 cutover (DEC-22 refactor phase — behavior-preserving).
+     */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiErrorResponse> handleMissingServletRequestParameter(
+            MissingServletRequestParameterException ex, HttpServletRequest request) {
+        log.debug("[tm-web] MissingServletRequestParameterException: {}", ex.getMessage());
+        return buildResponse(
+                HttpStatus.BAD_REQUEST, ex.getMessage(), "error.missingParameter", request);
+    }
+
+    /**
+     * Maps Spring's {@link NoResourceFoundException} (404 from DispatcherServlet) to HTTP 404.
+     *
+     * <p>Spring MVC 6 throws this when no handler mapping matches. Without this handler, the
+     * catch-all {@code RuntimeException} would return 500. Migrated from the deleted legacy {@code
+     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} during E21S13 cutover (DEC-22 refactor
+     * phase — behavior-preserving).
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleNoResourceFound(
+            NoResourceFoundException ex, HttpServletRequest request) {
+        log.debug("[tm-web] NoResourceFoundException: {}", ex.getMessage());
+        return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage(), "error.notFound", request);
+    }
+
+    /**
+     * Maps {@link DataIntegrityViolationException} to HTTP 409 Conflict.
+     *
+     * <p>Spring wraps DB unique-constraint violations (e.g., duplicate keys) in this exception.
+     * Migrated from the deleted legacy {@code de.vvwt.tm.infrastructure.web.GlobalExceptionHandler}
+     * during E21S13 cutover (DEC-22 refactor phase — behavior-preserving).
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(
+            DataIntegrityViolationException ex, HttpServletRequest request) {
+        log.debug("[tm-web] DataIntegrityViolationException: {}", ex.getMessage());
+        return buildResponse(HttpStatus.CONFLICT, "Data conflict.", "error.conflict", request);
+    }
+
     // =========================================================================
     // Unknown RuntimeException → 500, no stack trace (AC-GLOBAL-EXCEPTION-HANDLER-UNKNOWN)
     // SQL exception → generic message, no SQL content (AC-SEC-NO-EXCEPTION-LEAK)
@@ -147,4 +500,33 @@ public class GlobalExceptionHandler {
                         .build();
         return ResponseEntity.status(status).body(body);
     }
+
+    // =========================================================================
+    // Display context: NoActivePhaseException → 404 (E21S13 cutover — DEC-22 refactor phase)
+    // =========================================================================
+
+    /**
+     * Maps {@link NoActivePhaseException} to HTTP 404 with a {@link NoActivePhaseResponse} body.
+     *
+     * <p>Previously handled by the deleted legacy {@code
+     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler#handleNoActivePhase}. Migrated here
+     * during E21S13 atomic cutover (DEC-22 refactor phase — behavior-preserving).
+     */
+    @ExceptionHandler(NoActivePhaseException.class)
+    public ResponseEntity<NoActivePhaseResponse> handleNoActivePhase(NoActivePhaseException ex) {
+        log.debug("[tm-web] NoActivePhaseException: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new NoActivePhaseResponse("NO_ACTIVE_PHASE"));
+    }
+
+    /**
+     * Response body for {@link NoActivePhaseException} (AC7 of E07S04).
+     *
+     * <p>Previously a nested record in the deleted legacy {@code
+     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler}. Migrated here during E21S13 atomic
+     * cutover (DEC-22 refactor phase — behavior-preserving).
+     *
+     * @param status the error status string, e.g. {@code "NO_ACTIVE_PHASE"}
+     */
+    public record NoActivePhaseResponse(String status) {}
 }

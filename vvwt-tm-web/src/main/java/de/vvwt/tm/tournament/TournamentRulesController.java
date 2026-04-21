@@ -42,7 +42,7 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <h2>URL mapping (parallel-phase discipline)</h2>
  *
- * <p>Mapped to {@code /api/tm/tournament-rules} during reconstruction-in-place to avoid ambiguous
+ * <p>Mapped to {@code /api/tournament-rules} during reconstruction-in-place to avoid ambiguous
  * mapping with the legacy {@code /api/tournament-rules} endpoint. At E21S13 atomic cutover, the
  * mapping is normalized to {@code /api/tournament-rules}. Named {@code
  * "tmTournamentRulesController"} to avoid Spring bean name collision with the legacy controller.
@@ -57,7 +57,7 @@ import org.springframework.web.bind.annotation.RestController;
  * @see <a href="E21S10">E21S10 — inventory row 412</a>
  */
 @RestController("tmTournamentRulesController")
-@RequestMapping("/api/tm/tournament-rules")
+@RequestMapping("/api/tournament-rules")
 public class TournamentRulesController {
 
     private final ScoringRuleRegistry scoringRuleRegistry;

@@ -3,10 +3,11 @@ package de.vvwt.tm.infrastructure.web;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.infrastructure.web.dto.TournamentCreateRequest;
-import de.vvwt.tm.infrastructure.web.dto.TournamentResponse;
-import de.vvwt.tm.infrastructure.web.dto.TournamentUpdateRequest;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import de.vvwt.tm.tournament.ApiErrorResponse;
+import de.vvwt.tm.tournament.internal.dto.TournamentCreateRequest;
+import de.vvwt.tm.tournament.internal.dto.TournamentResponse;
+import de.vvwt.tm.tournament.internal.dto.TournamentUpdateRequest;
 import java.net.URI;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;

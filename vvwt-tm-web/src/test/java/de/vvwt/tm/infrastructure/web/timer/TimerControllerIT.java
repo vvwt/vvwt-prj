@@ -3,9 +3,9 @@ package de.vvwt.tm.infrastructure.web.timer;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.infrastructure.web.dto.TournamentCreateRequest;
-import de.vvwt.tm.infrastructure.web.dto.TournamentResponse;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import de.vvwt.tm.tournament.internal.dto.TournamentCreateRequest;
+import de.vvwt.tm.tournament.internal.dto.TournamentResponse;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;

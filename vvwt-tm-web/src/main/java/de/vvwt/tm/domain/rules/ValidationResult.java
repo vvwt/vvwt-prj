@@ -1,6 +1,6 @@
 package de.vvwt.tm.domain.rules;
 
-import de.vvwt.tm.domain.MatchState;
+import de.vvwt.tm.tournament.MatchState;
 import java.util.Optional;
 
 /**

@@ -229,6 +229,7 @@ class DeviceServiceTest {
         existing.setId(deviceId);
         existing.setTenantId(TENANT_ID);
         when(deviceRepository.findById(deviceId)).thenReturn(Optional.of(existing));
+        when(deviceRepository.locationExistsForTenant(locationId, TENANT_ID)).thenReturn(true);
         when(deviceRepository.save(existing)).thenReturn(existing);
 
         Device result = service.assignLocation(deviceId, locationId);

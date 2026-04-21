@@ -1,6 +1,6 @@
 package de.vvwt.tm.domain.rules;
 
-import de.vvwt.tm.domain.MatchFormat;
+import de.vvwt.tm.tournament.MatchFormat;
 
 /**
  * Strategy interface for pluggable set-validation logic (AC1, D-16).

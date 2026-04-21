@@ -57,6 +57,10 @@ public class TeamAvatarRepository {
             "SELECT * FROM team_avatar WHERE tournament_id=? AND phase_id=? AND tenant_id=?"
                     + " ORDER BY group_number ASC, group_position ASC";
 
+    private static final String SELECT_BY_PHASE =
+            "SELECT * FROM team_avatar WHERE phase_id=? AND tenant_id=?"
+                    + " ORDER BY group_number ASC, group_position ASC";
+
     private static final String DELETE_BY_ID = "DELETE FROM team_avatar WHERE id=? AND tenant_id=?";
 
     private static final String EXISTS_BY_ID =
@@ -133,6 +137,22 @@ public class TeamAvatarRepository {
         UUID tenantId = tenantContext.current();
         return jdbc.query(
                 SELECT_BY_TOURNAMENT_AND_PHASE, ROW_MAPPER, tournamentId, phaseId, tenantId);
+    }
+
+    /**
+     * Returns all TeamAvatars for a given phase, scoped to the current tenant, ordered by
+     * group_number and group_position.
+     *
+     * <p>Convenience method equivalent to querying by phase_id only (without requiring
+     * tournamentId). Added in E21S13 cutover to maintain compatibility with consumer contexts that
+     * used the legacy {@code domain.repo.TeamAvatarRepository#findByPhaseId(UUID)} API.
+     *
+     * @param phaseId the phase UUID
+     * @return list of avatars; never null
+     */
+    public List<TeamAvatar> findByPhaseId(UUID phaseId) {
+        UUID tenantId = tenantContext.current();
+        return jdbc.query(SELECT_BY_PHASE, ROW_MAPPER, phaseId, tenantId);
     }
 
     /**

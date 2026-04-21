@@ -1,7 +1,7 @@
 package de.vvwt.tm.domain.certificate;
 
 import de.vvwt.tm.domain.repo.CertificateTemplateRepository;
-import de.vvwt.tm.domain.repo.TournamentRepository;
+import de.vvwt.tm.tournament.TournamentRepository;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
