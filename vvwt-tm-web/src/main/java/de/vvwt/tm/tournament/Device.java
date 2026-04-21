@@ -125,6 +125,52 @@ public class Device {
     /** Default constructor. */
     public Device() {}
 
+    /**
+     * Full constructor for programmatic creation. Parameter order matches the legacy {@code
+     * de.vvwt.tm.domain.Device} constructor for backward compatibility with existing test code.
+     *
+     * <p>Added in E21S13 cutover — DEC-22 refactor phase fix.
+     *
+     * @param id primary key
+     * @param tenantId tenant scope
+     * @param locationId location scope (nullable)
+     * @param deviceToken opaque auth token
+     * @param pin short numeric PIN (nullable for display devices)
+     * @param deviceType device type enum name
+     * @param assignedField assigned court field number (nullable)
+     * @param status lifecycle status
+     * @param registeredAt registration timestamp (nullable)
+     * @param lastSeenAt last-seen timestamp (nullable)
+     * @param deviceName human-readable device name (nullable)
+     * @param configuration JSON configuration string (nullable)
+     */
+    public Device(
+            UUID id,
+            UUID tenantId,
+            UUID locationId,
+            String deviceToken,
+            String pin,
+            String deviceType,
+            Integer assignedField,
+            String status,
+            LocalDateTime registeredAt,
+            LocalDateTime lastSeenAt,
+            String deviceName,
+            String configuration) {
+        this.id = id;
+        this.tenantId = tenantId;
+        this.locationId = locationId;
+        this.deviceToken = deviceToken;
+        this.pin = pin;
+        this.deviceType = deviceType;
+        this.assignedField = assignedField;
+        this.status = status;
+        this.registeredAt = registeredAt;
+        this.lastSeenAt = lastSeenAt;
+        this.deviceName = deviceName;
+        this.configuration = configuration;
+    }
+
     // -------------------------------------------------------------------------
     // Accessors
     // -------------------------------------------------------------------------

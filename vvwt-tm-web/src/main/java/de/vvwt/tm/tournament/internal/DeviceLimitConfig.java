@@ -24,7 +24,7 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "vvwt.devices.tm")
 public class DeviceLimitConfig {
 
-    /** Default total device cap per tenant. */
+    /** Default total device cap per tenant (D-9). */
     private static final int DEFAULT_MAX_DEVICE_COUNT = 10;
 
     private int maxDeviceCount = DEFAULT_MAX_DEVICE_COUNT;

@@ -3,8 +3,8 @@ package de.vvwt.tm.domain.rules;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import de.vvwt.tm.domain.MatchFormat;
-import de.vvwt.tm.domain.MatchOutcome;
+import de.vvwt.tm.tournament.MatchFormat;
+import de.vvwt.tm.tournament.MatchOutcome;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;

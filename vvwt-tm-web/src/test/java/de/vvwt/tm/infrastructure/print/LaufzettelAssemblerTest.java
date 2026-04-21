@@ -6,14 +6,14 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import de.vvwt.tm.domain.Match;
-import de.vvwt.tm.domain.Phase;
-import de.vvwt.tm.domain.Team;
-import de.vvwt.tm.domain.TeamAvatar;
-import de.vvwt.tm.domain.Tournament;
 import de.vvwt.tm.domain.activity.ActivityAssignmentResult;
 import de.vvwt.tm.domain.activity.ActivityAssignmentService;
-import de.vvwt.tm.domain.timeline.TimelineCalculationService;
+import de.vvwt.tm.tournament.Match;
+import de.vvwt.tm.tournament.Phase;
+import de.vvwt.tm.tournament.Team;
+import de.vvwt.tm.tournament.TeamAvatar;
+import de.vvwt.tm.tournament.TimelineCalculationService;
+import de.vvwt.tm.tournament.Tournament;
 import java.time.LocalTime;
 import java.util.Collections;
 import java.util.List;
@@ -407,7 +407,7 @@ class LaufzettelAssemblerTest {
                         null);
 
         // Phase break after lap 1
-        de.vvwt.tm.domain.PhaseBreak phaseBreak = new de.vvwt.tm.domain.PhaseBreak();
+        de.vvwt.tm.tournament.PhaseBreak phaseBreak = new de.vvwt.tm.tournament.PhaseBreak();
         phaseBreak.setPhaseId(PHASE_ID);
         phaseBreak.setAfterLapNumber(1);
         phaseBreak.setDurationMinutes(15);
@@ -417,7 +417,7 @@ class LaufzettelAssemblerTest {
         List<Phase> phases = List.of(phase1);
         Map<UUID, List<TeamAvatar>> avatarsByPhase = Map.of(PHASE_ID, List.of(avatar1, avatar2));
         Map<UUID, List<Match>> matchesByPhase = Map.of(PHASE_ID, List.of(match, match2));
-        Map<UUID, List<de.vvwt.tm.domain.PhaseBreak>> breaksByPhase =
+        Map<UUID, List<de.vvwt.tm.tournament.PhaseBreak>> breaksByPhase =
                 Map.of(PHASE_ID, List.of(phaseBreak));
 
         Map<UUID, List<LaufzettelRow>> result =

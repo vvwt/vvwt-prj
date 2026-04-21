@@ -1,13 +1,14 @@
 package de.vvwt.tm.tournament.internal;
 
-import de.vvwt.tm.domain.MatchFormat;
-import de.vvwt.tm.domain.generator.MatchGeneratorRegistry;
-import de.vvwt.tm.domain.repo.PhaseRepository;
 import de.vvwt.tm.domain.rules.ScoringRuleRegistry;
 import de.vvwt.tm.domain.rules.SetValidationRuleRegistry;
-import de.vvwt.tm.infrastructure.web.ConflictException;
+import de.vvwt.tm.tournament.MatchFormat;
+import de.vvwt.tm.tournament.MatchGeneratorRegistry;
+import de.vvwt.tm.tournament.Phase;
+import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.exceptions.ConflictException;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Comparator;
@@ -255,7 +256,7 @@ public class TournamentService {
                             + "Only DRAFT tournaments with no phases may be deleted.");
         }
 
-        List<de.vvwt.tm.domain.Phase> phases = phaseRepository.findByTournamentId(id);
+        List<Phase> phases = phaseRepository.findByTournamentId(id);
         if (!phases.isEmpty()) {
             throw new ConflictException(
                     "Tournament '"

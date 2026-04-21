@@ -3,11 +3,13 @@ package de.vvwt.tm.infrastructure.web;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.infrastructure.web.dto.DeviceRegisterRequest;
-import de.vvwt.tm.infrastructure.web.dto.DeviceRegisterResponse;
-import de.vvwt.tm.infrastructure.web.dto.DeviceStatusResponse;
-import de.vvwt.tm.infrastructure.web.dto.DeviceSummaryResponse;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import de.vvwt.tm.tournament.ApiErrorResponse;
+import de.vvwt.tm.tournament.internal.DeviceLimitErrorResponse;
+import de.vvwt.tm.tournament.internal.dto.DeviceRegisterRequest;
+import de.vvwt.tm.tournament.internal.dto.DeviceRegisterResponse;
+import de.vvwt.tm.tournament.internal.dto.DeviceStatusResponse;
+import de.vvwt.tm.tournament.internal.dto.DeviceSummaryResponse;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;

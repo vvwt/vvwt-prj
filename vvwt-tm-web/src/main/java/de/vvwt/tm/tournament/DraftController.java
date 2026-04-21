@@ -36,7 +36,7 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <h2>URL mapping (reconstruction-in-place)</h2>
  *
- * <p>Uses {@code /api/tm/tournaments/{tournamentId}/draft} during reconstruction-in-place to avoid
+ * <p>Uses {@code /api/tournaments/{tournamentId}/draft} during reconstruction-in-place to avoid
  * {@code RequestMappingHandlerMapping} ambiguity with the legacy {@code
  * de.vvwt.tm.infrastructure.web.DraftController} at {@code /api/tournaments/{...}/draft}. Mapping
  * normalizes to {@code /api/tournaments} at the E21S13 atomic cutover (DEC-32).
@@ -44,9 +44,9 @@ import org.springframework.web.bind.annotation.RestController;
  * <h2>Endpoints</h2>
  *
  * <ul>
- *   <li>POST /api/tm/tournaments/{id}/draft/preview → 200 + {@link DraftPreviewResponse}
+ *   <li>POST /api/tournaments/{id}/draft/preview → 200 + {@link DraftPreviewResponse}
  *       (AC-TDD-DraftController)
- *   <li>POST /api/tm/tournaments/{id}/draft/apply → 200 + {@link DraftApplyResponse}
+ *   <li>POST /api/tournaments/{id}/draft/apply → 200 + {@link DraftApplyResponse}
  *       (AC-TDD-DraftController)
  * </ul>
  *
@@ -63,7 +63,7 @@ import org.springframework.web.bind.annotation.RestController;
  * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
  */
 @RestController("tmDraftController")
-@RequestMapping("/api/tm/tournaments/{tournamentId}/draft")
+@RequestMapping("/api/tournaments/{tournamentId}/draft")
 public class DraftController {
 
     private final DraftService draftService;

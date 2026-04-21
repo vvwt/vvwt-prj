@@ -3,7 +3,7 @@ package de.vvwt.tm.tournament.events;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import de.vvwt.tm.domain.MatchState;
+import de.vvwt.tm.tournament.MatchState;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;

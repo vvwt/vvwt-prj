@@ -41,8 +41,8 @@ import org.springframework.web.context.WebApplicationContext;
  * <h2>Coverage (C-13 Hybrid Split methodology)</h2>
  *
  * <ul>
- *   <li>POST /api/tm/admin/devices/{deviceId}/location/{locationId} → 200 (admin role, DEC-24)
- *   <li>DELETE /api/tm/admin/devices/{deviceId}/location → 200 (admin role, DEC-24)
+ *   <li>POST /api/admin/devices/{deviceId}/location/{locationId} → 200 (admin role, DEC-24)
+ *   <li>DELETE /api/admin/devices/{deviceId}/location → 200 (admin role, DEC-24)
  *   <li>Anonymous POST → 401 (security gate)
  *   <li>USER role POST → 403 (DEC-24: admin role required)
  * </ul>
@@ -74,7 +74,7 @@ class DeviceAdminControllerSliceTest {
     private MockMvc mockMvc;
 
     private static final UUID TENANT_ID = UUID.randomUUID();
-    private static final String BASE_URL = "/api/tm/admin/devices";
+    private static final String BASE_URL = "/api/admin/devices";
 
     @BeforeEach
     void setUp() {
@@ -120,7 +120,7 @@ class DeviceAdminControllerSliceTest {
     }
 
     // =========================================================================
-    // POST /api/tm/admin/devices/{deviceId}/location/{locationId} — assign
+    // POST /api/admin/devices/{deviceId}/location/{locationId} — assign
     // =========================================================================
 
     @Test
@@ -145,7 +145,7 @@ class DeviceAdminControllerSliceTest {
     }
 
     // =========================================================================
-    // DELETE /api/tm/admin/devices/{deviceId}/location — unassign
+    // DELETE /api/admin/devices/{deviceId}/location — unassign
     // =========================================================================
 
     @Test

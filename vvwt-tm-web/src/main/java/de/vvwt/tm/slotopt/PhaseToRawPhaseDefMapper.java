@@ -1,9 +1,9 @@
 package de.vvwt.tm.slotopt;
 
-import de.vvwt.tm.domain.Match;
-import de.vvwt.tm.domain.TeamAvatar;
-import de.vvwt.tm.domain.repo.MatchRepository;
-import de.vvwt.tm.domain.repo.TeamAvatarRepository;
+import de.vvwt.tm.tournament.Match;
+import de.vvwt.tm.tournament.MatchRepository;
+import de.vvwt.tm.tournament.TeamAvatar;
+import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.worker.types.CanonicalPhaseDef;
 import de.vvwt.worker.types.PositionTuple;
 import de.vvwt.worker.types.RawPhaseDef;

@@ -43,7 +43,7 @@ import org.springframework.web.context.WebApplicationContext;
  * <h2>Coverage</h2>
  *
  * <ul>
- *   <li>Happy-path GET /api/tm/tournaments returns 200 + JSON array
+ *   <li>Happy-path GET /api/tournaments returns 200 + JSON array
  *   <li>POST with valid body returns 201 + Location header
  *   <li>POST with invalid body returns 400 (validation error)
  *   <li>Anonymous GET returns 401 (security gate — AC-REST-IT-SEC-TournamentController)
@@ -90,14 +90,14 @@ class TournamentControllerSliceTest {
     // =========================================================================
 
     @Test
-    @DisplayName("Anonymous GET /api/tm/tournaments returns 401")
+    @DisplayName("Anonymous GET /api/tournaments returns 401")
     void anonymousGet_returns401() throws Exception {
-        mockMvc.perform(get("/api/tm/tournaments").contentType(MediaType.APPLICATION_JSON))
+        mockMvc.perform(get("/api/tournaments").contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
-    @DisplayName("Anonymous POST /api/tm/tournaments returns 401")
+    @DisplayName("Anonymous POST /api/tournaments returns 401")
     void anonymousPost_returns401() throws Exception {
         TournamentCreateRequest req =
                 new TournamentCreateRequest(
@@ -110,7 +110,7 @@ class TournamentControllerSliceTest {
                         "standardVolleyball",
                         "roundRobin");
         mockMvc.perform(
-                        post("/api/tm/tournaments")
+                        post("/api/tournaments")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(req))
                                 .with(csrf()))
@@ -118,18 +118,18 @@ class TournamentControllerSliceTest {
     }
 
     // =========================================================================
-    // GET /api/tm/tournaments — list
+    // GET /api/tournaments — list
     // =========================================================================
 
     @Test
     @WithMockUser
-    @DisplayName("GET /api/tm/tournaments returns 200 with JSON array")
+    @DisplayName("GET /api/tournaments returns 200 with JSON array")
     void getList_authenticated_returns200() throws Exception {
         Tournament t1 = buildDraftTournament("Tournament A");
         Tournament t2 = buildDraftTournament("Tournament B");
         when(tournamentService.listTournaments()).thenReturn(List.of(t1, t2));
 
-        mockMvc.perform(get("/api/tm/tournaments").contentType(MediaType.APPLICATION_JSON))
+        mockMvc.perform(get("/api/tournaments").contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$.length()").value(2));
@@ -137,23 +137,23 @@ class TournamentControllerSliceTest {
 
     @Test
     @WithMockUser
-    @DisplayName("GET /api/tm/tournaments returns 200 with empty array when no tournaments")
+    @DisplayName("GET /api/tournaments returns 200 with empty array when no tournaments")
     void getList_empty_returns200EmptyArray() throws Exception {
         when(tournamentService.listTournaments()).thenReturn(List.of());
 
-        mockMvc.perform(get("/api/tm/tournaments").contentType(MediaType.APPLICATION_JSON))
+        mockMvc.perform(get("/api/tournaments").contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$.length()").value(0));
     }
 
     // =========================================================================
-    // POST /api/tm/tournaments — create
+    // POST /api/tournaments — create
     // =========================================================================
 
     @Test
     @WithMockUser
-    @DisplayName("POST /api/tm/tournaments with valid body returns 201 with id in body")
+    @DisplayName("POST /api/tournaments with valid body returns 201 with id in body")
     void create_validRequest_returns201() throws Exception {
         UUID newId = UUID.randomUUID();
         Tournament created = buildDraftTournament("New Tournament");
@@ -181,7 +181,7 @@ class TournamentControllerSliceTest {
                         "roundRobin");
 
         mockMvc.perform(
-                        post("/api/tm/tournaments")
+                        post("/api/tournaments")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(req))
                                 .with(csrf()))
@@ -191,7 +191,7 @@ class TournamentControllerSliceTest {
 
     @Test
     @WithMockUser
-    @DisplayName("POST /api/tm/tournaments with blank description returns 400")
+    @DisplayName("POST /api/tournaments with blank description returns 400")
     void create_blankDescription_returns400() throws Exception {
         TournamentCreateRequest req =
                 new TournamentCreateRequest(
@@ -205,7 +205,7 @@ class TournamentControllerSliceTest {
                         "roundRobin");
 
         mockMvc.perform(
-                        post("/api/tm/tournaments")
+                        post("/api/tournaments")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(req))
                                 .with(csrf()))

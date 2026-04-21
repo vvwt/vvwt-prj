@@ -1,8 +1,8 @@
 package de.vvwt.tm.domain;
 
 import de.vvwt.tm.domain.repo.ActivityTypeRepository;
-import de.vvwt.tm.domain.repo.TournamentRepository;
-import de.vvwt.tm.infrastructure.web.ConflictException;
+import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.exceptions.ConflictException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;

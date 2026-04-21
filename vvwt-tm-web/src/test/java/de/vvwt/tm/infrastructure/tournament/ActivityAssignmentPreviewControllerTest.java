@@ -10,20 +10,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.domain.ActivityType;
 import de.vvwt.tm.domain.ActivityTypeService;
-import de.vvwt.tm.domain.Match;
-import de.vvwt.tm.domain.Phase;
-import de.vvwt.tm.domain.Team;
-import de.vvwt.tm.domain.TeamAvatar;
 import de.vvwt.tm.domain.activity.ActivityAssignmentResult;
 import de.vvwt.tm.domain.activity.ActivityAssignmentService;
-import de.vvwt.tm.domain.repo.MatchRepository;
-import de.vvwt.tm.domain.repo.PhaseRepository;
-import de.vvwt.tm.domain.repo.TeamAvatarRepository;
-import de.vvwt.tm.domain.repo.TeamRepository;
-import de.vvwt.tm.domain.repo.TournamentRepository;
 import de.vvwt.tm.infrastructure.testsupport.TenantContextSliceTestSupport;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantRegistryPort;
+import de.vvwt.tm.tournament.Match;
+import de.vvwt.tm.tournament.MatchRepository;
+import de.vvwt.tm.tournament.Phase;
+import de.vvwt.tm.tournament.PhaseRepository;
+import de.vvwt.tm.tournament.Team;
+import de.vvwt.tm.tournament.TeamAvatar;
+import de.vvwt.tm.tournament.TeamAvatarRepository;
+import de.vvwt.tm.tournament.TeamRepository;
+import de.vvwt.tm.tournament.TournamentRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -123,7 +123,7 @@ class ActivityAssignmentPreviewControllerTest {
         when(tournamentRepository.findById(TOURNAMENT_ID))
                 .thenReturn(
                         Optional.of(
-                                new de.vvwt.tm.domain.Tournament(
+                                new de.vvwt.tm.tournament.Tournament(
                                         TOURNAMENT_ID,
                                         TENANT_ID,
                                         "Test",
@@ -167,7 +167,7 @@ class ActivityAssignmentPreviewControllerTest {
         when(tournamentRepository.findById(TOURNAMENT_ID))
                 .thenReturn(
                         Optional.of(
-                                new de.vvwt.tm.domain.Tournament(
+                                new de.vvwt.tm.tournament.Tournament(
                                         TOURNAMENT_ID,
                                         TENANT_ID,
                                         "Test",

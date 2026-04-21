@@ -30,7 +30,7 @@ import java.util.UUID;
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
  * @see <a href="E21S04">E21S04 — Team aggregate reconstruction (inventory line 457)</a>
  */
-public class TeamAvatarRating {
+public class TeamAvatarRating implements Comparable<TeamAvatarRating> {
 
     /** PK: same as the referenced TeamAvatar's UUID — 1:1 relationship. */
     private UUID avatarId;
@@ -230,5 +230,52 @@ public class TeamAvatarRating {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    // -------------------------------------------------------------------------
+    // Comparable — D-33 canonical group-table sort order
+    // -------------------------------------------------------------------------
+
+    /**
+     * Canonical sort order for group standings (D-33):
+     *
+     * <ol>
+     *   <li>Higher {@code points} ranks first (DESC)
+     *   <li>Tie broken by higher {@code setQuotient} (DESC)
+     *   <li>Tie broken by higher {@code ballQuotient} (DESC)
+     *   <li>Rows with {@code isWithoutAssessment = true} always rank last (D-26)
+     * </ol>
+     *
+     * <p>Added in E21S13 cutover — mirrors the legacy {@code domain.TeamAvatarRating#compareTo}
+     * behaviour (pure behaviour preservation, no semantic change per DEC-22 refactor phase).
+     *
+     * @param other the other {@link TeamAvatarRating} to compare against
+     * @return negative if this ranks ahead, positive if other ranks ahead, 0 if equal
+     */
+    @Override
+    public int compareTo(TeamAvatarRating other) {
+        if (other == null) {
+            throw new NullPointerException("other must not be null");
+        }
+        // D-26: is_without_assessment rows are forced last
+        if (this.withoutAssessment && !other.withoutAssessment) {
+            return 1; // this ranks behind
+        }
+        if (!this.withoutAssessment && other.withoutAssessment) {
+            return -1; // this ranks ahead
+        }
+        // Both are the same assessment category — apply D-33 sort criteria
+        // 1. Points DESC
+        int cmp = Integer.compare(other.points, this.points);
+        if (cmp != 0) {
+            return cmp;
+        }
+        // 2. Set quotient DESC
+        cmp = Double.compare(other.setQuotient, this.setQuotient);
+        if (cmp != 0) {
+            return cmp;
+        }
+        // 3. Ball quotient DESC
+        return Double.compare(other.ballQuotient, this.ballQuotient);
     }
 }

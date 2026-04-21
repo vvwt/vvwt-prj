@@ -25,18 +25,18 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
  *
  * <p>Mirrors {@code de.vvwt.tm.infrastructure.web.TournamentController} but lives at the Modulith
  * target package {@code de.vvwt.tm.tournament} (public API surface per DEC-21 §Module layout). Uses
- * {@code /api/tm/tournaments} mapping to avoid {@code RequestMappingHandlerMapping} ambiguity with
- * the legacy {@code /api/tournaments} controller during reconstruction-in-place. The mapping will
- * be normalized to {@code /api/tournaments} at the E21S13 atomic cutover.
+ * {@code /api/tournaments} mapping to avoid {@code RequestMappingHandlerMapping} ambiguity with the
+ * legacy {@code /api/tournaments} controller during reconstruction-in-place. The mapping will be
+ * normalized to {@code /api/tournaments} at the E21S13 atomic cutover.
  *
  * <h2>Endpoints</h2>
  *
  * <ul>
- *   <li>GET /api/tm/tournaments — list all (AC1)
- *   <li>GET /api/tm/tournaments/{id} — get one (AC2)
- *   <li>POST /api/tm/tournaments — create new in DRAFT (AC3)
- *   <li>PUT /api/tm/tournaments/{id} — update DRAFT only (AC4)
- *   <li>DELETE /api/tm/tournaments/{id} — delete DRAFT with no phases (AC5)
+ *   <li>GET /api/tournaments — list all (AC1)
+ *   <li>GET /api/tournaments/{id} — get one (AC2)
+ *   <li>POST /api/tournaments — create new in DRAFT (AC3)
+ *   <li>PUT /api/tournaments/{id} — update DRAFT only (AC4)
+ *   <li>DELETE /api/tournaments/{id} — delete DRAFT with no phases (AC5)
  * </ul>
  *
  * @see TournamentService
@@ -46,7 +46,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
  * @see <a href="E21S02">E21S02 — Tournament aggregate reconstruction</a>
  */
 @RestController("tmTournamentController")
-@RequestMapping("/api/tm/tournaments")
+@RequestMapping("/api/tournaments")
 public class TournamentController {
 
     private final TournamentService tournamentService;
@@ -57,7 +57,7 @@ public class TournamentController {
     }
 
     // -------------------------------------------------------------------------
-    // AC1 — GET /api/tm/tournaments
+    // AC1 — GET /api/tournaments
     // -------------------------------------------------------------------------
 
     /**
@@ -73,7 +73,7 @@ public class TournamentController {
     }
 
     // -------------------------------------------------------------------------
-    // AC2 — GET /api/tm/tournaments/{id}
+    // AC2 — GET /api/tournaments/{id}
     // -------------------------------------------------------------------------
 
     /**
@@ -88,7 +88,7 @@ public class TournamentController {
     }
 
     // -------------------------------------------------------------------------
-    // AC3 — POST /api/tm/tournaments
+    // AC3 — POST /api/tournaments
     // -------------------------------------------------------------------------
 
     /**
@@ -122,7 +122,7 @@ public class TournamentController {
     }
 
     // -------------------------------------------------------------------------
-    // AC4 — PUT /api/tm/tournaments/{id}
+    // AC4 — PUT /api/tournaments/{id}
     // -------------------------------------------------------------------------
 
     /**
@@ -153,7 +153,7 @@ public class TournamentController {
     }
 
     // -------------------------------------------------------------------------
-    // AC5 — DELETE /api/tm/tournaments/{id}
+    // AC5 — DELETE /api/tournaments/{id}
     // -------------------------------------------------------------------------
 
     /**

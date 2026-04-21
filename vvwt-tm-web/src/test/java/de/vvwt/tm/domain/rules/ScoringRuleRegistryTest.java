@@ -3,10 +3,10 @@ package de.vvwt.tm.domain.rules;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import de.vvwt.tm.domain.MatchFormat;
-import de.vvwt.tm.domain.MatchOutcome;
-import de.vvwt.tm.domain.Tournament;
-import de.vvwt.tm.domain.generator.MatchGeneratorRegistry;
+import de.vvwt.tm.tournament.MatchFormat;
+import de.vvwt.tm.tournament.MatchGeneratorRegistry;
+import de.vvwt.tm.tournament.MatchOutcome;
+import de.vvwt.tm.tournament.Tournament;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;

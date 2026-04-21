@@ -3,9 +3,9 @@ package de.vvwt.tm;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import de.vvwt.tm.domain.Match;
-import de.vvwt.tm.domain.MatchState;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import de.vvwt.tm.tournament.Match;
+import de.vvwt.tm.tournament.MatchState;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;

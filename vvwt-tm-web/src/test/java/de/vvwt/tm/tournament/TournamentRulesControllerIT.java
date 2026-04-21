@@ -88,13 +88,13 @@ class TournamentRulesControllerIT {
 
     @Test
     @DisplayName(
-            "AC-REST-IT-HAPPY: authenticated GET /api/tm/tournament-rules returns 200 + four"
+            "AC-REST-IT-HAPPY: authenticated GET /api/tournament-rules returns 200 + four"
                     + " non-empty lists")
     @SuppressWarnings("unchecked")
     void authenticatedGet_returns200WithRuleRegistries() {
         ResponseEntity<Map<String, List<String>>> response =
                 authed.exchange(
-                        baseUrl + "/api/tm/tournament-rules",
+                        baseUrl + "/api/tournament-rules",
                         HttpMethod.GET,
                         null,
                         new ParameterizedTypeReference<Map<String, List<String>>>() {});
@@ -120,10 +120,10 @@ class TournamentRulesControllerIT {
     // =========================================================================
 
     @Test
-    @DisplayName("AC-REST-IT-SEC: anonymous GET /api/tm/tournament-rules returns 401")
+    @DisplayName("AC-REST-IT-SEC: anonymous GET /api/tournament-rules returns 401")
     void anonymousGet_returns401() {
         ResponseEntity<String> response =
-                restTemplate.getForEntity(baseUrl + "/api/tm/tournament-rules", String.class);
+                restTemplate.getForEntity(baseUrl + "/api/tournament-rules", String.class);
 
         assertThat(response.getStatusCode())
                 .as("unauthenticated request must return 401")

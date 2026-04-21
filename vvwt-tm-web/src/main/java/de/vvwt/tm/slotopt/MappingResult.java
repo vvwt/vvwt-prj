@@ -1,6 +1,6 @@
 package de.vvwt.tm.slotopt;
 
-import de.vvwt.tm.domain.Match;
+import de.vvwt.tm.tournament.Match;
 import de.vvwt.worker.types.CanonicalPhaseDef;
 import de.vvwt.worker.types.RawPhaseDef;
 import java.util.List;

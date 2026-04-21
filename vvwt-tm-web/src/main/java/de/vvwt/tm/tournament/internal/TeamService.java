@@ -1,9 +1,9 @@
 package de.vvwt.tm.tournament.internal;
 
-import de.vvwt.tm.infrastructure.web.ConflictException;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.exceptions.ConflictException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -74,6 +74,11 @@ public class TeamService {
      * @throws NoSuchElementException if the tournament does not exist for the current tenant (AC13)
      */
     public List<Team> listTeams(UUID tournamentId) {
+        // AC13: 404 if tournament does not exist for the current tenant
+        tournamentRepository
+                .findById(tournamentId)
+                .orElseThrow(
+                        () -> new NoSuchElementException("Tournament not found: " + tournamentId));
         return teamRepository.findByTournamentId(tournamentId);
     }
 

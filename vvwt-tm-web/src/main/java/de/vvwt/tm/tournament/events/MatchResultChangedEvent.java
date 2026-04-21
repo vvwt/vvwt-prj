@@ -1,6 +1,6 @@
 package de.vvwt.tm.tournament.events;
 
-import de.vvwt.tm.domain.MatchState;
+import de.vvwt.tm.tournament.MatchState;
 import java.util.UUID;
 import org.springframework.context.ApplicationEvent;
 

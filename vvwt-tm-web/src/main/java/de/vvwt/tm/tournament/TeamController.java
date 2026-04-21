@@ -1,5 +1,6 @@
 package de.vvwt.tm.tournament;
 
+import de.vvwt.tm.domain.photo.PhotoStorageService;
 import de.vvwt.tm.tournament.internal.TeamService;
 import de.vvwt.tm.tournament.internal.TeamService.BulkCreateResult;
 import de.vvwt.tm.tournament.internal.dto.TeamBulkCreateRequest;
@@ -12,6 +13,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,18 +30,18 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
  *
  * <p>Mirrors {@code de.vvwt.tm.infrastructure.web.TeamController} but lives at the Modulith target
  * package {@code de.vvwt.tm.tournament} (public API surface per DEC-21 §Module layout). Uses {@code
- * /api/tm/tournaments/{tournamentId}/teams} mapping to avoid {@code RequestMappingHandlerMapping}
+ * /api/tournaments/{tournamentId}/teams} mapping to avoid {@code RequestMappingHandlerMapping}
  * ambiguity with the legacy {@code /api/tournaments/{tournamentId}/teams} controller during
  * reconstruction-in-place. The mapping will be normalized at the E21S13 atomic cutover.
  *
  * <h2>Endpoints</h2>
  *
  * <ul>
- *   <li>GET /api/tm/tournaments/{tournamentId}/teams — list all
- *   <li>POST /api/tm/tournaments/{tournamentId}/teams — create new
- *   <li>POST /api/tm/tournaments/{tournamentId}/teams/bulk — bulk create
- *   <li>PUT /api/tm/tournaments/{tournamentId}/teams/{id} — update
- *   <li>DELETE /api/tm/tournaments/{tournamentId}/teams/{id} — delete
+ *   <li>GET /api/tournaments/{tournamentId}/teams — list all
+ *   <li>POST /api/tournaments/{tournamentId}/teams — create new
+ *   <li>POST /api/tournaments/{tournamentId}/teams/bulk — bulk create
+ *   <li>PUT /api/tournaments/{tournamentId}/teams/{id} — update
+ *   <li>DELETE /api/tournaments/{tournamentId}/teams/{id} — delete
  * </ul>
  *
  * @see TeamService
@@ -49,17 +51,21 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
  * @see <a href="E21S04">E21S04 — Team aggregate reconstruction (inventory line 454)</a>
  */
 @RestController("tmTeamController")
-@RequestMapping("/api/tm/tournaments/{tournamentId}/teams")
+@RequestMapping("/api/tournaments/{tournamentId}/teams")
 public class TeamController {
 
     private final TeamService teamService;
+    private final PhotoStorageService photoStorageService;
 
-    public TeamController(@Qualifier("tmTeamService") TeamService teamService) {
+    public TeamController(
+            @Qualifier("tmTeamService") TeamService teamService,
+            PhotoStorageService photoStorageService) {
         this.teamService = teamService;
+        this.photoStorageService = photoStorageService;
     }
 
     // -------------------------------------------------------------------------
-    // GET /api/tm/tournaments/{tournamentId}/teams
+    // GET /api/tournaments/{tournamentId}/teams
     // -------------------------------------------------------------------------
 
     /**
@@ -72,12 +78,19 @@ public class TeamController {
     public ResponseEntity<List<TeamResponse>> listTeams(
             @PathVariable("tournamentId") UUID tournamentId) {
         List<TeamResponse> responses =
-                teamService.listTeams(tournamentId).stream().map(TeamResponse::from).toList();
+                teamService.listTeams(tournamentId).stream()
+                        .map(
+                                t ->
+                                        TeamResponse.from(
+                                                t,
+                                                photoStorageService.hasPhoto(
+                                                        tournamentId, t.getId())))
+                        .toList();
         return ResponseEntity.ok(responses);
     }
 
     // -------------------------------------------------------------------------
-    // POST /api/tm/tournaments/{tournamentId}/teams
+    // POST /api/tournaments/{tournamentId}/teams
     // -------------------------------------------------------------------------
 
     /**
@@ -111,7 +124,7 @@ public class TeamController {
     }
 
     // -------------------------------------------------------------------------
-    // POST /api/tm/tournaments/{tournamentId}/teams/bulk
+    // POST /api/tournaments/{tournamentId}/teams/bulk
     // -------------------------------------------------------------------------
 
     /**
@@ -140,11 +153,11 @@ public class TeamController {
                         .toList();
 
         List<BulkCreateResult> results = teamService.bulkCreateTeams(tournamentId, serviceRequests);
-        return ResponseEntity.ok(TeamBulkCreateResponse.from(results));
+        return ResponseEntity.status(HttpStatus.CREATED).body(TeamBulkCreateResponse.from(results));
     }
 
     // -------------------------------------------------------------------------
-    // PUT /api/tm/tournaments/{tournamentId}/teams/{id}
+    // PUT /api/tournaments/{tournamentId}/teams/{id}
     // -------------------------------------------------------------------------
 
     /**
@@ -175,7 +188,7 @@ public class TeamController {
     }
 
     // -------------------------------------------------------------------------
-    // DELETE /api/tm/tournaments/{tournamentId}/teams/{id}
+    // DELETE /api/tournaments/{tournamentId}/teams/{id}
     // -------------------------------------------------------------------------
 
     /**

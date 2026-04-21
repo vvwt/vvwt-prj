@@ -4,6 +4,10 @@ import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseBreak;
 import de.vvwt.tm.tournament.PhaseBreakRepository;
 import de.vvwt.tm.tournament.PhaseRepository;
+import de.vvwt.tm.tournament.Team;
+import de.vvwt.tm.tournament.TeamAvatar;
+import de.vvwt.tm.tournament.TeamAvatarRepository;
+import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.internal.draft.DraftBreak;
 import de.vvwt.tm.tournament.internal.draft.DraftConfig;
 import de.vvwt.tm.tournament.internal.draft.DraftPreviewResult;
@@ -11,6 +15,7 @@ import de.vvwt.tm.tournament.internal.draft.DraftPreviewSection;
 import de.vvwt.tm.tournament.internal.draft.DraftSection;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -54,18 +59,31 @@ public class DraftService {
 
     private final PhaseRepository phaseRepository;
     private final PhaseBreakRepository phaseBreakRepository;
+    private final TeamRepository teamRepository;
+    private final TeamAvatarRepository teamAvatarRepository;
+    private final PhasePreparationService phasePreparationService;
 
     /**
-     * Constructs the service with Phase-aggregate collaborators from E21S03.
+     * Constructs the service with Phase-aggregate collaborators from E21S03 and phase preparation.
      *
      * @param phaseRepository phase persistence (tenant-scoped, E21S03)
      * @param phaseBreakRepository phase break persistence (tenant-scoped, E21S03)
+     * @param teamRepository team persistence (tenant-scoped)
+     * @param teamAvatarRepository team avatar persistence (tenant-scoped, E21S04)
+     * @param phasePreparationService match generation service (E21S08)
      */
     public DraftService(
             @Qualifier("tmPhaseRepository") PhaseRepository phaseRepository,
-            @Qualifier("tmPhaseBreakRepository") PhaseBreakRepository phaseBreakRepository) {
+            @Qualifier("tmPhaseBreakRepository") PhaseBreakRepository phaseBreakRepository,
+            TeamRepository teamRepository,
+            TeamAvatarRepository teamAvatarRepository,
+            @Qualifier("tmPhasePreparationService")
+                    PhasePreparationService phasePreparationService) {
         this.phaseRepository = phaseRepository;
         this.phaseBreakRepository = phaseBreakRepository;
+        this.teamRepository = teamRepository;
+        this.teamAvatarRepository = teamAvatarRepository;
+        this.phasePreparationService = phasePreparationService;
     }
 
     // -------------------------------------------------------------------------
@@ -118,8 +136,20 @@ public class DraftService {
             throw new DraftAlreadyAppliedException(tournamentId, existingPhases.size());
         }
 
+        // Load participating teams sorted by teamNumber ascending (AC6 legacy parity)
+        List<Team> participatingTeams =
+                teamRepository.findByTournamentId(tournamentId).stream()
+                        .filter(Team::isParticipate)
+                        .sorted(Comparator.comparingInt(Team::getTeamNumber))
+                        .toList();
+
         List<UUID> createdPhaseIds = new ArrayList<>();
-        for (DraftSection section : config.getSections()) {
+        List<DraftSection> sections = config.getSections();
+
+        for (int i = 0; i < sections.size(); i++) {
+            DraftSection section = sections.get(i);
+            boolean isFirstPhase = (i == 0);
+
             Phase phase =
                     new Phase(
                             UUID.randomUUID(),
@@ -134,9 +164,52 @@ public class DraftService {
             createdPhaseIds.add(savedPhase.getId());
 
             persistPhaseBreaks(savedPhase.getId(), section.getBreaks());
+
+            // Distribute Phase 1 TeamAvatars (AC6 legacy parity — only for the first phase)
+            if (isFirstPhase && !participatingTeams.isEmpty()) {
+                distributeTeamAvatars(savedPhase, section, participatingTeams, tournamentId);
+                // Generate matches for Phase 1 (match-generation only — no referee assignment,
+                // as slot optimization has not yet run at this point)
+                phasePreparationService.generateMatches(savedPhase.getId(), section.getGameMode());
+            }
         }
 
         return createdPhaseIds;
+    }
+
+    /**
+     * Distributes participating teams into Phase 1 groups using round-robin assignment (AC6).
+     *
+     * <p>Teams are sorted by teamNumber. For each team[i]: groupNumber = (i % groupCount) + 1;
+     * groupPosition = (i / groupCount) + 1.
+     *
+     * @param phase the newly created Phase 1
+     * @param section the first section configuration
+     * @param participatingTeams participating teams sorted by teamNumber ascending
+     * @param tournamentId the parent tournament
+     */
+    private void distributeTeamAvatars(
+            Phase phase, DraftSection section, List<Team> participatingTeams, UUID tournamentId) {
+        int groupCount = section.getGroupCount();
+        for (int i = 0; i < participatingTeams.size(); i++) {
+            Team team = participatingTeams.get(i);
+            int groupNumber = (i % groupCount) + 1;
+            int groupPosition = (i / groupCount) + 1;
+
+            TeamAvatar avatar =
+                    new TeamAvatar(
+                            UUID.randomUUID(),
+                            null, // tenantId — set by repository
+                            tournamentId,
+                            phase.getId(),
+                            groupNumber,
+                            groupPosition,
+                            team.getId(),
+                            null, // description — optional
+                            LocalDateTime.now() // createdAt
+                            );
+            teamAvatarRepository.save(avatar);
+        }
     }
 
     // -------------------------------------------------------------------------

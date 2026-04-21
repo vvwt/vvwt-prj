@@ -6,12 +6,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import de.vvwt.tm.domain.ActivityType;
 import de.vvwt.tm.domain.ActivityTypeService;
 import de.vvwt.tm.domain.AssignmentRule;
-import de.vvwt.tm.domain.MatchFormat;
-import de.vvwt.tm.domain.Tournament;
 import de.vvwt.tm.domain.repo.ActivityTypeRepository;
-import de.vvwt.tm.domain.repo.TournamentRepository;
-import de.vvwt.tm.infrastructure.web.ConflictException;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import de.vvwt.tm.tournament.MatchFormat;
+import de.vvwt.tm.tournament.Tournament;
+import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.exceptions.ConflictException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -474,7 +474,7 @@ class E08S02MigrationIT {
             assertThatThrownBy(() -> activityTypeRepository.findAll())
                     .as("AC7 — repository guard must fire before SQL when no tenant context")
                     .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("No active TenantContext");
+                    .hasMessageContaining("No tenant is bound to the current thread");
         } finally {
             defaultTenantId = tenantContextBinder.bindDefaultTenant();
         }
@@ -487,7 +487,7 @@ class E08S02MigrationIT {
             assertThatThrownBy(() -> activityTypeRepository.findByTournamentId(UUID.randomUUID()))
                     .as("AC7 — findByTournamentId must guard on tenant context")
                     .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("No active TenantContext");
+                    .hasMessageContaining("No tenant is bound to the current thread");
         } finally {
             defaultTenantId = tenantContextBinder.bindDefaultTenant();
         }

@@ -103,6 +103,62 @@ public class PhasePreparationService {
     }
 
     /**
+     * Generates matches for a phase WITHOUT running referee assignment.
+     *
+     * <p>Called from {@link de.vvwt.tm.tournament.internal.DraftService#apply} immediately after
+     * phase creation. At this point slot optimization has not yet been run, so referee assignment
+     * (which requires lap + field numbers) cannot execute. Slot optimization and referee assignment
+     * are triggered separately by the operator after draft apply.
+     *
+     * <p>Idempotent: existing matches are deleted before new ones are generated.
+     *
+     * @param phaseId the phase UUID; must not be {@code null}
+     * @param generatorKey the match generator bean id; must not be {@code null}
+     * @throws IllegalArgumentException if either argument is null or the phase does not exist
+     */
+    @Transactional
+    public void generateMatches(UUID phaseId, String generatorKey) {
+        if (phaseId == null) {
+            throw new IllegalArgumentException("phaseId must not be null");
+        }
+        if (generatorKey == null) {
+            throw new IllegalArgumentException("generatorKey must not be null");
+        }
+
+        Phase phase =
+                phaseRepository
+                        .findById(phaseId)
+                        .orElseThrow(
+                                () -> new IllegalArgumentException("Phase not found: " + phaseId));
+
+        List<Match> existing = matchRepository.findByPhaseId(phaseId);
+        if (!existing.isEmpty()) {
+            matchRepository.deleteByPhaseId(phaseId);
+            LOG.info(
+                    "generateMatches: phase={} — deleted {} existing matches before re-generation",
+                    phaseId,
+                    existing.size());
+        }
+
+        List<TeamAvatar> avatars =
+                teamAvatarRepository.findByTournamentIdAndPhaseId(phase.getTournamentId(), phaseId);
+
+        MatchGenerator generator = matchGeneratorRegistry.get(generatorKey);
+        List<Match> generatedMatches = generator.generate(phase, avatars);
+
+        for (Match match : generatedMatches) {
+            matchRepository.save(match);
+        }
+
+        LOG.info(
+                "generateMatches: phase={}, generator={}, avatars={}, generated {} matches",
+                phaseId,
+                generatorKey,
+                avatars.size(),
+                generatedMatches.size());
+    }
+
+    /**
      * Prepares a phase by generating matches and assigning referees.
      *
      * <p>Idempotent: existing matches are deleted before new ones are generated.

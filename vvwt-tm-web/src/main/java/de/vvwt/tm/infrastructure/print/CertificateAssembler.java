@@ -2,16 +2,16 @@ package de.vvwt.tm.infrastructure.print;
 
 import com.samskivert.mustache.Mustache;
 import com.samskivert.mustache.MustacheException;
-import de.vvwt.tm.domain.Phase;
-import de.vvwt.tm.domain.Team;
-import de.vvwt.tm.domain.TeamAvatar;
-import de.vvwt.tm.domain.TeamAvatarRating;
-import de.vvwt.tm.domain.Tournament;
 import de.vvwt.tm.domain.photo.PhotoStorageService;
-import de.vvwt.tm.domain.repo.PhaseRepository;
-import de.vvwt.tm.domain.repo.TeamAvatarRatingRepository;
-import de.vvwt.tm.domain.repo.TeamAvatarRepository;
-import de.vvwt.tm.domain.repo.TeamRepository;
+import de.vvwt.tm.tournament.Phase;
+import de.vvwt.tm.tournament.PhaseRepository;
+import de.vvwt.tm.tournament.Team;
+import de.vvwt.tm.tournament.TeamAvatar;
+import de.vvwt.tm.tournament.TeamAvatarRating;
+import de.vvwt.tm.tournament.TeamAvatarRatingRepository;
+import de.vvwt.tm.tournament.TeamAvatarRepository;
+import de.vvwt.tm.tournament.TeamRepository;
+import de.vvwt.tm.tournament.Tournament;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
@@ -163,7 +163,9 @@ public class CertificateAssembler {
                 rankedAvatars.add(avatar);
             }
         }
-        rankedAvatars.sort(Comparator.comparing(a -> ratingByAvatarId.get(a.getId())));
+        rankedAvatars.sort(
+                (a, b) ->
+                        ratingByAvatarId.get(a.getId()).compareTo(ratingByAvatarId.get(b.getId())));
 
         // Assign 1-based placement
         List<AvatarPlacement> result = new ArrayList<>();

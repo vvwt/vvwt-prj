@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.vvwt.tm.domain.photo.PhotoStorageService;
 import de.vvwt.tm.infrastructure.testsupport.TenantContextSliceTestSupport;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantRegistryPort;
@@ -71,6 +72,8 @@ class TeamControllerSliceTest {
     @MockitoBean(name = "tmTeamService")
     private TeamService teamService;
 
+    @MockitoBean private PhotoStorageService photoStorageService;
+
     @MockitoBean private TenantContext tenantContext;
 
     @MockitoBean private TenantRegistryPort tenantRegistryPort;
@@ -79,7 +82,7 @@ class TeamControllerSliceTest {
 
     private static final UUID TENANT_ID = UUID.randomUUID();
     private static final UUID TOURNAMENT_ID = UUID.randomUUID();
-    private static final String BASE_URL = "/api/tm/tournaments/" + TOURNAMENT_ID + "/teams";
+    private static final String BASE_URL = "/api/tournaments/" + TOURNAMENT_ID + "/teams";
 
     @BeforeEach
     void setUp() {
@@ -116,7 +119,7 @@ class TeamControllerSliceTest {
     }
 
     // =========================================================================
-    // GET /api/tm/tournaments/{tournamentId}/teams
+    // GET /api/tournaments/{tournamentId}/teams
     // =========================================================================
 
     @Test
@@ -147,7 +150,7 @@ class TeamControllerSliceTest {
     }
 
     // =========================================================================
-    // POST /api/tm/tournaments/{tournamentId}/teams — create
+    // POST /api/tournaments/{tournamentId}/teams — create
     // =========================================================================
 
     @Test
@@ -186,13 +189,13 @@ class TeamControllerSliceTest {
     }
 
     // =========================================================================
-    // POST /api/tm/tournaments/{tournamentId}/teams/bulk — bulk create
+    // POST /api/tournaments/{tournamentId}/teams/bulk — bulk create
     // =========================================================================
 
     @Test
     @WithMockUser
-    @DisplayName("POST /bulk with valid body returns 200")
-    void bulkCreate_validRequest_returns200() throws Exception {
+    @DisplayName("POST /bulk with valid body returns 201")
+    void bulkCreate_validRequest_returns201() throws Exception {
         Team created = buildTeam(1, "Alpha");
         TeamService.BulkCreateResult result = TeamService.BulkCreateResult.success(created);
         when(teamService.bulkCreateTeams(eq(TOURNAMENT_ID), any())).thenReturn(List.of(result));
@@ -204,14 +207,14 @@ class TeamControllerSliceTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(req))
                                 .with(csrf()))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.results").isArray())
                 .andExpect(jsonPath("$.results.length()").value(1))
                 .andExpect(jsonPath("$.results[0].success").value(true));
     }
 
     // =========================================================================
-    // PUT /api/tm/tournaments/{tournamentId}/teams/{id} — update
+    // PUT /api/tournaments/{tournamentId}/teams/{id} — update
     // =========================================================================
 
     @Test
@@ -242,7 +245,7 @@ class TeamControllerSliceTest {
     }
 
     // =========================================================================
-    // DELETE /api/tm/tournaments/{tournamentId}/teams/{id} — delete
+    // DELETE /api/tournaments/{tournamentId}/teams/{id} — delete
     // =========================================================================
 
     @Test

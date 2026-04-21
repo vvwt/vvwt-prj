@@ -52,8 +52,8 @@ import org.springframework.test.context.ActiveProfiles;
  * <p>Location assignment is a post-registration admin step. The happy-path test:
  *
  * <ol>
- *   <li>Registers a SCORING_TABLET via POST /api/tm/devices/register (location_id = null)
- *   <li>Assigns a location via POST /api/tm/admin/devices/{id}/location/{locationId} (admin role)
+ *   <li>Registers a SCORING_TABLET via POST /api/devices/register (location_id = null)
+ *   <li>Assigns a location via POST /api/admin/devices/{id}/location/{locationId} (admin role)
  *   <li>Verifies via assertj-db that location_id is now set in the devices table
  * </ol>
  *
@@ -106,7 +106,7 @@ class DeviceAdminControllerIT {
         DeviceRegisterRequest registerRequest = new DeviceRegisterRequest("SCORING_TABLET");
         ResponseEntity<DeviceRegisterResponse> registerResponse =
                 authed.postForEntity(
-                        new URI(baseUrl + "/api/tm/devices/register"),
+                        new URI(baseUrl + "/api/devices/register"),
                         registerRequest,
                         DeviceRegisterResponse.class);
         assertThat(registerResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
@@ -127,7 +127,7 @@ class DeviceAdminControllerIT {
                 authed.postForEntity(
                         new URI(
                                 baseUrl
-                                        + "/api/tm/admin/devices/"
+                                        + "/api/admin/devices/"
                                         + deviceId
                                         + "/location/"
                                         + locationId),
@@ -171,7 +171,7 @@ class DeviceAdminControllerIT {
                 userClient.postForEntity(
                         new URI(
                                 baseUrl
-                                        + "/api/tm/admin/devices/"
+                                        + "/api/admin/devices/"
                                         + deviceId
                                         + "/location/"
                                         + locationId),
@@ -198,7 +198,7 @@ class DeviceAdminControllerIT {
                 restTemplate.postForEntity(
                         new URI(
                                 baseUrl
-                                        + "/api/tm/admin/devices/"
+                                        + "/api/admin/devices/"
                                         + deviceId
                                         + "/location/"
                                         + locationId),

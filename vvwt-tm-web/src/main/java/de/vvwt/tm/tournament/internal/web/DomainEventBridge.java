@@ -70,17 +70,17 @@ public class DomainEventBridge {
     private static final Logger log = LoggerFactory.getLogger(DomainEventBridge.class);
 
     /** Admin WebSocket topic (matches legacy exactly — AC-WEBSOCKET-CONFIG-INTEGRATION). */
-    static final String EVENTS_TOPIC = "/topic/events";
+    public static final String EVENTS_TOPIC = "/topic/events";
 
     /** Tenant-scoped display topic pattern. Format: {@code /topic/display/{tenantId}/events}. */
-    static final String DISPLAY_EVENTS_TOPIC_PATTERN = "/topic/display/%s/events";
+    public static final String DISPLAY_EVENTS_TOPIC_PATTERN = "/topic/display/%s/events";
 
     /** Event type constants (match legacy exactly — AC-WEBSOCKET-CONFIG-INTEGRATION). */
-    static final String EVENT_TYPE_MATCH_RESULT_CHANGED = "MATCH_RESULT_CHANGED";
+    public static final String EVENT_TYPE_MATCH_RESULT_CHANGED = "MATCH_RESULT_CHANGED";
 
-    static final String EVENT_TYPE_LAP_ADVANCED = "LAP_ADVANCED";
-    static final String EVENT_TYPE_PHASE_STATUS_CHANGED = "PHASE_STATUS_CHANGED";
-    static final String EVENT_TYPE_DEVICE_REGISTERED = "DEVICE_REGISTERED";
+    public static final String EVENT_TYPE_LAP_ADVANCED = "LAP_ADVANCED";
+    public static final String EVENT_TYPE_PHASE_STATUS_CHANGED = "PHASE_STATUS_CHANGED";
+    public static final String EVENT_TYPE_DEVICE_REGISTERED = "DEVICE_REGISTERED";
 
     private final SimpMessagingTemplate messagingTemplate;
 
@@ -216,7 +216,7 @@ public class DomainEventBridge {
      * @param tenantId the tenant UUID
      * @return e.g. {@code /topic/display/abc-123.../events}
      */
-    static String displayTopic(UUID tenantId) {
+    public static String displayTopic(UUID tenantId) {
         return String.format(DISPLAY_EVENTS_TOPIC_PATTERN, tenantId);
     }
 

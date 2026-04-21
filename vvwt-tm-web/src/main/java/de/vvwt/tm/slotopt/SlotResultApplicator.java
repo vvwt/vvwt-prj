@@ -1,7 +1,7 @@
 package de.vvwt.tm.slotopt;
 
-import de.vvwt.tm.domain.Match;
-import de.vvwt.tm.domain.repo.MatchRepository;
+import de.vvwt.tm.tournament.Match;
+import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.worker.codec.LehmerCodec;
 import java.util.ArrayList;
 import java.util.Comparator;

@@ -44,8 +44,8 @@ import org.springframework.web.context.WebApplicationContext;
  * <h2>Coverage (AC-REST-SLICE-DraftController)</h2>
  *
  * <ul>
- *   <li>POST /api/tm/tournaments/{id}/draft/preview → 200 + DraftPreviewResponse
- *   <li>POST /api/tm/tournaments/{id}/draft/apply → 200 + DraftApplyResponse
+ *   <li>POST /api/tournaments/{id}/draft/preview → 200 + DraftPreviewResponse
+ *   <li>POST /api/tournaments/{id}/draft/apply → 200 + DraftApplyResponse
  *   <li>Malformed JSON → 400
  *   <li>Anonymous POST → 401 (AC-REST-IT-SEC-DraftController security gate)
  * </ul>
@@ -105,7 +105,7 @@ class DraftControllerSliceTest {
         DraftRequest requestBody = new DraftRequest(List.of(sectionRequest));
 
         mockMvc.perform(
-                        post("/api/tm/tournaments/{id}/draft/preview", TOURNAMENT_ID)
+                        post("/api/tournaments/{id}/draft/preview", TOURNAMENT_ID)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(requestBody))
                                 .with(csrf()))
@@ -133,7 +133,7 @@ class DraftControllerSliceTest {
         DraftRequest requestBody = new DraftRequest(List.of(sectionRequest));
 
         mockMvc.perform(
-                        post("/api/tm/tournaments/{id}/draft/apply", TOURNAMENT_ID)
+                        post("/api/tournaments/{id}/draft/apply", TOURNAMENT_ID)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(requestBody))
                                 .with(csrf()))
@@ -151,7 +151,7 @@ class DraftControllerSliceTest {
     @WithMockUser
     void previewDraft_withMalformedJson_returns400() throws Exception {
         mockMvc.perform(
-                        post("/api/tm/tournaments/{id}/draft/preview", TOURNAMENT_ID)
+                        post("/api/tournaments/{id}/draft/preview", TOURNAMENT_ID)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{not-valid-json}")
                                 .with(csrf()))
@@ -170,7 +170,7 @@ class DraftControllerSliceTest {
         // realm).
         // The security property tested here is: unauthenticated access is rejected (4xx).
         mockMvc.perform(
-                        get("/api/tm/tournaments/{id}/draft/preview", TOURNAMENT_ID)
+                        get("/api/tournaments/{id}/draft/preview", TOURNAMENT_ID)
                                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isUnauthorized());
     }

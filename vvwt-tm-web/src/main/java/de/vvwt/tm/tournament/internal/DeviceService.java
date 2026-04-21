@@ -2,10 +2,13 @@ package de.vvwt.tm.tournament.internal;
 
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.Device;
+import de.vvwt.tm.tournament.exceptions.ConflictException;
 import java.security.SecureRandom;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
@@ -59,6 +62,16 @@ public class DeviceService {
     private final SecureRandom secureRandom = new SecureRandom();
 
     /**
+     * Maximum number of DISPLAY devices per tenant. Reads the legacy {@code
+     * vvwt.devices.max-display-count} property. 0 means unlimited (disabled). Default 10.
+     *
+     * <p>Migrated from the deleted {@code de.vvwt.tm.config.DeviceLimitConfig} during E21S13
+     * cutover (DEC-22 refactor phase — behavior-preserving).
+     */
+    @Value("${vvwt.devices.max-display-count:10}")
+    private int maxDisplayCount;
+
+    /**
      * Constructs the service with its required collaborators.
      *
      * @param deviceRepository device persistence
@@ -91,6 +104,29 @@ public class DeviceService {
      */
     public Device register(String deviceType) {
         UUID tenantId = tenantContext.current();
+
+        // Display-device-specific limit (429 Too Many Requests, legacy parity)
+        String effectiveType = deviceType != null ? deviceType : Device.TYPE_SCORING_TABLET;
+
+        // Validate device type — only SCORING_TABLET and DISPLAY are valid
+        if (!Device.TYPE_SCORING_TABLET.equals(effectiveType)
+                && !Device.TYPE_DISPLAY.equals(effectiveType)) {
+            throw new IllegalArgumentException(
+                    "Unknown deviceType: '"
+                            + effectiveType
+                            + "'. Valid values: "
+                            + Device.TYPE_SCORING_TABLET
+                            + ", "
+                            + Device.TYPE_DISPLAY);
+        }
+        if (Device.TYPE_DISPLAY.equals(effectiveType) && maxDisplayCount > 0) {
+            long displayCount = deviceRepository.countDisplayByTenant(tenantId);
+            if (displayCount >= maxDisplayCount) {
+                throw new DisplayDeviceLimitExceededException(maxDisplayCount, displayCount);
+            }
+        }
+
+        // Total device limit (409 Conflict)
         long currentCount = deviceRepository.countByTenant(tenantId);
         int limit = limitConfig.getMaxDeviceCount();
         if (currentCount >= limit) {
@@ -193,11 +229,17 @@ public class DeviceService {
      * @throws NoSuchElementException if the device does not exist for the current tenant
      */
     public Device assignLocation(UUID deviceId, UUID locationId) {
+        UUID tenantId = tenantContext.current();
         Device device =
                 deviceRepository
                         .findById(deviceId)
                         .orElseThrow(
                                 () -> new NoSuchElementException("Device not found: " + deviceId));
+        // AC8 — cross-tenant guard: locationId must belong to the active tenant
+        if (!deviceRepository.locationExistsForTenant(locationId, tenantId)) {
+            throw new IllegalArgumentException(
+                    "Location " + locationId + " does not exist for the active tenant");
+        }
         device.setLocationId(locationId);
         return deviceRepository.save(device);
     }
@@ -226,6 +268,94 @@ public class DeviceService {
     }
 
     // -------------------------------------------------------------------------
+    // getDeviceByPin
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns the device matching the given PIN for the current tenant.
+     *
+     * <p>Migrated from the deleted legacy {@code de.vvwt.tm.domain.DeviceService} during E21S13
+     * cutover (DEC-22 refactor phase — behavior-preserving).
+     *
+     * @param pin the 4–6 digit PIN
+     * @return the device
+     * @throws NoSuchElementException if no device with this PIN exists for the current tenant
+     */
+    public Device getDeviceByPin(String pin) {
+        return deviceRepository
+                .findByPin(pin)
+                .orElseThrow(() -> new NoSuchElementException("No device found for PIN: " + pin));
+    }
+
+    // -------------------------------------------------------------------------
+    // assignDevice
+    // -------------------------------------------------------------------------
+
+    /**
+     * Assigns a device to a court field.
+     *
+     * <p>Validates that no other device is already assigned to the same field within the same
+     * tenant (→ 409 Conflict if conflict). Sets {@code assignedField} and transitions status to
+     * {@code ASSIGNED}.
+     *
+     * <p>Migrated from the deleted legacy {@code de.vvwt.tm.domain.DeviceService} during E21S13
+     * cutover (DEC-22 refactor phase — behavior-preserving).
+     *
+     * @param deviceId the device UUID
+     * @param fieldNumber the court field number (1-based)
+     * @return the updated device
+     * @throws NoSuchElementException if the device is not found for the current tenant
+     * @throws ConflictException if another device is already assigned to the same field
+     */
+    public Device assignDevice(UUID deviceId, int fieldNumber) {
+        Device device =
+                deviceRepository
+                        .findById(deviceId)
+                        .orElseThrow(
+                                () -> new NoSuchElementException("Device not found: " + deviceId));
+
+        // Conflict check: another device already assigned to this field (locationId may be null)
+        Optional<Device> existing =
+                deviceRepository.findByLocationAndField(device.getLocationId(), fieldNumber);
+        if (existing.isPresent() && !existing.get().getId().equals(deviceId)) {
+            throw new ConflictException(
+                    "Field " + fieldNumber + " is already assigned to another device");
+        }
+
+        device.setAssignedField(fieldNumber);
+        device.setStatus(Device.STATUS_ASSIGNED);
+        return deviceRepository.save(device);
+    }
+
+    // -------------------------------------------------------------------------
+    // unassignDevice
+    // -------------------------------------------------------------------------
+
+    /**
+     * Clears the field assignment of a device, transitioning status back to REGISTERED.
+     *
+     * <p>Idempotent: unassigning an already-unassigned device returns normally without error.
+     *
+     * <p>Migrated from the deleted legacy {@code de.vvwt.tm.domain.DeviceService} during E21S13
+     * cutover (DEC-22 refactor phase — behavior-preserving).
+     *
+     * @param deviceId the device UUID
+     * @return the updated device
+     * @throws NoSuchElementException if the device is not found for the current tenant
+     */
+    public Device unassignDevice(UUID deviceId) {
+        Device device =
+                deviceRepository
+                        .findById(deviceId)
+                        .orElseThrow(
+                                () -> new NoSuchElementException("Device not found: " + deviceId));
+
+        device.setAssignedField(null);
+        device.setStatus(Device.STATUS_REGISTERED);
+        return deviceRepository.save(device);
+    }
+
+    // -------------------------------------------------------------------------
     // deleteDevice
     // -------------------------------------------------------------------------
 
@@ -240,6 +370,21 @@ public class DeviceService {
                 .findById(deviceId)
                 .orElseThrow(() -> new NoSuchElementException("Device not found: " + deviceId));
         deviceRepository.deleteById(deviceId);
+    }
+
+    // -------------------------------------------------------------------------
+    // clearAllDevices
+    // -------------------------------------------------------------------------
+
+    /**
+     * Deletes all devices for the current tenant.
+     *
+     * <p>Migrated from the deleted legacy {@code de.vvwt.tm.domain.DeviceService} during E21S13
+     * cutover (DEC-22 refactor phase — behavior-preserving). Used by the admin "clear all" endpoint
+     * (E06S05-AC7).
+     */
+    public void clearAllDevices() {
+        deviceRepository.deleteAllByTenant();
     }
 
     // -------------------------------------------------------------------------

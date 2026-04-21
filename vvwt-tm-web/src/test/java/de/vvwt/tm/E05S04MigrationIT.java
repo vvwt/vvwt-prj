@@ -2,9 +2,9 @@ package de.vvwt.tm;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import de.vvwt.tm.domain.Tournament;
-import de.vvwt.tm.domain.repo.TournamentRepository;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import de.vvwt.tm.tournament.Tournament;
+import de.vvwt.tm.tournament.TournamentRepository;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;

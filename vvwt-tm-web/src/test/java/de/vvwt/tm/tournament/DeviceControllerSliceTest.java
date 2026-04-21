@@ -42,12 +42,12 @@ import org.springframework.web.context.WebApplicationContext;
  * <h2>Coverage (C-13 Hybrid Split methodology)</h2>
  *
  * <ul>
- *   <li>POST /api/tm/devices/register happy path → 201 (SCORING_TABLET)
- *   <li>POST /api/tm/devices/register happy path → 201 (DISPLAY)
- *   <li>POST /api/tm/devices/register DeviceLimit exceeded → 409 DeviceLimitErrorResponse
- *   <li>GET /api/tm/devices/status → 200
- *   <li>GET /api/tm/devices/list → 200 with list
- *   <li>Unauthenticated GET /api/tm/devices/list → 401
+ *   <li>POST /api/devices/register happy path → 201 (SCORING_TABLET)
+ *   <li>POST /api/devices/register happy path → 201 (DISPLAY)
+ *   <li>POST /api/devices/register DeviceLimit exceeded → 409 DeviceLimitErrorResponse
+ *   <li>GET /api/devices/status → 200
+ *   <li>GET /api/devices/list → 200 with list
+ *   <li>Unauthenticated GET /api/devices/list → 401
  * </ul>
  *
  * @see DeviceController
@@ -71,7 +71,7 @@ class DeviceControllerSliceTest {
     private MockMvc mockMvc;
 
     private static final UUID TENANT_ID = UUID.randomUUID();
-    private static final String BASE_URL = "/api/tm/devices";
+    private static final String BASE_URL = "/api/devices";
 
     @BeforeEach
     void setUp() {
@@ -95,7 +95,7 @@ class DeviceControllerSliceTest {
     }
 
     // =========================================================================
-    // POST /api/tm/devices/register — register SCORING_TABLET
+    // POST /api/devices/register — register SCORING_TABLET
     // =========================================================================
 
     @Test
@@ -134,7 +134,7 @@ class DeviceControllerSliceTest {
     }
 
     // =========================================================================
-    // POST /api/tm/devices/register — DeviceLimit exceeded → 409
+    // POST /api/devices/register — DeviceLimit exceeded → 409
     // =========================================================================
 
     @Test
@@ -156,7 +156,7 @@ class DeviceControllerSliceTest {
     }
 
     // =========================================================================
-    // GET /api/tm/devices/status
+    // GET /api/devices/status
     // =========================================================================
 
     @Test
@@ -173,7 +173,7 @@ class DeviceControllerSliceTest {
     }
 
     // =========================================================================
-    // GET /api/tm/devices/list
+    // GET /api/devices/list
     // =========================================================================
 
     @Test

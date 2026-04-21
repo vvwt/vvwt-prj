@@ -18,8 +18,8 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>Mirrors {@code de.vvwt.tm.infrastructure.web.DeviceAdminController} but lives at the Modulith
  * target package {@code de.vvwt.tm.tournament} (public API surface per DEC-21 §Module layout). Uses
- * {@code /api/tm/admin/devices} mapping to avoid {@code RequestMappingHandlerMapping} ambiguity
- * with the legacy {@code /api/admin/devices} controller during reconstruction-in-place.
+ * {@code /api/admin/devices} mapping to avoid {@code RequestMappingHandlerMapping} ambiguity with
+ * the legacy {@code /api/admin/devices} controller during reconstruction-in-place.
  *
  * <p>All endpoints require ADMIN role (DEC-24: location assignment is an admin-only step).
  * Method-level security is enforced via {@code @PreAuthorize("hasRole('ADMIN')")} (requires
@@ -28,10 +28,9 @@ import org.springframework.web.bind.annotation.RestController;
  * <h2>Endpoints</h2>
  *
  * <ul>
- *   <li>POST /api/tm/admin/devices/{deviceId}/location/{locationId} — assign device to a location
+ *   <li>POST /api/admin/devices/{deviceId}/location/{locationId} — assign device to a location
  *       (DEC-24)
- *   <li>DELETE /api/tm/admin/devices/{deviceId}/location — remove device location assignment
- *       (DEC-24)
+ *   <li>DELETE /api/admin/devices/{deviceId}/location — remove device location assignment (DEC-24)
  * </ul>
  *
  * @see DeviceService
@@ -41,7 +40,7 @@ import org.springframework.web.bind.annotation.RestController;
  * @see <a href="E21S06">E21S06 — Device aggregate reconstruction (inventory line 420)</a>
  */
 @RestController("tmDeviceAdminController")
-@RequestMapping("/api/tm/admin/devices")
+@RequestMapping("/api/admin/devices")
 @PreAuthorize("hasRole('ADMIN')")
 public class DeviceAdminController {
 
@@ -52,7 +51,7 @@ public class DeviceAdminController {
     }
 
     // -------------------------------------------------------------------------
-    // POST /api/tm/admin/devices/{deviceId}/location/{locationId}
+    // POST /api/admin/devices/{deviceId}/location/{locationId}
     // -------------------------------------------------------------------------
 
     /**
@@ -72,7 +71,7 @@ public class DeviceAdminController {
     }
 
     // -------------------------------------------------------------------------
-    // DELETE /api/tm/admin/devices/{deviceId}/location
+    // DELETE /api/admin/devices/{deviceId}/location
     // -------------------------------------------------------------------------
 
     /**

@@ -8,7 +8,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-import de.vvwt.tm.domain.MatchState;
+import de.vvwt.tm.tournament.MatchState;
 import de.vvwt.tm.tournament.events.MatchResultChangedEvent;
 import java.lang.reflect.Type;
 import java.util.List;

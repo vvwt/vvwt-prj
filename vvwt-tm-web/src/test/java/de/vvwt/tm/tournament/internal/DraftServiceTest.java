@@ -12,6 +12,8 @@ import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseBreak;
 import de.vvwt.tm.tournament.PhaseBreakRepository;
 import de.vvwt.tm.tournament.PhaseRepository;
+import de.vvwt.tm.tournament.TeamAvatarRepository;
+import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.internal.draft.DraftBreak;
 import de.vvwt.tm.tournament.internal.draft.DraftConfig;
 import de.vvwt.tm.tournament.internal.draft.DraftPreviewResult;
@@ -46,6 +48,9 @@ class DraftServiceTest {
 
     @Mock private PhaseRepository phaseRepository;
     @Mock private PhaseBreakRepository phaseBreakRepository;
+    @Mock private TeamRepository teamRepository;
+    @Mock private TeamAvatarRepository teamAvatarRepository;
+    @Mock private PhasePreparationService phasePreparationService;
 
     @InjectMocks private DraftService draftService;
 
@@ -104,6 +109,8 @@ class DraftServiceTest {
 
         // PhaseRepository.findByTournamentId returns empty (no phases yet)
         when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of());
+        // No participating teams — TeamAvatar distribution skipped
+        when(teamRepository.findByTournamentId(tournamentId)).thenReturn(List.of());
 
         Phase savedPhase =
                 new Phase(
@@ -131,6 +138,7 @@ class DraftServiceTest {
         DraftConfig config = new DraftConfig(List.of(simpleSection(1), simpleSection(2)));
 
         when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of());
+        when(teamRepository.findByTournamentId(tournamentId)).thenReturn(List.of());
 
         Phase phase1 =
                 new Phase(
@@ -167,6 +175,7 @@ class DraftServiceTest {
         DraftConfig config = new DraftConfig(List.of(sectionWithBreak(1)));
 
         when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of());
+        when(teamRepository.findByTournamentId(tournamentId)).thenReturn(List.of());
 
         Phase savedPhase =
                 new Phase(

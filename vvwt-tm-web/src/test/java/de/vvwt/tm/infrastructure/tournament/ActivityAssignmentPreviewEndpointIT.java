@@ -3,11 +3,11 @@ package de.vvwt.tm.infrastructure.tournament;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.domain.MatchFormat;
-import de.vvwt.tm.domain.Tournament;
-import de.vvwt.tm.domain.repo.TournamentRepository;
 import de.vvwt.tm.infrastructure.tournament.dto.ActivityAssignmentPreviewResponse;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import de.vvwt.tm.tournament.MatchFormat;
+import de.vvwt.tm.tournament.Tournament;
+import de.vvwt.tm.tournament.TournamentRepository;
 import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.UUID;

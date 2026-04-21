@@ -3,14 +3,15 @@ package de.vvwt.tm.infrastructure.web;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.infrastructure.web.dto.TeamBulkCreateRequest;
-import de.vvwt.tm.infrastructure.web.dto.TeamBulkCreateResponse;
-import de.vvwt.tm.infrastructure.web.dto.TeamCreateRequest;
-import de.vvwt.tm.infrastructure.web.dto.TeamResponse;
-import de.vvwt.tm.infrastructure.web.dto.TeamUpdateRequest;
-import de.vvwt.tm.infrastructure.web.dto.TournamentCreateRequest;
-import de.vvwt.tm.infrastructure.web.dto.TournamentResponse;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import de.vvwt.tm.tournament.ApiErrorResponse;
+import de.vvwt.tm.tournament.internal.dto.TeamBulkCreateRequest;
+import de.vvwt.tm.tournament.internal.dto.TeamBulkCreateResponse;
+import de.vvwt.tm.tournament.internal.dto.TeamCreateRequest;
+import de.vvwt.tm.tournament.internal.dto.TeamResponse;
+import de.vvwt.tm.tournament.internal.dto.TeamUpdateRequest;
+import de.vvwt.tm.tournament.internal.dto.TournamentCreateRequest;
+import de.vvwt.tm.tournament.internal.dto.TournamentResponse;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -267,7 +268,7 @@ class TeamControllerIT {
     // =========================================================================
 
     @Test
-    void bulkCreateTeamsReturns200WithResults() {
+    void bulkCreateTeamsReturns201WithResults() {
         TournamentResponse tournament = createDraftTournament();
 
         var bulkRequest =
@@ -283,7 +284,7 @@ class TeamControllerIT {
                         bulkRequest,
                         TeamBulkCreateResponse.class);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         TeamBulkCreateResponse body = response.getBody();
         assertThat(body).isNotNull();
         assertThat(body.results()).hasSize(3);

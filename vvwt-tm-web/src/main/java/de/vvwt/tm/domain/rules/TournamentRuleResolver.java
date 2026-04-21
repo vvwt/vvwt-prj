@@ -1,8 +1,8 @@
 package de.vvwt.tm.domain.rules;
 
-import de.vvwt.tm.domain.Tournament;
-import de.vvwt.tm.domain.generator.MatchGenerator;
-import de.vvwt.tm.domain.generator.MatchGeneratorRegistry;
+import de.vvwt.tm.tournament.MatchGeneratorRegistry;
+import de.vvwt.tm.tournament.Tournament;
+import de.vvwt.tm.tournament.internal.MatchGenerator;
 import org.springframework.stereotype.Component;
 
 /**
