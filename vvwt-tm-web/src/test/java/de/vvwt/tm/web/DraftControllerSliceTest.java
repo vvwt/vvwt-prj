@@ -1,4 +1,4 @@
-package de.vvwt.tm.tournament;
+package de.vvwt.tm.web;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.infrastructure.testsupport.TenantContextSliceTestSupport;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantRegistryPort;
+import de.vvwt.tm.tournament.DraftService;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftPreviewResult;
 import de.vvwt.tm.tournament.draft.DraftPreviewSection;
@@ -34,29 +35,21 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 /**
- * RED — DraftController slice test (AC-TDD-DraftController, AC-REST-SLICE-DraftController).
+ * Slice test for {@link DraftController} — relocated to {@code de.vvwt.tm.web} in E22S08 (DEC-40
+ * Clause A Q-1b).
  *
- * <p>This test was committed RED: {@link DraftController} at {@code
- * de.vvwt.tm.tournament.DraftController} did not exist at commit time, causing a compile error —
- * satisfying the DEC-22 Iron Law.
- *
- * <h2>Coverage (AC-REST-SLICE-DraftController)</h2>
- *
- * <ul>
- *   <li>POST /api/tournaments/{id}/draft/preview → 200 + DraftPreviewResponse
- *   <li>POST /api/tournaments/{id}/draft/apply → 200 + DraftApplyResponse
- *   <li>Malformed JSON → 400
- *   <li>Anonymous POST → 401 (AC-REST-IT-SEC-DraftController security gate)
- * </ul>
+ * <p>Uses {@code @WebMvcTest(DraftController.class)} targeting the new {@code web} package location
+ * per DEC-38 erratum (slice tests retain {@code @WebMvcTest}). {@link DraftService} is mocked via
+ * {@code @MockitoBean} (Q-1b relocation — no logic change; service interface unchanged).
  *
  * @see DraftController
- * @see DraftService
- * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
- * @see <a href="DEC-21">DEC-21 — Spring Modulith, root package = public API surface</a>
- * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
+ * @see <a href="DEC-22">DEC-22 — TDD Iron Law, Q-1b refactor-clause</a>
+ * @see <a href="DEC-38">DEC-38 — @ApplicationModuleTest canon; @WebMvcTest for slice tests</a>
+ * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
+ * @see <a href="E22S08">E22S08 — relocate to de.vvwt.tm.web</a>
  */
 @WebMvcTest(DraftController.class)
-@DisplayName("DraftController slice tests — E21S07 AC-REST-SLICE")
+@DisplayName("DraftController slice tests — E22S08 web-module")
 class DraftControllerSliceTest {
 
     @Autowired private WebApplicationContext context;
@@ -88,10 +81,6 @@ class DraftControllerSliceTest {
     // preview endpoint
     // -------------------------------------------------------------------------
 
-    /**
-     * AC-REST-SLICE-DraftController: POST /preview with valid body returns 200 +
-     * DraftPreviewResponse.
-     */
     @Test
     @WithMockUser
     void previewDraft_withValidRequest_returns200WithPreviewResponse() throws Exception {
@@ -117,9 +106,6 @@ class DraftControllerSliceTest {
     // apply endpoint
     // -------------------------------------------------------------------------
 
-    /**
-     * AC-REST-SLICE-DraftController: POST /apply with valid body returns 200 + DraftApplyResponse.
-     */
     @Test
     @WithMockUser
     void applyDraft_withValidRequest_returns200WithApplyResponse() throws Exception {
@@ -145,7 +131,6 @@ class DraftControllerSliceTest {
     // validation error
     // -------------------------------------------------------------------------
 
-    /** AC-REST-SLICE-DraftController: malformed JSON body → 400. */
     @Test
     @WithMockUser
     void previewDraft_withMalformedJson_returns400() throws Exception {
@@ -161,13 +146,8 @@ class DraftControllerSliceTest {
     // security gate
     // -------------------------------------------------------------------------
 
-    /** AC-REST-IT-SEC-DraftController (slice-level): anonymous GET → 401. */
     @Test
     void previewDraft_withoutAuthentication_returns401() throws Exception {
-        // Use GET to avoid CSRF 403 in @WebMvcTest slice (CSRF enabled by default in slice context,
-        // does not apply to GET). POST with CSRF absent → 403; GET without auth → 401 (Basic
-        // realm).
-        // The security property tested here is: unauthenticated access is rejected (4xx).
         mockMvc.perform(
                         get("/api/tournaments/{id}/draft/preview", TOURNAMENT_ID)
                                 .contentType(MediaType.APPLICATION_JSON))

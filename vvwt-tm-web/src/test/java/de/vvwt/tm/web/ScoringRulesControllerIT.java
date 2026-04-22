@@ -1,4 +1,4 @@
-package de.vvwt.tm.tournament;
+package de.vvwt.tm.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -23,50 +23,49 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestPropertySource;
 
 /**
- * Minimalist integration test for {@link TournamentRulesController} (E21S10,
- * AC-REST-IT-HAPPY-TournamentRulesController + AC-REST-IT-SEC-TournamentRulesController, DEC-26
- * C-13 methodology, inventory row 412).
+ * Minimalist integration test for {@link ScoringRulesController} (E22S08,
+ * AC-S08-IT-ANNOTATION-SWAP, AC-S08-IT-REGISTRY-REAL-PARTICIPATE,
+ * AC-S08-SECURITY-NEGATIVE-TESTS-GREEN).
  *
- * <p>This test was committed RED: {@link TournamentRulesController} at {@code
- * de.vvwt.tm.tournament.TournamentRulesController} did not exist at commit time, causing a compile
- * error — satisfying the DEC-22 Iron Law.
+ * <p>Relocated and renamed from {@code de.vvwt.tm.tournament.TournamentRulesControllerIT} (E21S10)
+ * to {@code de.vvwt.tm.web.ScoringRulesControllerIT} in E22S08 (DEC-40 Clause A Q-1b).
  *
- * <h2>AC-REST-IT-HAPPY-TournamentRulesController</h2>
+ * <p>Annotation re-targeted to {@code web} module scope via
+ * {@code @ApplicationModuleTest(webEnvironment = RANDOM_PORT)} per DEC-38/DEC-40 amendment. Uses
+ * {@code WebModuleTestConfig} (shared web-module test infrastructure).
  *
- * <p>Authenticated GET exercises the full Spring context with the real {@link
- * MatchGeneratorRegistry} from S08 (wired), and legacy {@code de.vvwt.tm.domain.rules.*} registries
- * (transitional coordinates per DEC-32). Response shape is verified: four keys, each a non-empty
- * list.
+ * <h2>AC-S08-IT-REGISTRY-REAL-PARTICIPATE</h2>
  *
- * <h2>AC-REST-IT-SEC-TournamentRulesController</h2>
+ * <p>Real {@code de.vvwt.tm.scoring.ScoringRuleRegistry} and {@code
+ * de.vvwt.tm.scoring.SetValidationRuleRegistry} participate in this IT — no {@code @MockitoBean}
+ * for scoring registries. The web module declares {@code scoring} in {@code allowedDependencies},
+ * so real scoring beans are present in the context (AC-S08-REVERSE-MOCKITOBEAN-REMOVAL: mocks
+ * removed from {@code WebModuleTestConfig}).
  *
- * <p>Anonymous GET returns 401.
+ * <h2>AC-S08-NO-TRANSIENT-404-SMOKE</h2>
  *
- * @see TournamentRulesController
- * @see TournamentRulesControllerSliceTest
- * @see <a href="DEC-26">DEC-26 — controller test methodology (C-13)</a>
- * @see <a href="DEC-32">DEC-32 — transitional scoring-rule-registry import</a>
- * @see <a href="E21S10">E21S10 — inventory row 412</a>
+ * <p>The renamed endpoint {@code GET /api/scoring/rules} returns HTTP 200 with the same JSON body
+ * shape as the legacy {@code GET /api/tournament-rules}. Wire format verified: four keys
+ * (scoringRuleIds, setValidationRuleIds, matchGeneratorIds, matchFormats), each a non-empty list.
+ *
+ * @see ScoringRulesController
+ * @see ScoringRulesControllerSliceTest
+ * @see <a href="DEC-38">DEC-38 — @ApplicationModuleTest canon for reconstructed modules</a>
+ * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation; reverse @MockitoBean case</a>
+ * @see <a href="E22S08">E22S08 — relocate + rename + re-point scoring registries</a>
  */
 @ApplicationModuleTest(
-        mode = ApplicationModuleTest.BootstrapMode.DIRECT_DEPENDENCIES,
+        mode = ApplicationModuleTest.BootstrapMode.ALL_DEPENDENCIES,
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(TournamentModuleTestConfig.class)
-@TestPropertySource(
-        properties = {
-            "spring.datasource.url=jdbc:h2:mem:rulescontrolleritdb"
-                    + ";DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
-                    + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
-        })
+@Import(WebModuleTestConfig.class)
 @ActiveProfiles("test")
-@DisplayName("TournamentRulesController IT — E21S10 AC-REST-IT (2-test minimalist)")
-class TournamentRulesControllerIT {
+@DisplayName("ScoringRulesController IT — E22S08 web-module (2-test minimalist)")
+class ScoringRulesControllerIT {
 
     private static final String ADMIN_USER = "admin";
-    private static final String ADMIN_PASS = "E21S10RulesControllerIT01";
+    private static final String ADMIN_PASS = "E22S08ScoringRulesControllerIT01";
 
     @LocalServerPort private int port;
 
@@ -82,24 +81,25 @@ class TournamentRulesControllerIT {
     }
 
     // =========================================================================
-    // AC-REST-IT-HAPPY: authenticated GET returns 200 + rule-registry JSON
+    // AC-S08-NO-TRANSIENT-404-SMOKE + AC-S08-IT-REGISTRY-REAL-PARTICIPATE:
+    // authenticated GET /api/scoring/rules returns 200 + correct JSON shape
     // =========================================================================
 
     @Test
     @DisplayName(
-            "AC-REST-IT-HAPPY: authenticated GET /api/tournament-rules returns 200 + four"
-                    + " non-empty lists")
+            "AC-S08-IT-HAPPY: authenticated GET /api/scoring/rules returns 200 + four non-empty"
+                    + " lists (real scoring registries participate)")
     @SuppressWarnings("unchecked")
     void authenticatedGet_returns200WithRuleRegistries() {
         ResponseEntity<Map<String, List<String>>> response =
                 authed.exchange(
-                        baseUrl + "/api/tournament-rules",
+                        baseUrl + "/api/scoring/rules",
                         HttpMethod.GET,
                         null,
                         new ParameterizedTypeReference<Map<String, List<String>>>() {});
 
         assertThat(response.getStatusCode())
-                .as("authenticated GET must return 200 OK")
+                .as("authenticated GET /api/scoring/rules must return 200 OK")
                 .isEqualTo(HttpStatus.OK);
 
         Map<String, List<String>> body = response.getBody();
@@ -115,17 +115,17 @@ class TournamentRulesControllerIT {
     }
 
     // =========================================================================
-    // AC-REST-IT-SEC: anonymous GET returns 401
+    // AC-S08-SECURITY-NEGATIVE-TESTS-GREEN: anonymous GET returns 401
     // =========================================================================
 
     @Test
-    @DisplayName("AC-REST-IT-SEC: anonymous GET /api/tournament-rules returns 401")
+    @DisplayName("AC-S08-SEC: anonymous GET /api/scoring/rules returns 401")
     void anonymousGet_returns401() {
         ResponseEntity<String> response =
-                restTemplate.getForEntity(baseUrl + "/api/tournament-rules", String.class);
+                restTemplate.getForEntity(baseUrl + "/api/scoring/rules", String.class);
 
         assertThat(response.getStatusCode())
-                .as("unauthenticated request must return 401")
+                .as("unauthenticated request to /api/scoring/rules must return 401")
                 .isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 

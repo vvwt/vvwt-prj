@@ -2,8 +2,7 @@ package de.vvwt.tm.web;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.domain.photo.PhotoStorageService;
-import de.vvwt.tm.domain.rules.ScoringRuleRegistry;
-import de.vvwt.tm.domain.rules.SetValidationRuleRegistry;
+import de.vvwt.tm.domain.rules.TournamentRuleResolver;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tenant.TenantDataSourceResolver;
@@ -61,8 +60,16 @@ import org.springframework.security.web.SecurityFilterChain;
  *   <li>{@link UserDetailsService} — backed by the (overridable) {@link AdminCredentialsProvider}.
  *   <li>{@link SecurityFilterChain} — production-equivalent authorization rules.
  *   <li>{@link PhotoStorageService} mock — satisfies {@code TeamController} constructor dependency.
- *   <li>{@link ScoringRuleRegistry} mock — satisfies {@code TournamentService} dependencies.
- *   <li>{@link SetValidationRuleRegistry} mock — satisfies {@code TournamentService} dependencies.
+ *   <li>Scoring registry beans ({@code de.vvwt.tm.scoring.ScoringRuleRegistry}, {@code
+ *       de.vvwt.tm.scoring.SetValidationRuleRegistry}) are NOT mocked here — the real {@code
+ *       scoring.*} beans participate via {@code web.allowedDependencies} including {@code scoring}
+ *       (AC-S08-REVERSE-MOCKITOBEAN-REMOVAL, DEC-38/DEC-40 reverse @MockitoBean case). Mocks
+ *       removed in E22S08.
+ *   <li>{@link de.vvwt.tm.domain.rules.TournamentRuleResolver} mock — transitional stub satisfying
+ *       {@code DefaultScoringService}'s legacy {@code domain.rules.*} dependency during the DEC-22
+ *       coexistence window (E22S05–E22S11). Replaces the two separate legacy registry mocks ({@code
+ *       domain.rules.ScoringRuleRegistry}, {@code domain.rules.SetValidationRuleRegistry}) that
+ *       existed pre-E22S08. MUST be removed at E22S11 cutover.
  * </ul>
  *
  * @see de.vvwt.tm.tournament.TournamentModuleTestConfig
@@ -256,21 +263,31 @@ public class WebModuleTestConfig {
     }
 
     /**
-     * Mockito mock for {@link ScoringRuleRegistry} — satisfies {@code TournamentService} and {@code
-     * TournamentRulesController} constructor injection.
+     * Mockito mock for {@link TournamentRuleResolver} — satisfies {@code DefaultScoringService}'s
+     * constructor injection (parameter 8).
+     *
+     * <p>{@code DefaultScoringService} in {@code scoring.internal} still imports the legacy {@code
+     * de.vvwt.tm.domain.rules.TournamentRuleResolver} during the DEC-22 coexistence window
+     * (E22S05–E22S11). Because {@code de.vvwt.tm.domain.rules.*} is non-module code, its concrete
+     * rule implementations are excluded from the {@code @ComponentScan} regex filter; their absence
+     * causes the legacy {@code domain.rules.ScoringRuleRegistry} and {@code
+     * domain.rules.SetValidationRuleRegistry} to be empty, which in turn prevents {@code
+     * domain.rules.TournamentRuleResolver} from being created as a real bean.
+     *
+     * <p>Providing a mock here directly satisfies {@code DefaultScoringService}'s dependency
+     * without requiring the legacy registry chain to be populated. This replaces the two separate
+     * mocks for {@code domain.rules.ScoringRuleRegistry} and {@code
+     * domain.rules.SetValidationRuleRegistry} that were in the pre-E22S08 version of this config
+     * (AC-S08-REVERSE-MOCKITOBEAN-REMOVAL — those mocks satisfied the old {@code
+     * TournamentRulesController} which is now deleted; this mock satisfies the remaining
+     * transitional {@code DefaultScoringService} dependency).
+     *
+     * <p>MUST be removed at E22S11 cutover when {@code domain.rules.*} is deleted and {@code
+     * DefaultScoringService} is re-pointed to {@code scoring.*} types.
      */
     @Bean
-    public ScoringRuleRegistry scoringRuleRegistry() {
-        return Mockito.mock(ScoringRuleRegistry.class);
-    }
-
-    /**
-     * Mockito mock for {@link SetValidationRuleRegistry} — satisfies {@code TournamentService} and
-     * {@code TournamentRulesController} constructor injection.
-     */
-    @Bean
-    public SetValidationRuleRegistry setValidationRuleRegistry() {
-        return Mockito.mock(SetValidationRuleRegistry.class);
+    public TournamentRuleResolver legacyTournamentRuleResolverMock() {
+        return Mockito.mock(TournamentRuleResolver.class);
     }
 
     // =========================================================================

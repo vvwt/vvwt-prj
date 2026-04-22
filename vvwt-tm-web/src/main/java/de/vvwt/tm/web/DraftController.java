@@ -1,5 +1,6 @@
-package de.vvwt.tm.tournament;
+package de.vvwt.tm.web;
 
+import de.vvwt.tm.tournament.DraftService;
 import de.vvwt.tm.tournament.draft.DraftBreak;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftPreviewResult;
@@ -27,26 +28,16 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * REST controller for draft phase-planning operations (preview and apply).
  *
- * <h2>Package placement (AC-PACKAGE-D8, DEC-21)</h2>
- *
- * <p>{@code DraftController} is placed at the public API root {@code de.vvwt.tm.tournament} per
- * D-8. All internal types ({@link DraftService}, VOs, DTOs) live under {@code
- * de.vvwt.tm.tournament.internal.*} and are hidden from other modules by Spring Modulith.
- *
- * <h2>URL mapping (reconstruction-in-place)</h2>
- *
- * <p>Uses {@code /api/tournaments/{tournamentId}/draft} during reconstruction-in-place to avoid
- * {@code RequestMappingHandlerMapping} ambiguity with the legacy {@code
- * de.vvwt.tm.infrastructure.web.DraftController} at {@code /api/tournaments/{...}/draft}. Mapping
- * normalizes to {@code /api/tournaments} at the E21S13 atomic cutover (DEC-32).
+ * <p>Relocated whole-class from {@code de.vvwt.tm.tournament.DraftController} into {@code
+ * de.vvwt.tm.web} per DEC-40 Clause A Q-1b whole-class relocation (DEC-22 §refactor-clause). URL
+ * mapping {@code /api/tournaments/{tournamentId}/draft} preserved verbatim (C-14).
+ * {@code @Qualifier("tmDraftService")} preserved verbatim (C-12).
  *
  * <h2>Endpoints</h2>
  *
  * <ul>
  *   <li>POST /api/tournaments/{id}/draft/preview → 200 + {@link DraftPreviewResponse}
- *       (AC-TDD-DraftController)
  *   <li>POST /api/tournaments/{id}/draft/apply → 200 + {@link DraftApplyResponse}
- *       (AC-TDD-DraftController)
  * </ul>
  *
  * <h2>Security</h2>
@@ -54,12 +45,10 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>All {@code /api/**} endpoints require HTTP Basic authentication. Tenant scoping is enforced at
  * the service/repository layer via TenantContext (DEC-20).
  *
- * <p>Inventory: E21S01 line 424. Reconstructed under {@code de.vvwt.tm.tournament} per DEC-21.
- *
  * @see DraftService
- * @see <a href="DEC-21">DEC-21 — Spring Modulith, root package = public API surface</a>
- * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
- * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
+ * @see <a href="DEC-22">DEC-22 — TDD Iron Law, Q-1b refactor-clause</a>
+ * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
+ * @see <a href="E22S08">E22S08 — relocate to de.vvwt.tm.web</a>
  */
 @RestController("tmDraftController")
 @RequestMapping("/api/tournaments/{tournamentId}/draft")
@@ -91,8 +80,6 @@ public class DraftController {
             @RequestBody @Valid DraftRequest request) {
 
         DraftConfig config = toDraftConfig(request);
-        // participatingTeamCount=0 during preview — section math uses provided groupCount
-        // (future: load from tournament repository; for now DraftService computes with 0)
         DraftPreviewResult result = draftService.preview(config, 0);
         return ResponseEntity.ok(DraftPreviewResponse.from(result.sections(), result.timeline()));
     }
@@ -104,8 +91,7 @@ public class DraftController {
     /**
      * Applies the draft configuration to create Phase entities.
      *
-     * <p>Fails-fast if phases already exist (AC-DRAFT-APPLY-IDEMPOTENCY → 409 via global exception
-     * handler).
+     * <p>Fails-fast if phases already exist (409 via local exception handler).
      *
      * @param tournamentId the tournament UUID (from path)
      * @param request the draft configuration to apply (validated via {@link Valid})
@@ -153,15 +139,11 @@ public class DraftController {
     }
 
     // -------------------------------------------------------------------------
-    // Exception mapping — scoped to this controller until E21S10
+    // Exception mapping
     // -------------------------------------------------------------------------
 
     /**
      * Maps {@link DraftAlreadyAppliedException} to HTTP 409 Conflict.
-     *
-     * <p>Scoped locally here until the tournament-module {@code GlobalExceptionHandler} arrives in
-     * E21S10 (DEC-32). At E21S10 this handler will be removed and replaced by the module-level
-     * {@code @RestControllerAdvice}.
      *
      * @param ex the exception thrown by {@link DraftService#apply}
      * @return 409 Conflict with the exception message as body
@@ -174,10 +156,6 @@ public class DraftController {
     /**
      * Maps {@link HttpMessageNotReadableException} (malformed / unparseable JSON body) to HTTP 400
      * Bad Request.
-     *
-     * <p>Scoped locally here until the tournament-module {@code GlobalExceptionHandler} arrives in
-     * E21S10. At E21S10 this handler will be removed and replaced by the module-level
-     * {@code @RestControllerAdvice}.
      *
      * @param ex the exception thrown by Spring MVC when the request body cannot be deserialized
      * @return 400 Bad Request with a generic message

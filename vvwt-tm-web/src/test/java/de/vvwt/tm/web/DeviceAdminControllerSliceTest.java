@@ -1,4 +1,4 @@
-package de.vvwt.tm.tournament;
+package de.vvwt.tm.web;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -11,6 +11,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import de.vvwt.tm.infrastructure.testsupport.TenantContextSliceTestSupport;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantRegistryPort;
+import de.vvwt.tm.tournament.Device;
+import de.vvwt.tm.tournament.DeviceService;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -29,35 +31,26 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 /**
- * Slice test for {@link DeviceAdminController} (E21S06, AC-REST-SLICE-DeviceAdminController).
+ * Slice test for {@link DeviceAdminController} — relocated to {@code de.vvwt.tm.web} in E22S08
+ * (DEC-40 Clause A Q-1b).
  *
- * <h2>RED state</h2>
- *
- * <p>This test was committed RED: {@link DeviceAdminController} at {@code
- * de.vvwt.tm.tournament.DeviceAdminController} did not exist at commit time — satisfying the DEC-22
- * Iron Law.
- *
- * <h2>Coverage (C-13 Hybrid Split methodology)</h2>
- *
- * <ul>
- *   <li>POST /api/admin/devices/{deviceId}/location/{locationId} → 200 (admin role, DEC-24)
- *   <li>DELETE /api/admin/devices/{deviceId}/location → 200 (admin role, DEC-24)
- *   <li>Anonymous POST → 401 (security gate)
- *   <li>USER role POST → 403 (DEC-24: admin role required)
- * </ul>
+ * <p>Uses {@code @WebMvcTest(DeviceAdminController.class)} targeting the new {@code web} package
+ * location per DEC-38 erratum (slice tests retain {@code @WebMvcTest}). {@link DeviceService} is
+ * mocked via {@code @MockitoBean} with {@code "tmDeviceService"} qualifier preserved (C-12).
  *
  * @see DeviceAdminController
- * @see DeviceService
- * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
+ * @see <a href="DEC-22">DEC-22 — TDD Iron Law, Q-1b refactor-clause</a>
  * @see <a href="DEC-24">DEC-24 — device location nullable; admin role required for assignment</a>
- * @see <a href="E21S06">E21S06 — Device aggregate reconstruction (inventory line 420)</a>
+ * @see <a href="DEC-38">DEC-38 — @ApplicationModuleTest canon; @WebMvcTest for slice tests</a>
+ * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
+ * @see <a href="E22S08">E22S08 — relocate to de.vvwt.tm.web</a>
  */
 @WebMvcTest(DeviceAdminController.class)
 @Import(DeviceAdminControllerSliceTest.MethodSecurityConfig.class)
-@DisplayName("DeviceAdminController slice tests — E21S06 AC-REST-SLICE-DeviceAdminController")
+@DisplayName("DeviceAdminController slice tests — E22S08 web-module")
 class DeviceAdminControllerSliceTest {
 
-    /** Activates {@code @PreAuthorize} processing in the @WebMvcTest slice (E21S06 DEC-24). */
+    /** Activates {@code @PreAuthorize} processing in the @WebMvcTest slice (DEC-24). */
     @TestConfiguration
     @EnableMethodSecurity
     static class MethodSecurityConfig {}

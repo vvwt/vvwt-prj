@@ -1,10 +1,11 @@
-package de.vvwt.tm.tournament;
+package de.vvwt.tm.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.db.api.Assertions.assertThat;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import de.vvwt.tm.tournament.TournamentService;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftApplyResponse;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftRequest;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftSectionRequest;
@@ -33,55 +34,36 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * Minimalist integration tests for {@link DraftController} (E21S07,
- * AC-REST-IT-HAPPY-DraftController + AC-REST-IT-SEC-DraftController).
+ * Minimalist integration tests for {@link DraftController} — relocated to {@code de.vvwt.tm.web} in
+ * E22S08 (DEC-40 Clause A Q-1b).
  *
- * <h2>Approach C minimalist-IT (C-13)</h2>
+ * <p>Targets the {@code web} module via {@code @ApplicationModuleTest(webEnvironment =
+ * RANDOM_PORT)} per DEC-38 Clause C extension (DEC-40 amendment): tests relocated from the {@code
+ * tournament} module's test package to the {@code web} module's test package; annotation
+ * re-targeted from {@code tournament} to {@code web} module scope.
  *
- * <p>Exactly 2 {@code @Test} methods:
- *
- * <ol>
- *   <li>Happy-path: create tournament → apply draft → assertj-db verifies phase row (DEC-26 Rule 2)
- *   <li>Unauthenticated request → 401 (security gate)
- * </ol>
- *
- * <h2>IT annotation choice (AC-IT-ANNOTATION, DEC-38)</h2>
- *
- * <p>Uses {@code @ApplicationModuleTest(webEnvironment = RANDOM_PORT)} per DEC-38 — the canonical
- * IT annotation for reconstructed Modulith modules (supersedes conventions.md §(d) for this context
- * per E31S01 migration).
- *
- * <h2>Bootstrap mode ALL_DEPENDENCIES (E22S07)</h2>
- *
- * <p>Switched from {@code DIRECT_DEPENDENCIES} to {@code ALL_DEPENDENCIES} in E22S07 (DEC-40 Clause
- * A — controller relocation). {@code TournamentController} was relocated to {@code de.vvwt.tm.web}
- * which is not a direct code-level dependency of {@code tournament}. {@code ALL_DEPENDENCIES} is
- * required so that the {@code web} module (and its {@code TournamentController}) is loaded into the
- * test context. Tournament fixture creation uses {@link TournamentService} directly (no HTTP) so
- * that the test is not coupled to the {@code web} module's URL mapping.
- *
- * <h2>assertj-db independent verifier (DEC-26 Rule 2)</h2>
- *
- * <p>Phase row is verified via {@code AssertDbConnection.table("phase")} — not via {@link
- * PhaseRepository} or a GET endpoint. Controller is NOT the instrument of its own verification.
+ * <p>Uses {@code WebModuleTestConfig} (shared web-module test infrastructure) instead of the former
+ * {@code TournamentModuleTestConfig}. Real scoring registry beans participate in this context per
+ * AC-S08-REVERSE-MOCKITOBEAN-REMOVAL (DEC-38/DEC-40 reverse case): the web module includes {@code
+ * scoring} in its {@code allowedDependencies}, so no scoring-registry mock is needed.
  *
  * @see DraftController
  * @see DraftControllerSliceTest
  * @see <a href="DEC-26">DEC-26 — DAO test governance (three rules)</a>
- * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
- * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
- * @see <a href="E22S07">E22S07 — Controller relocation to de.vvwt.tm.web</a>
+ * @see <a href="DEC-38">DEC-38 — @ApplicationModuleTest canon</a>
+ * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
+ * @see <a href="E22S08">E22S08 — relocate to de.vvwt.tm.web</a>
  */
 @ApplicationModuleTest(
         mode = ApplicationModuleTest.BootstrapMode.ALL_DEPENDENCIES,
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(TournamentModuleTestConfig.class)
+@Import(WebModuleTestConfig.class)
 @ActiveProfiles("test")
-@DisplayName("DraftController IT — E21S07 AC-REST-IT (2-test minimalist)")
+@DisplayName("DraftController IT — E22S08 web-module (2-test minimalist)")
 class DraftControllerIT {
 
     private static final String ADMIN_USER = "admin";
-    private static final String ADMIN_PASS = "E21S07DraftControllerIT01";
+    private static final String ADMIN_PASS = "E22S08DraftControllerIT01";
 
     @LocalServerPort private int port;
 
@@ -107,16 +89,13 @@ class DraftControllerIT {
     @DisplayName(
             "authenticated POST /draft/apply creates phase; assertj-db verifies row (DEC-26 R2)")
     void authenticatedApplyDraft_createsTournamentAndPhaseRow() throws Exception {
-        // Step 1: create a tournament in DRAFT status via TournamentService (direct call —
-        // TournamentController was relocated to de.vvwt.tm.web in E22S07; direct service call
-        // avoids cross-module HTTP coupling for fixture creation).
         UUID tournamentId;
         tenantBinder.bindDefaultTenant();
         try {
             tournamentId =
                     tournamentService
                             .createTournament(
-                                    "IT Hallenturnier E21S07",
+                                    "IT Hallenturnier E22S08",
                                     null,
                                     4,
                                     2,
@@ -131,7 +110,6 @@ class DraftControllerIT {
 
         assertThat(tournamentId).isNotNull();
 
-        // Step 2: apply draft (one section, 1 group, roundrobin) via DraftController HTTP endpoint
         DraftSectionRequest section =
                 new DraftSectionRequest(1, "team_number", 1, "roundrobin", 0, 0, 15, 1, null);
         DraftRequest draftRequest = new DraftRequest(List.of(section));
@@ -148,7 +126,7 @@ class DraftControllerIT {
         assertThat(applyResponse.getBody().phaseIds()).isNotEmpty();
         UUID phaseId = applyResponse.getBody().phaseIds().get(0);
 
-        // Step 3: DEC-26 Rule 2 — assertj-db independent verifier
+        // DEC-26 Rule 2 — assertj-db independent verifier
         tenantBinder.bindDefaultTenant();
         try {
             AssertDbConnection assertDb = AssertDbConnectionFactory.of(dataSource).create();

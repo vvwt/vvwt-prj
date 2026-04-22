@@ -15,12 +15,22 @@
  *   <li>{@code tournament} — tournament root-package types: entities ({@code Tournament}, {@code
  *       Match}, {@code Phase}, {@code Team}), repository interfaces, service interfaces, enums.
  *   <li>{@code tournament::exceptions} — {@code ValidationException}, {@code ForbiddenException},
- *       etc. Required because Spring Modulith named-interface sub-packages are NOT accessible via
- *       the root-module declaration alone.
+ *       {@code DraftAlreadyAppliedException}, etc. Required because Spring Modulith named-interface
+ *       sub-packages are NOT accessible via the root-module declaration alone.
  *   <li>{@code tournament::dto} — HTTP request/response DTOs in {@code tournament.internal.dto.*}.
  *       Exposed as a named interface so that relocated controllers in {@code web} can reference
  *       these wire types without violating Modulith boundary rules (E22S07, DEC-40 Clause A).
- *   <li>{@code scoring} — controllers that invoke {@code ScoringService} import from the scoring
+ *   <li>{@code tournament::draft-dto} — Draft request/response DTOs in {@code
+ *       tournament.internal.dto.draft.*} ({@code DraftRequest}, {@code DraftSectionRequest}, {@code
+ *       DraftApplyResponse}, {@code DraftPreviewResponse}, etc.). Separate named interface required
+ *       because Spring Modulith named interfaces do NOT cover sub-packages automatically; the
+ *       parent {@code tournament::dto} covers only {@code tournament.internal.dto.*}. Required by
+ *       {@code DraftController} relocated to {@code web} in E22S08 (DEC-40 Clause A expansion).
+ *   <li>{@code tournament::draft} — Draft value objects ({@code DraftBreak}, {@code DraftConfig},
+ *       {@code DraftPreviewResult}, {@code DraftSection}) in {@code tournament.draft.*}. Required
+ *       by {@code DraftController} relocated to {@code web} in E22S08 (DEC-40 Clause A expansion).
+ *   <li>{@code scoring} — controllers that invoke {@code ScoringService} or scoring registries
+ *       ({@code ScoringRuleRegistry}, {@code SetValidationRuleRegistry}) import from the scoring
  *       root package.
  * </ul>
  *
@@ -44,6 +54,8 @@
             "tournament",
             "tournament::exceptions",
             "tournament::dto",
+            "tournament::draft-dto",
+            "tournament::draft",
             "scoring"
         })
 package de.vvwt.tm.web;
