@@ -1,7 +1,5 @@
 package de.vvwt.tm.scoring;
 
-import java.util.Objects;
-
 /**
  * Immutable result of a {@link ScoringRule} calculation.
  *
