@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-23.md at c2d6117cfc2ca5e6864a65bd766e0f1cb9130211 2026-04-18 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-23.md at 73724d48f1cd9b16778846cc2501c5eb697e9a83 2026-04-22 -->
 ---
 id: DEC-23
 domain: governance
@@ -147,6 +147,9 @@ closing story and copies any not-yet-propagated DECs + the story itself into
 
 The tooling design is NOT in this DEC's scope — Wave-2 Discovery decides shape and
 skill-stack integration.
+
+**DEC-31** implements this §Wave-2 automation deferral (Approach A — Delivery-Skill
+invoked by `coordinate-handoffs`; authored by E19S01, 2026-04-19).
 
 ## Impact
 
