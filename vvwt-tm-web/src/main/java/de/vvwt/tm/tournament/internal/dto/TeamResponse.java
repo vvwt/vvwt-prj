@@ -16,7 +16,7 @@ import java.util.UUID;
  *
  * <p>Inventory line 444 ({@code TeamResponse}).
  *
- * @see de.vvwt.tm.tournament.internal.TeamService
+ * @see de.vvwt.tm.tournament.internal.DefaultTeamService
  * @see <a href="DEC-21">DEC-21 — Spring Modulith internal.dto package</a>
  * @see <a href="E21S04">E21S04 — Team aggregate reconstruction (inventory line 444)</a>
  */

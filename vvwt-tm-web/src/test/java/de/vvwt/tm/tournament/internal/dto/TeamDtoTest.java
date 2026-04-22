@@ -208,8 +208,8 @@ class TeamDtoTest {
         team.setTournamentId(UUID.randomUUID());
         team.setDescription("Success");
 
-        de.vvwt.tm.tournament.internal.TeamService.BulkCreateResult domainResult =
-                de.vvwt.tm.tournament.internal.TeamService.BulkCreateResult.success(team);
+        de.vvwt.tm.tournament.TeamService.BulkCreateResult domainResult =
+                de.vvwt.tm.tournament.TeamService.BulkCreateResult.success(team);
         TeamBulkCreateResponse response = TeamBulkCreateResponse.from(List.of(domainResult));
 
         assertThat(response.results()).hasSize(1);
@@ -221,11 +221,11 @@ class TeamDtoTest {
     @Test
     @DisplayName("TeamBulkCreateResponse — failure item has error message, no team")
     void teamBulkCreateResponse_failureItem_hasErrorNoTeam() {
-        de.vvwt.tm.tournament.internal.TeamService.BulkCreateRequest req =
-                new de.vvwt.tm.tournament.internal.TeamService.BulkCreateRequest(
+        de.vvwt.tm.tournament.TeamService.BulkCreateRequest req =
+                new de.vvwt.tm.tournament.TeamService.BulkCreateRequest(
                         "Fail", 1, true, false, false);
-        de.vvwt.tm.tournament.internal.TeamService.BulkCreateResult domainResult =
-                de.vvwt.tm.tournament.internal.TeamService.BulkCreateResult.error(req, "conflict");
+        de.vvwt.tm.tournament.TeamService.BulkCreateResult domainResult =
+                de.vvwt.tm.tournament.TeamService.BulkCreateResult.error(req, "conflict");
         TeamBulkCreateResponse response = TeamBulkCreateResponse.from(List.of(domainResult));
 
         assertThat(response.results().get(0).success()).isFalse();
