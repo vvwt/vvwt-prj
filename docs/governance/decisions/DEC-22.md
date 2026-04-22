@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-22.md at 952c66688e8905f0d5fea5ac70e48487a8c48fa6 2026-04-22 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-22.md at f671c4c2bfb0f764265162ea4ebd334f4698da32 2026-04-22 -->
 ---
 id: DEC-22
 domain: governance
@@ -11,14 +11,14 @@ last_updated_by: discovery
 last_updated_at: 2026-04-22
 supersedes: null
 superseded_by: null
-amended_by: [DEC-34, DEC-36]
+amended_by: [DEC-34, DEC-36, DEC-41]
 tags:
   - tdd
   - testing
   - delivery
   - governance
   - reconstruction
-related_to: [DEC-10, DEC-21, DEC-34, DEC-36]
+related_to: [DEC-10, DEC-21, DEC-34, DEC-36, DEC-41]
 ---
 
 # DEC-22 — TDD projektweit activation, reconstruction-in-place, JMH carve-out
@@ -140,3 +140,7 @@ See **DEC-34** for the full amendment. In summary: the "Activation = copy/inheri
 ## 2026-04-22 Amendment — Cross-package test typing rule
 
 See **DEC-36** for the full amendment. In summary: a new clause is added to this DEC's `## Decision` section requiring that test classes located in a Java package DIFFERENT from their primary subject's package MUST type-reference and mock the subject via its public interface, never via the concrete implementation class. Tests in the SAME package as their subject MAY white-box reference the implementation. Enforcement is via the `qa-review` skill (pre-PR-merge per `delivery-loop.workflow.md` § Step 7), not via ArchUnit. All other clauses of this DEC remain UNCHANGED by DEC-36. `last_updated_at` advances to 2026-04-22; `status` remains `active`; no `supersedes`/`superseded_by` change.
+
+## 2026-04-22 Amendment — Spec-Anchored Test Reuse vs. Characterization
+
+See **DEC-41** for the full amendment. In summary: new clauses are added to this DEC's `## Decision` section governing the reuse of pre-existing spec-anchored tests as supplementary regression safety in Reconstruction-in-Place stories — defines the Spec-Anchored vs. Snapshot-Driven classification by four observable criteria (jqwik `@Property`, round-trip/bijection, external-spec citation with locator, named algebraic invariant with quantified body); names the Contract Test pattern with shared-abstract-type precondition; codifies the test-obligation hierarchy (mandatory new TDD tests for new code per Iron Law / supplementary Spec-Anchored reuse / forbidden Snapshot-Driven reuse) explicitly preserving the Iron Law in full strength for new code; assigns enforcement to the `qa-review` skill (pre-PR-merge per `delivery-loop.workflow.md` § Step 7); the actual `qa-review` check text is delivered via the paired operationalization story E34S01. The "Characterization tests are forbidden" clause and the "every test must have been red" rule remain TEXTUALLY UNCHANGED in this DEC's `## Decision` section; DEC-41 narrows the scope of "characterization" to its originally-targeted snapshot-as-safety-net case and refines the red-first rule's scope of application to NEW code under reconstruction (not to admissibility of pre-existing tests reused as supplementary safety). All other clauses of this DEC remain UNCHANGED by DEC-41. `last_updated_at` advances to 2026-04-22; `status` remains `active`; no `supersedes`/`superseded_by` change.
