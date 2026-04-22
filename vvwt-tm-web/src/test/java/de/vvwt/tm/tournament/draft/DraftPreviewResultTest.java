@@ -1,4 +1,4 @@
-package de.vvwt.tm.tournament.internal.draft;
+package de.vvwt.tm.tournament.draft;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

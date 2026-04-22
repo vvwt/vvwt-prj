@@ -1,6 +1,6 @@
 package de.vvwt.tm.tournament.internal.dto.draft;
 
-import de.vvwt.tm.tournament.internal.draft.DraftBreak;
+import de.vvwt.tm.tournament.draft.DraftBreak;
 
 /**
  * REST response DTO for a single intra-phase break in a draft section.

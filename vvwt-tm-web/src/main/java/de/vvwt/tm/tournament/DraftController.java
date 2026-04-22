@@ -1,11 +1,11 @@
 package de.vvwt.tm.tournament;
 
+import de.vvwt.tm.tournament.draft.DraftBreak;
+import de.vvwt.tm.tournament.draft.DraftConfig;
+import de.vvwt.tm.tournament.draft.DraftPreviewResult;
+import de.vvwt.tm.tournament.draft.DraftSection;
 import de.vvwt.tm.tournament.internal.DraftAlreadyAppliedException;
 import de.vvwt.tm.tournament.internal.DraftService;
-import de.vvwt.tm.tournament.internal.draft.DraftBreak;
-import de.vvwt.tm.tournament.internal.draft.DraftConfig;
-import de.vvwt.tm.tournament.internal.draft.DraftPreviewResult;
-import de.vvwt.tm.tournament.internal.draft.DraftSection;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftApplyResponse;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftBreakRequest;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftPreviewResponse;

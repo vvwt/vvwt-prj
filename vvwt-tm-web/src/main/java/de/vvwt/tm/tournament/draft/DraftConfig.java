@@ -1,4 +1,4 @@
-package de.vvwt.tm.tournament.internal.draft;
+package de.vvwt.tm.tournament.draft;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -12,9 +12,9 @@ import java.util.List;
  * applied (AC-TDD-DraftConfig). Immutable. Jackson deserializes via the {@link
  * JsonCreator}-annotated constructor.
  *
- * <p>Inventory: E21S01 line 238. Reconstructed under {@code de.vvwt.tm.tournament.internal.draft}
- * per DEC-21 package layout. Legacy {@code de.vvwt.tm.domain.draft.DraftConfig} remains active
- * until E21S13 atomic cutover (DEC-32).
+ * <p>Inventory: E21S01 line 238. Named-interface sub-package placement by E33S04 (DEC-35 retrofit).
+ * Legacy {@code de.vvwt.tm.domain.draft.DraftConfig} remains active until E21S13 atomic cutover
+ * (DEC-32).
  *
  * @see DraftSection
  * @see <a href="DEC-21">DEC-21 — Spring Modulith package layout</a>

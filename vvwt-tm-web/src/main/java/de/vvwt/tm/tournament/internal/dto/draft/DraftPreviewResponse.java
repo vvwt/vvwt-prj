@@ -1,6 +1,6 @@
 package de.vvwt.tm.tournament.internal.dto.draft;
 
-import de.vvwt.tm.tournament.internal.draft.DraftPreviewSection;
+import de.vvwt.tm.tournament.draft.DraftPreviewSection;
 import java.util.List;
 
 /**

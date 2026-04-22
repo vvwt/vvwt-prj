@@ -11,8 +11,8 @@ import java.util.List;
  * REST request DTO for a single draft section.
  *
  * <p>Jakarta Validation provides REST-layer validation. Domain-layer validation is performed by
- * {@link de.vvwt.tm.tournament.internal.draft.DraftSection#validate()} and {@link
- * de.vvwt.tm.tournament.internal.draft.DraftSection#validateBreaks(int)}.
+ * {@link de.vvwt.tm.tournament.draft.DraftSection#validate()} and {@link
+ * de.vvwt.tm.tournament.draft.DraftSection#validateBreaks(int)}.
  *
  * <p>Inventory: E21S01 line 438. Reconstructed under {@code
  * de.vvwt.tm.tournament.internal.dto.draft} per DEC-21.

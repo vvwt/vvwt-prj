@@ -1,4 +1,4 @@
-package de.vvwt.tm.tournament.internal.draft;
+package de.vvwt.tm.tournament.draft;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -13,8 +13,8 @@ import java.util.Set;
  * — all fields set at construction. Jackson deserializes via {@link JsonCreator}-annotated
  * constructor.
  *
- * <p>Inventory: E21S01 line 241. Reconstructed under {@code de.vvwt.tm.tournament.internal.draft}
- * per DEC-21. Legacy {@code de.vvwt.tm.domain.draft.DraftSection} remains active until E21S13.
+ * <p>Inventory: E21S01 line 241. Named-interface sub-package placement by E33S04 (DEC-35 retrofit).
+ * Legacy {@code de.vvwt.tm.domain.draft.DraftSection} remains active until E21S13.
  *
  * @see DraftConfig
  * @see DraftBreak
