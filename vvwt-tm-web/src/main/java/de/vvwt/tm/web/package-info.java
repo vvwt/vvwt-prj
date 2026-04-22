@@ -17,6 +17,9 @@
  *   <li>{@code tournament::exceptions} — {@code ValidationException}, {@code ForbiddenException},
  *       etc. Required because Spring Modulith named-interface sub-packages are NOT accessible via
  *       the root-module declaration alone.
+ *   <li>{@code tournament::dto} — HTTP request/response DTOs in {@code tournament.internal.dto.*}.
+ *       Exposed as a named interface so that relocated controllers in {@code web} can reference
+ *       these wire types without violating Modulith boundary rules (E22S07, DEC-40 Clause A).
  *   <li>{@code scoring} — controllers that invoke {@code ScoringService} import from the scoring
  *       root package.
  * </ul>
@@ -36,5 +39,11 @@
  * @since E22S01
  */
 @org.springframework.modulith.ApplicationModule(
-        allowedDependencies = {"tenant", "tournament", "tournament::exceptions", "scoring"})
+        allowedDependencies = {
+            "tenant",
+            "tournament",
+            "tournament::exceptions",
+            "tournament::dto",
+            "scoring"
+        })
 package de.vvwt.tm.web;

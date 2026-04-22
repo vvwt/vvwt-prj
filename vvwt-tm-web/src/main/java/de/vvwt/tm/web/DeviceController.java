@@ -1,10 +1,12 @@
-package de.vvwt.tm.tournament;
+package de.vvwt.tm.web;
 
+import de.vvwt.tm.tournament.Device;
+import de.vvwt.tm.tournament.DeviceService;
 import de.vvwt.tm.tournament.exceptions.DeviceLimitExceededException;
 import de.vvwt.tm.tournament.exceptions.DisplayDeviceLimitExceededException;
-import de.vvwt.tm.tournament.internal.DeviceLimitErrorResponse;
 import de.vvwt.tm.tournament.internal.dto.DeviceAssignRequest;
 import de.vvwt.tm.tournament.internal.dto.DeviceConfigureRequest;
+import de.vvwt.tm.tournament.internal.dto.DeviceLimitErrorResponse;
 import de.vvwt.tm.tournament.internal.dto.DeviceRegisterRequest;
 import de.vvwt.tm.tournament.internal.dto.DeviceRegisterResponse;
 import de.vvwt.tm.tournament.internal.dto.DeviceStatusResponse;
@@ -27,12 +29,14 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * REST controller for Device operations — reconstruction-in-place target (DEC-21/DEC-22).
+ * REST controller for Device operations — primary-adapter-isolation target (DEC-40 Clause A).
  *
- * <p>Lives at the Modulith target package {@code de.vvwt.tm.tournament} (public API surface per
- * DEC-21 §Module layout). Normalized to {@code /api/devices} at E21S13 atomic cutover (the
- * transitional {@code /api/tm/devices} prefix has been removed — the legacy controller it
- * conflicted with is now deleted).
+ * <p>Relocated whole-class from {@code de.vvwt.tm.tournament.DeviceController} to {@code
+ * de.vvwt.tm.web} per DEC-40 Clause D (Q-1b whole-class relocation, DEC-22 §refactor-clause). URL
+ * mappings and JSON wire format preserved byte-equivalent (C-14). {@code @Qualifier} preserved
+ * verbatim (C-12). Normalized to {@code /api/devices} at E21S13 atomic cutover (the transitional
+ * {@code /api/tm/devices} prefix has been removed — the legacy controller it conflicted with is now
+ * deleted).
  *
  * <h2>Endpoints</h2>
  *
@@ -48,10 +52,10 @@ import org.springframework.web.bind.annotation.RestController;
  * per-tenant device cap is exceeded ({@link DeviceLimitExceededException}).
  *
  * @see DeviceService
- * @see DeviceAdminController
- * @see <a href="DEC-21">DEC-21 — Spring Modulith, root package = public API surface</a>
+ * @see de.vvwt.tm.web.DeviceAdminController
+ * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
- * @see <a href="E21S06">E21S06 — Device aggregate reconstruction (inventory line 420)</a>
+ * @see <a href="E22S07">E22S07 — Relocate DeviceController to de.vvwt.tm.web</a>
  */
 @RestController("tmDeviceController")
 @RequestMapping("/api/devices")

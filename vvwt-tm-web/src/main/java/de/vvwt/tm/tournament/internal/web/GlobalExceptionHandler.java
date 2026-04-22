@@ -50,9 +50,10 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  *
  * <h2>Scope-bounded (AC-GLOBAL-EXCEPTION-HANDLER-SCOPE-BOUNDED)</h2>
  *
- * <p>{@code @ControllerAdvice(basePackages = "de.vvwt.tm.tournament")} limits this handler to
- * exceptions thrown from controllers in the {@code tournament} package tree. Legacy exceptions
- * ({@code de.vvwt.tm.domain.timer.InvalidTimerUrlException}, {@code
+ * <p>{@code @ControllerAdvice(basePackages = {"de.vvwt.tm.tournament", "de.vvwt.tm.infrastructure",
+ * "de.vvwt.tm.web"})} covers controllers in the tournament, infrastructure, and web package trees.
+ * Extended to include {@code de.vvwt.tm.web} in E22S07 (DEC-40 Clause A controller relocation).
+ * Legacy exceptions ({@code de.vvwt.tm.domain.timer.InvalidTimerUrlException}, {@code
  * de.vvwt.tm.domain.timer.NoActiveTournamentException}, {@code
  * de.vvwt.tm.infrastructure.display.NoActivePhaseException}) are NOT handled here — they remain in
  * the legacy {@code GlobalExceptionHandler} during parallel-development phase (E21S13 atomic
@@ -76,7 +77,8 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  * @see <a href="E21S10">E21S10 — inventory row 450</a>
  */
 @Component("tmGlobalExceptionHandler")
-@ControllerAdvice(basePackages = {"de.vvwt.tm.tournament", "de.vvwt.tm.infrastructure"})
+@ControllerAdvice(
+        basePackages = {"de.vvwt.tm.tournament", "de.vvwt.tm.infrastructure", "de.vvwt.tm.web"})
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);

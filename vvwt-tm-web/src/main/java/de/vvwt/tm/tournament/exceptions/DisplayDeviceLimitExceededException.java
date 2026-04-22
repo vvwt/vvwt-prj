@@ -4,9 +4,9 @@ package de.vvwt.tm.tournament.exceptions;
  * Thrown when a new DISPLAY device registration would exceed the per-tenant DISPLAY device cap
  * (E21S13 cutover — DEC-22 refactor phase, migrated from legacy display device limit).
  *
- * <p>Mapped to HTTP 429 Too Many Requests by {@link de.vvwt.tm.tournament.DeviceController}.
- * Response body is a {@code DeviceLimitErrorResponse} carrying {@code currentCount}, {@code
- * configuredLimit}, and {@code messageKey}.
+ * <p>Mapped to HTTP 429 Too Many Requests by {@link de.vvwt.tm.web.DeviceController}. Response body
+ * is a {@code DeviceLimitErrorResponse} carrying {@code currentCount}, {@code configuredLimit}, and
+ * {@code messageKey}.
  *
  * <p>Distinct from {@link DeviceLimitExceededException} which enforces the total (all-type) device
  * cap and maps to HTTP 409 Conflict.

@@ -1,4 +1,4 @@
-package de.vvwt.tm.tournament;
+package de.vvwt.tm.web;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -12,6 +12,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.infrastructure.testsupport.TenantContextSliceTestSupport;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantRegistryPort;
+import de.vvwt.tm.tournament.Device;
+import de.vvwt.tm.tournament.DeviceService;
 import de.vvwt.tm.tournament.exceptions.DeviceLimitExceededException;
 import de.vvwt.tm.tournament.internal.dto.DeviceRegisterRequest;
 import java.util.List;
@@ -32,11 +34,12 @@ import org.springframework.web.context.WebApplicationContext;
 /**
  * Slice test for {@link DeviceController} (E21S06, AC-REST-SLICE-DeviceController).
  *
- * <h2>RED state</h2>
+ * <h2>Relocation note (E22S07)</h2>
  *
- * <p>This test was committed RED: {@link DeviceController} at {@code
- * de.vvwt.tm.tournament.DeviceController} did not exist at commit time — satisfying the DEC-22 Iron
- * Law.
+ * <p>Relocated whole-class from {@code de.vvwt.tm.tournament} to {@code de.vvwt.tm.web} per DEC-40
+ * Clause D (Q-1b whole-class relocation, DEC-22 §refactor-clause). {@code @WebMvcTest} annotation
+ * retained per DEC-38 erratum — slice tests do not load service beans and are unaffected by module
+ * boundaries. Package line is the only change.
  *
  * <h2>Coverage (C-13 Hybrid Split methodology)</h2>
  *
@@ -52,7 +55,8 @@ import org.springframework.web.context.WebApplicationContext;
  * @see DeviceController
  * @see DeviceService
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
- * @see <a href="E21S06">E21S06 — Device aggregate reconstruction (inventory line 420)</a>
+ * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
+ * @see <a href="E22S07">E22S07 — Relocate DeviceController to de.vvwt.tm.web</a>
  */
 @WebMvcTest(DeviceController.class)
 @DisplayName("DeviceController slice tests — E21S06 AC-REST-SLICE-DeviceController")

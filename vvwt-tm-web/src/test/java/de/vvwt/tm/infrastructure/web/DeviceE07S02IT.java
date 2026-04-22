@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tournament.ApiErrorResponse;
-import de.vvwt.tm.tournament.internal.DeviceLimitErrorResponse;
+import de.vvwt.tm.tournament.internal.dto.DeviceLimitErrorResponse;
 import de.vvwt.tm.tournament.internal.dto.DeviceRegisterRequest;
 import de.vvwt.tm.tournament.internal.dto.DeviceRegisterResponse;
 import de.vvwt.tm.tournament.internal.dto.DeviceStatusResponse;

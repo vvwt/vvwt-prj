@@ -1,4 +1,4 @@
-package de.vvwt.tm.tournament;
+package de.vvwt.tm.web;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -13,6 +13,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.infrastructure.testsupport.TenantContextSliceTestSupport;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantRegistryPort;
+import de.vvwt.tm.tournament.Tournament;
+import de.vvwt.tm.tournament.TournamentService;
 import de.vvwt.tm.tournament.internal.dto.TournamentCreateRequest;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -33,11 +35,12 @@ import org.springframework.web.context.WebApplicationContext;
 /**
  * Slice test for {@link TournamentController} (E21S02, AC-REST-SLICE-TournamentController).
  *
- * <h2>RED state</h2>
+ * <h2>Relocation note (E22S07)</h2>
  *
- * <p>This test was committed RED: {@link TournamentController} at {@code
- * de.vvwt.tm.tournament.TournamentController} did not exist at commit time, causing a compile error
- * — satisfying the DEC-22 Iron Law.
+ * <p>Relocated whole-class from {@code de.vvwt.tm.tournament} to {@code de.vvwt.tm.web} per DEC-40
+ * Clause D (Q-1b whole-class relocation, DEC-22 §refactor-clause). {@code @WebMvcTest} annotation
+ * retained per DEC-38 erratum — slice tests do not load service beans and are unaffected by module
+ * boundaries. Package line is the only change.
  *
  * <h2>Coverage</h2>
  *
@@ -51,8 +54,8 @@ import org.springframework.web.context.WebApplicationContext;
  * @see TournamentController
  * @see TournamentService
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
- * @see <a href="DEC-21">DEC-21 — Spring Modulith, root package = public API surface</a>
- * @see <a href="E21S02">E21S02 — Tournament aggregate reconstruction</a>
+ * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
+ * @see <a href="E22S07">E22S07 — Relocate TournamentController to de.vvwt.tm.web</a>
  */
 @WebMvcTest(TournamentController.class)
 @DisplayName("TournamentController slice tests — E21S02 AC-REST-SLICE")

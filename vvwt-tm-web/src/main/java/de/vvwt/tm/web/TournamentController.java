@@ -1,5 +1,6 @@
-package de.vvwt.tm.tournament;
+package de.vvwt.tm.web;
 
+import de.vvwt.tm.tournament.TournamentService;
 import de.vvwt.tm.tournament.internal.dto.TournamentCreateRequest;
 import de.vvwt.tm.tournament.internal.dto.TournamentResponse;
 import de.vvwt.tm.tournament.internal.dto.TournamentUpdateRequest;
@@ -20,13 +21,13 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 /**
- * REST controller for Tournament CRUD operations — reconstruction-in-place target (DEC-21/DEC-22).
+ * REST controller for Tournament CRUD operations — primary-adapter-isolation target (DEC-40 Clause
+ * A).
  *
- * <p>Mirrors {@code de.vvwt.tm.infrastructure.web.TournamentController} but lives at the Modulith
- * target package {@code de.vvwt.tm.tournament} (public API surface per DEC-21 §Module layout). Uses
- * {@code /api/tournaments} mapping to avoid {@code RequestMappingHandlerMapping} ambiguity with the
- * legacy {@code /api/tournaments} controller during reconstruction-in-place. The mapping will be
- * normalized to {@code /api/tournaments} at the E21S13 atomic cutover.
+ * <p>Relocated whole-class from {@code de.vvwt.tm.tournament.TournamentController} to {@code
+ * de.vvwt.tm.web} per DEC-40 Clause D (Q-1b whole-class relocation, DEC-22 §refactor-clause). URL
+ * mappings and JSON wire format preserved byte-equivalent (C-14). {@code @Qualifier} preserved
+ * verbatim (C-12).
  *
  * <h2>Endpoints</h2>
  *
@@ -40,9 +41,9 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
  *
  * @see TournamentService
  * @see TournamentResponse
- * @see <a href="DEC-21">DEC-21 — Spring Modulith, root package = public API surface</a>
+ * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
- * @see <a href="E21S02">E21S02 — Tournament aggregate reconstruction</a>
+ * @see <a href="E22S07">E22S07 — Relocate TournamentController to de.vvwt.tm.web</a>
  */
 @RestController("tmTournamentController")
 @RequestMapping("/api/tournaments")
