@@ -1,5 +1,6 @@
 package de.vvwt.tm.tournament.internal;
 
+import de.vvwt.tm.tournament.DraftService;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseBreak;
 import de.vvwt.tm.tournament.PhaseBreakRepository;
@@ -13,6 +14,7 @@ import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftPreviewResult;
 import de.vvwt.tm.tournament.draft.DraftPreviewSection;
 import de.vvwt.tm.tournament.draft.DraftSection;
+import de.vvwt.tm.tournament.exceptions.DraftAlreadyAppliedException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -22,7 +24,9 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 /**
- * Domain service for draft configuration preview and apply operations.
+ * Default implementation of {@link DraftService}.
+ *
+ * <p>Domain service for draft configuration preview and apply operations.
  *
  * <h2>Scoped API</h2>
  *
@@ -45,17 +49,19 @@ import org.springframework.stereotype.Service;
  *
  * <p>Inventory: E21S01 line 171.
  *
+ * @see DraftService
  * @see DraftConfig
  * @see DraftPreviewResult
  * @see Phase
  * @see PhaseRepository
  * @see <a href="DEC-21">DEC-21 — Spring Modulith package layout</a>
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
+ * @see <a href="DEC-35">DEC-35 — interface in public package, impl in internal</a>
  * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
- * @see <a href="E21S03">E21S03 — Phase aggregate (collaborator)</a>
+ * @see <a href="E33S05">E33S05 — DraftService interface extraction (DEC-35 retrofit)</a>
  */
 @Service("tmDraftService")
-public class DraftService {
+public class DefaultDraftService implements DraftService {
 
     private final PhaseRepository phaseRepository;
     private final PhaseBreakRepository phaseBreakRepository;
@@ -72,7 +78,7 @@ public class DraftService {
      * @param teamAvatarRepository team avatar persistence (tenant-scoped, E21S04)
      * @param phasePreparationService match generation service (E21S08)
      */
-    public DraftService(
+    public DefaultDraftService(
             @Qualifier("tmPhaseRepository") PhaseRepository phaseRepository,
             @Qualifier("tmPhaseBreakRepository") PhaseBreakRepository phaseBreakRepository,
             TeamRepository teamRepository,
@@ -105,6 +111,7 @@ public class DraftService {
      * @return preview result; never {@code null}
      * @see <a href="E21S11">E21S11 — Timeline domain classes (future timeline population)</a>
      */
+    @Override
     public DraftPreviewResult preview(DraftConfig config, int participatingTeamCount) {
         List<DraftPreviewSection> previews = new ArrayList<>();
         for (DraftSection section : config.getSections()) {
@@ -129,6 +136,7 @@ public class DraftService {
      * @return ordered list of created Phase IDs (one per section); never empty
      * @throws DraftAlreadyAppliedException if phases already exist (AC-DRAFT-APPLY-IDEMPOTENCY)
      */
+    @Override
     public List<UUID> apply(UUID tournamentId, DraftConfig config) {
         // AC-DRAFT-APPLY-IDEMPOTENCY: fails-fast if phases already exist
         List<Phase> existingPhases = phaseRepository.findByTournamentId(tournamentId);

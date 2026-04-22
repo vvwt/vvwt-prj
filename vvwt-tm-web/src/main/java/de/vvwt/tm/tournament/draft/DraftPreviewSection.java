@@ -3,8 +3,8 @@ package de.vvwt.tm.tournament.draft;
 /**
  * Preview result for one section of a draft configuration.
  *
- * <p>Computed by {@link de.vvwt.tm.tournament.internal.DraftService#preview} without creating any
- * database entities.
+ * <p>Computed by {@link de.vvwt.tm.tournament.DraftService#preview} without creating any database
+ * entities.
  *
  * <p>Inventory: E21S01 line 240. Named-interface sub-package placement by E33S04 (DEC-35 retrofit).
  * Legacy {@code de.vvwt.tm.domain.draft.DraftPreviewSection} remains active until E21S13.
