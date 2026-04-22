@@ -38,7 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
  * package — AC-S08-REGISTRY-IMPORT). The scoring/validation registries ({@link ScoringRuleRegistry}
  * and {@link SetValidationRuleRegistry}) are imported from their LEGACY coordinates ({@code
  * de.vvwt.tm.domain.rules.*}) — this is the DEC-32 permitted transitional import. These will be
- * mechanically rewired to {@code scoring::api} at E22 cutover.
+ * mechanically rewired to {@code scoring.*} at E22S08 cutover (per story E22S08 scope).
  *
  * <h2>URL mapping (parallel-phase discipline)</h2>
  *
