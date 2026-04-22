@@ -6,9 +6,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import de.vvwt.tm.domain.CascadeRecomputeService;
 import de.vvwt.tm.infrastructure.score.dto.MatchScoreResponse;
 import de.vvwt.tm.infrastructure.score.dto.SetSubmitRequest;
+import de.vvwt.tm.scoring.ScoringService;
 import de.vvwt.tm.tournament.Device;
 import de.vvwt.tm.tournament.DeviceRepository;
 import de.vvwt.tm.tournament.Match;
@@ -60,7 +60,7 @@ class ScoreEntryServiceTest {
     private MatchRepository matchRepository;
     private TeamAvatarRepository teamAvatarRepository;
     private TeamRepository teamRepository;
-    private CascadeRecomputeService cascadeRecomputeService;
+    private ScoringService scoringService;
     private SimpMessagingTemplate messagingTemplate;
 
     private ScoreEntryService service;
@@ -87,7 +87,7 @@ class ScoreEntryServiceTest {
         matchRepository = mock(MatchRepository.class);
         teamAvatarRepository = mock(TeamAvatarRepository.class);
         teamRepository = mock(TeamRepository.class);
-        cascadeRecomputeService = mock(CascadeRecomputeService.class);
+        scoringService = mock(ScoringService.class);
         messagingTemplate = mock(SimpMessagingTemplate.class);
 
         service =
@@ -98,7 +98,7 @@ class ScoreEntryServiceTest {
                         matchRepository,
                         teamAvatarRepository,
                         teamRepository,
-                        cascadeRecomputeService,
+                        scoringService,
                         messagingTemplate);
     }
 
@@ -240,16 +240,21 @@ class ScoreEntryServiceTest {
     // =========================================================================
 
     @Test
-    @DisplayName("AC7/AC8: submitSetResult calls cascadeRecomputeService with sourceType=TABLET")
+    @DisplayName("AC7/AC8: submitSetResult calls scoringService with sourceType=TABLET")
     void submitSetResult_invokesCascadeWithTabletSource() {
         Device device = stubDevice(1, Device.STATUS_ASSIGNED);
         when(deviceRepository.findByDeviceToken(DEV_TOKEN)).thenReturn(Optional.of(device));
+
+        // submitSetResult now resolves match to get tournamentId (DEC-37 Clause B)
+        Match match = stubMatch(MatchState.OPEN.getLegacyCode(), 1, 1);
+        match.setTournamentId(TOUR_ID);
+        when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(match));
 
         SetSubmitRequest request = new SetSubmitRequest(MATCH_ID, 0, 25, 18, DEV_TOKEN);
         service.submitSetResult(request);
 
         ArgumentCaptor<SetResultInput> captor = ArgumentCaptor.forClass(SetResultInput.class);
-        verify(cascadeRecomputeService).registerMatchResult(captor.capture());
+        verify(scoringService).registerMatchResult(captor.capture());
 
         SetResultInput input = captor.getValue();
         assertThat(input.sourceType()).isEqualTo(SetResultInput.SOURCE_TYPE_TABLET);

@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.domain.CascadeRecomputeService;
+import de.vvwt.tm.scoring.ScoringService;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tournament.Device;
 import de.vvwt.tm.tournament.DeviceRepository;
@@ -97,7 +97,7 @@ class DisplayWebSocketEventsIT {
 
     @LocalServerPort private int port;
 
-    @Autowired private CascadeRecomputeService cascadeService;
+    @Autowired private ScoringService scoringService;
     @Autowired private TenantContextTestSupport.Binder tenantContextBinder;
     @Autowired private DeviceRepository deviceRepository;
     @Autowired private TournamentRepository tournamentRepository;
@@ -108,6 +108,7 @@ class DisplayWebSocketEventsIT {
 
     private UUID defaultTenantId;
     private UUID matchId;
+    private UUID tournamentId;
     private String displayToken;
 
     @BeforeEach
@@ -116,7 +117,9 @@ class DisplayWebSocketEventsIT {
 
         displayToken = UUID.randomUUID().toString();
         saveDisplayDevice(displayToken, Device.STATUS_REGISTERED);
-        matchId = createMinimalFixture();
+        UUID[] ids = createMinimalFixture();
+        tournamentId = ids[0];
+        matchId = ids[1];
     }
 
     @AfterEach
@@ -178,9 +181,10 @@ class DisplayWebSocketEventsIT {
             // Small pause to ensure subscription is registered before triggering the event
             Thread.sleep(200);
 
-            // Trigger domain event via service layer (real commit → AFTER_COMMIT fires)
-            cascadeService.registerMatchResult(
-                    SetResultInput.legacy(matchId, 0, 15, 10, null, null));
+            // Trigger domain event via scoring service (E31S04 cutover — ScoringService interface)
+            // tournamentId required by DefaultScoringService (DEC-37 Clause B lock-first contract)
+            scoringService.registerMatchResult(
+                    SetResultInput.withTournament(tournamentId, matchId, 0, 15, 10, null, null));
 
             // AC2/AC3: display client must receive MATCH_RESULT_CHANGED within 2 seconds
             Map<?, ?> received = receivedMessages.poll(2, TimeUnit.SECONDS);
@@ -291,8 +295,8 @@ class DisplayWebSocketEventsIT {
             Thread.sleep(200);
 
             // Trigger event for the DEFAULT tenant
-            cascadeService.registerMatchResult(
-                    SetResultInput.legacy(matchId, 0, 15, 10, null, null));
+            scoringService.registerMatchResult(
+                    SetResultInput.withTournament(tournamentId, matchId, 0, 15, 10, null, null));
 
             // AC11: correct tenant topic SHOULD receive the event
             Map<?, ?> correctReceived = correctTenantMessages.poll(2, TimeUnit.SECONDS);
@@ -352,12 +356,13 @@ class DisplayWebSocketEventsIT {
 
     /**
      * Creates the minimal entity graph for triggering a {@link
-     * de.vvwt.tm.domain.event.MatchResultChangedEvent}: 1 tournament, 1 ACTIVE phase, 2 teams, 2
-     * avatars, 1 BEST_OF_1 match.
+     * de.vvwt.tm.tournament.events.MatchResultChangedEvent}: 1 tournament, 1 ACTIVE phase, 2 teams,
+     * 2 avatars, 1 BEST_OF_1 match.
      *
-     * @return the UUID of the created match
+     * @return array of [tournamentId, matchId] — tournamentId required for DEC-37 Clause B
+     *     lock-first contract (E31S04 cutover)
      */
-    private UUID createMinimalFixture() {
+    private UUID[] createMinimalFixture() {
         UUID tournamentId = UUID.randomUUID();
         tournamentRepository.save(
                 new Tournament(
@@ -451,7 +456,7 @@ class DisplayWebSocketEventsIT {
                         null,
                         LocalDateTime.now()));
 
-        return mId;
+        return new UUID[] {tournamentId, mId};
     }
 
     // -------------------------------------------------------------------------
