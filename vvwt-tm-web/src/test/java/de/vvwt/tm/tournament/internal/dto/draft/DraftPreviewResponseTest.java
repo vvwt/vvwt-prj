@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import de.vvwt.tm.tournament.internal.draft.DraftPreviewSection;
+import de.vvwt.tm.tournament.draft.DraftPreviewSection;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 

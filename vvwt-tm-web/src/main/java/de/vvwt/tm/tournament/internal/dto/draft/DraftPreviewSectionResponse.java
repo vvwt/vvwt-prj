@@ -1,6 +1,6 @@
 package de.vvwt.tm.tournament.internal.dto.draft;
 
-import de.vvwt.tm.tournament.internal.draft.DraftPreviewSection;
+import de.vvwt.tm.tournament.draft.DraftPreviewSection;
 
 /**
  * REST response DTO for one section in a draft preview.

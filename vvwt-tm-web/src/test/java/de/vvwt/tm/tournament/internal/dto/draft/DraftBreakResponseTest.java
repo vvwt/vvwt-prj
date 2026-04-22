@@ -3,7 +3,7 @@ package de.vvwt.tm.tournament.internal.dto.draft;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.vvwt.tm.tournament.internal.draft.DraftBreak;
+import de.vvwt.tm.tournament.draft.DraftBreak;
 import org.junit.jupiter.api.Test;
 
 /**

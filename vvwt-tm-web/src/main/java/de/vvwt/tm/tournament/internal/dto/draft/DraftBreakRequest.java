@@ -8,7 +8,7 @@ import jakarta.validation.constraints.NotNull;
  *
  * <p>Jakarta Validation enforces REST-layer constraints. Domain-layer semantic validation (valid
  * lap position, no duplicates) is performed by {@link
- * de.vvwt.tm.tournament.internal.draft.DraftSection#validateBreaks(int)}.
+ * de.vvwt.tm.tournament.draft.DraftSection#validateBreaks(int)}.
  *
  * <p>Inventory: E21S01 line 432. Reconstructed under {@code
  * de.vvwt.tm.tournament.internal.dto.draft} per DEC-21.

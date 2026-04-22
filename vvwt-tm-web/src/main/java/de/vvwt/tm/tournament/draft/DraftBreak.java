@@ -1,4 +1,4 @@
-package de.vvwt.tm.tournament.internal.draft;
+package de.vvwt.tm.tournament.draft;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -9,8 +9,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * <p>Positioned after a specific lap number. When the draft is applied, each {@code DraftBreak}
  * becomes a {@link de.vvwt.tm.tournament.PhaseBreak} entity linked to the corresponding Phase.
  *
- * <p>Inventory: E21S01 line 237. Reconstructed under {@code de.vvwt.tm.tournament.internal.draft}
- * per DEC-21. Legacy {@code de.vvwt.tm.domain.draft.DraftBreak} remains active until E21S13.
+ * <p>Inventory: E21S01 line 237. Named-interface sub-package placement by E33S04 (DEC-35 retrofit).
+ * Legacy {@code de.vvwt.tm.domain.draft.DraftBreak} remains active until E21S13.
  *
  * @see DraftSection
  * @see de.vvwt.tm.tournament.PhaseBreak
