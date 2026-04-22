@@ -32,10 +32,15 @@ public class SetValidationRuleRegistry {
      *     Spring bean name — injected automatically by Spring
      */
     public SetValidationRuleRegistry(Map<String, SetValidationRule> rules) {
-        if (rules == null || rules.isEmpty()) {
+        if (rules == null) {
             throw new IllegalArgumentException(
-                    "SetValidationRuleRegistry requires at least one SetValidationRule bean");
+                    "SetValidationRuleRegistry rules map must not be null");
         }
+        // Empty map is permitted during the DEC-22 reconstruction-in-place coexistence window
+        // (E22S04–E22S11): the legacy domain.rules concrete rule beans are excluded from the
+        // component scan (AC-COMPONENT-SCAN-EXCLUSION) while the new scoring.internal.* beans
+        // implement de.vvwt.tm.scoring.SetValidationRule (a different Java type). The map will
+        // be empty until E22S05 reconstructs this registry to accept the new interface.
         this.rules = Map.copyOf(rules);
     }
 

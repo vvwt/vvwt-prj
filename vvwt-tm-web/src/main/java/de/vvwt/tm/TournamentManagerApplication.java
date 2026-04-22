@@ -2,6 +2,10 @@ package de.vvwt.tm;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.TypeExcludeFilter;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.ComponentScan.Filter;
+import org.springframework.context.annotation.FilterType;
 
 /**
  * Tournament Manager V1 application entry point.
@@ -12,11 +16,43 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  *
  * <p>No beans, no data sources, no Flyway configuration — those belong to E02S02.
  *
+ * <h2>Dual-bean-boot exclusion (AC-COMPONENT-SCAN-EXCLUSION / E22S04)</h2>
+ *
+ * <p>During the reconstruction-in-place transitional state (DEC-21, DEC-22), both the legacy {@code
+ * de.vvwt.tm.domain.rules.*} concrete rule classes and the new {@code
+ * de.vvwt.tm.scoring.internal.*} classes carry identical {@code @Component} names ({@code
+ * "setPoints"}, {@code "threePoint"}, {@code "twoPoint"}, {@code "standardVolleyball"}, {@code
+ * "timeBounded"}). Without exclusion, Spring throws {@code ConflictingBeanDefinitionException} at
+ * boot time.
+ *
+ * <p>The five legacy concrete rule classes are excluded from component scanning via a REGEX filter.
+ * The remaining {@code domain.rules.*} beans ({@code ScoringRuleRegistry}, {@code
+ * SetValidationRuleRegistry}, {@code TournamentRuleResolver}) are NOT excluded — they are still
+ * required during the coexistence window (removed at E22S11 cutover).
+ *
+ * <p>The explicit {@code @ComponentScan} annotation on this class overrides the embedded scan in
+ * {@code @SpringBootApplication}; {@link TypeExcludeFilter} is therefore re-added explicitly to
+ * preserve Spring Boot's test-class exclusion semantics (prevents {@code @SpringBootTest} inner
+ * configuration classes from being treated as production beans during test runs). This is a
+ * structural exclusion, not a runtime conditional; explicitly permitted by DEC-21.
+ *
+ * <p>This exclusion MUST be removed at the E22S11 cutover when {@code domain.rules.*} is deleted.
+ *
  * @see <a
  *     href="../../../../../../../../../../../.gaai/project/contexts/artefacts/stories/E02S01.story.md">Story
  *     E02S01</a>
  */
 @SpringBootApplication
+@ComponentScan(
+        excludeFilters = {
+            @Filter(type = FilterType.CUSTOM, classes = TypeExcludeFilter.class),
+            @Filter(
+                    type = FilterType.REGEX,
+                    pattern =
+                            "de\\.vvwt\\.tm\\.domain\\.rules\\."
+                                    + "(SetPointsRule|ThreePointMatchRule|TwoPointMatchRule"
+                                    + "|StandardVolleyballSet|TimeBoundedSet)")
+        })
 public class TournamentManagerApplication {
 
     public static void main(String[] args) {
