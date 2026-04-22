@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
  * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} and returned as HTTP 400 with field-level
  * error details.
  *
- * @see de.vvwt.tm.tournament.internal.TournamentService
+ * @see de.vvwt.tm.tournament.internal.DefaultTournamentService
  * @see <a href="DEC-21">DEC-21 — Spring Modulith internal.dto package</a>
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
  * @see <a href="E21S02">E21S02 — Tournament aggregate reconstruction</a>

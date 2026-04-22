@@ -14,7 +14,7 @@ import java.time.LocalTime;
  * field". The service applies only non-null (and valid) values. The appointment and
  * plannedStartTime fields may be set to {@code null} to clear the existing values.
  *
- * @see de.vvwt.tm.tournament.internal.TournamentService
+ * @see de.vvwt.tm.tournament.internal.DefaultTournamentService
  * @see <a href="DEC-21">DEC-21 — Spring Modulith internal.dto package</a>
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
  * @see <a href="E21S02">E21S02 — Tournament aggregate reconstruction</a>

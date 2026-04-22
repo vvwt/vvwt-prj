@@ -8,6 +8,7 @@ import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.TournamentService;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -18,11 +19,15 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 /**
- * Domain service for Tournament CRUD operations — reconstruction-in-place target (DEC-21/DEC-22).
+ * Default implementation of {@link TournamentService} — Tournament CRUD operations (DEC-35
+ * retrofit, E33S01).
  *
  * <p>Mirrors the logic of {@code de.vvwt.tm.domain.TournamentService} but wired to the new {@link
  * TournamentRepository} and new {@link Tournament} entity at the Modulith target package ({@code
  * de.vvwt.tm.tournament.*}).
+ *
+ * <p>Registered as {@code @Service("tmTournamentService")} — the qualifier is consumed by {@link
+ * de.vvwt.tm.tournament.TournamentController} and MUST NOT change (C-12, AC-QUALIFIER-PRESERVED).
  *
  * <h2>Business rules enforced</h2>
  *
@@ -34,17 +39,20 @@ import org.springframework.stereotype.Service;
  *   <li>AC5: deleteTournament rejects ACTIVE or tournaments with phases
  * </ul>
  *
- * <p>Lives in {@code tournament.internal} per DEC-21 §Module layout (implementation surface, not
- * public API).
+ * <p>Lives in {@code tournament.internal} per DEC-35 §Internal-package (implementation surface;
+ * public interface is {@link TournamentService} in the module root).
  *
+ * @see TournamentService
  * @see TournamentRepository
  * @see Tournament
+ * @see <a href="DEC-35">DEC-35 — Spring Modulith package layout: impl in .internal</a>
  * @see <a href="DEC-21">DEC-21 — Spring Modulith internal-package discipline</a>
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
  * @see <a href="E21S02">E21S02 — Tournament aggregate reconstruction</a>
+ * @see <a href="E33S01">E33S01 — Extract TournamentService interface (DEC-35 pioneer)</a>
  */
 @Service("tmTournamentService")
-public class TournamentService {
+public class DefaultTournamentService implements TournamentService {
 
     private final TournamentRepository tournamentRepository;
     private final PhaseRepository phaseRepository;
@@ -61,7 +69,7 @@ public class TournamentService {
      * @param setValidationRuleRegistry validates setValidationRuleId bean references (AC3)
      * @param matchGeneratorRegistry validates matchGeneratorId bean references (AC3)
      */
-    public TournamentService(
+    public DefaultTournamentService(
             TournamentRepository tournamentRepository,
             PhaseRepository phaseRepository,
             ScoringRuleRegistry scoringRuleRegistry,
@@ -83,6 +91,7 @@ public class TournamentService {
      *
      * @return immutable list, never {@code null}; may be empty if no tournaments exist
      */
+    @Override
     public List<Tournament> listTournaments() {
         return tournamentRepository.findAll().stream()
                 .sorted(
@@ -106,6 +115,7 @@ public class TournamentService {
      * @return the tournament (never {@code null})
      * @throws NoSuchElementException if no tournament with this ID exists for the current tenant
      */
+    @Override
     public Tournament getTournament(UUID id) {
         return tournamentRepository
                 .findById(id)
@@ -130,6 +140,7 @@ public class TournamentService {
      * @return the persisted tournament (never {@code null})
      * @throws IllegalArgumentException if any bean ID is not registered or matchFormat is invalid
      */
+    @Override
     public Tournament createTournament(
             String description,
             LocalDateTime appointment,
@@ -179,6 +190,7 @@ public class TournamentService {
      * @throws ConflictException if the tournament is not in DRAFT status (AC4)
      * @throws IllegalArgumentException if any bean ID is not registered or matchFormat is invalid
      */
+    @Override
     public Tournament updateTournament(
             UUID id,
             String description,
@@ -245,6 +257,7 @@ public class TournamentService {
      * @throws NoSuchElementException if the tournament does not exist for the current tenant
      * @throws ConflictException if the tournament is ACTIVE or has associated phases (AC5)
      */
+    @Override
     public void deleteTournament(UUID id) {
         Tournament tournament = getTournament(id);
 
