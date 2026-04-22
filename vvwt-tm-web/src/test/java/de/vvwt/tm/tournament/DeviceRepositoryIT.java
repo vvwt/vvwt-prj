@@ -6,7 +6,6 @@ import static org.assertj.db.api.Assertions.assertThat;
 import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.infrastructure.testsupport.TenantDaoTestSupport;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
-import de.vvwt.tm.tournament.internal.DeviceRepository;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;

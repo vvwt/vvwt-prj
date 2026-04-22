@@ -3,7 +3,6 @@ package de.vvwt.tm.tournament;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.tenant.TenantContextTestSupport;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,8 +20,10 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 
 /**
  * Minimalist integration test for {@link TournamentRulesController} (E21S10,
@@ -50,19 +51,17 @@ import org.springframework.test.context.ActiveProfiles;
  * @see <a href="DEC-32">DEC-32 — transitional scoring-rule-registry import</a>
  * @see <a href="E21S10">E21S10 — inventory row 412</a>
  */
-@SpringBootTest(
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        classes = {
-            de.vvwt.tm.TournamentManagerApplication.class,
-            TournamentRulesControllerIT.TestAdminCredentials.class
-        },
+@ApplicationModuleTest(
+        mode = ApplicationModuleTest.BootstrapMode.DIRECT_DEPENDENCIES,
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import(TournamentModuleTestConfig.class)
+@TestPropertySource(
         properties = {
             "spring.datasource.url=jdbc:h2:mem:rulescontrolleritdb"
                     + ";DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
                     + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
-@Import(TenantContextTestSupport.class)
 @DisplayName("TournamentRulesController IT — E21S10 AC-REST-IT (2-test minimalist)")
 class TournamentRulesControllerIT {
 

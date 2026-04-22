@@ -7,7 +7,7 @@ import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tournament.Device;
-import de.vvwt.tm.tournament.internal.DeviceRepository;
+import de.vvwt.tm.tournament.DeviceRepository;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Base64;

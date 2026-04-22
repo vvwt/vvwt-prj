@@ -4,12 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import de.vvwt.tm.tournament.AuditLogEntry;
 import de.vvwt.tm.tournament.MatchOutcome;
 import de.vvwt.tm.tournament.MatchState;
 import de.vvwt.tm.tournament.RoundSnapshot;
 import de.vvwt.tm.tournament.SetState;
 import de.vvwt.tm.tournament.TeamAvatarRating;
-import de.vvwt.tm.tournament.internal.AuditLogEntry;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;

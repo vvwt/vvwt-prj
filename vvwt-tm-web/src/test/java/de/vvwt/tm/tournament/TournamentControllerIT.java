@@ -27,6 +27,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -57,14 +58,11 @@ import org.springframework.test.context.ActiveProfiles;
  * @see <a href="DEC-26">DEC-26 — DAO test governance (three rules)</a>
  * @see <a href="E21S02">E21S02 — Tournament aggregate reconstruction</a>
  */
-@SpringBootTest(
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        classes = {
-            de.vvwt.tm.TournamentManagerApplication.class,
-            TournamentControllerIT.TestAdminCredentials.class
-        })
+@ApplicationModuleTest(
+        mode = ApplicationModuleTest.BootstrapMode.DIRECT_DEPENDENCIES,
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import(TournamentModuleTestConfig.class)
 @ActiveProfiles("test")
-@Import(TenantContextTestSupport.class)
 @DisplayName("TournamentController IT — E21S02 AC-REST-IT (2-test minimalist)")
 class TournamentControllerIT {
 

@@ -1,6 +1,8 @@
 package de.vvwt.tm.tournament.internal;
 
 import de.vvwt.tm.tenant.TenantContext;
+import de.vvwt.tm.tournament.AuditLogEntry;
+import de.vvwt.tm.tournament.AuditLogRepository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -12,41 +14,31 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
 /**
- * Append-only, tenant-scoped repository for {@link AuditLogEntry} entities (DEC-21, DEC-22, DEC-26,
- * E21S05).
+ * Default implementation of {@link AuditLogRepository} (DEC-35, E31S01).
  *
- * <p>INTERNAL to the {@code tournament} Modulith context per inventory line 287. No cross-context
- * code should import this repository directly (it is in the {@code internal} package, protected by
- * Modulith boundary enforcement).
+ * <p>Uses plain {@link JdbcTemplate} to avoid entity-mapping conflicts with the legacy {@code
+ * de.vvwt.tm.domain.AuditLogEntry} during reconstruction-in-place (DEC-21/DEC-22). Both the new
+ * {@code de.vvwt.tm.tournament.AuditLogEntry} and the legacy entity map to
+ * {@code @Table("audit_log")} — JdbcTemplate avoids auto-registration collisions.
  *
- * <h2>JdbcTemplate (not Spring Data CrudRepository delegation)</h2>
+ * <p>Append-only guarantee: the only write method is {@link #save(AuditLogEntry)}. {@link
+ * #deleteById(UUID)} throws {@link UnsupportedOperationException}.
  *
- * <p>Uses plain {@link JdbcTemplate} to avoid entity-mapping conflicts during
- * reconstruction-in-place (DEC-21/DEC-22). Both the new {@code
- * de.vvwt.tm.tournament.internal.AuditLogEntry} and the legacy {@code
- * de.vvwt.tm.domain.AuditLogEntry} are mapped to {@code @Table("audit_log")}. Spring Data JDBC's
- * auto-registration of any {@code CrudRepository} for either entity causes bean-override collisions
- * that break the legacy {@code de.vvwt.tm.domain.repo.AuditLogRepository}. JdbcTemplate avoids this
- * entirely — same pattern as {@link de.vvwt.tm.tournament.SetResultRepository}, {@link
- * de.vvwt.tm.tournament.MatchOutcomeRepository}.
- *
- * <h2>Append-only guarantee</h2>
- *
- * <p>The only write method is {@link #save(AuditLogEntry)}. {@link #deleteById(UUID)} throws {@link
- * UnsupportedOperationException}.
- *
- * <p>Bean qualifier {@code "tmAuditLogRepository"} avoids collision with legacy {@code
+ * <p>Bean qualifier {@code "tmAuditLogRepository"} avoids collision with the legacy {@code
  * de.vvwt.tm.domain.repo.AuditLogRepository}.
  *
+ * @see AuditLogRepository
  * @see AuditLogEntry
  * @see AuditLogCrudRepository
  * @see <a href="DEC-21">DEC-21 — internal package discipline</a>
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
  * @see <a href="DEC-26">DEC-26 — DAO test governance</a>
+ * @see <a href="DEC-35">DEC-35 — impl in internal</a>
  * @see <a href="E21S05">E21S05 — inventory line 287</a>
+ * @see <a href="E31S01">E31S01 — interface extraction (MANDATORY)</a>
  */
 @Repository("tmAuditLogRepository")
-public class AuditLogRepository {
+public class DefaultAuditLogRepository implements AuditLogRepository {
 
     private static final String INSERT_SQL =
             "INSERT INTO audit_log (id, tenant_id, match_id, set_index,"
@@ -65,21 +57,20 @@ public class AuditLogRepository {
     private final JdbcTemplate jdbc;
     private final TenantContext tenantContext;
 
-    public AuditLogRepository(JdbcTemplate jdbc, TenantContext tenantContext) {
+    public DefaultAuditLogRepository(JdbcTemplate jdbc, TenantContext tenantContext) {
         this.jdbc = jdbc;
         this.tenantContext = tenantContext;
     }
 
     /**
-     * Appends a new {@link AuditLogEntry} row. Tenant scoping is enforced — the entity's tenantId
-     * is set to the current tenant before insert.
+     * {@inheritDoc}
      *
-     * @param entry the entry to append (id must be set by caller)
-     * @return the saved entry
-     * @throws IllegalStateException if no tenant context is active
+     * <p>Tenant scoping is enforced — the entity's tenantId is set to the current tenant before
+     * insert.
      */
+    @Override
     public AuditLogEntry save(AuditLogEntry entry) {
-        UUID currentTenantId = tenantContext.current(); // guard fires here
+        UUID currentTenantId = tenantContext.current();
         entry.setTenantId(currentTenantId);
         jdbc.update(
                 INSERT_SQL,
@@ -100,40 +91,28 @@ public class AuditLogRepository {
         return entry;
     }
 
-    /**
-     * Returns the audit log entry for the given id, scoped to the current tenant.
-     *
-     * @param id the entry UUID
-     * @return Optional.of(entry) if found and belongs to active tenant, Optional.empty() otherwise
-     * @throws IllegalStateException if no tenant context is active
-     */
+    /** {@inheritDoc} */
+    @Override
     public Optional<AuditLogEntry> findById(UUID id) {
-        UUID tenantId = tenantContext.current(); // guard fires here
+        UUID tenantId = tenantContext.current();
         List<AuditLogEntry> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id, tenantId);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
-    /**
-     * Returns audit entries for a given match and set index in chronological order, scoped to the
-     * active tenant.
-     *
-     * @param matchId the match whose audit entries to retrieve
-     * @param setIndex the set index within the match
-     * @return list of audit entries in chronological order; never {@code null}
-     * @throws IllegalStateException if no tenant context is active
-     */
+    /** {@inheritDoc} */
+    @Override
     public List<AuditLogEntry> findByMatchIdAndSetIndexOrderByChangedAt(
             UUID matchId, int setIndex) {
-        UUID tenantId = tenantContext.current(); // guard fires here
+        UUID tenantId = tenantContext.current();
         return jdbc.query(SELECT_BY_MATCH_SET, ROW_MAPPER, matchId, setIndex, tenantId);
     }
 
     /**
-     * Deleting audit log entries is FORBIDDEN (append-only invariant).
+     * {@inheritDoc}
      *
-     * @param id the ID (ignored)
      * @throws UnsupportedOperationException always — audit log is append-only per DEC-22/E21S05
      */
+    @Override
     public void deleteById(UUID id) {
         throw new UnsupportedOperationException(
                 "AuditLogRepository is append-only — deleteById is forbidden. E21S05.");
@@ -143,7 +122,7 @@ public class AuditLogRepository {
     // Row mapper
     // -------------------------------------------------------------------------
 
-    private static final RowMapper<AuditLogEntry> ROW_MAPPER = AuditLogRepository::mapRow;
+    private static final RowMapper<AuditLogEntry> ROW_MAPPER = DefaultAuditLogRepository::mapRow;
 
     private static AuditLogEntry mapRow(ResultSet rs, int rowNum) throws SQLException {
         AuditLogEntry e = new AuditLogEntry();

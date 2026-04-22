@@ -27,6 +27,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -63,14 +64,11 @@ import org.springframework.test.context.ActiveProfiles;
  * @see <a href="DEC-26">DEC-26 — DAO test governance (three rules)</a>
  * @see <a href="E21S06">E21S06 — Device aggregate reconstruction (inventory line 420)</a>
  */
-@SpringBootTest(
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        classes = {
-            de.vvwt.tm.TournamentManagerApplication.class,
-            DeviceAdminControllerIT.TestAdminCredentials.class
-        })
+@ApplicationModuleTest(
+        mode = ApplicationModuleTest.BootstrapMode.DIRECT_DEPENDENCIES,
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import(TournamentModuleTestConfig.class)
 @ActiveProfiles("test")
-@Import(TenantContextTestSupport.class)
 @DisplayName("DeviceAdminController IT — E21S06 AC-REST-IT (3-test minimalist, DEC-24)")
 class DeviceAdminControllerIT {
 

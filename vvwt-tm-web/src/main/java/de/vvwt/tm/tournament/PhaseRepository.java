@@ -1,167 +1,56 @@
 package de.vvwt.tm.tournament;
 
-import de.vvwt.tm.tenant.TenantContext;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
-import org.springframework.stereotype.Repository;
 
 /**
- * Boundary-API tenant-scoped repository for {@link Phase} entities (DEC-21 public API surface).
+ * Public port for tenant-scoped {@link Phase} persistence (DEC-35, E31S01).
  *
- * <p>Boundary-API per inventory line 298 — consumed by {@code slotopt/DirectSlotOptimizationClient}
- * and slotopt-integration context.
+ * <p>Hand-authored interface port per DEC-35 §2. The canonical implementation is {@link
+ * de.vvwt.tm.tournament.internal.DefaultPhaseRepository}.
  *
- * <p>Uses plain {@link JdbcTemplate} (not Spring Data JDBC {@code CrudRepository}) to avoid
- * entity-mapping conflicts with the legacy {@code de.vvwt.tm.domain.Phase} entity that maps to the
- * same {@code phase} table during the reconstruction-in-place phase (DEC-21/DEC-22). The {@link
- * PhaseCrudRepository} will be activated at E21S13 cutover.
- *
- * <p>Tenant scoping is enforced for all queries via the injected {@link TenantContext}.
- *
- * @see Phase
- * @see PhaseCrudRepository
- * @see <a href="DEC-21">DEC-21 — Spring Modulith, root package = public API surface</a>
- * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
- * @see <a href="DEC-26">DEC-26 — DAO test governance (three rules)</a>
- * @see <a href="E21S03">E21S03 — Phase cluster reconstruction (inventory line 298)</a>
+ * @see de.vvwt.tm.tournament.internal.DefaultPhaseRepository
+ * @see <a href="DEC-35">DEC-35 — package layout: interfaces in public package</a>
+ * @see <a href="E31S01">E31S01 — interface extraction</a>
  */
-@Repository("tmPhaseRepository")
-public class PhaseRepository {
-
-    private final JdbcTemplate jdbc;
-    private final TenantContext tenantContext;
-
-    private static final String INSERT_SQL =
-            "INSERT INTO phase"
-                    + " (id, tenant_id, tournament_id, sequence_number, description, status,"
-                    + " current_lap_number)"
-                    + " VALUES (?, ?, ?, ?, ?, ?, ?)";
-
-    private static final String UPDATE_SQL =
-            "UPDATE phase"
-                    + " SET description=?, status=?, current_lap_number=?"
-                    + " WHERE id=? AND tenant_id=?";
-
-    private static final String SELECT_BY_ID = "SELECT * FROM phase WHERE id=? AND tenant_id=?";
-
-    private static final String SELECT_ALL = "SELECT * FROM phase WHERE tenant_id=?";
-
-    private static final String SELECT_BY_TOURNAMENT =
-            "SELECT * FROM phase WHERE tournament_id=? AND tenant_id=?";
-
-    private static final String DELETE_BY_ID = "DELETE FROM phase WHERE id=? AND tenant_id=?";
-
-    private static final String EXISTS_BY_ID =
-            "SELECT COUNT(*) FROM phase WHERE id=? AND tenant_id=?";
-
-    public PhaseRepository(JdbcTemplate jdbc, TenantContext tenantContext) {
-        this.jdbc = jdbc;
-        this.tenantContext = tenantContext;
-    }
+public interface PhaseRepository {
 
     /**
-     * Saves a {@link Phase}. Inserts if new, updates otherwise. The entity's {@code tenantId} is
-     * set to the injected tenant before insert.
+     * Persists a phase (upsert). Tenant scoping is enforced.
      *
      * @param phase the phase to save (id must be set by caller)
      * @return the saved phase
      */
-    public Phase save(Phase phase) {
-        UUID tenantId = tenantContext.current();
-        phase.setTenantId(tenantId);
-        Integer count = jdbc.queryForObject(EXISTS_BY_ID, Integer.class, phase.getId(), tenantId);
-        boolean exists = count != null && count > 0;
-        if (exists) {
-            jdbc.update(
-                    UPDATE_SQL,
-                    phase.getDescription(),
-                    phase.getStatus(),
-                    phase.getCurrentLapNumber(),
-                    phase.getId(),
-                    tenantId);
-        } else {
-            jdbc.update(
-                    INSERT_SQL,
-                    phase.getId(),
-                    tenantId,
-                    phase.getTournamentId(),
-                    phase.getSequenceNumber(),
-                    phase.getDescription(),
-                    phase.getStatus(),
-                    phase.getCurrentLapNumber());
-        }
-        return phase;
-    }
+    Phase save(Phase phase);
 
     /**
      * Returns the phase with the given id, scoped to the current tenant.
      *
      * @param id the phase UUID
-     * @return Optional containing the phase if found and in tenant scope, empty otherwise
+     * @return Optional.of(phase) if found, Optional.empty() otherwise
      */
-    public Optional<Phase> findById(UUID id) {
-        UUID tenantId = tenantContext.current();
-        List<Phase> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id, tenantId);
-        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
-    }
+    Optional<Phase> findById(UUID id);
 
     /**
      * Returns all phases for the current tenant.
      *
      * @return list of phases; never null
      */
-    public List<Phase> findAll() {
-        UUID tenantId = tenantContext.current();
-        return jdbc.query(SELECT_ALL, ROW_MAPPER, tenantId);
-    }
+    List<Phase> findAll();
 
     /**
-     * Returns all phases belonging to the given tournament that belong to the active tenant.
-     *
-     * <p>Consumed by slot-optimization and phase services to list phases for match generation.
+     * Returns all phases belonging to the given tournament, scoped to the current tenant.
      *
      * @param tournamentId the tournament to query
-     * @return list of phases for the given tournament scoped to the active tenant; never null
+     * @return list of phases; never null
      */
-    public List<Phase> findByTournamentId(UUID tournamentId) {
-        UUID tenantId = tenantContext.current();
-        return jdbc.query(SELECT_BY_TOURNAMENT, ROW_MAPPER, tournamentId, tenantId);
-    }
+    List<Phase> findByTournamentId(UUID tournamentId);
 
     /**
      * Deletes the phase with the given id, scoped to the current tenant.
      *
      * @param id the phase UUID
      */
-    public void deleteById(UUID id) {
-        UUID tenantId = tenantContext.current();
-        jdbc.update(DELETE_BY_ID, id, tenantId);
-    }
-
-    // -------------------------------------------------------------------------
-    // Row mapper
-    // -------------------------------------------------------------------------
-
-    private static final RowMapper<Phase> ROW_MAPPER = (rs, rowNum) -> mapRow(rs);
-
-    private static Phase mapRow(ResultSet rs) throws SQLException {
-        Phase p = new Phase();
-        p.setId(rs.getObject("id", UUID.class));
-        p.setTenantId(rs.getObject("tenant_id", UUID.class));
-        p.setTournamentId(rs.getObject("tournament_id", UUID.class));
-        p.setSequenceNumber(rs.getInt("sequence_number"));
-        p.setDescription(rs.getString("description"));
-        p.setStatus(rs.getString("status"));
-        p.setCurrentLapNumber(rs.getInt("current_lap_number"));
-        p.setCreatedAt(
-                rs.getObject("created_at") != null
-                        ? rs.getTimestamp("created_at").toLocalDateTime()
-                        : null);
-        return p;
-    }
+    void deleteById(UUID id);
 }
