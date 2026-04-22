@@ -1,9 +1,8 @@
 package de.vvwt.tm.tournament;
 
+import de.vvwt.tm.tournament.exceptions.DeviceLimitExceededException;
+import de.vvwt.tm.tournament.exceptions.DisplayDeviceLimitExceededException;
 import de.vvwt.tm.tournament.internal.DeviceLimitErrorResponse;
-import de.vvwt.tm.tournament.internal.DeviceLimitExceededException;
-import de.vvwt.tm.tournament.internal.DeviceService;
-import de.vvwt.tm.tournament.internal.DisplayDeviceLimitExceededException;
 import de.vvwt.tm.tournament.internal.dto.DeviceAssignRequest;
 import de.vvwt.tm.tournament.internal.dto.DeviceConfigureRequest;
 import de.vvwt.tm.tournament.internal.dto.DeviceRegisterRequest;

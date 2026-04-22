@@ -1,6 +1,5 @@
 package de.vvwt.tm.tournament;
 
-import de.vvwt.tm.tournament.internal.DeviceService;
 import de.vvwt.tm.tournament.internal.dto.DeviceSummaryResponse;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Qualifier;

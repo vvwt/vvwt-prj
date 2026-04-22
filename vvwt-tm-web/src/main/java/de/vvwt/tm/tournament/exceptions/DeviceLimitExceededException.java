@@ -1,19 +1,23 @@
-package de.vvwt.tm.tournament.internal;
+package de.vvwt.tm.tournament.exceptions;
 
 /**
  * Thrown when a new device registration would exceed the configured device limit per tenant (E21S06
  * AC-DEVICELIMIT-ENFORCEMENT).
  *
  * <p>Mapped to HTTP 409 Conflict by {@link de.vvwt.tm.tournament.DeviceController}. Response body
- * is a {@link DeviceLimitErrorResponse} carrying {@code errorCode}, {@code configuredLimit}, and
+ * is a {@code DeviceLimitErrorResponse} carrying {@code errorCode}, {@code configuredLimit}, and
  * {@code currentCount}.
  *
- * <p>Distinct from the legacy {@code de.vvwt.tm.infrastructure.web.DeviceLimitErrorResponse} which
- * maps to HTTP 429 and tracks only DISPLAY devices.
+ * <p>Distinct from {@link DisplayDeviceLimitExceededException} which enforces the DISPLAY-device
+ * cap and maps to HTTP 429 Too Many Requests.
  *
- * @see DeviceLimitErrorResponse
- * @see DeviceService
+ * <p>Relocated from {@code de.vvwt.tm.tournament.internal} to {@code
+ * de.vvwt.tm.tournament.exceptions} (DEC-35 retrofit, E33S03) — class body unchanged.
+ *
+ * @see DisplayDeviceLimitExceededException
+ * @see de.vvwt.tm.tournament.internal.DefaultDeviceService
  * @see <a href="E21S06">E21S06 — Device aggregate reconstruction (inventory line 420)</a>
+ * @see <a href="E33S03">E33S03 — DEC-35 exception relocation to tournament.exceptions</a>
  */
 public class DeviceLimitExceededException extends RuntimeException {
 

@@ -24,7 +24,7 @@ import java.util.UUID;
  * E21S13 atomic cutover.
  *
  * @see de.vvwt.tm.tournament.internal.DeviceRepository
- * @see de.vvwt.tm.tournament.internal.DeviceService
+ * @see de.vvwt.tm.tournament.internal.DefaultDeviceService
  * @see <a href="DEC-21">DEC-21 — Spring Modulith, root package = public API surface</a>
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
  * @see <a href="DEC-24">DEC-24 — device location nullable</a>

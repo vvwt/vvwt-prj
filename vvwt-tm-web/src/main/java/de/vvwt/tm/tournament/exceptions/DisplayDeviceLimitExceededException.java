@@ -1,18 +1,22 @@
-package de.vvwt.tm.tournament.internal;
+package de.vvwt.tm.tournament.exceptions;
 
 /**
  * Thrown when a new DISPLAY device registration would exceed the per-tenant DISPLAY device cap
  * (E21S13 cutover — DEC-22 refactor phase, migrated from legacy display device limit).
  *
  * <p>Mapped to HTTP 429 Too Many Requests by {@link de.vvwt.tm.tournament.DeviceController}.
- * Response body is a {@link DeviceLimitErrorResponse} carrying {@code currentCount}, {@code
+ * Response body is a {@code DeviceLimitErrorResponse} carrying {@code currentCount}, {@code
  * configuredLimit}, and {@code messageKey}.
  *
  * <p>Distinct from {@link DeviceLimitExceededException} which enforces the total (all-type) device
  * cap and maps to HTTP 409 Conflict.
  *
- * @see DeviceLimitErrorResponse
- * @see DeviceService
+ * <p>Relocated from {@code de.vvwt.tm.tournament.internal} to {@code
+ * de.vvwt.tm.tournament.exceptions} (DEC-35 retrofit, E33S03) — class body unchanged.
+ *
+ * @see DeviceLimitExceededException
+ * @see de.vvwt.tm.tournament.internal.DefaultDeviceService
+ * @see <a href="E33S03">E33S03 — DEC-35 exception relocation to tournament.exceptions</a>
  */
 public class DisplayDeviceLimitExceededException extends RuntimeException {
 
