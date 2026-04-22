@@ -16,7 +16,6 @@ import de.vvwt.tm.tenant.TenantRegistryPort;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftPreviewResult;
 import de.vvwt.tm.tournament.draft.DraftPreviewSection;
-import de.vvwt.tm.tournament.internal.DraftService;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftRequest;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftSectionRequest;
 import java.util.List;

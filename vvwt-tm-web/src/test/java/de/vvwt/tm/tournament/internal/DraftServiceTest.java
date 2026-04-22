@@ -18,6 +18,7 @@ import de.vvwt.tm.tournament.draft.DraftBreak;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftPreviewResult;
 import de.vvwt.tm.tournament.draft.DraftSection;
+import de.vvwt.tm.tournament.exceptions.DraftAlreadyAppliedException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -36,7 +37,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  *
  * <p>Inventory: E21S01 line 171.
  *
- * @see DraftService
+ * @see DefaultDraftService
  * @see PhaseRepository
  * @see PhaseBreakRepository
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
@@ -52,7 +53,7 @@ class DraftServiceTest {
     @Mock private TeamAvatarRepository teamAvatarRepository;
     @Mock private PhasePreparationService phasePreparationService;
 
-    @InjectMocks private DraftService draftService;
+    @InjectMocks private DefaultDraftService draftService;
 
     private static DraftSection simpleSection(int sectionNumber) {
         return new DraftSection(

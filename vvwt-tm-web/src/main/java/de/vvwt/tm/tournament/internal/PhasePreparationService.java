@@ -105,10 +105,10 @@ public class PhasePreparationService {
     /**
      * Generates matches for a phase WITHOUT running referee assignment.
      *
-     * <p>Called from {@link de.vvwt.tm.tournament.internal.DraftService#apply} immediately after
-     * phase creation. At this point slot optimization has not yet been run, so referee assignment
-     * (which requires lap + field numbers) cannot execute. Slot optimization and referee assignment
-     * are triggered separately by the operator after draft apply.
+     * <p>Called from {@link de.vvwt.tm.tournament.internal.DefaultDraftService#apply} immediately
+     * after phase creation. At this point slot optimization has not yet been run, so referee
+     * assignment (which requires lap + field numbers) cannot execute. Slot optimization and referee
+     * assignment are triggered separately by the operator after draft apply.
      *
      * <p>Idempotent: existing matches are deleted before new ones are generated.
      *

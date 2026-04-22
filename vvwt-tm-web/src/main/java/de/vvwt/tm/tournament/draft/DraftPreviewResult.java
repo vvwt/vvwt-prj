@@ -4,7 +4,7 @@ import de.vvwt.tm.tournament.internal.dto.draft.DraftTimelineEntryResponse;
 import java.util.List;
 
 /**
- * Result returned by {@link de.vvwt.tm.tournament.internal.DraftService#preview}.
+ * Result returned by {@link de.vvwt.tm.tournament.DraftService#preview}.
  *
  * <p>Combines the structural section preview with an optional list of timeline entries. The
  * timeline entries are expressed as {@link DraftTimelineEntryResponse} — a plain data-carrier DTO
