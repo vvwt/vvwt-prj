@@ -6,8 +6,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import de.vvwt.tm.domain.rules.ScoringRuleRegistry;
-import de.vvwt.tm.domain.rules.SetValidationRuleRegistry;
 import de.vvwt.tm.tournament.MatchGeneratorRegistry;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
@@ -55,6 +53,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * @see <a href="DEC-36">DEC-36 — Same-package white-box tests permitted</a>
  * @see <a href="E21S02">E21S02 — Tournament aggregate reconstruction</a>
  * @see <a href="E33S01">E33S01 — Extract TournamentService interface (AC-UNIT-TEST-RENAME)</a>
+ * @see <a href="E22S02">E22S02 — Remove DefaultTournamentService eager registry validation (DEC-40
+ *     Approach A boundary fix) — ScoringRuleRegistry and SetValidationRuleRegistry mocks removed;
+ *     scoringRuleId/setValidationRuleId validated at first score submission only</a>
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("DefaultTournamentService unit tests — E21S02 AC-TDD-TournamentService")
@@ -63,10 +64,6 @@ class TournamentServiceTest {
     @Mock private TournamentRepository tournamentRepository;
 
     @Mock private PhaseRepository phaseRepository;
-
-    @Mock private ScoringRuleRegistry scoringRuleRegistry;
-
-    @Mock private SetValidationRuleRegistry setValidationRuleRegistry;
 
     @Mock private MatchGeneratorRegistry matchGeneratorRegistry;
 
@@ -82,11 +79,7 @@ class TournamentServiceTest {
     void setUp() {
         service =
                 new DefaultTournamentService(
-                        tournamentRepository,
-                        phaseRepository,
-                        scoringRuleRegistry,
-                        setValidationRuleRegistry,
-                        matchGeneratorRegistry);
+                        tournamentRepository, phaseRepository, matchGeneratorRegistry);
     }
 
     // =========================================================================
