@@ -6,6 +6,7 @@ import static org.assertj.db.api.Assertions.assertThat;
 import de.vvwt.tm.infrastructure.testsupport.TenantDaoTestSupport;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.internal.ThreadLocalTenantContextImpl;
+import de.vvwt.tm.tournament.internal.DefaultPhaseRepository;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -87,7 +88,7 @@ class PhaseRepositoryIT {
                         "status", "DRAFT",
                         "field_count", 2,
                         "team_count", 4));
-        repo = new PhaseRepository(new JdbcTemplate(ds), tenantContext);
+        repo = new DefaultPhaseRepository(new JdbcTemplate(ds), tenantContext);
     }
 
     @AfterEach

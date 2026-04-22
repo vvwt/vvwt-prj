@@ -2,7 +2,7 @@ package de.vvwt.tm.infrastructure.web;
 
 import de.vvwt.tm.tenant.LocationContext;
 import de.vvwt.tm.tenant.TenantRegistryPort;
-import de.vvwt.tm.tournament.internal.DeviceRepository;
+import de.vvwt.tm.tournament.DeviceRepository;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;

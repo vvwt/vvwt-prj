@@ -6,6 +6,8 @@ import static org.assertj.db.api.Assertions.assertThat;
 
 import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import de.vvwt.tm.tournament.AuditLogEntry;
+import de.vvwt.tm.tournament.AuditLogRepository;
 import de.vvwt.tm.tournament.SetState;
 import java.util.List;
 import java.util.UUID;

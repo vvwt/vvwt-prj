@@ -7,7 +7,7 @@ import static org.mockito.Mockito.*;
 import de.vvwt.tm.tenant.LocationContext;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.Device;
-import de.vvwt.tm.tournament.internal.DeviceRepository;
+import de.vvwt.tm.tournament.DeviceRepository;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Optional;

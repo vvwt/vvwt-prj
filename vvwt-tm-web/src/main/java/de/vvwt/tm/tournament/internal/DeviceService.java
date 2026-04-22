@@ -2,6 +2,7 @@ package de.vvwt.tm.tournament.internal;
 
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.Device;
+import de.vvwt.tm.tournament.DeviceRepository;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import java.security.SecureRandom;
 import java.util.List;

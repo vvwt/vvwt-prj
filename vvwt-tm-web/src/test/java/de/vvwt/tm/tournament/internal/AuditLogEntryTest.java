@@ -2,6 +2,7 @@ package de.vvwt.tm.tournament.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import de.vvwt.tm.tournament.AuditLogEntry;
 import de.vvwt.tm.tournament.SetState;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;

@@ -7,7 +7,7 @@ package de.vvwt.tm.tournament.internal;
  * surface.
  *
  * <p><b>Activation note:</b> This interface intentionally does NOT extend {@code CrudRepository}.
- * Both {@code de.vvwt.tm.tournament.internal.AuditLogEntry} and the legacy {@code
+ * Both {@code de.vvwt.tm.tournament.AuditLogEntry} and the legacy {@code
  * de.vvwt.tm.domain.AuditLogEntry} are mapped to {@code @Table("audit_log")}. Spring Data JDBC's
  * auto-registration of any {@code CrudRepository} for either entity causes bean-override collisions
  * that break the legacy {@code de.vvwt.tm.domain.repo.AuditLogRepository}. This interface exists

@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.Device;
+import de.vvwt.tm.tournament.DeviceRepository;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;

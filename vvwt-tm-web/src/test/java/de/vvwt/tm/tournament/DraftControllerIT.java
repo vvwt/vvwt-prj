@@ -29,6 +29,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -45,10 +46,11 @@ import org.springframework.test.context.ActiveProfiles;
  *   <li>Unauthenticated request → 401 (security gate)
  * </ol>
  *
- * <h2>IT annotation choice (AC-IT-ANNOTATION)</h2>
+ * <h2>IT annotation choice (AC-IT-ANNOTATION, DEC-38)</h2>
  *
- * <p>Uses {@code @SpringBootTest(webEnvironment = RANDOM_PORT)} per conventions.md (d) — matches
- * E20S02/E21S02 canon exactly.
+ * <p>Uses {@code @ApplicationModuleTest(webEnvironment = RANDOM_PORT)} per DEC-38 — the canonical
+ * IT annotation for reconstructed Modulith modules (supersedes conventions.md §(d) for this context
+ * per E31S01 migration).
  *
  * <h2>assertj-db independent verifier (DEC-26 Rule 2)</h2>
  *
@@ -61,14 +63,11 @@ import org.springframework.test.context.ActiveProfiles;
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
  * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
  */
-@SpringBootTest(
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        classes = {
-            de.vvwt.tm.TournamentManagerApplication.class,
-            DraftControllerIT.TestAdminCredentials.class
-        })
+@ApplicationModuleTest(
+        mode = ApplicationModuleTest.BootstrapMode.DIRECT_DEPENDENCIES,
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import(TournamentModuleTestConfig.class)
 @ActiveProfiles("test")
-@Import(TenantContextTestSupport.class)
 @DisplayName("DraftController IT — E21S07 AC-REST-IT (2-test minimalist)")
 class DraftControllerIT {
 

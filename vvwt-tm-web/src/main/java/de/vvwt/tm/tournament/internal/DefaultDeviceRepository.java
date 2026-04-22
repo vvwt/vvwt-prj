@@ -2,6 +2,7 @@ package de.vvwt.tm.tournament.internal;
 
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.Device;
+import de.vvwt.tm.tournament.DeviceRepository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -13,38 +14,22 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
 /**
- * Tenant-scoped repository for {@link Device} entities (E21S06, DEC-26 three-rule compliance).
+ * Default implementation of {@link DeviceRepository} (DEC-35, E31S01).
  *
- * <p>Implements the boundary API for the {@code device} aggregate in the {@code tournament} bounded
- * context.
+ * <p>Uses plain {@link JdbcTemplate}. Tenant scoping enforced via active {@link TenantContext}.
  *
- * <p>Uses plain {@link JdbcTemplate} (not Spring Data JDBC CrudRepository) to avoid entity-mapping
- * conflicts with the parallel legacy {@code de.vvwt.tm.domain.Device} entity that maps to the same
- * {@code devices} table during the reconstruction-in-place phase (DEC-21/DEC-22). At the E21S13
- * atomic cutover, the legacy entity is deleted and this repository can optionally be migrated to
- * Spring Data JDBC.
+ * <p>Bean qualifier {@code "tmDeviceRepository"} preserves injection compatibility with call sites
+ * established in E21S06.
  *
- * <p>Tenant scoping is enforced via the active {@link TenantContext} binding for all queries.
- *
- * <h2>Boundary-API coverage (5 cross-context importers)</h2>
- *
- * <ul>
- *   <li>{@link #findByDeviceToken} — used by DeviceTokenHandshakeInterceptor,
- *       WebSocketSecurityConfig
- *   <li>{@link #findByPin} — used by admin lookup in DeviceController
- *   <li>{@link #findByLocationAndField} — conflict check for field assignment
- *   <li>{@link #countByTenant} — device limit enforcement
- *   <li>{@link #isPinTaken} — PIN uniqueness guard
- * </ul>
- *
+ * @see DeviceRepository
  * @see Device
- * @see DeviceService
+ * @see <a href="DEC-35">DEC-35 — package layout: impl in internal</a>
  * @see <a href="DEC-26">DEC-26 — DAO test governance (three rules)</a>
- * @see <a href="DEC-24">DEC-24 — device location nullable (V16)</a>
  * @see <a href="E21S06">E21S06 — Device aggregate reconstruction (inventory line 290)</a>
+ * @see <a href="E31S01">E31S01 — interface extraction</a>
  */
 @Repository("tmDeviceRepository")
-public class DeviceRepository {
+public class DefaultDeviceRepository implements DeviceRepository {
 
     private final JdbcTemplate jdbc;
     private final TenantContext tenantContext;
@@ -91,29 +76,13 @@ public class DeviceRepository {
     private static final String COUNT_LOCATION_BY_TENANT =
             "SELECT COUNT(*) FROM locations WHERE id=? AND tenant_id=?";
 
-    /**
-     * Constructs the repository with its required collaborators.
-     *
-     * @param jdbc the JdbcTemplate
-     * @param tenantContext the active tenant context
-     */
-    public DeviceRepository(JdbcTemplate jdbc, TenantContext tenantContext) {
+    public DefaultDeviceRepository(JdbcTemplate jdbc, TenantContext tenantContext) {
         this.jdbc = jdbc;
         this.tenantContext = tenantContext;
     }
 
-    // -------------------------------------------------------------------------
-    // Write path
-    // -------------------------------------------------------------------------
-
-    /**
-     * Persists a device. Inserts if new (no existing row with this id + tenantId), updates
-     * otherwise. Tenant scoping is enforced — the entity's tenantId is set to the current tenant
-     * before insert.
-     *
-     * @param device the device to save (id must be set by caller)
-     * @return the saved device (same reference)
-     */
+    /** {@inheritDoc} */
+    @Override
     public Device save(Device device) {
         UUID currentTenantId = tenantContext.current();
         device.setTenantId(currentTenantId);
@@ -157,61 +126,31 @@ public class DeviceRepository {
         return device;
     }
 
-    // -------------------------------------------------------------------------
-    // Read path
-    // -------------------------------------------------------------------------
-
-    /**
-     * Returns the device with the given id, scoped to the current tenant.
-     *
-     * @param id the device UUID
-     * @return Optional.of(device) if found, Optional.empty() if not found or wrong tenant
-     */
+    /** {@inheritDoc} */
+    @Override
     public Optional<Device> findById(UUID id) {
         UUID tenantId = tenantContext.current();
         List<Device> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id, tenantId);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
-    /**
-     * Returns the device with the given device token (cross-tenant lookup for WebSocket auth).
-     *
-     * <p>This query intentionally does NOT scope by tenant — the device token is globally unique
-     * and serves as the authentication credential for WebSocket connections before tenant context
-     * is established.
-     *
-     * @param deviceToken the opaque device token
-     * @return Optional.of(device) if found, Optional.empty() otherwise
-     */
+    /** {@inheritDoc} */
+    @Override
     public Optional<Device> findByDeviceToken(String deviceToken) {
         List<Device> results = jdbc.query(SELECT_BY_TOKEN, ROW_MAPPER, deviceToken);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
-    /**
-     * Returns the device with the given PIN for the current tenant.
-     *
-     * @param pin the 4–6 digit PIN
-     * @return Optional.of(device) if found, Optional.empty() if no device has this PIN in this
-     *     tenant
-     */
+    /** {@inheritDoc} */
+    @Override
     public Optional<Device> findByPin(String pin) {
         UUID tenantId = tenantContext.current();
         List<Device> results = jdbc.query(SELECT_BY_PIN, ROW_MAPPER, tenantId, pin);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
-    /**
-     * Returns the device assigned to the given location and field number for the current tenant.
-     *
-     * <p>Used for field-assignment conflict checking — ensures no two devices are assigned to the
-     * same location + field. Handles null locationId via a separate IS NULL query (SQL {@code = ?}
-     * with a null parameter does not match rows with {@code location_id IS NULL}).
-     *
-     * @param locationId the location UUID (may be null for devices without a location assignment)
-     * @param assignedField the field number (1-based)
-     * @return Optional.of(device) if a device is assigned there, Optional.empty() otherwise
-     */
+    /** {@inheritDoc} */
+    @Override
     public Optional<Device> findByLocationAndField(UUID locationId, int assignedField) {
         UUID tenantId = tenantContext.current();
         List<Device> results;
@@ -229,92 +168,51 @@ public class DeviceRepository {
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
-    /**
-     * Returns all devices for the current tenant.
-     *
-     * @param tenantId the tenant UUID (must match the current tenant context)
-     * @return list of all devices for this tenant; never null
-     */
+    /** {@inheritDoc} */
+    @Override
     public List<Device> findAllByTenant(UUID tenantId) {
         return jdbc.query(SELECT_ALL_BY_TENANT, ROW_MAPPER, tenantId);
     }
 
-    /**
-     * Returns the count of all devices (all types) for the given tenant.
-     *
-     * <p>Used for device limit enforcement.
-     *
-     * @param tenantId the tenant UUID
-     * @return number of devices registered for this tenant
-     */
+    /** {@inheritDoc} */
+    @Override
     public long countByTenant(UUID tenantId) {
         Long count = jdbc.queryForObject(COUNT_BY_TENANT, Long.class, tenantId);
         return count != null ? count : 0L;
     }
 
-    /**
-     * Returns the count of DISPLAY devices for the given tenant.
-     *
-     * <p>Used for display-device limit enforcement (E21S13 cutover — DEC-22 refactor phase,
-     * migrated from legacy {@code de.vvwt.tm.config.DeviceLimitConfig}).
-     *
-     * @param tenantId the tenant UUID
-     * @return number of DISPLAY devices registered for this tenant
-     */
+    /** {@inheritDoc} */
+    @Override
     public long countDisplayByTenant(UUID tenantId) {
         Long count = jdbc.queryForObject(COUNT_DISPLAY_BY_TENANT, Long.class, tenantId);
         return count != null ? count : 0L;
     }
 
-    /**
-     * Returns {@code true} if the given PIN is already in use by any device of the current tenant.
-     *
-     * <p>Used for PIN uniqueness guard during SCORING_TABLET registration.
-     *
-     * @param pin the PIN to check
-     * @return {@code true} if taken, {@code false} if available
-     */
+    /** {@inheritDoc} */
+    @Override
     public boolean isPinTaken(String pin) {
         UUID tenantId = tenantContext.current();
         Integer count = jdbc.queryForObject(PIN_TAKEN, Integer.class, tenantId, pin);
         return count != null && count > 0;
     }
 
-    /**
-     * Deletes the device with the given id, scoped to the current tenant.
-     *
-     * @param id the device UUID
-     */
+    /** {@inheritDoc} */
+    @Override
     public void deleteById(UUID id) {
         UUID tenantId = tenantContext.current();
         jdbc.update(DELETE_BY_ID, id, tenantId);
     }
 
-    /**
-     * Returns {@code true} if the given location exists for the given tenant.
-     *
-     * <p>Used by {@link DeviceService#assignLocation} to validate cross-tenant location assignment
-     * (AC8 — cross-tenant guard). Migrated from the deleted legacy {@code
-     * de.vvwt.tm.domain.DeviceService#validateLocationBelongsToTenant} during E21S13 cutover
-     * (DEC-22 refactor phase — behavior-preserving).
-     *
-     * @param locationId the location UUID to validate
-     * @param tenantId the active tenant UUID
-     * @return {@code true} if the location exists in this tenant, {@code false} otherwise
-     */
+    /** {@inheritDoc} */
+    @Override
     public boolean locationExistsForTenant(UUID locationId, UUID tenantId) {
         Integer count =
                 jdbc.queryForObject(COUNT_LOCATION_BY_TENANT, Integer.class, locationId, tenantId);
         return count != null && count > 0;
     }
 
-    /**
-     * Deletes all devices for the current tenant.
-     *
-     * <p>Migrated from the deleted legacy {@code de.vvwt.tm.domain.repo.DeviceRepository} during
-     * E21S13 cutover (DEC-22 refactor phase — behavior-preserving). Used by the admin "clear all
-     * devices" endpoint (E06S05-AC7).
-     */
+    /** {@inheritDoc} */
+    @Override
     public void deleteAllByTenant() {
         UUID tenantId = tenantContext.current();
         jdbc.update(DELETE_ALL_BY_TENANT, tenantId);

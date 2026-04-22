@@ -1,6 +1,5 @@
-package de.vvwt.tm.tournament.internal;
+package de.vvwt.tm.tournament;
 
-import de.vvwt.tm.tournament.SetState;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import org.springframework.data.annotation.Id;
@@ -9,10 +8,10 @@ import org.springframework.data.relational.core.mapping.Table;
 /**
  * Spring Data JDBC entity for the {@code audit_log} table (DEC-21, DEC-22, E21S05).
  *
- * <p>Reconstruction-in-place counterpart of {@code de.vvwt.tm.domain.AuditLogEntry} (READ ONLY
- * reference; not imported). INTERNAL to the {@code tournament} Modulith context — append-only
- * tournament audit log. No cross-context code reads {@code AuditLogEntry} directly (inventory line
- * 167 — tournament-core, internal classification preserved).
+ * <p>Append-only tournament audit log entity, promoted to the public {@code tournament} package per
+ * DEC-35 §3 (entities pass module boundaries as data-shaped types at the public surface — E31S01).
+ * The entity was previously in {@code tournament.internal}; cross-context consumers (e.g., {@code
+ * de.vvwt.tm.domain.CascadeRecomputeService}) now import from this public location.
  *
  * <p>Every {@code SetResult} INSERT or UPDATE appends one {@code AuditLogEntry} row recording who
  * changed what, when, and why. This satisfies correction traceability without event-sourcing
@@ -29,15 +28,13 @@ import org.springframework.data.relational.core.mapping.Table;
  * team1PointsOld}, {@code team2PointsOld}, and {@code setStateOld} are {@code null}. When a {@code
  * SetResult} is UPDATEd (correction), all three old-value fields are non-null.
  *
- * <h2>Tenant scope (DEC-5, DEC-17)</h2>
- *
- * <p>{@code tenantId} is NOT NULL — every audit log entry belongs to exactly one tenant.
- *
  * @see AuditLogRepository
  * @see SetState
  * @see <a href="DEC-21">DEC-21 — internal package discipline</a>
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
- * @see <a href="E21S05">E21S05 — inventory line 167 (INTERNAL)</a>
+ * @see <a href="DEC-35">DEC-35 — entities at public surface (E31S01 promotion)</a>
+ * @see <a href="E21S05">E21S05 — inventory line 167</a>
+ * @see <a href="E31S01">E31S01 — promoted from tournament.internal to tournament</a>
  */
 @Table("audit_log")
 public class AuditLogEntry {
