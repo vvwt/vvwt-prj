@@ -121,10 +121,7 @@ class TournamentRuleResolverTest {
 
     @Test
     void constructor_nullScoringRegistry_throwsIllegalArgumentException() {
-        assertThatThrownBy(
-                        () ->
-                                new TournamentRuleResolver(
-                                        null, setValidationRuleRegistry))
+        assertThatThrownBy(() -> new TournamentRuleResolver(null, setValidationRuleRegistry))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -134,10 +131,7 @@ class TournamentRuleResolverTest {
 
     @Test
     void constructor_nullSetValidationRegistry_throwsIllegalArgumentException() {
-        assertThatThrownBy(
-                        () ->
-                                new TournamentRuleResolver(
-                                        scoringRuleRegistry, null))
+        assertThatThrownBy(() -> new TournamentRuleResolver(scoringRuleRegistry, null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }

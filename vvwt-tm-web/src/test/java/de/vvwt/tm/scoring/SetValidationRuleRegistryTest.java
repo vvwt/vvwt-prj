@@ -78,8 +78,7 @@ class SetValidationRuleRegistryTest {
 
     @Test
     void get_null_throwsIllegalArgumentException() {
-        assertThatThrownBy(() -> registry.get(null))
-                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> registry.get(null)).isInstanceOf(IllegalArgumentException.class);
     }
 
     // -----------------------------------------------------------------------

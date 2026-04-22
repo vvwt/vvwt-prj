@@ -16,19 +16,25 @@ import org.springframework.context.annotation.FilterType;
  *
  * <p>No beans, no data sources, no Flyway configuration — those belong to E02S02.
  *
- * <h2>Dual-bean-boot exclusion (AC-COMPONENT-SCAN-EXCLUSION / E22S04)</h2>
+ * <h2>Dual-bean-boot exclusion (AC-COMPONENT-SCAN-EXCLUSION / E22S04, extended E22S05)</h2>
  *
- * <p>During the reconstruction-in-place transitional state (DEC-21, DEC-22), both the legacy {@code
- * de.vvwt.tm.domain.rules.*} concrete rule classes and the new {@code
- * de.vvwt.tm.scoring.internal.*} classes carry identical {@code @Component} names ({@code
- * "setPoints"}, {@code "threePoint"}, {@code "twoPoint"}, {@code "standardVolleyball"}, {@code
- * "timeBounded"}). Without exclusion, Spring throws {@code ConflictingBeanDefinitionException} at
- * boot time.
+ * <p>During the reconstruction-in-place transitional state (DEC-21, DEC-22), the legacy {@code
+ * de.vvwt.tm.domain.rules.*} classes and the new {@code de.vvwt.tm.scoring.*} / {@code
+ * de.vvwt.tm.scoring.internal.*} classes carry conflicting {@code @Component} names. Without
+ * exclusion, Spring throws {@code ConflictingBeanDefinitionException} at boot time.
  *
- * <p>The five legacy concrete rule classes are excluded from component scanning via a REGEX filter.
- * The remaining {@code domain.rules.*} beans ({@code ScoringRuleRegistry}, {@code
- * SetValidationRuleRegistry}, {@code TournamentRuleResolver}) are NOT excluded — they are still
- * required during the coexistence window (removed at E22S11 cutover).
+ * <p><b>E22S04 (5 concrete rule classes):</b> {@code SetPointsRule}, {@code ThreePointMatchRule},
+ * {@code TwoPointMatchRule}, {@code StandardVolleyballSet}, {@code TimeBoundedSet} — excluded
+ * because the new {@code scoring.internal.*} beans carry identical {@code @Component} names.
+ *
+ * <p><b>E22S05 (no additional exclusions):</b> The new {@code scoring.ScoringRuleRegistry}, {@code
+ * scoring.SetValidationRuleRegistry}, and {@code scoring.internal.TournamentRuleResolver} are
+ * registered under qualified names ({@code "scoringModuleScoringRuleRegistry"}, {@code
+ * "scoringModuleSetValidationRuleRegistry"}, {@code "scoringTournamentRuleResolver"}) to coexist
+ * with the legacy {@code domain.rules.*} beans during the reconstruction-in-place window. The
+ * legacy beans remain registered and are consumed by {@code TournamentRulesController} and {@code
+ * DefaultScoringService} per DEC-32 transitional import contract until E22S11 cutover. No
+ * additional exclusions are added by E22S05 — the new beans use type-distinct qualified names.
  *
  * <p>The explicit {@code @ComponentScan} annotation on this class overrides the embedded scan in
  * {@code @SpringBootApplication}; {@link TypeExcludeFilter} is therefore re-added explicitly to
