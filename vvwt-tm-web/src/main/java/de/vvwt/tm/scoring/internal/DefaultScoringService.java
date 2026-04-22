@@ -168,26 +168,22 @@ public class DefaultScoringService implements ScoringService {
                 correlationId);
 
         // -----------------------------------------------------------------------
-        // NOTE: findByIdForUpdate (DEC-37 Clause B lock) intentionally omitted here.
-        // This is the RED-commit state for CascadeLockIT (AC-CASCADE-LOCK-IT-RED-FIRST).
-        // The lock-first call is restored in the immediately following GREEN commit.
+        // DEC-37 Clause B — FIRST action: acquire per-tournament pessimistic DB lock
+        // (AC-LOCK-FIRST-ACTION: before any other repository read or write)
+        // GREEN transition: this single line addition flips CascadeLockIT from RED to GREEN.
         // -----------------------------------------------------------------------
         if (input.tournamentId() == null) {
             throw new IllegalArgumentException(
-                    "DefaultScoringService requires SetResultInput.tournamentId() to be non-null."
-                            + " Use SetResultInput.withTournament(...) or supply tournamentId in"
-                            + " the constructor.");
+                    "DefaultScoringService requires SetResultInput.tournamentId() to be non-null"
+                            + " for the DEC-37 lock-first contract. Use"
+                            + " SetResultInput.withTournament(...) or supply tournamentId in the"
+                            + " constructor. Legacy callers that supply null must route through"
+                            + " the legacy CascadeRecomputeService until E31S04 cutover.");
         }
-        Tournament tournament =
-                tournamentRepository
-                        .findById(input.tournamentId())
-                        .orElseThrow(
-                                () ->
-                                        new IllegalArgumentException(
-                                                "Tournament not found: " + input.tournamentId()));
+        Tournament tournament = tournamentRepository.findByIdForUpdate(input.tournamentId());
 
         log.debug(
-                "[scoring-cascade] tournament loaded (no lock) tournamentId={} correlationId={}",
+                "[scoring-cascade] lock acquired tournamentId={} correlationId={}",
                 tournament.getId(),
                 correlationId);
 
