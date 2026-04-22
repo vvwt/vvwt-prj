@@ -235,6 +235,9 @@ public class ScoreEntryService {
 
         SetResultInput input =
                 new SetResultInput(
+                        null, // tournamentId — null for legacy ScoreEntryService path (E31S03:
+                        // legacy caller; DEC-37 lock-first requires non-null; wired to
+                        // CascadeRecomputeService which derives tournamentId from the match)
                         request.matchId(),
                         request.setIndex(),
                         request.team1Points(),

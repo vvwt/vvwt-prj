@@ -11,8 +11,12 @@
  *
  * <ul>
  *   <li>{@code tenant} — DB-per-Tenant DataSource routing (DEC-20).
- *   <li>{@code tournament} — Tournament aggregate, Match, Phase, SetResult, domain events,
- *       exceptions (consumed by {@code DefaultScoringService} in E31S03+).
+ *   <li>{@code tournament} — Tournament aggregate root, Match, Phase, SetResult, and repository
+ *       interfaces (direct package classes only).
+ *   <li>{@code tournament::events} — {@code LapAdvancedEvent}, {@code MatchResultChangedEvent},
+ *       etc. Published by {@code DefaultScoringService} (E31S03+).
+ *   <li>{@code tournament::exceptions} — {@code ValidationException}, {@code ForbiddenException},
+ *       etc. Thrown by {@code DefaultScoringService} (E31S03+).
  * </ul>
  *
  * <p>No other bounded contexts are allowed: {@code certificate}, {@code print}, {@code display},
@@ -40,5 +44,11 @@
  *
  * @since E31S02
  */
-@org.springframework.modulith.ApplicationModule(allowedDependencies = {"tenant", "tournament"})
+@org.springframework.modulith.ApplicationModule(
+        allowedDependencies = {
+            "tenant",
+            "tournament",
+            "tournament::events",
+            "tournament::exceptions"
+        })
 package de.vvwt.tm.scoring;
