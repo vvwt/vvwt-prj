@@ -1,4 +1,4 @@
-package de.vvwt.tm.tournament;
+package de.vvwt.tm.web;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
@@ -11,23 +11,20 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 /**
- * Unit tests for the new {@link AdminSpaController} at {@code de.vvwt.tm.tournament.*} using
- * standalone MockMvc (no Spring Boot context) (E21S09, AC-TDD-AdminSpaController, AC-SPA-404,
- * AC-SEC-NO-AUTH-BYPASS).
+ * Unit tests for {@link AdminSpaController} at {@code de.vvwt.tm.web.*} using standalone MockMvc
+ * (no Spring Boot context) (E21S09, AC-TDD-AdminSpaController, AC-SPA-404, AC-SEC-NO-AUTH-BYPASS).
  *
- * <h2>RED state (DEC-22)</h2>
- *
- * <p>This test was committed RED: {@link AdminSpaController} at {@code
- * de.vvwt.tm.tournament.AdminSpaController} did not exist at commit time, causing a compile error.
- * This proves the test was written before the implementation (DEC-22 Iron Law).
+ * <p>Relocated from the {@code tournament} test package to {@code de.vvwt.tm.web} per DEC-40 Clause
+ * A (E22S01, Q-1b whole-class refactor). Test class body is byte-identical to the pre-relocation
+ * version except for the {@code package} declaration. Per DEC-22 § refactor-clause: no new tests
+ * are added; the existing tests are the regression gate for the Q-1b move.
  *
  * <h2>Test approach</h2>
  *
  * <p>Standalone MockMvc is used (matching the legacy {@code
  * de.vvwt.tm.infrastructure.AdminSpaControllerTest} pattern, E05S01). This avoids full Spring
- * context startup, which fails on staging during the E21 parallel-development phase due to {@code
- * PhaseCrudRepository} bean not being registered until E21S07 merges (pre-existing baseline failure
- * in {@code GlobalExceptionHandlerTest} and {@code TournamentControllerIT}).
+ * context startup. No {@code @ApplicationModuleTest} is introduced — that is E22S07 scope per
+ * DEC-40 Clause E and AC-COLD-BOOT-HARNESS-DEFERRED (E22S01).
  *
  * <h2>Security (AC-SEC-NO-AUTH-BYPASS)</h2>
  *
@@ -44,10 +41,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
  * <p>All {@code /admin/**} paths forward to {@code forward:/static/admin/index.html}. The Svelte
  * router handles client-side routing. A raw stack trace is never surfaced — Spring Boot's error
  * handler returns structured 404 JSON if the static file is absent in production.
- *
- * @see de.vvwt.tm.infrastructure.AdminSpaControllerTest legacy equivalent test
  */
-@DisplayName("AdminSpaControllerTest (tournament) — E21S09 AC-TDD-AdminSpaController + AC-SPA-404")
+@DisplayName("AdminSpaControllerTest (web) — E21S09 AC-TDD-AdminSpaController + AC-SPA-404")
 class AdminSpaControllerTest {
 
     private MockMvc mockMvc;
