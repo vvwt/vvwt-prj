@@ -3,7 +3,10 @@ package de.vvwt.tm.tournament.internal;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.Device;
 import de.vvwt.tm.tournament.DeviceRepository;
+import de.vvwt.tm.tournament.DeviceService;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
+import de.vvwt.tm.tournament.exceptions.DeviceLimitExceededException;
+import de.vvwt.tm.tournament.exceptions.DisplayDeviceLimitExceededException;
 import java.security.SecureRandom;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -13,11 +16,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
- * Domain service for Device CRUD operations — reconstruction-in-place target (DEC-21/DEC-22).
+ * Default implementation of {@link DeviceService} — Device CRUD operations for the {@code
+ * tournament} bounded context (DEC-35 retrofit, E33S03).
  *
- * <p>Mirrors the logic of {@code de.vvwt.tm.domain.DeviceService} but wired to the new {@link
- * DeviceRepository} and new {@link Device} entity at the Modulith target package ({@code
- * de.vvwt.tm.tournament.*}).
+ * <p>Previously named {@code DeviceService}; renamed to {@code DefaultDeviceService} per DEC-35
+ * naming canon ({@code Default{Foo}Service} for the canonical implementation of {@code
+ * {Foo}Service}). Logic is behavior-preserving (Q-1b refactor under DEC-22 §refactor-clause).
  *
  * <h2>Business rules enforced</h2>
  *
@@ -46,10 +50,12 @@ import org.springframework.stereotype.Service;
  * @see <a href="DEC-21">DEC-21 — Spring Modulith internal-package discipline</a>
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
  * @see <a href="DEC-24">DEC-24 — device location nullable</a>
+ * @see <a href="DEC-35">DEC-35 — Default* naming canon for service implementations</a>
  * @see <a href="E21S06">E21S06 — Device aggregate reconstruction (inventory line 170)</a>
+ * @see <a href="E33S03">E33S03 — DEC-35 interface-extraction retrofit</a>
  */
 @Service("tmDeviceService")
-public class DeviceService {
+public class DefaultDeviceService implements DeviceService {
 
     /** Digits used for PIN generation — confusable digits 0, 1, 8 excluded (legacy parity). */
     private static final char[] PIN_DIGITS = {'2', '3', '4', '5', '6', '7', '9'};
@@ -79,7 +85,7 @@ public class DeviceService {
      * @param tenantContext current tenant context
      * @param limitConfig device limit configuration
      */
-    public DeviceService(
+    public DefaultDeviceService(
             DeviceRepository deviceRepository,
             TenantContext tenantContext,
             DeviceLimitConfig limitConfig) {
@@ -93,16 +99,14 @@ public class DeviceService {
     // -------------------------------------------------------------------------
 
     /**
-     * Registers a new device for the current tenant.
+     * {@inheritDoc}
      *
      * <p>Enforces the device limit before registration. SCORING_TABLET devices receive a 4-digit
      * PIN; DISPLAY devices receive no PIN.
      *
-     * @param deviceType the device type ({@link Device#TYPE_SCORING_TABLET} or {@link
-     *     Device#TYPE_DISPLAY})
-     * @return the persisted device
      * @throws DeviceLimitExceededException if the device count would exceed the configured limit
      */
+    @Override
     public Device register(String deviceType) {
         UUID tenantId = tenantContext.current();
 
@@ -154,13 +158,8 @@ public class DeviceService {
     // getDeviceByToken
     // -------------------------------------------------------------------------
 
-    /**
-     * Returns the device with the given device token.
-     *
-     * @param deviceToken the device token
-     * @return the device
-     * @throws NoSuchElementException if no device with this token exists
-     */
+    /** {@inheritDoc} */
+    @Override
     public Device getDeviceByToken(String deviceToken) {
         return deviceRepository
                 .findByDeviceToken(deviceToken)
@@ -174,11 +173,8 @@ public class DeviceService {
     // listDevices
     // -------------------------------------------------------------------------
 
-    /**
-     * Returns all devices for the current tenant.
-     *
-     * @return list of devices; never null
-     */
+    /** {@inheritDoc} */
+    @Override
     public List<Device> listDevices() {
         UUID tenantId = tenantContext.current();
         return deviceRepository.findAllByTenant(tenantId);
@@ -189,18 +185,15 @@ public class DeviceService {
     // -------------------------------------------------------------------------
 
     /**
-     * Configures a DISPLAY device with a human-readable name and JSON configuration.
+     * {@inheritDoc}
      *
      * <p>Only DISPLAY devices may be configured via this method (SCORING_TABLET has no display
      * configuration).
      *
-     * @param deviceId the device UUID
-     * @param deviceName human-readable label for the display
-     * @param configuration JSON configuration blob (may be null)
-     * @return the updated device
      * @throws NoSuchElementException if the device does not exist for the current tenant
      * @throws IllegalArgumentException if the device is not a DISPLAY device
      */
+    @Override
     public Device configure(UUID deviceId, String deviceName, String configuration) {
         Device device =
                 deviceRepository
@@ -222,13 +215,11 @@ public class DeviceService {
     // -------------------------------------------------------------------------
 
     /**
-     * Assigns a location to the device (DEC-24 post-registration admin step).
+     * {@inheritDoc}
      *
-     * @param deviceId the device UUID
-     * @param locationId the location UUID to assign
-     * @return the updated device with locationId set
      * @throws NoSuchElementException if the device does not exist for the current tenant
      */
+    @Override
     public Device assignLocation(UUID deviceId, UUID locationId) {
         UUID tenantId = tenantContext.current();
         Device device =
@@ -250,14 +241,13 @@ public class DeviceService {
     // -------------------------------------------------------------------------
 
     /**
-     * Removes the location assignment from a device (DEC-24).
+     * {@inheritDoc}
      *
      * <p>Sets {@code locationId = null}. Idempotent: no-op if already unassigned.
      *
-     * @param deviceId the device UUID
-     * @return the updated device with locationId null
      * @throws NoSuchElementException if the device does not exist for the current tenant
      */
+    @Override
     public Device unassignLocation(UUID deviceId) {
         Device device =
                 deviceRepository
@@ -273,15 +263,14 @@ public class DeviceService {
     // -------------------------------------------------------------------------
 
     /**
-     * Returns the device matching the given PIN for the current tenant.
+     * {@inheritDoc}
      *
      * <p>Migrated from the deleted legacy {@code de.vvwt.tm.domain.DeviceService} during E21S13
      * cutover (DEC-22 refactor phase — behavior-preserving).
      *
-     * @param pin the 4–6 digit PIN
-     * @return the device
      * @throws NoSuchElementException if no device with this PIN exists for the current tenant
      */
+    @Override
     public Device getDeviceByPin(String pin) {
         return deviceRepository
                 .findByPin(pin)
@@ -293,7 +282,7 @@ public class DeviceService {
     // -------------------------------------------------------------------------
 
     /**
-     * Assigns a device to a court field.
+     * {@inheritDoc}
      *
      * <p>Validates that no other device is already assigned to the same field within the same
      * tenant (→ 409 Conflict if conflict). Sets {@code assignedField} and transitions status to
@@ -302,12 +291,10 @@ public class DeviceService {
      * <p>Migrated from the deleted legacy {@code de.vvwt.tm.domain.DeviceService} during E21S13
      * cutover (DEC-22 refactor phase — behavior-preserving).
      *
-     * @param deviceId the device UUID
-     * @param fieldNumber the court field number (1-based)
-     * @return the updated device
      * @throws NoSuchElementException if the device is not found for the current tenant
      * @throws ConflictException if another device is already assigned to the same field
      */
+    @Override
     public Device assignDevice(UUID deviceId, int fieldNumber) {
         Device device =
                 deviceRepository
@@ -333,17 +320,16 @@ public class DeviceService {
     // -------------------------------------------------------------------------
 
     /**
-     * Clears the field assignment of a device, transitioning status back to REGISTERED.
+     * {@inheritDoc}
      *
      * <p>Idempotent: unassigning an already-unassigned device returns normally without error.
      *
      * <p>Migrated from the deleted legacy {@code de.vvwt.tm.domain.DeviceService} during E21S13
      * cutover (DEC-22 refactor phase — behavior-preserving).
      *
-     * @param deviceId the device UUID
-     * @return the updated device
      * @throws NoSuchElementException if the device is not found for the current tenant
      */
+    @Override
     public Device unassignDevice(UUID deviceId) {
         Device device =
                 deviceRepository
@@ -360,12 +346,8 @@ public class DeviceService {
     // deleteDevice
     // -------------------------------------------------------------------------
 
-    /**
-     * Deletes the device with the given id.
-     *
-     * @param deviceId the device UUID
-     * @throws NoSuchElementException if the device does not exist for the current tenant
-     */
+    /** {@inheritDoc} */
+    @Override
     public void deleteDevice(UUID deviceId) {
         deviceRepository
                 .findById(deviceId)
@@ -378,12 +360,13 @@ public class DeviceService {
     // -------------------------------------------------------------------------
 
     /**
-     * Deletes all devices for the current tenant.
+     * {@inheritDoc}
      *
      * <p>Migrated from the deleted legacy {@code de.vvwt.tm.domain.DeviceService} during E21S13
      * cutover (DEC-22 refactor phase — behavior-preserving). Used by the admin "clear all" endpoint
      * (E06S05-AC7).
      */
+    @Override
     public void clearAllDevices() {
         deviceRepository.deleteAllByTenant();
     }

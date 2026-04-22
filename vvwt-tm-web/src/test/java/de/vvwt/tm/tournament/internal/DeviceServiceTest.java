@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.Device;
 import de.vvwt.tm.tournament.DeviceRepository;
+import de.vvwt.tm.tournament.exceptions.DeviceLimitExceededException;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -23,13 +24,19 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * Unit tests for {@link DeviceService} (E21S06, AC-TDD-DeviceService).
+ * Unit tests for {@link DefaultDeviceService} (E21S06, AC-TDD-DeviceService).
  *
- * <h2>RED state</h2>
+ * <h2>Original RED state (E21S06)</h2>
  *
- * <p>This test was committed RED: {@link DeviceService} at {@code
- * de.vvwt.tm.tournament.internal.DeviceService} did not exist at commit time, causing a compile
- * error — satisfying the DEC-22 Iron Law.
+ * <p>This test was committed RED: the original {@code DeviceService} implementation class in the
+ * internal package did not exist at commit time, causing a compile error — satisfying the DEC-22
+ * Iron Law.
+ *
+ * <h2>E33S03 update</h2>
+ *
+ * <p>Renamed subject from {@code DeviceService} to {@code DefaultDeviceService} (DEC-35 retrofit —
+ * AC-UNIT-TEST-RENAME). Test lives in the same package as {@code DefaultDeviceService}; white-box
+ * construction via {@code new DefaultDeviceService(...)} is permitted per DEC-36 same-package rule.
  *
  * <h2>Coverage</h2>
  *
@@ -46,21 +53,22 @@ import org.mockito.junit.jupiter.MockitoExtension;
  *   <li>Concurrent-register race: documented in impl-report (unit test covers count-check ordering)
  * </ul>
  *
- * @see DeviceService
+ * @see DefaultDeviceService
  * @see DeviceLimitConfig
- * @see DeviceLimitExceededException
+ * @see de.vvwt.tm.tournament.exceptions.DeviceLimitExceededException
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
+ * @see <a href="DEC-35">DEC-35 — Default* naming canon</a>
  * @see <a href="E21S06">E21S06 — Device aggregate reconstruction (inventory line 170)</a>
  */
 @ExtendWith(MockitoExtension.class)
-@DisplayName("DeviceService — E21S06 AC-TDD-DeviceService")
+@DisplayName("DefaultDeviceService — E21S06 AC-TDD-DeviceService")
 class DeviceServiceTest {
 
     @Mock private DeviceRepository deviceRepository;
     @Mock private TenantContext tenantContext;
 
     private DeviceLimitConfig limitConfig;
-    private DeviceService service;
+    private DefaultDeviceService service;
 
     private static final UUID TENANT_ID = UUID.randomUUID();
 
@@ -69,7 +77,7 @@ class DeviceServiceTest {
         limitConfig = new DeviceLimitConfig();
         limitConfig.setMaxDeviceCount(5);
         lenient().when(tenantContext.current()).thenReturn(TENANT_ID);
-        service = new DeviceService(deviceRepository, tenantContext, limitConfig);
+        service = new DefaultDeviceService(deviceRepository, tenantContext, limitConfig);
     }
 
     // =========================================================================
