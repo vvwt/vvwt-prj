@@ -1,12 +1,12 @@
-package de.vvwt.tm.tournament;
+package de.vvwt.tm.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.db.api.Assertions.assertThat;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
-import de.vvwt.tm.tournament.internal.dto.DeviceRegisterRequest;
-import de.vvwt.tm.tournament.internal.dto.DeviceRegisterResponse;
+import de.vvwt.tm.tournament.internal.dto.TournamentCreateRequest;
+import de.vvwt.tm.tournament.internal.dto.TournamentResponse;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
@@ -32,20 +32,20 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * Minimalist integration tests for {@link DeviceController} (E21S06,
- * AC-REST-IT-HAPPY-DeviceController + AC-REST-IT-SEC-DeviceController).
+ * Minimalist integration tests for {@link TournamentController} (E21S02,
+ * AC-REST-IT-HAPPY-TournamentController + AC-REST-IT-SEC-TournamentController).
  *
  * <h2>Approach C minimalist-IT</h2>
  *
- * <p>Exactly 2 {@code @Test} methods:
+ * <p>Exactly 2 {@code @Test} methods per controller:
  *
  * <ol>
- *   <li>Happy-path authenticated POST /register → 201 + assertj-db independent DB verification
- *       (DEC-26 Rule 2)
+ *   <li>Happy-path authenticated POST → 201 + assertj-db independent DB verification (DEC-26 Rule
+ *       2)
  *   <li>Unauthenticated request → 401 (security gate)
  * </ol>
  *
- * <p>Slice tests ({@link DeviceControllerSliceTest}) cover all other scenarios.
+ * <p>Slice tests ({@link TournamentControllerSliceTest}) cover all other scenarios.
  *
  * <h2>assertj-db independent verifier (DEC-26 Rule 2)</h2>
  *
@@ -53,21 +53,32 @@ import org.springframework.test.context.ActiveProfiles;
  * via the service or repository. This confirms the write path reaches the DB independently of the
  * read path.
  *
- * @see DeviceController
- * @see DeviceControllerSliceTest
+ * <h2>Module scope (DEC-38/DEC-40 Clause E)</h2>
+ *
+ * <p>Relocated from {@code de.vvwt.tm.tournament} to {@code de.vvwt.tm.web} per DEC-40 Clause D
+ * (E22S07, Q-1b whole-class relocation). The {@code @ApplicationModuleTest} annotation now resolves
+ * {@code de.vvwt.tm.web} as the module under test (booting web + tenant + tournament +
+ * tournament::exceptions + tournament::dto + scoring per {@code allowedDependencies}). {@link
+ * WebModuleTestConfig} is used instead of {@link de.vvwt.tm.tournament.TournamentModuleTestConfig}
+ * because Spring Modulith 1.4.6's {@code ModuleTestExecutionBeanDefinitionSelector} requires the
+ * test config to reside in the module under test (DEC-38 Clause C).
+ *
+ * @see TournamentController
+ * @see TournamentControllerSliceTest
  * @see <a href="DEC-26">DEC-26 — DAO test governance (three rules)</a>
- * @see <a href="E21S06">E21S06 — Device aggregate reconstruction (inventory line 420)</a>
+ * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
+ * @see <a href="E22S07">E22S07 — Relocate TournamentController to de.vvwt.tm.web</a>
  */
 @ApplicationModuleTest(
-        mode = ApplicationModuleTest.BootstrapMode.DIRECT_DEPENDENCIES,
+        mode = ApplicationModuleTest.BootstrapMode.ALL_DEPENDENCIES,
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(TournamentModuleTestConfig.class)
+@Import(WebModuleTestConfig.class)
 @ActiveProfiles("test")
-@DisplayName("DeviceController IT — E21S06 AC-REST-IT (2-test minimalist)")
-class DeviceControllerIT {
+@DisplayName("TournamentController IT — E21S02 AC-REST-IT (2-test minimalist)")
+class TournamentControllerIT {
 
     private static final String ADMIN_USER = "admin";
-    private static final String ADMIN_PASS = "E21S06DeviceControllerIT01";
+    private static final String ADMIN_PASS = "E21S02TournamentControllerIT01";
 
     @LocalServerPort private int port;
 
@@ -87,40 +98,47 @@ class DeviceControllerIT {
     }
 
     // =========================================================================
-    // Happy-path: authenticated POST /register → 201, row verified via assertj-db
+    // Happy-path: authenticated POST → 201, row verified via assertj-db
     // =========================================================================
 
     @Test
-    @DisplayName(
-            "authenticated POST /api/devices/register creates SCORING_TABLET; assertj-db"
-                    + " verifies row")
-    void authenticatedPostRegisterCreatesDeviceAndPersistsRow() throws Exception {
-        DeviceRegisterRequest request = new DeviceRegisterRequest("SCORING_TABLET");
+    @DisplayName("authenticated POST /api/tournaments creates tournament; assertj-db verifies row")
+    void authenticatedPostCreatesTournamentAndPersistsRow() throws Exception {
+        var request =
+                new TournamentCreateRequest(
+                        "IT Hallenturnier E21S02",
+                        null,
+                        4,
+                        2,
+                        "BEST_OF_3",
+                        "setPoints",
+                        "standardVolleyball",
+                        "roundRobin");
 
-        ResponseEntity<DeviceRegisterResponse> response =
+        ResponseEntity<TournamentResponse> response =
                 authed.postForEntity(
-                        new URI(baseUrl + "/api/devices/register"),
-                        request,
-                        DeviceRegisterResponse.class);
+                        new URI(baseUrl + "/api/tournaments"), request, TournamentResponse.class);
 
         assertThat(response.getStatusCode())
-                .as("POST /register must return 201 Created")
+                .as("POST must return 201 Created")
                 .isEqualTo(HttpStatus.CREATED);
         assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().deviceToken()).isNotBlank();
+        assertThat(response.getBody().description()).isEqualTo("IT Hallenturnier E21S02");
+        assertThat(response.getBody().status()).isEqualTo("DRAFT");
+        assertThat(response.getBody().id()).isNotNull();
 
         // DEC-26 Rule 2 — assertj-db independent verifier
         UUID newId = response.getBody().id();
         tenantBinder.bindDefaultTenant();
         try {
             AssertDbConnection assertDb = AssertDbConnectionFactory.of(dataSource).create();
-            Table devicesTable = assertDb.table("devices").build();
+            Table tournamentTable = assertDb.table("tournament").build();
             List<Object> ids =
-                    devicesTable.getRowsList().stream()
+                    tournamentTable.getRowsList().stream()
                             .map(row -> row.getColumnValue("ID").getValue())
                             .toList();
             assertThat(ids)
-                    .as("devices table must contain the newly registered device UUID")
+                    .as("tournament table must contain the newly created tournament UUID")
                     .contains(newId);
         } finally {
             tenantBinder.unbind();
@@ -128,25 +146,30 @@ class DeviceControllerIT {
     }
 
     // =========================================================================
-    // Security: unauthenticated POST → 201 (register is public — devices self-register)
+    // Security: unauthenticated POST → 401
     // =========================================================================
 
     @Test
-    @DisplayName("unauthenticated POST /api/devices/register returns 201 (public endpoint)")
-    void unauthenticatedPostRegisterReturns201() throws Exception {
-        // POST /api/devices/register is public (permitAll) — scoring tablets register without
-        // admin credentials (E21S13 cutover: transitional /api/tm/devices/register was not
-        // in the permit-list, so this test previously returned 401 on the transitional URL;
-        // after URL normalization to /api/devices/register the correct behavior is 201).
-        DeviceRegisterRequest request = new DeviceRegisterRequest("SCORING_TABLET");
+    @DisplayName("unauthenticated POST /api/tournaments returns 401")
+    void unauthenticatedPostReturns401() throws Exception {
+        var request =
+                new TournamentCreateRequest(
+                        "Unauthorized Tournament",
+                        null,
+                        4,
+                        2,
+                        "BEST_OF_3",
+                        "setPoints",
+                        "standardVolleyball",
+                        "roundRobin");
 
         ResponseEntity<String> response =
                 restTemplate.postForEntity(
-                        new URI(baseUrl + "/api/devices/register"), request, String.class);
+                        new URI(baseUrl + "/api/tournaments"), request, String.class);
 
         assertThat(response.getStatusCode())
-                .as("unauthenticated register must return 201 (public endpoint)")
-                .isEqualTo(HttpStatus.CREATED);
+                .as("unauthenticated request must return 401")
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
     // =========================================================================

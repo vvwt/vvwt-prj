@@ -4,9 +4,9 @@ package de.vvwt.tm.tournament.exceptions;
  * Thrown when a new device registration would exceed the configured device limit per tenant (E21S06
  * AC-DEVICELIMIT-ENFORCEMENT).
  *
- * <p>Mapped to HTTP 409 Conflict by {@link de.vvwt.tm.tournament.DeviceController}. Response body
- * is a {@code DeviceLimitErrorResponse} carrying {@code errorCode}, {@code configuredLimit}, and
- * {@code currentCount}.
+ * <p>Mapped to HTTP 409 Conflict by {@link de.vvwt.tm.web.DeviceController}. Response body is a
+ * {@code DeviceLimitErrorResponse} carrying {@code errorCode}, {@code configuredLimit}, and {@code
+ * currentCount}.
  *
  * <p>Distinct from {@link DisplayDeviceLimitExceededException} which enforces the DISPLAY-device
  * cap and maps to HTTP 429 Too Many Requests.

@@ -5,8 +5,6 @@ import static org.assertj.db.api.Assertions.assertThat;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
-import de.vvwt.tm.tournament.internal.dto.DeviceRegisterRequest;
-import de.vvwt.tm.tournament.internal.dto.DeviceRegisterResponse;
 import de.vvwt.tm.tournament.internal.dto.DeviceSummaryResponse;
 import java.net.URI;
 import java.util.UUID;
@@ -53,7 +51,9 @@ import org.springframework.test.context.ActiveProfiles;
  * <p>Location assignment is a post-registration admin step. The happy-path test:
  *
  * <ol>
- *   <li>Registers a SCORING_TABLET via POST /api/devices/register (location_id = null)
+ *   <li>Registers a SCORING_TABLET via {@link DeviceService#register(String)} (direct call — {@code
+ *       DeviceController} relocated to {@code de.vvwt.tm.web} in E22S07; direct service call avoids
+ *       cross-module HTTP coupling for fixture creation)
  *   <li>Assigns a location via POST /api/admin/devices/{id}/location/{locationId} (admin role)
  *   <li>Verifies via assertj-db that location_id is now set in the devices table
  * </ol>
@@ -63,9 +63,10 @@ import org.springframework.test.context.ActiveProfiles;
  * @see <a href="DEC-24">DEC-24 — device location nullable; admin role for assignment</a>
  * @see <a href="DEC-26">DEC-26 — DAO test governance (three rules)</a>
  * @see <a href="E21S06">E21S06 — Device aggregate reconstruction (inventory line 420)</a>
+ * @see <a href="E22S07">E22S07 — Controller relocation to de.vvwt.tm.web</a>
  */
 @ApplicationModuleTest(
-        mode = ApplicationModuleTest.BootstrapMode.DIRECT_DEPENDENCIES,
+        mode = ApplicationModuleTest.BootstrapMode.ALL_DEPENDENCIES,
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(TournamentModuleTestConfig.class)
 @ActiveProfiles("test")
@@ -80,6 +81,8 @@ class DeviceAdminControllerIT {
     @Autowired private TestRestTemplate restTemplate;
 
     @Autowired private TenantContextTestSupport.Binder tenantBinder;
+
+    @Autowired private DeviceService deviceService;
 
     @Autowired private DataSource dataSource;
 
@@ -100,15 +103,16 @@ class DeviceAdminControllerIT {
     @DisplayName(
             "ADMIN POST /location assigns device; assertj-db verifies location_id set (DEC-24)")
     void adminPostLocation_setsLocationIdInDatabase() throws Exception {
-        // Step 1: register a SCORING_TABLET (location_id = null at registration per DEC-24)
-        DeviceRegisterRequest registerRequest = new DeviceRegisterRequest("SCORING_TABLET");
-        ResponseEntity<DeviceRegisterResponse> registerResponse =
-                authed.postForEntity(
-                        new URI(baseUrl + "/api/devices/register"),
-                        registerRequest,
-                        DeviceRegisterResponse.class);
-        assertThat(registerResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        UUID deviceId = registerResponse.getBody().id();
+        // Step 1: register a SCORING_TABLET via DeviceService (direct call — DeviceController
+        // was relocated to de.vvwt.tm.web in E22S07; direct service call avoids cross-module HTTP
+        // coupling for fixture creation).
+        UUID deviceId;
+        tenantBinder.bindDefaultTenant();
+        try {
+            deviceId = deviceService.register("SCORING_TABLET").getId();
+        } finally {
+            tenantBinder.unbind();
+        }
 
         // Step 2: create a location fixture directly (location must exist for FK)
         UUID locationId = UUID.randomUUID();

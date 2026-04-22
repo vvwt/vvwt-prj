@@ -5,13 +5,12 @@ import static org.assertj.db.api.Assertions.assertThat;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
-import de.vvwt.tm.tournament.internal.dto.TournamentCreateRequest;
-import de.vvwt.tm.tournament.internal.dto.TournamentResponse;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftApplyResponse;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftRequest;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftSectionRequest;
 import java.net.URI;
 import java.util.List;
+import java.util.UUID;
 import javax.sql.DataSource;
 import org.assertj.db.type.AssertDbConnection;
 import org.assertj.db.type.AssertDbConnectionFactory;
@@ -52,6 +51,15 @@ import org.springframework.test.context.ActiveProfiles;
  * IT annotation for reconstructed Modulith modules (supersedes conventions.md §(d) for this context
  * per E31S01 migration).
  *
+ * <h2>Bootstrap mode ALL_DEPENDENCIES (E22S07)</h2>
+ *
+ * <p>Switched from {@code DIRECT_DEPENDENCIES} to {@code ALL_DEPENDENCIES} in E22S07 (DEC-40 Clause
+ * A — controller relocation). {@code TournamentController} was relocated to {@code de.vvwt.tm.web}
+ * which is not a direct code-level dependency of {@code tournament}. {@code ALL_DEPENDENCIES} is
+ * required so that the {@code web} module (and its {@code TournamentController}) is loaded into the
+ * test context. Tournament fixture creation uses {@link TournamentService} directly (no HTTP) so
+ * that the test is not coupled to the {@code web} module's URL mapping.
+ *
  * <h2>assertj-db independent verifier (DEC-26 Rule 2)</h2>
  *
  * <p>Phase row is verified via {@code AssertDbConnection.table("phase")} — not via {@link
@@ -62,9 +70,10 @@ import org.springframework.test.context.ActiveProfiles;
  * @see <a href="DEC-26">DEC-26 — DAO test governance (three rules)</a>
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
  * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
+ * @see <a href="E22S07">E22S07 — Controller relocation to de.vvwt.tm.web</a>
  */
 @ApplicationModuleTest(
-        mode = ApplicationModuleTest.BootstrapMode.DIRECT_DEPENDENCIES,
+        mode = ApplicationModuleTest.BootstrapMode.ALL_DEPENDENCIES,
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(TournamentModuleTestConfig.class)
 @ActiveProfiles("test")
@@ -78,6 +87,7 @@ class DraftControllerIT {
 
     @Autowired private TestRestTemplate restTemplate;
     @Autowired private TenantContextTestSupport.Binder tenantBinder;
+    @Autowired private TournamentService tournamentService;
     @Autowired private DataSource dataSource;
 
     private String baseUrl;
@@ -97,27 +107,31 @@ class DraftControllerIT {
     @DisplayName(
             "authenticated POST /draft/apply creates phase; assertj-db verifies row (DEC-26 R2)")
     void authenticatedApplyDraft_createsTournamentAndPhaseRow() throws Exception {
-        // Step 1: create a tournament in DRAFT status via TournamentController
-        var tournamentRequest =
-                new TournamentCreateRequest(
-                        "IT Hallenturnier E21S07",
-                        null,
-                        4,
-                        2,
-                        "BEST_OF_3",
-                        "setPoints",
-                        "standardVolleyball",
-                        "roundRobin");
-        ResponseEntity<TournamentResponse> tournamentResponse =
-                authed.postForEntity(
-                        new URI(baseUrl + "/api/tournaments"),
-                        tournamentRequest,
-                        TournamentResponse.class);
-        assertThat(tournamentResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        java.util.UUID tournamentId = tournamentResponse.getBody().id();
+        // Step 1: create a tournament in DRAFT status via TournamentService (direct call —
+        // TournamentController was relocated to de.vvwt.tm.web in E22S07; direct service call
+        // avoids cross-module HTTP coupling for fixture creation).
+        UUID tournamentId;
+        tenantBinder.bindDefaultTenant();
+        try {
+            tournamentId =
+                    tournamentService
+                            .createTournament(
+                                    "IT Hallenturnier E21S07",
+                                    null,
+                                    4,
+                                    2,
+                                    "BEST_OF_3",
+                                    "setPoints",
+                                    "standardVolleyball",
+                                    "roundRobin")
+                            .getId();
+        } finally {
+            tenantBinder.unbind();
+        }
+
         assertThat(tournamentId).isNotNull();
 
-        // Step 2: apply draft (one section, 1 group, roundrobin)
+        // Step 2: apply draft (one section, 1 group, roundrobin) via DraftController HTTP endpoint
         DraftSectionRequest section =
                 new DraftSectionRequest(1, "team_number", 1, "roundrobin", 0, 0, 15, 1, null);
         DraftRequest draftRequest = new DraftRequest(List.of(section));
@@ -132,7 +146,7 @@ class DraftControllerIT {
                 .isEqualTo(HttpStatus.OK);
         assertThat(applyResponse.getBody()).isNotNull();
         assertThat(applyResponse.getBody().phaseIds()).isNotEmpty();
-        java.util.UUID phaseId = applyResponse.getBody().phaseIds().get(0);
+        UUID phaseId = applyResponse.getBody().phaseIds().get(0);
 
         // Step 3: DEC-26 Rule 2 — assertj-db independent verifier
         tenantBinder.bindDefaultTenant();
@@ -161,7 +175,7 @@ class DraftControllerIT {
         DraftSectionRequest section =
                 new DraftSectionRequest(1, "team_number", 1, "roundrobin", 0, 0, 15, 1, null);
         DraftRequest draftRequest = new DraftRequest(List.of(section));
-        java.util.UUID anyTournamentId = java.util.UUID.randomUUID();
+        UUID anyTournamentId = UUID.randomUUID();
 
         ResponseEntity<String> response =
                 restTemplate.postForEntity(

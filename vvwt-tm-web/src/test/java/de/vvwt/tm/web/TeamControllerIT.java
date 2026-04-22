@@ -1,4 +1,4 @@
-package de.vvwt.tm.tournament;
+package de.vvwt.tm.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.db.api.Assertions.assertThat;
@@ -53,15 +53,23 @@ import org.springframework.test.context.ActiveProfiles;
  * via the service or repository. This confirms the write path reaches the DB independently of the
  * read path.
  *
+ * <h2>Module scope (DEC-38/DEC-40 Clause E)</h2>
+ *
+ * <p>Relocated from {@code de.vvwt.tm.tournament} to {@code de.vvwt.tm.web} per DEC-40 Clause D
+ * (E22S07, Q-1b whole-class relocation). The {@code @ApplicationModuleTest} annotation now resolves
+ * {@code de.vvwt.tm.web} as the module under test. {@link TournamentModuleTestConfig} is imported
+ * via its FQN from the {@code tournament} test package.
+ *
  * @see TeamController
  * @see TeamControllerSliceTest
  * @see <a href="DEC-26">DEC-26 — DAO test governance (three rules)</a>
- * @see <a href="E21S04">E21S04 — Team aggregate reconstruction (inventory line 454)</a>
+ * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
+ * @see <a href="E22S07">E22S07 — Relocate TeamController to de.vvwt.tm.web</a>
  */
 @ApplicationModuleTest(
-        mode = ApplicationModuleTest.BootstrapMode.DIRECT_DEPENDENCIES,
+        mode = ApplicationModuleTest.BootstrapMode.ALL_DEPENDENCIES,
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(TournamentModuleTestConfig.class)
+@Import(WebModuleTestConfig.class)
 @ActiveProfiles("test")
 @DisplayName("TeamController IT — E21S04 AC-REST-IT (2-test minimalist)")
 class TeamControllerIT {

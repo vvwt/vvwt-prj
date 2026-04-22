@@ -1,4 +1,4 @@
-package de.vvwt.tm.tournament.internal;
+package de.vvwt.tm.tournament.internal.dto;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -6,8 +6,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 /**
  * HTTP 409 response body for device limit exceeded errors (E21S06 AC-TDD-DeviceLimitErrorResponse).
  *
- * <p>Returned by {@link de.vvwt.tm.tournament.DeviceController} when a {@link
- * DeviceLimitExceededException} is thrown during device registration. JSON shape:
+ * <p>Returned by {@link de.vvwt.tm.web.DeviceController} when a {@link
+ * de.vvwt.tm.tournament.exceptions.DeviceLimitExceededException} is thrown during device
+ * registration. JSON shape:
  *
  * <pre>{@code
  * {
@@ -20,8 +21,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * <p>Distinct from the legacy {@code de.vvwt.tm.infrastructure.web.DeviceLimitErrorResponse} which
  * is an HTTP 429 response for display device limits.
  *
- * @see DeviceLimitExceededException
+ * <p>Relocated from {@code de.vvwt.tm.tournament.internal.DeviceLimitErrorResponse} to this package
+ * to allow access from the {@code web} Modulith module via the {@code tournament::dto} named
+ * interface (E22S07, DEC-40 Clause A).
+ *
+ * @see de.vvwt.tm.tournament.exceptions.DeviceLimitExceededException
  * @see <a href="E21S06">E21S06 — Device aggregate reconstruction (inventory line 421)</a>
+ * @see <a href="E22S07">E22S07 — Relocate DeviceController to de.vvwt.tm.web</a>
  */
 public class DeviceLimitErrorResponse {
 

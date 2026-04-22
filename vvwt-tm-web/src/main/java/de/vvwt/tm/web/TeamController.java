@@ -1,6 +1,8 @@
-package de.vvwt.tm.tournament;
+package de.vvwt.tm.web;
 
 import de.vvwt.tm.domain.photo.PhotoStorageService;
+import de.vvwt.tm.tournament.Team;
+import de.vvwt.tm.tournament.TeamService;
 import de.vvwt.tm.tournament.TeamService.BulkCreateResult;
 import de.vvwt.tm.tournament.internal.dto.TeamBulkCreateRequest;
 import de.vvwt.tm.tournament.internal.dto.TeamBulkCreateResponse;
@@ -25,13 +27,12 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 /**
- * REST controller for Team CRUD operations — reconstruction-in-place target (DEC-21/DEC-22).
+ * REST controller for Team CRUD operations — primary-adapter-isolation target (DEC-40 Clause A).
  *
- * <p>Mirrors {@code de.vvwt.tm.infrastructure.web.TeamController} but lives at the Modulith target
- * package {@code de.vvwt.tm.tournament} (public API surface per DEC-21 §Module layout). Uses {@code
- * /api/tournaments/{tournamentId}/teams} mapping to avoid {@code RequestMappingHandlerMapping}
- * ambiguity with the legacy {@code /api/tournaments/{tournamentId}/teams} controller during
- * reconstruction-in-place. The mapping will be normalized at the E21S13 atomic cutover.
+ * <p>Relocated whole-class from {@code de.vvwt.tm.tournament.TeamController} to {@code
+ * de.vvwt.tm.web} per DEC-40 Clause D (Q-1b whole-class relocation, DEC-22 §refactor-clause). URL
+ * mappings and JSON wire format preserved byte-equivalent (C-14). {@code @Qualifier} preserved
+ * verbatim (C-12).
  *
  * <h2>Endpoints</h2>
  *
@@ -45,9 +46,9 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
  *
  * @see TeamService
  * @see TeamResponse
- * @see <a href="DEC-21">DEC-21 — Spring Modulith, root package = public API surface</a>
+ * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
- * @see <a href="E21S04">E21S04 — Team aggregate reconstruction (inventory line 454)</a>
+ * @see <a href="E22S07">E22S07 — Relocate TeamController to de.vvwt.tm.web</a>
  */
 @RestController("tmTeamController")
 @RequestMapping("/api/tournaments/{tournamentId}/teams")
