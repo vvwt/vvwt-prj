@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import de.vvwt.tm.tournament.Match;
 import de.vvwt.tm.tournament.MatchFormat;
+import de.vvwt.tm.tournament.MatchGenerator;
 import de.vvwt.tm.tournament.MatchGeneratorRegistry;
 import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.MatchState;

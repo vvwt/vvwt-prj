@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import de.vvwt.tm.tournament.Match;
+import de.vvwt.tm.tournament.MatchGenerator;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.TeamAvatar;
 import java.util.List;
@@ -17,7 +18,8 @@ import org.junit.jupiter.api.Test;
  * contract: null inputs throw {@link IllegalArgumentException}; the result list is non-null; the
  * generator is stateless (multiple calls with the same input return equal results).
  *
- * <p>Source: inventory row 256 — {@code de.vvwt.tm.tournament.internal.MatchGenerator}.
+ * <p>Source: inventory row 256 — {@code de.vvwt.tm.tournament.MatchGenerator} (promoted to public
+ * root package by E33S06 per DEC-35).
  *
  * @see MatchGenerator
  * @see RoundRobinMatchGeneratorTest

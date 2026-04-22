@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import de.vvwt.tm.tournament.Match;
 import de.vvwt.tm.tournament.MatchFormat;
+import de.vvwt.tm.tournament.MatchGenerator;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.Tournament;

@@ -1,17 +1,16 @@
-package de.vvwt.tm.tournament.internal;
+package de.vvwt.tm.tournament;
 
-import de.vvwt.tm.tournament.Match;
-import de.vvwt.tm.tournament.Phase;
-import de.vvwt.tm.tournament.TeamAvatar;
 import java.util.List;
 
 /**
  * Strategy interface for generating {@link Match} entities for a phase (E21S08 reconstruction).
  *
  * <p>Reconstruction-in-place counterpart of {@code de.vvwt.tm.domain.generator.MatchGenerator}
- * (inventory row 256). Lives at {@code de.vvwt.tm.tournament.internal} — the Modulith internal
- * package per DEC-21 § Module layout. Uses new {@code de.vvwt.tm.tournament.*} types instead of the
- * legacy {@code de.vvwt.tm.domain.*} types.
+ * (inventory row 256). Lives at {@code de.vvwt.tm.tournament} — the Modulith public root package
+ * per DEC-35 (promoted from {@code tournament.internal} by E33S06 — DEC-35 retrofit: types exposed
+ * in the public API of {@code MatchGeneratorRegistry} must themselves live in the public package).
+ * Uses new {@code de.vvwt.tm.tournament.*} types instead of the legacy {@code de.vvwt.tm.domain.*}
+ * types.
  *
  * <h2>Contract</h2>
  *
@@ -28,15 +27,16 @@ import java.util.List;
  *
  * <p>The registry key ({@link #getBeanId()}) must match the value stored in {@code
  * Tournament.matchGeneratorId} and the qualifier passed to {@link
- * de.vvwt.tm.tournament.MatchGeneratorRegistry#get(String)}.
+ * MatchGeneratorRegistry#get(String)}.
  *
  * <p>Legacy {@code de.vvwt.tm.domain.generator.MatchGenerator} remains untouched until E21S13
  * atomic cutover per DEC-32.
  *
- * @see de.vvwt.tm.tournament.MatchGeneratorRegistry
- * @see RoundRobinMatchGenerator
- * @see <a href="DEC-21">DEC-21 — Spring Modulith, internal = implementation package</a>
+ * @see MatchGeneratorRegistry
+ * @see de.vvwt.tm.tournament.internal.RoundRobinMatchGenerator
+ * @see <a href="DEC-21">DEC-21 — Spring Modulith, root package = public API surface</a>
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law (reconstruction-in-place)</a>
+ * @see <a href="DEC-35">DEC-35 — Public package required content</a>
  * @see <a href="E21S08">E21S08 — inventory row 256</a>
  */
 public interface MatchGenerator {
