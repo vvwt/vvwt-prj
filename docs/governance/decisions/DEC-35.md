@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-35.md at 952c66688e8905f0d5fea5ac70e48487a8c48fa6 2026-04-22 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-35.md at 478f43a4441deb513240dcefdc41b8f1da4c0e4f 2026-04-22 -->
 ---
 id: DEC-35
 domain: architecture
@@ -11,6 +11,7 @@ last_updated_by: discovery
 last_updated_at: 2026-04-22
 supersedes: null
 superseded_by: null
+amended_by: [DEC-40]
 amends: null
 tags:
   - spring-modulith
@@ -188,4 +189,15 @@ without prefix decoration.
   DEC-26 (DAO 3-rules — generator/evaluator separation at DAO boundary;
   conceptually generalized to service boundary by D-α + DEC-36),
   DEC-36 (Interface-first TDD at cross-package boundary), DEC-37 (Selective
-  async + cascade serialization), DEC-38 (`@ApplicationModuleTest` canon).
+  async + cascade serialization), DEC-38 (`@ApplicationModuleTest` canon),
+  DEC-40 (Primary-Adapter-Isolation — amends this DEC's controller-placement rule).
+
+---
+
+## 2026-04-22 Amendment — Controllers moved to dedicated `web` module (Primary-Adapter-Isolation)
+
+See **DEC-40** for the full amendment. In summary: this DEC's § "Public package — required content" implicitly placed REST controllers in each bounded-context's root package (e.g., `de.vvwt.tm.tournament.TournamentController`). That rule is superseded for REST controllers: **controllers reside in the dedicated `de.vvwt.tm.web` Modulith module per DEC-40, NOT in bounded-context public packages.** Bounded-context public packages continue to hold service interfaces, custom repository interfaces, entities, domain events, exceptions, and value objects — but NOT REST controllers.
+
+All other clauses of this DEC remain UNCHANGED by DEC-40: the public-vs-internal split discipline within each bounded-context module (services as interfaces in public, implementations in `.internal`; custom repository interfaces in public, implementations in `.internal`; entities in root; domain events in root) continues to apply. The `pragmatic-hexagonal` characterization (entity flow across module boundaries without DTO-mapping) is preserved — DEC-40 adds an **additional** driving-adapter isolation layer without introducing DTO-mapping.
+
+(Frontmatter `amended_by: [DEC-40]` is the authoritative amendment record; `status` remains `active`; no `supersedes`/`superseded_by` change.)
