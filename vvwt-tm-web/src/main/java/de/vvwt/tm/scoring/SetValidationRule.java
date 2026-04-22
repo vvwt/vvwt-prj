@@ -15,13 +15,13 @@ import de.vvwt.tm.tournament.MatchFormat;
  *   <li>{@code timeBounded} — time-bounded, no point-target rule (beta variant)
  * </ul>
  *
- * <p>Post-V1 sports register additional rule beans without schema changes — the
- * {@code SetValidationRuleRegistry} (E22S05) picks them up automatically via Spring's
- * {@code Map<String, SetValidationRule>} injection.
+ * <p>Post-V1 sports register additional rule beans without schema changes — the {@code
+ * SetValidationRuleRegistry} (E22S05) picks them up automatically via Spring's {@code Map<String,
+ * SetValidationRule>} injection.
  *
  * <p>Reconstructed from {@code de.vvwt.tm.domain.rules.SetValidationRule} per DEC-22
- * Reconstruction-in-Place; legacy type remains in place during coexistence window ending at
- * E22S11 cutover.
+ * Reconstruction-in-Place; legacy type remains in place during coexistence window ending at E22S11
+ * cutover.
  *
  * @see ValidationResult
  */

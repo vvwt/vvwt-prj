@@ -1,19 +1,19 @@
 package de.vvwt.tm.scoring;
 
-import org.junit.jupiter.api.Test;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import org.junit.jupiter.api.Test;
+
 /**
- * Tests for {@link ValidationResult} VO (DEC-22 Iron Law RED-first,
- * E22S03 AC-RED-FIRST-EVIDENCE + AC-VO-INVARIANT-COVERAGE).
+ * Tests for {@link ValidationResult} VO (DEC-22 Iron Law RED-first, E22S03 AC-RED-FIRST-EVIDENCE +
+ * AC-VO-INVARIANT-COVERAGE).
  *
- * <p>ValidationResult is reconstructed as a Java record in de.vvwt.tm.scoring per
- * Brief v3 record preference (D-7 spirit). The legacy ValidationResult in
- * de.vvwt.tm.domain.rules used a package-private constructor + static factory methods;
- * the reconstruction adopts the same factory-method API surface for compatibility
- * with E22S04 consumers, implemented as a record with static factories.
+ * <p>ValidationResult is reconstructed as a Java record in de.vvwt.tm.scoring per Brief v3 record
+ * preference (D-7 spirit). The legacy ValidationResult in de.vvwt.tm.domain.rules used a
+ * package-private constructor + static factory methods; the reconstruction adopts the same
+ * factory-method API surface for compatibility with E22S04 consumers, implemented as a record with
+ * static factories.
  *
  * <p>Per DEC-36: same-package white-box tests; ValidationResult is in de.vvwt.tm.scoring.
  * AC-VO-INVARIANT-COVERAGE: covers equality, non-null invariants, field round-trip, toString.
@@ -21,8 +21,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class ValidationResultTest {
 
     /**
-     * Sentinel: ValidationResult type exists in the correct package.
-     * Fails to compile before production type exists (RED evidence).
+     * Sentinel: ValidationResult type exists in the correct package. Fails to compile before
+     * production type exists (RED evidence).
      */
     @Test
     void validationResult_typeExistsInScoringPackage() {
@@ -105,27 +105,21 @@ class ValidationResultTest {
     // Non-null invariants (AC-VO-NULL-COMPONENT-THROWS)
     // ------------------------------------------------------------------
 
-    /**
-     * open(null reason) throws — reason must not be null (AC-VO-NULL-COMPONENT-THROWS).
-     */
+    /** open(null reason) throws — reason must not be null (AC-VO-NULL-COMPONENT-THROWS). */
     @Test
     void open_nullReason_throwsIllegalArgumentException() {
         assertThatThrownBy(() -> ValidationResult.open(null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
-    /**
-     * open(blank reason) throws — reason must not be blank.
-     */
+    /** open(blank reason) throws — reason must not be blank. */
     @Test
     void open_blankReason_throwsIllegalArgumentException() {
         assertThatThrownBy(() -> ValidationResult.open("   "))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
-    /**
-     * open("") throws — reason must not be empty string.
-     */
+    /** open("") throws — reason must not be empty string. */
     @Test
     void open_emptyReason_throwsIllegalArgumentException() {
         assertThatThrownBy(() -> ValidationResult.open(""))
@@ -137,9 +131,9 @@ class ValidationResultTest {
     // ------------------------------------------------------------------
 
     /**
-     * Two winner1() results are equal (same-factory-path equality).
-     * Note: in a record, two calls with equal components produce equal instances.
-     * If implemented as a record, structural equality holds.
+     * Two winner1() results are equal (same-factory-path equality). Note: in a record, two calls
+     * with equal components produce equal instances. If implemented as a record, structural
+     * equality holds.
      */
     @Test
     void equality_twoWinner1Instances_areEqual() {

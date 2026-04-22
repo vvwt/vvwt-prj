@@ -11,8 +11,8 @@ import java.util.Optional;
  *
  * <ul>
  *   <li>{@code closed} — whether the set may be closed at this point
- *   <li>{@code reason} — human-readable explanation when {@code closed = false} (e.g., "no
- *       2-point lead", "target not reached", "tied"). Empty string when {@code closed = true}.
+ *   <li>{@code reason} — human-readable explanation when {@code closed = false} (e.g., "no 2-point
+ *       lead", "target not reached", "tied"). Empty string when {@code closed = true}.
  *   <li>{@code winnerHint} — {@link MatchState#FINISHED_WINNER1}, {@link
  *       MatchState#FINISHED_WINNER2}, or {@link MatchState#FINISHED_STANDOFF} when {@code closed =
  *       true}; {@link Optional#empty()} otherwise.
@@ -21,8 +21,8 @@ import java.util.Optional;
  * <p>Use the static factory methods to construct instances.
  *
  * <p>Reconstructed from {@code de.vvwt.tm.domain.rules.ValidationResult} per DEC-22
- * Reconstruction-in-Place; legacy type remains in place during coexistence window ending at
- * E22S11 cutover.
+ * Reconstruction-in-Place; legacy type remains in place during coexistence window ending at E22S11
+ * cutover.
  */
 public final class ValidationResult {
 
@@ -77,8 +77,7 @@ public final class ValidationResult {
      */
     public static ValidationResult open(String reason) {
         if (reason == null || reason.isBlank()) {
-            throw new IllegalArgumentException(
-                    "reason for open result must not be null or blank");
+            throw new IllegalArgumentException("reason for open result must not be null or blank");
         }
         return new ValidationResult(false, reason, Optional.empty());
     }

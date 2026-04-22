@@ -6,10 +6,10 @@ import de.vvwt.tm.tournament.MatchOutcome;
 /**
  * Strategy interface for computing team points from a completed match result.
  *
- * <p>Every V1 scoring rule is a stateless Spring bean registered with a unique bean ID. The
- * cascade service resolves the applicable rule via {@code Tournament.scoringRuleId} through the
- * {@code ScoringRuleRegistry} (E22S05), then calls this method to compute per-match points before
- * updating {@code TeamAvatarRating} aggregates.
+ * <p>Every V1 scoring rule is a stateless Spring bean registered with a unique bean ID. The cascade
+ * service resolves the applicable rule via {@code Tournament.scoringRuleId} through the {@code
+ * ScoringRuleRegistry} (E22S05), then calls this method to compute per-match points before updating
+ * {@code TeamAvatarRating} aggregates.
  *
  * <p>V1 implementations (E22S04):
  *
@@ -23,8 +23,8 @@ import de.vvwt.tm.tournament.MatchOutcome;
  * registering the new bean — no schema changes required.
  *
  * <p>Reconstructed from {@code de.vvwt.tm.domain.rules.ScoringRule} per DEC-22
- * Reconstruction-in-Place; legacy type remains in place during coexistence window ending at
- * E22S11 cutover.
+ * Reconstruction-in-Place; legacy type remains in place during coexistence window ending at E22S11
+ * cutover.
  *
  * @see ScoringResult
  */
