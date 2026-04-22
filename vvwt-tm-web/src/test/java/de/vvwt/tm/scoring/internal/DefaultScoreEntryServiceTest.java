@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import de.vvwt.tm.scoring.PartialScoreInput;
 import de.vvwt.tm.scoring.ScoreEntryResult;
+import de.vvwt.tm.scoring.ScoringService;
 import de.vvwt.tm.scoring.SetSubmitInput;
 import de.vvwt.tm.tournament.Device;
 import de.vvwt.tm.tournament.DeviceRepository;
@@ -17,16 +18,15 @@ import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.MatchState;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
+import de.vvwt.tm.tournament.SetResultInput;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
-import de.vvwt.tm.tournament.SetResultInput;
 import de.vvwt.tm.tournament.exceptions.ForbiddenException;
 import de.vvwt.tm.tournament.exceptions.UnauthorizedException;
-import de.vvwt.tm.scoring.ScoringService;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -48,14 +48,14 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
  * This is the DEC-36 white-box exception for same-package tests. Cross-package tests that consume
  * {@code ScoreEntryService} MUST reference the interface type only.
  *
- * <p>Mocks are typed to interface types (DEC-36): {@link ScoringService} (not
- * {@code DefaultScoringService}), {@link DeviceRepository}, {@link MatchRepository},
- * {@link TournamentRepository}, {@link PhaseRepository}, {@link TeamAvatarRepository},
- * {@link TeamRepository}.
+ * <p>Mocks are typed to interface types (DEC-36): {@link ScoringService} (not {@code
+ * DefaultScoringService}), {@link DeviceRepository}, {@link MatchRepository}, {@link
+ * TournamentRepository}, {@link PhaseRepository}, {@link TeamAvatarRepository}, {@link
+ * TeamRepository}.
  *
  * <p>TDD Iron Law (DEC-22): every test in this class was written RED-first — the stub
- * implementation throwing {@link UnsupportedOperationException} was committed before any
- * production code was added. RED commit SHA is recorded in the impl-report per Q-3.
+ * implementation throwing {@link UnsupportedOperationException} was committed before any production
+ * code was added. RED commit SHA is recorded in the impl-report per Q-3.
  *
  * @since E22S06
  * @see DefaultScoreEntryService
@@ -147,12 +147,14 @@ class DefaultScoreEntryServiceTest {
 
     /**
      * T1 — AC-TEST-COVERAGE-MATRIX: valid deviceToken + active match → returns non-empty Optional.
-     * Also verifies AC-INTERFACE-CREATED, AC-PUBLIC-METHODS, AC-PUBLIC-DTOS-CREATED (ScoreEntryResult).
+     * Also verifies AC-INTERFACE-CREATED, AC-PUBLIC-METHODS, AC-PUBLIC-DTOS-CREATED
+     * (ScoreEntryResult).
      */
     @Test
     void getMatchForField_validTokenAndActiveMatch_returnsPopulatedResult() {
         // Arrange
-        when(deviceRepository.findByDeviceToken(DEVICE_TOKEN)).thenReturn(Optional.of(assignedDevice));
+        when(deviceRepository.findByDeviceToken(DEVICE_TOKEN))
+                .thenReturn(Optional.of(assignedDevice));
         when(tournamentRepository.findAll()).thenReturn(List.of(activeTournament));
         when(phaseRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(activePhase));
         when(matchRepository.findByFieldNumberAndLapNumber(FIELD_NUMBER, LAP_NUMBER))
@@ -220,15 +222,14 @@ class DefaultScoreEntryServiceTest {
         deviceOnField2.setStatus(Device.STATUS_ASSIGNED);
         deviceOnField2.setAssignedField(2); // device is on field 2
 
-        when(deviceRepository.findByDeviceToken(DEVICE_TOKEN)).thenReturn(Optional.of(deviceOnField2));
+        when(deviceRepository.findByDeviceToken(DEVICE_TOKEN))
+                .thenReturn(Optional.of(deviceOnField2));
 
         assertThatThrownBy(() -> service.getMatchForField(1 /* requesting field 1 */, DEVICE_TOKEN))
                 .isInstanceOf(ForbiddenException.class);
     }
 
-    /**
-     * T4 — AC-NULL-GUARDS: null deviceToken → IllegalArgumentException.
-     */
+    /** T4 — AC-NULL-GUARDS: null deviceToken → IllegalArgumentException. */
     @Test
     void getMatchForField_nullDeviceToken_throwsIllegalArgumentException() {
         assertThatThrownBy(() -> service.getMatchForField(FIELD_NUMBER, null))
@@ -246,7 +247,8 @@ class DefaultScoreEntryServiceTest {
     @Test
     void handlePartialScore_validInput_broadcastsToWebSocket() {
         // Arrange
-        when(deviceRepository.findByDeviceToken(DEVICE_TOKEN)).thenReturn(Optional.of(assignedDevice));
+        when(deviceRepository.findByDeviceToken(DEVICE_TOKEN))
+                .thenReturn(Optional.of(assignedDevice));
         when(tournamentRepository.findAll()).thenReturn(List.of(activeTournament));
         when(phaseRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(activePhase));
         when(matchRepository.findByFieldNumberAndLapNumber(FIELD_NUMBER, LAP_NUMBER))
@@ -255,8 +257,7 @@ class DefaultScoreEntryServiceTest {
         // Team name resolution (needed to build the existing MatchScoreResponse for matchId check)
         when(teamAvatarRepository.findById(any())).thenReturn(Optional.empty());
 
-        PartialScoreInput input =
-                new PartialScoreInput(MATCH_ID, 0, 10, 8, DEVICE_TOKEN);
+        PartialScoreInput input = new PartialScoreInput(MATCH_ID, 0, 10, 8, DEVICE_TOKEN);
 
         // Act
         service.handlePartialScore(input);
@@ -272,7 +273,8 @@ class DefaultScoreEntryServiceTest {
     // =======================================================================
 
     /**
-     * T6 — AC-SECURITY-DEVICE-TOKEN: invalid deviceToken in PartialScoreInput → UnauthorizedException.
+     * T6 — AC-SECURITY-DEVICE-TOKEN: invalid deviceToken in PartialScoreInput →
+     * UnauthorizedException.
      */
     @Test
     void handlePartialScore_invalidDeviceToken_throwsUnauthorizedException() {
@@ -284,9 +286,7 @@ class DefaultScoreEntryServiceTest {
                 .isInstanceOf(UnauthorizedException.class);
     }
 
-    /**
-     * T7 — AC-NULL-GUARDS: null request → IllegalArgumentException.
-     */
+    /** T7 — AC-NULL-GUARDS: null request → IllegalArgumentException. */
     @Test
     void handlePartialScore_nullRequest_throwsIllegalArgumentException() {
         assertThatThrownBy(() -> service.handlePartialScore(null))
@@ -299,13 +299,15 @@ class DefaultScoreEntryServiceTest {
 
     /**
      * T8 — AC-TEST-COVERAGE-MATRIX: valid set result → ScoringService.registerMatchResult called
-     * exactly once (DEC-36 — mock the ScoringService interface type). AC-CASCADE-DELEGATION-PRESERVED
-     * (C-7, DEC-37 Clause B): no direct lock acquisition, cascade delegated.
+     * exactly once (DEC-36 — mock the ScoringService interface type).
+     * AC-CASCADE-DELEGATION-PRESERVED (C-7, DEC-37 Clause B): no direct lock acquisition, cascade
+     * delegated.
      */
     @Test
     void submitSetResult_validInput_delegatesToScoringServiceExactlyOnce() {
         // Arrange
-        when(deviceRepository.findByDeviceToken(DEVICE_TOKEN)).thenReturn(Optional.of(assignedDevice));
+        when(deviceRepository.findByDeviceToken(DEVICE_TOKEN))
+                .thenReturn(Optional.of(assignedDevice));
         when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(activeMatch));
 
         SetSubmitInput input = new SetSubmitInput(MATCH_ID, 0, 25, 20, DEVICE_TOKEN);
@@ -313,7 +315,8 @@ class DefaultScoreEntryServiceTest {
         // Act
         service.submitSetResult(input);
 
-        // Assert — ScoringService.registerMatchResult invoked exactly once (AC-CASCADE-DELEGATION-PRESERVED)
+        // Assert — ScoringService.registerMatchResult invoked exactly once
+        // (AC-CASCADE-DELEGATION-PRESERVED)
         verify(scoringService).registerMatchResult(any(SetResultInput.class));
     }
 
@@ -322,7 +325,8 @@ class DefaultScoreEntryServiceTest {
     // =======================================================================
 
     /**
-     * T9 — AC-SECURITY-DEVICE-TOKEN: invalid deviceToken → UnauthorizedException; cascade NOT called.
+     * T9 — AC-SECURITY-DEVICE-TOKEN: invalid deviceToken → UnauthorizedException; cascade NOT
+     * called.
      */
     @Test
     void submitSetResult_invalidDeviceToken_throwsUnauthorizedException_noCascade() {
@@ -336,9 +340,7 @@ class DefaultScoreEntryServiceTest {
         verify(scoringService, never()).registerMatchResult(any());
     }
 
-    /**
-     * T10 — AC-NULL-GUARDS: null request → IllegalArgumentException; cascade NOT called.
-     */
+    /** T10 — AC-NULL-GUARDS: null request → IllegalArgumentException; cascade NOT called. */
     @Test
     void submitSetResult_nullRequest_throwsIllegalArgumentException() {
         assertThatThrownBy(() -> service.submitSetResult(null))
@@ -360,7 +362,8 @@ class DefaultScoreEntryServiceTest {
         deviceOnField2.setStatus(Device.STATUS_ASSIGNED);
         deviceOnField2.setAssignedField(2);
 
-        when(deviceRepository.findByDeviceToken(DEVICE_TOKEN)).thenReturn(Optional.of(deviceOnField2));
+        when(deviceRepository.findByDeviceToken(DEVICE_TOKEN))
+                .thenReturn(Optional.of(deviceOnField2));
 
         // The match is on field 1, but device is on field 2
         activeMatch.setFieldNumber(1);
@@ -384,10 +387,10 @@ class DefaultScoreEntryServiceTest {
      *
      * <p>Implementation note: the current tenant context is established by Spring's DataSource
      * routing layer before the request reaches this service. The DeviceRepository operates on the
-     * current tenant's DataSource — so a device token from a different tenant would not be found
-     * by findByDeviceToken (which queries the current tenant's DB). An empty result → UnauthorizedException.
-     * This test verifies the cross-tenant isolation by simulating an empty result from findByDeviceToken
-     * when the token belongs to a different tenant's device.
+     * current tenant's DataSource — so a device token from a different tenant would not be found by
+     * findByDeviceToken (which queries the current tenant's DB). An empty result →
+     * UnauthorizedException. This test verifies the cross-tenant isolation by simulating an empty
+     * result from findByDeviceToken when the token belongs to a different tenant's device.
      */
     @Test
     void submitSetResult_crossTenantDeviceToken_throwsUnauthorizedException() {

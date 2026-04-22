@@ -11,8 +11,9 @@ import java.util.Optional;
  *
  * <p>Method signatures are preserved verbatim from legacy {@code
  * de.vvwt.tm.infrastructure.score.ScoreEntryService} with DTO types renamed to scoring-public
- * records (Q-11 transitive-exposure rule — parameter and return types of this public interface
- * MUST be in the public package):
+ * records (Q-11 transitive-exposure rule — parameter and return types of this public interface MUST
+ * be in the public package):
+ *
  * <ul>
  *   <li>{@code getMatchForField} — preserves legacy {@code Optional<MatchScoreResponse>} return
  *       (type renamed to {@link ScoreEntryResult}); legacy {@code deviceToken} is {@code String}
@@ -24,21 +25,21 @@ import java.util.Optional;
  * </ul>
  *
  * <p>This interface is authored from the start as a public port (not post-hoc extracted) because
- * E22S09's {@code ScoreApiController} will consume it across module boundaries per DEC-21
- * without requiring an interface-extraction refactor at S09 pickup (Interface-at-authoring
- * decision, Brief Q-11).
+ * E22S09's {@code ScoreApiController} will consume it across module boundaries per DEC-21 without
+ * requiring an interface-extraction refactor at S09 pickup (Interface-at-authoring decision, Brief
+ * Q-11).
  *
  * <h2>Security contract</h2>
  *
- * <p>All three methods validate the {@code deviceToken} parameter (or the token inside the
- * request record) before any business logic. See {@code DefaultScoreEntryService} for the
- * full validation sequence (AC-SECURITY-DEVICE-TOKEN).
+ * <p>All three methods validate the {@code deviceToken} parameter (or the token inside the request
+ * record) before any business logic. See {@code DefaultScoreEntryService} for the full validation
+ * sequence (AC-SECURITY-DEVICE-TOKEN).
  *
  * <h2>DEC compliance</h2>
  *
  * <ul>
- *   <li>DEC-35 — interface in {@code scoring} public package; implementation in
- *       {@code scoring.internal}; naming canon {@code Default*Service}
+ *   <li>DEC-35 — interface in {@code scoring} public package; implementation in {@code
+ *       scoring.internal}; naming canon {@code Default*Service}
  *   <li>DEC-22 — TDD Iron Law: all methods were preceded by failing tests before the first
  *       implementation line was authored
  *   <li>DEC-37 Clause B — {@code submitSetResult} delegates cascade to {@link
@@ -63,8 +64,8 @@ public interface ScoreEntryService {
      * @param fieldNumber the court field number (1-based)
      * @param deviceToken the tablet's opaque device token (NOT NULL)
      * @return populated result if an active match exists; empty if not
-     * @throws de.vvwt.tm.tournament.exceptions.UnauthorizedException if the device token is
-     *     invalid or unassigned
+     * @throws de.vvwt.tm.tournament.exceptions.UnauthorizedException if the device token is invalid
+     *     or unassigned
      * @throws de.vvwt.tm.tournament.exceptions.ForbiddenException if the device is valid but
      *     assigned to a different field
      * @throws IllegalArgumentException if {@code deviceToken} is {@code null}
@@ -78,10 +79,10 @@ public interface ScoreEntryService {
      * The score is NOT persisted — partial updates are transient live-score signals.
      *
      * @param request the partial score input (NOT NULL)
-     * @throws de.vvwt.tm.tournament.exceptions.UnauthorizedException if the device token is
-     *     invalid or unassigned
-     * @throws de.vvwt.tm.tournament.exceptions.ForbiddenException if the device is valid but
-     *     not authorized for the match
+     * @throws de.vvwt.tm.tournament.exceptions.UnauthorizedException if the device token is invalid
+     *     or unassigned
+     * @throws de.vvwt.tm.tournament.exceptions.ForbiddenException if the device is valid but not
+     *     authorized for the match
      * @throws IllegalArgumentException if {@code request} is {@code null}
      */
     void handlePartialScore(PartialScoreInput request);
@@ -94,10 +95,10 @@ public interface ScoreEntryService {
      * row-lock (DEC-37 Clause B). This method MUST NOT acquire the lock directly.
      *
      * @param request the set submission input (NOT NULL)
-     * @throws de.vvwt.tm.tournament.exceptions.UnauthorizedException if the device token is
-     *     invalid or unassigned
-     * @throws de.vvwt.tm.tournament.exceptions.ForbiddenException if the device is valid but
-     *     not assigned to the match's field
+     * @throws de.vvwt.tm.tournament.exceptions.UnauthorizedException if the device token is invalid
+     *     or unassigned
+     * @throws de.vvwt.tm.tournament.exceptions.ForbiddenException if the device is valid but not
+     *     assigned to the match's field
      * @throws de.vvwt.tm.tournament.exceptions.ValidationException if the set score fails
      *     validation (propagated from {@link ScoringService})
      * @throws IllegalArgumentException if {@code request} is {@code null}
