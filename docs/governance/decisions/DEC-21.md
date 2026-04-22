@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-21.md at 0fa3d171beaefc290e7ddfc16806b0f7a1d405fe 2026-04-18 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-21.md at 1da73e32757e6f26dc28295cdc2e4bfb3355f821 2026-04-22 -->
 ---
 id: DEC-21
 domain: architecture
@@ -8,9 +8,10 @@ status: active
 created_by: discovery
 created_at: 2026-04-18
 last_updated_by: discovery
-last_updated_at: 2026-04-18
+last_updated_at: 2026-04-19
 supersedes: null
 superseded_by: null
+amended_by: [DEC-25]
 tags:
   - spring-modulith
   - modular-monolith
@@ -126,12 +127,25 @@ and atomic per-context cutover for the reconstruction phase.
 - **Cutover is a single commit** per context that:
   1. Deletes the old package contents.
   2. Renames / promotes the new package to its final location if needed.
-  3. Removes old Flyway migrations for that context (for the Wave-1 cutover
-     specifically: all of `V1..V6` under the legacy `db/migration/` root — no
-     production DB exists per DEC-20 context).
+  3. Removes old Flyway migrations for that context (per-context scope only —
+     see ERRATUM below regarding the original "all of V1..V6" phrasing).
   4. Updates Spring wiring (new beans replace old; `@Primary` not required
      because old beans are gone).
   5. All Modulith `verify()` tests remain green.
+
+> **ERRATUM (2026-04-19, per DEC-25):** The original wording of step 3 above
+> read "for the Wave-1 cutover specifically: all of `V1..V6` under the legacy
+> `db/migration/` root". That phrasing was based on a Discovery-time assumption
+> that V1..V6 were all auth-legacy. Inspection during E15S07 Delivery revealed
+> that only `V6__e05s02_admin_credentials.sql` is auth-bounded; `V1..V5` are
+> E03 domain schema (initial_schema, core_schema, match, set_result,
+> aggregates_and_audit) referenced by `V7..V16` and not part of the Auth-Pilot.
+> The E15S07 cutover therefore deletes V6 only. Retirement of the remaining
+> root migrations (`V1..V5` + `V7..V16`) is formalized by DEC-25 as a Wave-2
+> Big-Bang-Reset and is NOT a per-context DEC-21 deletion. The per-context
+> principle in step 3 is preserved: each context's own Flyway artefacts are
+> retired at that context's cutover; E15S07 retires V6 because V6 belongs to
+> the auth bounded context.
 - **Deploy-pause is acceptable.** Between the "last parallel-phase commit"
   and the cutover commit, staging deploy may briefly run with tests failing
   or with an inconsistent state. This is tolerated because the project has

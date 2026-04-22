@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-22.md at 0fa3d171beaefc290e7ddfc16806b0f7a1d405fe 2026-04-18 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-22.md at 952c66688e8905f0d5fea5ac70e48487a8c48fa6 2026-04-22 -->
 ---
 id: DEC-22
 domain: governance
@@ -8,16 +8,17 @@ status: active
 created_by: discovery
 created_at: 2026-04-18
 last_updated_by: discovery
-last_updated_at: 2026-04-18
+last_updated_at: 2026-04-22
 supersedes: null
 superseded_by: null
+amended_by: [DEC-34, DEC-36]
 tags:
   - tdd
   - testing
   - delivery
   - governance
   - reconstruction
-related_to: [DEC-10, DEC-21]
+related_to: [DEC-10, DEC-21, DEC-34, DEC-36]
 ---
 
 # DEC-22 — TDD projektweit activation, reconstruction-in-place, JMH carve-out
@@ -129,3 +130,13 @@ forward-only TDD.
   established, all modules' test suites MUST run on every staging push; JMH
   benchmarks MAY run on a separate cadence.
 - **No supersession** — no prior DEC addressed TDD activation.
+
+---
+
+## 2026-04-20 Amendment — Deltas-only activation semantics
+
+See **DEC-34** for the full amendment. In summary: the "Activation = copy/inherit" clause above is replaced by "Activation = override-by-delta" — `project/tdd.rules.md` contains ONLY project-specific deltas to core; core is loaded additively by the adapter. All other clauses of this DEC (Iron Law, module scope, JMH carve-out, reconstruction-in-place migration strategy, characterization-test prohibition, Slot-Opt-tests-remain-valid, `patterns/conventions.md` impact, Epic-1 history) are UNCHANGED by DEC-34. `last_updated_at` advances to 2026-04-20; `status` remains `active`; no `supersedes`/`superseded_by` change.
+
+## 2026-04-22 Amendment — Cross-package test typing rule
+
+See **DEC-36** for the full amendment. In summary: a new clause is added to this DEC's `## Decision` section requiring that test classes located in a Java package DIFFERENT from their primary subject's package MUST type-reference and mock the subject via its public interface, never via the concrete implementation class. Tests in the SAME package as their subject MAY white-box reference the implementation. Enforcement is via the `qa-review` skill (pre-PR-merge per `delivery-loop.workflow.md` § Step 7), not via ArchUnit. All other clauses of this DEC remain UNCHANGED by DEC-36. `last_updated_at` advances to 2026-04-22; `status` remains `active`; no `supersedes`/`superseded_by` change.
