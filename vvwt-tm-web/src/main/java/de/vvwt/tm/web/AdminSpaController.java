@@ -1,6 +1,5 @@
-package de.vvwt.tm.tournament;
+package de.vvwt.tm.web;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 
@@ -8,10 +7,12 @@ import org.springframework.web.bind.annotation.GetMapping;
  * Serves the Svelte Admin SPA at {@code /admin/} and all nested paths (E21S09,
  * AC-TDD-AdminSpaController, AC-PKG-AdminSpaController).
  *
- * <p>This is the new public-API controller at {@code de.vvwt.tm.tournament.*} per DEC-21 (D-8
- * package discipline). It replaces the legacy {@code de.vvwt.tm.infrastructure.AdminSpaController}
- * at atomic cutover time. During the parallel-development phase, both coexist. The bean qualifier
- * {@code "tmAdminSpaController"} prevents Spring from treating them as duplicate beans.
+ * <p>Relocated from the {@code tournament} package to {@code de.vvwt.tm.web} per DEC-40 Clause A
+ * (E22S01, Q-1b whole-class refactor). Class body is byte-identical to the pre-relocation version
+ * except for the {@code package} declaration and the removal of the stale
+ * {@code @ConditionalOnMissingBean} guard (the legacy {@code
+ * de.vvwt.tm.infrastructure.AdminSpaController} was deleted at E21S13 cutover; the guard became a
+ * no-op and was removed during the E22S01 Q-1b move).
  *
  * <h2>SPA serving strategy</h2>
  *
@@ -45,14 +46,8 @@ import org.springframework.web.bind.annotation.GetMapping;
  * forwarded to {@code index.html}. The Svelte router renders a client-side 404 page for unknown
  * routes. A raw stack trace is NEVER surfaced — Spring Boot's error handler ensures a structured
  * error response if the static file is absent.
- *
- * @see de.vvwt.tm.infrastructure.AdminSpaController legacy counterpart (untouched until cutover)
  */
-// Suppressed while legacy de.vvwt.tm.infrastructure.AdminSpaController is active (DEC-21).
-// Both classes map to the same HTTP paths — registering both causes ambiguous-mapping exception.
-// Remove @ConditionalOnMissingBean at E21S13 cutover once legacy controller is deleted.
-@ConditionalOnMissingBean(name = "adminSpaController")
-@Controller("tmAdminSpaController")
+@Controller
 public class AdminSpaController {
 
     /**
