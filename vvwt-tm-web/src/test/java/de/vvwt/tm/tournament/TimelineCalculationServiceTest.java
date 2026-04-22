@@ -3,6 +3,7 @@ package de.vvwt.tm.tournament;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import de.vvwt.tm.tournament.internal.DefaultTimelineCalculationService;
 import java.time.LocalTime;
 import java.util.Collections;
 import java.util.List;
@@ -34,7 +35,7 @@ import org.junit.jupiter.api.Test;
  */
 class TimelineCalculationServiceTest {
 
-    private final TimelineCalculationService service = new TimelineCalculationService();
+    private final TimelineCalculationService service = new DefaultTimelineCalculationService();
     private static final LocalTime START = LocalTime.of(9, 0);
 
     // -------------------------------------------------------------------------

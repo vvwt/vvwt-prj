@@ -1,13 +1,7 @@
 package de.vvwt.tm.tournament;
 
 import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
-import org.springframework.stereotype.Service;
 
 /**
  * Stateless, side-effect-free service that computes the full timeline of a tournament.
@@ -22,13 +16,11 @@ import org.springframework.stereotype.Service;
  * durations, breaks), this service produces an ordered list of {@link TimelineEntry} objects
  * covering every match round, lap break, intra-phase break, and section break.
  *
- * <p><strong>Spring-wiring decision (E21S11, AC-SPRING-WIRING-DECISION-DOC).</strong> Declared as
- * {@code @Service} (Spring-managed singleton). Rationale: the legacy class was Spring-managed and
- * downstream consumers ({@code LaufzettelAssembler}, {@code TimerDataService}) autowire it;
- * preserving {@code @Service} avoids constructor-call glue code in those consumers. The class
- * remains a pure function — {@code @Service} is a wiring hint, not a behavioural constraint.
- * Callers that prefer constructor-call semantics may do so: {@code new TimelineCalculationService()
- * .calculate(...)} is fully valid.
+ * <p><strong>DEC-35 retrofit (E33S07).</strong> Converted from a concrete {@code @Service} class to
+ * an interface per DEC-35 § Public package clause 1. The implementation resides at {@code
+ * de.vvwt.tm.tournament.internal.DefaultTimelineCalculationService}. Constructor-call semantics
+ * (previously documented as valid in the legacy Javadoc) are no longer supported on this type — use
+ * {@code DefaultTimelineCalculationService} for direct instantiation in tests.
  *
  * <p><strong>Design constraints (DEC-22, DEC-30).</strong>
  *
@@ -54,18 +46,14 @@ import org.springframework.stereotype.Service;
  * </ol>
  *
  * <p>Inventory row 336 (E21S01): classified {@code uncertain}; resolved by D-2 as {@code
- * tournament} public boundary-API (E21S11). See DEC-21, DEC-22, DEC-30.
+ * tournament} public boundary-API (E21S11). See DEC-21, DEC-22, DEC-30, DEC-35.
  *
  * @see PhaseConfig
  * @see PhaseBreakConfig
  * @see TimelineEntry
  * @see TimelineEntryType
  */
-// Qualifier avoids ConflictingBeanDefinitionException with legacy
-// de.vvwt.tm.domain.timeline.TimelineCalculationService (DEC-21 reconstruction-in-place).
-// Remove qualifier at E21S13 cutover once legacy class is deleted.
-@Service("tmTimelineCalculationService")
-public class TimelineCalculationService {
+public interface TimelineCalculationService {
 
     /**
      * Computes the full timeline for a tournament.
@@ -81,139 +69,6 @@ public class TimelineCalculationService {
      * @throws IllegalArgumentException if any {@link PhaseBreakConfig#afterLapNumber()} is ≥ the
      *     enclosing phase's {@link PhaseConfig#lapCount()}
      */
-    public List<TimelineEntry> calculate(
-            LocalTime startTime, List<PhaseConfig> phases, int sectionBreakMinutes) {
-        Objects.requireNonNull(phases, "phases must not be null");
-
-        // null start time → return empty list (draft preview can show structure without times)
-        if (startTime == null) {
-            return Collections.emptyList();
-        }
-        if (phases.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        // AC-SERVICE-INCONSISTENT-INPUT: validate all phaseBreak references before computing
-        for (PhaseConfig phase : phases) {
-            for (PhaseBreakConfig pb : phase.phaseBreaks()) {
-                if (pb.afterLapNumber() >= phase.lapCount()) {
-                    throw new IllegalArgumentException(
-                            String.format(
-                                    "PhaseBreakConfig.afterLapNumber (%d) must be < phase.lapCount"
-                                            + " (%d) for phase %d",
-                                    pb.afterLapNumber(), phase.lapCount(), phase.phaseNumber()));
-                }
-            }
-        }
-
-        List<TimelineEntry> timeline = new ArrayList<>();
-        LocalTime cursor = startTime;
-
-        for (int phaseIndex = 0; phaseIndex < phases.size(); phaseIndex++) {
-            PhaseConfig phase = phases.get(phaseIndex);
-            boolean isLastPhase = (phaseIndex == phases.size() - 1);
-
-            cursor = appendPhase(timeline, phase, cursor);
-
-            // Insert section break between phases (not after the last phase)
-            if (!isLastPhase && sectionBreakMinutes > 0) {
-                LocalTime sectionBreakEnd = cursor.plusMinutes(sectionBreakMinutes);
-                timeline.add(
-                        new TimelineEntry(
-                                phase.phaseNumber(),
-                                0,
-                                TimelineEntryType.SECTION_BREAK,
-                                cursor,
-                                sectionBreakEnd,
-                                null));
-                cursor = sectionBreakEnd;
-            }
-        }
-
-        return Collections.unmodifiableList(timeline);
-    }
-
-    /**
-     * Appends all timeline entries for a single phase and advances the cursor.
-     *
-     * @param timeline mutable list to append entries to
-     * @param phase phase configuration
-     * @param cursor current wall-clock position at the start of the phase
-     * @return updated cursor position after the phase ends
-     */
-    private LocalTime appendPhase(
-            List<TimelineEntry> timeline, PhaseConfig phase, LocalTime cursor) {
-        // zero-lap phase → single zero-duration marker entry
-        if (phase.lapCount() == 0) {
-            timeline.add(
-                    new TimelineEntry(
-                            phase.phaseNumber(),
-                            0,
-                            TimelineEntryType.MATCH_ROUND,
-                            cursor,
-                            cursor,
-                            null));
-            return cursor;
-        }
-
-        // Build a lookup from lap number → intra-phase break
-        Map<Integer, PhaseBreakConfig> breakByLap =
-                phase.phaseBreaks().isEmpty()
-                        ? Collections.emptyMap()
-                        : phase.phaseBreaks().stream()
-                                .collect(
-                                        Collectors.toMap(
-                                                PhaseBreakConfig::afterLapNumber,
-                                                pb -> pb,
-                                                (a, b) -> a)); // keep first on duplicate key
-
-        for (int lapNumber = 1; lapNumber <= phase.lapCount(); lapNumber++) {
-            boolean isLastLap = (lapNumber == phase.lapCount());
-
-            // Match round entry
-            LocalTime lapEnd = cursor.plusMinutes(phase.lapTimeMinutes());
-            timeline.add(
-                    new TimelineEntry(
-                            phase.phaseNumber(),
-                            lapNumber,
-                            TimelineEntryType.MATCH_ROUND,
-                            cursor,
-                            lapEnd,
-                            null));
-            cursor = lapEnd;
-
-            if (!isLastLap) {
-                // Check for intra-phase break at this lap boundary
-                PhaseBreakConfig phaseBreak = breakByLap.get(lapNumber);
-                if (phaseBreak != null) {
-                    // INTRA_PHASE_BREAK replaces the lap break at this boundary
-                    LocalTime breakEnd = cursor.plusMinutes(phaseBreak.durationMinutes());
-                    timeline.add(
-                            new TimelineEntry(
-                                    phase.phaseNumber(),
-                                    0,
-                                    TimelineEntryType.INTRA_PHASE_BREAK,
-                                    cursor,
-                                    breakEnd,
-                                    phaseBreak.label()));
-                    cursor = breakEnd;
-                } else if (phase.lapBreakMinutes() > 0) {
-                    // Standard lap break between consecutive laps
-                    LocalTime breakEnd = cursor.plusMinutes(phase.lapBreakMinutes());
-                    timeline.add(
-                            new TimelineEntry(
-                                    phase.phaseNumber(),
-                                    0,
-                                    TimelineEntryType.LAP_BREAK,
-                                    cursor,
-                                    breakEnd,
-                                    null));
-                    cursor = breakEnd;
-                }
-                // No break appended after the last lap — loop ends
-            }
-        }
-
-        return cursor;
-    }
+    List<TimelineEntry> calculate(
+            LocalTime startTime, List<PhaseConfig> phases, int sectionBreakMinutes);
 }
