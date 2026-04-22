@@ -2,6 +2,7 @@ package de.vvwt.tm.tournament.internal;
 
 import de.vvwt.tm.tournament.Match;
 import de.vvwt.tm.tournament.MatchFormat;
+import de.vvwt.tm.tournament.MatchGenerator;
 import de.vvwt.tm.tournament.MatchState;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.TeamAvatar;

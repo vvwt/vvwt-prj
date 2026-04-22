@@ -1,6 +1,7 @@
 package de.vvwt.tm.tournament.internal;
 
 import de.vvwt.tm.tournament.Match;
+import de.vvwt.tm.tournament.MatchGenerator;
 import de.vvwt.tm.tournament.MatchGeneratorRegistry;
 import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.Phase;

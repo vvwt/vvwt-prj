@@ -1,6 +1,5 @@
 package de.vvwt.tm.tournament;
 
-import de.vvwt.tm.tournament.internal.MatchGenerator;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
