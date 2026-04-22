@@ -1,8 +1,7 @@
 package de.vvwt.tm.tournament;
 
 import de.vvwt.tm.domain.photo.PhotoStorageService;
-import de.vvwt.tm.tournament.internal.TeamService;
-import de.vvwt.tm.tournament.internal.TeamService.BulkCreateResult;
+import de.vvwt.tm.tournament.TeamService.BulkCreateResult;
 import de.vvwt.tm.tournament.internal.dto.TeamBulkCreateRequest;
 import de.vvwt.tm.tournament.internal.dto.TeamBulkCreateResponse;
 import de.vvwt.tm.tournament.internal.dto.TeamCreateRequest;

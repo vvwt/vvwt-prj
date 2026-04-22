@@ -16,7 +16,6 @@ import de.vvwt.tm.domain.photo.PhotoStorageService;
 import de.vvwt.tm.infrastructure.testsupport.TenantContextSliceTestSupport;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantRegistryPort;
-import de.vvwt.tm.tournament.internal.TeamService;
 import de.vvwt.tm.tournament.internal.dto.TeamBulkCreateRequest;
 import de.vvwt.tm.tournament.internal.dto.TeamCreateRequest;
 import java.util.List;

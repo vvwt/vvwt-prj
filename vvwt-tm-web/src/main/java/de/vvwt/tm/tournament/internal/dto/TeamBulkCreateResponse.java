@@ -1,6 +1,6 @@
 package de.vvwt.tm.tournament.internal.dto;
 
-import de.vvwt.tm.tournament.internal.TeamService.BulkCreateResult;
+import de.vvwt.tm.tournament.TeamService.BulkCreateResult;
 import java.util.List;
 
 /**
@@ -11,7 +11,7 @@ import java.util.List;
  *
  * <p>Inventory line 442 ({@code TeamBulkCreateResponse}).
  *
- * @see de.vvwt.tm.tournament.internal.TeamService
+ * @see de.vvwt.tm.tournament.internal.DefaultTeamService
  * @see <a href="DEC-21">DEC-21 — Spring Modulith internal.dto package</a>
  * @see <a href="E21S04">E21S04 — Team aggregate reconstruction (inventory line 442)</a>
  */

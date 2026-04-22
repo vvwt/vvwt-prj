@@ -2,6 +2,7 @@ package de.vvwt.tm.tournament.internal;
 
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamRepository;
+import de.vvwt.tm.tournament.TeamService;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import java.time.LocalDateTime;
@@ -12,11 +13,12 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 /**
- * Domain service for Team CRUD operations — reconstruction-in-place target (DEC-21/DEC-22).
+ * Default implementation of {@link TeamService} — Domain service for Team CRUD operations.
  *
- * <p>Mirrors the logic of {@code de.vvwt.tm.domain.TeamService} but wired to the new {@link
- * TeamRepository} and new {@link Team} entity at the Modulith target package ({@code
- * de.vvwt.tm.tournament.*}).
+ * <p>Implements the public {@link TeamService} interface per DEC-35 (implementation lives in {@code
+ * tournament.internal}; interface lives in {@code tournament} root). Qualifier {@code
+ * "tmTeamService"} is preserved verbatim (AC-QUALIFIER-PRESERVED / C-12) to avoid breaking Spring's
+ * {@code @Qualifier} injection in {@code TeamController}.
  *
  * <h2>Business rules enforced</h2>
  *
@@ -29,18 +31,18 @@ import org.springframework.stereotype.Service;
  *   <li>AC5: bulkCreateTeams — partial failure does not abort the batch
  * </ul>
  *
- * <p>Lives in {@code tournament.internal} per DEC-21 §Module layout (implementation surface, not
- * public API).
- *
+ * @see TeamService
  * @see TeamRepository
  * @see Team
  * @see <a href="DEC-21">DEC-21 — Spring Modulith internal-package discipline</a>
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
+ * @see <a href="DEC-35">DEC-35 — Service interface in public / impl in internal</a>
  * @see <a href="DEC-9">DEC-9 — TeamAvatar structural identity (delete guard)</a>
  * @see <a href="E21S04">E21S04 — Team aggregate reconstruction (inventory line 188)</a>
+ * @see <a href="E33S02">E33S02 — DEC-35 interface extraction</a>
  */
 @Service("tmTeamService")
-public class TeamService {
+public class DefaultTeamService implements TeamService {
 
     /**
      * Sentinel UUID: excludes no existing team when checking team_number uniqueness for a NEW team.
@@ -57,7 +59,8 @@ public class TeamService {
      * @param tournamentRepository tournament persistence (new Modulith repository) — ownership +
      *     status checks
      */
-    public TeamService(TeamRepository teamRepository, TournamentRepository tournamentRepository) {
+    public DefaultTeamService(
+            TeamRepository teamRepository, TournamentRepository tournamentRepository) {
         this.teamRepository = teamRepository;
         this.tournamentRepository = tournamentRepository;
     }
@@ -73,6 +76,7 @@ public class TeamService {
      * @return list of teams ordered by team_number ascending; never {@code null}
      * @throws NoSuchElementException if the tournament does not exist for the current tenant (AC13)
      */
+    @Override
     public List<Team> listTeams(UUID tournamentId) {
         // AC13: 404 if tournament does not exist for the current tenant
         tournamentRepository
@@ -94,6 +98,7 @@ public class TeamService {
      * @return the team (never {@code null})
      * @throws NoSuchElementException if not found or wrong tournament
      */
+    @Override
     public Team getTeam(UUID tournamentId, UUID teamId) {
         return teamRepository
                 .findById(teamId)
@@ -120,6 +125,7 @@ public class TeamService {
      * @throws NoSuchElementException if the tournament does not exist for the current tenant (AC13)
      * @throws ConflictException if the team_number is already in use in this tournament (AC10)
      */
+    @Override
     public Team createTeam(
             UUID tournamentId,
             String description,
@@ -171,6 +177,7 @@ public class TeamService {
      * @throws ConflictException if the tournament is not in DRAFT status (AC3/AC11)
      * @throws ConflictException if the new team_number is already in use (AC10)
      */
+    @Override
     public Team updateTeam(
             UUID tournamentId,
             UUID teamId,
@@ -221,6 +228,7 @@ public class TeamService {
      * @throws ConflictException if the tournament is not in DRAFT status (AC11)
      * @throws ConflictException if the team has TeamAvatar references (AC4 / DEC-9)
      */
+    @Override
     public void deleteTeam(UUID tournamentId, UUID teamId) {
         teamRepository
                 .findById(teamId)
@@ -253,6 +261,7 @@ public class TeamService {
      * @return per-item results (success or error per entry)
      * @throws NoSuchElementException if the tournament does not exist for the current tenant (AC13)
      */
+    @Override
     public List<BulkCreateResult> bulkCreateTeams(
             UUID tournamentId, List<BulkCreateRequest> requests) {
         List<BulkCreateResult> results = new ArrayList<>();
@@ -272,39 +281,5 @@ public class TeamService {
             }
         }
         return results;
-    }
-
-    // -------------------------------------------------------------------------
-    // Inner types for bulk create (AC5)
-    // -------------------------------------------------------------------------
-
-    /** Input record for a single team in a bulk create request. */
-    public record BulkCreateRequest(
-            String description,
-            int teamNumber,
-            boolean participate,
-            boolean refereeAssignment,
-            boolean withoutAssessment) {}
-
-    /**
-     * Per-item result of a bulk create operation.
-     *
-     * <p>Either {@code team} is set (success) or {@code errorMessage} is set (failure).
-     */
-    public record BulkCreateResult(Team team, String errorMessage) {
-        /** Factory — successful creation. */
-        public static BulkCreateResult success(Team team) {
-            return new BulkCreateResult(team, null);
-        }
-
-        /** Factory — creation failed. */
-        public static BulkCreateResult error(BulkCreateRequest req, String message) {
-            return new BulkCreateResult(null, message);
-        }
-
-        /** Returns {@code true} if this item was created successfully. */
-        public boolean isSuccess() {
-            return team != null;
-        }
     }
 }

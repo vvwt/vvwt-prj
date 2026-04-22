@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamRepository;
+import de.vvwt.tm.tournament.TeamService;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
@@ -28,9 +29,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
  *
  * <h2>RED state</h2>
  *
- * <p>This test was committed RED: {@link TeamService} at {@code
- * de.vvwt.tm.tournament.internal.TeamService} did not exist at commit time — satisfying the DEC-22
- * Iron Law.
+ * <p>This test was committed RED: {@code DefaultTeamService} at {@code
+ * de.vvwt.tm.tournament.internal.DefaultTeamService} did not exist at commit time — satisfying the
+ * DEC-22 Iron Law. (Renamed from {@code TeamService} by E33S02, DEC-35 retrofit.)
  *
  * <h2>Coverage</h2>
  *
@@ -55,14 +56,14 @@ class TeamServiceTest {
     @Mock private TeamRepository teamRepository;
     @Mock private TournamentRepository tournamentRepository;
 
-    private TeamService teamService;
+    private DefaultTeamService teamService;
 
     private static final UUID TENANT_ID = UUID.randomUUID();
     private static final UUID TOURNAMENT_ID = UUID.randomUUID();
 
     @BeforeEach
     void setUp() {
-        teamService = new TeamService(teamRepository, tournamentRepository);
+        teamService = new DefaultTeamService(teamRepository, tournamentRepository);
     }
 
     // -------------------------------------------------------------------------

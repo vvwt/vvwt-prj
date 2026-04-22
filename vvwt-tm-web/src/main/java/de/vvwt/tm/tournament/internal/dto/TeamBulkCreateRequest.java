@@ -12,7 +12,7 @@ import java.util.List;
  *
  * <p>Inventory line 441 ({@code TeamBulkCreateRequest}).
  *
- * @see de.vvwt.tm.tournament.internal.TeamService
+ * @see de.vvwt.tm.tournament.internal.DefaultTeamService
  * @see <a href="DEC-21">DEC-21 — Spring Modulith internal.dto package</a>
  * @see <a href="E21S04">E21S04 — Team aggregate reconstruction (inventory line 441)</a>
  */
