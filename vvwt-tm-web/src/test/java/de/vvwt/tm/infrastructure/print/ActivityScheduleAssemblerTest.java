@@ -16,6 +16,7 @@ import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TimelineCalculationService;
 import de.vvwt.tm.tournament.Tournament;
+import de.vvwt.tm.tournament.internal.DefaultTimelineCalculationService;
 import java.time.LocalTime;
 import java.util.Collections;
 import java.util.List;
@@ -164,7 +165,7 @@ class ActivityScheduleAssemblerTest {
 
         assembler =
                 new ActivityScheduleAssembler(
-                        new TimelineCalculationService(), activityAssignmentService);
+                        new DefaultTimelineCalculationService(), activityAssignmentService);
     }
 
     // =========================================================================
