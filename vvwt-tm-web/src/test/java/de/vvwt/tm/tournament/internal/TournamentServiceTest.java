@@ -27,13 +27,15 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * Unit tests for {@link TournamentService} (E21S02, AC-TDD-TournamentService).
+ * Unit tests for {@link DefaultTournamentService} (E21S02, AC-TDD-TournamentService; renamed E33S01
+ * AC-UNIT-TEST-RENAME).
  *
  * <h2>RED state</h2>
  *
- * <p>This test was committed RED: {@link TournamentService} at {@code
- * de.vvwt.tm.tournament.internal.TournamentService} did not exist at commit time, causing a compile
- * error — satisfying the DEC-22 Iron Law.
+ * <p>This test was committed RED (E21S02): the implementation class did not exist at commit time,
+ * causing a compile error — satisfying the DEC-22 Iron Law. The class was originally named {@code
+ * TournamentService} in the internal package; renamed to {@link DefaultTournamentService} by E33S01
+ * (DEC-35 pioneer; white-box same-package access preserved per DEC-36).
  *
  * <h2>Coverage</h2>
  *
@@ -45,14 +47,17 @@ import org.mockito.junit.jupiter.MockitoExtension;
  *   <li>AC5 — deleteTournament rejects ACTIVE and tournaments with phases
  * </ul>
  *
- * @see TournamentService
+ * @see DefaultTournamentService
+ * @see de.vvwt.tm.tournament.TournamentService
  * @see de.vvwt.tm.tournament.TournamentRepository
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
- * @see <a href="DEC-21">DEC-21 — Spring Modulith internal-package discipline</a>
+ * @see <a href="DEC-35">DEC-35 — Spring Modulith package layout</a>
+ * @see <a href="DEC-36">DEC-36 — Same-package white-box tests permitted</a>
  * @see <a href="E21S02">E21S02 — Tournament aggregate reconstruction</a>
+ * @see <a href="E33S01">E33S01 — Extract TournamentService interface (AC-UNIT-TEST-RENAME)</a>
  */
 @ExtendWith(MockitoExtension.class)
-@DisplayName("TournamentService unit tests — E21S02 AC-TDD-TournamentService")
+@DisplayName("DefaultTournamentService unit tests — E21S02 AC-TDD-TournamentService")
 class TournamentServiceTest {
 
     @Mock private TournamentRepository tournamentRepository;
@@ -65,7 +70,7 @@ class TournamentServiceTest {
 
     @Mock private MatchGeneratorRegistry matchGeneratorRegistry;
 
-    private TournamentService service;
+    private DefaultTournamentService service;
 
     private static final UUID TENANT_ID = UUID.randomUUID();
     private static final String VALID_FORMAT = "BEST_OF_3";
@@ -76,7 +81,7 @@ class TournamentServiceTest {
     @BeforeEach
     void setUp() {
         service =
-                new TournamentService(
+                new DefaultTournamentService(
                         tournamentRepository,
                         phaseRepository,
                         scoringRuleRegistry,

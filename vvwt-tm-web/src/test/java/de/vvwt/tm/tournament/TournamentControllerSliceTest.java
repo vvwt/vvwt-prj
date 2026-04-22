@@ -13,7 +13,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.infrastructure.testsupport.TenantContextSliceTestSupport;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantRegistryPort;
-import de.vvwt.tm.tournament.internal.TournamentService;
 import de.vvwt.tm.tournament.internal.dto.TournamentCreateRequest;
 import java.time.LocalDateTime;
 import java.util.List;
