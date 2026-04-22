@@ -1,7 +1,5 @@
 package de.vvwt.tm.tournament.internal;
 
-import de.vvwt.tm.domain.rules.ScoringRuleRegistry;
-import de.vvwt.tm.domain.rules.SetValidationRuleRegistry;
 import de.vvwt.tm.tournament.MatchFormat;
 import de.vvwt.tm.tournament.MatchGeneratorRegistry;
 import de.vvwt.tm.tournament.Phase;
@@ -34,7 +32,10 @@ import org.springframework.stereotype.Service;
  * <ul>
  *   <li>AC1: listTournaments returns all tournaments for the current tenant, sorted createdAt desc
  *   <li>AC2: getTournament returns entity or throws {@link NoSuchElementException}
- *   <li>AC3: createTournament assigns DRAFT status; validates bean IDs
+ *   <li>AC3: createTournament assigns DRAFT status; validates matchFormat and matchGeneratorId bean
+ *       ID (E22S02: registry validation for scoringRuleId and setValidationRuleId removed — DEC-40
+ *       Approach A boundary fix; validation shifts to first score submission via
+ *       TournamentRuleResolver)
  *   <li>AC4: updateTournament rejects non-DRAFT with {@link ConflictException}
  *   <li>AC5: deleteTournament rejects ACTIVE or tournaments with phases
  * </ul>
@@ -48,6 +49,7 @@ import org.springframework.stereotype.Service;
  * @see <a href="DEC-35">DEC-35 — Spring Modulith package layout: impl in .internal</a>
  * @see <a href="DEC-21">DEC-21 — Spring Modulith internal-package discipline</a>
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
+ * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation; Approach A boundary fix (E22S02)</a>
  * @see <a href="E21S02">E21S02 — Tournament aggregate reconstruction</a>
  * @see <a href="E33S01">E33S01 — Extract TournamentService interface (DEC-35 pioneer)</a>
  */
@@ -56,8 +58,6 @@ public class DefaultTournamentService implements TournamentService {
 
     private final TournamentRepository tournamentRepository;
     private final PhaseRepository phaseRepository;
-    private final ScoringRuleRegistry scoringRuleRegistry;
-    private final SetValidationRuleRegistry setValidationRuleRegistry;
     private final MatchGeneratorRegistry matchGeneratorRegistry;
 
     /**
@@ -65,20 +65,14 @@ public class DefaultTournamentService implements TournamentService {
      *
      * @param tournamentRepository tournament persistence (tenant-scoped, new Modulith repository)
      * @param phaseRepository phase persistence (legacy, tenant-scoped) — for delete check (AC5)
-     * @param scoringRuleRegistry validates scoringRuleId bean references (AC3)
-     * @param setValidationRuleRegistry validates setValidationRuleId bean references (AC3)
      * @param matchGeneratorRegistry validates matchGeneratorId bean references (AC3)
      */
     public DefaultTournamentService(
             TournamentRepository tournamentRepository,
             PhaseRepository phaseRepository,
-            ScoringRuleRegistry scoringRuleRegistry,
-            SetValidationRuleRegistry setValidationRuleRegistry,
             MatchGeneratorRegistry matchGeneratorRegistry) {
         this.tournamentRepository = tournamentRepository;
         this.phaseRepository = phaseRepository;
-        this.scoringRuleRegistry = scoringRuleRegistry;
-        this.setValidationRuleRegistry = setValidationRuleRegistry;
         this.matchGeneratorRegistry = matchGeneratorRegistry;
     }
 
@@ -129,16 +123,21 @@ public class DefaultTournamentService implements TournamentService {
     /**
      * Creates a new tournament in DRAFT status for the current tenant.
      *
+     * <p>scoringRuleId and setValidationRuleId are persisted verbatim without registry lookup
+     * (E22S02, DEC-40 Approach A boundary fix). Validation of these IDs occurs at first score
+     * submission via {@code TournamentRuleResolver}.
+     *
      * @param description human-readable label (required, not blank)
      * @param appointment optional tournament date
      * @param teamCount number of teams (≥ 2)
      * @param fieldCount number of courts (≥ 1)
      * @param matchFormat match format enum name
-     * @param scoringRuleId Spring bean ID of the scoring rule
-     * @param setValidationRuleId Spring bean ID of the set validation rule
+     * @param scoringRuleId Spring bean ID of the scoring rule (persisted verbatim)
+     * @param setValidationRuleId Spring bean ID of the set validation rule (persisted verbatim)
      * @param matchGeneratorId Spring bean ID of the match generator
      * @return the persisted tournament (never {@code null})
-     * @throws IllegalArgumentException if any bean ID is not registered or matchFormat is invalid
+     * @throws IllegalArgumentException if matchFormat is invalid or matchGeneratorId is not
+     *     registered
      */
     @Override
     public Tournament createTournament(
@@ -150,7 +149,7 @@ public class DefaultTournamentService implements TournamentService {
             String scoringRuleId,
             String setValidationRuleId,
             String matchGeneratorId) {
-        validateBeanIds(matchFormat, scoringRuleId, setValidationRuleId, matchGeneratorId);
+        validateBeanIds(matchFormat, matchGeneratorId);
 
         Tournament tournament = new Tournament();
         tournament.setId(UUID.randomUUID());
@@ -175,20 +174,26 @@ public class DefaultTournamentService implements TournamentService {
     /**
      * Updates an existing tournament. Only DRAFT tournaments may be edited.
      *
+     * <p>scoringRuleId and setValidationRuleId are persisted verbatim without registry lookup
+     * (E22S02, DEC-40 Approach A boundary fix). Validation of these IDs occurs at first score
+     * submission via {@code TournamentRuleResolver}.
+     *
      * @param id the tournament UUID
      * @param description new description (applied if not {@code null})
      * @param appointment new appointment (always applied; {@code null} means clear)
      * @param teamCount new team count (applied if &gt; 0)
      * @param fieldCount new field count (applied if &gt; 0)
      * @param matchFormat new match format (applied if not {@code null})
-     * @param scoringRuleId new scoring rule ID (applied if not {@code null})
-     * @param setValidationRuleId new set validation rule ID (applied if not {@code null})
+     * @param scoringRuleId new scoring rule ID (applied if not {@code null}; persisted verbatim)
+     * @param setValidationRuleId new set validation rule ID (applied if not {@code null}; persisted
+     *     verbatim)
      * @param matchGeneratorId new match generator ID (applied if not {@code null})
      * @param plannedStartTime new planned start time (always applied; {@code null} means clear)
      * @return the updated tournament (never {@code null})
      * @throws NoSuchElementException if the tournament does not exist for the current tenant
      * @throws ConflictException if the tournament is not in DRAFT status (AC4)
-     * @throws IllegalArgumentException if any bean ID is not registered or matchFormat is invalid
+     * @throws IllegalArgumentException if matchFormat is invalid or matchGeneratorId is not
+     *     registered
      */
     @Override
     public Tournament updateTournament(
@@ -237,11 +242,7 @@ public class DefaultTournamentService implements TournamentService {
         }
         tournament.setPlannedStartTime(plannedStartTime);
 
-        validateBeanIds(
-                tournament.getMatchFormat(),
-                tournament.getScoringRuleId(),
-                tournament.getSetValidationRuleId(),
-                tournament.getMatchGeneratorId());
+        validateBeanIds(tournament.getMatchFormat(), tournament.getMatchGeneratorId());
 
         return tournamentRepository.save(tournament);
     }
@@ -286,14 +287,19 @@ public class DefaultTournamentService implements TournamentService {
     // Helpers
     // -------------------------------------------------------------------------
 
-    private void validateBeanIds(
-            String matchFormat,
-            String scoringRuleId,
-            String setValidationRuleId,
-            String matchGeneratorId) {
+    /**
+     * Validates the match format enum and the match generator bean ID.
+     *
+     * <p>scoringRuleId and setValidationRuleId are intentionally NOT validated here (E22S02, DEC-40
+     * Approach A boundary fix) — their validity is checked downstream at first score submission by
+     * {@code TournamentRuleResolver}.
+     *
+     * @param matchFormat the match format persisted name
+     * @param matchGeneratorId the Spring bean ID of the match generator
+     * @throws IllegalArgumentException if matchFormat is invalid or matchGeneratorId is unknown
+     */
+    private void validateBeanIds(String matchFormat, String matchGeneratorId) {
         MatchFormat.fromPersistedName(matchFormat);
-        scoringRuleRegistry.get(scoringRuleId);
-        setValidationRuleRegistry.get(setValidationRuleId);
         matchGeneratorRegistry.get(matchGeneratorId);
     }
 }
