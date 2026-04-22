@@ -1,9 +1,9 @@
 package de.vvwt.tm.infrastructure.score;
 
-import de.vvwt.tm.domain.CascadeRecomputeService;
 import de.vvwt.tm.infrastructure.score.dto.MatchScoreResponse;
 import de.vvwt.tm.infrastructure.score.dto.PartialScoreRequest;
 import de.vvwt.tm.infrastructure.score.dto.SetSubmitRequest;
+import de.vvwt.tm.scoring.ScoringService;
 import de.vvwt.tm.tournament.Device;
 import de.vvwt.tm.tournament.DeviceRepository;
 import de.vvwt.tm.tournament.Match;
@@ -31,6 +31,14 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Service layer for the scoring tablet score-entry page (E06S06).
  *
+ * <h2>E31S04 atomic cutover (DEC-21 § Atomic cutover protocol)</h2>
+ *
+ * <p>This class was refactored in E31S04 to inject {@link ScoringService} (the public interface
+ * from {@code de.vvwt.tm.scoring}) instead of the deleted legacy {@code
+ * de.vvwt.tm.domain.CascadeRecomputeService}. The substitution is classified as DEC-22 §Decision
+ * refactor-clause Q-1b (type-substitution-with-equivalent-contracts) — NOT DEC-32 mechanical
+ * FQN-rewrite, per Cycle-1 reviewer F-S04-2 reclassification.
+ *
  * <h2>Responsibilities (ACs covered)</h2>
  *
  * <ul>
@@ -38,7 +46,7 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>AC3: Validate device token and field ownership before any operation.
  *   <li>AC4: Build {@link MatchScoreResponse} from match + team names.
  *   <li>AC5: Accept partial (in-progress) score updates and broadcast via WebSocket.
- *   <li>AC7: Submit final set result to {@link CascadeRecomputeService}.
+ *   <li>AC7: Submit final set result to {@link ScoringService}.
  *   <li>AC8: Record {@code source_type=TABLET}, {@code source_device_id} in cascade input.
  *   <li>AC9: Return empty Optional when no active match exists for the field (no-match state).
  *   <li>AC12: Throw {@link ForbiddenException} when device is valid but assigned to a different
@@ -71,11 +79,14 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Partial updates are broadcast directly to {@code /topic/score/field/{fieldNumber}} via
  * WebSocket so every connected tablet on that field sees live score changes without polling.
  *
- * @see CascadeRecomputeService
+ * @see ScoringService
  * @see MatchScoreResponse
  * @see <a
  *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E06S06.story.md">Story
  *     E06S06</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E31S04.story.md">Story
+ *     E31S04 — atomic cutover</a>
  */
 @Service
 public class ScoreEntryService {
@@ -107,7 +118,7 @@ public class ScoreEntryService {
     private final MatchRepository matchRepository;
     private final TeamAvatarRepository teamAvatarRepository;
     private final TeamRepository teamRepository;
-    private final CascadeRecomputeService cascadeRecomputeService;
+    private final ScoringService scoringService;
     private final SimpMessagingTemplate messagingTemplate;
 
     /** Constructor injection of all collaborators. */
@@ -118,7 +129,7 @@ public class ScoreEntryService {
             MatchRepository matchRepository,
             TeamAvatarRepository teamAvatarRepository,
             TeamRepository teamRepository,
-            CascadeRecomputeService cascadeRecomputeService,
+            ScoringService scoringService,
             SimpMessagingTemplate messagingTemplate) {
         this.deviceRepository = deviceRepository;
         this.tournamentRepository = tournamentRepository;
@@ -126,7 +137,7 @@ public class ScoreEntryService {
         this.matchRepository = matchRepository;
         this.teamAvatarRepository = teamAvatarRepository;
         this.teamRepository = teamRepository;
-        this.cascadeRecomputeService = cascadeRecomputeService;
+        this.scoringService = scoringService;
         this.messagingTemplate = messagingTemplate;
     }
 
@@ -218,26 +229,44 @@ public class ScoreEntryService {
     // -------------------------------------------------------------------------
 
     /**
-     * Submits a final set result, invoking the cascade recompute (AC7, AC8).
+     * Submits a final set result, invoking the scoring cascade via {@link ScoringService} (AC7,
+     * AC8).
      *
-     * <p>Validates the device token (AC8/AC12), then delegates to {@link
-     * CascadeRecomputeService#registerMatchResult} with {@code sourceType=TABLET} and {@code
-     * sourceDeviceId} set to the device's UUID string (AC8).
+     * <p>Validates the device token (AC8/AC12), resolves the match to obtain the {@code
+     * tournamentId} required by the DEC-37 Clause B lock-first contract, then delegates to {@link
+     * ScoringService#registerMatchResult} with {@code sourceType=TABLET} and {@code sourceDeviceId}
+     * set to the device's UUID string (AC8).
+     *
+     * <p>The {@code tournamentId} is resolved from the match's {@code getTournamentId()} field —
+     * the match row is loaded from the repository using the {@code matchId} from the request. This
+     * is required because {@link de.vvwt.tm.scoring.internal.DefaultScoringService} acquires a
+     * pessimistic DB row-lock on the tournament row as its FIRST action (DEC-37 Clause B), which
+     * requires a non-null {@code tournamentId} in the {@link SetResultInput}.
      *
      * @param request the set submission request
      * @throws UnauthorizedException if the device token is invalid or unassigned (AC8)
      * @throws ForbiddenException if the device is valid but assigned to a different field (AC12)
-     * @throws de.vvwt.tm.domain.ValidationException if the set score is invalid (AC6)
+     * @throws de.vvwt.tm.tournament.exceptions.ValidationException if the set score is invalid
+     *     (AC6)
+     * @throws IllegalArgumentException if the match is not found
      */
     @Transactional
     public void submitSetResult(SetSubmitRequest request) {
         Device device = validateDeviceTokenAndReturn(request.deviceToken());
 
+        // Resolve match to obtain tournamentId for DEC-37 Clause B lock-first contract
+        Match match =
+                matchRepository
+                        .findById(request.matchId())
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Match not found: " + request.matchId()));
+        UUID tournamentId = match.getTournamentId();
+
         SetResultInput input =
                 new SetResultInput(
-                        null, // tournamentId — null for legacy ScoreEntryService path (E31S03:
-                        // legacy caller; DEC-37 lock-first requires non-null; wired to
-                        // CascadeRecomputeService which derives tournamentId from the match)
+                        tournamentId, // required by DefaultScoringService (DEC-37 Clause B)
                         request.matchId(),
                         request.setIndex(),
                         request.team1Points(),
@@ -248,12 +277,14 @@ public class ScoreEntryService {
                         device.getId().toString()); // sourceDeviceId = device UUID (AC8)
 
         log.debug(
-                "[E06S06] Submitting set result for matchId={} setIndex={} by deviceId={}",
+                "[E06S06] Submitting set result for matchId={} setIndex={} by deviceId={}"
+                        + " tournamentId={}",
                 request.matchId(),
                 request.setIndex(),
-                device.getId());
+                device.getId(),
+                tournamentId);
 
-        cascadeRecomputeService.registerMatchResult(input);
+        scoringService.registerMatchResult(input);
     }
 
     // -------------------------------------------------------------------------
@@ -360,7 +391,7 @@ public class ScoreEntryService {
                         : null;
 
         // Determine current set index from match state (0 for fresh matches)
-        int currentSetIndex = 0; // default; cascade service manages set progression
+        int currentSetIndex = 0; // default; scoring service manages set progression
 
         MatchScoreResponse response =
                 new MatchScoreResponse(

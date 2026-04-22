@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.domain.CascadeRecomputeService;
+import de.vvwt.tm.scoring.ScoringService;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tournament.Match;
 import de.vvwt.tm.tournament.MatchFormat;
@@ -95,7 +95,7 @@ class WebSocketEventBridgeIT {
 
     @LocalServerPort private int port;
 
-    @Autowired private CascadeRecomputeService cascadeService;
+    @Autowired private ScoringService scoringService;
     @Autowired private TenantContextTestSupport.Binder tenantContextBinder;
     @Autowired private TournamentRepository tournamentRepository;
     @Autowired private PhaseRepository phaseRepository;
@@ -105,11 +105,14 @@ class WebSocketEventBridgeIT {
 
     private UUID defaultTenantId;
     private UUID matchId;
+    private UUID tournamentId;
 
     @BeforeEach
     void setUp() {
         defaultTenantId = tenantContextBinder.bindDefaultTenant();
-        matchId = createMinimalFixture();
+        UUID[] ids = createMinimalFixture();
+        tournamentId = ids[0];
+        matchId = ids[1];
     }
 
     @AfterEach
@@ -175,10 +178,11 @@ class WebSocketEventBridgeIT {
             // Small pause to ensure subscription is registered before triggering the event
             Thread.sleep(200);
 
-            // Trigger domain event via service layer (real commit → AFTER_COMMIT listener fires)
+            // Trigger domain event via scoring service (E31S04 cutover — ScoringService interface)
             // BEST_OF_1: setIndex=0 is the deciding set, target=15 (standardVolleyball)
-            cascadeService.registerMatchResult(
-                    SetResultInput.legacy(matchId, 0, 15, 10, null, null));
+            // tournamentId required by DefaultScoringService (DEC-37 Clause B lock-first contract)
+            scoringService.registerMatchResult(
+                    SetResultInput.withTournament(tournamentId, matchId, 0, 15, 10, null, null));
 
             // Assert: client receives EventMessage within 2 seconds (AC11)
             Map<?, ?> received = receivedMessages.poll(2, TimeUnit.SECONDS);
@@ -216,12 +220,13 @@ class WebSocketEventBridgeIT {
 
     /**
      * Creates the minimal set of entities needed to trigger a {@link
-     * de.vvwt.tm.domain.event.MatchResultChangedEvent}: 1 tournament (DRAFT status to avoid DEC-5
-     * active-tournament constraint), 1 phase, 2 teams, 2 avatars, 1 BEST_OF_1 match.
+     * de.vvwt.tm.tournament.events.MatchResultChangedEvent}: 1 tournament (DRAFT status to avoid
+     * DEC-5 active-tournament constraint), 1 phase, 2 teams, 2 avatars, 1 BEST_OF_1 match.
      *
-     * @return the UUID of the created match
+     * @return array of [tournamentId, matchId] — tournamentId required for DEC-37 Clause B
+     *     lock-first contract (E31S04 cutover)
      */
-    private UUID createMinimalFixture() {
+    private UUID[] createMinimalFixture() {
         UUID tournamentId = UUID.randomUUID();
         tournamentRepository.save(
                 new Tournament(
@@ -315,7 +320,7 @@ class WebSocketEventBridgeIT {
                         null,
                         LocalDateTime.now()));
 
-        return mId;
+        return new UUID[] {tournamentId, mId};
     }
 
     private String basicAuth(String username, String password) {
