@@ -29,19 +29,20 @@ import org.springframework.web.multipart.MultipartFile;
  * (Primary-Adapter-Isolation) and DEC-22 §refactor-clause (Q-1b whole-class relocation,
  * byte-identical body). Analog to E22S07 tournament controller relocation.
  *
- * <h2>Endpoints</h2>
+ * <h2>Endpoints (E23S05 Cutover-1 — new URL)</h2>
  *
  * <ul>
- *   <li>POST /api/tournaments/{tournamentId}/teams/{teamId}/photo — upload (AC1)
- *   <li>GET /api/tournaments/{tournamentId}/teams/{teamId}/photo — retrieve (AC2)
- *   <li>DELETE /api/tournaments/{tournamentId}/teams/{teamId}/photo — delete (AC3)
+ *   <li>POST /api/photo/tournaments/{tournamentId}/teams/{teamId} — upload (AC1)
+ *   <li>GET /api/photo/tournaments/{tournamentId}/teams/{teamId} — retrieve (AC2)
+ *   <li>DELETE /api/photo/tournaments/{tournamentId}/teams/{teamId} — delete (AC3)
  * </ul>
  *
- * <h2>URL preservation (AC-URL-UNCHANGED)</h2>
+ * <h2>URL rename (E23S05 Cutover-1)</h2>
  *
- * <p>URL paths preserved verbatim during parallel phase. URL rename to {@code
- * /api/photo/tournaments/{tid}/teams/{teamId}} deferred to E23S05 Cutover-1 per DEC-21 (no global
- * cutover of multiple contexts simultaneously).
+ * <p>URL renamed atomically at E23S05 Cutover-1 from {@code
+ * /api/tournaments/{tid}/teams/{teamId}/photo} to {@code
+ * /api/photo/tournaments/{tid}/teams/{teamId}} per DEC-21 per-context atomic cutover, DEC-40
+ * precedent (E22S08 URL-rename pattern), and DEC-22 Q-1b §refactor-clause.
  *
  * <h2>Authentication (AC-SECURITY-SUBSTANTIVE)</h2>
  *
@@ -71,12 +72,11 @@ import org.springframework.web.multipart.MultipartFile;
  *       GlobalExceptionHandler)
  * </ul>
  *
- * <h2>Parallel-phase coexistence (AC-LEGACY-DELETION-DEFERRED)</h2>
+ * <h2>Post-Cutover-1 (E23S05)</h2>
  *
- * <p>The legacy {@code de.vvwt.tm.infrastructure.web.photo.TeamPhotoController} REMAINS on disk
- * during the parallel phase. {@link de.vvwt.tm.TournamentManagerApplication} excludes it from the
- * component scan via {@code @ComponentScan(excludeFilters)} to prevent ambiguous URL mapping.
- * Legacy class deletion and exclude-filter removal happen atomically at E23S05 Cutover-1.
+ * <p>The legacy {@code de.vvwt.tm.infrastructure.web.photo.TeamPhotoController} has been deleted at
+ * E23S05 Cutover-1. The {@code @ComponentScan(excludeFilters)} in {@link
+ * de.vvwt.tm.TournamentManagerApplication} has been removed atomically.
  *
  * <h2>Trigger-β check (AC-TRIGGER-BETA-CHECK)</h2>
  *
@@ -97,9 +97,10 @@ import org.springframework.web.multipart.MultipartFile;
  * @see de.vvwt.tm.auth.internal.SecurityConfig
  * @see DEC-40
  * @see E23S04
+ * @see E23S05
  */
 @RestController
-@RequestMapping("/api/tournaments/{tournamentId}/teams/{teamId}/photo")
+@RequestMapping("/api/photo/tournaments/{tournamentId}/teams/{teamId}")
 public class TeamPhotoController {
 
     private final PhotoStorageService photoStorageService;

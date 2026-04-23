@@ -7,7 +7,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import de.vvwt.tm.domain.photo.PhotoStorageService;
+import de.vvwt.tm.photo.PhotoStorageService;
 import de.vvwt.tm.photo.PhotoUrlBuilder;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
@@ -301,7 +301,7 @@ class CertificateAssemblerTest {
                 new PhotoStorageService.PhotoResult(
                         new ByteArrayInputStream(fakePhotoBytes),
                         "image/jpeg",
-                        new de.vvwt.tm.domain.photo.PhotoFileMetadata(
+                        new de.vvwt.tm.photo.PhotoFileMetadata(
                                 "photo.jpg", fakePhotoBytes.length, java.time.Instant.now()));
         when(photoStorageService.retrieve(TOURNAMENT_ID, TEAM_A_ID))
                 .thenReturn(Optional.of(photoResult));
@@ -331,14 +331,14 @@ class CertificateAssemblerTest {
     @DisplayName("AC6 (HTML): buildPhotoUrl returns API URL when photo exists")
     void buildPhotoUrl_returnsApiUrl_whenPhotoExists() {
         when(photoStorageService.hasPhoto(TOURNAMENT_ID, TEAM_A_ID)).thenReturn(true);
-        // Stub returns OLD URL pattern (byte-identical to prior hardcode — AC-BEHAVIOR-PRESERVED)
+        // Stub returns NEW URL pattern (E23S05 Cutover-1 — DEC-21 + DEC-40 precedent)
         when(photoUrlBuilder.buildTeamPhotoUrl(TOURNAMENT_ID, TEAM_A_ID))
-                .thenReturn("/api/tournaments/" + TOURNAMENT_ID + "/teams/" + TEAM_A_ID + "/photo");
+                .thenReturn("/api/photo/tournaments/" + TOURNAMENT_ID + "/teams/" + TEAM_A_ID);
 
         String result = assembler.buildPhotoUrl(TOURNAMENT_ID, TEAM_A_ID);
 
         assertThat(result)
-                .isEqualTo("/api/tournaments/" + TOURNAMENT_ID + "/teams/" + TEAM_A_ID + "/photo");
+                .isEqualTo("/api/photo/tournaments/" + TOURNAMENT_ID + "/teams/" + TEAM_A_ID);
     }
 
     @Test

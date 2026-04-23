@@ -3,16 +3,13 @@ package de.vvwt.tm.web.photo;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.photo.PhotoStorageService;
 import de.vvwt.tm.tournament.internal.dto.TeamCreateRequest;
 import de.vvwt.tm.tournament.internal.dto.TeamResponse;
 import de.vvwt.tm.tournament.internal.dto.TournamentCreateRequest;
 import de.vvwt.tm.tournament.internal.dto.TournamentResponse;
 import de.vvwt.tm.web.WebModuleTestConfig;
-import java.io.InputStream;
 import java.net.URI;
 import java.time.Instant;
-import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -39,8 +36,8 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
 /**
- * Integration tests for {@link TeamPhotoController} — E23S04: Q-1b relocation to {@code
- * de.vvwt.tm.web.photo}.
+ * Integration tests for {@link TeamPhotoController} — E23S05: Cutover-1 URL rename to {@code
+ * /api/photo/tournaments/{tid}/teams/{teamId}}.
  *
  * <p>Relocated whole-class from {@code de.vvwt.tm.infrastructure.web.photo.TeamPhotoControllerIT}
  * to {@code de.vvwt.tm.web.photo} per DEC-40 Clause D (Primary-Adapter-Isolation) and DEC-22
@@ -92,6 +89,7 @@ import org.springframework.util.MultiValueMap;
  * @see DEC-38
  * @see DEC-40
  * @see E23S04
+ * @see E23S05
  */
 @ApplicationModuleTest(
         mode = ApplicationModuleTest.BootstrapMode.ALL_DEPENDENCIES,
@@ -465,7 +463,7 @@ class TeamPhotoControllerIT {
     // =========================================================================
 
     private String photoUrl(UUID tournamentId, UUID teamId) {
-        return baseUrl + "/api/tournaments/" + tournamentId + "/teams/" + teamId + "/photo";
+        return baseUrl + "/api/photo/tournaments/" + tournamentId + "/teams/" + teamId;
     }
 
     private UUID createTournament(String description) throws Exception {
@@ -563,7 +561,7 @@ class TeamPhotoControllerIT {
     record PhotoMetadataResponse(String filename, long sizeBytes, Instant uploadedAt) {}
 
     // =========================================================================
-    // Test configuration — known test admin password + legacy PhotoStorageService bridge
+    // Test configuration — known test admin password (E23S05: legacy bridge removed)
     // =========================================================================
 
     @TestConfiguration
@@ -574,58 +572,6 @@ class TeamPhotoControllerIT {
         AdminCredentialsProvider testAdminCredentialsProvider(PasswordEncoder encoder) {
             String hash = encoder.encode(TEST_PASSWORD);
             return () -> hash;
-        }
-
-        /**
-         * Bridges the legacy {@code de.vvwt.tm.domain.photo.PhotoStorageService} interface (used by
-         * {@code TeamController} for the {@code hasPhoto} AC4 check) to the real {@code
-         * de.vvwt.tm.photo.PhotoStorageService} bean loaded by {@code @ApplicationModuleTest(web)}.
-         *
-         * <p>During the parallel phase, {@code TeamController} still injects the legacy type. The
-         * {@code web} module's test context provides the real {@code DefaultPhotoStorageService}
-         * bean (of type {@code de.vvwt.tm.photo.PhotoStorageService}) because {@code "photo"} is in
-         * {@code web.allowedDependencies}. This {@code @Primary} bridge overrides the Mockito mock
-         * in {@link WebModuleTestConfig}, allowing AC4 assertions to verify real {@code hasPhoto}
-         * state. Removed at E23S05 Cutover-1 when {@code TeamController} is updated to use the
-         * module service directly.
-         *
-         * @param modulePhotoService the real {@code de.vvwt.tm.photo.PhotoStorageService} bean
-         * @return a {@code de.vvwt.tm.domain.photo.PhotoStorageService} that delegates {@code
-         *     hasPhoto} to the module service
-         */
-        @Bean
-        @Primary
-        de.vvwt.tm.domain.photo.PhotoStorageService legacyPhotoStorageServiceBridge(
-                PhotoStorageService modulePhotoService) {
-            return new de.vvwt.tm.domain.photo.PhotoStorageService() {
-                @Override
-                public de.vvwt.tm.domain.photo.PhotoFileMetadata upload(
-                        UUID tournamentId,
-                        UUID teamId,
-                        String filename,
-                        InputStream inputStream,
-                        long sizeBytes) {
-                    throw new UnsupportedOperationException(
-                            "Legacy bridge: upload not delegated in E23S04 IT");
-                }
-
-                @Override
-                public Optional<PhotoResult> retrieve(UUID tournamentId, UUID teamId) {
-                    throw new UnsupportedOperationException(
-                            "Legacy bridge: retrieve not delegated in E23S04 IT");
-                }
-
-                @Override
-                public boolean delete(UUID tournamentId, UUID teamId) {
-                    throw new UnsupportedOperationException(
-                            "Legacy bridge: delete not delegated in E23S04 IT");
-                }
-
-                @Override
-                public boolean hasPhoto(UUID tournamentId, UUID teamId) {
-                    return modulePhotoService.hasPhoto(tournamentId, teamId);
-                }
-            };
         }
     }
 }

@@ -70,23 +70,23 @@ describe('de.json — photo translations (AC8 — E12S03)', () => {
 // photoStore — getPhotoUrl
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('photoStore — getPhotoUrl (E12S03)', () => {
+describe('photoStore — getPhotoUrl (E12S03, E23S05 Cutover-1)', () => {
   const TOURNAMENT = 'aaaa-bbbb';
   const TEAM = 'cccc-dddd';
 
   it('returns the base URL without cache bust when bust is omitted', () => {
     const url = getPhotoUrl(TOURNAMENT, TEAM);
-    expect(url).toBe(`/api/tournaments/${TOURNAMENT}/teams/${TEAM}/photo`);
+    expect(url).toBe(`/api/photo/tournaments/${TOURNAMENT}/teams/${TEAM}`);
   });
 
   it('appends a ?t= query parameter when bust value is provided', () => {
     const url = getPhotoUrl(TOURNAMENT, TEAM, 12345);
-    expect(url).toBe(`/api/tournaments/${TOURNAMENT}/teams/${TEAM}/photo?t=12345`);
+    expect(url).toBe(`/api/photo/tournaments/${TOURNAMENT}/teams/${TEAM}?t=12345`);
   });
 
   it('handles different tournamentId and teamId values', () => {
     const url = getPhotoUrl('t1', 'tm2');
-    expect(url).toContain('/api/tournaments/t1/teams/tm2/photo');
+    expect(url).toContain('/api/photo/tournaments/t1/teams/tm2');
   });
 });
 

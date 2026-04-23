@@ -22,6 +22,7 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
 /**
@@ -60,6 +61,7 @@ import org.springframework.stereotype.Service;
  * @see PhotoStorageConfig
  * @since E12S02
  */
+@Primary
 @Service
 public class DefaultPhotoStorageService implements PhotoStorageService {
 

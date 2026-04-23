@@ -2,7 +2,7 @@ package de.vvwt.tm.infrastructure.print;
 
 import com.samskivert.mustache.Mustache;
 import com.samskivert.mustache.MustacheException;
-import de.vvwt.tm.domain.photo.PhotoStorageService;
+import de.vvwt.tm.photo.PhotoStorageService;
 import de.vvwt.tm.photo.PhotoUrlBuilder;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;

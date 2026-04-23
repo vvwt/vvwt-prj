@@ -1,7 +1,7 @@
 package de.vvwt.tm.web;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.domain.photo.PhotoStorageService;
+import de.vvwt.tm.photo.PhotoStorageService;
 import de.vvwt.tm.scoring.ScoringRuleRegistry;
 import de.vvwt.tm.scoring.SetValidationRuleRegistry;
 import de.vvwt.tm.scoring.internal.TournamentRuleResolver;
@@ -249,8 +249,14 @@ public class WebModuleTestConfig {
     // =========================================================================
 
     /**
-     * Mockito mock for {@link PhotoStorageService} — satisfies {@code TeamController}'s constructor
-     * injection.
+     * Mockito mock for {@link PhotoStorageService} — kept for legacy compatibility with slice
+     * tests.
+     *
+     * <p>Post-E23S05 Cutover-1: the production {@code defaultPhotoStorageService} bean (annotated
+     * {@code @Primary}) wins for autowiring; this non-primary mock bean coexists in the context but
+     * is not injected into production beans. {@code TeamPhotoControllerIT} uses the real
+     * implementation; other ITs that list teams will get {@code hasPhoto=false} from the real bean
+     * (filesystem lookup with no files present — safe for non-photo ITs).
      */
     @Bean
     public PhotoStorageService photoStorageService() {
