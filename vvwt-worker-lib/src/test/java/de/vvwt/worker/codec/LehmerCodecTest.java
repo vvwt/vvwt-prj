@@ -39,7 +39,9 @@ class LehmerCodecTest {
     }
 
     @Test
-    @DisplayName("Bijection: rankToPermutation(permutationToRank(p), 4) == p for all 24 permutations of n=4")
+    @DisplayName(
+            "Bijection: rankToPermutation(permutationToRank(p), 4) == p for all 24 permutations of"
+                    + " n=4")
     void bijection_roundTrip_allPermutationsN4_reverseDirection() {
         int n = 4;
         for (long r = 0; r < LehmerCodec.FACTORIAL[n]; r++) {
@@ -76,7 +78,9 @@ class LehmerCodecTest {
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("Invariant: lex-order monotonicity — rank(r) <lex rank(r+1) for all consecutive pairs, n=5")
+    @DisplayName(
+            "Invariant: lex-order monotonicity — rank(r) <lex rank(r+1) for all consecutive pairs,"
+                    + " n=5")
     void invariant_lexOrderMonotonicity_allConsecutivePairsN5() {
         int n = 5;
         long nFactorial = LehmerCodec.FACTORIAL[n];
@@ -84,7 +88,10 @@ class LehmerCodecTest {
             int[] permR = LehmerCodec.rankToPermutation(r, n);
             int[] permRPlus1 = LehmerCodec.rankToPermutation(r + 1, n);
             assertThat(lexicographicCompare(permR, permRPlus1))
-                    .as("Lex-order monotonicity invariant: perm[r=%d] must be lex-less-than perm[r+1=%d]", r, r + 1)
+                    .as(
+                            "Lex-order monotonicity invariant: perm[r=%d] must be lex-less-than"
+                                    + " perm[r+1=%d]",
+                            r, r + 1)
                     .isNegative();
         }
     }
@@ -97,7 +104,9 @@ class LehmerCodecTest {
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("Invariant: valid-permutation — output is always a valid permutation of [0, n-1] for n in [1,6]")
+    @DisplayName(
+            "Invariant: valid-permutation — output is always a valid permutation of [0, n-1] for n"
+                    + " in [1,6]")
     void invariant_validPermutation_allRanksNOneToNSix() {
         for (int n = 1; n <= 6; n++) {
             long nFactorial = LehmerCodec.FACTORIAL[n];
@@ -109,7 +118,10 @@ class LehmerCodecTest {
                         .doesNotHaveDuplicates();
                 for (int elem : perm) {
                     assertThat(elem)
-                            .as("Valid-permutation: element must be in [0, n-1=%d] for n=%d rank=%d", n - 1, n, r)
+                            .as(
+                                    "Valid-permutation: element must be in [0, n-1=%d] for n=%d"
+                                            + " rank=%d",
+                                    n - 1, n, r)
                             .isBetween(0, n - 1);
                 }
             }
@@ -123,14 +135,19 @@ class LehmerCodecTest {
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("Invariant: factorial-recurrence — FACTORIAL[n] = n * FACTORIAL[n-1] for all n in [0,17]")
+    @DisplayName(
+            "Invariant: factorial-recurrence — FACTORIAL[n] = n * FACTORIAL[n-1] for all n in"
+                    + " [0,17]")
     void invariant_factorialTableRecurrence_fullRange() {
         assertThat(LehmerCodec.FACTORIAL[0])
                 .as("Factorial base-case invariant: FACTORIAL[0] must equal 1 (empty product)")
                 .isEqualTo(1L);
         for (int n = 1; n <= 17; n++) {
             assertThat(LehmerCodec.FACTORIAL[n])
-                    .as("Factorial recurrence invariant: FACTORIAL[%d] must equal %d * FACTORIAL[%d]", n, n, n - 1)
+                    .as(
+                            "Factorial recurrence invariant: FACTORIAL[%d] must equal %d *"
+                                    + " FACTORIAL[%d]",
+                            n, n, n - 1)
                     .isEqualTo((long) n * LehmerCodec.FACTORIAL[n - 1]);
         }
     }
@@ -154,7 +171,10 @@ class LehmerCodecTest {
         }
         for (int r = 0; r < nFactorial; r++) {
             assertThat(seen[r])
-                    .as("Surjection invariant: rank=%d must be reachable via permutationToRank for n=%d", r, n)
+                    .as(
+                            "Surjection invariant: rank=%d must be reachable via permutationToRank"
+                                    + " for n=%d",
+                            r, n)
                     .isTrue();
         }
     }
@@ -166,14 +186,17 @@ class LehmerCodecTest {
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("Invariant: guard-clause — n < 1 in rankToPermutation throws IAE (lower domain boundary)")
+    @DisplayName(
+            "Invariant: guard-clause — n < 1 in rankToPermutation throws IAE (lower domain"
+                    + " boundary)")
     void invariant_guardClause_rankToPermutation_nZero() {
-        assertThatIllegalArgumentException()
-                .isThrownBy(() -> LehmerCodec.rankToPermutation(0L, 0));
+        assertThatIllegalArgumentException().isThrownBy(() -> LehmerCodec.rankToPermutation(0L, 0));
     }
 
     @Test
-    @DisplayName("Invariant: guard-clause — n > 17 in rankToPermutation throws IAE (upper domain boundary)")
+    @DisplayName(
+            "Invariant: guard-clause — n > 17 in rankToPermutation throws IAE (upper domain"
+                    + " boundary)")
     void invariant_guardClause_rankToPermutation_nEighteen() {
         assertThatIllegalArgumentException()
                 .isThrownBy(() -> LehmerCodec.rankToPermutation(0L, 18));
@@ -187,7 +210,9 @@ class LehmerCodecTest {
     }
 
     @Test
-    @DisplayName("Invariant: guard-clause — rank == n! throws IAE for all n in [1,5] (rank domain upper boundary)")
+    @DisplayName(
+            "Invariant: guard-clause — rank == n! throws IAE for all n in [1,5] (rank domain upper"
+                    + " boundary)")
     void invariant_guardClause_rankToPermutation_rankExactlyNFactorial_allN() {
         for (int n = 1; n <= 5; n++) {
             final int fn = n;
@@ -200,8 +225,7 @@ class LehmerCodecTest {
     @Test
     @DisplayName("Invariant: guard-clause — null array in permutationToRank throws IAE")
     void invariant_guardClause_permutationToRank_nullArray() {
-        assertThatIllegalArgumentException()
-                .isThrownBy(() -> LehmerCodec.permutationToRank(null));
+        assertThatIllegalArgumentException().isThrownBy(() -> LehmerCodec.permutationToRank(null));
     }
 
     @Test
@@ -212,7 +236,8 @@ class LehmerCodecTest {
     }
 
     @Test
-    @DisplayName("Invariant: guard-clause — length-18 array in permutationToRank throws IAE (n > 17)")
+    @DisplayName(
+            "Invariant: guard-clause — length-18 array in permutationToRank throws IAE (n > 17)")
     void invariant_guardClause_permutationToRank_tooLong() {
         int[] tooLong = new int[18];
         for (int i = 0; i < 18; i++) tooLong[i] = i;
@@ -221,30 +246,36 @@ class LehmerCodecTest {
     }
 
     @Test
-    @DisplayName("Invariant: guard-clause — duplicate element in permutationToRank throws IAE for representative cases")
+    @DisplayName(
+            "Invariant: guard-clause — duplicate element in permutationToRank throws IAE for"
+                    + " representative cases")
     void invariant_guardClause_permutationToRank_duplicateElement_representativeCases() {
         // Quantified over 5 representative duplicate patterns of length 3
         int[][] duplicateCases = {{0, 0, 1}, {0, 1, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 1}};
         for (int[] dup : duplicateCases) {
             assertThatIllegalArgumentException()
-                    .as("Guard-clause: duplicate in %s must throw IAE", java.util.Arrays.toString(dup))
+                    .as(
+                            "Guard-clause: duplicate in %s must throw IAE",
+                            java.util.Arrays.toString(dup))
                     .isThrownBy(() -> LehmerCodec.permutationToRank(dup));
         }
     }
 
     @Test
-    @DisplayName("Invariant: guard-clause — out-of-range element in permutationToRank throws IAE (negative, == n, > n)")
+    @DisplayName(
+            "Invariant: guard-clause — out-of-range element in permutationToRank throws IAE"
+                    + " (negative, == n, > n)")
     void invariant_guardClause_permutationToRank_outOfRange_boundaryPattern() {
         // Quantified over three boundary patterns (negative, exact boundary, over boundary)
         assertThatIllegalArgumentException()
                 .as("Guard-clause: negative element must throw IAE")
-                .isThrownBy(() -> LehmerCodec.permutationToRank(new int[]{-1, 0, 1}));
+                .isThrownBy(() -> LehmerCodec.permutationToRank(new int[] {-1, 0, 1}));
         assertThatIllegalArgumentException()
                 .as("Guard-clause: element == n=3 must throw IAE")
-                .isThrownBy(() -> LehmerCodec.permutationToRank(new int[]{0, 1, 3}));
+                .isThrownBy(() -> LehmerCodec.permutationToRank(new int[] {0, 1, 3}));
         assertThatIllegalArgumentException()
                 .as("Guard-clause: element > n=3 must throw IAE")
-                .isThrownBy(() -> LehmerCodec.permutationToRank(new int[]{0, 1, 5}));
+                .isThrownBy(() -> LehmerCodec.permutationToRank(new int[] {0, 1, 5}));
     }
 
     // -------------------------------------------------------------------------

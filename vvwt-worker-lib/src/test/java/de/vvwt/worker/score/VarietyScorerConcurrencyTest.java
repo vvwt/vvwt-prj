@@ -33,16 +33,18 @@ class VarietyScorerConcurrencyTest {
     /**
      * Invariant: score-determinism-invariant is thread-safe.
      *
-     * <p>Formally: for any valid (rowSequence, phaseDef) pair, concurrent invocations of
-     * {@code score(rowSequence, phaseDef)} from multiple threads on a shared {@link VarietyScorer}
-     * instance always return the same value as the single-threaded reference computation — i.e.,
-     * no shared-state corruption occurs when threads call the scorer simultaneously.
+     * <p>Formally: for any valid (rowSequence, phaseDef) pair, concurrent invocations of {@code
+     * score(rowSequence, phaseDef)} from multiple threads on a shared {@link VarietyScorer}
+     * instance always return the same value as the single-threaded reference computation — i.e., no
+     * shared-state corruption occurs when threads call the scorer simultaneously.
      *
      * <p>Quantified over 10 000 concurrent calls (10 threads × 1 000 calls) with deterministic
      * per-thread seeds covering a representative set of phases and permutations.
      */
     @Test
-    @DisplayName("Invariant: score-determinism is thread-safe — 10 threads × 1000 calls with no determinism violations")
+    @DisplayName(
+            "Invariant: score-determinism is thread-safe — 10 threads × 1000 calls with no"
+                    + " determinism violations")
     void invariant_scoreDeterminism_isThreadSafe() throws Exception {
         VarietyScorer scorer = new VarietyScorer();
 
@@ -66,11 +68,18 @@ class VarietyScorerConcurrencyTest {
 
         for (int t = 0; t < THREAD_COUNT; t++) {
             final long seed = t * 31L + 7919L;
-            futures.add(pool.submit(() -> {
-                startGate.await(); // all threads start simultaneously
-                return runDeterminismChecks(scorer, activeMatrix, perms, referenceScores, seed,
-                        violations);
-            }));
+            futures.add(
+                    pool.submit(
+                            () -> {
+                                startGate.await(); // all threads start simultaneously
+                                return runDeterminismChecks(
+                                        scorer,
+                                        activeMatrix,
+                                        perms,
+                                        referenceScores,
+                                        seed,
+                                        violations);
+                            }));
         }
 
         startGate.countDown(); // release all threads at once
@@ -87,8 +96,10 @@ class VarietyScorerConcurrencyTest {
         }
 
         assertThat(violations.get())
-                .as("Thread-safety invariant: score-determinism must hold for all %d concurrent calls;"
-                        + " violations: %s", THREAD_COUNT * CALLS_PER_THREAD, allFailures)
+                .as(
+                        "Thread-safety invariant: score-determinism must hold for all %d concurrent"
+                                + " calls; violations: %s",
+                        THREAD_COUNT * CALLS_PER_THREAD, allFailures)
                 .isZero();
     }
 
@@ -103,7 +114,9 @@ class VarietyScorerConcurrencyTest {
      * <p>Quantified over 10 threads × 1 000 calls each, cycling through all permutations of n=3.
      */
     @Test
-    @DisplayName("Invariant: scoreWithMatrix-determinism is thread-safe — 10 threads × 1000 calls over all n=3 permutations")
+    @DisplayName(
+            "Invariant: scoreWithMatrix-determinism is thread-safe — 10 threads × 1000 calls over"
+                    + " all n=3 permutations")
     void invariant_scoreWithMatrixDeterminism_isThreadSafe_allPermsN3() throws Exception {
         VarietyScorer scorer = new VarietyScorer();
 
@@ -124,20 +137,26 @@ class VarietyScorerConcurrencyTest {
 
         for (int t = 0; t < THREAD_COUNT; t++) {
             final int threadId = t;
-            futures.add(pool.submit(() -> {
-                startGate.await();
-                List<String> failures = new ArrayList<>();
-                for (int i = 0; i < CALLS_PER_THREAD; i++) {
-                    int permIdx = (threadId + i) % perms.length;
-                    double result = scorer.scoreWithMatrix(perms[permIdx], 3, 3, activeMatrix);
-                    if (Double.compare(result, referenceScores[permIdx]) != 0) {
-                        violations.incrementAndGet();
-                        failures.add(String.format("permIdx=%d expected=%.6f got=%.6f",
-                                permIdx, referenceScores[permIdx], result));
-                    }
-                }
-                return failures;
-            }));
+            futures.add(
+                    pool.submit(
+                            () -> {
+                                startGate.await();
+                                List<String> failures = new ArrayList<>();
+                                for (int i = 0; i < CALLS_PER_THREAD; i++) {
+                                    int permIdx = (threadId + i) % perms.length;
+                                    double result =
+                                            scorer.scoreWithMatrix(
+                                                    perms[permIdx], 3, 3, activeMatrix);
+                                    if (Double.compare(result, referenceScores[permIdx]) != 0) {
+                                        violations.incrementAndGet();
+                                        failures.add(
+                                                String.format(
+                                                        "permIdx=%d expected=%.6f got=%.6f",
+                                                        permIdx, referenceScores[permIdx], result));
+                                    }
+                                }
+                                return failures;
+                            }));
         }
 
         startGate.countDown();
@@ -153,8 +172,10 @@ class VarietyScorerConcurrencyTest {
         }
 
         assertThat(violations.get())
-                .as("scoreWithMatrix thread-safety invariant: determinism must hold for all concurrent calls;"
-                        + " violations: %s", allFailures)
+                .as(
+                        "scoreWithMatrix thread-safety invariant: determinism must hold for all"
+                                + " concurrent calls; violations: %s",
+                        allFailures)
                 .isZero();
     }
 
@@ -180,13 +201,17 @@ class VarietyScorerConcurrencyTest {
                 double result = scorer.scoreWithMatrix(perms[permIdx], 4, 4, activeMatrix);
                 if (Double.compare(result, referenceScores[permIdx]) != 0) {
                     violations.incrementAndGet();
-                    failures.add(String.format("permIdx=%d expected=%.6f got=%.6f",
-                            permIdx, referenceScores[permIdx], result));
+                    failures.add(
+                            String.format(
+                                    "permIdx=%d expected=%.6f got=%.6f",
+                                    permIdx, referenceScores[permIdx], result));
                 }
             } catch (Exception ex) {
                 violations.incrementAndGet();
-                failures.add(String.format("permIdx=%d exception %s: %s",
-                        permIdx, ex.getClass().getSimpleName(), ex.getMessage()));
+                failures.add(
+                        String.format(
+                                "permIdx=%d exception %s: %s",
+                                permIdx, ex.getClass().getSimpleName(), ex.getMessage()));
             }
         }
         return failures;
@@ -206,9 +231,13 @@ class VarietyScorerConcurrencyTest {
         while (i < n) {
             if (c[i] < i) {
                 if (i % 2 == 0) {
-                    int tmp = perm[0]; perm[0] = perm[i]; perm[i] = tmp;
+                    int tmp = perm[0];
+                    perm[0] = perm[i];
+                    perm[i] = tmp;
                 } else {
-                    int tmp = perm[c[i]]; perm[c[i]] = perm[i]; perm[i] = tmp;
+                    int tmp = perm[c[i]];
+                    perm[c[i]] = perm[i];
+                    perm[i] = tmp;
                 }
                 result[idx++] = perm.clone();
                 c[i]++;

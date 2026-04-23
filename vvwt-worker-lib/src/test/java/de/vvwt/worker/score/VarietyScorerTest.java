@@ -15,9 +15,9 @@ import org.junit.jupiter.api.Test;
 /**
  * Spec-Anchored tests for {@link VarietyScorer}.
  *
- * <p>Replaces the Snapshot-Driven corpus (DEC-41 D-4 audit: E35S01). Satisfies DEC-41 criteria
- * (b) (round-trip/correctness) and (d) (named algebraic invariants quantified over representative
- * or exhaustive input sets).
+ * <p>Replaces the Snapshot-Driven corpus (DEC-41 D-4 audit: E35S01). Satisfies DEC-41 criteria (b)
+ * (round-trip/correctness) and (d) (named algebraic invariants quantified over representative or
+ * exhaustive input sets).
  *
  * <p>{@link #overflowRegressionN17} (Spec-Anchored-b) is retained unchanged from the pre-audit
  * corpus per AC7: it verifies the analytically-known correct result 1.0e10 against the new
@@ -54,7 +54,9 @@ class VarietyScorerTest {
     // =========================================================================
 
     @Test
-    @DisplayName("Invariant: single-run-score — always-active avatar with k rows scores k, for k in [1,8]")
+    @DisplayName(
+            "Invariant: single-run-score — always-active avatar with k rows scores k, for k in"
+                    + " [1,8]")
     void invariant_singleRunScore_alwaysActiveAvatar() {
         for (int k = 1; k <= 8; k++) {
             List<List<Integer>> rows = new ArrayList<>();
@@ -67,7 +69,9 @@ class VarietyScorerTest {
 
             double result = scorer.score(perm, phase);
             assertThat(result)
-                    .as("Single-run-score invariant: always-active avatar with k=%d rows must score k=%d",
+                    .as(
+                            "Single-run-score invariant: always-active avatar with k=%d rows must"
+                                    + " score k=%d",
                             k, k)
                     .isEqualTo((double) k);
         }
@@ -81,9 +85,11 @@ class VarietyScorerTest {
     // =========================================================================
 
     @Test
-    @DisplayName("Invariant: alternating-state-score — alternating avatar scores 1.0 for rowCounts {2, 4}")
+    @DisplayName(
+            "Invariant: alternating-state-score — alternating avatar scores 1.0 for rowCounts {2,"
+                    + " 4}")
     void invariant_alternatingStateScore_twoRunAvatar() {
-        for (int rowCount : new int[]{2, 4}) {
+        for (int rowCount : new int[] {2, 4}) {
             List<List<Integer>> rows = new ArrayList<>();
             for (int r = 0; r < rowCount; r++) {
                 // avatar 0 alternates: active on even rows, idle on odd rows
@@ -95,7 +101,9 @@ class VarietyScorerTest {
 
             double result = scorer.score(perm, phase);
             assertThat(result)
-                    .as("Alternating-state-score invariant: each run = 1, product must be 1.0 for rowCount=%d",
+                    .as(
+                            "Alternating-state-score invariant: each run = 1, product must be 1.0"
+                                    + " for rowCount=%d",
                             rowCount)
                     .isEqualTo(1.0);
         }
@@ -109,7 +117,8 @@ class VarietyScorerTest {
     // =========================================================================
 
     @Test
-    @DisplayName("Criterion (b): 2-avatar 3-row one-all-active one-all-idle scores 3.0 analytically")
+    @DisplayName(
+            "Criterion (b): 2-avatar 3-row one-all-active one-all-idle scores 3.0 analytically")
     void invariant_multiAvatarAverage_scoreFormula() {
         // avatar 0: active in all 3 rows; avatar 1: idle in all 3 rows
         List<List<Integer>> rows = new ArrayList<>();
@@ -124,7 +133,9 @@ class VarietyScorerTest {
         // avatar 1: single run of 3 idle   → product = 3
         // score = (3 + 3) / 2 = 3.0
         assertThat(result)
-                .as("Multi-avatar-average invariant: 2 avatars each with single run of 3 must score 3.0")
+                .as(
+                        "Multi-avatar-average invariant: 2 avatars each with single run of 3 must"
+                                + " score 3.0")
                 .isEqualTo(3.0);
     }
 
@@ -153,7 +164,7 @@ class VarietyScorerTest {
     @DisplayName("Invariant: single-row-single-avatar-active — score is 1.0")
     void invariant_singleRowSingleAvatarActive_scoreIsOne() {
         CanonicalPhaseDef phase = new CanonicalPhaseDef(1, 1, List.of(List.of(0)));
-        double result = scorer.score(new int[]{0}, phase);
+        double result = scorer.score(new int[] {0}, phase);
         assertThat(result)
                 .as("Single-row-single-avatar-active invariant: single run of 1 must score 1.0")
                 .isEqualTo(1.0);
@@ -169,7 +180,7 @@ class VarietyScorerTest {
     @DisplayName("Invariant: single-row-single-avatar-idle — score is 1.0")
     void invariant_singleRowSingleAvatarIdle_scoreIsOne() {
         CanonicalPhaseDef phase = new CanonicalPhaseDef(1, 1, List.of(List.of()));
-        double result = scorer.score(new int[]{0}, phase);
+        double result = scorer.score(new int[] {0}, phase);
         assertThat(result)
                 .as("Single-row-single-avatar-idle invariant: single idle run of 1 must score 1.0")
                 .isEqualTo(1.0);
@@ -183,13 +194,12 @@ class VarietyScorerTest {
     // =========================================================================
 
     @Test
-    @DisplayName("Invariant: permutation-independence — constant-active phase scores identically for all 6 permutations of n=3")
+    @DisplayName(
+            "Invariant: permutation-independence — constant-active phase scores identically for all"
+                    + " 6 permutations of n=3")
     void invariant_permutationIndependence_constantActivePhase_n3() {
         // All 3 avatars are active in all 3 rows
-        List<List<Integer>> rows = List.of(
-                List.of(0, 1, 2),
-                List.of(0, 1, 2),
-                List.of(0, 1, 2));
+        List<List<Integer>> rows = List.of(List.of(0, 1, 2), List.of(0, 1, 2), List.of(0, 1, 2));
         CanonicalPhaseDef phase = new CanonicalPhaseDef(3, 3, rows);
 
         int[][] allPerms = {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}};
@@ -197,7 +207,9 @@ class VarietyScorerTest {
 
         for (int[] perm : allPerms) {
             assertThat(scorer.score(perm, phase))
-                    .as("Permutation-independence invariant: constant-active phase must score %.1f for perm=%s",
+                    .as(
+                            "Permutation-independence invariant: constant-active phase must score"
+                                    + " %.1f for perm=%s",
                             referenceScore, Arrays.toString(perm))
                     .isEqualTo(referenceScore);
         }
@@ -210,7 +222,8 @@ class VarietyScorerTest {
     // =========================================================================
 
     @Test
-    @DisplayName("AC4: N=17 adversarial sequence — new scorer finite and non-NaN; expected value 1.0e10")
+    @DisplayName(
+            "AC4: N=17 adversarial sequence — new scorer finite and non-NaN; expected value 1.0e10")
     void overflowRegressionN17() {
         // Adversarial construction: all avatars active in every row → single run of length 17
         // Legacy: rating = 1 * phaseCounter = 1 * 17 = 17 (getRating). No overflow here.
@@ -403,7 +416,7 @@ class VarietyScorerTest {
         @DisplayName("Invariant: guard-clause — phaseDef null throws IAE (null domain boundary)")
         void invariant_guardClause_nullPhaseDef() {
             assertThatIllegalArgumentException()
-                    .isThrownBy(() -> scorer.score(new int[]{0}, null))
+                    .isThrownBy(() -> scorer.score(new int[] {0}, null))
                     .withMessageContaining("phaseDef must not be null");
         }
 
@@ -417,12 +430,14 @@ class VarietyScorerTest {
         }
 
         @Test
-        @DisplayName("Invariant: guard-clause — rowSequence.length != phaseDef.rowCount throws IAE (length mismatch)")
+        @DisplayName(
+                "Invariant: guard-clause — rowSequence.length != phaseDef.rowCount throws IAE"
+                        + " (length mismatch)")
         void invariant_guardClause_rowSequenceLengthMismatch() {
             CanonicalPhaseDef phase =
                     new CanonicalPhaseDef(3, 2, List.of(List.of(0), List.of(1), List.of(0, 1)));
             assertThatIllegalArgumentException()
-                    .isThrownBy(() -> scorer.score(new int[]{0, 1}, phase))
+                    .isThrownBy(() -> scorer.score(new int[] {0, 1}, phase))
                     .withMessageContaining("rowSequence.length=2")
                     .withMessageContaining("phaseDef.rowCount=3");
         }
@@ -432,7 +447,7 @@ class VarietyScorerTest {
         void invariant_guardClause_rowSequenceOutOfRange() {
             CanonicalPhaseDef phase = new CanonicalPhaseDef(2, 2, List.of(List.of(0), List.of(1)));
             assertThatIllegalArgumentException()
-                    .isThrownBy(() -> scorer.score(new int[]{0, 5}, phase))
+                    .isThrownBy(() -> scorer.score(new int[] {0, 5}, phase))
                     .withMessageContaining("out of range");
         }
 
@@ -442,7 +457,7 @@ class VarietyScorerTest {
             CanonicalPhaseDef phase =
                     new CanonicalPhaseDef(3, 2, List.of(List.of(0), List.of(1), List.of(0, 1)));
             assertThatIllegalArgumentException()
-                    .isThrownBy(() -> scorer.score(new int[]{0, 0, 2}, phase))
+                    .isThrownBy(() -> scorer.score(new int[] {0, 0, 2}, phase))
                     .withMessageContaining("duplicate value");
         }
 
@@ -453,7 +468,7 @@ class VarietyScorerTest {
             rows.add(new ArrayList<>(Arrays.asList(-1, 0)));
             CanonicalPhaseDef phase = new CanonicalPhaseDef(1, 1, rows);
             assertThatIllegalArgumentException()
-                    .isThrownBy(() -> scorer.score(new int[]{0}, phase))
+                    .isThrownBy(() -> scorer.score(new int[] {0}, phase))
                     .withMessageContaining("Negative avatar index");
         }
     }

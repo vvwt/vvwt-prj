@@ -21,8 +21,8 @@ import org.junit.jupiter.api.Test;
  * (d): the thread-safety invariant is named ("bijection-round-trip-invariant is thread-safe") and
  * quantified over many concurrent invocations with varying inputs (10 threads × 100 calls each).
  *
- * <p>Property-based tests are in {@link LehmerCodecPropertyTest}.
- * Algebraic invariant tests are in {@link LehmerCodecTest}.
+ * <p>Property-based tests are in {@link LehmerCodecPropertyTest}. Algebraic invariant tests are in
+ * {@link LehmerCodecTest}.
  */
 @DisplayName("LehmerCodec — thread-safety invariant (DEC-41 D-4 replacement)")
 class LehmerCodecConcurrencyTest {
@@ -34,16 +34,18 @@ class LehmerCodecConcurrencyTest {
     /**
      * Invariant: bijection-round-trip-invariant is thread-safe.
      *
-     * <p>Formally: for any valid (n, rank) pair, concurrent invocations of
-     * {@code rankToPermutation(rank, n)} followed by {@code permutationToRank(perm)} from multiple
-     * threads yield results satisfying the round-trip bijection invariant — i.e., no shared-state
+     * <p>Formally: for any valid (n, rank) pair, concurrent invocations of {@code
+     * rankToPermutation(rank, n)} followed by {@code permutationToRank(perm)} from multiple threads
+     * yield results satisfying the round-trip bijection invariant — i.e., no shared-state
      * corruption occurs when threads call the codec simultaneously.
      *
      * <p>Quantified over 1 000 concurrent calls (10 threads × 100 calls) with deterministic
      * per-thread seeds covering n ∈ [1, 17] and representative rank values.
      */
     @Test
-    @DisplayName("Invariant: bijection-round-trip is thread-safe — 10 threads × 100 calls with no round-trip violations")
+    @DisplayName(
+            "Invariant: bijection-round-trip is thread-safe — 10 threads × 100 calls with no"
+                    + " round-trip violations")
     void invariant_bijectionRoundTrip_isThreadSafe() throws Exception {
         ExecutorService pool = Executors.newFixedThreadPool(THREAD_COUNT);
         CountDownLatch startGate = new CountDownLatch(1);
@@ -52,10 +54,12 @@ class LehmerCodecConcurrencyTest {
 
         for (int t = 0; t < THREAD_COUNT; t++) {
             final long seed = t * 31L + 7919L;
-            futures.add(pool.submit(() -> {
-                startGate.await(); // all threads start simultaneously
-                return runBijectionChecks(seed, violations);
-            }));
+            futures.add(
+                    pool.submit(
+                            () -> {
+                                startGate.await(); // all threads start simultaneously
+                                return runBijectionChecks(seed, violations);
+                            }));
         }
 
         startGate.countDown(); // release all threads at once
@@ -72,14 +76,16 @@ class LehmerCodecConcurrencyTest {
         }
 
         assertThat(violations.get())
-                .as("Thread-safety invariant: bijection round-trip must hold for all %d concurrent calls;"
-                        + " violations: %s", THREAD_COUNT * CALLS_PER_THREAD, allFailures)
+                .as(
+                        "Thread-safety invariant: bijection round-trip must hold for all %d"
+                                + " concurrent calls; violations: %s",
+                        THREAD_COUNT * CALLS_PER_THREAD, allFailures)
                 .isZero();
     }
 
     /**
-     * Runs {@link #CALLS_PER_THREAD} round-trip checks with deterministic per-seed inputs.
-     * Returns a list of violation descriptions; increments {@code violations} counter atomically.
+     * Runs {@link #CALLS_PER_THREAD} round-trip checks with deterministic per-seed inputs. Returns
+     * a list of violation descriptions; increments {@code violations} counter atomically.
      */
     private static List<String> runBijectionChecks(long seed, AtomicInteger violations) {
         // Deterministic seed-driven input generation: no Random (avoids flakiness)
@@ -99,13 +105,17 @@ class LehmerCodecConcurrencyTest {
                 long recovered = LehmerCodec.permutationToRank(perm);
                 if (recovered != rank) {
                     violations.incrementAndGet();
-                    failures.add(String.format("n=%d rank=%d: round-trip returned %d (perm=%s)",
-                            n, rank, recovered, Arrays.toString(perm)));
+                    failures.add(
+                            String.format(
+                                    "n=%d rank=%d: round-trip returned %d (perm=%s)",
+                                    n, rank, recovered, Arrays.toString(perm)));
                 }
             } catch (Exception ex) {
                 violations.incrementAndGet();
-                failures.add(String.format("n=%d rank=%d: exception %s: %s",
-                        n, rank, ex.getClass().getSimpleName(), ex.getMessage()));
+                failures.add(
+                        String.format(
+                                "n=%d rank=%d: exception %s: %s",
+                                n, rank, ex.getClass().getSimpleName(), ex.getMessage()));
             }
         }
         return failures;

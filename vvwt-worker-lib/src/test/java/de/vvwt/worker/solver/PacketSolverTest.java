@@ -19,7 +19,8 @@ import org.junit.jupiter.api.Test;
  *
  * <p>Replaces the Snapshot-Driven corpus (DEC-41 D-4 audit: E35S01) with fresh TDD tests under
  * DEC-22 Iron Law. All tests satisfy DEC-41 criterion (b) (compositional/bijection invariant) or
- * criterion (d) (named algebraic invariant quantified over a representative or exhaustive input set).
+ * criterion (d) (named algebraic invariant quantified over a representative or exhaustive input
+ * set).
  */
 @DisplayName("PacketSolver — Spec-Anchored algebraic invariant tests (DEC-41 D-4 replacement)")
 class PacketSolverTest {
@@ -36,9 +37,9 @@ class PacketSolverTest {
     }
 
     /**
-     * Builds a minimal but non-trivial {@link CanonicalPhaseDef} for n rows.
-     * Avatar assignment: row i activates avatar (i % (n/2)), with at least 1 avatar.
-     * Produces a valid, non-degenerate phase usable across all n in [1, 17].
+     * Builds a minimal but non-trivial {@link CanonicalPhaseDef} for n rows. Avatar assignment: row
+     * i activates avatar (i % (n/2)), with at least 1 avatar. Produces a valid, non-degenerate
+     * phase usable across all n in [1, 17].
      */
     private static CanonicalPhaseDef buildSimplePhaseDef(int n) {
         List<List<Integer>> rows = new ArrayList<>();
@@ -54,9 +55,9 @@ class PacketSolverTest {
     }
 
     /**
-     * Independent brute-force reference: exhaustively scores all permutations via the
-     * non-matrix {@link VarietyScorer#score(int[], CanonicalPhaseDef)} overload — a code
-     * path independent from PacketSolver's matrix-based kernel.
+     * Independent brute-force reference: exhaustively scores all permutations via the non-matrix
+     * {@link VarietyScorer#score(int[], CanonicalPhaseDef)} overload — a code path independent from
+     * PacketSolver's matrix-based kernel.
      */
     private static long bruteForceReference(JobDef jobDef) {
         final VarietyScorer scorer = new VarietyScorer();
@@ -84,14 +85,19 @@ class PacketSolverTest {
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("Invariant: result-shape — permutationsScored == rankTo-rankFrom for all valid inputs (3 shapes)")
+    @DisplayName(
+            "Invariant: result-shape — permutationsScored == rankTo-rankFrom for all valid inputs"
+                    + " (3 shapes)")
     void invariant_resultShape_permutationsScoredEqualsRangeSize() {
         // Shape 1: full range n=4
         int n1 = 4;
         long nF1 = factorial(n1);
         PacketResult r1 = PacketSolver.solvePacket(buildJobDef(n1), 0L, nF1);
         assertThat(r1.permutationsScored())
-                .as("result-shape: permutationsScored must equal rankTo-rankFrom for full range n=%d", n1)
+                .as(
+                        "result-shape: permutationsScored must equal rankTo-rankFrom for full range"
+                                + " n=%d",
+                        n1)
                 .isEqualTo(nF1);
         assertThat(r1.bestRank()).isBetween(0L, nF1 - 1L);
         assertThat(r1.wallClockNanos()).isGreaterThanOrEqualTo(0L);
@@ -121,7 +127,9 @@ class PacketSolverTest {
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("Invariant: determinism — identical invocations return bit-identical results (full range n=6)")
+    @DisplayName(
+            "Invariant: determinism — identical invocations return bit-identical results (full"
+                    + " range n=6)")
     void invariant_determinism_fullRange() {
         JobDef jobDef = buildJobDef(6);
         long rankTo = factorial(6);
@@ -131,12 +139,15 @@ class PacketSolverTest {
                 .as("Determinism invariant: bestRank must be identical across two invocations")
                 .isEqualTo(second.bestRank());
         assertThat(Double.doubleToLongBits(first.bestScore()))
-                .as("Determinism invariant: bestScore bits must be identical across two invocations")
+                .as(
+                        "Determinism invariant: bestScore bits must be identical across two"
+                                + " invocations")
                 .isEqualTo(Double.doubleToLongBits(second.bestScore()));
     }
 
     @Test
-    @DisplayName("Invariant: determinism — identical subrange invocations return bit-identical results")
+    @DisplayName(
+            "Invariant: determinism — identical subrange invocations return bit-identical results")
     void invariant_determinism_subrange() {
         JobDef jobDef = buildJobDef(5);
         PacketResult first = PacketSolver.solvePacket(jobDef, 10L, 50L);
@@ -145,7 +156,9 @@ class PacketSolverTest {
                 .as("Determinism invariant: bestRank must be identical for subrange invocations")
                 .isEqualTo(second.bestRank());
         assertThat(Double.doubleToLongBits(first.bestScore()))
-                .as("Determinism invariant: bestScore bits must be identical for subrange invocations")
+                .as(
+                        "Determinism invariant: bestScore bits must be identical for subrange"
+                                + " invocations")
                 .isEqualTo(Double.doubleToLongBits(second.bestScore()));
     }
 
@@ -157,7 +170,9 @@ class PacketSolverTest {
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("Invariant: tie-break — minimum rank is returned when all permutations are score-equal (n=2)")
+    @DisplayName(
+            "Invariant: tie-break — minimum rank is returned when all permutations are score-equal"
+                    + " (n=2)")
     void invariant_tieBreak_minimumRankWins_n2() {
         // Phase: single avatar active in all rows → every permutation has identical score
         int n = 2;
@@ -166,12 +181,17 @@ class PacketSolverTest {
         JobDef jobDef = new JobDef(UUID.randomUUID(), n, phaseDef);
         PacketResult result = PacketSolver.solvePacket(jobDef, 0L, factorial(n));
         assertThat(result.bestRank())
-                .as("Tie-break invariant: minimum rank 0 must win when all %d permutations are score-equal", factorial(n))
+                .as(
+                        "Tie-break invariant: minimum rank 0 must win when all %d permutations are"
+                                + " score-equal",
+                        factorial(n))
                 .isEqualTo(0L);
     }
 
     @Test
-    @DisplayName("Invariant: tie-break — minimum rank is returned when all permutations are score-equal (n=3)")
+    @DisplayName(
+            "Invariant: tie-break — minimum rank is returned when all permutations are score-equal"
+                    + " (n=3)")
     void invariant_tieBreak_minimumRankWins_n3() {
         int n = 3;
         List<List<Integer>> rows = List.of(List.of(0), List.of(0), List.of(0));
@@ -179,7 +199,10 @@ class PacketSolverTest {
         JobDef jobDef = new JobDef(UUID.randomUUID(), n, phaseDef);
         PacketResult result = PacketSolver.solvePacket(jobDef, 0L, factorial(n));
         assertThat(result.bestRank())
-                .as("Tie-break invariant: minimum rank 0 must win when all %d permutations are score-equal", factorial(n))
+                .as(
+                        "Tie-break invariant: minimum rank 0 must win when all %d permutations are"
+                                + " score-equal",
+                        factorial(n))
                 .isEqualTo(0L);
     }
 
@@ -191,7 +214,9 @@ class PacketSolverTest {
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("Invariant: correctness — solvePacket matches independent brute-force reference for n in [3,6]")
+    @DisplayName(
+            "Invariant: correctness — solvePacket matches independent brute-force reference for n"
+                    + " in [3,6]")
     void invariant_correctness_matchesBruteForceReference_nThreeToNSix() {
         for (int n = 3; n <= 6; n++) {
             JobDef jobDef = buildJobDef(n);
@@ -199,7 +224,10 @@ class PacketSolverTest {
             PacketResult kernelResult = PacketSolver.solvePacket(jobDef, 0L, nFactorial);
             long referenceRank = bruteForceReference(jobDef);
             assertThat(kernelResult.bestRank())
-                    .as("Correctness invariant: solvePacket must match brute-force reference for n=%d", n)
+                    .as(
+                            "Correctness invariant: solvePacket must match brute-force reference"
+                                    + " for n=%d",
+                            n)
                     .isEqualTo(referenceRank);
         }
     }
@@ -212,7 +240,8 @@ class PacketSolverTest {
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("Invariant: subrange-composition — best of two halves equals full-range result (n=5)")
+    @DisplayName(
+            "Invariant: subrange-composition — best of two halves equals full-range result (n=5)")
     void invariant_subrangeComposition_bestOfHalvesEqualsFullRange() {
         int n = 5;
         JobDef jobDef = buildJobDef(n);
@@ -234,7 +263,10 @@ class PacketSolverTest {
         }
 
         assertThat(combinedBestRank)
-                .as("Subrange-composition invariant: best of two halves must equal full-range bestRank for n=%d", n)
+                .as(
+                        "Subrange-composition invariant: best of two halves must equal full-range"
+                                + " bestRank for n=%d",
+                        n)
                 .isEqualTo(fullRange.bestRank());
     }
 
@@ -280,7 +312,9 @@ class PacketSolverTest {
     }
 
     @Test
-    @DisplayName("Invariant: guard-clause — negative avatar index in phaseDef throws IAE (malformed input)")
+    @DisplayName(
+            "Invariant: guard-clause — negative avatar index in phaseDef throws IAE (malformed"
+                    + " input)")
     void invariant_guardClause_negativeAvatarIndex_inPhaseDef() {
         int n = 3;
         List<List<Integer>> rows = List.of(List.of(-1), List.of(0), List.of(0));
@@ -330,7 +364,9 @@ class PacketSolverTest {
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("Invariant: wallClockNanos >= 0 for full-range, subrange, and single-permutation packets")
+    @DisplayName(
+            "Invariant: wallClockNanos >= 0 for full-range, subrange, and single-permutation"
+                    + " packets")
     void invariant_wallClockNanos_isNonNegative_allShapes() {
         // Full range
         assertThat(PacketSolver.solvePacket(buildJobDef(4), 0L, factorial(4)).wallClockNanos())
