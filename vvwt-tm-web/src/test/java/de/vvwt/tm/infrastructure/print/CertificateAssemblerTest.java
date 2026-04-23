@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import de.vvwt.tm.domain.photo.PhotoStorageService;
+import de.vvwt.tm.photo.PhotoUrlBuilder;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.Team;
@@ -69,6 +70,7 @@ class CertificateAssemblerTest {
     private TeamRepository teamRepository;
     private PhotoStorageService photoStorageService;
     private JdbcTemplate jdbcTemplate;
+    private PhotoUrlBuilder photoUrlBuilder;
 
     private CertificateAssembler assembler;
 
@@ -150,6 +152,7 @@ class CertificateAssemblerTest {
         teamRepository = mock(TeamRepository.class);
         photoStorageService = mock(PhotoStorageService.class);
         jdbcTemplate = mock(JdbcTemplate.class);
+        photoUrlBuilder = mock(PhotoUrlBuilder.class);
 
         assembler =
                 new CertificateAssembler(
@@ -158,7 +161,8 @@ class CertificateAssemblerTest {
                         teamAvatarRatingRepository,
                         teamRepository,
                         photoStorageService,
-                        jdbcTemplate);
+                        jdbcTemplate,
+                        photoUrlBuilder);
     }
 
     // -------------------------------------------------------------------------
@@ -327,6 +331,9 @@ class CertificateAssemblerTest {
     @DisplayName("AC6 (HTML): buildPhotoUrl returns API URL when photo exists")
     void buildPhotoUrl_returnsApiUrl_whenPhotoExists() {
         when(photoStorageService.hasPhoto(TOURNAMENT_ID, TEAM_A_ID)).thenReturn(true);
+        // Stub returns OLD URL pattern (byte-identical to prior hardcode — AC-BEHAVIOR-PRESERVED)
+        when(photoUrlBuilder.buildTeamPhotoUrl(TOURNAMENT_ID, TEAM_A_ID))
+                .thenReturn("/api/tournaments/" + TOURNAMENT_ID + "/teams/" + TEAM_A_ID + "/photo");
 
         String result = assembler.buildPhotoUrl(TOURNAMENT_ID, TEAM_A_ID);
 

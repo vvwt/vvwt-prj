@@ -3,6 +3,7 @@ package de.vvwt.tm.infrastructure.print;
 import com.samskivert.mustache.Mustache;
 import com.samskivert.mustache.MustacheException;
 import de.vvwt.tm.domain.photo.PhotoStorageService;
+import de.vvwt.tm.photo.PhotoUrlBuilder;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.Team;
@@ -88,6 +89,7 @@ public class CertificateAssembler {
     private final TeamRepository teamRepository;
     private final PhotoStorageService photoStorageService;
     private final JdbcTemplate jdbcTemplate;
+    private final PhotoUrlBuilder photoUrlBuilder;
 
     public CertificateAssembler(
             PhaseRepository phaseRepository,
@@ -95,13 +97,15 @@ public class CertificateAssembler {
             TeamAvatarRatingRepository teamAvatarRatingRepository,
             TeamRepository teamRepository,
             PhotoStorageService photoStorageService,
-            JdbcTemplate jdbcTemplate) {
+            JdbcTemplate jdbcTemplate,
+            PhotoUrlBuilder photoUrlBuilder) {
         this.phaseRepository = phaseRepository;
         this.teamAvatarRepository = teamAvatarRepository;
         this.teamAvatarRatingRepository = teamAvatarRatingRepository;
         this.teamRepository = teamRepository;
         this.photoStorageService = photoStorageService;
         this.jdbcTemplate = jdbcTemplate;
+        this.photoUrlBuilder = photoUrlBuilder;
     }
 
     // -------------------------------------------------------------------------
@@ -374,7 +378,7 @@ public class CertificateAssembler {
         if (!photoStorageService.hasPhoto(tournamentId, teamId)) {
             return "";
         }
-        return "/api/tournaments/" + tournamentId + "/teams/" + teamId + "/photo";
+        return photoUrlBuilder.buildTeamPhotoUrl(tournamentId, teamId);
     }
 
     /**
