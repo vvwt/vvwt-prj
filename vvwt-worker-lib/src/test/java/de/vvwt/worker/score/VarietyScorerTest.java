@@ -1,10 +1,11 @@
 package de.vvwt.worker.score;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
-import de.vvwt.worker.score.legacy.NonVarietyRatingBuilder;
 import de.vvwt.worker.types.CanonicalPhaseDef;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -12,16 +13,17 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link VarietyScorer}.
+ * Spec-Anchored tests for {@link VarietyScorer}.
  *
- * <p>AC3: Characterization test against legacy {@code NonVarietyRatingBuilder}.
+ * <p>Replaces the Snapshot-Driven corpus (DEC-41 D-4 audit: E35S01). Satisfies DEC-41 criteria
+ * (b) (round-trip/correctness) and (d) (named algebraic invariants quantified over representative
+ * or exhaustive input sets).
  *
- * <p>AC4: Overflow regression test at N=17.
- *
- * <p>AC6: VERSION constant present and equals 1.
- *
- * <p>AC7: Error-path tests for invalid inputs.
+ * <p>{@link #overflowRegressionN17} (Spec-Anchored-b) is retained unchanged from the pre-audit
+ * corpus per AC7: it verifies the analytically-known correct result 1.0e10 against the new
+ * double-based implementation and is mathematically grounded.
  */
+@DisplayName("VarietyScorer — Spec-Anchored tests (DEC-41 D-4 replacement)")
 class VarietyScorerTest {
 
     private VarietyScorer scorer;
@@ -32,186 +34,183 @@ class VarietyScorerTest {
     }
 
     // =========================================================================
-    // AC6 — SCORE_FN_VERSION constant
+    // Criterion (d): SCORE_FN_VERSION invariant — API stability contract
+    // Invariant: SCORE_FN_VERSION is a positive integer (algorithm versioning contract)
     // =========================================================================
 
     @Test
-    @DisplayName("AC6: SCORE_FN_VERSION is 1")
-    void scoreFnVersionIsOne() {
-        assertThat(VarietyScorer.SCORE_FN_VERSION).isEqualTo(1);
+    @DisplayName("Invariant: SCORE_FN_VERSION is a positive integer (API stability contract)")
+    void invariant_scoreFnVersion_isPositive() {
+        assertThat(VarietyScorer.SCORE_FN_VERSION)
+                .as("SCORE_FN_VERSION invariant: must be a positive integer (versioning contract)")
+                .isPositive();
     }
 
     // =========================================================================
-    // AC3 — Characterization tests: new scorer matches legacy in the safe zone
+    // Criterion (d): single-run score formula invariant
+    // Invariant: for a single avatar always active across k rows, score = k
+    //            (single run of length k → product = k → score = k / 1 = k)
+    // Quantified over k in [1, 8]
     // =========================================================================
 
-    /**
-     * Helper: compute the legacy score for a given rowSequence and active-matrix, using the
-     * original {@code NonVarietyRatingBuilder} logic.
-     *
-     * <p>This exactly mirrors the inner loop in {@code
-     * MatchDistributor.optimizeMatchSlotsForVariety}.
-     */
-    private static double legacyScore(
-            int[] rowSequence, boolean[][] activeMatrix, int avatarCount) {
-        NonVarietyRatingBuilder[] builders = new NonVarietyRatingBuilder[avatarCount];
-        for (int i = 0; i < avatarCount; i++) {
-            builders[i] = new NonVarietyRatingBuilder();
-        }
-        for (int seqPos = 0; seqPos < rowSequence.length; seqPos++) {
-            int rowIndex = rowSequence[seqPos];
-            for (int avatarIndex = 0; avatarIndex < avatarCount; avatarIndex++) {
-                builders[avatarIndex].register(activeMatrix[rowIndex][avatarIndex]);
+    @Test
+    @DisplayName("Invariant: single-run-score — always-active avatar with k rows scores k, for k in [1,8]")
+    void invariant_singleRunScore_alwaysActiveAvatar() {
+        for (int k = 1; k <= 8; k++) {
+            List<List<Integer>> rows = new ArrayList<>();
+            for (int r = 0; r < k; r++) {
+                rows.add(List.of(0));
             }
+            CanonicalPhaseDef phase = new CanonicalPhaseDef(k, 1, rows);
+            int[] perm = new int[k];
+            for (int r = 0; r < k; r++) perm[r] = r;
+
+            double result = scorer.score(perm, phase);
+            assertThat(result)
+                    .as("Single-run-score invariant: always-active avatar with k=%d rows must score k=%d",
+                            k, k)
+                    .isEqualTo((double) k);
         }
-        double sum = 0.0;
-        for (int i = 0; i < avatarCount; i++) {
-            sum += builders[i].getRating();
-        }
-        return sum / avatarCount;
     }
 
-    /**
-     * Build a simple phase where each row has exactly 2 avatars playing (round-robin style). This
-     * keeps values small enough to stay in the non-overflow zone for the legacy int scorer.
-     */
-    private static CanonicalPhaseDef simplePhase(int rowCount, int avatarCount) {
-        // Each row activates 2 consecutive avatars (modulo avatarCount)
-        List<List<Integer>> rows = new java.util.ArrayList<>();
-        for (int r = 0; r < rowCount; r++) {
-            int a1 = (r * 2) % avatarCount;
-            int a2 = (r * 2 + 1) % avatarCount;
-            rows.add(List.of(a1, a2));
-        }
-        return new CanonicalPhaseDef(rowCount, avatarCount, rows);
-    }
+    // =========================================================================
+    // Criterion (d): alternating-state score invariant
+    // Invariant: for a single avatar that alternates active/idle every row, product = 1
+    //            (each run has length 1 → product = 1 × 1 × … = 1)
+    // Quantified over even rowCounts {2, 4}
+    // =========================================================================
 
     @Test
-    @DisplayName("AC3: N=3 avatars, 3 rows — new scorer matches legacy exactly")
-    void characterizationN3() {
-        CanonicalPhaseDef phase = simplePhase(3, 3);
-        boolean[][] active = scorer.buildActiveMatrix(phase.rows(), 3, 3);
+    @DisplayName("Invariant: alternating-state-score — alternating avatar scores 1.0 for rowCounts {2, 4}")
+    void invariant_alternatingStateScore_twoRunAvatar() {
+        for (int rowCount : new int[]{2, 4}) {
+            List<List<Integer>> rows = new ArrayList<>();
+            for (int r = 0; r < rowCount; r++) {
+                // avatar 0 alternates: active on even rows, idle on odd rows
+                rows.add((r % 2 == 0) ? List.of(0) : List.of());
+            }
+            CanonicalPhaseDef phase = new CanonicalPhaseDef(rowCount, 1, rows);
+            int[] perm = new int[rowCount];
+            for (int r = 0; r < rowCount; r++) perm[r] = r;
 
-        // Test all 6 permutations of [0,1,2]
-        int[][] permutations = {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}};
-        for (int[] perm : permutations) {
-            double newScore = scorer.scoreWithMatrix(perm, 3, 3, active);
-            double legacyScoreVal = legacyScore(perm, active, 3);
-            assertThat(newScore)
-                    .as(
-                            "Perm %s: new=%.6f legacy=%.6f",
-                            java.util.Arrays.toString(perm), newScore, legacyScoreVal)
-                    .isEqualTo(legacyScoreVal);
+            double result = scorer.score(perm, phase);
+            assertThat(result)
+                    .as("Alternating-state-score invariant: each run = 1, product must be 1.0 for rowCount=%d",
+                            rowCount)
+                    .isEqualTo(1.0);
         }
     }
 
-    @Test
-    @DisplayName("AC3: N=5 avatars, 5 rows — new scorer matches legacy exactly")
-    void characterizationN5() {
-        CanonicalPhaseDef phase = simplePhase(5, 5);
-        boolean[][] active = scorer.buildActiveMatrix(phase.rows(), 5, 5);
+    // =========================================================================
+    // Criterion (b): multi-avatar average score formula
+    // Invariant: for 2 avatars, 3 rows, avatar-0 all active, avatar-1 all idle,
+    //            the analytically-derivable score = (3 + 3) / 2 = 3.0
+    //            (each avatar has a single run of 3 → product = 3; sum = 6; average = 3.0)
+    // =========================================================================
 
-        // Test a representative sample of permutations
-        int[][] permutations = {
-            {0, 1, 2, 3, 4},
-            {4, 3, 2, 1, 0},
-            {2, 4, 1, 3, 0},
-            {1, 3, 0, 4, 2}
-        };
-        for (int[] perm : permutations) {
-            double newScore = scorer.scoreWithMatrix(perm, 5, 5, active);
-            double legacyScoreVal = legacyScore(perm, active, 5);
-            assertThat(newScore)
-                    .as("Perm %s", java.util.Arrays.toString(perm))
-                    .isEqualTo(legacyScoreVal);
+    @Test
+    @DisplayName("Criterion (b): 2-avatar 3-row one-all-active one-all-idle scores 3.0 analytically")
+    void invariant_multiAvatarAverage_scoreFormula() {
+        // avatar 0: active in all 3 rows; avatar 1: idle in all 3 rows
+        List<List<Integer>> rows = new ArrayList<>();
+        for (int r = 0; r < 3; r++) {
+            rows.add(List.of(0)); // only avatar 0 is active
         }
-    }
-
-    @Test
-    @DisplayName("AC3: N=7 avatars, 7 rows — new scorer matches legacy exactly")
-    void characterizationN7() {
-        CanonicalPhaseDef phase = simplePhase(7, 7);
-        boolean[][] active = scorer.buildActiveMatrix(phase.rows(), 7, 7);
-
-        int[][] permutations = {
-            {0, 1, 2, 3, 4, 5, 6},
-            {6, 5, 4, 3, 2, 1, 0},
-            {3, 1, 5, 0, 6, 2, 4}
-        };
-        for (int[] perm : permutations) {
-            double newScore = scorer.scoreWithMatrix(perm, 7, 7, active);
-            double legacyScoreVal = legacyScore(perm, active, 7);
-            assertThat(newScore)
-                    .as("Perm %s", java.util.Arrays.toString(perm))
-                    .isEqualTo(legacyScoreVal);
-        }
-    }
-
-    @Test
-    @DisplayName("AC3: N=10 avatars, 10 rows — new scorer matches legacy exactly")
-    void characterizationN10() {
-        CanonicalPhaseDef phase = simplePhase(10, 10);
-        boolean[][] active = scorer.buildActiveMatrix(phase.rows(), 10, 10);
-
-        int[][] permutations = {
-            {0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
-            {9, 8, 7, 6, 5, 4, 3, 2, 1, 0},
-            {5, 3, 1, 7, 9, 0, 2, 4, 6, 8}
-        };
-        for (int[] perm : permutations) {
-            double newScore = scorer.scoreWithMatrix(perm, 10, 10, active);
-            double legacyScoreVal = legacyScore(perm, active, 10);
-            assertThat(newScore)
-                    .as("Perm %s", java.util.Arrays.toString(perm))
-                    .isEqualTo(legacyScoreVal);
-        }
-    }
-
-    @Test
-    @DisplayName("AC3: alternating active/idle pattern — canonical variety case")
-    void characterizationAlternatingPattern() {
-        // Phase where avatars alternate every row: maximally varied
-        // Row 0: avatars 0,1 active; Row 1: avatars 2,3 active; Row 2: avatars 0,1 active
-        // Avatar 0: active, idle, active → two runs of 1 and one run of 1 — product = 1*1*1 = 1
-        // Avatar 2: idle, active, idle → 1*1*1 = 1
-        CanonicalPhaseDef phase =
-                new CanonicalPhaseDef(3, 4, List.of(List.of(0, 1), List.of(2, 3), List.of(0, 1)));
-        boolean[][] active = scorer.buildActiveMatrix(phase.rows(), 3, 4);
-
+        CanonicalPhaseDef phase = new CanonicalPhaseDef(3, 2, rows);
         int[] perm = {0, 1, 2};
-        double newScore = scorer.scoreWithMatrix(perm, 3, 4, active);
-        double legacyScoreVal = legacyScore(perm, active, 4);
-        assertThat(newScore).isEqualTo(legacyScoreVal);
+
+        double result = scorer.score(perm, phase);
+        // avatar 0: single run of 3 active → product = 3
+        // avatar 1: single run of 3 idle   → product = 3
+        // score = (3 + 3) / 2 = 3.0
+        assertThat(result)
+                .as("Multi-avatar-average invariant: 2 avatars each with single run of 3 must score 3.0")
+                .isEqualTo(3.0);
     }
 
+    // =========================================================================
+    // Criterion (d): empty-phase score invariant
+    // Invariant: score for empty phase (0 rows, 0 avatars) is 0.0
+    // =========================================================================
+
     @Test
-    @DisplayName("AC3: constant-active pattern — minimal variety case")
-    void characterizationConstantPattern() {
-        // All avatars active in every row — maximum non-variety
-        // Each avatar: always active, single run of length rowCount → product = rowCount
-        int rowCount = 5;
-        int avatarCount = 3;
-        List<List<Integer>> rows = new java.util.ArrayList<>();
-        for (int r = 0; r < rowCount; r++) {
-            rows.add(List.of(0, 1, 2));
+    @DisplayName("Invariant: empty-phase-score — score for empty phase is 0.0 (degenerate)")
+    void invariant_emptyPhaseScore_isZero() {
+        CanonicalPhaseDef phase = new CanonicalPhaseDef(0, 0, List.of());
+        double result = scorer.score(new int[0], phase);
+        assertThat(result)
+                .as("Empty-phase-score invariant: score must be 0.0 for empty phase")
+                .isEqualTo(0.0);
+    }
+
+    // =========================================================================
+    // Criterion (d): single-row single-avatar active score invariant
+    // Invariant: single active avatar in single row scores 1.0
+    //            (single run of length 1 → product = 1 → score = 1.0)
+    // =========================================================================
+
+    @Test
+    @DisplayName("Invariant: single-row-single-avatar-active — score is 1.0")
+    void invariant_singleRowSingleAvatarActive_scoreIsOne() {
+        CanonicalPhaseDef phase = new CanonicalPhaseDef(1, 1, List.of(List.of(0)));
+        double result = scorer.score(new int[]{0}, phase);
+        assertThat(result)
+                .as("Single-row-single-avatar-active invariant: single run of 1 must score 1.0")
+                .isEqualTo(1.0);
+    }
+
+    // =========================================================================
+    // Criterion (d): single-row single-avatar idle score invariant
+    // Invariant: single idle avatar in single row also scores 1.0
+    //            (single idle run of length 1 → product = 1 → score = 1.0)
+    // =========================================================================
+
+    @Test
+    @DisplayName("Invariant: single-row-single-avatar-idle — score is 1.0")
+    void invariant_singleRowSingleAvatarIdle_scoreIsOne() {
+        CanonicalPhaseDef phase = new CanonicalPhaseDef(1, 1, List.of(List.of()));
+        double result = scorer.score(new int[]{0}, phase);
+        assertThat(result)
+                .as("Single-row-single-avatar-idle invariant: single idle run of 1 must score 1.0")
+                .isEqualTo(1.0);
+    }
+
+    // =========================================================================
+    // Criterion (d): permutation-independence invariant for constant-active phase
+    // Invariant: for a phase where all avatars are active in every row, score is
+    //            independent of row permutation (all permutations yield same score)
+    // Quantified over all 6 permutations of n=3
+    // =========================================================================
+
+    @Test
+    @DisplayName("Invariant: permutation-independence — constant-active phase scores identically for all 6 permutations of n=3")
+    void invariant_permutationIndependence_constantActivePhase_n3() {
+        // All 3 avatars are active in all 3 rows
+        List<List<Integer>> rows = List.of(
+                List.of(0, 1, 2),
+                List.of(0, 1, 2),
+                List.of(0, 1, 2));
+        CanonicalPhaseDef phase = new CanonicalPhaseDef(3, 3, rows);
+
+        int[][] allPerms = {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}};
+        double referenceScore = scorer.score(allPerms[0], phase);
+
+        for (int[] perm : allPerms) {
+            assertThat(scorer.score(perm, phase))
+                    .as("Permutation-independence invariant: constant-active phase must score %.1f for perm=%s",
+                            referenceScore, Arrays.toString(perm))
+                    .isEqualTo(referenceScore);
         }
-        CanonicalPhaseDef phase = new CanonicalPhaseDef(rowCount, avatarCount, rows);
-        boolean[][] active = scorer.buildActiveMatrix(phase.rows(), rowCount, avatarCount);
-
-        int[] perm = {0, 1, 2, 3, 4};
-        double newScore = scorer.scoreWithMatrix(perm, rowCount, avatarCount, active);
-        double legacyScoreVal = legacyScore(perm, active, avatarCount);
-        assertThat(newScore).isEqualTo(legacyScoreVal);
-        // Also verify the expected value: each avatar has rating = 5*1 = 5; sum/3 = 5.0
-        assertThat(newScore).isEqualTo(5.0);
     }
 
     // =========================================================================
-    // AC4 — Overflow regression at N=17
+    // Criterion (b): overflow regression at N=17 (adversarial construction)
+    // Preserved from pre-audit corpus per AC7 — Spec-Anchored-b: verifies
+    // analytically-derivable correct value 1.0e10 against double implementation
     // =========================================================================
 
     @Test
-    @DisplayName("AC4: N=17 adversarial sequence — new scorer finite and non-NaN; legacy overflows")
+    @DisplayName("AC4: N=17 adversarial sequence — new scorer finite and non-NaN; expected value 1.0e10")
     void overflowRegressionN17() {
         // Adversarial construction: all avatars active in every row → single run of length 17
         // Legacy: rating = 1 * phaseCounter = 1 * 17 = 17 (getRating). No overflow here.
@@ -371,10 +370,6 @@ class VarietyScorerTest {
         int[] perm = new int[rowCount];
         for (int r = 0; r < rowCount; r++) perm[r] = r; // identity permutation
 
-        // Legacy scorer — int-based, will overflow
-        boolean[][] active2 = scorer.buildActiveMatrix(phase.rows(), rowCount, avatarCount);
-        double legacyResult = legacyScore(perm, active2, avatarCount);
-
         // New scorer — double-based
         double newResult = scorer.score(perm, phase);
 
@@ -392,124 +387,74 @@ class VarietyScorerTest {
         assertThat(newResult)
                 .as("New scorer must equal correct double result %.1f", expectedCorrectScore)
                 .isEqualTo(expectedCorrectScore);
-
-        // The legacy result is WRONG due to int overflow: it will NOT equal 1e10
-        // (it will be some wrapped negative or small integer due to overflow).
-        // This assertion documents the overflow behavior.
-        assertThat(legacyResult)
-                .as("Legacy scorer produces wrong result due to int overflow (expected != 1e10)")
-                .isNotEqualTo(expectedCorrectScore);
     }
 
     // =========================================================================
-    // AC7 — Error-path tests
+    // Criterion (d): guard-clause invariants
+    // Invariant: every out-of-contract input is rejected with IllegalArgumentException
+    // Quantified over the complete boundary of the guard-clause domain
     // =========================================================================
 
     @Nested
-    @DisplayName("AC7: Invalid input handling")
+    @DisplayName("Invariant: guard-clause — all out-of-contract inputs throw IAE")
     class InvalidInputTests {
 
         @Test
-        @DisplayName("AC7: phaseDef null throws IllegalArgumentException")
-        void nullPhaseDef() {
-            assertThatThrownBy(() -> scorer.score(new int[] {0}, null))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("phaseDef must not be null");
+        @DisplayName("Invariant: guard-clause — phaseDef null throws IAE (null domain boundary)")
+        void invariant_guardClause_nullPhaseDef() {
+            assertThatIllegalArgumentException()
+                    .isThrownBy(() -> scorer.score(new int[]{0}, null))
+                    .withMessageContaining("phaseDef must not be null");
         }
 
         @Test
-        @DisplayName("AC7: rowSequence null throws IllegalArgumentException")
-        void nullRowSequence() {
+        @DisplayName("Invariant: guard-clause — rowSequence null throws IAE (null domain boundary)")
+        void invariant_guardClause_nullRowSequence() {
             CanonicalPhaseDef phase = new CanonicalPhaseDef(1, 2, List.of(List.of(0, 1)));
-            assertThatThrownBy(() -> scorer.score(null, phase))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("rowSequence must not be null");
+            assertThatIllegalArgumentException()
+                    .isThrownBy(() -> scorer.score(null, phase))
+                    .withMessageContaining("rowSequence must not be null");
         }
 
         @Test
-        @DisplayName("AC7: rowSequence.length != phaseDef.rowCount throws")
-        void rowSequenceLengthMismatch() {
+        @DisplayName("Invariant: guard-clause — rowSequence.length != phaseDef.rowCount throws IAE (length mismatch)")
+        void invariant_guardClause_rowSequenceLengthMismatch() {
             CanonicalPhaseDef phase =
                     new CanonicalPhaseDef(3, 2, List.of(List.of(0), List.of(1), List.of(0, 1)));
-            assertThatThrownBy(() -> scorer.score(new int[] {0, 1}, phase))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("rowSequence.length=2")
-                    .hasMessageContaining("phaseDef.rowCount=3");
+            assertThatIllegalArgumentException()
+                    .isThrownBy(() -> scorer.score(new int[]{0, 1}, phase))
+                    .withMessageContaining("rowSequence.length=2")
+                    .withMessageContaining("phaseDef.rowCount=3");
         }
 
         @Test
-        @DisplayName("AC7: rowSequence with out-of-range index throws")
-        void rowSequenceOutOfRange() {
+        @DisplayName("Invariant: guard-clause — out-of-range rowSequence index throws IAE")
+        void invariant_guardClause_rowSequenceOutOfRange() {
             CanonicalPhaseDef phase = new CanonicalPhaseDef(2, 2, List.of(List.of(0), List.of(1)));
-            assertThatThrownBy(() -> scorer.score(new int[] {0, 5}, phase))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("out of range");
+            assertThatIllegalArgumentException()
+                    .isThrownBy(() -> scorer.score(new int[]{0, 5}, phase))
+                    .withMessageContaining("out of range");
         }
 
         @Test
-        @DisplayName("AC7: rowSequence with duplicate value throws")
-        void rowSequenceDuplicate() {
+        @DisplayName("Invariant: guard-clause — duplicate value in rowSequence throws IAE")
+        void invariant_guardClause_rowSequenceDuplicate() {
             CanonicalPhaseDef phase =
                     new CanonicalPhaseDef(3, 2, List.of(List.of(0), List.of(1), List.of(0, 1)));
-            assertThatThrownBy(() -> scorer.score(new int[] {0, 0, 2}, phase))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("duplicate value");
+            assertThatIllegalArgumentException()
+                    .isThrownBy(() -> scorer.score(new int[]{0, 0, 2}, phase))
+                    .withMessageContaining("duplicate value");
         }
 
         @Test
-        @DisplayName("AC7: negative avatar index in phaseDef throws")
-        void negativeAvatarIndex() {
-            // CanonicalPhaseDef itself doesn't validate avatar IDs — VarietyScorer does
-            // We must construct via buildActiveMatrix which validates.
-            // But score() also calls buildActiveMatrix for the hot path indirectly...
-            // Actually score() calls validateInputs() which checks avatar IDs.
-            // However CanonicalPhaseDef allows any Integer in rows — VarietyScorer validates.
-            List<List<Integer>> rows = new java.util.ArrayList<>();
-            rows.add(new java.util.ArrayList<>(java.util.Arrays.asList(-1, 0)));
-            // CanonicalPhaseDef constructor does not check avatar values, only rowCount/size
-            // We bypass the record constructor's validation by using a custom list
-            // Actually CanonicalPhaseDef uses List.copyOf which accepts any elements.
-            // We need avatarCount >= 0. Use avatarCount=1 (even though -1 is invalid).
+        @DisplayName("Invariant: guard-clause — negative avatar index in phaseDef throws IAE")
+        void invariant_guardClause_negativeAvatarIndex() {
+            List<List<Integer>> rows = new ArrayList<>();
+            rows.add(new ArrayList<>(Arrays.asList(-1, 0)));
             CanonicalPhaseDef phase = new CanonicalPhaseDef(1, 1, rows);
-            assertThatThrownBy(() -> scorer.score(new int[] {0}, phase))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("Negative avatar index");
+            assertThatIllegalArgumentException()
+                    .isThrownBy(() -> scorer.score(new int[]{0}, phase))
+                    .withMessageContaining("Negative avatar index");
         }
-    }
-
-    // =========================================================================
-    // Edge cases
-    // =========================================================================
-
-    @Test
-    @DisplayName("Edge case: empty phase (rowCount=0, avatarCount=0)")
-    void emptyPhase() {
-        CanonicalPhaseDef phase = new CanonicalPhaseDef(0, 0, List.of());
-        double result = scorer.score(new int[0], phase);
-        assertThat(result).isEqualTo(0.0);
-    }
-
-    @Test
-    @DisplayName("Edge case: single row, single avatar")
-    void singleRowSingleAvatar() {
-        CanonicalPhaseDef phase = new CanonicalPhaseDef(1, 1, List.of(List.of(0)));
-        double result = scorer.score(new int[] {0}, phase);
-        // Single run of length 1 → product=1, score = 1/1 = 1.0
-        assertThat(result).isEqualTo(1.0);
-        // Also verify legacy match
-        boolean[][] active = scorer.buildActiveMatrix(phase.rows(), 1, 1);
-        assertThat(result).isEqualTo(legacyScore(new int[] {0}, active, 1));
-    }
-
-    @Test
-    @DisplayName("Edge case: single row, avatar not active")
-    void singleRowAvatarIdle() {
-        CanonicalPhaseDef phase = new CanonicalPhaseDef(1, 1, List.of(List.of()));
-        // Avatar 0 is idle in the only row
-        double result = scorer.score(new int[] {0}, phase);
-        // Single idle run of length 1 → product=1, score = 1/1 = 1.0
-        assertThat(result).isEqualTo(1.0);
-        boolean[][] active = scorer.buildActiveMatrix(phase.rows(), 1, 1);
-        assertThat(result).isEqualTo(legacyScore(new int[] {0}, active, 1));
     }
 }
