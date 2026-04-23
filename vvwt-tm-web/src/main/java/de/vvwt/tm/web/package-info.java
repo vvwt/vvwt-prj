@@ -25,6 +25,11 @@
  *   <li>{@code photo} — {@code TeamPhotoController} (at {@code infrastructure.web.photo.*},
  *       relocated to {@code web} at E23S04) consumes {@link de.vvwt.tm.photo.PhotoStorageService}.
  *       Added at E23S01 (first photo-track story per DEC-40 Clause A migration cadence).
+ *   <li>{@code certificate} — {@code CertificateTemplateController} (relocated from {@code
+ *       infrastructure.web.certificate.*} at E23S09) consumes {@link
+ *       de.vvwt.tm.certificate.CertificateTemplateService}. Post-story excl.-tenant count = 4
+ *       (tournament, scoring, photo, certificate). Still below Trigger α (≥5). Added at E23S09 per
+ *       DEC-40 Clause A migration cadence (AC-ALLOWED-DEPS-EXPANDED).
  * </ul>
  *
  * <h2>Boundary rules (DEC-40 § Clause A)</h2>
@@ -48,6 +53,7 @@
             "tournament::exceptions",
             "tournament::dto",
             "scoring",
-            "photo"
+            "photo",
+            "certificate"
         })
 package de.vvwt.tm.web;
