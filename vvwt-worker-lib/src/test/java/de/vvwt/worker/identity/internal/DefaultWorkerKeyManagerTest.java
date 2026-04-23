@@ -1,4 +1,4 @@
-package de.vvwt.worker.identity;
+package de.vvwt.worker.identity.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -6,8 +6,11 @@ import static org.assertj.core.api.Assumptions.assumeThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import de.vvwt.worker.identity.KeyRotationResult;
+import de.vvwt.worker.identity.WorkerKeyCorruptException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,34 +23,47 @@ import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
 
 /**
- * Unit tests for {@link WorkerKeyManager}.
+ * TDD-first unit tests for {@link DefaultWorkerKeyManager}.
  *
- * <p>Covers Story E01S04 AC1–AC10. Platform-specific assertions (POSIX permissions) are skipped on
- * non-POSIX systems via {@link org.assertj.core.api.Assumptions#assumeThat}.
+ * <p>Written RED-first per DEC-22 Iron Law before DefaultWorkerKeyManager implementation existed.
+ * All test methods target the concrete implementation class directly (same-package white-box access
+ * per DEC-36 — this test class is in {@code de.vvwt.worker.identity.internal}).
+ *
+ * <p>Replaces the Snapshot-Driven {@code WorkerKeyManagerTest} per DEC-41 hierarchy clause 3
+ * (E35S01 audit classified all 19 methods as Snapshot-Driven).
+ *
+ * <p>See E35S02, DEC-22, DEC-36, DEC-41.
  */
-class WorkerKeyManagerTest {
+class DefaultWorkerKeyManagerTest {
 
     // -------------------------------------------------------------------------
-    // AC1 — generate on first invocation, load on subsequent
+    // AC1 (DEC-22 RED-first) — generate on first invocation, load on subsequent
     // -------------------------------------------------------------------------
 
     @Test
-    void firstInvocationGeneratesKeypair(@TempDir Path tempDir) throws Exception {
+    void firstInvocationGeneratesKeypairFiles(@TempDir Path tempDir) throws Exception {
         Logger logger = mock(Logger.class);
-        WorkerKeyManager manager = new WorkerKeyManager(tempDir, logger);
+        new DefaultWorkerKeyManager(tempDir, logger);
 
         assertThat(tempDir.resolve("optimizer-worker.key")).exists();
         assertThat(tempDir.resolve("optimizer-worker.pub")).exists();
+    }
+
+    @Test
+    void firstInvocationReturns32BytePublicKey(@TempDir Path tempDir) throws Exception {
+        Logger logger = mock(Logger.class);
+        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, logger);
+
         assertThat(manager.getPublicKeyBytes()).hasSize(32);
     }
 
     @Test
     void subsequentInvocationLoadsExistingKeypair(@TempDir Path tempDir) throws Exception {
         Logger logger = mock(Logger.class);
-        WorkerKeyManager first = new WorkerKeyManager(tempDir, logger);
+        DefaultWorkerKeyManager first = new DefaultWorkerKeyManager(tempDir, logger);
         byte[] publicKeyFirst = first.getPublicKeyBytes();
 
-        WorkerKeyManager second = new WorkerKeyManager(tempDir, logger);
+        DefaultWorkerKeyManager second = new DefaultWorkerKeyManager(tempDir, logger);
         byte[] publicKeySecond = second.getPublicKeyBytes();
 
         assertThat(publicKeySecond)
@@ -56,7 +72,7 @@ class WorkerKeyManagerTest {
     }
 
     // -------------------------------------------------------------------------
-    // AC2 — 0600 POSIX permissions on private key file
+    // 0600 POSIX permissions on private key file
     // -------------------------------------------------------------------------
 
     @Test
@@ -65,7 +81,7 @@ class WorkerKeyManagerTest {
         assumeThat(isPosix).as("POSIX file attributes not supported on this platform").isTrue();
 
         Logger logger = mock(Logger.class);
-        new WorkerKeyManager(tempDir, logger);
+        new DefaultWorkerKeyManager(tempDir, logger);
 
         Path privateKeyFile = tempDir.resolve("optimizer-worker.key");
         Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(privateKeyFile);
@@ -77,24 +93,21 @@ class WorkerKeyManagerTest {
     }
 
     // -------------------------------------------------------------------------
-    // AC3 — corrupt private key → WorkerKeyCorruptException, file NOT overwritten
+    // Corrupt private key → WorkerKeyCorruptException, file NOT overwritten
     // -------------------------------------------------------------------------
 
     @Test
     void corruptPrivateKeyThrowsExceptionAndDoesNotOverwrite(@TempDir Path tempDir)
             throws Exception {
         Logger logger = mock(Logger.class);
-        // Generate a valid keypair first
-        new WorkerKeyManager(tempDir, logger);
+        new DefaultWorkerKeyManager(tempDir, logger);
 
-        // Corrupt the private key file by overwriting with garbage
         Path privateKeyFile = tempDir.resolve("optimizer-worker.key");
         byte[] garbageBytes = new byte[] {0x00, 0x01, 0x02, 0x03};
         Files.write(privateKeyFile, garbageBytes);
         long corruptFileTimestamp = Files.getLastModifiedTime(privateKeyFile).toMillis();
 
-        // Second manager instantiation must throw WorkerKeyCorruptException
-        assertThatThrownBy(() -> new WorkerKeyManager(tempDir, logger))
+        assertThatThrownBy(() -> new DefaultWorkerKeyManager(tempDir, logger))
                 .isInstanceOf(WorkerKeyCorruptException.class)
                 .satisfies(
                         ex -> {
@@ -103,7 +116,6 @@ class WorkerKeyManagerTest {
                                     .contains("optimizer-worker.key");
                         });
 
-        // File must NOT have been overwritten (timestamp unchanged)
         assertThat(Files.getLastModifiedTime(privateKeyFile).toMillis())
                 .as("Corrupt private key file must NOT be overwritten")
                 .isEqualTo(corruptFileTimestamp);
@@ -113,13 +125,13 @@ class WorkerKeyManagerTest {
     }
 
     // -------------------------------------------------------------------------
-    // AC4 — signResult produces a 64-byte detached signature
+    // signResult — produces a 64-byte detached signature
     // -------------------------------------------------------------------------
 
     @Test
     void signResultProduces64Bytes(@TempDir Path tempDir) throws Exception {
         Logger logger = mock(Logger.class);
-        WorkerKeyManager manager = new WorkerKeyManager(tempDir, logger);
+        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, logger);
 
         byte[] payload = "test-result-payload".getBytes();
         byte[] signature = manager.signResult(payload);
@@ -130,20 +142,20 @@ class WorkerKeyManagerTest {
     @Test
     void signResultRejectsNullInput(@TempDir Path tempDir) throws Exception {
         Logger logger = mock(Logger.class);
-        WorkerKeyManager manager = new WorkerKeyManager(tempDir, logger);
+        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, logger);
 
         assertThatThrownBy(() -> manager.signResult(null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     // -------------------------------------------------------------------------
-    // AC5 — signatures are deterministic (Ed25519 is deterministic by spec)
+    // Ed25519 determinism
     // -------------------------------------------------------------------------
 
     @Test
-    void signaturesAreDeterministic(@TempDir Path tempDir) throws Exception {
+    void signaturesAreDeterministicForSameInput(@TempDir Path tempDir) throws Exception {
         Logger logger = mock(Logger.class);
-        WorkerKeyManager manager = new WorkerKeyManager(tempDir, logger);
+        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, logger);
 
         byte[] payload = "same-input-bytes".getBytes();
         byte[] sig1 = manager.signResult(payload);
@@ -157,26 +169,24 @@ class WorkerKeyManagerTest {
     }
 
     // -------------------------------------------------------------------------
-    // AC6 — getPublicKeyBytes returns exactly 32 bytes
+    // getPublicKeyBytes
     // -------------------------------------------------------------------------
 
     @Test
     void getPublicKeyBytesReturns32Bytes(@TempDir Path tempDir) throws Exception {
         Logger logger = mock(Logger.class);
-        WorkerKeyManager manager = new WorkerKeyManager(tempDir, logger);
+        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, logger);
 
-        byte[] publicKey = manager.getPublicKeyBytes();
-
-        assertThat(publicKey).hasSize(32);
+        assertThat(manager.getPublicKeyBytes()).hasSize(32);
     }
 
     @Test
     void getPublicKeyBytesReturnsCopy(@TempDir Path tempDir) throws Exception {
         Logger logger = mock(Logger.class);
-        WorkerKeyManager manager = new WorkerKeyManager(tempDir, logger);
+        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, logger);
 
         byte[] first = manager.getPublicKeyBytes();
-        first[0] = (byte) ~first[0]; // mutate the returned array
+        first[0] = (byte) ~first[0];
         byte[] second = manager.getPublicKeyBytes();
 
         assertThat(second[0])
@@ -185,7 +195,7 @@ class WorkerKeyManagerTest {
     }
 
     // -------------------------------------------------------------------------
-    // AC7 — missing dataDir is created; IOException on creation failure
+    // dataDir creation
     // -------------------------------------------------------------------------
 
     @Test
@@ -194,7 +204,7 @@ class WorkerKeyManagerTest {
         Path nonExistentSubDir = tempDir.resolve("subdir/nested");
         assertThat(nonExistentSubDir).doesNotExist();
 
-        new WorkerKeyManager(nonExistentSubDir, logger);
+        new DefaultWorkerKeyManager(nonExistentSubDir, logger);
 
         assertThat(nonExistentSubDir).isDirectory();
     }
@@ -204,7 +214,6 @@ class WorkerKeyManagerTest {
         boolean isPosix = Files.getFileAttributeView(tempDir, PosixFileAttributeView.class) != null;
         assumeThat(isPosix).as("This test requires POSIX file permission support").isTrue();
 
-        // Make tempDir read-only to prevent subdirectory creation
         Files.setPosixFilePermissions(
                 tempDir, Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_EXECUTE));
 
@@ -212,10 +221,9 @@ class WorkerKeyManagerTest {
             Logger logger = mock(Logger.class);
             Path childDir = tempDir.resolve("locked-child");
 
-            assertThatThrownBy(() -> new WorkerKeyManager(childDir, logger))
+            assertThatThrownBy(() -> new DefaultWorkerKeyManager(childDir, logger))
                     .isInstanceOf(IOException.class);
         } finally {
-            // Restore so @TempDir cleanup can remove it
             Files.setPosixFilePermissions(
                     tempDir,
                     Set.of(
@@ -226,64 +234,46 @@ class WorkerKeyManagerTest {
     }
 
     // -------------------------------------------------------------------------
-    // AC8 — WorkerKeyGenerationException is the declared thrown type
-    // -------------------------------------------------------------------------
-
-    @Test
-    void workerKeyGenerationExceptionIsRuntimeException() {
-        // Verify the exception class hierarchy — runtime exception means no forced catch
-        WorkerKeyGenerationException ex =
-                new WorkerKeyGenerationException("test", new RuntimeException("cause"));
-        assertThat(ex).isInstanceOf(RuntimeException.class);
-        assertThat(ex.getCause()).isNotNull();
-    }
-
-    // -------------------------------------------------------------------------
-    // AC9 — INFO log messages at generation and load time
+    // INFO log messages at generation and load time
     // -------------------------------------------------------------------------
 
     @Test
     void generationLogsInfoWithFingerprintOnFirstRun(@TempDir Path tempDir) throws Exception {
         Logger logger = mock(Logger.class);
-        new WorkerKeyManager(tempDir, logger);
+        new DefaultWorkerKeyManager(tempDir, logger);
 
-        // Verify INFO was called with a message containing "generated" and the path
         verify(logger).info(anyString(), any(), anyString());
     }
 
     @Test
     void loadLogsInfoWithFingerprintOnSubsequentRun(@TempDir Path tempDir) throws Exception {
         Logger logger = mock(Logger.class);
-        // First run — generate
-        new WorkerKeyManager(tempDir, logger);
-        // Second run — load
-        new WorkerKeyManager(tempDir, logger);
+        new DefaultWorkerKeyManager(tempDir, logger);
+        new DefaultWorkerKeyManager(tempDir, logger);
 
-        // Two info calls total: one for generate, one for load
-        verify(logger, org.mockito.Mockito.times(2)).info(anyString(), any(), anyString());
+        verify(logger, times(2)).info(anyString(), any(), anyString());
     }
 
     // -------------------------------------------------------------------------
-    // AC10 — rotateKeypair generates a new keypair, returns fingerprints
+    // rotateKeypair
     // -------------------------------------------------------------------------
 
     @Test
     void rotateKeypairReturnsNewFingerprintDifferentFromOld(@TempDir Path tempDir)
             throws Exception {
         Logger logger = mock(Logger.class);
-        WorkerKeyManager manager = new WorkerKeyManager(tempDir, logger);
+        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, logger);
 
         byte[] originalPublicKey = manager.getPublicKeyBytes();
         KeyRotationResult result = manager.rotateKeypair();
 
         assertThat(result).isNotNull();
-        assertThat(result.oldFingerprint()).isNotNull().hasSize(16); // 8 bytes = 16 hex chars
+        assertThat(result.oldFingerprint()).isNotNull().hasSize(16);
         assertThat(result.newFingerprint()).isNotNull().hasSize(16);
         assertThat(result.oldFingerprint())
                 .as("Old and new fingerprints must differ after rotation")
                 .isNotEqualTo(result.newFingerprint());
 
-        // Internal state must reflect new key
         byte[] newPublicKey = manager.getPublicKeyBytes();
         assertThat(newPublicKey)
                 .as("Public key bytes must change after rotation")
@@ -293,7 +283,7 @@ class WorkerKeyManagerTest {
     @Test
     void rotateKeypairUpdatesKeyFiles(@TempDir Path tempDir) throws Exception {
         Logger logger = mock(Logger.class);
-        WorkerKeyManager manager = new WorkerKeyManager(tempDir, logger);
+        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, logger);
 
         byte[] originalPubKeyBytes = Files.readAllBytes(tempDir.resolve("optimizer-worker.pub"));
         manager.rotateKeypair();
@@ -303,7 +293,6 @@ class WorkerKeyManagerTest {
                 .as("Public key file must be updated after rotation")
                 .isNotEqualTo(originalPubKeyBytes);
 
-        // The .new file must have been moved (renamed) — should not exist after rotation
         assertThat(tempDir.resolve("optimizer-worker.key.new"))
                 .as("Temporary .new key file must not exist after successful rotation")
                 .doesNotExist();
@@ -312,27 +301,25 @@ class WorkerKeyManagerTest {
     @Test
     void rotatedKeypairCanSignAndBeLoaded(@TempDir Path tempDir) throws Exception {
         Logger logger = mock(Logger.class);
-        WorkerKeyManager manager = new WorkerKeyManager(tempDir, logger);
+        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, logger);
         manager.rotateKeypair();
 
-        // After rotation, signing must work with the new key
         byte[] signature = manager.signResult("payload".getBytes());
         assertThat(signature).hasSize(64);
 
-        // And a new manager loading from disk must use the rotated key
-        WorkerKeyManager reloaded = new WorkerKeyManager(tempDir, logger);
+        DefaultWorkerKeyManager reloaded = new DefaultWorkerKeyManager(tempDir, logger);
         assertThat(reloaded.getPublicKeyBytes()).isEqualTo(manager.getPublicKeyBytes());
     }
 
     // -------------------------------------------------------------------------
-    // Fingerprint helper — package-private, tested directly
+    // fingerprint helper — package-private, tested directly (same-package white-box)
     // -------------------------------------------------------------------------
 
     @Test
     void fingerprintReturns16HexChars() {
         byte[] fakePublicKey = new byte[32];
         Arrays.fill(fakePublicKey, (byte) 0xAB);
-        String fp = WorkerKeyManager.fingerprint(fakePublicKey);
+        String fp = DefaultWorkerKeyManager.fingerprint(fakePublicKey);
         assertThat(fp).hasSize(16).matches("[0-9a-f]+");
     }
 
@@ -340,8 +327,8 @@ class WorkerKeyManagerTest {
     void fingerprintIsDeterministic() {
         byte[] fakePublicKey = new byte[32];
         Arrays.fill(fakePublicKey, (byte) 0x77);
-        String fp1 = WorkerKeyManager.fingerprint(fakePublicKey);
-        String fp2 = WorkerKeyManager.fingerprint(fakePublicKey);
+        String fp1 = DefaultWorkerKeyManager.fingerprint(fakePublicKey);
+        String fp2 = DefaultWorkerKeyManager.fingerprint(fakePublicKey);
         assertThat(fp1).isEqualTo(fp2);
     }
 }
