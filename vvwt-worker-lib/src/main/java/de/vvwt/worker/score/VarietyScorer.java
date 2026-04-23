@@ -19,8 +19,8 @@ import java.util.List;
  *   <li>Each time the state changes, multiply the accumulated product by the run length of the
  *       just-ended run.
  *   <li>At the end, multiply by the final run length.
- *   <li>This produces a <em>non-variety rating</em> for the avatar (matches the legacy {@code
- *       NonVarietyRatingBuilder} formulation, modulo the overflow fix described below).
+ *   <li>This produces a <em>non-variety rating</em> for the avatar (matches the legacy
+ *       NonVarietyRatingBuilder formulation, modulo the overflow fix described below; see E35S04).
  * </ol>
  *
  * <p>The total score is the sum of per-avatar ratings divided by {@code avatarCount}, matching the
@@ -147,8 +147,8 @@ public final class VarietyScorer {
                     prevActive = currentActive;
                 }
             }
-            // Flush the final run (matches NonVarietyRatingBuilder.getRating() = rating *
-            // phaseCounter)
+            // Flush the final run (matches legacy non-variety rating accumulation: rating *
+            // phaseCounter; see also E35S04 — NonVarietyRatingBuilder test fixture deleted)
             product *= runLength;
             totalScore += product;
         }
