@@ -12,6 +12,18 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  *
  * <p>No beans, no data sources, no Flyway configuration — those belong to E02S02.
  *
+ * <h2>E23S01 — Parallel-phase bean coexistence (AC-PARALLEL-COEXISTENCE)</h2>
+ *
+ * <p>During the parallel phase (until E23S05 Cutover-1), both the legacy {@code
+ * de.vvwt.tm.domain.photo.*} package and the new {@code de.vvwt.tm.photo.*} module coexist on the
+ * classpath. The potential {@code ConflictingBeanDefinitionException} for the shared {@code
+ * photoStorageConfig} bean name is resolved by qualifying the new module's config bean as {@code
+ * photoModuleStorageConfig} (see {@link de.vvwt.tm.photo.PhotoStorageConfig}). No explicit
+ * {@code @ComponentScan} exclusion is needed — the new {@code DefaultPhotoStorageService} and the
+ * legacy {@code PhotoStorageServiceImpl} have distinct bean names and implement DIFFERENT Java
+ * types ({@code de.vvwt.tm.photo.PhotoStorageService} vs. {@code
+ * de.vvwt.tm.domain.photo.PhotoStorageService}), so they do not conflict.
+ *
  * <h2>Post-E22S11 — @ComponentScan exclusions removed</h2>
  *
  * <p>The transitional {@code @ComponentScan(excludeFilters = ...)} annotation introduced in
