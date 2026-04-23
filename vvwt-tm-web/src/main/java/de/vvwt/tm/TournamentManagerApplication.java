@@ -16,7 +16,7 @@ import org.springframework.context.annotation.FilterType;
  *
  * <p>No beans, no data sources, no Flyway configuration — those belong to E02S02.
  *
- * <h2>Dual-bean-boot exclusion (AC-COMPONENT-SCAN-EXCLUSION / E22S04, extended E22S05)</h2>
+ * <h2>Dual-bean-boot exclusion (AC-COMPONENT-SCAN-EXCLUSION / E22S04, extended E22S05, E22S10)</h2>
  *
  * <p>During the reconstruction-in-place transitional state (DEC-21, DEC-22), the legacy {@code
  * de.vvwt.tm.domain.rules.*} classes and the new {@code de.vvwt.tm.scoring.*} / {@code
@@ -36,13 +36,23 @@ import org.springframework.context.annotation.FilterType;
  * DefaultScoringService} per DEC-32 transitional import contract until E22S11 cutover. No
  * additional exclusions are added by E22S05 — the new beans use type-distinct qualified names.
  *
+ * <p><b>E22S10 (legacy ScoreController):</b> The new {@code de.vvwt.tm.web.ScoreController} and the
+ * legacy {@code de.vvwt.tm.infrastructure.score.ScoreController} both register
+ * {@code @RequestMapping("/score")}, which causes Spring to throw {@code IllegalStateException:
+ * Ambiguous mapping} at startup. The legacy class is excluded here so the new class is the sole
+ * registered bean. The legacy class remains on the classpath (not deleted) until the E22S11 atomic
+ * cutover. The legacy {@code ScoreControllerTest} (unit test) instantiates the class directly and
+ * is unaffected by this exclusion. The legacy {@code ScoreControllerIT} (integration test) makes
+ * HTTP calls that are now served by the new controller with byte-equivalent URL mappings and
+ * Mustache templates — it remains GREEN.
+ *
  * <p>The explicit {@code @ComponentScan} annotation on this class overrides the embedded scan in
  * {@code @SpringBootApplication}; {@link TypeExcludeFilter} is therefore re-added explicitly to
  * preserve Spring Boot's test-class exclusion semantics (prevents {@code @SpringBootTest} inner
  * configuration classes from being treated as production beans during test runs). This is a
  * structural exclusion, not a runtime conditional; explicitly permitted by DEC-21.
  *
- * <p>This exclusion MUST be removed at the E22S11 cutover when {@code domain.rules.*} is deleted.
+ * <p>All exclusions MUST be removed at the E22S11 cutover when all legacy classes are deleted.
  *
  * @see <a
  *     href="../../../../../../../../../../../.gaai/project/contexts/artefacts/stories/E02S01.story.md">Story
@@ -57,7 +67,10 @@ import org.springframework.context.annotation.FilterType;
                     pattern =
                             "de\\.vvwt\\.tm\\.domain\\.rules\\."
                                     + "(SetPointsRule|ThreePointMatchRule|TwoPointMatchRule"
-                                    + "|StandardVolleyballSet|TimeBoundedSet)")
+                                    + "|StandardVolleyballSet|TimeBoundedSet)"),
+            @Filter(
+                    type = FilterType.REGEX,
+                    pattern = "de\\.vvwt\\.tm\\.infrastructure\\.score\\.ScoreController")
         })
 public class TournamentManagerApplication {
 
