@@ -1,6 +1,7 @@
 package de.vvwt.tm.certificate.internal;
 
 import de.vvwt.tm.certificate.CertificateTemplateMetadata;
+import de.vvwt.tm.certificate.CertificateTemplateRepository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -11,17 +12,18 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 /**
- * JDBC repository for certificate template metadata (E12S04, E23S06).
+ * Default implementation of {@link CertificateTemplateRepository} — JdbcTemplate-based persistence
+ * for certificate template metadata (E12S04, E23S06, E23S07).
  *
- * <p>Relocated from {@code de.vvwt.tm.domain.repo.CertificateTemplateRepository} to {@code
- * de.vvwt.tm.certificate.internal} as part of E23S06 (Q-1b whole-class relocation per DEC-22
- * §refactor-clause). Kept as a concrete class in this story; interface extraction is deferred to
- * E23S07 (Q-1a TDD-extract CertificateTemplateRepository interface).
+ * <p>Renamed from {@code CertificateTemplateRepository} to {@code
+ * DefaultCertificateTemplateRepository} as part of E23S07 (Q-1a TDD-extract per DEC-35 naming
+ * canon). The public interface {@link CertificateTemplateRepository} is the port; this class is the
+ * adapter in {@code certificate.internal.*}.
  *
- * <p>Per DEC-35: this concrete repository class lives in {@code .internal} because interface
- * extraction is deferred. After E23S07, the public interface {@code CertificateTemplateRepository}
- * will be introduced in the module root package and this class will be renamed to {@code
- * DefaultCertificateTemplateRepository}.
+ * <p>Per DEC-35 Item 2: this is a hand-authored interface (port over adapter) because the
+ * certificate_template table uses {@link JdbcTemplate} directly — not Spring Data CRUD semantics.
+ * The interface is hand-authored per DEC-35 Item 2; this impl lives in {@code .internal.*} per
+ * DEC-35 naming canon.
  *
  * <p>Uses {@link JdbcTemplate} directly because the certificate_template table has {@code
  * tournament_id} as its sole primary key — one template per tournament, so there is no entity graph
@@ -41,15 +43,23 @@ import org.springframework.stereotype.Repository;
  * (per-module, E23S06, DEC-25). The root {@code V15__e12s04_certificate_template.sql} remains on
  * disk during the parallel phase; it is deleted at E23S10 Cutover-2.
  *
+ * @see CertificateTemplateRepository
  * @see de.vvwt.tm.certificate.internal.DefaultCertificateTemplateService
- * @see DEC-35
+ * @see <a
+ *     href="../../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-35.md">DEC-35
+ *     Item 2</a>
+ * @see <a
+ *     href="../../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-26.md">DEC-26</a>
+ * @see <a
+ *     href="../../../../../../../../../.gaai/project/contexts/artefacts/stories/E23S07.story.md">Story
+ *     E23S07 — D-16</a>
  */
-@Repository("certificateModuleTemplateRepository")
-public class CertificateTemplateRepository {
+@Repository("defaultCertificateTemplateRepository")
+public class DefaultCertificateTemplateRepository implements CertificateTemplateRepository {
 
     private final JdbcTemplate jdbcTemplate;
 
-    public CertificateTemplateRepository(JdbcTemplate jdbcTemplate) {
+    public DefaultCertificateTemplateRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 
@@ -63,6 +73,7 @@ public class CertificateTemplateRepository {
      * @param tournamentId the tournament UUID
      * @return the metadata, or {@link Optional#empty()} if no template is stored
      */
+    @Override
     public Optional<CertificateTemplateMetadata> findByTournamentId(UUID tournamentId) {
         String sql =
                 """
@@ -88,6 +99,7 @@ public class CertificateTemplateRepository {
      *
      * @param metadata the template metadata to persist
      */
+    @Override
     public void upsert(CertificateTemplateMetadata metadata) {
         String sql =
                 """
@@ -115,6 +127,7 @@ public class CertificateTemplateRepository {
      * @param tournamentId the tournament UUID
      * @return {@code true} if a row was deleted; {@code false} if no row existed
      */
+    @Override
     public boolean deleteByTournamentId(UUID tournamentId) {
         int rowsAffected =
                 jdbcTemplate.update(

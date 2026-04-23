@@ -36,9 +36,11 @@ import org.springframework.context.annotation.FilterType;
  * <ul>
  *   <li>{@code de.vvwt.tm.certificate.CertificateTemplateStorageConfig} is registered as {@code
  *       "certificateModuleStorageConfig"} (vs. legacy {@code "certificateTemplateStorageConfig"}).
- *   <li>{@code de.vvwt.tm.certificate.internal.CertificateTemplateRepository} is registered as
- *       {@code "certificateModuleTemplateRepository"} (vs. legacy {@code
- *       "certificateTemplateRepository"}).
+ *   <li>{@code de.vvwt.tm.certificate.internal.DefaultCertificateTemplateRepository} is registered
+ *       as {@code "defaultCertificateTemplateRepository"} (vs. legacy {@code
+ *       "certificateTemplateRepository"}). Renamed from concrete class {@code
+ *       CertificateTemplateRepository} to {@code DefaultCertificateTemplateRepository} + interface
+ *       extracted at E23S07 (DEC-35 naming canon).
  * </ul>
  *
  * <p>The new {@code DefaultCertificateTemplateService} (bean name {@code
