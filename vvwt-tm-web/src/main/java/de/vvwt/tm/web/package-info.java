@@ -22,6 +22,9 @@
  *       these wire types without violating Modulith boundary rules (E22S07, DEC-40 Clause A).
  *   <li>{@code scoring} — controllers that invoke {@code ScoringService} import from the scoring
  *       root package.
+ *   <li>{@code photo} — {@code TeamPhotoController} (at {@code infrastructure.web.photo.*},
+ *       relocated to {@code web} at E23S04) consumes {@link de.vvwt.tm.photo.PhotoStorageService}.
+ *       Added at E23S01 (first photo-track story per DEC-40 Clause A migration cadence).
  * </ul>
  *
  * <h2>Boundary rules (DEC-40 § Clause A)</h2>
@@ -44,6 +47,7 @@
             "tournament",
             "tournament::exceptions",
             "tournament::dto",
-            "scoring"
+            "scoring",
+            "photo"
         })
 package de.vvwt.tm.web;
