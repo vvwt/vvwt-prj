@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-38.md at 83f672476d3cd77e784c0b1495ec86f8051c8967 2026-04-22 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-38.md at 478f43a4441deb513240dcefdc41b8f1da4c0e4f 2026-04-23 -->
 ---
 id: DEC-38
 domain: governance
@@ -14,6 +14,7 @@ erratum_2026_04_22:
 supersedes: null
 superseded_by: null
 amends: null
+amended_by: [DEC-40]
 tags:
   - testing
   - integration-tests
@@ -21,7 +22,7 @@ tags:
   - it-annotation
   - canonical-pattern
   - track-3
-related_to: [DEC-21, DEC-22, DEC-26, DEC-35, DEC-36, DEC-37]
+related_to: [DEC-21, DEC-22, DEC-26, DEC-35, DEC-36, DEC-37, DEC-40]
 session_brief_ref: discovery-2026-04-22-architectural-pivot
 ---
 
@@ -164,7 +165,7 @@ assertions remain unchanged; the changes are the test-class annotation,
 equivalent preservation of the prior `classes = {...}` / `properties = {...}`
 via `@Import` / `@TestPropertySource`, and any necessary
 `@MockitoBean` adjustments for beans outside the new module scope.
-Bestehende ITs must remain GREEN post-migration (regression-gate AC).
+Existing ITs must remain GREEN post-migration (regression-gate AC).
 
 **Slice-test scope clarification (erratum 2026-04-22):** The 6 sibling
 `*ControllerSliceTest` files (which use `@WebMvcTest`) are NOT part of
@@ -273,4 +274,27 @@ evidence (≥3 cold-boot runs, comparison against E20S02 baseline).
   package layout — services as interfaces; tests reference interfaces per
   DEC-36), DEC-36 (cross-package test rule — applies regardless of
   annotation choice), DEC-37 (cascade serialization + selective async —
-  CascadeLockIT annotation choice per Clause D narrative).
+  CascadeLockIT annotation choice per Clause D narrative), DEC-40
+  (Primary-Adapter-Isolation — amends this DEC to cover the `web`
+  Modulith module explicitly).
+
+---
+
+## 2026-04-22 Amendment — `web` Modulith module is a first-class `@ApplicationModuleTest` target (Primary-Adapter-Isolation)
+
+See **DEC-40** for the full amendment. In summary: DEC-40 introduces `de.vvwt.tm.web` as a dedicated Modulith module holding all reconstructed REST controllers (relocated out of their originating bounded-context modules per DEC-40 Clause A). Clause A of **this** DEC (`@ApplicationModuleTest` as the canonical IT annotation for intra-module controller integration tests) is extended verbatim to the `web` module: `*ControllerIT` test classes in `src/test/java/de/vvwt/tm/web/` are annotated `@ApplicationModuleTest(webEnvironment = WebEnvironment.RANDOM_PORT)` targeting the `web` module, which boots `web` + all its declared `allowedDependencies` (initially `tenant`, `tournament`, `tournament::exceptions`, `scoring` per DEC-40 Clause A; expanding per future context reconstruction subject to DEC-40 expansion-triggers α/β).
+
+Clause D of this DEC (empirical cold-boot escape — amendment DEC may revert to `@SpringBootTest(RANDOM_PORT)` if measured cold-boot exceeds 50% over the E20S02 baseline of 17.07s) is **explicitly retained and gains operational relevance** for web-module ITs: the web module's `allowedDependencies` set is intentionally broad (multiple bounded contexts), so its `@ApplicationModuleTest` boot surface approaches the full `@SpringBootTest(RANDOM_PORT)` surface. If measured cold-boot proves unacceptable, the Clause D escape fires for web-module ITs specifically; bounded-context intra-module ITs retain `@ApplicationModuleTest` regardless.
+
+Clause C (migration rule for existing E21 full-context controller ITs) **is extended, not replaced**, by the following symmetric case: the 6 `*ControllerIT` files already migrated to `@ApplicationModuleTest` under E31S01 stay annotated `@ApplicationModuleTest` during the subsequent E22 Q-1b relocation (the files move from `de.vvwt.tm.tournament.*` test package to `de.vvwt.tm.web.*` test package per DEC-40 Clause D; the annotation is re-targeted from the `tournament` module's implicit scope to the `web` module's declared scope). The 6 sibling `*ControllerSliceTest` files retain `@WebMvcTest` per this DEC's existing erratum (2026-04-22) — also unchanged by DEC-40.
+
+**Extension — reverse @MockitoBean case (new under DEC-40):** The original Clause C mentions the forward direction — "If a test class's assertions begin failing after the annotation swap due to beans newly **EXCLUDED** from the module-scoped context, the resolution is to add explicit `@MockitoBean` declarations for the excluded collaborators." DEC-40's relocation introduces the symmetric REVERSE case: when a test moves from a narrow module's scope (e.g., `tournament` via `@ApplicationModuleTest(mode=DIRECT_DEPENDENCIES)`) into `web`'s broader scope (which boots web + `tenant` + `tournament` + `scoring`), previously-mocked collaborators that now fall **INSIDE** web's declared `allowedDependencies` must have their `@MockitoBean` declarations **removed** (the real bean is now present in the context and the `@MockitoBean` would silently override production behaviour). Removal is part of the Q-1b relocation refactor; it does NOT require a new RED-first test. Existing assertions must remain GREEN post-removal. Concrete examples expected during E22:
+
+- `TournamentModuleTestConfig` currently mocks `ScoringRuleRegistry` + `SetValidationRuleRegistry` (E31S01 lines 258, 267). Post-DEC-40 + DEC-40 Clause A `web.allowedDependencies` including `scoring`, the real scoring beans are present in web-module IT contexts → these mock bean-methods should be deleted (not preserved in a web-module `TestConfig`).
+- `TournamentRulesControllerSliceTest` currently mocks `ScoringRuleRegistry` + `SetValidationRuleRegistry` — as a `@WebMvcTest` slice, it retains the mocks (slice annotation doesn't load service beans anyway), but the mock TYPES are re-pointed to scoring's new internal FQNs under E22 D-1 relocation.
+
+The decision per test class sits with the E22 relocation story author; the default is "delete the mock if the real bean is in scope; keep the mock if it's a `@WebMvcTest` slice or the collaborator is intentionally stubbed for test isolation."
+
+All other clauses of this DEC (Clause B legacy preservation; full §Context rationale; `patterns/conventions.md` §(d) supersession-for-reconstructed-modules semantic) remain UNCHANGED by DEC-40.
+
+(Frontmatter `amended_by: [DEC-40]` is the authoritative amendment record; `status` remains `active`; no `supersedes`/`superseded_by` change.)
