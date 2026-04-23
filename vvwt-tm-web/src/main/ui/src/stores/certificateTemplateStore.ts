@@ -1,11 +1,11 @@
 /**
  * API client for tournament certificate template management (E12S05).
  *
- * Wraps the E12S04 REST endpoints:
- *   GET    /api/tournaments/{id}/certificate-template/info  — metadata (or null if no template)
- *   POST   /api/tournaments/{id}/certificate-template       — upload (or replace) template
- *   DELETE /api/tournaments/{id}/certificate-template       — delete template
- *   GET    /api/certificate-template/variables              — list available Mustache variables
+ * Wraps the REST endpoints (renamed at E23S10 Cutover-2 per AC-URL-RENAME-CERTIFICATE-ENDPOINTS):
+ *   GET    /api/certificate/tournaments/{id}/template/info  — metadata (or null if no template)
+ *   POST   /api/certificate/tournaments/{id}/template       — upload (or replace) template
+ *   DELETE /api/certificate/tournaments/{id}/template       — delete template
+ *   GET    /api/certificate/variables                       — list available Mustache variables
  *
  * Upload uses XMLHttpRequest instead of fetch to expose upload progress (AC1).
  * All authenticated endpoints rely on browser-cached basic-auth via same-origin credentials
@@ -33,7 +33,7 @@ export interface CertificateTemplateVariable {
 }
 
 // ---------------------------------------------------------------------------
-// getTemplateMetadata — GET /api/tournaments/{id}/certificate-template/info
+// getTemplateMetadata — GET /api/certificate/tournaments/{id}/template/info
 // ---------------------------------------------------------------------------
 
 /**
@@ -48,7 +48,7 @@ export async function getTemplateMetadata(
     tournamentId: string,
 ): Promise<CertificateTemplateMetadata | null> {
     const response = await fetch(
-        `/api/tournaments/${tournamentId}/certificate-template/info`,
+        `/api/certificate/tournaments/${tournamentId}/template/info`,
         { credentials: 'same-origin' },
     );
     if (response.status === 404) {
@@ -61,7 +61,7 @@ export async function getTemplateMetadata(
 }
 
 // ---------------------------------------------------------------------------
-// uploadTemplate — POST /api/tournaments/{id}/certificate-template
+// uploadTemplate — POST /api/certificate/tournaments/{id}/template
 // ---------------------------------------------------------------------------
 
 /**
@@ -123,13 +123,13 @@ export function uploadTemplate(
             reject(new Error('Upload cancelled'));
         });
 
-        xhr.open('POST', `/api/tournaments/${tournamentId}/certificate-template`);
+        xhr.open('POST', `/api/certificate/tournaments/${tournamentId}/template`);
         xhr.send(formData);
     });
 }
 
 // ---------------------------------------------------------------------------
-// deleteTemplate — DELETE /api/tournaments/{id}/certificate-template
+// deleteTemplate — DELETE /api/certificate/tournaments/{id}/template
 // ---------------------------------------------------------------------------
 
 /**
@@ -140,7 +140,7 @@ export function uploadTemplate(
  */
 export async function deleteTemplate(tournamentId: string): Promise<void> {
     const response = await fetch(
-        `/api/tournaments/${tournamentId}/certificate-template`,
+        `/api/certificate/tournaments/${tournamentId}/template`,
         { method: 'DELETE', credentials: 'same-origin' },
     );
     if (!response.ok) {
@@ -149,7 +149,7 @@ export async function deleteTemplate(tournamentId: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// listVariables — GET /api/certificate-template/variables
+// listVariables — GET /api/certificate/variables
 // ---------------------------------------------------------------------------
 
 /**
@@ -161,7 +161,7 @@ export async function deleteTemplate(tournamentId: string): Promise<void> {
  * @throws   Error with message on HTTP error or network failure
  */
 export async function listVariables(): Promise<CertificateTemplateVariable[]> {
-    const response = await fetch('/api/certificate-template/variables', {
+    const response = await fetch('/api/certificate/variables', {
         credentials: 'same-origin',
     });
     if (!response.ok) {

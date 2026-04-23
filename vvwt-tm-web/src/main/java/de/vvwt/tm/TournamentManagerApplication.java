@@ -60,16 +60,13 @@ import org.springframework.context.annotation.FilterType;
  * protect against duplicate {@code @TestConfiguration} inner-class bean definitions during
  * {@code @SpringBootTest} context loading (E22S04/E22S05 precedent).
  *
- * <h2>E23S09 — Certificate controller parallel-phase URL-mapping coexistence</h2>
+ * <h2>E23S10 Cutover-2 — Certificate @ComponentScan exclusion removed</h2>
  *
- * <p>After the E23S09 relocation, both the legacy {@code
- * de.vvwt.tm.infrastructure.web.certificate.CertificateTemplateController} and the new {@code
- * de.vvwt.tm.web.certificate.CertificateTemplateController} are {@code @RestController} beans that
- * register identical URL mappings. Spring Boot would throw at startup due to ambiguous URL mapping.
- * Resolution: exclude the legacy controller and its DTOs from the component scan during the
- * parallel phase (analog to E23S04). The legacy classes REMAIN on disk
- * (AC-LEGACY-DELETION-DEFERRED); they are excluded here, not deleted. The exclude filter is REMOVED
- * atomically at E23S10 Cutover-2 when the legacy classes are deleted.
+ * <p>The REGEX excludeFilter for {@code de.vvwt.tm.infrastructure.web.certificate.*} introduced in
+ * E23S09 is removed here. The legacy controller class and its DTOs have been deleted at Cutover-2.
+ * The {@code TypeExcludeFilter} exclusion is preserved to protect against duplicate
+ * {@code @TestConfiguration} inner-class bean definitions during {@code @SpringBootTest} context
+ * loading (E22S04/E22S05 precedent).
  *
  * @see de.vvwt.tm.web.photo.TeamPhotoController
  * @see de.vvwt.tm.web.certificate.CertificateTemplateController
@@ -80,10 +77,7 @@ import org.springframework.context.annotation.FilterType;
 @SpringBootApplication
 @ComponentScan(
         excludeFilters = {
-            @ComponentScan.Filter(type = FilterType.CUSTOM, classes = TypeExcludeFilter.class),
-            @ComponentScan.Filter(
-                    type = FilterType.REGEX,
-                    pattern = "de\\.vvwt\\.tm\\.infrastructure\\.web\\.certificate\\..*")
+            @ComponentScan.Filter(type = FilterType.CUSTOM, classes = TypeExcludeFilter.class)
         })
 public class TournamentManagerApplication {
 

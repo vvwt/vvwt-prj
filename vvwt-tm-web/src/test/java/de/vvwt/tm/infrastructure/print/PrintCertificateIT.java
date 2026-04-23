@@ -499,9 +499,9 @@ class PrintCertificateIT {
                 authed.postForEntity(
                         new URI(
                                 baseUrl
-                                        + "/api/tournaments/"
+                                        + "/api/certificate/tournaments/"
                                         + tournamentId
-                                        + "/certificate-template"),
+                                        + "/template"),
                         new HttpEntity<>(body, requestHeaders),
                         String.class);
 
@@ -536,9 +536,9 @@ class PrintCertificateIT {
                 authed.postForEntity(
                         new URI(
                                 baseUrl
-                                        + "/api/tournaments/"
+                                        + "/api/certificate/tournaments/"
                                         + tournamentId
-                                        + "/certificate-template"),
+                                        + "/template"),
                         new HttpEntity<>(body, requestHeaders),
                         String.class);
 

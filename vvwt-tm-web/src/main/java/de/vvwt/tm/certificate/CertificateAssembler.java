@@ -105,17 +105,6 @@ public interface CertificateAssembler {
      */
     Map<String, Object> toMustacheMap(CertificatePlacementRow row);
 
-    /**
-     * Returns the display name of the default location for the current tenant.
-     *
-     * <p>Preserved on the interface in this story; removed at E23S10 Cutover-2 when {@code
-     * PrintController} gains its own SQL + JdbcTemplate Q-1a per Brief D-13.
-     *
-     * @param tenantId the active tenant UUID
-     * @return the location display name, or an empty string if not found
-     */
-    String resolveLocationDisplayName(UUID tenantId);
-
     // -------------------------------------------------------------------------
     // Nested value object — on public interface surface per DEC-35 Item 4
     // -------------------------------------------------------------------------

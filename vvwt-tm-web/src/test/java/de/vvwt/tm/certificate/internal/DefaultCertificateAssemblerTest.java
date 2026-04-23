@@ -1,9 +1,6 @@
 package de.vvwt.tm.certificate.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -29,8 +26,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
 
 /**
  * Regression gate for {@link DefaultCertificateAssembler} — E23S08, DEC-22 Q-1b.
@@ -74,7 +69,6 @@ class DefaultCertificateAssemblerTest {
     private TeamAvatarRatingRepository teamAvatarRatingRepository;
     private TeamRepository teamRepository;
     private PhotoStorageService photoStorageService;
-    private JdbcTemplate jdbcTemplate;
     private PhotoUrlBuilder photoUrlBuilder;
 
     /**
@@ -160,7 +154,6 @@ class DefaultCertificateAssemblerTest {
         teamAvatarRatingRepository = mock(TeamAvatarRatingRepository.class);
         teamRepository = mock(TeamRepository.class);
         photoStorageService = mock(PhotoStorageService.class);
-        jdbcTemplate = mock(JdbcTemplate.class);
         photoUrlBuilder = mock(PhotoUrlBuilder.class);
 
         // White-box constructor call (same package — DEC-36 same-package exception)
@@ -171,7 +164,6 @@ class DefaultCertificateAssemblerTest {
                         teamAvatarRatingRepository,
                         teamRepository,
                         photoStorageService,
-                        jdbcTemplate,
                         photoUrlBuilder);
     }
 
@@ -445,35 +437,5 @@ class DefaultCertificateAssemblerTest {
                 .as("Missing teamPhoto renders as empty string (lenient mode)")
                 .contains("href=\"\"")
                 .doesNotContain("{{teamPhoto}}");
-    }
-
-    // -------------------------------------------------------------------------
-    // Location lookup
-    // -------------------------------------------------------------------------
-
-    @Test
-    @DisplayName("resolveLocationDisplayName returns display name from locations table")
-    @SuppressWarnings(
-            "unchecked") // any(RowMapper.class) is a raw Mockito matcher — semantics preserved;
-    // cast is safe (E18S01/DEC-29)
-    void resolveLocationDisplayName_returnsDisplayName() {
-        when(jdbcTemplate.query(anyString(), any(RowMapper.class), eq(TENANT_ID)))
-                .thenReturn(List.of("Sporthalle Musterstadt"));
-
-        String result = assembler.resolveLocationDisplayName(TENANT_ID);
-
-        assertThat(result).isEqualTo("Sporthalle Musterstadt");
-    }
-
-    @Test
-    @DisplayName("resolveLocationDisplayName returns empty string when no location found")
-    @SuppressWarnings(
-            "unchecked") // any(RowMapper.class) is a raw Mockito matcher — semantics preserved;
-    // cast is safe (E18S01/DEC-29)
-    void resolveLocationDisplayName_returnsEmptyString_whenNoLocation() {
-        when(jdbcTemplate.query(anyString(), any(RowMapper.class), eq(TENANT_ID)))
-                .thenReturn(List.of());
-
-        assertThat(assembler.resolveLocationDisplayName(TENANT_ID)).isEmpty();
     }
 }

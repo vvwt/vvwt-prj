@@ -28,14 +28,14 @@ import org.springframework.web.multipart.MultipartFile;
  * de.vvwt.tm.web.certificate.*} per DEC-40 Clause D + DEC-22 §refactor-clause (Q-1b). URL mappings
  * are preserved verbatim during the parallel phase; renamed atomically at E23S10 Cutover-2.
  *
- * <h2>Endpoints (AC-URL-UNCHANGED — preserved verbatim until E23S10)</h2>
+ * <h2>Endpoints (E23S10 Cutover-2 — new URL patterns per AC-URL-RENAME-CERTIFICATE-ENDPOINTS)</h2>
  *
  * <ul>
- *   <li>POST /api/tournaments/{tournamentId}/certificate-template — upload (AC1)
- *   <li>GET /api/tournaments/{tournamentId}/certificate-template — retrieve file (AC2)
- *   <li>GET /api/tournaments/{tournamentId}/certificate-template/info — retrieve metadata (AC3)
- *   <li>DELETE /api/tournaments/{tournamentId}/certificate-template — delete (AC5)
- *   <li>GET /api/certificate-template/variables — list variables (AC6)
+ *   <li>POST /api/certificate/tournaments/{tournamentId}/template — upload (AC1)
+ *   <li>GET /api/certificate/tournaments/{tournamentId}/template — retrieve file (AC2)
+ *   <li>GET /api/certificate/tournaments/{tournamentId}/template/info — retrieve metadata (AC3)
+ *   <li>DELETE /api/certificate/tournaments/{tournamentId}/template — delete (AC5)
+ *   <li>GET /api/certificate/variables — list variables (AC6)
  * </ul>
  *
  * <h2>DEC-40 Clause A — Trigger β check per method (AC-TRIGGER-BETA-CHECK)</h2>
@@ -140,7 +140,7 @@ public class CertificateTemplateController {
      * @return 200 with {@link CertificateTemplateMetadataResponse} body
      */
     @PostMapping(
-            value = "/api/tournaments/{tournamentId}/certificate-template",
+            value = "/api/certificate/tournaments/{tournamentId}/template",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CertificateTemplateMetadataResponse> upload(
             @PathVariable("tournamentId") UUID tournamentId,
@@ -175,7 +175,7 @@ public class CertificateTemplateController {
      * @param tournamentId the tournament UUID (path variable)
      * @return 200 with file content, or 404 if no template uploaded
      */
-    @GetMapping("/api/tournaments/{tournamentId}/certificate-template")
+    @GetMapping("/api/certificate/tournaments/{tournamentId}/template")
     public ResponseEntity<InputStreamResource> retrieveFile(
             @PathVariable("tournamentId") UUID tournamentId) {
 
@@ -214,7 +214,7 @@ public class CertificateTemplateController {
      * @param tournamentId the tournament UUID (path variable)
      * @return 200 with {@link CertificateTemplateMetadataResponse}, or 404 if no template uploaded
      */
-    @GetMapping("/api/tournaments/{tournamentId}/certificate-template/info")
+    @GetMapping("/api/certificate/tournaments/{tournamentId}/template/info")
     public ResponseEntity<CertificateTemplateMetadataResponse> retrieveMetadata(
             @PathVariable("tournamentId") UUID tournamentId) {
 
@@ -243,7 +243,7 @@ public class CertificateTemplateController {
      * @param tournamentId the tournament UUID (path variable)
      * @return 204 No Content
      */
-    @DeleteMapping("/api/tournaments/{tournamentId}/certificate-template")
+    @DeleteMapping("/api/certificate/tournaments/{tournamentId}/template")
     public ResponseEntity<Void> delete(@PathVariable("tournamentId") UUID tournamentId) {
 
         boolean deleted = certificateTemplateService.delete(tournamentId);
@@ -274,7 +274,7 @@ public class CertificateTemplateController {
      *
      * @return 200 with list of {@link CertificateTemplateVariableResponse}
      */
-    @GetMapping("/api/certificate-template/variables")
+    @GetMapping("/api/certificate/variables")
     public ResponseEntity<List<CertificateTemplateVariableResponse>> listVariables() {
         List<CertificateTemplateVariableResponse> variables =
                 certificateTemplateService.listVariables().stream()
