@@ -4,6 +4,7 @@ import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.domain.photo.PhotoStorageService;
 import de.vvwt.tm.domain.rules.ScoringRuleRegistry;
 import de.vvwt.tm.domain.rules.SetValidationRuleRegistry;
+import de.vvwt.tm.domain.rules.TournamentRuleResolver;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tenant.TenantDataSourceResolver;
@@ -271,6 +272,26 @@ public class WebModuleTestConfig {
     @Bean
     public SetValidationRuleRegistry setValidationRuleRegistry() {
         return Mockito.mock(SetValidationRuleRegistry.class);
+    }
+
+    /**
+     * Mockito mock for {@link TournamentRuleResolver} — satisfies {@code DefaultScoringService}
+     * constructor injection when the {@code scoring} module is loaded transitively via
+     * {@code @ApplicationModuleTest(ALL_DEPENDENCIES)}.
+     *
+     * <p>{@code domain.rules.TournamentRuleResolver} is a {@code @Component} in the {@code
+     * de.vvwt.tm.domain.rules} package, which is NOT a Spring Modulith module and therefore
+     * excluded from {@code @ApplicationModuleTest} component scanning. This mock provides the bean
+     * explicitly so that {@code DefaultScoringService} can be wired without requiring the real
+     * {@code domain.rules} package to be scanned.
+     *
+     * <p>Added in E22S09: once {@code de.vvwt.tm.web.ScoreApiController} imports {@code
+     * ScoreEntryService}, Spring Modulith detects a real bytecode dependency on {@code scoring} and
+     * includes it in the test context — which transitively requires this bean.
+     */
+    @Bean
+    public TournamentRuleResolver tournamentRuleResolver() {
+        return Mockito.mock(TournamentRuleResolver.class);
     }
 
     // =========================================================================

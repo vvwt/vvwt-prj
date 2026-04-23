@@ -26,8 +26,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
+import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -39,9 +46,9 @@ import org.springframework.web.context.WebApplicationContext;
  *
  * <h2>TDD RED-first (DEC-22)</h2>
  *
- * <p>This file is committed BEFORE {@link ScoreApiController} is authored. The reference to
- * {@code de.vvwt.tm.web.ScoreApiController} in {@code @WebMvcTest} causes compile-fail, proving
- * the RED state.
+ * <p>This file is committed BEFORE {@link ScoreApiController} is authored. The reference to {@code
+ * de.vvwt.tm.web.ScoreApiController} in {@code @WebMvcTest} causes compile-fail, proving the RED
+ * state.
  *
  * <h2>Coverage (AC-SLICE-TEST-WEBMVC)</h2>
  *
@@ -67,6 +74,7 @@ import org.springframework.web.context.WebApplicationContext;
  * @see <a href="E22S09">E22S09 — TDD-reconstruct ScoreApiController</a>
  */
 @WebMvcTest(ScoreApiController.class)
+@Import(ScoreApiControllerSliceTest.SliceTestSecurityConfig.class)
 @DisplayName("ScoreApiController slice tests — E22S09 AC-SLICE-TEST-WEBMVC")
 class ScoreApiControllerSliceTest {
 
@@ -95,12 +103,44 @@ class ScoreApiControllerSliceTest {
     }
 
     // =========================================================================
+    // Test security configuration — mirrors production SecurityConfig for /api/score/**
+    // (needed because @WebMvcTest does not load auth.internal.AuthConfiguration)
+    // =========================================================================
+
+    /**
+     * Minimal {@link SecurityFilterChain} for slice tests. Mirrors the relevant rules from {@link
+     * de.vvwt.tm.auth.internal.SecurityConfig#buildSecurityFilterChain}: CSRF disabled, stateless
+     * sessions, {@code /api/score/**} and {@code /error} permitted, everything else authenticated.
+     * CSRF is disabled because the production security config disables it (DI-consistent).
+     */
+    @TestConfiguration
+    static class SliceTestSecurityConfig {
+
+        @Bean
+        SecurityFilterChain sliceTestSecurityFilterChain(HttpSecurity http) throws Exception {
+            http.csrf(AbstractHttpConfigurer::disable)
+                    .sessionManagement(
+                            session ->
+                                    session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                    .authorizeHttpRequests(
+                            auth ->
+                                    auth.requestMatchers("/error")
+                                            .permitAll()
+                                            .requestMatchers("/api/score/**")
+                                            .permitAll()
+                                            .anyRequest()
+                                            .authenticated())
+                    .httpBasic(basic -> basic.realmName("Tournament Manager"));
+            return http.build();
+        }
+    }
+
+    // =========================================================================
     // (a) Jakarta-validation error path → 400 (AC-SLICE-TEST-WEBMVC clause a)
     // =========================================================================
 
     @Test
-    @DisplayName(
-            "(a) POST /partial with null matchId fails @Valid → 400 with ApiErrorResponse")
+    @DisplayName("(a) POST /partial with null matchId fails @Valid → 400 with ApiErrorResponse")
     void postPartial_nullMatchId_returns400() throws Exception {
         // Missing matchId — jakarta validation fires (PartialScoreInput has @NotNull matchId)
         String body =
@@ -126,15 +166,13 @@ class ScoreApiControllerSliceTest {
     // =========================================================================
 
     @Test
-    @DisplayName(
-            "(b) POST /partial with invalid deviceToken → UnauthorizedException → 401")
+    @DisplayName("(b) POST /partial with invalid deviceToken → UnauthorizedException → 401")
     void postPartial_invalidToken_returns401() throws Exception {
         doThrow(new UnauthorizedException("Device token invalid"))
                 .when(scoreEntryService)
                 .handlePartialScore(any(PartialScoreInput.class));
 
-        PartialScoreInput request =
-                new PartialScoreInput(MATCH_ID, 0, 5, 3, "unknown-token");
+        PartialScoreInput request = new PartialScoreInput(MATCH_ID, 0, 5, 3, "unknown-token");
         String body = objectMapper.writeValueAsString(request);
 
         mockMvc.perform(
@@ -150,8 +188,7 @@ class ScoreApiControllerSliceTest {
     // =========================================================================
 
     @Test
-    @DisplayName(
-            "(c) GET /match with valid token but wrong field → ForbiddenException → 403")
+    @DisplayName("(c) GET /match with valid token but wrong field → ForbiddenException → 403")
     void getMatch_wrongField_returns403() throws Exception {
         doThrow(new ForbiddenException("Device assigned to different field"))
                 .when(scoreEntryService)
@@ -197,7 +234,9 @@ class ScoreApiControllerSliceTest {
     // =========================================================================
 
     @Test
-    @DisplayName("(e) GET /match without token param returns 400 (MissingServletRequestParameterException)")
+    @DisplayName(
+            "(e) GET /match without token param returns 400"
+                    + " (MissingServletRequestParameterException)")
     void getMatch_missingToken_returns400() throws Exception {
         mockMvc.perform(get("/api/score/match").param("field", "1"))
                 .andExpect(status().isBadRequest())

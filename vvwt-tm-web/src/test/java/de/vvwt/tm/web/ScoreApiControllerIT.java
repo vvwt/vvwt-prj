@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.scoring.PartialScoreInput;
 import de.vvwt.tm.scoring.ScoreEntryResult;
-import de.vvwt.tm.scoring.SetSubmitInput;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tournament.internal.dto.DeviceAssignRequest;
 import de.vvwt.tm.tournament.internal.dto.DeviceRegisterRequest;
@@ -39,15 +38,15 @@ import org.springframework.test.context.ActiveProfiles;
  *
  * <h2>TDD RED-first (DEC-22)</h2>
  *
- * <p>This file is committed BEFORE {@link ScoreApiController} is authored. The reference to
- * {@code de.vvwt.tm.web.ScoreApiController} via {@code @ApplicationModuleTest} compilation and
- * helper imports causes compile-fail, proving the RED state.
+ * <p>This file is committed BEFORE {@link ScoreApiController} is authored. The reference to {@code
+ * de.vvwt.tm.web.ScoreApiController} via {@code @ApplicationModuleTest} compilation and helper
+ * imports causes compile-fail, proving the RED state.
  *
  * <h2>Module scope (DEC-38/DEC-40 Clause E)</h2>
  *
  * <p>{@code @ApplicationModuleTest(ALL_DEPENDENCIES, RANDOM_PORT)} boots the {@code web} module +
- * all declared {@code allowedDependencies}: {@code tenant}, {@code tournament},
- * {@code tournament::exceptions}, {@code tournament::dto}, {@code scoring}. Real {@link
+ * all declared {@code allowedDependencies}: {@code tenant}, {@code tournament}, {@code
+ * tournament::exceptions}, {@code tournament::dto}, {@code scoring}. Real {@link
  * de.vvwt.tm.scoring.internal.DefaultScoreEntryService} is loaded — no mock needed.
  *
  * <h2>Coverage</h2>
@@ -56,13 +55,14 @@ import org.springframework.test.context.ActiveProfiles;
  *   <li>AC-SECURITY-DEVICE-TOKEN: GET /match with unknown token → 401
  *   <li>Happy-path: assigned device, no active match → 204 (AC9 no-match state preserved)
  *   <li>Happy-path: POST /partial with assigned device → 204 (score broadcast)
- *   <li>AC-NO-ADMIN-AUTH-REGRESSION: unauthenticated client with valid deviceToken → no 401 redirect
+ *   <li>AC-NO-ADMIN-AUTH-REGRESSION: unauthenticated client with valid deviceToken → no 401
+ *       redirect
  * </ul>
  *
  * <h2>AC-JACKSON-WIRE-PARITY</h2>
  *
- * <p>{@link ScoreEntryResult} serializes to the same JSON field shape as legacy
- * {@code MatchScoreResponse} — same field names, same types. Parity is confirmed by {@link
+ * <p>{@link ScoreEntryResult} serializes to the same JSON field shape as legacy {@code
+ * MatchScoreResponse} — same field names, same types. Parity is confirmed by {@link
  * ScoreEntryResult}'s field mapping comment (E22S06 impl-report) and verified in the slice test's
  * golden-fixture assertions. The IT confirms the controller returns the correct type.
  *
@@ -70,8 +70,8 @@ import org.springframework.test.context.ActiveProfiles;
  *
  * <p>{@code de.vvwt.tm.tournament.internal.web.GlobalExceptionHandler} is annotated
  * {@code @ControllerAdvice(basePackages = {..., "de.vvwt.tm.web"})} — covers this controller
- * without modification. Document: FQN =
- * {@code de.vvwt.tm.tournament.internal.web.GlobalExceptionHandler}.
+ * without modification. Document: FQN = {@code
+ * de.vvwt.tm.tournament.internal.web.GlobalExceptionHandler}.
  *
  * @see ScoreApiController
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
@@ -130,11 +130,11 @@ class ScoreApiControllerIT {
     @Test
     @DisplayName("GET /api/score/match with ASSIGNED device and no active match returns 204")
     void getMatch_assignedDevice_noActiveTournament_returns204() throws Exception {
-        String deviceToken = registerAndAssignDevice(1);
+        String deviceToken = registerAndAssignDevice(2);
 
         ResponseEntity<String> response =
                 restTemplate.getForEntity(
-                        new URI(baseUrl + "/api/score/match?field=1&token=" + deviceToken),
+                        new URI(baseUrl + "/api/score/match?field=2&token=" + deviceToken),
                         String.class);
 
         // No active tournament → no active match → 204 No Content (AC9 no-match state)
@@ -152,8 +152,7 @@ class ScoreApiControllerIT {
     void postPartial_assignedDevice_returns204() throws Exception {
         String deviceToken = registerAndAssignDevice(1);
 
-        PartialScoreInput request =
-                new PartialScoreInput(UUID.randomUUID(), 0, 5, 3, deviceToken);
+        PartialScoreInput request = new PartialScoreInput(UUID.randomUUID(), 0, 5, 3, deviceToken);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -232,8 +231,7 @@ class ScoreApiControllerIT {
 
         // 2. Look up device UUID by PIN (admin endpoint)
         ResponseEntity<String> pinLookup =
-                authed.getForEntity(
-                        new URI(baseUrl + "/api/devices?pin=" + pin), String.class);
+                authed.getForEntity(new URI(baseUrl + "/api/devices?pin=" + pin), String.class);
         assertThat(pinLookup.getStatusCode())
                 .as("GET /api/devices?pin must return 200")
                 .isEqualTo(HttpStatus.OK);
@@ -258,9 +256,7 @@ class ScoreApiControllerIT {
         return token;
     }
 
-    /**
-     * Minimal JSON string field extractor for test helper use.
-     */
+    /** Minimal JSON string field extractor for test helper use. */
     private static String extractJsonField(String json, String field) {
         if (json == null) return null;
         String search = "\"" + field + "\":\"";

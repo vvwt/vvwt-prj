@@ -5,6 +5,7 @@ import de.vvwt.tm.infrastructure.score.dto.PartialScoreRequest;
 import de.vvwt.tm.infrastructure.score.dto.SetSubmitRequest;
 import jakarta.validation.Valid;
 import java.util.Optional;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -42,6 +43,14 @@ import org.springframework.web.bind.annotation.RestController;
  *   <li>{@link de.vvwt.tm.domain.ValidationException} → HTTP 400 (AC6)
  * </ul>
  *
+ * <h2>Coexistence note (E22S09)</h2>
+ *
+ * <p>Suppressed by {@code @ConditionalOnMissingBean(name = "tmScoreApiController")} so that the
+ * reconstructed {@code de.vvwt.tm.web.ScoreApiController} (bean name {@code tmScoreApiController})
+ * takes precedence when present. Both controllers map to {@code /api/score} and cannot coexist on
+ * the same URL; this condition prevents an {@code AmbiguousMapping} error. This class will be
+ * deleted in E22S11 once the legacy {@code infrastructure.score} package is fully retired.
+ *
  * @see ScoreEntryService
  * @see <a
  *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E06S06.story.md">Story
@@ -49,6 +58,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/score")
+@ConditionalOnMissingBean(name = "tmScoreApiController")
 public class ScoreApiController {
 
     private final ScoreEntryService scoreEntryService;
