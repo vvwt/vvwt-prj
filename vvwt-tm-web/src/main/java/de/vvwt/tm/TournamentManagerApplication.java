@@ -73,7 +73,19 @@ import org.springframework.context.annotation.FilterType;
  * different test packages would conflict during {@code @SpringBootTest} context loading
  * (E22S04/E22S05 precedent).
  *
+ * <h2>E23S09 — Certificate controller parallel-phase URL-mapping coexistence</h2>
+ *
+ * <p>After the E23S09 relocation, both the legacy {@code
+ * de.vvwt.tm.infrastructure.web.certificate.CertificateTemplateController} and the new {@code
+ * de.vvwt.tm.web.certificate.CertificateTemplateController} are {@code @RestController} beans that
+ * register identical URL mappings. Spring Boot would throw at startup due to ambiguous URL mapping.
+ * Resolution: exclude the legacy controller and its DTOs from the component scan during the
+ * parallel phase (analog to E23S04). The legacy classes REMAIN on disk
+ * (AC-LEGACY-DELETION-DEFERRED); they are excluded here, not deleted. The exclude filter is REMOVED
+ * atomically at E23S10 Cutover-2 when the legacy classes are deleted.
+ *
  * @see de.vvwt.tm.web.photo.TeamPhotoController
+ * @see de.vvwt.tm.web.certificate.CertificateTemplateController
  * @see <a
  *     href="../../../../../../../../../../../.gaai/project/contexts/artefacts/stories/E02S01.story.md">Story
  *     E02S01</a>
@@ -84,7 +96,10 @@ import org.springframework.context.annotation.FilterType;
             @ComponentScan.Filter(type = FilterType.CUSTOM, classes = TypeExcludeFilter.class),
             @ComponentScan.Filter(
                     type = FilterType.REGEX,
-                    pattern = "de\\.vvwt\\.tm\\.infrastructure\\.web\\.photo\\..*")
+                    pattern = "de\\.vvwt\\.tm\\.infrastructure\\.web\\.photo\\..*"),
+            @ComponentScan.Filter(
+                    type = FilterType.REGEX,
+                    pattern = "de\\.vvwt\\.tm\\.infrastructure\\.web\\.certificate\\..*")
         })
 public class TournamentManagerApplication {
 
