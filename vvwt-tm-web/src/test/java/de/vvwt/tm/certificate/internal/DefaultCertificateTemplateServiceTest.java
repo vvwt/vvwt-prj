@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import de.vvwt.tm.certificate.CertificateTemplateFormatException;
 import de.vvwt.tm.certificate.CertificateTemplateMetadata;
+import de.vvwt.tm.certificate.CertificateTemplateRepository;
 import de.vvwt.tm.certificate.CertificateTemplateService;
 import de.vvwt.tm.certificate.CertificateTemplateSizeException;
 import de.vvwt.tm.certificate.CertificateTemplateStorageConfig;

@@ -2,6 +2,7 @@ package de.vvwt.tm.certificate.internal;
 
 import de.vvwt.tm.certificate.CertificateTemplateFormatException;
 import de.vvwt.tm.certificate.CertificateTemplateMetadata;
+import de.vvwt.tm.certificate.CertificateTemplateRepository;
 import de.vvwt.tm.certificate.CertificateTemplateService;
 import de.vvwt.tm.certificate.CertificateTemplateSizeException;
 import de.vvwt.tm.certificate.CertificateTemplateStorageConfig;
@@ -65,8 +66,9 @@ import org.springframework.stereotype.Service;
  * TournamentManagerApplication} Javadoc (E23S06).
  *
  * @see CertificateTemplateService
+ * @see de.vvwt.tm.certificate.CertificateTemplateRepository
  * @see CertificateTemplateStorageConfig
- * @see CertificateTemplateRepository
+ * @see DefaultCertificateTemplateRepository
  * @see DEC-35
  */
 @Service
@@ -102,6 +104,8 @@ public class DefaultCertificateTemplateService implements CertificateTemplateSer
 
     private final CertificateTemplateStorageConfig config;
     private final TournamentRepository tournamentRepository;
+
+    /** DEC-35: inject the public interface port, not the concrete implementation. */
     private final CertificateTemplateRepository templateRepository;
 
     public DefaultCertificateTemplateService(
