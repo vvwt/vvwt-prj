@@ -2,6 +2,9 @@ package de.vvwt.tm;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.TypeExcludeFilter;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 
 /**
  * Tournament Manager V1 application entry point.
@@ -31,14 +34,37 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * infrastructure.score.ScoreController) is removed here. With the E22S11 atomic cutover, all legacy
  * {@code domain.rules.*} and {@code infrastructure.score.*} classes are deleted from the classpath.
  * The duplicate-bean and ambiguous-mapping hazards that required the exclusions no longer exist.
- * {@code @SpringBootApplication} provides the default component scan with {@code TypeExcludeFilter}
- * active via its embedded {@code @ComponentScan} — no explicit override is needed.
  *
+ * <h2>E23S04 — Parallel-phase URL-mapping coexistence (AC-URL-PRESERVATION-GREPVERIFY)</h2>
+ *
+ * <p>After the E23S04 relocation, both the legacy {@code
+ * de.vvwt.tm.infrastructure.web.photo.TeamPhotoController} and the new {@code
+ * de.vvwt.tm.web.photo.TeamPhotoController} are {@code @RestController} beans that register
+ * identical URL mappings ({@code /api/tournaments/{tid}/teams/{teamId}/photo}). Spring Boot would
+ * throw at startup due to ambiguous URL mapping. Resolution: exclude the legacy controller from the
+ * component scan during the parallel phase via explicit {@code @ComponentScan(excludeFilters)}. The
+ * legacy class REMAINS on disk (AC-LEGACY-DELETION-DEFERRED); it is excluded here, not deleted. The
+ * exclude filter is REMOVED atomically at E23S05 Cutover-1 when the legacy class is deleted.
+ *
+ * <p>Note: The explicit {@code @ComponentScan} here includes {@link TypeExcludeFilter} in its
+ * {@code excludeFilters} to preserve Spring Boot's test-class exclusion mechanism. Without {@code
+ * TypeExcludeFilter}, duplicate {@code @TestConfiguration} inner-class bean definitions from
+ * different test packages would conflict during {@code @SpringBootTest} context loading
+ * (E22S04/E22S05 precedent).
+ *
+ * @see de.vvwt.tm.web.photo.TeamPhotoController
  * @see <a
  *     href="../../../../../../../../../../../.gaai/project/contexts/artefacts/stories/E02S01.story.md">Story
  *     E02S01</a>
  */
 @SpringBootApplication
+@ComponentScan(
+        excludeFilters = {
+            @ComponentScan.Filter(type = FilterType.CUSTOM, classes = TypeExcludeFilter.class),
+            @ComponentScan.Filter(
+                    type = FilterType.REGEX,
+                    pattern = "de\\.vvwt\\.tm\\.infrastructure\\.web\\.photo\\..*")
+        })
 public class TournamentManagerApplication {
 
     public static void main(String[] args) {
