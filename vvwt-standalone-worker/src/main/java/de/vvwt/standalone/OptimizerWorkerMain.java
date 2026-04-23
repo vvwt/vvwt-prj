@@ -9,6 +9,7 @@ import de.vvwt.standalone.log.StructuredLogger;
 import de.vvwt.standalone.runtime.CpuThrottle;
 import de.vvwt.standalone.runtime.WorkerLoop;
 import de.vvwt.worker.identity.WorkerKeyManager;
+import de.vvwt.worker.identity.internal.DefaultWorkerKeyManager;
 import de.vvwt.worker.score.VarietyScorer;
 import java.io.IOException;
 import java.util.UUID;
@@ -135,7 +136,7 @@ public class OptimizerWorkerMain {
         // AC2: initialize keypair
         WorkerKeyManager keyManager;
         try {
-            keyManager = new WorkerKeyManager(config.dataDir(), ROOT_LOGGER);
+            keyManager = new DefaultWorkerKeyManager(config.dataDir(), ROOT_LOGGER);
         } catch (Exception e) {
             log.error(
                     "keypair-error",
