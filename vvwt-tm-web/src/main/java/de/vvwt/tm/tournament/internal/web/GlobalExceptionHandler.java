@@ -3,9 +3,6 @@ package de.vvwt.tm.tournament.internal.web;
 import de.vvwt.tm.domain.audio.AudioFormatException;
 import de.vvwt.tm.domain.audio.AudioSizeLimitException;
 import de.vvwt.tm.domain.audio.AudioStorageException;
-import de.vvwt.tm.domain.certificate.CertificateTemplateFormatException;
-import de.vvwt.tm.domain.certificate.CertificateTemplateSizeException;
-import de.vvwt.tm.domain.certificate.CertificateTemplateStorageException;
 import de.vvwt.tm.domain.timer.InvalidTimerUrlException;
 import de.vvwt.tm.domain.timer.NoActiveTournamentException;
 import de.vvwt.tm.infrastructure.display.NoActivePhaseException;
@@ -40,6 +37,9 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  * consistent {@link ApiErrorResponse} JSON bodies. Photo-domain exceptions are handled by {@link
  * de.vvwt.tm.web.photo.PhotoExceptionAdvice} (E23S05 Cutover-1 — Spring Modulith boundary
  * compliance; {@code tournament.allowedDependencies = {"tenant"}} forbids direct {@code photo}
+ * imports here). Certificate-domain exceptions are handled by {@link
+ * de.vvwt.tm.web.certificate.CertificateExceptionAdvice} (E23S10 Cutover-2 — same boundary
+ * rationale; {@code tournament.allowedDependencies = {"tenant"}} forbids direct {@code certificate}
  * imports here).
  *
  * <h2>DEC-21 package discipline</h2>
@@ -268,64 +268,6 @@ public class GlobalExceptionHandler {
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "Audio storage error.",
                 "error.audio.storage",
-                request);
-    }
-
-    // =========================================================================
-    // Certificate template exceptions (E13S01 — CertificateTemplateControllerIT)
-    // =========================================================================
-
-    /**
-     * Maps {@link CertificateTemplateFormatException} to HTTP 400 Bad Request.
-     *
-     * <p>Migrated from the deleted legacy {@code
-     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} during E21S13 cutover (DEC-22 refactor
-     * phase — behavior-preserving).
-     */
-    @ExceptionHandler(CertificateTemplateFormatException.class)
-    public ResponseEntity<ApiErrorResponse> handleCertificateTemplateFormat(
-            CertificateTemplateFormatException ex, HttpServletRequest request) {
-        log.debug("[tm-web] CertificateTemplateFormatException: {}", ex.getMessage());
-        return buildResponse(
-                HttpStatus.BAD_REQUEST,
-                ex.getMessage(),
-                "error.certificateTemplate.format",
-                request);
-    }
-
-    /**
-     * Maps {@link CertificateTemplateSizeException} to HTTP 400 Bad Request.
-     *
-     * <p>Migrated from the deleted legacy {@code
-     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} during E21S13 cutover (DEC-22 refactor
-     * phase — behavior-preserving).
-     */
-    @ExceptionHandler(CertificateTemplateSizeException.class)
-    public ResponseEntity<ApiErrorResponse> handleCertificateTemplateSize(
-            CertificateTemplateSizeException ex, HttpServletRequest request) {
-        log.debug("[tm-web] CertificateTemplateSizeException: {}", ex.getMessage());
-        return buildResponse(
-                HttpStatus.BAD_REQUEST,
-                ex.getMessage(),
-                "error.certificateTemplate.tooLarge",
-                request);
-    }
-
-    /**
-     * Maps {@link CertificateTemplateStorageException} to HTTP 500 Internal Server Error.
-     *
-     * <p>Migrated from the deleted legacy {@code
-     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} during E21S13 cutover (DEC-22 refactor
-     * phase — behavior-preserving).
-     */
-    @ExceptionHandler(CertificateTemplateStorageException.class)
-    public ResponseEntity<ApiErrorResponse> handleCertificateTemplateStorage(
-            CertificateTemplateStorageException ex, HttpServletRequest request) {
-        log.error("[tm-web] CertificateTemplateStorageException: {}", ex.getMessage(), ex);
-        return buildResponse(
-                HttpStatus.INTERNAL_SERVER_ERROR,
-                "Certificate template storage error.",
-                "error.certificateTemplate.storage",
                 request);
     }
 

@@ -29,7 +29,6 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 /**
@@ -83,7 +82,6 @@ public class DefaultCertificateAssembler implements CertificateAssembler {
     private final TeamAvatarRatingRepository teamAvatarRatingRepository;
     private final TeamRepository teamRepository;
     private final PhotoStorageService photoStorageService;
-    private final JdbcTemplate jdbcTemplate;
     private final PhotoUrlBuilder photoUrlBuilder;
 
     public DefaultCertificateAssembler(
@@ -92,14 +90,12 @@ public class DefaultCertificateAssembler implements CertificateAssembler {
             TeamAvatarRatingRepository teamAvatarRatingRepository,
             TeamRepository teamRepository,
             PhotoStorageService photoStorageService,
-            JdbcTemplate jdbcTemplate,
             PhotoUrlBuilder photoUrlBuilder) {
         this.phaseRepository = phaseRepository;
         this.teamAvatarRepository = teamAvatarRepository;
         this.teamAvatarRatingRepository = teamAvatarRatingRepository;
         this.teamRepository = teamRepository;
         this.photoStorageService = photoStorageService;
-        this.jdbcTemplate = jdbcTemplate;
         this.photoUrlBuilder = photoUrlBuilder;
     }
 
@@ -245,20 +241,6 @@ public class DefaultCertificateAssembler implements CertificateAssembler {
     @Override
     public Map<String, Object> toMustacheMap(CertificatePlacementRow row) {
         return buildMustacheMap(row);
-    }
-
-    // -------------------------------------------------------------------------
-    // Location lookup
-    // -------------------------------------------------------------------------
-
-    @Override
-    public String resolveLocationDisplayName(UUID tenantId) {
-        List<String> names =
-                jdbcTemplate.query(
-                        "SELECT display_name FROM locations WHERE tenant_id = ? LIMIT 1",
-                        (rs, rowNum) -> rs.getString(1),
-                        tenantId);
-        return names.isEmpty() ? "" : names.get(0);
     }
 
     // -------------------------------------------------------------------------

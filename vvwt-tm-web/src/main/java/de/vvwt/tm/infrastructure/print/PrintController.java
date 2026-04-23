@@ -1,8 +1,10 @@
 package de.vvwt.tm.infrastructure.print;
 
 import com.samskivert.mustache.MustacheException;
+import de.vvwt.tm.certificate.CertificateAssembler;
+import de.vvwt.tm.certificate.CertificatePlacementRow;
+import de.vvwt.tm.certificate.CertificateTemplateService;
 import de.vvwt.tm.domain.ActivityType;
-import de.vvwt.tm.domain.certificate.CertificateTemplateService;
 import de.vvwt.tm.domain.repo.ActivityTypeRepository;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.Match;
@@ -41,6 +43,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -147,6 +150,15 @@ public class PrintController {
     private final String appVersion;
 
     /**
+     * JdbcTemplate for the {@link #resolveLocationDisplayName(UUID)} read-query (Q-1a, E23S10).
+     *
+     * <p>Migrated from {@code CertificateAssembler.resolveLocationDisplayName} per Brief D-13 C2=β.
+     * Pre-Big-Bang: uses the shared (root) DataSource; {@code tenant_id = ?} discriminator is
+     * preserved verbatim per DEC-39.
+     */
+    private final JdbcTemplate jdbcTemplate;
+
+    /**
      * Constructor injection.
      *
      * <p>{@link BuildProperties} is optional — absent in test environments and plain IDE runs where
@@ -167,7 +179,8 @@ public class PrintController {
             CertificateTemplateService certificateTemplateService,
             TenantContext tenantContext,
             MessageSource messageSource,
-            @Autowired(required = false) BuildProperties buildProperties) {
+            @Autowired(required = false) BuildProperties buildProperties,
+            JdbcTemplate jdbcTemplate) {
         this.tournamentRepository = tournamentRepository;
         this.phaseRepository = phaseRepository;
         this.matchRepository = matchRepository;
@@ -182,6 +195,7 @@ public class PrintController {
         this.tenantContext = tenantContext;
         this.messageSource = messageSource;
         this.appVersion = buildProperties != null ? buildProperties.getVersion() : "dev";
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     // =========================================================================
@@ -881,8 +895,7 @@ public class PrintController {
                         .findFirst()
                         .orElseThrow(() -> new TournamentNotFoundException(teamId));
 
-        String locationDisplayName =
-                certificateAssembler.resolveLocationDisplayName(tenantContext.current());
+        String locationDisplayName = this.resolveLocationDisplayName(tenantContext.current());
 
         CertificateTemplateService.TemplateFile templateFile = templateOpt.get();
         String format = templateFile.metadata().format(); // "svg" or "html"
@@ -1002,8 +1015,7 @@ public class PrintController {
                                     locale));
         }
 
-        String locationDisplayName =
-                certificateAssembler.resolveLocationDisplayName(tenantContext.current());
+        String locationDisplayName = this.resolveLocationDisplayName(tenantContext.current());
 
         CertificateTemplateService.TemplateFile templateFile = templateOpt.get();
         String format = templateFile.metadata().format();
@@ -1073,14 +1085,14 @@ public class PrintController {
      *
      * @param templateFile the template file result from {@link CertificateTemplateService}
      * @return the template content as a UTF-8 string
-     * @throws de.vvwt.tm.domain.certificate.CertificateTemplateStorageException on I/O failure
-     *     (re-thrown as-is)
+     * @throws de.vvwt.tm.certificate.CertificateTemplateStorageException on I/O failure (re-thrown
+     *     as-is)
      */
     private String readTemplateContent(CertificateTemplateService.TemplateFile templateFile) {
         try (InputStream is = templateFile.inputStream()) {
             return new String(is.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException ex) {
-            throw new de.vvwt.tm.domain.certificate.CertificateTemplateStorageException(
+            throw new de.vvwt.tm.certificate.CertificateTemplateStorageException(
                     "Failed to read certificate template: " + ex.getMessage(), ex);
         }
     }
@@ -1137,5 +1149,43 @@ public class PrintController {
         // Replace filesystem-unsafe characters with underscores
         String safe = name.replaceAll("[/\\\\:*?\"<>| \t]", "_").replaceAll("^[. ]+|[. ]+$", "");
         return safe.isBlank() ? "team" : safe;
+    }
+
+    // =========================================================================
+    // Q-1a: resolveLocationDisplayName (migrated from CertificateAssembler, E23S10)
+    // =========================================================================
+
+    /**
+     * Resolves the display name of the location associated with the given tenant (Q-1a, E23S10).
+     *
+     * <p>Migrated byte-equivalent from {@code
+     * de.vvwt.tm.infrastructure.print.CertificateAssembler#resolveLocationDisplayName(UUID)} per
+     * Brief D-13 C2=β decision. The {@code certificate} module's public interface ({@link
+     * de.vvwt.tm.certificate.CertificateAssembler}) no longer exposes this method after E23S10.
+     *
+     * <h2>DEC-39 — tenant_id predicate preserved pre-Big-Bang</h2>
+     *
+     * <p>The {@code tenant_id = ?} WHERE predicate is preserved verbatim. Per DEC-39, removal of
+     * {@code tenant_id} from tenant-scoped tables (including {@code locations}) is deferred to the
+     * Wave-2 Big-Bang-Reset (DEC-25). Post-Big-Bang, DB-per-Tenant DataSource routing (DEC-20)
+     * alone will enforce tenant scoping and the predicate will be removed.
+     *
+     * <h2>DEC-20 — apparent redundancy acknowledged</h2>
+     *
+     * <p>DB-per-Tenant DataSource routing (DEC-20) already isolates the query to the correct tenant
+     * DB. The {@code tenant_id = ?} predicate is therefore redundant at runtime but is preserved to
+     * match the legacy {@code CertificateAssembler} behavior byte-equivalent.
+     *
+     * @param tenantId the active tenant UUID (from {@link
+     *     de.vvwt.tm.tenant.TenantContext#current()})
+     * @return the location display name, or an empty string if not found
+     */
+    String resolveLocationDisplayName(UUID tenantId) {
+        List<String> names =
+                jdbcTemplate.query(
+                        "SELECT display_name FROM locations WHERE tenant_id = ? LIMIT 1",
+                        (rs, rowNum) -> rs.getString(1),
+                        tenantId);
+        return names.isEmpty() ? "" : names.get(0);
     }
 }

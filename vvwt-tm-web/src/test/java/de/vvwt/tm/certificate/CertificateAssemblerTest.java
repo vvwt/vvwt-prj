@@ -22,8 +22,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
 
 /**
  * Interface contract tests for {@link CertificateAssembler} — E23S08, DEC-22 Q-1a RED-first.
@@ -72,7 +70,6 @@ class CertificateAssemblerTest {
     private TeamAvatarRatingRepository teamAvatarRatingRepository;
     private TeamRepository teamRepository;
     private PhotoStorageService photoStorageService;
-    private JdbcTemplate jdbcTemplate;
     private PhotoUrlBuilder photoUrlBuilder;
 
     /** DEC-36: field type is the PUBLIC interface. */
@@ -154,7 +151,6 @@ class CertificateAssemblerTest {
         teamAvatarRatingRepository = mock(TeamAvatarRatingRepository.class);
         teamRepository = mock(TeamRepository.class);
         photoStorageService = mock(PhotoStorageService.class);
-        jdbcTemplate = mock(JdbcTemplate.class);
         photoUrlBuilder = mock(PhotoUrlBuilder.class);
 
         // DEC-36: the assembly uses DefaultCertificateAssembler but the declared type is the
@@ -166,7 +162,6 @@ class CertificateAssemblerTest {
                         teamAvatarRatingRepository,
                         teamRepository,
                         photoStorageService,
-                        jdbcTemplate,
                         photoUrlBuilder);
     }
 
@@ -367,37 +362,5 @@ class CertificateAssemblerTest {
                 .containsKey("date")
                 .containsKey("location")
                 .containsKey("hasPhoto");
-    }
-
-    // -------------------------------------------------------------------------
-    // AC-INTERFACE-CREATED: resolveLocationDisplayName
-    // -------------------------------------------------------------------------
-
-    @Test
-    @DisplayName("resolveLocationDisplayName: returns SQL result (AC-INTERFACE-CREATED)")
-    @SuppressWarnings("unchecked") // Mockito raw RowMapper matcher — safe per DEC-29/E18S01
-    void resolveLocationDisplayName_returnsDisplayName() {
-        when(jdbcTemplate.query(
-                        org.mockito.ArgumentMatchers.anyString(),
-                        org.mockito.ArgumentMatchers.any(RowMapper.class),
-                        org.mockito.ArgumentMatchers.eq(TENANT_ID)))
-                .thenReturn(List.of("Sporthalle Musterstadt"));
-
-        String result = assembler.resolveLocationDisplayName(TENANT_ID);
-
-        assertThat(result).isEqualTo("Sporthalle Musterstadt");
-    }
-
-    @Test
-    @DisplayName("resolveLocationDisplayName: returns empty string when no location found")
-    @SuppressWarnings("unchecked") // Mockito raw RowMapper matcher — safe per DEC-29/E18S01
-    void resolveLocationDisplayName_returnsEmpty_whenNoLocation() {
-        when(jdbcTemplate.query(
-                        org.mockito.ArgumentMatchers.anyString(),
-                        org.mockito.ArgumentMatchers.any(RowMapper.class),
-                        org.mockito.ArgumentMatchers.eq(TENANT_ID)))
-                .thenReturn(List.of());
-
-        assertThat(assembler.resolveLocationDisplayName(TENANT_ID)).isEmpty();
     }
 }

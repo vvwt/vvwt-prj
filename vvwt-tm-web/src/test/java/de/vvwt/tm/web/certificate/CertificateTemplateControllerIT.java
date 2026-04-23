@@ -75,7 +75,7 @@ import org.springframework.util.MultiValueMap;
  *   <li>AC2: GET returns file with correct Content-Type; 404 if no template
  *   <li>AC3: GET /info returns metadata; 404 if no template
  *   <li>AC5: DELETE returns 204; 404 if no template
- *   <li>AC6: GET /api/certificate-template/variables returns 6 variables
+ *   <li>AC6: GET /api/certificate/variables returns 6 variables
  *   <li>AC7: Unsupported format → 400; Oversized file → 400
  *   <li>AC8: Unknown tournament → 404
  *   <li>AC9: Error messages are descriptive (not generic 500)
@@ -490,8 +490,7 @@ class CertificateTemplateControllerIT {
     void variablesEndpointReturns6Variables() throws Exception {
         ResponseEntity<VariableResponse[]> response =
                 authed.getForEntity(
-                        new URI(baseUrl + "/api/certificate-template/variables"),
-                        VariableResponse[].class);
+                        new URI(baseUrl + "/api/certificate/variables"), VariableResponse[].class);
 
         assertThat(response.getStatusCode())
                 .as("AC6: variables endpoint must return 200 OK")
@@ -505,8 +504,7 @@ class CertificateTemplateControllerIT {
     void variablesEndpointContainsExpectedVariableNames() throws Exception {
         ResponseEntity<VariableResponse[]> response =
                 authed.getForEntity(
-                        new URI(baseUrl + "/api/certificate-template/variables"),
-                        VariableResponse[].class);
+                        new URI(baseUrl + "/api/certificate/variables"), VariableResponse[].class);
 
         assertThat(response.getBody()).isNotNull();
         String[] names =
@@ -524,7 +522,7 @@ class CertificateTemplateControllerIT {
     void variablesRequiresAuth() throws Exception {
         ResponseEntity<String> response =
                 restTemplate.getForEntity(
-                        new URI(baseUrl + "/api/certificate-template/variables"), String.class);
+                        new URI(baseUrl + "/api/certificate/variables"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
@@ -534,7 +532,7 @@ class CertificateTemplateControllerIT {
     // =========================================================================
 
     private String templateBaseUrl(UUID tournamentId) {
-        return baseUrl + "/api/tournaments/" + tournamentId + "/certificate-template";
+        return baseUrl + "/api/certificate/tournaments/" + tournamentId + "/template";
     }
 
     private String templateFileUrl(UUID tournamentId) {
