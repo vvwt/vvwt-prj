@@ -54,8 +54,9 @@ class PhotoUrlBuilderTest {
 
     // -------------------------------------------------------------------------
     // AC-TESTING-OBSERVABLE-FORM-QUANTIFIED — jqwik @Property (DEC-41 criterion a)
-    // Invariant: buildTeamPhotoUrl(x, y) == "/api/tournaments/" + x + "/teams/" + y + "/photo"
-    // for all non-null UUID pairs (x, y).
+    // Invariant: buildTeamPhotoUrl(x, y) == "/api/photo/tournaments/" + x + "/teams/" + y
+    // for all non-null UUID pairs (x, y). URL renamed at E23S05 Cutover-1 (DEC-21 + DEC-40
+    // precedent).
     // -------------------------------------------------------------------------
 
     /**
@@ -82,7 +83,7 @@ class PhotoUrlBuilderTest {
     @Property
     void buildTeamPhotoUrl_conformsToUrlTemplate(
             @ForAll("uuids") UUID tournamentId, @ForAll("uuids") UUID teamId) {
-        String expected = "/api/tournaments/" + tournamentId + "/teams/" + teamId + "/photo";
+        String expected = "/api/photo/tournaments/" + tournamentId + "/teams/" + teamId;
         assertThat(builder.buildTeamPhotoUrl(tournamentId, teamId)).isEqualTo(expected);
     }
 
@@ -94,7 +95,7 @@ class PhotoUrlBuilderTest {
     @Test
     void buildTeamPhotoUrl_allZerosUuidPair_conformsToTemplate() {
         UUID zero = new UUID(0L, 0L);
-        String expected = "/api/tournaments/" + zero + "/teams/" + zero + "/photo";
+        String expected = "/api/photo/tournaments/" + zero + "/teams/" + zero;
         assertThat(builder.buildTeamPhotoUrl(zero, zero)).isEqualTo(expected);
     }
 

@@ -1,15 +1,15 @@
 /**
- * API client for tournament-scoped team photo management (E12S03).
+ * API client for tournament-scoped team photo management (E12S03, E23S05 Cutover-1).
  *
- * Wraps the E12S02 REST endpoints:
- *   POST   /api/tournaments/{tournamentId}/teams/{teamId}/photo  — upload (or replace) photo
- *   GET    /api/tournaments/{tournamentId}/teams/{teamId}/photo  — retrieve photo (binary)
- *   DELETE /api/tournaments/{tournamentId}/teams/{teamId}/photo  — delete photo
+ * Wraps the E23S05 REST endpoints (URL renamed at Cutover-1 per DEC-21 + DEC-40 precedent):
+ *   POST   /api/photo/tournaments/{tournamentId}/teams/{teamId}  — upload (or replace) photo
+ *   GET    /api/photo/tournaments/{tournamentId}/teams/{teamId}  — retrieve photo (binary)
+ *   DELETE /api/photo/tournaments/{tournamentId}/teams/{teamId}  — delete photo
  *
  * Upload uses XMLHttpRequest to expose upload progress (consistent with audioStore.ts pattern).
  * Photo retrieval is done via a URL (used as <img src>) rather than fetching the binary in JS.
  *
- * @see TeamPhotoController  (Java, E12S02)
+ * @see TeamPhotoController  (Java, E23S05)
  * @see AudioStore           (E11S06 — pattern reference)
  */
 
@@ -35,12 +35,12 @@ export interface PhotoMetadata {
  * @returns             URL string for use in <img src>
  */
 export function getPhotoUrl(tournamentId: string, teamId: string, bust?: number): string {
-    const base = `/api/tournaments/${tournamentId}/teams/${teamId}/photo`;
+    const base = `/api/photo/tournaments/${tournamentId}/teams/${teamId}`;
     return bust !== undefined ? `${base}?t=${bust}` : base;
 }
 
 // ---------------------------------------------------------------------------
-// uploadPhoto — POST /api/tournaments/{tournamentId}/teams/{teamId}/photo
+// uploadPhoto — POST /api/photo/tournaments/{tournamentId}/teams/{teamId}
 // ---------------------------------------------------------------------------
 
 /**
@@ -104,13 +104,13 @@ export function uploadPhoto(
             reject(new Error('Upload cancelled'));
         });
 
-        xhr.open('POST', `/api/tournaments/${tournamentId}/teams/${teamId}/photo`);
+        xhr.open('POST', `/api/photo/tournaments/${tournamentId}/teams/${teamId}`);
         xhr.send(formData);
     });
 }
 
 // ---------------------------------------------------------------------------
-// deletePhoto — DELETE /api/tournaments/{tournamentId}/teams/{teamId}/photo
+// deletePhoto — DELETE /api/photo/tournaments/{tournamentId}/teams/{teamId}
 // ---------------------------------------------------------------------------
 
 /**
@@ -122,7 +122,7 @@ export function uploadPhoto(
  */
 export async function deletePhoto(tournamentId: string, teamId: string): Promise<void> {
     const response = await fetch(
-        `/api/tournaments/${tournamentId}/teams/${teamId}/photo`,
+        `/api/photo/tournaments/${tournamentId}/teams/${teamId}`,
         {
             method: 'DELETE',
             credentials: 'same-origin',

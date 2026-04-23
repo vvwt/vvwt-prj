@@ -1,7 +1,7 @@
 package de.vvwt.tm.tournament;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.domain.photo.PhotoStorageService;
+import de.vvwt.tm.photo.PhotoStorageService;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tenant.TenantDataSourceResolver;
@@ -236,8 +236,12 @@ public class TournamentModuleTestConfig {
     // =========================================================================
 
     /**
-     * Mockito mock for {@link PhotoStorageService} — satisfies {@code TeamController}'s constructor
-     * injection.
+     * Mockito mock for {@link PhotoStorageService} — kept for legacy compatibility.
+     *
+     * <p>Post-E23S05 Cutover-1: the production {@code defaultPhotoStorageService} bean (annotated
+     * {@code @Primary}) wins for autowiring. This non-primary mock bean coexists but is not
+     * injected; {@code hasPhoto()} calls via the real bean safely return {@code false} when no
+     * photo files are present on the test filesystem.
      */
     @Bean
     public PhotoStorageService photoStorageService() {

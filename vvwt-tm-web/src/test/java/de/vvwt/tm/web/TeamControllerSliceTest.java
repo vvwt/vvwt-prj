@@ -12,8 +12,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.vvwt.tm.domain.photo.PhotoStorageService;
 import de.vvwt.tm.infrastructure.testsupport.TenantContextSliceTestSupport;
+import de.vvwt.tm.photo.PhotoStorageService;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantRegistryPort;
 import de.vvwt.tm.tournament.Team;

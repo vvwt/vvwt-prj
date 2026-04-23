@@ -6,9 +6,6 @@ import de.vvwt.tm.domain.audio.AudioStorageException;
 import de.vvwt.tm.domain.certificate.CertificateTemplateFormatException;
 import de.vvwt.tm.domain.certificate.CertificateTemplateSizeException;
 import de.vvwt.tm.domain.certificate.CertificateTemplateStorageException;
-import de.vvwt.tm.domain.photo.PhotoFormatException;
-import de.vvwt.tm.domain.photo.PhotoSizeException;
-import de.vvwt.tm.domain.photo.PhotoStorageException;
 import de.vvwt.tm.domain.timer.InvalidTimerUrlException;
 import de.vvwt.tm.domain.timer.NoActiveTournamentException;
 import de.vvwt.tm.infrastructure.display.NoActivePhaseException;
@@ -40,7 +37,10 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  * AC-TDD-GlobalExceptionHandler, AC-PKG-GlobalExceptionHandler, inventory row 450).
  *
  * <p>Translates the five S09 boundary-API exceptions and unhandled {@link RuntimeException}s into
- * consistent {@link ApiErrorResponse} JSON bodies.
+ * consistent {@link ApiErrorResponse} JSON bodies. Photo-domain exceptions are handled by {@link
+ * de.vvwt.tm.web.photo.PhotoExceptionAdvice} (E23S05 Cutover-1 — Spring Modulith boundary
+ * compliance; {@code tournament.allowedDependencies = {"tenant"}} forbids direct {@code photo}
+ * imports here).
  *
  * <h2>DEC-21 package discipline</h2>
  *
@@ -198,58 +198,6 @@ public class GlobalExceptionHandler {
                         .map(org.springframework.validation.FieldError::getDefaultMessage)
                         .orElse("Validation failed");
         return buildResponse(HttpStatus.BAD_REQUEST, message, "error.validation", request);
-    }
-
-    // =========================================================================
-    // Photo exceptions (E07S03 — TeamPhotoControllerIT)
-    // =========================================================================
-
-    /**
-     * Maps {@link PhotoFormatException} to HTTP 400 Bad Request.
-     *
-     * <p>Migrated from the deleted legacy {@code
-     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} during E21S13 cutover (DEC-22 refactor
-     * phase — behavior-preserving).
-     */
-    @ExceptionHandler(PhotoFormatException.class)
-    public ResponseEntity<ApiErrorResponse> handlePhotoFormat(
-            PhotoFormatException ex, HttpServletRequest request) {
-        log.debug("[tm-web] PhotoFormatException: {}", ex.getMessage());
-        return buildResponse(
-                HttpStatus.BAD_REQUEST, ex.getMessage(), "error.photo.format", request);
-    }
-
-    /**
-     * Maps {@link PhotoSizeException} to HTTP 400 Bad Request.
-     *
-     * <p>Migrated from the deleted legacy {@code
-     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} during E21S13 cutover (DEC-22 refactor
-     * phase — behavior-preserving).
-     */
-    @ExceptionHandler(PhotoSizeException.class)
-    public ResponseEntity<ApiErrorResponse> handlePhotoSize(
-            PhotoSizeException ex, HttpServletRequest request) {
-        log.debug("[tm-web] PhotoSizeException: {}", ex.getMessage());
-        return buildResponse(
-                HttpStatus.BAD_REQUEST, ex.getMessage(), "error.photo.tooLarge", request);
-    }
-
-    /**
-     * Maps {@link PhotoStorageException} to HTTP 500 Internal Server Error.
-     *
-     * <p>Migrated from the deleted legacy {@code
-     * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} during E21S13 cutover (DEC-22 refactor
-     * phase — behavior-preserving).
-     */
-    @ExceptionHandler(PhotoStorageException.class)
-    public ResponseEntity<ApiErrorResponse> handlePhotoStorage(
-            PhotoStorageException ex, HttpServletRequest request) {
-        log.error("[tm-web] PhotoStorageException: {}", ex.getMessage(), ex);
-        return buildResponse(
-                HttpStatus.INTERNAL_SERVER_ERROR,
-                "Photo storage error.",
-                "error.photo.storage",
-                request);
     }
 
     // =========================================================================

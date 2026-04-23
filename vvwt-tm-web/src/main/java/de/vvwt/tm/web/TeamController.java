@@ -1,6 +1,6 @@
 package de.vvwt.tm.web;
 
-import de.vvwt.tm.domain.photo.PhotoStorageService;
+import de.vvwt.tm.photo.PhotoStorageService;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamService;
 import de.vvwt.tm.tournament.TeamService.BulkCreateResult;
