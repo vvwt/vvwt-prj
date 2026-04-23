@@ -2,9 +2,9 @@ package de.vvwt.tm.web;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.domain.photo.PhotoStorageService;
-import de.vvwt.tm.domain.rules.ScoringRuleRegistry;
-import de.vvwt.tm.domain.rules.SetValidationRuleRegistry;
-import de.vvwt.tm.domain.rules.TournamentRuleResolver;
+import de.vvwt.tm.scoring.ScoringRuleRegistry;
+import de.vvwt.tm.scoring.SetValidationRuleRegistry;
+import de.vvwt.tm.scoring.internal.TournamentRuleResolver;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tenant.TenantDataSourceResolver;
@@ -20,6 +20,7 @@ import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -259,8 +260,15 @@ public class WebModuleTestConfig {
     /**
      * Mockito mock for {@link ScoringRuleRegistry} — satisfies {@code TournamentService} and {@code
      * TournamentRulesController} constructor injection.
+     *
+     * <p>{@code @Primary} is required post-E22S11: the production {@code
+     * scoringModuleScoringRuleRegistry} bean is always on the classpath once the scoring module is
+     * loaded (no {@code @ComponentScan} exclusions). {@code @Primary} ensures the mock wins over
+     * the production bean for both {@code TournamentService} and the transitively-wired {@code
+     * TournamentRuleResolver}.
      */
     @Bean
+    @Primary
     public ScoringRuleRegistry scoringRuleRegistry() {
         return Mockito.mock(ScoringRuleRegistry.class);
     }
@@ -268,8 +276,14 @@ public class WebModuleTestConfig {
     /**
      * Mockito mock for {@link SetValidationRuleRegistry} — satisfies {@code TournamentService} and
      * {@code TournamentRulesController} constructor injection.
+     *
+     * <p>{@code @Primary} is required post-E22S11: the production {@code
+     * scoringModuleSetValidationRuleRegistry} bean is always on the classpath once the scoring
+     * module is loaded (no {@code @ComponentScan} exclusions). {@code @Primary} ensures the mock
+     * wins.
      */
     @Bean
+    @Primary
     public SetValidationRuleRegistry setValidationRuleRegistry() {
         return Mockito.mock(SetValidationRuleRegistry.class);
     }
@@ -279,17 +293,24 @@ public class WebModuleTestConfig {
      * constructor injection when the {@code scoring} module is loaded transitively via
      * {@code @ApplicationModuleTest(ALL_DEPENDENCIES)}.
      *
-     * <p>{@code domain.rules.TournamentRuleResolver} is a {@code @Component} in the {@code
-     * de.vvwt.tm.domain.rules} package, which is NOT a Spring Modulith module and therefore
-     * excluded from {@code @ApplicationModuleTest} component scanning. This mock provides the bean
-     * explicitly so that {@code DefaultScoringService} can be wired without requiring the real
-     * {@code domain.rules} package to be scanned.
+     * <p>{@code scoring.internal.TournamentRuleResolver} is a {@code @Component} in the {@code
+     * de.vvwt.tm.scoring.internal} package (scoring module internal). This mock provides the bean
+     * explicitly so that {@code DefaultScoringService} can be wired in
+     * {@code @ApplicationModuleTest} contexts that include the scoring module transitively.
      *
      * <p>Added in E22S09: once {@code de.vvwt.tm.web.ScoreApiController} imports {@code
      * ScoreEntryService}, Spring Modulith detects a real bytecode dependency on {@code scoring} and
      * includes it in the test context — which transitively requires this bean.
+     *
+     * <p>{@code @Primary} is required post-E22S11: after the atomic cutover, the production {@code
+     * scoring.internal.TournamentRuleResolver} ({@code scoringTournamentRuleResolver}) is always on
+     * the classpath with no {@code @ComponentScan} exclusions suppressing it. Without
+     * {@code @Primary}, Spring finds two candidates ({@code scoringTournamentRuleResolver} + this
+     * mock) and throws {@code UnsatisfiedDependencyException}. The mock must win for all web-module
+     * ITs that need the scoring module wired transitively.
      */
     @Bean
+    @Primary
     public TournamentRuleResolver tournamentRuleResolver() {
         return Mockito.mock(TournamentRuleResolver.class);
     }

@@ -9,11 +9,10 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import de.vvwt.tm.domain.rules.ScoringResult;
-import de.vvwt.tm.domain.rules.ScoringRule;
-import de.vvwt.tm.domain.rules.SetValidationRule;
-import de.vvwt.tm.domain.rules.TournamentRuleResolver;
-import de.vvwt.tm.domain.rules.ValidationResult;
+import de.vvwt.tm.scoring.ScoringResult;
+import de.vvwt.tm.scoring.ScoringRule;
+import de.vvwt.tm.scoring.SetValidationRule;
+import de.vvwt.tm.scoring.ValidationResult;
 import de.vvwt.tm.tournament.AuditLogEntry;
 import de.vvwt.tm.tournament.AuditLogRepository;
 import de.vvwt.tm.tournament.Match;
@@ -152,7 +151,8 @@ class DefaultScoringServiceTest {
         // ARRANGE — tournament lock acquired first (DEC-37 Clause B)
         when(tournamentRepository.findByIdForUpdate(TOURNAMENT_ID)).thenReturn(tournament);
         when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(match));
-        when(ruleResolver.resolveSetValidationRule(tournament)).thenReturn(validationRule);
+        when(ruleResolver.resolve(tournament))
+                .thenReturn(new TournamentRuleResolver.ResolvedRules(scoringRule, validationRule));
         when(validationRule.isSetClosed(anyInt(), anyInt(), anyInt(), any()))
                 .thenReturn(ValidationResult.open("score not closed"));
 
@@ -180,7 +180,8 @@ class DefaultScoringServiceTest {
         // ARRANGE — lock returns tournament; match lookup returns match; validation rejects
         when(tournamentRepository.findByIdForUpdate(TOURNAMENT_ID)).thenReturn(tournament);
         when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(match));
-        when(ruleResolver.resolveSetValidationRule(tournament)).thenReturn(validationRule);
+        when(ruleResolver.resolve(tournament))
+                .thenReturn(new TournamentRuleResolver.ResolvedRules(scoringRule, validationRule));
         when(validationRule.isSetClosed(anyInt(), anyInt(), anyInt(), any()))
                 .thenReturn(ValidationResult.open("rejected"));
 
@@ -231,7 +232,8 @@ class DefaultScoringServiceTest {
         // ARRANGE — existing set result present
         when(tournamentRepository.findByIdForUpdate(TOURNAMENT_ID)).thenReturn(tournament);
         when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(match));
-        when(ruleResolver.resolveSetValidationRule(tournament)).thenReturn(validationRule);
+        when(ruleResolver.resolve(tournament))
+                .thenReturn(new TournamentRuleResolver.ResolvedRules(scoringRule, validationRule));
         when(validationRule.isSetClosed(anyInt(), anyInt(), anyInt(), any()))
                 .thenReturn(ValidationResult.winner1());
 
@@ -241,7 +243,7 @@ class DefaultScoringServiceTest {
         when(setResultRepository.findByMatchId(MATCH_ID)).thenReturn(List.of(existing));
         when(matchOutcomeRepository.findById(MATCH_ID)).thenReturn(Optional.empty());
         when(phaseRepository.findById(PHASE_ID)).thenReturn(Optional.of(phase));
-        when(ruleResolver.resolveScoringRule(tournament)).thenReturn(scoringRule);
+
         when(scoringRule.calculatePoints(any(), any())).thenReturn(new ScoringResult(3, 0));
         when(teamAvatarRatingRepository.findById(any())).thenReturn(Optional.empty());
         when(teamAvatarRepository.findById(any())).thenReturn(Optional.empty());
@@ -437,7 +439,8 @@ class DefaultScoringServiceTest {
     private void arrangeHappyPath_singleSetMatchWinner1() {
         when(tournamentRepository.findByIdForUpdate(TOURNAMENT_ID)).thenReturn(tournament);
         when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(match));
-        when(ruleResolver.resolveSetValidationRule(tournament)).thenReturn(validationRule);
+        when(ruleResolver.resolve(tournament))
+                .thenReturn(new TournamentRuleResolver.ResolvedRules(scoringRule, validationRule));
         when(validationRule.isSetClosed(anyInt(), anyInt(), anyInt(), any()))
                 .thenReturn(ValidationResult.winner1());
 
@@ -461,7 +464,6 @@ class DefaultScoringServiceTest {
 
         when(phaseRepository.findById(PHASE_ID)).thenReturn(Optional.of(phase));
 
-        when(ruleResolver.resolveScoringRule(tournament)).thenReturn(scoringRule);
         when(scoringRule.calculatePoints(any(), any())).thenReturn(new ScoringResult(3, 0));
 
         // Avatar rating refresh — no terminal matches for simplicity

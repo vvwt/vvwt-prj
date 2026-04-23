@@ -1,15 +1,16 @@
-package de.vvwt.tm.tournament;
+package de.vvwt.tm.web;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import de.vvwt.tm.domain.rules.ScoringRuleRegistry;
-import de.vvwt.tm.domain.rules.SetValidationRuleRegistry;
 import de.vvwt.tm.infrastructure.testsupport.TenantContextSliceTestSupport;
+import de.vvwt.tm.scoring.ScoringRuleRegistry;
+import de.vvwt.tm.scoring.SetValidationRuleRegistry;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantRegistryPort;
+import de.vvwt.tm.tournament.MatchGeneratorRegistry;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,9 +28,8 @@ import org.springframework.web.context.WebApplicationContext;
  * Slice test for {@link TournamentRulesController} (E21S10,
  * AC-REST-SLICE-TournamentRulesController, DEC-26 C-13 methodology, inventory row 412).
  *
- * <p>This test was committed RED: {@link TournamentRulesController} at {@code
- * de.vvwt.tm.tournament.TournamentRulesController} did not exist at commit time, causing a compile
- * error — satisfying the DEC-22 Iron Law.
+ * <p>Moved from {@code de.vvwt.tm.tournament} to {@code de.vvwt.tm.web} at E22S11 atomic cutover
+ * (DEC-40 — REST controllers in web.*).
  *
  * <h2>Coverage (C-13 methodology)</h2>
  *
@@ -38,15 +38,10 @@ import org.springframework.web.context.WebApplicationContext;
  *   <li>Anonymous GET /api/tournament-rules returns 401 (AC-REST-IT-SEC-TournamentRulesController)
  * </ul>
  *
- * <h2>AC-S08-REGISTRY-IMPORT</h2>
- *
- * <p>Verifies that the controller wires {@link MatchGeneratorRegistry} (S08 public package).
- * Scoring/validation registries are at legacy coordinates (DEC-32 transitional import).
- *
  * @see TournamentRulesController
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
  * @see <a href="DEC-26">DEC-26 — controller test methodology (C-13)</a>
- * @see <a href="DEC-32">DEC-32 — transitional scoring-rule-registry import</a>
+ * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
  * @see <a href="E21S10">E21S10 — inventory row 412</a>
  */
 @WebMvcTest(TournamentRulesController.class)
@@ -80,7 +75,7 @@ class TournamentRulesControllerSliceTest {
         when(scoringRuleRegistry.knownIds()).thenReturn(Set.of("setPoints", "threePointMatch"));
         // Use HashMap to allow null values (SetValidationRuleRegistry.getAll() returns rule impls,
         // which are not needed for the controller — only the key set is used)
-        java.util.HashMap<String, de.vvwt.tm.domain.rules.SetValidationRule> validationRules =
+        java.util.HashMap<String, de.vvwt.tm.scoring.SetValidationRule> validationRules =
                 new java.util.HashMap<>();
         validationRules.put("standardVolleyball", null);
         validationRules.put("timeBoundedSet", null);

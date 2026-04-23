@@ -2,9 +2,9 @@ package de.vvwt.tm.scoring.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import de.vvwt.tm.infrastructure.score.ScoreEntryService;
-import de.vvwt.tm.infrastructure.score.dto.SetSubmitRequest;
+import de.vvwt.tm.scoring.ScoreEntryService;
 import de.vvwt.tm.scoring.ScoringService;
+import de.vvwt.tm.scoring.SetSubmitInput;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tournament.Device;
 import de.vvwt.tm.tournament.DeviceRepository;
@@ -66,8 +66,8 @@ import org.springframework.test.context.ActiveProfiles;
  *       DefaultScoringService} directly. {@link ScoringService} is used for the bean-count
  *       assertion to verify the PUBLIC port has exactly one binding.
  *   <li>DEC-38 Clause C — {@code @SpringBootTest} chosen over {@code @ApplicationModuleTest}
- *       because the end-to-end flow crosses {@code infrastructure.score} → {@code scoring.internal}
- *       module boundaries (requires full context for cross-module wiring verification)
+ *       because the end-to-end flow crosses multiple Modulith module boundaries including {@code
+ *       scoring} → {@code tournament} (requires full context for cross-module wiring verification)
  *   <li>DEC-37 Clause B — lock-first contract: {@code submitSetResult} supplies non-null {@code
  *       tournamentId} via match lookup, which {@link DefaultScoringService} uses to acquire the
  *       per-tournament pessimistic DB row-lock as its first action
@@ -304,7 +304,7 @@ class ScoringCutoverIT {
 
         // --- Execute: submit a valid set result through ScoreEntryService ---
         // BEST_OF_1, standardVolleyball: 15 points wins the set and the match
-        SetSubmitRequest request = new SetSubmitRequest(matchId, 0, 15, 10, deviceToken);
+        SetSubmitInput request = new SetSubmitInput(matchId, 0, 15, 10, deviceToken);
         scoreEntryService.submitSetResult(request);
 
         // --- Post-condition: set_result row exists (DEC-26 independent verifier) ---
@@ -364,5 +364,61 @@ class ScoringCutoverIT {
                                 + " DefaultScoringService — the implementation that emits"
                                 + " MatchResultChangedEvent at Step 12 of the cascade")
                 .isInstanceOf(DefaultScoringService.class);
+    }
+
+    // -----------------------------------------------------------------------
+    // AC-SCORING-CUTOVER-IT (E22S11): Legacy FQN absence verification
+    // -----------------------------------------------------------------------
+
+    /**
+     * AC-SCORING-CUTOVER-IT (d) — Asserts that the legacy {@code
+     * de.vvwt.tm.domain.rules.ScoringRule} class is absent from the classpath after the E22S11
+     * atomic cutover. The legacy {@code domain.rules} package is deleted in its entirety; this test
+     * verifies the deletion at the JVM class-loading level (defense-in-depth: protects against
+     * accidental re-introduction via transitive dependency).
+     */
+    @Test
+    @DisplayName(
+            "AC-SCORING-CUTOVER-IT (d): legacy de.vvwt.tm.domain.rules.ScoringRule absent from"
+                    + " classpath")
+    void legacyScoringRule_absentFromClasspath() {
+        assertThat(
+                        org.junit.jupiter.api.Assertions.assertThrows(
+                                ClassNotFoundException.class,
+                                () -> Class.forName("de.vvwt.tm.domain.rules.ScoringRule")))
+                .as(
+                        "AC-SCORING-CUTOVER-IT: legacy de.vvwt.tm.domain.rules.ScoringRule must"
+                                + " throw ClassNotFoundException — the legacy package is deleted at"
+                                + " E22S11 cutover")
+                .isInstanceOf(ClassNotFoundException.class);
+    }
+
+    /**
+     * AC-SCORING-CUTOVER-IT (c) — Asserts that {@code ScoringRule} beans in the ApplicationContext
+     * are exclusively from the new {@code de.vvwt.tm.scoring.*} package (no duplicates from
+     * legacy). Trivially true post-deletion of {@code domain.rules.*}, but asserted for
+     * defense-in-depth.
+     */
+    @Test
+    @DisplayName(
+            "AC-SCORING-CUTOVER-IT (c): ScoringRule beans are new-FQN only (no legacy duplicates)")
+    void scoringRuleBeans_areNewFqnOnly() {
+        var beans = applicationContext.getBeansOfType(de.vvwt.tm.scoring.ScoringRule.class);
+        assertThat(beans)
+                .as(
+                        "AC-SCORING-CUTOVER-IT (c): ScoringRule beans must be non-empty (at least 1"
+                                + " rule registered)")
+                .isNotEmpty();
+        // All bean values must be instances of de.vvwt.tm.scoring.ScoringRule (new FQN).
+        // The old FQN de.vvwt.tm.domain.rules.ScoringRule is deleted — it cannot appear here.
+        beans.values()
+                .forEach(
+                        bean ->
+                                assertThat(bean.getClass().getName())
+                                        .as(
+                                                "AC-SCORING-CUTOVER-IT (c): bean %s must be from"
+                                                        + " scoring.* package",
+                                                bean)
+                                        .startsWith("de.vvwt.tm.scoring."));
     }
 }

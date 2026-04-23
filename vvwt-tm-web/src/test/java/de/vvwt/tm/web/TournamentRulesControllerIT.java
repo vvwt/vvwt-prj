@@ -1,4 +1,4 @@
-package de.vvwt.tm.tournament;
+package de.vvwt.tm.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -30,16 +30,15 @@ import org.springframework.test.context.TestPropertySource;
  * AC-REST-IT-HAPPY-TournamentRulesController + AC-REST-IT-SEC-TournamentRulesController, DEC-26
  * C-13 methodology, inventory row 412).
  *
- * <p>This test was committed RED: {@link TournamentRulesController} at {@code
- * de.vvwt.tm.tournament.TournamentRulesController} did not exist at commit time, causing a compile
- * error — satisfying the DEC-22 Iron Law.
+ * <p>Moved from {@code de.vvwt.tm.tournament.TournamentRulesControllerIT} to {@code
+ * de.vvwt.tm.web.TournamentRulesControllerIT} at E22S11 atomic cutover (DEC-40
+ * Primary-Adapter-Isolation — REST controllers MUST reside in {@code web.*}).
  *
  * <h2>AC-REST-IT-HAPPY-TournamentRulesController</h2>
  *
  * <p>Authenticated GET exercises the full Spring context with the real {@link
- * MatchGeneratorRegistry} from S08 (wired), and legacy {@code de.vvwt.tm.domain.rules.*} registries
- * (transitional coordinates per DEC-32). Response shape is verified: four keys, each a non-empty
- * list.
+ * de.vvwt.tm.tournament.MatchGeneratorRegistry} from S08 (wired), and new {@code
+ * de.vvwt.tm.scoring.*} registries. Response shape is verified: four keys, each a non-empty list.
  *
  * <h2>AC-REST-IT-SEC-TournamentRulesController</h2>
  *
@@ -48,13 +47,13 @@ import org.springframework.test.context.TestPropertySource;
  * @see TournamentRulesController
  * @see TournamentRulesControllerSliceTest
  * @see <a href="DEC-26">DEC-26 — controller test methodology (C-13)</a>
- * @see <a href="DEC-32">DEC-32 — transitional scoring-rule-registry import</a>
+ * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
  * @see <a href="E21S10">E21S10 — inventory row 412</a>
  */
 @ApplicationModuleTest(
-        mode = ApplicationModuleTest.BootstrapMode.DIRECT_DEPENDENCIES,
+        mode = ApplicationModuleTest.BootstrapMode.ALL_DEPENDENCIES,
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(TournamentModuleTestConfig.class)
+@Import(WebModuleTestConfig.class)
 @TestPropertySource(
         properties = {
             "spring.datasource.url=jdbc:h2:mem:rulescontrolleritdb"

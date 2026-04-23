@@ -84,8 +84,7 @@ public class MatchOutcome {
     public MatchOutcome() {}
 
     /**
-     * Minimal constructor for {@link de.vvwt.tm.domain.rules.ScoringRule} usage (backward
-     * compatibility with legacy callers).
+     * Minimal constructor for {@link de.vvwt.tm.scoring.ScoringRule} usage.
      *
      * @param team1SetsWon sets won by team 1 (&ge; 0)
      * @param team2SetsWon sets won by team 2 (&ge; 0)
