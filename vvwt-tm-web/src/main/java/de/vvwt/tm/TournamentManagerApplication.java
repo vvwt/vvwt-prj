@@ -19,10 +19,31 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * classpath. The potential {@code ConflictingBeanDefinitionException} for the shared {@code
  * photoStorageConfig} bean name is resolved by qualifying the new module's config bean as {@code
  * photoModuleStorageConfig} (see {@link de.vvwt.tm.photo.PhotoStorageConfig}). No explicit
- * {@code @ComponentScan} exclusion is needed — the new {@code DefaultPhotoStorageService} and the
- * legacy {@code PhotoStorageServiceImpl} have distinct bean names and implement DIFFERENT Java
- * types ({@code de.vvwt.tm.photo.PhotoStorageService} vs. {@code
+ * {@code @ComponentScan} exclusion is needed for photo — the new {@code DefaultPhotoStorageService}
+ * and the legacy {@code PhotoStorageServiceImpl} have distinct bean names and implement DIFFERENT
+ * Java types ({@code de.vvwt.tm.photo.PhotoStorageService} vs. {@code
  * de.vvwt.tm.domain.photo.PhotoStorageService}), so they do not conflict.
+ *
+ * <h2>E23S06 — Certificate parallel-phase bean coexistence</h2>
+ *
+ * <p>During the parallel phase (until E23S10 Cutover-2), the legacy certificate classes coexist
+ * with the new {@code de.vvwt.tm.certificate.*} module. Bean-name conflicts are resolved by
+ * qualifying the new module's beans:
+ *
+ * <ul>
+ *   <li>{@code de.vvwt.tm.certificate.CertificateTemplateStorageConfig} is registered as {@code
+ *       "certificateModuleStorageConfig"} (vs. legacy {@code "certificateTemplateStorageConfig"}).
+ *   <li>{@code de.vvwt.tm.certificate.internal.CertificateTemplateRepository} is registered as
+ *       {@code "certificateModuleTemplateRepository"} (vs. legacy {@code
+ *       "certificateTemplateRepository"}).
+ * </ul>
+ *
+ * <p>The new {@code DefaultCertificateTemplateService} (bean name {@code
+ * "defaultCertificateTemplateService"}) and the legacy {@code CertificateTemplateServiceImpl} (bean
+ * name {@code "certificateTemplateServiceImpl"}) have different names and implement DIFFERENT Java
+ * interfaces, so they do not conflict. No {@code @ComponentScan} exclusion is needed for E23S06 —
+ * all conflicts are resolved by explicit bean-name qualification. These qualifications are removed
+ * at E23S10 Cutover-2 when the legacy classes are deleted.
  *
  * <h2>Post-E22S11 — @ComponentScan exclusions removed</h2>
  *
