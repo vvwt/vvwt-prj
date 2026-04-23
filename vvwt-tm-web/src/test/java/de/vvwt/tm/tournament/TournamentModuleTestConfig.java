@@ -2,8 +2,6 @@ package de.vvwt.tm.tournament;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.domain.photo.PhotoStorageService;
-import de.vvwt.tm.domain.rules.ScoringRuleRegistry;
-import de.vvwt.tm.domain.rules.SetValidationRuleRegistry;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tenant.TenantDataSourceResolver;
@@ -68,10 +66,6 @@ import org.springframework.security.web.SecurityFilterChain;
  *   <li>{@link PhotoStorageService} mock — satisfies {@code TeamController} constructor dependency
  *       on the domain-layer photo port (domain is not a Modulith module; not loaded by
  *       DIRECT_DEPENDENCIES).
- *   <li>{@link ScoringRuleRegistry} mock — satisfies {@code TournamentService} and {@code
- *       TournamentRulesController} dependencies.
- *   <li>{@link SetValidationRuleRegistry} mock — satisfies {@code TournamentService} and {@code
- *       TournamentRulesController} dependencies.
  * </ul>
  *
  * @see TenantContextTestSupport
@@ -248,23 +242,5 @@ public class TournamentModuleTestConfig {
     @Bean
     public PhotoStorageService photoStorageService() {
         return Mockito.mock(PhotoStorageService.class);
-    }
-
-    /**
-     * Mockito mock for {@link ScoringRuleRegistry} — satisfies {@code TournamentService} and {@code
-     * TournamentRulesController} constructor injection.
-     */
-    @Bean
-    public ScoringRuleRegistry scoringRuleRegistry() {
-        return Mockito.mock(ScoringRuleRegistry.class);
-    }
-
-    /**
-     * Mockito mock for {@link SetValidationRuleRegistry} — satisfies {@code TournamentService} and
-     * {@code TournamentRulesController} constructor injection.
-     */
-    @Bean
-    public SetValidationRuleRegistry setValidationRuleRegistry() {
-        return Mockito.mock(SetValidationRuleRegistry.class);
     }
 }

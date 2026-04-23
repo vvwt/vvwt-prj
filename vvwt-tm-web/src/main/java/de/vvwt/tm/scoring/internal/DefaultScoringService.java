@@ -1,11 +1,10 @@
 package de.vvwt.tm.scoring.internal;
 
-import de.vvwt.tm.domain.rules.ScoringResult;
-import de.vvwt.tm.domain.rules.ScoringRule;
-import de.vvwt.tm.domain.rules.SetValidationRule;
-import de.vvwt.tm.domain.rules.TournamentRuleResolver;
-import de.vvwt.tm.domain.rules.ValidationResult;
+import de.vvwt.tm.scoring.ScoringResult;
+import de.vvwt.tm.scoring.ScoringRule;
 import de.vvwt.tm.scoring.ScoringService;
+import de.vvwt.tm.scoring.SetValidationRule;
+import de.vvwt.tm.scoring.ValidationResult;
 import de.vvwt.tm.tournament.AuditLogEntry;
 import de.vvwt.tm.tournament.AuditLogRepository;
 import de.vvwt.tm.tournament.Match;
@@ -58,7 +57,8 @@ import org.springframework.transaction.annotation.Transactional;
  *       the FIRST action; the returned {@link Tournament} object is used throughout the cascade
  *   <li>DEC-22 — every public method was preceded by a failing test (RED-first per Iron Law)
  *   <li>DEC-21 — all imports are from public tournament package ({@code de.vvwt.tm.tournament.*})
- *       or {@code de.vvwt.tm.domain.rules.*} (non-module); no {@code tournament.internal.*} imports
+ *       or {@code de.vvwt.tm.scoring.*} / {@code de.vvwt.tm.scoring.internal.*} (same module); no
+ *       {@code tournament.internal.*} imports
  * </ul>
  *
  * <h2>Coexistence with legacy (DEC-22 Reconstruction-in-Place)</h2>
@@ -149,7 +149,7 @@ public class DefaultScoringService implements ScoringService {
      *
      * @param input the set result to register; must not be {@code null}
      * @throws ValidationException if the set score fails the {@link
-     *     de.vvwt.tm.domain.rules.SetValidationRule}
+     *     de.vvwt.tm.scoring.SetValidationRule}
      * @throws IllegalArgumentException if the referenced match, tournament, or phase does not exist
      */
     @Override
@@ -206,7 +206,7 @@ public class DefaultScoringService implements ScoringService {
         // -----------------------------------------------------------------------
         // Step 1 — Validate via SetValidationRule (DEC-22 Iron Law)
         // -----------------------------------------------------------------------
-        SetValidationRule validationRule = ruleResolver.resolveSetValidationRule(tournament);
+        SetValidationRule validationRule = ruleResolver.resolve(tournament).setValidationRule();
         ValidationResult validationResult =
                 validationRule.isSetClosed(
                         input.team1Points(), input.team2Points(), input.setIndex(), format);
@@ -413,7 +413,7 @@ public class DefaultScoringService implements ScoringService {
         // -----------------------------------------------------------------------
         // Steps 7–8 — Refresh avatar ratings (full-recompute, no incremental delta)
         // -----------------------------------------------------------------------
-        ScoringRule scoringRule = ruleResolver.resolveScoringRule(tournament);
+        ScoringRule scoringRule = ruleResolver.resolve(tournament).scoringRule();
 
         log.debug(
                 "[scoring-cascade] Step7 refreshAvatarRating avatar1Id={} correlationId={}",
