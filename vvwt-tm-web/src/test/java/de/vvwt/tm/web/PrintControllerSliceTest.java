@@ -99,7 +99,7 @@ class PrintControllerSliceTest {
                 MockMvcBuilders.webAppContextSetup(context)
                         .apply(SecurityMockMvcConfigurers.springSecurity())
                         .build();
-        TenantContextSliceTestSupport.stubCurrentTenant(tenantContext, TENANT_ID);
+        TenantContextSliceTestSupport.configureMock(tenantContext, TENANT_ID);
     }
 
     // =========================================================================
@@ -336,7 +336,7 @@ class PrintControllerSliceTest {
                                 Mockito.any()))
                 .thenReturn(
                         new de.vvwt.tm.print.ActivityScheduleModel(
-                                List.of(), 0, 0, false, List.of()));
+                                List.of(), 0, 0, List.of(), false));
         stubMessageSource();
 
         mockMvc.perform(

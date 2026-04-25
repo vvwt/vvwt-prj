@@ -1,6 +1,8 @@
 package de.vvwt.tm.web;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
+import de.vvwt.tm.domain.activity.ActivityAssignmentService;
+import de.vvwt.tm.domain.repo.ActivityTypeRepository;
 import de.vvwt.tm.photo.PhotoStorageService;
 import de.vvwt.tm.scoring.ScoringRuleRegistry;
 import de.vvwt.tm.scoring.SetValidationRuleRegistry;
@@ -292,6 +294,38 @@ public class WebModuleTestConfig {
     @Primary
     public SetValidationRuleRegistry setValidationRuleRegistry() {
         return Mockito.mock(SetValidationRuleRegistry.class);
+    }
+
+    /**
+     * Mockito mock for {@link ActivityAssignmentService} — satisfies {@code
+     * DefaultActivityScheduleAssembler} constructor injection when the {@code print} module is
+     * loaded transitively via {@code @ApplicationModuleTest(ALL_DEPENDENCIES)}.
+     *
+     * <p>{@code ActivityAssignmentServiceImpl} lives in {@code de.vvwt.tm.domain.activity} which is
+     * NOT a Modulith module — Spring Modulith does not component-scan it in
+     * {@code ALL_DEPENDENCIES} mode. Added at E24S06 when {@code web.allowedDependencies} was
+     * extended to include {@code "print"}.
+     */
+    @Bean
+    @Primary
+    public ActivityAssignmentService activityAssignmentService() {
+        return Mockito.mock(ActivityAssignmentService.class);
+    }
+
+    /**
+     * Mockito mock for {@link ActivityTypeRepository} — satisfies {@code
+     * de.vvwt.tm.web.PrintController} constructor injection (parameter 6) when loaded in
+     * {@code @ApplicationModuleTest(ALL_DEPENDENCIES)} mode.
+     *
+     * <p>{@code ActivityTypeRepository} lives in {@code de.vvwt.tm.domain.repo} which is NOT a
+     * Modulith module — Spring Modulith does not component-scan it in
+     * {@code ALL_DEPENDENCIES} mode. The real bean is registered only in full
+     * {@code @SpringBootTest} contexts. Added at E24S06.
+     */
+    @Bean
+    @Primary
+    public ActivityTypeRepository activityTypeRepository() {
+        return Mockito.mock(ActivityTypeRepository.class);
     }
 
     /**
