@@ -8,9 +8,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import de.vvwt.tm.tournament.exceptions.ForbiddenException;
 import de.vvwt.tm.tournament.exceptions.TooManyRequestsException;
+import de.vvwt.tm.tournament.exceptions.TournamentNotFoundException;
 import de.vvwt.tm.tournament.exceptions.UnauthorizedException;
 import de.vvwt.tm.tournament.exceptions.ValidationException;
 import java.sql.SQLException;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -160,6 +162,24 @@ class GlobalExceptionHandlerTest {
     }
 
     // =========================================================================
+    // TournamentNotFoundException → HTTP 404 (AC-REDFIRST-TNFE-HANDLER-TEST, E24S05)
+    // =========================================================================
+
+    @Test
+    @DisplayName(
+            "TournamentNotFoundException maps to HTTP 404 with ApiErrorResponse — errorKey"
+                    + " error.tournament.notFound")
+    void tournamentNotFound_mapsTo404() throws Exception {
+        mockMvc.perform(
+                        get("/test-throw/tournament-not-found").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.message").isNotEmpty())
+                .andExpect(jsonPath("$.messageKey").value("error.tournament.notFound"))
+                .andExpect(jsonPath("$.timestamp").isNotEmpty());
+    }
+
+    // =========================================================================
     // Minimal test-only controller
     // =========================================================================
 
@@ -206,6 +226,11 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/sql")
         void throwSql() throws SQLException {
             throw new SQLException("SELECT * FROM users WHERE password='secret123'");
+        }
+
+        @GetMapping("/tournament-not-found")
+        void throwTournamentNotFound() {
+            throw new TournamentNotFoundException(UUID.fromString("00000000-0000-0000-0000-000000000001"));
         }
     }
 }

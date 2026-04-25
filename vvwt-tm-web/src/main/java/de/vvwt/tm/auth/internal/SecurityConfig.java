@@ -47,6 +47,7 @@ import org.springframework.security.web.SecurityFilterChain;
  *   <li>{@code /print/assets/**} — public
  *   <li>{@code /api/timer/**} — public
  *   <li>{@code /print/**} — requires authentication
+ *   <li>{@code /certificate/**} — requires authentication (E24S05)
  *   <li>{@code /admin/**} — requires authentication
  *   <li>{@code /api/**} — requires authentication
  *   <li>All other paths — requires authentication (default deny)
@@ -151,6 +152,8 @@ public final class SecurityConfig {
                                         .requestMatchers("/api/timer/**")
                                         .permitAll()
                                         .requestMatchers("/print/**")
+                                        .authenticated()
+                                        .requestMatchers("/certificate/**")
                                         .authenticated()
                                         .requestMatchers("/admin/**")
                                         .authenticated()

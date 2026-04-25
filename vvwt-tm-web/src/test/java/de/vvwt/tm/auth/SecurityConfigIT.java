@@ -178,6 +178,50 @@ class SecurityConfigIT {
     }
 
     // -------------------------------------------------------------------------
+    // AC-SECURITYCONFIG-CERTIFICATE-PATTERN (E24S05) — /certificate/** auth
+    // -------------------------------------------------------------------------
+
+    /**
+     * AC-SECURITYCONFIG-CERTIFICATE-PATTERN: unauthenticated request to {@code /certificate/**}
+     * returns HTTP 401 (not 200 or 403).
+     */
+    @Test
+    void certificatePathReturns401WithoutCredentials() throws Exception {
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(
+                        new java.net.URI(
+                                baseUrl
+                                        + "/certificate/tournaments/aaaaaaaa-0000-0000-0000-000000000001/print/bbbbbbbb-0000-0000-0000-000000000002"),
+                        String.class);
+
+        assertThat(response.getStatusCode())
+                .as("AC-SECURITYCONFIG-CERTIFICATE-PATTERN — /certificate/** unauthenticated must return 401")
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    /**
+     * AC-SECURITYCONFIG-CERTIFICATE-PATTERN: authenticated request to {@code /certificate/**}
+     * does NOT return 401 or 403 — security layer passes the request to the controller.
+     * The controller may return 400 (no template) or 404 — that is acceptable.
+     */
+    @Test
+    void certificatePathDoesNotReturn401WithValidCredentials() throws Exception {
+        ResponseEntity<String> response =
+                restTemplate
+                        .withBasicAuth(AdminCredentialsProvider.ADMIN_USERNAME, TEST_PASSWORD)
+                        .getForEntity(
+                                new java.net.URI(
+                                        baseUrl
+                                                + "/certificate/tournaments/aaaaaaaa-0000-0000-0000-000000000001/print/bbbbbbbb-0000-0000-0000-000000000002"),
+                                String.class);
+
+        assertThat(response.getStatusCode())
+                .as("AC-SECURITYCONFIG-CERTIFICATE-PATTERN — /certificate/** with valid credentials must NOT return 401/403")
+                .isNotEqualTo(HttpStatus.UNAUTHORIZED)
+                .isNotEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    // -------------------------------------------------------------------------
     // Test configuration — override AdminCredentialsProvider with known password
     // -------------------------------------------------------------------------
 

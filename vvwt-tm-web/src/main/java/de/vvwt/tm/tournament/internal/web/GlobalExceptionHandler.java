@@ -10,6 +10,7 @@ import de.vvwt.tm.tournament.ApiErrorResponse;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import de.vvwt.tm.tournament.exceptions.ForbiddenException;
 import de.vvwt.tm.tournament.exceptions.TooManyRequestsException;
+import de.vvwt.tm.tournament.exceptions.TournamentNotFoundException;
 import de.vvwt.tm.tournament.exceptions.UnauthorizedException;
 import de.vvwt.tm.tournament.exceptions.ValidationException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -127,6 +128,33 @@ public class GlobalExceptionHandler {
             ConflictException ex, HttpServletRequest request) {
         log.debug("[tm-web] ConflictException: {}", ex.getMessage());
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), "error.conflict", request);
+    }
+
+    /**
+     * Maps {@link TournamentNotFoundException} to HTTP 404 (AC-TNFE-HANDLER-ADD, E24S05).
+     *
+     * <p>Added as a NEW method to this existing class per E24S05 scope. Class location
+     * ({@code tournament.internal.web}), {@code basePackages}, and existing handler methods are
+     * UNCHANGED. GlobalExceptionHandler migration to {@code de.vvwt.tm.web.*} is DEFERRED to E34
+     * retro-correction epic per Brief v6 Seq-C.
+     *
+     * <p>Covers {@link TournamentNotFoundException} thrown from {@code web.certificate.*}
+     * (CertificateRenderController, E24S05), {@code web.*} (PrintController, E24S06), and any
+     * other controller in the three covered package trees ({@code tournament}, {@code
+     * infrastructure}, {@code web}) — via {@code GlobalExceptionHandler.basePackages}.
+     *
+     * <p>Debug-level log (not WARN/ERROR): this is an expected business-condition 404 (wrong UUID
+     * in URL), not a system error.
+     *
+     * @see de.vvwt.tm.tournament.exceptions.TournamentNotFoundException
+     * @since E24S05
+     */
+    @ExceptionHandler(TournamentNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleTournamentNotFound(
+            TournamentNotFoundException ex, HttpServletRequest request) {
+        log.debug("[tm-web] TournamentNotFoundException: {}", ex.getMessage());
+        return buildResponse(
+                HttpStatus.NOT_FOUND, ex.getMessage(), "error.tournament.notFound", request);
     }
 
     /**
