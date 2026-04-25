@@ -10,6 +10,7 @@ import de.vvwt.tm.tournament.Tournament;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -43,9 +44,10 @@ class LaufzettelAssemblerContractTest {
     @DisplayName("assemble method has correct signature (compile-time check)")
     @SuppressWarnings("ConstantConditions")
     void assembleMethodSignatureIsCorrect() {
+        // Compile-time assertion: if signature changes, this line becomes a compile error.
+        // Runtime: the null assembler produces NullPointerException — expected by design.
         LaufzettelAssembler assembler = null;
-        // Compile-time assertion: if signature changes, this line becomes a compile error
-        Map<UUID, List<LaufzettelRow>> result =
+        Assertions.assertThrows(NullPointerException.class, () ->
                 assembler.assemble(
                         (Tournament) null,
                         (List<Phase>) null,
@@ -54,10 +56,7 @@ class LaufzettelAssemblerContractTest {
                         (Map<UUID, List<Match>>) null,
                         (Map<UUID, List<PhaseBreak>>) null,
                         (List<ActivityType>) null,
-                        0);
-        // No assertion needed — compile success is the assertion
-        // (result would be null in practice since assembler is null)
-        _ = result; // suppress unused variable
+                        0));
     }
 
     /**
@@ -68,7 +67,7 @@ class LaufzettelAssemblerContractTest {
     @SuppressWarnings("ConstantConditions")
     void assembleWithPhaseConfigMethodSignatureIsCorrect() {
         LaufzettelAssembler assembler = null;
-        Map<UUID, List<LaufzettelRow>> result =
+        Assertions.assertThrows(NullPointerException.class, () ->
                 assembler.assembleWithPhaseConfig(
                         (Tournament) null,
                         (List<Phase>) null,
@@ -79,8 +78,7 @@ class LaufzettelAssemblerContractTest {
                         (List<ActivityType>) null,
                         0,
                         (Map<UUID, Integer>) null,
-                        (Map<UUID, Integer>) null);
-        _ = result;
+                        (Map<UUID, Integer>) null));
     }
 
     /**
@@ -91,7 +89,7 @@ class LaufzettelAssemblerContractTest {
     @SuppressWarnings("ConstantConditions")
     void hasTimeMethodSignatureIsCorrect() {
         LaufzettelAssembler assembler = null;
-        boolean result = assembler.hasTime((Tournament) null);
-        _ = result;
+        Assertions.assertThrows(NullPointerException.class, () ->
+                assembler.hasTime((Tournament) null));
     }
 }

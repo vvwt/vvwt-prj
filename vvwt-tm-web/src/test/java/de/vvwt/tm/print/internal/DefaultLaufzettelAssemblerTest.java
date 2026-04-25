@@ -593,16 +593,9 @@ class DefaultLaufzettelAssemblerTest {
                 null, null, 4, 8, startTime);
     }
 
-    @SafeVarargs
-    private static <T> List<T> phases(T... items) { return List.of(items); }
+    private static List<Phase> phases(Phase... items) { return List.of(items); }
 
-    @SafeVarargs
-    private static <T> List<T> teams(T... items) { return List.of(items); }
-
-    @SafeVarargs
-    private static <T> List<T> matches(UUID phaseId, T... items) {
-        return List.of(items);
-    }
+    private static List<Team> teams(Team... items) { return List.of(items); }
 
     private static Map<UUID, List<Match>> matches(UUID phaseId, Match... items) {
         return Map.of(phaseId, List.of(items));
