@@ -41,19 +41,23 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  * AC-TDD-GlobalExceptionHandler, AC-PKG-GlobalExceptionHandler, inventory row 450).
  *
  * <p>Translates the five S09 boundary-API exceptions and unhandled {@link RuntimeException}s into
- * consistent {@link ApiErrorResponse} JSON bodies. Photo-domain exceptions are handled by {@link
- * de.vvwt.tm.web.photo.PhotoExceptionAdvice} (E23S05 Cutover-1 — Spring Modulith boundary
- * compliance; {@code tournament.allowedDependencies = {"tenant"}} forbids direct {@code photo}
- * imports here). Certificate-domain exceptions are handled by {@link
- * de.vvwt.tm.web.certificate.CertificateExceptionAdvice} (E23S10 Cutover-2 — same boundary
- * rationale; {@code tournament.allowedDependencies = {"tenant"}} forbids direct {@code certificate}
- * imports here).
+ * consistent {@link ApiErrorResponse} JSON bodies. Photo-domain exceptions ({@link
+ * de.vvwt.tm.photo.PhotoFormatException}, {@link de.vvwt.tm.photo.PhotoSizeException}, {@link
+ * de.vvwt.tm.photo.PhotoStorageException}) and certificate-domain exceptions ({@link
+ * de.vvwt.tm.certificate.CertificateTemplateFormatException}, {@link
+ * de.vvwt.tm.certificate.CertificateTemplateSizeException}, {@link
+ * de.vvwt.tm.certificate.CertificateTemplateStorageException}) are consolidated here (E36S08
+ * Phase 3) — absorbed from the deleted {@code PhotoExceptionAdvice} and {@code
+ * CertificateExceptionAdvice} (E36S08 Phase 2). Now resident in the {@code web} module, this
+ * handler has direct {@code photo} and {@code certificate} dependency access per
+ * {@code web.allowedDependencies}.
  *
- * <h2>DEC-21 package discipline</h2>
+ * <h2>DEC-21 + DEC-35 package discipline</h2>
  *
- * <p>Placed at {@code de.vvwt.tm.tournament.internal.web.*} because while its effects cross
- * contexts (HTTP error responses are global), its implementation is tournament-internal (per D-8).
- * Only the contract — {@link ApiErrorResponse} — is public.
+ * <p>Relocated from {@code de.vvwt.tm.tournament.internal.web.*} to {@code de.vvwt.tm.web.*}
+ * in E36S08 Phase 1 (FQN-relocation per DEC-35 + DEC-40 Clause A: cross-cutting web
+ * infrastructure lives at the {@code web} module root). Only the contract — {@link ApiErrorResponse}
+ * — is public (at {@code de.vvwt.tm.tournament.ApiErrorResponse}).
  *
  * <h2>Scope-bounded (AC-GLOBAL-EXCEPTION-HANDLER-SCOPE-BOUNDED)</h2>
  *

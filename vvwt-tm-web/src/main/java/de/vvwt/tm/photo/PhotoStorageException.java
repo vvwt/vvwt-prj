@@ -9,8 +9,9 @@ package de.vvwt.tm.photo;
  * AC-EXCEPTION-CONSTRUCTORS-PRESERVED: {@code (String message, Throwable cause)} and {@code (String
  * message)}.
  *
- * <p>Maps to HTTP 500 via {@link de.vvwt.tm.web.photo.PhotoExceptionAdvice}. The message is
- * included in the response body to aid operator diagnosis.
+ * <p>Maps to HTTP 500 via {@link de.vvwt.tm.web.GlobalExceptionHandler} (E36S08 Phase 3 —
+ * {@code PhotoExceptionAdvice} deleted in Phase 2). The message is included in the response body
+ * to aid operator diagnosis.
  *
  * <p>Historical provenance: originally E12S02; relocated to this module by E23S01 (Q-1b); rebuilt
  * Q-1a RED-first by E36S01 per DEC-22 Iron Law + DEC-41 §3 hierarchy clause (1).

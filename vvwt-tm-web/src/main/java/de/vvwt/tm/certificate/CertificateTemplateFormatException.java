@@ -10,8 +10,8 @@ package de.vvwt.tm.certificate;
  * <p>Accepted formats: {@code .html} (HTML + print-CSS) and {@code .svg} (SVG with Mustache
  * placeholders) per E12S01 spike findings. All other extensions are rejected.
  *
- * <p>Maps to HTTP 400 Bad Request via {@link
- * de.vvwt.tm.web.certificate.CertificateExceptionAdvice}.
+ * <p>Maps to HTTP 400 Bad Request via {@link de.vvwt.tm.web.GlobalExceptionHandler} (E36S08
+ * Phase 3 — {@code CertificateExceptionAdvice} deleted in Phase 2).
  *
  * @see CertificateTemplateService
  * @see E36S04

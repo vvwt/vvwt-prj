@@ -27,7 +27,7 @@ import java.util.List;
  *   <li>{@code fieldErrors} — Optional per-field validation errors (null/absent for non-400s)
  * </ul>
  *
- * @see de.vvwt.tm.tournament.internal.web.GlobalExceptionHandler
+ * @see de.vvwt.tm.web.GlobalExceptionHandler
  * @see <a href="DEC-21">DEC-21 — Spring Modulith, root package = public API surface</a>
  * @see <a href="DEC-30">DEC-30 — Spotless formatting (AOSP)</a>
  * @see <a href="E21S10">E21S10 — inventory row 412</a>
