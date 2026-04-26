@@ -10,6 +10,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import de.vvwt.slotopt.worker.identity.KeyRotationResult;
+import de.vvwt.slotopt.worker.identity.MixedAlgorithmKeysException;
 import de.vvwt.slotopt.worker.identity.WorkerKeyCorruptException;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -27,14 +28,21 @@ import org.slf4j.Logger;
  *
  * <p>Written RED-first per DEC-22 Iron Law before DefaultWorkerKeyManager implementation existed.
  * All test methods target the concrete implementation class directly (same-package white-box access
- * per DEC-36 — this test class is in {@code de.vvwt.worker.identity.internal}).
+ * per DEC-36 — this test class is in {@code de.vvwt.slotopt.worker.identity.internal}).
  *
  * <p>Replaces the Snapshot-Driven {@code WorkerKeyManagerTest} per DEC-41 hierarchy clause 3
  * (E35S01 audit classified all 19 methods as Snapshot-Driven).
  *
- * <p>See E35S02, DEC-22, DEC-36, DEC-41.
+ * <p>E37S03 additions: algorithmId() method, D-4 file-naming convention, D-4 startup mismatch
+ * scenarios (clean-other-only, mixed-state, configured-only). File naming changed from {@code
+ * optimizer-worker.key/pub} to {@code worker-{algorithmId}.key/pub} per
+ * AC-D4-FILE-NAMING-CONVENTION.
+ *
+ * <p>See E35S02, E37S03, DEC-22, DEC-36, DEC-41.
  */
 class DefaultWorkerKeyManagerTest {
+
+    private static final String ED25519 = "Ed25519";
 
     // -------------------------------------------------------------------------
     // AC1 (DEC-22 RED-first) — generate on first invocation, load on subsequent
@@ -43,16 +51,16 @@ class DefaultWorkerKeyManagerTest {
     @Test
     void firstInvocationGeneratesKeypairFiles(@TempDir Path tempDir) throws Exception {
         Logger logger = mock(Logger.class);
-        new DefaultWorkerKeyManager(tempDir, logger);
+        new DefaultWorkerKeyManager(tempDir, ED25519, logger);
 
-        assertThat(tempDir.resolve("optimizer-worker.key")).exists();
-        assertThat(tempDir.resolve("optimizer-worker.pub")).exists();
+        assertThat(tempDir.resolve("worker-Ed25519.key")).exists();
+        assertThat(tempDir.resolve("worker-Ed25519.pub")).exists();
     }
 
     @Test
     void firstInvocationReturns32BytePublicKey(@TempDir Path tempDir) throws Exception {
         Logger logger = mock(Logger.class);
-        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, logger);
+        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, ED25519, logger);
 
         assertThat(manager.getPublicKeyBytes()).hasSize(32);
     }
@@ -60,15 +68,151 @@ class DefaultWorkerKeyManagerTest {
     @Test
     void subsequentInvocationLoadsExistingKeypair(@TempDir Path tempDir) throws Exception {
         Logger logger = mock(Logger.class);
-        DefaultWorkerKeyManager first = new DefaultWorkerKeyManager(tempDir, logger);
+        DefaultWorkerKeyManager first = new DefaultWorkerKeyManager(tempDir, ED25519, logger);
         byte[] publicKeyFirst = first.getPublicKeyBytes();
 
-        DefaultWorkerKeyManager second = new DefaultWorkerKeyManager(tempDir, logger);
+        DefaultWorkerKeyManager second = new DefaultWorkerKeyManager(tempDir, ED25519, logger);
         byte[] publicKeySecond = second.getPublicKeyBytes();
 
         assertThat(publicKeySecond)
                 .as("Same public key must be returned on subsequent load")
                 .isEqualTo(publicKeyFirst);
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-WORKERKEYMANAGER-ALGORITHMID (E37S03) — algorithmId() returns configured algorithm
+    // -------------------------------------------------------------------------
+
+    @Test
+    void algorithmIdReturnsConfiguredAlgorithm(@TempDir Path tempDir) throws Exception {
+        Logger logger = mock(Logger.class);
+        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, ED25519, logger);
+
+        assertThat(manager.algorithmId())
+                .as("algorithmId() must return the configured algorithm")
+                .isEqualTo("Ed25519");
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-D4-FILE-NAMING-CONVENTION (E37S03) — file naming uses algorithm suffix
+    // -------------------------------------------------------------------------
+
+    @Test
+    void fileNamingConventionUsesAlgorithmSuffix(@TempDir Path tempDir) throws Exception {
+        Logger logger = mock(Logger.class);
+        new DefaultWorkerKeyManager(tempDir, ED25519, logger);
+
+        assertThat(tempDir.resolve("worker-Ed25519.key"))
+                .as("Private key file must use algorithm-suffix naming")
+                .exists();
+        assertThat(tempDir.resolve("worker-Ed25519.pub"))
+                .as("Public key file must use algorithm-suffix naming")
+                .exists();
+        assertThat(tempDir.resolve("optimizer-worker.key"))
+                .as("Old file naming must not be used")
+                .doesNotExist();
+        assertThat(tempDir.resolve("optimizer-worker.pub"))
+                .as("Old file naming must not be used")
+                .doesNotExist();
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-D4-CLEAN-OTHER-ONLY-DETECTED (E37S03) — startup with other-algo files only
+    // -------------------------------------------------------------------------
+
+    @Test
+    void cleanOtherOnly_logsWarningDeletesOldAndGeneratesFreshKeypair(@TempDir Path tempDir)
+            throws Exception {
+        Logger logger = mock(Logger.class);
+        // Pre-create a key pair for a different algorithm ("OldAlgo")
+        Path oldKey = tempDir.resolve("worker-OldAlgo.key");
+        Path oldPub = tempDir.resolve("worker-OldAlgo.pub");
+        Files.write(oldKey, new byte[] {1, 2, 3});
+        Files.write(oldPub, new byte[] {4, 5, 6});
+
+        // Construct DefaultWorkerKeyManager configured for Ed25519
+        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, ED25519, logger);
+
+        // Old files must be deleted
+        assertThat(oldKey).as("Old algorithm key file must be deleted").doesNotExist();
+        assertThat(oldPub).as("Old algorithm pub file must be deleted").doesNotExist();
+
+        // New files for Ed25519 must exist
+        assertThat(tempDir.resolve("worker-Ed25519.key"))
+                .as("New Ed25519 key file must be generated")
+                .exists();
+        assertThat(tempDir.resolve("worker-Ed25519.pub"))
+                .as("New Ed25519 pub file must be generated")
+                .exists();
+
+        // WARNING log must have been emitted (any call with WARN level)
+        verify(logger).warn(anyString(), anyString(), anyString());
+
+        // Signal: new registration required
+        assertThat(manager.isNewRegistrationRequired())
+                .as("isNewRegistrationRequired() must return true after clean-other-only startup")
+                .isTrue();
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-D4-MIXED-STATE-REFUSE (E37S03) — startup with other-algo AND configured-algo files
+    // -------------------------------------------------------------------------
+
+    @Test
+    void mixedState_throwsMixedAlgorithmKeysException(@TempDir Path tempDir) throws Exception {
+        Logger logger = mock(Logger.class);
+        // Pre-create key files for BOTH OldAlgo and Ed25519
+        Files.write(tempDir.resolve("worker-OldAlgo.key"), new byte[] {1, 2, 3});
+        Files.write(tempDir.resolve("worker-OldAlgo.pub"), new byte[] {4, 5, 6});
+        // Create a valid Ed25519 keypair to mimic "both algorithms present" scenario
+        // (we generate a real Ed25519 key so the existing-key branch can see both)
+        {
+            // Use a temp sub-manager to generate a real Ed25519 keypair
+            Path subDir = Files.createTempDirectory(tempDir, "gen");
+            new DefaultWorkerKeyManager(subDir, ED25519, mock(Logger.class));
+            Files.copy(subDir.resolve("worker-Ed25519.key"), tempDir.resolve("worker-Ed25519.key"));
+            Files.copy(subDir.resolve("worker-Ed25519.pub"), tempDir.resolve("worker-Ed25519.pub"));
+        }
+
+        assertThatThrownBy(() -> new DefaultWorkerKeyManager(tempDir, ED25519, logger))
+                .isInstanceOf(MixedAlgorithmKeysException.class)
+                .satisfies(
+                        ex -> {
+                            MixedAlgorithmKeysException mex = (MixedAlgorithmKeysException) ex;
+                            String message = mex.getMessage();
+                            assertThat(message)
+                                    .as("Exception message must mention OldAlgo files")
+                                    .contains("OldAlgo");
+                            assertThat(message)
+                                    .as("Exception message must contain remediation hint")
+                                    .containsIgnoringCase("remove");
+                        });
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-D4-CONFIGURED-ONLY-NORMAL (E37S03) — startup with only configured-algo files
+    // -------------------------------------------------------------------------
+
+    @Test
+    void configuredOnly_normalStartupNoWarningNoRotation(@TempDir Path tempDir) throws Exception {
+        Logger logger = mock(Logger.class);
+        // First, generate a valid Ed25519 keypair into tempDir
+        new DefaultWorkerKeyManager(tempDir, ED25519, logger);
+
+        // Subsequent load — only Ed25519 files present
+        Logger logger2 = mock(Logger.class);
+        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, ED25519, logger2);
+
+        // No WARNING should be emitted
+        verify(logger2, org.mockito.Mockito.never()).warn(anyString(), anyString(), anyString());
+
+        // isNewRegistrationRequired must be false
+        assertThat(manager.isNewRegistrationRequired())
+                .as("isNewRegistrationRequired() must be false on normal configured-only startup")
+                .isFalse();
+
+        // Public key must load correctly
+        assertThat(manager.getPublicKeyBytes()).hasSize(32);
     }
 
     // -------------------------------------------------------------------------
@@ -81,9 +225,9 @@ class DefaultWorkerKeyManagerTest {
         assumeThat(isPosix).as("POSIX file attributes not supported on this platform").isTrue();
 
         Logger logger = mock(Logger.class);
-        new DefaultWorkerKeyManager(tempDir, logger);
+        new DefaultWorkerKeyManager(tempDir, ED25519, logger);
 
-        Path privateKeyFile = tempDir.resolve("optimizer-worker.key");
+        Path privateKeyFile = tempDir.resolve("worker-Ed25519.key");
         Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(privateKeyFile);
 
         assertThat(permissions)
@@ -100,20 +244,20 @@ class DefaultWorkerKeyManagerTest {
     void corruptPrivateKeyThrowsExceptionAndDoesNotOverwrite(@TempDir Path tempDir)
             throws Exception {
         Logger logger = mock(Logger.class);
-        new DefaultWorkerKeyManager(tempDir, logger);
+        new DefaultWorkerKeyManager(tempDir, ED25519, logger);
 
-        Path privateKeyFile = tempDir.resolve("optimizer-worker.key");
+        Path privateKeyFile = tempDir.resolve("worker-Ed25519.key");
         byte[] garbageBytes = new byte[] {0x00, 0x01, 0x02, 0x03};
         Files.write(privateKeyFile, garbageBytes);
         long corruptFileTimestamp = Files.getLastModifiedTime(privateKeyFile).toMillis();
 
-        assertThatThrownBy(() -> new DefaultWorkerKeyManager(tempDir, logger))
+        assertThatThrownBy(() -> new DefaultWorkerKeyManager(tempDir, ED25519, logger))
                 .isInstanceOf(WorkerKeyCorruptException.class)
                 .satisfies(
                         ex -> {
                             WorkerKeyCorruptException wkce = (WorkerKeyCorruptException) ex;
                             assertThat(wkce.getKeyFilePath().toAbsolutePath().toString())
-                                    .contains("optimizer-worker.key");
+                                    .contains("worker-Ed25519.key");
                         });
 
         assertThat(Files.getLastModifiedTime(privateKeyFile).toMillis())
@@ -131,7 +275,7 @@ class DefaultWorkerKeyManagerTest {
     @Test
     void signResultProduces64Bytes(@TempDir Path tempDir) throws Exception {
         Logger logger = mock(Logger.class);
-        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, logger);
+        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, ED25519, logger);
 
         byte[] payload = "test-result-payload".getBytes();
         byte[] signature = manager.signResult(payload);
@@ -142,7 +286,7 @@ class DefaultWorkerKeyManagerTest {
     @Test
     void signResultRejectsNullInput(@TempDir Path tempDir) throws Exception {
         Logger logger = mock(Logger.class);
-        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, logger);
+        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, ED25519, logger);
 
         assertThatThrownBy(() -> manager.signResult(null))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -155,7 +299,7 @@ class DefaultWorkerKeyManagerTest {
     @Test
     void signaturesAreDeterministicForSameInput(@TempDir Path tempDir) throws Exception {
         Logger logger = mock(Logger.class);
-        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, logger);
+        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, ED25519, logger);
 
         byte[] payload = "same-input-bytes".getBytes();
         byte[] sig1 = manager.signResult(payload);
@@ -175,7 +319,7 @@ class DefaultWorkerKeyManagerTest {
     @Test
     void getPublicKeyBytesReturns32Bytes(@TempDir Path tempDir) throws Exception {
         Logger logger = mock(Logger.class);
-        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, logger);
+        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, ED25519, logger);
 
         assertThat(manager.getPublicKeyBytes()).hasSize(32);
     }
@@ -183,7 +327,7 @@ class DefaultWorkerKeyManagerTest {
     @Test
     void getPublicKeyBytesReturnsCopy(@TempDir Path tempDir) throws Exception {
         Logger logger = mock(Logger.class);
-        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, logger);
+        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, ED25519, logger);
 
         byte[] first = manager.getPublicKeyBytes();
         first[0] = (byte) ~first[0];
@@ -204,7 +348,7 @@ class DefaultWorkerKeyManagerTest {
         Path nonExistentSubDir = tempDir.resolve("subdir/nested");
         assertThat(nonExistentSubDir).doesNotExist();
 
-        new DefaultWorkerKeyManager(nonExistentSubDir, logger);
+        new DefaultWorkerKeyManager(nonExistentSubDir, ED25519, logger);
 
         assertThat(nonExistentSubDir).isDirectory();
     }
@@ -221,7 +365,7 @@ class DefaultWorkerKeyManagerTest {
             Logger logger = mock(Logger.class);
             Path childDir = tempDir.resolve("locked-child");
 
-            assertThatThrownBy(() -> new DefaultWorkerKeyManager(childDir, logger))
+            assertThatThrownBy(() -> new DefaultWorkerKeyManager(childDir, ED25519, logger))
                     .isInstanceOf(IOException.class);
         } finally {
             Files.setPosixFilePermissions(
@@ -240,7 +384,7 @@ class DefaultWorkerKeyManagerTest {
     @Test
     void generationLogsInfoWithFingerprintOnFirstRun(@TempDir Path tempDir) throws Exception {
         Logger logger = mock(Logger.class);
-        new DefaultWorkerKeyManager(tempDir, logger);
+        new DefaultWorkerKeyManager(tempDir, ED25519, logger);
 
         verify(logger).info(anyString(), any(), anyString());
     }
@@ -248,8 +392,8 @@ class DefaultWorkerKeyManagerTest {
     @Test
     void loadLogsInfoWithFingerprintOnSubsequentRun(@TempDir Path tempDir) throws Exception {
         Logger logger = mock(Logger.class);
-        new DefaultWorkerKeyManager(tempDir, logger);
-        new DefaultWorkerKeyManager(tempDir, logger);
+        new DefaultWorkerKeyManager(tempDir, ED25519, logger);
+        new DefaultWorkerKeyManager(tempDir, ED25519, logger);
 
         verify(logger, times(2)).info(anyString(), any(), anyString());
     }
@@ -262,7 +406,7 @@ class DefaultWorkerKeyManagerTest {
     void rotateKeypairReturnsNewFingerprintDifferentFromOld(@TempDir Path tempDir)
             throws Exception {
         Logger logger = mock(Logger.class);
-        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, logger);
+        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, ED25519, logger);
 
         byte[] originalPublicKey = manager.getPublicKeyBytes();
         KeyRotationResult result = manager.rotateKeypair();
@@ -283,17 +427,17 @@ class DefaultWorkerKeyManagerTest {
     @Test
     void rotateKeypairUpdatesKeyFiles(@TempDir Path tempDir) throws Exception {
         Logger logger = mock(Logger.class);
-        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, logger);
+        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, ED25519, logger);
 
-        byte[] originalPubKeyBytes = Files.readAllBytes(tempDir.resolve("optimizer-worker.pub"));
+        byte[] originalPubKeyBytes = Files.readAllBytes(tempDir.resolve("worker-Ed25519.pub"));
         manager.rotateKeypair();
-        byte[] newPubKeyBytes = Files.readAllBytes(tempDir.resolve("optimizer-worker.pub"));
+        byte[] newPubKeyBytes = Files.readAllBytes(tempDir.resolve("worker-Ed25519.pub"));
 
         assertThat(newPubKeyBytes)
                 .as("Public key file must be updated after rotation")
                 .isNotEqualTo(originalPubKeyBytes);
 
-        assertThat(tempDir.resolve("optimizer-worker.key.new"))
+        assertThat(tempDir.resolve("worker-Ed25519.key.new"))
                 .as("Temporary .new key file must not exist after successful rotation")
                 .doesNotExist();
     }
@@ -301,13 +445,13 @@ class DefaultWorkerKeyManagerTest {
     @Test
     void rotatedKeypairCanSignAndBeLoaded(@TempDir Path tempDir) throws Exception {
         Logger logger = mock(Logger.class);
-        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, logger);
+        DefaultWorkerKeyManager manager = new DefaultWorkerKeyManager(tempDir, ED25519, logger);
         manager.rotateKeypair();
 
         byte[] signature = manager.signResult("payload".getBytes());
         assertThat(signature).hasSize(64);
 
-        DefaultWorkerKeyManager reloaded = new DefaultWorkerKeyManager(tempDir, logger);
+        DefaultWorkerKeyManager reloaded = new DefaultWorkerKeyManager(tempDir, ED25519, logger);
         assertThat(reloaded.getPublicKeyBytes()).isEqualTo(manager.getPublicKeyBytes());
     }
 

@@ -3,17 +3,31 @@ package de.vvwt.slotopt.worker.identity;
 import java.io.IOException;
 
 /**
- * Manages the per-installation Ed25519 keypair for a worker node.
+ * Manages the per-installation keypair for a worker node.
  *
  * <h2>Lifecycle</h2>
  *
  * <ol>
- *   <li>On first invocation in a given data directory, generates an Ed25519 keypair and persists it
- *       as {@code optimizer-worker.key} (PKCS#8 DER) and {@code optimizer-worker.pub}
- *       (SubjectPublicKeyInfo DER) with POSIX 0600 / 0700 permissions (Windows ACL equivalent).
+ *   <li>On first invocation in a given data directory, generates a keypair using the configured
+ *       algorithm and persists it as {@code worker-{algorithmId}.key} (PKCS#8 DER) and {@code
+ *       worker-{algorithmId}.pub} (SubjectPublicKeyInfo DER) with POSIX 0600 / 0700 permissions
+ *       (Windows ACL equivalent).
  *   <li>On subsequent invocations, loads the existing keypair. If the private key file exists but
  *       is unparseable, throws {@link WorkerKeyCorruptException} — no auto-recovery.
  * </ol>
+ *
+ * <h2>D-4 Startup Mismatch Mechanic</h2>
+ *
+ * <p>At startup, the manager scans the data directory for keypair files from other algorithms:
+ *
+ * <ul>
+ *   <li>If files exist for OTHER algorithms only (none for the configured algorithm): logs WARNING,
+ *       deletes old files, generates a fresh keypair, sets {@link #isNewRegistrationRequired()} to
+ *       {@code true}.
+ *   <li>If files exist for BOTH the configured algorithm AND another algorithm (mixed state):
+ *       throws {@link MixedAlgorithmKeysException} — operator must manually clean up.
+ *   <li>If files exist only for the configured algorithm (or no files): normal startup.
+ * </ul>
  *
  * <h2>Thread safety</h2>
  *
@@ -22,11 +36,33 @@ import java.io.IOException;
  * worker startup.
  *
  * <p>The canonical implementation is {@link
- * de.vvwt.worker.identity.internal.DefaultWorkerKeyManager}.
+ * de.vvwt.slotopt.worker.identity.internal.DefaultWorkerKeyManager}.
  *
- * <p>See Story E01S04, E35S02, and DEC-6.
+ * <p>See Story E01S04, E35S02, E37S03, and DEC-6, DEC-35 (by-analogy).
  */
 public interface WorkerKeyManager {
+
+    /**
+     * Returns the signature algorithm identifier for this worker's keypair.
+     *
+     * <p>The identifier is the JCE/JDK canonical name for the algorithm (e.g., {@code "Ed25519"}).
+     * V1 always returns {@code "Ed25519"}. Future PQC-capable workers may return {@code
+     * "ML-DSA-65"} or similar.
+     *
+     * @return the algorithm identifier string; never {@code null}
+     */
+    String algorithmId();
+
+    /**
+     * Returns {@code true} if this manager was initialized via a clean-other-only startup (D-4
+     * mechanic: old algorithm files were found and deleted, a new keypair was generated). The
+     * caller MUST re-register with the dispatcher before sending any signed results.
+     *
+     * <p>Returns {@code false} on normal startup (configured-only or fresh keypair generation).
+     *
+     * @return {@code true} if re-registration with the dispatcher is required
+     */
+    boolean isNewRegistrationRequired();
 
     /**
      * Signs the given canonical result bytes using the worker's Ed25519 private key.
