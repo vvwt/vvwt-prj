@@ -44,10 +44,11 @@ import org.mockito.Mockito;
  * per DEC-41 audit) was deleted in the same RED-baseline commit and is NOT reused per DEC-41 §3
  * clause (3) FORBIDDEN. This fresh corpus covers all behavioral domains of the deleted test.
  *
- * <p>Per DEC-36: this test class lives in the SAME package ({@code de.vvwt.tm.certificate.internal})
- * as {@link DefaultCertificateTemplateService}, so it MAY reference the implementation class
- * directly (same-package white-box access). Cross-package dependencies ({@link TournamentRepository})
- * are referenced via their public interface type per DEC-36.
+ * <p>Per DEC-36: this test class lives in the SAME package ({@code
+ * de.vvwt.tm.certificate.internal}) as {@link DefaultCertificateTemplateService}, so it MAY
+ * reference the implementation class directly (same-package white-box access). Cross-package
+ * dependencies ({@link TournamentRepository}) are referenced via their public interface type per
+ * DEC-36.
  *
  * @see DefaultCertificateTemplateService
  * @see de.vvwt.tm.certificate.CertificateTemplateService
@@ -90,7 +91,8 @@ class DefaultCertificateTemplateServiceTest {
     }
 
     // =========================================================================
-    // CertificateTemplateMetadata record — signature preservation (AC-RECORD-FIELDS-PRESERVED-METADATA)
+    // CertificateTemplateMetadata record — signature preservation
+    // (AC-RECORD-FIELDS-PRESERVED-METADATA)
     // =========================================================================
 
     @Nested
@@ -98,7 +100,9 @@ class DefaultCertificateTemplateServiceTest {
     class MetadataRecordTests {
 
         @Test
-        @DisplayName("Record constructor preserves all 5 fields: tournamentId, filename, format, uploadedAt, fileSizeBytes")
+        @DisplayName(
+                "Record constructor preserves all 5 fields: tournamentId, filename, format,"
+                        + " uploadedAt, fileSizeBytes")
         void metadataRecord_constructorPreservesAllFields() {
             UUID id = UUID.randomUUID();
             Instant now = Instant.now();
@@ -117,14 +121,17 @@ class DefaultCertificateTemplateServiceTest {
         void metadataRecord_equalityByFields() {
             UUID id = UUID.randomUUID();
             Instant now = Instant.now();
-            CertificateTemplateMetadata a = new CertificateTemplateMetadata(id, "f.html", "html", now, 10L);
-            CertificateTemplateMetadata b = new CertificateTemplateMetadata(id, "f.html", "html", now, 10L);
+            CertificateTemplateMetadata a =
+                    new CertificateTemplateMetadata(id, "f.html", "html", now, 10L);
+            CertificateTemplateMetadata b =
+                    new CertificateTemplateMetadata(id, "f.html", "html", now, 10L);
             assertThat(a).isEqualTo(b);
         }
     }
 
     // =========================================================================
-    // CertificateTemplateVariable record — signature preservation (AC-RECORD-FIELDS-PRESERVED-VARIABLE)
+    // CertificateTemplateVariable record — signature preservation
+    // (AC-RECORD-FIELDS-PRESERVED-VARIABLE)
     // =========================================================================
 
     @Nested
@@ -134,7 +141,8 @@ class DefaultCertificateTemplateServiceTest {
         @Test
         @DisplayName("Record constructor preserves all 3 fields: name, type, example")
         void variableRecord_constructorPreservesAllFields() {
-            CertificateTemplateVariable v = new CertificateTemplateVariable("placement", "String", "1");
+            CertificateTemplateVariable v =
+                    new CertificateTemplateVariable("placement", "String", "1");
             assertThat(v.name()).isEqualTo("placement");
             assertThat(v.type()).isEqualTo("String");
             assertThat(v.example()).isEqualTo("1");
@@ -150,9 +158,11 @@ class DefaultCertificateTemplateServiceTest {
     class ExceptionTests {
 
         @Test
-        @DisplayName("CertificateTemplateFormatException(String) is a RuntimeException with message")
+        @DisplayName(
+                "CertificateTemplateFormatException(String) is a RuntimeException with message")
         void formatException_singleStringConstructor() {
-            CertificateTemplateFormatException ex = new CertificateTemplateFormatException("bad format");
+            CertificateTemplateFormatException ex =
+                    new CertificateTemplateFormatException("bad format");
             assertThat(ex).isInstanceOf(RuntimeException.class);
             assertThat(ex.getMessage()).isEqualTo("bad format");
         }
@@ -346,7 +356,9 @@ class DefaultCertificateTemplateServiceTest {
     }
 
     @Test
-    @DisplayName("AC7: HTML extension with any non-empty content is accepted (extension-based validation, V1)")
+    @DisplayName(
+            "AC7: HTML extension with any non-empty content is accepted (extension-based"
+                    + " validation, V1)")
     void uploadHtmlExtension_acceptsAnyNonEmptyContent() {
         byte[] content = "not really html but non-empty".getBytes();
         CertificateTemplateMetadata result =

@@ -170,8 +170,7 @@ class GlobalExceptionHandlerTest {
             "TournamentNotFoundException maps to HTTP 404 with ApiErrorResponse — errorKey"
                     + " error.tournament.notFound")
     void tournamentNotFound_mapsTo404() throws Exception {
-        mockMvc.perform(
-                        get("/test-throw/tournament-not-found").accept(MediaType.APPLICATION_JSON))
+        mockMvc.perform(get("/test-throw/tournament-not-found").accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.message").isNotEmpty())
@@ -230,7 +229,8 @@ class GlobalExceptionHandlerTest {
 
         @GetMapping("/tournament-not-found")
         void throwTournamentNotFound() {
-            throw new TournamentNotFoundException(UUID.fromString("00000000-0000-0000-0000-000000000001"));
+            throw new TournamentNotFoundException(
+                    UUID.fromString("00000000-0000-0000-0000-000000000001"));
         }
     }
 }

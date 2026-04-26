@@ -5,8 +5,8 @@ package de.vvwt.tm.certificate;
  * meaningful error messages for storage failures).
  *
  * <p>Rebuilt under DEC-22 Iron Law Q-1a RED-first TDD discipline (E36S04). Constructor signature
- * preserved verbatim (single two-arg constructor) per AC-EXCEPTION-CONSTRUCTORS-PRESERVED and
- * Brief C-3.
+ * preserved verbatim (single two-arg constructor) per AC-EXCEPTION-CONSTRUCTORS-PRESERVED and Brief
+ * C-3.
  *
  * <p>Maps to HTTP 500 Internal Server Error via {@link
  * de.vvwt.tm.web.certificate.CertificateExceptionAdvice}.

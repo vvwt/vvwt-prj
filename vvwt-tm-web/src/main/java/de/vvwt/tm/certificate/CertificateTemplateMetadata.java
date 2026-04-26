@@ -17,8 +17,8 @@ import java.util.UUID;
  *   <li>{@link CertificateTemplateRepository} — {@code findByTournamentId} returns this record;
  *       {@code upsert} takes this record as parameter
  *   <li>{@code CertificateTemplateController} (E36S06) — reads metadata for API response
- *   <li>{@code CertificateTemplateMetadataResponse} (E36S06) — {@code from(CertificateTemplateMetadata)}
- *       factory method consumes this record
+ *   <li>{@code CertificateTemplateMetadataResponse} (E36S06) — {@code
+ *       from(CertificateTemplateMetadata)} factory method consumes this record
  *   <li>{@link CertificateTemplateService.TemplateFile} — carries metadata as nested field
  * </ul>
  *

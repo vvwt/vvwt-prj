@@ -195,14 +195,16 @@ class SecurityConfigIT {
                         String.class);
 
         assertThat(response.getStatusCode())
-                .as("AC-SECURITYCONFIG-CERTIFICATE-PATTERN — /certificate/** unauthenticated must return 401")
+                .as(
+                        "AC-SECURITYCONFIG-CERTIFICATE-PATTERN — /certificate/** unauthenticated"
+                                + " must return 401")
                 .isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
     /**
-     * AC-SECURITYCONFIG-CERTIFICATE-PATTERN: authenticated request to {@code /certificate/**}
-     * does NOT return 401 or 403 — security layer passes the request to the controller.
-     * The controller may return 400 (no template) or 404 — that is acceptable.
+     * AC-SECURITYCONFIG-CERTIFICATE-PATTERN: authenticated request to {@code /certificate/**} does
+     * NOT return 401 or 403 — security layer passes the request to the controller. The controller
+     * may return 400 (no template) or 404 — that is acceptable.
      */
     @Test
     void certificatePathDoesNotReturn401WithValidCredentials() throws Exception {
@@ -216,7 +218,9 @@ class SecurityConfigIT {
                                 String.class);
 
         assertThat(response.getStatusCode())
-                .as("AC-SECURITYCONFIG-CERTIFICATE-PATTERN — /certificate/** with valid credentials must NOT return 401/403")
+                .as(
+                        "AC-SECURITYCONFIG-CERTIFICATE-PATTERN — /certificate/** with valid"
+                                + " credentials must NOT return 401/403")
                 .isNotEqualTo(HttpStatus.UNAUTHORIZED)
                 .isNotEqualTo(HttpStatus.FORBIDDEN);
     }

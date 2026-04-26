@@ -18,8 +18,8 @@ package de.vvwt.tm.print;
  * <h2>jmustache strict-mode compatibility</h2>
  *
  * <p>All String fields default to {@code ""} and all boolean fields default to {@code false}. This
- * prevents {@code MustacheException} on absent keys — same guarantee as the legacy
- * {@code infrastructure.print.ActivityScheduleRow}.
+ * prevents {@code MustacheException} on absent keys — same guarantee as the legacy {@code
+ * infrastructure.print.ActivityScheduleRow}.
  *
  * @see ActivityScheduleAssembler
  * @since E24S03

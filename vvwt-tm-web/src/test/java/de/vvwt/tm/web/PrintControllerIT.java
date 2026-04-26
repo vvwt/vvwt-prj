@@ -28,9 +28,9 @@ import org.springframework.test.context.ActiveProfiles;
  * Integration tests for {@link PrintController} — E24S06.
  *
  * <p>Uses {@code @ApplicationModuleTest(ALL_DEPENDENCIES, RANDOM_PORT)} targeting the {@code web}
- * module per DEC-38 Clause A + DEC-40 2026-04-22 Amendment. Boots {@code web} + all declared
- * {@code allowedDependencies} (tenant, tournament, scoring, photo, certificate, print).
- * {@link WebModuleTestConfig} provides the test infrastructure beans.
+ * module per DEC-38 Clause A + DEC-40 2026-04-22 Amendment. Boots {@code web} + all declared {@code
+ * allowedDependencies} (tenant, tournament, scoring, photo, certificate, print). {@link
+ * WebModuleTestConfig} provides the test infrastructure beans.
  *
  * <h2>Test coverage</h2>
  *
@@ -154,8 +154,7 @@ class PrintControllerIT {
     void printIndex_authenticated_unknownTournament_returns404() throws Exception {
         UUID tid = UUID.randomUUID();
         ResponseEntity<String> response =
-                authed.getForEntity(
-                        new URI(baseUrl + "/print/tournaments/" + tid), String.class);
+                authed.getForEntity(new URI(baseUrl + "/print/tournaments/" + tid), String.class);
         assertThat(response.getStatusCode())
                 .as("AC-REDFIRST-IT: printIndex unknown tournament must return 404")
                 .isEqualTo(HttpStatus.NOT_FOUND);
@@ -227,10 +226,11 @@ class PrintControllerIT {
         // that hasn't been created in this tenant — exercises same TNFE → 404 path
         UUID tid = UUID.randomUUID();
         ResponseEntity<String> response =
-                authed.getForEntity(
-                        new URI(baseUrl + "/print/tournaments/" + tid), String.class);
+                authed.getForEntity(new URI(baseUrl + "/print/tournaments/" + tid), String.class);
         assertThat(response.getStatusCode())
-                .as("AC-SECURITY-TENANT-ISOLATION: cross-tenant (unknown) tournament must return 404")
+                .as(
+                        "AC-SECURITY-TENANT-ISOLATION: cross-tenant (unknown) tournament must"
+                                + " return 404")
                 .isEqualTo(HttpStatus.NOT_FOUND);
     }
 
@@ -239,15 +239,18 @@ class PrintControllerIT {
     // =========================================================================
 
     @Test
-    @DisplayName("AC-REDFIRST-IT: printIndex authenticated + created tournament → 200 (index page) or 200 (error page if no phases)")
+    @DisplayName(
+            "AC-REDFIRST-IT: printIndex authenticated + created tournament → 200 (index page) or"
+                    + " 200 (error page if no phases)")
     void printIndex_authenticated_createdTournament_returns200() throws Exception {
         UUID tid = createTournament("PrintController IT Index Test");
         ResponseEntity<String> response =
-                authed.getForEntity(
-                        new URI(baseUrl + "/print/tournaments/" + tid), String.class);
+                authed.getForEntity(new URI(baseUrl + "/print/tournaments/" + tid), String.class);
         // Tournament created but no phases → returns print/error view with 200
         assertThat(response.getStatusCode())
-                .as("AC-REDFIRST-IT: printIndex created tournament must return 200 (error or index view)")
+                .as(
+                        "AC-REDFIRST-IT: printIndex created tournament must return 200 (error or"
+                                + " index view)")
                 .isEqualTo(HttpStatus.OK);
     }
 
@@ -258,7 +261,13 @@ class PrintControllerIT {
     private UUID createTournament(String description) throws Exception {
         TournamentCreateRequest request =
                 new TournamentCreateRequest(
-                        description, null, 8, 4, "BEST_OF_3", "setPoints", "standardVolleyball",
+                        description,
+                        null,
+                        8,
+                        4,
+                        "BEST_OF_3",
+                        "setPoints",
+                        "standardVolleyball",
                         "roundRobin");
         ResponseEntity<TournamentResponse> created =
                 authed.postForEntity(

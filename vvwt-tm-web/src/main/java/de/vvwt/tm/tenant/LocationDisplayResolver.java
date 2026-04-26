@@ -35,8 +35,8 @@ public interface LocationDisplayResolver {
      * Resolves the display name of the location associated with the given tenant.
      *
      * <p>Returns the {@code display_name} column of the first (and, via {@code LIMIT 1}, only)
-     * matching {@code locations} row for the given tenant identifier. Returns an empty string {@code
-     * ""} when no location row exists — never throws an exception for an absent result.
+     * matching {@code locations} row for the given tenant identifier. Returns an empty string
+     * {@code ""} when no location row exists — never throws an exception for an absent result.
      *
      * @param tenantId the UUID identifier of the tenant whose location display name is requested;
      *     must not be {@code null}

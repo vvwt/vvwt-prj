@@ -6,10 +6,10 @@ import org.springframework.stereotype.Component;
 /**
  * Configuration properties for team photo file storage (E36S01 Q-1a TDD rebuild).
  *
- * <p>Rebuilt from deleted Q-1b artefact at the same canonical FQN ({@code de.vvwt.tm.photo})
- * per Brief D-7 Option γ. Getter/setter signatures and property namespace preserved verbatim
- * per AC-CONFIG-BINDING-PRESERVED: namespace {@code tm.photos}, bean name
- * {@code "photoModuleStorageConfig"}, fields {@code dataDir} and {@code maxSizeBytes}.
+ * <p>Rebuilt from deleted Q-1b artefact at the same canonical FQN ({@code de.vvwt.tm.photo}) per
+ * Brief D-7 Option γ. Getter/setter signatures and property namespace preserved verbatim per
+ * AC-CONFIG-BINDING-PRESERVED: namespace {@code tm.photos}, bean name {@code
+ * "photoModuleStorageConfig"}, fields {@code dataDir} and {@code maxSizeBytes}.
  *
  * <p>Bound to the {@code tm.photos} property namespace in {@code application.yml}. The property
  * namespace is unchanged by the rebuild (AC-CONFIG-BINDING-PRESERVED: namespace preserved
@@ -18,8 +18,8 @@ import org.springframework.stereotype.Component;
  * <p>DEC-15: the data directory must be outside the jlink archive (read-only at runtime). Photo
  * files are stored in a user-writable location on the host filesystem.
  *
- * <p>Historical provenance: originally E12S02; relocated to this module by E23S01 (Q-1b);
- * rebuilt Q-1a RED-first by E36S01 per DEC-22 Iron Law + DEC-41 §3 hierarchy clause (1).
+ * <p>Historical provenance: originally E12S02; relocated to this module by E23S01 (Q-1b); rebuilt
+ * Q-1a RED-first by E36S01 per DEC-22 Iron Law + DEC-41 §3 hierarchy clause (1).
  *
  * <p>Example override:
  *
@@ -40,8 +40,8 @@ public class PhotoStorageConfig {
      * Root directory for team photo storage. Subdirectories are created automatically per
      * tournament: {@code {dataDir}/{tournamentId}/{teamId}.{ext}}.
      *
-     * <p>Default: {@code ${user.home}/.tournament-manager/photos}. Override via
-     * {@code -Dtm.photos.data-dir}.
+     * <p>Default: {@code ${user.home}/.tournament-manager/photos}. Override via {@code
+     * -Dtm.photos.data-dir}.
      */
     private String dataDir;
 

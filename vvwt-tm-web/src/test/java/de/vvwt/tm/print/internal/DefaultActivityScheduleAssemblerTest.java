@@ -14,7 +14,6 @@ import de.vvwt.tm.print.ActivityScheduleModel;
 import de.vvwt.tm.print.ActivityScheduleRow;
 import de.vvwt.tm.tournament.Match;
 import de.vvwt.tm.tournament.Phase;
-import de.vvwt.tm.tournament.PhaseBreak;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TimelineCalculationService;
@@ -84,8 +83,9 @@ class DefaultActivityScheduleAssemblerTest {
 
     @BeforeEach
     void setUp() {
-        assembler = new DefaultActivityScheduleAssembler(
-                timelineCalculationService, activityAssignmentService);
+        assembler =
+                new DefaultActivityScheduleAssembler(
+                        timelineCalculationService, activityAssignmentService);
     }
 
     // ── Scenario 1: empty phases → empty model ───────────────────────────────
@@ -99,9 +99,9 @@ class DefaultActivityScheduleAssemblerTest {
         List<Team> teams = List.of(team(t1, "Team A"));
         ActivityType at = activityType(activityTypeId, activityTypeName);
 
-        ActivityScheduleModel result = assembler.assemble(
-                tournament, phases, teams, Map.of(), Map.of(), Map.of(),
-                List.of(at), at);
+        ActivityScheduleModel result =
+                assembler.assemble(
+                        tournament, phases, teams, Map.of(), Map.of(), Map.of(), List.of(at), at);
 
         assertThat(result.rows()).isEmpty();
         assertThat(result.totalAssignedTeams()).isZero();
@@ -117,9 +117,16 @@ class DefaultActivityScheduleAssemblerTest {
         List<Phase> phases = List.of(phase(phaseId));
         ActivityType at = activityType(activityTypeId, activityTypeName);
 
-        ActivityScheduleModel result = assembler.assemble(
-                tournament, phases, List.of(), Map.of(), Map.of(), Map.of(),
-                List.of(at), at);
+        ActivityScheduleModel result =
+                assembler.assemble(
+                        tournament,
+                        phases,
+                        List.of(),
+                        Map.of(),
+                        Map.of(),
+                        Map.of(),
+                        List.of(at),
+                        at);
 
         assertThat(result.rows()).isEmpty();
     }
@@ -143,22 +150,25 @@ class DefaultActivityScheduleAssemblerTest {
         Match m1 = match(av1Id, av2Id, 1, null);
 
         ActivityType at = activityType(activityTypeId, activityTypeName);
-        ActivityAssignmentResult assignResult = assignmentResult(
-                at,
-                List.of(new ActivityAssignment(t1, 1, activityTypeName)),
-                Set.of());
+        ActivityAssignmentResult assignResult =
+                assignmentResult(
+                        at, List.of(new ActivityAssignment(t1, 1, activityTypeName)), Set.of());
         when(activityAssignmentService.assignActivities(any(), any(), any(), anyInt(), any()))
                 .thenReturn(assignResult);
 
         List<Phase> phases = List.of(phase(phaseId));
         List<Team> teams = List.of(team(t1, "Team A"), team(t2, "Team B"));
 
-        ActivityScheduleModel result = assembler.assemble(
-                tournament, phases, teams,
-                Map.of(phaseId, List.of(av1, av2)),
-                Map.of(phaseId, List.of(m1)),
-                Map.of(),
-                List.of(at), at);
+        ActivityScheduleModel result =
+                assembler.assemble(
+                        tournament,
+                        phases,
+                        teams,
+                        Map.of(phaseId, List.of(av1, av2)),
+                        Map.of(phaseId, List.of(m1)),
+                        Map.of(),
+                        List.of(at),
+                        at);
 
         assertThat(result.rows()).hasSize(1);
         ActivityScheduleRow row = result.rows().get(0);
@@ -182,28 +192,37 @@ class DefaultActivityScheduleAssemblerTest {
         TeamAvatar av2 = teamAvatar(av2Id, t2);
         Match m1 = match(av1Id, av2Id, 1, null);
 
-        TimelineEntry round1 = timelineEntry(1, TimelineEntryType.MATCH_ROUND, 1,
-                LocalTime.of(9, 0), LocalTime.of(9, 15), null);
+        TimelineEntry round1 =
+                timelineEntry(
+                        1,
+                        TimelineEntryType.MATCH_ROUND,
+                        1,
+                        LocalTime.of(9, 0),
+                        LocalTime.of(9, 15),
+                        null);
         when(timelineCalculationService.calculate(any(), any(), anyInt()))
                 .thenReturn(List.of(round1));
 
         ActivityType at = activityType(activityTypeId, activityTypeName);
-        ActivityAssignmentResult assignResult = assignmentResult(
-                at,
-                List.of(new ActivityAssignment(t1, 1, activityTypeName)),
-                Set.of());
+        ActivityAssignmentResult assignResult =
+                assignmentResult(
+                        at, List.of(new ActivityAssignment(t1, 1, activityTypeName)), Set.of());
         when(activityAssignmentService.assignActivities(any(), any(), any(), anyInt(), any()))
                 .thenReturn(assignResult);
 
         List<Phase> phases = List.of(phase(phaseId));
         List<Team> teams = List.of(team(t1, "Team Foto"), team(t2, "Team B"));
 
-        ActivityScheduleModel result = assembler.assemble(
-                tournament, phases, teams,
-                Map.of(phaseId, List.of(av1, av2)),
-                Map.of(phaseId, List.of(m1)),
-                Map.of(),
-                List.of(at), at);
+        ActivityScheduleModel result =
+                assembler.assemble(
+                        tournament,
+                        phases,
+                        teams,
+                        Map.of(phaseId, List.of(av1, av2)),
+                        Map.of(phaseId, List.of(m1)),
+                        Map.of(),
+                        List.of(at),
+                        at);
 
         assertThat(result.rows()).hasSize(1);
         ActivityScheduleRow row = result.rows().get(0);
@@ -229,31 +248,46 @@ class DefaultActivityScheduleAssemblerTest {
         Match m1 = match(av1Id, av2Id, 1, null);
         Match m2 = match(av1Id, av2Id, 2, null);
 
-        TimelineEntry round1 = timelineEntry(1, TimelineEntryType.MATCH_ROUND, 1,
-                LocalTime.of(9, 0), LocalTime.of(9, 15), null);
-        TimelineEntry round2 = timelineEntry(1, TimelineEntryType.MATCH_ROUND, 2,
-                LocalTime.of(9, 15), LocalTime.of(9, 30), null);
+        TimelineEntry round1 =
+                timelineEntry(
+                        1,
+                        TimelineEntryType.MATCH_ROUND,
+                        1,
+                        LocalTime.of(9, 0),
+                        LocalTime.of(9, 15),
+                        null);
+        TimelineEntry round2 =
+                timelineEntry(
+                        1,
+                        TimelineEntryType.MATCH_ROUND,
+                        2,
+                        LocalTime.of(9, 15),
+                        LocalTime.of(9, 30),
+                        null);
         when(timelineCalculationService.calculate(any(), any(), anyInt()))
                 .thenReturn(List.of(round1, round2));
 
         // Only round 1 has assignment; round 2 is empty
         ActivityType at = activityType(activityTypeId, activityTypeName);
-        ActivityAssignmentResult assignResult = assignmentResult(
-                at,
-                List.of(new ActivityAssignment(t1, 1, activityTypeName)),
-                Set.of());
+        ActivityAssignmentResult assignResult =
+                assignmentResult(
+                        at, List.of(new ActivityAssignment(t1, 1, activityTypeName)), Set.of());
         when(activityAssignmentService.assignActivities(any(), any(), any(), anyInt(), any()))
                 .thenReturn(assignResult);
 
         List<Phase> phases = List.of(phase(phaseId));
         List<Team> teams = List.of(team(t1, "Team A"), team(t2, "Team B"));
 
-        ActivityScheduleModel result = assembler.assemble(
-                tournament, phases, teams,
-                Map.of(phaseId, List.of(av1, av2)),
-                Map.of(phaseId, List.of(m1, m2)),
-                Map.of(),
-                List.of(at), at);
+        ActivityScheduleModel result =
+                assembler.assemble(
+                        tournament,
+                        phases,
+                        teams,
+                        Map.of(phaseId, List.of(av1, av2)),
+                        Map.of(phaseId, List.of(m1, m2)),
+                        Map.of(),
+                        List.of(at),
+                        at);
 
         // Only 1 row (round 2 has no assignment → omitted per AC3)
         long dataRows = result.rows().stream().filter(ActivityScheduleRow::isDataRow).count();
@@ -277,37 +311,66 @@ class DefaultActivityScheduleAssemblerTest {
         Match m1 = match(av1Id, av2Id, 1, null);
         Match m2 = match(av1Id, av2Id, 3, null);
 
-        TimelineEntry round1 = timelineEntry(1, TimelineEntryType.MATCH_ROUND, 1,
-                LocalTime.of(9, 0), LocalTime.of(9, 15), null);
-        TimelineEntry lapBreak = timelineEntry(1, TimelineEntryType.LAP_BREAK, 0,
-                LocalTime.of(9, 15), LocalTime.of(9, 20), null);
-        TimelineEntry intraBreak = timelineEntry(1, TimelineEntryType.INTRA_PHASE_BREAK, 0,
-                LocalTime.of(9, 20), LocalTime.of(9, 50), "Mittagspause");
-        TimelineEntry round3 = timelineEntry(1, TimelineEntryType.MATCH_ROUND, 3,
-                LocalTime.of(9, 50), LocalTime.of(10, 5), null);
+        TimelineEntry round1 =
+                timelineEntry(
+                        1,
+                        TimelineEntryType.MATCH_ROUND,
+                        1,
+                        LocalTime.of(9, 0),
+                        LocalTime.of(9, 15),
+                        null);
+        TimelineEntry lapBreak =
+                timelineEntry(
+                        1,
+                        TimelineEntryType.LAP_BREAK,
+                        0,
+                        LocalTime.of(9, 15),
+                        LocalTime.of(9, 20),
+                        null);
+        TimelineEntry intraBreak =
+                timelineEntry(
+                        1,
+                        TimelineEntryType.INTRA_PHASE_BREAK,
+                        0,
+                        LocalTime.of(9, 20),
+                        LocalTime.of(9, 50),
+                        "Mittagspause");
+        TimelineEntry round3 =
+                timelineEntry(
+                        1,
+                        TimelineEntryType.MATCH_ROUND,
+                        3,
+                        LocalTime.of(9, 50),
+                        LocalTime.of(10, 5),
+                        null);
         when(timelineCalculationService.calculate(any(), any(), anyInt()))
                 .thenReturn(List.of(round1, lapBreak, intraBreak, round3));
 
         // Rounds 1 and 3 both have assignments
         ActivityType at = activityType(activityTypeId, activityTypeName);
-        ActivityAssignmentResult assignResult = assignmentResult(
-                at,
-                List.of(
-                        new ActivityAssignment(t1, 1, activityTypeName),
-                        new ActivityAssignment(t1, 3, activityTypeName)),
-                Set.of());
+        ActivityAssignmentResult assignResult =
+                assignmentResult(
+                        at,
+                        List.of(
+                                new ActivityAssignment(t1, 1, activityTypeName),
+                                new ActivityAssignment(t1, 3, activityTypeName)),
+                        Set.of());
         when(activityAssignmentService.assignActivities(any(), any(), any(), anyInt(), any()))
                 .thenReturn(assignResult);
 
         List<Phase> phases = List.of(phase(phaseId));
         List<Team> teams = List.of(team(t1, "Team Foto"), team(t2, "Team B"));
 
-        ActivityScheduleModel result = assembler.assemble(
-                tournament, phases, teams,
-                Map.of(phaseId, List.of(av1, av2)),
-                Map.of(phaseId, List.of(m1, m2)),
-                Map.of(),
-                List.of(at), at);
+        ActivityScheduleModel result =
+                assembler.assemble(
+                        tournament,
+                        phases,
+                        teams,
+                        Map.of(phaseId, List.of(av1, av2)),
+                        Map.of(phaseId, List.of(m1, m2)),
+                        Map.of(),
+                        List.of(at),
+                        at);
 
         // Expected: data(1), break(Mittagspause), data(3)
         assertThat(result.rows()).hasSize(3);
@@ -335,34 +398,57 @@ class DefaultActivityScheduleAssemblerTest {
         Match m1 = match(av1Id, av2Id, 1, null);
         Match m2 = match(av1Id, av2Id, 2, null);
 
-        TimelineEntry round1 = timelineEntry(1, TimelineEntryType.MATCH_ROUND, 1,
-                LocalTime.of(9, 0), LocalTime.of(9, 15), null);
-        TimelineEntry lapBreak = timelineEntry(1, TimelineEntryType.LAP_BREAK, 0,
-                LocalTime.of(9, 15), LocalTime.of(9, 20), "Runden-Pause");
-        TimelineEntry round2 = timelineEntry(1, TimelineEntryType.MATCH_ROUND, 2,
-                LocalTime.of(9, 20), LocalTime.of(9, 35), null);
+        TimelineEntry round1 =
+                timelineEntry(
+                        1,
+                        TimelineEntryType.MATCH_ROUND,
+                        1,
+                        LocalTime.of(9, 0),
+                        LocalTime.of(9, 15),
+                        null);
+        TimelineEntry lapBreak =
+                timelineEntry(
+                        1,
+                        TimelineEntryType.LAP_BREAK,
+                        0,
+                        LocalTime.of(9, 15),
+                        LocalTime.of(9, 20),
+                        "Runden-Pause");
+        TimelineEntry round2 =
+                timelineEntry(
+                        1,
+                        TimelineEntryType.MATCH_ROUND,
+                        2,
+                        LocalTime.of(9, 20),
+                        LocalTime.of(9, 35),
+                        null);
         when(timelineCalculationService.calculate(any(), any(), anyInt()))
                 .thenReturn(List.of(round1, lapBreak, round2));
 
         ActivityType at = activityType(activityTypeId, activityTypeName);
-        ActivityAssignmentResult assignResult = assignmentResult(
-                at,
-                List.of(
-                        new ActivityAssignment(t1, 1, activityTypeName),
-                        new ActivityAssignment(t1, 2, activityTypeName)),
-                Set.of());
+        ActivityAssignmentResult assignResult =
+                assignmentResult(
+                        at,
+                        List.of(
+                                new ActivityAssignment(t1, 1, activityTypeName),
+                                new ActivityAssignment(t1, 2, activityTypeName)),
+                        Set.of());
         when(activityAssignmentService.assignActivities(any(), any(), any(), anyInt(), any()))
                 .thenReturn(assignResult);
 
         List<Phase> phases = List.of(phase(phaseId));
         List<Team> teams = List.of(team(t1, "Team Foto"), team(t2, "Team B"));
 
-        ActivityScheduleModel result = assembler.assemble(
-                tournament, phases, teams,
-                Map.of(phaseId, List.of(av1, av2)),
-                Map.of(phaseId, List.of(m1, m2)),
-                Map.of(),
-                List.of(at), at);
+        ActivityScheduleModel result =
+                assembler.assemble(
+                        tournament,
+                        phases,
+                        teams,
+                        Map.of(phaseId, List.of(av1, av2)),
+                        Map.of(phaseId, List.of(m1, m2)),
+                        Map.of(),
+                        List.of(at),
+                        at);
 
         // LAP_BREAK should not produce a break row
         long breakRows = result.rows().stream().filter(ActivityScheduleRow::isBreak).count();
@@ -386,31 +472,43 @@ class DefaultActivityScheduleAssemblerTest {
         TeamAvatar av2 = teamAvatar(av2Id, unassigned1);
         Match m1 = match(av1Id, av2Id, 1, null);
 
-        TimelineEntry round1 = timelineEntry(1, TimelineEntryType.MATCH_ROUND, 1,
-                LocalTime.of(9, 0), LocalTime.of(9, 15), null);
+        TimelineEntry round1 =
+                timelineEntry(
+                        1,
+                        TimelineEntryType.MATCH_ROUND,
+                        1,
+                        LocalTime.of(9, 0),
+                        LocalTime.of(9, 15),
+                        null);
         when(timelineCalculationService.calculate(any(), any(), anyInt()))
                 .thenReturn(List.of(round1));
 
         ActivityType at = activityType(activityTypeId, activityTypeName);
-        ActivityAssignmentResult assignResult = assignmentResult(
-                at,
-                List.of(new ActivityAssignment(assignedId, 1, activityTypeName)),
-                Set.of(unassigned1, unassigned2));
+        ActivityAssignmentResult assignResult =
+                assignmentResult(
+                        at,
+                        List.of(new ActivityAssignment(assignedId, 1, activityTypeName)),
+                        Set.of(unassigned1, unassigned2));
         when(activityAssignmentService.assignActivities(any(), any(), any(), anyInt(), any()))
                 .thenReturn(assignResult);
 
         List<Phase> phases = List.of(phase(phaseId));
-        List<Team> teams = List.of(
-                team(assignedId, "Team C"),
-                team(unassigned1, "Team B"),
-                team(unassigned2, "Team A"));
+        List<Team> teams =
+                List.of(
+                        team(assignedId, "Team C"),
+                        team(unassigned1, "Team B"),
+                        team(unassigned2, "Team A"));
 
-        ActivityScheduleModel result = assembler.assemble(
-                tournament, phases, teams,
-                Map.of(phaseId, List.of(av1, av2)),
-                Map.of(phaseId, List.of(m1)),
-                Map.of(),
-                List.of(at), at);
+        ActivityScheduleModel result =
+                assembler.assemble(
+                        tournament,
+                        phases,
+                        teams,
+                        Map.of(phaseId, List.of(av1, av2)),
+                        Map.of(phaseId, List.of(m1)),
+                        Map.of(),
+                        List.of(at),
+                        at);
 
         assertThat(result.hasUnassigned()).isTrue();
         assertThat(result.unassignedTeamNames()).containsExactly("Team A", "Team B"); // sorted
@@ -432,34 +530,51 @@ class DefaultActivityScheduleAssemblerTest {
         Match m1 = match(av1Id, av2Id, 1, null);
         Match m2 = match(av1Id, av2Id, 2, null);
 
-        TimelineEntry round1 = timelineEntry(1, TimelineEntryType.MATCH_ROUND, 1,
-                LocalTime.of(9, 0), LocalTime.of(9, 15), null);
-        TimelineEntry round2 = timelineEntry(1, TimelineEntryType.MATCH_ROUND, 2,
-                LocalTime.of(9, 15), LocalTime.of(9, 30), null);
+        TimelineEntry round1 =
+                timelineEntry(
+                        1,
+                        TimelineEntryType.MATCH_ROUND,
+                        1,
+                        LocalTime.of(9, 0),
+                        LocalTime.of(9, 15),
+                        null);
+        TimelineEntry round2 =
+                timelineEntry(
+                        1,
+                        TimelineEntryType.MATCH_ROUND,
+                        2,
+                        LocalTime.of(9, 15),
+                        LocalTime.of(9, 30),
+                        null);
         when(timelineCalculationService.calculate(any(), any(), anyInt()))
                 .thenReturn(List.of(round1, round2));
 
         // Round 1: 2 teams assigned; Round 2: 1 team assigned
         ActivityType at = activityType(activityTypeId, activityTypeName);
-        ActivityAssignmentResult assignResult = assignmentResult(
-                at,
-                List.of(
-                        new ActivityAssignment(t1, 1, activityTypeName),
-                        new ActivityAssignment(t2, 1, activityTypeName),
-                        new ActivityAssignment(t1, 2, activityTypeName)),
-                Set.of());
+        ActivityAssignmentResult assignResult =
+                assignmentResult(
+                        at,
+                        List.of(
+                                new ActivityAssignment(t1, 1, activityTypeName),
+                                new ActivityAssignment(t2, 1, activityTypeName),
+                                new ActivityAssignment(t1, 2, activityTypeName)),
+                        Set.of());
         when(activityAssignmentService.assignActivities(any(), any(), any(), anyInt(), any()))
                 .thenReturn(assignResult);
 
         List<Phase> phases = List.of(phase(phaseId));
         List<Team> teams = List.of(team(t1, "Team A"), team(t2, "Team B"));
 
-        ActivityScheduleModel result = assembler.assemble(
-                tournament, phases, teams,
-                Map.of(phaseId, List.of(av1, av2)),
-                Map.of(phaseId, List.of(m1, m2)),
-                Map.of(),
-                List.of(at), at);
+        ActivityScheduleModel result =
+                assembler.assemble(
+                        tournament,
+                        phases,
+                        teams,
+                        Map.of(phaseId, List.of(av1, av2)),
+                        Map.of(phaseId, List.of(m1, m2)),
+                        Map.of(),
+                        List.of(at),
+                        at);
 
         assertThat(result.totalAssignedTeams()).isEqualTo(3); // 2 in round 1, 1 in round 2
         assertThat(result.roundCount()).isEqualTo(2);
@@ -480,27 +595,36 @@ class DefaultActivityScheduleAssemblerTest {
         TeamAvatar av2 = teamAvatar(av2Id, t2);
         Match m1 = match(av1Id, av2Id, 1, null);
 
-        TimelineEntry round1 = timelineEntry(1, TimelineEntryType.MATCH_ROUND, 1,
-                LocalTime.of(9, 0), LocalTime.of(9, 15), null);
+        TimelineEntry round1 =
+                timelineEntry(
+                        1,
+                        TimelineEntryType.MATCH_ROUND,
+                        1,
+                        LocalTime.of(9, 0),
+                        LocalTime.of(9, 15),
+                        null);
         when(timelineCalculationService.calculate(any(), any(), anyInt()))
                 .thenReturn(List.of(round1));
 
         // No assignments at all
         ActivityType at = activityType(activityTypeId, activityTypeName);
-        ActivityAssignmentResult assignResult = assignmentResult(
-                at, List.of(), Set.of(t1, t2));
+        ActivityAssignmentResult assignResult = assignmentResult(at, List.of(), Set.of(t1, t2));
         when(activityAssignmentService.assignActivities(any(), any(), any(), anyInt(), any()))
                 .thenReturn(assignResult);
 
         List<Phase> phases = List.of(phase(phaseId));
         List<Team> teams = List.of(team(t1, "Team A"), team(t2, "Team B"));
 
-        ActivityScheduleModel result = assembler.assemble(
-                tournament, phases, teams,
-                Map.of(phaseId, List.of(av1, av2)),
-                Map.of(phaseId, List.of(m1)),
-                Map.of(),
-                List.of(at), at);
+        ActivityScheduleModel result =
+                assembler.assemble(
+                        tournament,
+                        phases,
+                        teams,
+                        Map.of(phaseId, List.of(av1, av2)),
+                        Map.of(phaseId, List.of(m1)),
+                        Map.of(),
+                        List.of(at),
+                        at);
 
         assertThat(result.hasUnassigned()).isTrue();
         long dataRows = result.rows().stream().filter(ActivityScheduleRow::isDataRow).count();
@@ -524,33 +648,55 @@ class DefaultActivityScheduleAssemblerTest {
         Match m1 = match(av1Id, av2Id, 1, null);
         Match m2 = match(av1Id, av2Id, 2, null);
 
-        // Only round 1 has an assignment; round 2 has a break before it but round 2 has no assignment
-        TimelineEntry round1 = timelineEntry(1, TimelineEntryType.MATCH_ROUND, 1,
-                LocalTime.of(9, 0), LocalTime.of(9, 15), null);
-        TimelineEntry intraBreak = timelineEntry(1, TimelineEntryType.INTRA_PHASE_BREAK, 0,
-                LocalTime.of(9, 15), LocalTime.of(9, 45), "Pause");
-        TimelineEntry round2 = timelineEntry(1, TimelineEntryType.MATCH_ROUND, 2,
-                LocalTime.of(9, 45), LocalTime.of(10, 0), null); // no assignment
+        // Only round 1 has an assignment; round 2 has a break before it but round 2 has no
+        // assignment
+        TimelineEntry round1 =
+                timelineEntry(
+                        1,
+                        TimelineEntryType.MATCH_ROUND,
+                        1,
+                        LocalTime.of(9, 0),
+                        LocalTime.of(9, 15),
+                        null);
+        TimelineEntry intraBreak =
+                timelineEntry(
+                        1,
+                        TimelineEntryType.INTRA_PHASE_BREAK,
+                        0,
+                        LocalTime.of(9, 15),
+                        LocalTime.of(9, 45),
+                        "Pause");
+        TimelineEntry round2 =
+                timelineEntry(
+                        1,
+                        TimelineEntryType.MATCH_ROUND,
+                        2,
+                        LocalTime.of(9, 45),
+                        LocalTime.of(10, 0),
+                        null); // no assignment
         when(timelineCalculationService.calculate(any(), any(), anyInt()))
                 .thenReturn(List.of(round1, intraBreak, round2));
 
         ActivityType at = activityType(activityTypeId, activityTypeName);
-        ActivityAssignmentResult assignResult = assignmentResult(
-                at,
-                List.of(new ActivityAssignment(t1, 1, activityTypeName)),
-                Set.of());
+        ActivityAssignmentResult assignResult =
+                assignmentResult(
+                        at, List.of(new ActivityAssignment(t1, 1, activityTypeName)), Set.of());
         when(activityAssignmentService.assignActivities(any(), any(), any(), anyInt(), any()))
                 .thenReturn(assignResult);
 
         List<Phase> phases = List.of(phase(phaseId));
         List<Team> teams = List.of(team(t1, "Team Foto"), team(t2, "Team B"));
 
-        ActivityScheduleModel result = assembler.assemble(
-                tournament, phases, teams,
-                Map.of(phaseId, List.of(av1, av2)),
-                Map.of(phaseId, List.of(m1, m2)),
-                Map.of(),
-                List.of(at), at);
+        ActivityScheduleModel result =
+                assembler.assemble(
+                        tournament,
+                        phases,
+                        teams,
+                        Map.of(phaseId, List.of(av1, av2)),
+                        Map.of(phaseId, List.of(m1, m2)),
+                        Map.of(),
+                        List.of(at),
+                        at);
 
         // Break should NOT appear because no assigned data row follows it
         long breakRows = result.rows().stream().filter(ActivityScheduleRow::isBreak).count();
@@ -583,24 +729,29 @@ class DefaultActivityScheduleAssemblerTest {
         teamNoDesc.setDescription(null);
 
         ActivityType at = activityType(activityTypeId, activityTypeName);
-        ActivityAssignmentResult assignResult = assignmentResult(
-                at,
-                List.of(
-                        new ActivityAssignment(tWithDesc, 1, activityTypeName),
-                        new ActivityAssignment(tNoDesc, 1, activityTypeName)),
-                Set.of());
+        ActivityAssignmentResult assignResult =
+                assignmentResult(
+                        at,
+                        List.of(
+                                new ActivityAssignment(tWithDesc, 1, activityTypeName),
+                                new ActivityAssignment(tNoDesc, 1, activityTypeName)),
+                        Set.of());
         when(activityAssignmentService.assignActivities(any(), any(), any(), anyInt(), any()))
                 .thenReturn(assignResult);
 
         List<Phase> phases = List.of(phase(phaseId));
         List<Team> teams = List.of(teamWithDesc, teamNoDesc);
 
-        ActivityScheduleModel result = assembler.assemble(
-                tournament, phases, teams,
-                Map.of(phaseId, List.of(av1, av2)),
-                Map.of(phaseId, List.of(m1)),
-                Map.of(),
-                List.of(at), at);
+        ActivityScheduleModel result =
+                assembler.assemble(
+                        tournament,
+                        phases,
+                        teams,
+                        Map.of(phaseId, List.of(av1, av2)),
+                        Map.of(phaseId, List.of(m1)),
+                        Map.of(),
+                        List.of(at),
+                        at);
 
         assertThat(result.rows()).hasSize(1);
         String teamNames = result.rows().get(0).getTeamNames();
@@ -656,8 +807,8 @@ class DefaultActivityScheduleAssemblerTest {
     }
 
     /**
-     * Creates a {@link TimelineEntry} record.
-     * Signature: (phaseNumber, lapNumber, type, startTime, endTime, label)
+     * Creates a {@link TimelineEntry} record. Signature: (phaseNumber, lapNumber, type, startTime,
+     * endTime, label)
      */
     private TimelineEntry timelineEntry(
             int phaseNumber,
@@ -670,13 +821,13 @@ class DefaultActivityScheduleAssemblerTest {
     }
 
     private ActivityAssignmentResult assignmentResult(
-            ActivityType at,
-            List<ActivityAssignment> assignments,
-            Set<UUID> unassignedTeamIds) {
+            ActivityType at, List<ActivityAssignment> assignments, Set<UUID> unassignedTeamIds) {
         Map<ActivityType, List<ActivityAssignment>> assignmentMap =
                 assignments.isEmpty() ? Collections.emptyMap() : Map.of(at, assignments);
         Map<ActivityType, Set<UUID>> unassignedMap =
-                unassignedTeamIds.isEmpty() ? Collections.emptyMap() : Map.of(at, unassignedTeamIds);
+                unassignedTeamIds.isEmpty()
+                        ? Collections.emptyMap()
+                        : Map.of(at, unassignedTeamIds);
         return new ActivityAssignmentResult(assignmentMap, unassignedMap);
     }
 }

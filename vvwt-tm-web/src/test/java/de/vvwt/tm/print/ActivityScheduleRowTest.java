@@ -5,7 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
 
 /**
- * Unit tests for {@link ActivityScheduleRow} — VO contract (E24S03, AC-ACTIVITY-SCHEDULE-ROW-CREATE).
+ * Unit tests for {@link ActivityScheduleRow} — VO contract (E24S03,
+ * AC-ACTIVITY-SCHEDULE-ROW-CREATE).
  *
  * <p>Tests are at {@code de.vvwt.tm.print} (same package as subject) — white-box access permitted
  * per DEC-36 same-package rule.

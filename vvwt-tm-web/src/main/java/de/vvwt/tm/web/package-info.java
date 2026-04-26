@@ -32,9 +32,9 @@
  *       DEC-40 Clause A migration cadence (AC-ALLOWED-DEPS-EXPANDED).
  *   <li>{@code print} — fresh {@code web.PrintController} (E24S06) consumes {@link
  *       de.vvwt.tm.print.LaufzettelAssembler} and {@link
- *       de.vvwt.tm.print.ActivityScheduleAssembler}. Post-story excl.-tenant count = 5
- *       (tournament, scoring, photo, certificate, print). Trigger-α fires at ≥5; binding verdict
- *       L2 stays (examined at E24S01). Added at E24S06 (AC-WEB-ALLOWEDDEPS-ADD-PRINT).
+ *       de.vvwt.tm.print.ActivityScheduleAssembler}. Post-story excl.-tenant count = 5 (tournament,
+ *       scoring, photo, certificate, print). Trigger-α fires at ≥5; binding verdict L2 stays
+ *       (examined at E24S01). Added at E24S06 (AC-WEB-ALLOWEDDEPS-ADD-PRINT).
  * </ul>
  *
  * <h2>Boundary rules (DEC-40 § Clause A)</h2>

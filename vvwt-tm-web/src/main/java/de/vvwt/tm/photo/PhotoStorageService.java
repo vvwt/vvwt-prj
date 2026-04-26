@@ -7,28 +7,28 @@ import java.util.UUID;
 /**
  * Port for tournament-scoped team photo storage (E36S01 Q-1a TDD rebuild).
  *
- * <p>Rebuilt from deleted Q-1b artefact at the same canonical FQN ({@code de.vvwt.tm.photo})
- * per Brief D-7 Option γ. Interface method signatures preserved verbatim per
+ * <p>Rebuilt from deleted Q-1b artefact at the same canonical FQN ({@code de.vvwt.tm.photo}) per
+ * Brief D-7 Option γ. Interface method signatures preserved verbatim per
  * AC-C3-SIGNATURE-PRESERVATION and AC-CONSUMER-IMPORTS-UNCHANGED.
  *
- * <p>Consumers ({@code TeamPhotoController}, {@code DefaultCertificateAssembler},
- * {@code WebModuleTestConfig}) retain their existing import statements unchanged — the FQN
- * is identical (Option γ same-FQN guarantee per Brief C-2).
+ * <p>Consumers ({@code TeamPhotoController}, {@code DefaultCertificateAssembler}, {@code
+ * WebModuleTestConfig}) retain their existing import statements unchanged — the FQN is identical
+ * (Option γ same-FQN guarantee per Brief C-2).
  *
  * <h2>Tenant scoping (DEC-5, DEC-17)</h2>
  *
  * <p>Every method validates that the given tournament belongs to the active tenant via the
- * tenant-scoped {@link de.vvwt.tm.tournament.TournamentRepository}. Methods that also reference
- * a team validate team membership in the tournament via the tenant-scoped
- * {@link de.vvwt.tm.tournament.TeamRepository}.
+ * tenant-scoped {@link de.vvwt.tm.tournament.TournamentRepository}. Methods that also reference a
+ * team validate team membership in the tournament via the tenant-scoped {@link
+ * de.vvwt.tm.tournament.TeamRepository}.
  *
  * <h2>Filesystem persistence (DEC-14, DEC-15)</h2>
  *
- * <p>Photos are stored as files at {@code {dataDir}/{tournamentId}/{teamId}.{ext}}.
- * No H2 table is introduced. The data directory is configurable via {@link PhotoStorageConfig}.
+ * <p>Photos are stored as files at {@code {dataDir}/{tournamentId}/{teamId}.{ext}}. No H2 table is
+ * introduced. The data directory is configurable via {@link PhotoStorageConfig}.
  *
- * <p>Historical provenance: originally E12S02; relocated to this module by E23S01 (Q-1b);
- * rebuilt Q-1a RED-first by E36S01 per DEC-22 Iron Law + DEC-41 §3 hierarchy clause (1).
+ * <p>Historical provenance: originally E12S02; relocated to this module by E23S01 (Q-1b); rebuilt
+ * Q-1a RED-first by E36S01 per DEC-22 Iron Law + DEC-41 §3 hierarchy clause (1).
  *
  * @see de.vvwt.tm.photo.internal.DefaultPhotoStorageService
  * @see PhotoStorageConfig

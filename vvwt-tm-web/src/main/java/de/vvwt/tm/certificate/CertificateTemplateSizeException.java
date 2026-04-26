@@ -7,7 +7,8 @@ package de.vvwt.tm.certificate;
  * <p>Rebuilt under DEC-22 Iron Law Q-1a RED-first TDD discipline (E36S04). Constructor signature
  * preserved verbatim per AC-EXCEPTION-CONSTRUCTORS-PRESERVED and Brief C-3.
  *
- * <p>Maps to HTTP 400 Bad Request via {@link de.vvwt.tm.web.certificate.CertificateExceptionAdvice}.
+ * <p>Maps to HTTP 400 Bad Request via {@link
+ * de.vvwt.tm.web.certificate.CertificateExceptionAdvice}.
  *
  * @see CertificateTemplateService
  * @see E36S04

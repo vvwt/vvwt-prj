@@ -302,9 +302,9 @@ public class WebModuleTestConfig {
      * loaded transitively via {@code @ApplicationModuleTest(ALL_DEPENDENCIES)}.
      *
      * <p>{@code ActivityAssignmentServiceImpl} lives in {@code de.vvwt.tm.domain.activity} which is
-     * NOT a Modulith module — Spring Modulith does not component-scan it in
-     * {@code ALL_DEPENDENCIES} mode. Added at E24S06 when {@code web.allowedDependencies} was
-     * extended to include {@code "print"}.
+     * NOT a Modulith module — Spring Modulith does not component-scan it in {@code
+     * ALL_DEPENDENCIES} mode. Added at E24S06 when {@code web.allowedDependencies} was extended to
+     * include {@code "print"}.
      */
     @Bean
     @Primary
@@ -318,9 +318,9 @@ public class WebModuleTestConfig {
      * {@code @ApplicationModuleTest(ALL_DEPENDENCIES)} mode.
      *
      * <p>{@code ActivityTypeRepository} lives in {@code de.vvwt.tm.domain.repo} which is NOT a
-     * Modulith module — Spring Modulith does not component-scan it in
-     * {@code ALL_DEPENDENCIES} mode. The real bean is registered only in full
-     * {@code @SpringBootTest} contexts. Added at E24S06.
+     * Modulith module — Spring Modulith does not component-scan it in {@code ALL_DEPENDENCIES}
+     * mode. The real bean is registered only in full {@code @SpringBootTest} contexts. Added at
+     * E24S06.
      */
     @Bean
     @Primary

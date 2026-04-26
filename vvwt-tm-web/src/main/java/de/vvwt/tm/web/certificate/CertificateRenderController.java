@@ -9,13 +9,11 @@ import de.vvwt.tm.tenant.LocationDisplayResolver;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
-import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.exceptions.TournamentNotFoundException;
-import jakarta.servlet.http.HttpServletRequest;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -45,7 +43,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
  * REST controller for certificate rendering at new URLs (E24S05 — E23 scope-gap closure).
  *
  * <p>NEW functionality: the certificate HTML-rendering endpoints were previously only served by the
- * legacy {@code de.vvwt.tm.infrastructure.print.PrintController}. This controller delivers them
+ * legacy {@code PrintController} (deleted at E24S07 atomic cutover). This controller delivers them
  * as Q-1a TDD RED-first new code at {@code de.vvwt.tm.web.certificate.*} per DEC-40
  * Primary-Adapter-Isolation.
  *
@@ -56,10 +54,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
  * <h2>Endpoints</h2>
  *
  * <ul>
- *   <li>{@code GET /certificate/tournaments/{tid}/print/{teamId}} — single certificate
- *       (SVG or HTML by template format; 400 if template absent; 500 on Mustache failure)
- *   <li>{@code GET /certificate/tournaments/{tid}/print} — all certificates
- *       (ZIP for SVG; HTML page for HTML; same error paths)
+ *   <li>{@code GET /certificate/tournaments/{tid}/print/{teamId}} — single certificate (SVG or HTML
+ *       by template format; 400 if template absent; 500 on Mustache failure)
+ *   <li>{@code GET /certificate/tournaments/{tid}/print} — all certificates (ZIP for SVG; HTML page
+ *       for HTML; same error paths)
  * </ul>
  *
  * <h2>DEC-40 Clause B disposition (AC-DEC-40-CLAUSE-B-N-A)</h2>
@@ -150,17 +148,18 @@ public class CertificateRenderController {
      * <p>5 branches:
      *
      * <ul>
-     *   <li>SVG template → {@code ResponseEntity<byte[]>} with {@code image/svg+xml} +
-     *       {@code Content-Disposition: attachment}
-     *   <li>HTML template → Mustache view {@code "certificate/print"} + model attribute
-     *       {@code singleCertificate}
+     *   <li>SVG template → {@code ResponseEntity<byte[]>} with {@code image/svg+xml} + {@code
+     *       Content-Disposition: attachment}
+     *   <li>HTML template → Mustache view {@code "certificate/print"} + model attribute {@code
+     *       singleCertificate}
      *   <li>Template absent → 400 plaintext
      *   <li>No standings → 400 plaintext
-     *   <li>MustacheException → 500 plaintext {@code "Mustache rendering error: " + ex.getMessage()}
+     *   <li>MustacheException → 500 plaintext {@code "Mustache rendering error: " +
+     *       ex.getMessage()}
      * </ul>
      *
-     * <p>Unknown tournament → {@link TournamentNotFoundException} → 404 via
-     * {@link de.vvwt.tm.tournament.internal.web.GlobalExceptionHandler#handleTournamentNotFound}.
+     * <p>Unknown tournament → {@link TournamentNotFoundException} → 404 via {@link
+     * de.vvwt.tm.tournament.internal.web.GlobalExceptionHandler#handleTournamentNotFound}.
      *
      * @param tid the tournament UUID (tenant-scoped)
      * @param teamId the team UUID
@@ -266,8 +265,8 @@ public class CertificateRenderController {
      *
      * <ul>
      *   <li>SVG template → ZIP archive ({@code application/zip}) with one SVG per team
-     *   <li>HTML template → Mustache view {@code "certificate/print-all"} + model attribute
-     *       {@code certificates}
+     *   <li>HTML template → Mustache view {@code "certificate/print-all"} + model attribute {@code
+     *       certificates}
      *   <li>Template absent → 400 plaintext
      *   <li>MustacheException → 500 plaintext
      * </ul>

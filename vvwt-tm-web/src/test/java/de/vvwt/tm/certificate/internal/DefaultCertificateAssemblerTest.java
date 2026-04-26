@@ -6,8 +6,8 @@ import static org.mockito.Mockito.when;
 
 import de.vvwt.tm.certificate.CertificateAssembler;
 import de.vvwt.tm.certificate.CertificatePlacementRow;
-import de.vvwt.tm.photo.PhotoStorageService;
 import de.vvwt.tm.photo.PhotoFileMetadata;
+import de.vvwt.tm.photo.PhotoStorageService;
 import de.vvwt.tm.photo.PhotoUrlBuilder;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
@@ -31,26 +31,26 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Q-1a TDD RED-first test suite for the rebuilt {@link DefaultCertificateAssembler}
- * (E36S05, DEC-22 Iron Law).
+ * Q-1a TDD RED-first test suite for the rebuilt {@link DefaultCertificateAssembler} (E36S05, DEC-22
+ * Iron Law).
  *
- * <p>Authored RED-first against the absent impl after the legacy Q-1b
- * {@code DefaultCertificateAssembler} was deleted at commit {@code c40db76}. These tests
- * first failed at compile time (RED state per AC-TDD-RED-FIRST-EVIDENCE model (a)).
+ * <p>Authored RED-first against the absent impl after the legacy Q-1b {@code
+ * DefaultCertificateAssembler} was deleted at commit {@code c40db76}. These tests first failed at
+ * compile time (RED state per AC-TDD-RED-FIRST-EVIDENCE model (a)).
  *
  * <p>Per DEC-36: this test class is in {@code de.vvwt.tm.certificate.internal} — the SAME package
  * as {@code DefaultCertificateAssembler}. White-box access (package-private helpers, constructor
- * direct call) is permitted. The primary {@code assembler} field is declared as the
- * {@link CertificateAssembler} PUBLIC INTERFACE (best practice, same-package rule allows
- * white-box constructor call).
+ * direct call) is permitted. The primary {@code assembler} field is declared as the {@link
+ * CertificateAssembler} PUBLIC INTERFACE (best practice, same-package rule allows white-box
+ * constructor call).
  *
  * <p>Per DEC-41 §3 hierarchy clause (1): these are the MANDATORY new TDD tests for the new code.
  * The preserved {@code CertificateAssemblerTest} is SUPPLEMENTARY per clause (2) only.
  *
- * <p>Per AC-AUDIT-II-GAP-DOCUMENTED: audit (ii) did NOT enumerate
- * {@code de.vvwt.tm.certificate.CertificateAssemblerTest}. This test class supplements it;
- * the interface-level test is preserved on the basis of DEC-36, DEC-22 Q-1a Javadoc evidence,
- * and DEC-41 §1(d) Spec-Anchored criterion observed in source.
+ * <p>Per AC-AUDIT-II-GAP-DOCUMENTED: audit (ii) did NOT enumerate {@code
+ * de.vvwt.tm.certificate.CertificateAssemblerTest}. This test class supplements it; the
+ * interface-level test is preserved on the basis of DEC-36, DEC-22 Q-1a Javadoc evidence, and
+ * DEC-41 §1(d) Spec-Anchored criterion observed in source.
  *
  * @see DefaultCertificateAssembler
  * @see CertificateAssembler
@@ -86,8 +86,8 @@ class DefaultCertificateAssemblerTest {
     private PhotoUrlBuilder photoUrlBuilder;
 
     /**
-     * DEC-36: declared as public interface (best practice even in same-package context).
-     * White-box constructor call below is permitted (same package per DEC-36).
+     * DEC-36: declared as public interface (best practice even in same-package context). White-box
+     * constructor call below is permitted (same package per DEC-36).
      */
     private CertificateAssembler assembler;
 
@@ -115,10 +115,10 @@ class DefaultCertificateAssemblerTest {
     /**
      * Builds a TeamAvatarRating with the given points and quotients for DEC-33 sort testing.
      *
-     * @param avatarId      the avatar UUID (also the rating PK)
-     * @param points        match points
-     * @param setQuotient   sets won / sets played ratio
-     * @param ballQuotient  balls won / balls played ratio
+     * @param avatarId the avatar UUID (also the rating PK)
+     * @param points match points
+     * @param setQuotient sets won / sets played ratio
+     * @param ballQuotient balls won / balls played ratio
      * @param withoutAssessment true → team ranks last per DEC-33 regardless of numeric scores
      */
     private static TeamAvatarRating makeRating(
@@ -265,14 +265,14 @@ class DefaultCertificateAssemblerTest {
 
     @Test
     @DisplayName(
-            "computePlacementOrder: isWithoutAssessment teams rank LAST regardless of points (DEC-33)")
+            "computePlacementOrder: isWithoutAssessment teams rank LAST regardless of points"
+                    + " (DEC-33)")
     void computePlacementOrder_withoutAssessmentRanksLast() {
         Phase phase = makePhase(1);
         TeamAvatar avA = makeAvatar(AVATAR_A_ID, TEAM_A_ID);
         TeamAvatar avB = makeAvatar(AVATAR_B_ID, TEAM_B_ID);
         TeamAvatar avC = makeAvatar(AVATAR_C_ID, TEAM_C_ID);
-        when(teamAvatarRepository.findByPhaseId(PHASE_ID))
-                .thenReturn(List.of(avA, avB, avC));
+        when(teamAvatarRepository.findByPhaseId(PHASE_ID)).thenReturn(List.of(avA, avB, avC));
         // B has 10 points but withoutAssessment=true → must be last
         when(teamAvatarRatingRepository.findById(AVATAR_A_ID))
                 .thenReturn(Optional.of(makeRating(AVATAR_A_ID, 6, 2.0, 1.5, false)));
@@ -374,13 +374,14 @@ class DefaultCertificateAssemblerTest {
         List<CertificatePlacementRow> rows =
                 assembler.buildSvgRows(
                         tournament,
-                        List.of(new CertificateAssembler.AvatarPlacement(1, TEAM_A_ID, AVATAR_A_ID)),
+                        List.of(
+                                new CertificateAssembler.AvatarPlacement(
+                                        1, TEAM_A_ID, AVATAR_A_ID)),
                         "Halle");
 
         assertThat(rows).hasSize(1);
         String expectedBase64 = Base64.getEncoder().encodeToString(fakeBytes);
-        assertThat(rows.get(0).teamPhoto())
-                .isEqualTo("data:image/jpeg;base64," + expectedBase64);
+        assertThat(rows.get(0).teamPhoto()).isEqualTo("data:image/jpeg;base64," + expectedBase64);
     }
 
     @Test
@@ -394,7 +395,9 @@ class DefaultCertificateAssemblerTest {
         List<CertificatePlacementRow> rows =
                 assembler.buildSvgRows(
                         tournament,
-                        List.of(new CertificateAssembler.AvatarPlacement(1, TEAM_A_ID, AVATAR_A_ID)),
+                        List.of(
+                                new CertificateAssembler.AvatarPlacement(
+                                        1, TEAM_A_ID, AVATAR_A_ID)),
                         "Halle");
 
         assertThat(rows).hasSize(1);
@@ -418,7 +421,9 @@ class DefaultCertificateAssemblerTest {
         List<CertificatePlacementRow> rows =
                 assembler.buildHtmlRows(
                         tournament,
-                        List.of(new CertificateAssembler.AvatarPlacement(1, TEAM_A_ID, AVATAR_A_ID)),
+                        List.of(
+                                new CertificateAssembler.AvatarPlacement(
+                                        1, TEAM_A_ID, AVATAR_A_ID)),
                         "Halle");
 
         assertThat(rows).hasSize(1);
@@ -436,7 +441,9 @@ class DefaultCertificateAssemblerTest {
         List<CertificatePlacementRow> rows =
                 assembler.buildHtmlRows(
                         tournament,
-                        List.of(new CertificateAssembler.AvatarPlacement(1, TEAM_A_ID, AVATAR_A_ID)),
+                        List.of(
+                                new CertificateAssembler.AvatarPlacement(
+                                        1, TEAM_A_ID, AVATAR_A_ID)),
                         "Halle");
 
         assertThat(rows).hasSize(1);
@@ -457,7 +464,8 @@ class DefaultCertificateAssemblerTest {
                         tournament,
                         List.of(
                                 new CertificateAssembler.AvatarPlacement(1, TEAM_A_ID, AVATAR_A_ID),
-                                new CertificateAssembler.AvatarPlacement(2, TEAM_B_ID, AVATAR_B_ID)),
+                                new CertificateAssembler.AvatarPlacement(
+                                        2, TEAM_B_ID, AVATAR_B_ID)),
                         "Sporthalle");
 
         assertThat(rows).hasSize(2);
@@ -501,8 +509,7 @@ class DefaultCertificateAssemblerTest {
     }
 
     @Test
-    @DisplayName(
-            "renderSvgTemplate: preserves base64 == — escapeHTML=false mandatory (E12S01 AC6)")
+    @DisplayName("renderSvgTemplate: preserves base64 == — escapeHTML=false mandatory (E12S01 AC6)")
     void renderSvgTemplate_preservesBase64Equals_escapeHtmlFalse() {
         String template = "<image href=\"{{teamPhoto}}\"/>";
         String dataUri = "data:image/jpeg;base64,/9j/4AAQSkZJRgAB==";
@@ -513,14 +520,17 @@ class DefaultCertificateAssemblerTest {
         String rendered = assembler.renderSvgTemplate(template, row);
 
         assertThat(rendered)
-                .as("base64 '==' must not be HTML-escaped (escapeHTML=false mandatory per E12S01 AC6)")
+                .as(
+                        "base64 '==' must not be HTML-escaped (escapeHTML=false mandatory per"
+                                + " E12S01 AC6)")
                 .contains("data:image/jpeg;base64,/9j/4AAQSkZJRgAB==")
                 .doesNotContain("&#x3D;");
     }
 
     @Test
     @DisplayName(
-            "renderSvgTemplate: renders empty string for missing teamPhoto (defaultValue='' lenient)")
+            "renderSvgTemplate: renders empty string for missing teamPhoto (defaultValue=''"
+                    + " lenient)")
     void renderSvgTemplate_emptyStringForMissingPhoto() {
         String template = "<image href=\"{{teamPhoto}}\"/>";
         CertificatePlacementRow row =

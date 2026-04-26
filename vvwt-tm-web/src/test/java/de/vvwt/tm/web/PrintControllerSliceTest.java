@@ -68,7 +68,8 @@ import org.springframework.web.context.WebApplicationContext;
 @DisplayName("PrintController @WebMvcTest slice — E24S06")
 class PrintControllerSliceTest {
 
-    private static final UUID TOURNAMENT_ID = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001");
+    private static final UUID TOURNAMENT_ID =
+            UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001");
     private static final UUID TEAM_ID = UUID.fromString("bbbbbbbb-0000-0000-0000-000000000002");
     private static final UUID ACTIVITY_TYPE_ID =
             UUID.fromString("cccccccc-0000-0000-0000-000000000003");
@@ -107,7 +108,9 @@ class PrintControllerSliceTest {
     // =========================================================================
 
     @Test
-    @DisplayName("GET /print/tournaments/{tid} — unauthenticated → 401 (AC-SECURITYCONFIG-PRINT-PATTERN)")
+    @DisplayName(
+            "GET /print/tournaments/{tid} — unauthenticated → 401"
+                    + " (AC-SECURITYCONFIG-PRINT-PATTERN)")
     void printIndex_unauthenticated_returns401() throws Exception {
         mockMvc.perform(get("/print/tournaments/{tid}", TOURNAMENT_ID))
                 .andExpect(status().isUnauthorized());
@@ -116,7 +119,11 @@ class PrintControllerSliceTest {
     @Test
     @DisplayName("GET /print/tournaments/{tid}/team-schedules/{teamId} — unauthenticated → 401")
     void singleTeamSchedule_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(get("/print/tournaments/{tid}/team-schedules/{teamId}", TOURNAMENT_ID, TEAM_ID))
+        mockMvc.perform(
+                        get(
+                                "/print/tournaments/{tid}/team-schedules/{teamId}",
+                                TOURNAMENT_ID,
+                                TEAM_ID))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -128,7 +135,9 @@ class PrintControllerSliceTest {
     }
 
     @Test
-    @DisplayName("GET /print/tournaments/{tid}/activity-schedule/{activityTypeId} — unauthenticated → 401")
+    @DisplayName(
+            "GET /print/tournaments/{tid}/activity-schedule/{activityTypeId} — unauthenticated →"
+                    + " 401")
     void activitySchedule_unauthenticated_returns401() throws Exception {
         mockMvc.perform(
                         get(
@@ -144,7 +153,9 @@ class PrintControllerSliceTest {
 
     @Test
     @WithMockUser
-    @DisplayName("GET /print/tournaments/{tid} — authenticated + tournament + phases → print/index (AC-URL-INDEX)")
+    @DisplayName(
+            "GET /print/tournaments/{tid} — authenticated + tournament + phases → print/index"
+                    + " (AC-URL-INDEX)")
     void printIndex_authenticated_tournamentAndPhasesExist_returnsPrintIndex() throws Exception {
         Tournament tournament = tournament(TOURNAMENT_ID, "Test Tournament");
         Mockito.when(tournamentRepository.findById(TOURNAMENT_ID))
@@ -193,7 +204,9 @@ class PrintControllerSliceTest {
 
     @Test
     @WithMockUser
-    @DisplayName("GET /print/tournaments/{tid}/team-schedules/{teamId} — happy path → print/laufzettel (AC-URL-LAUFZETTEL-SINGLE)")
+    @DisplayName(
+            "GET /print/tournaments/{tid}/team-schedules/{teamId} — happy path → print/laufzettel"
+                    + " (AC-URL-LAUFZETTEL-SINGLE)")
     void singleTeamSchedule_happyPath_returnsLaufzettel() throws Exception {
         Tournament tournament = tournament(TOURNAMENT_ID, "Test Tournament");
         Team team = team(TEAM_ID, TOURNAMENT_ID, 1);
@@ -237,7 +250,8 @@ class PrintControllerSliceTest {
 
     @Test
     @WithMockUser
-    @DisplayName("GET /print/tournaments/{tid}/team-schedules/{teamId} — tournament not found → 404")
+    @DisplayName(
+            "GET /print/tournaments/{tid}/team-schedules/{teamId} — tournament not found → 404")
     void singleTeamSchedule_tournamentNotFound_throws404() throws Exception {
         Mockito.when(tournamentRepository.findById(TOURNAMENT_ID))
                 .thenThrow(new TournamentNotFoundException(TOURNAMENT_ID));
@@ -256,7 +270,9 @@ class PrintControllerSliceTest {
 
     @Test
     @WithMockUser
-    @DisplayName("GET /print/tournaments/{tid}/team-schedules — happy path → print/laufzettel-all (AC-URL-LAUFZETTEL-ALL)")
+    @DisplayName(
+            "GET /print/tournaments/{tid}/team-schedules — happy path → print/laufzettel-all"
+                    + " (AC-URL-LAUFZETTEL-ALL)")
     void allTeamSchedules_happyPath_returnsLaufzettelAll() throws Exception {
         Tournament tournament = tournament(TOURNAMENT_ID, "Test Tournament");
         Team team = team(TEAM_ID, TOURNAMENT_ID, 1);
@@ -308,7 +324,9 @@ class PrintControllerSliceTest {
 
     @Test
     @WithMockUser
-    @DisplayName("GET /print/tournaments/{tid}/activity-schedule/{actId} — happy path → print/activity-schedule (AC-URL-ACTIVITY-SCHEDULE)")
+    @DisplayName(
+            "GET /print/tournaments/{tid}/activity-schedule/{actId} — happy path →"
+                    + " print/activity-schedule (AC-URL-ACTIVITY-SCHEDULE)")
     void activitySchedule_happyPath_returnsActivitySchedule() throws Exception {
         Tournament tournament = tournament(TOURNAMENT_ID, "Test Tournament");
         Phase phase = phase(TOURNAMENT_ID);
@@ -350,7 +368,8 @@ class PrintControllerSliceTest {
 
     @Test
     @WithMockUser
-    @DisplayName("GET /print/tournaments/{tid}/activity-schedule/{actId} — tournament not found → 404")
+    @DisplayName(
+            "GET /print/tournaments/{tid}/activity-schedule/{actId} — tournament not found → 404")
     void activitySchedule_tournamentNotFound_throws404() throws Exception {
         Mockito.when(tournamentRepository.findById(TOURNAMENT_ID))
                 .thenThrow(new TournamentNotFoundException(TOURNAMENT_ID));
