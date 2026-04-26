@@ -25,7 +25,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
@@ -64,9 +63,9 @@ import org.springframework.util.MultiValueMap;
  * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
  * @since E24S05
  */
-@ApplicationModuleTest(
-        mode = ApplicationModuleTest.BootstrapMode.ALL_DEPENDENCIES,
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        classes = de.vvwt.tm.TournamentManagerApplication.class)
 @Import({WebModuleTestConfig.class, CertificateRenderControllerIT.TestAdminCredentials.class})
 @ActiveProfiles("test")
 @TestPropertySource(
@@ -318,7 +317,7 @@ class CertificateRenderControllerIT {
 
     @TestConfiguration
     static class TestAdminCredentials {
-        @Bean
+        @Bean("webItAdminCredentialsProvider")
         @Primary
         AdminCredentialsProvider testAdminCredentialsProvider(PasswordEncoder encoder) {
             String hash = encoder.encode(TEST_PASSWORD);

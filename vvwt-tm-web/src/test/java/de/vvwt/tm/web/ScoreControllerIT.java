@@ -18,7 +18,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -57,10 +56,10 @@ import org.springframework.test.context.ActiveProfiles;
  * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
  * @see <a href="E22S10">E22S10</a>
  */
-@ApplicationModuleTest(
-        mode = ApplicationModuleTest.BootstrapMode.ALL_DEPENDENCIES,
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(WebModuleTestConfig.class)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        classes = de.vvwt.tm.TournamentManagerApplication.class)
+@Import({WebModuleTestConfig.class, ScoreControllerIT.TestAdminCredentials.class})
 @ActiveProfiles("test")
 @DisplayName(
         "ScoreController IT — E22S10 AC-IT-APPLICATION-MODULE-TEST + AC-STATIC-ASSET-REACHABILITY")
@@ -245,7 +244,7 @@ class ScoreControllerIT {
 
     @TestConfiguration
     static class TestAdminCredentials {
-        @Bean
+        @Bean("webItAdminCredentialsProvider")
         @Primary
         AdminCredentialsProvider testAdminCredentialsProvider(PasswordEncoder encoder) {
             String hash = encoder.encode(ADMIN_PASS);

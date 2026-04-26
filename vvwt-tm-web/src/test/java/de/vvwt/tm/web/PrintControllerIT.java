@@ -20,7 +20,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -51,9 +50,9 @@ import org.springframework.test.context.ActiveProfiles;
  * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
  * @since E24S06
  */
-@ApplicationModuleTest(
-        mode = ApplicationModuleTest.BootstrapMode.ALL_DEPENDENCIES,
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        classes = de.vvwt.tm.TournamentManagerApplication.class)
 @Import({WebModuleTestConfig.class, PrintControllerIT.TestAdminCredentials.class})
 @ActiveProfiles("test")
 @DisplayName("PrintController IT — E24S06")
@@ -283,7 +282,7 @@ class PrintControllerIT {
 
     @TestConfiguration
     static class TestAdminCredentials {
-        @Bean
+        @Bean("webItAdminCredentialsProvider")
         @Primary
         AdminCredentialsProvider testAdminCredentialsProvider(PasswordEncoder encoder) {
             String hash = encoder.encode(TEST_PASSWORD);
