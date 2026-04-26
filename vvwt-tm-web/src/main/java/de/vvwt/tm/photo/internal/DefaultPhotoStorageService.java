@@ -26,40 +26,42 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
 /**
- * Filesystem-backed implementation of {@link PhotoStorageService} (E12S02, E23S01).
+ * Filesystem-backed implementation of {@link PhotoStorageService} (E36S01 Q-1a TDD rebuild).
  *
- * <p>Relocated from {@code de.vvwt.tm.domain.photo.PhotoStorageServiceImpl} and renamed to {@code
- * DefaultPhotoStorageService} per DEC-35 {@code Default*Service} naming canon. The legacy {@code
- * PhotoStorageServiceImpl} at {@code de.vvwt.tm.domain.photo.*} remains on the classpath during the
- * parallel phase (until E23S05 Cutover-1) but is excluded from component scan via
- * {@code @ComponentScan(excludeFilters = ...)} on {@code TournamentManagerApplication} to prevent
- * {@code BeanDefinitionOverrideException} (AC-PARALLEL-COEXISTENCE).
+ * <p>Rebuilt from deleted Q-1b artefact at the same canonical FQN
+ * ({@code de.vvwt.tm.photo.internal}) per Brief D-7 Option γ. All method signatures, constructor
+ * parameters (including {@code @Qualifier("photoModuleStorageConfig")}), and behavioral semantics
+ * are preserved verbatim per AC-C3-SIGNATURE-PRESERVATION.
  *
- * <h2>Storage layout (AC5)</h2>
+ * <h2>Storage layout</h2>
  *
- * <p>Photos are stored at {@code {dataDir}/{tournamentId}/{teamId}.{ext}}. Both path components are
- * UUIDs — no path traversal is possible. The extension is derived from the original filename (see
- * {@link #resolveExtension}).
+ * <p>Photos are stored at {@code {dataDir}/{tournamentId}/{teamId}.{ext}}. Both path components
+ * are UUIDs — no path traversal is possible. The extension is derived from the original filename
+ * (see {@link #resolveExtension}).
  *
- * <h2>Tenant scoping (AC10, DEC-5, DEC-17)</h2>
+ * <h2>Tenant scoping (DEC-5, DEC-17)</h2>
  *
  * <p>Every method that touches the filesystem first validates tournament and team existence via
  * {@link TournamentRepository#findById} (tenant-scoped) and {@link TeamRepository#findById}
  * (tenant-scoped). A missing result means "not found OR belongs to a different tenant" — both
  * produce {@link NoSuchElementException} → HTTP 404 (no tenant enumeration).
  *
- * <h2>File format validation (AC7)</h2>
+ * <h2>File format validation</h2>
  *
- * <p>Upload rejects files whose original filename does not end with {@code .jpg}, {@code .jpeg}, or
- * {@code .png} (case-insensitive). No deep content inspection.
+ * <p>Upload rejects files whose original filename does not end with {@code .jpg}, {@code .jpeg},
+ * or {@code .png} (case-insensitive). No deep content inspection.
  *
- * <h2>Size limit (AC7)</h2>
+ * <h2>Size limit</h2>
  *
  * <p>Upload rejects files larger than {@link PhotoStorageConfig#getMaxSizeBytes()} (default 5 MB).
  *
+ * <p>Historical provenance: originally E12S02 as {@code PhotoStorageServiceImpl};
+ * renamed + relocated to this module by E23S01 (Q-1b);
+ * rebuilt Q-1a RED-first by E36S01 per DEC-22 Iron Law + DEC-41 §3 hierarchy clause (1).
+ *
  * @see PhotoStorageService
  * @see PhotoStorageConfig
- * @since E12S02
+ * @since E36S01
  */
 @Primary
 @Service
@@ -67,7 +69,7 @@ public class DefaultPhotoStorageService implements PhotoStorageService {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultPhotoStorageService.class);
 
-    /** Accepted photo extensions (lowercase). Maps to MIME type. */
+    /** Accepted photo extensions (lowercase). */
     private static final List<String> ACCEPTED_EXTENSIONS = List.of(".jpg", ".jpeg", ".png");
 
     private final PhotoStorageConfig config;
@@ -84,7 +86,7 @@ public class DefaultPhotoStorageService implements PhotoStorageService {
     }
 
     // -------------------------------------------------------------------------
-    // AC1 — Upload
+    // Upload
     // -------------------------------------------------------------------------
 
     @Override
@@ -133,7 +135,7 @@ public class DefaultPhotoStorageService implements PhotoStorageService {
     }
 
     // -------------------------------------------------------------------------
-    // AC2 — Retrieve
+    // Retrieve
     // -------------------------------------------------------------------------
 
     @Override
@@ -169,7 +171,7 @@ public class DefaultPhotoStorageService implements PhotoStorageService {
     }
 
     // -------------------------------------------------------------------------
-    // AC3 — Delete
+    // Delete
     // -------------------------------------------------------------------------
 
     @Override
@@ -200,7 +202,7 @@ public class DefaultPhotoStorageService implements PhotoStorageService {
     }
 
     // -------------------------------------------------------------------------
-    // AC4 — hasPhoto (no tournament/team validation — caller already validated)
+    // hasPhoto (no tournament/team validation — caller already validated)
     // -------------------------------------------------------------------------
 
     @Override
@@ -215,13 +217,8 @@ public class DefaultPhotoStorageService implements PhotoStorageService {
     /**
      * Returns the canonical filesystem path for a team photo with the given extension.
      *
-     * <p>AC5: path is {@code {dataDir}/{tournamentId}/{teamId}.{ext}}. Both UUID and extension are
-     * safe path components — no path traversal possible.
-     *
-     * @param tournamentId tournament UUID
-     * @param teamId team UUID
-     * @param ext file extension including dot (e.g. {@code .jpg})
-     * @return absolute filesystem path
+     * <p>Path is {@code {dataDir}/{tournamentId}/{teamId}.{ext}}. Both UUID and extension are safe
+     * path components — no path traversal possible.
      */
     private Path photoFilePath(UUID tournamentId, UUID teamId, String ext) {
         return Path.of(config.getDataDir())
@@ -232,12 +229,8 @@ public class DefaultPhotoStorageService implements PhotoStorageService {
     /**
      * Scans the tournament directory for any existing photo file for the given team.
      *
-     * <p>A team can have at most one photo; the extension may vary (.jpg, .jpeg, .png). This method
-     * returns the first matching file found.
-     *
-     * @param tournamentId tournament UUID
-     * @param teamId team UUID
-     * @return the path to the photo file, or empty if none found
+     * <p>A team can have at most one photo; the extension may vary (.jpg, .jpeg, .png).
+     * Returns the first matching file found.
      */
     private Optional<Path> findPhotoPath(UUID tournamentId, UUID teamId) {
         Path dir = Path.of(config.getDataDir()).resolve(tournamentId.toString());
@@ -259,9 +252,6 @@ public class DefaultPhotoStorageService implements PhotoStorageService {
      *
      * <p>Called before upload to ensure only one photo per team per tournament exists, even if the
      * extension changes (e.g. replacing a .jpg with a .png).
-     *
-     * @param tournamentId tournament UUID
-     * @param teamId team UUID
      */
     private void deleteExistingPhoto(UUID tournamentId, UUID teamId) {
         Optional<Path> maybePath = findPhotoPath(tournamentId, teamId);
@@ -286,7 +276,6 @@ public class DefaultPhotoStorageService implements PhotoStorageService {
     /**
      * Ensures the tournament photo directory exists, creating it if necessary.
      *
-     * @param file the target file path (its parent directory will be created)
      * @throws PhotoStorageException if directory creation fails
      */
     private void ensureParentDirectory(Path file) {
@@ -308,9 +297,8 @@ public class DefaultPhotoStorageService implements PhotoStorageService {
     /**
      * Validates that the original filename ends with an accepted image extension.
      *
-     * <p>AC7: Only .jpg, .jpeg, and .png are accepted (case-insensitive).
+     * <p>Only .jpg, .jpeg, and .png are accepted (case-insensitive).
      *
-     * @param filename the original client-provided filename
      * @throws PhotoFormatException if the extension is not accepted
      */
     private void validateFormat(String filename) {
@@ -332,10 +320,8 @@ public class DefaultPhotoStorageService implements PhotoStorageService {
     /**
      * Validates the declared file size against the configured limit.
      *
-     * <p>AC7: files exceeding the configured limit (default 5 MB) are rejected with HTTP 400.
+     * <p>Files exceeding the configured limit (default 5 MB) are rejected.
      *
-     * @param sizeBytes declared file size in bytes
-     * @param filename original filename (for the error message)
      * @throws PhotoSizeException if the size exceeds the limit
      */
     private void validateSize(long sizeBytes, String filename) {
@@ -358,11 +344,7 @@ public class DefaultPhotoStorageService implements PhotoStorageService {
     /**
      * Resolves the file extension from the original filename.
      *
-     * <p>Returns the normalized lowercase extension including the leading dot. Both {@code .jpg}
-     * and {@code .jpeg} are preserved as-is for content-type detection.
-     *
-     * @param filename the original client filename (already validated by {@link #validateFormat})
-     * @return the lowercase extension (e.g. {@code .jpg}, {@code .jpeg}, {@code .png})
+     * <p>Returns the normalized lowercase extension including the leading dot.
      */
     private String resolveExtension(String filename) {
         String lower = filename.toLowerCase();
@@ -374,7 +356,6 @@ public class DefaultPhotoStorageService implements PhotoStorageService {
     /**
      * Derives the MIME type from the file extension of the given path.
      *
-     * @param file the stored photo file path
      * @return {@code image/jpeg} or {@code image/png}
      */
     private String mimeTypeFromPath(Path file) {
@@ -382,18 +363,16 @@ public class DefaultPhotoStorageService implements PhotoStorageService {
         if (name.endsWith(".png")) {
             return "image/png";
         }
-        // .jpg and .jpeg both map to image/jpeg (AC2)
+        // .jpg and .jpeg both map to image/jpeg
         return "image/jpeg";
     }
 
     /**
      * Validates that the tournament exists and belongs to the active tenant.
      *
-     * <p>AC10, DEC-5, DEC-17: uses {@link TournamentRepository#findById} which is tenant-scoped.
-     * Returns empty if the tournament does not exist OR belongs to a different tenant — both
-     * produce 404 (no tenant enumeration).
+     * <p>Uses {@link TournamentRepository#findById} which is tenant-scoped. Returns empty if the
+     * tournament does not exist OR belongs to a different tenant — both produce 404.
      *
-     * @param tournamentId the tournament UUID to validate
      * @throws NoSuchElementException if tournament not found or not in active tenant
      */
     private void requireTournamentInTenant(UUID tournamentId) {
@@ -406,18 +385,17 @@ public class DefaultPhotoStorageService implements PhotoStorageService {
     /**
      * Validates that the team exists and belongs to the given tournament (and active tenant).
      *
-     * <p>AC8, DEC-5, DEC-17: uses {@link TeamRepository#findById} which is tenant-scoped.
-     * Additionally verifies the team belongs to the given tournament.
+     * <p>Uses {@link TeamRepository#findById} which is tenant-scoped. Additionally verifies the
+     * team belongs to the given tournament.
      *
-     * @param tournamentId the tournament UUID
-     * @param teamId the team UUID to validate
      * @throws NoSuchElementException if team not found, wrong tenant, or wrong tournament
      */
     private void requireTeamInTournament(UUID tournamentId, UUID teamId) {
         Team team =
                 teamRepository
                         .findById(teamId)
-                        .orElseThrow(() -> new NoSuchElementException("Team not found: " + teamId));
+                        .orElseThrow(
+                                () -> new NoSuchElementException("Team not found: " + teamId));
         if (!tournamentId.equals(team.getTournamentId())) {
             throw new NoSuchElementException(
                     "Team " + teamId + " does not belong to tournament " + tournamentId);
@@ -427,8 +405,6 @@ public class DefaultPhotoStorageService implements PhotoStorageService {
     /**
      * Reads the size of a file.
      *
-     * @param file the file path
-     * @return the file size in bytes
      * @throws PhotoStorageException if reading the size fails
      */
     private long readSize(Path file) {
@@ -443,8 +419,6 @@ public class DefaultPhotoStorageService implements PhotoStorageService {
     /**
      * Reads the last-modified timestamp of a file.
      *
-     * @param file the file path
-     * @return the last-modified instant
      * @throws PhotoStorageException if reading the timestamp fails
      */
     private Instant readLastModified(Path file) {

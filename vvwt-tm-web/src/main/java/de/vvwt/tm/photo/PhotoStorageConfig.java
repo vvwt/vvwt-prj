@@ -4,18 +4,22 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 /**
- * Configuration properties for team photo file storage (E12S02, E23S01).
+ * Configuration properties for team photo file storage (E36S01 Q-1a TDD rebuild).
  *
- * <p>Relocated from {@code de.vvwt.tm.domain.photo.PhotoStorageConfig} to the canonical {@code
- * de.vvwt.tm.photo} Modulith module per DEC-21, DEC-35 (config in public package), and E23S01. The
- * legacy package {@code de.vvwt.tm.domain.photo} remains on the classpath until E23S05 Cutover-1.
+ * <p>Rebuilt from deleted Q-1b artefact at the same canonical FQN ({@code de.vvwt.tm.photo})
+ * per Brief D-7 Option γ. Getter/setter signatures and property namespace preserved verbatim
+ * per AC-CONFIG-BINDING-PRESERVED: namespace {@code tm.photos}, bean name
+ * {@code "photoModuleStorageConfig"}, fields {@code dataDir} and {@code maxSizeBytes}.
  *
  * <p>Bound to the {@code tm.photos} property namespace in {@code application.yml}. The property
- * namespace is unchanged by the relocation (AC-PACKAGE-INFO-CREATED: config class moves but
- * property namespace preserved verbatim).
+ * namespace is unchanged by the rebuild (AC-CONFIG-BINDING-PRESERVED: namespace preserved
+ * verbatim). Default {@code maxSizeBytes} = 5 MB preserved.
  *
  * <p>DEC-15: the data directory must be outside the jlink archive (read-only at runtime). Photo
  * files are stored in a user-writable location on the host filesystem.
+ *
+ * <p>Historical provenance: originally E12S02; relocated to this module by E23S01 (Q-1b);
+ * rebuilt Q-1a RED-first by E36S01 per DEC-22 Iron Law + DEC-41 §3 hierarchy clause (1).
  *
  * <p>Example override:
  *
@@ -26,7 +30,7 @@ import org.springframework.stereotype.Component;
  * </pre>
  *
  * @see PhotoStorageService
- * @since E12S02
+ * @since E36S01
  */
 @Component("photoModuleStorageConfig")
 @ConfigurationProperties(prefix = "tm.photos")
@@ -36,16 +40,16 @@ public class PhotoStorageConfig {
      * Root directory for team photo storage. Subdirectories are created automatically per
      * tournament: {@code {dataDir}/{tournamentId}/{teamId}.{ext}}.
      *
-     * <p>Default: {@code ${user.home}/.tournament-manager/photos}. Override via {@code
-     * TM_PHOTOS_DATA_DIR} env var or {@code -Dtm.photos.data-dir}.
+     * <p>Default: {@code ${user.home}/.tournament-manager/photos}. Override via
+     * {@code -Dtm.photos.data-dir}.
      */
     private String dataDir;
 
     /**
      * Maximum allowed photo upload size in bytes.
      *
-     * <p>AC7: uploads exceeding this limit are rejected with HTTP 400. Default: 5 MB (5242880
-     * bytes). Override via {@code -Dtm.photos.max-size-bytes}.
+     * <p>Uploads exceeding this limit are rejected with {@link PhotoSizeException}. Default: 5 MB
+     * (5242880 bytes). Override via {@code -Dtm.photos.max-size-bytes}.
      */
     private long maxSizeBytes = 5L * 1024 * 1024;
 

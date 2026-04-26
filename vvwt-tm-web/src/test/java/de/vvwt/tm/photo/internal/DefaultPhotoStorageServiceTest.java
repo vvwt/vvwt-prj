@@ -8,6 +8,7 @@ import de.vvwt.tm.photo.PhotoFileMetadata;
 import de.vvwt.tm.photo.PhotoFormatException;
 import de.vvwt.tm.photo.PhotoSizeException;
 import de.vvwt.tm.photo.PhotoStorageConfig;
+import de.vvwt.tm.photo.PhotoStorageException;
 import de.vvwt.tm.photo.PhotoStorageService;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamRepository;
@@ -16,6 +17,7 @@ import de.vvwt.tm.tournament.TournamentRepository;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.file.Path;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,29 +27,28 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mockito;
 
 /**
- * Unit tests for {@link DefaultPhotoStorageService} (E12S02, E23S01).
+ * Q-1a TDD RED-first unit tests for {@link DefaultPhotoStorageService} (E36S01).
  *
- * <p>Relocated from {@code de.vvwt.tm.domain.photo.PhotoStorageServiceImplTest}. Serves as the
- * regression gate for the Q-1b whole-class relocation per DEC-22 §refactor-clause
- * (AC-TESTING-QB-NO-RED). No new RED-first tests are required for the relocation itself; the
- * relocated test suite must remain GREEN.
+ * <p>This test suite replaces the deleted Snapshot-Driven {@code DefaultPhotoStorageServiceTest}
+ * (E23S01). Per DEC-41 §3 hierarchy clause (1): all tests are authored RED-first against absent
+ * implementation code. The delete commit {@code 922ab1d} established the global RED baseline —
+ * this file was written while the implementation classes were absent.
  *
- * <p>This test class is in the SAME Java package as {@link DefaultPhotoStorageService} ({@code
- * de.vvwt.tm.photo.internal}). Per DEC-36, same-package tests MAY white-box reference the concrete
- * implementation class. The DEC-36 rule for different-package tests applies to cross-module
- * consumers of {@link de.vvwt.tm.photo.PhotoStorageService} (the public interface), not to this
- * same-package regression gate.
+ * <p>Per DEC-36, this test class is in the SAME Java package as {@link DefaultPhotoStorageService}
+ * ({@code de.vvwt.tm.photo.internal}). Same-package tests MAY white-box reference the concrete
+ * implementation class — no cross-package DEC-36 constraint applies here.
  *
- * <p>Verifies validation logic, filesystem storage, and error paths without requiring a Spring
- * context or real database — dependencies are mocked.
+ * <p>Tests cover: upload/retrieve/delete/hasPhoto/format-validation/size-validation/
+ * unknown-entity paths (21 test methods) per AC-DEC41-FRESH-RED-FIRST-TESTS.
  *
  * @see DefaultPhotoStorageService
- * @since E12S02
+ * @since E36S01
  */
-@DisplayName("DefaultPhotoStorageService unit tests — E12S02 / E23S01")
+@DisplayName("DefaultPhotoStorageService — Q-1a TDD unit tests (E36S01)")
 class DefaultPhotoStorageServiceTest {
 
-    @TempDir Path tempDir;
+    @TempDir
+    Path tempDir;
 
     private PhotoStorageConfig config;
     private TournamentRepository tournamentRepo;
@@ -63,14 +64,13 @@ class DefaultPhotoStorageServiceTest {
     void setUp() {
         config = new PhotoStorageConfig();
         config.setDataDir(tempDir.toString());
-        config.setMaxSizeBytes(5L * 1024 * 1024); // 5 MB
+        config.setMaxSizeBytes(5L * 1024 * 1024);
 
         tournamentRepo = Mockito.mock(TournamentRepository.class);
         teamRepo = Mockito.mock(TeamRepository.class);
 
         service = new DefaultPhotoStorageService(config, tournamentRepo, teamRepo);
 
-        // Default: valid tournament and team
         Tournament tournament = Mockito.mock(Tournament.class);
         when(tournamentRepo.findById(TOURNAMENT_ID)).thenReturn(Optional.of(tournament));
 
@@ -78,6 +78,21 @@ class DefaultPhotoStorageServiceTest {
         team.setId(TEAM_ID);
         team.setTournamentId(TOURNAMENT_ID);
         when(teamRepo.findById(TEAM_ID)).thenReturn(Optional.of(team));
+    }
+
+    // =========================================================================
+    // PhotoFileMetadata record — field order, types, names
+    // =========================================================================
+
+    @Test
+    @DisplayName("PhotoFileMetadata record has (filename, sizeBytes, uploadedAt) constructor")
+    void photoFileMetadataRecordConstructor() {
+        // AC-RECORD-FIELDS-PRESERVED: canonical constructor verbatim
+        java.time.Instant now = java.time.Instant.now();
+        PhotoFileMetadata meta = new PhotoFileMetadata("photo.jpg", 1024L, now);
+        assertThat(meta.filename()).isEqualTo("photo.jpg");
+        assertThat(meta.sizeBytes()).isEqualTo(1024L);
+        assertThat(meta.uploadedAt()).isEqualTo(now);
     }
 
     // =========================================================================
@@ -140,12 +155,11 @@ class DefaultPhotoStorageServiceTest {
                         newContent.length);
 
         assertThat(result.sizeBytes()).isEqualTo(newContent.length);
-        // Only one photo should exist after replacement
         assertThat(service.hasPhoto(TOURNAMENT_ID, TEAM_ID)).isTrue();
     }
 
     // =========================================================================
-    // AC7 — Validation
+    // AC7 — Format and size validation
     // =========================================================================
 
     @Test
@@ -201,17 +215,16 @@ class DefaultPhotoStorageServiceTest {
         PhotoFileMetadata result =
                 service.upload(
                         TOURNAMENT_ID, TEAM_ID, "edge.jpg", inputStream(SAMPLE_JPEG), exactLimit);
-        // size reported from filesystem — 4 bytes actually written
         assertThat(result).isNotNull();
     }
 
     // =========================================================================
-    // AC8 — Unknown tournament/team → NoSuchElementException
+    // AC8 — Unknown tournament / team → NoSuchElementException
     // =========================================================================
 
     @Test
-    @DisplayName("AC8: unknown tournament → NoSuchElementException")
-    void unknownTournamentThrows() {
+    @DisplayName("AC8: unknown tournament → NoSuchElementException on upload")
+    void unknownTournamentThrowsOnUpload() {
         UUID unknownTournament = UUID.randomUUID();
         when(tournamentRepo.findById(unknownTournament)).thenReturn(Optional.empty());
 
@@ -223,12 +236,12 @@ class DefaultPhotoStorageServiceTest {
                                         "p.jpg",
                                         inputStream(SAMPLE_JPEG),
                                         SAMPLE_JPEG.length))
-                .isInstanceOf(java.util.NoSuchElementException.class);
+                .isInstanceOf(NoSuchElementException.class);
     }
 
     @Test
-    @DisplayName("AC8: unknown team → NoSuchElementException")
-    void unknownTeamThrows() {
+    @DisplayName("AC8: unknown team → NoSuchElementException on upload")
+    void unknownTeamThrowsOnUpload() {
         UUID unknownTeam = UUID.randomUUID();
         when(teamRepo.findById(unknownTeam)).thenReturn(Optional.empty());
 
@@ -240,7 +253,7 @@ class DefaultPhotoStorageServiceTest {
                                         "p.jpg",
                                         inputStream(SAMPLE_JPEG),
                                         SAMPLE_JPEG.length))
-                .isInstanceOf(java.util.NoSuchElementException.class);
+                .isInstanceOf(NoSuchElementException.class);
     }
 
     @Test
@@ -249,7 +262,6 @@ class DefaultPhotoStorageServiceTest {
         UUID otherTournament = UUID.randomUUID();
         Tournament otherTmt = Mockito.mock(Tournament.class);
         when(tournamentRepo.findById(otherTournament)).thenReturn(Optional.of(otherTmt));
-        // TEAM_ID belongs to TOURNAMENT_ID, not otherTournament
 
         assertThatThrownBy(
                         () ->
@@ -259,7 +271,7 @@ class DefaultPhotoStorageServiceTest {
                                         "p.jpg",
                                         inputStream(SAMPLE_JPEG),
                                         SAMPLE_JPEG.length))
-                .isInstanceOf(java.util.NoSuchElementException.class);
+                .isInstanceOf(NoSuchElementException.class);
     }
 
     // =========================================================================
@@ -297,6 +309,20 @@ class DefaultPhotoStorageServiceTest {
     void retrieveEmptyWhenNoPhoto() {
         Optional<PhotoStorageService.PhotoResult> result = service.retrieve(TOURNAMENT_ID, TEAM_ID);
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("AC2: retrieve returns metadata with filename and size")
+    void retrieveReturnsMetadata() throws Exception {
+        service.upload(
+                TOURNAMENT_ID, TEAM_ID, "t.jpg", inputStream(SAMPLE_JPEG), SAMPLE_JPEG.length);
+
+        Optional<PhotoStorageService.PhotoResult> result = service.retrieve(TOURNAMENT_ID, TEAM_ID);
+
+        assertThat(result).isPresent();
+        assertThat(result.get().metadata()).isNotNull();
+        assertThat(result.get().metadata().sizeBytes()).isEqualTo(SAMPLE_JPEG.length);
+        result.get().inputStream().close();
     }
 
     // =========================================================================
@@ -347,6 +373,45 @@ class DefaultPhotoStorageServiceTest {
                 TOURNAMENT_ID, TEAM_ID, "t.jpg", inputStream(SAMPLE_JPEG), SAMPLE_JPEG.length);
         service.delete(TOURNAMENT_ID, TEAM_ID);
         assertThat(service.hasPhoto(TOURNAMENT_ID, TEAM_ID)).isFalse();
+    }
+
+    // =========================================================================
+    // AC-EXCEPTION-CONSTRUCTORS-PRESERVED
+    // =========================================================================
+
+    @Test
+    @DisplayName("PhotoStorageException: two-arg constructor (message, cause) compiles and works")
+    void photoStorageExceptionTwoArgConstructor() {
+        Throwable cause = new RuntimeException("io error");
+        PhotoStorageException ex = new PhotoStorageException("failed", cause);
+        assertThat(ex.getMessage()).isEqualTo("failed");
+        assertThat(ex.getCause()).isSameAs(cause);
+    }
+
+    @Test
+    @DisplayName("PhotoStorageException: single-arg constructor (message) compiles and works")
+    void photoStorageExceptionSingleArgConstructor() {
+        PhotoStorageException ex = new PhotoStorageException("failed");
+        assertThat(ex.getMessage()).isEqualTo("failed");
+        assertThat(ex.getCause()).isNull();
+    }
+
+    // =========================================================================
+    // AC-CONFIG-BINDING-PRESERVED
+    // =========================================================================
+
+    @Test
+    @DisplayName("PhotoStorageConfig: getter/setter pairs and defaults preserved")
+    void photoStorageConfigGetterSetterPreserved() {
+        PhotoStorageConfig cfg = new PhotoStorageConfig();
+        // Default maxSizeBytes = 5 MB
+        assertThat(cfg.getMaxSizeBytes()).isEqualTo(5L * 1024 * 1024);
+        // setDataDir / getDataDir round-trip
+        cfg.setDataDir("/tmp/photos");
+        assertThat(cfg.getDataDir()).isEqualTo("/tmp/photos");
+        // setMaxSizeBytes / getMaxSizeBytes round-trip
+        cfg.setMaxSizeBytes(10_000_000L);
+        assertThat(cfg.getMaxSizeBytes()).isEqualTo(10_000_000L);
     }
 
     // =========================================================================

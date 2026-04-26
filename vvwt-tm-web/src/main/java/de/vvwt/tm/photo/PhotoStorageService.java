@@ -5,36 +5,41 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Port for tournament-scoped team photo storage (E12S02, E23S01).
+ * Port for tournament-scoped team photo storage (E36S01 Q-1a TDD rebuild).
  *
- * <p>Relocated from {@code de.vvwt.tm.domain.photo.PhotoStorageService} to the canonical {@code
- * de.vvwt.tm.photo} Modulith module per DEC-21, DEC-35 (interface in public package), and E23S01.
- * The legacy package {@code de.vvwt.tm.domain.photo} remains on the classpath until E23S05
- * Cutover-1 (DEC-21 parallel-phase coexistence).
+ * <p>Rebuilt from deleted Q-1b artefact at the same canonical FQN ({@code de.vvwt.tm.photo})
+ * per Brief D-7 Option γ. Interface method signatures preserved verbatim per
+ * AC-C3-SIGNATURE-PRESERVATION and AC-CONSUMER-IMPORTS-UNCHANGED.
  *
- * <h2>Tenant scoping (AC10, DEC-5, DEC-17)</h2>
+ * <p>Consumers ({@code TeamPhotoController}, {@code DefaultCertificateAssembler},
+ * {@code WebModuleTestConfig}) retain their existing import statements unchanged — the FQN
+ * is identical (Option γ same-FQN guarantee per Brief C-2).
+ *
+ * <h2>Tenant scoping (DEC-5, DEC-17)</h2>
  *
  * <p>Every method validates that the given tournament belongs to the active tenant via the
- * tenant-scoped {@link de.vvwt.tm.tournament.TournamentRepository}. Methods that also reference a
- * team validate team membership in the tournament via the tenant-scoped {@link
- * de.vvwt.tm.tournament.TeamRepository}.
+ * tenant-scoped {@link de.vvwt.tm.tournament.TournamentRepository}. Methods that also reference
+ * a team validate team membership in the tournament via the tenant-scoped
+ * {@link de.vvwt.tm.tournament.TeamRepository}.
  *
- * <h2>Filesystem persistence (AC5, DEC-14, DEC-15)</h2>
+ * <h2>Filesystem persistence (DEC-14, DEC-15)</h2>
  *
- * <p>Photos are stored as files at {@code {dataDir}/{tournamentId}/{teamId}.{ext}} per AC5. No H2
- * table is introduced. The data directory is configurable via {@link PhotoStorageConfig} per
- * DEC-15.
+ * <p>Photos are stored as files at {@code {dataDir}/{tournamentId}/{teamId}.{ext}}.
+ * No H2 table is introduced. The data directory is configurable via {@link PhotoStorageConfig}.
+ *
+ * <p>Historical provenance: originally E12S02; relocated to this module by E23S01 (Q-1b);
+ * rebuilt Q-1a RED-first by E36S01 per DEC-22 Iron Law + DEC-41 §3 hierarchy clause (1).
  *
  * @see de.vvwt.tm.photo.internal.DefaultPhotoStorageService
  * @see PhotoStorageConfig
- * @since E12S02
+ * @since E36S01
  */
 public interface PhotoStorageService {
 
     /**
      * Stores a photo for the given team in the given tournament.
      *
-     * <p>AC1: Replaces any existing photo. Returns photo metadata on success.
+     * <p>Replaces any existing photo. Returns photo metadata on success.
      *
      * @param tournamentId tournament UUID (tenant-scoped)
      * @param teamId team UUID (must belong to the tournament)
@@ -43,9 +48,9 @@ public interface PhotoStorageService {
      * @param sizeBytes declared file size (validated against configured limit)
      * @return metadata for the stored photo
      * @throws java.util.NoSuchElementException if tournament or team not found / wrong tenant
-     * @throws PhotoSizeException if {@code sizeBytes} exceeds the configured limit (AC7)
-     * @throws PhotoFormatException if the filename does not end with .jpg, .jpeg, or .png (AC7)
-     * @throws PhotoStorageException on filesystem I/O failure (AC8)
+     * @throws PhotoSizeException if {@code sizeBytes} exceeds the configured limit
+     * @throws PhotoFormatException if the filename does not end with .jpg, .jpeg, or .png
+     * @throws PhotoStorageException on filesystem I/O failure
      */
     PhotoFileMetadata upload(
             UUID tournamentId,
@@ -57,8 +62,8 @@ public interface PhotoStorageService {
     /**
      * Returns the stored photo for the given team if one exists.
      *
-     * <p>AC2: The caller is responsible for closing the returned {@link InputStream}. Returns empty
-     * if no photo has been uploaded for this team.
+     * <p>The caller is responsible for closing the returned {@link InputStream}. Returns empty if
+     * no photo has been uploaded for this team.
      *
      * @param tournamentId tournament UUID (tenant-scoped)
      * @param teamId team UUID (must belong to the tournament)
@@ -71,7 +76,7 @@ public interface PhotoStorageService {
     /**
      * Deletes the photo for the given team.
      *
-     * <p>AC3: Returns {@code true} if a photo was deleted; {@code false} if no photo existed.
+     * <p>Returns {@code true} if a photo was deleted; {@code false} if no photo existed.
      *
      * @param tournamentId tournament UUID (tenant-scoped)
      * @param teamId team UUID (must belong to the tournament)
@@ -84,10 +89,8 @@ public interface PhotoStorageService {
     /**
      * Returns whether a photo exists for the given team in the given tournament.
      *
-     * <p>AC4: Used by the team-listing endpoint to populate {@code hasPhoto} without fetching each
-     * photo individually. Does NOT validate tournament/team existence — callers that already have
-     * validated teams call this method directly for efficiency. Returns {@code false} if no file
-     * exists on disk.
+     * <p>Does NOT validate tournament/team existence — callers that already have validated teams
+     * call this method directly for efficiency. Returns {@code false} if no file exists on disk.
      *
      * @param tournamentId tournament UUID
      * @param teamId team UUID

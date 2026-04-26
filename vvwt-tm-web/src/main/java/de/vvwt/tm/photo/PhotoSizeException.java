@@ -1,18 +1,19 @@
 package de.vvwt.tm.photo;
 
 /**
- * Thrown when an uploaded photo exceeds the configured size limit (E12S02 AC7, E23S01).
+ * Thrown when an uploaded photo exceeds the configured size limit (E36S01 Q-1a TDD rebuild).
  *
- * <p>Relocated from {@code de.vvwt.tm.domain.photo.PhotoSizeException} to the canonical {@code
- * de.vvwt.tm.photo} Modulith module per DEC-21, DEC-35 (exceptions in context root per Brief v4
- * D-14), and E23S01. Javadoc and thrown-from semantics preserved verbatim
- * (AC-ERROR-HANDLING-UNCHANGED). The legacy package {@code de.vvwt.tm.domain.photo} remains on the
- * classpath until E23S05 Cutover-1.
+ * <p>Rebuilt from deleted Q-1b artefact at the same canonical FQN ({@code de.vvwt.tm.photo})
+ * per Brief D-7 Option γ. Constructor signature preserved verbatim per
+ * AC-EXCEPTION-CONSTRUCTORS-PRESERVED: {@code (String message)}.
  *
- * <p>Maps to HTTP 400 via {@link de.vvwt.tm.infrastructure.web.GlobalExceptionHandler}.
+ * <p>Maps to HTTP 400 via {@link de.vvwt.tm.web.photo.PhotoExceptionAdvice}.
+ *
+ * <p>Historical provenance: originally E12S02; relocated to this module by E23S01 (Q-1b);
+ * rebuilt Q-1a RED-first by E36S01 per DEC-22 Iron Law + DEC-41 §3 hierarchy clause (1).
  *
  * @see PhotoStorageService
- * @since E12S02
+ * @since E36S01
  */
 public class PhotoSizeException extends RuntimeException {
 
