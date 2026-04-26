@@ -1,0 +1,13 @@
+# Test configuration for vvwt-slotopt-dispatcher
+# @DataJdbcTest slices pick this up when replace=NONE is set.
+# H2 with CASE_INSENSITIVE_IDENTIFIERS to match Spring Data JDBC quoted lowercase names.
+spring:
+  datasource:
+    url: >-
+      jdbc:h2:mem:dispatcher-test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;CASE_INSENSITIVE_IDENTIFIERS=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  flyway:
+    locations: classpath:db/migration/identity
+    enabled: true
