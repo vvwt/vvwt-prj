@@ -23,13 +23,13 @@
  * de.vvwt.tm.photo.PhotoStorageService} reside in {@code de.vvwt.tm.web} per DEC-40
  * (Primary-Adapter-Isolation); they are NOT in this module.
  *
- * <h2>Parallel-phase coexistence (E23S01, DEC-21)</h2>
+ * <h2>History: E23S01 parallel-phase + E36S01 Q-1a rebuild</h2>
  *
- * <p>During the parallel phase (until E23S05 Cutover-1), the legacy {@code
- * de.vvwt.tm.domain.photo.*} package coexists with this module on the classpath. The legacy {@code
- * PhotoStorageServiceImpl} is excluded from the component scan via an {@code excludeFilters}
- * directive on {@code TournamentManagerApplication} (E22S04/E22S05 precedent). This exclusion is
- * REMOVED at E23S05 Cutover-1 when the legacy class is deleted.
+ * <p>E23S01 established this module during the parallel phase (until E23S05 Cutover-1), at which
+ * point the legacy photo domain package was deleted. E36S01 completed the Q-1a TDD rebuild of all
+ * photo-domain artefacts at this canonical FQN (Option γ — delete-then-rebuild at same FQN per
+ * DEC-22 Iron Law). The {@code @ComponentScan} exclusion introduced during parallel-phase was
+ * removed at E23S05 Cutover-1.
  *
  * <p>Authorizing decisions: DEC-21 (Spring Modulith layout), DEC-35 (service interface in public
  * package, implementation in {@code .internal}; {@code Default*Service} naming canon), DEC-40
