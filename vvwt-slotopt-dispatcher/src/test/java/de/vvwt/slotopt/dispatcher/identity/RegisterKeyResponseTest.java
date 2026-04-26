@@ -22,8 +22,8 @@ class RegisterKeyResponseTest {
         String algorithm = "Ed25519";
         Instant registeredAt = Instant.parse("2026-04-26T10:00:00Z");
 
-        RegisterKeyResponse response = new RegisterKeyResponse(workerId, role, algorithm,
-                registeredAt);
+        RegisterKeyResponse response =
+                new RegisterKeyResponse(workerId, role, algorithm, registeredAt);
 
         assertThat(response.workerId()).isEqualTo(workerId);
         assertThat(response.role()).isEqualTo(role);

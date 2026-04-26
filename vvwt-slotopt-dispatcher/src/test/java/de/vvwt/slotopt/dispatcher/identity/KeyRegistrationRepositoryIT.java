@@ -125,11 +125,16 @@ class KeyRegistrationRepositoryIT {
                 dataSource,
                 "key_registration",
                 Map.of(
-                        "worker_id", workerId.toString(),
-                        "algorithm", "Ed25519",
-                        "public_key_bytes", new byte[32],
-                        "role", "worker",
-                        "registered_at", registeredAt));
+                        "worker_id",
+                        workerId.toString(),
+                        "algorithm",
+                        "Ed25519",
+                        "public_key_bytes",
+                        new byte[32],
+                        "role",
+                        "worker",
+                        "registered_at",
+                        registeredAt));
 
         Optional<KeyRegistration> found = repository.findByWorkerId(workerId);
 

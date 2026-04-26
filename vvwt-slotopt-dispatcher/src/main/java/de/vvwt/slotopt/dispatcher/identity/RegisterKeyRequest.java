@@ -5,8 +5,9 @@ import java.util.UUID;
 /**
  * HTTP request body for {@code POST /api/register-key}.
  *
- * <p>JSON field names match the E37S02 spec section (b) verbatim per AC-REGISTER-KEY-REQUEST-RESPONSE
- * (E37S05). Jackson serializes/deserializes using the record component names.
+ * <p>JSON field names match the E37S02 spec section (b) verbatim per
+ * AC-REGISTER-KEY-REQUEST-RESPONSE (E37S05). Jackson serializes/deserializes using the record
+ * component names.
  *
  * <p>The {@code algorithm} field is REQUIRED (per Brief D-2 + D-6; backward-compat clause applies
  * only to {@code supportedAlgorithms[]} on pull-packet, NOT to this field).

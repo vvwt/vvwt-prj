@@ -12,8 +12,8 @@ import org.springframework.data.relational.core.mapping.Table;
  * the public surface. Records would require wither-pattern propagation through all mutation sites.
  *
  * <p>Schema per AC-KEY-REGISTRATION-ENTITY (E37S05) + C-12 lock: single row per {@code worker_id}
- * (UNIQUE constraint). {@code publicKeyBytes} is VARBINARY(8192) per C-19 to accommodate future
- * PQC public key sizes.
+ * (UNIQUE constraint). {@code publicKeyBytes} is VARBINARY(8192) per C-19 to accommodate future PQC
+ * public key sizes.
  *
  * <p>Role values are the concrete strings from E37S02 spec section (b): {@code "worker"} and {@code
  * "submitter"}.
@@ -27,7 +27,9 @@ public class KeyRegistration {
 
     private UUID workerId;
 
-    /** Canonical algorithm identifier (e.g., {@code "Ed25519"}) per DEC-43. NOT NULL, VARCHAR 32. */
+    /**
+     * Canonical algorithm identifier (e.g., {@code "Ed25519"}) per DEC-43. NOT NULL, VARCHAR 32.
+     */
     private String algorithm;
 
     /** Raw public key bytes. Variable length, max 8192 bytes per C-19. */

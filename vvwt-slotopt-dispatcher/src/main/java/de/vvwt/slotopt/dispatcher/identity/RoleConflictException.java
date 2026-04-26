@@ -41,17 +41,23 @@ public class RoleConflictException extends RuntimeException {
         this.requestedRole = requestedRole;
     }
 
-    /** @return the worker ID involved in the conflict */
+    /**
+     * @return the worker ID involved in the conflict
+     */
     public UUID getWorkerId() {
         return workerId;
     }
 
-    /** @return the existing role already registered for this worker ID */
+    /**
+     * @return the existing role already registered for this worker ID
+     */
     public String getExistingRole() {
         return existingRole;
     }
 
-    /** @return the role the client attempted to register as */
+    /**
+     * @return the role the client attempted to register as
+     */
     public String getRequestedRole() {
         return requestedRole;
     }
