@@ -133,10 +133,11 @@ public class OptimizerWorkerMain {
                     config.dispatcherUrl());
         }
 
-        // AC2: initialize keypair
+        // AC2: initialize keypair (V1 algorithm: Ed25519 per DEC-6 + E37S03
+        // AC-WORKERKEYMANAGER-ALGORITHMID)
         WorkerKeyManager keyManager;
         try {
-            keyManager = new DefaultWorkerKeyManager(config.dataDir(), ROOT_LOGGER);
+            keyManager = new DefaultWorkerKeyManager(config.dataDir(), "Ed25519", ROOT_LOGGER);
         } catch (Exception e) {
             log.error(
                     "keypair-error",

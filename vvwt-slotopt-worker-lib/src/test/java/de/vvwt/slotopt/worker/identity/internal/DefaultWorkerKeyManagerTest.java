@@ -34,8 +34,9 @@ import org.slf4j.Logger;
  * (E35S01 audit classified all 19 methods as Snapshot-Driven).
  *
  * <p>E37S03 additions: algorithmId() method, D-4 file-naming convention, D-4 startup mismatch
- * scenarios (clean-other-only, mixed-state, configured-only). File naming changed from
- * {@code optimizer-worker.key/pub} to {@code worker-{algorithmId}.key/pub} per AC-D4-FILE-NAMING-CONVENTION.
+ * scenarios (clean-other-only, mixed-state, configured-only). File naming changed from {@code
+ * optimizer-worker.key/pub} to {@code worker-{algorithmId}.key/pub} per
+ * AC-D4-FILE-NAMING-CONVENTION.
  *
  * <p>See E35S02, E37S03, DEC-22, DEC-36, DEC-41.
  */

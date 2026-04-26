@@ -9,9 +9,9 @@ import org.junit.jupiter.api.Test;
 /**
  * Cross-package contract test for {@link WorkerCapabilityProvider}.
  *
- * <p>Per DEC-36: this test is in a different package from the implementation
- * ({@code de.vvwt.slotopt.worker.identity} vs {@code de.vvwt.slotopt.worker.identity.internal}),
- * so the subject is referenced via the public interface type {@link WorkerCapabilityProvider}.
+ * <p>Per DEC-36: this test is in a different package from the implementation ({@code
+ * de.vvwt.slotopt.worker.identity} vs {@code de.vvwt.slotopt.worker.identity.internal}), so the
+ * subject is referenced via the public interface type {@link WorkerCapabilityProvider}.
  *
  * <p>Validates the contract that any {@link WorkerCapabilityProvider} implementation must satisfy.
  *
@@ -22,8 +22,8 @@ class WorkerCapabilityProviderContractTest {
     /**
      * Contract: supportedAlgorithms() must return a non-null, non-empty set.
      *
-     * <p>References the subject via the public {@link WorkerCapabilityProvider} interface type
-     * per DEC-36 cross-package test typing rule.
+     * <p>References the subject via the public {@link WorkerCapabilityProvider} interface type per
+     * DEC-36 cross-package test typing rule.
      */
     @Test
     void supportedAlgorithmsIsNonNullAndNonEmpty() {

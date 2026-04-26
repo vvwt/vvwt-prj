@@ -1,10 +1,12 @@
 package de.vvwt.slotopt.worker.identity.internal;
 
 import de.vvwt.slotopt.worker.identity.KeyRotationResult;
+import de.vvwt.slotopt.worker.identity.MixedAlgorithmKeysException;
 import de.vvwt.slotopt.worker.identity.WorkerKeyCorruptException;
 import de.vvwt.slotopt.worker.identity.WorkerKeyGenerationException;
 import de.vvwt.slotopt.worker.identity.WorkerKeyManager;
 import java.io.IOException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -28,6 +30,7 @@ import java.security.SignatureException;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HexFormat;
 import java.util.List;
@@ -37,8 +40,25 @@ import org.slf4j.Logger;
 /**
  * Default implementation of {@link WorkerKeyManager}.
  *
- * <p>Manages the per-installation Ed25519 keypair for a worker node. On construction, either
- * generates a new keypair or loads the existing one from the given {@code dataDir}.
+ * <p>Manages the per-installation keypair for a worker node. On construction, either generates a
+ * new keypair or loads the existing one from the given {@code dataDir}. The keypair files are named
+ * {@code worker-{algorithmId}.key} (PKCS#8 DER) and {@code worker-{algorithmId}.pub}
+ * (SubjectPublicKeyInfo DER), enabling multi-algorithm coexistence detection at startup.
+ *
+ * <h2>D-4 Startup Mismatch Mechanic</h2>
+ *
+ * <p>At construction time, the data directory is scanned for keypair files from other algorithms
+ * (files matching {@code worker-*.key}, excluding {@code *.new} temporaries):
+ *
+ * <ul>
+ *   <li><strong>Clean-other-only:</strong> files for another algorithm present, none for configured
+ *       algorithm; log WARNING, delete old files, generate fresh keypair, {@link
+ *       #isNewRegistrationRequired()} returns {@code true}.
+ *   <li><strong>Mixed-state:</strong> files for BOTH the configured algorithm AND another algorithm
+ *       present; throw {@link MixedAlgorithmKeysException}; operator must intervene.
+ *   <li><strong>Configured-only or fresh:</strong> only configured algorithm files present (or no
+ *       files); normal startup; {@link #isNewRegistrationRequired()} returns {@code false}.
+ * </ul>
  *
  * <h2>Thread safety</h2>
  *
@@ -46,14 +66,10 @@ import org.slf4j.Logger;
  * be called concurrently. The expected usage pattern is single-threaded initialisation on worker
  * startup.
  *
- * <p>See Stories E01S04, E35S02 and DEC-6, DEC-35 (by-analogy: non-Spring interface extraction),
- * DEC-22 (TDD Iron Law).
+ * <p>See Stories E01S04, E35S02, E37S03 and DEC-6, DEC-35 (by-analogy: non-Spring interface
+ * extraction), DEC-22 (TDD Iron Law).
  */
 public final class DefaultWorkerKeyManager implements WorkerKeyManager {
-
-    private static final String PRIVATE_KEY_FILENAME = "optimizer-worker.key";
-    private static final String PUBLIC_KEY_FILENAME = "optimizer-worker.pub";
-    private static final String KEY_NEW_FILENAME = "optimizer-worker.key.new";
 
     private static final String KEY_ALGORITHM = "Ed25519";
     private static final String SIGN_ALGORITHM = "Ed25519";
@@ -69,38 +85,48 @@ public final class DefaultWorkerKeyManager implements WorkerKeyManager {
     private static final int FINGERPRINT_BYTES = 8;
 
     private final Path dataDir;
+    private final String algorithmId;
     private final Path privateKeyPath;
     private final Path publicKeyPath;
+    private final String keyNewFilename;
     private final Logger logger;
 
     private PrivateKey privateKey;
     private PublicKey publicKey;
+    private boolean newRegistrationRequired = false;
 
     /**
-     * Constructs a {@code DefaultWorkerKeyManager} for the given data directory.
+     * Constructs a {@code DefaultWorkerKeyManager} for the given data directory and algorithm.
      *
-     * <p>On construction, the manager either generates a new keypair or loads the existing one.
+     * <p>On construction, the D-4 mismatch scan runs first, then the manager either generates a new
+     * keypair or loads the existing one.
      *
      * @param dataDir the directory in which the keypair files are stored; created with 0700
      *     permissions if it does not exist
-     * @param logger the SLF4J logger to use for INFO-level fingerprint messages
+     * @param algorithmId the JCE algorithm identifier (e.g., {@code "Ed25519"}); determines the
+     *     keypair file names ({@code worker-{algorithmId}.key/pub})
+     * @param logger the SLF4J logger to use for INFO-level fingerprint messages and D-4 WARNING
+     * @throws MixedAlgorithmKeysException if both configured and other algorithm key files exist
      * @throws WorkerKeyCorruptException if the private key file exists but cannot be parsed
      * @throws WorkerKeyGenerationException if keypair generation fails (entropy starvation, JCE)
      * @throws IOException if {@code dataDir} cannot be created or key files cannot be read/written
      */
-    // this-escape: loadExisting()/generateAndPersist() are private final methods that only access
-    // fields set earlier in this constructor body (dataDir, privateKeyPath, publicKeyPath, logger).
-    // No subclass exists — this class is declared final. The warning is a false positive in this
-    // single-class composition context (E18S01 / DEC-29).
+    // this-escape: runD4MismatchScan(), loadExisting(), generateAndPersist() are private final
+    // methods that only access fields set earlier in this constructor body. No subclass exists —
+    // this class is declared final. The warning is a false positive in this single-class
+    // composition context (E18S01 / DEC-29).
     @SuppressWarnings("this-escape")
-    public DefaultWorkerKeyManager(Path dataDir, Logger logger)
-            throws WorkerKeyCorruptException, IOException {
+    public DefaultWorkerKeyManager(Path dataDir, String algorithmId, Logger logger)
+            throws MixedAlgorithmKeysException, WorkerKeyCorruptException, IOException {
         this.dataDir = dataDir;
-        this.privateKeyPath = dataDir.resolve(PRIVATE_KEY_FILENAME);
-        this.publicKeyPath = dataDir.resolve(PUBLIC_KEY_FILENAME);
+        this.algorithmId = algorithmId;
+        this.privateKeyPath = dataDir.resolve("worker-" + algorithmId + ".key");
+        this.publicKeyPath = dataDir.resolve("worker-" + algorithmId + ".pub");
+        this.keyNewFilename = "worker-" + algorithmId + ".key.new";
         this.logger = logger;
 
         ensureDataDir();
+        runD4MismatchScan();
 
         if (Files.exists(privateKeyPath)) {
             loadExisting();
@@ -112,6 +138,18 @@ public final class DefaultWorkerKeyManager implements WorkerKeyManager {
     // -------------------------------------------------------------------------
     // WorkerKeyManager interface implementation
     // -------------------------------------------------------------------------
+
+    /** {@inheritDoc} */
+    @Override
+    public String algorithmId() {
+        return algorithmId;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean isNewRegistrationRequired() {
+        return newRegistrationRequired;
+    }
 
     /**
      * {@inheritDoc}
@@ -158,7 +196,7 @@ public final class DefaultWorkerKeyManager implements WorkerKeyManager {
         String oldFingerprint = fingerprint(getPublicKeyBytes());
 
         KeyPair newKeyPair = generateKeyPair();
-        Path newPrivatePath = dataDir.resolve(KEY_NEW_FILENAME);
+        Path newPrivatePath = dataDir.resolve(keyNewFilename);
 
         // Write new private key to .new file
         Files.write(newPrivatePath, newKeyPair.getPrivate().getEncoded());
@@ -206,6 +244,86 @@ public final class DefaultWorkerKeyManager implements WorkerKeyManager {
             Files.createDirectories(dataDir);
             setDirectoryPermissions(dataDir);
         }
+    }
+
+    /**
+     * D-4 mismatch scan: checks the data directory for keypair files from algorithms other than the
+     * configured one.
+     *
+     * <p>Key file pattern: {@code worker-*.key} (excluding {@code *.new} temporaries).
+     *
+     * <ul>
+     *   <li>Clean-other-only: only other-algorithm files present — log WARN, delete, set {@code
+     *       newRegistrationRequired = true}.
+     *   <li>Mixed-state: other-algorithm files AND configured-algorithm files — throw {@link
+     *       MixedAlgorithmKeysException}.
+     *   <li>Configured-only or none: return without action.
+     * </ul>
+     *
+     * @throws MixedAlgorithmKeysException if both configured and other algorithm key files exist
+     * @throws IOException if the directory cannot be listed or files cannot be deleted
+     */
+    private void runD4MismatchScan() throws MixedAlgorithmKeysException, IOException {
+        if (!Files.isDirectory(dataDir)) {
+            return; // directory created by ensureDataDir() — may be empty now
+        }
+
+        List<Path> otherAlgoKeyFiles = new ArrayList<>();
+        List<Path> otherAlgoFiles = new ArrayList<>();
+
+        String configuredKeyName = "worker-" + algorithmId + ".key";
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dataDir, "worker-*.key")) {
+            for (Path entry : stream) {
+                String fileName = entry.getFileName().toString();
+                if (fileName.endsWith(".new")) {
+                    continue; // skip temporary rotation files
+                }
+                if (!fileName.equals(configuredKeyName)) {
+                    otherAlgoKeyFiles.add(entry);
+                    otherAlgoFiles.add(entry);
+                    // Add the corresponding .pub file if it exists
+                    String pubFileName = fileName.replace(".key", ".pub");
+                    Path pubPath = dataDir.resolve(pubFileName);
+                    if (Files.exists(pubPath)) {
+                        otherAlgoFiles.add(pubPath);
+                    }
+                }
+            }
+        }
+
+        if (otherAlgoFiles.isEmpty()) {
+            return; // configured-only or fresh
+        }
+
+        boolean configuredFilesExist = Files.exists(privateKeyPath);
+
+        if (configuredFilesExist) {
+            // Mixed-state: both configured and other algorithm files present
+            List<Path> allConflictingFiles = new ArrayList<>(otherAlgoFiles);
+            allConflictingFiles.add(privateKeyPath);
+            if (Files.exists(publicKeyPath)) {
+                allConflictingFiles.add(publicKeyPath);
+            }
+            throw new MixedAlgorithmKeysException(allConflictingFiles);
+        }
+
+        // Clean-other-only: only other algorithm files, none for the configured algorithm
+        StringBuilder fileListMsg = new StringBuilder();
+        for (Path f : otherAlgoFiles) {
+            fileListMsg.append("\n    ").append(f.toAbsolutePath());
+        }
+        logger.warn(
+                "D-4: Found keypair files for a different algorithm; deleting and generating fresh"
+                        + " keypair for configured algorithm '{}'{}",
+                algorithmId,
+                fileListMsg.toString());
+
+        for (Path oldFile : otherAlgoFiles) {
+            Files.deleteIfExists(oldFile);
+        }
+
+        newRegistrationRequired = true;
+        // Falls through to generateAndPersist() in the constructor
     }
 
     /**
