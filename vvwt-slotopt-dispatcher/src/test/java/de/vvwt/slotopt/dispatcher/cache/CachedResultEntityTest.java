@@ -33,7 +33,10 @@ class CachedResultEntityTest {
         entity.setCachedAt(cachedAt);
         entity.setFirstAcceptedJobId(firstAcceptedJobId);
 
-        assertThat(entity.getId()).isEqualTo(id);
+        // getId() returns byte[] (Persistable<byte[]>); verify fingerprint bytes
+        assertThat(entity.getId()).isEqualTo(fingerprint);
+        // getCompositeKey() assembles the full CachedResultId for service-layer use
+        assertThat(entity.getCompositeKey()).isEqualTo(id);
         assertThat(entity.getResultPayloadJson()).isEqualTo(payload);
         assertThat(entity.getCachedAt()).isEqualTo(cachedAt);
         assertThat(entity.getFirstAcceptedJobId()).isEqualTo(firstAcceptedJobId);

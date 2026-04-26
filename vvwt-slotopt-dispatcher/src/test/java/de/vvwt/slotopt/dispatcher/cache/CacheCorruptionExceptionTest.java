@@ -19,7 +19,8 @@ class CacheCorruptionExceptionTest {
     void extendsRuntimeException() {
         byte[] fingerprint = new byte[32];
         Arrays.fill(fingerprint, (byte) 0x0F);
-        CacheCorruptionException ex = new CacheCorruptionException(fingerprint, "payload schema drift detected");
+        CacheCorruptionException ex =
+                new CacheCorruptionException(fingerprint, "payload schema drift detected");
 
         assertThat(ex).isInstanceOf(RuntimeException.class);
     }

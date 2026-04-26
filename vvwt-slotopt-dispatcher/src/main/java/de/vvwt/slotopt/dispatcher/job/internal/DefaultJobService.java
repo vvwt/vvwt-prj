@@ -3,6 +3,8 @@ package de.vvwt.slotopt.dispatcher.job.internal;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.slotopt.dispatcher.audit.AuditService;
+import de.vvwt.slotopt.dispatcher.cache.CachedResult;
+import de.vvwt.slotopt.dispatcher.cache.ResultsCacheService;
 import de.vvwt.slotopt.dispatcher.job.JobRecord;
 import de.vvwt.slotopt.dispatcher.job.JobRepository;
 import de.vvwt.slotopt.dispatcher.job.JobService;
@@ -11,7 +13,10 @@ import de.vvwt.slotopt.dispatcher.job.SubmitJobResponse;
 import de.vvwt.slotopt.worker.types.RawPhaseDef;
 import de.vvwt.slotopt.worker.types.StructuralFingerprint;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.springframework.stereotype.Service;
 
 /**
@@ -38,22 +43,36 @@ import org.springframework.stereotype.Service;
  * Audit failures do NOT propagate — absorbed per AC-AUDIT-FAILURE-MODE (consistent with E37S06
  * identity package audit pattern).
  *
- * <p>Story: E37S07; AC-JOB-SERVICE; DEC-9, DEC-35, DEC-36
+ * <p>Story: E37S07 + E37S10 (AC-CACHE-READ-SHORT-CIRCUIT retrofit); AC-JOB-SERVICE; DEC-9, DEC-35,
+ * DEC-36
  */
 @Service
 public class DefaultJobService implements JobService {
 
+    private static final Logger LOG = Logger.getLogger(DefaultJobService.class.getName());
     private static final int PHASE1_N_CAP = 15;
+
+    /**
+     * V1 game-mode discriminator for cache lookups per DEC-9 / AC-CACHE-READ-SHORT-CIRCUIT. Must
+     * match the constant used by {@link
+     * de.vvwt.slotopt.dispatcher.result.internal.DefaultSubmitResultService}.
+     */
+    private static final String V1_GAME_MODE = "default";
 
     private final JobRepository jobRepository;
     private final AuditService auditService;
     private final ObjectMapper objectMapper;
+    private final ResultsCacheService resultsCacheService;
 
     public DefaultJobService(
-            JobRepository jobRepository, AuditService auditService, ObjectMapper objectMapper) {
+            JobRepository jobRepository,
+            AuditService auditService,
+            ObjectMapper objectMapper,
+            ResultsCacheService resultsCacheService) {
         this.jobRepository = jobRepository;
         this.auditService = auditService;
         this.objectMapper = objectMapper;
+        this.resultsCacheService = resultsCacheService;
     }
 
     @Override
@@ -73,7 +92,21 @@ public class DefaultJobService implements JobService {
         }
 
         // (2) Compute structural fingerprint (ensures we validate the phase topology)
-        StructuralFingerprint.transform(phase); // validates structural integrity
+        byte[] fingerprint = StructuralFingerprint.transform(phase).fingerprint();
+
+        // (2a) Cache-read short-circuit (AC-CACHE-READ-SHORT-CIRCUIT, E37S10 retrofit):
+        // If a cached result exists for this fingerprint + V1 game mode, return immediately
+        // without persisting a JobRecord or decomposing into packets.
+        // Cache lookup failure is treated as a cache miss (absorbed exception) per the AC.
+        try {
+            Optional<CachedResult> cacheHit = resultsCacheService.lookup(fingerprint, V1_GAME_MODE);
+            if (cacheHit.isPresent()) {
+                UUID syntheticJobId = UUID.randomUUID();
+                return new SubmitJobResponse(syntheticJobId, null, true);
+            }
+        } catch (Exception e) {
+            LOG.log(Level.WARNING, "Cache lookup failed — treating as miss: {0}", e.getMessage());
+        }
 
         // (3) Serialize JobDef to JSON
         String jobDefJson;

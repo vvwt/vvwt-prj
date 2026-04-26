@@ -2,12 +2,15 @@ package de.vvwt.slotopt.dispatcher.result.internal;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.vvwt.slotopt.dispatcher.cache.ResultsCacheService;
 import de.vvwt.slotopt.dispatcher.crypto.InvalidSignatureException;
 import de.vvwt.slotopt.dispatcher.crypto.JcsCanonicalizer;
 import de.vvwt.slotopt.dispatcher.crypto.SignatureVerifier;
 import de.vvwt.slotopt.dispatcher.crypto.SignatureVerifierRegistry;
 import de.vvwt.slotopt.dispatcher.identity.KeyRegistration;
 import de.vvwt.slotopt.dispatcher.identity.KeyRegistrationRepository;
+import de.vvwt.slotopt.dispatcher.job.JobRecord;
+import de.vvwt.slotopt.dispatcher.job.JobRepository;
 import de.vvwt.slotopt.dispatcher.packet.PacketRecord;
 import de.vvwt.slotopt.dispatcher.packet.PacketRepository;
 import de.vvwt.slotopt.dispatcher.result.AlgorithmMismatchException;
@@ -19,7 +22,11 @@ import de.vvwt.slotopt.dispatcher.result.SubmitResultRequest;
 import de.vvwt.slotopt.dispatcher.result.SubmitResultResponse;
 import de.vvwt.slotopt.dispatcher.result.SubmitResultService;
 import de.vvwt.slotopt.dispatcher.result.UnknownWorkerException;
+import de.vvwt.slotopt.worker.types.JobDef;
+import de.vvwt.slotopt.worker.types.StructuralFingerprint;
 import java.time.Instant;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,11 +50,23 @@ import org.springframework.transaction.annotation.Transactional;
  *       CLAIMED → mark RESULT_RECEIVED + audit entry + accepted response.
  * </ol>
  *
- * <p>Story: E37S09; AC-SUBMIT-RESULT-SERVICE; AC-ALGORITHM-MISMATCH-REJECTED; AC-FIRST-VALID-WINS;
- * DEC-6, DEC-35, DEC-36, DEC-43
+ * <p>Story: E37S09 + E37S10 (AC-CACHE-WRITE-ON-ACCEPTED-RESULT retrofit); AC-SUBMIT-RESULT-SERVICE;
+ * AC-ALGORITHM-MISMATCH-REJECTED; AC-FIRST-VALID-WINS; DEC-6, DEC-35, DEC-36, DEC-43
  */
 @Service
 class DefaultSubmitResultService implements SubmitResultService {
+
+    private static final Logger LOG = Logger.getLogger(DefaultSubmitResultService.class.getName());
+
+    /**
+     * V1 game-mode discriminator for cache keys per DEC-9 / AC-CACHE-WRITE-ON-ACCEPTED-RESULT.
+     *
+     * <p>V1 supports a single optimization objective; the game-mode constant ensures cache-key
+     * correctness in future when multiple objectives are introduced. It matches the {@code
+     * gameMode} used by {@link de.vvwt.slotopt.dispatcher.job.internal.DefaultJobService} when
+     * performing the cache-read short-circuit.
+     */
+    static final String V1_GAME_MODE = "default";
 
     private final KeyRegistrationRepository keyRegistrationRepository;
     private final PacketRepository packetRepository;
@@ -55,6 +74,8 @@ class DefaultSubmitResultService implements SubmitResultService {
     private final JcsCanonicalizer canonicalizer;
     private final LateResultRepository lateResultRepository;
     private final ResultAuditService auditService;
+    private final ResultsCacheService resultsCacheService;
+    private final JobRepository jobRepository;
     private final ObjectMapper objectMapper;
 
     DefaultSubmitResultService(
@@ -63,13 +84,17 @@ class DefaultSubmitResultService implements SubmitResultService {
             SignatureVerifierRegistry verifierRegistry,
             JcsCanonicalizer canonicalizer,
             LateResultRepository lateResultRepository,
-            ResultAuditService auditService) {
+            ResultAuditService auditService,
+            ResultsCacheService resultsCacheService,
+            JobRepository jobRepository) {
         this.keyRegistrationRepository = keyRegistrationRepository;
         this.packetRepository = packetRepository;
         this.verifierRegistry = verifierRegistry;
         this.canonicalizer = canonicalizer;
         this.lateResultRepository = lateResultRepository;
         this.auditService = auditService;
+        this.resultsCacheService = resultsCacheService;
+        this.jobRepository = jobRepository;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -189,6 +214,49 @@ class DefaultSubmitResultService implements SubmitResultService {
                 receivedAt,
                 "ACCEPTED");
 
+        // AC-CACHE-WRITE-ON-ACCEPTED-RESULT (E37S10 retrofit):
+        // Write the accepted result to the cache keyed by structural fingerprint + V1 game mode.
+        // Cache write must NOT block result acceptance — absorbed like audit failures.
+        try {
+            byte[] fingerprint = computeFingerprint(packet.getJobId());
+            resultsCacheService.recordAcceptedResult(
+                    fingerprint, V1_GAME_MODE, request.resultPayloadJson(), packet.getJobId());
+        } catch (Exception e) {
+            LOG.log(
+                    Level.WARNING,
+                    "Cache write failed for job {0} — ignored: {1}",
+                    new Object[] {packet.getJobId(), e.getMessage()});
+        }
+
         return new SubmitResultResponse(true, null);
+    }
+
+    /**
+     * Computes the structural fingerprint for a job from its stored {@code jobDefJson}.
+     *
+     * <p>Looks up the {@link JobRecord} by {@code jobId}, deserializes the {@link JobDef}, and
+     * calls {@link
+     * StructuralFingerprint#fingerprint(de.vvwt.slotopt.worker.types.CanonicalPhaseDef)}.
+     *
+     * @param jobId the UUID of the job owning the packet
+     * @return the 32-byte SHA-256 structural fingerprint
+     * @throws IllegalStateException if the job is not found or jobDefJson cannot be deserialized
+     */
+    private byte[] computeFingerprint(java.util.UUID jobId) {
+        JobRecord jobRecord =
+                jobRepository
+                        .findByJobId(jobId)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "Job not found for fingerprint computation: "
+                                                        + jobId));
+        try {
+            JobDef jobDef = objectMapper.readValue(jobRecord.getJobDefJson(), JobDef.class);
+            return StructuralFingerprint.fingerprint(jobDef.canonicalPhaseDef());
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Failed to compute fingerprint from jobDefJson for job " + jobId, e);
+        }
     }
 }

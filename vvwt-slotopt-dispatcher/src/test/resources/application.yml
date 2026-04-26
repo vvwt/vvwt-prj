@@ -9,5 +9,5 @@ spring:
     username: sa
     password: ""
   flyway:
-    locations: classpath:db/migration/identity,classpath:db/migration/audit,classpath:db/migration/job
+    locations: classpath:db/migration/identity,classpath:db/migration/audit,classpath:db/migration/job,classpath:db/migration/packet,classpath:db/migration/result,classpath:db/migration/cache
     enabled: true
