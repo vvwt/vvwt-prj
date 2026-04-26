@@ -50,6 +50,32 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Spring Data JDBC: persistence for identity package (E37S05 — DEC-35) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jdbc</artifactId>
+        </dependency>
+
+        <!-- Flyway: DB migrations for identity.V1__key_registration (E37S05 — DEC-26 analogous) -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+
+        <!-- H2: in-memory DB for IT (test scope) — DEC-26 analogous, E37S05 -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- assertj-db: independent persistence verifier for DAO IT (DEC-26 Rule 2, E37S05) -->
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-db</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <build>
