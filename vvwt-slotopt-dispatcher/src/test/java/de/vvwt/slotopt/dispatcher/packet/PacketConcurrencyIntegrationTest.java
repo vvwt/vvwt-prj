@@ -78,6 +78,7 @@ class PacketConcurrencyIntegrationTest {
 
     /**
      * Inserts N unclaimed packets, spawns N+1 concurrent claimers. Verifies that:
+     *
      * <ul>
      *   <li>At most N packets are claimed (no double-claim)
      *   <li>At least 1 claimer gets empty (no unclaimed packets left)

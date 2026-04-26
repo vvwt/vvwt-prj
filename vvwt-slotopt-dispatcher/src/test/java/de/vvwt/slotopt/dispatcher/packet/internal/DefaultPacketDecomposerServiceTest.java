@@ -30,9 +30,7 @@ class DefaultPacketDecomposerServiceTest {
         service = new DefaultPacketDecomposerService();
     }
 
-    /**
-     * For N=2 (2! = 2), which is < 4 × 100_000_000, should produce exactly 4 packets.
-     */
+    /** For N=2 (2! = 2), which is < 4 × 100_000_000, should produce exactly 4 packets. */
     @Test
     void decompose_smallN_producesExactlyFourPackets() {
         // N=2: 2! = 2. packetPayloadJson has rankFrom/rankTo intervals covering [0, 2).
@@ -40,7 +38,9 @@ class DefaultPacketDecomposerServiceTest {
         String jobDefJson =
                 """
                 {"jobId":"%s","n":2,"canonicalPhaseDef":{"rowCount":1,"avatarCount":2,"rows":[[0,1]]}}
-                """.formatted(UUID.randomUUID()).trim();
+                """
+                        .formatted(UUID.randomUUID())
+                        .trim();
 
         JobRecord job = buildJobRecord(UUID.randomUUID(), jobDefJson);
         List<PacketRecord> packets = service.decompose(job);
@@ -51,8 +51,8 @@ class DefaultPacketDecomposerServiceTest {
     }
 
     /**
-     * For N=14 (~8.7×10^10 perms), which is > 4 × permsPerPacket (400M), packets cover [0, 14!).
-     * At 100M perms/packet: ceil(87178291200 / 100000000) = 872 packets.
+     * For N=14 (~8.7×10^10 perms), which is > 4 × permsPerPacket (400M), packets cover [0, 14!). At
+     * 100M perms/packet: ceil(87178291200 / 100000000) = 872 packets.
      */
     @Test
     void decompose_largeN_producesMultiplePackets() {
@@ -61,7 +61,9 @@ class DefaultPacketDecomposerServiceTest {
         String jobDefJson =
                 """
                 {"jobId":"%s","n":14,"canonicalPhaseDef":{"rowCount":1,"avatarCount":2,"rows":[[0,1]]}}
-                """.formatted(UUID.randomUUID()).trim();
+                """
+                        .formatted(UUID.randomUUID())
+                        .trim();
 
         JobRecord job = buildJobRecord(UUID.randomUUID(), jobDefJson);
         List<PacketRecord> packets = service.decompose(job);
@@ -71,15 +73,15 @@ class DefaultPacketDecomposerServiceTest {
         assertRanksContiguous(packets, n14Factorial);
     }
 
-    /**
-     * All packets are UNCLAIMED on creation.
-     */
+    /** All packets are UNCLAIMED on creation. */
     @Test
     void decompose_allPacketsAreUnclaimed() {
         String jobDefJson =
                 """
                 {"jobId":"%s","n":2,"canonicalPhaseDef":{"rowCount":1,"avatarCount":2,"rows":[[0,1]]}}
-                """.formatted(UUID.randomUUID()).trim();
+                """
+                        .formatted(UUID.randomUUID())
+                        .trim();
 
         JobRecord job = buildJobRecord(UUID.randomUUID(), jobDefJson);
         List<PacketRecord> packets = service.decompose(job);
@@ -87,16 +89,16 @@ class DefaultPacketDecomposerServiceTest {
         assertThat(packets).allMatch(p -> "UNCLAIMED".equals(p.getStatus()));
     }
 
-    /**
-     * All packets have the correct jobId.
-     */
+    /** All packets have the correct jobId. */
     @Test
     void decompose_allPacketsHaveCorrectJobId() {
         UUID jobId = UUID.randomUUID();
         String jobDefJson =
                 """
                 {"jobId":"%s","n":2,"canonicalPhaseDef":{"rowCount":1,"avatarCount":2,"rows":[[0,1]]}}
-                """.formatted(jobId).trim();
+                """
+                        .formatted(jobId)
+                        .trim();
 
         JobRecord job = buildJobRecord(jobId, jobDefJson);
         List<PacketRecord> packets = service.decompose(job);
@@ -104,15 +106,15 @@ class DefaultPacketDecomposerServiceTest {
         assertThat(packets).allMatch(p -> p.getJobId().equals(jobId));
     }
 
-    /**
-     * Each packet has a unique packetId.
-     */
+    /** Each packet has a unique packetId. */
     @Test
     void decompose_allPacketsHaveUniquePacketIds() {
         String jobDefJson =
                 """
                 {"jobId":"%s","n":2,"canonicalPhaseDef":{"rowCount":1,"avatarCount":2,"rows":[[0,1]]}}
-                """.formatted(UUID.randomUUID()).trim();
+                """
+                        .formatted(UUID.randomUUID())
+                        .trim();
 
         JobRecord job = buildJobRecord(UUID.randomUUID(), jobDefJson);
         List<PacketRecord> packets = service.decompose(job);

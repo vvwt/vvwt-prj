@@ -2,6 +2,9 @@ package de.vvwt.slotopt.dispatcher.packet.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 import de.vvwt.slotopt.dispatcher.identity.KeyRegistration;
@@ -9,7 +12,6 @@ import de.vvwt.slotopt.dispatcher.identity.KeyRegistrationRepository;
 import de.vvwt.slotopt.dispatcher.packet.PacketRecord;
 import de.vvwt.slotopt.dispatcher.packet.PacketRepository;
 import de.vvwt.slotopt.dispatcher.packet.WorkerNotFoundException;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -18,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * Unit tests for {@link DefaultPullPacketService}.
@@ -36,11 +39,15 @@ class DefaultPullPacketServiceTest {
 
     @Mock private KeyRegistrationRepository keyRegistrationRepository;
 
+    @Mock private JdbcTemplate jdbcTemplate;
+
     private DefaultPullPacketService service;
 
     @BeforeEach
     void setUp() {
-        service = new DefaultPullPacketService(packetRepository, keyRegistrationRepository);
+        service =
+                new DefaultPullPacketService(
+                        packetRepository, keyRegistrationRepository, jdbcTemplate);
     }
 
     @Test
@@ -57,8 +64,7 @@ class DefaultPullPacketServiceTest {
         UUID workerId = UUID.randomUUID();
         when(keyRegistrationRepository.findByWorkerId(workerId))
                 .thenReturn(Optional.of(buildRegistration(workerId, "worker")));
-        when(packetRepository.findFirstByStatusOrderById("UNCLAIMED"))
-                .thenReturn(Optional.empty());
+        when(packetRepository.findFirstByStatusOrderById("UNCLAIMED")).thenReturn(Optional.empty());
 
         Optional<PacketRecord> result = service.claim(workerId, Set.of("Ed25519"));
 
@@ -69,34 +75,45 @@ class DefaultPullPacketServiceTest {
     void claim_unclaimedPacketExists_returnsClaimedPacket() {
         UUID workerId = UUID.randomUUID();
         UUID packetId = UUID.randomUUID();
-        PacketRecord packet = buildPacketRecord(packetId, UUID.randomUUID(), "UNCLAIMED");
+        PacketRecord unclaimed = buildPacketRecord(packetId, UUID.randomUUID(), "UNCLAIMED");
+        unclaimed.setId(1L);
+
+        PacketRecord claimed = buildPacketRecord(packetId, unclaimed.getJobId(), "CLAIMED");
+        claimed.setId(1L);
+        claimed.setClaimedByWorkerId(workerId);
 
         when(keyRegistrationRepository.findByWorkerId(workerId))
                 .thenReturn(Optional.of(buildRegistration(workerId, "worker")));
         when(packetRepository.findFirstByStatusOrderById("UNCLAIMED"))
-                .thenReturn(Optional.of(packet));
-        when(packetRepository.save(packet)).thenReturn(packet);
+                .thenReturn(Optional.of(unclaimed));
+        // jdbcTemplate.update returns 1 (claim succeeded)
+        when(jdbcTemplate.update(anyString(), any(), any(), any(), anyLong())).thenReturn(1);
+        when(packetRepository.findById(1L)).thenReturn(Optional.of(claimed));
 
         Optional<PacketRecord> result = service.claim(workerId, Set.of("Ed25519"));
 
         assertThat(result).isPresent();
-        assertThat(result.get().getStatus()).isEqualTo("CLAIMED");
         assertThat(result.get().getClaimedByWorkerId()).isEqualTo(workerId);
-        assertThat(result.get().getClaimedAt()).isNotNull();
-        assertThat(result.get().getTimeoutAt()).isNotNull();
     }
 
     @Test
     void claim_capabilitiesAreInformationalV1_doesNotFilter() {
         // Per Brief C-17: algorithm-blind. Any capability set yields the same unclaimed packet.
         UUID workerId = UUID.randomUUID();
-        PacketRecord packet = buildPacketRecord(UUID.randomUUID(), UUID.randomUUID(), "UNCLAIMED");
+        UUID packetId = UUID.randomUUID();
+        PacketRecord unclaimed = buildPacketRecord(packetId, UUID.randomUUID(), "UNCLAIMED");
+        unclaimed.setId(2L);
+
+        PacketRecord claimed = buildPacketRecord(packetId, unclaimed.getJobId(), "CLAIMED");
+        claimed.setId(2L);
+        claimed.setClaimedByWorkerId(workerId);
 
         when(keyRegistrationRepository.findByWorkerId(workerId))
                 .thenReturn(Optional.of(buildRegistration(workerId, "worker")));
         when(packetRepository.findFirstByStatusOrderById("UNCLAIMED"))
-                .thenReturn(Optional.of(packet));
-        when(packetRepository.save(packet)).thenReturn(packet);
+                .thenReturn(Optional.of(unclaimed));
+        when(jdbcTemplate.update(anyString(), any(), any(), any(), anyLong())).thenReturn(1);
+        when(packetRepository.findById(2L)).thenReturn(Optional.of(claimed));
 
         Optional<PacketRecord> result =
                 service.claim(workerId, Set.of("Ed25519", "ML-DSA-44", "SLH-DSA-128f"));

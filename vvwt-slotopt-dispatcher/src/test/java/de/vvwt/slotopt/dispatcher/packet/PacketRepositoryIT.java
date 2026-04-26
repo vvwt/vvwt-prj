@@ -109,10 +109,14 @@ class PacketRepositoryIT {
                 dataSource,
                 "packet",
                 Map.of(
-                        "packet_id", packetId.toString(),
-                        "job_id", jobId.toString(),
-                        "packet_payload_json", "{\"rankFrom\":0,\"rankTo\":100}",
-                        "status", "UNCLAIMED"));
+                        "packet_id",
+                        packetId.toString(),
+                        "job_id",
+                        jobId.toString(),
+                        "packet_payload_json",
+                        "{\"rankFrom\":0,\"rankTo\":100}",
+                        "status",
+                        "UNCLAIMED"));
 
         Optional<PacketRecord> found = repository.findByPacketId(packetId);
 
@@ -137,18 +141,26 @@ class PacketRepositoryIT {
                 dataSource,
                 "packet",
                 Map.of(
-                        "packet_id", UUID.randomUUID().toString(),
-                        "job_id", jobId.toString(),
-                        "packet_payload_json", "{\"rankFrom\":0,\"rankTo\":50}",
-                        "status", "UNCLAIMED"));
+                        "packet_id",
+                        UUID.randomUUID().toString(),
+                        "job_id",
+                        jobId.toString(),
+                        "packet_payload_json",
+                        "{\"rankFrom\":0,\"rankTo\":50}",
+                        "status",
+                        "UNCLAIMED"));
         DispatcherDaoTestSupport.insertDirectly(
                 dataSource,
                 "packet",
                 Map.of(
-                        "packet_id", UUID.randomUUID().toString(),
-                        "job_id", jobId.toString(),
-                        "packet_payload_json", "{\"rankFrom\":50,\"rankTo\":100}",
-                        "status", "CLAIMED"));
+                        "packet_id",
+                        UUID.randomUUID().toString(),
+                        "job_id",
+                        jobId.toString(),
+                        "packet_payload_json",
+                        "{\"rankFrom\":50,\"rankTo\":100}",
+                        "status",
+                        "CLAIMED"));
 
         List<PacketRecord> found = repository.findByJobId(jobId);
 
@@ -164,18 +176,26 @@ class PacketRepositoryIT {
                 dataSource,
                 "packet",
                 Map.of(
-                        "packet_id", UUID.randomUUID().toString(),
-                        "job_id", jobId.toString(),
-                        "packet_payload_json", "{}",
-                        "status", "UNCLAIMED"));
+                        "packet_id",
+                        UUID.randomUUID().toString(),
+                        "job_id",
+                        jobId.toString(),
+                        "packet_payload_json",
+                        "{}",
+                        "status",
+                        "UNCLAIMED"));
         DispatcherDaoTestSupport.insertDirectly(
                 dataSource,
                 "packet",
                 Map.of(
-                        "packet_id", UUID.randomUUID().toString(),
-                        "job_id", jobId.toString(),
-                        "packet_payload_json", "{}",
-                        "status", "CLAIMED"));
+                        "packet_id",
+                        UUID.randomUUID().toString(),
+                        "job_id",
+                        jobId.toString(),
+                        "packet_payload_json",
+                        "{}",
+                        "status",
+                        "CLAIMED"));
 
         List<PacketRecord> unclaimed = repository.findByStatus("UNCLAIMED");
         List<PacketRecord> claimed = repository.findByStatus("CLAIMED");

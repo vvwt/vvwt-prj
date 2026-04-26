@@ -61,7 +61,8 @@ class PullPacketControllerSliceTest {
                                 .content(
                                         """
                                         {"workerId":"%s","supportedAlgorithms":["Ed25519"]}
-                                        """.formatted(UUID.randomUUID())))
+                                        """
+                                                .formatted(UUID.randomUUID())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.packetId").value(packetId.toString()))
                 .andExpect(jsonPath("$.jobId").value(jobId.toString()));
@@ -81,7 +82,8 @@ class PullPacketControllerSliceTest {
                                 .content(
                                         """
                                         {"workerId":"%s","supportedAlgorithms":["Ed25519"]}
-                                        """.formatted(UUID.randomUUID())))
+                                        """
+                                                .formatted(UUID.randomUUID())))
                 .andExpect(status().isNoContent());
     }
 
@@ -97,7 +99,8 @@ class PullPacketControllerSliceTest {
                                 .content(
                                         """
                                         {"workerId":"%s","supportedAlgorithms":[]}
-                                        """.formatted(UUID.randomUUID())))
+                                        """
+                                                .formatted(UUID.randomUUID())))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").exists());
     }
@@ -120,7 +123,8 @@ class PullPacketControllerSliceTest {
                                 .content(
                                         """
                                         {"workerId":"%s"}
-                                        """.formatted(UUID.randomUUID())))
+                                        """
+                                                .formatted(UUID.randomUUID())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.packetId").value(packetId.toString()));
     }
@@ -140,7 +144,8 @@ class PullPacketControllerSliceTest {
                                 .content(
                                         """
                                         {"workerId":"%s","supportedAlgorithms":["Ed25519"]}
-                                        """.formatted(UUID.randomUUID())))
+                                        """
+                                                .formatted(UUID.randomUUID())))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").exists());
     }
