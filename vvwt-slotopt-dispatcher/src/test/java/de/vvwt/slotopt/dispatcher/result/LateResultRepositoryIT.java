@@ -28,8 +28,8 @@ import org.springframework.transaction.annotation.Transactional;
  * <ol>
  *   <li><b>Rule 1 — Schema from production migration:</b> Flyway runs {@code
  *       db/migration/result/V5__create_late_result_table.sql} automatically.
- *   <li><b>Rule 2 — Independent persistence verifier:</b> Write assertions use assertj-db
- *       directly against the DataSource, NOT the repository's read methods.
+ *   <li><b>Rule 2 — Independent persistence verifier:</b> Write assertions use assertj-db directly
+ *       against the DataSource, NOT the repository's read methods.
  *   <li><b>Rule 3 — Read/write decoupling:</b> Read-path fixtures inserted via {@link
  *       DispatcherDaoTestSupport#insertDirectly}.
  * </ol>
@@ -93,12 +93,18 @@ class LateResultRepositoryIT {
                 dataSource,
                 "late_result",
                 Map.of(
-                        "packet_id", packetId.toString(),
-                        "worker_id", workerId.toString(),
-                        "algorithm", "Ed25519",
-                        "signature", "AAAA",
-                        "result_payload_json", "{\"bestRank\":1}",
-                        "received_at", Instant.now().toString()));
+                        "packet_id",
+                        packetId.toString(),
+                        "worker_id",
+                        workerId.toString(),
+                        "algorithm",
+                        "Ed25519",
+                        "signature",
+                        "AAAA",
+                        "result_payload_json",
+                        "{\"bestRank\":1}",
+                        "received_at",
+                        Instant.now().toString()));
 
         var found = repository.findByPacketId(packetId);
         assertThat(found).hasSize(1);
@@ -120,7 +126,7 @@ class LateResultRepositoryIT {
         lr.setPacketId(packetId);
         lr.setWorkerId(workerId);
         lr.setAlgorithm("Ed25519");
-        lr.setSignature(new byte[]{1, 2, 3});
+        lr.setSignature(new byte[] {1, 2, 3});
         lr.setResultPayloadJson("{\"bestRank\":0}");
         lr.setReceivedAt(Instant.now());
         return lr;

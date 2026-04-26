@@ -92,12 +92,18 @@ class ResultAuditRepositoryIT {
                 dataSource,
                 "result_audit_entry",
                 Map.of(
-                        "packet_id", packetId.toString(),
-                        "worker_id", workerId.toString(),
-                        "algorithm", "Ed25519",
-                        "source_ip", "10.0.0.1",
-                        "received_at", Instant.now().toString(),
-                        "outcome", "SUPERSEDED"));
+                        "packet_id",
+                        packetId.toString(),
+                        "worker_id",
+                        workerId.toString(),
+                        "algorithm",
+                        "Ed25519",
+                        "source_ip",
+                        "10.0.0.1",
+                        "received_at",
+                        Instant.now().toString(),
+                        "outcome",
+                        "SUPERSEDED"));
 
         List<ResultAuditEntry> found = repository.findByPacketId(packetId);
         assertThat(found).hasSize(1);

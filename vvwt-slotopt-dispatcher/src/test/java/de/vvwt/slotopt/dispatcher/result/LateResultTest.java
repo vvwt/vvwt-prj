@@ -20,7 +20,7 @@ class LateResultTest {
         LateResult lr = new LateResult();
         UUID packetId = UUID.randomUUID();
         UUID workerId = UUID.randomUUID();
-        byte[] signature = new byte[]{10, 20};
+        byte[] signature = new byte[] {10, 20};
         Instant now = Instant.now();
 
         lr.setPacketId(packetId);

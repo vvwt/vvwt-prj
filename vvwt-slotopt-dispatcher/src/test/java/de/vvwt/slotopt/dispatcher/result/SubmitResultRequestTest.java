@@ -20,7 +20,7 @@ class SubmitResultRequestTest {
         UUID packetId = UUID.randomUUID();
         UUID workerId = UUID.randomUUID();
         String algorithm = "Ed25519";
-        byte[] signature = new byte[]{1, 2, 3};
+        byte[] signature = new byte[] {1, 2, 3};
         String payload = "{\"bestRank\":42}";
 
         SubmitResultRequest req =
@@ -40,7 +40,8 @@ class SubmitResultRequestTest {
         // per AC-SUBMIT-RESULT-DTOs; enforcement happens in DefaultSubmitResultService.
         UUID packetId = UUID.randomUUID();
         UUID workerId = UUID.randomUUID();
-        SubmitResultRequest req = new SubmitResultRequest(packetId, workerId, null, new byte[0], "{}");
+        SubmitResultRequest req =
+                new SubmitResultRequest(packetId, workerId, null, new byte[0], "{}");
         // algorithm is null here — service must reject this
         assertThat(req.algorithm()).isNull();
     }

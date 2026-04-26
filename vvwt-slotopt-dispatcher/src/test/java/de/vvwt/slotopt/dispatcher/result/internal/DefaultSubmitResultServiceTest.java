@@ -6,11 +6,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.slotopt.dispatcher.crypto.InvalidSignatureException;
 import de.vvwt.slotopt.dispatcher.crypto.JcsCanonicalizer;
 import de.vvwt.slotopt.dispatcher.crypto.SignatureVerifier;
@@ -36,10 +34,10 @@ import org.junit.jupiter.api.Test;
  *
  * <p>Same-package test (DEC-36 § same-package white-box allowed). Mocks are typed as the
  * collaborator interfaces (DEC-36 cross-package applies to collaborators that are cross-package
- * from this test class — {@code KeyRegistrationRepository}, {@code PacketRepository},
- * {@code SignatureVerifierRegistry}, {@code JcsCanonicalizer}, {@code LateResultRepository},
- * {@code ResultAuditService} are all public interfaces from their respective packages, used here
- * via their interface types).
+ * from this test class — {@code KeyRegistrationRepository}, {@code PacketRepository}, {@code
+ * SignatureVerifierRegistry}, {@code JcsCanonicalizer}, {@code LateResultRepository}, {@code
+ * ResultAuditService} are all public interfaces from their respective packages, used here via their
+ * interface types).
  *
  * <p>RED-first per DEC-22 / AC-TDD-RED-FIRST-EVIDENCE (E37S09).
  *
@@ -125,8 +123,7 @@ class DefaultSubmitResultServiceTest {
         when(canonicalizer.canonicalize(any())).thenReturn(new byte[0]);
 
         SubmitResultRequest req =
-                new SubmitResultRequest(
-                        UUID.randomUUID(), workerId, "Ed25519", new byte[64], "{}");
+                new SubmitResultRequest(UUID.randomUUID(), workerId, "Ed25519", new byte[64], "{}");
 
         assertThatThrownBy(() -> service.submit(req, "127.0.0.1"))
                 .isInstanceOf(IllegalStateException.class);
@@ -145,7 +142,7 @@ class DefaultSubmitResultServiceTest {
 
         SignatureVerifier verifier = mock(SignatureVerifier.class);
         when(verifierRegistry.lookup("Ed25519")).thenReturn(Optional.of(verifier));
-        when(canonicalizer.canonicalize(any())).thenReturn(new byte[]{1, 2, 3});
+        when(canonicalizer.canonicalize(any())).thenReturn(new byte[] {1, 2, 3});
         when(verifier.verify(any(), any(), any())).thenReturn(false);
 
         SubmitResultRequest req =
@@ -168,7 +165,7 @@ class DefaultSubmitResultServiceTest {
 
         SignatureVerifier verifier = mock(SignatureVerifier.class);
         when(verifierRegistry.lookup("Ed25519")).thenReturn(Optional.of(verifier));
-        when(canonicalizer.canonicalize(any())).thenReturn(new byte[]{1});
+        when(canonicalizer.canonicalize(any())).thenReturn(new byte[] {1});
         when(verifier.verify(any(), any(), any())).thenReturn(true);
 
         PacketRecord packet = new PacketRecord();
@@ -205,7 +202,7 @@ class DefaultSubmitResultServiceTest {
 
         SignatureVerifier verifier = mock(SignatureVerifier.class);
         when(verifierRegistry.lookup("Ed25519")).thenReturn(Optional.of(verifier));
-        when(canonicalizer.canonicalize(any())).thenReturn(new byte[]{1});
+        when(canonicalizer.canonicalize(any())).thenReturn(new byte[] {1});
         when(verifier.verify(any(), any(), any())).thenReturn(true);
 
         PacketRecord packet = new PacketRecord();
@@ -241,7 +238,7 @@ class DefaultSubmitResultServiceTest {
 
         SignatureVerifier verifier = mock(SignatureVerifier.class);
         when(verifierRegistry.lookup("Ed25519")).thenReturn(Optional.of(verifier));
-        when(canonicalizer.canonicalize(any())).thenReturn(new byte[]{1});
+        when(canonicalizer.canonicalize(any())).thenReturn(new byte[] {1});
         when(verifier.verify(any(), any(), any())).thenReturn(true);
         when(packetRepository.findByPacketId(packetId)).thenReturn(Optional.empty());
 
