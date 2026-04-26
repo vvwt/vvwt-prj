@@ -7,9 +7,20 @@ import java.util.UUID;
  * Immutable value object representing certificate template metadata stored in H2 (E12S04 AC1, AC3 —
  * filename, format, upload timestamp, file size).
  *
- * <p>Relocated from {@code de.vvwt.tm.domain.certificate.CertificateTemplateMetadata} to the new
- * {@code de.vvwt.tm.certificate} Modulith module as part of E23S06 (Q-1b whole-class relocation per
- * DEC-22 §refactor-clause). The record structure is byte-equivalent to the legacy record.
+ * <p>Rebuilt under DEC-22 Iron Law Q-1a RED-first TDD discipline (E36S04). All field names, types,
+ * and order are preserved verbatim per AC-RECORD-FIELDS-PRESERVED-METADATA and Brief C-3
+ * (signature-preservation).
+ *
+ * <p>Consumer chain (per audit (i)):
+ *
+ * <ul>
+ *   <li>{@link CertificateTemplateRepository} — {@code findByTournamentId} returns this record;
+ *       {@code upsert} takes this record as parameter
+ *   <li>{@code CertificateTemplateController} (E36S06) — reads metadata for API response
+ *   <li>{@code CertificateTemplateMetadataResponse} (E36S06) — {@code from(CertificateTemplateMetadata)}
+ *       factory method consumes this record
+ *   <li>{@link CertificateTemplateService.TemplateFile} — carries metadata as nested field
+ * </ul>
  *
  * @param tournamentId the tournament this template belongs to (AC8 — one per tournament)
  * @param filename original client-provided filename (for display purposes)
@@ -17,6 +28,7 @@ import java.util.UUID;
  * @param uploadedAt timestamp when the template was last uploaded / replaced
  * @param fileSizeBytes file size in bytes (as stored on disk)
  * @see CertificateTemplateService
+ * @see E36S04
  */
 public record CertificateTemplateMetadata(
         UUID tournamentId,

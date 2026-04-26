@@ -4,15 +4,15 @@ package de.vvwt.tm.certificate;
  * Thrown when a filesystem I/O error occurs during certificate template storage (E12S04 AC9 —
  * meaningful error messages for storage failures).
  *
- * <p>Relocated from {@code de.vvwt.tm.domain.certificate.CertificateTemplateStorageException} to
- * the new {@code de.vvwt.tm.certificate} Modulith module as part of E23S06 (Q-1b whole-class
- * relocation per DEC-22 §refactor-clause). Javadoc and thrown-from semantics are preserved
- * byte-equivalent (AC-ERROR-HANDLING-UNCHANGED).
+ * <p>Rebuilt under DEC-22 Iron Law Q-1a RED-first TDD discipline (E36S04). Constructor signature
+ * preserved verbatim (single two-arg constructor) per AC-EXCEPTION-CONSTRUCTORS-PRESERVED and
+ * Brief C-3.
  *
  * <p>Maps to HTTP 500 Internal Server Error via {@link
- * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler}.
+ * de.vvwt.tm.web.certificate.CertificateExceptionAdvice}.
  *
  * @see CertificateTemplateService
+ * @see E36S04
  */
 public class CertificateTemplateStorageException extends RuntimeException {
 

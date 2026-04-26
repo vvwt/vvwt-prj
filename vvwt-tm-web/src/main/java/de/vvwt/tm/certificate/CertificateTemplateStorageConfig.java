@@ -6,22 +6,18 @@ import org.springframework.stereotype.Component;
 /**
  * Configuration properties for certificate template file storage (E12S04).
  *
- * <p>Relocated from {@code de.vvwt.tm.domain.certificate.CertificateTemplateStorageConfig} to the
- * new {@code de.vvwt.tm.certificate} Modulith module as part of E23S06 (Q-1b whole-class relocation
- * per DEC-22 §refactor-clause).
+ * <p>Rebuilt under DEC-22 Iron Law Q-1a RED-first TDD discipline (E36S04). All getter/setter
+ * signatures, Spring property namespace, and Spring bean name preserved verbatim per
+ * AC-CONFIG-BINDING-PRESERVED and Brief C-3.
  *
  * <p>Bound to the {@code tm.certificate-templates} property namespace in {@code application.yml}.
  *
  * <p>DEC-15: the data directory must be outside the jlink archive (read-only at runtime). Template
  * files are stored in a user-writable location on the host filesystem.
  *
- * <p>Note: The bean name is {@code certificateModuleStorageConfig} to avoid {@link
- * org.springframework.beans.factory.support.BeanDefinitionOverrideException} during the parallel
- * phase when the legacy {@code de.vvwt.tm.domain.certificate.CertificateTemplateStorageConfig}
- * (bean name {@code certificateTemplateStorageConfig}) is still on the classpath. Both beans bind
- * the same {@code tm.certificate-templates} property namespace, so both receive the same
- * configuration. The legacy bean is excluded from the component scan at E23S10 Cutover-2 when the
- * legacy class is deleted.
+ * <p>Bean name {@code certificateModuleStorageConfig} is preserved verbatim — consumers use
+ * {@code @Qualifier("certificateModuleStorageConfig")} for injection (AC-CONFIG-BINDING-PRESERVED,
+ * Brief C-3 escalation trigger if changed).
  *
  * <p>Example override:
  *
@@ -34,6 +30,7 @@ import org.springframework.stereotype.Component;
  * @see CertificateTemplateService
  * @see DEC-21
  * @see DEC-35
+ * @see E36S04
  */
 @Component("certificateModuleStorageConfig")
 @ConfigurationProperties(prefix = "tm.certificate-templates")
@@ -42,9 +39,6 @@ public class CertificateTemplateStorageConfig {
     /**
      * Root directory for certificate template file storage. Subdirectories are created
      * automatically per tournament: {@code {dataDir}/{tournamentId}/certificate-template.{ext}}.
-     *
-     * <p>Default: {@code ${user.home}/.tournament-manager/certificate-templates}. Override via
-     * {@code TM_CERT_TEMPLATES_DATA_DIR} env var or {@code -Dtm.certificate-templates.data-dir}.
      */
     private String dataDir;
 

@@ -13,10 +13,12 @@ import de.vvwt.tm.certificate.CertificateTemplateRepository;
 import de.vvwt.tm.certificate.CertificateTemplateService;
 import de.vvwt.tm.certificate.CertificateTemplateSizeException;
 import de.vvwt.tm.certificate.CertificateTemplateStorageConfig;
+import de.vvwt.tm.certificate.CertificateTemplateStorageException;
 import de.vvwt.tm.certificate.CertificateTemplateVariable;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -26,29 +28,31 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mockito;
 
 /**
- * Unit tests for {@link DefaultCertificateTemplateService} (E12S04, E23S06).
+ * RED-first TDD test corpus for {@link DefaultCertificateTemplateService} (E36S04).
  *
- * <p>Relocated from {@code de.vvwt.tm.domain.certificate.CertificateTemplateServiceImplTest} to
- * this package as part of E23S06 (Q-1b whole-class relocation per DEC-22 §refactor-clause). Test
- * assertions are byte-equivalent to the legacy test; no RED-first tests authored in this story
- * (AC-TESTING-QB-NO-RED).
+ * <p>Authored under DEC-22 Iron Law Q-1a RED-first discipline — every test in this file was written
+ * against absent production code (RED baseline = delete commit {@code 0c3d9c9}), then turned GREEN
+ * by implementing the production code (DEC-41 §3 clause (1) MANDATORY).
  *
- * <p>Per DEC-36: this test class lives in the SAME package ({@code
- * de.vvwt.tm.certificate.internal}) as {@link DefaultCertificateTemplateService}, so it MAY
- * reference the implementation class directly (same-package white-box access). Cross-package
- * dependencies ({@link TournamentRepository}) are referenced via their public interface type per
- * DEC-36. {@link CertificateTemplateRepository} is in the same {@code .internal} package —
- * white-box access permitted.
+ * <p>Pre-existing {@code DefaultCertificateTemplateServiceTest} (24 methods, 100% Snapshot-Driven
+ * per DEC-41 audit) was deleted in the same RED-baseline commit and is NOT reused per DEC-41 §3
+ * clause (3) FORBIDDEN. This fresh corpus covers all behavioral domains of the deleted test.
+ *
+ * <p>Per DEC-36: this test class lives in the SAME package ({@code de.vvwt.tm.certificate.internal})
+ * as {@link DefaultCertificateTemplateService}, so it MAY reference the implementation class
+ * directly (same-package white-box access). Cross-package dependencies ({@link TournamentRepository})
+ * are referenced via their public interface type per DEC-36.
  *
  * @see DefaultCertificateTemplateService
  * @see de.vvwt.tm.certificate.CertificateTemplateService
  */
-@DisplayName("DefaultCertificateTemplateService unit tests — E12S04/E23S06")
+@DisplayName("DefaultCertificateTemplateService — Q-1a TDD corpus (E36S04)")
 class DefaultCertificateTemplateServiceTest {
 
     @TempDir Path tempDir;
@@ -72,7 +76,7 @@ class DefaultCertificateTemplateServiceTest {
         // TournamentRepository is a public interface in tournament.* — reference via interface per
         // DEC-36 (cross-package mock)
         tournamentRepo = Mockito.mock(TournamentRepository.class);
-        // CertificateTemplateRepository is in certificate.internal.* — same package, white-box ok
+        // CertificateTemplateRepository is in certificate.* public package — same module access
         templateRepo = Mockito.mock(CertificateTemplateRepository.class);
 
         service = new DefaultCertificateTemplateService(config, tournamentRepo, templateRepo);
@@ -83,6 +87,126 @@ class DefaultCertificateTemplateServiceTest {
 
         // Default: no existing template
         when(templateRepo.findByTournamentId(TOURNAMENT_ID)).thenReturn(Optional.empty());
+    }
+
+    // =========================================================================
+    // CertificateTemplateMetadata record — signature preservation (AC-RECORD-FIELDS-PRESERVED-METADATA)
+    // =========================================================================
+
+    @Nested
+    @DisplayName("CertificateTemplateMetadata record")
+    class MetadataRecordTests {
+
+        @Test
+        @DisplayName("Record constructor preserves all 5 fields: tournamentId, filename, format, uploadedAt, fileSizeBytes")
+        void metadataRecord_constructorPreservesAllFields() {
+            UUID id = UUID.randomUUID();
+            Instant now = Instant.now();
+            CertificateTemplateMetadata meta =
+                    new CertificateTemplateMetadata(id, "cert.html", "html", now, 42L);
+
+            assertThat(meta.tournamentId()).isEqualTo(id);
+            assertThat(meta.filename()).isEqualTo("cert.html");
+            assertThat(meta.format()).isEqualTo("html");
+            assertThat(meta.uploadedAt()).isEqualTo(now);
+            assertThat(meta.fileSizeBytes()).isEqualTo(42L);
+        }
+
+        @Test
+        @DisplayName("Record equality: two instances with same field values are equal")
+        void metadataRecord_equalityByFields() {
+            UUID id = UUID.randomUUID();
+            Instant now = Instant.now();
+            CertificateTemplateMetadata a = new CertificateTemplateMetadata(id, "f.html", "html", now, 10L);
+            CertificateTemplateMetadata b = new CertificateTemplateMetadata(id, "f.html", "html", now, 10L);
+            assertThat(a).isEqualTo(b);
+        }
+    }
+
+    // =========================================================================
+    // CertificateTemplateVariable record — signature preservation (AC-RECORD-FIELDS-PRESERVED-VARIABLE)
+    // =========================================================================
+
+    @Nested
+    @DisplayName("CertificateTemplateVariable record")
+    class VariableRecordTests {
+
+        @Test
+        @DisplayName("Record constructor preserves all 3 fields: name, type, example")
+        void variableRecord_constructorPreservesAllFields() {
+            CertificateTemplateVariable v = new CertificateTemplateVariable("placement", "String", "1");
+            assertThat(v.name()).isEqualTo("placement");
+            assertThat(v.type()).isEqualTo("String");
+            assertThat(v.example()).isEqualTo("1");
+        }
+    }
+
+    // =========================================================================
+    // Exception constructors — AC-EXCEPTION-CONSTRUCTORS-PRESERVED
+    // =========================================================================
+
+    @Nested
+    @DisplayName("Exception constructor signatures")
+    class ExceptionTests {
+
+        @Test
+        @DisplayName("CertificateTemplateFormatException(String) is a RuntimeException with message")
+        void formatException_singleStringConstructor() {
+            CertificateTemplateFormatException ex = new CertificateTemplateFormatException("bad format");
+            assertThat(ex).isInstanceOf(RuntimeException.class);
+            assertThat(ex.getMessage()).isEqualTo("bad format");
+        }
+
+        @Test
+        @DisplayName("CertificateTemplateSizeException(String) is a RuntimeException with message")
+        void sizeException_singleStringConstructor() {
+            CertificateTemplateSizeException ex = new CertificateTemplateSizeException("too large");
+            assertThat(ex).isInstanceOf(RuntimeException.class);
+            assertThat(ex.getMessage()).isEqualTo("too large");
+        }
+
+        @Test
+        @DisplayName("CertificateTemplateStorageException(String, Throwable) preserves cause")
+        void storageException_twoArgConstructor() {
+            Throwable cause = new IOException("disk error");
+            CertificateTemplateStorageException ex =
+                    new CertificateTemplateStorageException("storage failed", cause);
+            assertThat(ex).isInstanceOf(RuntimeException.class);
+            assertThat(ex.getMessage()).isEqualTo("storage failed");
+            assertThat(ex.getCause()).isSameAs(cause);
+        }
+    }
+
+    // =========================================================================
+    // CertificateTemplateStorageConfig — AC-CONFIG-BINDING-PRESERVED
+    // =========================================================================
+
+    @Nested
+    @DisplayName("CertificateTemplateStorageConfig bean and properties")
+    class StorageConfigTests {
+
+        @Test
+        @DisplayName("Config getters and setters round-trip: dataDir")
+        void config_dataDirGetterSetterRoundTrip() {
+            CertificateTemplateStorageConfig cfg = new CertificateTemplateStorageConfig();
+            cfg.setDataDir("/some/path");
+            assertThat(cfg.getDataDir()).isEqualTo("/some/path");
+        }
+
+        @Test
+        @DisplayName("Config default maxSizeBytes is 2 MB (2097152 bytes)")
+        void config_defaultMaxSizeBytesIs2MB() {
+            CertificateTemplateStorageConfig cfg = new CertificateTemplateStorageConfig();
+            assertThat(cfg.getMaxSizeBytes()).isEqualTo(2L * 1024 * 1024);
+        }
+
+        @Test
+        @DisplayName("Config maxSizeBytes getter/setter round-trip")
+        void config_maxSizeBytesGetterSetterRoundTrip() {
+            CertificateTemplateStorageConfig cfg = new CertificateTemplateStorageConfig();
+            cfg.setMaxSizeBytes(5L * 1024 * 1024);
+            assertThat(cfg.getMaxSizeBytes()).isEqualTo(5L * 1024 * 1024);
+        }
     }
 
     // =========================================================================
@@ -105,12 +229,10 @@ class DefaultCertificateTemplateServiceTest {
         assertThat(result.fileSizeBytes()).isEqualTo(SAMPLE_HTML.length);
         assertThat(result.uploadedAt()).isNotNull();
 
-        // File must exist on filesystem
         Path storedFile =
                 tempDir.resolve(TOURNAMENT_ID.toString()).resolve("certificate-template.html");
         assertThat(storedFile).exists();
 
-        // Repository must be called with the metadata
         verify(templateRepo).upsert(any(CertificateTemplateMetadata.class));
     }
 
@@ -143,14 +265,12 @@ class DefaultCertificateTemplateServiceTest {
     @Test
     @DisplayName("AC4: Second upload replaces the existing HTML template")
     void uploadSecondTime_replacesExistingTemplate() throws Exception {
-        // Upload initial HTML
         service.upload(
                 TOURNAMENT_ID,
                 "v1.html",
                 new ByteArrayInputStream(SAMPLE_HTML),
                 SAMPLE_HTML.length);
 
-        // Upload replacement
         byte[] updatedContent = "<html><body>Updated {{teamName}}</body></html>".getBytes();
         CertificateTemplateMetadata result =
                 service.upload(
@@ -162,38 +282,30 @@ class DefaultCertificateTemplateServiceTest {
         assertThat(result.filename()).isEqualTo("v2.html");
         assertThat(result.fileSizeBytes()).isEqualTo(updatedContent.length);
 
-        // Only one file should exist
         Path htmlFile =
                 tempDir.resolve(TOURNAMENT_ID.toString()).resolve("certificate-template.html");
         assertThat(htmlFile).exists();
-
-        // Content must be updated
         assertThat(Files.readAllBytes(htmlFile)).isEqualTo(updatedContent);
     }
 
     @Test
     @DisplayName("AC4: Replacing HTML with SVG deletes the old HTML file")
     void uploadSvgReplacingHtml_deletesHtmlFile() throws Exception {
-        // Upload initial HTML (directly write file to simulate existing)
         Path htmlFile =
                 tempDir.resolve(TOURNAMENT_ID.toString()).resolve("certificate-template.html");
         Files.createDirectories(htmlFile.getParent());
         Files.write(htmlFile, SAMPLE_HTML);
 
-        // Mock that repository knows about the HTML
         CertificateTemplateMetadata existingMeta =
                 new CertificateTemplateMetadata(
                         TOURNAMENT_ID, "old.html", "html", Instant.now(), SAMPLE_HTML.length);
         when(templateRepo.findByTournamentId(TOURNAMENT_ID)).thenReturn(Optional.of(existingMeta));
 
-        // Now upload SVG
         service.upload(
                 TOURNAMENT_ID, "new.svg", new ByteArrayInputStream(SAMPLE_SVG), SAMPLE_SVG.length);
 
-        // HTML file must be deleted
         assertThat(htmlFile).doesNotExist();
 
-        // SVG file must exist
         Path svgFile =
                 tempDir.resolve(TOURNAMENT_ID.toString()).resolve("certificate-template.svg");
         assertThat(svgFile).exists();
@@ -234,12 +346,8 @@ class DefaultCertificateTemplateServiceTest {
     }
 
     @Test
-    @DisplayName(
-            "AC7: Upload SVG file with HTML extension does not fail format check (extension-based,"
-                    + " V1)")
+    @DisplayName("AC7: HTML extension with any non-empty content is accepted (extension-based validation, V1)")
     void uploadHtmlExtension_acceptsAnyNonEmptyContent() {
-        // V1: format validation is extension-based, not deep content inspection
-        // HTML extension + any non-empty content is accepted
         byte[] content = "not really html but non-empty".getBytes();
         CertificateTemplateMetadata result =
                 service.upload(
@@ -296,7 +404,7 @@ class DefaultCertificateTemplateServiceTest {
     @Test
     @DisplayName("AC7: File exceeding 2 MB limit throws CertificateTemplateSizeException")
     void uploadOversizedFile_throwsSizeException() {
-        long oversizedBytes = 2L * 1024 * 1024 + 1; // 1 byte over 2 MB
+        long oversizedBytes = 2L * 1024 * 1024 + 1;
         assertThatThrownBy(
                         () ->
                                 service.upload(
@@ -311,7 +419,6 @@ class DefaultCertificateTemplateServiceTest {
     @Test
     @DisplayName("AC7: File at exactly the size limit is accepted")
     void uploadFileAtExactLimit_isAccepted() {
-        // sizeBytes == maxSizeBytes is OK (not strictly greater than)
         long exactLimit = 2L * 1024 * 1024;
         CertificateTemplateMetadata result =
                 service.upload(
@@ -329,7 +436,6 @@ class DefaultCertificateTemplateServiceTest {
     @Test
     @DisplayName("AC2: Retrieve returns inputStream and correct content-type for HTML")
     void retrieveHtmlFile_returnsCorrectContentType() throws Exception {
-        // Upload first
         service.upload(
                 TOURNAMENT_ID,
                 "cert.html",

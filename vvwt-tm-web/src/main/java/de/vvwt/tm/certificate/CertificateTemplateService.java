@@ -8,9 +8,9 @@ import java.util.UUID;
 /**
  * Port for tournament-scoped certificate template management (E12S04).
  *
- * <p>Relocated from {@code de.vvwt.tm.domain.certificate.CertificateTemplateService} to the new
- * {@code de.vvwt.tm.certificate} Modulith module as part of E23S06 (Q-1b whole-class relocation per
- * DEC-22 §refactor-clause). The interface contract is byte-equivalent to the legacy interface.
+ * <p>Rebuilt under DEC-22 Iron Law Q-1a RED-first TDD discipline (E36S04). Interface contract is
+ * byte-equivalent to the deleted legacy interface per AC-CONSUMER-IMPORTS-UNCHANGED and Brief C-2
+ * (Option γ same-FQN guarantee).
  *
  * <h2>Template formats (AC7, E12S01)</h2>
  *
@@ -29,6 +29,7 @@ import java.util.UUID;
  * @see de.vvwt.tm.certificate.internal.DefaultCertificateTemplateService
  * @see DEC-35
  * @see DEC-21
+ * @see E36S04
  */
 public interface CertificateTemplateService {
 
@@ -41,7 +42,7 @@ public interface CertificateTemplateService {
      * @param tournamentId tournament UUID (tenant-scoped per DEC-5)
      * @param filename original client-provided filename (used for format detection)
      * @param inputStream template file content
-     * @param sizeBytes declared file size in bytes (validated against configured 2 MB limit — AC7)
+     * @param sizeBytes declared file size in bytes (validated against configured limit — AC7)
      * @return the stored template metadata
      * @throws java.util.NoSuchElementException if tournament not found / wrong tenant (AC9)
      * @throws CertificateTemplateFormatException if format is not .html or .svg, or file is
@@ -90,7 +91,7 @@ public interface CertificateTemplateService {
      *
      * <p>This call is stateless and does not require a tournament context. It documents the
      * system's template contract — the set of Mustache placeholders ({@code {{name}}}) that the
-     * rendering engine (E12S06) will substitute during generation.
+     * rendering engine will substitute during generation.
      *
      * @return the fixed list of available template variables
      */

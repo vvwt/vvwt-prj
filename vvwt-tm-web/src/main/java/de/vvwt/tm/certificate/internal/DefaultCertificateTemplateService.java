@@ -23,13 +23,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
- * Default implementation of {@link CertificateTemplateService} — filesystem + H2 storage (E12S04,
- * E23S06).
+ * Default implementation of {@link CertificateTemplateService} — filesystem + H2 storage (E12S04).
  *
- * <p>Renamed from {@code CertificateTemplateServiceImpl} to {@code
- * DefaultCertificateTemplateService} and relocated to {@code de.vvwt.tm.certificate.internal} as
- * part of E23S06 (Q-1b whole-class relocation per DEC-22 §refactor-clause + DEC-35 Default* naming
- * canon).
+ * <p>Rebuilt under DEC-22 Iron Law Q-1a RED-first TDD discipline (E36S04). Full behavioral parity
+ * with the deleted legacy implementation preserved per AC-CONSUMER-IMPORTS-UNCHANGED and Brief C-11
+ * (behavioral-divergence stop-and-escalate trigger).
  *
  * <p>This class is package-private to the {@code certificate} module. External consumers MUST
  * reference the public interface {@link CertificateTemplateService} — not this class (DEC-35,
@@ -44,32 +42,19 @@ import org.springframework.stereotype.Service;
  * <h2>H2 metadata (AC1, AC3, DEC-14)</h2>
  *
  * <p>Template metadata (filename, format, upload_timestamp, file_size_bytes) is persisted in the
- * {@code certificate_template} table via {@link CertificateTemplateRepository}. The table is
- * created by Flyway migration {@code db/migration/certificate/V1__initial_schema.sql} (E23S06,
- * DEC-25).
+ * {@code certificate_template} table via {@link CertificateTemplateRepository}.
  *
  * <h2>Tenant scoping (AC8, DEC-5, DEC-17)</h2>
  *
  * <p>Every method validates tournament ownership via {@link TournamentRepository#findById}, which
- * returns empty if the tournament belongs to a different tenant. This yields HTTP 404 (no tenant
- * enumeration) per DEC-17.
- *
- * <h2>Parallel-phase: legacy bean exclusion required (E23S06)</h2>
- *
- * <p>During the parallel phase, the legacy {@code CertificateTemplateServiceImpl} at {@code
- * de.vvwt.tm.domain.certificate.*} is also a {@code @Service} bean. Both implementations satisfy
- * {@code de.vvwt.tm.domain.certificate.CertificateTemplateService} (the legacy interface) but NOT
- * the same Java type — the new module implements {@code
- * de.vvwt.tm.certificate.CertificateTemplateService}, so there is no bean-name collision. However,
- * the {@code TournamentManagerApplication} {@code @ComponentScan} excludes the legacy impl to
- * prevent ambiguity for code still using the legacy interface. See {@code
- * TournamentManagerApplication} Javadoc (E23S06).
+ * returns empty if the tournament belongs to a different tenant.
  *
  * @see CertificateTemplateService
  * @see de.vvwt.tm.certificate.CertificateTemplateRepository
  * @see CertificateTemplateStorageConfig
  * @see DefaultCertificateTemplateRepository
  * @see DEC-35
+ * @see E36S04
  */
 @Service
 public class DefaultCertificateTemplateService implements CertificateTemplateService {
