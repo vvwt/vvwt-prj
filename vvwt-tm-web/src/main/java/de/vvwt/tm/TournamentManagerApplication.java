@@ -63,7 +63,7 @@ import org.springframework.context.annotation.FilterType;
  *
  * <h2>E23S10 Cutover-2 — Certificate @ComponentScan exclusion removed</h2>
  *
- * <p>The REGEX excludeFilter for {@code de.vvwt.tm.infrastructure.web.certificate.*} introduced in
+ * <p>The REGEX excludeFilter for the legacy certificate infrastructure web package introduced in
  * E23S09 is removed here. The legacy controller class and its DTOs have been deleted at Cutover-2.
  * The {@code TypeExcludeFilter} exclusion is preserved to protect against duplicate
  * {@code @TestConfiguration} inner-class bean definitions during {@code @SpringBootTest} context

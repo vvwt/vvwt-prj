@@ -23,9 +23,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
  *       db/migration/V1__initial_schema.sql} which contains {@code CREATE TABLE tenants} and {@code
  *       CREATE TABLE locations}. No inline DDL.
  *   <li><b>Rule 2 — Independent persistence verifier:</b> N/A — read-path test. Assertion is on the
- *       return value of {@link DefaultLocationDisplayResolver#resolveLocationDisplayName(UUID)}, not
- *       on database state after a write. DEC-26 Rule 2 applies to write-path tests only. Precedent:
- *       {@code PrintControllerResolveLocationTest}.
+ *       return value of {@link DefaultLocationDisplayResolver#resolveLocationDisplayName(UUID)},
+ *       not on database state after a write. DEC-26 Rule 2 applies to write-path tests only.
+ *       Precedent: {@code PrintControllerResolveLocationTest}.
  *   <li><b>Rule 3 — Read/write decoupling:</b> Fixture rows are inserted via {@link
  *       TenantDaoTestSupport#insertDirectly(DataSource, String, Map)} — direct JDBC, not via any
  *       DAO write method.

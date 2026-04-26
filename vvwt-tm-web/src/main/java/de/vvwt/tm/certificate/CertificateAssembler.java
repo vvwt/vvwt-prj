@@ -14,9 +14,8 @@ import java.util.UUID;
  * production implementation is {@code de.vvwt.tm.certificate.internal.DefaultCertificateAssembler}
  * per DEC-35 naming canon ({@code Default*} prefix, implementation in {@code .internal}).
  *
- * <p>Extracted from {@code de.vvwt.tm.infrastructure.print.CertificateAssembler} via TDD RED-first
- * per DEC-22 Q-1a. The legacy concrete class is retained during the parallel phase; it is deleted
- * at E23S10 Cutover-2 per DEC-21.
+ * <p>Extracted from the legacy {@code CertificateAssembler} concrete class (deleted at E23S10
+ * Cutover-2 per DEC-21) via TDD RED-first per DEC-22 Q-1a.
  *
  * <p>Value objects {@link CertificatePlacementRow} and {@link AvatarPlacement} reside on the public
  * type surface per DEC-35 Item 4 (VOs crossing module boundaries). {@code AvatarPlacement} is a

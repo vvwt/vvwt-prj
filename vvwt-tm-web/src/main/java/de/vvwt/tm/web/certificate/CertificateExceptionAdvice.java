@@ -21,10 +21,11 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
  *
  * <p>The {@link de.vvwt.tm.tournament.internal.web.GlobalExceptionHandler} already covers {@code
  * de.vvwt.tm.web} as a base package (E22S07). However, it handles the legacy exception types from
- * {@code de.vvwt.tm.domain.certificate.*}. The new {@link de.vvwt.tm.certificate} Modulith module
- * introduces distinct exception FQNs ({@link CertificateTemplateFormatException}, {@link
- * CertificateTemplateSizeException}, {@link CertificateTemplateStorageException}); a separate
- * advice located in {@code de.vvwt.tm.web} is required to map those new types.
+ * pre-E36S04 legacy certificate domain exceptions (deleted at E36S04 Cutover-2). The rebuilt {@link
+ * de.vvwt.tm.certificate} Modulith module introduces distinct exception FQNs ({@link
+ * CertificateTemplateFormatException}, {@link CertificateTemplateSizeException}, {@link
+ * CertificateTemplateStorageException}); a separate advice located in {@code de.vvwt.tm.web} is
+ * required to map those new types.
  *
  * <p>This is the exact analog of {@link de.vvwt.tm.web.photo.PhotoExceptionAdvice} (created in
  * E23S04) applied to the certificate module.
@@ -62,7 +63,8 @@ public class CertificateExceptionAdvice {
      * Maps {@link CertificateTemplateFormatException} to HTTP 400 Bad Request.
      *
      * <p>Preserves the HTTP mapping established in E13S01 for the legacy {@code
-     * de.vvwt.tm.domain.certificate.CertificateTemplateFormatException} handler.
+     * CertificateTemplateFormatException} handler (deleted at E36S04 Cutover-2; rebuilt at
+     * canonical FQN {@link CertificateTemplateFormatException} per Option γ).
      */
     @ExceptionHandler(CertificateTemplateFormatException.class)
     public ResponseEntity<ApiErrorResponse> handleCertificateTemplateFormat(
@@ -85,7 +87,8 @@ public class CertificateExceptionAdvice {
      * Maps {@link CertificateTemplateSizeException} to HTTP 400 Bad Request.
      *
      * <p>Preserves the HTTP mapping established in E13S01 for the legacy {@code
-     * de.vvwt.tm.domain.certificate.CertificateTemplateSizeException} handler.
+     * CertificateTemplateSizeException} handler (deleted at E36S04 Cutover-2; rebuilt at canonical
+     * FQN {@link CertificateTemplateSizeException} per Option γ).
      */
     @ExceptionHandler(CertificateTemplateSizeException.class)
     public ResponseEntity<ApiErrorResponse> handleCertificateTemplateSize(
@@ -108,7 +111,8 @@ public class CertificateExceptionAdvice {
      * Maps {@link CertificateTemplateStorageException} to HTTP 500 Internal Server Error.
      *
      * <p>Preserves the HTTP mapping established in E13S01 for the legacy {@code
-     * de.vvwt.tm.domain.certificate.CertificateTemplateStorageException} handler.
+     * CertificateTemplateStorageException} handler (deleted at E36S04 Cutover-2; rebuilt at
+     * canonical FQN {@link CertificateTemplateStorageException} per Option γ).
      */
     @ExceptionHandler(CertificateTemplateStorageException.class)
     public ResponseEntity<ApiErrorResponse> handleCertificateTemplateStorage(

@@ -11,8 +11,8 @@ import org.junit.jupiter.api.Test;
  * <p>Verifies constructor/accessor contract, factory-style static creators, and record equality
  * semantics per AC-LAUFZETTEL-ROW-TEST-REDFIRST (E24S02).
  *
- * <p>Test authored RED-first per DEC-22 Iron Law: this test was committed before
- * {@code LaufzettelRow} existed, proving the red state.
+ * <p>Test authored RED-first per DEC-22 Iron Law: this test was committed before {@code
+ * LaufzettelRow} existed, proving the red state.
  */
 @DisplayName("LaufzettelRow — VO contract tests (E24S02)")
 class LaufzettelRowTest {

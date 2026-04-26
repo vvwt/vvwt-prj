@@ -54,35 +54,34 @@ import org.springframework.web.bind.annotation.RequestMapping;
  *   <li>{@code GET /print/tournaments/{tid}/activity-schedule/{activityTypeId}} — activity schedule
  * </ul>
  *
- * <p>The legacy {@code de.vvwt.tm.infrastructure.print.PrintController} continues to serve legacy
- * URLs ({@code /print/{tid}/...}) until the E24S07 atomic cutover (DEC-21 reconstruction-in-place).
- * No certificate endpoints — those are owned by {@code web.certificate.CertificateRenderController}
- * (E24S05).
+ * <p>The legacy {@code PrintController} served URLs ({@code /print/{tid}/...}) until the E24S07
+ * atomic cutover (DEC-21 reconstruction-in-place) at which point it was deleted. No certificate
+ * endpoints — those are owned by {@code web.certificate.CertificateRenderController} (E24S05).
  *
- * <h2>Bean-name collision prevention (AC-BEAN-NAME-NEW-EXPLICIT)</h2>
+ * <h2>Bean-name (AC-BEAN-NAME-NEW-EXPLICIT)</h2>
  *
- * <p>Explicit bean name {@code "tmPrintController"} prevents collision with legacy
- * {@code de.vvwt.tm.infrastructure.print.PrintController} whose Spring default bean name is
- * {@code "printController"}. Follows project convention: {@code tmTournamentController},
- * {@code tmDeviceController}, etc.
+ * <p>Explicit bean name {@code "tmPrintController"} was chosen at E24S06 to prevent collision with
+ * the now-deleted legacy {@code PrintController} (Spring default bean name {@code
+ * "printController"}). Follows project convention: {@code tmTournamentController}, {@code
+ * tmDeviceController}, etc.
  *
  * <h2>URL disjointness</h2>
  *
- * <p>Legacy URLs use {@code /print/{UUID}/} path-variable pattern; new URLs use
- * {@code /print/tournaments/{UUID}/} literal segment. Spring's URL matcher distinguishes
- * (literal "tournaments" vs UUID-typed path variable) — no {@code AmbiguousMappingException}.
+ * <p>Legacy URLs use {@code /print/{UUID}/} path-variable pattern; new URLs use {@code
+ * /print/tournaments/{UUID}/} literal segment. Spring's URL matcher distinguishes (literal
+ * "tournaments" vs UUID-typed path variable) — no {@code AmbiguousMappingException}.
  *
  * <h2>DEC-40 Trigger-β (AC-BETA-DOES-NOT-FIRE)</h2>
  *
- * <p>All 4 endpoints import from {tournament, print} = 2 bounded contexts (tenant excluded per
- * D-16 natural reading). β does NOT fire.
+ * <p>All 4 endpoints import from {tournament, print} = 2 bounded contexts (tenant excluded per D-16
+ * natural reading). β does NOT fire.
  *
  * <h2>DEC-40 Clause B disposition (AC-DEC-40-CLAUSE-B-N-A)</h2>
  *
  * <p>All 4 endpoints return Mustache view names (HTML). No JSON DTOs. Clause B N/A.
  *
- * @see de.vvwt.tm.infrastructure.print.PrintController — legacy controller (UNTOUCHED until S07)
- * @see de.vvwt.tm.tournament.internal.web.GlobalExceptionHandler — handles TournamentNotFoundException
+ * @see de.vvwt.tm.tournament.internal.web.GlobalExceptionHandler — handles
+ *     TournamentNotFoundException
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law (Q-1a RED-first)</a>
  * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
  * @see <a href="DEC-38">DEC-38 — @ApplicationModuleTest IT canon</a>
@@ -112,8 +111,8 @@ public class PrintController {
     /**
      * Constructor injection (AC-DEPS-INJECTED).
      *
-     * <p>{@link BuildProperties} is optional — absent in test environments. Falls back to
-     * {@code "dev"}.
+     * <p>{@link BuildProperties} is optional — absent in test environments. Falls back to {@code
+     * "dev"}.
      */
     @Autowired
     public PrintController(
@@ -155,8 +154,8 @@ public class PrintController {
      * <p>Mapped at the controller's class-level {@code @RequestMapping} root (AC-URL-INDEX).
      *
      * <ul>
-     *   <li>Tournament not found → {@link TournamentNotFoundException} → 404 via
-     *       {@code GlobalExceptionHandler.handleTournamentNotFound} (S05, AC-THROW-TNFE).
+     *   <li>Tournament not found → {@link TournamentNotFoundException} → 404 via {@code
+     *       GlobalExceptionHandler.handleTournamentNotFound} (S05, AC-THROW-TNFE).
      *   <li>No phases (draft) → {@code print/error} view (AC-URL-INDEX).
      *   <li>Otherwise → {@code print/index} with model attributes (AC-URL-INDEX).
      * </ul>
@@ -188,16 +187,14 @@ public class PrintController {
         model.addAttribute("heading", msg("print.index.heading", "Print Documents", locale));
 
         // AC-URL-INDEX: laufzettelUrl uses new URL scheme
-        model.addAttribute(
-                "laufzettelUrl", "/print/tournaments/" + tid + "/team-schedules");
+        model.addAttribute("laufzettelUrl", "/print/tournaments/" + tid + "/team-schedules");
         // AC-URL-INDEX: fotosUrl — legacy behaviour preserved (dead link per legacy)
         model.addAttribute("fotosUrl", "/print/tournaments/" + tid + "/fotos");
 
         model.addAttribute(
                 "msgLaufzettelLink",
                 msg("print.index.laufzettel.link", "Team Schedule (Laufzettel)", locale));
-        model.addAttribute(
-                "msgFotosLink", msg("print.index.fotos.link", "Photo Schedule", locale));
+        model.addAttribute("msgFotosLink", msg("print.index.fotos.link", "Photo Schedule", locale));
 
         return "print/index";
     }
@@ -207,12 +204,13 @@ public class PrintController {
     // =========================================================================
 
     /**
-     * Renders the Laufzettel for a single team at new URL
-     * {@code GET /print/tournaments/{tid}/team-schedules/{teamId}}.
+     * Renders the Laufzettel for a single team at new URL {@code GET
+     * /print/tournaments/{tid}/team-schedules/{teamId}}.
      *
      * <ul>
      *   <li>Tournament not found → 404 (AC-THROW-TNFE).
-     *   <li>Team not found → 404 (AC-URL-LAUFZETTEL-SINGLE: team not found → TournamentNotFoundException).
+     *   <li>Team not found → 404 (AC-URL-LAUFZETTEL-SINGLE: team not found →
+     *       TournamentNotFoundException).
      *   <li>No phases → {@code print/error}.
      *   <li>No matches → {@code print/laufzettel-no-matches}.
      *   <li>Otherwise → {@code print/laufzettel}.
@@ -225,9 +223,7 @@ public class PrintController {
      */
     @GetMapping("/team-schedules/{teamId}")
     public String singleTeamSchedule(
-            @PathVariable("tid") UUID tid,
-            @PathVariable("teamId") UUID teamId,
-            Model model) {
+            @PathVariable("tid") UUID tid, @PathVariable("teamId") UUID teamId, Model model) {
         Locale locale = LocaleContextHolder.getLocale();
 
         Tournament tournament =
@@ -300,8 +296,8 @@ public class PrintController {
     // =========================================================================
 
     /**
-     * Renders Laufzettel for ALL teams at new URL
-     * {@code GET /print/tournaments/{tid}/team-schedules}.
+     * Renders Laufzettel for ALL teams at new URL {@code GET
+     * /print/tournaments/{tid}/team-schedules}.
      *
      * <ul>
      *   <li>Tournament not found → 404.
@@ -375,8 +371,7 @@ public class PrintController {
         model.addAttribute(
                 "title",
                 msg("print.laufzettel.title.all", "VVWT Turniermanager — Alle Laufzettel", locale));
-        model.addAttribute(
-                "heading", msg("print.laufzettel.title.all", "Alle Laufzettel", locale));
+        model.addAttribute("heading", msg("print.laufzettel.title.all", "Alle Laufzettel", locale));
         model.addAttribute("schedules", schedules);
         // laufzettel-all.mustache comment block references {{teamNumber}}, {{teamName}},
         // {{heading}}, {{hasTime}}, {{showPageBreak}}, {{rows}} at the top-level template context
@@ -398,8 +393,8 @@ public class PrintController {
     // =========================================================================
 
     /**
-     * Renders the Mannschaftsfoto-Übersicht at new URL
-     * {@code GET /print/tournaments/{tid}/activity-schedule/{activityTypeId}}.
+     * Renders the Mannschaftsfoto-Übersicht at new URL {@code GET
+     * /print/tournaments/{tid}/activity-schedule/{activityTypeId}}.
      *
      * <ul>
      *   <li>Tournament not found → 404.
@@ -544,7 +539,8 @@ public class PrintController {
         for (LaufzettelRow row : rows) {
             Map<String, Object> map = new LinkedHashMap<>();
             // LaufzettelRow is a record — component accessors use the component name directly.
-            // Boolean components starting with "is" are accessed as isPhaseHeader(), isBreak(), etc.
+            // Boolean components starting with "is" are accessed as isPhaseHeader(), isBreak(),
+            // etc.
             map.put("isPhaseHeader", row.isPhaseHeader());
             map.put("phaseHeaderName", row.phaseHeaderName());
             map.put("isBreak", row.isBreak());
@@ -641,8 +637,7 @@ public class PrintController {
     private void populateActivityScheduleNoMatchesErrorModel(
             Model model, Tournament tournament, Locale locale) {
         populateCommonModel(model, tournament, locale);
-        model.addAttribute(
-                "title", msg("print.error.title", "Print — Not Available", locale));
+        model.addAttribute("title", msg("print.error.title", "Print — Not Available", locale));
         model.addAttribute("heading", msg("print.error.heading", "Cannot Print", locale));
         model.addAttribute(
                 "msgNophase",
@@ -666,8 +661,7 @@ public class PrintController {
     }
 
     private void populateActivityScheduleI18n(Model model, Locale locale) {
-        model.addAttribute(
-                "msgColRound", msg("print.activitySchedule.col.round", "Runde", locale));
+        model.addAttribute("msgColRound", msg("print.activitySchedule.col.round", "Runde", locale));
         model.addAttribute("msgColTime", msg("print.activitySchedule.col.time", "Zeit", locale));
         model.addAttribute(
                 "msgColTeams", msg("print.activitySchedule.col.teams", "Mannschaften", locale));
@@ -683,8 +677,7 @@ public class PrintController {
                         "print.activitySchedule.unassigned.title",
                         "Keine freie Runde verfügbar",
                         locale));
-        model.addAttribute(
-                "msgBreakLabel", msg("print.activitySchedule.break", "Pause", locale));
+        model.addAttribute("msgBreakLabel", msg("print.activitySchedule.break", "Pause", locale));
     }
 
     private String msg(String key, String fallback, Locale locale) {

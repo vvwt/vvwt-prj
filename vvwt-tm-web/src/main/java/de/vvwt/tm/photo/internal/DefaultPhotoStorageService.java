@@ -28,16 +28,16 @@ import org.springframework.stereotype.Service;
 /**
  * Filesystem-backed implementation of {@link PhotoStorageService} (E36S01 Q-1a TDD rebuild).
  *
- * <p>Rebuilt from deleted Q-1b artefact at the same canonical FQN
- * ({@code de.vvwt.tm.photo.internal}) per Brief D-7 Option γ. All method signatures, constructor
- * parameters (including {@code @Qualifier("photoModuleStorageConfig")}), and behavioral semantics
- * are preserved verbatim per AC-C3-SIGNATURE-PRESERVATION.
+ * <p>Rebuilt from deleted Q-1b artefact at the same canonical FQN ({@code
+ * de.vvwt.tm.photo.internal}) per Brief D-7 Option γ. All method signatures, constructor parameters
+ * (including {@code @Qualifier("photoModuleStorageConfig")}), and behavioral semantics are
+ * preserved verbatim per AC-C3-SIGNATURE-PRESERVATION.
  *
  * <h2>Storage layout</h2>
  *
- * <p>Photos are stored at {@code {dataDir}/{tournamentId}/{teamId}.{ext}}. Both path components
- * are UUIDs — no path traversal is possible. The extension is derived from the original filename
- * (see {@link #resolveExtension}).
+ * <p>Photos are stored at {@code {dataDir}/{tournamentId}/{teamId}.{ext}}. Both path components are
+ * UUIDs — no path traversal is possible. The extension is derived from the original filename (see
+ * {@link #resolveExtension}).
  *
  * <h2>Tenant scoping (DEC-5, DEC-17)</h2>
  *
@@ -48,16 +48,16 @@ import org.springframework.stereotype.Service;
  *
  * <h2>File format validation</h2>
  *
- * <p>Upload rejects files whose original filename does not end with {@code .jpg}, {@code .jpeg},
- * or {@code .png} (case-insensitive). No deep content inspection.
+ * <p>Upload rejects files whose original filename does not end with {@code .jpg}, {@code .jpeg}, or
+ * {@code .png} (case-insensitive). No deep content inspection.
  *
  * <h2>Size limit</h2>
  *
  * <p>Upload rejects files larger than {@link PhotoStorageConfig#getMaxSizeBytes()} (default 5 MB).
  *
- * <p>Historical provenance: originally E12S02 as {@code PhotoStorageServiceImpl};
- * renamed + relocated to this module by E23S01 (Q-1b);
- * rebuilt Q-1a RED-first by E36S01 per DEC-22 Iron Law + DEC-41 §3 hierarchy clause (1).
+ * <p>Historical provenance: originally E12S02 as {@code PhotoStorageServiceImpl}; renamed +
+ * relocated to this module by E23S01 (Q-1b); rebuilt Q-1a RED-first by E36S01 per DEC-22 Iron Law +
+ * DEC-41 §3 hierarchy clause (1).
  *
  * @see PhotoStorageService
  * @see PhotoStorageConfig
@@ -229,8 +229,8 @@ public class DefaultPhotoStorageService implements PhotoStorageService {
     /**
      * Scans the tournament directory for any existing photo file for the given team.
      *
-     * <p>A team can have at most one photo; the extension may vary (.jpg, .jpeg, .png).
-     * Returns the first matching file found.
+     * <p>A team can have at most one photo; the extension may vary (.jpg, .jpeg, .png). Returns the
+     * first matching file found.
      */
     private Optional<Path> findPhotoPath(UUID tournamentId, UUID teamId) {
         Path dir = Path.of(config.getDataDir()).resolve(tournamentId.toString());
@@ -394,8 +394,7 @@ public class DefaultPhotoStorageService implements PhotoStorageService {
         Team team =
                 teamRepository
                         .findById(teamId)
-                        .orElseThrow(
-                                () -> new NoSuchElementException("Team not found: " + teamId));
+                        .orElseThrow(() -> new NoSuchElementException("Team not found: " + teamId));
         if (!tournamentId.equals(team.getTournamentId())) {
             throw new NoSuchElementException(
                     "Team " + teamId + " does not belong to tournament " + tournamentId);

@@ -41,12 +41,8 @@ import org.springframework.stereotype.Service;
  * separator rows are interleaved where the timeline has intra-phase or section breaks between
  * displayed rounds.
  *
- * <p>Fresh RED-first TDD reconstruction per DEC-22 Iron Law. No copy-paste from legacy
- * {@code de.vvwt.tm.infrastructure.print.ActivityScheduleAssembler} (DEC-41 §3 strict).
- *
- * <p>Bean qualifier {@code "printActivityScheduleAssembler"} prevents Spring bean name collision
- * with the legacy {@code activityScheduleAssembler} bean (same simple class name → same default
- * bean name) which must remain registered until the E24S07 atomic cutover.
+ * <p>Fresh RED-first TDD reconstruction per DEC-22 Iron Law. No copy-paste from the legacy {@code
+ * ActivityScheduleAssembler} (deleted at E24S07 atomic cutover; DEC-41 §3 strict).
  *
  * @see ActivityScheduleAssembler
  * @see ActivityScheduleModel
@@ -102,8 +98,13 @@ public class DefaultActivityScheduleAssembler implements ActivityScheduleAssembl
         for (Phase phase : phases) {
             UUID phaseId = phase.getId();
             List<Match> matches = matchesByPhase.getOrDefault(phaseId, Collections.emptyList());
-            collectMatchData(matches, teamByAvatarId, phaseId,
-                    playingByPhase, refereeByPhase, maxLapByPhase);
+            collectMatchData(
+                    matches,
+                    teamByAvatarId,
+                    phaseId,
+                    playingByPhase,
+                    refereeByPhase,
+                    maxLapByPhase);
         }
 
         // ── Step 3: Activity assignments (all types, filter to target) ────────
@@ -136,12 +137,14 @@ public class DefaultActivityScheduleAssembler implements ActivityScheduleAssembl
 
         List<TimelineEntry> timeline = Collections.emptyList();
         if (hasTime) {
-            List<PhaseConfig> phaseConfigs = buildPhaseConfigs(phases, breaksByPhase, maxLapByPhase);
+            List<PhaseConfig> phaseConfigs =
+                    buildPhaseConfigs(phases, breaksByPhase, maxLapByPhase);
             timeline = timelineCalculationService.calculate(startTime, phaseConfigs, 0);
         }
 
         // ── Step 6: Assemble rows ─────────────────────────────────────────────
-        List<ActivityScheduleRow> rows = buildRows(hasTime, timeline, assignedByLap, teamDisplayNames);
+        List<ActivityScheduleRow> rows =
+                buildRows(hasTime, timeline, assignedByLap, teamDisplayNames);
 
         // ── Step 7: Summary ───────────────────────────────────────────────────
         int totalAssignedTeams = assignedByLap.values().stream().mapToInt(List::size).sum();
@@ -150,7 +153,8 @@ public class DefaultActivityScheduleAssembler implements ActivityScheduleAssembl
         // ── Step 8: Unassigned team names ─────────────────────────────────────
         List<String> unassignedNames = buildUnassignedNames(unassignedTeamIds, teamDisplayNames);
 
-        return new ActivityScheduleModel(rows, totalAssignedTeams, roundCount, unassignedNames, hasTime);
+        return new ActivityScheduleModel(
+                rows, totalAssignedTeams, roundCount, unassignedNames, hasTime);
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
@@ -188,7 +192,9 @@ public class DefaultActivityScheduleAssembler implements ActivityScheduleAssembl
             if (t2 != null) playingByLap.computeIfAbsent(lap, k -> new HashSet<>()).add(t2);
 
             if (match.getRefereeTeamId() != null) {
-                refereeByLap.computeIfAbsent(lap, k -> new HashSet<>()).add(match.getRefereeTeamId());
+                refereeByLap
+                        .computeIfAbsent(lap, k -> new HashSet<>())
+                        .add(match.getRefereeTeamId());
             }
         }
 
@@ -207,7 +213,8 @@ public class DefaultActivityScheduleAssembler implements ActivityScheduleAssembl
                 result.getAssignments().entrySet()) {
             if (!targetType.getId().equals(entry.getKey().getId())) continue;
             for (ActivityAssignment a : entry.getValue()) {
-                assignedByLap.computeIfAbsent(a.getLapNumber(), k -> new ArrayList<>())
+                assignedByLap
+                        .computeIfAbsent(a.getLapNumber(), k -> new ArrayList<>())
                         .add(a.getTeamId());
             }
         }
@@ -242,7 +249,9 @@ public class DefaultActivityScheduleAssembler implements ActivityScheduleAssembl
             for (int lap : sortedLaps) {
                 List<UUID> teamIds = assignedByLap.get(lap);
                 if (teamIds == null || teamIds.isEmpty()) continue;
-                rows.add(ActivityScheduleRow.dataRow(lap, "", buildTeamNames(teamIds, teamDisplayNames)));
+                rows.add(
+                        ActivityScheduleRow.dataRow(
+                                lap, "", buildTeamNames(teamIds, teamDisplayNames)));
             }
         } else {
             // Use timeline to order rows and interleave break separators
@@ -280,7 +289,9 @@ public class DefaultActivityScheduleAssembler implements ActivityScheduleAssembl
                     if (teamIds == null || teamIds.isEmpty()) continue;
 
                     String tw = formatTimeWindow(entry.startTime(), entry.endTime());
-                    rows.add(ActivityScheduleRow.dataRow(lap, tw, buildTeamNames(teamIds, teamDisplayNames)));
+                    rows.add(
+                            ActivityScheduleRow.dataRow(
+                                    lap, tw, buildTeamNames(teamIds, teamDisplayNames)));
                     lastWasData = true;
                 }
             }
@@ -347,9 +358,7 @@ public class DefaultActivityScheduleAssembler implements ActivityScheduleAssembl
         return start.format(TIME_FMT) + "–" + end.format(TIME_FMT);
     }
 
-    /**
-     * Builds {@link PhaseConfig} objects from phase data and match-derived lap counts.
-     */
+    /** Builds {@link PhaseConfig} objects from phase data and match-derived lap counts. */
     private List<PhaseConfig> buildPhaseConfigs(
             List<Phase> phases,
             Map<UUID, List<PhaseBreak>> breaksByPhase,
@@ -369,9 +378,13 @@ public class DefaultActivityScheduleAssembler implements ActivityScheduleAssembl
                                 pb.getAfterLapNumber(), pb.getDurationMinutes(), pb.getLabel()));
             }
 
-            configs.add(new PhaseConfig(
-                    seqNumber, lapCount, DEFAULT_LAP_TIME_MINUTES, DEFAULT_LAP_BREAK_MINUTES,
-                    breakConfigs));
+            configs.add(
+                    new PhaseConfig(
+                            seqNumber,
+                            lapCount,
+                            DEFAULT_LAP_TIME_MINUTES,
+                            DEFAULT_LAP_BREAK_MINUTES,
+                            breakConfigs));
             seqNumber++;
         }
         return configs;

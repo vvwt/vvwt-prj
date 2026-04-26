@@ -26,15 +26,13 @@ class ActivityScheduleModelTest {
 
     @Test
     void constructor_storesTotalAssignedTeams() {
-        ActivityScheduleModel model =
-                new ActivityScheduleModel(List.of(), 7, 3, List.of(), true);
+        ActivityScheduleModel model = new ActivityScheduleModel(List.of(), 7, 3, List.of(), true);
         assertThat(model.totalAssignedTeams()).isEqualTo(7);
     }
 
     @Test
     void constructor_storesRoundCount() {
-        ActivityScheduleModel model =
-                new ActivityScheduleModel(List.of(), 0, 4, List.of(), false);
+        ActivityScheduleModel model = new ActivityScheduleModel(List.of(), 0, 4, List.of(), false);
         assertThat(model.roundCount()).isEqualTo(4);
     }
 
@@ -49,8 +47,7 @@ class ActivityScheduleModelTest {
     void constructor_storesHasTime() {
         ActivityScheduleModel withTime =
                 new ActivityScheduleModel(List.of(), 0, 0, List.of(), true);
-        ActivityScheduleModel noTime =
-                new ActivityScheduleModel(List.of(), 0, 0, List.of(), false);
+        ActivityScheduleModel noTime = new ActivityScheduleModel(List.of(), 0, 0, List.of(), false);
         assertThat(withTime.hasTime()).isTrue();
         assertThat(noTime.hasTime()).isFalse();
     }
@@ -90,8 +87,7 @@ class ActivityScheduleModelTest {
 
     @Test
     void hasUnassigned_falseWhenNoUnassigned() {
-        ActivityScheduleModel model =
-                new ActivityScheduleModel(List.of(), 5, 2, List.of(), true);
+        ActivityScheduleModel model = new ActivityScheduleModel(List.of(), 5, 2, List.of(), true);
         assertThat(model.hasUnassigned()).isFalse();
     }
 

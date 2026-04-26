@@ -31,15 +31,15 @@ import org.mockito.Mockito;
  *
  * <p>This test suite replaces the deleted Snapshot-Driven {@code DefaultPhotoStorageServiceTest}
  * (E23S01). Per DEC-41 §3 hierarchy clause (1): all tests are authored RED-first against absent
- * implementation code. The delete commit {@code 922ab1d} established the global RED baseline —
- * this file was written while the implementation classes were absent.
+ * implementation code. The delete commit {@code 922ab1d} established the global RED baseline — this
+ * file was written while the implementation classes were absent.
  *
  * <p>Per DEC-36, this test class is in the SAME Java package as {@link DefaultPhotoStorageService}
  * ({@code de.vvwt.tm.photo.internal}). Same-package tests MAY white-box reference the concrete
  * implementation class — no cross-package DEC-36 constraint applies here.
  *
- * <p>Tests cover: upload/retrieve/delete/hasPhoto/format-validation/size-validation/
- * unknown-entity paths (21 test methods) per AC-DEC41-FRESH-RED-FIRST-TESTS.
+ * <p>Tests cover: upload/retrieve/delete/hasPhoto/format-validation/size-validation/ unknown-entity
+ * paths (21 test methods) per AC-DEC41-FRESH-RED-FIRST-TESTS.
  *
  * @see DefaultPhotoStorageService
  * @since E36S01
@@ -47,8 +47,7 @@ import org.mockito.Mockito;
 @DisplayName("DefaultPhotoStorageService — Q-1a TDD unit tests (E36S01)")
 class DefaultPhotoStorageServiceTest {
 
-    @TempDir
-    Path tempDir;
+    @TempDir Path tempDir;
 
     private PhotoStorageConfig config;
     private TournamentRepository tournamentRepo;

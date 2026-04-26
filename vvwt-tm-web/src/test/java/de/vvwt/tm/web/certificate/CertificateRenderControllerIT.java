@@ -36,9 +36,9 @@ import org.springframework.util.MultiValueMap;
  * Integration tests for {@link CertificateRenderController} — E24S05.
  *
  * <p>Uses {@code @ApplicationModuleTest(ALL_DEPENDENCIES, RANDOM_PORT)} targeting the {@code web}
- * module per DEC-38 Clause A + DEC-40 2026-04-22 Amendment. Boots {@code web} + all declared
- * {@code allowedDependencies} (tenant, tournament, scoring, photo, certificate).
- * {@link WebModuleTestConfig} provides the test infrastructure beans.
+ * module per DEC-38 Clause A + DEC-40 2026-04-22 Amendment. Boots {@code web} + all declared {@code
+ * allowedDependencies} (tenant, tournament, scoring, photo, certificate). {@link
+ * WebModuleTestConfig} provides the test infrastructure beans.
  *
  * <h2>DEC-38 Amendment reverse-case (real beans in scope)</h2>
  *
@@ -171,11 +171,7 @@ class CertificateRenderControllerIT {
 
         ResponseEntity<String> response =
                 authed.getForEntity(
-                        new URI(
-                                baseUrl
-                                        + "/certificate/tournaments/"
-                                        + tournamentId
-                                        + "/print"),
+                        new URI(baseUrl + "/certificate/tournaments/" + tournamentId + "/print"),
                         String.class);
 
         assertThat(response.getStatusCode())
@@ -192,11 +188,11 @@ class CertificateRenderControllerIT {
      * AC-BYTE-EQUIVALENT-400: new endpoint returns non-empty 400 body for no-template scenario.
      *
      * <p>Note: byte-equivalence with legacy /print endpoint is NOT verifiable in the
-     * {@code @ApplicationModuleTest(web)} context because the legacy {@code PrintController}
-     * lives in the {@code infrastructure} module which is not in {@code web}'s
-     * {@code allowedDependencies}. This IT verifies the new endpoint error semantics independently.
-     * Cross-endpoint byte-equivalence is covered by E24S07 cutover ITs where both controllers
-     * are loaded in a full @SpringBootTest context.
+     * {@code @ApplicationModuleTest(web)} context because the legacy {@code PrintController} lives
+     * in the {@code infrastructure} module which is not in {@code web}'s {@code
+     * allowedDependencies}. This IT verifies the new endpoint error semantics independently.
+     * Cross-endpoint byte-equivalence is covered by E24S07 cutover ITs where both controllers are
+     * loaded in a full @SpringBootTest context.
      */
     @Test
     @DisplayName(

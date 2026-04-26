@@ -22,12 +22,10 @@ import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantRegistryPort;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
-import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
-import de.vvwt.tm.tournament.exceptions.TournamentNotFoundException;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -70,7 +68,8 @@ import org.springframework.web.context.WebApplicationContext;
  *   <li>MustacheException 500 (AC-SLICE-MUSTACHE-500-BRANCH)
  * </ul>
  *
- * <p>Security: without {@code @WithMockUser}, all endpoints return 401 (AC-SLICE-SECURITY-UNAUTHENTICATED).
+ * <p>Security: without {@code @WithMockUser}, all endpoints return 401
+ * (AC-SLICE-SECURITY-UNAUTHENTICATED).
  *
  * @see CertificateRenderController
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
@@ -82,7 +81,8 @@ import org.springframework.web.context.WebApplicationContext;
 @DisplayName("CertificateRenderController @WebMvcTest slice — E24S05")
 class CertificateRenderControllerSliceTest {
 
-    private static final UUID TOURNAMENT_ID = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001");
+    private static final UUID TOURNAMENT_ID =
+            UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001");
     private static final UUID TEAM_ID = UUID.fromString("bbbbbbbb-0000-0000-0000-000000000002");
     private static final UUID TENANT_ID = UUID.randomUUID();
 
@@ -161,7 +161,10 @@ class CertificateRenderControllerSliceTest {
     @DisplayName("AC-SLICE-SECURITY-UNAUTHENTICATED: unauthenticated single → 401")
     void singleCertificate_unauthenticated_returns401() throws Exception {
         mockMvc.perform(
-                        get("/certificate/tournaments/{tid}/print/{teamId}", TOURNAMENT_ID, TEAM_ID))
+                        get(
+                                "/certificate/tournaments/{tid}/print/{teamId}",
+                                TOURNAMENT_ID,
+                                TEAM_ID))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -198,7 +201,10 @@ class CertificateRenderControllerSliceTest {
         when(tenantContext.current()).thenReturn(UUID.randomUUID());
 
         mockMvc.perform(
-                        get("/certificate/tournaments/{tid}/print/{teamId}", TOURNAMENT_ID, TEAM_ID))
+                        get(
+                                "/certificate/tournaments/{tid}/print/{teamId}",
+                                TOURNAMENT_ID,
+                                TEAM_ID))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "image/svg+xml"));
     }
@@ -210,7 +216,8 @@ class CertificateRenderControllerSliceTest {
     @Test
     @WithMockUser
     @DisplayName(
-            "AC-SLICE-HTML-BRANCH: HTML format → 200 view-name certificate/print + model singleCertificate")
+            "AC-SLICE-HTML-BRANCH: HTML format → 200 view-name certificate/print + model"
+                    + " singleCertificate")
     void singleCertificate_htmlFormat_returnsMustacheView() throws Exception {
         byte[] htmlContent = "<html></html>".getBytes(StandardCharsets.UTF_8);
         CertificateTemplateService.TemplateFile templateFile =
@@ -308,8 +315,8 @@ class CertificateRenderControllerSliceTest {
     @Test
     @WithMockUser
     @DisplayName(
-            "AC-SLICE-MUSTACHE-500-BRANCH: MustacheException during SVG render → 500 text/plain body"
-                    + " 'Mustache rendering error: '")
+            "AC-SLICE-MUSTACHE-500-BRANCH: MustacheException during SVG render → 500 text/plain"
+                    + " body 'Mustache rendering error: '")
     void singleCertificate_mustacheException_returns500Plaintext() throws Exception {
         byte[] svgContent = "<svg></svg>".getBytes(StandardCharsets.UTF_8);
         CertificateTemplateService.TemplateFile templateFile =

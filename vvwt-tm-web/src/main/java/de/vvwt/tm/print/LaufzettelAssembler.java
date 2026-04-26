@@ -18,16 +18,13 @@ import java.util.UUID;
  * template. Joins data from match schedule, referee assignments, activity assignments, and timeline
  * into flat row lists per team. Has no database access — all inputs are pre-loaded by the caller.
  *
- * <p>Placed at the public module surface ({@code de.vvwt.tm.print}) per DEC-35 § clause 1
- * (service interfaces at public Modulith package). Implementation at
- * {@code de.vvwt.tm.print.internal.DefaultLaufzettelAssembler} per DEC-35 naming canon.
- * No {@code I}-prefix per DEC-35.
+ * <p>Placed at the public module surface ({@code de.vvwt.tm.print}) per DEC-35 § clause 1 (service
+ * interfaces at public Modulith package). Implementation at {@code
+ * de.vvwt.tm.print.internal.DefaultLaufzettelAssembler} per DEC-35 naming canon. No {@code
+ * I}-prefix per DEC-35.
  *
- * <p>This is the fresh reconstruction per DEC-22 Reconstruction-in-Place. The legacy
- * {@code de.vvwt.tm.infrastructure.print.LaufzettelAssembler} concrete class is UNTOUCHED
- * until E24S07 atomic cutover. Two beans coexist in Spring context post-S02:
- * legacy {@code laufzettelAssembler} and fresh {@code defaultLaufzettelAssembler} (different
- * simple-class-names — no collision per Spring default bean-name derivation).
+ * <p>This is the fresh reconstruction per DEC-22 Reconstruction-in-Place. The legacy {@code
+ * LaufzettelAssembler} concrete class was deleted at E24S07 atomic cutover.
  *
  * <h2>Round state priority (AC6)</h2>
  *
@@ -56,8 +53,8 @@ public interface LaufzettelAssembler {
      * Assembles a map of team UUID → list of Laufzettel rows for all teams.
      *
      * <p>Uses default lap time and lap break for timeline calculation. For accurate time windows
-     * with explicit per-phase configuration, use
-     * {@link #assembleWithPhaseConfig(Tournament, List, List, Map, Map, Map, List, int, Map, Map)}.
+     * with explicit per-phase configuration, use {@link #assembleWithPhaseConfig(Tournament, List,
+     * List, Map, Map, Map, List, int, Map, Map)}.
      *
      * @param tournament the tournament (for start time)
      * @param phases phases sorted by sequenceNumber ascending; must not be null
@@ -91,7 +88,8 @@ public interface LaufzettelAssembler {
      * @param activityTypes activity types to assign; must not be null
      * @param sectionBreakMinutes section break between phases in minutes (≥ 0)
      * @param lapTimeByPhase phaseId → lap time in minutes; missing entries fall back to default
-     * @param lapBreakByPhase phaseId → lap break time in minutes; missing entries fall back to default
+     * @param lapBreakByPhase phaseId → lap break time in minutes; missing entries fall back to
+     *     default
      * @return map of teamId → ordered list of {@link LaufzettelRow}; never null
      */
     Map<UUID, List<LaufzettelRow>> assembleWithPhaseConfig(

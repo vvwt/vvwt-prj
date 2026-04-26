@@ -14,12 +14,12 @@ import java.util.UUID;
 /**
  * Public interface for the activity schedule assembler (Mannschaftsfoto-Übersicht).
  *
- * <p>Assembles the row list for the activity schedule print template. The implementation
- * ({@link de.vvwt.tm.print.internal.DefaultActivityScheduleAssembler}) lives in the internal
- * package per DEC-35.
+ * <p>Assembles the row list for the activity schedule print template. The implementation ({@link
+ * de.vvwt.tm.print.internal.DefaultActivityScheduleAssembler}) lives in the internal package per
+ * DEC-35.
  *
- * <p>Method-set: EXACTLY one public method enumerated from the legacy
- * {@code de.vvwt.tm.infrastructure.print.ActivityScheduleAssembler} and its callers
+ * <p>Method-set: EXACTLY one public method enumerated from the legacy {@code
+ * ActivityScheduleAssembler} (deleted at E24S07 atomic cutover) and its callers
  * (PrintController.activityScheduleAssembler.assemble) — AC-METHOD-SET-ENUMERATION.
  *
  * @see ActivityScheduleModel

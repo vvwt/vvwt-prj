@@ -57,8 +57,8 @@ public class PhotoExceptionAdvice {
     /**
      * Maps {@link PhotoFormatException} to HTTP 400 Bad Request.
      *
-     * <p>Preserves the HTTP mapping established in E12S02 for the legacy
-     * {@link PhotoFormatException} handler (rebuilt at canonical FQN per E36S01).
+     * <p>Preserves the HTTP mapping established in E12S02 for the legacy {@link
+     * PhotoFormatException} handler (rebuilt at canonical FQN per E36S01).
      */
     @ExceptionHandler(PhotoFormatException.class)
     public ResponseEntity<ApiErrorResponse> handlePhotoFormat(
@@ -78,8 +78,8 @@ public class PhotoExceptionAdvice {
     /**
      * Maps {@link PhotoSizeException} to HTTP 400 Bad Request.
      *
-     * <p>Preserves the HTTP mapping established in E12S02 for the legacy
-     * {@link PhotoSizeException} handler (rebuilt at canonical FQN per E36S01).
+     * <p>Preserves the HTTP mapping established in E12S02 for the legacy {@link PhotoSizeException}
+     * handler (rebuilt at canonical FQN per E36S01).
      */
     @ExceptionHandler(PhotoSizeException.class)
     public ResponseEntity<ApiErrorResponse> handlePhotoSize(
@@ -99,8 +99,8 @@ public class PhotoExceptionAdvice {
     /**
      * Maps {@link PhotoStorageException} to HTTP 500 Internal Server Error.
      *
-     * <p>Preserves the HTTP mapping established in E12S02 for the legacy
-     * {@link PhotoStorageException} handler (rebuilt at canonical FQN per E36S01).
+     * <p>Preserves the HTTP mapping established in E12S02 for the legacy {@link
+     * PhotoStorageException} handler (rebuilt at canonical FQN per E36S01).
      */
     @ExceptionHandler(PhotoStorageException.class)
     public ResponseEntity<ApiErrorResponse> handlePhotoStorage(

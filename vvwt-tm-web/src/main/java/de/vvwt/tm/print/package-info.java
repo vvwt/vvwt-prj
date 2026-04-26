@@ -1,8 +1,8 @@
 /**
  * Print bounded-context module for the Tournament Manager (DEC-21, DEC-40 Clause A, E24S01).
  *
- * <p>This is the canonical home for all print-domain production classes: assemblers, resolvers,
- * and value objects that produce Mustache-template-ready data models for print endpoints. REST
+ * <p>This is the canonical home for all print-domain production classes: assemblers, resolvers, and
+ * value objects that produce Mustache-template-ready data models for print endpoints. REST
  * controllers that consume this module live in {@code de.vvwt.tm.web} per DEC-40 Clause A
  * (Primary-Adapter-Isolation) and are added to {@code web.allowedDependencies} at E24S06.
  *
@@ -45,13 +45,14 @@
  *
  * <h2>Legacy coexistence (DEC-22 reconstruction-in-place)</h2>
  *
- * <p>Legacy print code at {@code de.vvwt.tm.infrastructure.print.*} (assemblers, controllers,
- * exception class) is UNTOUCHED until the E24S07 atomic cutover (DEC-21). During E24S01–E24S06,
- * both the new print module (this package) and the legacy {@code infrastructure.print.*} unassigned
- * package coexist in the Spring ApplicationContext.
+ * <p>The legacy {@code infrastructure.print.*} package (assemblers, controllers, exception class)
+ * coexisted with this module during E24S01–E24S06 under DEC-22 reconstruction-in-place and was
+ * deleted at the E24S07 atomic cutover (DEC-21).
  *
- * @see <a href="../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-21.md">DEC-21 — Spring Modulith adoption</a>
- * @see <a href="../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-40.md">DEC-40 — Primary-Adapter-Isolation</a>
+ * @see <a href="../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-21.md">DEC-21 —
+ *     Spring Modulith adoption</a>
+ * @see <a href="../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-40.md">DEC-40 —
+ *     Primary-Adapter-Isolation</a>
  * @since E24S01
  */
 @org.springframework.modulith.ApplicationModule(allowedDependencies = {"tournament"})

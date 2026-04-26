@@ -25,15 +25,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * implementation class {@code DefaultActivityScheduleAssembler}. Per DEC-36: cross-package tests
  * must reference the interface, not the concrete type.
  *
- * <p>This test is in {@code de.vvwt.tm.print} (different package from the impl at
- * {@code de.vvwt.tm.print.internal}) — the DEC-36 cross-package rule applies.
+ * <p>This test is in {@code de.vvwt.tm.print} (different package from the impl at {@code
+ * de.vvwt.tm.print.internal}) — the DEC-36 cross-package rule applies.
  */
 @ExtendWith(MockitoExtension.class)
 class ActivityScheduleAssemblerContractTest {
 
     /** Subject typed as the PUBLIC INTERFACE per DEC-36. */
-    @Mock
-    private ActivityScheduleAssembler assembler;
+    @Mock private ActivityScheduleAssembler assembler;
 
     @Test
     void assemble_methodSignatureCompiles() {
@@ -73,9 +72,10 @@ class ActivityScheduleAssemblerContractTest {
         // Verify the return type is ActivityScheduleModel (interface contract check).
         // The mock returns null by default — we just verify the compile-time return type.
         ActivityScheduleModel result =
-                assembler.assemble(null, List.of(), List.of(), Map.of(), Map.of(), Map.of(),
-                        List.of(), null);
-        // Return type is ActivityScheduleModel — if this compiles, the interface contract is satisfied.
+                assembler.assemble(
+                        null, List.of(), List.of(), Map.of(), Map.of(), Map.of(), List.of(), null);
+        // Return type is ActivityScheduleModel — if this compiles, the interface contract is
+        // satisfied.
         assertThat(result).isNull();
     }
 }

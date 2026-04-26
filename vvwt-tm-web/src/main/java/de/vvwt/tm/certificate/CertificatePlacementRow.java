@@ -5,11 +5,9 @@ import java.util.UUID;
 /**
  * Data record for a single team's certificate placement data (E23S08, DEC-35).
  *
- * <p>Relocated from {@code de.vvwt.tm.infrastructure.print.CertificatePlacementRow} to the public
- * API surface of the {@code certificate} bounded context per DEC-35 Item 4 (VOs crossing module
- * boundaries must reside in the public package). The legacy class at {@code
- * infrastructure.print.CertificatePlacementRow} is retained during the parallel phase; it is
- * deleted at E23S10 Cutover-2 per DEC-21.
+ * <p>Relocated from the legacy {@code CertificatePlacementRow} class (deleted at E23S10 Cutover-2
+ * per DEC-21) to the public API surface of the {@code certificate} bounded context per DEC-35 Item
+ * 4 (VOs crossing module boundaries must reside in the public package).
  *
  * <h2>Template variables (AC6)</h2>
  *

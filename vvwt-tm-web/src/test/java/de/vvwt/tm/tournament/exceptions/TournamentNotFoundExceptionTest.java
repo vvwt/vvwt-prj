@@ -14,15 +14,18 @@ import org.springframework.web.bind.annotation.ResponseStatus;
  * <h2>RED state (DEC-22)</h2>
  *
  * <p>This test was authored before {@code TournamentNotFoundException} existed at {@code
- * de.vvwt.tm.tournament.exceptions.*}. At commit time the class was absent, causing a compile
- * error and proving RED-first authoring per DEC-22 Iron Law.
+ * de.vvwt.tm.tournament.exceptions.*}. At commit time the class was absent, causing a compile error
+ * and proving RED-first authoring per DEC-22 Iron Law.
  *
  * <h2>Behavioral contract verified</h2>
  *
  * <ul>
- *   <li>Extends {@link RuntimeException} (unchecked, per Story AC-EXCEPTION-CREATE-PUBLIC-WITH-RESPONSESTATUS)
- *   <li>Constructor accepts {@code UUID tournamentId}; {@code getMessage()} contains {@code tournamentId.toString()}
- *   <li>Class carries {@code @ResponseStatus(HttpStatus.NOT_FOUND)} — defense-in-depth per Brief R-3 and DEC-40
+ *   <li>Extends {@link RuntimeException} (unchecked, per Story
+ *       AC-EXCEPTION-CREATE-PUBLIC-WITH-RESPONSESTATUS)
+ *   <li>Constructor accepts {@code UUID tournamentId}; {@code getMessage()} contains {@code
+ *       tournamentId.toString()}
+ *   <li>Class carries {@code @ResponseStatus(HttpStatus.NOT_FOUND)} — defense-in-depth per Brief
+ *       R-3 and DEC-40
  * </ul>
  *
  * <p>Story: E24S01 — AC-EXCEPTION-REDFIRST-TEST, AC-EXCEPTION-CREATE-PUBLIC-WITH-RESPONSESTATUS,
@@ -61,7 +64,9 @@ class TournamentNotFoundExceptionTest {
     }
 
     @Test
-    @DisplayName("message contains no sensitive information beyond UUID (AC-SECURITY-EXCEPTION-MESSAGE-DISCLOSURE)")
+    @DisplayName(
+            "message contains no sensitive information beyond UUID"
+                    + " (AC-SECURITY-EXCEPTION-MESSAGE-DISCLOSURE)")
     void messageContainsNoSensitiveData() {
         UUID id = UUID.randomUUID();
         TournamentNotFoundException ex = new TournamentNotFoundException(id);

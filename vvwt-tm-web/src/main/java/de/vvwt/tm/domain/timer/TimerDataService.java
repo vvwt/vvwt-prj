@@ -40,9 +40,10 @@ import org.springframework.stereotype.Service;
  * <h2>Timeline calculation (AC2)</h2>
  *
  * <p>Delegates to {@link TimelineCalculationService} — this service does NOT duplicate timeline
- * calculation logic. Lap counts are derived from match data (same approach as {@link
- * de.vvwt.tm.infrastructure.print.LaufzettelAssembler}). Lap time defaults of 15 min/lap and 5
- * min/lap-break are used when no explicit configuration is stored.
+ * calculation logic. Lap counts are derived from match data (same approach as the legacy {@code
+ * LaufzettelAssembler} deleted at E24S07, now superseded by {@link
+ * de.vvwt.tm.print.LaufzettelAssembler}). Lap time defaults of 15 min/lap and 5 min/lap-break are
+ * used when no explicit configuration is stored.
  *
  * <h2>Break type mapping (AC3)</h2>
  *
