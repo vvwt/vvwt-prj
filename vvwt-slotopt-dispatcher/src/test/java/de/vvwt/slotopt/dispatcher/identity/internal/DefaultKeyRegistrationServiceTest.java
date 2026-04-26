@@ -3,8 +3,12 @@ package de.vvwt.slotopt.dispatcher.identity.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import de.vvwt.slotopt.dispatcher.audit.AuditService;
 import de.vvwt.slotopt.dispatcher.crypto.SignatureVerifier;
 import de.vvwt.slotopt.dispatcher.crypto.SignatureVerifierRegistry;
 import de.vvwt.slotopt.dispatcher.identity.KeyRegistration;
@@ -29,27 +33,27 @@ import org.mockito.quality.Strictness;
 /**
  * Unit tests for {@link DefaultKeyRegistrationService}.
  *
- * <p>Tests are authored against the {@link KeyRegistrationService} interface (DEC-36 cross-package
- * test typing rule: this test is in a different package than the subject's {@code internal}
- * package, so it references the interface type, not the implementation class).
+ * <p>DEC-36: test is in identity.internal package (same as subject) — white-box access permitted.
+ * Field declared as KeyRegistrationService (public interface) per DEC-36 cross-package spirit.
  *
- * <p>RED-first per DEC-22 / AC-KEY-REGISTRATION-SERVICE: written before production class exists.
+ * <p>E37S06 amendment: AuditService mock added. AuditService is a COMMAND collaborator — the audit
+ * invocation IS the observable behaviour contract. verify(auditService) is appropriate per
+ * testing-anti-patterns-java.md (command vs. query distinction).
  *
- * <p>Story: E37S05
+ * <p>Story: E37S05 (initial); E37S06 (audit assertions added)
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class DefaultKeyRegistrationServiceTest {
 
-    // DEC-36: test is in identity.internal package but subject's interface is in identity —
-    // field declared as the PUBLIC INTERFACE type, not DefaultKeyRegistrationService
     private KeyRegistrationService service;
 
     @Mock private KeyRegistrationRepository repository;
-
     @Mock private SignatureVerifierRegistry verifierRegistry;
-
     @Mock private SignatureVerifier ed25519Verifier;
+    @Mock private AuditService auditService;
+
+    private static final String SOURCE_IP = "10.0.0.1";
 
     @BeforeEach
     void setUp() {
@@ -58,13 +62,8 @@ class DefaultKeyRegistrationServiceTest {
         when(ed25519Verifier.minPublicKeyBytes()).thenReturn(32);
         when(ed25519Verifier.maxPublicKeyBytes()).thenReturn(32);
 
-        // Construct via implementation class (only allowed here since we are IN the same package)
-        service = new DefaultKeyRegistrationService(repository, verifierRegistry);
+        service = new DefaultKeyRegistrationService(repository, verifierRegistry, auditService);
     }
-
-    // -------------------------------------------------------------------------
-    // AC-KEY-REGISTRATION-SERVICE — behavior (1): unknown algorithm → 400
-    // -------------------------------------------------------------------------
 
     @Test
     void unknownAlgorithmThrowsIllegalArgumentException() {
@@ -72,7 +71,7 @@ class DefaultKeyRegistrationServiceTest {
                 new RegisterKeyRequest(UUID.randomUUID(), "worker", "ML-DSA-65", new byte[32]);
         when(verifierRegistry.lookup("ML-DSA-65")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.register(req))
+        assertThatThrownBy(() -> service.register(req, SOURCE_IP))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("ML-DSA-65");
     }
@@ -82,42 +81,34 @@ class DefaultKeyRegistrationServiceTest {
         RegisterKeyRequest req =
                 new RegisterKeyRequest(UUID.randomUUID(), "worker", null, new byte[32]);
 
-        assertThatThrownBy(() -> service.register(req))
+        assertThatThrownBy(() -> service.register(req, SOURCE_IP))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
-    // -------------------------------------------------------------------------
-    // AC-KEY-REGISTRATION-SERVICE — behavior (2): key-length out of range → 400
-    // -------------------------------------------------------------------------
-
     @Test
     void keyTooShortThrowsIllegalArgumentException() {
-        byte[] shortKey = new byte[16]; // less than 32
+        byte[] shortKey = new byte[16];
         RegisterKeyRequest req =
                 new RegisterKeyRequest(UUID.randomUUID(), "worker", "Ed25519", shortKey);
 
-        assertThatThrownBy(() -> service.register(req))
+        assertThatThrownBy(() -> service.register(req, SOURCE_IP))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("public key");
     }
 
     @Test
     void keyTooLongThrowsIllegalArgumentException() {
-        byte[] longKey = new byte[64]; // more than 32
+        byte[] longKey = new byte[64];
         RegisterKeyRequest req =
                 new RegisterKeyRequest(UUID.randomUUID(), "worker", "Ed25519", longKey);
 
-        assertThatThrownBy(() -> service.register(req))
+        assertThatThrownBy(() -> service.register(req, SOURCE_IP))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("public key");
     }
 
-    // -------------------------------------------------------------------------
-    // AC-KEY-REGISTRATION-SERVICE — behavior (3a): role conflict → RoleConflictException
-    // -------------------------------------------------------------------------
-
     @Test
-    void conflictingRoleThrowsRoleConflictException() {
+    void conflictingRoleThrowsRoleConflictExceptionAndAuditsConflict() {
         UUID workerId = UUID.randomUUID();
         KeyRegistration existing = new KeyRegistration();
         existing.setId(1L);
@@ -131,7 +122,7 @@ class DefaultKeyRegistrationServiceTest {
         RegisterKeyRequest req =
                 new RegisterKeyRequest(workerId, "submitter", "Ed25519", new byte[32]);
 
-        assertThatThrownBy(() -> service.register(req))
+        assertThatThrownBy(() -> service.register(req, SOURCE_IP))
                 .isInstanceOf(RoleConflictException.class)
                 .satisfies(
                         ex -> {
@@ -140,14 +131,14 @@ class DefaultKeyRegistrationServiceTest {
                             assertThat(rce.getExistingRole()).isEqualTo("worker");
                             assertThat(rce.getRequestedRole()).isEqualTo("submitter");
                         });
+
+        // AuditService is a COMMAND collaborator — verify() is appropriate
+        verify(auditService)
+                .recordEvent(eq("KEY_ROLE_CONFLICT"), eq(workerId), eq(SOURCE_IP), anyString());
     }
 
-    // -------------------------------------------------------------------------
-    // AC-KEY-REGISTRATION-SERVICE — behavior (3b): idempotent re-register
-    // -------------------------------------------------------------------------
-
     @Test
-    void idempotentReRegisterReturnExisting() {
+    void idempotentReRegisterReturnExistingAndAuditsIdempotent() {
         UUID workerId = UUID.randomUUID();
         Instant registeredAt = Instant.now();
         KeyRegistration existing = new KeyRegistration();
@@ -159,11 +150,10 @@ class DefaultKeyRegistrationServiceTest {
         existing.setRegisteredAt(registeredAt);
         when(repository.findByWorkerId(workerId)).thenReturn(Optional.of(existing));
 
-        // Same workerId, same role, same algorithm → idempotent
         RegisterKeyRequest req =
                 new RegisterKeyRequest(workerId, "worker", "Ed25519", new byte[32]);
 
-        RegistrationOutcome outcome = service.register(req);
+        RegistrationOutcome outcome = service.register(req, SOURCE_IP);
 
         assertThat(outcome.isNew()).isFalse();
         RegisterKeyResponse response = outcome.response();
@@ -171,14 +161,17 @@ class DefaultKeyRegistrationServiceTest {
         assertThat(response.role()).isEqualTo("worker");
         assertThat(response.algorithm()).isEqualTo("Ed25519");
         assertThat(response.registeredAt()).isEqualTo(registeredAt);
+
+        verify(auditService)
+                .recordEvent(
+                        eq("KEY_RE_REGISTRATION_IDEMPOTENT"),
+                        eq(workerId),
+                        eq(SOURCE_IP),
+                        anyString());
     }
 
-    // -------------------------------------------------------------------------
-    // AC-KEY-REGISTRATION-SERVICE — behavior (4): persist new registration
-    // -------------------------------------------------------------------------
-
     @Test
-    void newRegistrationPersistsAndReturnsResponse() {
+    void newRegistrationPersistsAndAuditsKeyRegistered() {
         UUID workerId = UUID.randomUUID();
         when(repository.findByWorkerId(workerId)).thenReturn(Optional.empty());
         when(repository.save(any(KeyRegistration.class)))
@@ -192,7 +185,7 @@ class DefaultKeyRegistrationServiceTest {
         RegisterKeyRequest req =
                 new RegisterKeyRequest(workerId, "worker", "Ed25519", new byte[32]);
 
-        RegistrationOutcome outcome = service.register(req);
+        RegistrationOutcome outcome = service.register(req, SOURCE_IP);
 
         assertThat(outcome.isNew()).isTrue();
         RegisterKeyResponse response = outcome.response();
@@ -200,18 +193,17 @@ class DefaultKeyRegistrationServiceTest {
         assertThat(response.role()).isEqualTo("worker");
         assertThat(response.algorithm()).isEqualTo("Ed25519");
         assertThat(response.registeredAt()).isNotNull();
-    }
 
-    // -------------------------------------------------------------------------
-    // AC-ALGORITHM-FIELD-REQUIRED: empty algorithm → 400
-    // -------------------------------------------------------------------------
+        verify(auditService)
+                .recordEvent(eq("KEY_REGISTERED"), eq(workerId), eq(SOURCE_IP), anyString());
+    }
 
     @Test
     void emptyAlgorithmThrowsIllegalArgumentException() {
         RegisterKeyRequest req =
                 new RegisterKeyRequest(UUID.randomUUID(), "worker", "", new byte[32]);
 
-        assertThatThrownBy(() -> service.register(req))
+        assertThatThrownBy(() -> service.register(req, SOURCE_IP))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }

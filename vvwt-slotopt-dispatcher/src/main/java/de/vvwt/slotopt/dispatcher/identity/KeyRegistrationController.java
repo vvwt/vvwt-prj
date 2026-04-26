@@ -1,5 +1,6 @@
 package de.vvwt.slotopt.dispatcher.identity;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -27,7 +28,10 @@ import org.springframework.web.bind.annotation.RestController;
  * DEC-35 for dispatcher module — not a Spring Modulith web module context, so controller placement
  * follows the pattern from the current dispatcher module rather than TM-specific DEC-40).
  *
- * <p>Story: E37S05; Spec: E37S02 spec (b)
+ * <p>E37S06 amendment: {@link HttpServletRequest} injected to extract source IP for audit wiring
+ * per AC-IDENTITY-INTEGRATION-WIRING.
+ *
+ * <p>Story: E37S05 (initial); E37S06 (audit source-IP wiring)
  */
 @RestController
 public class KeyRegistrationController {
@@ -42,13 +46,15 @@ public class KeyRegistrationController {
      * Registers a public key with the dispatcher identity registry.
      *
      * @param request the registration request body
+     * @param httpRequest the HTTP servlet request — used to extract the client source IP for audit
      * @return 201 with {@link RegisterKeyResponse} on new registration; 200 on idempotent
      *     re-registration
      */
     @PostMapping("/api/register-key")
     public ResponseEntity<RegisterKeyResponse> registerKey(
-            @RequestBody RegisterKeyRequest request) {
-        RegistrationOutcome outcome = keyRegistrationService.register(request);
+            @RequestBody RegisterKeyRequest request, HttpServletRequest httpRequest) {
+        String sourceIp = httpRequest.getRemoteAddr();
+        RegistrationOutcome outcome = keyRegistrationService.register(request, sourceIp);
         HttpStatus status = outcome.isNew() ? HttpStatus.CREATED : HttpStatus.OK;
         return ResponseEntity.status(status).body(outcome.response());
     }
