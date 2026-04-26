@@ -45,9 +45,8 @@ import org.springframework.util.MultiValueMap;
  * <h2>DEC-38 + DEC-40 — @ApplicationModuleTest (AC-DEC38-IT-PATTERN)</h2>
  *
  * <p>Uses {@code @ApplicationModuleTest(ALL_DEPENDENCIES, RANDOM_PORT)} targeting the {@code web}
- * module per DEC-38 Clause A + DEC-40 2026-04-22 Amendment. Boots {@code web} + all declared
- * {@code allowedDependencies} (tenant, tournament, tournament::exceptions, scoring, photo,
- * certificate).
+ * module per DEC-38 Clause A + DEC-40 2026-04-22 Amendment. Boots {@code web} + all declared {@code
+ * allowedDependencies} (tenant, tournament, tournament::exceptions, scoring, photo, certificate).
  *
  * <h2>DEC-36 — Cross-package test typing (AC-TESTING-DEC36)</h2>
  *
@@ -62,7 +61,8 @@ import org.springframework.util.MultiValueMap;
  * Snapshot-Driven per DEC-41 §1 and deleted per AC-DELETE-LEGACY-FIRST. This IT is a fully fresh
  * TDD corpus covering the same AC surface with new test methods authored RED-first.
  *
- * <h2>HTTP contract preserved verbatim (AC-MOCKMVC-CONTRACT-PRESERVED, AC-C3-SIGNATURE-PRESERVATION)</h2>
+ * <h2>HTTP contract preserved verbatim (AC-MOCKMVC-CONTRACT-PRESERVED,
+ * AC-C3-SIGNATURE-PRESERVATION)</h2>
  *
  * <p>URL paths and JSON wire shapes from the Q-1b relocated {@code CertificateTemplateController}
  * (E23S09) are preserved verbatim per DEC-40 boundary preservation.
@@ -70,7 +70,8 @@ import org.springframework.util.MultiValueMap;
  * <h2>Test coverage</h2>
  *
  * <ul>
- *   <li>AC1: Upload HTML returns 200 with metadata DTO (tournamentId, filename, format, uploadedAt, fileSizeBytes)
+ *   <li>AC1: Upload HTML returns 200 with metadata DTO (tournamentId, filename, format, uploadedAt,
+ *       fileSizeBytes)
  *   <li>AC1: Upload SVG returns 200 with correct format
  *   <li>AC4: Second upload replaces existing template
  *   <li>AC2: GET file after HTML upload returns 200 with text/html Content-Type
@@ -82,7 +83,8 @@ import org.springframework.util.MultiValueMap;
  *   <li>AC5: DELETE when no template returns 404
  *   <li>AC5: GET file after DELETE returns 404
  *   <li>AC6: GET /variables returns 200 with exactly 6 variables
- *   <li>AC6: Variables contain expected names (placement, teamName, teamPhoto, tournamentName, date, location)
+ *   <li>AC6: Variables contain expected names (placement, teamName, teamPhoto, tournamentName,
+ *       date, location)
  *   <li>AC7: POST with .pdf format returns 400
  *   <li>AC7: POST with .png format returns 400
  *   <li>AC7: POST with oversized file returns 400
@@ -149,11 +151,7 @@ class CertificateTemplateControllerIT {
 
         ResponseEntity<TemplateMetadataResponse> response =
                 uploadTemplate(
-                        authed,
-                        tournamentId,
-                        "certificate.html",
-                        SAMPLE_HTML,
-                        MediaType.TEXT_HTML);
+                        authed, tournamentId, "certificate.html", SAMPLE_HTML, MediaType.TEXT_HTML);
 
         assertThat(response.getStatusCode())
                 .as("AC1: HTML upload must return 200 OK")
@@ -212,7 +210,8 @@ class CertificateTemplateControllerIT {
 
         uploadTemplate(authed, tournamentId, "v1.html", SAMPLE_HTML, MediaType.TEXT_HTML);
 
-        byte[] updated = "<html><body>Updated {{teamName}} — {{placement}}</body></html>".getBytes();
+        byte[] updated =
+                "<html><body>Updated {{teamName}} — {{placement}}</body></html>".getBytes();
         ResponseEntity<TemplateMetadataResponse> second =
                 uploadTemplate(authed, tournamentId, "v2.html", updated, MediaType.TEXT_HTML);
 
@@ -255,7 +254,8 @@ class CertificateTemplateControllerIT {
     // =========================================================================
 
     @Test
-    @DisplayName("AC2: GET template file after SVG upload returns 200 with image/svg+xml Content-Type")
+    @DisplayName(
+            "AC2: GET template file after SVG upload returns 200 with image/svg+xml Content-Type")
     void retrieveSvgFileReturns200WithSvgContentType() throws Exception {
         UUID tournamentId = createTournament("Retrieve SVG IT E36S06");
         uploadTemplate(
@@ -410,9 +410,7 @@ class CertificateTemplateControllerIT {
         assertThat(response.getStatusCode())
                 .as("AC6: variables endpoint must return 200")
                 .isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody())
-                .as("AC6: must return exactly 6 variables")
-                .hasSize(6);
+        assertThat(response.getBody()).as("AC6: must return exactly 6 variables").hasSize(6);
     }
 
     // =========================================================================
@@ -420,7 +418,8 @@ class CertificateTemplateControllerIT {
     // =========================================================================
 
     @Test
-    @DisplayName("AC6: Variables contain placement, teamName, teamPhoto, tournamentName, date, location")
+    @DisplayName(
+            "AC6: Variables contain placement, teamName, teamPhoto, tournamentName, date, location")
     void variablesEndpointContainsExpectedNames() throws Exception {
         ResponseEntity<VariableResponse[]> response =
                 authed.getForEntity(
