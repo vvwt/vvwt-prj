@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import de.vvwt.tm.certificate.CertificateAssembler;
 import de.vvwt.tm.certificate.CertificatePlacementRow;
 import de.vvwt.tm.photo.PhotoStorageService;
+import de.vvwt.tm.photo.PhotoFileMetadata;
 import de.vvwt.tm.photo.PhotoUrlBuilder;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
@@ -18,9 +19,11 @@ import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import java.io.ByteArrayInputStream;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,21 +31,32 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Regression gate for {@link DefaultCertificateAssembler} — E23S08, DEC-22 Q-1b.
+ * Q-1a TDD RED-first test suite for the rebuilt {@link DefaultCertificateAssembler}
+ * (E36S05, DEC-22 Iron Law).
  *
- * <p>Relocated and renamed from {@code de.vvwt.tm.infrastructure.print.CertificateAssemblerTest}.
- * Assertions are unchanged — this class is the regression gate proving behavioral parity with the
- * legacy class per DEC-22 §refactor-clause.
+ * <p>Authored RED-first against the absent impl after the legacy Q-1b
+ * {@code DefaultCertificateAssembler} was deleted at commit {@code c40db76}. These tests
+ * first failed at compile time (RED state per AC-TDD-RED-FIRST-EVIDENCE model (a)).
  *
  * <p>Per DEC-36: this test class is in {@code de.vvwt.tm.certificate.internal} — the SAME package
- * as {@code DefaultCertificateAssembler}. White-box access is permitted (same-package rule). The
- * declared field type uses the {@link CertificateAssembler} PUBLIC INTERFACE (best practice, though
- * same-package white-box access would also permit {@code DefaultCertificateAssembler}).
+ * as {@code DefaultCertificateAssembler}. White-box access (package-private helpers, constructor
+ * direct call) is permitted. The primary {@code assembler} field is declared as the
+ * {@link CertificateAssembler} PUBLIC INTERFACE (best practice, same-package rule allows
+ * white-box constructor call).
+ *
+ * <p>Per DEC-41 §3 hierarchy clause (1): these are the MANDATORY new TDD tests for the new code.
+ * The preserved {@code CertificateAssemblerTest} is SUPPLEMENTARY per clause (2) only.
+ *
+ * <p>Per AC-AUDIT-II-GAP-DOCUMENTED: audit (ii) did NOT enumerate
+ * {@code de.vvwt.tm.certificate.CertificateAssemblerTest}. This test class supplements it;
+ * the interface-level test is preserved on the basis of DEC-36, DEC-22 Q-1a Javadoc evidence,
+ * and DEC-41 §1(d) Spec-Anchored criterion observed in source.
  *
  * @see DefaultCertificateAssembler
- * @since E23S08
+ * @see CertificateAssembler
+ * @since E36S05
  */
-@DisplayName("DefaultCertificateAssembler — E23S08 Q-1b regression gate")
+@DisplayName("DefaultCertificateAssembler — E36S05 Q-1a TDD RED-first rebuild")
 class DefaultCertificateAssemblerTest {
 
     // -------------------------------------------------------------------------
@@ -61,7 +75,7 @@ class DefaultCertificateAssemblerTest {
     private static final UUID AVATAR_C_ID = UUID.fromString("00000000-0000-0000-0000-000000000009");
 
     // -------------------------------------------------------------------------
-    // Mocks
+    // Mocks and subject
     // -------------------------------------------------------------------------
 
     private PhaseRepository phaseRepository;
@@ -72,8 +86,8 @@ class DefaultCertificateAssemblerTest {
     private PhotoUrlBuilder photoUrlBuilder;
 
     /**
-     * DEC-36: declared as public interface even in same-package context (best practice).
-     * Constructor call below is white-box (same package).
+     * DEC-36: declared as public interface (best practice even in same-package context).
+     * White-box constructor call below is permitted (same package per DEC-36).
      */
     private CertificateAssembler assembler;
 
@@ -87,7 +101,7 @@ class DefaultCertificateAssemblerTest {
                 TENANT_ID,
                 TOURNAMENT_ID,
                 sequenceNumber,
-                "Final Phase",
+                "Phase " + sequenceNumber,
                 "COMPLETED",
                 3,
                 LocalDateTime.now());
@@ -98,7 +112,15 @@ class DefaultCertificateAssemblerTest {
                 avatarId, TENANT_ID, TOURNAMENT_ID, PHASE_ID, 1, 1, teamId, null, null);
     }
 
-    /** Builds a TeamAvatarRating with the given points and quotients for sorting tests. */
+    /**
+     * Builds a TeamAvatarRating with the given points and quotients for DEC-33 sort testing.
+     *
+     * @param avatarId      the avatar UUID (also the rating PK)
+     * @param points        match points
+     * @param setQuotient   sets won / sets played ratio
+     * @param ballQuotient  balls won / balls played ratio
+     * @param withoutAssessment true → team ranks last per DEC-33 regardless of numeric scores
+     */
     private static TeamAvatarRating makeRating(
             UUID avatarId,
             int points,
@@ -156,7 +178,8 @@ class DefaultCertificateAssemblerTest {
         photoStorageService = mock(PhotoStorageService.class);
         photoUrlBuilder = mock(PhotoUrlBuilder.class);
 
-        // White-box constructor call (same package — DEC-36 same-package exception)
+        // White-box constructor call (same package — DEC-36 same-package exception).
+        // 6-arg signature preserved verbatim per AC-CONSTRUCTOR-INJECTION-PRESERVED.
         assembler =
                 new DefaultCertificateAssembler(
                         phaseRepository,
@@ -167,12 +190,12 @@ class DefaultCertificateAssemblerTest {
                         photoUrlBuilder);
     }
 
-    // -------------------------------------------------------------------------
-    // AC5: getFinalPhase
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // 1. getFinalPhase — AC-INTERFACE-CONTRACT-PRESERVED
+    // =========================================================================
 
     @Test
-    @DisplayName("AC5: getFinalPhase returns the phase with the highest sequenceNumber")
+    @DisplayName("getFinalPhase: returns phase with the highest sequenceNumber")
     void getFinalPhase_returnsHighestSequencePhase() {
         Phase p1 = makePhase(1);
         UUID p2Id = UUID.fromString("00000000-0000-0000-0000-000000000099");
@@ -186,102 +209,115 @@ class DefaultCertificateAssemblerTest {
     }
 
     @Test
-    @DisplayName(
-            "AC5: getFinalPhase returns empty when tournament has no phases (AC8 precondition)")
+    @DisplayName("getFinalPhase: returns empty when tournament has no phases")
     void getFinalPhase_returnsEmpty_whenNoPhases() {
         when(phaseRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of());
 
         assertThat(assembler.getFinalPhase(TOURNAMENT_ID)).isEmpty();
     }
 
-    // -------------------------------------------------------------------------
-    // AC5: computePlacementOrder — D-33 sort
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // 2. computePlacementOrder — DEC-33 sort order (AC-DEC41-FRESH-RED-FIRST-TESTS)
+    // =========================================================================
 
     @Test
-    @DisplayName(
-            "AC5: placement order follows D-33 (points DESC → setQuotient DESC → ballQuotient"
-                    + " DESC)")
-    void computePlacementOrder_respectsD33SortOrder() {
+    @DisplayName("computePlacementOrder: points DESC — higher points ranks first")
+    void computePlacementOrder_pointsDescending() {
         Phase phase = makePhase(1);
-
         TeamAvatar avA = makeAvatar(AVATAR_A_ID, TEAM_A_ID);
         TeamAvatar avB = makeAvatar(AVATAR_B_ID, TEAM_B_ID);
         when(teamAvatarRepository.findByPhaseId(PHASE_ID)).thenReturn(List.of(avA, avB));
-
-        // Team A: 6 points. Team B: 4 points. A ranks first.
-        TeamAvatarRating ratingA = makeRating(AVATAR_A_ID, 6, 2.0, 1.5, false);
-        TeamAvatarRating ratingB = makeRating(AVATAR_B_ID, 4, 1.5, 1.2, false);
-        when(teamAvatarRatingRepository.findById(AVATAR_A_ID)).thenReturn(Optional.of(ratingA));
-        when(teamAvatarRatingRepository.findById(AVATAR_B_ID)).thenReturn(Optional.of(ratingB));
+        when(teamAvatarRatingRepository.findById(AVATAR_A_ID))
+                .thenReturn(Optional.of(makeRating(AVATAR_A_ID, 6, 2.0, 1.5, false)));
+        when(teamAvatarRatingRepository.findById(AVATAR_B_ID))
+                .thenReturn(Optional.of(makeRating(AVATAR_B_ID, 4, 2.0, 1.5, false)));
 
         List<CertificateAssembler.AvatarPlacement> result =
                 assembler.computePlacementOrder(TOURNAMENT_ID, phase);
 
         assertThat(result).hasSize(2);
-        assertThat(result.get(0).placement()).isEqualTo(1);
         assertThat(result.get(0).teamId()).isEqualTo(TEAM_A_ID);
-        assertThat(result.get(1).placement()).isEqualTo(2);
+        assertThat(result.get(0).placement()).isEqualTo(1);
         assertThat(result.get(1).teamId()).isEqualTo(TEAM_B_ID);
+        assertThat(result.get(1).placement()).isEqualTo(2);
     }
 
     @Test
-    @DisplayName("AC5: isWithoutAssessment teams are placed last (D-26)")
-    void computePlacementOrder_withoutAssessmentTeamPlacedLast() {
+    @DisplayName("computePlacementOrder: setQuotient DESC breaks tie on equal points (DEC-33)")
+    void computePlacementOrder_setQuotientTieBreak() {
         Phase phase = makePhase(1);
+        TeamAvatar avA = makeAvatar(AVATAR_A_ID, TEAM_A_ID);
+        TeamAvatar avB = makeAvatar(AVATAR_B_ID, TEAM_B_ID);
+        when(teamAvatarRepository.findByPhaseId(PHASE_ID)).thenReturn(List.of(avA, avB));
+        // Same points, B has higher setQuotient → B ranks first
+        when(teamAvatarRatingRepository.findById(AVATAR_A_ID))
+                .thenReturn(Optional.of(makeRating(AVATAR_A_ID, 4, 1.0, 1.0, false)));
+        when(teamAvatarRatingRepository.findById(AVATAR_B_ID))
+                .thenReturn(Optional.of(makeRating(AVATAR_B_ID, 4, 2.0, 1.0, false)));
 
+        List<CertificateAssembler.AvatarPlacement> result =
+                assembler.computePlacementOrder(TOURNAMENT_ID, phase);
+
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).teamId()).isEqualTo(TEAM_B_ID); // higher setQuotient → rank 1
+        assertThat(result.get(1).teamId()).isEqualTo(TEAM_A_ID);
+    }
+
+    @Test
+    @DisplayName(
+            "computePlacementOrder: isWithoutAssessment teams rank LAST regardless of points (DEC-33)")
+    void computePlacementOrder_withoutAssessmentRanksLast() {
+        Phase phase = makePhase(1);
         TeamAvatar avA = makeAvatar(AVATAR_A_ID, TEAM_A_ID);
         TeamAvatar avB = makeAvatar(AVATAR_B_ID, TEAM_B_ID);
         TeamAvatar avC = makeAvatar(AVATAR_C_ID, TEAM_C_ID);
-        when(teamAvatarRepository.findByPhaseId(PHASE_ID)).thenReturn(List.of(avA, avB, avC));
-
-        // Team A: normal, 6 points. Team B: withoutAssessment (should be last even with more
-        // points).
-        // Team C: normal, 4 points.
-        TeamAvatarRating ratingA = makeRating(AVATAR_A_ID, 6, 2.0, 1.5, false);
-        TeamAvatarRating ratingB = makeRating(AVATAR_B_ID, 10, 5.0, 5.0, true); // withoutAssessment
-        TeamAvatarRating ratingC = makeRating(AVATAR_C_ID, 4, 1.5, 1.2, false);
-        when(teamAvatarRatingRepository.findById(AVATAR_A_ID)).thenReturn(Optional.of(ratingA));
-        when(teamAvatarRatingRepository.findById(AVATAR_B_ID)).thenReturn(Optional.of(ratingB));
-        when(teamAvatarRatingRepository.findById(AVATAR_C_ID)).thenReturn(Optional.of(ratingC));
+        when(teamAvatarRepository.findByPhaseId(PHASE_ID))
+                .thenReturn(List.of(avA, avB, avC));
+        // B has 10 points but withoutAssessment=true → must be last
+        when(teamAvatarRatingRepository.findById(AVATAR_A_ID))
+                .thenReturn(Optional.of(makeRating(AVATAR_A_ID, 6, 2.0, 1.5, false)));
+        when(teamAvatarRatingRepository.findById(AVATAR_B_ID))
+                .thenReturn(Optional.of(makeRating(AVATAR_B_ID, 10, 5.0, 5.0, true)));
+        when(teamAvatarRatingRepository.findById(AVATAR_C_ID))
+                .thenReturn(Optional.of(makeRating(AVATAR_C_ID, 4, 1.5, 1.2, false)));
 
         List<CertificateAssembler.AvatarPlacement> result =
                 assembler.computePlacementOrder(TOURNAMENT_ID, phase);
 
         assertThat(result).hasSize(3);
-        // A (6 pts, normal) → placement 1
-        assertThat(result.get(0).teamId()).isEqualTo(TEAM_A_ID);
-        // C (4 pts, normal) → placement 2
-        assertThat(result.get(1).teamId()).isEqualTo(TEAM_C_ID);
-        // B (withoutAssessment) → placement 3 (last)
-        assertThat(result.get(2).teamId()).isEqualTo(TEAM_B_ID);
+        assertThat(result.get(0).teamId()).isEqualTo(TEAM_A_ID); // 6 pts normal → 1
+        assertThat(result.get(1).teamId()).isEqualTo(TEAM_C_ID); // 4 pts normal → 2
+        assertThat(result.get(2).teamId()).isEqualTo(TEAM_B_ID); // withoutAssessment → 3 (last)
     }
 
     @Test
-    @DisplayName(
-            "AC5/AC8: computePlacementOrder returns empty when no ratings exist (no matches"
-                    + " played)")
+    @DisplayName("computePlacementOrder: returns empty when no ratings exist (no matches played)")
     void computePlacementOrder_returnsEmpty_whenNoRatings() {
         Phase phase = makePhase(1);
         TeamAvatar av = makeAvatar(AVATAR_A_ID, TEAM_A_ID);
         when(teamAvatarRepository.findByPhaseId(PHASE_ID)).thenReturn(List.of(av));
         when(teamAvatarRatingRepository.findById(AVATAR_A_ID)).thenReturn(Optional.empty());
 
-        List<CertificateAssembler.AvatarPlacement> result =
-                assembler.computePlacementOrder(TOURNAMENT_ID, phase);
-
-        assertThat(result).isEmpty();
+        assertThat(assembler.computePlacementOrder(TOURNAMENT_ID, phase)).isEmpty();
     }
 
     @Test
-    @DisplayName("AC5: single team gets placement = 1")
-    void computePlacementOrder_singleTeam_getsPlacementOne() {
+    @DisplayName("computePlacementOrder: returns empty when phase has no avatars")
+    void computePlacementOrder_returnsEmpty_whenNoAvatars() {
+        Phase phase = makePhase(1);
+        when(teamAvatarRepository.findByPhaseId(PHASE_ID)).thenReturn(List.of());
+
+        assertThat(assembler.computePlacementOrder(TOURNAMENT_ID, phase)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("computePlacementOrder: single team gets placement = 1")
+    void computePlacementOrder_singleTeam_placementOne() {
         Phase phase = makePhase(1);
         TeamAvatar av = makeAvatar(AVATAR_A_ID, TEAM_A_ID);
         when(teamAvatarRepository.findByPhaseId(PHASE_ID)).thenReturn(List.of(av));
-
-        TeamAvatarRating rating = makeRating(AVATAR_A_ID, 6, 1.0, 1.0, false);
-        when(teamAvatarRatingRepository.findById(AVATAR_A_ID)).thenReturn(Optional.of(rating));
+        when(teamAvatarRatingRepository.findById(AVATAR_A_ID))
+                .thenReturn(Optional.of(makeRating(AVATAR_A_ID, 6, 1.0, 1.0, false)));
 
         List<CertificateAssembler.AvatarPlacement> result =
                 assembler.computePlacementOrder(TOURNAMENT_ID, phase);
@@ -291,88 +327,157 @@ class DefaultCertificateAssemblerTest {
         assertThat(result.get(0).teamId()).isEqualTo(TEAM_A_ID);
     }
 
-    // -------------------------------------------------------------------------
-    // AC6: photo embedding — SVG path (base64 data URI)
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // 3. buildSvgRows — SVG path: base64 data URI (AC-INTERFACE-CONTRACT-PRESERVED)
+    // =========================================================================
 
     @Test
-    @DisplayName("AC6 (SVG): fetchPhotoAsBase64DataUri returns data URI when photo exists")
-    void fetchPhotoAsBase64DataUri_returnDataUri_whenPhotoExists() throws Exception {
-        byte[] fakePhotoBytes = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF}; // minimal JPEG signature
+    @DisplayName("buildSvgRows: produces one row per placement with correct teamName and location")
+    void buildSvgRows_oneRowPerPlacement() {
+        Tournament tournament = makeTournament();
+        when(teamRepository.findByTournamentId(TOURNAMENT_ID))
+                .thenReturn(List.of(makeTeam(TEAM_A_ID, "Alpha"), makeTeam(TEAM_B_ID, "Beta")));
+        when(photoStorageService.retrieve(TOURNAMENT_ID, TEAM_A_ID)).thenReturn(Optional.empty());
+        when(photoStorageService.retrieve(TOURNAMENT_ID, TEAM_B_ID)).thenReturn(Optional.empty());
+
+        List<CertificateAssembler.AvatarPlacement> placements =
+                List.of(
+                        new CertificateAssembler.AvatarPlacement(1, TEAM_A_ID, AVATAR_A_ID),
+                        new CertificateAssembler.AvatarPlacement(2, TEAM_B_ID, AVATAR_B_ID));
+
+        List<CertificatePlacementRow> rows =
+                assembler.buildSvgRows(tournament, placements, "Sporthalle");
+
+        assertThat(rows).hasSize(2);
+        assertThat(rows.get(0).placement()).isEqualTo(1);
+        assertThat(rows.get(0).teamName()).isEqualTo("Alpha");
+        assertThat(rows.get(0).location()).isEqualTo("Sporthalle");
+        assertThat(rows.get(1).placement()).isEqualTo(2);
+        assertThat(rows.get(1).teamName()).isEqualTo("Beta");
+    }
+
+    @Test
+    @DisplayName("buildSvgRows: teamPhoto is base64 data URI when photo exists (E12S06 AC6)")
+    void buildSvgRows_teamPhotoIsBase64DataUri_whenPhotoExists() throws Exception {
+        Tournament tournament = makeTournament();
+        when(teamRepository.findByTournamentId(TOURNAMENT_ID))
+                .thenReturn(List.of(makeTeam(TEAM_A_ID, "Alpha")));
+        byte[] fakeBytes = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
         PhotoStorageService.PhotoResult photoResult =
                 new PhotoStorageService.PhotoResult(
-                        new ByteArrayInputStream(fakePhotoBytes),
+                        new ByteArrayInputStream(fakeBytes),
                         "image/jpeg",
-                        new de.vvwt.tm.photo.PhotoFileMetadata(
-                                "photo.jpg", fakePhotoBytes.length, java.time.Instant.now()));
+                        new PhotoFileMetadata("photo.jpg", fakeBytes.length, Instant.now()));
         when(photoStorageService.retrieve(TOURNAMENT_ID, TEAM_A_ID))
                 .thenReturn(Optional.of(photoResult));
 
-        // White-box call: fetchPhotoAsBase64DataUri is package-private in
-        // DefaultCertificateAssembler
-        String result =
-                ((DefaultCertificateAssembler) assembler)
-                        .fetchPhotoAsBase64DataUri(TOURNAMENT_ID, TEAM_A_ID);
+        List<CertificatePlacementRow> rows =
+                assembler.buildSvgRows(
+                        tournament,
+                        List.of(new CertificateAssembler.AvatarPlacement(1, TEAM_A_ID, AVATAR_A_ID)),
+                        "Halle");
 
-        assertThat(result).startsWith("data:image/jpeg;base64,");
-        String expectedBase64 = Base64.getEncoder().encodeToString(fakePhotoBytes);
-        assertThat(result).endsWith(expectedBase64);
+        assertThat(rows).hasSize(1);
+        String expectedBase64 = Base64.getEncoder().encodeToString(fakeBytes);
+        assertThat(rows.get(0).teamPhoto())
+                .isEqualTo("data:image/jpeg;base64," + expectedBase64);
     }
 
     @Test
-    @DisplayName("AC6 (SVG): fetchPhotoAsBase64DataUri returns empty string when no photo exists")
-    void fetchPhotoAsBase64DataUri_returnsEmptyString_whenNoPhoto() {
+    @DisplayName("buildSvgRows: teamPhoto is empty string when no photo exists (E12S06 AC6)")
+    void buildSvgRows_teamPhotoIsEmpty_whenNoPhoto() {
+        Tournament tournament = makeTournament();
+        when(teamRepository.findByTournamentId(TOURNAMENT_ID))
+                .thenReturn(List.of(makeTeam(TEAM_A_ID, "Alpha")));
         when(photoStorageService.retrieve(TOURNAMENT_ID, TEAM_A_ID)).thenReturn(Optional.empty());
 
-        String result =
-                ((DefaultCertificateAssembler) assembler)
-                        .fetchPhotoAsBase64DataUri(TOURNAMENT_ID, TEAM_A_ID);
+        List<CertificatePlacementRow> rows =
+                assembler.buildSvgRows(
+                        tournament,
+                        List.of(new CertificateAssembler.AvatarPlacement(1, TEAM_A_ID, AVATAR_A_ID)),
+                        "Halle");
 
-        assertThat(result).isEmpty();
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).teamPhoto()).isEmpty();
     }
 
-    // -------------------------------------------------------------------------
-    // AC6: photo embedding — HTML path (URL)
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // 4. buildHtmlRows — HTML path: relative URL via PhotoUrlBuilder
+    // =========================================================================
 
     @Test
-    @DisplayName("AC6 (HTML): buildPhotoUrl returns API URL when photo exists")
-    void buildPhotoUrl_returnsApiUrl_whenPhotoExists() {
+    @DisplayName("buildHtmlRows: teamPhoto uses PhotoUrlBuilder URL when photo exists")
+    void buildHtmlRows_teamPhotoIsUrl_whenPhotoExists() {
+        Tournament tournament = makeTournament();
+        when(teamRepository.findByTournamentId(TOURNAMENT_ID))
+                .thenReturn(List.of(makeTeam(TEAM_A_ID, "Alpha")));
         when(photoStorageService.hasPhoto(TOURNAMENT_ID, TEAM_A_ID)).thenReturn(true);
-        // Stub returns NEW URL pattern (E23S05 Cutover-1 — DEC-21 + DEC-40 precedent)
-        when(photoUrlBuilder.buildTeamPhotoUrl(TOURNAMENT_ID, TEAM_A_ID))
-                .thenReturn("/api/photo/tournaments/" + TOURNAMENT_ID + "/teams/" + TEAM_A_ID);
+        String expectedUrl = "/api/photo/tournaments/" + TOURNAMENT_ID + "/teams/" + TEAM_A_ID;
+        when(photoUrlBuilder.buildTeamPhotoUrl(TOURNAMENT_ID, TEAM_A_ID)).thenReturn(expectedUrl);
 
-        String result =
-                ((DefaultCertificateAssembler) assembler).buildPhotoUrl(TOURNAMENT_ID, TEAM_A_ID);
+        List<CertificatePlacementRow> rows =
+                assembler.buildHtmlRows(
+                        tournament,
+                        List.of(new CertificateAssembler.AvatarPlacement(1, TEAM_A_ID, AVATAR_A_ID)),
+                        "Halle");
 
-        assertThat(result)
-                .isEqualTo("/api/photo/tournaments/" + TOURNAMENT_ID + "/teams/" + TEAM_A_ID);
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).teamPhoto()).isEqualTo(expectedUrl);
     }
 
     @Test
-    @DisplayName("AC6 (HTML): buildPhotoUrl returns empty string when no photo")
-    void buildPhotoUrl_returnsEmptyString_whenNoPhoto() {
+    @DisplayName("buildHtmlRows: teamPhoto is empty string when no photo exists")
+    void buildHtmlRows_teamPhotoIsEmpty_whenNoPhoto() {
+        Tournament tournament = makeTournament();
+        when(teamRepository.findByTournamentId(TOURNAMENT_ID))
+                .thenReturn(List.of(makeTeam(TEAM_A_ID, "Alpha")));
         when(photoStorageService.hasPhoto(TOURNAMENT_ID, TEAM_A_ID)).thenReturn(false);
 
-        assertThat(
-                        ((DefaultCertificateAssembler) assembler)
-                                .buildPhotoUrl(TOURNAMENT_ID, TEAM_A_ID))
-                .isEmpty();
+        List<CertificatePlacementRow> rows =
+                assembler.buildHtmlRows(
+                        tournament,
+                        List.of(new CertificateAssembler.AvatarPlacement(1, TEAM_A_ID, AVATAR_A_ID)),
+                        "Halle");
+
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).teamPhoto()).isEmpty();
     }
 
-    // -------------------------------------------------------------------------
-    // AC1: renderSvgTemplate — Mustache rendering
-    // -------------------------------------------------------------------------
+    @Test
+    @DisplayName("buildHtmlRows: produces one row per placement with correct fields")
+    void buildHtmlRows_oneRowPerPlacement() {
+        Tournament tournament = makeTournament();
+        when(teamRepository.findByTournamentId(TOURNAMENT_ID))
+                .thenReturn(List.of(makeTeam(TEAM_A_ID, "Alpha"), makeTeam(TEAM_B_ID, "Beta")));
+        when(photoStorageService.hasPhoto(TOURNAMENT_ID, TEAM_A_ID)).thenReturn(false);
+        when(photoStorageService.hasPhoto(TOURNAMENT_ID, TEAM_B_ID)).thenReturn(false);
+
+        List<CertificatePlacementRow> rows =
+                assembler.buildHtmlRows(
+                        tournament,
+                        List.of(
+                                new CertificateAssembler.AvatarPlacement(1, TEAM_A_ID, AVATAR_A_ID),
+                                new CertificateAssembler.AvatarPlacement(2, TEAM_B_ID, AVATAR_B_ID)),
+                        "Sporthalle");
+
+        assertThat(rows).hasSize(2);
+        assertThat(rows.get(0).placement()).isEqualTo(1);
+        assertThat(rows.get(0).teamName()).isEqualTo("Alpha");
+        assertThat(rows.get(1).placement()).isEqualTo(2);
+        assertThat(rows.get(1).teamName()).isEqualTo("Beta");
+    }
+
+    // =========================================================================
+    // 5. renderSvgTemplate — Mustache (E12S01 AC6)
+    // =========================================================================
 
     @Test
-    @DisplayName("AC1: renderSvgTemplate fills all 6 D-4 placeholders")
+    @DisplayName("renderSvgTemplate: fills all 6 template variable placeholders")
     void renderSvgTemplate_fillsAllPlaceholders() {
-        String svgTemplate =
-                "<svg><text>{{placement}}</text><text>{{teamName}}</text><image"
-                    + " href=\"{{teamPhoto}}\"/>"
-                    + "<text>{{tournamentName}}</text><text>{{date}}</text><text>{{location}}</text></svg>";
-
+        String template =
+                "<svg><text>{{placement}}</text><text>{{teamName}}</text>"
+                        + "<image href=\"{{teamPhoto}}\"/><text>{{tournamentName}}</text>"
+                        + "<text>{{date}}</text><text>{{location}}</text></svg>";
         CertificatePlacementRow row =
                 new CertificatePlacementRow(
                         1,
@@ -383,7 +488,7 @@ class DefaultCertificateAssemblerTest {
                         "15. April 2026",
                         "Sporthalle Musterstadt");
 
-        String rendered = assembler.renderSvgTemplate(svgTemplate, row);
+        String rendered = assembler.renderSvgTemplate(template, row);
 
         assertThat(rendered)
                 .contains("1")
@@ -396,46 +501,154 @@ class DefaultCertificateAssemblerTest {
     }
 
     @Test
-    @DisplayName("AC1/E12S01-AC6: renderSvgTemplate preserves base64 == (escapeHTML=false)")
+    @DisplayName(
+            "renderSvgTemplate: preserves base64 == — escapeHTML=false mandatory (E12S01 AC6)")
     void renderSvgTemplate_preservesBase64Equals_escapeHtmlFalse() {
-        // The "==" at the end of base64 strings must not be HTML-escaped to "&#x3D;&#x3D;"
-        String svgTemplate = "<image href=\"{{teamPhoto}}\"/>";
+        String template = "<image href=\"{{teamPhoto}}\"/>";
         String dataUri = "data:image/jpeg;base64,/9j/4AAQSkZJRgAB==";
-
         CertificatePlacementRow row =
                 new CertificatePlacementRow(
                         1, TEAM_A_ID, "Team", dataUri, "Tournament", "2026-04-15", "Location");
 
-        String rendered = assembler.renderSvgTemplate(svgTemplate, row);
+        String rendered = assembler.renderSvgTemplate(template, row);
 
         assertThat(rendered)
-                .as(
-                        "base64 '==' must not be HTML-escaped (escapeHTML=false mandatory per"
-                                + " E12S01 AC6)")
+                .as("base64 '==' must not be HTML-escaped (escapeHTML=false mandatory per E12S01 AC6)")
                 .contains("data:image/jpeg;base64,/9j/4AAQSkZJRgAB==")
                 .doesNotContain("&#x3D;");
     }
 
     @Test
-    @DisplayName("AC1: renderSvgTemplate renders empty string for missing teamPhoto (lenient mode)")
-    void renderSvgTemplate_rendersEmptyForMissingPhoto() {
-        String svgTemplate = "<image href=\"{{teamPhoto}}\"/>";
-
+    @DisplayName(
+            "renderSvgTemplate: renders empty string for missing teamPhoto (defaultValue='' lenient)")
+    void renderSvgTemplate_emptyStringForMissingPhoto() {
+        String template = "<image href=\"{{teamPhoto}}\"/>";
         CertificatePlacementRow row =
                 new CertificatePlacementRow(
-                        1,
-                        TEAM_A_ID,
-                        "Team",
-                        "", // empty photo
-                        "Tournament",
-                        "date",
-                        "location");
+                        1, TEAM_A_ID, "Team", "", "Tournament", "date", "location");
 
-        String rendered = assembler.renderSvgTemplate(svgTemplate, row);
+        String rendered = assembler.renderSvgTemplate(template, row);
 
         assertThat(rendered)
                 .as("Missing teamPhoto renders as empty string (lenient mode)")
                 .contains("href=\"\"")
                 .doesNotContain("{{teamPhoto}}");
+    }
+
+    // =========================================================================
+    // 6. toMustacheMap — all 7 keys present (AC-INTERFACE-CONTRACT-PRESERVED)
+    // =========================================================================
+
+    @Test
+    @DisplayName("toMustacheMap: returns map with all 7 required keys including hasPhoto")
+    void toMustacheMap_returnsAllSevenKeys() {
+        CertificatePlacementRow row =
+                new CertificatePlacementRow(
+                        2, TEAM_B_ID, "Beta", "", "Tournament", "2026-04-15", "Location");
+
+        Map<String, Object> map = assembler.toMustacheMap(row);
+
+        assertThat(map)
+                .containsKey("placement")
+                .containsKey("teamName")
+                .containsKey("teamPhoto")
+                .containsKey("tournamentName")
+                .containsKey("date")
+                .containsKey("location")
+                .containsKey("hasPhoto");
+    }
+
+    @Test
+    @DisplayName("toMustacheMap: hasPhoto is false when teamPhoto is empty")
+    void toMustacheMap_hasPhotoFalse_whenEmptyPhoto() {
+        CertificatePlacementRow row =
+                new CertificatePlacementRow(
+                        1, TEAM_A_ID, "Alpha", "", "Tournament", "2026-04-15", "Location");
+
+        Map<String, Object> map = assembler.toMustacheMap(row);
+
+        assertThat(map.get("hasPhoto")).isEqualTo(false);
+    }
+
+    @Test
+    @DisplayName("toMustacheMap: hasPhoto is true when teamPhoto is non-empty")
+    void toMustacheMap_hasPhotoTrue_whenNonEmptyPhoto() {
+        CertificatePlacementRow row =
+                new CertificatePlacementRow(
+                        1,
+                        TEAM_A_ID,
+                        "Alpha",
+                        "data:image/jpeg;base64,abc",
+                        "Tournament",
+                        "2026-04-15",
+                        "Location");
+
+        Map<String, Object> map = assembler.toMustacheMap(row);
+
+        assertThat(map.get("hasPhoto")).isEqualTo(true);
+    }
+
+    // =========================================================================
+    // 7. White-box: fetchPhotoAsBase64DataUri (package-private helper — DEC-36 same-package)
+    // =========================================================================
+
+    @Test
+    @DisplayName("fetchPhotoAsBase64DataUri: returns data URI when photo exists")
+    void fetchPhotoAsBase64DataUri_returnsDataUri_whenPhotoExists() throws Exception {
+        byte[] fakeBytes = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
+        PhotoStorageService.PhotoResult photoResult =
+                new PhotoStorageService.PhotoResult(
+                        new ByteArrayInputStream(fakeBytes),
+                        "image/jpeg",
+                        new PhotoFileMetadata("photo.jpg", fakeBytes.length, Instant.now()));
+        when(photoStorageService.retrieve(TOURNAMENT_ID, TEAM_A_ID))
+                .thenReturn(Optional.of(photoResult));
+
+        String result =
+                ((DefaultCertificateAssembler) assembler)
+                        .fetchPhotoAsBase64DataUri(TOURNAMENT_ID, TEAM_A_ID);
+
+        String expectedBase64 = Base64.getEncoder().encodeToString(fakeBytes);
+        assertThat(result).isEqualTo("data:image/jpeg;base64," + expectedBase64);
+    }
+
+    @Test
+    @DisplayName("fetchPhotoAsBase64DataUri: returns empty string when no photo")
+    void fetchPhotoAsBase64DataUri_returnsEmpty_whenNoPhoto() {
+        when(photoStorageService.retrieve(TOURNAMENT_ID, TEAM_A_ID)).thenReturn(Optional.empty());
+
+        String result =
+                ((DefaultCertificateAssembler) assembler)
+                        .fetchPhotoAsBase64DataUri(TOURNAMENT_ID, TEAM_A_ID);
+
+        assertThat(result).isEmpty();
+    }
+
+    // =========================================================================
+    // 8. White-box: buildPhotoUrl (package-private helper — DEC-36 same-package)
+    // =========================================================================
+
+    @Test
+    @DisplayName("buildPhotoUrl: returns API URL from PhotoUrlBuilder when photo exists")
+    void buildPhotoUrl_returnsUrl_whenPhotoExists() {
+        when(photoStorageService.hasPhoto(TOURNAMENT_ID, TEAM_A_ID)).thenReturn(true);
+        String expectedUrl = "/api/photo/tournaments/" + TOURNAMENT_ID + "/teams/" + TEAM_A_ID;
+        when(photoUrlBuilder.buildTeamPhotoUrl(TOURNAMENT_ID, TEAM_A_ID)).thenReturn(expectedUrl);
+
+        String result =
+                ((DefaultCertificateAssembler) assembler).buildPhotoUrl(TOURNAMENT_ID, TEAM_A_ID);
+
+        assertThat(result).isEqualTo(expectedUrl);
+    }
+
+    @Test
+    @DisplayName("buildPhotoUrl: returns empty string when no photo exists")
+    void buildPhotoUrl_returnsEmpty_whenNoPhoto() {
+        when(photoStorageService.hasPhoto(TOURNAMENT_ID, TEAM_A_ID)).thenReturn(false);
+
+        String result =
+                ((DefaultCertificateAssembler) assembler).buildPhotoUrl(TOURNAMENT_ID, TEAM_A_ID);
+
+        assertThat(result).isEmpty();
     }
 }

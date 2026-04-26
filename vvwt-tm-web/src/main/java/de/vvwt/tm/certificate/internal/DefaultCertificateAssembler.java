@@ -32,16 +32,17 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
- * Default implementation of {@link CertificateAssembler} (E23S08, DEC-35).
+ * Q-1a TDD-rebuilt implementation of {@link CertificateAssembler} (E36S05, DEC-22 Iron Law).
  *
- * <p>Relocated from {@code de.vvwt.tm.infrastructure.print.CertificateAssembler} and renamed per
- * DEC-35 naming canon ({@code Default*} prefix, implementation in {@code .internal}). Implements
- * the {@link CertificateAssembler} public interface extracted via TDD Q-1a. The legacy concrete
- * class is retained at {@code infrastructure.print.CertificateAssembler} during the parallel phase;
- * it is deleted at E23S10 Cutover-2 per DEC-21.
+ * <p>The legacy Q-1b impl ({@code de.vvwt.tm.certificate.internal.DefaultCertificateAssembler}
+ * from E23S08) was deleted at E36S05 commit {@code c40db76} and this class was authored RED-first
+ * under DEC-22 reconstruction-in-place discipline. The canonical FQN is preserved per D-7
+ * Option γ so that consumer imports ({@code CertificateRenderController} via the interface,
+ * Spring context via bean type) require no adjustment.
  *
- * <p>Analogous to {@code LaufzettelAssembler}: collects data from domain repositories and produces
- * either rendered SVG bytes or Mustache model maps for HTML rendering.
+ * <p>Implements the {@link CertificateAssembler} public interface (6 methods + nested
+ * {@code AvatarPlacement} record) extracted in E23S08. Constructor injection preserves the
+ * original 6-argument signature verbatim per AC-CONSTRUCTOR-INJECTION-PRESERVED (C-3 gate).
  *
  * <h2>Placement calculation (DEC-33)</h2>
  *
@@ -54,26 +55,26 @@ import org.springframework.stereotype.Service;
  *
  * <ul>
  *   <li>SVG path: {@code teamPhoto} = base64 data URI ({@code data:image/jpeg;base64,...})
- *   <li>HTML path: {@code teamPhoto} = relative API URL via {@link PhotoUrlBuilder} (E23S05
- *       Cutover-1 — new photo URL pattern)
+ *   <li>HTML path: {@code teamPhoto} = relative API URL via {@link PhotoUrlBuilder}
  *   <li>No photo: {@code teamPhoto} = empty string
  * </ul>
  *
  * <h2>Mustache rendering (E12S01 AC6)</h2>
  *
  * <p>All certificate Mustache rendering uses {@code escapeHTML(false)} and {@code
- * defaultValue("")}.
+ * defaultValue("")}. The {@code escapeHTML(false)} setting is CRITICAL — it preserves base64
+ * {@code ==} padding in data URIs (HTML escaping would corrupt them to {@code &#x3D;&#x3D;}).
  *
  * @see CertificateAssembler
  * @see CertificatePlacementRow
- * @since E23S08
+ * @since E36S05
  */
 @Service
 public class DefaultCertificateAssembler implements CertificateAssembler {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultCertificateAssembler.class);
 
-    /** Formatter for the {{date}} template variable (E12S06 AC6). */
+    /** Formatter for the {{date}} template variable — locale German (e.g., "15. April 2026"). */
     private static final DateTimeFormatter DATE_FORMATTER =
             DateTimeFormatter.ofPattern("d. MMMM yyyy", java.util.Locale.GERMAN);
 
@@ -84,6 +85,16 @@ public class DefaultCertificateAssembler implements CertificateAssembler {
     private final PhotoStorageService photoStorageService;
     private final PhotoUrlBuilder photoUrlBuilder;
 
+    /**
+     * 6-argument constructor — preserved verbatim per AC-CONSTRUCTOR-INJECTION-PRESERVED (C-3 gate).
+     *
+     * @param phaseRepository             phase lookup
+     * @param teamAvatarRepository        avatar lookup per phase
+     * @param teamAvatarRatingRepository  rating lookup per avatar
+     * @param teamRepository              team lookup per tournament
+     * @param photoStorageService         photo retrieval (SVG base64 + HTML existence check)
+     * @param photoUrlBuilder             photo URL builder (HTML path)
+     */
     public DefaultCertificateAssembler(
             PhaseRepository phaseRepository,
             TeamAvatarRepository teamAvatarRepository,
@@ -129,7 +140,7 @@ public class DefaultCertificateAssembler implements CertificateAssembler {
         }
 
         if (ratingByAvatarId.isEmpty()) {
-            // No ratings exist — no matches played
+            // No ratings exist — no matches played yet
             return Collections.emptyList();
         }
 
@@ -144,7 +155,7 @@ public class DefaultCertificateAssembler implements CertificateAssembler {
                 (a, b) ->
                         ratingByAvatarId.get(a.getId()).compareTo(ratingByAvatarId.get(b.getId())));
 
-        // Assign 1-based placement
+        // Assign 1-based placement ordinals
         List<AvatarPlacement> result = new ArrayList<>();
         for (int i = 0; i < rankedAvatars.size(); i++) {
             TeamAvatar avatar = rankedAvatars.get(i);
@@ -225,8 +236,7 @@ public class DefaultCertificateAssembler implements CertificateAssembler {
     public String renderSvgTemplate(String templateContent, CertificatePlacementRow row) {
         Mustache.Compiler compiler =
                 Mustache.compiler()
-                        .escapeHTML(
-                                false) // CRITICAL: preserve base64 "==" in data URIs (E12S01 AC6)
+                        .escapeHTML(false) // CRITICAL: preserves base64 "==" in data URIs (E12S01 AC6)
                         .defaultValue(""); // lenient: missing keys render as empty string
         com.samskivert.mustache.Template template = compiler.compile(templateContent);
         StringWriter writer = new StringWriter();
@@ -253,8 +263,8 @@ public class DefaultCertificateAssembler implements CertificateAssembler {
      * <p>Returns an empty string if no photo exists or if an I/O error occurs during reading.
      *
      * @param tournamentId the tournament UUID
-     * @param teamId the team UUID
-     * @return base64 data URI or empty string
+     * @param teamId       the team UUID
+     * @return base64 data URI (e.g., {@code data:image/jpeg;base64,...}) or empty string
      */
     String fetchPhotoAsBase64DataUri(UUID tournamentId, UUID teamId) {
         Optional<PhotoStorageService.PhotoResult> photoResult =
@@ -285,7 +295,7 @@ public class DefaultCertificateAssembler implements CertificateAssembler {
      * <p>Returns an empty string if no photo exists for this team.
      *
      * @param tournamentId the tournament UUID
-     * @param teamId the team UUID
+     * @param teamId       the team UUID
      * @return relative URL string or empty string
      */
     String buildPhotoUrl(UUID tournamentId, UUID teamId) {
