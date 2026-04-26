@@ -1,5 +1,8 @@
 package de.vvwt.tm.web;
 
+import de.vvwt.tm.certificate.CertificateTemplateFormatException;
+import de.vvwt.tm.certificate.CertificateTemplateSizeException;
+import de.vvwt.tm.certificate.CertificateTemplateStorageException;
 import de.vvwt.tm.domain.audio.AudioFormatException;
 import de.vvwt.tm.domain.audio.AudioSizeLimitException;
 import de.vvwt.tm.domain.audio.AudioStorageException;
@@ -465,6 +468,73 @@ public class GlobalExceptionHandler {
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "Photo storage error.",
                 "error.photo.storage",
+                request);
+    }
+
+    // =========================================================================
+    // Certificate domain exceptions (E36S08 Phase 3 — absorbed from deleted CertificateExceptionAdvice)
+    // HTTP mappings verbatim per AC-C11-BEHAVIORAL-EQUIVALENCE
+    // =========================================================================
+
+    /**
+     * Maps {@link CertificateTemplateFormatException} to HTTP 400 Bad Request.
+     *
+     * <p>Absorbed from the deleted {@code CertificateExceptionAdvice} (E36S08 Phase 2) per
+     * AC-C11-BEHAVIORAL-EQUIVALENCE. HTTP mapping and messageKey preserved verbatim.
+     *
+     * @see <a href="E36S08">E36S08 — Phase 3 RED-first certificate exception absorption</a>
+     */
+    @ExceptionHandler(CertificateTemplateFormatException.class)
+    public ResponseEntity<ApiErrorResponse> handleCertTemplateFormat(
+            CertificateTemplateFormatException ex, HttpServletRequest request) {
+        log.debug(
+                "[tm-web] CertificateTemplateFormatException (certificate module): {}",
+                ex.getMessage());
+        return buildResponse(
+                HttpStatus.BAD_REQUEST, ex.getMessage(), "error.certificateTemplate.format", request);
+    }
+
+    /**
+     * Maps {@link CertificateTemplateSizeException} to HTTP 400 Bad Request.
+     *
+     * <p>Absorbed from the deleted {@code CertificateExceptionAdvice} (E36S08 Phase 2) per
+     * AC-C11-BEHAVIORAL-EQUIVALENCE. HTTP mapping and messageKey preserved verbatim.
+     *
+     * @see <a href="E36S08">E36S08 — Phase 3 RED-first certificate exception absorption</a>
+     */
+    @ExceptionHandler(CertificateTemplateSizeException.class)
+    public ResponseEntity<ApiErrorResponse> handleCertTemplateSize(
+            CertificateTemplateSizeException ex, HttpServletRequest request) {
+        log.debug(
+                "[tm-web] CertificateTemplateSizeException (certificate module): {}",
+                ex.getMessage());
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                ex.getMessage(),
+                "error.certificateTemplate.tooLarge",
+                request);
+    }
+
+    /**
+     * Maps {@link CertificateTemplateStorageException} to HTTP 500 Internal Server Error.
+     *
+     * <p>Absorbed from the deleted {@code CertificateExceptionAdvice} (E36S08 Phase 2) per
+     * AC-C11-BEHAVIORAL-EQUIVALENCE. HTTP mapping and messageKey preserved verbatim. Logs at ERROR
+     * level.
+     *
+     * @see <a href="E36S08">E36S08 — Phase 3 RED-first certificate exception absorption</a>
+     */
+    @ExceptionHandler(CertificateTemplateStorageException.class)
+    public ResponseEntity<ApiErrorResponse> handleCertTemplateStorage(
+            CertificateTemplateStorageException ex, HttpServletRequest request) {
+        log.error(
+                "[tm-web] CertificateTemplateStorageException (certificate module): {}",
+                ex.getMessage(),
+                ex);
+        return buildResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Certificate template storage error.",
+                "error.certificateTemplate.storage",
                 request);
     }
 
