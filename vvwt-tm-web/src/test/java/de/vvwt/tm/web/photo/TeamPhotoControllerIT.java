@@ -74,7 +74,7 @@ import org.springframework.util.MultiValueMap;
  * </ul>
  *
  * @see TeamPhotoController
- * @see PhotoExceptionAdvice
+ * @see de.vvwt.tm.web.GlobalExceptionHandler
  * @see WebModuleTestConfig
  * @see de.vvwt.tm.photo.PhotoStorageService
  * @see DEC-22

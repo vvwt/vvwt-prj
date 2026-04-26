@@ -80,8 +80,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
  *
  * <p>All 4 endpoints return Mustache view names (HTML). No JSON DTOs. Clause B N/A.
  *
- * @see de.vvwt.tm.tournament.internal.web.GlobalExceptionHandler — handles
- *     TournamentNotFoundException
+ * @see de.vvwt.tm.web.GlobalExceptionHandler — handles TournamentNotFoundException
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law (Q-1a RED-first)</a>
  * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
  * @see <a href="DEC-38">DEC-38 — @ApplicationModuleTest IT canon</a>

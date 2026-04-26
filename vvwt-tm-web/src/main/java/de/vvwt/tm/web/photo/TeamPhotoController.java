@@ -53,9 +53,10 @@ import org.springframework.web.multipart.MultipartFile;
  *
  * <h2>Error handling</h2>
  *
- * <p>{@link de.vvwt.tm.tournament.internal.web.GlobalExceptionHandler} covers {@code
+ * <p>{@link de.vvwt.tm.web.GlobalExceptionHandler} covers {@code
  * de.vvwt.tm.web} as a base package. Photo domain exceptions from {@code de.vvwt.tm.photo.*} are
- * handled by {@link PhotoExceptionAdvice} (still resident per E36S08 Phase 2 deferred deletion):
+ * absorbed directly by {@code GlobalExceptionHandler} (E36S08 Phase 3 — {@code PhotoExceptionAdvice}
+ * deleted in Phase 2):
  *
  * <ul>
  *   <li>{@link de.vvwt.tm.photo.PhotoFormatException} → 400
@@ -80,7 +81,7 @@ import org.springframework.web.multipart.MultipartFile;
  * does NOT fire (≤2 bounded contexts per method, L2 remains appropriate per DEC-40 Clause A).
  *
  * @see PhotoStorageService
- * @see PhotoExceptionAdvice
+ * @see de.vvwt.tm.web.GlobalExceptionHandler
  * @see PhotoMetadataResponse
  * @see de.vvwt.tm.auth.internal.SecurityConfig
  * @see DEC-40

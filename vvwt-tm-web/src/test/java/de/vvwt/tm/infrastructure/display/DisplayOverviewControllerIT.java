@@ -23,7 +23,7 @@ import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
-import de.vvwt.tm.tournament.internal.web.GlobalExceptionHandler;
+import de.vvwt.tm.web.GlobalExceptionHandler;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;

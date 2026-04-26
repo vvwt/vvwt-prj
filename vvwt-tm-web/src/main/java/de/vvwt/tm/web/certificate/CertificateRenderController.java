@@ -76,8 +76,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
  * restriction (authenticated-only per E-6 + empirical SecurityConfig). 401 for unauthenticated
  * requests; 200/404 for authenticated.
  *
- * @see de.vvwt.tm.web.certificate.CertificateExceptionAdvice
- * @see de.vvwt.tm.tournament.internal.web.GlobalExceptionHandler
+ * @see de.vvwt.tm.web.GlobalExceptionHandler
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law (Q-1a RED-first)</a>
  * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
  * @see <a href="DEC-38">DEC-38 — @ApplicationModuleTest IT canon</a>
@@ -159,7 +158,7 @@ public class CertificateRenderController {
      * </ul>
      *
      * <p>Unknown tournament → {@link TournamentNotFoundException} → 404 via {@link
-     * de.vvwt.tm.tournament.internal.web.GlobalExceptionHandler#handleTournamentNotFound}.
+     * de.vvwt.tm.web.GlobalExceptionHandler#handleTournamentNotFound}.
      *
      * @param tid the tournament UUID (tenant-scoped)
      * @param teamId the team UUID

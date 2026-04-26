@@ -1,11 +1,17 @@
-package de.vvwt.tm.tournament.internal.web;
+package de.vvwt.tm.web;
 
+import de.vvwt.tm.certificate.CertificateTemplateFormatException;
+import de.vvwt.tm.certificate.CertificateTemplateSizeException;
+import de.vvwt.tm.certificate.CertificateTemplateStorageException;
 import de.vvwt.tm.domain.audio.AudioFormatException;
 import de.vvwt.tm.domain.audio.AudioSizeLimitException;
 import de.vvwt.tm.domain.audio.AudioStorageException;
 import de.vvwt.tm.domain.timer.InvalidTimerUrlException;
 import de.vvwt.tm.domain.timer.NoActiveTournamentException;
 import de.vvwt.tm.infrastructure.display.NoActivePhaseException;
+import de.vvwt.tm.photo.PhotoFormatException;
+import de.vvwt.tm.photo.PhotoSizeException;
+import de.vvwt.tm.photo.PhotoStorageException;
 import de.vvwt.tm.tournament.ApiErrorResponse;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import de.vvwt.tm.tournament.exceptions.ForbiddenException;
@@ -35,19 +41,23 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  * AC-TDD-GlobalExceptionHandler, AC-PKG-GlobalExceptionHandler, inventory row 450).
  *
  * <p>Translates the five S09 boundary-API exceptions and unhandled {@link RuntimeException}s into
- * consistent {@link ApiErrorResponse} JSON bodies. Photo-domain exceptions are handled by {@link
- * de.vvwt.tm.web.photo.PhotoExceptionAdvice} (E23S05 Cutover-1 — Spring Modulith boundary
- * compliance; {@code tournament.allowedDependencies = {"tenant"}} forbids direct {@code photo}
- * imports here). Certificate-domain exceptions are handled by {@link
- * de.vvwt.tm.web.certificate.CertificateExceptionAdvice} (E23S10 Cutover-2 — same boundary
- * rationale; {@code tournament.allowedDependencies = {"tenant"}} forbids direct {@code certificate}
- * imports here).
+ * consistent {@link ApiErrorResponse} JSON bodies. Photo-domain exceptions ({@link
+ * de.vvwt.tm.photo.PhotoFormatException}, {@link de.vvwt.tm.photo.PhotoSizeException}, {@link
+ * de.vvwt.tm.photo.PhotoStorageException}) and certificate-domain exceptions ({@link
+ * de.vvwt.tm.certificate.CertificateTemplateFormatException}, {@link
+ * de.vvwt.tm.certificate.CertificateTemplateSizeException}, {@link
+ * de.vvwt.tm.certificate.CertificateTemplateStorageException}) are consolidated here (E36S08
+ * Phase 3) — absorbed from the deleted {@code PhotoExceptionAdvice} and {@code
+ * CertificateExceptionAdvice} (E36S08 Phase 2). Now resident in the {@code web} module, this
+ * handler has direct {@code photo} and {@code certificate} dependency access per
+ * {@code web.allowedDependencies}.
  *
- * <h2>DEC-21 package discipline</h2>
+ * <h2>DEC-21 + DEC-35 package discipline</h2>
  *
- * <p>Placed at {@code de.vvwt.tm.tournament.internal.web.*} because while its effects cross
- * contexts (HTTP error responses are global), its implementation is tournament-internal (per D-8).
- * Only the contract — {@link ApiErrorResponse} — is public.
+ * <p>Relocated from {@code de.vvwt.tm.tournament.internal.web.*} to {@code de.vvwt.tm.web.*}
+ * in E36S08 Phase 1 (FQN-relocation per DEC-35 + DEC-40 Clause A: cross-cutting web
+ * infrastructure lives at the {@code web} module root). Only the contract — {@link ApiErrorResponse}
+ * — is public (at {@code de.vvwt.tm.tournament.ApiErrorResponse}).
  *
  * <h2>Scope-bounded (AC-GLOBAL-EXCEPTION-HANDLER-SCOPE-BOUNDED)</h2>
  *
@@ -404,6 +414,131 @@ public class GlobalExceptionHandler {
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "An unexpected error occurred. Please try again later.",
                 "error.internal",
+                request);
+    }
+
+    // =========================================================================
+    // Photo domain exceptions (E36S08 Phase 3 — absorbed from deleted PhotoExceptionAdvice)
+    // HTTP mappings verbatim per AC-C11-BEHAVIORAL-EQUIVALENCE
+    // =========================================================================
+
+    /**
+     * Maps {@link PhotoFormatException} to HTTP 400 Bad Request.
+     *
+     * <p>Absorbed from the deleted {@code PhotoExceptionAdvice} (E36S08 Phase 2) per
+     * AC-C11-BEHAVIORAL-EQUIVALENCE. HTTP mapping and messageKey preserved verbatim from the
+     * deleted advice's {@code handlePhotoFormat} method.
+     *
+     * @see <a href="E36S08">E36S08 — Phase 3 RED-first photo exception absorption</a>
+     */
+    @ExceptionHandler(PhotoFormatException.class)
+    public ResponseEntity<ApiErrorResponse> handlePhotoFormat(
+            PhotoFormatException ex, HttpServletRequest request) {
+        log.debug("[tm-web] PhotoFormatException (photo module): {}", ex.getMessage());
+        return buildResponse(
+                HttpStatus.BAD_REQUEST, ex.getMessage(), "error.photo.format", request);
+    }
+
+    /**
+     * Maps {@link PhotoSizeException} to HTTP 400 Bad Request.
+     *
+     * <p>Absorbed from the deleted {@code PhotoExceptionAdvice} (E36S08 Phase 2) per
+     * AC-C11-BEHAVIORAL-EQUIVALENCE. HTTP mapping and messageKey preserved verbatim.
+     *
+     * @see <a href="E36S08">E36S08 — Phase 3 RED-first photo exception absorption</a>
+     */
+    @ExceptionHandler(PhotoSizeException.class)
+    public ResponseEntity<ApiErrorResponse> handlePhotoSize(
+            PhotoSizeException ex, HttpServletRequest request) {
+        log.debug("[tm-web] PhotoSizeException (photo module): {}", ex.getMessage());
+        return buildResponse(
+                HttpStatus.BAD_REQUEST, ex.getMessage(), "error.photo.tooLarge", request);
+    }
+
+    /**
+     * Maps {@link PhotoStorageException} to HTTP 500 Internal Server Error.
+     *
+     * <p>Absorbed from the deleted {@code PhotoExceptionAdvice} (E36S08 Phase 2) per
+     * AC-C11-BEHAVIORAL-EQUIVALENCE. HTTP mapping and messageKey preserved verbatim. Logs at ERROR
+     * level (storage failures are system errors, not client errors).
+     *
+     * @see <a href="E36S08">E36S08 — Phase 3 RED-first photo exception absorption</a>
+     */
+    @ExceptionHandler(PhotoStorageException.class)
+    public ResponseEntity<ApiErrorResponse> handlePhotoStorage(
+            PhotoStorageException ex, HttpServletRequest request) {
+        log.error("[tm-web] PhotoStorageException (photo module): {}", ex.getMessage(), ex);
+        return buildResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Photo storage error.",
+                "error.photo.storage",
+                request);
+    }
+
+    // =========================================================================
+    // Certificate domain exceptions (E36S08 Phase 3 — absorbed from deleted CertificateExceptionAdvice)
+    // HTTP mappings verbatim per AC-C11-BEHAVIORAL-EQUIVALENCE
+    // =========================================================================
+
+    /**
+     * Maps {@link CertificateTemplateFormatException} to HTTP 400 Bad Request.
+     *
+     * <p>Absorbed from the deleted {@code CertificateExceptionAdvice} (E36S08 Phase 2) per
+     * AC-C11-BEHAVIORAL-EQUIVALENCE. HTTP mapping and messageKey preserved verbatim.
+     *
+     * @see <a href="E36S08">E36S08 — Phase 3 RED-first certificate exception absorption</a>
+     */
+    @ExceptionHandler(CertificateTemplateFormatException.class)
+    public ResponseEntity<ApiErrorResponse> handleCertTemplateFormat(
+            CertificateTemplateFormatException ex, HttpServletRequest request) {
+        log.debug(
+                "[tm-web] CertificateTemplateFormatException (certificate module): {}",
+                ex.getMessage());
+        return buildResponse(
+                HttpStatus.BAD_REQUEST, ex.getMessage(), "error.certificateTemplate.format", request);
+    }
+
+    /**
+     * Maps {@link CertificateTemplateSizeException} to HTTP 400 Bad Request.
+     *
+     * <p>Absorbed from the deleted {@code CertificateExceptionAdvice} (E36S08 Phase 2) per
+     * AC-C11-BEHAVIORAL-EQUIVALENCE. HTTP mapping and messageKey preserved verbatim.
+     *
+     * @see <a href="E36S08">E36S08 — Phase 3 RED-first certificate exception absorption</a>
+     */
+    @ExceptionHandler(CertificateTemplateSizeException.class)
+    public ResponseEntity<ApiErrorResponse> handleCertTemplateSize(
+            CertificateTemplateSizeException ex, HttpServletRequest request) {
+        log.debug(
+                "[tm-web] CertificateTemplateSizeException (certificate module): {}",
+                ex.getMessage());
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                ex.getMessage(),
+                "error.certificateTemplate.tooLarge",
+                request);
+    }
+
+    /**
+     * Maps {@link CertificateTemplateStorageException} to HTTP 500 Internal Server Error.
+     *
+     * <p>Absorbed from the deleted {@code CertificateExceptionAdvice} (E36S08 Phase 2) per
+     * AC-C11-BEHAVIORAL-EQUIVALENCE. HTTP mapping and messageKey preserved verbatim. Logs at ERROR
+     * level.
+     *
+     * @see <a href="E36S08">E36S08 — Phase 3 RED-first certificate exception absorption</a>
+     */
+    @ExceptionHandler(CertificateTemplateStorageException.class)
+    public ResponseEntity<ApiErrorResponse> handleCertTemplateStorage(
+            CertificateTemplateStorageException ex, HttpServletRequest request) {
+        log.error(
+                "[tm-web] CertificateTemplateStorageException (certificate module): {}",
+                ex.getMessage(),
+                ex);
+        return buildResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Certificate template storage error.",
+                "error.certificateTemplate.storage",
                 request);
     }
 

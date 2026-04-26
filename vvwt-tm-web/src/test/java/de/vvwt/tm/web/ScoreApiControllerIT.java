@@ -68,10 +68,10 @@ import org.springframework.test.context.ActiveProfiles;
  *
  * <h2>GlobalExceptionHandler reach (AC-GLOBAL-EXCEPTION-HANDLER-REACH)</h2>
  *
- * <p>{@code de.vvwt.tm.tournament.internal.web.GlobalExceptionHandler} is annotated
- * {@code @ControllerAdvice(basePackages = {..., "de.vvwt.tm.web"})} — covers this controller
- * without modification. Document: FQN = {@code
- * de.vvwt.tm.tournament.internal.web.GlobalExceptionHandler}.
+ * <p>{@code de.vvwt.tm.web.GlobalExceptionHandler} is annotated
+ * {@code @ControllerAdvice(basePackages = {..., "de.vvwt.tm.web"})} — covers this controller.
+ * Relocated from {@code tournament.internal.web} to {@code de.vvwt.tm.web} in E36S08 Phase 1.
+ * FQN = {@code de.vvwt.tm.web.GlobalExceptionHandler}.
  *
  * @see ScoreApiController
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>

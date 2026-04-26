@@ -81,17 +81,13 @@ import org.springframework.web.multipart.MultipartFile;
  *
  * <h2>Error handling (AC-ERROR-HANDLING-UNCHANGED)</h2>
  *
- * <p>{@link CertificateExceptionAdvice} (co-located; still resident per E36S08 Phase 2 carve-out)
- * maps the new {@code de.vvwt.tm.certificate.*} exception types. The {@code GlobalExceptionHandler}
- * covers {@link NoSuchElementException} → HTTP 404.
+ * <p>{@link de.vvwt.tm.web.GlobalExceptionHandler} handles all {@code de.vvwt.tm.certificate.*}
+ * exception types (absorbed from deleted {@code CertificateExceptionAdvice} in E36S08 Phase 3).
  *
  * <ul>
- *   <li>{@link de.vvwt.tm.certificate.CertificateTemplateFormatException} → 400 (via {@link
- *       CertificateExceptionAdvice})
- *   <li>{@link de.vvwt.tm.certificate.CertificateTemplateSizeException} → 400 (via {@link
- *       CertificateExceptionAdvice})
- *   <li>{@link de.vvwt.tm.certificate.CertificateTemplateStorageException} → 500 (via {@link
- *       CertificateExceptionAdvice})
+ *   <li>{@link de.vvwt.tm.certificate.CertificateTemplateFormatException} → 400 (via GlobalExceptionHandler)
+ *   <li>{@link de.vvwt.tm.certificate.CertificateTemplateSizeException} → 400 (via GlobalExceptionHandler)
+ *   <li>{@link de.vvwt.tm.certificate.CertificateTemplateStorageException} → 500 (via GlobalExceptionHandler)
  *   <li>{@link NoSuchElementException} → 404 (tournament not found / wrong tenant)
  * </ul>
  *
