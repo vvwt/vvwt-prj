@@ -22,27 +22,21 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * REST controller for tournament-scoped team photo management (E23S04, DEC-40 Clause D).
+ * REST controller for tournament-scoped team photo management (E36S02 Q-1a TDD rebuild, DEC-40
+ * Clause D).
  *
- * <p>Relocated whole-class from {@code de.vvwt.tm.infrastructure.web.photo.TeamPhotoController} to
- * the canonical {@code de.vvwt.tm.web.photo} package per DEC-40 Clause D
- * (Primary-Adapter-Isolation) and DEC-22 §refactor-clause (Q-1b whole-class relocation,
- * byte-identical body). Analog to E22S07 tournament controller relocation.
+ * <p>Rebuilt from deleted Q-1b artefact at the same canonical FQN ({@code de.vvwt.tm.web.photo})
+ * per Brief D-7 Option γ and DEC-22 Iron Law Q-1a RED-first TDD. HTTP wire contract preserved
+ * verbatim per AC-MOCKMVC-CONTRACT-PRESERVED: URL paths and JSON wire shapes are identical to the
+ * deleted legacy controller (E23S04/E23S05).
  *
- * <h2>Endpoints (E23S05 Cutover-1 — new URL)</h2>
+ * <h2>Endpoints</h2>
  *
  * <ul>
- *   <li>POST /api/photo/tournaments/{tournamentId}/teams/{teamId} — upload (AC1)
- *   <li>GET /api/photo/tournaments/{tournamentId}/teams/{teamId} — retrieve (AC2)
- *   <li>DELETE /api/photo/tournaments/{tournamentId}/teams/{teamId} — delete (AC3)
+ *   <li>POST {@code /api/photo/tournaments/{tournamentId}/teams/{teamId}} — upload (AC1)
+ *   <li>GET {@code /api/photo/tournaments/{tournamentId}/teams/{teamId}} — retrieve (AC2)
+ *   <li>DELETE {@code /api/photo/tournaments/{tournamentId}/teams/{teamId}} — delete (AC3)
  * </ul>
- *
- * <h2>URL rename (E23S05 Cutover-1)</h2>
- *
- * <p>URL renamed atomically at E23S05 Cutover-1 from {@code
- * /api/tournaments/{tid}/teams/{teamId}/photo} to {@code
- * /api/photo/tournaments/{tid}/teams/{teamId}} per DEC-21 per-context atomic cutover, DEC-40
- * precedent (E22S08 URL-rename pattern), and DEC-22 Q-1b §refactor-clause.
  *
  * <h2>Authentication (AC-SECURITY-SUBSTANTIVE)</h2>
  *
@@ -57,11 +51,11 @@ import org.springframework.web.multipart.MultipartFile;
  * ownership against the active tenant context. Cross-tenant access yields {@link
  * NoSuchElementException} → 404 (no tenant enumeration).
  *
- * <h2>Error handling (AC-ERROR-HANDLING)</h2>
+ * <h2>Error handling</h2>
  *
  * <p>{@link de.vvwt.tm.tournament.internal.web.GlobalExceptionHandler} covers {@code
- * de.vvwt.tm.web} as a base package (E22S07). Photo domain exceptions from {@code
- * de.vvwt.tm.photo.*} are handled by {@link PhotoExceptionAdvice} (E23S04):
+ * de.vvwt.tm.web} as a base package. Photo domain exceptions from {@code de.vvwt.tm.photo.*} are
+ * handled by {@link PhotoExceptionAdvice} (still resident per E36S08 Phase 2 deferred deletion):
  *
  * <ul>
  *   <li>{@link de.vvwt.tm.photo.PhotoFormatException} → 400
@@ -72,32 +66,25 @@ import org.springframework.web.multipart.MultipartFile;
  *       GlobalExceptionHandler)
  * </ul>
  *
- * <h2>Post-Cutover-1 (E23S05)</h2>
- *
- * <p>The legacy {@code de.vvwt.tm.infrastructure.web.photo.TeamPhotoController} has been deleted at
- * E23S05 Cutover-1. The {@code @ComponentScan(excludeFilters)} in {@link
- * de.vvwt.tm.TournamentManagerApplication} has been removed atomically.
- *
- * <h2>Trigger-β check (AC-TRIGGER-BETA-CHECK)</h2>
- *
- * <p>This controller imports from 2 bounded contexts: {@code photo} (PhotoStorageService, result
- * types, exceptions) and indirectly {@code tenant} (via PhotoStorageService's tenant-scoped
- * implementation). No method individually imports from more than 2 bounded contexts — Trigger β
- * does NOT fire (≤2 bounded contexts per method, L2 remains appropriate).
- *
  * <h2>DTO disposition (AC-DTO-DISPOSITION-CLAUSE-B)</h2>
  *
  * <p>{@link PhotoMetadataResponse} is preserved as web-internal DTO on DEC-40 Clause B(a)
  * field-omission grounds: {@link de.vvwt.tm.photo.PhotoFileMetadata} is the domain VO; the DTO
  * exposes only filename, sizeBytes, and uploadedAt (tenant-scoped or internal fields omitted).
  *
+ * <h2>Trigger-β check</h2>
+ *
+ * <p>This controller imports from 2 bounded contexts: {@code photo} (PhotoStorageService, result
+ * types, exceptions) and indirectly {@code tenant} (via PhotoStorageService's tenant-scoped
+ * implementation). No method individually imports from more than 2 bounded contexts — Trigger β
+ * does NOT fire (≤2 bounded contexts per method, L2 remains appropriate per DEC-40 Clause A).
+ *
  * @see PhotoStorageService
  * @see PhotoExceptionAdvice
  * @see PhotoMetadataResponse
  * @see de.vvwt.tm.auth.internal.SecurityConfig
  * @see DEC-40
- * @see E23S04
- * @see E23S05
+ * @see E36S02
  */
 @RestController
 @RequestMapping("/api/photo/tournaments/{tournamentId}/teams/{teamId}")
@@ -110,7 +97,7 @@ public class TeamPhotoController {
     }
 
     // -------------------------------------------------------------------------
-    // AC1 — POST /api/tournaments/{tournamentId}/teams/{teamId}/photo
+    // AC1 — POST upload
     // -------------------------------------------------------------------------
 
     /**
@@ -126,6 +113,7 @@ public class TeamPhotoController {
      * @param teamId the team UUID (path variable)
      * @param file the multipart file to upload
      * @return 200 OK with {@link PhotoMetadataResponse} body
+     * @throws IOException if reading the multipart stream fails
      */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PhotoMetadataResponse> upload(
@@ -149,7 +137,7 @@ public class TeamPhotoController {
     }
 
     // -------------------------------------------------------------------------
-    // AC2 — GET /api/tournaments/{tournamentId}/teams/{teamId}/photo
+    // AC2 — GET retrieve
     // -------------------------------------------------------------------------
 
     /**
@@ -190,7 +178,7 @@ public class TeamPhotoController {
     }
 
     // -------------------------------------------------------------------------
-    // AC3 — DELETE /api/tournaments/{tournamentId}/teams/{teamId}/photo
+    // AC3 — DELETE
     // -------------------------------------------------------------------------
 
     /**

@@ -4,15 +4,18 @@ import de.vvwt.tm.photo.PhotoFileMetadata;
 import java.time.Instant;
 
 /**
- * REST response DTO for photo upload metadata (E23S04, DEC-40 Clause B).
+ * REST response DTO for photo upload metadata (E36S02 Q-1a TDD rebuild, DEC-40 Clause B).
  *
- * <p>Relocated whole-class from {@code de.vvwt.tm.infrastructure.web.photo.PhotoMetadataResponse}
- * to {@code de.vvwt.tm.web.photo} per DEC-40 Clause D (Primary-Adapter-Isolation) and DEC-22
- * §refactor-clause (Q-1b whole-class relocation, byte-identical content). Preserved as web-internal
- * DTO on DEC-40 Clause B(a) field-omission grounds: {@link PhotoFileMetadata} (the domain VO)
- * contains tenant-scoped or internal fields not exposed in the JSON response.
+ * <p>Rebuilt from deleted Q-1b artefact at the same canonical FQN ({@code de.vvwt.tm.web.photo})
+ * per Brief D-7 Option γ and DEC-22 Iron Law Q-1a RED-first TDD. Wire format preserved verbatim per
+ * AC-C3-SIGNATURE-PRESERVATION and AC-MOCKMVC-CONTRACT-PRESERVED: fields {@code filename}, {@code
+ * sizeBytes}, and {@code uploadedAt} are identical to the legacy DTO shape.
  *
- * <p>Returned by {@code POST /api/tournaments/{tournamentId}/teams/{teamId}/photo} on success (HTTP
+ * <p>Preserved as web-internal DTO on DEC-40 Clause B(a) field-omission grounds: {@link
+ * PhotoFileMetadata} (the domain VO) contains tenant-scoped or internal fields not exposed in the
+ * JSON response.
+ *
+ * <p>Returned by {@code POST /api/photo/tournaments/{tournamentId}/teams/{teamId}} on success (HTTP
  * 200).
  *
  * @param filename original client filename
@@ -21,7 +24,7 @@ import java.time.Instant;
  * @see TeamPhotoController
  * @see PhotoFileMetadata
  * @see DEC-40
- * @see E23S04
+ * @see E36S02
  */
 public record PhotoMetadataResponse(String filename, long sizeBytes, Instant uploadedAt) {
 
