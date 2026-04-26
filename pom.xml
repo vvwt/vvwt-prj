@@ -23,6 +23,7 @@
          physical directory preserved on filesystem for E37S11 cleanup -->
     <modules>
         <module>vvwt-slotopt-worker-lib</module>
+        <module>vvwt-slotopt-dispatcher</module>
         <module>vvwt-standalone-worker</module>
         <module>vvwt-benchmark</module>
 
