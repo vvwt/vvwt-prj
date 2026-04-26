@@ -20,7 +20,6 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
@@ -50,10 +49,10 @@ import org.springframework.test.context.TestPropertySource;
  * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
  * @see <a href="E21S10">E21S10 — inventory row 412</a>
  */
-@ApplicationModuleTest(
-        mode = ApplicationModuleTest.BootstrapMode.ALL_DEPENDENCIES,
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(WebModuleTestConfig.class)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        classes = de.vvwt.tm.TournamentManagerApplication.class)
+@Import({WebModuleTestConfig.class, TournamentRulesControllerIT.TestAdminCredentials.class})
 @TestPropertySource(
         properties = {
             "spring.datasource.url=jdbc:h2:mem:rulescontrolleritdb"
@@ -135,7 +134,7 @@ class TournamentRulesControllerIT {
     @TestConfiguration
     static class TestAdminCredentials {
 
-        @Bean
+        @Bean("webItAdminCredentialsProvider")
         @Primary
         AdminCredentialsProvider testAdminCredentialsProvider(PasswordEncoder passwordEncoder) {
             String hash = passwordEncoder.encode(ADMIN_PASS);

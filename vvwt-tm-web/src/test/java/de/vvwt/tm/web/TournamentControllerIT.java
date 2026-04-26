@@ -27,7 +27,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -69,10 +68,10 @@ import org.springframework.test.context.ActiveProfiles;
  * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
  * @see <a href="E22S07">E22S07 — Relocate TournamentController to de.vvwt.tm.web</a>
  */
-@ApplicationModuleTest(
-        mode = ApplicationModuleTest.BootstrapMode.ALL_DEPENDENCIES,
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(WebModuleTestConfig.class)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        classes = de.vvwt.tm.TournamentManagerApplication.class)
+@Import({WebModuleTestConfig.class, TournamentControllerIT.TestAdminCredentials.class})
 @ActiveProfiles("test")
 @DisplayName("TournamentController IT — E21S02 AC-REST-IT (2-test minimalist)")
 class TournamentControllerIT {
@@ -179,7 +178,7 @@ class TournamentControllerIT {
     @TestConfiguration
     static class TestAdminCredentials {
 
-        @Bean
+        @Bean("webItAdminCredentialsProvider")
         @Primary
         AdminCredentialsProvider testAdminCredentialsProvider(PasswordEncoder passwordEncoder) {
             String hash = passwordEncoder.encode(ADMIN_PASS);

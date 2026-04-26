@@ -29,7 +29,6 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.util.LinkedMultiValueMap;
@@ -83,10 +82,10 @@ import org.springframework.util.MultiValueMap;
  * @see DEC-41
  * @see E36S02
  */
-@ApplicationModuleTest(
-        mode = ApplicationModuleTest.BootstrapMode.ALL_DEPENDENCIES,
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(WebModuleTestConfig.class)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        classes = de.vvwt.tm.TournamentManagerApplication.class)
+@Import({WebModuleTestConfig.class, TeamPhotoControllerIT.TestAdminCredentials.class})
 @ActiveProfiles("test")
 @org.springframework.test.context.TestPropertySource(
         properties = {
@@ -564,7 +563,7 @@ class TeamPhotoControllerIT {
     @TestConfiguration
     static class TestAdminCredentials {
 
-        @Bean
+        @Bean("webItAdminCredentialsProvider")
         @Primary
         AdminCredentialsProvider testAdminCredentialsProvider(PasswordEncoder encoder) {
             String hash = encoder.encode(TEST_PASSWORD);

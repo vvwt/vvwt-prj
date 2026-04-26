@@ -23,34 +23,45 @@ import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.SecurityFilterChain;
 
 /**
- * {@code @TestConfiguration} for {@code @ApplicationModuleTest} controller ITs in the {@code web}
- * module (E22S07, DEC-38 Clause C, DEC-40 Clause A).
+ * {@code @TestConfiguration} for {@code @SpringBootTest(RANDOM_PORT)} controller ITs in the {@code
+ * web} module (E22S07, DEC-38 Clause C, DEC-40 Clause A, DEC-44 D2).
  *
  * <h2>Purpose</h2>
  *
- * <p>Mirrors {@link de.vvwt.tm.tournament.TournamentModuleTestConfig} but resides in the {@code
- * de.vvwt.tm.web} package so that Spring Modulith 1.4.6's {@code
- * ModuleTestExecutionBeanDefinitionSelector} classifies it correctly for
- * {@code @ApplicationModuleTest(web)} contexts.
+ * <p>Shared {@code @TestConfiguration} for {@code @SpringBootTest(RANDOM_PORT)} controller ITs in
+ * the {@code web} module. The production {@code AuthConfiguration} (and all application beans) are
+ * loaded; this config supplies test substitutes that must win over production beans via
+ * {@code @Primary} or bean-definition overriding ({@code
+ * spring.main.allow-bean-definition-overriding=true}).
  *
- * <h2>Why TenantContext is provided here</h2>
+ * <h2>Auth substitution strategy (DEC-44 D2)</h2>
  *
- * <p>Web module ITs use {@code ALL_DEPENDENCIES} bootstrap mode so that {@code tenant.internal}
- * beans (including {@code TenantContextConfiguration} and {@code TenantContextResolver}) are
- * loaded. However, {@code TenantContextConfiguration.tenantRoutingContext()} has
- * {@code @ConditionalOnMissingBean(TenantContext.class)} — this config provides the bean first so
- * that the production bean is suppressed and the test-local thread-local implementation is used.
- * Similarly, {@link TenantRegistryPort} and {@link TenantDataSourceResolver} are overridden here.
+ * <p>{@code @SpringBootTest(RANDOM_PORT)} boots the full application context including {@code
+ * AuthConfiguration}. Spring Security's {@code InitializeUserDetailsManagerConfigurer} does NOT
+ * respect {@code @Primary} for {@code UserDetailsService} selection — providing two {@code
+ * UserDetailsService} beans causes the global {@code AuthenticationManager} to ignore both and fall
+ * back to the production DB-backed one. Therefore, this config does NOT provide a {@code
+ * UserDetailsService} bean. Instead, it provides:
+ *
+ * <ul>
+ *   <li>A {@code @Primary PasswordEncoder} (distinct name {@code "webItPasswordEncoder"}) so that
+ *       {@code AuthConfiguration} wires the test BCrypt encoder.
+ *   <li>A non-primary {@code AdminCredentialsProvider} placeholder (distinct name {@code
+ *       "webItAdminCredentialsProvider"}). Per-IT inner {@code TestAdminCredentials} classes are
+ *       explicitly imported ({@code @Import({WebModuleTestConfig.class,
+ *       <IT>.TestAdminCredentials.class})}) and provide a {@code @Primary} bean with the same name,
+ *       which overrides this placeholder via {@code allow-bean-definition-overriding=true}. Result:
+ *       exactly one {@code @Primary AdminCredentialsProvider} feeds {@code
+ *       AuthConfiguration.userDetailsService()} with the per-IT hashed test password.
+ * </ul>
+ *
+ * <p>The production {@code SecurityFilterChain} and {@code UserDetailsService} beans are the sole
+ * instances, wired to the test {@code @Primary} beans above. HTTP Basic auth then accepts the
+ * per-IT test password.
  *
  * <h2>Beans provided</h2>
  *
@@ -60,10 +71,10 @@ import org.springframework.security.web.SecurityFilterChain;
  *   <li>{@link TenantRegistryPort} — Mockito mock returning a fixed default-tenant UUID.
  *   <li>{@link TenantContextTestSupport.Binder} — allows ITs to bind/unbind tenant context.
  *   <li>{@link TenantDataSourceResolver} — in-memory H2 resolver for test DataSources.
- *   <li>{@link PasswordEncoder} ({@code BCryptPasswordEncoder}) — required for auth.
- *   <li>{@link AdminCredentialsProvider} (placeholder) — overridden by each IT's inner class.
- *   <li>{@link UserDetailsService} — backed by the (overridable) {@link AdminCredentialsProvider}.
- *   <li>{@link SecurityFilterChain} — production-equivalent authorization rules.
+ *   <li>{@link PasswordEncoder} ({@code BCryptPasswordEncoder}, {@code @Primary}) — wired into
+ *       production {@code AuthConfiguration} beans via {@code @Primary}.
+ *   <li>{@link AdminCredentialsProvider} placeholder (non-primary) — per-IT inner {@code
+ *       TestAdminCredentials} provides {@code @Primary} override via explicit {@code @Import}.
  *   <li>{@link PhotoStorageService} mock — satisfies {@code TeamController} constructor dependency.
  *   <li>{@link ScoringRuleRegistry} mock — satisfies {@code TournamentService} dependencies.
  *   <li>{@link SetValidationRuleRegistry} mock — satisfies {@code TournamentService} dependencies.
@@ -152,8 +163,16 @@ public class WebModuleTestConfig {
     /**
      * BCrypt password encoder. Mirrors {@code AuthConfiguration#passwordEncoder()} for the IT
      * context. Required by each IT's inner {@code TestAdminCredentials} to hash test passwords.
+     *
+     * <p>{@code @Primary} + explicit bean name added per DEC-44 D2:
+     * {@code @SpringBootTest(RANDOM_PORT)} boots the full application context including {@code
+     * AuthConfiguration}, which registers a {@code PasswordEncoder} bean named {@code
+     * "passwordEncoder"}. By using a distinct name ({@code "webItPasswordEncoder"}) +
+     * {@code @Primary}, this test substitute coexists with the production bean and is preferred for
+     * autowiring without triggering bean-definition overriding.
      */
-    @Bean
+    @Bean("webItPasswordEncoder")
+    @Primary
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
@@ -161,88 +180,22 @@ public class WebModuleTestConfig {
     /**
      * Placeholder {@link AdminCredentialsProvider} — returns an empty hash string. Each controller
      * IT overrides this with a {@code @Primary} test-specific provider via its inner {@code
-     * TestAdminCredentials} class.
+     * TestAdminCredentials} class, which is explicitly imported via
+     * {@code @Import({WebModuleTestConfig.class, <IT>.TestAdminCredentials.class})}.
+     *
+     * <p>This placeholder is non-primary. The per-IT {@code testAdminCredentialsProvider} bean
+     * carries {@code @Primary}; the production {@code adminCredentialsProvider} from {@code
+     * AuthConfiguration} is also non-primary. With exactly one {@code @Primary
+     * AdminCredentialsProvider} in the context, {@code AuthConfiguration.userDetailsService()}
+     * resolves it unambiguously.
+     *
+     * <p>Distinct bean name {@code "webItAdminCredentialsProvider"} avoids overriding the
+     * production {@code adminCredentialsProvider} bean from {@code AuthConfiguration} per DEC-44
+     * D2.
      */
-    @Bean
+    @Bean("webItAdminCredentialsProvider")
     public AdminCredentialsProvider adminCredentialsProvider() {
         return () -> "";
-    }
-
-    /**
-     * {@link UserDetailsService} backed by the (overridable) {@link AdminCredentialsProvider}.
-     *
-     * @param credentialsProvider the admin credentials provider (placeholder or @Primary override)
-     * @param passwordEncoder the BCrypt encoder
-     */
-    @Bean
-    public UserDetailsService userDetailsService(
-            AdminCredentialsProvider credentialsProvider, PasswordEncoder passwordEncoder) {
-        return username -> {
-            if (!"admin".equals(username)) {
-                throw new org.springframework.security.core.userdetails.UsernameNotFoundException(
-                        "Unknown user: " + username);
-            }
-            return User.builder()
-                    .username("admin")
-                    .password(credentialsProvider.getPasswordHash())
-                    .roles("ADMIN")
-                    .build();
-        };
-    }
-
-    /**
-     * Production-equivalent {@link SecurityFilterChain}. Mirrors the authorization rules from
-     * {@code SecurityConfig#buildSecurityFilterChain}.
-     *
-     * @param http the {@link HttpSecurity} builder
-     * @param userDetailsService the admin user-details service
-     * @throws Exception if Spring Security configuration fails
-     */
-    @Bean
-    public SecurityFilterChain securityFilterChain(
-            HttpSecurity http, UserDetailsService userDetailsService) throws Exception {
-        http.userDetailsService(userDetailsService);
-        http.csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(
-                        session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(
-                        auth ->
-                                auth.requestMatchers("/actuator/health")
-                                        .permitAll()
-                                        .requestMatchers("/error")
-                                        .permitAll()
-                                        .requestMatchers("/ws/**")
-                                        .permitAll()
-                                        .requestMatchers("/score/**")
-                                        .permitAll()
-                                        .requestMatchers("/api/devices/register")
-                                        .permitAll()
-                                        .requestMatchers("/api/devices/status")
-                                        .permitAll()
-                                        .requestMatchers("/api/score/**")
-                                        .permitAll()
-                                        .requestMatchers("/api/display/**")
-                                        .permitAll()
-                                        .requestMatchers("/display/**")
-                                        .permitAll()
-                                        .requestMatchers("/timer/**")
-                                        .permitAll()
-                                        .requestMatchers("/api/tournaments/*/audio/*/stream")
-                                        .permitAll()
-                                        .requestMatchers("/print/assets/**")
-                                        .permitAll()
-                                        .requestMatchers("/api/timer/**")
-                                        .permitAll()
-                                        .requestMatchers("/print/**")
-                                        .authenticated()
-                                        .requestMatchers("/admin/**")
-                                        .authenticated()
-                                        .requestMatchers("/api/**")
-                                        .authenticated()
-                                        .anyRequest()
-                                        .authenticated())
-                .httpBasic(basic -> basic.realmName("Tournament Manager"));
-        return http.build();
     }
 
     // =========================================================================

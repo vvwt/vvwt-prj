@@ -28,7 +28,6 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -70,8 +69,8 @@ import org.springframework.test.context.ActiveProfiles;
  *
  * <p>{@code de.vvwt.tm.web.GlobalExceptionHandler} is annotated
  * {@code @ControllerAdvice(basePackages = {..., "de.vvwt.tm.web"})} — covers this controller.
- * Relocated from {@code tournament.internal.web} to {@code de.vvwt.tm.web} in E36S08 Phase 1.
- * FQN = {@code de.vvwt.tm.web.GlobalExceptionHandler}.
+ * Relocated from {@code tournament.internal.web} to {@code de.vvwt.tm.web} in E36S08 Phase 1. FQN =
+ * {@code de.vvwt.tm.web.GlobalExceptionHandler}.
  *
  * @see ScoreApiController
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
@@ -79,10 +78,10 @@ import org.springframework.test.context.ActiveProfiles;
  * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
  * @see <a href="E22S09">E22S09 — TDD-reconstruct ScoreApiController</a>
  */
-@ApplicationModuleTest(
-        mode = ApplicationModuleTest.BootstrapMode.ALL_DEPENDENCIES,
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(WebModuleTestConfig.class)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        classes = de.vvwt.tm.TournamentManagerApplication.class)
+@Import({WebModuleTestConfig.class, ScoreApiControllerIT.TestAdminCredentials.class})
 @ActiveProfiles("test")
 @DisplayName("ScoreApiController IT — E22S09: Score entry API (web module)")
 class ScoreApiControllerIT {
@@ -273,7 +272,7 @@ class ScoreApiControllerIT {
 
     @TestConfiguration
     static class TestAdminCredentials {
-        @Bean
+        @Bean("webItAdminCredentialsProvider")
         @Primary
         AdminCredentialsProvider testAdminCredentialsProvider(PasswordEncoder passwordEncoder) {
             String hash = passwordEncoder.encode(ADMIN_PASS);
