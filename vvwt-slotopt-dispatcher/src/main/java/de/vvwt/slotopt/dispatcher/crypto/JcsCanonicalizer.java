@@ -11,8 +11,8 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 /**
- * Produces the RFC 8785 (JSON Canonicalization Scheme — JCS) canonical UTF-8 byte representation
- * of a {@link JsonNode}.
+ * Produces the RFC 8785 (JSON Canonicalization Scheme — JCS) canonical UTF-8 byte representation of
+ * a {@link JsonNode}.
  *
  * <p>JCS rules (normative, per RFC 8785):
  *
@@ -29,10 +29,9 @@ import org.springframework.stereotype.Component;
  * sorting is performed by extracting field names, sorting them with {@link String#compareTo}, and
  * writing fields in sorted order.
  *
- * <p>Spec: E37S04 AC-JCS-CANONICALIZER; E37S02 spec section (a) §JSON Canonicalization;
- * RFC 8785 — JSON Canonicalization Scheme (IETF, 2021).
- *
- * @SpecSource RFC 8785 https://www.rfc-editor.org/rfc/rfc8785
+ * <p>Spec: E37S04 AC-JCS-CANONICALIZER; E37S02 spec section (a) §JSON Canonicalization; RFC 8785 —
+ * JSON Canonicalization Scheme (IETF, 2021). @SpecSource RFC 8785
+ * https://www.rfc-editor.org/rfc/rfc8785
  */
 @Component
 public class JcsCanonicalizer {
@@ -63,14 +62,24 @@ public class JcsCanonicalizer {
             case OBJECT -> writeObject((ObjectNode) node, writer);
             case ARRAY -> writeArray(node, writer);
             case STRING -> writeString(node.textValue(), writer);
-            case NUMBER -> writer.write(node.numberType() == com.fasterxml.jackson.core.JsonParser.NumberType.BIG_DECIMAL
-                    || node.numberType() == com.fasterxml.jackson.core.JsonParser.NumberType.FLOAT
-                    || node.numberType() == com.fasterxml.jackson.core.JsonParser.NumberType.DOUBLE
-                    ? node.decimalValue().stripTrailingZeros().toPlainString()
-                    : node.numberValue().toString());
+            case NUMBER ->
+                    writer.write(
+                            node.numberType()
+                                                    == com.fasterxml.jackson.core.JsonParser
+                                                            .NumberType.BIG_DECIMAL
+                                            || node.numberType()
+                                                    == com.fasterxml.jackson.core.JsonParser
+                                                            .NumberType.FLOAT
+                                            || node.numberType()
+                                                    == com.fasterxml.jackson.core.JsonParser
+                                                            .NumberType.DOUBLE
+                                    ? node.decimalValue().stripTrailingZeros().toPlainString()
+                                    : node.numberValue().toString());
             case BOOLEAN -> writer.write(node.booleanValue() ? "true" : "false");
             case NULL -> writer.write("null");
-            default -> throw new IllegalArgumentException("Unsupported node type: " + node.getNodeType());
+            default ->
+                    throw new IllegalArgumentException(
+                            "Unsupported node type: " + node.getNodeType());
         }
     }
 

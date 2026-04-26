@@ -19,10 +19,8 @@ import org.junit.jupiter.api.Test;
  * <p>RED-first per DEC-22 / AC-DEFAULT-ED25519-VERIFIER. Written before production classes exist.
  *
  * <p>RFC 8032 official test vector (§A.3 — Test Vector for Ed25519) used as spec-anchored test per
- * DEC-41 §1(c). Vector sourced from RFC 8032 §A.3.
- *
- * @SpecSource RFC 8032 §A.3 — Test Vector for Ed25519
- *     https://www.rfc-editor.org/rfc/rfc8032#appendix-A.3
+ * DEC-41 §1(c). Vector sourced from RFC 8032 §A.3. @SpecSource RFC 8032 §A.3 — Test Vector for
+ * Ed25519 https://www.rfc-editor.org/rfc/rfc8032#appendix-A.3
  */
 class DefaultEd25519VerifierTest {
 
@@ -49,7 +47,7 @@ class DefaultEd25519VerifierTest {
             HexFormat.of()
                     .parseHex(
                             "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e06522490155"
-                                    + "5fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b");
+                                + "5fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b");
 
     private DefaultEd25519Verifier verifier;
 
@@ -87,9 +85,8 @@ class DefaultEd25519VerifierTest {
     // ----------------------------------------------------------------
 
     /**
-     * RFC 8032 §A.3 Test 1 — empty message, known public key and signature → verify returns true.
-     *
-     * @SpecSource RFC 8032 §A.3
+     * RFC 8032 §A.3 Test 1 — empty message, known public key and signature → verify returns
+     * true. @SpecSource RFC 8032 §A.3
      */
     @Test
     void verify_rfc8032TestVector1_returnsTrue() throws InvalidSignatureException {
@@ -107,7 +104,9 @@ class DefaultEd25519VerifierTest {
         KeyPair kp = kpg.generateKeyPair();
         byte[] publicKeyBytes = kp.getPublic().getEncoded();
         // SubjectPublicKeyInfo encoding — extract raw 32 bytes (last 32 bytes)
-        byte[] rawPub = java.util.Arrays.copyOfRange(publicKeyBytes, publicKeyBytes.length - 32, publicKeyBytes.length);
+        byte[] rawPub =
+                java.util.Arrays.copyOfRange(
+                        publicKeyBytes, publicKeyBytes.length - 32, publicKeyBytes.length);
 
         byte[] message = "hello dispatcher".getBytes(StandardCharsets.UTF_8);
         Signature sig = Signature.getInstance("Ed25519");
@@ -124,7 +123,9 @@ class DefaultEd25519VerifierTest {
         KeyPairGenerator kpg = KeyPairGenerator.getInstance("Ed25519");
         KeyPair kp = kpg.generateKeyPair();
         byte[] publicKeyBytes = kp.getPublic().getEncoded();
-        byte[] rawPub = java.util.Arrays.copyOfRange(publicKeyBytes, publicKeyBytes.length - 32, publicKeyBytes.length);
+        byte[] rawPub =
+                java.util.Arrays.copyOfRange(
+                        publicKeyBytes, publicKeyBytes.length - 32, publicKeyBytes.length);
 
         byte[] message = "hello dispatcher".getBytes(StandardCharsets.UTF_8);
         byte[] tamperedSignature = new byte[64]; // all zeros — invalid

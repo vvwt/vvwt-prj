@@ -29,8 +29,8 @@ public interface SignatureVerifier {
     /**
      * Returns the server-canonical algorithm identifier for this verifier.
      *
-     * <p>Identifier uses the JCE canonical name form (e.g., {@code "Ed25519"}, {@code "ML-DSA-65"}).
-     * The identifier is stable across server restarts and is transmitted in the
+     * <p>Identifier uses the JCE canonical name form (e.g., {@code "Ed25519"}, {@code
+     * "ML-DSA-65"}). The identifier is stable across server restarts and is transmitted in the
      * {@code supportedAlgorithms[]} list in registration responses (DEC-43 § D1).
      *
      * @return the algorithm identifier; never {@code null}
@@ -72,5 +72,6 @@ public interface SignatureVerifier {
      * @throws InvalidSignatureException if the public key length is outside the valid range, or if
      *     an internal JCE error prevents verification
      */
-    boolean verify(byte[] publicKey, byte[] message, byte[] signature) throws InvalidSignatureException;
+    boolean verify(byte[] publicKey, byte[] message, byte[] signature)
+            throws InvalidSignatureException;
 }

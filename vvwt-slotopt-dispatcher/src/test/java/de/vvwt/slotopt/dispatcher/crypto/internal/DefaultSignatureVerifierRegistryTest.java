@@ -24,8 +24,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest
 class DefaultSignatureVerifierRegistryTest {
 
-    @Autowired
-    private SignatureVerifierRegistry registry;
+    @Autowired private SignatureVerifierRegistry registry;
 
     @Test
     void lookup_knownAlgorithm_returnsVerifier() {

@@ -13,8 +13,8 @@ import org.springframework.stereotype.Component;
  * V1 Ed25519 {@link SignatureVerifier} implementation using JDK 21 native cryptography.
  *
  * <p>Implements RFC 8032 (EdDSA — Ed25519). Uses JDK 21 native {@code
- * Signature.getInstance("Ed25519")} and {@code KeyFactory.getInstance("Ed25519")} — no
- * Bouncy Castle or other third-party crypto dependency (DEC-3 compliant).
+ * Signature.getInstance("Ed25519")} and {@code KeyFactory.getInstance("Ed25519")} — no Bouncy
+ * Castle or other third-party crypto dependency (DEC-3 compliant).
  *
  * <h2>Key encoding</h2>
  *
@@ -34,11 +34,10 @@ import org.springframework.stereotype.Component;
  * <h2>Signing convention</h2>
  *
  * <p>Ed25519 signs message bytes DIRECTLY — NO external pre-hashing (RFC 8032 §5.1). Ed25519
- * internally uses SHA-512; external SHA-256 or SHA-512 pre-hashing is non-standard (per E37S02
- * spec §(a)).
+ * internally uses SHA-512; external SHA-256 or SHA-512 pre-hashing is non-standard (per E37S02 spec
+ * §(a)).
  *
- * <p>Spec: E37S04 AC-DEFAULT-ED25519-VERIFIER, AC-NO-NEW-NON-ED25519-VERIFIERS; DEC-3, DEC-43
- * §D4.
+ * <p>Spec: E37S04 AC-DEFAULT-ED25519-VERIFIER, AC-NO-NEW-NON-ED25519-VERIFIERS; DEC-3, DEC-43 §D4.
  */
 @Component
 public class DefaultEd25519Verifier implements SignatureVerifier {
@@ -91,7 +90,8 @@ public class DefaultEd25519Verifier implements SignatureVerifier {
             sig.update(message);
             return sig.verify(signature);
         } catch (GeneralSecurityException e) {
-            throw new InvalidSignatureException("Ed25519 verification failed: " + e.getMessage(), e);
+            throw new InvalidSignatureException(
+                    "Ed25519 verification failed: " + e.getMessage(), e);
         }
     }
 

@@ -15,10 +15,8 @@ import org.junit.jupiter.api.Test;
  * <p>RED-first per DEC-22 / AC-JCS-CANONICALIZER: tests written before the production class is
  * created.
  *
- * <p>Test vectors sourced from RFC 8785 §B (normative examples).
- *
- * @SpecSource RFC 8785 — JSON Canonicalization Scheme, §B (IETF, 2021)
- *     https://www.rfc-editor.org/rfc/rfc8785#appendix-B
+ * <p>Test vectors sourced from RFC 8785 §B (normative examples). @SpecSource RFC 8785 — JSON
+ * Canonicalization Scheme, §B (IETF, 2021) https://www.rfc-editor.org/rfc/rfc8785#appendix-B
  */
 class JcsCanonicalizerTest {
 
@@ -31,11 +29,7 @@ class JcsCanonicalizerTest {
         canonicalizer = new JcsCanonicalizer();
     }
 
-    /**
-     * RFC 8785 §B.1 — empty object canonical form is {@code {}}.
-     *
-     * @SpecSource RFC 8785 §B.1
-     */
+    /** RFC 8785 §B.1 — empty object canonical form is {@code {}}. @SpecSource RFC 8785 §B.1 */
     @Test
     void emptyObject_canonicalizesToEmptyObject() throws IOException {
         var node = mapper.readTree("{}");
@@ -45,9 +39,8 @@ class JcsCanonicalizerTest {
 
     /**
      * RFC 8785 §3.2.3 — keys MUST be sorted lexicographically by their Unicode code-point values
-     * (equivalent to Java {@link String#compareTo} for strings in the Basic Multilingual Plane).
-     *
-     * @SpecSource RFC 8785 §3.2.3
+     * (equivalent to Java {@link String#compareTo} for strings in the Basic Multilingual
+     * Plane). @SpecSource RFC 8785 §3.2.3
      */
     @Test
     void keysAreSortedLexicographically() throws IOException {
@@ -57,9 +50,8 @@ class JcsCanonicalizerTest {
     }
 
     /**
-     * RFC 8785 — no whitespace (no spaces, no newlines) in canonical form.
-     *
-     * @SpecSource RFC 8785 §3.2 (serialization rules — no unnecessary whitespace)
+     * RFC 8785 — no whitespace (no spaces, no newlines) in canonical form. @SpecSource RFC 8785
+     * §3.2 (serialization rules — no unnecessary whitespace)
      */
     @Test
     void noWhitespaceInOutput() throws IOException {
@@ -69,9 +61,8 @@ class JcsCanonicalizerTest {
     }
 
     /**
-     * Nested object keys are also sorted recursively.
-     *
-     * @SpecSource RFC 8785 §3.2.3 (applied recursively to nested structures)
+     * Nested object keys are also sorted recursively. @SpecSource RFC 8785 §3.2.3 (applied
+     * recursively to nested structures)
      */
     @Test
     void nestedObjectKeysAreSortedRecursively() throws IOException {
@@ -81,9 +72,8 @@ class JcsCanonicalizerTest {
     }
 
     /**
-     * Array order is preserved (RFC 8785 §3.2.2 — arrays maintain their element order).
-     *
-     * @SpecSource RFC 8785 §3.2.2
+     * Array order is preserved (RFC 8785 §3.2.2 — arrays maintain their element order). @SpecSource
+     * RFC 8785 §3.2.2
      */
     @Test
     void arrayOrderIsPreserved() throws IOException {
@@ -92,11 +82,7 @@ class JcsCanonicalizerTest {
         assertThat(result).isEqualTo("{\"items\":[3,1,2]}");
     }
 
-    /**
-     * Output encoding is UTF-8 (RFC 8785 §3.1).
-     *
-     * @SpecSource RFC 8785 §3.1
-     */
+    /** Output encoding is UTF-8 (RFC 8785 §3.1). @SpecSource RFC 8785 §3.1 */
     @Test
     void outputIsUtf8() throws IOException {
         var node = mapper.readTree("{\"key\": \"value\"}");
@@ -106,9 +92,7 @@ class JcsCanonicalizerTest {
         assertThat(result).isEqualTo("{\"key\":\"value\"}");
     }
 
-    /**
-     * Null JsonNode argument throws NullPointerException (fail-fast contract).
-     */
+    /** Null JsonNode argument throws NullPointerException (fail-fast contract). */
     @Test
     void nullNode_throwsNullPointerException() {
         assertThatThrownBy(() -> canonicalizer.canonicalize(null))
