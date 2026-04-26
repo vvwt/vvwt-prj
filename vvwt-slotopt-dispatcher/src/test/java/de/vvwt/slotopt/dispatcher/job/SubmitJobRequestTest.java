@@ -2,11 +2,11 @@ package de.vvwt.slotopt.dispatcher.job;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import de.vvwt.slotopt.worker.types.CanonicalPhaseDef;
 import de.vvwt.slotopt.worker.types.JobDef;
+import de.vvwt.slotopt.worker.types.PositionTuple;
 import de.vvwt.slotopt.worker.types.RawPhaseDef;
 import de.vvwt.slotopt.worker.types.RawRow;
-import de.vvwt.slotopt.worker.types.PositionTuple;
-import de.vvwt.slotopt.worker.types.CanonicalPhaseDef;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -32,8 +32,7 @@ class SubmitJobRequestTest {
                                         List.of(
                                                 new PositionTuple(0, 0),
                                                 new PositionTuple(0, 1)))));
-        CanonicalPhaseDef canonical =
-                new CanonicalPhaseDef(1, 2, List.of(List.of(0, 1)));
+        CanonicalPhaseDef canonical = new CanonicalPhaseDef(1, 2, List.of(List.of(0, 1)));
         JobDef jobDef = new JobDef(UUID.randomUUID(), 2, canonical);
 
         SubmitJobRequest request = new SubmitJobRequest(jobDef, phase);

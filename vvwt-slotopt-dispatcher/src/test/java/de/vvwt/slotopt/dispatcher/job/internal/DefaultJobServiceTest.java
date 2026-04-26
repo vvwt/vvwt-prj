@@ -20,7 +20,6 @@ import de.vvwt.slotopt.worker.types.JobDef;
 import de.vvwt.slotopt.worker.types.PositionTuple;
 import de.vvwt.slotopt.worker.types.RawPhaseDef;
 import de.vvwt.slotopt.worker.types.RawRow;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -56,7 +55,11 @@ class DefaultJobServiceTest {
 
     @BeforeEach
     void setUp() {
-        jobService = new DefaultJobService(jobRepository, auditService);
+        jobService =
+                new DefaultJobService(
+                        jobRepository,
+                        auditService,
+                        new com.fasterxml.jackson.databind.ObjectMapper());
     }
 
     @Test
@@ -67,11 +70,13 @@ class DefaultJobServiceTest {
         SubmitJobRequest request = new SubmitJobRequest(jobDef, phase);
 
         // Stub repository.save to return entity with generated id
-        when(jobRepository.save(any(JobRecord.class))).thenAnswer(inv -> {
-            JobRecord r = inv.getArgument(0);
-            r.setId(1L);
-            return r;
-        });
+        when(jobRepository.save(any(JobRecord.class)))
+                .thenAnswer(
+                        inv -> {
+                            JobRecord r = inv.getArgument(0);
+                            r.setId(1L);
+                            return r;
+                        });
 
         SubmitJobResponse response = jobService.submitJob(request);
 
@@ -87,15 +92,18 @@ class DefaultJobServiceTest {
         JobDef jobDef = new JobDef(UUID.randomUUID(), 2, canonical);
         SubmitJobRequest request = new SubmitJobRequest(jobDef, phase);
 
-        when(jobRepository.save(any(JobRecord.class))).thenAnswer(inv -> {
-            JobRecord r = inv.getArgument(0);
-            r.setId(1L);
-            return r;
-        });
+        when(jobRepository.save(any(JobRecord.class)))
+                .thenAnswer(
+                        inv -> {
+                            JobRecord r = inv.getArgument(0);
+                            r.setId(1L);
+                            return r;
+                        });
 
         jobService.submitJob(request);
 
-        verify(auditService).recordEvent(eq("JOB_SUBMITTED"), isNull(), isNull(), anyString());
+        verify(auditService)
+                .recordEvent(eq("JOB_SUBMITTED"), isNull(), eq("internal"), anyString());
     }
 
     @Test
@@ -133,9 +141,7 @@ class DefaultJobServiceTest {
     private static RawPhaseDef buildSmallPhase(int rowCount) {
         List<RawRow> rows = new java.util.ArrayList<>();
         for (int i = 0; i < rowCount; i++) {
-            rows.add(
-                    new RawRow(
-                            List.of(new PositionTuple(i, 0), new PositionTuple(i, 1))));
+            rows.add(new RawRow(List.of(new PositionTuple(i, 0), new PositionTuple(i, 1))));
         }
         return new RawPhaseDef(1, rowCount, rows);
     }

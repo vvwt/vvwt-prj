@@ -53,9 +53,7 @@ class RawPhaseDefSerializerTest {
                         2,
                         List.of(
                                 new RawRow(
-                                        List.of(
-                                                new PositionTuple(0, 0),
-                                                new PositionTuple(0, 1))),
+                                        List.of(new PositionTuple(0, 0), new PositionTuple(0, 1))),
                                 new RawRow(
                                         List.of(
                                                 new PositionTuple(1, 0),
