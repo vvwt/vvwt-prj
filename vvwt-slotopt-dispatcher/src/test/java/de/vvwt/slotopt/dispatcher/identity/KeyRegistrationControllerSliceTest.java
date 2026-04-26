@@ -64,7 +64,7 @@ class KeyRegistrationControllerSliceTest {
         UUID workerId = UUID.randomUUID();
         RegisterKeyResponse response =
                 new RegisterKeyResponse(workerId, "worker", "Ed25519", Instant.now());
-        when(keyRegistrationService.register(any()))
+        when(keyRegistrationService.register(any(), any()))
                 .thenReturn(new RegistrationOutcome(response, true));
 
         mockMvc.perform(
@@ -86,7 +86,7 @@ class KeyRegistrationControllerSliceTest {
         UUID workerId = UUID.randomUUID();
         RegisterKeyResponse response =
                 new RegisterKeyResponse(workerId, "worker", "Ed25519", Instant.now());
-        when(keyRegistrationService.register(any()))
+        when(keyRegistrationService.register(any(), any()))
                 .thenReturn(new RegistrationOutcome(response, false));
 
         mockMvc.perform(
@@ -103,7 +103,7 @@ class KeyRegistrationControllerSliceTest {
 
     @Test
     void unknownAlgorithmReturns400() throws Exception {
-        when(keyRegistrationService.register(any()))
+        when(keyRegistrationService.register(any(), any()))
                 .thenThrow(new IllegalArgumentException("Unknown algorithm: 'ML-DSA-65'"));
 
         mockMvc.perform(
@@ -120,7 +120,7 @@ class KeyRegistrationControllerSliceTest {
 
     @Test
     void outOfRangeKeyLengthReturns400() throws Exception {
-        when(keyRegistrationService.register(any()))
+        when(keyRegistrationService.register(any(), any()))
                 .thenThrow(new IllegalArgumentException("public key length 16 is out of range"));
 
         mockMvc.perform(
@@ -137,7 +137,7 @@ class KeyRegistrationControllerSliceTest {
     @Test
     void roleConflictReturns409() throws Exception {
         UUID workerId = UUID.randomUUID();
-        when(keyRegistrationService.register(any()))
+        when(keyRegistrationService.register(any(), any()))
                 .thenThrow(new RoleConflictException(workerId, "worker", "submitter"));
 
         mockMvc.perform(
@@ -163,7 +163,7 @@ class KeyRegistrationControllerSliceTest {
 
     @Test
     void missingAlgorithmFieldReturns400() throws Exception {
-        when(keyRegistrationService.register(any()))
+        when(keyRegistrationService.register(any(), any()))
                 .thenThrow(new IllegalArgumentException("algorithm field is required"));
 
         mockMvc.perform(
