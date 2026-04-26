@@ -92,13 +92,13 @@
             <artifactId>spring-boot-starter-websocket</artifactId>
         </dependency>
 
-        <!-- vvwt-worker-lib — shared types + compute kernel for slot-optimization (DEC-4 V1 amendment, DEC-11)
+        <!-- vvwt-slotopt-worker-lib — shared types + compute kernel for slot-optimization (DEC-4 V1 amendment, DEC-11)
              Compile scope: E04S02–E04S04 use worker-lib types in production code (RawPhaseDef,
              StructuralFingerprint, PacketSolver, LehmerCodec, VarietyScorer).
              Version managed by parent POM dependencyManagement (DEC-10). -->
         <dependency>
             <groupId>de.vvwt</groupId>
-            <artifactId>vvwt-worker-lib</artifactId>
+            <artifactId>vvwt-slotopt-worker-lib</artifactId>
         </dependency>
 
         <!-- Spring Boot Mustache starter — DEC-12 (Mustache engine), DEC-19 (scoring tablet surface)

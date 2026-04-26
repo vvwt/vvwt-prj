@@ -1,13 +1,13 @@
 package de.vvwt.tm.slotopt;
 
+import de.vvwt.slotopt.worker.codec.LehmerCodec;
+import de.vvwt.slotopt.worker.solver.PacketSolver;
+import de.vvwt.slotopt.worker.types.CanonicalPhaseDef;
+import de.vvwt.slotopt.worker.types.JobDef;
+import de.vvwt.slotopt.worker.types.PacketResult;
 import de.vvwt.tm.tournament.Match;
 import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.PhaseRepository;
-import de.vvwt.worker.codec.LehmerCodec;
-import de.vvwt.worker.solver.PacketSolver;
-import de.vvwt.worker.types.CanonicalPhaseDef;
-import de.vvwt.worker.types.JobDef;
-import de.vvwt.worker.types.PacketResult;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;

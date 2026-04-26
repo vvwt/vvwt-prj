@@ -1,13 +1,13 @@
 package de.vvwt.standalone.runtime;
 
+import de.vvwt.slotopt.worker.solver.PacketSolver;
+import de.vvwt.slotopt.worker.types.JobDef;
+import de.vvwt.slotopt.worker.types.PacketResult;
 import de.vvwt.standalone.config.WorkerConfig;
 import de.vvwt.standalone.crypto.ResultSigner;
 import de.vvwt.standalone.http.DispatcherClient;
 import de.vvwt.standalone.http.DispatcherException;
 import de.vvwt.standalone.log.StructuredLogger;
-import de.vvwt.worker.solver.PacketSolver;
-import de.vvwt.worker.types.JobDef;
-import de.vvwt.worker.types.PacketResult;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;

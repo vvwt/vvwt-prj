@@ -1,7 +1,7 @@
 package de.vvwt.standalone.crypto;
 
-import de.vvwt.worker.identity.WorkerKeyManager;
-import de.vvwt.worker.types.PacketResult;
+import de.vvwt.slotopt.worker.identity.WorkerKeyManager;
+import de.vvwt.slotopt.worker.types.PacketResult;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Base64;
