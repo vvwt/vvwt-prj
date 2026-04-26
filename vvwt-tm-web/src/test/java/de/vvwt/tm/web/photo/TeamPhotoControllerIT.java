@@ -38,8 +38,8 @@ import org.springframework.util.MultiValueMap;
 /**
  * Integration tests for {@link TeamPhotoController} — E36S02 Q-1a TDD rebuild.
  *
- * <p>Replaces the deleted Snapshot-Driven {@code TeamPhotoControllerIT} (E23S04/E23S05, 17
- * methods, 100% Snapshot-Driven per Discovery audit (ii) {@code
+ * <p>Replaces the deleted Snapshot-Driven {@code TeamPhotoControllerIT} (E23S04/E23S05, 17 methods,
+ * 100% Snapshot-Driven per Discovery audit (ii) {@code
  * E36-discovery-dec41-test-classification.md}). All methods are freshly authored RED-first per
  * DEC-22 Iron Law + DEC-41 §3 clause (1). RED state: deletion commit {@code 0814232} removed all
  * three legacy artefacts; this IT compiled immediately in the next commit against absent production
@@ -130,7 +130,13 @@ class TeamPhotoControllerIT {
         UUID teamId = createTeam(tournamentId, "Team JPEG");
 
         ResponseEntity<PhotoMetadataResponse> response =
-                uploadPhoto(authed, tournamentId, teamId, "team1.jpg", SAMPLE_JPEG, MediaType.IMAGE_JPEG);
+                uploadPhoto(
+                        authed,
+                        tournamentId,
+                        teamId,
+                        "team1.jpg",
+                        SAMPLE_JPEG,
+                        MediaType.IMAGE_JPEG);
 
         assertThat(response.getStatusCode())
                 .as("AC1: JPEG upload must return 200 OK")
@@ -148,20 +154,23 @@ class TeamPhotoControllerIT {
         UUID teamId = createTeam(tournamentId, "Team PNG");
 
         ResponseEntity<PhotoMetadataResponse> response =
-                uploadPhoto(authed, tournamentId, teamId, "team.png", SAMPLE_PNG, MediaType.IMAGE_PNG);
+                uploadPhoto(
+                        authed, tournamentId, teamId, "team.png", SAMPLE_PNG, MediaType.IMAGE_PNG);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     }
 
     @Test
-    @DisplayName("AC1: upload replaces existing photo (second upload returns 200 with new filename)")
+    @DisplayName(
+            "AC1: upload replaces existing photo (second upload returns 200 with new filename)")
     void uploadReplacesExistingPhoto() throws Exception {
         UUID tournamentId = createTournament("Replace Test E36S02");
         UUID teamId = createTeam(tournamentId, "Team Replace");
 
         uploadPhoto(authed, tournamentId, teamId, "old.jpg", SAMPLE_JPEG, MediaType.IMAGE_JPEG);
         ResponseEntity<PhotoMetadataResponse> second =
-                uploadPhoto(authed, tournamentId, teamId, "new.jpg", SAMPLE_JPEG, MediaType.IMAGE_JPEG);
+                uploadPhoto(
+                        authed, tournamentId, teamId, "new.jpg", SAMPLE_JPEG, MediaType.IMAGE_JPEG);
 
         assertThat(second.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(second.getBody().filename()).isEqualTo("new.jpg");
