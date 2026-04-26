@@ -3,7 +3,7 @@ package de.vvwt.standalone.crypto;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import de.vvwt.worker.types.PacketResult;
+import de.vvwt.slotopt.worker.types.PacketResult;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.UUID;

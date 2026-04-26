@@ -37,7 +37,7 @@
         <!-- Own worker-lib (the subject of the benchmarks) -->
         <dependency>
             <groupId>de.vvwt</groupId>
-            <artifactId>vvwt-worker-lib</artifactId>
+            <artifactId>vvwt-slotopt-worker-lib</artifactId>
         </dependency>
 
         <!-- JMH runtime -->

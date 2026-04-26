@@ -1,8 +1,8 @@
 package de.vvwt.tm.slotopt;
 
+import de.vvwt.slotopt.worker.types.CanonicalPhaseDef;
+import de.vvwt.slotopt.worker.types.RawPhaseDef;
 import de.vvwt.tm.tournament.Match;
-import de.vvwt.worker.types.CanonicalPhaseDef;
-import de.vvwt.worker.types.RawPhaseDef;
 import java.util.List;
 
 /**

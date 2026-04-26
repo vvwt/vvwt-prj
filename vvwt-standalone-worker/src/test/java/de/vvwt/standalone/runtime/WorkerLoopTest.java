@@ -5,12 +5,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
+import de.vvwt.slotopt.worker.types.CanonicalPhaseDef;
 import de.vvwt.standalone.config.WorkerConfig;
 import de.vvwt.standalone.crypto.ResultSigner;
 import de.vvwt.standalone.http.DispatcherClient;
 import de.vvwt.standalone.http.DispatcherException;
 import de.vvwt.standalone.log.StructuredLogger;
-import de.vvwt.worker.types.CanonicalPhaseDef;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.List;

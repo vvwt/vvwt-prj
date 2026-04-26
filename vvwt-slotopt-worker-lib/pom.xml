@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>de.vvwt</groupId>
+        <artifactId>vvwt-prj</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>vvwt-slotopt-worker-lib</artifactId>
+    <name>VVW Worker Library</name>
+    <description>
+        Pure Java library — slot-optimization algorithms, worker keypair management,
+        and the shared type model. No Spring Boot dependency (load-bearing constraint
+        per DEC-10 / DEC-11: must be embeddable in any Java host).
+        Ed25519 signing uses JDK 21 native KeyPairGenerator. If JDK native support
+        proves insufficient in the target environment, E01S04 is authorized to add
+        BouncyCastle bcprov-jdk18on (Apache 2.0) per AC5 of E01S00.
+    </description>
+
+    <!-- ===================================================================
+         Compile dependencies
+         All versions managed by parent dependencyManagement.
+         =================================================================== -->
+    <dependencies>
+
+        <!-- Logging facade ONLY — no Spring, no implementation binding -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+
+        <!-- Test dependencies -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.jqwik</groupId>
+            <artifactId>jqwik-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- JMH — advisory benchmark (AC8); does not gate the build -->
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-generator-annprocess</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <!-- ===================================================================
+         Build
+         =================================================================== -->
+    <build>
+        <plugins>
+
+            <!-- Enforcer: block any Spring Boot or Spring transitive drift -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>ban-spring-boot-in-worker-lib</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <!-- Block all Spring Boot artefacts -->
+                                        <exclude>org.springframework.boot:*</exclude>
+                                        <!-- Block all Spring Framework artefacts -->
+                                        <exclude>org.springframework:*</exclude>
+                                    </excludes>
+                                    <message>
+                                        vvwt-slotopt-worker-lib must remain Spring-Boot-free (DEC-10, DEC-11).
+                                        The library must be embeddable in any Java host without
+                                        importing Spring Boot transitively.
+                                        If BouncyCastle is needed for Ed25519 (E01S04 decision point),
+                                        add org.bouncycastle:bcprov-jdk18on only — Spring is never permitted.
+                                    </message>
+                                </bannedDependencies>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+        </plugins>
+    </build>
+
+</project>

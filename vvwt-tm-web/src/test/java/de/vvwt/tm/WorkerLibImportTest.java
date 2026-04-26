@@ -2,12 +2,12 @@ package de.vvwt.tm;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import de.vvwt.worker.codec.LehmerCodec;
-import de.vvwt.worker.score.VarietyScorer;
-import de.vvwt.worker.solver.PacketSolver;
-import de.vvwt.worker.types.CanonicalPhaseDef;
-import de.vvwt.worker.types.RawPhaseDef;
-import de.vvwt.worker.types.StructuralFingerprint;
+import de.vvwt.slotopt.worker.codec.LehmerCodec;
+import de.vvwt.slotopt.worker.score.VarietyScorer;
+import de.vvwt.slotopt.worker.solver.PacketSolver;
+import de.vvwt.slotopt.worker.types.CanonicalPhaseDef;
+import de.vvwt.slotopt.worker.types.RawPhaseDef;
+import de.vvwt.slotopt.worker.types.StructuralFingerprint;
 import org.junit.jupiter.api.Test;
 
 /**

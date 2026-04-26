@@ -4,14 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.mockito.Mockito.when;
 
+import de.vvwt.slotopt.worker.types.PositionTuple;
+import de.vvwt.slotopt.worker.types.StructuralFingerprint;
+import de.vvwt.slotopt.worker.types.TransformResult;
 import de.vvwt.tm.tournament.Match;
 import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.MatchState;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
-import de.vvwt.worker.types.PositionTuple;
-import de.vvwt.worker.types.StructuralFingerprint;
-import de.vvwt.worker.types.TransformResult;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;

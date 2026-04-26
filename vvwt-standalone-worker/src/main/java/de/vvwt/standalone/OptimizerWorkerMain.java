@@ -1,5 +1,8 @@
 package de.vvwt.standalone;
 
+import de.vvwt.slotopt.worker.identity.WorkerKeyManager;
+import de.vvwt.slotopt.worker.identity.internal.DefaultWorkerKeyManager;
+import de.vvwt.slotopt.worker.score.VarietyScorer;
 import de.vvwt.standalone.config.WorkerConfig;
 import de.vvwt.standalone.config.WorkerConfigLoader;
 import de.vvwt.standalone.crypto.ResultSigner;
@@ -8,9 +11,6 @@ import de.vvwt.standalone.http.DispatcherException;
 import de.vvwt.standalone.log.StructuredLogger;
 import de.vvwt.standalone.runtime.CpuThrottle;
 import de.vvwt.standalone.runtime.WorkerLoop;
-import de.vvwt.worker.identity.WorkerKeyManager;
-import de.vvwt.worker.identity.internal.DefaultWorkerKeyManager;
-import de.vvwt.worker.score.VarietyScorer;
 import java.io.IOException;
 import java.util.UUID;
 import org.slf4j.Logger;

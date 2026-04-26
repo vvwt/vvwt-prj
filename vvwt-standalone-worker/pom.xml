@@ -31,7 +31,7 @@
         <!-- Own worker-lib (algorithms + keypair + type model) -->
         <dependency>
             <groupId>de.vvwt</groupId>
-            <artifactId>vvwt-worker-lib</artifactId>
+            <artifactId>vvwt-slotopt-worker-lib</artifactId>
         </dependency>
 
         <!-- CLI parsing (no Spring Boot) -->

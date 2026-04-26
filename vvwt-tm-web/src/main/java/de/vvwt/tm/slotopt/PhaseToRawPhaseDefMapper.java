@@ -1,15 +1,15 @@
 package de.vvwt.tm.slotopt;
 
+import de.vvwt.slotopt.worker.types.CanonicalPhaseDef;
+import de.vvwt.slotopt.worker.types.PositionTuple;
+import de.vvwt.slotopt.worker.types.RawPhaseDef;
+import de.vvwt.slotopt.worker.types.RawRow;
+import de.vvwt.slotopt.worker.types.StructuralFingerprint;
+import de.vvwt.slotopt.worker.types.TransformResult;
 import de.vvwt.tm.tournament.Match;
 import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
-import de.vvwt.worker.types.CanonicalPhaseDef;
-import de.vvwt.worker.types.PositionTuple;
-import de.vvwt.worker.types.RawPhaseDef;
-import de.vvwt.worker.types.RawRow;
-import de.vvwt.worker.types.StructuralFingerprint;
-import de.vvwt.worker.types.TransformResult;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;

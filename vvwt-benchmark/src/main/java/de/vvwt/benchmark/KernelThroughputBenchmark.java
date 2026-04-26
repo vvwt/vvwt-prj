@@ -1,9 +1,9 @@
 package de.vvwt.benchmark;
 
-import de.vvwt.worker.solver.PacketSolver;
-import de.vvwt.worker.types.CanonicalPhaseDef;
-import de.vvwt.worker.types.JobDef;
-import de.vvwt.worker.types.PacketResult;
+import de.vvwt.slotopt.worker.solver.PacketSolver;
+import de.vvwt.slotopt.worker.types.CanonicalPhaseDef;
+import de.vvwt.slotopt.worker.types.JobDef;
+import de.vvwt.slotopt.worker.types.PacketResult;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
