@@ -22,77 +22,68 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * REST controller for tournament-scoped certificate template management (E23S09, DEC-40 Clause D).
+ * REST controller for tournament-scoped certificate template management (E36S06, DEC-40 Clause D).
  *
- * <p>Relocated whole-class from {@code de.vvwt.tm.infrastructure.web.certificate.*} to {@code
- * de.vvwt.tm.web.certificate.*} per DEC-40 Clause D + DEC-22 §refactor-clause (Q-1b). URL mappings
- * are preserved verbatim during the parallel phase; renamed atomically at E23S10 Cutover-2.
+ * <p>Q-1a TDD rebuild under DEC-22 Iron Law RED-first discipline (E36S06). Replaces the Q-1b
+ * relocated version from E23S09 at the same canonical FQN per D-7 Option γ. Implementation was
+ * authored after the failing {@link CertificateTemplateControllerIT} was committed (RED state
+ * commit hash: {@code a2a41b1}).
  *
- * <h2>Endpoints (E23S10 Cutover-2 — new URL patterns per AC-URL-RENAME-CERTIFICATE-ENDPOINTS)</h2>
+ * <h2>Endpoints (AC-MOCKMVC-CONTRACT-PRESERVED)</h2>
+ *
+ * <p>URL paths preserved verbatim from the Q-1b source per DEC-40 boundary preservation:
  *
  * <ul>
- *   <li>POST /api/certificate/tournaments/{tournamentId}/template — upload (AC1)
- *   <li>GET /api/certificate/tournaments/{tournamentId}/template — retrieve file (AC2)
- *   <li>GET /api/certificate/tournaments/{tournamentId}/template/info — retrieve metadata (AC3)
- *   <li>DELETE /api/certificate/tournaments/{tournamentId}/template — delete (AC5)
- *   <li>GET /api/certificate/variables — list variables (AC6)
+ *   <li>POST {@code /api/certificate/tournaments/{tournamentId}/template} — upload (AC1)
+ *   <li>GET {@code /api/certificate/tournaments/{tournamentId}/template} — retrieve file (AC2)
+ *   <li>GET {@code /api/certificate/tournaments/{tournamentId}/template/info} — retrieve metadata
+ *       (AC3)
+ *   <li>DELETE {@code /api/certificate/tournaments/{tournamentId}/template} — delete (AC5)
+ *   <li>GET {@code /api/certificate/variables} — list variables (AC6)
  * </ul>
  *
  * <h2>DEC-40 Clause A — Trigger β check per method (AC-TRIGGER-BETA-CHECK)</h2>
  *
  * <ul>
- *   <li>{@code upload}: imports from {@code certificate} module only (CertificateTemplateService,
- *       CertificateTemplateMetadata; web-internal DTOs CertificateTemplateMetadataResponse).
- *       Cross-bounded-context count = 1. Trigger β does NOT fire.
- *   <li>{@code retrieveFile}: imports from {@code certificate} module only
- *       (CertificateTemplateService). Cross-bounded-context count = 1. Trigger β does NOT fire.
+ *   <li>{@code upload}: imports from {@code certificate} module only. Cross-bounded-context count =
+ *       1. Trigger β does NOT fire.
+ *   <li>{@code retrieveFile}: imports from {@code certificate} module only. Count = 1. Trigger β
+ *       does NOT fire.
  *   <li>{@code retrieveMetadata}: imports from {@code certificate} module only. Count = 1. Trigger
  *       β does NOT fire.
  *   <li>{@code delete}: imports from {@code certificate} module only. Count = 1. Trigger β does NOT
  *       fire.
- *   <li>{@code listVariables}: imports from {@code certificate} module only
- *       (CertificateTemplateVariableResponse). Count = 1. Trigger β does NOT fire.
+ *   <li>{@code listVariables}: imports from {@code certificate} module only. Count = 1. Trigger β
+ *       does NOT fire.
  * </ul>
  *
- * <p>Post-story result: NO method imports from >2 bounded contexts. Trigger β does NOT fire. No
- * L2.5 Clause C evaluation required.
+ * <p>Post-story result: NO method imports from >2 bounded contexts. Trigger β does NOT fire.
  *
- * <h2>DEC-40 Clause B — DTO-vs-entity disposition per endpoint
- * (AC-DTO-DISPOSITION-CLAUSE-B-PER-ENDPOINT)</h2>
+ * <h2>DEC-40 Clause B — DTO-vs-entity disposition per endpoint (AC-DTO-DISPOSITION-CLAUSE-B)</h2>
  *
  * <ul>
- *   <li>Upload (POST): request body is {@code MultipartFile}, no DTO. Response: {@link
- *       CertificateTemplateMetadataResponse} — preserved as web-internal DTO on Clause B(a)
- *       field-omission grounds ({@link CertificateTemplateMetadata} contains internal fields like
- *       storage-location path not exposed in JSON). Clause B(a) applies.
- *   <li>Retrieve-file (GET): response is file {@code byte[]} stream via {@link
- *       InputStreamResource}, no JSON DTO. Clause B non-applicable.
- *   <li>Info (GET /info): response is {@link CertificateTemplateMetadataResponse} — Clause B(a)
- *       field-omission (entity may contain internal fields). Clause B(a) applies.
- *   <li>Delete (DELETE): response 204 No Content — no DTO. Clause B non-applicable.
+ *   <li>Upload (POST): request body is {@code MultipartFile}. Response: {@link
+ *       CertificateTemplateMetadataResponse} DTO — Clause B(a) applies (field-omission grounds).
+ *   <li>Retrieve-file (GET): response is file stream via {@link InputStreamResource}. Clause B
+ *       non-applicable (no JSON DTO).
+ *   <li>Info (GET /info): response is {@link CertificateTemplateMetadataResponse} DTO — Clause B(a)
+ *       applies.
+ *   <li>Delete (DELETE): 204 No Content. Clause B non-applicable.
  *   <li>Variables (GET /variables): response is {@link List} of {@link
- *       CertificateTemplateVariableResponse} — preserved as web-internal DTO on Clause B(d)
- *       field-aliasing grounds (JSON shape differs from domain enum shape; ensures stable wire
- *       contract per Clause B(b)). Clause B(d)+B(b) apply.
+ *       CertificateTemplateVariableResponse} — Clause B(d)+B(b) apply (field-aliasing + contract
+ *       stability).
  * </ul>
  *
- * <h2>Authentication (AC-SECURITY-SUBSTANTIVE)</h2>
+ * <h2>Authentication (AC11)</h2>
  *
  * <p>All endpoints fall under {@code /api/**} which requires admin authentication per {@link
- * de.vvwt.tm.auth.internal.SecurityConfig}. No separate permit-all rules are needed. Security
- * semantics preserved byte-equivalent from the relocated source.
- *
- * <h2>Tenant scoping (DEC-5)</h2>
- *
- * <p>All tournament-scoped endpoints delegate to {@link CertificateTemplateService}, which
- * validates tournament ownership before any filesystem or DB operation. A missing or wrong-tenant
- * tournament results in {@link NoSuchElementException} → HTTP 404.
+ * de.vvwt.tm.auth.internal.SecurityConfig}. No additional permit-all rules needed.
  *
  * <h2>Error handling (AC-ERROR-HANDLING-UNCHANGED)</h2>
  *
- * <p>{@link CertificateExceptionAdvice} (co-located in {@code de.vvwt.tm.web.certificate}) maps the
- * new {@code de.vvwt.tm.certificate.*} module exceptions (analog to {@code PhotoExceptionAdvice}
- * from E23S04). The {@code GlobalExceptionHandler} covers {@link NoSuchElementException}:
+ * <p>{@link CertificateExceptionAdvice} (co-located; still resident per E36S08 Phase 2 carve-out)
+ * maps the new {@code de.vvwt.tm.certificate.*} exception types. The {@code GlobalExceptionHandler}
+ * covers {@link NoSuchElementException} → HTTP 404.
  *
  * <ul>
  *   <li>{@link de.vvwt.tm.certificate.CertificateTemplateFormatException} → 400 (via {@link
@@ -101,43 +92,51 @@ import org.springframework.web.multipart.MultipartFile;
  *       CertificateExceptionAdvice})
  *   <li>{@link de.vvwt.tm.certificate.CertificateTemplateStorageException} → 500 (via {@link
  *       CertificateExceptionAdvice})
- *   <li>{@link NoSuchElementException} → 404 (tournament not found or wrong tenant; via {@code
- *       GlobalExceptionHandler})
+ *   <li>{@link NoSuchElementException} → 404 (tournament not found / wrong tenant)
  * </ul>
  *
  * @see CertificateTemplateService
  * @see DEC-40
  * @see DEC-22
- * @see E23S09
+ * @see E36S06
  */
 @RestController
 public class CertificateTemplateController {
 
     private final CertificateTemplateService certificateTemplateService;
 
+    /**
+     * Constructor injection per DEC-35 Spring DI canon (interface type, not implementation).
+     *
+     * @param certificateTemplateService the certificate template service port
+     */
     public CertificateTemplateController(CertificateTemplateService certificateTemplateService) {
         this.certificateTemplateService = certificateTemplateService;
     }
 
     // -------------------------------------------------------------------------
-    // AC1 — POST /api/tournaments/{tournamentId}/certificate-template
+    // AC1 — POST /api/certificate/tournaments/{tournamentId}/template
     // -------------------------------------------------------------------------
 
     /**
      * Uploads (or replaces) the certificate template for the given tournament (AC1, AC4).
      *
-     * <p>Accepts multipart/form-data with a single {@code file} part. The file must have a {@code
-     * .html} or {@code .svg} extension and must not exceed 2 MB (AC7). Returns 200 with the
-     * template metadata on success.
+     * <p>Accepts {@code multipart/form-data} with a single {@code file} part. The file must have a
+     * {@code .html} or {@code .svg} extension and must not exceed the configured size limit (AC7).
+     * Returns 200 with the template metadata on success.
      *
-     * <p>Uploading when a template already exists replaces the previous template (AC4).
+     * <p>If a template already exists for the tournament, the previous template is replaced (AC4).
      *
      * <p>DEC-40 Clause B(a): response uses {@link CertificateTemplateMetadataResponse} DTO
-     * (field-omission — entity may contain internal storage-path fields not exposed in JSON).
+     * (field-omission grounds).
      *
      * @param tournamentId the tournament UUID (path variable)
      * @param file the multipart file to upload
      * @return 200 with {@link CertificateTemplateMetadataResponse} body
+     * @throws NoSuchElementException if tournament not found / wrong tenant (→ 404)
+     * @throws de.vvwt.tm.certificate.CertificateTemplateFormatException on invalid format (→ 400)
+     * @throws de.vvwt.tm.certificate.CertificateTemplateSizeException on file too large (→ 400)
+     * @throws IOException on stream read failure
      */
     @PostMapping(
             value = "/api/certificate/tournaments/{tournamentId}/template",
@@ -161,19 +160,20 @@ public class CertificateTemplateController {
     }
 
     // -------------------------------------------------------------------------
-    // AC2 — GET /api/tournaments/{tournamentId}/certificate-template
+    // AC2 — GET /api/certificate/tournaments/{tournamentId}/template
     // -------------------------------------------------------------------------
 
     /**
      * Returns the stored certificate template file for the given tournament (AC2).
      *
-     * <p>Returns the file content with the appropriate Content-Type ({@code text/html} or {@code
-     * image/svg+xml}). Returns 404 if no template has been uploaded.
+     * <p>Returns the file content with the appropriate {@code Content-Type} ({@code text/html} or
+     * {@code image/svg+xml}). Returns 404 if no template has been uploaded.
      *
-     * <p>DEC-40 Clause B: non-applicable — response is file {@code byte[]} stream, no JSON DTO.
+     * <p>DEC-40 Clause B: non-applicable — response is file stream, no JSON DTO.
      *
      * @param tournamentId the tournament UUID (path variable)
      * @return 200 with file content, or 404 if no template uploaded
+     * @throws NoSuchElementException if tournament not found / wrong tenant (→ 404)
      */
     @GetMapping("/api/certificate/tournaments/{tournamentId}/template")
     public ResponseEntity<InputStreamResource> retrieveFile(
@@ -199,11 +199,11 @@ public class CertificateTemplateController {
     }
 
     // -------------------------------------------------------------------------
-    // AC3 — GET /api/tournaments/{tournamentId}/certificate-template/info
+    // AC3 — GET /api/certificate/tournaments/{tournamentId}/template/info
     // -------------------------------------------------------------------------
 
     /**
-     * Returns the certificate template metadata (AC3).
+     * Returns the certificate template metadata for the given tournament (AC3).
      *
      * <p>Returns filename, format, upload timestamp, and file size. Returns 404 if no template has
      * been uploaded.
@@ -213,6 +213,7 @@ public class CertificateTemplateController {
      *
      * @param tournamentId the tournament UUID (path variable)
      * @return 200 with {@link CertificateTemplateMetadataResponse}, or 404 if no template uploaded
+     * @throws NoSuchElementException if tournament not found / wrong tenant (→ 404)
      */
     @GetMapping("/api/certificate/tournaments/{tournamentId}/template/info")
     public ResponseEntity<CertificateTemplateMetadataResponse> retrieveMetadata(
@@ -230,7 +231,7 @@ public class CertificateTemplateController {
     }
 
     // -------------------------------------------------------------------------
-    // AC5 — DELETE /api/tournaments/{tournamentId}/certificate-template
+    // AC5 — DELETE /api/certificate/tournaments/{tournamentId}/template
     // -------------------------------------------------------------------------
 
     /**
@@ -242,6 +243,7 @@ public class CertificateTemplateController {
      *
      * @param tournamentId the tournament UUID (path variable)
      * @return 204 No Content
+     * @throws NoSuchElementException if no template exists (→ 404)
      */
     @DeleteMapping("/api/certificate/tournaments/{tournamentId}/template")
     public ResponseEntity<Void> delete(@PathVariable("tournamentId") UUID tournamentId) {
@@ -257,7 +259,7 @@ public class CertificateTemplateController {
     }
 
     // -------------------------------------------------------------------------
-    // AC6 — GET /api/certificate-template/variables
+    // AC6 — GET /api/certificate/variables
     // -------------------------------------------------------------------------
 
     /**
@@ -267,10 +269,10 @@ public class CertificateTemplateController {
      * Template authors use this to know which Mustache placeholders ({@code {{name}}}) are
      * available when designing a certificate template.
      *
-     * <p>Requires admin authentication (falls under {@code /api/**} per SecurityConfig).
+     * <p>Requires admin authentication (falls under {@code /api/**} per {@code SecurityConfig}).
      *
      * <p>DEC-40 Clause B(d)+B(b): response uses {@link CertificateTemplateVariableResponse} DTO
-     * (field-aliasing grounds + contract-stability: JSON shape differs from domain enum shape).
+     * (field-aliasing + contract-stability grounds).
      *
      * @return 200 with list of {@link CertificateTemplateVariableResponse}
      */
