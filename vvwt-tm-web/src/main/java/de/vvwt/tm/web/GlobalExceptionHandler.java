@@ -1,4 +1,4 @@
-package de.vvwt.tm.tournament.internal.web;
+package de.vvwt.tm.web;
 
 import de.vvwt.tm.domain.audio.AudioFormatException;
 import de.vvwt.tm.domain.audio.AudioSizeLimitException;
@@ -6,6 +6,9 @@ import de.vvwt.tm.domain.audio.AudioStorageException;
 import de.vvwt.tm.domain.timer.InvalidTimerUrlException;
 import de.vvwt.tm.domain.timer.NoActiveTournamentException;
 import de.vvwt.tm.infrastructure.display.NoActivePhaseException;
+import de.vvwt.tm.photo.PhotoFormatException;
+import de.vvwt.tm.photo.PhotoSizeException;
+import de.vvwt.tm.photo.PhotoStorageException;
 import de.vvwt.tm.tournament.ApiErrorResponse;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import de.vvwt.tm.tournament.exceptions.ForbiddenException;
@@ -404,6 +407,64 @@ public class GlobalExceptionHandler {
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "An unexpected error occurred. Please try again later.",
                 "error.internal",
+                request);
+    }
+
+    // =========================================================================
+    // Photo domain exceptions (E36S08 Phase 3 — absorbed from deleted PhotoExceptionAdvice)
+    // HTTP mappings verbatim per AC-C11-BEHAVIORAL-EQUIVALENCE
+    // =========================================================================
+
+    /**
+     * Maps {@link PhotoFormatException} to HTTP 400 Bad Request.
+     *
+     * <p>Absorbed from the deleted {@code PhotoExceptionAdvice} (E36S08 Phase 2) per
+     * AC-C11-BEHAVIORAL-EQUIVALENCE. HTTP mapping and messageKey preserved verbatim from the
+     * deleted advice's {@code handlePhotoFormat} method.
+     *
+     * @see <a href="E36S08">E36S08 — Phase 3 RED-first photo exception absorption</a>
+     */
+    @ExceptionHandler(PhotoFormatException.class)
+    public ResponseEntity<ApiErrorResponse> handlePhotoFormat(
+            PhotoFormatException ex, HttpServletRequest request) {
+        log.debug("[tm-web] PhotoFormatException (photo module): {}", ex.getMessage());
+        return buildResponse(
+                HttpStatus.BAD_REQUEST, ex.getMessage(), "error.photo.format", request);
+    }
+
+    /**
+     * Maps {@link PhotoSizeException} to HTTP 400 Bad Request.
+     *
+     * <p>Absorbed from the deleted {@code PhotoExceptionAdvice} (E36S08 Phase 2) per
+     * AC-C11-BEHAVIORAL-EQUIVALENCE. HTTP mapping and messageKey preserved verbatim.
+     *
+     * @see <a href="E36S08">E36S08 — Phase 3 RED-first photo exception absorption</a>
+     */
+    @ExceptionHandler(PhotoSizeException.class)
+    public ResponseEntity<ApiErrorResponse> handlePhotoSize(
+            PhotoSizeException ex, HttpServletRequest request) {
+        log.debug("[tm-web] PhotoSizeException (photo module): {}", ex.getMessage());
+        return buildResponse(
+                HttpStatus.BAD_REQUEST, ex.getMessage(), "error.photo.tooLarge", request);
+    }
+
+    /**
+     * Maps {@link PhotoStorageException} to HTTP 500 Internal Server Error.
+     *
+     * <p>Absorbed from the deleted {@code PhotoExceptionAdvice} (E36S08 Phase 2) per
+     * AC-C11-BEHAVIORAL-EQUIVALENCE. HTTP mapping and messageKey preserved verbatim. Logs at ERROR
+     * level (storage failures are system errors, not client errors).
+     *
+     * @see <a href="E36S08">E36S08 — Phase 3 RED-first photo exception absorption</a>
+     */
+    @ExceptionHandler(PhotoStorageException.class)
+    public ResponseEntity<ApiErrorResponse> handlePhotoStorage(
+            PhotoStorageException ex, HttpServletRequest request) {
+        log.error("[tm-web] PhotoStorageException (photo module): {}", ex.getMessage(), ex);
+        return buildResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Photo storage error.",
+                "error.photo.storage",
                 request);
     }
 
