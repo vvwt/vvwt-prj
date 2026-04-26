@@ -20,11 +20,11 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
  * de.vvwt.tm.web.photo} primary-adapter controllers (E23S04, AC-ERROR-HANDLING).
  *
  * <p>The {@link de.vvwt.tm.tournament.internal.web.GlobalExceptionHandler} already covers {@code
- * de.vvwt.tm.web} as a base package (E22S07). However, it handles the legacy exception types from
- * {@code de.vvwt.tm.domain.photo.*}. The new {@link de.vvwt.tm.photo} Modulith module introduces
- * distinct exception FQNs ({@link PhotoFormatException}, {@link PhotoSizeException}, {@link
- * PhotoStorageException}); a separate advice located in {@code de.vvwt.tm.web} is required to map
- * those new types.
+ * de.vvwt.tm.web} as a base package (E22S07). However, it handles the pre-E36S01 legacy photo
+ * exception types. The rebuilt {@link de.vvwt.tm.photo} Modulith module (E36S01, Q-1a TDD)
+ * introduces canonical exception FQNs ({@link PhotoFormatException}, {@link PhotoSizeException},
+ * {@link PhotoStorageException}); a separate advice located in {@code de.vvwt.tm.web} is required
+ * to map those types.
  *
  * <h2>Modulith boundary compliance</h2>
  *
@@ -57,8 +57,8 @@ public class PhotoExceptionAdvice {
     /**
      * Maps {@link PhotoFormatException} to HTTP 400 Bad Request.
      *
-     * <p>Preserves the HTTP mapping established in E12S02 for the legacy {@code
-     * de.vvwt.tm.domain.photo.PhotoFormatException} handler.
+     * <p>Preserves the HTTP mapping established in E12S02 for the legacy
+     * {@link PhotoFormatException} handler (rebuilt at canonical FQN per E36S01).
      */
     @ExceptionHandler(PhotoFormatException.class)
     public ResponseEntity<ApiErrorResponse> handlePhotoFormat(
@@ -78,8 +78,8 @@ public class PhotoExceptionAdvice {
     /**
      * Maps {@link PhotoSizeException} to HTTP 400 Bad Request.
      *
-     * <p>Preserves the HTTP mapping established in E12S02 for the legacy {@code
-     * de.vvwt.tm.domain.photo.PhotoSizeException} handler.
+     * <p>Preserves the HTTP mapping established in E12S02 for the legacy
+     * {@link PhotoSizeException} handler (rebuilt at canonical FQN per E36S01).
      */
     @ExceptionHandler(PhotoSizeException.class)
     public ResponseEntity<ApiErrorResponse> handlePhotoSize(
@@ -99,8 +99,8 @@ public class PhotoExceptionAdvice {
     /**
      * Maps {@link PhotoStorageException} to HTTP 500 Internal Server Error.
      *
-     * <p>Preserves the HTTP mapping established in E12S02 for the legacy {@code
-     * de.vvwt.tm.domain.photo.PhotoStorageException} handler.
+     * <p>Preserves the HTTP mapping established in E12S02 for the legacy
+     * {@link PhotoStorageException} handler (rebuilt at canonical FQN per E36S01).
      */
     @ExceptionHandler(PhotoStorageException.class)
     public ResponseEntity<ApiErrorResponse> handlePhotoStorage(

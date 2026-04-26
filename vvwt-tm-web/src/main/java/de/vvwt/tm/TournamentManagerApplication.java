@@ -15,10 +15,11 @@ import org.springframework.context.annotation.FilterType;
  *
  * <p>No beans, no data sources, no Flyway configuration — those belong to E02S02.
  *
- * <h2>E23S01 — Parallel-phase bean coexistence resolved at E23S05 Cutover-1</h2>
+ * <h2>E23S01 / E36S01 — Photo parallel-phase resolved; E36 Q-1a rebuild complete</h2>
  *
- * <p>As of E23S05 Cutover-1, the legacy {@code de.vvwt.tm.domain.photo.*} package and {@code
- * de.vvwt.tm.infrastructure.web.photo.*} have been deleted. No photo-related {@code @ComponentScan}
+ * <p>As of E23S05 Cutover-1, the legacy photo domain and controller packages were deleted. The
+ * canonical {@code de.vvwt.tm.photo.*} and {@code de.vvwt.tm.web.photo.*} modules were rebuilt
+ * under Q-1a TDD at E36S01 + E36S02 (Option γ, same FQN). No photo-related {@code @ComponentScan}
  * exclusion is needed.
  *
  * <h2>E23S06 — Certificate parallel-phase bean coexistence</h2>
@@ -52,13 +53,13 @@ import org.springframework.context.annotation.FilterType;
  * {@code domain.rules.*} and {@code infrastructure.score.*} classes are deleted from the classpath.
  * The duplicate-bean and ambiguous-mapping hazards that required the exclusions no longer exist.
  *
- * <h2>E23S05 Cutover-1 — @ComponentScan(excludeFilters) for infrastructure.web.photo removed</h2>
+ * <h2>E23S05 Cutover-1 — @ComponentScan(excludeFilters) for photo parallel-phase removed</h2>
  *
- * <p>The REGEX excludeFilter for {@code de.vvwt.tm.infrastructure.web.photo.*} introduced in E23S04
- * to prevent URL-mapping collision during the parallel phase is removed here. The legacy controller
- * class has been deleted at Cutover-1. The {@code TypeExcludeFilter} exclusion is preserved to
- * protect against duplicate {@code @TestConfiguration} inner-class bean definitions during
- * {@code @SpringBootTest} context loading (E22S04/E22S05 precedent).
+ * <p>The REGEX excludeFilter introduced in E23S04 to prevent URL-mapping collision during the
+ * parallel phase is removed here. The legacy controller class was deleted at Cutover-1. The {@code
+ * TypeExcludeFilter} exclusion is preserved to protect against duplicate {@code @TestConfiguration}
+ * inner-class bean definitions during {@code @SpringBootTest} context loading (E22S04/E22S05
+ * precedent).
  *
  * <h2>E23S10 Cutover-2 — Certificate @ComponentScan exclusion removed</h2>
  *
