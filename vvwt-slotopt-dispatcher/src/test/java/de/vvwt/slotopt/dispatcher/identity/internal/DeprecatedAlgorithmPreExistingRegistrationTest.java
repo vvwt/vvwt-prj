@@ -1,4 +1,4 @@
-package de.vvwt.slotopt.dispatcher.identity;
+package de.vvwt.slotopt.dispatcher.identity.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -7,7 +7,12 @@ import static org.mockito.Mockito.when;
 import de.vvwt.slotopt.dispatcher.audit.AuditService;
 import de.vvwt.slotopt.dispatcher.crypto.SignatureVerifier;
 import de.vvwt.slotopt.dispatcher.crypto.SignatureVerifierRegistry;
-import de.vvwt.slotopt.dispatcher.identity.internal.DefaultKeyRegistrationService;
+import de.vvwt.slotopt.dispatcher.identity.DeprecatedAlgorithmException;
+import de.vvwt.slotopt.dispatcher.identity.KeyRegistration;
+import de.vvwt.slotopt.dispatcher.identity.KeyRegistrationRepository;
+import de.vvwt.slotopt.dispatcher.identity.KeyRegistrationService;
+import de.vvwt.slotopt.dispatcher.identity.RegisterKeyRequest;
+import de.vvwt.slotopt.dispatcher.identity.RegistrationOutcome;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -23,30 +28,26 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 /**
- * Integration test for AC-PRE-EXISTING-REGISTRATIONS-CONTINUE-VERIFYING (E40S03).
+ * Tests for AC-PRE-EXISTING-REGISTRATIONS-CONTINUE-VERIFYING and AC-V1-NULL-DEPRECATION-NOOP
+ * (E40S03).
  *
  * <p>Per DEC-43 D3: pre-existing registrations using a now-deprecated algorithm continue to verify
  * (no force-rotation). The verify path in {@link
  * de.vvwt.slotopt.dispatcher.result.SubmitResultService} is NOT touched by E40S03 — only the
  * new-registration path enforces deprecation.
  *
- * <p>This test verifies the structural invariant: {@link DefaultKeyRegistrationService#register}
- * rejects new registrations when the algorithm is past its deprecation date, but pre-existing
- * registrations are unaffected because the deprecation check only fires during {@code register()},
- * not during result submission.
- *
- * <p>DEC-36: test is in the {@code identity} package (different from {@code identity.internal}) —
- * subjects must be typed as public interfaces. The service field is typed as {@link
- * KeyRegistrationService} (public interface), not {@link DefaultKeyRegistrationService}.
+ * <p>DEC-36: test is in the {@code identity.internal} package (same as {@link
+ * DefaultKeyRegistrationService}) — white-box access permitted. The service field is typed as
+ * {@link KeyRegistrationService} (public interface) per DEC-36 cross-package spirit.
  *
  * <p>TDD RED-first per DEC-22 / AC-TDD-RED-FIRST-EVIDENCE: authored before the deprecation check
  * was added to DefaultKeyRegistrationService.
  *
- * <p>Story: E40S03 / AC-PRE-EXISTING-REGISTRATIONS-CONTINUE-VERIFYING
+ * <p>Story: E40S03 / AC-PRE-EXISTING-REGISTRATIONS-CONTINUE-VERIFYING / AC-V1-NULL-DEPRECATION-NOOP
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-class DeprecatedAlgorithmPreExistingRegistrationIT {
+class DeprecatedAlgorithmPreExistingRegistrationTest {
 
     @Mock private KeyRegistrationRepository repository;
     @Mock private SignatureVerifierRegistry verifierRegistry;
