@@ -34,3 +34,17 @@ vvwt:
     default-tenant:
       mode: CONFIG_OR_FCFS  # AC9: the correct DEC-42 D3 self-host value
     invitation-tokens: []   # OPEN_FCFS mode — invitation tokens not used
+
+# ---------------------------------------------------------------------------
+# Rate limiting — E38S07 (AC5)
+# RPM values = requests-per-minute (uniform per AC5 unit-mismatch fix).
+# trusted-proxies defaults to empty (security default per AC9 — XFF ignored).
+# ---------------------------------------------------------------------------
+    rate-limit:
+      per-ip:
+        publisher-rpm: 600       # 10 RPS self-host (looser — single tournament)
+        reader-poll-rpm: 1200    # 20 RPS self-host
+        reader-ws-rpm: 300       # 5 RPS self-host (connection-attempt rate)
+      per-tournament-token:
+        max-concurrent-ws: 1000  # same for self-host and primary (resource-exhaustion bound)
+    trusted-proxies: []          # default-empty: XFF always ignored unless operator configures

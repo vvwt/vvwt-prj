@@ -35,7 +35,7 @@ class TournamentSnapshotTest {
         List<ScheduleEntry> entries = List.of(new Match("match-1", "Team A", "Team B", 1));
         TournamentSnapshot snapshot =
                 new TournamentSnapshot(
-                        "tournament-uuid-1", "tenant-uuid-1", 1L, entries, List.of());
+                        "tournament-uuid-1", "tenant-uuid-1", 1L, entries, List.of(), false);
         String json = mapper.writeValueAsString(snapshot);
         TournamentSnapshot deserialized = mapper.readValue(json, TournamentSnapshot.class);
         assertThat(deserialized).isEqualTo(snapshot);
@@ -46,7 +46,7 @@ class TournamentSnapshotTest {
         // AC10 — snapshot responses are envelope-wrapped unconditionally
         List<ScheduleEntry> entries = List.of(new Pause("pause-1", "Half time"));
         TournamentSnapshot snapshot =
-                new TournamentSnapshot("t-1", "tenant-1", 2L, entries, List.of());
+                new TournamentSnapshot("t-1", "tenant-1", 2L, entries, List.of(), false);
         Envelope<TournamentSnapshot> envelope = new Envelope<>(Envelope.SCHEMA_VERSION, snapshot);
         String json = mapper.writeValueAsString(envelope);
         assertThat(json).contains("\"schemaVersion\"");

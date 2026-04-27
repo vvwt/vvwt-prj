@@ -5,6 +5,7 @@ import de.vvwt.info.dto.envelope.Envelope;
 import de.vvwt.info.dto.reader.StreamHello;
 import de.vvwt.info.dto.snapshot.TournamentSnapshot;
 import de.vvwt.info.persistence.tournament.TournamentRecord;
+import de.vvwt.info.ratelimit.internal.TournamentConcurrencyLimiter;
 import de.vvwt.info.reader.ReaderService;
 import de.vvwt.info.reader.config.ReaderProperties;
 import java.io.IOException;
@@ -45,20 +46,29 @@ public class ReaderWebSocketHandler extends TextWebSocketHandler {
     static final String ATTR_TOURNAMENT_RECORD = "tournamentRecord";
     static final String ATTR_TEAM_ENTRY = "teamEntry";
 
+    /**
+     * Session attribute key for the raw tournament token from the URI (used for rate-limit slot
+     * release).
+     */
+    public static final String ATTR_TOURNAMENT_TOKEN = "tournamentToken";
+
     private final ReaderService readerService;
     private final ReaderSessionRegistry sessionRegistry;
     private final ReaderProperties readerProperties;
     private final ObjectMapper objectMapper;
+    private final TournamentConcurrencyLimiter concurrencyLimiter;
 
     public ReaderWebSocketHandler(
             ReaderService readerService,
             ReaderSessionRegistry sessionRegistry,
             ReaderProperties readerProperties,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            TournamentConcurrencyLimiter concurrencyLimiter) {
         this.readerService = readerService;
         this.sessionRegistry = sessionRegistry;
         this.readerProperties = readerProperties;
         this.objectMapper = objectMapper;
+        this.concurrencyLimiter = concurrencyLimiter;
     }
 
     @Override
@@ -95,7 +105,8 @@ public class ReaderWebSocketHandler extends TextWebSocketHandler {
                                     tournament.tenantId(),
                                     tournament.lastAppliedSeq(),
                                     java.util.List.of(),
-                                    java.util.List.of())));
+                                    java.util.List.of(),
+                                    false)));
         }
 
         // Register for delta broadcasts after sending initial frames
@@ -123,6 +134,11 @@ public class ReaderWebSocketHandler extends TextWebSocketHandler {
                 (TournamentRecord) session.getAttributes().get(ATTR_TOURNAMENT_RECORD);
         if (tournament != null) {
             sessionRegistry.deregister(tournament.tournamentId(), session);
+        }
+        // E38S07 AC13: release per-tournament-token WS concurrency slot on close
+        String tournamentToken = (String) session.getAttributes().get(ATTR_TOURNAMENT_TOKEN);
+        if (tournamentToken != null) {
+            concurrencyLimiter.releaseSlot(tournamentToken);
         }
     }
 

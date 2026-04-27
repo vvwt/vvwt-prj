@@ -34,3 +34,18 @@ vvwt:
     invitation-tokens:        # AC10: operator pre-seeds tokens here; example below
       # - "your-secure-token-here"
       []
+
+# ---------------------------------------------------------------------------
+# Rate limiting — E38S07 (AC5)
+# RPM values = requests-per-minute (uniform per AC5 unit-mismatch fix).
+# Primary = tighter limits (untrusted internet traffic, many parallel operators).
+# trusted-proxies defaults to empty (security default per AC9 — XFF ignored).
+# ---------------------------------------------------------------------------
+    rate-limit:
+      per-ip:
+        publisher-rpm: 300       # 5 RPS primary (tighter — public internet)
+        reader-poll-rpm: 600     # 10 RPS primary
+        reader-ws-rpm: 120       # 2 RPS primary (connection-attempt rate)
+      per-tournament-token:
+        max-concurrent-ws: 1000  # same for self-host and primary (resource-exhaustion bound)
+    trusted-proxies: []          # operator configures trusted reverse-proxy IPs/CIDRs

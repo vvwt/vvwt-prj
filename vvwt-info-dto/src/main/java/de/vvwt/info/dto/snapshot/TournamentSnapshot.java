@@ -23,6 +23,7 @@ import java.util.List;
  *     optimistic-concurrency checks and FULL_RESYNC detection
  * @param scheduleEntries ordered list of schedule entries for this tournament
  * @param teams registered teams (teamId UUID + name + number) — E38S06 AC6 HMAC iteration
+ * @param tournamentEnded {@code true} if the tournament has concluded; clients should stop polling
  * @see <a href="../../../../../../../../docs/governance/stories/E38S02.story.md">E38S02</a>
  * @see <a href="../../../../../../../../docs/governance/stories/E38S06.story.md">E38S06 AC6,
  *     AC12</a>
@@ -32,4 +33,5 @@ public record TournamentSnapshot(
         @JsonProperty("tenantId") String tenantId,
         @JsonProperty("sequenceNumber") Long sequenceNumber,
         @JsonProperty("scheduleEntries") List<ScheduleEntry> scheduleEntries,
-        @JsonProperty("teams") List<TeamEntry> teams) {}
+        @JsonProperty("teams") List<TeamEntry> teams,
+        @JsonProperty("tournamentEnded") boolean tournamentEnded) {}

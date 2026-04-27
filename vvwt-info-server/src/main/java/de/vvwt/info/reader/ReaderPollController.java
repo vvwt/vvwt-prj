@@ -98,7 +98,8 @@ public class ReaderPollController {
                                             tournament.tenantId(),
                                             tournament.lastAppliedSeq(),
                                             List.of(),
-                                            List.of()));
+                                            List.of(),
+                                            false));
             return ResponseEntity.ok(new Envelope<>(Envelope.SCHEMA_VERSION, snapshotValue));
         }
 

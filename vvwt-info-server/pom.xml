@@ -88,6 +88,14 @@
             <artifactId>vvwt-info-dto</artifactId>
         </dependency>
 
+        <!-- Caffeine — per-IP token-bucket cache backing for rate-limiting (E38S07 AC8).
+             Apache 2.0 license — OSS-compliant per DEC-3. Version managed by parent BOM.
+             AC8: all transitive runtime deps verified OSI-approved OSS. -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
+
         <!-- RFC 8785 JCS canonical JSON — server-side signature payload canonicalization.
              AC8 (E38S05): both server (this module) and TM publisher (E38S09) MUST agree
              on byte-identical JCS output. Cross-implementation byte-stability validated by

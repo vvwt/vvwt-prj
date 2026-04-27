@@ -1,6 +1,7 @@
 package de.vvwt.info.reader.internal;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.vvwt.info.ratelimit.internal.TournamentConcurrencyLimiter;
 import de.vvwt.info.reader.ReaderService;
 import de.vvwt.info.reader.config.ReaderProperties;
 import org.springframework.context.annotation.Configuration;
@@ -28,23 +29,30 @@ public class ReaderWebSocketConfig implements WebSocketConfigurer {
     private final ReaderSessionRegistry sessionRegistry;
     private final ReaderProperties readerProperties;
     private final ObjectMapper objectMapper;
+    private final TournamentConcurrencyLimiter concurrencyLimiter;
 
     public ReaderWebSocketConfig(
             ReaderService readerService,
             ReaderSessionRegistry sessionRegistry,
             ReaderProperties readerProperties,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            TournamentConcurrencyLimiter concurrencyLimiter) {
         this.readerService = readerService;
         this.sessionRegistry = sessionRegistry;
         this.readerProperties = readerProperties;
         this.objectMapper = objectMapper;
+        this.concurrencyLimiter = concurrencyLimiter;
     }
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(
                         new ReaderWebSocketHandler(
-                                readerService, sessionRegistry, readerProperties, objectMapper),
+                                readerService,
+                                sessionRegistry,
+                                readerProperties,
+                                objectMapper,
+                                concurrencyLimiter),
                         "/api/v1/stream/{tournament_token}/{team_token}")
                 .addInterceptors(new ReaderHandshakeInterceptor(readerService))
                 .setAllowedOrigins("*"); // AC9: no origin restriction for self-hosted QR URLs
