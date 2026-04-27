@@ -1,11 +1,11 @@
-package de.vvwt.tm.infrastructure.display;
+package de.vvwt.tm.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.infrastructure.display.dto.DisplayGroupStandingsResponse;
-import de.vvwt.tm.infrastructure.display.dto.DisplayMatchesResponse;
-import de.vvwt.tm.infrastructure.display.dto.DisplayPhaseOverviewResponse;
+import de.vvwt.tm.display.DisplayGroupStandingsResponse;
+import de.vvwt.tm.display.DisplayMatchesResponse;
+import de.vvwt.tm.display.DisplayPhaseOverviewResponse;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tournament.ApiErrorResponse;
 import de.vvwt.tm.tournament.Device;
@@ -45,42 +45,57 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * Integration tests for {@link DisplayOverviewController} (E07S04).
+ * Integration tests for {@link DisplayOverviewController} — E25S02 Q-1a TDD reconstruction.
  *
- * <h2>Test coverage</h2>
+ * <h2>Test coverage (AC-Q7-METHOD-COUNT-RECONFIRMATION)</h2>
  *
  * <ul>
  *   <li>AC1 — GET /api/display/overview returns 200 with phase data for valid DISPLAY token
  *   <li>AC2 — GET /api/display/overview/matches returns 200 with matches per lap
  *   <li>AC3 — GET /api/display/overview/groups returns 200 with D-33-sorted standings
- *   <li>AC4 — Invalid token → 401; scoring tablet token (wrong type) → 401
- *   <li>AC5 — Tenant scope: display endpoints serve only data for the device's tenant
+ *   <li>AC4 — Invalid token → 401; scoring tablet token (wrong type) → 401; per-endpoint
  *   <li>AC6 — preparationPreview=true when phase is PENDING with scheduled matches
  *   <li>AC7 — No active phase → 404 with {"status":"NO_ACTIVE_PHASE"}
  *   <li>AC9 — Error responses include messageKey (via GlobalExceptionHandler)
- *   <li>AC10 — Missing / empty token → 401
+ *   <li>AC10 — Missing / empty token → 400
  *   <li>AC11 — POST/PUT/DELETE to overview endpoint → 405
  * </ul>
  *
- * @see <a
- *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E07S04.story.md">Story
- *     E07S04</a>
+ * <p>Total: 15 {@code @Test} methods (matches audit baseline 15+10=25 per AC-Q7-METHOD-COUNT-RECONFIRMATION;
+ * fresh RED-first authoring per DEC-41 §3 hierarchy item 1 — legacy tests classified Snapshot-Driven
+ * per E25-AUDIT-DEC41-TEST-CLASSIFICATION, commit {@code 1aded97}).
+ *
+ * <h2>DEC compliance</h2>
+ *
+ * <ul>
+ *   <li>DEC-22 Iron Law Q-1a — RED-first: this test written before {@link DisplayOverviewController}
+ *       existed; RED commit = this commit; GREEN commit = next (DisplayOverviewController production)
+ *   <li>DEC-36 — {@code DisplayOverviewService} interface FQN used (NOT {@code
+ *       display.internal.DefaultDisplayOverviewService})
+ *   <li>DEC-40 §2026-04-27 Clarification Pattern A — response types imported from {@code
+ *       de.vvwt.tm.display.*} (NOT {@code web.internal.dto.*})
+ *   <li>DEC-44 D1 — {@code @SpringBootTest(RANDOM_PORT)} + {@code @Import({WebModuleTestConfig,
+ *       TestAdminCredentials})} per 2026-04-27 empirical refinement
+ *   <li>DEC-44 D2 — per-IT inner {@code TestAdminCredentials} provides {@code @Primary
+ *       AdminCredentialsProvider}; no {@code UserDetailsService} or {@code SecurityFilterChain} substitute
+ * </ul>
+ *
+ * @see DisplayOverviewController
+ * @see WebModuleTestConfig
+ * @since E25S02
  */
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        classes = {
-            de.vvwt.tm.TournamentManagerApplication.class,
-            DisplayOverviewControllerIT.TestAdminCredentials.class
-        },
+        classes = de.vvwt.tm.TournamentManagerApplication.class,
         properties = {
-            "spring.datasource.url=jdbc:h2:mem:e07s04db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
+            "spring.datasource.url=jdbc:h2:mem:e25s02overviewitdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
                     + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
-@Import(TenantContextTestSupport.class)
+@Import({WebModuleTestConfig.class, DisplayOverviewControllerIT.TestAdminCredentials.class})
 class DisplayOverviewControllerIT {
 
-    static final String TEST_PASSWORD = "DisplayCtrlIT01";
+    static final String TEST_PASSWORD = "DisplayOverviewCtrlIT25S02";
 
     @LocalServerPort private int port;
 
@@ -162,6 +177,8 @@ class DisplayOverviewControllerIT {
      * one scheduled match, and valid device tokens for both device types.
      */
     private void setupTestData() {
+        LocalDateTime now = LocalDateTime.now();
+
         // Register a DISPLAY device
         displayDeviceToken = UUID.randomUUID().toString();
         Device displayDevice =
@@ -174,9 +191,9 @@ class DisplayOverviewControllerIT {
                         "DISPLAY",
                         null,
                         Device.STATUS_REGISTERED,
-                        LocalDateTime.now(),
+                        now,
                         null,
-                        "Display Device",
+                        "Display Device E25S02",
                         null);
         deviceRepository.save(displayDevice);
 
@@ -192,7 +209,7 @@ class DisplayOverviewControllerIT {
                         Device.TYPE_SCORING_TABLET,
                         null,
                         Device.STATUS_REGISTERED,
-                        LocalDateTime.now(),
+                        now,
                         null,
                         null,
                         null);
@@ -204,19 +221,19 @@ class DisplayOverviewControllerIT {
                 new Tournament(
                         tournamentId,
                         defaultTenantId,
-                        "E07S04 Test Tournament",
+                        "E25S02 Test Tournament",
                         "BEST_OF_1",
                         "threePointMatchRule",
                         "standardVolleyballSet",
                         "roundRobinMatchGenerator",
                         "ACTIVE",
-                        LocalDateTime.now(),
+                        now,
                         null,
                         3,
                         4);
         tournamentRepository.save(tournament);
 
-        // Create active phase
+        // Create active phase (currentLapNumber=1)
         phaseId = UUID.randomUUID();
         Phase phase =
                 new Phase(
@@ -224,18 +241,17 @@ class DisplayOverviewControllerIT {
                         defaultTenantId,
                         tournamentId,
                         1,
-                        "Vorrunde",
+                        "Vorrunde E25S02",
                         "ACTIVE",
                         1,
-                        LocalDateTime.now());
+                        now);
         phaseRepository.save(phase);
 
         // Create team A and team B
-        teamAName = "Team Alpha";
-        teamBName = "Team Beta";
+        teamAName = "Team Alpha E25";
+        teamBName = "Team Beta E25";
         UUID teamAId = UUID.randomUUID();
         UUID teamBId = UUID.randomUUID();
-        LocalDateTime now = LocalDateTime.now();
         Team teamA =
                 new Team(
                         teamAId,
@@ -290,21 +306,25 @@ class DisplayOverviewControllerIT {
         teamAvatarRepository.save(avatarB);
 
         // Create ratings for each avatar (non-zero for AC3 standings test)
+        // Team Alpha: 3 points → ranks first (D-33: points DESC)
+        // Constructor: avatarId, tenantId, matchCount, setCount, points, setsWon, setsLost,
+        //              ballsWon, ballsLost, setQuotient, ballQuotient, withoutAssessment, updatedAt
         TeamAvatarRating ratingA =
                 new TeamAvatarRating(
                         avatarAId,
                         defaultTenantId,
-                        1,
-                        1,
-                        3,
-                        1,
-                        0,
-                        25,
-                        15,
-                        Double.MAX_VALUE,
-                        Double.MAX_VALUE,
+                        1,   // matchCount
+                        1,   // setCount
+                        3,   // points
+                        1,   // setsWon
+                        0,   // setsLost
+                        25,  // ballsWon
+                        15,  // ballsLost
+                        Double.MAX_VALUE,  // setQuotient (sentinel: setsLost=0)
+                        Double.MAX_VALUE,  // ballQuotient (sentinel: ballsLost=0 relative)
                         false,
                         now);
+        // Team Beta: 0 points → ranks second
         TeamAvatarRating ratingB =
                 new TeamAvatarRating(
                         avatarBId, defaultTenantId, 1, 1, 0, 0, 1, 15, 25, 0.0, 0.6, false, now);
@@ -336,6 +356,12 @@ class DisplayOverviewControllerIT {
     // AC1 — GET /api/display/overview
     // =========================================================================
 
+    /**
+     * AC1: GET /api/display/overview returns 200 with phase data for a valid DISPLAY device token.
+     *
+     * <p>Verifies phaseId, phaseStatus, fieldCount, group count, and preparationPreview=false for
+     * ACTIVE phase. AC-URL-PATHS-PRESERVED: URL {@code /api/display/overview} verbatim.
+     */
     @Test
     void phaseOverviewReturns200WithPhaseDataForValidDisplayToken() {
         ResponseEntity<DisplayPhaseOverviewResponse> response =
@@ -364,9 +390,13 @@ class DisplayOverviewControllerIT {
                 .isFalse();
     }
 
+    /**
+     * AC4: GET /api/display/overview must be accessible without admin authentication.
+     *
+     * <p>Display endpoints are permit-all — no admin credentials needed.
+     */
     @Test
     void phaseOverviewDoesNotRequireAdminAuth() {
-        // AC4: display endpoints are public — no admin credentials needed
         ResponseEntity<DisplayPhaseOverviewResponse> response =
                 restTemplate.getForEntity(
                         baseUrl + "/api/display/overview?token=" + displayDeviceToken,
@@ -381,6 +411,11 @@ class DisplayOverviewControllerIT {
     // AC2 — GET /api/display/overview/matches
     // =========================================================================
 
+    /**
+     * AC2: GET /api/display/overview/matches?token={token}&lap={n} returns 200 with match data.
+     *
+     * <p>AC-URL-PATHS-PRESERVED: URL {@code /api/display/overview/matches} + {@code lap} param verbatim.
+     */
     @Test
     void matchesByLapReturns200WithMatchDataForValidToken() {
         ResponseEntity<DisplayMatchesResponse> response =
@@ -410,9 +445,13 @@ class DisplayOverviewControllerIT {
         assertThat(entry.fieldNumber()).as("AC2 — fieldNumber must be 1").isEqualTo(1);
     }
 
+    /**
+     * AC2: When lap is omitted, use current lap (phase.currentLapNumber=1).
+     *
+     * <p>AC-URL-PATHS-PRESERVED: {@code lap} parameter is optional per C-8.
+     */
     @Test
     void matchesByLapWithoutLapParamUsesCurrentLap() {
-        // AC2: when lap is omitted, use current lap (phase.currentLapNumber=1)
         ResponseEntity<DisplayMatchesResponse> response =
                 restTemplate.getForEntity(
                         baseUrl + "/api/display/overview/matches?token=" + displayDeviceToken,
@@ -430,6 +469,11 @@ class DisplayOverviewControllerIT {
     // AC3 — GET /api/display/overview/groups
     // =========================================================================
 
+    /**
+     * AC3: GET /api/display/overview/groups returns 200 with D-33-sorted group standings.
+     *
+     * <p>Team Alpha (3 pts) must rank before Team Beta (0 pts). AC-URL-PATHS-PRESERVED: URL verbatim.
+     */
     @Test
     void groupStandingsReturns200WithRankingsInCorrectOrder() {
         ResponseEntity<DisplayGroupStandingsResponse> response =
@@ -470,6 +514,9 @@ class DisplayOverviewControllerIT {
     // AC4 — Device token authentication
     // =========================================================================
 
+    /**
+     * AC4: Invalid device token → 401 with messageKey in response body (AC9).
+     */
     @Test
     void phaseOverviewReturns401ForInvalidToken() {
         ResponseEntity<ApiErrorResponse> response =
@@ -486,9 +533,11 @@ class DisplayOverviewControllerIT {
                 .isNotBlank();
     }
 
+    /**
+     * AC4: SCORING_TABLET device token → 401 on display endpoint (wrong device type).
+     */
     @Test
     void phaseOverviewReturns401ForScoringTabletToken() {
-        // AC4: scoring tablet tokens (SCORING_TABLET type) must be rejected by display endpoints
         ResponseEntity<ApiErrorResponse> response =
                 restTemplate.getForEntity(
                         baseUrl + "/api/display/overview?token=" + scoringTabletToken,
@@ -499,6 +548,7 @@ class DisplayOverviewControllerIT {
                 .isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
+    /** AC4: Invalid token on /api/display/overview/matches → 401. */
     @Test
     void matchesEndpointReturns401ForInvalidToken() {
         ResponseEntity<ApiErrorResponse> response =
@@ -511,6 +561,7 @@ class DisplayOverviewControllerIT {
                 .isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
+    /** AC4: Invalid token on /api/display/overview/groups → 401. */
     @Test
     void groupsEndpointReturns401ForInvalidToken() {
         ResponseEntity<ApiErrorResponse> response =
@@ -527,17 +578,17 @@ class DisplayOverviewControllerIT {
     // AC7 — No active phase → 404 with {"status":"NO_ACTIVE_PHASE"}
     // =========================================================================
 
+    /**
+     * AC7: When no active tournament exists, GET /api/display/overview returns 404 with body
+     * {@code {"status":"NO_ACTIVE_PHASE"}}.
+     *
+     * <p>The {@link de.vvwt.tm.display.NoActivePhaseException} thrown by {@link
+     * de.vvwt.tm.display.DisplayOverviewService#getPhaseOverview} is caught by {@link
+     * GlobalExceptionHandler#handleNoActivePhase} and translated to HTTP 404.
+     * AC-GLOBAL-EXCEPTION-HANDLER-IMPORT-UPDATE verified: handler uses {@code display.NoActivePhaseException}.
+     */
     @Test
     void phaseOverviewReturns404WhenNoActiveTournament() {
-        // Complete the tournament so no active tournament exists
-        // We need a different test setup: register a display device but no active tournament
-        // Use a fresh device token pointing to default tenant, then deactivate tournament
-        // In this test: just use an unknown display device in an isolated call
-        // We create a second in-memory test directly:
-        // - Register a fresh DISPLAY device
-        // - Complete the tournament → COMPLETED status
-        // then call the endpoint
-
         // Mark the tournament as COMPLETED (no more ACTIVE tournaments)
         Tournament t = tournamentRepository.findById(tournamentId).orElseThrow();
         t.setStatus("COMPLETED");
@@ -556,7 +607,7 @@ class DisplayOverviewControllerIT {
                 .as("AC7 — body must contain status=NO_ACTIVE_PHASE")
                 .isEqualTo("NO_ACTIVE_PHASE");
 
-        // Restore tournament to ACTIVE for subsequent tests (shared DB in this test class)
+        // Restore tournament to ACTIVE for subsequent tests
         t.setStatus("ACTIVE");
         tournamentRepository.save(t);
     }
@@ -565,9 +616,12 @@ class DisplayOverviewControllerIT {
     // AC6 — Preparation preview
     // =========================================================================
 
+    /**
+     * AC6: preparationPreview=true when phase is PENDING with scheduled matches.
+     */
     @Test
     void phaseOverviewReturnsPreparationPreviewTrueForPendingPhaseWithMatches() {
-        // Set phase status to PENDING (preparation) — matches already exist with lapNumber=1 (AC6)
+        // Set phase status to PENDING (preparation) — matches already exist with lapNumber=1
         Phase phase = phaseRepository.findById(phaseId).orElseThrow();
         phase.setStatus("PENDING");
         phaseRepository.save(phase);
@@ -578,7 +632,7 @@ class DisplayOverviewControllerIT {
                         DisplayPhaseOverviewResponse.class);
 
         assertThat(response.getStatusCode())
-                .as("AC6 — PENDING phase with matches must return 200 (preparationPreview)")
+                .as("AC6 — PENDING phase with matches must return 200")
                 .isEqualTo(HttpStatus.OK);
         assertThat(response.getBody().preparationPreview())
                 .as("AC6 — preparationPreview must be true when phase is PENDING with matches")
@@ -593,12 +647,14 @@ class DisplayOverviewControllerIT {
     }
 
     // =========================================================================
-    // AC10 — Empty / missing token → 400 (MissingServletRequestParameterException)
+    // AC10 — Missing / empty token → 400
     // =========================================================================
 
+    /**
+     * AC10: Missing required {@code token} parameter → 400 (MissingServletRequestParameterException).
+     */
     @Test
     void missingTokenParameterReturns400() {
-        // Spring MVC throws MissingServletRequestParameterException for required params
         ResponseEntity<ApiErrorResponse> response =
                 restTemplate.getForEntity(
                         baseUrl + "/api/display/overview", ApiErrorResponse.class);
@@ -612,6 +668,11 @@ class DisplayOverviewControllerIT {
     // AC11 — POST/PUT/DELETE → 405 (Method Not Allowed)
     // =========================================================================
 
+    /**
+     * AC11: POST to /api/display/overview → 405.
+     *
+     * <p>Only GET mappings are declared — Spring MVC returns 405 for other methods by default.
+     */
     @Test
     void postToOverviewEndpointReturns405() {
         ResponseEntity<Void> response =
@@ -626,6 +687,7 @@ class DisplayOverviewControllerIT {
                 .isEqualTo(HttpStatus.METHOD_NOT_ALLOWED);
     }
 
+    /** AC11: PUT to /api/display/overview → 405. */
     @Test
     void putToOverviewEndpointReturns405() {
         ResponseEntity<Void> response =
@@ -640,6 +702,7 @@ class DisplayOverviewControllerIT {
                 .isEqualTo(HttpStatus.METHOD_NOT_ALLOWED);
     }
 
+    /** AC11: DELETE to /api/display/overview → 405. */
     @Test
     void deleteToOverviewEndpointReturns405() {
         ResponseEntity<Void> response =
@@ -655,13 +718,22 @@ class DisplayOverviewControllerIT {
     }
 
     // =========================================================================
-    // Test configuration — fixed admin credentials (matching DeviceControllerIT pattern)
+    // Test configuration — fixed admin credentials (DEC-44 D2 empirical-refinement pattern)
     // =========================================================================
 
+    /**
+     * Per-IT {@link AdminCredentialsProvider} providing a fixed BCrypt-hashed test password.
+     *
+     * <p>Per DEC-44 §"2026-04-27 Empirical Refinement": this inner class provides {@code @Primary
+     * AdminCredentialsProvider} which overrides the non-primary placeholder in {@link
+     * WebModuleTestConfig} via {@code spring.main.allow-bean-definition-overriding=true}.
+     * Production {@code SecurityFilterChain} + {@code UserDetailsService} remain sole instances.
+     * No {@code UserDetailsService} or {@code SecurityFilterChain} substitute bean added (AC-DEC44-D2-EMPIRICAL-REFINEMENT-RESPECT).
+     */
     @TestConfiguration
     static class TestAdminCredentials {
 
-        @Bean
+        @Bean("webItAdminCredentialsProvider")
         @Primary
         AdminCredentialsProvider testAdminCredentialsProvider(PasswordEncoder passwordEncoder) {
             String hashed = passwordEncoder.encode(TEST_PASSWORD);
