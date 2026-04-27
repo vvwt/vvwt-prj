@@ -1,0 +1,27 @@
+package de.vvwt.tm.timer.audio;
+
+/**
+ * Audio category for tournament audio files.
+ *
+ * <p>Canonical FQN: {@code de.vvwt.tm.timer.audio.AudioCategory} per DEC-21 module layout (sub-package
+ * of timer per option A — 2026-04-27 user decision). Three enum values preserved verbatim per C-3
+ * signature-preservation.
+ *
+ * <p>Full implementation is E26S02 scope. This class is authored at E26S01 as part of the
+ * {@code timer.audio} public sub-package required for {@link AudioStorageService} compilation.
+ *
+ * @see AudioStorageService
+ * @see <a href="contexts/artefacts/stories/E26S01.story.md">Story E26S01</a>
+ * @see <a href="contexts/artefacts/stories/E26S02.story.md">Story E26S02 (full audio sub-package)</a>
+ */
+public enum AudioCategory {
+
+    /** Audio played at the start of a tournament phase or event. */
+    START,
+
+    /** Audio played at the end of a tournament phase or event. */
+    END,
+
+    /** Audio played during breaks (pause). */
+    PAUSE
+}

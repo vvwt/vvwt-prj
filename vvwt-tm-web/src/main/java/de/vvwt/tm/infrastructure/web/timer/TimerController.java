@@ -1,7 +1,7 @@
 package de.vvwt.tm.infrastructure.web.timer;
 
-import de.vvwt.tm.domain.timer.TimerDataService;
-import de.vvwt.tm.infrastructure.web.timer.dto.TimerDataResponse;
+import de.vvwt.tm.timer.TimerDataService;
+import de.vvwt.tm.web.internal.dto.TimerDataResponse;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,9 +31,9 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>Exceptions are translated by {@link de.vvwt.tm.infrastructure.web.GlobalExceptionHandler}:
  *
  * <ul>
- *   <li>{@link de.vvwt.tm.domain.timer.InvalidTimerUrlException} → HTTP 404 with {@code errorCode:
+ *   <li>{@link de.vvwt.tm.timer.InvalidTimerUrlException} → HTTP 404 with {@code errorCode:
  *       "INVALID_TIMER_URL"}
- *   <li>{@link de.vvwt.tm.domain.timer.NoActiveTournamentException} → HTTP 404 with {@code
+ *   <li>{@link de.vvwt.tm.timer.NoActiveTournamentException} → HTTP 404 with {@code
  *       errorCode: "NO_ACTIVE_TOURNAMENT"}
  * </ul>
  *
