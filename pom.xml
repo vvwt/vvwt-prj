@@ -19,8 +19,6 @@
     </description>
 
     <!-- Phase-1 modules (slot-optimization service) — DEC-10, DEC-11 -->
-    <!-- vvwt-dispatcher excluded from reactor per E37S01 / DEC-42 Coexistence Option δ-c;
-         physical directory preserved on filesystem for E37S11 cleanup -->
     <modules>
         <module>vvwt-slotopt-worker-lib</module>
         <module>vvwt-slotopt-dispatcher</module>

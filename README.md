@@ -8,8 +8,8 @@ slot-optimization service. See [DEC-10](../GAAI/decisions/DEC-10.md) and
 
 | Module | Role |
 |---|---|
-| `vvwt-worker-lib` | Pure Java library — Lehmer codec, variety scorer, compute kernel, worker keypair. **No Spring Boot dependency.** |
-| `vvwt-dispatcher` | Spring Boot service — worker registry, job intake, packet distribution, result finalization. |
+| `vvwt-slotopt-worker-lib` | Pure Java library — Lehmer codec, variety scorer, compute kernel, worker keypair. **No Spring Boot dependency.** |
+| `vvwt-slotopt-dispatcher` | Spring Boot service — worker registry, job intake, packet distribution, result finalization, cache. |
 | `vvwt-standalone-worker` | Plain-Java headless CLI process — pulls packets from dispatcher, computes, submits results. |
 | `vvwt-benchmark` | JMH benchmark suite — H-2 performance ship-gate. Activated via `-Pbenchmark`. |
 
