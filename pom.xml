@@ -69,6 +69,10 @@
         <postgresql.version>42.7.5</postgresql.version>
         <h2.version>2.3.232</h2.version>
 
+        <!-- Testcontainers — used for PostgreSQL ITs in vvwt-info-server (AC3, DEC-3 OSS-compliant).
+             1.20.6: compatible with Spring Boot 3.4.7 BOM and JDK 21. -->
+        <testcontainers.version>1.20.6</testcontainers.version>
+
         <!-- Plugin versions -->
         <maven-compiler-plugin.version>3.14.0</maven-compiler-plugin.version>
         <maven-surefire-plugin.version>3.5.3</maven-surefire-plugin.version>
@@ -162,6 +166,17 @@
                 <groupId>org.assertj</groupId>
                 <artifactId>assertj-db</artifactId>
                 <version>${assertj-db.version}</version>
+            </dependency>
+
+            <!-- Testcontainers BOM — PostgreSQL ITs for vvwt-info-server (E38S03, AC3, DEC-3).
+                 Provides testcontainers, testcontainers-junit-jupiter, testcontainers-postgresql.
+                 OSS-compliant: Apache 2.0. Version centralised in properties. -->
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
             <dependency>
                 <groupId>org.slf4j</groupId>

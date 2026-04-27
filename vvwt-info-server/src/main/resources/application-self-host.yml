@@ -16,6 +16,10 @@ spring:
   sql:
     init:
       mode: never
+  flyway:
+    locations:
+      - "classpath:db/migration/h2"
+      - "classpath:db/migration/common"
 
 # ---------------------------------------------------------------------------
 # Application — self-host mode settings (DEC-42 D3)

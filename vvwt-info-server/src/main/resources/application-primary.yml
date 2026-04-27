@@ -14,6 +14,10 @@ spring:
     driver-class-name: org.postgresql.Driver
     username: ${INFO_DB_USER:vvwt_info}
     password: ${INFO_DB_PASSWORD}
+  flyway:
+    locations:
+      - "classpath:db/migration/postgresql"
+      - "classpath:db/migration/common"
 
 # ---------------------------------------------------------------------------
 # Application — primary mode settings (DEC-42 D3)

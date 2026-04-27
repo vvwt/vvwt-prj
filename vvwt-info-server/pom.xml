@@ -51,6 +51,12 @@
             <artifactId>flyway-core</artifactId>
         </dependency>
 
+        <!-- Flyway PostgreSQL support (Spring Boot 3.3+ requires explicit DB-specific module) -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+
         <!-- H2 embedded database — default (self-host) profile runtime dep (DEC-42 D4) -->
         <dependency>
             <groupId>com.h2database</groupId>
@@ -91,6 +97,32 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- assertj-db — independent persistence verifier for DAO ITs (DEC-26/DEC-46 Rule 2).
+             Version managed by parent dependencyManagement. -->
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-db</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Testcontainers — PostgreSQL 16 ITs for dual-backend testing (AC3, DEC-3).
+             Versions managed by testcontainers-bom in parent. -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <!-- ===================================================================
@@ -99,7 +131,9 @@
     <build>
         <plugins>
 
-            <!-- Spring Boot application repackage — produces executable fat JAR -->
+            <!-- Spring Boot application repackage — produces executable fat JAR.
+                 classifier=exec preserves the original skinny JAR so that maven-failsafe-plugin
+                 can resolve classes from target/classes without unpacking BOOT-INF/. -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -108,6 +142,9 @@
                         <goals>
                             <goal>repackage</goal>
                         </goals>
+                        <configuration>
+                            <classifier>exec</classifier>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

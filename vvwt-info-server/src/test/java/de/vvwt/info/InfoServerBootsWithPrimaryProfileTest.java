@@ -35,6 +35,12 @@ import org.springframework.test.context.TestPropertySource;
             "spring.datasource.driver-class-name=org.h2.Driver",
             "spring.datasource.username=sa",
             "spring.datasource.password=",
+            // Override Flyway locations: primary profile points to postgresql/ which requires a
+            // real
+            // PostgreSQL engine. For this boot-only context test we use the H2-compatible
+            // migrations
+            // so the schema can be created on the H2 in-memory DB.
+            "spring.flyway.locations=classpath:db/migration/h2,classpath:db/migration/common",
         })
 class InfoServerBootsWithPrimaryProfileTest {
 
