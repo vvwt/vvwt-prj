@@ -13,19 +13,15 @@
 spring:
   profiles:
     default: self-host
+  # Flyway — enabled; vendor-specific + common locations per profile (E38S03)
+  # Profile-specific configs (application-self-host.yml, application-primary.yml)
+  # set spring.flyway.locations pointing to the correct vendor folder + common.
+  # The base config does NOT define locations — profiles own them.
+  flyway:
+    enabled: true
 
 # ---------------------------------------------------------------------------
 # HTTP Server — minimal scaffold (no port override yet; E38S04+ may set this)
 # ---------------------------------------------------------------------------
 server:
   port: ${INFO_SERVER_PORT:8090}
-
-# ---------------------------------------------------------------------------
-# Flyway — enabled; vendor-specific + common locations per profile (E38S03)
-# Profile-specific configs (application-self-host.yml, application-primary.yml)
-# set spring.flyway.locations pointing to the correct vendor folder + common.
-# The base config does NOT define locations — profiles own them.
-# ---------------------------------------------------------------------------
-spring:
-  flyway:
-    enabled: true

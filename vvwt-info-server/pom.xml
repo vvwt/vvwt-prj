@@ -123,15 +123,6 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- PostgreSQL driver needed at test scope for Testcontainers ITs (DEC-42 D4).
-             Also declared as runtime optional above for prod profile; test scope here
-             makes the driver available to ITs regardless of the profile under test. -->
-        <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <scope>test</scope>
-        </dependency>
-
     </dependencies>
 
     <!-- ===================================================================
@@ -140,7 +131,9 @@
     <build>
         <plugins>
 
-            <!-- Spring Boot application repackage — produces executable fat JAR -->
+            <!-- Spring Boot application repackage — produces executable fat JAR.
+                 classifier=exec preserves the original skinny JAR so that maven-failsafe-plugin
+                 can resolve classes from target/classes without unpacking BOOT-INF/. -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -149,6 +142,9 @@
                         <goals>
                             <goal>repackage</goal>
                         </goals>
+                        <configuration>
+                            <classifier>exec</classifier>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

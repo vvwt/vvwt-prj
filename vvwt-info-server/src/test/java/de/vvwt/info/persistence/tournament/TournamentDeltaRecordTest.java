@@ -16,8 +16,7 @@ class TournamentDeltaRecordTest {
     void record_fields_accessible() {
         var now = LocalDateTime.now();
         var key = new TournamentDeltaRecord.Key("t-1", 1L);
-        var record =
-                new TournamentDeltaRecord(key, "TEAM_SCORE_UPDATED", "{\"score\":3}", now);
+        var record = new TournamentDeltaRecord(key, "TEAM_SCORE_UPDATED", "{\"score\":3}", now);
 
         assertThat(record.id()).isEqualTo(key);
         assertThat(record.id().tournamentId()).isEqualTo("t-1");

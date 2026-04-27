@@ -8,8 +8,8 @@ import org.junit.jupiter.api.Test;
 /**
  * RED-first unit test for {@link AlgorithmRegistryRecord} (DEC-22 Iron Law, AC1).
  *
- * <p>Tests the structural properties of the record: field access, nullability contract,
- * and that the record can be constructed with the expected field types.
+ * <p>Tests the structural properties of the record: field access, nullability contract, and that
+ * the record can be constructed with the expected field types.
  *
  * @see <a href="../../../../../../../docs/governance/stories/E38S03.story.md">E38S03 AC1</a>
  */
@@ -17,9 +17,7 @@ class AlgorithmRegistryRecordTest {
 
     @Test
     void record_fields_accessible() {
-        var record =
-                new AlgorithmRegistryRecord(
-                        "Ed25519", "Ed25519", null, true, null);
+        var record = new AlgorithmRegistryRecord("Ed25519", "Ed25519", null, true, null);
 
         assertThat(record.algorithmId()).isEqualTo("Ed25519");
         assertThat(record.displayName()).isEqualTo("Ed25519");

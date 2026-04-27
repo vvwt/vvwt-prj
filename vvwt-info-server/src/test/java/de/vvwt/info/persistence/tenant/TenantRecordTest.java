@@ -16,9 +16,7 @@ class TenantRecordTest {
     void record_fields_accessible() {
         var now = LocalDateTime.now();
         var publicKey = new byte[] {0x01, 0x02};
-        var record =
-                new TenantRecord(
-                        "tenant-1", publicKey, "Ed25519", now, "ACTIVE", false);
+        var record = new TenantRecord("tenant-1", publicKey, "Ed25519", now, "ACTIVE", false);
 
         assertThat(record.tenantId()).isEqualTo("tenant-1");
         assertThat(record.publicKey()).isEqualTo(publicKey);
