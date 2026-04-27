@@ -60,6 +60,7 @@
             "scoring",
             "photo",
             "certificate",
-            "print"
+            "print",
+            "display"
         })
 package de.vvwt.tm.web;

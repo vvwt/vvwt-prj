@@ -18,22 +18,24 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * RED-first tests for Phase 3 photo-exception handler methods in
- * {@link GlobalExceptionHandler} (E36S08, AC-PHASE3-RED-FIRST-PER-METHOD,
- * AC-DEC41-FRESH-RED-FIRST-TESTS, AC-C11-BEHAVIORAL-EQUIVALENCE).
+ * RED-first tests for Phase 3 photo-exception handler methods in {@link GlobalExceptionHandler}
+ * (E36S08, AC-PHASE3-RED-FIRST-PER-METHOD, AC-DEC41-FRESH-RED-FIRST-TESTS,
+ * AC-C11-BEHAVIORAL-EQUIVALENCE).
  *
  * <p>Authored fresh per DEC-41 §3 clause (1): PhotoExceptionAdvice had no standalone test files
  * (behavior tested indirectly via TeamPhotoControllerIT). These are NEW tests.
  *
- * <p>Uses standalone {@link MockMvcBuilders#standaloneSetup} — same pattern as
- * {@link GlobalExceptionHandlerTest}. Wires exactly {@link GlobalExceptionHandler} +
- * {@link TestPhotoThrowingController}.
+ * <p>Uses standalone {@link MockMvcBuilders#standaloneSetup} — same pattern as {@link
+ * GlobalExceptionHandlerTest}. Wires exactly {@link GlobalExceptionHandler} + {@link
+ * TestPhotoThrowingController}.
  *
  * <h2>HTTP mapping (AC-C11-BEHAVIORAL-EQUIVALENCE — from deleted PhotoExceptionAdvice)</h2>
+ *
  * <ul>
  *   <li>{@link PhotoFormatException} → 400 Bad Request, messageKey {@code error.photo.format}
  *   <li>{@link PhotoSizeException} → 400 Bad Request, messageKey {@code error.photo.tooLarge}
- *   <li>{@link PhotoStorageException} → 500 Internal Server Error, messageKey {@code error.photo.storage}
+ *   <li>{@link PhotoStorageException} → 500 Internal Server Error, messageKey {@code
+ *       error.photo.storage}
  * </ul>
  *
  * @see GlobalExceptionHandler

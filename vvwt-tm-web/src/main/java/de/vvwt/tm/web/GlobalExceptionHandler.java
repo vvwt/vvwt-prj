@@ -3,12 +3,12 @@ package de.vvwt.tm.web;
 import de.vvwt.tm.certificate.CertificateTemplateFormatException;
 import de.vvwt.tm.certificate.CertificateTemplateSizeException;
 import de.vvwt.tm.certificate.CertificateTemplateStorageException;
+import de.vvwt.tm.display.NoActivePhaseException;
 import de.vvwt.tm.domain.audio.AudioFormatException;
 import de.vvwt.tm.domain.audio.AudioSizeLimitException;
 import de.vvwt.tm.domain.audio.AudioStorageException;
 import de.vvwt.tm.domain.timer.InvalidTimerUrlException;
 import de.vvwt.tm.domain.timer.NoActiveTournamentException;
-import de.vvwt.tm.infrastructure.display.NoActivePhaseException;
 import de.vvwt.tm.photo.PhotoFormatException;
 import de.vvwt.tm.photo.PhotoSizeException;
 import de.vvwt.tm.photo.PhotoStorageException;
@@ -46,18 +46,18 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  * de.vvwt.tm.photo.PhotoStorageException}) and certificate-domain exceptions ({@link
  * de.vvwt.tm.certificate.CertificateTemplateFormatException}, {@link
  * de.vvwt.tm.certificate.CertificateTemplateSizeException}, {@link
- * de.vvwt.tm.certificate.CertificateTemplateStorageException}) are consolidated here (E36S08
- * Phase 3) — absorbed from the deleted {@code PhotoExceptionAdvice} and {@code
+ * de.vvwt.tm.certificate.CertificateTemplateStorageException}) are consolidated here (E36S08 Phase
+ * 3) — absorbed from the deleted {@code PhotoExceptionAdvice} and {@code
  * CertificateExceptionAdvice} (E36S08 Phase 2). Now resident in the {@code web} module, this
- * handler has direct {@code photo} and {@code certificate} dependency access per
- * {@code web.allowedDependencies}.
+ * handler has direct {@code photo} and {@code certificate} dependency access per {@code
+ * web.allowedDependencies}.
  *
  * <h2>DEC-21 + DEC-35 package discipline</h2>
  *
- * <p>Relocated from {@code de.vvwt.tm.tournament.internal.web.*} to {@code de.vvwt.tm.web.*}
- * in E36S08 Phase 1 (FQN-relocation per DEC-35 + DEC-40 Clause A: cross-cutting web
- * infrastructure lives at the {@code web} module root). Only the contract — {@link ApiErrorResponse}
- * — is public (at {@code de.vvwt.tm.tournament.ApiErrorResponse}).
+ * <p>Relocated from {@code de.vvwt.tm.tournament.internal.web.*} to {@code de.vvwt.tm.web.*} in
+ * E36S08 Phase 1 (FQN-relocation per DEC-35 + DEC-40 Clause A: cross-cutting web infrastructure
+ * lives at the {@code web} module root). Only the contract — {@link ApiErrorResponse} — is public
+ * (at {@code de.vvwt.tm.tournament.ApiErrorResponse}).
  *
  * <h2>Scope-bounded (AC-GLOBAL-EXCEPTION-HANDLER-SCOPE-BOUNDED)</h2>
  *
@@ -476,7 +476,8 @@ public class GlobalExceptionHandler {
     }
 
     // =========================================================================
-    // Certificate domain exceptions (E36S08 Phase 3 — absorbed from deleted CertificateExceptionAdvice)
+    // Certificate domain exceptions (E36S08 Phase 3 — absorbed from deleted
+    // CertificateExceptionAdvice)
     // HTTP mappings verbatim per AC-C11-BEHAVIORAL-EQUIVALENCE
     // =========================================================================
 
@@ -495,7 +496,10 @@ public class GlobalExceptionHandler {
                 "[tm-web] CertificateTemplateFormatException (certificate module): {}",
                 ex.getMessage());
         return buildResponse(
-                HttpStatus.BAD_REQUEST, ex.getMessage(), "error.certificateTemplate.format", request);
+                HttpStatus.BAD_REQUEST,
+                ex.getMessage(),
+                "error.certificateTemplate.format",
+                request);
     }
 
     /**

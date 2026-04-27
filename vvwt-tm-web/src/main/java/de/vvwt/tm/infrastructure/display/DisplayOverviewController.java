@@ -1,8 +1,9 @@
 package de.vvwt.tm.infrastructure.display;
 
-import de.vvwt.tm.infrastructure.display.dto.DisplayGroupStandingsResponse;
-import de.vvwt.tm.infrastructure.display.dto.DisplayMatchesResponse;
-import de.vvwt.tm.infrastructure.display.dto.DisplayPhaseOverviewResponse;
+import de.vvwt.tm.display.DisplayGroupStandingsResponse;
+import de.vvwt.tm.display.DisplayMatchesResponse;
+import de.vvwt.tm.display.DisplayOverviewService;
+import de.vvwt.tm.display.DisplayPhaseOverviewResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;

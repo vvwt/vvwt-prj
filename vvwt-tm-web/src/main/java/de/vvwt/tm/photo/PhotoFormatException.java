@@ -7,9 +7,9 @@ package de.vvwt.tm.photo;
  * Brief D-7 Option γ. Constructor signature preserved verbatim per
  * AC-EXCEPTION-CONSTRUCTORS-PRESERVED: {@code (String message)}.
  *
- * <p>Maps to HTTP 400 via {@link de.vvwt.tm.web.GlobalExceptionHandler} (E36S08 Phase 3 —
- * {@code PhotoExceptionAdvice} deleted in Phase 2; handler absorbed into GlobalExceptionHandler).
- * Only {@code image/jpeg} and {@code image/png} are accepted.
+ * <p>Maps to HTTP 400 via {@link de.vvwt.tm.web.GlobalExceptionHandler} (E36S08 Phase 3 — {@code
+ * PhotoExceptionAdvice} deleted in Phase 2; handler absorbed into GlobalExceptionHandler). Only
+ * {@code image/jpeg} and {@code image/png} are accepted.
  *
  * <p>Historical provenance: originally E12S02; relocated to this module by E23S01 (Q-1b); rebuilt
  * Q-1a RED-first by E36S01 per DEC-22 Iron Law + DEC-41 §3 hierarchy clause (1).

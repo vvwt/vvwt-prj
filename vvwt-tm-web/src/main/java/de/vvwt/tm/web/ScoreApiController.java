@@ -41,9 +41,9 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <h2>Error handling (AC-GLOBAL-EXCEPTION-HANDLER-REACH)</h2>
  *
- * <p>Exceptions are handled globally by {@link
- * de.vvwt.tm.web.GlobalExceptionHandler} which covers {@code de.vvwt.tm.web}
- * via its {@code @ControllerAdvice(basePackages = {..., "de.vvwt.tm.web"})} declaration:
+ * <p>Exceptions are handled globally by {@link de.vvwt.tm.web.GlobalExceptionHandler} which covers
+ * {@code de.vvwt.tm.web} via its {@code @ControllerAdvice(basePackages = {..., "de.vvwt.tm.web"})}
+ * declaration:
  *
  * <ul>
  *   <li>{@link de.vvwt.tm.tournament.exceptions.UnauthorizedException} → HTTP 401

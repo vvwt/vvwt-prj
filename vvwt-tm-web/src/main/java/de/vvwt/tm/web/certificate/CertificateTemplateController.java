@@ -85,9 +85,12 @@ import org.springframework.web.multipart.MultipartFile;
  * exception types (absorbed from deleted {@code CertificateExceptionAdvice} in E36S08 Phase 3).
  *
  * <ul>
- *   <li>{@link de.vvwt.tm.certificate.CertificateTemplateFormatException} → 400 (via GlobalExceptionHandler)
- *   <li>{@link de.vvwt.tm.certificate.CertificateTemplateSizeException} → 400 (via GlobalExceptionHandler)
- *   <li>{@link de.vvwt.tm.certificate.CertificateTemplateStorageException} → 500 (via GlobalExceptionHandler)
+ *   <li>{@link de.vvwt.tm.certificate.CertificateTemplateFormatException} → 400 (via
+ *       GlobalExceptionHandler)
+ *   <li>{@link de.vvwt.tm.certificate.CertificateTemplateSizeException} → 400 (via
+ *       GlobalExceptionHandler)
+ *   <li>{@link de.vvwt.tm.certificate.CertificateTemplateStorageException} → 500 (via
+ *       GlobalExceptionHandler)
  *   <li>{@link NoSuchElementException} → 404 (tournament not found / wrong tenant)
  * </ul>
  *
