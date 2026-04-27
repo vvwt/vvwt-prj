@@ -1,6 +1,7 @@
 package de.vvwt.info.persistence.tournament;
 
 import java.util.List;
+import org.springframework.data.jdbc.repository.query.Modifying;
 import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
@@ -32,4 +33,42 @@ public interface TournamentDeltaDao
                     + "ORDER BY seq ASC")
     List<TournamentDeltaRecord> findDeltasSince(
             @Param("tournamentId") String tournamentId, @Param("sinceSeq") long sinceSeq);
+
+    /**
+     * Inserts a new delta record via a raw INSERT statement (AC3, E38S05).
+     *
+     * <p>Spring Data JDBC's {@code save()} cannot determine insert vs. update for composite-key
+     * entities without {@link org.springframework.data.domain.Persistable}. This explicit INSERT
+     * bypasses that limitation and is safe because delta records are append-only.
+     *
+     * @param tournamentId FK → tournament.tournament_id
+     * @param seq monotonically increasing sequence number (composite PK second component)
+     * @param eventType event type identifier
+     * @param eventPayload JSON-encoded event payload
+     * @param appliedAt UTC timestamp of the delta application
+     */
+    @Modifying
+    @Query(
+            "INSERT INTO tournament_delta (tournament_id, seq, event_type, event_payload,"
+                    + " applied_at) VALUES (:tournamentId, :seq, :eventType, :eventPayload,"
+                    + " :appliedAt)")
+    void insertDelta(
+            @Param("tournamentId") String tournamentId,
+            @Param("seq") long seq,
+            @Param("eventType") String eventType,
+            @Param("eventPayload") String eventPayload,
+            @Param("appliedAt") java.time.LocalDateTime appliedAt);
+
+    /**
+     * Deletes all delta records for the given tournament (AC6 supersede + AC5 snapshot resync).
+     *
+     * <p>Used by: (a) atomic supersede — prior deltas purged when a new tournament registration
+     * supersedes an existing one; (b) snapshot resync — prior deltas cleared when a full snapshot
+     * is applied.
+     *
+     * @param tournamentId the tournament whose deltas are to be deleted
+     */
+    @Modifying
+    @Query("DELETE FROM tournament_delta WHERE tournament_id = :tournamentId")
+    void deleteAllByTournamentId(@Param("tournamentId") String tournamentId);
 }
