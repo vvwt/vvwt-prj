@@ -3,6 +3,7 @@ package de.vvwt.info.persistence.audit;
 import java.util.Optional;
 import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.repository.Repository;
+import org.springframework.data.repository.query.Param;
 
 /**
  * Append-only data access object for the {@code audit_log} table (AC10).
@@ -53,5 +54,5 @@ public interface AuditLogDao extends Repository<AuditLogRecord, Long> {
      * @return the first matching audit log entry, or empty if not found
      */
     @Query("SELECT * FROM audit_log WHERE request_id = :requestId LIMIT 1")
-    Optional<AuditLogRecord> findByRequestId(String requestId);
+    Optional<AuditLogRecord> findByRequestId(@Param("requestId") String requestId);
 }

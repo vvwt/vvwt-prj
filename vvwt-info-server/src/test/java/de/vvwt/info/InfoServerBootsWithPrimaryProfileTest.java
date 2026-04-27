@@ -31,7 +31,7 @@ import org.springframework.test.context.TestPropertySource;
 @TestPropertySource(
         properties = {
             // Override PostgreSQL config to H2 for test environment (DEC-42 D4 test-only seam)
-            "spring.datasource.url=jdbc:h2:mem:vvwt-info-primary-test;DB_CLOSE_DELAY=-1",
+            "spring.datasource.url=jdbc:h2:mem:vvwt-info-primary-test;DB_CLOSE_DELAY=-1;CASE_INSENSITIVE_IDENTIFIERS=TRUE",
             "spring.datasource.driver-class-name=org.h2.Driver",
             "spring.datasource.username=sa",
             "spring.datasource.password=",

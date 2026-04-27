@@ -9,7 +9,7 @@
 # ---------------------------------------------------------------------------
 spring:
   datasource:
-    url: "jdbc:h2:mem:vvwt-info-self-host;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
+    url: "jdbc:h2:mem:vvwt-info-self-host;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;CASE_INSENSITIVE_IDENTIFIERS=TRUE"
     driver-class-name: org.h2.Driver
     username: sa
     password:
@@ -22,11 +22,15 @@ spring:
       - "classpath:db/migration/common"
 
 # ---------------------------------------------------------------------------
-# Application — self-host mode settings (DEC-42 D3)
-# These properties are placeholders; E38S04 adds the actual config binding.
+# Application — self-host mode settings (DEC-42 D3) — E38S04 binding added
 # ---------------------------------------------------------------------------
-info:
-  registration:
-    mode: OPEN_FCFS
-  tenant:
-    max-tenants: 1
+vvwt:
+  info:
+    registration:
+      mode: OPEN_FCFS
+    tenant:
+      max-tenants: 1        # single-tenant-only default (drive-by-squatting mitigation DEC-42 D3)
+      default-tenant-id:    # optional: pre-seed a specific tenant-id (CONFIG path of CONFIG_OR_FCFS)
+    default-tenant:
+      mode: CONFIG_OR_FCFS  # AC9: the correct DEC-42 D3 self-host value
+    invitation-tokens: []   # OPEN_FCFS mode — invitation tokens not used

@@ -140,6 +140,7 @@ public final class InfoDaoTestSupport {
     public static void applyFullH2Schema(DataSource ds) {
         applyMigration(ds, "db/migration/h2/V1__initial_schema.sql");
         applyMigration(ds, "db/migration/common/V2__algorithm_registry_seed.sql");
+        applyMigration(ds, "db/migration/h2/V3__consumed_invitation_tokens.sql");
     }
 
     /**
@@ -164,6 +165,7 @@ public final class InfoDaoTestSupport {
         }
         applyMigration(ds, "db/migration/postgresql/V1__initial_schema.sql");
         applyMigration(ds, "db/migration/common/V2__algorithm_registry_seed.sql");
+        applyMigration(ds, "db/migration/postgresql/V3__consumed_invitation_tokens.sql");
     }
 
     // -------------------------------------------------------------------------
