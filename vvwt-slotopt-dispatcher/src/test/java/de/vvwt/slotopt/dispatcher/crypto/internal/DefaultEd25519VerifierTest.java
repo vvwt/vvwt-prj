@@ -158,4 +158,43 @@ class DefaultEd25519VerifierTest {
         assertThatThrownBy(() -> verifier.verify(oversizedKey, message, signature))
                 .isInstanceOf(InvalidSignatureException.class);
     }
+
+    // ----------------------------------------------------------------
+    // E40S01 AC-DEFAULTED25519VERIFIER-METADATA: new DEC-43 D1 metadata methods
+    // RED-first per DEC-22 Iron Law; these tests FAIL until the methods are added
+    // to SignatureVerifier interface and implemented in DefaultEd25519Verifier.
+    // ----------------------------------------------------------------
+
+    /**
+     * AC-DEFAULTED25519VERIFIER-METADATA: displayName() returns "Ed25519" (PascalCase per Brief
+     * D-4/T-3 backward-compat with E37-persisted algorithm column). AC-INTERFACE-METHODS-NO-THROWS-
+     * AND-NULL-CONTRACT: return value is non-null (DEC-43 D1 required=YES for display_name).
+     */
+    @Test
+    void displayName_returnsEd25519() {
+        String name = verifier.displayName();
+        assertThat(name).isEqualTo("Ed25519");
+        assertThat(name).isNotNull();
+    }
+
+    /**
+     * AC-DEFAULTED25519VERIFIER-METADATA: deprecationDate() returns null (V1 universal per Brief
+     * D-4/C-17 — Ed25519 is not deprecated in V1).
+     * AC-INTERFACE-METHODS-NO-THROWS-AND-NULL-CONTRACT: null IFF algorithm is not deprecated
+     * (DEC-43 D1 required=NO for deprecation_date).
+     */
+    @Test
+    void deprecationDate_returnsNull() {
+        assertThat(verifier.deprecationDate()).isNull();
+    }
+
+    /**
+     * AC-DEFAULTED25519VERIFIER-METADATA: parameters() returns null (V1 Ed25519 has no parameter
+     * variants per Brief D-4). AC-INTERFACE-METHODS-NO-THROWS-AND-NULL-CONTRACT: null IFF algorithm
+     * is parameterless (DEC-43 D1 required=NO for parameters).
+     */
+    @Test
+    void parameters_returnsNull() {
+        assertThat(verifier.parameters()).isNull();
+    }
 }
