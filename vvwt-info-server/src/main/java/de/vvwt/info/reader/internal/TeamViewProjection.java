@@ -56,7 +56,8 @@ public class TeamViewProjection {
                 snapshot.tenantId(),
                 snapshot.sequenceNumber(),
                 filtered,
-                snapshot.teams());
+                snapshot.teams(),
+                snapshot.tournamentEnded());
     }
 
     /**

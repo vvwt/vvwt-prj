@@ -15,8 +15,9 @@ import org.junit.jupiter.api.Test;
  * responses are envelope-wrapped (no "MAY embed" ambiguity).
  *
  * <p>DEC-22 Iron Law: this test was written BEFORE TournamentSnapshot.java existed (RED state).
+ * tournamentEnded field RED test added for E38S08 AC5 before field was added to the record.
  *
- * <p>Story: E38S02.
+ * <p>Story: E38S02, E38S08.
  */
 class TournamentSnapshotTest {
 
@@ -35,10 +36,34 @@ class TournamentSnapshotTest {
         List<ScheduleEntry> entries = List.of(new Match("match-1", "Team A", "Team B", 1));
         TournamentSnapshot snapshot =
                 new TournamentSnapshot(
-                        "tournament-uuid-1", "tenant-uuid-1", 1L, entries, List.of());
+                        "tournament-uuid-1", "tenant-uuid-1", 1L, entries, List.of(), false);
         String json = mapper.writeValueAsString(snapshot);
         TournamentSnapshot deserialized = mapper.readValue(json, TournamentSnapshot.class);
         assertThat(deserialized).isEqualTo(snapshot);
+    }
+
+    @Test
+    void tournamentEnded_defaultFalse_roundTrip() throws Exception {
+        // E38S08 AC5 — tournamentEnded field: default false for active tournament, true for
+        // supersede
+        // DEC-22 Iron Law: RED-first test written before tournamentEnded field added to record
+        TournamentSnapshot active =
+                new TournamentSnapshot("t-1", "tenant-1", 1L, List.of(), List.of(), false);
+        String json = mapper.writeValueAsString(active);
+        assertThat(json).contains("\"tournament_ended\":false");
+        TournamentSnapshot deserialized = mapper.readValue(json, TournamentSnapshot.class);
+        assertThat(deserialized.tournamentEnded()).isFalse();
+    }
+
+    @Test
+    void tournamentEnded_true_serialized() throws Exception {
+        // E38S08 AC5 — tournamentEnded:true signals supersede UX to SPA
+        TournamentSnapshot superseded =
+                new TournamentSnapshot("t-2", "tenant-2", 5L, List.of(), List.of(), true);
+        String json = mapper.writeValueAsString(superseded);
+        assertThat(json).contains("\"tournament_ended\":true");
+        TournamentSnapshot deserialized = mapper.readValue(json, TournamentSnapshot.class);
+        assertThat(deserialized.tournamentEnded()).isTrue();
     }
 
     @Test
@@ -46,7 +71,7 @@ class TournamentSnapshotTest {
         // AC10 — snapshot responses are envelope-wrapped unconditionally
         List<ScheduleEntry> entries = List.of(new Pause("pause-1", "Half time"));
         TournamentSnapshot snapshot =
-                new TournamentSnapshot("t-1", "tenant-1", 2L, entries, List.of());
+                new TournamentSnapshot("t-1", "tenant-1", 2L, entries, List.of(), false);
         Envelope<TournamentSnapshot> envelope = new Envelope<>(Envelope.SCHEMA_VERSION, snapshot);
         String json = mapper.writeValueAsString(envelope);
         assertThat(json).contains("\"schemaVersion\"");

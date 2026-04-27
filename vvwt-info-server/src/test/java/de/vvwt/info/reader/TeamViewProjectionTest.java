@@ -42,7 +42,8 @@ class TeamViewProjectionTest {
                         "tenant-id",
                         5L,
                         List.of(matchAvsB, matchBvsC),
-                        List.of(teamA, teamB, teamC));
+                        List.of(teamA, teamB, teamC),
+                        false);
 
         TournamentSnapshot result = projection.project(snapshot, teamA);
 
@@ -56,7 +57,12 @@ class TeamViewProjectionTest {
 
         TournamentSnapshot snapshot =
                 new TournamentSnapshot(
-                        "t-id", "tenant-id", 1L, List.of(matchBvsC), List.of(teamA, teamB, teamC));
+                        "t-id",
+                        "tenant-id",
+                        1L,
+                        List.of(matchBvsC),
+                        List.of(teamA, teamB, teamC),
+                        false);
 
         TournamentSnapshot result = projection.project(snapshot, teamA);
         assertThat(result.scheduleEntries()).isEmpty();
@@ -72,7 +78,8 @@ class TeamViewProjectionTest {
                         "tenant-id",
                         2L,
                         List.of(sondertermin),
-                        List.of(teamA, teamB, teamC));
+                        List.of(teamA, teamB, teamC),
+                        false);
 
         assertThat(projection.project(snapshot, teamA).scheduleEntries())
                 .containsExactly(sondertermin);
@@ -88,7 +95,12 @@ class TeamViewProjectionTest {
 
         TournamentSnapshot snapshot =
                 new TournamentSnapshot(
-                        "t-id", "tenant-id", 3L, List.of(pause), List.of(teamA, teamB, teamC));
+                        "t-id",
+                        "tenant-id",
+                        3L,
+                        List.of(pause),
+                        List.of(teamA, teamB, teamC),
+                        false);
 
         assertThat(projection.project(snapshot, teamA).scheduleEntries()).containsExactly(pause);
         assertThat(projection.project(snapshot, teamB).scheduleEntries()).containsExactly(pause);
@@ -98,7 +110,7 @@ class TeamViewProjectionTest {
     void team_list_preserved_unchanged_in_projected_snapshot() {
         TournamentSnapshot snapshot =
                 new TournamentSnapshot(
-                        "t-id", "tenant-id", 1L, List.of(), List.of(teamA, teamB, teamC));
+                        "t-id", "tenant-id", 1L, List.of(), List.of(teamA, teamB, teamC), false);
 
         TournamentSnapshot result = projection.project(snapshot, teamA);
         assertThat(result.teams()).containsExactlyInAnyOrder(teamA, teamB, teamC);
@@ -107,7 +119,8 @@ class TeamViewProjectionTest {
     @Test
     void metadata_fields_preserved_in_projected_snapshot() {
         TournamentSnapshot snapshot =
-                new TournamentSnapshot("tourney-123", "tenant-456", 99L, List.of(), List.of(teamA));
+                new TournamentSnapshot(
+                        "tourney-123", "tenant-456", 99L, List.of(), List.of(teamA), false);
 
         TournamentSnapshot result = projection.project(snapshot, teamA);
         assertThat(result.tournamentId()).isEqualTo("tourney-123");
@@ -119,7 +132,7 @@ class TeamViewProjectionTest {
     void team_as_home_team_sees_match() {
         var match = new ScheduleEntry.Match("m1", "Team Alpha", "Team Beta", 1);
         TournamentSnapshot snapshot =
-                new TournamentSnapshot("t", "t", 1L, List.of(match), List.of(teamA));
+                new TournamentSnapshot("t", "t", 1L, List.of(match), List.of(teamA), false);
 
         assertThat(projection.project(snapshot, teamA).scheduleEntries()).contains(match);
     }
@@ -128,7 +141,7 @@ class TeamViewProjectionTest {
     void team_as_away_team_sees_match() {
         var match = new ScheduleEntry.Match("m1", "Team Beta", "Team Alpha", 1);
         TournamentSnapshot snapshot =
-                new TournamentSnapshot("t", "t", 1L, List.of(match), List.of(teamA));
+                new TournamentSnapshot("t", "t", 1L, List.of(match), List.of(teamA), false);
 
         assertThat(projection.project(snapshot, teamA).scheduleEntries()).contains(match);
     }

@@ -1,7 +1,7 @@
 {
   "name": "vvwt-info-client",
   "version": "1.0.0",
-  "description": "Public Participant Info Service — Svelte 5 + Vite + TypeScript SPA. Story E38S01.",
+  "description": "Public Participant Info Service — Svelte 5 + Vite + TypeScript SPA. Story E38S01/E38S08.",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,10 +9,12 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "check-kit": "npm ls @sveltejs/kit 2>&1 | grep -c '@sveltejs/kit' | xargs -I{} test {} -eq 0 && echo 'SvelteKit absent (DEC-2 OK)' || (echo 'FAIL: SvelteKit found — DEC-2 violation' && exit 1)"
+    "check-kit": "npm ls @sveltejs/kit 2>&1 | grep -c '@sveltejs/kit' | xargs -I{} test {} -eq 0 && echo 'SvelteKit absent (DEC-2 OK)' || (echo 'FAIL: SvelteKit found — DEC-2 violation' && exit 1)",
+    "check-literals": "node scripts/check-inline-literals.mjs"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
+    "@testing-library/svelte": "^5.0.0",
     "@types/node": "^22.0.0",
     "jsdom": "^29.0.2",
     "svelte": "^5.55.3",

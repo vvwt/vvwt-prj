@@ -92,7 +92,7 @@ class ReaderPollIT {
             String tournamentId, String tenantId, long seq, List<TeamEntry> teams)
             throws Exception {
         TournamentSnapshot snap =
-                new TournamentSnapshot(tournamentId, tenantId, seq, List.of(), teams);
+                new TournamentSnapshot(tournamentId, tenantId, seq, List.of(), teams, false);
         Envelope<TournamentSnapshot> env = new Envelope<>(Envelope.SCHEMA_VERSION, snap);
         return objectMapper.writeValueAsString(env);
     }
@@ -382,7 +382,8 @@ class ReaderPollIT {
                         List.of(
                                 new ScheduleEntry.Match("m1", "Team Alpha", "Team Beta", 1),
                                 new ScheduleEntry.Match("m2", "Team Beta", "Team Gamma", 2)),
-                        List.of(teamA, teamB));
+                        List.of(teamA, teamB),
+                        false);
         String stateJson =
                 objectMapper.writeValueAsString(new Envelope<>(Envelope.SCHEMA_VERSION, snap));
 

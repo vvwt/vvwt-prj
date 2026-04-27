@@ -66,6 +66,7 @@ public class ReaderHandshakeInterceptor implements HandshakeInterceptor {
             case TokenValidationResult.Valid valid -> {
                 attributes.put(ReaderWebSocketHandler.ATTR_TOURNAMENT_RECORD, valid.tournament());
                 attributes.put(ReaderWebSocketHandler.ATTR_TEAM_ENTRY, valid.teamEntry());
+                attributes.put(ReaderWebSocketHandler.ATTR_WITHIN_GRACE, valid.withinGrace());
                 yield true;
             }
             case TokenValidationResult.Superseded ignored -> {
