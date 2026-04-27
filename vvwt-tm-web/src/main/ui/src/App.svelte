@@ -19,6 +19,7 @@
    * No changes to this file are needed for i18n locale changes (AC5).
    */
   import Router from 'svelte-spa-router';
+  import InfoPortalStatus from './lib/InfoPortalStatus.svelte';
   import Home from './routes/Home.svelte';
   import Tournaments from './routes/Tournaments.svelte';
   import TournamentForm from './routes/TournamentForm.svelte';
@@ -51,4 +52,7 @@
   }
 </script>
 
+<!-- E38S09: Info Portal publisher status banner (AC4, AC10, DEC-43 D3) —
+     Silently hidden when the info-portal feature is disabled (AC6).  -->
+<InfoPortalStatus />
 <Router {routes} on:routeEvent={routeNotFound} />

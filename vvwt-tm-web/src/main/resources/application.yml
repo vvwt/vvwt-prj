@@ -103,6 +103,19 @@ tm:
     exhaustive-max-n: 10
 
 # ---------------------------------------------------------------------------
+# Public Info Portal publisher (E38S09)
+# Feature is disabled when info-portal.url is absent (AC6 — publisher conditional on URL).
+# To enable: set info-portal.url, info-portal.tenant-id, info-portal.location-id.
+# Override keypair storage dir via INFO_PORTAL_KEYPAIR_DIR env var.
+# ---------------------------------------------------------------------------
+info-portal:
+  # url: https://info.example.com  # Uncomment to enable publisher (required)
+  # tenant-id: my-tenant            # Required when url is set
+  # location-id: my-venue           # Required per D-2 location-id
+  deprecation-warning-threshold-days: 30
+  keypair-dir: ${INFO_PORTAL_KEYPAIR_DIR:${user.home}/.tournament-manager/info-portal-keys}
+
+# ---------------------------------------------------------------------------
 # Actuator — health endpoint (AC5)
 # No authentication required — DEC-5 default-tenant LAN mode
 # ---------------------------------------------------------------------------
