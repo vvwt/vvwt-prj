@@ -23,7 +23,6 @@ import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
-import de.vvwt.tm.web.GlobalExceptionHandler;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -61,15 +60,17 @@ import org.springframework.test.context.ActiveProfiles;
  *   <li>AC11 — POST/PUT/DELETE to overview endpoint → 405
  * </ul>
  *
- * <p>Total: 15 {@code @Test} methods (matches audit baseline 15+10=25 per AC-Q7-METHOD-COUNT-RECONFIRMATION;
- * fresh RED-first authoring per DEC-41 §3 hierarchy item 1 — legacy tests classified Snapshot-Driven
- * per E25-AUDIT-DEC41-TEST-CLASSIFICATION, commit {@code 1aded97}).
+ * <p>Total: 15 {@code @Test} methods (matches audit baseline 15+10=25 per
+ * AC-Q7-METHOD-COUNT-RECONFIRMATION; fresh RED-first authoring per DEC-41 §3 hierarchy item 1 —
+ * legacy tests classified Snapshot-Driven per E25-AUDIT-DEC41-TEST-CLASSIFICATION, commit {@code
+ * 1aded97}).
  *
  * <h2>DEC compliance</h2>
  *
  * <ul>
- *   <li>DEC-22 Iron Law Q-1a — RED-first: this test written before {@link DisplayOverviewController}
- *       existed; RED commit = this commit; GREEN commit = next (DisplayOverviewController production)
+ *   <li>DEC-22 Iron Law Q-1a — RED-first: this test written before {@link
+ *       DisplayOverviewController} existed; RED commit = this commit; GREEN commit = next
+ *       (DisplayOverviewController production)
  *   <li>DEC-36 — {@code DisplayOverviewService} interface FQN used (NOT {@code
  *       display.internal.DefaultDisplayOverviewService})
  *   <li>DEC-40 §2026-04-27 Clarification Pattern A — response types imported from {@code
@@ -77,7 +78,8 @@ import org.springframework.test.context.ActiveProfiles;
  *   <li>DEC-44 D1 — {@code @SpringBootTest(RANDOM_PORT)} + {@code @Import({WebModuleTestConfig,
  *       TestAdminCredentials})} per 2026-04-27 empirical refinement
  *   <li>DEC-44 D2 — per-IT inner {@code TestAdminCredentials} provides {@code @Primary
- *       AdminCredentialsProvider}; no {@code UserDetailsService} or {@code SecurityFilterChain} substitute
+ *       AdminCredentialsProvider}; no {@code UserDetailsService} or {@code SecurityFilterChain}
+ *       substitute
  * </ul>
  *
  * @see DisplayOverviewController
@@ -89,7 +91,7 @@ import org.springframework.test.context.ActiveProfiles;
         classes = de.vvwt.tm.TournamentManagerApplication.class,
         properties = {
             "spring.datasource.url=jdbc:h2:mem:e25s02overviewitdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
-                    + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
+                + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
 @Import({WebModuleTestConfig.class, DisplayOverviewControllerIT.TestAdminCredentials.class})
@@ -313,15 +315,15 @@ class DisplayOverviewControllerIT {
                 new TeamAvatarRating(
                         avatarAId,
                         defaultTenantId,
-                        1,   // matchCount
-                        1,   // setCount
-                        3,   // points
-                        1,   // setsWon
-                        0,   // setsLost
-                        25,  // ballsWon
-                        15,  // ballsLost
-                        Double.MAX_VALUE,  // setQuotient (sentinel: setsLost=0)
-                        Double.MAX_VALUE,  // ballQuotient (sentinel: ballsLost=0 relative)
+                        1, // matchCount
+                        1, // setCount
+                        3, // points
+                        1, // setsWon
+                        0, // setsLost
+                        25, // ballsWon
+                        15, // ballsLost
+                        Double.MAX_VALUE, // setQuotient (sentinel: setsLost=0)
+                        Double.MAX_VALUE, // ballQuotient (sentinel: ballsLost=0 relative)
                         false,
                         now);
         // Team Beta: 0 points → ranks second
@@ -414,7 +416,8 @@ class DisplayOverviewControllerIT {
     /**
      * AC2: GET /api/display/overview/matches?token={token}&lap={n} returns 200 with match data.
      *
-     * <p>AC-URL-PATHS-PRESERVED: URL {@code /api/display/overview/matches} + {@code lap} param verbatim.
+     * <p>AC-URL-PATHS-PRESERVED: URL {@code /api/display/overview/matches} + {@code lap} param
+     * verbatim.
      */
     @Test
     void matchesByLapReturns200WithMatchDataForValidToken() {
@@ -472,7 +475,8 @@ class DisplayOverviewControllerIT {
     /**
      * AC3: GET /api/display/overview/groups returns 200 with D-33-sorted group standings.
      *
-     * <p>Team Alpha (3 pts) must rank before Team Beta (0 pts). AC-URL-PATHS-PRESERVED: URL verbatim.
+     * <p>Team Alpha (3 pts) must rank before Team Beta (0 pts). AC-URL-PATHS-PRESERVED: URL
+     * verbatim.
      */
     @Test
     void groupStandingsReturns200WithRankingsInCorrectOrder() {
@@ -514,9 +518,7 @@ class DisplayOverviewControllerIT {
     // AC4 — Device token authentication
     // =========================================================================
 
-    /**
-     * AC4: Invalid device token → 401 with messageKey in response body (AC9).
-     */
+    /** AC4: Invalid device token → 401 with messageKey in response body (AC9). */
     @Test
     void phaseOverviewReturns401ForInvalidToken() {
         ResponseEntity<ApiErrorResponse> response =
@@ -533,9 +535,7 @@ class DisplayOverviewControllerIT {
                 .isNotBlank();
     }
 
-    /**
-     * AC4: SCORING_TABLET device token → 401 on display endpoint (wrong device type).
-     */
+    /** AC4: SCORING_TABLET device token → 401 on display endpoint (wrong device type). */
     @Test
     void phaseOverviewReturns401ForScoringTabletToken() {
         ResponseEntity<ApiErrorResponse> response =
@@ -579,13 +579,14 @@ class DisplayOverviewControllerIT {
     // =========================================================================
 
     /**
-     * AC7: When no active tournament exists, GET /api/display/overview returns 404 with body
-     * {@code {"status":"NO_ACTIVE_PHASE"}}.
+     * AC7: When no active tournament exists, GET /api/display/overview returns 404 with body {@code
+     * {"status":"NO_ACTIVE_PHASE"}}.
      *
      * <p>The {@link de.vvwt.tm.display.NoActivePhaseException} thrown by {@link
      * de.vvwt.tm.display.DisplayOverviewService#getPhaseOverview} is caught by {@link
      * GlobalExceptionHandler#handleNoActivePhase} and translated to HTTP 404.
-     * AC-GLOBAL-EXCEPTION-HANDLER-IMPORT-UPDATE verified: handler uses {@code display.NoActivePhaseException}.
+     * AC-GLOBAL-EXCEPTION-HANDLER-IMPORT-UPDATE verified: handler uses {@code
+     * display.NoActivePhaseException}.
      */
     @Test
     void phaseOverviewReturns404WhenNoActiveTournament() {
@@ -616,9 +617,7 @@ class DisplayOverviewControllerIT {
     // AC6 — Preparation preview
     // =========================================================================
 
-    /**
-     * AC6: preparationPreview=true when phase is PENDING with scheduled matches.
-     */
+    /** AC6: preparationPreview=true when phase is PENDING with scheduled matches. */
     @Test
     void phaseOverviewReturnsPreparationPreviewTrueForPendingPhaseWithMatches() {
         // Set phase status to PENDING (preparation) — matches already exist with lapNumber=1
@@ -651,7 +650,8 @@ class DisplayOverviewControllerIT {
     // =========================================================================
 
     /**
-     * AC10: Missing required {@code token} parameter → 400 (MissingServletRequestParameterException).
+     * AC10: Missing required {@code token} parameter → 400
+     * (MissingServletRequestParameterException).
      */
     @Test
     void missingTokenParameterReturns400() {
@@ -727,8 +727,9 @@ class DisplayOverviewControllerIT {
      * <p>Per DEC-44 §"2026-04-27 Empirical Refinement": this inner class provides {@code @Primary
      * AdminCredentialsProvider} which overrides the non-primary placeholder in {@link
      * WebModuleTestConfig} via {@code spring.main.allow-bean-definition-overriding=true}.
-     * Production {@code SecurityFilterChain} + {@code UserDetailsService} remain sole instances.
-     * No {@code UserDetailsService} or {@code SecurityFilterChain} substitute bean added (AC-DEC44-D2-EMPIRICAL-REFINEMENT-RESPECT).
+     * Production {@code SecurityFilterChain} + {@code UserDetailsService} remain sole instances. No
+     * {@code UserDetailsService} or {@code SecurityFilterChain} substitute bean added
+     * (AC-DEC44-D2-EMPIRICAL-REFINEMENT-RESPECT).
      */
     @TestConfiguration
     static class TestAdminCredentials {

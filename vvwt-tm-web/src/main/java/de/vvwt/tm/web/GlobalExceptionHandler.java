@@ -66,9 +66,8 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  * Extended to include {@code de.vvwt.tm.web} in E22S07 (DEC-40 Clause A controller relocation).
  * Legacy exceptions ({@code de.vvwt.tm.domain.timer.InvalidTimerUrlException}, {@code
  * de.vvwt.tm.domain.timer.NoActiveTournamentException}, {@code
- * de.vvwt.tm.infrastructure.display.NoActivePhaseException}) are NOT handled here — they remain in
- * the legacy {@code GlobalExceptionHandler} during parallel-development phase (E21S13 atomic
- * cutover scope).
+ * infrastructure.display.NoActivePhaseException}) are NOT handled here — they remain in the legacy
+ * {@code GlobalExceptionHandler} during parallel-development phase (E21S13 atomic cutover scope).
  *
  * <h2>Security (AC-SEC-NO-EXCEPTION-LEAK)</h2>
  *

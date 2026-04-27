@@ -9,8 +9,10 @@ import org.springframework.web.bind.annotation.GetMapping;
  * <h2>Routes (AC-RED-FIRST-DISPLAY-VIEW-CONTROLLER)</h2>
  *
  * <ul>
- *   <li>{@code GET /display/overview} — serves the Gesamtübersicht SPA shell (AC-URL-PATHS-PRESERVED)
- *   <li>{@code GET /display/register} — serves the device registration SPA shell (AC-URL-PATHS-PRESERVED)
+ *   <li>{@code GET /display/overview} — serves the Gesamtübersicht SPA shell
+ *       (AC-URL-PATHS-PRESERVED)
+ *   <li>{@code GET /display/register} — serves the device registration SPA shell
+ *       (AC-URL-PATHS-PRESERVED)
  * </ul>
  *
  * <p>Both routes forward to the same Vite-built {@code index.html}. The Svelte app uses {@code
@@ -27,9 +29,8 @@ import org.springframework.web.bind.annotation.GetMapping;
  * <h2>DEC-16 offline compatibility (AC-URL-PATHS-PRESERVED)</h2>
  *
  * <p>The Vite-built {@code index.html} references only local assets ({@code /display/assets/...})
- * bundled in the JAR. No CDN links appear in the rendered HTML. {@link
- * DisplayViewControllerIT} verifies that no {@code https://} appears in {@code <script>} or {@code
- * <link>} tags.
+ * bundled in the JAR. No CDN links appear in the rendered HTML. {@link DisplayViewControllerIT}
+ * verifies that no {@code https://} appears in {@code <script>} or {@code <link>} tags.
  *
  * <h2>Security (AC-AUTHENTICATION-FLOW-PRESERVED)</h2>
  *
@@ -42,7 +43,7 @@ import org.springframework.web.bind.annotation.GetMapping;
  *
  * <ul>
  *   <li>DEC-40 Clause A — controller resides in {@code de.vvwt.tm.web}, NOT in any bounded-context
- *       module; relocated from {@code de.vvwt.tm.infrastructure.display.*} per E25 display track
+ *       module; relocated from legacy {@code infrastructure.display.*} per E25 display track
  *       reconstruction
  *   <li>DEC-22 Iron Law Q-1a — authored RED-first: {@link DisplayViewControllerIT} written before
  *       this class; RED commit 6e0e8d8; GREEN commit = this class
@@ -57,9 +58,9 @@ public class DisplayViewController {
     /**
      * Serves the Gesamtübersicht HTML shell at {@code GET /display/overview}.
      *
-     * <p>Forwards to the Vite-built {@code index.html} in {@code classpath:/static/display/}.
-     * The Svelte app handles token resolution, data fetching, and rendering client-side.
-     * URL path preserved verbatim per AC-URL-PATHS-PRESERVED (C-8 + D-9).
+     * <p>Forwards to the Vite-built {@code index.html} in {@code classpath:/static/display/}. The
+     * Svelte app handles token resolution, data fetching, and rendering client-side. URL path
+     * preserved verbatim per AC-URL-PATHS-PRESERVED (C-8 + D-9).
      *
      * @return forward directive to the static Svelte shell
      */
@@ -78,8 +79,8 @@ public class DisplayViewController {
      * <p>Forwards to the same Vite-built {@code index.html} as {@code /display/overview}. The
      * Svelte app reads {@code window.location.pathname} on mount and renders the registration page
      * when the path starts with {@code /display/register}. No authentication is required — display
-     * devices register themselves without admin credentials.
-     * URL path preserved verbatim per AC-URL-PATHS-PRESERVED (C-8 + D-9).
+     * devices register themselves without admin credentials. URL path preserved verbatim per
+     * AC-URL-PATHS-PRESERVED (C-8 + D-9).
      *
      * @return forward directive to the static Svelte shell (shared with /display/overview)
      */

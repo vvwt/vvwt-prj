@@ -9,7 +9,7 @@ package de.vvwt.tm.display;
  *
  * <p>Authored Q-1a TDD fresh at canonical FQN {@code de.vvwt.tm.display.NoActivePhaseException} per
  * DEC-22 Iron Law + D-7 Coexistence Option γ (delete legacy, author fresh). Legacy {@code
- * de.vvwt.tm.infrastructure.display.NoActivePhaseException} deleted at AC-DELETE-LEGACY-FIRST.
+ * infrastructure.display.NoActivePhaseException} deleted at AC-DELETE-LEGACY-FIRST.
  *
  * @see de.vvwt.tm.web.GlobalExceptionHandler
  * @see DEC-22
