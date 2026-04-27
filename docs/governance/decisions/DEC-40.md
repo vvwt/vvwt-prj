@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-40.md at 478f43a4441deb513240dcefdc41b8f1da4c0e4f 2026-04-22 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-40.md at e84706b78711e3ab44cb99c01ed335b7cd68df1c 2026-04-27 -->
 ---
 id: DEC-40
 domain: architecture
@@ -8,10 +8,11 @@ status: active
 created_by: discovery
 created_at: 2026-04-22
 last_updated_by: discovery
-last_updated_at: 2026-04-22
+last_updated_at: 2026-04-27
 supersedes: null
 superseded_by: null
 amends: null
+amended_by: [DEC-44, DEC-45]
 tags:
   - spring-modulith
   - primary-adapter-isolation
@@ -157,6 +158,8 @@ REST-DTOs for request body deserialization (e.g., `TournamentCreateRequest`, `Pa
 
 **Default bias for new endpoints:** entity-direct serialization UNLESS condition (a), (c), or (d) fires on first inspection. Condition (b) alone is insufficient to require a DTO — Spring-Data-JDBC entity refactors are internally auditable and do not routinely change HTTP-contract-visible fields; when they do, a migration story addresses the wire-format change explicitly. This default-bias gives the story author a clear starting position without removing the per-endpoint override.
 
+**Bounded-context-owned query-shape DTOs (Java records):** When a service in a bounded-context module returns a record DTO that represents the bounded context's public query-shape, the record resides in the bounded-context module's public package — NOT in `web.internal.dto.*`. This is a third placement category complementary to entity-direct serialization (this paragraph's default-bias above) and web-tier-owned DTOs (the conditions (a)/(b)/(c)/(d) sub-bullets above). See §"2026-04-27 Clarification — Bounded-context-owned query-shape DTOs (Java records)" below for the full carve-out, the A-vs-E pattern decision rule, and the Modulith-cycle rationale that motivated the explicit treatment.
+
 ### Clause C — L2.5 (Application-Layer) preserved as evolutionary option
 
 Cross-context application-services are currently FORBIDDEN in bounded-context modules. If such a service becomes necessary, a new `de.vvwt.tm.application` Modulith module will be introduced via separate Discovery session + amendment DEC.
@@ -236,6 +239,78 @@ The `web` module's controller ITs use `@ApplicationModuleTest(webEnvironment = W
 - **Keep controllers in bounded contexts + resolve R1 case-by-case** (Approach A from E22-BOUNDARY-001) — rejected after human validation. Case-by-case resolution (lazy validation for R1, event-driven for a future case, shared-kernel for another) fragments the architecture. The R1 pattern is predictable enough to warrant a structural fix.
 - **`de.vvwt.tm.api` or `de.vvwt.tm.rest` or `de.vvwt.tm.presentation` naming** — rejected. `web` is established project convention (existing legacy `de.vvwt.tm.infrastructure.web.*` signals intent) and avoids collision with `de.vvwt.tm.scoring` REST routes (`/api/score/*`) that would make `api` ambiguous. `presentation` is overly Clean-Architecture-formal; `rest` excludes WebSocket endpoints that may land in the same module.
 - **Introducing the `application` module AND dropping cross-context orchestration ban simultaneously** — rejected. The ban + evolutionary-option pattern preserves architectural discipline. A permissive "application module exists; put cross-context stuff there" rule invites Application-Service bloat without Discovery scrutiny.
+
+---
+
+## 2026-04-26 Amendment — Clause E §Sub-Clause-3 activation per DEC-44
+
+See **DEC-44** for the full amendment. In summary: at E24S06 the Clause E §Sub-Clause-3 SHALL trigger was met (`web.allowedDependencies` reached 6 unique Modulith modules: tenant + tournament + scoring + photo + certificate + print). No DEC-amendment was authored at the time, leaving the structural-escape SHALL operationally unfulfilled. **DEC-44 RETRO-CORRECTS this missed activation**: web-module controller integration tests switch from `@ApplicationModuleTest(mode = ALL_DEPENDENCIES, webEnvironment = RANDOM_PORT)` to `@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = de.vvwt.tm.TournamentManagerApplication.class)`. DEC-38 Clause A canon retained for bounded-context-module ITs; web becomes the explicit carve-out.
+
+DEC-44 D2 mandates `WebModuleTestConfig` auth-substitute beans gain `@Primary` annotation (3 of 4: `passwordEncoder()`, `userDetailsService()`, `securityFilterChain()`; `adminCredentialsProvider()` stays non-`@Primary` to avoid collision with per-IT `TestAdminCredentials.@Primary` overrides).
+
+DEC-44 D4 marks Clause E §Sub-Clause-2 (Cold-Boot-Escape) **operationally obsolete for web-module ITs** (already on `@SpringBootTest`). Sub-Clause-2 retains its meaning for bounded-context-module ITs that might fire it.
+
+All other clauses of this DEC remain UNCHANGED by DEC-44.
+
+## 2026-04-26 Amendment — Clause C L2.5 verdict per DEC-45
+
+See **DEC-45** for the full amendment. In summary: the Trigger-α (Clause A expansion-rule) re-examination obligation that fires at each Wave-2 context addition (E25 display, E26 timer, E27 slotopt-integration) is **administratively resolved** with the verdict **L2 (Primary-Adapter-Isolation per DEC-40 Clause A) stays**. No L2.5 escalation. No `de.vvwt.tm.application` module introduction during Wave-2.
+
+DEC-45 D2 imposes per-epic Trigger-(i)/(ii) reservations: E25 + E27 unconditional pre-approval; E26 PROVISIONAL pending empirical Trigger-(ii) re-examination at E26 per-epic Discovery for the timer countdown + WebSocket-sync pattern.
+
+DEC-45 D3 explicitly preserves the L2.5 escalation path: any future story (Wave-2 OR later) introducing a service satisfying Trigger (i) or Trigger (ii) requires a NEW Discovery + amendment-DEC. The pre-approval covers Trigger-α-driven re-examination only.
+
+The pre-approval is **bounded to Wave-2 trajectory**. For Wave-3+ epics, the Trigger-α re-examination obligation is reinstated in full.
+
+All other clauses of this DEC remain UNCHANGED by DEC-45 (verdict-recording amendment, no textual modification of trigger conditions).
+
+(Frontmatter `amended_by: [DEC-44, DEC-45]` is the authoritative amendment record; `status` remains `active`; no `supersedes`/`superseded_by` change.)
+
+## 2026-04-27 Clarification — Bounded-context-owned query-shape DTOs (Java records)
+
+Clause B's REST-DTO placement rule ("Controllers SHOULD use REST-DTOs in `de.vvwt.tm.web.internal.dto.*`") was authored to govern HTTP-contract-owned types — request bodies, response DTOs that aggregate cross-context data, and DTOs that exist for HTTP-only concerns (field omission, contract stability, field aliasing per conditions (a)/(b)/(c)/(d)). It does NOT apply to a third type that surfaced at E25 (`display`) Discovery resumption: bounded-context-owned record DTOs that play the role of the bounded context's public query-shape.
+
+### The pattern
+
+A bounded-context module exposes a service interface (per DEC-35: public root, naming canon `Default*`) whose query methods return Java records carrying the answer to that domain's read-side question. The record sits at the module root (e.g., `de.vvwt.tm.display.DisplayPhaseOverviewResponse`). The web-module controller consumes the service cross-module via its existing `web→{context}` allowedDependency, and the controller serializes the record directly via Jackson without any web-tier DTO wrapping.
+
+### Why this is NOT a Clause B placement target
+
+Clause B's `web.internal.dto.*` placement requires the type to live in the `web` module. If the same type is also a service-method return type in a bounded-context module, the bounded context would have to depend on `web.internal.dto.*` — which is forbidden two ways: (1) `.internal` packages are module-private under Spring Modulith, so bounded-context modules cannot legally import them; (2) `web→{context}` already exists for the controller-service path, so any reverse `{context}→web` dependency creates a forbidden cycle that `ApplicationModules.verify()` rejects. Clause B was authored for HTTP-contract-owned types — those by construction do NOT cross back into bounded contexts and do NOT trigger this collision.
+
+### When a record is bounded-context-owned vs. web-tier-owned — the A-vs-E decision rule
+
+For a record DTO returned by a bounded-context service, choose between two patterns:
+
+- **Pattern A — Bounded-context-owned** (record at `de.vvwt.tm.{context}.*` root, public). Use this when the record's wire shape equals the projection shape — i.e., the controller serializes the record directly without field omission, aliasing, or cross-context aggregation. The bounded context owns the wire shape; the web tier is a thin adapter. **E25 (`display`) reference case:** 3 records (`DisplayPhaseOverviewResponse`, `DisplayMatchesResponse`, `DisplayGroupStandingsResponse`) at `de.vvwt.tm.display.*` consumed verbatim by `de.vvwt.tm.web.DisplayOverviewController`. No mapping. No web-tier DTO.
+
+- **Pattern E — Service-layer projection separate from web-tier DTO** (reserved for future contexts where projection ≠ wire shape). Use this when ANY of Clause B's conditions (a)/(c)/(d) fires for the wire shape: (a) field omission for security or privacy variants, (c) cross-context aggregation merging records from multiple bounded contexts, (d) field aliasing where JSON field names differ from Java field names. In this pattern, the bounded-context service returns its own projection record at `de.vvwt.tm.{context}.*`; the web-module controller maps the projection to a separate record at `de.vvwt.tm.web.internal.dto.*` that is the HTTP wire shape. Mapping is a controller-side concern. This pattern preserves Clause B's web-tier-DTO placement rule for the HTTP-only DTO while still giving the bounded context ownership of its own query projection.
+
+### Decision rule for new endpoints
+
+When authoring a new endpoint that returns data from a bounded-context service:
+
+1. Identify the data the service returns (the projection).
+2. Identify the data the HTTP response should carry (the wire shape).
+3. If projection == wire shape: **Pattern A** — record at `de.vvwt.tm.{context}.*`.
+4. If projection ≠ wire shape (any of Clause B (a)/(c)/(d) fires): **Pattern E** — projection at `de.vvwt.tm.{context}.*`, separate DTO at `de.vvwt.tm.web.internal.dto.*`, controller maps.
+
+In either case, request-body DTOs (Jackson-deserialized inputs) remain in `de.vvwt.tm.web.internal.dto.*` per Clause B's request-body sentence — this clarification governs response-record placement only.
+
+### Scope
+
+This clarification applies prospectively to all bounded-context reconstructions: E25 (`display`) immediately; E26 (`timer`), E27 (`slotopt-integration`), and beyond per per-epic Discovery assessment. It does NOT retroactively re-classify existing controllers/DTOs in already-reconstructed contexts (the 7 E21 controllers migrated under Clause D Q-1b + the scoring DTOs reconstructed under Clause D Q-1a remain at their current placement).
+
+### Frontmatter handling
+
+`last_updated_at` advances to 2026-04-27. `amended_by` is UNCHANGED — that field is reserved for cross-references to other amending DECs; no DEC-49 was authored. The change is **substantive in subject-matter** (it adds a third placement category to Clause B's permissive rule) but **inline in mechanism** (per E25S01-escalation Discovery session 2026-04-27 explicit user choice). DEC-31 §(f) byte-difference re-snapshot propagates the new content to `vvwt-prj/docs/governance/decisions/DEC-40.md` at the next `source`-mode story closure that lists DEC-40 in `related_decs` (E25S01, E25S02, or E25S03 — explicitly enumerated in E25S03's `AC-DEC31-PROPAGATE-SECOND-COMMIT` to force determinism since §(f) is permissive ("MAY"), not mandatory).
+
+### References
+
+- E25S01 escalation commit (outer repo): `23d947b` — "Modulith cycle: display→web.internal.dto + web→display (E25S02 controller) violates ApplicationModules.verify(); AC-specified web.internal.dto.* is web-module-internal inaccessible to display module; DTOs must live in display.* public package"
+- Resolution Brief: `discovery-2026-04-27-e25s01-escalation-resolution` (Tier-2 Reviewer cycle 1 FAIL → cycle 2 PASS; human-validated 2026-04-27)
+- Related DECs: DEC-21 (Modulith adoption — boundary enforcement enabled the cycle detection), DEC-35 (record placement was mute under existing rules — this clarification fills the gap)
+- Industry alignment: Spring Modulith reference samples — bounded contexts publish their query-shapes via the module root; web tier is a thin primary-adapter without redundant DTO wrapping.
 
 ## References
 

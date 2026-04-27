@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-44.md at cf2ebf6c9b1e6752b7a62413c0b1dab007d58762 2026-04-26 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-44.md at ba3812df4d35f775948584ccd8261974bc4544f1 2026-04-27 -->
 ---
 id: DEC-44
 domain: governance
@@ -8,7 +8,7 @@ status: active
 created_by: discovery
 created_at: 2026-04-26
 last_updated_by: discovery
-last_updated_at: 2026-04-26
+last_updated_at: 2026-04-27
 supersedes: null
 superseded_by: null
 amends: DEC-40
@@ -198,3 +198,55 @@ DEC-44 amends DEC-40 (Clause E §Sub-Clause-3 fulfillment) and DEC-38 (web carve
   - `vvwt-prj/vvwt-tm-web/src/test/java/de/vvwt/tm/web/WebModuleTestConfig.java` (4 auth-substitutes; 6 domain-mock @Primary; 1 tenant-context @Bean)
 - User auto-memory: `feedback_dec22_refactor_phase_first.md` (§refactor-clause framing for the 10-IT swap)
 - Operationalization: **E39 + E39S01** (governance-only mini-epic + single bundle Delivery story)
+
+---
+
+## 2026-04-27 Empirical Refinement — D2 implementation deviation (post-E39S01)
+
+E39S01 (PR #131, merged 2026-04-26T20:22:12Z) operationalized DEC-44 D1 + D2. During Delivery, two of the four D2 sub-clauses were empirically refuted by Spring Security internals; the actual implementation deviates from the D2 specification. This pointer paragraph documents the deviation textually within DEC-44 itself (no separate amendment-DEC); the full deviation rationale lives in `contexts/artefacts/impl-reports/E39S01.impl-report.md` § "AC Deviation Notes".
+
+### What the spec said (D2)
+
+| Bean in `WebModuleTestConfig` | DEC-44 D2 specification |
+|---|---|
+| `passwordEncoder()` | `@Primary` |
+| `userDetailsService(...)` | `@Primary` |
+| `securityFilterChain(...)` | `@Primary` |
+| `adminCredentialsProvider()` | NON-`@Primary` (per-IT collision avoidance) |
+
+### What the actual implementation does (PR #131)
+
+| Bean | Actual implementation | Match D2? |
+|---|---|---|
+| `passwordEncoder()` | `@Bean("webItPasswordEncoder") @Primary` | ✓ matches D2 (with distinct bean name addition) |
+| `adminCredentialsProvider()` | `@Bean("webItAdminCredentialsProvider")` (NON-`@Primary` placeholder; per-IT inner `TestAdminCredentials.@Primary AdminCredentialsProvider` overrides via name + `spring.main.allow-bean-definition-overriding=true`) | ✓ matches D2 (with distinct bean name addition) |
+| `userDetailsService(...)` | **REMOVED** | ✗ deviates |
+| `securityFilterChain(...)` | **REMOVED** | ✗ deviates |
+
+### Why the two beans were removed (empirical Spring Security constraints)
+
+**`userDetailsService` removal** — Spring Security's `InitializeUserDetailsManagerConfigurer` does NOT respect `@Primary` for `UserDetailsService` selection. With two `UserDetailsService` beans present, the configurer logs the warning *"Found 2 UserDetailsService beans … Global Authentication Manager will not use a UserDetailsService for username/password login."* and falls back to the production DB-backed UDS regardless of `@Primary`. Result under D2-as-specified: every authenticated test would return 401 because the production UDS validates against the wrong (production-stored) password hash, not the per-IT test hash. The fix is to leave the production `userDetailsService` as the sole UDS bean and feed it the test password via the `@Primary AdminCredentialsProvider` chain (per-IT-override).
+
+**`securityFilterChain` removal** — Spring Security 6.x strictly rejects two `SecurityFilterChain` beans whose request matchers overlap; startup fails with `"A filter chain that matches any request has already been configured"`. D2-as-specified would not have started the test ApplicationContext at all. The fix is to leave the production `SecurityFilterChain` as the sole chain; it is wired correctly to the (production) `UserDetailsService` which in turn receives the `@Primary AdminCredentialsProvider` chain.
+
+### What this refinement changes
+
+- **D1 (annotation switch)** — UNCHANGED. `@SpringBootTest(webEnvironment = RANDOM_PORT, classes = de.vvwt.tm.TournamentManagerApplication.class)` on all 10 web-module ITs.
+- **D2 (mechanism for auth-substitute beans)** — REFINED. The D2 *principle* is preserved (test substitutes win over production beans without `BeanDefinitionOverrideException`); the D2 *mechanism* shifts from "3 of 4 `@Primary` substitutes" to "1 `@Primary` + 1 distinct-named-NON-`@Primary` placeholder + 2 omitted (production beans remain sole instances)". The overall flow is: production `SecurityFilterChain` → production `UserDetailsService` → `@Primary AdminCredentialsProvider` (from per-IT override) + `@Primary webItPasswordEncoder` → per-IT test hash validates correctly.
+- **D2 also added** an unspecified-but-required complement: per-IT `@Import({WebModuleTestConfig.class, <IT>.TestAdminCredentials.class})` because `SpringBootTestContextBootstrapper` (unlike `ApplicationModuleTestContextBootstrapper`) does NOT auto-detect nested static `@TestConfiguration` classes. 8 of the 10 retrofitted ITs needed this addition (PrintControllerIT and CertificateRenderControllerIT already had this pattern).
+- **D3 (DEC-38 amendment pointer)** — UNCHANGED.
+- **D4 (Sub-Clause-2 obsolescence)** — UNCHANGED.
+
+### Why pointer-in-place rather than separate amendment-DEC
+
+The deviation is mechanism-detail, not principle-detail; the D2 *outcome* (test substitutes correctly win over production beans for HTTP Basic auth in web-module ITs) is achieved as intended. Authoring DEC-48 as a textual amendment of DEC-44 would be governance ceremony for what is effectively a "spec assumed X about Spring Security; X was empirically wrong; the correct mechanism Y is in the impl-report." This pointer paragraph keeps the historical record of the as-specified plan visible in DEC-44's main body while making future readers aware of the actual end-state via this refinement section.
+
+### Frontmatter
+
+`last_updated_at` advances to `2026-04-27`; `amended_by` UNCHANGED (no external amendment-DEC was authored — this is a self-referential textual refinement). `status` remains `active`.
+
+### Reading guidance for future Discovery / Delivery agents
+
+When planning future test-infrastructure changes that touch Spring Security's `UserDetailsService` or `SecurityFilterChain` beans, read DEC-44 D2 **together with** this refinement section. Do not invoke `@Primary` on a `UserDetailsService` bean as a substitution mechanism — Spring Security's internal configurer will ignore it. Do not author a second `SecurityFilterChain` bean alongside the production one — use distinct request matchers AND `@Order` if both must coexist; otherwise extend the production chain.
+
+The pattern empirically validated by E39S01: distinct bean name + `@Primary` for non-Security infrastructure beans (e.g., `PasswordEncoder`); production-bean preservation + `@Primary AdminCredentialsProvider` chain for Security wiring.
