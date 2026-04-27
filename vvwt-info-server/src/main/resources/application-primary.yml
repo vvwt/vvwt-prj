@@ -1,0 +1,26 @@
+# vvwt-info-server — primary profile configuration
+# Story: E38S01 — DEC-42 D3, D4
+# Profile: primary (activated via spring.profiles.active=primary)
+# Database: PostgreSQL (DEC-42 D4, DEC-3 OSS-compliant)
+# Registration mode: INVITATION_ONLY, unlimited tenants (DEC-42 D3)
+
+# ---------------------------------------------------------------------------
+# Persistence — PostgreSQL (DEC-42 D4)
+# Connection details must be supplied by the operator at deployment time.
+# ---------------------------------------------------------------------------
+spring:
+  datasource:
+    url: "jdbc:postgresql://${INFO_DB_HOST:localhost}:${INFO_DB_PORT:5432}/${INFO_DB_NAME:vvwt_info}"
+    driver-class-name: org.postgresql.Driver
+    username: ${INFO_DB_USER:vvwt_info}
+    password: ${INFO_DB_PASSWORD}
+
+# ---------------------------------------------------------------------------
+# Application — primary mode settings (DEC-42 D3)
+# These properties are placeholders; E38S04 adds the actual config binding.
+# ---------------------------------------------------------------------------
+info:
+  registration:
+    mode: INVITATION_ONLY
+  tenant:
+    max-tenants: -1

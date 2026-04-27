@@ -27,6 +27,11 @@
 
         <!-- Tournament Manager modules (E02+) — DEC-10, DEC-7 -->
         <module>vvwt-tm-web</module>
+
+        <!-- Public Participant Info Service modules (E38+) — DEC-42, DEC-10 -->
+        <module>vvwt-info-dto</module>
+        <module>vvwt-info-server</module>
+        <module>vvwt-info-client</module>
     </modules>
 
     <!-- ===================================================================
@@ -175,6 +180,13 @@
             <dependency>
                 <groupId>de.vvwt</groupId>
                 <artifactId>vvwt-slotopt-worker-lib</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- Public Participant Info Service modules (E38 — DEC-42) -->
+            <dependency>
+                <groupId>de.vvwt</groupId>
+                <artifactId>vvwt-info-dto</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

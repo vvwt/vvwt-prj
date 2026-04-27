@@ -39,3 +39,8 @@ vvwt-tm-web/src/main/ui-display/.vite/
 vvwt-tm-web/src/main/ui-timer/node_modules/
 vvwt-tm-web/src/main/ui-timer/dist-timer/
 vvwt-tm-web/src/main/ui-timer/.vite/
+
+# Info Client SPA (E38S01): generated assets and node_modules
+vvwt-info-client/src/main/ui/node_modules/
+vvwt-info-client/src/main/ui/dist/
+vvwt-info-client/src/main/ui/.vite/

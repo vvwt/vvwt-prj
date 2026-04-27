@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>de.vvwt</groupId>
+        <artifactId>vvwt-prj</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>vvwt-info-dto</artifactId>
+    <name>VVW Info — DTO Contract</name>
+    <description>
+        Pure Java contract artefact for the Public Participant Info Service (DEC-42 D1).
+        Jackson annotations + Bean Validation API only — NO Spring, NO JPA, NO Lombok.
+        Java records are the preferred shape for immutable DTOs (DEC-10 Java 21 baseline).
+        Stories: E38S01 (skeleton), E38S02 (DTO contract classes).
+    </description>
+
+    <!-- ===================================================================
+         Compile dependencies — pure Java contract only (DEC-42 D1)
+         NO Spring, NO JPA — only Jackson + Bean Validation API
+         =================================================================== -->
+    <dependencies>
+
+        <!-- Jackson core for serialization annotations on DTO records.
+             Version managed by Spring Boot BOM imported in parent (DEC-10). -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+        </dependency>
+
+        <!-- jackson-databind needed for consumers; kept here for completeness.
+             Version from Spring Boot BOM. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <!-- Bean Validation API — compile-scope only; no validator-impl here (DEC-42 D1).
+             jakarta.validation-api 3.x is managed by Spring Boot BOM. -->
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+
+        <!-- ===================================================================
+             Test dependencies (versions managed by parent POM)
+             =================================================================== -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

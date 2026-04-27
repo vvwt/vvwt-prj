@@ -1,0 +1,28 @@
+# vvwt-info-server — self-host profile configuration
+# Story: E38S01 — DEC-42 D3, D4
+# Profile: self-host (default, no-config)
+# Database: H2 embedded (DEC-42 D4, DEC-3 OSS-compliant)
+# Registration mode: OPEN_FCFS, single-tenant-only (DEC-42 D3)
+
+# ---------------------------------------------------------------------------
+# Persistence — H2 embedded (DEC-42 D4)
+# ---------------------------------------------------------------------------
+spring:
+  datasource:
+    url: "jdbc:h2:mem:vvwt-info-self-host;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  sql:
+    init:
+      mode: never
+
+# ---------------------------------------------------------------------------
+# Application — self-host mode settings (DEC-42 D3)
+# These properties are placeholders; E38S04 adds the actual config binding.
+# ---------------------------------------------------------------------------
+info:
+  registration:
+    mode: OPEN_FCFS
+  tenant:
+    max-tenants: 1
