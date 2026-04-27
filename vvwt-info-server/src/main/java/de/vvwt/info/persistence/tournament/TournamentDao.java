@@ -3,6 +3,7 @@ package de.vvwt.info.persistence.tournament;
 import java.util.Optional;
 import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.repository.CrudRepository;
+import org.springframework.data.repository.query.Param;
 
 /**
  * Spring Data JDBC repository for {@link TournamentRecord}.
@@ -36,7 +37,8 @@ public interface TournamentDao extends CrudRepository<TournamentRecord, String> 
                     + "  AND location_id = :locationId "
                     + "  AND superseded_at IS NULL "
                     + "LIMIT 1")
-    Optional<TournamentRecord> findActiveTournament(String tenantId, String locationId);
+    Optional<TournamentRecord> findActiveTournament(
+            @Param("tenantId") String tenantId, @Param("locationId") String locationId);
 
     /**
      * Returns a tournament by its opaque bearer token.
@@ -45,5 +47,6 @@ public interface TournamentDao extends CrudRepository<TournamentRecord, String> 
      * @return the tournament record, or empty if not found
      */
     @Query("SELECT * FROM tournament WHERE tournament_token = :tournamentToken LIMIT 1")
-    Optional<TournamentRecord> findByTournamentToken(String tournamentToken);
+    Optional<TournamentRecord> findByTournamentToken(
+            @Param("tournamentToken") String tournamentToken);
 }

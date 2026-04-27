@@ -3,6 +3,7 @@ package de.vvwt.info.persistence.tournament;
 import java.util.List;
 import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.repository.CrudRepository;
+import org.springframework.data.repository.query.Param;
 
 /**
  * Spring Data JDBC repository for {@link TournamentDeltaRecord}.
@@ -29,5 +30,6 @@ public interface TournamentDeltaDao
             "SELECT * FROM tournament_delta "
                     + "WHERE tournament_id = :tournamentId AND seq > :sinceSeq "
                     + "ORDER BY seq ASC")
-    List<TournamentDeltaRecord> findDeltasSince(String tournamentId, long sinceSeq);
+    List<TournamentDeltaRecord> findDeltasSince(
+            @Param("tournamentId") String tournamentId, @Param("sinceSeq") long sinceSeq);
 }

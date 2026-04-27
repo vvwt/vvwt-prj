@@ -33,6 +33,12 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+        <!-- Spring Boot WebSocket starter — WS reader endpoint (E38S06 AC7) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+
         <!-- Spring Boot Data JDBC — CRUD persistence (DEC-42 D4, NOT JPA) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

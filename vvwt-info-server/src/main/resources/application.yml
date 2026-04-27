@@ -21,6 +21,14 @@ spring:
     enabled: true
 
 # ---------------------------------------------------------------------------
+# Reader endpoints — E38S06
+# ---------------------------------------------------------------------------
+vvwt:
+  info:
+    reader:
+      poll-cadence-seconds: 5   # AC14: server-recommended HTTP poll cadence; sent in StreamHello
+
+# ---------------------------------------------------------------------------
 # HTTP Server — minimal scaffold (no port override yet; E38S04+ may set this)
 # ---------------------------------------------------------------------------
 server:

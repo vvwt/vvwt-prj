@@ -70,6 +70,8 @@ class RegistrationControllerIT {
     void clearMutableTables() {
         var jdbc = new JdbcTemplate(dataSource);
         jdbc.execute("DELETE FROM consumed_invitation_tokens");
+        jdbc.execute("DELETE FROM tournament_delta");
+        jdbc.execute("DELETE FROM tournament");
         jdbc.execute("DELETE FROM tenant");
         jdbc.execute("DELETE FROM audit_log");
     }
