@@ -307,18 +307,21 @@ class DisplayOverviewControllerIT {
 
         // Create ratings for each avatar (non-zero for AC3 standings test)
         // Team Alpha: 3 points → ranks first (D-33: points DESC)
+        // Constructor: avatarId, tenantId, matchCount, setCount, points, setsWon, setsLost,
+        //              ballsWon, ballsLost, setQuotient, ballQuotient, withoutAssessment, updatedAt
         TeamAvatarRating ratingA =
                 new TeamAvatarRating(
                         avatarAId,
                         defaultTenantId,
-                        1,
-                        1,
-                        3,
-                        0,
-                        25,
-                        15,
-                        Double.MAX_VALUE,
-                        Double.MAX_VALUE,
+                        1,   // matchCount
+                        1,   // setCount
+                        3,   // points
+                        1,   // setsWon
+                        0,   // setsLost
+                        25,  // ballsWon
+                        15,  // ballsLost
+                        Double.MAX_VALUE,  // setQuotient (sentinel: setsLost=0)
+                        Double.MAX_VALUE,  // ballQuotient (sentinel: ballsLost=0 relative)
                         false,
                         now);
         // Team Beta: 0 points → ranks second
