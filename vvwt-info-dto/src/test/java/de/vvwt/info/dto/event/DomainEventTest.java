@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.exc.InvalidTypeIdException;
-import de.vvwt.info.dto.event.DomainEvent;
 import de.vvwt.info.dto.event.DomainEvent.MatchResultFinalized;
 import de.vvwt.info.dto.event.DomainEvent.RoundCompleted;
 import de.vvwt.info.dto.event.DomainEvent.ScheduleAdded;
@@ -15,9 +14,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * AC2 (testing) — polymorphic discriminator dispatch for sealed DomainEvent.
- * All 5 sealed subtypes dispatch from discriminator-tagged JSON.
- * Unknown discriminator produces InvalidTypeIdException (NOT silent fallback).
+ * AC2 (testing) — polymorphic discriminator dispatch for sealed DomainEvent. All 5 sealed subtypes
+ * dispatch from discriminator-tagged JSON. Unknown discriminator produces InvalidTypeIdException
+ * (NOT silent fallback).
  *
  * <p>DEC-22 Iron Law: this test was written BEFORE DomainEvent.java existed (RED state).
  *

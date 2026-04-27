@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import de.vvwt.info.dto.registration.AlgorithmDescriptor;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -17,9 +16,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * AC7 (security) — AlgorithmDescriptor record carries DEC-43 D1 field shape.
- * AC1 (testing) — round-trip test.
- * Missing algorithm_id produces a Bean Validation error.
+ * AC7 (security) — AlgorithmDescriptor record carries DEC-43 D1 field shape. AC1 (testing) —
+ * round-trip test. Missing algorithm_id produces a Bean Validation error.
  *
  * <p>DEC-22 Iron Law: this test was written BEFORE AlgorithmDescriptor.java existed (RED state).
  *
@@ -45,10 +43,7 @@ class AlgorithmDescriptorTest {
         // AC1, AC7 — round-trip with all fields
         AlgorithmDescriptor descriptor =
                 new AlgorithmDescriptor(
-                        "ed25519",
-                        "Ed25519",
-                        LocalDate.of(2030, 12, 31),
-                        Map.of("keySize", "256"));
+                        "ed25519", "Ed25519", LocalDate.of(2030, 12, 31), Map.of("keySize", "256"));
         String json = mapper.writeValueAsString(descriptor);
         AlgorithmDescriptor deserialized = mapper.readValue(json, AlgorithmDescriptor.class);
         assertThat(deserialized).isEqualTo(descriptor);
@@ -70,8 +65,7 @@ class AlgorithmDescriptorTest {
         AlgorithmDescriptor descriptor = new AlgorithmDescriptor(null, "Ed25519", null, null);
         Set<ConstraintViolation<AlgorithmDescriptor>> violations = validator.validate(descriptor);
         assertThat(violations).isNotEmpty();
-        assertThat(violations)
-                .anyMatch(v -> v.getPropertyPath().toString().equals("algorithm_id"));
+        assertThat(violations).anyMatch(v -> v.getPropertyPath().toString().equals("algorithm_id"));
     }
 
     @Test
@@ -80,8 +74,7 @@ class AlgorithmDescriptorTest {
         AlgorithmDescriptor descriptor = new AlgorithmDescriptor("   ", "Ed25519", null, null);
         Set<ConstraintViolation<AlgorithmDescriptor>> violations = validator.validate(descriptor);
         assertThat(violations).isNotEmpty();
-        assertThat(violations)
-                .anyMatch(v -> v.getPropertyPath().toString().equals("algorithm_id"));
+        assertThat(violations).anyMatch(v -> v.getPropertyPath().toString().equals("algorithm_id"));
     }
 
     @Test
@@ -90,7 +83,6 @@ class AlgorithmDescriptorTest {
         AlgorithmDescriptor descriptor = new AlgorithmDescriptor("ed25519", null, null, null);
         Set<ConstraintViolation<AlgorithmDescriptor>> violations = validator.validate(descriptor);
         assertThat(violations).isNotEmpty();
-        assertThat(violations)
-                .anyMatch(v -> v.getPropertyPath().toString().equals("display_name"));
+        assertThat(violations).anyMatch(v -> v.getPropertyPath().toString().equals("display_name"));
     }
 }

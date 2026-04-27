@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.exc.InvalidTypeIdException;
-import de.vvwt.info.dto.snapshot.ScheduleEntry;
 import de.vvwt.info.dto.snapshot.ScheduleEntry.Match;
 import de.vvwt.info.dto.snapshot.ScheduleEntry.Pause;
 import de.vvwt.info.dto.snapshot.ScheduleEntry.SpecialAppointment;
@@ -13,9 +12,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * AC2 (testing) — polymorphic discriminator dispatch for sealed ScheduleEntry.
- * Match, SpecialAppointment, Pause subtypes deserialize from discriminator-tagged JSON.
- * Unknown discriminator produces InvalidTypeIdException.
+ * AC2 (testing) — polymorphic discriminator dispatch for sealed ScheduleEntry. Match,
+ * SpecialAppointment, Pause subtypes deserialize from discriminator-tagged JSON. Unknown
+ * discriminator produces InvalidTypeIdException.
  *
  * <p>DEC-22 Iron Law: this test was written BEFORE ScheduleEntry.java existed (RED state).
  *

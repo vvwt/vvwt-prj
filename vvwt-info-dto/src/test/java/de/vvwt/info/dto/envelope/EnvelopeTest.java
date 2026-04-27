@@ -1,10 +1,8 @@
 package de.vvwt.info.dto.envelope;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.vvwt.info.dto.envelope.Envelope;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -14,9 +12,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * AC1 (testing) — RED-first JSON round-trip test for Envelope.
- * AC10 (error-handling) — envelope wraps every cross-subsystem payload; missing schemaVersion
- * produces a Bean Validation failure.
+ * AC1 (testing) — RED-first JSON round-trip test for Envelope. AC10 (error-handling) — envelope
+ * wraps every cross-subsystem payload; missing schemaVersion produces a Bean Validation failure.
  *
  * <p>DEC-22 Iron Law: this test was written BEFORE Envelope.java existed (RED state).
  *
@@ -37,13 +34,16 @@ class EnvelopeTest {
 
     @Test
     void roundTrip_stringPayload() throws Exception {
-        // AC1 — round-trip test: writeValueAsString then readValue produces equals-identical instance
+        // AC1 — round-trip test: writeValueAsString then readValue produces equals-identical
+        // instance
         Envelope<String> envelope = new Envelope<>("1.0", "hello payload");
         String json = mapper.writeValueAsString(envelope);
         @SuppressWarnings("unchecked")
         Envelope<String> deserialized =
                 mapper.readValue(
-                        json, mapper.getTypeFactory().constructParametricType(Envelope.class, String.class));
+                        json,
+                        mapper.getTypeFactory()
+                                .constructParametricType(Envelope.class, String.class));
         assertThat(deserialized).isEqualTo(envelope);
     }
 
@@ -63,7 +63,8 @@ class EnvelopeTest {
         Envelope<String> envelope = new Envelope<>(null, "payload");
         Set<ConstraintViolation<Envelope<String>>> violations = validator.validate(envelope);
         assertThat(violations).isNotEmpty();
-        assertThat(violations).anyMatch(v -> v.getPropertyPath().toString().equals("schemaVersion"));
+        assertThat(violations)
+                .anyMatch(v -> v.getPropertyPath().toString().equals("schemaVersion"));
     }
 
     @Test

@@ -16,10 +16,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * AC3 (testing) — forward/backward compatibility:
- * - A deserializer reading a payload with an unknown optional field deserializes successfully
- *   (Jackson FAIL_ON_UNKNOWN_PROPERTIES=false).
- * - A missing required field produces a Bean Validation failure with the field name in the message.
+ * AC3 (testing) — forward/backward compatibility: - A deserializer reading a payload with an
+ * unknown optional field deserializes successfully (Jackson FAIL_ON_UNKNOWN_PROPERTIES=false). - A
+ * missing required field produces a Bean Validation failure with the field name in the message.
  *
  * <p>DEC-22 Iron Law: this test was written BEFORE production classes existed (RED state).
  *
@@ -47,7 +46,8 @@ class ForwardCompatibilityTest {
 
     @Test
     void unknownOptionalField_deserializesSuccessfully() throws Exception {
-        // AC3 — forward compat: unknown extra field is tolerated with FAIL_ON_UNKNOWN_PROPERTIES=false
+        // AC3 — forward compat: unknown extra field is tolerated with
+        // FAIL_ON_UNKNOWN_PROPERTIES=false
         String json =
                 "{\"algorithm_id\":\"ed25519\","
                         + "\"display_name\":\"Ed25519\","
@@ -86,7 +86,9 @@ class ForwardCompatibilityTest {
                         + "\"display_name\":\"Ed25519\"}";
         // Using a sealed type for this test
         assertThatThrownBy(
-                        () -> lenientMapper.readValue(json, de.vvwt.info.dto.event.DomainEvent.class))
+                        () ->
+                                lenientMapper.readValue(
+                                        json, de.vvwt.info.dto.event.DomainEvent.class))
                 .isInstanceOf(com.fasterxml.jackson.databind.exc.InvalidTypeIdException.class);
     }
 }

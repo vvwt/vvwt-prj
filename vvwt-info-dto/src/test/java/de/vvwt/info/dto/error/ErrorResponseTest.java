@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.exc.InvalidTypeIdException;
-import de.vvwt.info.dto.error.ErrorResponse;
 import de.vvwt.info.dto.error.ErrorResponse.FullResyncRequired;
 import de.vvwt.info.dto.error.ErrorResponse.RateLimited;
 import de.vvwt.info.dto.error.ErrorResponse.RegistrationRejected;
@@ -16,9 +15,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * AC2 (testing) — polymorphic discriminator dispatch for sealed ErrorResponse.
- * AC9 (error-handling) — ErrorResponse sealed type; Phase 1 subtypes; RegistrationRejected.reason
- * as open String.
+ * AC2 (testing) — polymorphic discriminator dispatch for sealed ErrorResponse. AC9 (error-handling)
+ * — ErrorResponse sealed type; Phase 1 subtypes; RegistrationRejected.reason as open String.
  *
  * <p>DEC-22 Iron Law: this test was written BEFORE ErrorResponse.java existed (RED state).
  *
@@ -60,7 +58,8 @@ class ErrorResponseTest {
         String json = mapper.writeValueAsString(error);
         ErrorResponse deserialized = mapper.readValue(json, ErrorResponse.class);
         assertThat(deserialized).isInstanceOf(RegistrationRejected.class);
-        assertThat(((RegistrationRejected) deserialized).reason()).isEqualTo("FUTURE_REASON_CODE_V2");
+        assertThat(((RegistrationRejected) deserialized).reason())
+                .isEqualTo("FUTURE_REASON_CODE_V2");
     }
 
     @Test
@@ -92,7 +91,8 @@ class ErrorResponseTest {
     @Test
     void unknownDiscriminator_throwsInvalidTypeIdException() throws Exception {
         // AC2 — unknown discriminator value produces InvalidTypeIdException (NOT silent fallback)
-        // Note: FAIL_ON_UNKNOWN_PROPERTIES=false is orthogonal (unknown properties, not unknown type)
+        // Note: FAIL_ON_UNKNOWN_PROPERTIES=false is orthogonal (unknown properties, not unknown
+        // type)
         String json = "{\"type\":\"COMPLETELY_UNKNOWN_TYPE\",\"someField\":\"value\"}";
         assertThatThrownBy(() -> mapper.readValue(json, ErrorResponse.class))
                 .isInstanceOf(InvalidTypeIdException.class);
@@ -102,7 +102,8 @@ class ErrorResponseTest {
     void unknownDiscriminator_failOnUnknownPropertiesFalse_stillThrowsInvalidTypeIdException()
             throws Exception {
         // AC2 — FAIL_ON_UNKNOWN_PROPERTIES=false does NOT suppress discriminator failures
-        // These are distinct: FAIL_ON_UNKNOWN_PROPERTIES controls unknown JSON fields (not type ids)
+        // These are distinct: FAIL_ON_UNKNOWN_PROPERTIES controls unknown JSON fields (not type
+        // ids)
         ObjectMapper lenientMapper =
                 mapper.copy().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         String json = "{\"type\":\"UNKNOWN_DISCRIMINATOR\",\"extra\":\"field\"}";
