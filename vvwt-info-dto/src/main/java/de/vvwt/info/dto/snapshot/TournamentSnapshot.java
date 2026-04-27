@@ -17,16 +17,22 @@ import java.util.List;
  * used server-side for HMAC URL validation (E38S06 AC6); clients receive number + name only (AC12
  * scope restriction).
  *
+ * <p>{@link #tournamentEnded} is {@code true} when the tournament has been superseded but is still
+ * within the 24h grace window (E38S08 AC5 supersede UX). The SPA renders a read-only "Dieses
+ * Turnier ist beendet" message and hides auto-update indicators when {@code true}.
+ *
  * @param tournamentId stable tournament identifier (UUID)
  * @param tenantId stable tenant identifier (UUID)
  * @param sequenceNumber monotonically increasing version counter; clients use this for
  *     optimistic-concurrency checks and FULL_RESYNC detection
  * @param scheduleEntries ordered list of schedule entries for this tournament
  * @param teams registered teams (teamId UUID + name + number) — E38S06 AC6 HMAC iteration
- * @param tournamentEnded {@code true} if the tournament has concluded; clients should stop polling
+ * @param tournamentEnded {@code true} when tournament superseded within 24h grace (E38S08 AC5); SPA
+ *     shows frozen final-state view with DE message; {@code false} for active tournaments
  * @see <a href="../../../../../../../../docs/governance/stories/E38S02.story.md">E38S02</a>
  * @see <a href="../../../../../../../../docs/governance/stories/E38S06.story.md">E38S06 AC6,
  *     AC12</a>
+ * @see <a href="../../../../../../../../docs/governance/stories/E38S08.story.md">E38S08 AC5</a>
  */
 public record TournamentSnapshot(
         @JsonProperty("tournamentId") String tournamentId,
@@ -34,4 +40,4 @@ public record TournamentSnapshot(
         @JsonProperty("sequenceNumber") Long sequenceNumber,
         @JsonProperty("scheduleEntries") List<ScheduleEntry> scheduleEntries,
         @JsonProperty("teams") List<TeamEntry> teams,
-        @JsonProperty("tournamentEnded") boolean tournamentEnded) {}
+        @JsonProperty("tournament_ended") boolean tournamentEnded) {}
