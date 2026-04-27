@@ -73,6 +73,10 @@
              1.20.6: compatible with Spring Boot 3.4.7 BOM and JDK 21. -->
         <testcontainers.version>1.20.6</testcontainers.version>
 
+        <!-- RFC 8785 JCS canonical JSON — E38S05/E38S09 publisher signature payload.
+             Apache 2.0 — OSS-compliant per DEC-3. Pinned to 1.1 (stable, Java 8+, no deps). -->
+        <java-json-canonicalization.version>1.1</java-json-canonicalization.version>
+
         <!-- Plugin versions -->
         <maven-compiler-plugin.version>3.14.0</maven-compiler-plugin.version>
         <maven-surefire-plugin.version>3.5.3</maven-surefire-plugin.version>
@@ -205,6 +209,14 @@
                 <version>${project.version}</version>
             </dependency>
 
+            <!-- RFC 8785 JCS canonical JSON (E38S05/E38S09 — AC8 / DEC-3 OSS-compliant).
+                 Apache 2.0 license. Version centralised in properties block. -->
+            <dependency>
+                <groupId>io.github.erdtman</groupId>
+                <artifactId>java-json-canonicalization</artifactId>
+                <version>${java-json-canonicalization.version}</version>
+            </dependency>
+
             <!-- Standalone-worker CLI -->
             <dependency>
                 <groupId>info.picocli</groupId>
@@ -282,6 +294,11 @@
                             <arg>-Xlint:-serial</arg>
                             <arg>-Xlint:-processing</arg>
                             <arg>-Xlint:-options</arg>
+                            <!-- E38S05: -parameters enables Spring Data JDBC + Spring MVC to
+                                 resolve method parameter names at runtime (constructor injection,
+                                 @PathVariable, @Query named params). DEC-22 compliant — this flag
+                                 does not affect warning emission. -->
+                            <arg>-parameters</arg>
                         </compilerArgs>
                     </configuration>
                 </plugin>

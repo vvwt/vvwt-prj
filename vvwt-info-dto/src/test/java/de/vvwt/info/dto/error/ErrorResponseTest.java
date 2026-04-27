@@ -33,12 +33,28 @@ class ErrorResponseTest {
 
     @Test
     void fullResyncRequired_roundTrip() throws Exception {
-        // AC1, AC9 — FullResyncRequired round-trip
-        FullResyncRequired error = new FullResyncRequired();
+        // AC1, AC9 — FullResyncRequired round-trip (E38S05: fields added)
+        FullResyncRequired error = FullResyncRequired.of(42L, "tok-abc");
         String json = mapper.writeValueAsString(error);
         ErrorResponse deserialized = mapper.readValue(json, ErrorResponse.class);
         assertThat(deserialized).isInstanceOf(FullResyncRequired.class);
-        assertThat(deserialized).isEqualTo(error);
+        FullResyncRequired result = (FullResyncRequired) deserialized;
+        assertThat(result.required()).isEqualTo("FULL_RESYNC");
+        assertThat(result.lastAppliedSeq()).isEqualTo(42L);
+        assertThat(result.tournamentToken()).isEqualTo("tok-abc");
+    }
+
+    @Test
+    void fullResyncRequired_unknown_factoryMethod() throws Exception {
+        // AC4 — unknown tournament yields null fields
+        FullResyncRequired error = FullResyncRequired.unknown();
+        String json = mapper.writeValueAsString(error);
+        ErrorResponse deserialized = mapper.readValue(json, ErrorResponse.class);
+        assertThat(deserialized).isInstanceOf(FullResyncRequired.class);
+        FullResyncRequired result = (FullResyncRequired) deserialized;
+        assertThat(result.required()).isEqualTo("FULL_RESYNC");
+        assertThat(result.lastAppliedSeq()).isNull();
+        assertThat(result.tournamentToken()).isNull();
     }
 
     @Test
@@ -114,7 +130,7 @@ class ErrorResponseTest {
     @Test
     void discriminatorTagAppearsInSerializedJson() throws Exception {
         // AC2 — verify the discriminator field is present in JSON
-        FullResyncRequired error = new FullResyncRequired();
+        FullResyncRequired error = FullResyncRequired.unknown();
         String json = mapper.writeValueAsString(error);
         assertThat(json).contains("\"type\"");
         assertThat(json).contains("\"FULL_RESYNC_REQUIRED\"");

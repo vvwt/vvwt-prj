@@ -88,6 +88,15 @@
             <artifactId>vvwt-info-dto</artifactId>
         </dependency>
 
+        <!-- RFC 8785 JCS canonical JSON — server-side signature payload canonicalization.
+             AC8 (E38S05): both server (this module) and TM publisher (E38S09) MUST agree
+             on byte-identical JCS output. Cross-implementation byte-stability validated by
+             JcsCrossImplByteStabilityIT. Apache 2.0 per DEC-3. -->
+        <dependency>
+            <groupId>io.github.erdtman</groupId>
+            <artifactId>java-json-canonicalization</artifactId>
+        </dependency>
+
         <!-- ===================================================================
              Test dependencies (versions from parent BOM — DEC-10)
              =================================================================== -->

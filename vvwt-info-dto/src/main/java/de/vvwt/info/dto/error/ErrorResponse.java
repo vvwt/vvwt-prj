@@ -1,5 +1,6 @@
 package de.vvwt.info.dto.error;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
@@ -46,9 +47,37 @@ public sealed interface ErrorResponse
 
     /**
      * Returned on 409 Conflict — the client must perform a full re-synchronisation before
-     * continuing (Brief D-9).
+     * continuing (Brief D-9 / AC4).
+     *
+     * <p>Fields (E38S05):
+     *
+     * <ul>
+     *   <li>{@code required}: always {@code "FULL_RESYNC"} — sentinel so clients can assert on the
+     *       semantics, not just the HTTP status.
+     *   <li>{@code last_applied_seq}: the server's current {@code last_applied_seq} for the
+     *       tournament (tells the client where to resume after snapshot resync); {@code null} when
+     *       the server has no record of this tournament (seq=0 case — client must call register
+     *       first).
+     *   <li>{@code tournament_token}: the server's current bearer token for this tournament; {@code
+     *       null} when the server has no record of this tournament.
+     * </ul>
      */
-    record FullResyncRequired() implements ErrorResponse {}
+    record FullResyncRequired(
+            @JsonProperty("required") String required,
+            @JsonProperty("last_applied_seq") Long lastAppliedSeq,
+            @JsonProperty("tournament_token") String tournamentToken)
+            implements ErrorResponse {
+
+        /** Convenience factory for a known tournament's 409 response. */
+        public static FullResyncRequired of(long lastAppliedSeq, String tournamentToken) {
+            return new FullResyncRequired("FULL_RESYNC", lastAppliedSeq, tournamentToken);
+        }
+
+        /** Convenience factory for an unknown tournament's 409 response (seq=0, no token). */
+        public static FullResyncRequired unknown() {
+            return new FullResyncRequired("FULL_RESYNC", null, null);
+        }
+    }
 
     /**
      * Returned when a registration request is rejected. {@code reason} is an open {@code String}

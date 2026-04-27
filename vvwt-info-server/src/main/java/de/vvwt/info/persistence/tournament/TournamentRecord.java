@@ -2,6 +2,9 @@ package de.vvwt.info.persistence.tournament;
 
 import java.time.LocalDateTime;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.PersistenceCreator;
+import org.springframework.data.annotation.Transient;
+import org.springframework.data.domain.Persistable;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
@@ -22,6 +25,13 @@ import org.springframework.data.relational.core.mapping.Table;
  *       enforced by a partial unique index on PostgreSQL (AC12) and by a service-layer guard on H2.
  * </ul>
  *
+ * <p><b>Insert vs. update:</b> implements {@link Persistable} with a {@code @Transient} record
+ * component {@code newRecord}. The {@code @PersistenceCreator}-annotated 9-arg constructor is used
+ * for DB hydration and produces {@code newRecord=false} (→ UPDATE). Use {@link #asNew()} when
+ * inserting a brand-new row to get {@code newRecord=true} (→ INSERT). The parent POM includes the
+ * {@code -parameters} compiler flag, enabling Spring Data JDBC to resolve constructor parameter
+ * names for the {@code @PersistenceCreator} constructor.
+ *
  * @param tournamentId stable unique tournament identifier — PK
  * @param tenantId FK → tenant.tenant_id
  * @param locationId location identifier (operator-assigned)
@@ -31,6 +41,7 @@ import org.springframework.data.relational.core.mapping.Table;
  * @param lastAppliedSeq sequence number of the last applied delta
  * @param registeredAt UTC timestamp of tournament registration
  * @param supersededAt UTC timestamp when superseded; {@code null} if active
+ * @param newRecord transient flag: {@code true} → INSERT, {@code false} → UPDATE (not a DB column)
  * @see <a href="../../../../../../../docs/governance/stories/E38S03.story.md">E38S03</a>
  * @see <a href="../../../../../../../docs/governance/decisions/DEC-42.md">DEC-42</a>
  */
@@ -44,4 +55,71 @@ public record TournamentRecord(
         @Column("state") String state,
         @Column("last_applied_seq") long lastAppliedSeq,
         @Column("registered_at") LocalDateTime registeredAt,
-        @Column("superseded_at") LocalDateTime supersededAt) {}
+        @Column("superseded_at") LocalDateTime supersededAt,
+        @Transient boolean newRecord)
+        implements Persistable<String> {
+
+    /**
+     * Convenience constructor for DB hydration and update operations.
+     *
+     * <p>Sets {@code newRecord=false} so Spring Data JDBC issues UPDATE on the next {@code save()}.
+     * Annotated with {@code @PersistenceCreator} so Spring Data JDBC uses this 9-arg constructor
+     * for hydration (not the 10-arg canonical constructor that includes the transient {@code
+     * newRecord} component). Requires {@code -parameters} compiler flag (set in parent POM).
+     */
+    @PersistenceCreator
+    public TournamentRecord(
+            String tournamentId,
+            String tenantId,
+            String locationId,
+            String tournamentToken,
+            byte[] perTournamentSecret,
+            String state,
+            long lastAppliedSeq,
+            LocalDateTime registeredAt,
+            LocalDateTime supersededAt) {
+        this(
+                tournamentId,
+                tenantId,
+                locationId,
+                tournamentToken,
+                perTournamentSecret,
+                state,
+                lastAppliedSeq,
+                registeredAt,
+                supersededAt,
+                false);
+    }
+
+    /**
+     * Returns a copy of this record marked as {@code newRecord=true}, causing Spring Data JDBC to
+     * issue INSERT rather than UPDATE on the next {@code save()} call.
+     *
+     * @return a new {@link TournamentRecord} with {@code newRecord=true}
+     */
+    public TournamentRecord asNew() {
+        return new TournamentRecord(
+                tournamentId,
+                tenantId,
+                locationId,
+                tournamentToken,
+                perTournamentSecret,
+                state,
+                lastAppliedSeq,
+                registeredAt,
+                supersededAt,
+                true);
+    }
+
+    @Override
+    @Transient
+    public boolean isNew() {
+        return newRecord;
+    }
+
+    @Override
+    @Transient
+    public String getId() {
+        return tournamentId;
+    }
+}
