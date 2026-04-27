@@ -7,6 +7,8 @@ import java.security.KeyFactory;
 import java.security.PublicKey;
 import java.security.Signature;
 import java.security.spec.X509EncodedKeySpec;
+import java.time.LocalDate;
+import java.util.Map;
 import org.springframework.stereotype.Component;
 
 /**
@@ -37,7 +39,17 @@ import org.springframework.stereotype.Component;
  * internally uses SHA-512; external SHA-256 or SHA-512 pre-hashing is non-standard (per E37S02 spec
  * §(a)).
  *
- * <p>Spec: E37S04 AC-DEFAULT-ED25519-VERIFIER, AC-NO-NEW-NON-ED25519-VERIFIERS; DEC-3, DEC-43 §D4.
+ * <h2>DEC-43 D1 metadata (E40S01)</h2>
+ *
+ * <p>Three new methods ({@link #displayName()}, {@link #deprecationDate()}, {@link #parameters()})
+ * are explicitly overridden per Brief T-4 explicit-override choice. This forces future
+ * implementations to author their own metadata explicitly at compile time — preventing
+ * silent-null-where-actually-deprecated bugs. V1 Ed25519 returns {@code "Ed25519"} (PascalCase per
+ * Brief D-4/T-3 backward-compat with E37-persisted {@code algorithm} column), {@code null}
+ * (deprecation date — not deprecated in V1), and {@code null} (no parameter variants in V1).
+ *
+ * <p>Spec: E37S04 AC-DEFAULT-ED25519-VERIFIER, AC-NO-NEW-NON-ED25519-VERIFIERS; DEC-3, DEC-43 §D4;
+ * E40S01 AC-DEFAULTED25519VERIFIER-METADATA.
  */
 @Component
 public class DefaultEd25519Verifier implements SignatureVerifier {
@@ -93,6 +105,45 @@ public class DefaultEd25519Verifier implements SignatureVerifier {
             throw new InvalidSignatureException(
                     "Ed25519 verification failed: " + e.getMessage(), e);
         }
+    }
+
+    // ----------------------------------------------------------------
+    // E40S01 — DEC-43 D1 metadata methods (explicit-override, no default in interface)
+    // AC-DEFAULTED25519VERIFIER-METADATA + AC-INTERFACE-METHODS-NO-THROWS-AND-NULL-CONTRACT
+    // ----------------------------------------------------------------
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Returns {@code "Ed25519"} (PascalCase) — backward-compatible with E37-persisted {@code
+     * algorithm} column values in the worker registration table (Brief D-4 / T-3). Non-null per
+     * DEC-43 D1 (required=YES for {@code display_name}).
+     */
+    @Override
+    public String displayName() {
+        return "Ed25519";
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Returns {@code null} — Ed25519 is not deprecated in V1 (Brief D-4 / C-17). Null IFF the
+     * algorithm is not deprecated, per DEC-43 D1 (required=NO for {@code deprecation_date}).
+     */
+    @Override
+    public LocalDate deprecationDate() {
+        return null;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Returns {@code null} — Ed25519 has no parameter variants in V1 (Brief D-4). Null IFF the
+     * algorithm is parameterless, per DEC-43 D1 (required=NO for {@code parameters}).
+     */
+    @Override
+    public Map<String, Object> parameters() {
+        return null;
     }
 
     /**
