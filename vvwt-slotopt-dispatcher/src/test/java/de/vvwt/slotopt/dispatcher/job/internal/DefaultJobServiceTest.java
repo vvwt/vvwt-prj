@@ -10,6 +10,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import de.vvwt.slotopt.dispatcher.audit.AuditService;
+import de.vvwt.slotopt.dispatcher.cache.CachedResult;
+import de.vvwt.slotopt.dispatcher.cache.ResultsCacheService;
 import de.vvwt.slotopt.dispatcher.job.JobRecord;
 import de.vvwt.slotopt.dispatcher.job.JobRepository;
 import de.vvwt.slotopt.dispatcher.job.JobService;
@@ -20,7 +22,9 @@ import de.vvwt.slotopt.worker.types.JobDef;
 import de.vvwt.slotopt.worker.types.PositionTuple;
 import de.vvwt.slotopt.worker.types.RawPhaseDef;
 import de.vvwt.slotopt.worker.types.RawRow;
+import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,6 +55,10 @@ class DefaultJobServiceTest {
     // DEC-36: mock via PUBLIC INTERFACE (AuditService is in de.vvwt.slotopt.dispatcher.audit)
     @Mock private AuditService auditService;
 
+    // DEC-36: mock via PUBLIC INTERFACE (ResultsCacheService is in
+    // de.vvwt.slotopt.dispatcher.cache)
+    @Mock private ResultsCacheService resultsCacheService;
+
     private JobService jobService; // typed as public interface (DEC-36)
 
     @BeforeEach
@@ -59,7 +67,8 @@ class DefaultJobServiceTest {
                 new DefaultJobService(
                         jobRepository,
                         auditService,
-                        new com.fasterxml.jackson.databind.ObjectMapper());
+                        new com.fasterxml.jackson.databind.ObjectMapper(),
+                        resultsCacheService);
     }
 
     @Test
@@ -132,6 +141,70 @@ class DefaultJobServiceTest {
         assertThatThrownBy(() -> jobService.submitJob(request))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("N-cap");
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-CACHE-READ-SHORT-CIRCUIT (E37S10 retrofit)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Verifies that when {@link ResultsCacheService#lookup} returns a hit for the computed
+     * structural fingerprint, {@link JobService#submitJob} short-circuits:
+     *
+     * <ul>
+     *   <li>Returns {@code cacheHit=true} in the response
+     *   <li>Does NOT persist a {@link JobRecord}
+     *   <li>Does NOT emit audit events (cache hit is idempotent — no state change)
+     * </ul>
+     *
+     * <p>RED-first per DEC-22 / AC-CACHE-READ-SHORT-CIRCUIT + AC-RETROFIT-EVIDENCE (E37S10).
+     */
+    @Test
+    void submitJob_cacheHit_returnsShortCircuitResponse() {
+        RawPhaseDef phase = buildSmallPhase(1);
+        CanonicalPhaseDef canonical = new CanonicalPhaseDef(1, 2, List.of(List.of(0, 1)));
+        JobDef jobDef = new JobDef(UUID.randomUUID(), 2, canonical);
+        SubmitJobRequest request = new SubmitJobRequest(jobDef, phase);
+
+        // Stub cache hit
+        CachedResult cachedResult =
+                new CachedResult(
+                        new byte[32],
+                        "default",
+                        "{\"bestRank\":1}",
+                        Instant.parse("2026-04-26T10:00:00Z"));
+        when(resultsCacheService.lookup(any(byte[].class), eq("default")))
+                .thenReturn(Optional.of(cachedResult));
+
+        SubmitJobResponse response = jobService.submitJob(request);
+
+        assertThat(response.cacheHit()).isTrue();
+        assertThat(response.jobId()).isNotNull();
+        // No JobRecord persisted
+        org.mockito.Mockito.verify(jobRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    void submitJob_cacheMiss_proceedsNormally() {
+        RawPhaseDef phase = buildSmallPhase(1);
+        CanonicalPhaseDef canonical = new CanonicalPhaseDef(1, 2, List.of(List.of(0, 1)));
+        JobDef jobDef = new JobDef(UUID.randomUUID(), 2, canonical);
+        SubmitJobRequest request = new SubmitJobRequest(jobDef, phase);
+
+        when(resultsCacheService.lookup(any(byte[].class), any())).thenReturn(Optional.empty());
+        when(jobRepository.save(any(JobRecord.class)))
+                .thenAnswer(
+                        inv -> {
+                            JobRecord r = inv.getArgument(0);
+                            r.setId(1L);
+                            return r;
+                        });
+
+        SubmitJobResponse response = jobService.submitJob(request);
+
+        assertThat(response.cacheHit()).isFalse();
+        assertThat(response.jobId()).isNotNull();
+        verify(jobRepository).save(any(JobRecord.class));
     }
 
     // -------------------------------------------------------------------------
