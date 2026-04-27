@@ -16,11 +16,17 @@ import jakarta.validation.constraints.NotNull;
  *       trusts the first-key-wins binding per DEC-42 D3). Subsequent operations that require
  *       proof-of-possession are signed per DEC-6; the DTO carries the field as nullable to avoid
  *       smuggling proof-of-possession semantics into the DTO layer.
+ *   <li>{@code invitation_token} — <strong>nullable</strong>; required when the server is in {@code
+ *       INVITATION_ONLY} (primary profile) mode per DEC-42 D3. Absent or invalid → {@code 403
+ *       INVITATION_INVALID}. Ignored in self-host ({@code OPEN_FCFS}) mode. Field added in E38S04
+ *       (AC10 scope). Nullable here for forward-compat: self-host clients need not include it.
  * </ul>
  *
  * @see <a href="../../../../../../../../docs/governance/stories/E38S02.story.md">E38S02</a>
+ * @see <a href="../../../../../../../../docs/governance/stories/E38S04.story.md">E38S04 AC10</a>
  */
 public record RegistrationRequest(
         @NotBlank @JsonProperty("algorithm_id") String algorithm_id,
         @NotNull @JsonProperty("public_key") String public_key,
-        @JsonProperty("signature") String signature) {}
+        @JsonProperty("signature") String signature,
+        @JsonProperty("invitation_token") String invitation_token) {}

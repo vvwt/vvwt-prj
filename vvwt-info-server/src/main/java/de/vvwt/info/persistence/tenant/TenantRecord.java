@@ -2,6 +2,8 @@ package de.vvwt.info.persistence.tenant;
 
 import java.time.LocalDateTime;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
+import org.springframework.data.domain.Persistable;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
@@ -32,4 +34,24 @@ public record TenantRecord(
         @Column("algorithm_id") String algorithmId,
         @Column("registered_at") LocalDateTime registeredAt,
         @Column("status") String status,
-        @Column("is_default") boolean isDefault) {}
+        @Column("is_default") boolean isDefault)
+        implements Persistable<String> {
+
+    /**
+     * Always reports as new so that Spring Data JDBC issues INSERT rather than UPDATE.
+     *
+     * <p>The service layer (E38S04 RegistrationService) calls {@code findById} before {@code save},
+     * so the idempotent re-registration path is handled at the service level, not here.
+     */
+    @Override
+    @Transient
+    public boolean isNew() {
+        return true;
+    }
+
+    @Override
+    @Transient
+    public String getId() {
+        return tenantId;
+    }
+}

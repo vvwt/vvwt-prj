@@ -20,11 +20,17 @@ spring:
       - "classpath:db/migration/common"
 
 # ---------------------------------------------------------------------------
-# Application — primary mode settings (DEC-42 D3)
-# These properties are placeholders; E38S04 adds the actual config binding.
+# Application — primary mode settings (DEC-42 D3) — E38S04 binding added
 # ---------------------------------------------------------------------------
-info:
-  registration:
-    mode: INVITATION_ONLY
-  tenant:
-    max-tenants: -1
+vvwt:
+  info:
+    registration:
+      mode: INVITATION_ONLY
+    tenant:
+      max-tenants: -1         # unlimited tenants on primary (DEC-42 D3)
+      default-tenant-id:      # optional: operator pre-configures a default tenant-id
+    default-tenant:
+      mode: CONFIG_ONLY       # primary does not allow FCFS tenant claim (DEC-42 D3)
+    invitation-tokens:        # AC10: operator pre-seeds tokens here; example below
+      # - "your-secure-token-here"
+      []
