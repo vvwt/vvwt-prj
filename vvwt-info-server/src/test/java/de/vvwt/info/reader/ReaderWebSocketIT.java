@@ -95,7 +95,7 @@ class ReaderWebSocketIT {
             String tournamentId, String tenantId, long seq, List<TeamEntry> teams)
             throws Exception {
         TournamentSnapshot snap =
-                new TournamentSnapshot(tournamentId, tenantId, seq, List.of(), teams);
+                new TournamentSnapshot(tournamentId, tenantId, seq, List.of(), teams, false);
         Envelope<TournamentSnapshot> env = new Envelope<>(Envelope.SCHEMA_VERSION, snap);
         return objectMapper.writeValueAsString(env);
     }

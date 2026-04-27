@@ -80,11 +80,36 @@ public class ReaderPollController {
 
         TournamentRecord tournament = valid.tournament();
         de.vvwt.info.dto.snapshot.TeamEntry teamEntry = valid.teamEntry();
+        boolean withinGrace = valid.withinGrace();
 
-        // Frozen state: tournament superseded but within grace window → return snapshot with
-        // tournament_ended: true. For Phase 1, we return the snapshot only (no tournament_ended
-        // field in current DTO — AC5 covers WS; poll returns snapshot for frozen state too).
-        // AC3 semantics: gap / since < 0 → full snapshot
+        // E38S08 AC5: if within grace window, always return snapshot with tournamentEnded=true
+        // (no delta semantics during frozen state — serve read-only frozen snapshot)
+        if (withinGrace) {
+            Optional<TournamentSnapshot> snapshot =
+                    readerService.getTeamSnapshot(tournament, teamEntry);
+            TournamentSnapshot snapshotValue =
+                    snapshot.map(
+                                    s ->
+                                            new TournamentSnapshot(
+                                                    s.tournamentId(),
+                                                    s.tenantId(),
+                                                    s.sequenceNumber(),
+                                                    s.scheduleEntries(),
+                                                    s.teams(),
+                                                    true))
+                            .orElseGet(
+                                    () ->
+                                            new TournamentSnapshot(
+                                                    tournament.tournamentId(),
+                                                    tournament.tenantId(),
+                                                    tournament.lastAppliedSeq(),
+                                                    List.of(),
+                                                    List.of(),
+                                                    true));
+            return ResponseEntity.ok(new Envelope<>(Envelope.SCHEMA_VERSION, snapshotValue));
+        }
+
+        // Active tournament: AC3 semantics: gap / since < 0 → full snapshot
         long sinceSeq = (since != null) ? since : -1L;
 
         if (sinceSeq < 0 || readerService.hasSequenceGap(tournament, sinceSeq)) {
@@ -98,7 +123,8 @@ public class ReaderPollController {
                                             tournament.tenantId(),
                                             tournament.lastAppliedSeq(),
                                             List.of(),
-                                            List.of()));
+                                            List.of(),
+                                            false));
             return ResponseEntity.ok(new Envelope<>(Envelope.SCHEMA_VERSION, snapshotValue));
         }
 

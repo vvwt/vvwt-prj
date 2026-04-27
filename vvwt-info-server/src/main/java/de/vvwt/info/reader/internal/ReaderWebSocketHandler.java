@@ -45,6 +45,12 @@ public class ReaderWebSocketHandler extends TextWebSocketHandler {
     static final String ATTR_TOURNAMENT_RECORD = "tournamentRecord";
     static final String ATTR_TEAM_ENTRY = "teamEntry";
 
+    /**
+     * Session attribute: {@code true} if the tournament is within the 24h supersede grace window
+     * (E38S08 AC5).
+     */
+    static final String ATTR_WITHIN_GRACE = "withinGrace";
+
     private final ReaderService readerService;
     private final ReaderSessionRegistry sessionRegistry;
     private final ReaderProperties readerProperties;
@@ -67,6 +73,7 @@ public class ReaderWebSocketHandler extends TextWebSocketHandler {
                 (TournamentRecord) session.getAttributes().get(ATTR_TOURNAMENT_RECORD);
         de.vvwt.info.dto.snapshot.TeamEntry teamEntry =
                 (de.vvwt.info.dto.snapshot.TeamEntry) session.getAttributes().get(ATTR_TEAM_ENTRY);
+        boolean withinGrace = Boolean.TRUE.equals(session.getAttributes().get(ATTR_WITHIN_GRACE));
 
         if (tournament == null || teamEntry == null) {
             // Should not happen (interceptor guards); close defensively
@@ -79,11 +86,23 @@ public class ReaderWebSocketHandler extends TextWebSocketHandler {
                 new StreamHello(readerProperties.getPollCadenceSeconds(), Envelope.SCHEMA_VERSION);
         sendJson(session, new Envelope<>(Envelope.SCHEMA_VERSION, hello));
 
-        // AC2: send per-team snapshot
+        // AC2: send per-team snapshot; E38S08 AC5: set tournamentEnded=withinGrace
         Optional<TournamentSnapshot> snapshot =
                 readerService.getTeamSnapshot(tournament, teamEntry);
         if (snapshot.isPresent()) {
-            sendJson(session, new Envelope<>(Envelope.SCHEMA_VERSION, snapshot.get()));
+            TournamentSnapshot s = snapshot.get();
+            // Re-wrap with tournamentEnded flag if withinGrace differs from stored value
+            TournamentSnapshot withFlag =
+                    withinGrace == s.tournamentEnded()
+                            ? s
+                            : new TournamentSnapshot(
+                                    s.tournamentId(),
+                                    s.tenantId(),
+                                    s.sequenceNumber(),
+                                    s.scheduleEntries(),
+                                    s.teams(),
+                                    withinGrace);
+            sendJson(session, new Envelope<>(Envelope.SCHEMA_VERSION, withFlag));
         } else {
             // No state yet — send an empty snapshot wrapper
             sendJson(
@@ -95,7 +114,8 @@ public class ReaderWebSocketHandler extends TextWebSocketHandler {
                                     tournament.tenantId(),
                                     tournament.lastAppliedSeq(),
                                     java.util.List.of(),
-                                    java.util.List.of())));
+                                    java.util.List.of(),
+                                    withinGrace)));
         }
 
         // Register for delta broadcasts after sending initial frames
