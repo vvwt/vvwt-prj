@@ -62,6 +62,24 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Hibernate Validator — test scope ONLY for Bean Validation integration tests.
+             Validator IMPL is a consumer concern (DEC-42 D1 / AC11). This dep is test-only
+             so that AC3/AC7/AC10 tests can exercise BV failure paths without pulling the
+             impl into the compile/runtime classpath of consuming modules. -->
+        <dependency>
+            <groupId>org.hibernate.validator</groupId>
+            <artifactId>hibernate-validator</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- EL implementation required by Hibernate Validator for constraint interpolation -->
+        <dependency>
+            <groupId>org.glassfish.expressly</groupId>
+            <artifactId>expressly</artifactId>
+            <version>5.0.0</version>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <build>
