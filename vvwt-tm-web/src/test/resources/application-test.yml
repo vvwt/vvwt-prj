@@ -24,3 +24,18 @@ spring:
   # AdminCredentialsProvider bean registration in SecurityConfigIT tests.
   main:
     allow-bean-definition-overriding: true
+
+# E16S03: Override tm.data.dir so per-tenant H2 DBs land in a fresh ephemeral temp dir
+# per ApplicationContext rather than the production-default ~/.vvwt-tm/tenants/.
+# Without this override, stale flyway_schema_history rows in ~/.vvwt-tm/ (e.g. phantom
+# V15 = e12s04_certificate_template deleted by E23S07 under DEC-25) cause
+# FlywayValidateException in tests that bootstrap PerTenantFlywayRunner.
+# ${random.uuid} (Spring Boot RandomValuePropertySource) generates a unique UUID per
+# Environment initialisation — bound once at context startup by @ConfigurationProperties.
+# TenantDirectoryHelper.createTenantDirectory uses Files.createDirectories, so the
+# UUID-named temp dir is created lazily on first tenant bootstrap, not at startup.
+# Classes with @DynamicPropertySource (e.g. CrossTenantIsolationTest) override this
+# value at their own finer-grained level — this global default is a safety net only.
+tm:
+  data:
+    dir: ${java.io.tmpdir}/vvwt-tm-test-${random.uuid}
