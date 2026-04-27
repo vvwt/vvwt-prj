@@ -196,6 +196,29 @@
             <artifactId>vvwt-info-dto</artifactId>
         </dependency>
 
+        <!-- RFC 8785 JCS canonical JSON — E38S09 publisher request signing per D-X6(a).
+             Apache 2.0 — OSS-compliant per DEC-3. Same library version pin as vvwt-info-server
+             (E38S05 AC8) — cross-implementation byte-stability guaranteed by shared version.
+             Version managed by parent POM dependencyManagement (java-json-canonicalization.version). -->
+        <dependency>
+            <groupId>io.github.erdtman</groupId>
+            <artifactId>java-json-canonicalization</artifactId>
+        </dependency>
+
+        <!-- Testcontainers — vvwt-info-server Spring Boot container for publisher ITs (AC2, AC3).
+             Apache 2.0 — OSS-compliant per DEC-3. BOM version managed by parent POM.
+             Uses @Container GenericContainer with the vvwt-info-server fat-JAR. -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <!-- ===================================================================

@@ -323,5 +323,30 @@
     "error": {
       "noTournament": "Kein Turnier ausgewählt."
     }
+  },
+  "infoPortal": {
+    "deprecationWarning": {
+      "titleHigh": "Kritische Warnung: Algorithmus '{algorithm}' wird bald abgekündigt",
+      "titleLow": "Hinweis: Algorithmus '{algorithm}' wird abgekündigt",
+      "body": "Der Algorithmus '{algorithm}' wird am {date} abgekündigt ({days} Tage verbleibend). Bitte wenden Sie sich an den Administrator, um den Algorithmus zu wechseln.",
+      "severityHigh": "Kritisch",
+      "severityLow": "Hinweis"
+    },
+    "hardStop": {
+      "title": "Publisher gestoppt: Algorithmus abgekündigt",
+      "body": "Der verwendete Kryptographie-Algorithmus wurde vom Info-Portal-Server abgelehnt (410). Der Publisher ist gestoppt. Bitte wenden Sie sich an den Administrator."
+    },
+    "registrationError": {
+      "title": "Registrierungsfehler",
+      "body": "Der TM konnte sich nicht beim Info-Portal registrieren. Bitte Konfiguration prüfen."
+    },
+    "signatureMismatch": {
+      "title": "Signaturprüfung fehlgeschlagen",
+      "body": "Der Info-Portal-Server akzeptiert die Signatur nicht (401). Bitte Schlüsselpaar prüfen."
+    },
+    "publisherUnhealthy": {
+      "title": "Publisher nicht erreichbar",
+      "body": "Der Info-Portal-Publisher hat 5 aufeinanderfolgende Fehler gemeldet. Bitte Verbindung prüfen."
+    }
   }
 }
