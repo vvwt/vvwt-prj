@@ -47,9 +47,8 @@ import org.springframework.transaction.annotation.Transactional;
  * 1aded97}).
  *
  * <p>Authored Q-1a TDD RED-first per DEC-22 Iron Law + DEC-41 §3 hierarchy item (1). Legacy {@code
- * de.vvwt.tm.infrastructure.display.DisplayOverviewService} deleted at AC-DELETE-LEGACY-FIRST (D-7
- * Coexistence Option γ). Legacy code NOT inspected during authoring per
- * AC-NO-LEGACY-CODE-REFERENCE.
+ * infrastructure.display.DisplayOverviewService} deleted at AC-DELETE-LEGACY-FIRST (D-7 Coexistence
+ * Option γ). Legacy code NOT inspected during authoring per AC-NO-LEGACY-CODE-REFERENCE.
  *
  * @see DisplayOverviewService
  * @see de.vvwt.tm.display.DisplayPhaseOverviewResponse

@@ -9,7 +9,7 @@ import java.util.UUID;
  *
  * <p>Hand-authored interface port per DEC-35 §2. Cross-context consumers (e.g., {@code
  * de.vvwt.tm.infrastructure.score.ScoreEntryService}, {@code
- * de.vvwt.tm.infrastructure.display.DisplayOverviewService}, {@code
+ * de.vvwt.tm.display.DisplayOverviewService}, {@code
  * de.vvwt.tm.infrastructure.web.WebSocketSecurityConfig}, {@code
  * de.vvwt.tm.infrastructure.web.DeviceTokenHandshakeInterceptor}) reference this interface instead
  * of the former {@code tournament.internal.DeviceRepository} concrete class, eliminating forbidden

@@ -40,7 +40,7 @@ import org.springframework.web.bind.annotation.RestController;
  * bundled in the JAR. No CDN links appear in the rendered HTML. The integration test {@link
  * TimerViewControllerIT} verifies that no {@code https://} appears in asset tags.
  *
- * <h2>Why not use forward: (pattern deviation from DisplayViewController)</h2>
+ * <h2>Why not use forward: (pattern deviation from de.vvwt.tm.web.DisplayViewController)</h2>
  *
  * <p>The display SPA controller maps specific named routes ({@code /display/overview}, {@code
  * /display/register}). The timer controller maps a path variable ({@code /timer/{tournamentId}}),
@@ -49,8 +49,7 @@ import org.springframework.web.bind.annotation.RestController;
  * controller returns the {@code index.html} content directly as an {@link ResponseEntity} backed by
  * a {@link ClassPathResource}. This is functionally equivalent to a static resource serve.
  *
- * @see de.vvwt.tm.infrastructure.display.DisplayViewController — display SPA (named routes, forward
- *     OK)
+ * @see de.vvwt.tm.web.DisplayViewController — display SPA (named routes, forward OK)
  * @see de.vvwt.tm.infrastructure.AdminSpaController — admin SPA (named routes, forward OK)
  * @see <a
  *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E11S03.story.md">Story

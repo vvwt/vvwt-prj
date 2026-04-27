@@ -26,7 +26,8 @@ import org.springframework.test.context.ActiveProfiles;
  * <p>Verifies that the display SPA HTML shell is served correctly for both routes:
  *
  * <ol>
- *   <li>HTTP 200 at {@code GET /display/overview} with content-type text/html (AC-RED-FIRST-DISPLAY-VIEW-CONTROLLER)
+ *   <li>HTTP 200 at {@code GET /display/overview} with content-type text/html
+ *       (AC-RED-FIRST-DISPLAY-VIEW-CONTROLLER)
  *   <li>HTTP 200 at {@code GET /display/register} with content-type text/html
  *   <li>No admin authentication required for either route (no admin credentials = 200)
  *   <li>Response bodies contain the Svelte mount point {@code <div id="app">}
@@ -52,7 +53,7 @@ import org.springframework.test.context.ActiveProfiles;
         classes = de.vvwt.tm.TournamentManagerApplication.class,
         properties = {
             "spring.datasource.url=jdbc:h2:mem:e25s02viewitdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
-                    + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
+                + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
 @Import({WebModuleTestConfig.class, DisplayViewControllerIT.TestAdminCredentials.class})
@@ -80,7 +81,9 @@ class DisplayViewControllerIT {
                         "http://localhost:" + port + "/display/overview", String.class);
 
         assertThat(response.getStatusCode())
-                .as("GET /display/overview must return 200 without auth (AC-RED-FIRST-DISPLAY-VIEW-CONTROLLER)")
+                .as(
+                        "GET /display/overview must return 200 without auth"
+                                + " (AC-RED-FIRST-DISPLAY-VIEW-CONTROLLER)")
                 .isEqualTo(HttpStatus.OK);
     }
 
@@ -127,11 +130,15 @@ class DisplayViewControllerIT {
         assertThat(body).isNotNull();
 
         assertThat(body)
-                .as("GET /display/overview must not contain external <script src=\"https://...\"> (DEC-16)")
+                .as(
+                        "GET /display/overview must not contain external <script"
+                                + " src=\"https://...\"> (DEC-16)")
                 .doesNotContainPattern("<script[^>]+src=[\"']https://");
 
         assertThat(body)
-                .as("GET /display/overview must not contain external <link href=\"https://...\"> (DEC-16)")
+                .as(
+                        "GET /display/overview must not contain external <link"
+                                + " href=\"https://...\"> (DEC-16)")
                 .doesNotContainPattern("<link[^>]+href=[\"']https://");
     }
 
@@ -214,11 +221,15 @@ class DisplayViewControllerIT {
         assertThat(body).isNotNull();
 
         assertThat(body)
-                .as("GET /display/register must not contain external <script src=\"https://...\"> (DEC-16)")
+                .as(
+                        "GET /display/register must not contain external <script"
+                                + " src=\"https://...\"> (DEC-16)")
                 .doesNotContainPattern("<script[^>]+src=[\"']https://");
 
         assertThat(body)
-                .as("GET /display/register must not contain external <link href=\"https://...\"> (DEC-16)")
+                .as(
+                        "GET /display/register must not contain external <link"
+                                + " href=\"https://...\"> (DEC-16)")
                 .doesNotContainPattern("<link[^>]+href=[\"']https://");
     }
 

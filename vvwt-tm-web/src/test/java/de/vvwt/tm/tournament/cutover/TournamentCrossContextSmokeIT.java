@@ -62,9 +62,9 @@ import org.springframework.test.context.ActiveProfiles;
  * <h2>What this test does NOT do</h2>
  *
  * <p>It does not re-run the full suites of the six consumer contexts. Those suites are covered by
- * their own IT/unit tests ({@code ScoreEntryServiceTest}, {@code DisplayOverviewServiceTest},
- * etc.). This test provides a compile-time + context-startup guarantee that the cutover is
- * structurally sound.
+ * their own IT/unit tests ({@code ScoreEntryServiceTest}, {@code
+ * DefaultDisplayOverviewServiceTest}, etc.). This test provides a compile-time + context-startup
+ * guarantee that the cutover is structurally sound.
  *
  * <h2>Zero legacy FQN imports</h2>
  *

@@ -9,8 +9,8 @@ import org.springframework.data.relational.core.mapping.Table;
  *
  * <p>Reconstruction-in-place counterpart of {@code de.vvwt.tm.domain.SetResult} (READ ONLY
  * reference; not imported). Boundary-API per inventory line 182 — consumed by {@code
- * display/DisplayOverviewService}. Elevated to boundary-API per Brief D-4 aggregate-oriented
- * decomposition.
+ * de.vvwt.tm.display.DisplayOverviewService}. Elevated to boundary-API per Brief D-4
+ * aggregate-oriented decomposition.
  *
  * <p>A {@code SetResult} represents the outcome of a single set within a match. It is the smallest
  * mutation unit of the scoring system.
