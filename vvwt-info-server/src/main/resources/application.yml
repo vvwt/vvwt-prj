@@ -27,6 +27,9 @@ vvwt:
   info:
     reader:
       poll-cadence-seconds: 5   # AC14: server-recommended HTTP poll cadence; sent in StreamHello
+    # Rate-limit defaults are set in profile-specific configs (application-self-host.yml,
+    # application-primary.yml). This block is intentionally absent here — profiles own them.
+    # See E38S07 AC5, RateLimitProperties for the full property schema.
 
 # ---------------------------------------------------------------------------
 # HTTP Server — minimal scaffold (no port override yet; E38S04+ may set this)

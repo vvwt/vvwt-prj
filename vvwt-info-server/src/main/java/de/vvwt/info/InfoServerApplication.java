@@ -2,6 +2,7 @@ package de.vvwt.info;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Public Participant Info Service — Spring Boot application entry point.
@@ -20,6 +21,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * <p>Story: E38S01 — DEC-42, DEC-10.
  */
 @SpringBootApplication
+@EnableScheduling
 public class InfoServerApplication {
 
     public static void main(String[] args) {

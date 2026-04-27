@@ -66,4 +66,18 @@ public class ReaderSessionRegistry {
         Set<WebSocketSession> sessions = sessionsByTournament.get(tournamentId);
         return sessions != null ? Set.copyOf(sessions) : Set.of();
     }
+
+    /**
+     * Returns a snapshot of ALL sessions across all tournaments (for stale-slot sweeping).
+     *
+     * <p>Used by the rate-limit stale-sweep mechanism (E38S07 AC13) to find sessions that are
+     * closed but whose concurrency slot has not yet been released.
+     *
+     * @return flat set of all currently-tracked WebSocket sessions
+     */
+    public Set<WebSocketSession> allSessions() {
+        return sessionsByTournament.values().stream()
+                .flatMap(Set::stream)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
 }

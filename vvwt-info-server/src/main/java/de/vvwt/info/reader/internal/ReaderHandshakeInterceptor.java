@@ -66,6 +66,9 @@ public class ReaderHandshakeInterceptor implements HandshakeInterceptor {
             case TokenValidationResult.Valid valid -> {
                 attributes.put(ReaderWebSocketHandler.ATTR_TOURNAMENT_RECORD, valid.tournament());
                 attributes.put(ReaderWebSocketHandler.ATTR_TEAM_ENTRY, valid.teamEntry());
+                // Store tournament token so the WS handler can release the concurrency slot on
+                // close (E38S07 AC13 — abrupt-close slot release)
+                attributes.put(ReaderWebSocketHandler.ATTR_TOURNAMENT_TOKEN, tournamentToken);
                 attributes.put(ReaderWebSocketHandler.ATTR_WITHIN_GRACE, valid.withinGrace());
                 yield true;
             }

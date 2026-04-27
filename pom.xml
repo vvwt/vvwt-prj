@@ -77,6 +77,12 @@
              Apache 2.0 — OSS-compliant per DEC-3. Pinned to 1.1 (stable, Java 8+, no deps). -->
         <java-json-canonicalization.version>1.1</java-json-canonicalization.version>
 
+        <!-- Caffeine in-memory cache — E38S07 rate-limiting per-IP token-bucket backing.
+             Apache 2.0 license — OSS-compliant per DEC-3.
+             3.2.x: Java 11+ compatible; 3.2.0 stable for Java 21. No non-OSS transitive deps.
+             AC8 (E38S07): all transitive runtime deps verified OSI-approved OSS. -->
+        <caffeine.version>3.2.0</caffeine.version>
+
         <!-- Plugin versions -->
         <maven-compiler-plugin.version>3.14.0</maven-compiler-plugin.version>
         <maven-surefire-plugin.version>3.5.3</maven-surefire-plugin.version>
@@ -215,6 +221,15 @@
                 <groupId>io.github.erdtman</groupId>
                 <artifactId>java-json-canonicalization</artifactId>
                 <version>${java-json-canonicalization.version}</version>
+            </dependency>
+
+            <!-- Caffeine in-memory cache (E38S07 rate-limiting — DEC-3 OSS-compliant).
+                 Apache 2.0 license; no proprietary transitive dependencies.
+                 Used as the per-IP token-bucket backing cache in vvwt-info-server. -->
+            <dependency>
+                <groupId>com.github.ben-manes.caffeine</groupId>
+                <artifactId>caffeine</artifactId>
+                <version>${caffeine.version}</version>
             </dependency>
 
             <!-- Standalone-worker CLI -->
