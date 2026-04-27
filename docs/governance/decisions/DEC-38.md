@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-38.md at 478f43a4441deb513240dcefdc41b8f1da4c0e4f 2026-04-23 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-38.md at cf2ebf6c9b1e6752b7a62413c0b1dab007d58762 2026-04-27 -->
 ---
 id: DEC-38
 domain: governance
@@ -8,13 +8,13 @@ status: active
 created_by: discovery
 created_at: 2026-04-22
 last_updated_by: discovery
-last_updated_at: 2026-04-22
+last_updated_at: 2026-04-26
 erratum_2026_04_22:
   reason: "E31S01 Delivery escalation — factual correction. Clause C / Cost acknowledgment / Impact originally named the 5 *ControllerSliceTest files (which use @WebMvcTest, not @SpringBootTest(RANDOM_PORT)). Naming error inherited from E21-tournament-retrospective.md §IT-Annotation Re-Evaluation. Corrected target: the 6 *ControllerIT files (including TournamentRulesControllerIT, added by E21S10 post-retrospective). All decision text, clauses (A/B/C/D), and rationale (sibling-module-bean-pollution avoidance, Modulith reference guidance, bytecode-spike confirmation) unchanged — only the file references were wrong. *ControllerSliceTest files remain @WebMvcTest by design; they cannot suffer sibling-module bean pollution because @WebMvcTest does not load service beans (they are mocked). See E31S01.story.md amendment_log 2026-04-22."
 supersedes: null
 superseded_by: null
 amends: null
-amended_by: [DEC-40]
+amended_by: [DEC-40, DEC-44]
 tags:
   - testing
   - integration-tests
@@ -298,3 +298,21 @@ The decision per test class sits with the E22 relocation story author; the defau
 All other clauses of this DEC (Clause B legacy preservation; full §Context rationale; `patterns/conventions.md` §(d) supersession-for-reconstructed-modules semantic) remain UNCHANGED by DEC-40.
 
 (Frontmatter `amended_by: [DEC-40]` is the authoritative amendment record; `status` remains `active`; no `supersedes`/`superseded_by` change.)
+
+---
+
+## 2026-04-26 Amendment — `web` carve-out per DEC-44
+
+See **DEC-44** for the full amendment. In summary: the `de.vvwt.tm.web` Modulith module is **explicitly excluded** from this DEC's Clause A canon. Web-module controller integration tests use `@SpringBootTest(webEnvironment = RANDOM_PORT, classes = de.vvwt.tm.TournamentManagerApplication.class)` per DEC-44 D1, retro-correcting the missed DEC-40 Clause E §Sub-Clause-3 SHALL trigger that fired at E24S06.
+
+**Clause A** continues to apply unchanged for **bounded-context-module ITs** (auth, tenant, tournament, scoring, photo, certificate, print, display, timer, slotopt-integration). The `@ApplicationModuleTest(webEnvironment = WebEnvironment.RANDOM_PORT)` annotation remains the canon for those.
+
+**Clause B** (legacy preservation for non-reconstructed `infrastructure.*` controllers) remains UNCHANGED.
+
+**Clause C** (E21 full-context controller-IT migration to `@ApplicationModuleTest`) remains as historical record. The 6 `*ControllerIT` files migrated under E31S01 + further relocated to `de.vvwt.tm.web.*` test package under E22S07 (per DEC-40 Clause D) now switch to `@SpringBootTest` per DEC-44 D1 — the migration history is preserved, but the post-DEC-44 end state is `@SpringBootTest` for the web-relocated files.
+
+**Clause D** (cold-boot escape clause) is **operationally obsolete for web-module ITs** (already on `@SpringBootTest` post-DEC-44). Sub-Clause D retains its meaning for any future bounded-context-module IT that might fire it.
+
+All other clauses of this DEC (slice-test scope clarification per 2026-04-22 erratum; reverse-`@MockitoBean` case per DEC-40 amendment) remain UNCHANGED by DEC-44.
+
+(Frontmatter `amended_by: [DEC-40, DEC-44]` is the authoritative amendment record; `status` remains `active`; no `supersedes`/`superseded_by` change.)
