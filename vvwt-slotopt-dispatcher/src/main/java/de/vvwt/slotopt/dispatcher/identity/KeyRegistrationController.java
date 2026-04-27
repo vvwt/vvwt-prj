@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
  *   <li>200 OK — idempotent re-registration (same worker ID, same role, same algorithm)
  *   <li>400 Bad Request — unknown algorithm, out-of-range key length, missing/empty algorithm field
  *   <li>409 Conflict — role conflict for existing worker ID
+ *   <li>410 Gone — algorithm is deprecated per DEC-43 D3; new registrations rejected
  * </ul>
  *
  * <p>DEC-35: this controller lives in the public {@code identity} package (per DEC-40 amendment to
@@ -31,7 +32,11 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>E37S06 amendment: {@link HttpServletRequest} injected to extract source IP for audit wiring
  * per AC-IDENTITY-INTEGRATION-WIRING.
  *
- * <p>Story: E37S05 (initial); E37S06 (audit source-IP wiring)
+ * <p>E40S03 amendment: {@code @ExceptionHandler(DeprecatedAlgorithmException.class)} added per
+ * AC-CONTROLLER-410-GONE-PATH. Returns HTTP 410 Gone with JSON error body when service throws
+ * {@link DeprecatedAlgorithmException} (DEC-43 D3 verbatim).
+ *
+ * <p>Story: E37S05 (initial); E37S06 (audit source-IP wiring); E40S03 (410 Gone handler)
  */
 @RestController
 public class KeyRegistrationController {
@@ -73,5 +78,21 @@ public class KeyRegistrationController {
     @ExceptionHandler(RoleConflictException.class)
     public ResponseEntity<Map<String, String>> handleRoleConflict(RoleConflictException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", ex.getMessage()));
+    }
+
+    /**
+     * Handles {@link DeprecatedAlgorithmException} — maps to 410 Gone.
+     *
+     * <p>Triggered when a new registration request uses an algorithm that has passed its DEC-43 D3
+     * deprecation date (as amended by DEC-48). Returns HTTP 410 Gone per DEC-43 D3 verbatim: "the
+     * server returns a registration error (HTTP 410 Gone or equivalent application-level error) for
+     * any new registration request using a deprecated algorithm."
+     *
+     * <p>Story: E40S03 / AC-CONTROLLER-410-GONE-PATH
+     */
+    @ExceptionHandler(DeprecatedAlgorithmException.class)
+    public ResponseEntity<Map<String, String>> handleDeprecatedAlgorithm(
+            DeprecatedAlgorithmException ex) {
+        return ResponseEntity.status(HttpStatus.GONE).body(Map.of("error", ex.getMessage()));
     }
 }

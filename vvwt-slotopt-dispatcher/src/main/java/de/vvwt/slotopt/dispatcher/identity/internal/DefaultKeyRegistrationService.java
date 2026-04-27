@@ -3,6 +3,7 @@ package de.vvwt.slotopt.dispatcher.identity.internal;
 import de.vvwt.slotopt.dispatcher.audit.AuditService;
 import de.vvwt.slotopt.dispatcher.crypto.SignatureVerifier;
 import de.vvwt.slotopt.dispatcher.crypto.SignatureVerifierRegistry;
+import de.vvwt.slotopt.dispatcher.identity.DeprecatedAlgorithmException;
 import de.vvwt.slotopt.dispatcher.identity.KeyRegistration;
 import de.vvwt.slotopt.dispatcher.identity.KeyRegistrationRepository;
 import de.vvwt.slotopt.dispatcher.identity.KeyRegistrationService;
@@ -10,7 +11,10 @@ import de.vvwt.slotopt.dispatcher.identity.RegisterKeyRequest;
 import de.vvwt.slotopt.dispatcher.identity.RegisterKeyResponse;
 import de.vvwt.slotopt.dispatcher.identity.RegistrationOutcome;
 import de.vvwt.slotopt.dispatcher.identity.RoleConflictException;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 
@@ -34,7 +38,14 @@ import org.springframework.stereotype.Service;
  *
  * <p>Audit failures do NOT block registration — see AC-AUDIT-FAILURE-MODE.
  *
- * <p>Story: E37S05 (initial); E37S06 (audit wiring + sourceIp parameter)
+ * <p>E40S03 amendment: {@link Clock} dependency added for AC-CLOCK-INJECTION. Deprecation-date
+ * enforcement per DEC-43 D2/D3 (as amended by DEC-48): new registrations using an algorithm past
+ * its DEC-48 deadline are rejected with {@link DeprecatedAlgorithmException} (→ HTTP 410 Gone via
+ * the controller's {@code @ExceptionHandler}). Per DEC-43 D3 + DEC-48: {@code null} deprecation
+ * date means the algorithm is not deprecated; the enforcement block is never entered.
+ *
+ * <p>Story: E37S05 (initial); E37S06 (audit wiring + sourceIp parameter); E40S03 (Clock +
+ * deprecation enforcement)
  */
 @Service
 public class DefaultKeyRegistrationService implements KeyRegistrationService {
@@ -42,14 +53,17 @@ public class DefaultKeyRegistrationService implements KeyRegistrationService {
     private final KeyRegistrationRepository repository;
     private final SignatureVerifierRegistry verifierRegistry;
     private final AuditService auditService;
+    private final Clock clock;
 
     public DefaultKeyRegistrationService(
             KeyRegistrationRepository repository,
             SignatureVerifierRegistry verifierRegistry,
-            AuditService auditService) {
+            AuditService auditService,
+            Clock clock) {
         this.repository = repository;
         this.verifierRegistry = verifierRegistry;
         this.auditService = auditService;
+        this.clock = clock;
     }
 
     @Override
@@ -69,8 +83,22 @@ public class DefaultKeyRegistrationService implements KeyRegistrationService {
                             + verifierRegistry.supportedAlgorithms());
         }
 
-        // Behavior (2): validate public key length
+        // Behavior (1a): deprecation-date enforcement per DEC-43 D2/D3 + DEC-48
+        // Inserted BEFORE key-length and persistence logic
+        // (AC-DEPRECATION-CHECK-BEFORE-EXISTING-LOGIC).
+        // DEC-48 boundary: accepted iff
+        // clock.instant().isBefore(depDate.plusDays(1).atStartOfDay(UTC))
+        // Null deprecation date → not deprecated → skip check (V1 universal case per Brief C-17).
         SignatureVerifier verifier = verifierOpt.get();
+        LocalDate depDate = verifier.deprecationDate();
+        if (depDate != null) {
+            Instant deadline = depDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+            if (!clock.instant().isBefore(deadline)) {
+                throw new DeprecatedAlgorithmException(algorithm, depDate);
+            }
+        }
+
+        // Behavior (2): validate public key length
         byte[] keyBytes = request.publicKeyBytes();
         if (keyBytes == null
                 || keyBytes.length < verifier.minPublicKeyBytes()

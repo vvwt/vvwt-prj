@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,9 +34,12 @@ import org.springframework.test.web.servlet.MockMvc;
  *   <li>400 on out-of-range key length (service throws {@link IllegalArgumentException})
  *   <li>409 on role conflict (service throws {@link RoleConflictException})
  *   <li>400 on missing/empty algorithm field (AC-ALGORITHM-FIELD-REQUIRED)
+ *   <li>410 Gone on deprecated algorithm (service throws {@link DeprecatedAlgorithmException})
  * </ul>
  *
- * <p>Story: E37S05; AC-MOCKMVC-CONTROLLER-TEST
+ * <p>E40S03 amendment: 410 Gone handler test added (AC-CONTROLLER-410-GONE-PATH).
+ *
+ * <p>Story: E37S05; AC-MOCKMVC-CONTROLLER-TEST; E40S03 AC-CONTROLLER-410-GONE-PATH
  */
 @WebMvcTest(KeyRegistrationController.class)
 class KeyRegistrationControllerSliceTest {
@@ -179,5 +183,30 @@ class KeyRegistrationControllerSliceTest {
                                         """
                                                 .formatted(UUID.randomUUID())))
                 .andExpect(status().isBadRequest());
+    }
+
+    // -------------------------------------------------------------------------
+    // 410 Gone on deprecated algorithm (AC-CONTROLLER-410-GONE-PATH)
+    // E40S03 — RED-first per DEC-22
+    // -------------------------------------------------------------------------
+
+    /**
+     * AC-CONTROLLER-410-GONE-PATH: When service throws {@link DeprecatedAlgorithmException},
+     * controller must return HTTP 410 Gone with JSON error body.
+     *
+     * <p>DEC-36: mocks {@link KeyRegistrationService} (public interface), per test class in {@code
+     * identity} package different from {@code identity.internal}.
+     */
+    @Test
+    void deprecatedAlgorithmReturns410() throws Exception {
+        when(keyRegistrationService.register(any(), any()))
+                .thenThrow(new DeprecatedAlgorithmException("Ed25519", LocalDate.of(2026, 12, 31)));
+
+        mockMvc.perform(
+                        post("/api/register-key")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(NEW_REGISTRATION_JSON.formatted(UUID.randomUUID())))
+                .andExpect(status().isGone())
+                .andExpect(jsonPath("$.error").exists());
     }
 }
