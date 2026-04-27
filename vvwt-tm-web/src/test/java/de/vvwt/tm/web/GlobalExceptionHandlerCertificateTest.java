@@ -18,22 +18,26 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * RED-first tests for Phase 3 certificate-exception handler methods in
- * {@link GlobalExceptionHandler} (E36S08, AC-PHASE3-RED-FIRST-PER-METHOD,
- * AC-DEC41-FRESH-RED-FIRST-TESTS, AC-C11-BEHAVIORAL-EQUIVALENCE).
+ * RED-first tests for Phase 3 certificate-exception handler methods in {@link
+ * GlobalExceptionHandler} (E36S08, AC-PHASE3-RED-FIRST-PER-METHOD, AC-DEC41-FRESH-RED-FIRST-TESTS,
+ * AC-C11-BEHAVIORAL-EQUIVALENCE).
  *
  * <p>Authored fresh per DEC-41 §3 clause (1): CertificateExceptionAdvice had no standalone test
  * files (behavior tested indirectly via CertificateTemplateControllerIT). These are NEW tests.
  *
- * <p>Uses standalone {@link MockMvcBuilders#standaloneSetup} — same pattern as
- * {@link GlobalExceptionHandlerTest}. Wires exactly {@link GlobalExceptionHandler} +
- * {@link TestCertificateThrowingController}.
+ * <p>Uses standalone {@link MockMvcBuilders#standaloneSetup} — same pattern as {@link
+ * GlobalExceptionHandlerTest}. Wires exactly {@link GlobalExceptionHandler} + {@link
+ * TestCertificateThrowingController}.
  *
  * <h2>HTTP mapping (AC-C11-BEHAVIORAL-EQUIVALENCE — from deleted CertificateExceptionAdvice)</h2>
+ *
  * <ul>
- *   <li>{@link CertificateTemplateFormatException} → 400 Bad Request, messageKey {@code error.certificateTemplate.format}
- *   <li>{@link CertificateTemplateSizeException} → 400 Bad Request, messageKey {@code error.certificateTemplate.tooLarge}
- *   <li>{@link CertificateTemplateStorageException} → 500 Internal Server Error, messageKey {@code error.certificateTemplate.storage}
+ *   <li>{@link CertificateTemplateFormatException} → 400 Bad Request, messageKey {@code
+ *       error.certificateTemplate.format}
+ *   <li>{@link CertificateTemplateSizeException} → 400 Bad Request, messageKey {@code
+ *       error.certificateTemplate.tooLarge}
+ *   <li>{@link CertificateTemplateStorageException} → 500 Internal Server Error, messageKey {@code
+ *       error.certificateTemplate.storage}
  * </ul>
  *
  * @see GlobalExceptionHandler
@@ -59,7 +63,9 @@ class GlobalExceptionHandlerCertificateTest {
     // =========================================================================
 
     @Test
-    @DisplayName("CertificateTemplateFormatException maps to HTTP 400 with messageKey error.certificateTemplate.format")
+    @DisplayName(
+            "CertificateTemplateFormatException maps to HTTP 400 with messageKey"
+                    + " error.certificateTemplate.format")
     void certTemplateFormat_mapsTo400() throws Exception {
         mockMvc.perform(get("/test-cert/format").accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
@@ -73,7 +79,9 @@ class GlobalExceptionHandlerCertificateTest {
     // =========================================================================
 
     @Test
-    @DisplayName("CertificateTemplateSizeException maps to HTTP 400 with messageKey error.certificateTemplate.tooLarge")
+    @DisplayName(
+            "CertificateTemplateSizeException maps to HTTP 400 with messageKey"
+                    + " error.certificateTemplate.tooLarge")
     void certTemplateSize_mapsTo400() throws Exception {
         mockMvc.perform(get("/test-cert/size").accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
@@ -87,7 +95,9 @@ class GlobalExceptionHandlerCertificateTest {
     // =========================================================================
 
     @Test
-    @DisplayName("CertificateTemplateStorageException maps to HTTP 500 with messageKey error.certificateTemplate.storage")
+    @DisplayName(
+            "CertificateTemplateStorageException maps to HTTP 500 with messageKey"
+                    + " error.certificateTemplate.storage")
     void certTemplateStorage_mapsTo500() throws Exception {
         mockMvc.perform(get("/test-cert/storage").accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isInternalServerError())

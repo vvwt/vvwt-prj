@@ -53,10 +53,9 @@ import org.springframework.web.multipart.MultipartFile;
  *
  * <h2>Error handling</h2>
  *
- * <p>{@link de.vvwt.tm.web.GlobalExceptionHandler} covers {@code
- * de.vvwt.tm.web} as a base package. Photo domain exceptions from {@code de.vvwt.tm.photo.*} are
- * absorbed directly by {@code GlobalExceptionHandler} (E36S08 Phase 3 — {@code PhotoExceptionAdvice}
- * deleted in Phase 2):
+ * <p>{@link de.vvwt.tm.web.GlobalExceptionHandler} covers {@code de.vvwt.tm.web} as a base package.
+ * Photo domain exceptions from {@code de.vvwt.tm.photo.*} are absorbed directly by {@code
+ * GlobalExceptionHandler} (E36S08 Phase 3 — {@code PhotoExceptionAdvice} deleted in Phase 2):
  *
  * <ul>
  *   <li>{@link de.vvwt.tm.photo.PhotoFormatException} → 400
