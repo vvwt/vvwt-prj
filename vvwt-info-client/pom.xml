@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>de.vvwt</groupId>
+        <artifactId>vvwt-prj</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>vvwt-info-client</artifactId>
+    <name>VVW Info — Client SPA</name>
+    <description>
+        Public Participant Info Service — Svelte 5 + TypeScript SPA (DEC-42 D1, DEC-2).
+        Per-team timeline view, auto-update, finished-game results.
+        Built via frontend-maven-plugin into dist/ (E38S01 scaffold).
+        Bundle relocation to vvwt-info-server static resources is E38S08 scope.
+        SvelteKit is explicitly absent (DEC-2).
+        Stories: E38S01 (scaffold), E38S08 (bundle wiring).
+    </description>
+
+    <!-- No Java compile dependencies — SPA module uses only npm tooling.
+         Java test source is present for the AC1 existence test and the DEC-22 Iron Law. -->
+    <dependencies>
+
+        <!-- ===================================================================
+             Test dependencies
+             =================================================================== -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <!-- ===================================================================
+         Build plugins
+         =================================================================== -->
+    <build>
+        <plugins>
+
+            <!-- Maven Failsafe for any ITs -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+                frontend-maven-plugin — npm install + npm run build wired into Maven lifecycle.
+                AC2, AC11: npm install + npm run build produce working static-asset bundle to dist/.
+                DEC-2: Svelte 5 + TypeScript 5 + Vite; SvelteKit absent.
+                DEC-3: OSS-compliant (Apache 2.0 / MIT toolchain).
+                Working directory: src/main/ui/ (the npm project root).
+                Node.js version pinned in parent POM properties (${node.version}).
+            -->
+            <plugin>
+                <groupId>com.github.eirslett</groupId>
+                <artifactId>frontend-maven-plugin</artifactId>
+                <configuration>
+                    <workingDirectory>src/main/ui</workingDirectory>
+                    <installDirectory>target</installDirectory>
+                </configuration>
+                <executions>
+
+                    <!-- Step 1: download pinned Node.js + npm to target/node/ -->
+                    <execution>
+                        <id>install-node-and-npm</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>install-node-and-npm</goal>
+                        </goals>
+                        <configuration>
+                            <nodeVersion>${node.version}</nodeVersion>
+                        </configuration>
+                    </execution>
+
+                    <!-- Step 2: npm install — resolves package-lock.json -->
+                    <execution>
+                        <id>npm-install</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>install</arguments>
+                        </configuration>
+                    </execution>
+
+                    <!-- Step 3: npm run build — compiles Svelte SPA to src/main/ui/dist/ -->
+                    <execution>
+                        <id>npm-build</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>run build</arguments>
+                        </configuration>
+                    </execution>
+
+                </executions>
+            </plugin>
+
+            <!--
+                Maven Enforcer Plugin — bannedDependencies rules (DEC-42 D2, AC6).
+                vvwt-info-client MUST NOT depend on TM or slotopt modules.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>enforce-banned-deps-info-client</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>de.vvwt:vvwt-tm-web</exclude>
+                                        <exclude>de.vvwt:vvwt-tm-*</exclude>
+                                        <exclude>de.vvwt:vvwt-worker-*</exclude>
+                                        <exclude>de.vvwt:vvwt-slotopt-worker-lib</exclude>
+                                        <exclude>de.vvwt:vvwt-slotopt-dispatcher</exclude>
+                                        <exclude>de.vvwt:vvwt-slotopt-*</exclude>
+                                        <exclude>de.vvwt:vvwt-dispatcher</exclude>
+                                        <exclude>de.vvwt:vvwt-standalone-worker</exclude>
+                                        <exclude>de.vvwt:vvwt-benchmark</exclude>
+                                    </excludes>
+                                    <searchTransitive>true</searchTransitive>
+                                    <message>DEC-42 D2: vvwt-info-client MUST NOT depend on TM, worker, dispatcher, slotopt, or benchmark modules.</message>
+                                </bannedDependencies>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+        </plugins>
+    </build>
+
+</project>

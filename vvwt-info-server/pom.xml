@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>de.vvwt</groupId>
+        <artifactId>vvwt-prj</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>vvwt-info-server</artifactId>
+    <name>VVW Info — Server Application</name>
+    <description>
+        Public Participant Info Service Spring Boot application (DEC-42 D1).
+        REST publisher endpoints, WebSocket reader, HTTP-poll fallback, persistence,
+        signature verification, and registration handshake.
+        Profile-driven: self-host (H2, default, no-config) / primary (PostgreSQL, opt-in).
+        DEC-42 D3: no-config default = self-host = drive-by-squatting mitigation.
+        Stories: E38S01 (scaffold), E38S02+ (domain logic).
+    </description>
+
+    <!-- ===================================================================
+         Compile dependencies (versions from parent BOM — DEC-10)
+         =================================================================== -->
+    <dependencies>
+
+        <!-- Spring Boot Web starter — embedded server + MVC + Jackson -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Spring Boot Data JDBC — CRUD persistence (DEC-42 D4, NOT JPA) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jdbc</artifactId>
+        </dependency>
+
+        <!-- Spring Boot Validation — Bean Validation for request DTOs -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- Flyway schema migration (DEC-42 D4 — profile-driven H2/PostgreSQL) -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+
+        <!-- H2 embedded database — default (self-host) profile runtime dep (DEC-42 D4) -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- PostgreSQL JDBC driver — primary profile runtime dep.
+             optional=true: excluded from transitive dependency graph; activated by
+             spring.profiles.active=primary at runtime (DEC-42 D4).
+             Version from Spring Boot BOM (DEC-10). -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- vvwt-info-dto — the typed DTO contract for publisher and reader endpoints.
+             Version managed by parent dependencyManagement (DEC-10). -->
+        <dependency>
+            <groupId>de.vvwt</groupId>
+            <artifactId>vvwt-info-dto</artifactId>
+        </dependency>
+
+        <!-- ===================================================================
+             Test dependencies (versions from parent BOM — DEC-10)
+             =================================================================== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <!-- ===================================================================
+         Build plugins
+         =================================================================== -->
+    <build>
+        <plugins>
+
+            <!-- Spring Boot application repackage — produces executable fat JAR -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Maven Failsafe — integration tests (*IT.java) run at verify phase.
+                 Required for BannedDependenciesEnforcerIT.java (AC9). -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+                Maven Enforcer Plugin — bannedDependencies rules (DEC-42 D2, AC6).
+
+                RULE: vvwt-info-server MUST NOT depend on any TM or slotopt modules.
+                The only allowed cross-subsystem dependency edge is:
+                  vvwt-tm-web → vvwt-info-dto  (not the other direction).
+
+                Bans at compile and runtime scope (functional_scope: default = all scopes).
+                Enforcer 3.5.0 managed by parent pluginManagement (DEC-10).
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>enforce-banned-deps-info-server</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <!-- TM modules — only vvwt-info-dto is the allowed edge, not the reverse -->
+                                        <exclude>de.vvwt:vvwt-tm-web</exclude>
+                                        <exclude>de.vvwt:vvwt-tm-*</exclude>
+                                        <!-- Slotopt modules -->
+                                        <exclude>de.vvwt:vvwt-worker-*</exclude>
+                                        <exclude>de.vvwt:vvwt-slotopt-worker-lib</exclude>
+                                        <exclude>de.vvwt:vvwt-slotopt-dispatcher</exclude>
+                                        <exclude>de.vvwt:vvwt-slotopt-*</exclude>
+                                        <exclude>de.vvwt:vvwt-dispatcher</exclude>
+                                        <exclude>de.vvwt:vvwt-standalone-worker</exclude>
+                                        <exclude>de.vvwt:vvwt-benchmark</exclude>
+                                    </excludes>
+                                    <searchTransitive>true</searchTransitive>
+                                    <message>DEC-42 D2: vvwt-info-server MUST NOT depend on TM, worker, dispatcher, slotopt, or benchmark modules. The only cross-subsystem dependency is vvwt-tm-web → vvwt-info-dto.</message>
+                                </bannedDependencies>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+        </plugins>
+    </build>
+
+</project>

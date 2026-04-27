@@ -187,6 +187,15 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- vvwt-info-dto: DEC-42 D2 — the only allowed cross-subsystem dependency from TM to the
+             info-service module-set. vvwt-tm-web MAY depend on vvwt-info-dto (typed DTO contract
+             for outbound publishes to the info-server). Version managed by parent POM (DEC-10).
+             Story E38S01 — AC4. -->
+        <dependency>
+            <groupId>de.vvwt</groupId>
+            <artifactId>vvwt-info-dto</artifactId>
+        </dependency>
+
     </dependencies>
 
     <!-- ===================================================================
@@ -641,6 +650,41 @@
                             <finalName>tournament-manager-${project.version}</finalName>
                             <!-- appendAssemblyId=false: no "-distribution" suffix in filename -->
                             <appendAssemblyId>false</appendAssemblyId>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+                Maven Enforcer Plugin — bannedDependencies rule (DEC-42 D2, AC7, E38S01).
+
+                vvwt-tm-web MAY depend on vvwt-info-dto (the only allowed cross-subsystem edge).
+                It MUST NOT depend on vvwt-info-server or vvwt-info-client.
+                This rule enforces the DEC-42 D2 service boundary at build time.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>enforce-banned-deps-tm-web</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <!-- vvwt-info-server and vvwt-info-client are banned from TM.
+                                             Only vvwt-info-dto is the allowed cross-subsystem edge (DEC-42 D2). -->
+                                        <exclude>de.vvwt:vvwt-info-server</exclude>
+                                        <exclude>de.vvwt:vvwt-info-client</exclude>
+                                    </excludes>
+                                    <searchTransitive>true</searchTransitive>
+                                    <message>DEC-42 D2: vvwt-tm-web MUST NOT depend on vvwt-info-server or vvwt-info-client. Only vvwt-info-dto is the allowed cross-subsystem dep.</message>
+                                </bannedDependencies>
+                            </rules>
+                            <fail>true</fail>
                         </configuration>
                     </execution>
                 </executions>
