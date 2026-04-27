@@ -40,6 +40,13 @@
             <artifactId>jackson-databind</artifactId>
         </dependency>
 
+        <!-- Jackson JavaTime module for LocalDate serialization (AlgorithmDescriptor.deprecation_date,
+             AlgorithmWarning.deprecation_date — DEC-43 D1). Version from Spring Boot BOM. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+
         <!-- Bean Validation API — compile-scope only; no validator-impl here (DEC-42 D1).
              jakarta.validation-api 3.x is managed by Spring Boot BOM. -->
         <dependency>
@@ -59,6 +66,24 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Hibernate Validator — test scope ONLY for Bean Validation integration tests.
+             Validator IMPL is a consumer concern (DEC-42 D1 / AC11). This dep is test-only
+             so that AC3/AC7/AC10 tests can exercise BV failure paths without pulling the
+             impl into the compile/runtime classpath of consuming modules. -->
+        <dependency>
+            <groupId>org.hibernate.validator</groupId>
+            <artifactId>hibernate-validator</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- EL implementation required by Hibernate Validator for constraint interpolation -->
+        <dependency>
+            <groupId>org.glassfish.expressly</groupId>
+            <artifactId>expressly</artifactId>
+            <version>5.0.0</version>
             <scope>test</scope>
         </dependency>
 
