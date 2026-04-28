@@ -120,7 +120,7 @@ class TimerControllerIT {
     // =========================================================================
 
     private void cleanupTestData() {
-        jdbcTemplate.update("DELETE FROM phase_break");
+        jdbcTemplate.update("DELETE FROM phase_breaks");
         jdbcTemplate.update("DELETE FROM set_result");
         jdbcTemplate.update("DELETE FROM match_outcome");
         jdbcTemplate.update("DELETE FROM audit_log");
@@ -190,10 +190,10 @@ class TimerControllerIT {
 
         TimerDataResponse body = response.getBody();
         assertThat(body).isNotNull();
-        assertThat(body.tournamentId())
+        assertThat(body.getTournamentId())
                 .as("tournamentId in response must match the requested UUID")
                 .isEqualTo(tournamentId);
-        assertThat(body.tournamentName())
+        assertThat(body.getTournamentName())
                 .as("tournamentName must match")
                 .isEqualTo("E26S03 Timer Test Tournament");
     }
@@ -323,7 +323,7 @@ class TimerControllerIT {
 
         TimerDataResponse body = response.getBody();
         assertThat(body).isNotNull();
-        assertThat(body.emptySchedule())
+        assertThat(body.isEmptySchedule())
                 .as("emptySchedule must be true when no phases configured")
                 .isTrue();
     }
