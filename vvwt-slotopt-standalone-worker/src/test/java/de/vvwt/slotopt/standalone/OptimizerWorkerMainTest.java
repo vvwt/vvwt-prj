@@ -15,26 +15,12 @@ import org.junit.jupiter.api.Test;
  *
  * <p>Same-package test: in {@code de.vvwt.slotopt.standalone} — may reference the class directly.
  *
- * <p>Note on exit-code testing: {@code OptimizerWorkerMain.main()} must NOT call {@code
- * System.exit()} for valid-args invocations (exits 0 per AC-OPTIMIZER-WORKER-MAIN). Tests verify
- * this via {@code assertThatCode(() -> OptimizerWorkerMain.main(args)).doesNotThrowAnyException()}.
+ * <p>Note on full-invocation testing: as of E41S05, {@code OptimizerWorkerMain.main()} attempts
+ * real I/O (key file creation, dispatcher HTTP call) and calls {@code System.exit()}. End-to-end
+ * invocation testing requires a real or mocked dispatcher and is covered by E41S06 integration
+ * tests. These tests cover only structural contracts and pre-I/O failure paths.
  */
 class OptimizerWorkerMainTest {
-
-    @Test
-    @DisplayName("OptimizerWorkerMain.main() with valid args exits 0 (no exception thrown)")
-    void main_validArgs_exitsZero() {
-        // per AC-OPTIMIZER-WORKER-MAIN: valid args → config loaded, exits 0 after config load
-        // At E41S02, main() loads config then exits cleanly (placeholder for E41S05 runtime).
-        assertThatCode(
-                        () ->
-                                OptimizerWorkerMain.main(
-                                        new String[] {
-                                            "--dispatcher-url", "https://dispatcher.example.com",
-                                            "--key-dir", "/tmp/keys"
-                                        }))
-                .doesNotThrowAnyException();
-    }
 
     @Test
     @DisplayName("OptimizerWorkerMain class has a static main(String[]) method")
@@ -57,7 +43,7 @@ class OptimizerWorkerMainTest {
                     + " IllegalArgumentException")
     void main_invalidSigningAlgorithm_propagatesException() {
         // per AC-SIGNING-ALGORITHM-FLAG: invalid algorithm rejected before dispatcher contact
-        // main() propagates the IllegalArgumentException from WorkerConfigLoader
+        // main() propagates the IllegalArgumentException from WorkerConfigLoader (before any I/O)
         org.assertj.core.api.Assertions.assertThatThrownBy(
                         () ->
                                 OptimizerWorkerMain.main(
