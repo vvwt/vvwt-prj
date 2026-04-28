@@ -46,6 +46,28 @@
             <artifactId>slf4j-api</artifactId>
         </dependency>
 
+        <!-- Jackson: JSON (de)serialisation for HTTP bodies — version from Spring Boot BOM.
+             E41S04: DispatcherClient needs to parse GET /api/algorithms response + serialize
+             POST /api/register-key request body. DEC-3 OSS-compliant (Apache 2.0). -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <!-- Jackson JSR-310 module: LocalDate (deprecation_date) + Instant (registeredAt) -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+
+        <!-- Concrete SLF4J binding for tests (slf4j-simple — lightweight, no Spring).
+             Scoped to test only; runtime binding resolved by the final fat-JAR classpath. -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Test dependencies (versions managed by parent) -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -60,6 +82,11 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
 
