@@ -19,9 +19,9 @@ import java.util.UUID;
  *
  * <p>Canonical FQN: {@code de.vvwt.tm.timer.TimerDataResponse} per DEC-40 §2026-04-27 Clarification
  * Pattern A (AC-PATTERN-A-PLACEMENT-JUSTIFICATION — projection == wire shape; no Clause B
- * (a)/(c)/(d) condition fires; Decision Rule §289-296). Reconstruction of legacy {@code
- * de.vvwt.tm.infrastructure.web.timer.dto.TimerDataResponse} via D-7 Option γ (E26S01 authors at
- * bounded-context module root per Pattern A). Architectural-lesson precedent: E25S01 escalation
+ * (a)/(c)/(d) condition fires; Decision Rule §289-296). Reconstruction of legacy timer data
+ * response DTO (formerly at {@code infrastructure.web.timer.dto}) via D-7 Option γ (E26S01 authors
+ * at bounded-context module root per Pattern A). Architectural-lesson precedent: E25S01 escalation
  * (outer-repo commit {@code 23d947b}) — records at {@code web.internal.dto.*} create a {@code
  * timer↔web} Modulith cycle; Pattern A avoids this structurally. Return type of {@link
  * de.vvwt.tm.timer.TimerDataService#buildTimerData(UUID)} per C-3 signature-preservation.

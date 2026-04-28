@@ -46,8 +46,8 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <h2>6-arg constructor (C-3 signature-preservation)</h2>
  *
- * <p>Constructor parameter order preserved verbatim from legacy {@code
- * de.vvwt.tm.domain.timer.TimerDataService}:
+ * <p>Constructor parameter order preserved verbatim from legacy timer data service (formerly at
+ * domain.timer, reconstructed as {@link de.vvwt.tm.timer.TimerDataService}):
  *
  * <ol>
  *   <li>{@link TournamentRepository}

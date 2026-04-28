@@ -8,8 +8,8 @@ import org.springframework.stereotype.Component;
  *
  * <p>Canonical FQN: {@code de.vvwt.tm.timer.audio.AudioStorageConfig} per DEC-21 module layout
  * (public sub-package of the {@code timer} Modulith module, option A per user decision 2026-04-27).
- * Property keys preserved verbatim per C-8 wire-stability (same {@code tm.audio} namespace as
- * legacy {@code de.vvwt.tm.domain.audio.AudioStorageConfig}).
+ * Property keys preserved verbatim per C-8 wire-stability (same {@code tm.audio} namespace as the
+ * legacy audio storage config at the former domain.audio package).
  *
  * <p>Bound to the {@code tm.audio} property namespace in {@code application.yml}.
  *
