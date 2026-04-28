@@ -57,6 +57,12 @@
  *       (Pattern A). Added at E26S02 — empirical discovery: Spring Modulith 2.x treats {@code
  *       timer.audio} as a separate named module; {@code "timer"} alone does not cover it
  *       (AC-TIMER-AUDIO-NAMED-INTERFACE-CONSIDERATION remediation).
+ *   <li>{@code slotopt} — {@link de.vvwt.tm.web.slotopt.SlotOptimizationCancelController} (E27S02,
+ *       DEC-40 Clause A) consumes {@link de.vvwt.tm.slotopt.SlotOptimizationJobRegistry} from the
+ *       {@code slotopt} module root. Post-story excl.-tenant count = 8 (tournament, scoring, photo,
+ *       certificate, print, display, timer, slotopt). DEC-45 D2 FIRM verdict: L2 stays (Trigger-α
+ *       not newly satisfied by single addition). Added at E27S02 per DEC-40 Clause A + DEC-45 D2
+ *       unconditional pre-approval.
  * </ul>
  *
  * <h2>Boundary rules (DEC-40 § Clause A)</h2>
@@ -85,6 +91,7 @@
             "print",
             "display",
             "timer",
-            "timer::audio"
+            "timer::audio",
+            "slotopt"
         })
 package de.vvwt.tm.web;
