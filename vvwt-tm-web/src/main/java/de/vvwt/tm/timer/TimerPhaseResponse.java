@@ -8,9 +8,9 @@ package de.vvwt.tm.timer;
  *
  * <p>Canonical FQN: {@code de.vvwt.tm.timer.TimerPhaseResponse} per DEC-40 §2026-04-27
  * Clarification Pattern A (AC-RED-FIRST-TIMER-PHASE-RESPONSE — projection == wire shape; no Clause
- * B (a)/(c)/(d) condition fires; Decision Rule §289-296). Reconstruction of legacy {@code
- * de.vvwt.tm.infrastructure.web.timer.dto.TimerPhaseResponse} via D-7 Option γ (E26S01 authors at
- * bounded-context module root per Pattern A).
+ * B (a)/(c)/(d) condition fires; Decision Rule §289-296). Reconstruction of legacy timer phase
+ * response DTO (formerly at {@code infrastructure.web.timer.dto}) via D-7 Option γ (E26S01 authors
+ * at bounded-context module root per Pattern A).
  *
  * @see TimerDataResponse
  * @see <a href="contexts/artefacts/stories/E26S01.story.md">Story E26S01</a>

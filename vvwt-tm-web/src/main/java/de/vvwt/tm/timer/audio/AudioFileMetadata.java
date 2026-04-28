@@ -14,12 +14,13 @@ import java.time.Instant;
  * AudioController} (E26S03). No separate web-tier DTO wrapping is needed because the projection
  * shape equals the wire shape — no field omission, no cross-context aggregation, no aliasing (all
  * Clause B (a)/(c)/(d) conditions are NOT satisfied). The legacy {@code
- * de.vvwt.tm.infrastructure.web.audio.AudioMetadataResponse} 1:1 wrapper is DELETED by E26S02 (not
- * re-authored at S03 or elsewhere).
+ * de.vvwt.tm.timer.audio.AudioFileMetadata} (canonical; identical 4-field shape per Pattern A
+ * rationale). The legacy {@code infrastructure.web.audio.AudioMetadataResponse} 1:1 wrapper was
+ * DELETED by E26S02 (not re-authored at S03 or elsewhere).
  *
  * <p>Fields preserved verbatim per C-3 + C-8 (JSON wire-format parity). Empirically verified at
- * Discovery 2026-04-27: both {@code domain.audio.AudioFileMetadata} and {@code
- * infrastructure.web.audio.AudioMetadataResponse} carried identical 4-field shape.
+ * Discovery 2026-04-27: both the legacy domain.audio.AudioFileMetadata and its
+ * infrastructure.web.audio.AudioMetadataResponse wrapper carried identical 4-field shape.
  *
  * @param category the audio category (START, END, PAUSE)
  * @param filename the original uploaded filename as provided by the client

@@ -15,8 +15,9 @@ package de.vvwt.tm.timer;
  * </ul>
  *
  * <p>Canonical FQN: {@code de.vvwt.tm.timer.TimerBreakType} per DEC-21 module layout.
- * Reconstruction of legacy {@code de.vvwt.tm.domain.timer.TimerBreakType} via D-7 Option γ
- * (E26S01). Two public values preserved verbatim per C-3 signature-preservation.
+ * Reconstruction of legacy timer break type (formerly {@code de.vvwt.tm.timer.TimerBreakType} at
+ * domain.timer) via D-7 Option γ (E26S01). Two public values preserved verbatim per C-3
+ * signature-preservation.
  *
  * @see TimerDataService
  * @see <a href="contexts/artefacts/stories/E26S01.story.md">Story E26S01</a>

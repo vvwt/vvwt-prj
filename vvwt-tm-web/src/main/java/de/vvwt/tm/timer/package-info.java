@@ -35,8 +35,8 @@
  * {@code de.vvwt.tm.tenant.*} types. Tenant context binding happens via Spring DI infrastructure
  * outside timer Java code (analog to display module).
  *
- * <p>Reconstruction of legacy {@code de.vvwt.tm.domain.timer} package (no
- * {@code @ApplicationModule} declaration) via D-7 Coexistence Option γ (E26S01). Story E26S01.
+ * <p>Reconstruction of legacy timer domain package (formerly at the domain.timer package location,
+ * no {@code @ApplicationModule} declaration) via D-7 Coexistence Option γ (E26S01). Story E26S01.
  *
  * @since E26S01
  */
