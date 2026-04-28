@@ -16,8 +16,8 @@ import org.junit.jupiter.api.Test;
  * <p>Same-package test: in {@code de.vvwt.slotopt.standalone} — may reference the class directly.
  *
  * <p>Note on exit-code testing: {@code OptimizerWorkerMain.main()} must NOT call {@code
- * System.exit()} for valid-args invocations (exits 0 per AC-OPTIMIZER-WORKER-MAIN). Tests
- * verify this via {@code assertThatCode(() -> OptimizerWorkerMain.main(args)).doesNotThrowAnyException()}.
+ * System.exit()} for valid-args invocations (exits 0 per AC-OPTIMIZER-WORKER-MAIN). Tests verify
+ * this via {@code assertThatCode(() -> OptimizerWorkerMain.main(args)).doesNotThrowAnyException()}.
  */
 class OptimizerWorkerMainTest {
 
@@ -52,7 +52,9 @@ class OptimizerWorkerMainTest {
     }
 
     @Test
-    @DisplayName("OptimizerWorkerMain.main() with invalid --signing-algorithm throws IllegalArgumentException")
+    @DisplayName(
+            "OptimizerWorkerMain.main() with invalid --signing-algorithm throws"
+                    + " IllegalArgumentException")
     void main_invalidSigningAlgorithm_propagatesException() {
         // per AC-SIGNING-ALGORITHM-FLAG: invalid algorithm rejected before dispatcher contact
         // main() propagates the IllegalArgumentException from WorkerConfigLoader

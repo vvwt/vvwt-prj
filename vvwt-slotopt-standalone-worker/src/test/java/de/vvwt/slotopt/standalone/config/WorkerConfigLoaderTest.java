@@ -13,8 +13,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Cross-package tests for {@link WorkerConfigLoader} interface and {@link DefaultWorkerConfigLoader}
- * implementation.
+ * Cross-package tests for {@link WorkerConfigLoader} interface and {@link
+ * DefaultWorkerConfigLoader} implementation.
  *
  * <p>DEC-36 compliance: this test class is in {@code de.vvwt.slotopt.standalone.config} (different
  * package from the subjects). It references the subject via the public interface {@link
@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
  * validation is not accessible via the interface alone.
  *
  * <p>AC-DEC36-CROSS-PACKAGE-WORKER-CONFIG-LOADER-TEST (E41S02): per AC, this test class validates:
+ *
  * <ol>
  *   <li>load with all-required-args returns valid WorkerConfig
  *   <li>load with missing required options exits non-zero
@@ -172,25 +173,26 @@ class WorkerConfigLoaderTest {
     // =========================================================================
 
     @Test
-    @DisplayName("load with missing --dispatcher-url throws IllegalStateException with non-zero exit signal")
+    @DisplayName(
+            "load with missing --dispatcher-url throws IllegalStateException with non-zero exit"
+                    + " signal")
     void load_missingDispatcherUrl_throwsIllegalStateException() {
         // per AC-FAIL-FAST-MISSING-REQUIRED: missing required option causes fail-fast
         // DefaultWorkerConfigLoader uses CommandLine.execute() which returns exit code;
         // load() throws IllegalStateException with the exit code when non-zero
-        assertThatThrownBy(
-                        () ->
-                                loader.load(
-                                        new String[] {"--key-dir", "/tmp/keys"}))
+        assertThatThrownBy(() -> loader.load(new String[] {"--key-dir", "/tmp/keys"}))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("exit")
-                .satisfies(e -> {
-                    // message should contain the exit code (non-zero)
-                    assertThat(e.getMessage()).containsPattern("exit.*[1-9]|[1-9].*exit");
-                });
+                .satisfies(
+                        e -> {
+                            // message should contain the exit code (non-zero)
+                            assertThat(e.getMessage()).containsPattern("exit.*[1-9]|[1-9].*exit");
+                        });
     }
 
     @Test
-    @DisplayName("load with missing --key-dir throws IllegalStateException with non-zero exit signal")
+    @DisplayName(
+            "load with missing --key-dir throws IllegalStateException with non-zero exit signal")
     void load_missingKeyDir_throwsIllegalStateException() {
         // per AC-FAIL-FAST-MISSING-REQUIRED: missing required --key-dir causes fail-fast
         assertThatThrownBy(
@@ -219,10 +221,13 @@ class WorkerConfigLoaderTest {
     void defaultWorkerConfigLoader_implementsInterface() {
         // per AC-WORKER-CONFIG-LOADER: DefaultWorkerConfigLoader implements WorkerConfigLoader
         assertThat(loader).isInstanceOf(WorkerConfigLoader.class);
-        assertThatCode(() -> loader.load(
-                new String[] {
-                    "--dispatcher-url", "https://example.com",
-                    "--key-dir", "/tmp/k"
-                })).doesNotThrowAnyException();
+        assertThatCode(
+                        () ->
+                                loader.load(
+                                        new String[] {
+                                            "--dispatcher-url", "https://example.com",
+                                            "--key-dir", "/tmp/k"
+                                        }))
+                .doesNotThrowAnyException();
     }
 }
