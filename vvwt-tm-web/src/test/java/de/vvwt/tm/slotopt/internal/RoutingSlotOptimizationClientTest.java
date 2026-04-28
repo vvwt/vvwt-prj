@@ -11,8 +11,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for {@link RoutingSlotOptimizationClient} — Leg-1 delegation contract.
  *
- * <p>TDD RED-first per DEC-22 Iron Law. The RED state is the commit immediately before
- * {@link RoutingSlotOptimizationClient} was authored (the commit that adds only this test file).
+ * <p>TDD RED-first per DEC-22 Iron Law. The RED state is the commit immediately before {@link
+ * RoutingSlotOptimizationClient} was authored (the commit that adds only this test file).
  *
  * <h2>Delegation contract</h2>
  *
@@ -24,7 +24,8 @@ import org.junit.jupiter.api.Test;
  * so white-box reference to {@link RoutingSlotOptimizationClient} is permitted.
  *
  * @see RoutingSlotOptimizationClient
- * @see <a href="../../../../../../../../../docs/governance/stories/E27S01.story.md">Story E27S01</a>
+ * @see <a href="../../../../../../../../../docs/governance/stories/E27S01.story.md">Story
+ *     E27S01</a>
  */
 class RoutingSlotOptimizationClientTest {
 
