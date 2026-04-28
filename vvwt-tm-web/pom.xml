@@ -702,9 +702,13 @@
                                              Only vvwt-info-dto is the allowed cross-subsystem edge (DEC-42 D2). -->
                                         <exclude>de.vvwt:vvwt-info-server</exclude>
                                         <exclude>de.vvwt:vvwt-info-client</exclude>
+                                        <!-- vvwt-slotopt-dispatcher is banned from TM per DEC-11 module boundary.
+                                             TM MUST NOT import vvwt-slotopt-dispatcher; only vvwt-slotopt-worker-lib
+                                             is the allowed cross-boundary dep for types. AC-MAVEN-ENFORCER-RULE (E27S03). -->
+                                        <exclude>de.vvwt:vvwt-slotopt-dispatcher</exclude>
                                     </excludes>
                                     <searchTransitive>true</searchTransitive>
-                                    <message>DEC-42 D2: vvwt-tm-web MUST NOT depend on vvwt-info-server or vvwt-info-client. Only vvwt-info-dto is the allowed cross-subsystem dep.</message>
+                                    <message>DEC-42 D2: vvwt-tm-web MUST NOT depend on vvwt-info-server or vvwt-info-client. Only vvwt-info-dto is the allowed cross-subsystem dep. DEC-11: vvwt-tm-web MUST NOT depend on vvwt-slotopt-dispatcher; only vvwt-slotopt-worker-lib is allowed.</message>
                                 </bannedDependencies>
                             </rules>
                             <fail>true</fail>
