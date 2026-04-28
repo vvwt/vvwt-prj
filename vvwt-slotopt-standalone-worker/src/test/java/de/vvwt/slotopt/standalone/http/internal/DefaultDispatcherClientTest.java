@@ -8,8 +8,12 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.sun.net.httpserver.HttpServer;
 import de.vvwt.slotopt.standalone.http.AnnouncedAlgorithmsResponse;
 import de.vvwt.slotopt.standalone.http.DispatcherException;
+import de.vvwt.slotopt.standalone.http.PullPacketRequest;
+import de.vvwt.slotopt.standalone.http.PullPacketResponse;
 import de.vvwt.slotopt.standalone.http.RegisterKeyRequest;
 import de.vvwt.slotopt.standalone.http.RegisterKeyResponse;
+import de.vvwt.slotopt.standalone.http.SubmitResultRequest;
+import de.vvwt.slotopt.standalone.http.SubmitResultResponse;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
@@ -223,5 +227,182 @@ class DefaultDispatcherClientTest {
                 .isInstanceOf(DispatcherException.class)
                 .satisfies(
                         ex -> assertThat(((DispatcherException) ex).getHttpStatus()).isEqualTo(0));
+    }
+
+    // =========================================================================
+    // E41S05: pullPacket + submitResult
+    // =========================================================================
+
+    /**
+     * TC-13 (RED): pullPacket() returns PullPacketResponse on HTTP 200 with valid JSON body.
+     *
+     * <p>Story: E41S05 AC-PULL-PACKET-WITH-CAPABILITY-ADVERTISEMENT.
+     */
+    @Test
+    void pullPacket_returns_response_on_200() throws Exception {
+        UUID packetId = UUID.randomUUID();
+        UUID jobId = UUID.randomUUID();
+        String json =
+                "{\"packetId\":\""
+                        + packetId
+                        + "\",\"jobId\":\""
+                        + jobId
+                        + "\",\"packetPayloadJson\":\"{}\",\"timeoutAt\":\"2026-01-01T00:00:00Z\"}";
+        httpServer.createContext(
+                "/api/pull-packet",
+                exchange -> {
+                    byte[] body = json.getBytes();
+                    exchange.sendResponseHeaders(200, body.length);
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(body);
+                    }
+                });
+
+        UUID workerId = UUID.randomUUID();
+        PullPacketRequest request = new PullPacketRequest(workerId, java.util.List.of("Ed25519"));
+        PullPacketResponse response = client.pullPacket(request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.packetId()).isEqualTo(packetId);
+        assertThat(response.jobId()).isEqualTo(jobId);
+        assertThat(response.packetPayloadJson()).isEqualTo("{}");
+    }
+
+    /**
+     * TC-14 (RED): pullPacket() returns empty Optional on HTTP 204 (no packets available).
+     *
+     * <p>Story: E41S05 AC-EMPTY-PULL-RESPONSE-BACKOFF.
+     */
+    @Test
+    void pullPacket_returns_empty_on_204() throws Exception {
+        httpServer.createContext(
+                "/api/pull-packet",
+                exchange -> {
+                    exchange.sendResponseHeaders(204, -1);
+                    exchange.getResponseBody().close();
+                });
+
+        UUID workerId = UUID.randomUUID();
+        PullPacketRequest request = new PullPacketRequest(workerId, java.util.List.of("Ed25519"));
+        java.util.Optional<PullPacketResponse> response = client.pullPacketOptional(request);
+
+        assertThat(response).isEmpty();
+    }
+
+    /**
+     * TC-15 (RED): pullPacket() throws DispatcherException on HTTP 410.
+     *
+     * <p>Story: E41S05 AC-HTTP-410-DEPRECATED-AT-SUBMIT.
+     */
+    @Test
+    void pullPacket_throws_on_410() throws Exception {
+        httpServer.createContext(
+                "/api/pull-packet",
+                exchange -> {
+                    exchange.sendResponseHeaders(410, -1);
+                    exchange.getResponseBody().close();
+                });
+
+        UUID workerId = UUID.randomUUID();
+        PullPacketRequest request = new PullPacketRequest(workerId, java.util.List.of("Ed25519"));
+
+        assertThatThrownBy(() -> client.pullPacket(request))
+                .isInstanceOf(DispatcherException.class)
+                .satisfies(
+                        ex ->
+                                assertThat(((DispatcherException) ex).getHttpStatus())
+                                        .isEqualTo(410));
+    }
+
+    /**
+     * TC-16 (RED): submitResult() returns SubmitResultResponse with accepted=true on HTTP 200.
+     *
+     * <p>Story: E41S05 AC-SUBMIT-RESULT-WITH-ALGORITHM.
+     */
+    @Test
+    void submitResult_returns_accepted_true_on_200() throws Exception {
+        String json = "{\"accepted\":true,\"reason\":null}";
+        httpServer.createContext(
+                "/api/submit-result",
+                exchange -> {
+                    byte[] body = json.getBytes();
+                    exchange.sendResponseHeaders(200, body.length);
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(body);
+                    }
+                });
+
+        SubmitResultRequest request =
+                new SubmitResultRequest(
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        "Ed25519",
+                        new byte[64],
+                        "{\"bestRank\":0}");
+        SubmitResultResponse response = client.submitResult(request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.accepted()).isTrue();
+    }
+
+    /**
+     * TC-17 (RED): submitResult() returns accepted=false (superseded) on HTTP 200.
+     *
+     * <p>Story: E41S05 AC-OBSERVABILITY-EVENTS-RUNTIME (result_superseded event).
+     */
+    @Test
+    void submitResult_returns_accepted_false_when_superseded() throws Exception {
+        String json = "{\"accepted\":false,\"reason\":\"superseded\"}";
+        httpServer.createContext(
+                "/api/submit-result",
+                exchange -> {
+                    byte[] body = json.getBytes();
+                    exchange.sendResponseHeaders(200, body.length);
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(body);
+                    }
+                });
+
+        SubmitResultRequest request =
+                new SubmitResultRequest(
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        "Ed25519",
+                        new byte[64],
+                        "{\"bestRank\":0}");
+        SubmitResultResponse response = client.submitResult(request);
+
+        assertThat(response.accepted()).isFalse();
+        assertThat(response.reason()).isEqualTo("superseded");
+    }
+
+    /**
+     * TC-18 (RED): submitResult() throws DispatcherException with httpStatus=410 on HTTP 410.
+     *
+     * <p>Story: E41S05 AC-HTTP-410-DEPRECATED-AT-SUBMIT, AC-EXIT-CODE-RUNTIME.
+     */
+    @Test
+    void submitResult_throws_DispatcherException_on_410() throws Exception {
+        httpServer.createContext(
+                "/api/submit-result",
+                exchange -> {
+                    exchange.sendResponseHeaders(410, -1);
+                    exchange.getResponseBody().close();
+                });
+
+        SubmitResultRequest request =
+                new SubmitResultRequest(
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        "Ed25519",
+                        new byte[64],
+                        "{\"bestRank\":0}");
+
+        assertThatThrownBy(() -> client.submitResult(request))
+                .isInstanceOf(DispatcherException.class)
+                .satisfies(
+                        ex ->
+                                assertThat(((DispatcherException) ex).getHttpStatus())
+                                        .isEqualTo(410));
     }
 }

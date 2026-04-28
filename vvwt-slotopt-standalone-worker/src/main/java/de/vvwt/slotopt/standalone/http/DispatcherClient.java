@@ -1,16 +1,25 @@
 package de.vvwt.slotopt.standalone.http;
 
+import java.util.Optional;
+
 /**
  * Client interface for communicating with the vvwt-slotopt-dispatcher HTTP API.
  *
- * <p>Provides the bootstrap-phase operations needed before the worker enters its runtime polling
- * loop: fetching the announced algorithm list (DEC-43 D2) and registering the worker's public key.
+ * <p>Provides both bootstrap-phase and runtime-phase operations:
+ *
+ * <ul>
+ *   <li>Bootstrap: fetching the announced algorithm list (DEC-43 D2) and registering the worker's
+ *       public key.
+ *   <li>Runtime: pulling packets ({@link #pullPacketOptional}) and submitting results ({@link
+ *       #submitResult}).
+ * </ul>
  *
  * <p>DEC-35-by-analogy: public interface in the {@code http} package root. The canonical
  * implementation is {@link de.vvwt.slotopt.standalone.http.internal.DefaultDispatcherClient} in the
  * {@code http.internal} package.
  *
- * <p>Story: E41S04 AC-DISPATCHER-CLIENT-INTERFACE.
+ * <p>Story: E41S04 AC-DISPATCHER-CLIENT-INTERFACE; E41S05
+ * AC-PULL-PACKET-WITH-CAPABILITY-ADVERTISEMENT, AC-SUBMIT-RESULT-WITH-ALGORITHM.
  */
 public interface DispatcherClient {
 
@@ -39,4 +48,50 @@ public interface DispatcherClient {
      *     algorithm, other non-200 status)
      */
     RegisterKeyResponse registerKey(RegisterKeyRequest request) throws DispatcherException;
+
+    /**
+     * Pulls the next available packet via {@code POST /api/pull-packet}.
+     *
+     * <p>Sends {@code workerId} and {@code supportedAlgorithms} per DEC-43 D2 (Brief O-6 (i)).
+     *
+     * @param request the pull-packet request carrying workerId and supportedAlgorithms
+     * @return an {@link Optional} containing the packet response (HTTP 200), or empty (HTTP 204 —
+     *     no packets available)
+     * @throws DispatcherException if the request fails (I/O error, HTTP 4xx/5xx including HTTP 410)
+     */
+    Optional<PullPacketResponse> pullPacketOptional(PullPacketRequest request)
+            throws DispatcherException;
+
+    /**
+     * Pulls the next available packet, throwing if the response is 204 (no content).
+     *
+     * <p>Convenience method equivalent to {@link #pullPacketOptional} that throws {@link
+     * DispatcherException} for HTTP 204. Prefer {@link #pullPacketOptional} for loop usage where
+     * 204 is normal (backoff expected).
+     *
+     * @param request the pull-packet request
+     * @return the packet response; never {@code null}
+     * @throws DispatcherException if the request fails, including HTTP 204 (no content)
+     */
+    default PullPacketResponse pullPacket(PullPacketRequest request) throws DispatcherException {
+        Optional<PullPacketResponse> opt = pullPacketOptional(request);
+        return opt.orElseThrow(
+                () ->
+                        new DispatcherException(
+                                204, "POST /api/pull-packet returned HTTP 204", null));
+    }
+
+    /**
+     * Submits a computation result via {@code POST /api/submit-result}.
+     *
+     * <p>The {@code algorithm} field on the request MUST match the algorithm the worker registered
+     * with (DEC-43 D2 binding is per-registration).
+     *
+     * @param request the submit-result request carrying packetId, workerId, algorithm, signature,
+     *     and resultPayloadJson
+     * @return the dispatcher's response indicating whether the result was accepted or superseded
+     * @throws DispatcherException if the request fails (I/O error, HTTP 410 for deprecated
+     *     algorithm at submit time, other non-2xx status)
+     */
+    SubmitResultResponse submitResult(SubmitResultRequest request) throws DispatcherException;
 }
