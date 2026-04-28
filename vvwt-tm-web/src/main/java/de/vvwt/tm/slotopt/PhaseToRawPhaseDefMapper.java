@@ -218,7 +218,7 @@ public class PhaseToRawPhaseDefMapper {
      * @param raw the raw phase definition
      * @return map from PositionTuple to its dense integer ID
      */
-    static Map<PositionTuple, Integer> buildDenseIdMapping(RawPhaseDef raw) {
+    public static Map<PositionTuple, Integer> buildDenseIdMapping(RawPhaseDef raw) {
         // Step 1 of StructuralFingerprint: collect distinct tuples, sort lex, assign dense IDs
         java.util.TreeSet<PositionTuple> distinct =
                 new java.util.TreeSet<>(

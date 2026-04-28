@@ -10,6 +10,7 @@
    * Story E11S07 — adds /tournaments/:tournamentId/timer-link route (AC1).
    * Story E12S03 — adds /tournaments/:tournamentId/photos route (AC1–AC9).
    * Story E12S05 — adds /tournaments/:tournamentId/certificate-template route (AC1–AC9).
+   * Story E27S02 — adds /tournaments/:tournamentId/slot-optimization route (AC-SVELTE-CANCEL-UI-AUTHORED).
    *
    * Hash-based routing decision (Brief H-2): No server-side catch-all is needed for
    * deep-link URLs because the hash fragment is never sent to the server.
@@ -30,6 +31,7 @@
   import TimerLink from './routes/TimerLink.svelte';
   import TeamPhotos from './routes/TeamPhotos.svelte';
   import CertificateTemplate from './routes/CertificateTemplate.svelte';
+  import SlotOptimization from './routes/SlotOptimization.svelte';
 
   /** Route map: URL pattern → Svelte component. */
   const routes = new Map([
@@ -43,6 +45,7 @@
     ['/tournaments/:tournamentId/timer-link', TimerLink],
     ['/tournaments/:tournamentId/photos', TeamPhotos],
     ['/tournaments/:tournamentId/certificate-template', CertificateTemplate],
+    ['/tournaments/:tournamentId/slot-optimization', SlotOptimization],
     ['/devices', Devices],
   ]);
 
