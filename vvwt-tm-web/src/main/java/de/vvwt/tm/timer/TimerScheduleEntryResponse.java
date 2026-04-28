@@ -1,7 +1,7 @@
-package de.vvwt.tm.infrastructure.web.timer.dto;
+package de.vvwt.tm.timer;
 
 /**
- * A single entry in the timer schedule — either a match round or a break (E11S02 AC1, AC3).
+ * A single entry in the timer schedule — either a match round or a break (AC1, AC3 — E11S02 / E26S01).
  *
  * <p>Uses a flat union structure with a {@code type} discriminator field:
  *
@@ -12,22 +12,14 @@ package de.vvwt.tm.infrastructure.web.timer.dto;
  *       {@code "ADDITIONAL"}); {@code phaseNumber}, {@code lapNumber} are {@code null}.
  * </ul>
  *
- * <p>{@code startTime} and {@code endTime} are in {@code "HH:mm"} format when {@code
- * tournament.plannedStartTime} is set; {@code null} otherwise.
+ * <p>Canonical FQN: {@code de.vvwt.tm.timer.TimerScheduleEntryResponse} per DEC-40 §2026-04-27
+ * Clarification Pattern A (AC-RED-FIRST-TIMER-SCHEDULE-ENTRY-RESPONSE — projection == wire shape;
+ * no Clause B (a)/(c)/(d) condition fires; Decision Rule §289-296). Reconstruction of legacy
+ * {@code de.vvwt.tm.infrastructure.web.timer.dto.TimerScheduleEntryResponse} via D-7 Option γ
+ * (E26S01 authors at bounded-context module root per Pattern A).
  *
- * <h2>Break type semantics (AC3)</h2>
- *
- * <ul>
- *   <li>{@code "REGULAR"} — mapped from {@link
- *       de.vvwt.tm.domain.timeline.TimelineEntryType#LAP_BREAK}; triggers pause music on the timer
- *       device (D-8)
- *   <li>{@code "ADDITIONAL"} — mapped from {@code INTRA_PHASE_BREAK} or {@code SECTION_BREAK}; does
- *       NOT trigger pause music
- * </ul>
- *
- * @see <a
- *     href="../../../../../../../../../.gaai/project/contexts/artefacts/stories/E11S02.story.md">Story
- *     E11S02</a>
+ * @see TimerDataResponse
+ * @see <a href="contexts/artefacts/stories/E26S01.story.md">Story E26S01</a>
  */
 public class TimerScheduleEntryResponse {
 
@@ -44,30 +36,18 @@ public class TimerScheduleEntryResponse {
 
     // ── BREAK fields ──────────────────────────────────────────────────────────
 
-    /**
-     * Break type: {@code "REGULAR"} or {@code "ADDITIONAL"}. Non-null for {@code BREAK} entries.
-     * See class-level Javadoc for semantics.
-     */
+    /** Break type: {@code "REGULAR"} or {@code "ADDITIONAL"}. Non-null for {@code BREAK} entries. */
     private String breakType;
 
-    /**
-     * Optional display label for the break (e.g., "Mittagspause"). Present only for {@code
-     * INTRA_PHASE_BREAK} entries that carry an organiser label.
-     */
+    /** Optional display label for the break (e.g., "Mittagspause"). May be {@code null}. */
     private String label;
 
     // ── Shared time fields ────────────────────────────────────────────────────
 
-    /**
-     * Wall-clock start time in {@code "HH:mm"} format. {@code null} if the tournament has no {@code
-     * plannedStartTime}.
-     */
+    /** Wall-clock start time in {@code "HH:mm"} format. {@code null} if no start time set. */
     private String startTime;
 
-    /**
-     * Wall-clock end time in {@code "HH:mm"} format. {@code null} if the tournament has no {@code
-     * plannedStartTime}.
-     */
+    /** Wall-clock end time in {@code "HH:mm"} format. {@code null} if no start time set. */
     private String endTime;
 
     /** Default constructor for Jackson. */

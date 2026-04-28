@@ -1,4 +1,4 @@
-package de.vvwt.tm.web.internal.dto;
+package de.vvwt.tm.timer;
 
 import java.util.List;
 import java.util.UUID;
@@ -17,9 +17,13 @@ import java.util.UUID;
  *   <li>Audio file URLs per category (AC4)
  * </ul>
  *
- * <p>Canonical FQN: {@code de.vvwt.tm.web.internal.dto.TimerDataResponse} per DEC-40 Clause B.
- * Reconstruction of legacy {@code de.vvwt.tm.infrastructure.web.timer.dto.TimerDataResponse} via
- * D-7 Option γ (E26S03 full TDD rebuild; E26S01 introduces at canonical FQN for compilation).
+ * <p>Canonical FQN: {@code de.vvwt.tm.timer.TimerDataResponse} per DEC-40 §2026-04-27
+ * Clarification Pattern A (AC-PATTERN-A-PLACEMENT-JUSTIFICATION — projection == wire shape;
+ * no Clause B (a)/(c)/(d) condition fires; Decision Rule §289-296). Reconstruction of legacy
+ * {@code de.vvwt.tm.infrastructure.web.timer.dto.TimerDataResponse} via D-7 Option γ
+ * (E26S01 authors at bounded-context module root per Pattern A). Architectural-lesson precedent:
+ * E25S01 escalation (outer-repo commit {@code 23d947b}) — records at {@code web.internal.dto.*}
+ * create a {@code timer↔web} Modulith cycle; Pattern A avoids this structurally.
  * Return type of {@link de.vvwt.tm.timer.TimerDataService#buildTimerData(UUID)} per
  * C-3 signature-preservation.
  *

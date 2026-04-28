@@ -1,14 +1,19 @@
-package de.vvwt.tm.infrastructure.web.timer.dto;
+package de.vvwt.tm.timer;
 
 /**
- * Phase summary response for the timer data endpoint (E11S02 AC5).
+ * Phase summary response for the timer data endpoint (AC5 — E11S02 / E26S01).
  *
  * <p>Provides structural information about each phase so the timer UI can render its current
  * position within the tournament.
  *
- * @see <a
- *     href="../../../../../../../../../.gaai/project/contexts/artefacts/stories/E11S02.story.md">Story
- *     E11S02</a>
+ * <p>Canonical FQN: {@code de.vvwt.tm.timer.TimerPhaseResponse} per DEC-40 §2026-04-27
+ * Clarification Pattern A (AC-RED-FIRST-TIMER-PHASE-RESPONSE — projection == wire shape;
+ * no Clause B (a)/(c)/(d) condition fires; Decision Rule §289-296). Reconstruction of legacy
+ * {@code de.vvwt.tm.infrastructure.web.timer.dto.TimerPhaseResponse} via D-7 Option γ
+ * (E26S01 authors at bounded-context module root per Pattern A).
+ *
+ * @see TimerDataResponse
+ * @see <a href="contexts/artefacts/stories/E26S01.story.md">Story E26S01</a>
  */
 public class TimerPhaseResponse {
 

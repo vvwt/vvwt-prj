@@ -1,7 +1,7 @@
 package de.vvwt.tm.infrastructure.web.timer;
 
 import de.vvwt.tm.timer.TimerDataService;
-import de.vvwt.tm.web.internal.dto.TimerDataResponse;
+import de.vvwt.tm.timer.TimerDataResponse;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;

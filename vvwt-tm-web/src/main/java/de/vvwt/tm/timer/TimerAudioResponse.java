@@ -1,4 +1,4 @@
-package de.vvwt.tm.web.internal.dto;
+package de.vvwt.tm.timer;
 
 /**
  * Audio file availability response for the timer data endpoint (AC4 — E11S02 / E26S01).
@@ -7,9 +7,11 @@ package de.vvwt.tm.web.internal.dto;
  * ({@code /api/audio/tournaments/{tournamentId}/{category}/stream}). A {@code null} value means no
  * file has been uploaded for that category.
  *
- * <p>Canonical FQN: {@code de.vvwt.tm.web.internal.dto.TimerAudioResponse} per DEC-40 Clause B.
- * Reconstruction of legacy {@code de.vvwt.tm.infrastructure.web.timer.dto.TimerAudioResponse} via
- * D-7 Option γ (E26S03 full TDD rebuild; E26S01 introduces at canonical FQN for compilation).
+ * <p>Canonical FQN: {@code de.vvwt.tm.timer.TimerAudioResponse} per DEC-40 §2026-04-27
+ * Clarification Pattern A (AC-RED-FIRST-TIMER-AUDIO-RESPONSE — projection == wire shape;
+ * no Clause B (a)/(c)/(d) condition fires; Decision Rule §289-296). Reconstruction of legacy
+ * {@code de.vvwt.tm.infrastructure.web.timer.dto.TimerAudioResponse} via D-7 Option γ
+ * (E26S01 authors at bounded-context module root per Pattern A).
  *
  * @see TimerDataResponse
  * @see <a href="contexts/artefacts/stories/E26S01.story.md">Story E26S01</a>
