@@ -90,6 +90,11 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Note: E41S06 integration tests use JDK 21 built-in com.sun.net.httpserver.HttpServer
+             as the dispatcher test-double (no WireMock dependency needed). This avoids adding a
+             third-party HTTP mocking library not available in the offline build environment.
+             DEC-3 minimal-dependency: JDK built-in is the minimal compliant option here. -->
+
     </dependencies>
 
     <!-- ===================================================================
@@ -142,6 +147,22 @@
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>
                         </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- maven-failsafe-plugin: runs *IT.java integration tests in the
+                 integration-test + verify phases. E41S06: 5 WireMock-based ITs.
+                 Version from parent pluginManagement (maven-failsafe-plugin.version). -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>
