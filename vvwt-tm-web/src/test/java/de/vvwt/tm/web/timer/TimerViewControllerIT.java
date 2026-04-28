@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import de.vvwt.tm.web.WebModuleTestConfig;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,8 +21,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
-
-import de.vvwt.tm.web.WebModuleTestConfig;
 
 /**
  * Integration tests for {@link TimerViewController} — E26S03 Q-1a TDD reconstruction.
@@ -60,7 +59,7 @@ import de.vvwt.tm.web.WebModuleTestConfig;
         classes = de.vvwt.tm.TournamentManagerApplication.class,
         properties = {
             "spring.datasource.url=jdbc:h2:mem:e26s03timerviewitdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
-                    + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
+                + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
 @Import({WebModuleTestConfig.class, TimerViewControllerIT.TestAdminCredentials.class})
@@ -162,8 +161,7 @@ class TimerViewControllerIT {
     @Test
     void legacyTimerViewUrlDoesNotMatchNewController() {
         ResponseEntity<Void> response =
-                restTemplate.getForEntity(
-                        baseUrl + "/timer/" + sampleTournamentId, Void.class);
+                restTemplate.getForEntity(baseUrl + "/timer/" + sampleTournamentId, Void.class);
 
         // The legacy /timer/{uuid} path should NOT map to the new controller → 404 or redirect
         assertThat(response.getStatusCode().value())
@@ -172,8 +170,8 @@ class TimerViewControllerIT {
     }
 
     /**
-     * A second UUID path variable gives 200 — the {@link TimerViewController} serves the same
-     * SPA regardless of the tournamentId value (does not validate it server-side).
+     * A second UUID path variable gives 200 — the {@link TimerViewController} serves the same SPA
+     * regardless of the tournamentId value (does not validate it server-side).
      *
      * <p>Ensures the path variable acceptance is generic (not tied to specific UUIDs).
      */
@@ -185,7 +183,9 @@ class TimerViewControllerIT {
                         baseUrl + "/timer/tournaments/" + anotherId, String.class);
 
         assertThat(response.getStatusCode())
-                .as("Timer page must return 200 for any tournament UUID (not validated server-side)")
+                .as(
+                        "Timer page must return 200 for any tournament UUID (not validated"
+                                + " server-side)")
                 .isEqualTo(HttpStatus.OK);
     }
 
@@ -199,8 +199,8 @@ class TimerViewControllerIT {
      * <p>Per DEC-44 §"2026-04-27 Empirical Refinement": this inner class provides {@code @Primary
      * AdminCredentialsProvider} which overrides the non-primary placeholder in {@link
      * WebModuleTestConfig} via {@code spring.main.allow-bean-definition-overriding=true}.
-     * Production {@code SecurityFilterChain} + {@code UserDetailsService} remain sole instances.
-     * No {@code UserDetailsService} or {@code SecurityFilterChain} substitute bean added
+     * Production {@code SecurityFilterChain} + {@code UserDetailsService} remain sole instances. No
+     * {@code UserDetailsService} or {@code SecurityFilterChain} substitute bean added
      * (AC-DEC44-D2-EMPIRICAL-REFINEMENT-RESPECT).
      */
     @TestConfiguration

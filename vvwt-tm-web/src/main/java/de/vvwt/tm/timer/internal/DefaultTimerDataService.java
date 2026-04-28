@@ -2,8 +2,12 @@ package de.vvwt.tm.timer.internal;
 
 import de.vvwt.tm.timer.InvalidTimerUrlException;
 import de.vvwt.tm.timer.NoActiveTournamentException;
+import de.vvwt.tm.timer.TimerAudioResponse;
 import de.vvwt.tm.timer.TimerBreakType;
+import de.vvwt.tm.timer.TimerDataResponse;
 import de.vvwt.tm.timer.TimerDataService;
+import de.vvwt.tm.timer.TimerPhaseResponse;
+import de.vvwt.tm.timer.TimerScheduleEntryResponse;
 import de.vvwt.tm.timer.audio.AudioCategory;
 import de.vvwt.tm.timer.audio.AudioStorageService;
 import de.vvwt.tm.tournament.Match;
@@ -19,10 +23,6 @@ import de.vvwt.tm.tournament.TimelineEntry;
 import de.vvwt.tm.tournament.TimelineEntryType;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
-import de.vvwt.tm.timer.TimerAudioResponse;
-import de.vvwt.tm.timer.TimerDataResponse;
-import de.vvwt.tm.timer.TimerPhaseResponse;
-import de.vvwt.tm.timer.TimerScheduleEntryResponse;
 import java.io.InputStream;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -78,8 +78,8 @@ import org.springframework.transaction.annotation.Transactional;
  *       per DEC-36) written before this implementation
  *   <li>DEC-35: interface {@code TimerDataService} in public package; impl in {@code .internal}
  *   <li>DEC-36: cross-package consumers reference {@code TimerDataService}, not this class
- *   <li>DEC-41 §4: all 28 in-scope legacy tests Snapshot-Driven per E26-AUDIT-DEC41-TEST-CLASSIFICATION;
- *       no legacy test reuse; fresh RED-first tests only
+ *   <li>DEC-41 §4: all 28 in-scope legacy tests Snapshot-Driven per
+ *       E26-AUDIT-DEC41-TEST-CLASSIFICATION; no legacy test reuse; fresh RED-first tests only
  * </ul>
  *
  * @see TimerDataService
@@ -291,11 +291,10 @@ public class DefaultTimerDataService implements TimerDataService {
     /**
      * Maps computed timeline entries to schedule entries (when startTime is set).
      *
-     * <p>AC-BREAK-TYPE-MAPPING: break type mapping from TimelineEntryType:
-     * LAP_BREAK→REGULAR, INTRA_PHASE_BREAK→ADDITIONAL, SECTION_BREAK→ADDITIONAL.
+     * <p>AC-BREAK-TYPE-MAPPING: break type mapping from TimelineEntryType: LAP_BREAK→REGULAR,
+     * INTRA_PHASE_BREAK→ADDITIONAL, SECTION_BREAK→ADDITIONAL.
      */
-    private List<TimerScheduleEntryResponse> mapTimelineToSchedule(
-            List<TimelineEntry> timeline) {
+    private List<TimerScheduleEntryResponse> mapTimelineToSchedule(List<TimelineEntry> timeline) {
         List<TimerScheduleEntryResponse> schedule = new ArrayList<>();
         for (TimelineEntry entry : timeline) {
             TimelineEntryType type = entry.type();
@@ -381,9 +380,7 @@ public class DefaultTimerDataService implements TimerDataService {
         return schedule;
     }
 
-    /**
-     * Builds {@link PhaseConfig} objects for timeline calculation.
-     */
+    /** Builds {@link PhaseConfig} objects for timeline calculation. */
     private List<PhaseConfig> buildPhaseConfigs(
             List<Phase> phases, List<PhaseBreak> allBreaks, int[] maxLapByPhaseIndex) {
         // Build lookup: phaseId → PhaseBreaks
@@ -415,9 +412,7 @@ public class DefaultTimerDataService implements TimerDataService {
         return configs;
     }
 
-    /**
-     * Builds the audio response by checking which categories have files uploaded (AC4).
-     */
+    /** Builds the audio response by checking which categories have files uploaded (AC4). */
     private TimerAudioResponse buildAudioResponse(UUID tournamentId) {
         String startUrl = buildAudioUrl(tournamentId, AudioCategory.START);
         String endUrl = buildAudioUrl(tournamentId, AudioCategory.END);
@@ -429,9 +424,9 @@ public class DefaultTimerDataService implements TimerDataService {
      * Returns the Wave-2-aligned audio streaming URL for the given category, or {@code null} if no
      * file has been uploaded.
      *
-     * <p>AC-AUDIO-URL-CONSTRUCTION-WAVE2: URL pattern is
-     * {@code /api/audio/tournaments/{tournamentId}/{category}/stream} (Wave-2-aligned). Replaces
-     * legacy {@code /api/tournaments/{tournamentId}/audio/{category}/stream}.
+     * <p>AC-AUDIO-URL-CONSTRUCTION-WAVE2: URL pattern is {@code
+     * /api/audio/tournaments/{tournamentId}/{category}/stream} (Wave-2-aligned). Replaces legacy
+     * {@code /api/tournaments/{tournamentId}/audio/{category}/stream}.
      *
      * <p>@SuppressWarnings("try"): the try-with-resources block intentionally opens and immediately
      * closes the stream to verify real file access (DEC-29).

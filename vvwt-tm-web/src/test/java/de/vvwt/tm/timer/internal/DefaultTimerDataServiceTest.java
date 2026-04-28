@@ -8,25 +8,20 @@ import static org.mockito.Mockito.when;
 
 import de.vvwt.tm.timer.InvalidTimerUrlException;
 import de.vvwt.tm.timer.NoActiveTournamentException;
+import de.vvwt.tm.timer.TimerAudioResponse;
+import de.vvwt.tm.timer.TimerDataResponse;
 import de.vvwt.tm.timer.audio.AudioCategory;
 import de.vvwt.tm.timer.audio.AudioStorageService;
 import de.vvwt.tm.tournament.Match;
 import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.Phase;
-import de.vvwt.tm.tournament.PhaseBreak;
-import de.vvwt.tm.tournament.PhaseBreakConfig;
 import de.vvwt.tm.tournament.PhaseBreakRepository;
-import de.vvwt.tm.tournament.PhaseConfig;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.TimelineCalculationService;
 import de.vvwt.tm.tournament.TimelineEntry;
 import de.vvwt.tm.tournament.TimelineEntryType;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
-import de.vvwt.tm.timer.TimerAudioResponse;
-import de.vvwt.tm.timer.TimerDataResponse;
-import de.vvwt.tm.timer.TimerPhaseResponse;
-import de.vvwt.tm.timer.TimerScheduleEntryResponse;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.time.LocalTime;
@@ -54,10 +49,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * interface instead.
  *
  * <p>All 8 service-method-coverage ACs are covered: success-path, empty-schedule, invalid-url,
- * draft-status, cancelled-status, accessible-statuses-invariant, break-type-mapping, audio-URL-Wave2.
+ * draft-status, cancelled-status, accessible-statuses-invariant, break-type-mapping,
+ * audio-URL-Wave2.
  *
- * <p>DEC-41 §4 audit obligation: all 28 in-scope legacy tests classified Snapshot-Driven per
- * {@code E26-AUDIT-DEC41-TEST-CLASSIFICATION}. Zero legacy tests reused. All tests here are fresh
+ * <p>DEC-41 §4 audit obligation: all 28 in-scope legacy tests classified Snapshot-Driven per {@code
+ * E26-AUDIT-DEC41-TEST-CLASSIFICATION}. Zero legacy tests reused. All tests here are fresh
  * RED-first authored per DEC-22 Iron Law.
  *
  * <p>DEC-22 Iron Law: RED commit SHA: to be filled in impl-report. GREEN commit SHA: to be filled
@@ -144,14 +140,20 @@ class DefaultTimerDataServiceTest {
         Match m2 = matchWithLap(p1.getId(), 2);
 
         TimelineEntry roundEntry =
-                new TimelineEntry(1, 1, TimelineEntryType.MATCH_ROUND, LocalTime.of(9, 0),
-                        LocalTime.of(9, 15), null);
+                new TimelineEntry(
+                        1,
+                        1,
+                        TimelineEntryType.MATCH_ROUND,
+                        LocalTime.of(9, 0),
+                        LocalTime.of(9, 15),
+                        null);
 
         when(tournamentRepository.findById(tournamentId)).thenReturn(Optional.of(tournament));
         when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(p1));
         when(matchRepository.findByPhaseId(p1.getId())).thenReturn(List.of(m1, m2));
         when(phaseBreakRepository.findByPhaseId(p1.getId())).thenReturn(Collections.emptyList());
-        when(timelineCalculationService.calculate(any(), any(), eq(0))).thenReturn(List.of(roundEntry));
+        when(timelineCalculationService.calculate(any(), any(), eq(0)))
+                .thenReturn(List.of(roundEntry));
         when(audioStorageService.stream(eq(tournamentId), any())).thenReturn(Optional.empty());
 
         // Act
@@ -198,9 +200,7 @@ class DefaultTimerDataServiceTest {
 
     // ── AC-BUILD-TIMER-DATA-INVALID-URL ───────────────────────────────────────
 
-    /**
-     * AC-BUILD-TIMER-DATA-INVALID-URL: unknown tournamentId → throws InvalidTimerUrlException.
-     */
+    /** AC-BUILD-TIMER-DATA-INVALID-URL: unknown tournamentId → throws InvalidTimerUrlException. */
     @Test
     void buildTimerData_throwsInvalidTimerUrlExceptionForUnknownTournament() {
         when(tournamentRepository.findById(tournamentId)).thenReturn(Optional.empty());
@@ -246,8 +246,8 @@ class DefaultTimerDataServiceTest {
     /**
      * AC-TIMER-ACCESSIBLE-STATUSES-INVARIANT: Named algebraic invariant — all 3 timer-accessible
      * statuses (PLANNED, ACTIVE, COMPLETED) permit access; any other status throws
-     * NoActiveTournamentException. Satisfies DEC-41 §1(d): named invariant + quantified body via
-     * @ParameterizedTest over representative input set.
+     * NoActiveTournamentException. Satisfies DEC-41 §1(d): named invariant + quantified body
+     * via @ParameterizedTest over representative input set.
      */
     @ParameterizedTest(name = "status={0} permits timer access")
     @ValueSource(strings = {"PLANNED", "ACTIVE", "COMPLETED"})
@@ -266,18 +266,14 @@ class DefaultTimerDataServiceTest {
 
     /**
      * AC-BREAK-TYPE-MAPPING: Named algebraic invariant — timeline break-type mapping is
-     * {LAP_BREAK→REGULAR, INTRA_PHASE_BREAK→ADDITIONAL, SECTION_BREAK→ADDITIONAL}. Satisfies
-     * DEC-41 §1(d): named invariant ("break type mapping invariant") + quantified body via
-     * @ParameterizedTest over all 3 break type enum values (representative input set).
+     * {LAP_BREAK→REGULAR, INTRA_PHASE_BREAK→ADDITIONAL, SECTION_BREAK→ADDITIONAL}. Satisfies DEC-41
+     * §1(d): named invariant ("break type mapping invariant") + quantified body
+     * via @ParameterizedTest over all 3 break type enum values (representative input set).
      *
      * <p>Format: timelineType, expectedBreakTypeName
      */
     @ParameterizedTest(name = "{0} → breakType={1}")
-    @CsvSource({
-        "LAP_BREAK, REGULAR",
-        "INTRA_PHASE_BREAK, ADDITIONAL",
-        "SECTION_BREAK, ADDITIONAL"
-    })
+    @CsvSource({"LAP_BREAK, REGULAR", "INTRA_PHASE_BREAK, ADDITIONAL", "SECTION_BREAK, ADDITIONAL"})
     void buildTimerData_mapsBreakTypesCorrectly(
             TimelineEntryType timelineType, String expectedBreakTypeName) {
         // Arrange: tournament with start time, one phase, one match, timeline returns break entry
@@ -288,14 +284,20 @@ class DefaultTimerDataServiceTest {
         Match m1 = matchWithLap(p1.getId(), 1);
 
         TimelineEntry breakEntry =
-                new TimelineEntry(1, 0, timelineType, LocalTime.of(9, 15), LocalTime.of(9, 20),
+                new TimelineEntry(
+                        1,
+                        0,
+                        timelineType,
+                        LocalTime.of(9, 15),
+                        LocalTime.of(9, 20),
                         timelineType == TimelineEntryType.INTRA_PHASE_BREAK ? "Pause" : null);
 
         when(tournamentRepository.findById(tournamentId)).thenReturn(Optional.of(tournament));
         when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(p1));
         when(matchRepository.findByPhaseId(p1.getId())).thenReturn(List.of(m1));
         when(phaseBreakRepository.findByPhaseId(p1.getId())).thenReturn(Collections.emptyList());
-        when(timelineCalculationService.calculate(any(), any(), eq(0))).thenReturn(List.of(breakEntry));
+        when(timelineCalculationService.calculate(any(), any(), eq(0)))
+                .thenReturn(List.of(breakEntry));
         when(audioStorageService.stream(eq(tournamentId), any())).thenReturn(Optional.empty());
 
         // Act

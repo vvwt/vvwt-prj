@@ -24,8 +24,8 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>The return type {@link TimerDataResponse} is a bounded-context-owned query-shape record at
  * {@code de.vvwt.tm.timer.*} (per E26S01 Pattern A placement). No web-tier DTO mapping is needed
- * (projection == wire shape; Clause B (a)/(c)/(d) conditions do NOT fire). The controller is a
- * thin Jackson-serialization adapter: delegates to service, wraps in {@link ResponseEntity}.
+ * (projection == wire shape; Clause B (a)/(c)/(d) conditions do NOT fire). The controller is a thin
+ * Jackson-serialization adapter: delegates to service, wraps in {@link ResponseEntity}.
  *
  * <h2>Security (AC-AUTHENTICATION-FLOW-PRESERVED)</h2>
  *

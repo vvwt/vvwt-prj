@@ -17,7 +17,9 @@ import java.time.Instant;
  *       "ERROR"}
  * </ul>
  *
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09 AC12</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09
+ *     AC12</a>
  */
 public record InfoPortalStateRecord(
         String tenantId,

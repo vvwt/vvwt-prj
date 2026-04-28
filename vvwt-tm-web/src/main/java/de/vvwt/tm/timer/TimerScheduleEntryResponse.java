@@ -1,7 +1,8 @@
 package de.vvwt.tm.timer;
 
 /**
- * A single entry in the timer schedule — either a match round or a break (AC1, AC3 — E11S02 / E26S01).
+ * A single entry in the timer schedule — either a match round or a break (AC1, AC3 — E11S02 /
+ * E26S01).
  *
  * <p>Uses a flat union structure with a {@code type} discriminator field:
  *
@@ -14,9 +15,9 @@ package de.vvwt.tm.timer;
  *
  * <p>Canonical FQN: {@code de.vvwt.tm.timer.TimerScheduleEntryResponse} per DEC-40 §2026-04-27
  * Clarification Pattern A (AC-RED-FIRST-TIMER-SCHEDULE-ENTRY-RESPONSE — projection == wire shape;
- * no Clause B (a)/(c)/(d) condition fires; Decision Rule §289-296). Reconstruction of legacy
- * {@code de.vvwt.tm.infrastructure.web.timer.dto.TimerScheduleEntryResponse} via D-7 Option γ
- * (E26S01 authors at bounded-context module root per Pattern A).
+ * no Clause B (a)/(c)/(d) condition fires; Decision Rule §289-296). Reconstruction of legacy {@code
+ * de.vvwt.tm.infrastructure.web.timer.dto.TimerScheduleEntryResponse} via D-7 Option γ (E26S01
+ * authors at bounded-context module root per Pattern A).
  *
  * @see TimerDataResponse
  * @see <a href="contexts/artefacts/stories/E26S01.story.md">Story E26S01</a>
@@ -36,7 +37,9 @@ public class TimerScheduleEntryResponse {
 
     // ── BREAK fields ──────────────────────────────────────────────────────────
 
-    /** Break type: {@code "REGULAR"} or {@code "ADDITIONAL"}. Non-null for {@code BREAK} entries. */
+    /**
+     * Break type: {@code "REGULAR"} or {@code "ADDITIONAL"}. Non-null for {@code BREAK} entries.
+     */
     private String breakType;
 
     /** Optional display label for the break (e.g., "Mittagspause"). May be {@code null}. */

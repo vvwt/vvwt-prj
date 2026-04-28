@@ -34,18 +34,21 @@ import org.slf4j.LoggerFactory;
  *   <li>The public key (X.509 encoded) is stored in plaintext in {@code keypair.pub}.
  * </ul>
  *
- * <p>AC8 invariant: the bytes stored in {@code keypair.enc} and {@code keypair.key} are NOT
- * the raw private key bytes. An integration test asserts this by scanning all on-disk files for
- * the raw private key byte pattern.
+ * <p>AC8 invariant: the bytes stored in {@code keypair.enc} and {@code keypair.key} are NOT the raw
+ * private key bytes. An integration test asserts this by scanning all on-disk files for the raw
+ * private key byte pattern.
  *
- * <p>Subsequent calls to {@link #initializeIfAbsent()} detect existing files and reload the
- * keypair from disk without regenerating.
+ * <p>Subsequent calls to {@link #initializeIfAbsent()} detect existing files and reload the keypair
+ * from disk without regenerating.
  *
- * <p>AES-GCM parameters: 256-bit key, 12-byte IV (GCM standard), 128-bit authentication tag.
- * The IV is prepended to the ciphertext in {@code keypair.enc}.
+ * <p>AES-GCM parameters: 256-bit key, 12-byte IV (GCM standard), 128-bit authentication tag. The IV
+ * is prepended to the ciphertext in {@code keypair.enc}.
  *
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09 AC8</a>
- * @see <a href="../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-6.md">DEC-6 — asymmetric-key registration</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09
+ *     AC8</a>
+ * @see <a href="../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-6.md">DEC-6 —
+ *     asymmetric-key registration</a>
  */
 public class Ed25519KeypairManager {
 
@@ -100,7 +103,9 @@ public class Ed25519KeypairManager {
         return publicKey;
     }
 
-    /** Returns the Ed25519 private key (in-memory only). Call {@link #initializeIfAbsent()} first. */
+    /**
+     * Returns the Ed25519 private key (in-memory only). Call {@link #initializeIfAbsent()} first.
+     */
     public PrivateKey getPrivateKey() {
         requireInitialized();
         return privateKey;
@@ -173,9 +178,7 @@ public class Ed25519KeypairManager {
         Arrays.fill(privKeyBytes, (byte) 0);
     }
 
-    /**
-     * AES-256-GCM encrypt. Returns {@code IV || ciphertext} (12-byte IV prepended).
-     */
+    /** AES-256-GCM encrypt. Returns {@code IV || ciphertext} (12-byte IV prepended). */
     private static byte[] aesGcmEncrypt(SecretKey key, byte[] plaintext)
             throws GeneralSecurityException {
         Cipher cipher = Cipher.getInstance(AES_ALGORITHM);
@@ -191,13 +194,13 @@ public class Ed25519KeypairManager {
     }
 
     /**
-     * AES-256-GCM decrypt. Input is {@code IV || ciphertext} as produced by {@link
-     * #aesGcmEncrypt}.
+     * AES-256-GCM decrypt. Input is {@code IV || ciphertext} as produced by {@link #aesGcmEncrypt}.
      */
     private static byte[] aesGcmDecrypt(SecretKey key, byte[] ivAndCiphertext)
             throws GeneralSecurityException {
         byte[] iv = Arrays.copyOfRange(ivAndCiphertext, 0, GCM_IV_LENGTH);
-        byte[] ciphertext = Arrays.copyOfRange(ivAndCiphertext, GCM_IV_LENGTH, ivAndCiphertext.length);
+        byte[] ciphertext =
+                Arrays.copyOfRange(ivAndCiphertext, GCM_IV_LENGTH, ivAndCiphertext.length);
         Cipher cipher = Cipher.getInstance(AES_ALGORITHM);
         cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(GCM_TAG_LENGTH, iv));
         return cipher.doFinal(ciphertext);

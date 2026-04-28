@@ -6,8 +6,8 @@ package de.vvwt.tm.timer;
  * <p>Maps from {@link de.vvwt.tm.tournament.TimelineEntryType} as follows (AC3 — E11S02 / E26S01):
  *
  * <ul>
- *   <li>{@link de.vvwt.tm.tournament.TimelineEntryType#LAP_BREAK} → {@link #REGULAR} —
- *       inter-round break; triggers pause music
+ *   <li>{@link de.vvwt.tm.tournament.TimelineEntryType#LAP_BREAK} → {@link #REGULAR} — inter-round
+ *       break; triggers pause music
  *   <li>{@link de.vvwt.tm.tournament.TimelineEntryType#INTRA_PHASE_BREAK} → {@link #ADDITIONAL} —
  *       organiser-configured phase pause; does NOT trigger pause music
  *   <li>{@link de.vvwt.tm.tournament.TimelineEntryType#SECTION_BREAK} → {@link #ADDITIONAL} —
@@ -15,8 +15,8 @@ package de.vvwt.tm.timer;
  * </ul>
  *
  * <p>Canonical FQN: {@code de.vvwt.tm.timer.TimerBreakType} per DEC-21 module layout.
- * Reconstruction of legacy {@code de.vvwt.tm.domain.timer.TimerBreakType} via D-7 Option γ (E26S01).
- * Two public values preserved verbatim per C-3 signature-preservation.
+ * Reconstruction of legacy {@code de.vvwt.tm.domain.timer.TimerBreakType} via D-7 Option γ
+ * (E26S01). Two public values preserved verbatim per C-3 signature-preservation.
  *
  * @see TimerDataService
  * @see <a href="contexts/artefacts/stories/E26S01.story.md">Story E26S01</a>

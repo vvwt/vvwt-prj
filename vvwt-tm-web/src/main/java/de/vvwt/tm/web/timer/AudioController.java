@@ -42,25 +42,24 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
  * <p>The return type {@link AudioFileMetadata} is a bounded-context-owned Pattern A record at
  * {@code de.vvwt.tm.timer.audio.*} (per E26S02 placement). No web-tier DTO mapping is needed
  * (projection == wire shape; Clause B (a)/(c)/(d) conditions do NOT fire). The legacy {@code
- * AudioMetadataResponse} 1:1 wrapper was consolidated into {@link AudioFileMetadata} by E26S02 —
- * it is NOT re-authored here. {@code AudioController.list} returns
- * {@code List<AudioFileMetadata>} directly; no factory-method mapping invoked
- * (AC-NO-LEGACY-AUDIO-METADATA-RESPONSE-RE-AUTHORING).
+ * AudioMetadataResponse} 1:1 wrapper was consolidated into {@link AudioFileMetadata} by E26S02 — it
+ * is NOT re-authored here. {@code AudioController.list} returns {@code List<AudioFileMetadata>}
+ * directly; no factory-method mapping invoked (AC-NO-LEGACY-AUDIO-METADATA-RESPONSE-RE-AUTHORING).
  *
  * <h2>Authentication (AC-AUTHENTICATION-FLOW-PRESERVED)</h2>
  *
- * <p>The streaming endpoint ({@code /stream}) is accessible without authentication (timer page
- * has no auth and must preload audio files). Upload, list, and delete require admin HTTP Basic
- * auth via {@link de.vvwt.tm.auth.internal.SecurityConfig} (all other {@code /api/**} endpoints
- * are already protected by the catch-all rule). The streaming path
- * {@code /api/audio/tournaments/{id}/{cat}/stream} is in the {@code permitAll()} list in
- * {@code SecurityConfig} (AC-SECURITY-CONFIG-URL-3-AUDIO-STREAM).
+ * <p>The streaming endpoint ({@code /stream}) is accessible without authentication (timer page has
+ * no auth and must preload audio files). Upload, list, and delete require admin HTTP Basic auth via
+ * {@link de.vvwt.tm.auth.internal.SecurityConfig} (all other {@code /api/**} endpoints are already
+ * protected by the catch-all rule). The streaming path {@code
+ * /api/audio/tournaments/{id}/{cat}/stream} is in the {@code permitAll()} list in {@code
+ * SecurityConfig} (AC-SECURITY-CONFIG-URL-3-AUDIO-STREAM).
  *
  * <h2>Tenant scoping</h2>
  *
  * <p>All endpoints delegate to {@link AudioStorageService}, which validates tournament ownership
- * against the active tenant context. A missing/cross-tenant tournament results in
- * {@link NoSuchElementException} → 404 (no tenant enumeration).
+ * against the active tenant context. A missing/cross-tenant tournament results in {@link
+ * NoSuchElementException} → 404 (no tenant enumeration).
  *
  * <h2>Error handling</h2>
  *
@@ -134,8 +133,7 @@ public class AudioController {
 
             URI location =
                     ServletUriComponentsBuilder.fromCurrentRequest()
-                            .replacePath(
-                                    "/api/audio/tournaments/{tournamentId}/{category}/stream")
+                            .replacePath("/api/audio/tournaments/{tournamentId}/{category}/stream")
                             .buildAndExpand(tournamentId, category.toUpperCase())
                             .toUri();
 
@@ -150,8 +148,8 @@ public class AudioController {
     /**
      * Streams the audio file for a given tournament and category.
      *
-     * <p>Returns the file content with {@code Content-Type: audio/mpeg}. Returns 404 if no file
-     * has been uploaded for that category.
+     * <p>Returns the file content with {@code Content-Type: audio/mpeg}. Returns 404 if no file has
+     * been uploaded for that category.
      *
      * <p>This endpoint is accessible without authentication — the timer page has no auth and must
      * preload audio files. The path pattern {@code /api/audio/tournaments/{id}/{cat}/stream} is
@@ -183,7 +181,9 @@ public class AudioController {
         headers.setContentDisposition(
                 ContentDisposition.inline().filename(audioCategory.toFileName()).build());
 
-        return ResponseEntity.ok().headers(headers).body(new InputStreamResource(maybeStream.get()));
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(new InputStreamResource(maybeStream.get()));
     }
 
     // -------------------------------------------------------------------------
@@ -197,7 +197,8 @@ public class AudioController {
      * admin authentication.
      *
      * <p>Pattern A (DEC-40 §2026-04-27 Clarification): return type {@code List<AudioFileMetadata>}
-     * is bounded-context-owned. No factory-method mapping (AC-NO-LEGACY-AUDIO-METADATA-RESPONSE-RE-AUTHORING).
+     * is bounded-context-owned. No factory-method mapping
+     * (AC-NO-LEGACY-AUDIO-METADATA-RESPONSE-RE-AUTHORING).
      *
      * @param tournamentId the tournament UUID (path variable)
      * @return 200 with list of {@link AudioFileMetadata}

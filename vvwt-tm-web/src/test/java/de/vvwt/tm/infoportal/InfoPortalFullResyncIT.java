@@ -8,21 +8,22 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.springframework.web.client.RestTemplate;
 
 /**
  * Testcontainers integration test for AC3 — 409 FULL_RESYNC snapshot recovery path.
  *
- * <p>This is a dedicated test class for the FULL_RESYNC path. The general publisher IT is in
- * {@link InfoPortalPublisherIT}. This class focuses exclusively on container stop/start simulation.
+ * <p>This is a dedicated test class for the FULL_RESYNC path. The general publisher IT is in {@link
+ * InfoPortalPublisherIT}. This class focuses exclusively on container stop/start simulation.
  *
- * <p><b>PRECONDITION:</b> Requires Docker and {@code vvwt-info-server} fat-JAR.
- * Currently {@code @Disabled} pending infrastructure availability. See
- * {@link InfoPortalPublisherIT} for setup notes.
+ * <p><b>PRECONDITION:</b> Requires Docker and {@code vvwt-info-server} fat-JAR. Currently
+ * {@code @Disabled} pending infrastructure availability. See {@link InfoPortalPublisherIT} for
+ * setup notes.
  *
  * <p>DEC-22: RED-first test skeleton for AC3 full-resync recovery path.
  *
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09 AC3</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09
+ *     AC3</a>
  */
 @Tag("testcontainers")
 @Disabled("Requires Docker + info-server fat-JAR; see InfoPortalPublisherIT Javadoc")
@@ -52,10 +53,9 @@ class InfoPortalFullResyncIT {
      * 7. Publish delta seq=4 again → 200
      * </pre>
      *
-     * Asserts:
-     * - stateDao.findCurrentSeq(...) = 4 after recovery
-     * - service.getStatus().isAlgorithmDeprecatedHardStop() is false
-     * - NO tournament re-registration occurred (tournament_token retained)
+     * Asserts: - stateDao.findCurrentSeq(...) = 4 after recovery -
+     * service.getStatus().isAlgorithmDeprecatedHardStop() is false - NO tournament re-registration
+     * occurred (tournament_token retained)
      */
     @Test
     void fullResync_containerRestart_snapshotWithCurrentSeq_thenResumeDeltas() throws Exception {

@@ -9,8 +9,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * MVC controller that serves the Timer SPA at {@code /timer/tournaments/{tournamentId}}
- * (E26S03 Q-1a TDD reconstruction; Wave-2-aligned URL per Brief v1.1 D-10).
+ * MVC controller that serves the Timer SPA at {@code /timer/tournaments/{tournamentId}} (E26S03
+ * Q-1a TDD reconstruction; Wave-2-aligned URL per Brief v1.1 D-10).
  *
  * <h2>Route (Wave-2-aligned per Brief v1.1 D-10)</h2>
  *
@@ -19,15 +19,15 @@ import org.springframework.web.bind.annotation.RestController;
  *       tournament
  * </ul>
  *
- * <p>The route returns the Vite-built {@code index.html} from
- * {@code classpath:/static/timer/index.html}. The Svelte app reads {@code tournamentId} from
- * {@code window.location.pathname} and fetches timer data from
- * {@code GET /api/timer/tournaments/{tournamentId}} (E26S03 TimerController).
+ * <p>The route returns the Vite-built {@code index.html} from {@code
+ * classpath:/static/timer/index.html}. The Svelte app reads {@code tournamentId} from {@code
+ * window.location.pathname} and fetches timer data from {@code GET
+ * /api/timer/tournaments/{tournamentId}} (E26S03 TimerController).
  *
  * <h2>Security (AC-AUTHENTICATION-FLOW-PRESERVED)</h2>
  *
- * <p>{@code /timer/tournaments/**} is listed in {@link de.vvwt.tm.auth.internal.SecurityConfig}
- * as {@code permitAll()}. No authentication is required — the timer page is for venue use without
+ * <p>{@code /timer/tournaments/**} is listed in {@link de.vvwt.tm.auth.internal.SecurityConfig} as
+ * {@code permitAll()}. No authentication is required — the timer page is for venue use without
  * admin credentials.
  *
  * <h2>SPA serving strategy</h2>
@@ -44,13 +44,13 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <h2>Forward-loop avoidance pattern preserved verbatim per C-3</h2>
  *
- * <p>The timer controller maps a path variable ({@code /timer/tournaments/{tournamentId}}),
- * which means a forward to {@code /timer/tournaments/index.html} would NOT re-enter this
- * controller since {@code index.html} would not match the expected route. However, for
- * consistency with the legacy implementation and to eliminate any risk of infinite forwarding
- * (documented reasoning from the legacy {@code TimerViewController} Javadoc lines 43-50), this
- * controller returns the {@code index.html} content directly as a {@link ResponseEntity} backed
- * by a {@link ClassPathResource}. This is functionally equivalent to a static resource serve.
+ * <p>The timer controller maps a path variable ({@code /timer/tournaments/{tournamentId}}), which
+ * means a forward to {@code /timer/tournaments/index.html} would NOT re-enter this controller since
+ * {@code index.html} would not match the expected route. However, for consistency with the legacy
+ * implementation and to eliminate any risk of infinite forwarding (documented reasoning from the
+ * legacy {@code TimerViewController} Javadoc lines 43-50), this controller returns the {@code
+ * index.html} content directly as a {@link ResponseEntity} backed by a {@link ClassPathResource}.
+ * This is functionally equivalent to a static resource serve.
  *
  * @see TimerController
  * @since E26S03

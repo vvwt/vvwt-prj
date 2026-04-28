@@ -8,6 +8,7 @@ import de.vvwt.tm.timer.audio.AudioCategory;
 import de.vvwt.tm.timer.audio.AudioFileMetadata;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.web.WebModuleTestConfig;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -35,8 +36,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-
-import de.vvwt.tm.web.WebModuleTestConfig;
 
 /**
  * Integration tests for {@link AudioController} — E26S03 Q-1a TDD reconstruction.
@@ -68,8 +67,8 @@ import de.vvwt.tm.web.WebModuleTestConfig;
  * <ul>
  *   <li>DEC-22 Iron Law Q-1a — RED-first: this test written before {@link AudioController} exists;
  *       RED commit = this commit; GREEN commit = next (AudioController production code)
- *   <li>DEC-36 — {@code AudioStorageService} interface FQN used (NOT
- *       {@code timer.audio.internal.DefaultAudioStorageService})
+ *   <li>DEC-36 — {@code AudioStorageService} interface FQN used (NOT {@code
+ *       timer.audio.internal.DefaultAudioStorageService})
  *   <li>DEC-40 §2026-04-27 Clarification Pattern A — response type {@link AudioFileMetadata}
  *       imported from {@code de.vvwt.tm.timer.audio.*} (NOT {@code web.internal.dto.*})
  *   <li>DEC-44 D1 — {@code @SpringBootTest(RANDOM_PORT)} + {@code @Import({WebModuleTestConfig,
@@ -91,7 +90,7 @@ import de.vvwt.tm.web.WebModuleTestConfig;
         classes = de.vvwt.tm.TournamentManagerApplication.class,
         properties = {
             "spring.datasource.url=jdbc:h2:mem:e26s03audioitdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
-                    + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
+                + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
 @Import({WebModuleTestConfig.class, AudioControllerIT.TestAdminCredentials.class})
@@ -116,9 +115,7 @@ class AudioControllerIT {
     // Minimal valid MP3 header bytes (ID3v2 + null frame) for upload tests
     // Just enough to pass the MPEG audio format check
     private static final byte[] MINIMAL_MP3 = {
-        (byte) 0xFF, (byte) 0xFB, (byte) 0x90, 0x00,
-        0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00
+        (byte) 0xFF, (byte) 0xFB, (byte) 0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     };
 
     @BeforeEach
@@ -183,7 +180,8 @@ class AudioControllerIT {
      *
      * <p>AC-URL-PATHS-WAVE-2-ALIGNED: Wave-2 URL shape {@code /api/audio/tournaments/{id}/{cat}}
      * (NOT legacy {@code /api/tournaments/{id}/audio/{cat}}).
-     * AC-NO-LEGACY-AUDIO-METADATA-RESPONSE-RE-AUTHORING: response type is {@link AudioFileMetadata}.
+     * AC-NO-LEGACY-AUDIO-METADATA-RESPONSE-RE-AUTHORING: response type is {@link
+     * AudioFileMetadata}.
      */
     @Test
     void uploadReturns201WithAudioFileMetadata() {
@@ -202,9 +200,7 @@ class AudioControllerIT {
         assertThat(body.filename())
                 .as("Response must contain the original filename")
                 .isEqualTo("start.mp3");
-        assertThat(body.sizeBytes())
-                .as("Response must contain size > 0")
-                .isGreaterThan(0);
+        assertThat(body.sizeBytes()).as("Response must contain size > 0").isGreaterThan(0);
     }
 
     /**
@@ -251,8 +247,8 @@ class AudioControllerIT {
     // =========================================================================
 
     /**
-     * Stream happy path: GET /api/audio/tournaments/{id}/{cat}/stream after upload returns 200
-     * with {@code Content-Type: audio/mpeg}.
+     * Stream happy path: GET /api/audio/tournaments/{id}/{cat}/stream after upload returns 200 with
+     * {@code Content-Type: audio/mpeg}.
      *
      * <p>AC-SECURITY-CONFIG-URL-3-AUDIO-STREAM: the stream endpoint uses permitAll.
      */
@@ -264,10 +260,7 @@ class AudioControllerIT {
         // Stream — no auth required
         ResponseEntity<byte[]> response =
                 restTemplate.getForEntity(
-                        baseUrl
-                                + "/api/audio/tournaments/"
-                                + tournamentId
-                                + "/pause/stream",
+                        baseUrl + "/api/audio/tournaments/" + tournamentId + "/pause/stream",
                         byte[].class);
 
         assertThat(response.getStatusCode())
@@ -294,10 +287,7 @@ class AudioControllerIT {
         // Stream without credentials — must succeed
         ResponseEntity<byte[]> response =
                 restTemplate.getForEntity(
-                        baseUrl
-                                + "/api/audio/tournaments/"
-                                + tournamentId
-                                + "/start/stream",
+                        baseUrl + "/api/audio/tournaments/" + tournamentId + "/start/stream",
                         byte[].class);
 
         assertThat(response.getStatusCode())
@@ -315,10 +305,7 @@ class AudioControllerIT {
     void streamReturns404WhenNoFileUploaded() {
         ResponseEntity<Void> response =
                 restTemplate.getForEntity(
-                        baseUrl
-                                + "/api/audio/tournaments/"
-                                + tournamentId
-                                + "/end/stream",
+                        baseUrl + "/api/audio/tournaments/" + tournamentId + "/end/stream",
                         Void.class);
 
         assertThat(response.getStatusCode())
@@ -334,7 +321,8 @@ class AudioControllerIT {
      * List happy path: GET /api/audio/tournaments/{id} after uploading 2 files returns 200 with
      * list of 2 {@link AudioFileMetadata} entries.
      *
-     * <p>AC-NO-LEGACY-AUDIO-METADATA-RESPONSE-RE-AUTHORING: response type is {@code List<AudioFileMetadata>}.
+     * <p>AC-NO-LEGACY-AUDIO-METADATA-RESPONSE-RE-AUTHORING: response type is {@code
+     * List<AudioFileMetadata>}.
      */
     @Test
     void listReturns200WithUploadedFiles() {
@@ -353,9 +341,7 @@ class AudioControllerIT {
         assertThat(response.getStatusCode())
                 .as("List after 2 uploads must return 200")
                 .isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody())
-                .as("List must contain 2 uploaded files")
-                .hasSize(2);
+        assertThat(response.getBody()).as("List must contain 2 uploaded files").hasSize(2);
     }
 
     /**
@@ -375,14 +361,10 @@ class AudioControllerIT {
         assertThat(response.getStatusCode())
                 .as("List before any uploads must return 200")
                 .isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody())
-                .as("List before uploads must be empty (not null)")
-                .isEmpty();
+        assertThat(response.getBody()).as("List before uploads must be empty (not null)").isEmpty();
     }
 
-    /**
-     * List security: GET list without admin auth → 401. List is an admin-only endpoint.
-     */
+    /** List security: GET list without admin auth → 401. List is an admin-only endpoint. */
     @Test
     void listReturns401WithoutAdminAuth() {
         ResponseEntity<Void> response =
@@ -398,9 +380,7 @@ class AudioControllerIT {
     // Delete — DELETE /api/audio/tournaments/{tournamentId}/{category}
     // =========================================================================
 
-    /**
-     * Delete happy path: DELETE after upload returns 204 No Content.
-     */
+    /** Delete happy path: DELETE after upload returns 204 No Content. */
     @Test
     void deleteReturns204AfterUpload() {
         uploadMp3(tournamentId, AudioCategory.PAUSE, "pause.mp3", MINIMAL_MP3, true);
@@ -409,10 +389,7 @@ class AudioControllerIT {
                 restTemplate
                         .withBasicAuth("admin", TEST_PASSWORD)
                         .exchange(
-                                baseUrl
-                                        + "/api/audio/tournaments/"
-                                        + tournamentId
-                                        + "/pause",
+                                baseUrl + "/api/audio/tournaments/" + tournamentId + "/pause",
                                 HttpMethod.DELETE,
                                 null,
                                 Void.class);
@@ -422,17 +399,12 @@ class AudioControllerIT {
                 .isEqualTo(HttpStatus.NO_CONTENT);
     }
 
-    /**
-     * Delete security: DELETE without admin auth → 401.
-     */
+    /** Delete security: DELETE without admin auth → 401. */
     @Test
     void deleteReturns401WithoutAdminAuth() {
         ResponseEntity<Void> response =
                 restTemplate.exchange(
-                        baseUrl
-                                + "/api/audio/tournaments/"
-                                + tournamentId
-                                + "/start",
+                        baseUrl + "/api/audio/tournaments/" + tournamentId + "/start",
                         HttpMethod.DELETE,
                         null,
                         Void.class);
@@ -453,10 +425,7 @@ class AudioControllerIT {
                 restTemplate
                         .withBasicAuth("admin", TEST_PASSWORD)
                         .exchange(
-                                baseUrl
-                                        + "/api/audio/tournaments/"
-                                        + tournamentId
-                                        + "/end",
+                                baseUrl + "/api/audio/tournaments/" + tournamentId + "/end",
                                 HttpMethod.DELETE,
                                 null,
                                 Void.class);
@@ -473,9 +442,9 @@ class AudioControllerIT {
     /**
      * Upload format: sending a non-MP3 file (e.g., plain text) → 415 Unsupported Media Type.
      *
-     * <p>{@link de.vvwt.tm.timer.audio.AudioFormatException} is thrown by
-     * {@code DefaultAudioStorageService} for non-.mp3 files. Caught by
-     * {@link de.vvwt.tm.web.GlobalExceptionHandler#handleAudioFormat}.
+     * <p>{@link de.vvwt.tm.timer.audio.AudioFormatException} is thrown by {@code
+     * DefaultAudioStorageService} for non-.mp3 files. Caught by {@link
+     * de.vvwt.tm.web.GlobalExceptionHandler#handleAudioFormat}.
      */
     @Test
     void uploadNonMp3FileReturns415() {
@@ -499,11 +468,7 @@ class AudioControllerIT {
                 buildUploadRequest(filename, content, withAuth);
 
         String url =
-                baseUrl
-                        + "/api/audio/tournaments/"
-                        + tId
-                        + "/"
-                        + category.name().toLowerCase();
+                baseUrl + "/api/audio/tournaments/" + tId + "/" + category.name().toLowerCase();
 
         if (withAuth) {
             return restTemplate
@@ -520,11 +485,7 @@ class AudioControllerIT {
                 buildUploadRequest(filename, content, withAuth);
 
         String url =
-                baseUrl
-                        + "/api/audio/tournaments/"
-                        + tId
-                        + "/"
-                        + category.name().toLowerCase();
+                baseUrl + "/api/audio/tournaments/" + tId + "/" + category.name().toLowerCase();
 
         if (withAuth) {
             return restTemplate
@@ -567,8 +528,8 @@ class AudioControllerIT {
      * <p>Per DEC-44 §"2026-04-27 Empirical Refinement": this inner class provides {@code @Primary
      * AdminCredentialsProvider} which overrides the non-primary placeholder in {@link
      * WebModuleTestConfig} via {@code spring.main.allow-bean-definition-overriding=true}.
-     * Production {@code SecurityFilterChain} + {@code UserDetailsService} remain sole instances.
-     * No {@code UserDetailsService} or {@code SecurityFilterChain} substitute bean added
+     * Production {@code SecurityFilterChain} + {@code UserDetailsService} remain sole instances. No
+     * {@code UserDetailsService} or {@code SecurityFilterChain} substitute bean added
      * (AC-DEC44-D2-EMPIRICAL-REFINEMENT-RESPECT).
      */
     @TestConfiguration

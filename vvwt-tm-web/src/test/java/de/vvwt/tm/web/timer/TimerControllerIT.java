@@ -10,6 +10,7 @@ import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.web.WebModuleTestConfig;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -28,8 +29,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
-
-import de.vvwt.tm.web.WebModuleTestConfig;
 
 /**
  * Integration tests for {@link TimerController} — E26S03 Q-1a TDD reconstruction.
@@ -56,8 +55,8 @@ import de.vvwt.tm.web.WebModuleTestConfig;
  * <ul>
  *   <li>DEC-22 Iron Law Q-1a — RED-first: this test written before {@link TimerController} exists;
  *       RED commit = this commit; GREEN commit = next (TimerController production code)
- *   <li>DEC-36 — {@code TimerDataService} interface FQN used via {@code @MockitoBean} (NOT
- *       {@code timer.internal.DefaultTimerDataService})
+ *   <li>DEC-36 — {@code TimerDataService} interface FQN used via {@code @MockitoBean} (NOT {@code
+ *       timer.internal.DefaultTimerDataService})
  *   <li>DEC-40 §2026-04-27 Clarification Pattern A — response type {@link TimerDataResponse}
  *       imported from {@code de.vvwt.tm.timer.*} (NOT {@code web.internal.dto.*})
  *   <li>DEC-44 D1 — {@code @SpringBootTest(RANDOM_PORT)} + {@code @Import({WebModuleTestConfig,
@@ -77,7 +76,7 @@ import de.vvwt.tm.web.WebModuleTestConfig;
         classes = de.vvwt.tm.TournamentManagerApplication.class,
         properties = {
             "spring.datasource.url=jdbc:h2:mem:e26s03timeritdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
-                    + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
+                + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
 @Import({WebModuleTestConfig.class, TimerControllerIT.TestAdminCredentials.class})
@@ -222,9 +221,9 @@ class TimerControllerIT {
     /**
      * Error: Unknown tournament UUID → 404 with errorCode {@code INVALID_TIMER_URL}.
      *
-     * <p>{@link de.vvwt.tm.timer.InvalidTimerUrlException} is thrown by
-     * {@code DefaultTimerDataService} when the tournament UUID is not found. The exception is caught
-     * by {@link de.vvwt.tm.web.GlobalExceptionHandler#handleInvalidTimerUrl}.
+     * <p>{@link de.vvwt.tm.timer.InvalidTimerUrlException} is thrown by {@code
+     * DefaultTimerDataService} when the tournament UUID is not found. The exception is caught by
+     * {@link de.vvwt.tm.web.GlobalExceptionHandler#handleInvalidTimerUrl}.
      */
     @Test
     void unknownTournamentReturns404WithInvalidTimerUrlCode() {
@@ -246,9 +245,9 @@ class TimerControllerIT {
     /**
      * Error: DRAFT tournament → 404 with errorCode {@code NO_ACTIVE_TOURNAMENT}.
      *
-     * <p>{@link de.vvwt.tm.timer.NoActiveTournamentException} is thrown by
-     * {@code DefaultTimerDataService} for DRAFT/CANCELLED tournaments. Caught by
-     * {@link de.vvwt.tm.web.GlobalExceptionHandler#handleNoActiveTournament}.
+     * <p>{@link de.vvwt.tm.timer.NoActiveTournamentException} is thrown by {@code
+     * DefaultTimerDataService} for DRAFT/CANCELLED tournaments. Caught by {@link
+     * de.vvwt.tm.web.GlobalExceptionHandler#handleNoActiveTournament}.
      */
     @Test
     void draftTournamentReturns404WithNoActiveTournamentCode() {
@@ -274,9 +273,7 @@ class TimerControllerIT {
         tournamentRepository.save(t);
     }
 
-    /**
-     * Error: CANCELLED tournament → 404 with errorCode {@code NO_ACTIVE_TOURNAMENT}.
-     */
+    /** Error: CANCELLED tournament → 404 with errorCode {@code NO_ACTIVE_TOURNAMENT}. */
     @Test
     void cancelledTournamentReturns404WithNoActiveTournamentCode() {
         Tournament t = tournamentRepository.findById(tournamentId).orElseThrow();
@@ -309,8 +306,7 @@ class TimerControllerIT {
     @Test
     void activeTournamentWithNoPhasesReturns200WithEmptySchedule() {
         // Delete all phases for this tournament
-        jdbcTemplate.update(
-                "DELETE FROM phase WHERE tournament_id = ?", tournamentId.toString());
+        jdbcTemplate.update("DELETE FROM phase WHERE tournament_id = ?", tournamentId.toString());
 
         ResponseEntity<TimerDataResponse> response =
                 restTemplate.getForEntity(
@@ -338,8 +334,7 @@ class TimerControllerIT {
     @Test
     void legacyTimerUrlDoesNotMatchNewController() {
         ResponseEntity<Void> response =
-                restTemplate.getForEntity(
-                        baseUrl + "/api/timer/" + tournamentId, Void.class);
+                restTemplate.getForEntity(baseUrl + "/api/timer/" + tournamentId, Void.class);
 
         // The legacy URL may return 404 (no mapping), not 200
         assertThat(response.getStatusCode().value())
@@ -357,8 +352,8 @@ class TimerControllerIT {
      * <p>Per DEC-44 §"2026-04-27 Empirical Refinement": this inner class provides {@code @Primary
      * AdminCredentialsProvider} which overrides the non-primary placeholder in {@link
      * WebModuleTestConfig} via {@code spring.main.allow-bean-definition-overriding=true}.
-     * Production {@code SecurityFilterChain} + {@code UserDetailsService} remain sole instances.
-     * No {@code UserDetailsService} or {@code SecurityFilterChain} substitute bean added
+     * Production {@code SecurityFilterChain} + {@code UserDetailsService} remain sole instances. No
+     * {@code UserDetailsService} or {@code SecurityFilterChain} substitute bean added
      * (AC-DEC44-D2-EMPIRICAL-REFINEMENT-RESPECT).
      */
     @TestConfiguration
