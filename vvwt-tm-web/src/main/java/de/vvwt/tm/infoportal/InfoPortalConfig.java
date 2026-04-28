@@ -22,9 +22,13 @@ import org.springframework.web.client.RestTemplate;
  * on disk (e.g. from a previous run) they are loaded; otherwise a new keypair is generated and
  * persisted with AES-256-GCM encryption (AC8 NO-PLAINTEXT-ON-DISK).
  *
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09 AC6, AC8</a>
- * @see <a href="../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-6.md">DEC-6 — asymmetric-key registration</a>
- * @see <a href="../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-43.md">DEC-43 — algorithm agility</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09
+ *     AC6, AC8</a>
+ * @see <a href="../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-6.md">DEC-6 —
+ *     asymmetric-key registration</a>
+ * @see <a href="../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-43.md">DEC-43 —
+ *     algorithm agility</a>
  */
 @Configuration
 @EnableConfigurationProperties(InfoPortalProperties.class)
@@ -47,9 +51,9 @@ public class InfoPortalConfig {
     /**
      * Ed25519 keypair manager with AES-256-GCM encrypted-at-rest private key (AC8).
      *
-     * <p>Key files are stored in {@code info-portal.keypair-dir} (default:
-     * {@code ${user.home}/.tournament-manager/info-portal-keys}). On first startup, a new keypair
-     * is generated and encrypted before being written to disk. On subsequent startups, the existing
+     * <p>Key files are stored in {@code info-portal.keypair-dir} (default: {@code
+     * ${user.home}/.tournament-manager/info-portal-keys}). On first startup, a new keypair is
+     * generated and encrypted before being written to disk. On subsequent startups, the existing
      * encrypted keypair is loaded.
      */
     @Bean
@@ -62,17 +66,13 @@ public class InfoPortalConfig {
         return manager;
     }
 
-    /**
-     * JCS canonicalizer (RFC 8785) for publisher request signing (AC9).
-     */
+    /** JCS canonicalizer (RFC 8785) for publisher request signing (AC9). */
     @Bean
     public TmJcsCanonicalizer tmJcsCanonicalizer() {
         return new TmJcsCanonicalizer();
     }
 
-    /**
-     * Core publisher service — activated only when {@code info-portal.url} is set (AC6).
-     */
+    /** Core publisher service — activated only when {@code info-portal.url} is set (AC6). */
     @Bean
     public InfoPortalPublisherService infoPortalPublisherService(
             InfoPortalProperties properties,
@@ -81,8 +81,10 @@ public class InfoPortalConfig {
             Ed25519KeypairManager ed25519KeypairManager,
             TmJcsCanonicalizer tmJcsCanonicalizer) {
         return new InfoPortalPublisherService(
-                properties, stateDao, infoPortalRestTemplate,
-                ed25519KeypairManager, tmJcsCanonicalizer);
+                properties,
+                stateDao,
+                infoPortalRestTemplate,
+                ed25519KeypairManager,
+                tmJcsCanonicalizer);
     }
-
 }

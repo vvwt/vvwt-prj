@@ -9,23 +9,27 @@ import org.springframework.stereotype.Repository;
 /**
  * JDBC DAO for the {@code info_portal_state} table (AC12).
  *
- * <p>Managed by Spring as a {@code @Repository}. Per-tenant DataSource is provided by the
- * TM per-tenant routing infrastructure (DEC-20 DB-per-Tenant).
+ * <p>Managed by Spring as a {@code @Repository}. Per-tenant DataSource is provided by the TM
+ * per-tenant routing infrastructure (DEC-20 DB-per-Tenant).
  *
  * <p>Key contract (AC12):
  *
  * <ul>
  *   <li>Seq generation: atomic {@code UPDATE ... SET last_published_seq = last_published_seq + 1
  *       RETURNING last_published_seq} — TM assigns seq BEFORE posting to info-server.
- *   <li>On 409 FULL_RESYNC: seq is NOT reset to 1; snapshot carries current
- *       {@code last_published_seq}; server overwrites its {@code last_applied_seq} to that value.
+ *   <li>On 409 FULL_RESYNC: seq is NOT reset to 1; snapshot carries current {@code
+ *       last_published_seq}; server overwrites its {@code last_applied_seq} to that value.
  *   <li>DEC-26 three rules enforced via the DEC-26+DEC-46 DAO IT test support in tests.
  *   <li>DEC-46 scope extension: three rules apply to this table per DEC-46 clause #1.
  * </ul>
  *
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09 AC12</a>
- * @see <a href="../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-26.md">DEC-26</a>
- * @see <a href="../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-46.md">DEC-46</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09
+ *     AC12</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-26.md">DEC-26</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-46.md">DEC-46</a>
  */
 @Repository
 public class InfoPortalStateDao {
@@ -64,9 +68,14 @@ public class InfoPortalStateDao {
                      WHERE tenant_id = ? AND location_id = ? AND tournament_id = ?), 0),
                     'REGISTERED')
                 """,
-                tenantId, locationId, tournamentId,
-                tournamentToken, perTournamentSecret,
-                tenantId, locationId, tournamentId);
+                tenantId,
+                locationId,
+                tournamentId,
+                tournamentToken,
+                perTournamentSecret,
+                tenantId,
+                locationId,
+                tournamentId);
     }
 
     /**
@@ -82,24 +91,32 @@ public class InfoPortalStateDao {
         jdbc.update(
                 "UPDATE info_portal_state SET last_published_seq = last_published_seq + 1"
                         + " WHERE tenant_id = ? AND location_id = ? AND tournament_id = ?",
-                tenantId, locationId, tournamentId);
+                tenantId,
+                locationId,
+                tournamentId);
         Long seq =
                 jdbc.queryForObject(
                         "SELECT last_published_seq FROM info_portal_state"
                                 + " WHERE tenant_id = ? AND location_id = ? AND tournament_id = ?",
                         Long.class,
-                        tenantId, locationId, tournamentId);
+                        tenantId,
+                        locationId,
+                        tournamentId);
         if (seq == null) {
             throw new IllegalStateException(
                     "Tournament row not found for seq increment: "
-                            + tenantId + "/" + locationId + "/" + tournamentId);
+                            + tenantId
+                            + "/"
+                            + locationId
+                            + "/"
+                            + tournamentId);
         }
         return seq;
     }
 
     /**
-     * Returns the current {@code last_published_seq} without incrementing.
-     * Used for snapshot-post payloads (seq NOT reset on FULL_RESYNC per AC12).
+     * Returns the current {@code last_published_seq} without incrementing. Used for snapshot-post
+     * payloads (seq NOT reset on FULL_RESYNC per AC12).
      */
     public long findCurrentSeq(String tenantId, String locationId, String tournamentId) {
         Long seq =
@@ -107,24 +124,25 @@ public class InfoPortalStateDao {
                         "SELECT last_published_seq FROM info_portal_state"
                                 + " WHERE tenant_id = ? AND location_id = ? AND tournament_id = ?",
                         Long.class,
-                        tenantId, locationId, tournamentId);
+                        tenantId,
+                        locationId,
+                        tournamentId);
         return seq != null ? seq : 0L;
     }
 
-    /**
-     * Updates {@code last_published_at} to the given instant after a successful publish.
-     */
+    /** Updates {@code last_published_at} to the given instant after a successful publish. */
     public void updateLastPublishedAt(
             String tenantId, String locationId, String tournamentId, Instant at) {
         jdbc.update(
                 "UPDATE info_portal_state SET last_published_at = ?"
                         + " WHERE tenant_id = ? AND location_id = ? AND tournament_id = ?",
-                java.sql.Timestamp.from(at), tenantId, locationId, tournamentId);
+                java.sql.Timestamp.from(at),
+                tenantId,
+                locationId,
+                tournamentId);
     }
 
-    /**
-     * Finds the state record for a specific tournament. Returns empty if not registered.
-     */
+    /** Finds the state record for a specific tournament. Returns empty if not registered. */
     public Optional<InfoPortalStateRecord> findByTournament(
             String tenantId, String locationId, String tournamentId) {
         try {
@@ -150,7 +168,9 @@ public class InfoPortalStateDao {
                                                             .toInstant()
                                                     : null,
                                             rs.getString("registration_status")),
-                            tenantId, locationId, tournamentId);
+                            tenantId,
+                            locationId,
+                            tournamentId);
             return Optional.ofNullable(rec);
         } catch (org.springframework.dao.EmptyResultDataAccessException e) {
             return Optional.empty();

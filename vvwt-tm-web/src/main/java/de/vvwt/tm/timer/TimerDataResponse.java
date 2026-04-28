@@ -17,15 +17,14 @@ import java.util.UUID;
  *   <li>Audio file URLs per category (AC4)
  * </ul>
  *
- * <p>Canonical FQN: {@code de.vvwt.tm.timer.TimerDataResponse} per DEC-40 §2026-04-27
- * Clarification Pattern A (AC-PATTERN-A-PLACEMENT-JUSTIFICATION — projection == wire shape;
- * no Clause B (a)/(c)/(d) condition fires; Decision Rule §289-296). Reconstruction of legacy
- * {@code de.vvwt.tm.infrastructure.web.timer.dto.TimerDataResponse} via D-7 Option γ
- * (E26S01 authors at bounded-context module root per Pattern A). Architectural-lesson precedent:
- * E25S01 escalation (outer-repo commit {@code 23d947b}) — records at {@code web.internal.dto.*}
- * create a {@code timer↔web} Modulith cycle; Pattern A avoids this structurally.
- * Return type of {@link de.vvwt.tm.timer.TimerDataService#buildTimerData(UUID)} per
- * C-3 signature-preservation.
+ * <p>Canonical FQN: {@code de.vvwt.tm.timer.TimerDataResponse} per DEC-40 §2026-04-27 Clarification
+ * Pattern A (AC-PATTERN-A-PLACEMENT-JUSTIFICATION — projection == wire shape; no Clause B
+ * (a)/(c)/(d) condition fires; Decision Rule §289-296). Reconstruction of legacy {@code
+ * de.vvwt.tm.infrastructure.web.timer.dto.TimerDataResponse} via D-7 Option γ (E26S01 authors at
+ * bounded-context module root per Pattern A). Architectural-lesson precedent: E25S01 escalation
+ * (outer-repo commit {@code 23d947b}) — records at {@code web.internal.dto.*} create a {@code
+ * timer↔web} Modulith cycle; Pattern A avoids this structurally. Return type of {@link
+ * de.vvwt.tm.timer.TimerDataService#buildTimerData(UUID)} per C-3 signature-preservation.
  *
  * @see TimerScheduleEntryResponse
  * @see TimerPhaseResponse
@@ -42,14 +41,10 @@ public class TimerDataResponse {
     /** Tournament UUID — stable identifier used for audio URL construction (AC4). */
     private UUID tournamentId;
 
-    /**
-     * Tenant UUID — used by the timer SPA to build the WebSocket subscription topic (DEC-5).
-     */
+    /** Tenant UUID — used by the timer SPA to build the WebSocket subscription topic (DEC-5). */
     private UUID tenantId;
 
-    /**
-     * Tournament lifecycle status: {@code "PLANNED"}, {@code "ACTIVE"}, or {@code "COMPLETED"}.
-     */
+    /** Tournament lifecycle status: {@code "PLANNED"}, {@code "ACTIVE"}, or {@code "COMPLETED"}. */
     private String tournamentStatus;
 
     // ── Current position (AC5) ────────────────────────────────────────────────
@@ -68,9 +63,7 @@ public class TimerDataResponse {
      */
     private boolean hasStartTime;
 
-    /**
-     * {@code true} if no phases have been configured yet (AC7 — no phases → empty schedule).
-     */
+    /** {@code true} if no phases have been configured yet (AC7 — no phases → empty schedule). */
     private boolean emptySchedule;
 
     // ── Schedule content ──────────────────────────────────────────────────────

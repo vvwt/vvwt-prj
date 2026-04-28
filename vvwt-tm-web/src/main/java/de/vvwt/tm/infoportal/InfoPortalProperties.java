@@ -21,8 +21,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *       HIGH-severity (DEC-43 D3).
  * </ul>
  *
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09 AC6</a>
- * @see <a href="../../../../../../../../docs/governance/decisions/DEC-43.md">DEC-43 D3 — deprecation threshold</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09
+ *     AC6</a>
+ * @see <a href="../../../../../../../../docs/governance/decisions/DEC-43.md">DEC-43 D3 —
+ *     deprecation threshold</a>
  */
 @ConfigurationProperties(prefix = "info-portal")
 public class InfoPortalProperties {
@@ -37,20 +40,19 @@ public class InfoPortalProperties {
     private String locationId;
 
     /**
-     * Days-until-deprecation threshold for HIGH-severity admin banner. Default 30 per AC6.
-     * When the active algorithm's {@code deprecation_date} is within this many days, the admin UI
-     * banner is elevated to HIGH severity.
+     * Days-until-deprecation threshold for HIGH-severity admin banner. Default 30 per AC6. When the
+     * active algorithm's {@code deprecation_date} is within this many days, the admin UI banner is
+     * elevated to HIGH severity.
      */
     private int deprecationWarningThresholdDays = 30;
 
     /**
-     * Directory for storing the Ed25519 keypair files (AES-GCM encrypted at rest, AC8).
-     * Default: {@code ${user.home}/.tournament-manager/info-portal-keys}.
-     * Override via {@code INFO_PORTAL_KEYPAIR_DIR} env var or
-     * {@code -Dinfo-portal.keypair-dir=/your/path}.
+     * Directory for storing the Ed25519 keypair files (AES-GCM encrypted at rest, AC8). Default:
+     * {@code ${user.home}/.tournament-manager/info-portal-keys}. Override via {@code
+     * INFO_PORTAL_KEYPAIR_DIR} env var or {@code -Dinfo-portal.keypair-dir=/your/path}.
      */
-    private String keypairDir = System.getProperty("user.home")
-            + "/.tournament-manager/info-portal-keys";
+    private String keypairDir =
+            System.getProperty("user.home") + "/.tournament-manager/info-portal-keys";
 
     /** Returns {@code true} when the info-portal URL is configured (feature is enabled). */
     public boolean isEnabled() {

@@ -1,12 +1,9 @@
 package de.vvwt.tm.infoportal;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -28,15 +25,17 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 /**
- * Unit tests for {@link InfoPortalPublisherService} (AC1 — DEC-22 RED-first for publisher
- * service classes; AC11 — 4xx/5xx error handling).
+ * Unit tests for {@link InfoPortalPublisherService} (AC1 — DEC-22 RED-first for publisher service
+ * classes; AC11 — 4xx/5xx error handling).
  *
  * <p>DEC-22 Iron Law: written RED-first before production class exists.
  *
- * <p>Tests in a different package from subject (this is in {@code infoportal} test package, same
- * as subject's production package) — same-package test, may white-box per DEC-36.
+ * <p>Tests in a different package from subject (this is in {@code infoportal} test package, same as
+ * subject's production package) — same-package test, may white-box per DEC-36.
  *
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09 AC1, AC11</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09
+ *     AC1, AC11</a>
  */
 class InfoPortalPublisherServiceTest {
 
@@ -65,8 +64,9 @@ class InfoPortalPublisherServiceTest {
         when(keypairManager.sign(any())).thenReturn(new byte[64]);
         when(canonicalizer.canonicalize(anyString())).thenReturn("{}".getBytes());
 
-        service = new InfoPortalPublisherService(
-                properties, stateDao, restTemplate, keypairManager, canonicalizer);
+        service =
+                new InfoPortalPublisherService(
+                        properties, stateDao, restTemplate, keypairManager, canonicalizer);
     }
 
     // -------------------------------------------------------------------------
@@ -104,8 +104,9 @@ class InfoPortalPublisherServiceTest {
     @Test
     void registerTenant_403_setsStatusToError() throws Exception {
         when(restTemplate.postForEntity(anyString(), any(), eq(Object.class)))
-                .thenThrow(HttpClientErrorException.create(
-                        HttpStatus.FORBIDDEN, "Forbidden", null, null, null));
+                .thenThrow(
+                        HttpClientErrorException.create(
+                                HttpStatus.FORBIDDEN, "Forbidden", null, null, null));
 
         service.registerTenant();
 
@@ -120,15 +121,23 @@ class InfoPortalPublisherServiceTest {
     void publishDelta_whenStatus410_publisherStops() throws Exception {
         // Pre-condition: tenant + tournament registered
         String tournamentId = "tourn-1";
-        InfoPortalStateRecord stateRec = new InfoPortalStateRecord(
-                "tenant-1", "venue-1", tournamentId, 5L, "tok", new byte[]{1}, null, "REGISTERED");
+        InfoPortalStateRecord stateRec =
+                new InfoPortalStateRecord(
+                        "tenant-1",
+                        "venue-1",
+                        tournamentId,
+                        5L,
+                        "tok",
+                        new byte[] {1},
+                        null,
+                        "REGISTERED");
         when(stateDao.findByTournament("tenant-1", "venue-1", tournamentId))
                 .thenReturn(Optional.of(stateRec));
         when(stateDao.incrementAndGetSeq("tenant-1", "venue-1", tournamentId)).thenReturn(6L);
 
         when(restTemplate.postForEntity(anyString(), any(), eq(Object.class)))
-                .thenThrow(HttpClientErrorException.create(
-                        HttpStatus.GONE, "Gone", null, null, null));
+                .thenThrow(
+                        HttpClientErrorException.create(HttpStatus.GONE, "Gone", null, null, null));
 
         service.publishDelta(tournamentId, "{}");
 
@@ -142,8 +151,16 @@ class InfoPortalPublisherServiceTest {
     @Test
     void publishDelta_when409_triggersSnapshotPost() throws Exception {
         String tournamentId = "tourn-2";
-        InfoPortalStateRecord stateRec = new InfoPortalStateRecord(
-                "tenant-1", "venue-1", tournamentId, 3L, "tok", new byte[]{1}, null, "REGISTERED");
+        InfoPortalStateRecord stateRec =
+                new InfoPortalStateRecord(
+                        "tenant-1",
+                        "venue-1",
+                        tournamentId,
+                        3L,
+                        "tok",
+                        new byte[] {1},
+                        null,
+                        "REGISTERED");
         when(stateDao.findByTournament("tenant-1", "venue-1", tournamentId))
                 .thenReturn(Optional.of(stateRec));
         when(stateDao.incrementAndGetSeq("tenant-1", "venue-1", tournamentId)).thenReturn(4L);
@@ -151,8 +168,9 @@ class InfoPortalPublisherServiceTest {
 
         // First call (delta): 409; second call (snapshot): success
         when(restTemplate.postForEntity(anyString(), any(), eq(Object.class)))
-                .thenThrow(HttpClientErrorException.create(
-                        HttpStatus.CONFLICT, "Conflict", null, null, null))
+                .thenThrow(
+                        HttpClientErrorException.create(
+                                HttpStatus.CONFLICT, "Conflict", null, null, null))
                 .thenReturn(ResponseEntity.ok(null));
 
         service.publishDelta(tournamentId, "{}");
@@ -168,15 +186,24 @@ class InfoPortalPublisherServiceTest {
     @Test
     void publishDelta_when401_setsSignatureMismatchStatus() throws Exception {
         String tournamentId = "tourn-3";
-        InfoPortalStateRecord stateRec = new InfoPortalStateRecord(
-                "tenant-1", "venue-1", tournamentId, 1L, "tok", new byte[]{1}, null, "REGISTERED");
+        InfoPortalStateRecord stateRec =
+                new InfoPortalStateRecord(
+                        "tenant-1",
+                        "venue-1",
+                        tournamentId,
+                        1L,
+                        "tok",
+                        new byte[] {1},
+                        null,
+                        "REGISTERED");
         when(stateDao.findByTournament("tenant-1", "venue-1", tournamentId))
                 .thenReturn(Optional.of(stateRec));
         when(stateDao.incrementAndGetSeq("tenant-1", "venue-1", tournamentId)).thenReturn(2L);
 
         when(restTemplate.postForEntity(anyString(), any(), eq(Object.class)))
-                .thenThrow(HttpClientErrorException.create(
-                        HttpStatus.UNAUTHORIZED, "Unauthorized", null, null, null));
+                .thenThrow(
+                        HttpClientErrorException.create(
+                                HttpStatus.UNAUTHORIZED, "Unauthorized", null, null, null));
 
         service.publishDelta(tournamentId, "{}");
 
@@ -190,8 +217,8 @@ class InfoPortalPublisherServiceTest {
     @Test
     void handleAlgorithmWarning_withinThreshold_setsHighSeverity() {
         // 30-day threshold; 20 days remaining → HIGH severity
-        AlgorithmWarning warning = new AlgorithmWarning(
-                "ed25519", LocalDate.now().plusDays(20), 20);
+        AlgorithmWarning warning =
+                new AlgorithmWarning("ed25519", LocalDate.now().plusDays(20), 20);
         properties.setDeprecationWarningThresholdDays(30);
 
         service.handleAlgorithmWarning(warning);
@@ -203,8 +230,8 @@ class InfoPortalPublisherServiceTest {
     @Test
     void handleAlgorithmWarning_beyondThreshold_setsLowSeverity() {
         // 30-day threshold; 90 days remaining → LOW severity (but still warned per DEC-43 D3)
-        AlgorithmWarning warning = new AlgorithmWarning(
-                "ed25519", LocalDate.now().plusDays(90), 90);
+        AlgorithmWarning warning =
+                new AlgorithmWarning("ed25519", LocalDate.now().plusDays(90), 90);
         properties.setDeprecationWarningThresholdDays(30);
 
         service.handleAlgorithmWarning(warning);

@@ -23,10 +23,12 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
  *
  * <p>DEC-22 Iron Law: written RED-first before production class exists.
  *
- * <p>Uses standalone MockMvc (no Spring Boot context) following the pattern established in
- * {@code AdminSpaControllerTest}.
+ * <p>Uses standalone MockMvc (no Spring Boot context) following the pattern established in {@code
+ * AdminSpaControllerTest}.
  *
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09 AC1, AC4, AC10</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09
+ *     AC1, AC4, AC10</a>
  */
 class InfoPortalStatusControllerTest {
 
@@ -39,12 +41,14 @@ class InfoPortalStatusControllerTest {
         InfoPortalStatusController controller = new InfoPortalStatusController(publisherService);
         // Configure Jackson with JavaTimeModule so LocalDate serializes as ISO string
         // (not array), matching the production JacksonConfig behaviour.
-        ObjectMapper mapper = new ObjectMapper()
-                .registerModule(new JavaTimeModule())
-                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        mockMvc = MockMvcBuilders.standaloneSetup(controller)
-                .setMessageConverters(new MappingJackson2HttpMessageConverter(mapper))
-                .build();
+        ObjectMapper mapper =
+                new ObjectMapper()
+                        .registerModule(new JavaTimeModule())
+                        .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        mockMvc =
+                MockMvcBuilders.standaloneSetup(controller)
+                        .setMessageConverters(new MappingJackson2HttpMessageConverter(mapper))
+                        .build();
     }
 
     // -------------------------------------------------------------------------
@@ -56,8 +60,7 @@ class InfoPortalStatusControllerTest {
         PublisherStatus status = new PublisherStatus();
         when(publisherService.getStatus()).thenReturn(status);
 
-        mockMvc.perform(get("/api/info-portal/status"))
-                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/info-portal/status")).andExpect(status().isOk());
     }
 
     // -------------------------------------------------------------------------
@@ -67,10 +70,7 @@ class InfoPortalStatusControllerTest {
     @Test
     void getStatus_withDeprecationWarning_includesAlgorithmAndDate() throws Exception {
         PublisherStatus status = new PublisherStatus();
-        status.setDeprecationWarning(
-                "ed25519",
-                LocalDate.of(2026, 7, 1),
-                DeprecationSeverity.LOW);
+        status.setDeprecationWarning("ed25519", LocalDate.of(2026, 7, 1), DeprecationSeverity.LOW);
         when(publisherService.getStatus()).thenReturn(status);
 
         mockMvc.perform(get("/api/info-portal/status"))
@@ -84,9 +84,7 @@ class InfoPortalStatusControllerTest {
     void getStatus_withHighSeverityDeprecation_includesHighSeverity() throws Exception {
         PublisherStatus status = new PublisherStatus();
         status.setDeprecationWarning(
-                "ed25519",
-                LocalDate.now().plusDays(10),
-                DeprecationSeverity.HIGH);
+                "ed25519", LocalDate.now().plusDays(10), DeprecationSeverity.HIGH);
         when(publisherService.getStatus()).thenReturn(status);
 
         mockMvc.perform(get("/api/info-portal/status"))

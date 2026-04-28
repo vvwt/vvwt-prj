@@ -13,21 +13,26 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * DAO integration tests for {@link InfoPortalStateDao} — DEC-26 + DEC-46 three rules via
- * {@link TenantDaoTestSupport} (TM is DEC-20 DB-per-Tenant, eligible per DEC-46 clause #2(a)).
+ * DAO integration tests for {@link InfoPortalStateDao} — DEC-26 + DEC-46 three rules via {@link
+ * TenantDaoTestSupport} (TM is DEC-20 DB-per-Tenant, eligible per DEC-46 clause #2(a)).
  *
  * <p>DEC-22 Iron Law: tests written RED-first before DAO class exists.
  *
  * <p>DEC-26 three rules:
+ *
  * <ol>
  *   <li>Rule 1 — schema from production migration {@code V17__e38s09_info_portal_state.sql}
  *   <li>Rule 2 — assertj-db independent persistence verifier (not DAO read method)
  *   <li>Rule 3 — JDBC direct-insert for read-path fixture (not DAO write method)
  * </ol>
  *
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09 AC12</a>
- * @see <a href="../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-26.md">DEC-26</a>
- * @see <a href="../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-46.md">DEC-46</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09
+ *     AC12</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-26.md">DEC-26</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-46.md">DEC-46</a>
  */
 class InfoPortalStateDaoIT {
 
@@ -57,7 +62,7 @@ class InfoPortalStateDaoIT {
         String locationId = "venue-1";
         String tournamentId = "tourn-abc";
         String tournamentToken = "tok-xyz";
-        byte[] secret = new byte[]{1, 2, 3, 4};
+        byte[] secret = new byte[] {1, 2, 3, 4};
 
         // WHEN
         dao.upsertRegistration(tenantId, locationId, tournamentId, tournamentToken, secret);
@@ -70,9 +75,9 @@ class InfoPortalStateDaoIT {
     @Test
     void upsertRegistration_updatesExistingRow() {
         // GIVEN — initial row
-        dao.upsertRegistration("t", "l", "tour-1", "old-token", new byte[]{1});
+        dao.upsertRegistration("t", "l", "tour-1", "old-token", new byte[] {1});
         // Update with new token
-        dao.upsertRegistration("t", "l", "tour-1", "new-token", new byte[]{2});
+        dao.upsertRegistration("t", "l", "tour-1", "new-token", new byte[] {2});
 
         // THEN — still exactly 1 row (upsert, not insert)
         Table table = assertDb.table("info_portal_state").build();
@@ -82,7 +87,7 @@ class InfoPortalStateDaoIT {
     @Test
     void incrementAndGetSeq_atomicIncrementFromZero() {
         // GIVEN — row with last_published_seq = 0
-        dao.upsertRegistration("t", "l", "tour-2", "tok", new byte[]{1});
+        dao.upsertRegistration("t", "l", "tour-2", "tok", new byte[] {1});
 
         // WHEN
         long seq = dao.incrementAndGetSeq("t", "l", "tour-2");
@@ -93,7 +98,7 @@ class InfoPortalStateDaoIT {
 
     @Test
     void incrementAndGetSeq_incrementsMonotonically() {
-        dao.upsertRegistration("t", "l", "tour-3", "tok", new byte[]{1});
+        dao.upsertRegistration("t", "l", "tour-3", "tok", new byte[] {1});
 
         long seq1 = dao.incrementAndGetSeq("t", "l", "tour-3");
         long seq2 = dao.incrementAndGetSeq("t", "l", "tour-3");
@@ -106,7 +111,7 @@ class InfoPortalStateDaoIT {
 
     @Test
     void updateLastPublishedAt_updatesTimestamp() {
-        dao.upsertRegistration("t", "l", "tour-4", "tok", new byte[]{1});
+        dao.upsertRegistration("t", "l", "tour-4", "tok", new byte[] {1});
         Instant now = Instant.now();
 
         dao.updateLastPublishedAt("t", "l", "tour-4", now);
@@ -133,7 +138,7 @@ class InfoPortalStateDaoIT {
                         "tournament_id", "tour-read-1",
                         "last_published_seq", 7L,
                         "tournament_token", "read-tok",
-                        "per_tournament_secret", new byte[]{5, 6},
+                        "per_tournament_secret", new byte[] {5, 6},
                         "registration_status", "REGISTERED"));
 
         Optional<InfoPortalStateRecord> found = dao.findByTournament("t2", "l2", "tour-read-1");
@@ -161,7 +166,7 @@ class InfoPortalStateDaoIT {
                         "tournament_id", "tour-seq-1",
                         "last_published_seq", 42L,
                         "tournament_token", "tok-seq",
-                        "per_tournament_secret", new byte[]{9},
+                        "per_tournament_secret", new byte[] {9},
                         "registration_status", "REGISTERED"));
 
         long seq = dao.findCurrentSeq("t3", "l3", "tour-seq-1");

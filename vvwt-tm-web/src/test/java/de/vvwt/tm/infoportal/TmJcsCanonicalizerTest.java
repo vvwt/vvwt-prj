@@ -12,12 +12,15 @@ import org.junit.jupiter.api.Test;
  * <p>DEC-22 Iron Law: written RED-first before production class exists.
  *
  * <p>AC9 cross-implementation byte-stability: TM-side {@link TmJcsCanonicalizer} and the
- * info-server-side JcsCanonicalizer (E38S05) both use
- * {@code io.github.erdtman:java-json-canonicalization:1.1}; the same JSON input MUST produce
+ * info-server-side JcsCanonicalizer (E38S05) both use {@code
+ * io.github.erdtman:java-json-canonicalization:1.1}; the same JSON input MUST produce
  * byte-identical output on both sides. Cross-subsystem import is forbidden (DEC-42 D2), so
- * stability is verified via a known-good canonical fixture rather than by importing the server class.
+ * stability is verified via a known-good canonical fixture rather than by importing the server
+ * class.
  *
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09 AC9</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09
+ *     AC9</a>
  */
 class TmJcsCanonicalizerTest {
 
@@ -68,12 +71,12 @@ class TmJcsCanonicalizerTest {
     }
 
     /**
-     * AC9 cross-implementation byte-stability: verifies that TM-side JCS output for a fixed
-     * payload matches the expected canonical bytes (same library version = same output).
+     * AC9 cross-implementation byte-stability: verifies that TM-side JCS output for a fixed payload
+     * matches the expected canonical bytes (same library version = same output).
      *
-     * <p>This is the "shared fixture" test per AC9. The fixture is the same JSON object
-     * used in the info-server's {@code JcsCanonicalizerTest}:
-     * {@code {"outer":{"z":3,"a":1},"b":2}} → {@code {"b":2,"outer":{"a":1,"z":3}}}.
+     * <p>This is the "shared fixture" test per AC9. The fixture is the same JSON object used in the
+     * info-server's {@code JcsCanonicalizerTest}: {@code {"outer":{"z":3,"a":1},"b":2}} → {@code
+     * {"b":2,"outer":{"a":1,"z":3}}}.
      */
     @Test
     void crossImplByteStability_tmOutputMatchesExpectedCanonicalBytes() {
@@ -81,13 +84,15 @@ class TmJcsCanonicalizerTest {
         // The expected value is derived from io.github.erdtman:java-json-canonicalization:1.1
         // applied to the input. The server-side verifier uses the same library and version,
         // so the canonical bytes are guaranteed to match.
-        String fixture = "{\"seq\":1,\"type\":\"SCORE_UPDATED\",\"matchId\":\"m1\","
-                + "\"homeScore\":2,\"awayScore\":1}";
+        String fixture =
+                "{\"seq\":1,\"type\":\"SCORE_UPDATED\",\"matchId\":\"m1\","
+                        + "\"homeScore\":2,\"awayScore\":1}";
         byte[] canonical = tmCan.canonicalize(fixture);
         String result = new String(canonical, StandardCharsets.UTF_8);
         // RFC 8785 JCS: keys sorted lexicographically, no whitespace
-        assertThat(result).isEqualTo(
-                "{\"awayScore\":1,\"homeScore\":2,\"matchId\":\"m1\",\"seq\":1,"
-                        + "\"type\":\"SCORE_UPDATED\"}");
+        assertThat(result)
+                .isEqualTo(
+                        "{\"awayScore\":1,\"homeScore\":2,\"matchId\":\"m1\",\"seq\":1,"
+                                + "\"type\":\"SCORE_UPDATED\"}");
     }
 }

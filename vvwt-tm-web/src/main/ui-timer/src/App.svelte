@@ -8,7 +8,7 @@
    *   2. Show ClockSyncDialog (AC2/E11S03)
    *      - User confirms offset → clockOffsetSeconds is set
    *      - Transition to 'loading'
-   *   3. Loading: fetch timer data from GET /api/timer/{tournamentId} (AC5/E11S03)
+   *   3. Loading: fetch timer data from GET /api/timer/tournaments/{tournamentId} (AC5/E11S03)
    *      - Success → 'loaded', render schedule
    *      - Various error types → error state (AC6/E11S03)
    *   4. Loaded: render schedule table + header (AC3/E11S03, AC4/E11S03, AC5/E11S03)

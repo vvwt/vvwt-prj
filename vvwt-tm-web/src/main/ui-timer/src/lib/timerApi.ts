@@ -1,8 +1,8 @@
 /**
  * Timer data API client (E11S03 AC5, AC6).
  *
- * Fetches timer data from the E11S02 endpoint:
- *   GET /api/timer/{tournamentId}
+ * Fetches timer data from the E26S03 endpoint:
+ *   GET /api/timer/tournaments/{tournamentId}
  *
  * Error classification (AC6):
  *   - 404 INVALID_TIMER_URL  → InvalidTimerUrlError  ("Timer not found")
@@ -116,7 +116,7 @@ export class NetworkError extends Error {
 export async function fetchTimerData(tournamentId: string): Promise<TimerData> {
   let response: Response;
   try {
-    response = await fetch(`/api/timer/${encodeURIComponent(tournamentId)}`);
+    response = await fetch(`/api/timer/tournaments/${encodeURIComponent(tournamentId)}`);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Network request failed';
     throw new NetworkError(msg);
@@ -162,17 +162,17 @@ export async function fetchTimerData(tournamentId: string): Promise<TimerData> {
 /**
  * Extracts the tournament UUID from the current page URL.
  *
- * Expects the URL to match the pattern: /timer/{uuid}
+ * Expects the URL to match the pattern: /timer/tournaments/{uuid}
  * Returns null if the path does not contain a valid UUID segment.
  *
  * @example
- * // URL: /timer/550e8400-e29b-41d4-a716-446655440000
+ * // URL: /timer/tournaments/550e8400-e29b-41d4-a716-446655440000
  * getTournamentIdFromUrl() // → "550e8400-e29b-41d4-a716-446655440000"
  */
 export function getTournamentIdFromUrl(): string | null {
   const pathname = window.location.pathname;
-  // Match /timer/{uuid} — UUID is 8-4-4-4-12 hex chars
-  const match = pathname.match(/^\/timer\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/.*)?$/i);
+  // Match /timer/tournaments/{uuid} — UUID is 8-4-4-4-12 hex chars
+  const match = pathname.match(/^\/timer\/tournaments\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/.*)?$/i);
   return match ? match[1] : null;
 }
 

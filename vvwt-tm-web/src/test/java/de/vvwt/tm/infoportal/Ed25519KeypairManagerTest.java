@@ -19,7 +19,9 @@ import org.junit.jupiter.api.io.TempDir;
  * randomly generated AES-256 key; both the AES key (wrapped in a key file) and the encrypted
  * private key (in a separate enc file) are stored on disk.
  *
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09 AC8</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09
+ *     AC8</a>
  */
 class Ed25519KeypairManagerTest {
 
@@ -49,8 +51,8 @@ class Ed25519KeypairManagerTest {
     /**
      * AC8 core invariant: the on-disk bytes MUST NOT contain the raw private-key bytes.
      *
-     * <p>Implementation: reads all files in the storage directory and scans for any 32-byte
-     * sliding window that matches the raw Ed25519 private key bytes. If found → test FAILS.
+     * <p>Implementation: reads all files in the storage directory and scans for any 32-byte sliding
+     * window that matches the raw Ed25519 private key bytes. If found → test FAILS.
      */
     @Test
     void noPlaInTextOnDisk_rawPrivateKeyBytesAbsentFromAllDiskFiles(@TempDir Path tmpDir)

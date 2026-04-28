@@ -10,8 +10,9 @@ import java.util.UUID;
  * CANCELLED} status are not accessible via the timer.
  *
  * <p>Canonical FQN: {@code de.vvwt.tm.timer.NoActiveTournamentException} per DEC-21 module layout.
- * Caught cross-module by {@code web.GlobalExceptionHandler.handleNoActiveTournament} (E26S03 updates
- * the import). (UUID, String) constructor preserved verbatim per C-3 signature-preservation.
+ * Caught cross-module by {@code web.GlobalExceptionHandler.handleNoActiveTournament} (E26S03
+ * updates the import). (UUID, String) constructor preserved verbatim per C-3
+ * signature-preservation.
  *
  * @see InvalidTimerUrlException
  * @see <a href="contexts/artefacts/stories/E26S01.story.md">Story E26S01</a>

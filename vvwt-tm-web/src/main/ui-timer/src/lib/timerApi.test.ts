@@ -8,7 +8,7 @@
  *   4. 200 with emptySchedule=true → throws NoScheduleConfiguredError
  *   5. 500 error → throws NetworkError
  *   6. Network fetch failure → throws NetworkError
- *   7. getTournamentIdFromUrl — extracts UUID from /timer/{uuid}
+ *   7. getTournamentIdFromUrl — extracts UUID from /timer/tournaments/{uuid}
  *   8. applyClockOffset — applies offset correctly
  *   9. parseTimeToSeconds — valid and invalid inputs
  */
@@ -108,17 +108,17 @@ describe('getTournamentIdFromUrl', () => {
     // jsdom sets window.location.pathname
   });
 
-  it('extracts UUID from /timer/{uuid}', () => {
+  it('extracts UUID from /timer/tournaments/{uuid}', () => {
     Object.defineProperty(window, 'location', {
-      value: { pathname: `/timer/${VALID_UUID}` },
+      value: { pathname: `/timer/tournaments/${VALID_UUID}` },
       writable: true,
     });
     expect(getTournamentIdFromUrl()).toBe(VALID_UUID);
   });
 
-  it('returns null for /timer/ without UUID', () => {
+  it('returns null for /timer/tournaments/ without UUID', () => {
     Object.defineProperty(window, 'location', {
-      value: { pathname: '/timer/' },
+      value: { pathname: '/timer/tournaments/' },
       writable: true,
     });
     expect(getTournamentIdFromUrl()).toBeNull();

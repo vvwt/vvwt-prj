@@ -13,7 +13,9 @@ import org.springframework.test.context.TestPropertySource;
  *
  * <p>DEC-22 Iron Law: written RED-first before production class exists.
  *
- * @see <a href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09 AC6</a>
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09
+ *     AC6</a>
  */
 @SpringBootTest(
         classes = InfoPortalPropertiesTest.Config.class,

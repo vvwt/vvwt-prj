@@ -9,8 +9,8 @@ import java.util.UUID;
  * {@code de.vvwt.tm.timer.TimerDataService} per DEC-21 module layout. The canonical implementation
  * is {@link de.vvwt.tm.timer.internal.DefaultTimerDataService}.
  *
- * <p>Single public method signature preserved verbatim per C-3 signature-preservation. Consumers
- * of this service (e.g., {@code de.vvwt.tm.web.timer.TimerController} — E26S03) MUST inject this
+ * <p>Single public method signature preserved verbatim per C-3 signature-preservation. Consumers of
+ * this service (e.g., {@code de.vvwt.tm.web.timer.TimerController} — E26S03) MUST inject this
  * interface type, never the concrete implementation class ({@code DefaultTimerDataService}), per
  * DEC-36 cross-package test typing rule.
  *
@@ -20,9 +20,9 @@ import java.util.UUID;
  *   <li>DEC-35 — service interface in public package ({@code de.vvwt.tm.timer}), implementation in
  *       {@code de.vvwt.tm.timer.internal}; naming canon {@code Default*Service} (no I-prefix)
  *   <li>DEC-22 — TDD Iron Law: RED-first test written before implementation
- *   <li>DEC-40 §2026-04-27 Clarification Pattern A — return type {@link TimerDataResponse}
- *       resides at {@code de.vvwt.tm.timer.*} (bounded-context-owned query-shape DTO; projection
- *       == wire shape; no Clause B (a)/(c)/(d) condition fires; Decision Rule §289-296)
+ *   <li>DEC-40 §2026-04-27 Clarification Pattern A — return type {@link TimerDataResponse} resides
+ *       at {@code de.vvwt.tm.timer.*} (bounded-context-owned query-shape DTO; projection == wire
+ *       shape; no Clause B (a)/(c)/(d) condition fires; Decision Rule §289-296)
  * </ul>
  *
  * @since E26S01
