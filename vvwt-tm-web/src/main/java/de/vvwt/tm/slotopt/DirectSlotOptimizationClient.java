@@ -48,9 +48,11 @@ import org.springframework.stereotype.Service;
  *
  * <h2>Bean wiring</h2>
  *
- * <p>This is a {@link Service} bean of type {@link SlotOptimizationClient}. Its mere presence
- * causes Spring to skip {@link FallbackSlotOptimizationClient} due to that bean's
- * {@code @ConditionalOnMissingBean(SlotOptimizationClient.class)} annotation (AC1).
+ * <p>This is a {@link Service} bean of type {@link SlotOptimizationClient}. Prior to E27, its mere
+ * presence caused Spring to skip {@link FallbackSlotOptimizationClient} due to that bean's
+ * {@code @ConditionalOnMissingBean(SlotOptimizationClient.class)} annotation (AC1). As of E27S01,
+ * {@link de.vvwt.tm.slotopt.internal.RoutingSlotOptimizationClient} is the {@code @Primary} bean;
+ * this class remains registered as a non-Primary delegate (injected by Routing for Leg 1).
  *
  * <h2>Optimality guarantee (AC3)</h2>
  *
@@ -64,11 +66,9 @@ import org.springframework.stereotype.Service;
  * must be active before calling {@link #optimize(UUID)}.
  *
  * @see SlotOptimizationClient
- * @see FallbackSlotOptimizationClient
+ * @see de.vvwt.tm.slotopt.internal.RoutingSlotOptimizationClient
  * @see PacketSolver
- * @see <a
- *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E04S03.story.md">Story
- *     E04S03</a>
+ * @see <a href="../../../../../../../../docs/governance/stories/E04S03.story.md">Story E04S03</a>
  */
 @Service
 public class DirectSlotOptimizationClient implements SlotOptimizationClient {

@@ -9,21 +9,21 @@ import java.util.UUID;
  * #optimize(UUID)} and expects that, on return, every match in the given phase has non-null {@code
  * lap_number} and {@code field_number} values written via the match repository.
  *
- * <h2>E04 integration</h2>
+ * <h2>E27 integration (current)</h2>
  *
- * <p>When Epic E04 is delivered, it provides a real implementation of this interface (a Spring
- * {@code @Primary @Service} or similar). The {@link FallbackSlotOptimizationClient} is
- * auto-disabled at that point via {@code @ConditionalOnMissingBean(SlotOptimizationClient.class)}.
+ * <p>As of E27S01, {@link de.vvwt.tm.slotopt.internal.RoutingSlotOptimizationClient} is the
+ * {@code @Primary @Service} implementation. It dispatches to one of three routing legs per DEC-49.
+ * {@link FallbackSlotOptimizationClient} is disabled (its {@code @ConditionalOnMissingBean}
+ * evaluates to false because two {@link SlotOptimizationClient} beans exist: Routing + Direct).
  *
- * <h2>V1 fallback</h2>
+ * <h2>E04 integration (historical)</h2>
  *
- * <p>For E03 delivery in isolation, the {@link FallbackSlotOptimizationClient} provides a
- * sequential lap/field assignment that produces a valid (though non-optimal) schedule.
+ * <p>Epic E04 delivered {@link DirectSlotOptimizationClient} as the first real implementation. E27
+ * builds the routing layer on top, preserving Direct as a non-Primary delegate for Leg 1.
  *
- * @see FallbackSlotOptimizationClient
- * @see <a
- *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E03S12.story.md">Story
- *     E03S12</a>
+ * @see de.vvwt.tm.slotopt.internal.RoutingSlotOptimizationClient
+ * @see DirectSlotOptimizationClient
+ * @see <a href="../../../../../../../../docs/governance/stories/E03S12.story.md">Story E03S12</a>
  */
 public interface SlotOptimizationClient {
 
