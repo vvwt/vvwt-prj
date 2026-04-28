@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>de.vvwt</groupId>
+        <artifactId>vvwt-prj</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>vvwt-slotopt-standalone-worker</artifactId>
+    <name>VVW Slot-Opt Standalone Worker</name>
+    <description>
+        Greenfield plain-Java headless worker process for the slot-optimization subsystem.
+        No Spring Boot (DEC-11, Brief C-6). Uses Picocli for CLI parsing (Brief D-2 / O-2),
+        slf4j-api for logging. Depends on vvwt-slotopt-worker-lib for algorithms and type model.
+        Package root: de.vvwt.slotopt.standalone.* (DEC-35-by-analogy, E35S04 precedent).
+        Main class: de.vvwt.slotopt.standalone.OptimizerWorkerMain (skeleton in E41S02).
+        See DEC-10, DEC-11 (module structure), DEC-35 (package layout), DEC-43 (algorithm-agility).
+    </description>
+
+    <!-- ===================================================================
+         Compile dependencies
+         Versions managed by parent dependencyManagement (DEC-10).
+         =================================================================== -->
+    <dependencies>
+
+        <!-- Slot-opt worker library: algorithms + keypair + type model (DEC-11) -->
+        <dependency>
+            <groupId>de.vvwt</groupId>
+            <artifactId>vvwt-slotopt-worker-lib</artifactId>
+        </dependency>
+
+        <!-- CLI parsing — Picocli (no Spring Boot, DEC-3 OSS Apache 2.0, Brief D-2 / O-2) -->
+        <dependency>
+            <groupId>info.picocli</groupId>
+            <artifactId>picocli</artifactId>
+        </dependency>
+
+        <!-- Logging API — slf4j-api (DEC-3 OSS MIT, no concrete binding in compile scope) -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+
+        <!-- Test dependencies (versions managed by parent) -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <!-- ===================================================================
+         Build
+         =================================================================== -->
+    <build>
+        <plugins>
+
+            <!-- Produce an executable JAR with Main-Class manifest entry.
+                 The class de.vvwt.slotopt.standalone.OptimizerWorkerMain is a bare
+                 stub at E41S01; the @Command skeleton is added by E41S02.
+                 maven-jar-plugin only embeds the manifest entry. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>de.vvwt.slotopt.standalone.OptimizerWorkerMain</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+
+            <!-- Fat-JAR: bundle all dependencies for standalone deployment -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/MANIFEST.MF</exclude>
+                                        <exclude>module-info.class</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>de.vvwt.slotopt.standalone.OptimizerWorkerMain</mainClass>
+                                </transformer>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Enforcer: block Spring Boot drift (DEC-11, Brief C-6) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>ban-spring-boot-in-slotopt-standalone-worker</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>org.springframework.boot:*</exclude>
+                                        <exclude>org.springframework:*</exclude>
+                                    </excludes>
+                                    <message>
+                                        vvwt-slotopt-standalone-worker must remain Spring-Boot-free
+                                        (DEC-10, DEC-11, Brief C-6). Plain Java + Picocli process only.
+                                    </message>
+                                </bannedDependencies>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+        </plugins>
+    </build>
+
+</project>
