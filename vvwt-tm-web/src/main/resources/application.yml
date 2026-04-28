@@ -101,6 +101,24 @@ tm:
     # 10! = 3,628,800 permutations. At ~300 ns/perm (E01S12 benchmark), this takes ~1 s.
     # Override via -Dtm.slotopt.exhaustive-max-n or in application-*.yml per environment.
     exhaustive-max-n: 10
+    dispatcher:
+      # Dispatcher base URL for Leg 2 slot-optimization routing (E27S03, DEC-49 D-3).
+      # If null (default), dispatcher Leg 2 is disabled — all N>exhaustive-max-n routing uses
+      # Leg 3 in-process cancelable timeout (AC-DISPATCHER-URL-CONFIG, AC-REACHABILITY-NULL-URL-RETURNS-FALSE).
+      # Override via TM_SLOTOPT_DISPATCHER_URL env var or -Dtm.slotopt.dispatcher.url.
+      url: ${TM_SLOTOPT_DISPATCHER_URL:}
+      # Connect + read timeout in milliseconds for the dispatcher HEAD reachability probe (E27S03).
+      # Default 2000 ms (2 s) — short enough to not block the optimize() call path.
+      # Override via -Dtm.slotopt.dispatcher.reachability-timeout-ms.
+      reachability-timeout-ms: ${TM_SLOTOPT_DISPATCHER_REACHABILITY_TIMEOUT_MS:2000}
+      # Poll timeout in milliseconds for Leg 2 dispatcher job result polling (E27S03).
+      # Default 300000 ms (5 minutes). On timeout, falls through to Leg 3.
+      # Override via -Dtm.slotopt.dispatcher.poll-timeout-ms.
+      poll-timeout-ms: ${TM_SLOTOPT_DISPATCHER_POLL_TIMEOUT_MS:300000}
+      # Directory for TM worker keypair (Ed25519) used for dispatcher registration (E27S03, DEC-6).
+      # Default: ~/.tournament-manager/slotopt-keys
+      # Override via TM_SLOTOPT_WORKER_KEY_DIR env var or -Dtm.slotopt.dispatcher.worker-key-dir.
+      worker-key-dir: ${TM_SLOTOPT_WORKER_KEY_DIR:${user.home}/.tournament-manager/slotopt-keys}
 
 # ---------------------------------------------------------------------------
 # Public Info Portal publisher (E38S09)
