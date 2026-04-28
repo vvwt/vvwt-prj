@@ -1,5 +1,12 @@
-package de.vvwt.tm.domain.audio;
+package de.vvwt.tm.timer.audio.internal;
 
+import de.vvwt.tm.timer.audio.AudioCategory;
+import de.vvwt.tm.timer.audio.AudioFileMetadata;
+import de.vvwt.tm.timer.audio.AudioFormatException;
+import de.vvwt.tm.timer.audio.AudioSizeLimitException;
+import de.vvwt.tm.timer.audio.AudioStorageConfig;
+import de.vvwt.tm.timer.audio.AudioStorageException;
+import de.vvwt.tm.timer.audio.AudioStorageService;
 import de.vvwt.tm.tournament.TournamentRepository;
 import java.io.IOException;
 import java.io.InputStream;
@@ -19,53 +26,55 @@ import org.springframework.stereotype.Service;
 /**
  * Filesystem-backed implementation of {@link AudioStorageService}.
  *
- * <p>Story E11S01 — AC1–AC7. Files are stored at {@code
- * {dataDir}/audio/{tournamentId}/{category}.mp3} per AC6 / DEC-15.
+ * <p>Canonical FQN: {@code de.vvwt.tm.timer.audio.internal.DefaultAudioStorageService} per DEC-35
+ * naming canon ({@code Default*Service}, no {@code Impl} suffix; impl in {@code .internal} per
+ * DEC-21 module layout). Corrects the legacy DEC-35 violation ({@code AudioStorageServiceImpl}).
  *
- * <h2>Tenant scoping (AC5, DEC-5, DEC-17)</h2>
+ * <p>Files are stored at {@code {dataDir}/audio/{tournamentId}/{category}.mp3} per E11S01 AC6 /
+ * DEC-15. No database table is used — persistence is purely filesystem-based.
+ *
+ * <h2>Tenant scoping (DEC-5, DEC-17)</h2>
  *
  * <p>Every method that touches the filesystem first calls {@link
  * TournamentRepository#findById(Object)}, which is tenant-scoped: it returns {@link
  * Optional#empty()} if the tournament does not exist OR belongs to a different tenant. A missing
- * result results in {@link NoSuchElementException} → HTTP 404 (no tenant enumeration).
+ * result throws {@link NoSuchElementException} → HTTP 404 (no tenant enumeration).
  *
- * <h2>No DB schema (DEC-14)</h2>
- *
- * <p>Audio metadata is derived from the filesystem on each list operation. No H2 table or Flyway
- * migration is needed for this story.
- *
- * <h2>File format validation (AC7)</h2>
+ * <h2>File format validation</h2>
  *
  * <p>Upload rejects files whose declared original filename does not end with {@code .mp3}
- * (case-insensitive). No deep content inspection (magic bytes) — keeping V1 simple. The
- * configurable size limit is enforced by Spring's multipart filter (10 MB default); this class
- * provides an additional guard via the {@code sizeBytes} parameter.
+ * (case-insensitive). No deep content inspection (magic bytes) — V1 simplicity per legacy.
+ *
+ * <h2>DEC-22 Iron Law compliance</h2>
+ *
+ * <p>Fresh Q-1a authoring per DEC-22 TDD Iron Law. All 14 legacy {@code
+ * AudioStorageServiceImplTest} tests were Snapshot-Driven per audit (v) aggregate verdict — ZERO
+ * reused per DEC-41 §3. Fresh RED-first tests: {@code DefaultAudioStorageServiceTest} (11 methods,
+ * E26S02).
  *
  * @see AudioStorageService
  * @see AudioStorageConfig
- * @see <a
- *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E11S01.story.md">Story
- *     E11S01</a>
+ * @see <a href="contexts/artefacts/stories/E26S02.story.md">Story E26S02</a>
  */
 @Service
-public class AudioStorageServiceImpl implements AudioStorageService {
+public class DefaultAudioStorageService implements AudioStorageService {
 
-    private static final Logger log = LoggerFactory.getLogger(AudioStorageServiceImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(DefaultAudioStorageService.class);
 
-    /** Maximum allowed upload size in bytes (10 MB default — AC7). */
-    static final long MAX_UPLOAD_BYTES = 10L * 1024 * 1024;
+    /** Maximum allowed upload size in bytes (10 MB default — preserves legacy constant). */
+    public static final long MAX_UPLOAD_BYTES = 10L * 1024 * 1024;
 
     private final AudioStorageConfig config;
     private final TournamentRepository tournamentRepository;
 
-    public AudioStorageServiceImpl(
+    public DefaultAudioStorageService(
             AudioStorageConfig config, TournamentRepository tournamentRepository) {
         this.config = config;
         this.tournamentRepository = tournamentRepository;
     }
 
     // -------------------------------------------------------------------------
-    // AC1 — Upload
+    // Upload
     // -------------------------------------------------------------------------
 
     @Override
@@ -109,7 +118,7 @@ public class AudioStorageServiceImpl implements AudioStorageService {
     }
 
     // -------------------------------------------------------------------------
-    // AC2 — Stream
+    // Stream
     // -------------------------------------------------------------------------
 
     @Override
@@ -136,7 +145,7 @@ public class AudioStorageServiceImpl implements AudioStorageService {
     }
 
     // -------------------------------------------------------------------------
-    // AC3 — List
+    // List
     // -------------------------------------------------------------------------
 
     @Override
@@ -152,14 +161,15 @@ public class AudioStorageServiceImpl implements AudioStorageService {
                 // Filename stored on disk is always {category}.mp3 — the original client
                 // filename is not persisted (filesystem path is the source of truth per AC6).
                 result.add(
-                        new AudioFileMetadata(category, category.toFileName(), size, uploadedAt));
+                        new AudioFileMetadata(
+                                category, categoryFileName(category), size, uploadedAt));
             }
         }
         return result;
     }
 
     // -------------------------------------------------------------------------
-    // AC4 — Delete
+    // Delete
     // -------------------------------------------------------------------------
 
     @Override
@@ -198,28 +208,31 @@ public class AudioStorageServiceImpl implements AudioStorageService {
      * Resolves the filesystem path for an audio file.
      *
      * <p>AC6: structure is {@code {dataDir}/audio/{tournamentId}/{category}.mp3}. Both {@code
-     * tournamentId} (UUID) and {@code category} (enum name) are safe path components — no path
-     * traversal is possible.
-     *
-     * @param tournamentId the tournament UUID
-     * @param category the audio category
-     * @return the absolute path to the audio file
+     * tournamentId} (UUID) and {@code category} (enum) are safe path components — no path traversal
+     * is possible.
      */
     private Path audioFilePath(UUID tournamentId, AudioCategory category) {
         return Path.of(config.getDataDir())
                 .resolve(tournamentId.toString())
-                .resolve(category.toFileName());
+                .resolve(categoryFileName(category));
+    }
+
+    /**
+     * Returns the filename component for a category, e.g. {@code "start.mp3"}.
+     *
+     * <p>Used internally for filesystem path construction. {@link AudioCategory} does not expose
+     * this helper at the public enum level (E26S01 stub did not add it).
+     */
+    private String categoryFileName(AudioCategory category) {
+        return category.name().toLowerCase() + ".mp3";
     }
 
     /**
      * Ensures that the tournament exists and belongs to the active tenant.
      *
-     * <p>AC5, DEC-5, DEC-17: uses {@link TournamentRepository#findById(Object)} which is
-     * tenant-scoped. Returns empty if the tournament is not found OR belongs to a different tenant.
-     * In both cases we throw {@link NoSuchElementException} → 404 (no tenant enumeration).
-     *
-     * @param tournamentId the tournament UUID to validate
-     * @throws NoSuchElementException if tournament not found or not in active tenant
+     * <p>DEC-5, DEC-17: {@link TournamentRepository#findById(Object)} is tenant-scoped. Returns
+     * empty if the tournament is not found OR belongs to a different tenant. Throws {@link
+     * NoSuchElementException} in both cases → 404 (no tenant enumeration).
      */
     private void requireTournamentInTenant(UUID tournamentId) {
         tournamentRepository
@@ -231,16 +244,12 @@ public class AudioStorageServiceImpl implements AudioStorageService {
     /**
      * Validates that the original filename ends with {@code .mp3} (case-insensitive).
      *
-     * <p>AC7: Non-.mp3 upload → 415. Simple extension check — no deep content inspection.
-     *
-     * @param filename the original client-provided filename
-     * @throws AudioFormatException if the filename does not end with {@code .mp3}
+     * <p>Non-.mp3 upload → {@link AudioFormatException} → HTTP 415.
      */
     private void validateMp3Extension(String filename) {
         if (filename == null || !filename.toLowerCase().endsWith(".mp3")) {
             throw new AudioFormatException(
-                    "Unsupported audio format. Only .mp3 files are accepted. "
-                            + "Received: "
+                    "Unsupported audio format. Only .mp3 files are accepted. Received: "
                             + filename);
         }
     }
@@ -248,13 +257,7 @@ public class AudioStorageServiceImpl implements AudioStorageService {
     /**
      * Validates the declared file size against the configured limit.
      *
-     * <p>AC7: File exceeds configurable size limit (default 10 MB) → 413. The Spring multipart
-     * filter enforces the limit at the servlet layer as well; this guard provides defense-in-depth
-     * at the service layer.
-     *
-     * @param sizeBytes the declared file size in bytes
-     * @param filename the original filename (for the error message)
-     * @throws AudioSizeLimitException if {@code sizeBytes} exceeds {@link #MAX_UPLOAD_BYTES}
+     * <p>File exceeds {@link #MAX_UPLOAD_BYTES} → {@link AudioSizeLimitException} → HTTP 413.
      */
     private void validateSize(long sizeBytes, String filename) {
         if (sizeBytes > MAX_UPLOAD_BYTES) {
@@ -272,7 +275,6 @@ public class AudioStorageServiceImpl implements AudioStorageService {
     /**
      * Creates the parent directory of the target file if it does not already exist.
      *
-     * @param file the target file path
      * @throws AudioStorageException if directory creation fails
      */
     private void ensureParentDirectory(Path file) {
@@ -294,8 +296,6 @@ public class AudioStorageServiceImpl implements AudioStorageService {
     /**
      * Reads the size of a file from the filesystem.
      *
-     * @param file the file path
-     * @return the file size in bytes
      * @throws AudioStorageException if reading the size fails
      */
     private long readSize(Path file) {
@@ -310,8 +310,6 @@ public class AudioStorageServiceImpl implements AudioStorageService {
     /**
      * Reads the last-modified timestamp of a file from the filesystem.
      *
-     * @param file the file path
-     * @return the last-modified instant
      * @throws AudioStorageException if reading the timestamp fails
      */
     private Instant readLastModified(Path file) {

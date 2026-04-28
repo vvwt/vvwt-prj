@@ -1,10 +1,15 @@
-package de.vvwt.tm.domain.audio;
+package de.vvwt.tm.timer.audio;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 /**
- * Configuration properties for audio file storage (E11S01).
+ * Configuration properties for tournament audio file storage.
+ *
+ * <p>Canonical FQN: {@code de.vvwt.tm.timer.audio.AudioStorageConfig} per DEC-21 module layout
+ * (public sub-package of the {@code timer} Modulith module, option A per user decision 2026-04-27).
+ * Property keys preserved verbatim per C-8 wire-stability (same {@code tm.audio} namespace as
+ * legacy {@code de.vvwt.tm.domain.audio.AudioStorageConfig}).
  *
  * <p>Bound to the {@code tm.audio} property namespace in {@code application.yml}.
  *
@@ -19,9 +24,8 @@ import org.springframework.stereotype.Component;
  *     data-dir: /var/tournament-manager/audio
  * </pre>
  *
- * @see <a
- *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E11S01.story.md">Story
- *     E11S01</a>
+ * @see DefaultAudioStorageService
+ * @see <a href="contexts/artefacts/stories/E26S02.story.md">Story E26S02</a>
  */
 @Component
 @ConfigurationProperties(prefix = "tm.audio")

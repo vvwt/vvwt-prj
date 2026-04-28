@@ -3,8 +3,8 @@ package de.vvwt.tm.infrastructure.web.audio;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.domain.audio.AudioCategory;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import de.vvwt.tm.timer.audio.AudioCategory;
 import de.vvwt.tm.tournament.internal.dto.TournamentCreateRequest;
 import de.vvwt.tm.tournament.internal.dto.TournamentResponse;
 import java.net.URI;

@@ -35,20 +35,28 @@
  *       de.vvwt.tm.print.ActivityScheduleAssembler}. Post-story excl.-tenant count = 5 (tournament,
  *       scoring, photo, certificate, print). Trigger-α fires at ≥5; binding verdict L2 stays
  *       (examined at E24S01). Added at E24S06 (AC-WEB-ALLOWEDDEPS-ADD-PRINT).
- *   <li>{@code display} — {@link de.vvwt.tm.web.GlobalExceptionHandler} catches
- *       {@link de.vvwt.tm.display.NoActivePhaseException}; relocated display controllers
- *       in {@code web} consume display-module services (E25S01+).
- *       Added at E25S01 per DEC-40 Pattern A migration cadence.
- *   <li>{@code timer} — {@link de.vvwt.tm.web.GlobalExceptionHandler} catches
- *       {@link de.vvwt.tm.timer.InvalidTimerUrlException} and
- *       {@link de.vvwt.tm.timer.NoActiveTournamentException}; {@code web.TimerController}
- *       (E26S03) consumes {@link de.vvwt.tm.timer.TimerDataService} and returns
- *       {@link de.vvwt.tm.timer.TimerDataResponse} (Pattern A).
- *       Added at E26S01 because {@code GlobalExceptionHandler} was forced to import from
- *       {@code timer.*} when {@code domain.timer.*} was deleted in E26S01
- *       AC-DELETE-LEGACY-FIRST (commit 93c7b57). Post-story excl.-tenant count = 7
- *       (tournament, scoring, photo, certificate, print, display, timer). DEC-45 D2 FIRM verdict:
- *       L2 stays for E26 per audit (vi) Trigger-(ii) NOT-satisfied.
+ *   <li>{@code display} — {@link de.vvwt.tm.web.GlobalExceptionHandler} catches {@link
+ *       de.vvwt.tm.display.NoActivePhaseException}; relocated display controllers in {@code web}
+ *       consume display-module services (E25S01+). Added at E25S01 per DEC-40 Pattern A migration
+ *       cadence.
+ *   <li>{@code timer} — {@link de.vvwt.tm.web.GlobalExceptionHandler} catches {@link
+ *       de.vvwt.tm.timer.InvalidTimerUrlException} and {@link
+ *       de.vvwt.tm.timer.NoActiveTournamentException}; {@code web.TimerController} (E26S03)
+ *       consumes {@link de.vvwt.tm.timer.TimerDataService} and returns {@link
+ *       de.vvwt.tm.timer.TimerDataResponse} (Pattern A). Added at E26S01 because {@code
+ *       GlobalExceptionHandler} was forced to import from {@code timer.*} when {@code
+ *       domain.timer.*} was deleted in E26S01 AC-DELETE-LEGACY-FIRST (commit 93c7b57). Post-story
+ *       excl.-tenant count = 7 (tournament, scoring, photo, certificate, print, display, timer).
+ *       DEC-45 D2 FIRM verdict: L2 stays for E26 per audit (vi) Trigger-(ii) NOT-satisfied.
+ *   <li>{@code timer::audio} — {@link de.vvwt.tm.web.GlobalExceptionHandler} catches {@link
+ *       de.vvwt.tm.timer.audio.AudioFormatException}, {@link
+ *       de.vvwt.tm.timer.audio.AudioSizeLimitException}, and {@link
+ *       de.vvwt.tm.timer.audio.AudioStorageException}; {@code web.AudioController} (E11S01)
+ *       consumes {@link de.vvwt.tm.timer.audio.AudioStorageService} and uses {@link
+ *       de.vvwt.tm.timer.audio.AudioCategory} and {@link de.vvwt.tm.timer.audio.AudioFileMetadata}
+ *       (Pattern A). Added at E26S02 — empirical discovery: Spring Modulith 2.x treats {@code
+ *       timer.audio} as a separate named module; {@code "timer"} alone does not cover it
+ *       (AC-TIMER-AUDIO-NAMED-INTERFACE-CONSIDERATION remediation).
  * </ul>
  *
  * <h2>Boundary rules (DEC-40 § Clause A)</h2>
@@ -76,6 +84,7 @@
             "certificate",
             "print",
             "display",
-            "timer"
+            "timer",
+            "timer::audio"
         })
 package de.vvwt.tm.web;
