@@ -1,8 +1,8 @@
 package de.vvwt.tm.infrastructure.web.audio;
 
-import de.vvwt.tm.domain.audio.AudioCategory;
-import de.vvwt.tm.domain.audio.AudioFileMetadata;
-import de.vvwt.tm.domain.audio.AudioStorageService;
+import de.vvwt.tm.timer.audio.AudioCategory;
+import de.vvwt.tm.timer.audio.AudioFileMetadata;
+import de.vvwt.tm.timer.audio.AudioStorageService;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -96,10 +96,10 @@ public class AudioController {
      * @param tournamentId the tournament UUID (path variable)
      * @param category the audio category — START, END, or PAUSE (path variable, case-insensitive)
      * @param file the multipart file to upload
-     * @return 201 Created with {@link AudioMetadataResponse} body and Location header
+     * @return 201 Created with {@link AudioFileMetadata} body and Location header
      */
     @PostMapping(value = "/{category}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<AudioMetadataResponse> upload(
+    public ResponseEntity<AudioFileMetadata> upload(
             @PathVariable("tournamentId") UUID tournamentId,
             @PathVariable("category") String category,
             @RequestParam("file") MultipartFile file)
@@ -124,7 +124,7 @@ public class AudioController {
                             .buildAndExpand(tournamentId, category.toUpperCase())
                             .toUri();
 
-            return ResponseEntity.created(location).body(AudioMetadataResponse.from(metadata));
+            return ResponseEntity.created(location).body(metadata);
         }
     }
 
@@ -183,18 +183,13 @@ public class AudioController {
      * Requires admin authentication (AC5a — list is admin-only).
      *
      * @param tournamentId the tournament UUID (path variable)
-     * @return 200 with list of {@link AudioMetadataResponse}
+     * @return 200 with list of {@link AudioFileMetadata}
      */
     @GetMapping
-    public ResponseEntity<List<AudioMetadataResponse>> list(
+    public ResponseEntity<List<AudioFileMetadata>> list(
             @PathVariable("tournamentId") UUID tournamentId) {
 
-        List<AudioMetadataResponse> responses =
-                audioStorageService.list(tournamentId).stream()
-                        .map(AudioMetadataResponse::from)
-                        .toList();
-
-        return ResponseEntity.ok(responses);
+        return ResponseEntity.ok(audioStorageService.list(tournamentId));
     }
 
     // -------------------------------------------------------------------------
