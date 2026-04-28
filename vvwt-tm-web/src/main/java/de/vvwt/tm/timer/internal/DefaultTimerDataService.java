@@ -1,11 +1,11 @@
-package de.vvwt.tm.domain.timer;
+package de.vvwt.tm.timer.internal;
 
-import de.vvwt.tm.domain.audio.AudioCategory;
-import de.vvwt.tm.domain.audio.AudioStorageService;
-import de.vvwt.tm.infrastructure.web.timer.dto.TimerAudioResponse;
-import de.vvwt.tm.infrastructure.web.timer.dto.TimerDataResponse;
-import de.vvwt.tm.infrastructure.web.timer.dto.TimerPhaseResponse;
-import de.vvwt.tm.infrastructure.web.timer.dto.TimerScheduleEntryResponse;
+import de.vvwt.tm.timer.InvalidTimerUrlException;
+import de.vvwt.tm.timer.NoActiveTournamentException;
+import de.vvwt.tm.timer.TimerBreakType;
+import de.vvwt.tm.timer.TimerDataService;
+import de.vvwt.tm.timer.audio.AudioCategory;
+import de.vvwt.tm.timer.audio.AudioStorageService;
 import de.vvwt.tm.tournament.Match;
 import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.Phase;
@@ -19,31 +19,44 @@ import de.vvwt.tm.tournament.TimelineEntry;
 import de.vvwt.tm.tournament.TimelineEntryType;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.timer.TimerAudioResponse;
+import de.vvwt.tm.timer.TimerDataResponse;
+import de.vvwt.tm.timer.TimerPhaseResponse;
+import de.vvwt.tm.timer.TimerScheduleEntryResponse;
 import java.io.InputStream;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Domain service that assembles the timer data response for a tournament (E11S02).
+ * Canonical implementation of {@link TimerDataService} for the {@code timer} bounded context.
  *
- * <p>Combines data from the tournament repository (metadata, status, start time), phase and match
- * repositories (schedule structure), phase break repository (breaks), the timeline calculation
- * service (wall-clock times), and the audio storage service (audio file availability) into a single
- * {@link TimerDataResponse}.
+ * <p>Assembles the timer data response for a given tournament from multiple repositories and
+ * services. Canonical FQN: {@code de.vvwt.tm.timer.internal.DefaultTimerDataService} per DEC-35
+ * (implementation in {@code .internal}; naming canon {@code Default*Service}).
  *
- * <h2>Timeline calculation (AC2)</h2>
+ * <h2>6-arg constructor (C-3 signature-preservation)</h2>
  *
- * <p>Delegates to {@link TimelineCalculationService} — this service does NOT duplicate timeline
- * calculation logic. Lap counts are derived from match data (same approach as the legacy {@code
- * LaufzettelAssembler} deleted at E24S07, now superseded by {@link
- * de.vvwt.tm.print.LaufzettelAssembler}). Lap time defaults of 15 min/lap and 5 min/lap-break are
- * used when no explicit configuration is stored.
+ * <p>Constructor parameter order preserved verbatim from legacy {@code
+ * de.vvwt.tm.domain.timer.TimerDataService}:
+ *
+ * <ol>
+ *   <li>{@link TournamentRepository}
+ *   <li>{@link PhaseRepository}
+ *   <li>{@link MatchRepository}
+ *   <li>{@link PhaseBreakRepository}
+ *   <li>{@link TimelineCalculationService}
+ *   <li>{@link AudioStorageService}
+ * </ol>
  *
  * <h2>Break type mapping (AC3)</h2>
  *
@@ -53,35 +66,39 @@ import org.springframework.stereotype.Service;
  *   <li>{@link TimelineEntryType#SECTION_BREAK} → {@link TimerBreakType#ADDITIONAL}
  * </ul>
  *
- * <h2>Error conditions (AC7)</h2>
+ * <h2>Wave-2 audio URL construction (AC-AUDIO-URL-CONSTRUCTION-WAVE2)</h2>
+ *
+ * <p>URL pattern: {@code /api/audio/tournaments/{tournamentId}/{category}/stream}. Replaces legacy
+ * pattern {@code /api/tournaments/{tournamentId}/audio/{category}/stream}.
+ *
+ * <h2>DEC compliance</h2>
  *
  * <ul>
- *   <li>Tournament not found → {@link InvalidTimerUrlException}
- *   <li>Tournament in DRAFT or CANCELLED status → {@link NoActiveTournamentException}
- *   <li>No phases configured → 200 with {@code emptySchedule=true}
+ *   <li>DEC-22 TDD Iron Law: RED-first tests in {@code DefaultTimerDataServiceTest} (same-package
+ *       per DEC-36) written before this implementation
+ *   <li>DEC-35: interface {@code TimerDataService} in public package; impl in {@code .internal}
+ *   <li>DEC-36: cross-package consumers reference {@code TimerDataService}, not this class
+ *   <li>DEC-41 §4: all 28 in-scope legacy tests Snapshot-Driven per E26-AUDIT-DEC41-TEST-CLASSIFICATION;
+ *       no legacy test reuse; fresh RED-first tests only
  * </ul>
  *
- * @see TimerDataResponse
- * @see <a
- *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E11S02.story.md">Story
- *     E11S02</a>
+ * @see TimerDataService
+ * @see <a href="contexts/artefacts/stories/E26S01.story.md">Story E26S01</a>
  */
 @Service
-public class TimerDataService {
+public class DefaultTimerDataService implements TimerDataService {
 
-    /** Default lap time in minutes — mirrors LaufzettelAssembler.DEFAULT_LAP_TIME_MINUTES. */
+    /** Default lap time in minutes. */
     static final int DEFAULT_LAP_TIME_MINUTES = 15;
 
-    /**
-     * Default lap break time in minutes — mirrors LaufzettelAssembler.DEFAULT_LAP_BREAK_MINUTES.
-     */
+    /** Default lap break time in minutes. */
     static final int DEFAULT_LAP_BREAK_MINUTES = 5;
 
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
 
     /** Tournament statuses that are accessible via the timer (PLANNED, ACTIVE, COMPLETED). */
-    private static final java.util.Set<String> TIMER_ACCESSIBLE_STATUSES =
-            java.util.Set.of("PLANNED", "ACTIVE", "COMPLETED");
+    private static final Set<String> TIMER_ACCESSIBLE_STATUSES =
+            Set.of("PLANNED", "ACTIVE", "COMPLETED");
 
     private final TournamentRepository tournamentRepository;
     private final PhaseRepository phaseRepository;
@@ -90,7 +107,14 @@ public class TimerDataService {
     private final TimelineCalculationService timelineCalculationService;
     private final AudioStorageService audioStorageService;
 
-    public TimerDataService(
+    /**
+     * 6-arg constructor preserved verbatim per C-3 signature-preservation.
+     *
+     * <p>All tournament repos and {@link TimelineCalculationService} are from {@code
+     * de.vvwt.tm.tournament.*} root. {@link AudioStorageService} is from {@code
+     * de.vvwt.tm.timer.audio} (sub-package of this module per option A).
+     */
+    public DefaultTimerDataService(
             TournamentRepository tournamentRepository,
             PhaseRepository phaseRepository,
             MatchRepository matchRepository,
@@ -105,9 +129,7 @@ public class TimerDataService {
         this.audioStorageService = audioStorageService;
     }
 
-    // -------------------------------------------------------------------------
-    // Public API
-    // -------------------------------------------------------------------------
+    // ── Public API ────────────────────────────────────────────────────────────
 
     /**
      * Builds the timer data response for the given tournament.
@@ -117,9 +139,11 @@ public class TimerDataService {
      *
      * @param tournamentId the tournament UUID (must belong to the active tenant per DEC-5)
      * @return the assembled timer data response; never {@code null}
-     * @throws InvalidTimerUrlException if the tournament does not exist for the active tenant (AC7)
-     * @throws NoActiveTournamentException if the tournament is in DRAFT or CANCELLED status (AC7)
+     * @throws InvalidTimerUrlException if the tournament does not exist for the active tenant
+     * @throws NoActiveTournamentException if the tournament is in DRAFT or CANCELLED status
      */
+    @Override
+    @Transactional(readOnly = true)
     public TimerDataResponse buildTimerData(UUID tournamentId) {
         // ── Step 1: Load and validate tournament ─────────────────────────────
 
@@ -128,17 +152,17 @@ public class TimerDataService {
                         .findById(tournamentId)
                         .orElseThrow(() -> new InvalidTimerUrlException(tournamentId));
 
-        // AC7: Only PLANNED, ACTIVE, COMPLETED are accessible via the timer
+        // AC-TIMER-ACCESSIBLE-STATUSES-INVARIANT: Only PLANNED, ACTIVE, COMPLETED accessible
         if (!TIMER_ACCESSIBLE_STATUSES.contains(tournament.getStatus())) {
             throw new NoActiveTournamentException(tournamentId, tournament.getStatus());
         }
 
         // ── Step 2: Load phases ───────────────────────────────────────────────
 
-        List<Phase> phases = phaseRepository.findByTournamentId(tournamentId);
+        List<Phase> phases = new ArrayList<>(phaseRepository.findByTournamentId(tournamentId));
         phases.sort(java.util.Comparator.comparingInt(Phase::getSequenceNumber));
 
-        // AC7: no phases configured → 200 with emptySchedule=true
+        // AC-BUILD-TIMER-DATA-EMPTY-SCHEDULE: no phases → 200 with emptySchedule=true
         if (phases.isEmpty()) {
             return buildEmptyScheduleResponse(tournament);
         }
@@ -227,12 +251,11 @@ public class TimerDataService {
         return response;
     }
 
-    // -------------------------------------------------------------------------
-    // Private helpers
-    // -------------------------------------------------------------------------
+    // ── Private helpers ───────────────────────────────────────────────────────
 
-    /** Builds a response for the "no phases" case (AC7). */
+    /** Builds a response for the "no phases" case (AC-BUILD-TIMER-DATA-EMPTY-SCHEDULE). */
     private TimerDataResponse buildEmptyScheduleResponse(Tournament tournament) {
+        TimerAudioResponse audio = buildAudioResponse(tournament.getId());
         TimerDataResponse response = new TimerDataResponse();
         response.setTournamentName(tournament.getDescription());
         response.setTournamentId(tournament.getId());
@@ -244,7 +267,7 @@ public class TimerDataService {
         response.setEmptySchedule(true);
         response.setSchedule(Collections.emptyList());
         response.setPhases(Collections.emptyList());
-        response.setAudio(buildAudioResponse(tournament.getId()));
+        response.setAudio(audio);
         return response;
     }
 
@@ -266,10 +289,13 @@ public class TimerDataService {
     }
 
     /**
-     * Maps computed timeline entries to schedule entries (when startTime is set). AC3: break type
-     * mapping from TimelineEntryType.
+     * Maps computed timeline entries to schedule entries (when startTime is set).
+     *
+     * <p>AC-BREAK-TYPE-MAPPING: break type mapping from TimelineEntryType:
+     * LAP_BREAK→REGULAR, INTRA_PHASE_BREAK→ADDITIONAL, SECTION_BREAK→ADDITIONAL.
      */
-    private List<TimerScheduleEntryResponse> mapTimelineToSchedule(List<TimelineEntry> timeline) {
+    private List<TimerScheduleEntryResponse> mapTimelineToSchedule(
+            List<TimelineEntry> timeline) {
         List<TimerScheduleEntryResponse> schedule = new ArrayList<>();
         for (TimelineEntry entry : timeline) {
             TimelineEntryType type = entry.type();
@@ -286,12 +312,12 @@ public class TimerDataService {
                     // lapNumber == 0 → zero-lap phase marker, skip
                 }
                 case LAP_BREAK ->
-                        // AC3: LAP_BREAK → REGULAR
+                        // AC-BREAK-TYPE-MAPPING: LAP_BREAK → REGULAR
                         schedule.add(
                                 TimerScheduleEntryResponse.breakEntry(
                                         TimerBreakType.REGULAR.name(), null, start, end));
                 case INTRA_PHASE_BREAK ->
-                        // AC3: INTRA_PHASE_BREAK → ADDITIONAL
+                        // AC-BREAK-TYPE-MAPPING: INTRA_PHASE_BREAK → ADDITIONAL
                         schedule.add(
                                 TimerScheduleEntryResponse.breakEntry(
                                         TimerBreakType.ADDITIONAL.name(),
@@ -299,7 +325,7 @@ public class TimerDataService {
                                         start,
                                         end));
                 case SECTION_BREAK ->
-                        // AC3: SECTION_BREAK → ADDITIONAL
+                        // AC-BREAK-TYPE-MAPPING: SECTION_BREAK → ADDITIONAL
                         schedule.add(
                                 TimerScheduleEntryResponse.breakEntry(
                                         TimerBreakType.ADDITIONAL.name(), null, start, end));
@@ -310,13 +336,12 @@ public class TimerDataService {
 
     /**
      * Builds a bare schedule (no wall-clock times) when no startTime is set. Creates round entries
-     * from match-derived lap counts; intra-phase breaks are included as ADDITIONAL breaks; no
-     * LAP_BREAK or SECTION_BREAK entries (no timing info).
+     * from match-derived lap counts; intra-phase breaks are included as ADDITIONAL breaks.
      */
     private List<TimerScheduleEntryResponse> buildBareSchedule(
             List<Phase> phases, List<PhaseBreak> allBreaks, int[] maxLapByPhaseIndex) {
         // Build lookup: phaseId → sorted list of PhaseBreaks
-        java.util.Map<UUID, List<PhaseBreak>> breaksByPhase = new java.util.HashMap<>();
+        Map<UUID, List<PhaseBreak>> breaksByPhase = new HashMap<>();
         for (PhaseBreak pb : allBreaks) {
             breaksByPhase.computeIfAbsent(pb.getPhaseId(), k -> new ArrayList<>()).add(pb);
         }
@@ -330,7 +355,7 @@ public class TimerDataService {
             breaks.sort(java.util.Comparator.comparingInt(PhaseBreak::getAfterLapNumber));
 
             // Build lookup: afterLapNumber → PhaseBreak
-            java.util.Map<Integer, PhaseBreak> breakByLap = new java.util.HashMap<>();
+            Map<Integer, PhaseBreak> breakByLap = new HashMap<>();
             for (PhaseBreak pb : breaks) {
                 breakByLap.put(pb.getAfterLapNumber(), pb);
             }
@@ -350,7 +375,6 @@ public class TimerDataService {
                                         null,
                                         null));
                     }
-                    // No LAP_BREAK entries without timing info — they have no semantic content
                 }
             }
         }
@@ -358,13 +382,12 @@ public class TimerDataService {
     }
 
     /**
-     * Builds {@link PhaseConfig} objects from phase data. Uses DEFAULT_LAP_TIME_MINUTES and
-     * DEFAULT_LAP_BREAK_MINUTES for all phases.
+     * Builds {@link PhaseConfig} objects for timeline calculation.
      */
     private List<PhaseConfig> buildPhaseConfigs(
             List<Phase> phases, List<PhaseBreak> allBreaks, int[] maxLapByPhaseIndex) {
         // Build lookup: phaseId → PhaseBreaks
-        java.util.Map<UUID, List<PhaseBreak>> breaksByPhase = new java.util.HashMap<>();
+        Map<UUID, List<PhaseBreak>> breaksByPhase = new HashMap<>();
         for (PhaseBreak pb : allBreaks) {
             breaksByPhase.computeIfAbsent(pb.getPhaseId(), k -> new ArrayList<>()).add(pb);
         }
@@ -394,9 +417,6 @@ public class TimerDataService {
 
     /**
      * Builds the audio response by checking which categories have files uploaded (AC4).
-     *
-     * <p>Uses {@link AudioStorageService#stream} to check presence and immediately closes the
-     * stream to avoid resource leaks. A non-empty optional means a file exists.
      */
     private TimerAudioResponse buildAudioResponse(UUID tournamentId) {
         String startUrl = buildAudioUrl(tournamentId, AudioCategory.START);
@@ -406,16 +426,15 @@ public class TimerDataService {
     }
 
     /**
-     * Returns the audio streaming URL for the given category, or {@code null} if no file has been
-     * uploaded for that category.
+     * Returns the Wave-2-aligned audio streaming URL for the given category, or {@code null} if no
+     * file has been uploaded.
      *
-     * <p>The URL path is deterministic and stable per AC note: same tournament + category always
-     * produces the same URL (E11S02 stability requirement).
+     * <p>AC-AUDIO-URL-CONSTRUCTION-WAVE2: URL pattern is
+     * {@code /api/audio/tournaments/{tournamentId}/{category}/stream} (Wave-2-aligned). Replaces
+     * legacy {@code /api/tournaments/{tournamentId}/audio/{category}/stream}.
      *
      * <p>@SuppressWarnings("try"): the try-with-resources block intentionally opens and immediately
-     * closes the stream to verify real file access. AudioStorageService has no separate exists()
-     * method; stream() is the only presence check. The variable is named "ignored" to document
-     * intent. (E18S01 / DEC-29)
+     * closes the stream to verify real file access (DEC-29).
      */
     @SuppressWarnings("try")
     private String buildAudioUrl(UUID tournamentId, AudioCategory category) {
@@ -427,7 +446,8 @@ public class TimerDataService {
                 } catch (java.io.IOException ioEx) {
                     // If close fails the file is still considered present — URL remains valid
                 }
-                return "/api/tournaments/" + tournamentId + "/audio/" + category.name() + "/stream";
+                // Wave-2-aligned URL per AC-AUDIO-URL-CONSTRUCTION-WAVE2
+                return "/api/audio/tournaments/" + tournamentId + "/" + category.name() + "/stream";
             }
         } catch (java.util.NoSuchElementException ignored) {
             // Tournament not found in audio service — treat as no file

@@ -7,8 +7,8 @@ import de.vvwt.tm.display.NoActivePhaseException;
 import de.vvwt.tm.domain.audio.AudioFormatException;
 import de.vvwt.tm.domain.audio.AudioSizeLimitException;
 import de.vvwt.tm.domain.audio.AudioStorageException;
-import de.vvwt.tm.domain.timer.InvalidTimerUrlException;
-import de.vvwt.tm.domain.timer.NoActiveTournamentException;
+import de.vvwt.tm.timer.InvalidTimerUrlException;
+import de.vvwt.tm.timer.NoActiveTournamentException;
 import de.vvwt.tm.photo.PhotoFormatException;
 import de.vvwt.tm.photo.PhotoSizeException;
 import de.vvwt.tm.photo.PhotoStorageException;
@@ -64,9 +64,9 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  * <p>{@code @ControllerAdvice(basePackages = {"de.vvwt.tm.tournament", "de.vvwt.tm.infrastructure",
  * "de.vvwt.tm.web"})} covers controllers in the tournament, infrastructure, and web package trees.
  * Extended to include {@code de.vvwt.tm.web} in E22S07 (DEC-40 Clause A controller relocation).
- * Legacy exceptions ({@code de.vvwt.tm.domain.timer.InvalidTimerUrlException}, {@code
- * de.vvwt.tm.domain.timer.NoActiveTournamentException}, {@code
- * infrastructure.display.NoActivePhaseException}) are NOT handled here — they remain in the legacy
+ * Legacy exceptions ({@code de.vvwt.tm.timer.InvalidTimerUrlException}, {@code
+ * de.vvwt.tm.timer.NoActiveTournamentException}, {@code
+ * de.vvwt.tm.display.NoActivePhaseException}) are NOT handled here — they remain in the legacy
  * {@code GlobalExceptionHandler} during parallel-development phase (E21S13 atomic cutover scope).
  *
  * <h2>Security (AC-SEC-NO-EXCEPTION-LEAK)</h2>

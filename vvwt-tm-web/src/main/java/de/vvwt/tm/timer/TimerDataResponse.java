@@ -1,10 +1,10 @@
-package de.vvwt.tm.infrastructure.web.timer.dto;
+package de.vvwt.tm.timer;
 
 import java.util.List;
 import java.util.UUID;
 
 /**
- * Top-level response for the timer data endpoint (E11S02 AC1).
+ * Top-level response for the timer data endpoint (AC1 — E11S02 / E26S01).
  *
  * <p>Contains everything the timer device needs to render the schedule and play audio at the
  * correct times:
@@ -17,30 +17,20 @@ import java.util.UUID;
  *   <li>Audio file URLs per category (AC4)
  * </ul>
  *
- * <h2>Schedule structure (AC1, AC2, AC3)</h2>
- *
- * <p>{@code schedule} is an ordered list of {@link TimerScheduleEntryResponse} covering every match
- * round and break. Entries alternate between {@code "ROUND"} and {@code "BREAK"} as produced by
- * {@link de.vvwt.tm.domain.timeline.TimelineCalculationService}. Break entries carry a {@code
- * breakType} of {@code "REGULAR"} or {@code "ADDITIONAL"} per AC3.
- *
- * <h2>Empty schedule (AC7)</h2>
- *
- * <p>When no phases have been configured for the tournament, {@code emptySchedule} is {@code true}
- * and {@code schedule} is an empty list. This is a 200 response — the timer URL is valid but the
- * schedule is not yet available.
- *
- * <h2>Time fields (AC2)</h2>
- *
- * <p>{@code hasStartTime} is {@code true} when the tournament has a {@code plannedStartTime}. When
- * {@code false}, all {@code startTime}/{@code endTime} fields in schedule entries are {@code null}.
+ * <p>Canonical FQN: {@code de.vvwt.tm.timer.TimerDataResponse} per DEC-40 §2026-04-27
+ * Clarification Pattern A (AC-PATTERN-A-PLACEMENT-JUSTIFICATION — projection == wire shape;
+ * no Clause B (a)/(c)/(d) condition fires; Decision Rule §289-296). Reconstruction of legacy
+ * {@code de.vvwt.tm.infrastructure.web.timer.dto.TimerDataResponse} via D-7 Option γ
+ * (E26S01 authors at bounded-context module root per Pattern A). Architectural-lesson precedent:
+ * E25S01 escalation (outer-repo commit {@code 23d947b}) — records at {@code web.internal.dto.*}
+ * create a {@code timer↔web} Modulith cycle; Pattern A avoids this structurally.
+ * Return type of {@link de.vvwt.tm.timer.TimerDataService#buildTimerData(UUID)} per
+ * C-3 signature-preservation.
  *
  * @see TimerScheduleEntryResponse
  * @see TimerPhaseResponse
  * @see TimerAudioResponse
- * @see <a
- *     href="../../../../../../../../../.gaai/project/contexts/artefacts/stories/E11S02.story.md">Story
- *     E11S02</a>
+ * @see <a href="contexts/artefacts/stories/E26S01.story.md">Story E26S01</a>
  */
 public class TimerDataResponse {
 
@@ -53,52 +43,39 @@ public class TimerDataResponse {
     private UUID tournamentId;
 
     /**
-     * Tenant UUID — used by the timer SPA to build the WebSocket subscription topic {@code
-     * /topic/display/{tenantId}/events} (E11S05 AC1, DEC-5).
+     * Tenant UUID — used by the timer SPA to build the WebSocket subscription topic (DEC-5).
      */
     private UUID tenantId;
 
     /**
      * Tournament lifecycle status: {@code "PLANNED"}, {@code "ACTIVE"}, or {@code "COMPLETED"}.
-     * (AC5 — timer page uses this to render its current position)
      */
     private String tournamentStatus;
 
     // ── Current position (AC5) ────────────────────────────────────────────────
 
-    /**
-     * 1-based number of the currently active phase. {@code 0} if no phase is active. (AC5 — timer
-     * renders current lap within current phase)
-     */
+    /** 1-based number of the currently active phase. {@code 0} if no phase is active. */
     private int currentPhaseNumber;
 
-    /**
-     * Current lap number within the active phase. {@code 0} if no phase is active or no lap has
-     * started. Equal to {@link de.vvwt.tm.domain.Phase#getCurrentLapNumber()}. (AC5)
-     */
+    /** Current lap number within the active phase. {@code 0} if no phase is active. */
     private int currentLapNumber;
 
     // ── Schedule flags ────────────────────────────────────────────────────────
 
     /**
      * {@code true} if the tournament has a {@code plannedStartTime} and schedule entries carry
-     * wall-clock times. {@code false} means all time fields in schedule entries are {@code null}.
-     * (AC2)
+     * wall-clock times.
      */
     private boolean hasStartTime;
 
     /**
-     * {@code true} if no phases have been configured yet (AC7 — no phases → empty schedule
-     * warning). The timer URL is valid (tournament exists) but the schedule is unavailable.
+     * {@code true} if no phases have been configured yet (AC7 — no phases → empty schedule).
      */
     private boolean emptySchedule;
 
     // ── Schedule content ──────────────────────────────────────────────────────
 
-    /**
-     * Ordered list of schedule entries: rounds and breaks interleaved (AC1, AC2, AC3). Empty when
-     * {@code emptySchedule == true}.
-     */
+    /** Ordered list of schedule entries: rounds and breaks interleaved (AC1, AC2, AC3). */
     private List<TimerScheduleEntryResponse> schedule;
 
     /** Phase structure summary — one entry per phase, ordered by phase sequence number (AC5). */
@@ -106,10 +83,7 @@ public class TimerDataResponse {
 
     // ── Audio configuration (AC4) ─────────────────────────────────────────────
 
-    /**
-     * Audio file URLs per category. URLs are {@code null} when no file is uploaded for that
-     * category. (AC4)
-     */
+    /** Audio file URLs per category. URLs are {@code null} when no file is uploaded. */
     private TimerAudioResponse audio;
 
     /** Default constructor for Jackson. */

@@ -1,21 +1,20 @@
-package de.vvwt.tm.domain.timer;
+package de.vvwt.tm.timer;
 
 import java.util.UUID;
 
 /**
  * Thrown when a timer URL references a valid tournament that is not in a timer-accessible state.
  *
- * <p>Story E11S02 AC7 — maps to HTTP 404 with error code {@code "NO_ACTIVE_TOURNAMENT"}.
- * Timer-accessible statuses are {@code PLANNED}, {@code ACTIVE}, and {@code COMPLETED}. Tournaments
- * in {@code DRAFT} or {@code CANCELLED} status are not accessible via the timer.
+ * <p>Maps to HTTP 404 with error code {@code "NO_ACTIVE_TOURNAMENT"}. Timer-accessible statuses are
+ * {@code PLANNED}, {@code ACTIVE}, and {@code COMPLETED}. Tournaments in {@code DRAFT} or {@code
+ * CANCELLED} status are not accessible via the timer.
  *
- * <p>This is distinct from {@link InvalidTimerUrlException} which signals that the tournament
- * itself does not exist for the active tenant.
+ * <p>Canonical FQN: {@code de.vvwt.tm.timer.NoActiveTournamentException} per DEC-21 module layout.
+ * Caught cross-module by {@code web.GlobalExceptionHandler.handleNoActiveTournament} (E26S03 updates
+ * the import). (UUID, String) constructor preserved verbatim per C-3 signature-preservation.
  *
  * @see InvalidTimerUrlException
- * @see <a
- *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E11S02.story.md">Story
- *     E11S02</a>
+ * @see <a href="contexts/artefacts/stories/E26S01.story.md">Story E26S01</a>
  */
 public class NoActiveTournamentException extends RuntimeException {
 

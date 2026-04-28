@@ -35,6 +35,20 @@
  *       de.vvwt.tm.print.ActivityScheduleAssembler}. Post-story excl.-tenant count = 5 (tournament,
  *       scoring, photo, certificate, print). Trigger-α fires at ≥5; binding verdict L2 stays
  *       (examined at E24S01). Added at E24S06 (AC-WEB-ALLOWEDDEPS-ADD-PRINT).
+ *   <li>{@code display} — {@link de.vvwt.tm.web.GlobalExceptionHandler} catches
+ *       {@link de.vvwt.tm.display.NoActivePhaseException}; relocated display controllers
+ *       in {@code web} consume display-module services (E25S01+).
+ *       Added at E25S01 per DEC-40 Pattern A migration cadence.
+ *   <li>{@code timer} — {@link de.vvwt.tm.web.GlobalExceptionHandler} catches
+ *       {@link de.vvwt.tm.timer.InvalidTimerUrlException} and
+ *       {@link de.vvwt.tm.timer.NoActiveTournamentException}; {@code web.TimerController}
+ *       (E26S03) consumes {@link de.vvwt.tm.timer.TimerDataService} and returns
+ *       {@link de.vvwt.tm.timer.TimerDataResponse} (Pattern A).
+ *       Added at E26S01 because {@code GlobalExceptionHandler} was forced to import from
+ *       {@code timer.*} when {@code domain.timer.*} was deleted in E26S01
+ *       AC-DELETE-LEGACY-FIRST (commit 93c7b57). Post-story excl.-tenant count = 7
+ *       (tournament, scoring, photo, certificate, print, display, timer). DEC-45 D2 FIRM verdict:
+ *       L2 stays for E26 per audit (vi) Trigger-(ii) NOT-satisfied.
  * </ul>
  *
  * <h2>Boundary rules (DEC-40 § Clause A)</h2>
@@ -61,6 +75,7 @@
             "photo",
             "certificate",
             "print",
-            "display"
+            "display",
+            "timer"
         })
 package de.vvwt.tm.web;
