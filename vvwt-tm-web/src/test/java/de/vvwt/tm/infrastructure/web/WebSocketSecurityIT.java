@@ -59,6 +59,10 @@ import org.springframework.web.socket.sockjs.client.WebSocketTransport;
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @Import(TenantContextTestSupport.class)
+@SuppressWarnings({
+    "deprecation",
+    "removal"
+}) // MappingJackson2MessageConverter deprecated-for-removal in SB 4.x (E42S01)
 class WebSocketSecurityIT {
 
     static final String TEST_PASSWORD = "WsTestPass99XY";

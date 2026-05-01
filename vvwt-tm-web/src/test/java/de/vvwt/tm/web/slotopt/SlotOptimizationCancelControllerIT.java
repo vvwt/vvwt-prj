@@ -14,9 +14,10 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -45,8 +46,8 @@ import org.springframework.test.context.ActiveProfiles;
  * <ul>
  *   <li>DEC-22 Iron Law Q-1a — RED-first TDD
  *   <li>DEC-40 Clause A — controller in {@code web.slotopt.*} sub-package
- *   <li>DEC-44 D1 — {@code @SpringBootTest(RANDOM_PORT)} + {@code @Import(WebModuleTestConfig +
- *       TestAdminCredentials)}
+ *   <li>DEC-44 D1 — {@code @AutoConfigureTestRestTemplate @SpringBootTest(RANDOM_PORT)} +
+ *       {@code @Import(WebModuleTestConfig + TestAdminCredentials)}
  *   <li>DEC-44 D2 — per-IT inner {@code TestAdminCredentials} provides {@code @Primary
  *       AdminCredentialsProvider}
  * </ul>
@@ -54,6 +55,7 @@ import org.springframework.test.context.ActiveProfiles;
  * @see SlotOptimizationCancelController
  * @see WebModuleTestConfig
  */
+@AutoConfigureTestRestTemplate
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         classes = de.vvwt.tm.TournamentManagerApplication.class,

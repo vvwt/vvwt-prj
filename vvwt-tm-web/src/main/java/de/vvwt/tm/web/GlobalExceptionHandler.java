@@ -268,7 +268,7 @@ public class GlobalExceptionHandler {
             AudioSizeLimitException ex, HttpServletRequest request) {
         log.debug("[tm-web] AudioSizeLimitException: {}", ex.getMessage());
         return buildResponse(
-                HttpStatus.PAYLOAD_TOO_LARGE, ex.getMessage(), "error.audio.tooLarge", request);
+                HttpStatus.CONTENT_TOO_LARGE, ex.getMessage(), "error.audio.tooLarge", request);
     }
 
     /**
@@ -284,7 +284,7 @@ public class GlobalExceptionHandler {
             MaxUploadSizeExceededException ex, HttpServletRequest request) {
         log.debug("[tm-web] MaxUploadSizeExceededException: {}", ex.getMessage());
         return buildResponse(
-                HttpStatus.PAYLOAD_TOO_LARGE,
+                HttpStatus.CONTENT_TOO_LARGE,
                 "File size exceeds the maximum allowed limit.",
                 "error.audio.tooLarge",
                 request);

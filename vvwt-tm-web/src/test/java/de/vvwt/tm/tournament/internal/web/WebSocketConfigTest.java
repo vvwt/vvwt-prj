@@ -47,6 +47,10 @@ import org.springframework.web.socket.sockjs.client.WebSocketTransport;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @DisplayName("WebSocketConfig — E21S10 AC-CONFIG-TDD-PATTERN + AC-WEBSOCKET-CONFIG-INTEGRATION")
+@SuppressWarnings({
+    "deprecation",
+    "removal"
+}) // MappingJackson2MessageConverter deprecated-for-removal in SB 4.x (E42S01)
 class WebSocketConfigTest {
 
     @LocalServerPort private int port;

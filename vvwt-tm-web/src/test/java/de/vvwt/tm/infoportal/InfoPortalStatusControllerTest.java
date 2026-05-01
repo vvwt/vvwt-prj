@@ -30,6 +30,10 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
  *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09
  *     AC1, AC4, AC10</a>
  */
+@SuppressWarnings({
+    "deprecation",
+    "removal"
+}) // MappingJackson2HttpMessageConverter deprecated-for-removal in SB 4.x (E42S01)
 class InfoPortalStatusControllerTest {
 
     private InfoPortalPublisherService publisherService;

@@ -10,9 +10,9 @@ import java.util.Map;
 import javax.sql.DataSource;
 import org.assertj.db.type.AssertDbConnection;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
  * DAO integration test for {@link TournamentDao} — both H2 and PostgreSQL backends (AC3).
@@ -26,7 +26,7 @@ class TournamentDaoIT {
 
     @Container
     @SuppressWarnings("resource")
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine");
 
     // -------------------------------------------------------------------------
     // H2 backend — basic insert + assertj-db verification

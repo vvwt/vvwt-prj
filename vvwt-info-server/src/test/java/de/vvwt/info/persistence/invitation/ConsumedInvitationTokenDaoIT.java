@@ -9,9 +9,9 @@ import java.util.Map;
 import javax.sql.DataSource;
 import org.assertj.db.type.AssertDbConnection;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
  * DAO integration test for {@link ConsumedInvitationTokenDao} — both H2 and PostgreSQL backends.
@@ -38,7 +38,7 @@ class ConsumedInvitationTokenDaoIT {
 
     @Container
     @SuppressWarnings("resource")
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine");
 
     // -------------------------------------------------------------------------
     // H2 backend — schema shape and constraints (Rule 1, Rule 2)

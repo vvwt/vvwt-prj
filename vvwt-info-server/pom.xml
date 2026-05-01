@@ -88,6 +88,26 @@
             <artifactId>vvwt-info-dto</artifactId>
         </dependency>
 
+        <!-- Flyway auto-configuration — Spring Boot 4.x split module (E42S01).
+             In SB 4.x, Flyway auto-configuration was extracted from spring-boot-autoconfigure
+             into the standalone spring-boot-flyway module. Without this dependency, Flyway
+             auto-configuration is absent from the context and migrations are not applied. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-flyway</artifactId>
+        </dependency>
+
+        <!-- Jackson 2.x compat bridge — Spring Boot 4.x / Jackson 3.x migration (E42S01).
+             spring-boot-jackson2 registers Jackson2AutoConfiguration which provides the
+             com.fasterxml.jackson.databind.ObjectMapper bean. Required because production code
+             in this module injects com.fasterxml.jackson.databind.ObjectMapper (Jackson 2.x API).
+             spring-boot-starter-web pulls only spring-boot-jackson (Jackson 3.x); without this
+             explicit dependency the ObjectMapper bean is not registered and context startup fails. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-jackson2</artifactId>
+        </dependency>
+
         <!-- Caffeine — per-IP token-bucket cache backing for rate-limiting (E38S07 AC8).
              Apache 2.0 license — OSS-compliant per DEC-3. Version managed by parent BOM.
              AC8: all transitive runtime deps verified OSI-approved OSS. -->
@@ -114,6 +134,57 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- SB 4.x test module shim — provides @WebMvcTest, @DataJdbcTest, @AutoConfigureTestDatabase,
+             TestRestTemplate, and other classic test slices split into separate modules in SB 4.x.
+             Replaces the monolithic spring-boot-test-autoconfigure from SB 3.x (E42S01). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-test-classic-modules</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- spring-boot-security (test scope) — required for @AutoConfigureMockMvc in SB 4.x.
+             spring-boot-test-classic-modules transitively pulls spring-boot-security-test, which
+             adds SecurityAutoConfiguration etc. to @AutoConfigureMockMvc.imports. Those classes
+             live in spring-boot-security; without it, ApplicationContext load fails with
+             FileNotFoundException (E42S01).
+             The default security behaviour (basic-auth, CSRF) is overridden by
+             InfoServerTestSecurityConfig (permit-all SecurityFilterChain) in test sources. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-security</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- spring-security-test — provides SecurityMockMvcRequestPostProcessors for MockMvc tests.
+             In SB 4.x, SecurityMockMvcAutoConfiguration (from spring-boot-security-test) references
+             SecurityMockMvcRequestPostProcessors at instantiation time; without spring-security-test
+             on the classpath the MockMvc bean creation fails with NoClassDefFoundError (E42S01). -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- spring-boot-restclient — provides RestTemplateBuilder, required by
+             TestRestTemplateTestAutoConfiguration (from spring-boot-resttestclient autoconfigure).
+             Without this dependency, @AutoConfigureTestRestTemplate context initialization fails
+             with ClassNotFoundException: RestTemplateBuilder (E42S01). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-restclient</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- spring-boot-resttestclient — provides TestRestTemplate for RANDOM_PORT IT tests.
+             In SB 4.x, TestRestTemplate moved to spring-boot-resttestclient. Without this dependency,
+             @Autowired TestRestTemplate injection fails with NoSuchBeanDefinitionException (E42S01). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-resttestclient</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
@@ -129,7 +200,7 @@
         </dependency>
 
         <!-- Testcontainers — PostgreSQL 16 ITs for dual-backend testing (AC3, DEC-3).
-             Versions managed by testcontainers-bom in parent. -->
+             Versions managed by testcontainers-bom in parent (TC 2.x artifact IDs; E42S01). -->
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
@@ -137,12 +208,12 @@
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>postgresql</artifactId>
+            <artifactId>testcontainers-postgresql</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
 

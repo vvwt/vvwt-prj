@@ -38,16 +38,16 @@
          Properties
          =================================================================== -->
     <properties>
-        <!-- Java 21 baseline (DEC-10; required by Spring Boot 4.x when available) -->
+        <!-- Java 21 baseline (DEC-10; active Spring Boot 4.x baseline as of E42S01) -->
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
         <!-- Dependency versions managed centrally -->
-        <!-- Spring Boot: 4.0.5 is the target (DEC-10); 4.x not yet released on
-             Maven Central as of bootstrap date 2026-04-11 — using 3.4.7 per AC3
-             fallback chain. Update to 4.x when available. -->
-        <spring-boot.version>3.4.7</spring-boot.version>
+        <!-- Spring Boot 4.0.6 — active baseline per DEC-10 §Decision "highest available 4.x release".
+             4.0.5 named in DEC-10 title; 4.0.6 satisfies the clause without DEC-10 amendment.
+             Delivered as E42S01 (2026-05-01). -->
+        <spring-boot.version>4.0.6</spring-boot.version>
 
         <!-- JUnit 5 / test -->
         <junit-bom.version>5.12.2</junit-bom.version>
@@ -69,9 +69,10 @@
         <postgresql.version>42.7.5</postgresql.version>
         <h2.version>2.3.232</h2.version>
 
-        <!-- Testcontainers — used for PostgreSQL ITs in vvwt-info-server (AC3, DEC-3 OSS-compliant).
-             1.20.6: compatible with Spring Boot 3.4.7 BOM and JDK 21. -->
-        <testcontainers.version>1.20.6</testcontainers.version>
+        <!-- Testcontainers 2.0.5 — BOM-aligned with Spring Boot 4.0.6 (spring-boot-dependencies-4.0.6.pom
+             pins testcontainers 2.0.5). Used for PostgreSQL ITs in vvwt-info-server (DEC-3 OSS-compliant).
+             Bumped by E42S01 from 1.20.6; 1.x → 2.x major version aligned with SB 4.x BOM. -->
+        <testcontainers.version>2.0.5</testcontainers.version>
 
         <!-- RFC 8785 JCS canonical JSON — E38S05/E38S09 publisher signature payload.
              Apache 2.0 — OSS-compliant per DEC-3. Pinned to 1.1 (stable, Java 8+, no deps). -->
@@ -108,10 +109,10 @@
         <node.version>v22.22.2</node.version>
         <maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
 
-        <!-- Spring Modulith version — 1.4.x line for Spring Boot 3.4.x (DEC-10 fallback period).
-             2.x line targets SB 4.x; upgrade here when SB is promoted to 4.x per DEC-10.
+        <!-- Spring Modulith 2.0.6 — mandatory co-bump with Spring Boot 4.x per DEC-10 / DEC-21.
+             2.x line pairs with SB 4.x; 1.4.6 was the SB 3.4.x provisional period (superseded by E42S01).
              E13S01 (DEC-21): Wave-1 foundation dependency for bounded-context enforcement. -->
-        <spring-modulith.version>1.4.6</spring-modulith.version>
+        <spring-modulith.version>2.0.6</spring-modulith.version>
 
         <!-- Spotless + google-java-format (E18S02 — DEC-30): project-wide formatting +
              unused-import removal. AOSP style (4-space indent) chosen over GOOGLE (2-space)
@@ -128,7 +129,7 @@
     <dependencyManagement>
         <dependencies>
 
-            <!-- Spring Boot BOM (fallback: 3.4.7 — see note in properties) -->
+            <!-- Spring Boot BOM 4.0.6 — active baseline per DEC-10 (E42S01) -->
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
@@ -137,7 +138,7 @@
                 <scope>import</scope>
             </dependency>
 
-            <!-- Spring Modulith BOM — 1.4.x for SB 3.4.x (see spring-modulith.version property).
+            <!-- Spring Modulith BOM 2.0.6 — aligned with SB 4.0.6 (see spring-modulith.version property).
                  Manages versions for spring-modulith-starter-core, -starter-jpa, -test, etc.
                  DEC-21: adopt Modulith for vvwt-tm-web bounded-context enforcement.
                  DEC-10 C-1: version coordinate lives here; child modules MUST NOT pin. -->

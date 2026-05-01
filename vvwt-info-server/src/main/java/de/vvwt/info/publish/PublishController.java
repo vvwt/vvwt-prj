@@ -185,7 +185,7 @@ public class PublishController {
                                             Envelope.SCHEMA_VERSION,
                                             ErrorResponse.FullResyncRequired.unknown()));
             case PublishService.PayloadTooLargeException e ->
-                    ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                    ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE)
                             .body(
                                     new Envelope<>(
                                             Envelope.SCHEMA_VERSION,
@@ -267,7 +267,7 @@ public class PublishController {
                                             Envelope.SCHEMA_VERSION,
                                             ErrorResponse.FullResyncRequired.unknown()));
             case PublishService.PayloadTooLargeException e ->
-                    ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                    ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE)
                             .body(
                                     new Envelope<>(
                                             Envelope.SCHEMA_VERSION,

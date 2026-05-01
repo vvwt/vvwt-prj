@@ -9,7 +9,6 @@ import de.vvwt.slotopt.worker.types.RawPhaseDef;
 import de.vvwt.slotopt.worker.types.RawRow;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -94,9 +93,8 @@ public class RawPhaseDefDeserializer extends JsonDeserializer<RawPhaseDef> {
                                 + " payload.");
             }
         } else if (node.isObject()) {
-            Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
-            while (fields.hasNext()) {
-                Map.Entry<String, JsonNode> field = fields.next();
+            // node.properties() replaces deprecated node.fields() in Jackson 2.21+ (E42S01/DEC-29)
+            for (Map.Entry<String, JsonNode> field : node.properties()) {
                 checkForUuids(field.getValue());
             }
         } else if (node.isArray()) {

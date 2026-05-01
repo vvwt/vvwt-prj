@@ -20,8 +20,9 @@ import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -59,6 +60,7 @@ import org.springframework.test.context.ActiveProfiles;
  * @see <a href="../../../../../../.gaai/project/contexts/artefacts/stories/E02S03.story.md">Story
  *     E02S03</a>
  */
+@AutoConfigureTestRestTemplate
 @SpringBootTest(
         classes = TournamentManagerApplication.class,
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)

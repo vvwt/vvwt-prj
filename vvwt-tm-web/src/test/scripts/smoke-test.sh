@@ -71,10 +71,17 @@ echo "[smoke] Bundled JRE: $("$BUNDLED_JAVA" -version 2>&1 | head -1)"
 DB_DIR="$EXTRACT_DIR/tm-smoke-db"
 mkdir -p "$DB_DIR"
 DB_PATH="$DB_DIR/tm"
+# Redirect tenant data dir (registry + per-tenant H2 files) into the temp extract dir
+# so that all state is cleaned up by the EXIT trap. Without this override the app uses
+# ~/.vvwt-tm which persists across runs and causes Flyway validation failures when the
+# migration set changes between builds (E42S01: V15 removed, V17 added).
+TM_DATA_DIR="$EXTRACT_DIR/tm-smoke-data"
+mkdir -p "$TM_DATA_DIR"
 
-echo "[smoke] Starting application on port $PORT, DB: $DB_PATH"
+echo "[smoke] Starting application on port $PORT, DB: $DB_PATH, data dir: $TM_DATA_DIR"
 TM_DB_PATH="$DB_PATH" \
 TM_SERVER_PORT="$PORT" \
+TM_DATA_DIR="$TM_DATA_DIR" \
     "$LAUNCHER" &
 APP_PID=$!
 echo "[smoke] Application PID: $APP_PID"
