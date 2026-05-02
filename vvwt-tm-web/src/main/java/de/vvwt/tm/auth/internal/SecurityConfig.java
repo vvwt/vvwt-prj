@@ -46,6 +46,7 @@ import org.springframework.security.web.SecurityFilterChain;
  *   <li>{@code /api/tournaments/{id}/audio/{name}/stream} — public
  *   <li>{@code /print/assets/**} — public
  *   <li>{@code /api/timer/**} — public
+ *   <li>{@code /} — public (LandingController redirect to /admin/, E43S01 AC7)
  *   <li>{@code /print/**} — requires authentication
  *   <li>{@code /certificate/**} — requires authentication (E24S05)
  *   <li>{@code /admin/**} — requires authentication
@@ -150,6 +151,8 @@ public final class SecurityConfig {
                                         .requestMatchers("/print/assets/**")
                                         .permitAll()
                                         .requestMatchers("/api/timer/tournaments/**")
+                                        .permitAll()
+                                        .requestMatchers("/")
                                         .permitAll()
                                         .requestMatchers("/print/**")
                                         .authenticated()
