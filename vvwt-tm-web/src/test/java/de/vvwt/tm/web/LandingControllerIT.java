@@ -36,15 +36,15 @@ import org.springframework.test.context.ActiveProfiles;
  * </ol>
  *
  * <p>Per DEC-22 Iron Law Q-1a (AC12): this class was committed RED (failing) before any controller
- * or SecurityConfig code was written. The failing tests confirm that {@code GET /} currently returns
- * {@code HTTP 401} (not 302) because no {@code permitAll("/")} rule is present and no
+ * or SecurityConfig code was written. The failing tests confirm that {@code GET /} currently
+ * returns {@code HTTP 401} (not 302) because no {@code permitAll("/")} rule is present and no
  * {@code LandingController} exists.
  *
  * <h2>DEC compliance</h2>
  *
  * <ul>
- *   <li>DEC-44 D1 — {@code @SpringBootTest(RANDOM_PORT, classes = TournamentManagerApplication.class)}
- *       per E43S01 (web-module IT canon)
+ *   <li>DEC-44 D1 — {@code @SpringBootTest(RANDOM_PORT, classes =
+ *       TournamentManagerApplication.class)} per E43S01 (web-module IT canon)
  *   <li>DEC-44 D2 empirical refinement — {@code @Import({WebModuleTestConfig.class,
  *       TestAdminCredentials.class})}; single {@code @Primary AdminCredentialsProvider} via per-IT
  *       inner {@code TestAdminCredentials}
@@ -98,17 +98,20 @@ class LandingControllerIT {
      *
      * <ul>
      *   <li>No {@code LandingController} exists → no handler for {@code /}.
-     *   <li>No {@code permitAll("/")} in {@code SecurityConfig} → the {@code anyRequest().authenticated()}
-     *       catch-all intercepts {@code GET /} before any controller → {@code HTTP 401}.
+     *   <li>No {@code permitAll("/")} in {@code SecurityConfig} → the {@code
+     *       anyRequest().authenticated()} catch-all intercepts {@code GET /} before any controller
+     *       → {@code HTTP 401}.
      * </ul>
      *
-     * <p>After the fix ({@code LandingController} + {@code SecurityConfig} update), this test passes.
+     * <p>After the fix ({@code LandingController} + {@code SecurityConfig} update), this test
+     * passes.
      *
-     * <p>Per AC7: {@code requestMatchers("/").permitAll()} MUST be placed BEFORE
-     * {@code anyRequest().authenticated()} in the SecurityConfig chain.
+     * <p>Per AC7: {@code requestMatchers("/").permitAll()} MUST be placed BEFORE {@code
+     * anyRequest().authenticated()} in the SecurityConfig chain.
      */
     @Test
-    @DisplayName("AC1: unauthenticated GET / → HTTP 302 + Location: /admin/ (redirect NOT followed)")
+    @DisplayName(
+            "AC1: unauthenticated GET / → HTTP 302 + Location: /admin/ (redirect NOT followed)")
     void getRoot_unauthenticated_returns302WithLocationAdminSlash() {
         ResponseEntity<String> response =
                 noRedirect.getForEntity("http://localhost:" + port + "/", String.class);
@@ -137,16 +140,15 @@ class LandingControllerIT {
      * owned by E42S02 AC2 ({@link AdminSpaControllerIT}). It only verifies the redirect chain
      * completes against a reachable target.
      *
-     * <p>An authenticated client is used because {@code /admin/} requires authentication per
-     * {@code SecurityConfig}. After following the redirect, the client reaches {@code /admin/} with
+     * <p>An authenticated client is used because {@code /admin/} requires authentication per {@code
+     * SecurityConfig}. After following the redirect, the client reaches {@code /admin/} with
      * credentials and expects a non-404 response.
      */
     @Test
     @DisplayName("AC2: GET / (redirect followed, authenticated) reaches /admin/ → non-404")
     void getRoot_withRedirectFollow_authenticated_reachesAdminSlash() {
         TestRestTemplate authed =
-                restTemplate.withBasicAuth(
-                        AdminCredentialsProvider.ADMIN_USERNAME, TEST_PASSWORD);
+                restTemplate.withBasicAuth(AdminCredentialsProvider.ADMIN_USERNAME, TEST_PASSWORD);
 
         ResponseEntity<String> response =
                 authed.getForEntity("http://localhost:" + port + "/", String.class);
@@ -163,28 +165,26 @@ class LandingControllerIT {
     // =========================================================================
 
     /**
-     * AC3 — {@code GET /unknown-path-that-should-404} (redirect NOT followed) MUST return
-     * {@code HTTP 404}.
+     * AC3 — {@code GET /unknown-path-that-should-404} (redirect NOT followed) MUST return {@code
+     * HTTP 404}.
      *
      * <p>Guards against accidentally introducing a catch-all matcher in {@code LandingController}
      * that would swallow unrecognized paths and silently break broken bookmarks or typos.
      *
      * <p>The {@code anyRequest().authenticated()} rule in SecurityConfig means an unauthenticated
-     * request to an unknown path returns {@code HTTP 401}, not 404. We supply authentication here so
-     * that the security filter passes through to the dispatcher, which can then return the real 404
-     * from the absence of a matching handler.
+     * request to an unknown path returns {@code HTTP 401}, not 404. We supply authentication here
+     * so that the security filter passes through to the dispatcher, which can then return the real
+     * 404 from the absence of a matching handler.
      */
     @Test
     @DisplayName("AC3: GET /unknown-path-that-should-404 (authenticated) → HTTP 404 (no catch-all)")
     void getUnknownPath_authenticated_returns404() {
         TestRestTemplate authed =
-                restTemplate.withBasicAuth(
-                        AdminCredentialsProvider.ADMIN_USERNAME, TEST_PASSWORD);
+                restTemplate.withBasicAuth(AdminCredentialsProvider.ADMIN_USERNAME, TEST_PASSWORD);
 
         ResponseEntity<String> response =
                 authed.getForEntity(
-                        "http://localhost:" + port + "/unknown-path-that-should-404",
-                        String.class);
+                        "http://localhost:" + port + "/unknown-path-that-should-404", String.class);
 
         assertThat(response.getStatusCode())
                 .as(
