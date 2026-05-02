@@ -73,6 +73,10 @@ import org.springframework.web.socket.sockjs.client.WebSocketTransport;
         })
 @ActiveProfiles("test")
 @Import(TenantContextTestSupport.class)
+@SuppressWarnings({
+    "deprecation",
+    "removal"
+}) // MappingJackson2MessageConverter deprecated-for-removal in SB 4.x (E42S01)
 class DisplayWebSocketSecurityIT {
 
     static final String TEST_PASSWORD = "DisplayWsTest22AB";

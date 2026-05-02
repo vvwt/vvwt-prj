@@ -65,6 +65,10 @@ import org.springframework.web.socket.sockjs.client.WebSocketTransport;
  * @see <a href="E21S10">E21S10 — inventory row 450</a>
  */
 @DisplayName("DomainEventBridge — E21S10 AC-TDD-DomainEventBridge")
+@SuppressWarnings({
+    "deprecation",
+    "removal"
+}) // MappingJackson2MessageConverter deprecated-for-removal in SB 4.x (E42S01)
 class DomainEventBridgeTest {
 
     // =========================================================================

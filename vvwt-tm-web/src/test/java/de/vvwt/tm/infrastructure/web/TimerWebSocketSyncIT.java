@@ -66,6 +66,10 @@ import org.springframework.web.socket.sockjs.client.WebSocketTransport;
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @Import(TenantContextTestSupport.class)
+@SuppressWarnings({
+    "deprecation",
+    "removal"
+}) // MappingJackson2MessageConverter deprecated-for-removal in SB 4.x (E42S01)
 @DisplayName(
         "TimerWebSocketSyncIT — E11S05: WebSocket sync for lap advance and disconnect resilience")
 class TimerWebSocketSyncIT {

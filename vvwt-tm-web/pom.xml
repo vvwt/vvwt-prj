@@ -48,6 +48,23 @@
             <artifactId>flyway-core</artifactId>
         </dependency>
 
+        <!-- spring-boot-flyway: SB 4.x auto-configuration module for Flyway.
+             In SB 4.x, FlywayAutoConfiguration moved from spring-boot-autoconfigure to this
+             dedicated module. FlywayRootMigrationsCustomizer references FlywayAutoConfiguration
+             and FlywayConfigurationCustomizer from this package (E42S01). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-flyway</artifactId>
+        </dependency>
+
+        <!-- spring-boot-jackson2: SB 4.x backward-compat module for Jackson 2.x integration.
+             JacksonConfig uses Jackson2ObjectMapperBuilderCustomizer which moved from
+             spring-boot-autoconfigure (SB 3.x) to this dedicated module in SB 4.x (E42S01). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-jackson2</artifactId>
+        </dependency>
+
         <!-- Spring Data JDBC — CRUD-first persistence starter, DEC-14 choice (AC3)
              Chosen over JPA/Hibernate: lighter-weight, no auto-schema interference with Flyway,
              aligned with DEC-14's CRUD-first framing. JPA remains available for future Epics. -->
@@ -148,6 +165,26 @@
                     <groupId>org.springframework.modulith</groupId>
                     <artifactId>spring-modulith-events-jpa</artifactId>
                 </exclusion>
+                <!-- spring-modulith-events-core pulls in EventPublicationAutoConfiguration
+                     which @Imports StalenessMonitorConfiguration. StalenessMonitorConfiguration
+                     requires EventPublicationRegistry — a bean only available when an
+                     EventPublicationRepository (e.g. JPA or JDBC) is on the classpath.
+                     Since spring-modulith-events-jpa is excluded (JDBC-only project, no JPA),
+                     no EventPublicationRepository is registered, causing
+                     UnsatisfiedDependencyException at context startup (E42S01 Modulith 2.0.x).
+                     Exclude events-core and events-jackson as well; re-enable when JPA is introduced. -->
+                <exclusion>
+                    <groupId>org.springframework.modulith</groupId>
+                    <artifactId>spring-modulith-events-core</artifactId>
+                </exclusion>
+                <!-- spring-modulith-events-jackson: JacksonEventSerializationConfiguration
+                     auto-configures Jackson-based event serialization, which requires
+                     EventPublicationAutoConfiguration beans (also missing without events-core).
+                     Exclude to prevent BeanDefinitionStoreException at context startup. -->
+                <exclusion>
+                    <groupId>org.springframework.modulith</groupId>
+                    <artifactId>spring-modulith-events-jackson</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
@@ -155,6 +192,24 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- SB 4.x test module shim — provides @WebMvcTest, @DataJdbcTest, @AutoConfigureTestDatabase,
+             TestRestTemplate, and other classic test slices split into separate modules in SB 4.x.
+             Replaces the monolithic spring-boot-test-autoconfigure from SB 3.x (E42S01). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-test-classic-modules</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- spring-boot-restclient: required by spring-boot-resttestclient (transitive via
+             spring-boot-test-classic-modules) in SB 4.x. RestTemplateBuilder was moved from
+             spring-boot-autoconfigure to this dedicated module. Without this explicit dependency,
+             TestRestTemplateTestAutoConfiguration fails with ClassNotFoundException on
+             RestTemplateBuilder during condition evaluation (E42S01). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-restclient</artifactId>
             <scope>test</scope>
         </dependency>
         <!-- assertj-db: independent database-content verification for DAO integration tests.
@@ -207,7 +262,8 @@
 
         <!-- Testcontainers — vvwt-info-server Spring Boot container for publisher ITs (AC2, AC3).
              Apache 2.0 — OSS-compliant per DEC-3. BOM version managed by parent POM.
-             Uses @Container GenericContainer with the vvwt-info-server fat-JAR. -->
+             Uses @Container GenericContainer with the vvwt-info-server fat-JAR.
+             TC 2.x artifact ID renames applied per E42S01. -->
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
@@ -215,7 +271,7 @@
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -592,11 +648,13 @@
                                 <!-- Module path: ONLY JDK platform modules (JAVA_HOME/jmods) -->
                                 <argument>--module-path</argument>
                                 <argument>${java.home}/../jmods</argument>
-                                <!-- JDK modules for Spring Boot 3.4.7 + H2 + Flyway + Tomcat.
+                                <!-- JDK modules for Spring Boot 4.0.6 + H2 + Flyway + Tomcat.
                                      Source: jdeps analysis with ignore-missing-deps, multi-release 21.
+                                     jdk.crypto.ec added E42S01: provides SunEC provider (Ed25519 keypair
+                                     for SlotOptimizationDispatcherConfiguration.slotOptWorkerKeyManager).
                                      Validated: custom JRE runs the application, health 200 OK (AC2, AC7) -->
                                 <argument>--add-modules</argument>
-                                <argument>java.base,java.compiler,java.desktop,java.instrument,java.net.http,java.prefs,java.rmi,java.scripting,java.security.jgss,java.sql.rowset,jdk.jfr,jdk.management,jdk.net,jdk.unsupported</argument>
+                                <argument>java.base,java.compiler,java.desktop,java.instrument,java.net.http,java.prefs,java.rmi,java.scripting,java.security.jgss,java.sql.rowset,jdk.crypto.ec,jdk.jfr,jdk.management,jdk.net,jdk.unsupported</argument>
                                 <!-- Minimize JRE size (AC6) -->
                                 <argument>--strip-debug</argument>
                                 <argument>--no-header-files</argument>

@@ -11,7 +11,11 @@ import de.vvwt.slotopt.dispatcher.crypto.InvalidSignatureException;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration;
+import org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration;
+import org.springframework.boot.security.autoconfigure.web.servlet.SecurityFilterAutoConfiguration;
+import org.springframework.boot.security.autoconfigure.web.servlet.ServletWebSecurityAutoConfiguration;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -26,7 +30,14 @@ import org.springframework.test.web.servlet.MockMvc;
  *
  * <p>Story: E37S09; AC-SUBMIT-RESULT-CONTROLLER; AC-MOCKMVC-CONTROLLER-TESTS; DEC-36
  */
-@WebMvcTest(SubmitResultController.class)
+@WebMvcTest(
+        value = SubmitResultController.class,
+        excludeAutoConfiguration = {
+            SecurityAutoConfiguration.class,
+            UserDetailsServiceAutoConfiguration.class,
+            SecurityFilterAutoConfiguration.class,
+            ServletWebSecurityAutoConfiguration.class
+        })
 class SubmitResultControllerSliceTest {
 
     @Autowired private MockMvc mockMvc;

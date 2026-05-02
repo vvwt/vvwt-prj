@@ -43,6 +43,35 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- SB 4.x test module shim — provides @WebMvcTest, @DataJdbcTest, @AutoConfigureTestDatabase,
+             TestRestTemplate, and other classic test slices split into separate modules in SB 4.x.
+             Replaces the monolithic spring-boot-test-autoconfigure from SB 3.x (E42S01). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-test-classic-modules</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- spring-boot-security (test scope) — required for @WebMvcTest in SB 4.x.
+             The @WebMvcTest slice references SecurityAutoConfiguration at its new package path
+             (org.springframework.boot.security.autoconfigure) even when the module does not
+             use Spring Security in production; the class must be on the test classpath (E42S01). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-security</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- spring-security-test (test scope) — required for MockMvcConfiguration in SB 4.x
+             spring-boot-webmvc-test. MockMvcConfiguration conditionally instantiates
+             SecurityMockMvcRequestPostProcessors; the class must be resolvable even when
+             the module does not use Spring Security in production (E42S01). -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- AssertJ — additional assertion support -->
         <dependency>
             <groupId>org.assertj</groupId>
@@ -62,6 +91,15 @@
             <artifactId>flyway-core</artifactId>
         </dependency>
 
+        <!-- spring-boot-flyway: SB 4.x auto-configuration module for Flyway.
+             In SB 4.x, FlywayAutoConfiguration moved from spring-boot-autoconfigure to this
+             dedicated module. Required so that @DataJdbcTest test slices (which reference
+             FlywayAutoConfiguration via @ImportAutoConfiguration) can resolve the class (E42S01). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-flyway</artifactId>
+        </dependency>
+
         <!-- H2: in-memory DB for IT (test scope) — DEC-26 analogous, E37S05 -->
         <dependency>
             <groupId>com.h2database</groupId>
@@ -73,6 +111,17 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-db</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- jackson-datatype-jsr310 (test scope) — Jackson 2.x JavaTimeModule for LocalDate
+             serialization in unit tests that construct ObjectMapper directly (AnnouncedAlgorithmTest).
+             SB 4.x uses Jackson 3.x as primary; the 2.x jsr310 module is retained in BOM for
+             backward-compat but must be declared explicitly when the test does not go through
+             Spring auto-configuration (E42S01). -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
             <scope>test</scope>
         </dependency>
 

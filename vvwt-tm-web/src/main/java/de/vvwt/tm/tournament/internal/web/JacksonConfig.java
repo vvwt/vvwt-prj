@@ -1,11 +1,10 @@
 package de.vvwt.tm.tournament.internal.web;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
+import org.springframework.boot.jackson.autoconfigure.JsonMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import tools.jackson.databind.cfg.DateTimeFeature;
 
 /**
  * Jackson serialization configuration for the {@code tournament} bounded context (E21S10,
@@ -21,12 +20,21 @@ import org.springframework.context.annotation.Configuration;
  * <h2>Configuration choices (AC-JACKSON-CONFIG-INTEGRATION)</h2>
  *
  * <ul>
- *   <li><b>Dates as ISO-8601 strings:</b> {@link SerializationFeature#WRITE_DATES_AS_TIMESTAMPS}
- *       disabled. {@link JavaTimeModule} registered. {@link java.time.Instant} and {@link
- *       java.time.LocalDate} serialize as ISO-8601 strings (e.g., {@code "2026-04-20T12:00:00Z"}).
+ *   <li><b>Dates as ISO-8601 strings:</b> {@link DateTimeFeature#WRITE_DATES_AS_TIMESTAMPS}
+ *       disabled. In Jackson 3.x, Java Time support is built into the core (no JavaTimeModule
+ *       needed). {@link java.time.Instant} and {@link java.time.LocalDate} serialize as ISO-8601
+ *       strings (e.g., {@code "2026-04-20T12:00:00Z"}).
  *   <li><b>Null fields excluded:</b> {@link JsonInclude#NON_NULL} as the default serialization
  *       inclusion, consistent with {@link de.vvwt.tm.tournament.ApiErrorResponse} pattern.
  * </ul>
+ *
+ * <h2>SB 4.x migration note (E42S01)</h2>
+ *
+ * <p>Migrated from {@code Jackson2ObjectMapperBuilderCustomizer} (deprecated in SB 4.x
+ * spring-boot-jackson2) to {@code JsonMapperBuilderCustomizer} (Jackson 3.x API in
+ * spring-boot-jackson). {@code DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS} replaces the SB 3.x
+ * {@code SerializationFeature.WRITE_DATES_AS_TIMESTAMPS} for date-as-timestamp control in Jackson
+ * 3.x.
  *
  * <h2>AC-CONFIG-TDD-PATTERN</h2>
  *
@@ -38,8 +46,8 @@ import org.springframework.context.annotation.Configuration;
  *
  * <p>Named {@code "tmJacksonConfig"} to avoid colliding with the legacy {@code
  * de.vvwt.tm.infrastructure.web.JacksonConfig} during the reconstruction-in-place parallel phase.
- * The {@link Jackson2ObjectMapperBuilderCustomizer} bean name is distinct (not the class name), so
- * both customizers coexist without conflict during parallel phase.
+ * The {@link JsonMapperBuilderCustomizer} bean name is distinct (not the class name), so both
+ * customizers coexist without conflict during parallel phase.
  *
  * @see de.vvwt.tm.tournament.ApiErrorResponse
  * @see <a href="DEC-21">DEC-21 — Spring Modulith, internal vs public package</a>
@@ -52,25 +60,24 @@ import org.springframework.context.annotation.Configuration;
 public class JacksonConfig {
 
     /**
-     * Customizes the global {@link com.fasterxml.jackson.databind.ObjectMapper}.
+     * Customizes the global {@link tools.jackson.databind.ObjectMapper} via Jackson 3.x API.
      *
-     * <p>Uses {@link Jackson2ObjectMapperBuilderCustomizer} rather than replacing the {@code
-     * ObjectMapper} bean — preserves Spring Boot auto-configuration (Actuator, Spring Data JDBC)
-     * while adding tournament serialization rules.
+     * <p>Uses {@link JsonMapperBuilderCustomizer} (SB 4.x replacement for the deprecated {@code
+     * Jackson2ObjectMapperBuilderCustomizer}) — preserves Spring Boot auto-configuration (Actuator,
+     * Spring Data JDBC) while adding tournament serialization rules. In Jackson 3.x, Java Time
+     * support is built-in; no {@code JavaTimeModule} is required (E42S01).
      *
      * @return the customizer bean
      */
     @Bean("tmJacksonCustomizer")
-    public Jackson2ObjectMapperBuilderCustomizer jacksonCustomizer() {
+    public JsonMapperBuilderCustomizer jacksonCustomizer() {
         return builder ->
                 builder
                         // AC-JACKSON-CONFIG-INTEGRATION: Instant/LocalDate as ISO-8601 strings
-                        .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-                        // AC-JACKSON-CONFIG-INTEGRATION: no WRITE_ENUMS_USING_INDEX (name-based)
-                        .featuresToDisable(SerializationFeature.WRITE_ENUMS_USING_INDEX)
+                        // In Jackson 3.x, WRITE_DATES_AS_TIMESTAMPS moved to DateTimeFeature
+                        .disable(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS)
                         // Null fields excluded from all responses
-                        .serializationInclusion(JsonInclude.Include.NON_NULL)
-                        // Register JavaTimeModule for Java 8+ date/time types
-                        .modules(new JavaTimeModule());
+                        .changeDefaultPropertyInclusion(
+                                inc -> inc.withValueInclusion(JsonInclude.Include.NON_NULL));
     }
 }

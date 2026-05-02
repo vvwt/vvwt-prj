@@ -15,9 +15,9 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
  * Blob round-trip integration test for {@code tournament.state} (AC11).
@@ -38,7 +38,7 @@ class BlobRoundTripIT {
 
     @Container
     @SuppressWarnings("resource")
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine");
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 

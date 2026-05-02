@@ -5,9 +5,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import de.vvwt.tm.auth.AdminCredentialsProvider;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -37,8 +38,9 @@ import org.springframework.test.context.ActiveProfiles;
  * <h2>DEC compliance</h2>
  *
  * <ul>
- *   <li>DEC-44 D1 — {@code @SpringBootTest(RANDOM_PORT)} with {@code @Import({WebModuleTestConfig,
- *       TestAdminCredentials})} per 2026-04-27 empirical refinement
+ *   <li>DEC-44 D1 — {@code @AutoConfigureTestRestTemplate @SpringBootTest(RANDOM_PORT)} with
+ *       {@code @Import({WebModuleTestConfig, TestAdminCredentials})} per 2026-04-27 empirical
+ *       refinement
  *   <li>DEC-40 Clause A — {@code DisplayViewController} at {@code de.vvwt.tm.web.*}
  *   <li>DEC-22 Iron Law — RED-first: class written before production controller existed (commit
  *       67a8bc0 = delete-legacy RED; this commit = RED test; next commit = GREEN controller)
@@ -48,6 +50,7 @@ import org.springframework.test.context.ActiveProfiles;
  * @see WebModuleTestConfig
  * @since E25S02
  */
+@AutoConfigureTestRestTemplate
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         classes = de.vvwt.tm.TournamentManagerApplication.class,

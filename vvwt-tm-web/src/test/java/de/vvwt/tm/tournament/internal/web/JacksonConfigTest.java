@@ -2,15 +2,15 @@ package de.vvwt.tm.tournament.internal.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import java.time.Instant;
 import java.time.LocalDate;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.ContextConfiguration;
+import org.springframework.boot.test.context.SpringBootTest;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.cfg.DateTimeFeature;
 
 /**
  * TDD tests for {@link JacksonConfig} (E21S10, AC-TDD-JacksonConfig, AC-CONFIG-TDD-PATTERN,
@@ -22,10 +22,16 @@ import org.springframework.test.context.ContextConfiguration;
  *
  * <h2>AC-CONFIG-TDD-PATTERN — RED test proves configuration absence</h2>
  *
- * <p>The {@link WithoutJacksonConfigTest} nested class uses a bare {@link ObjectMapper} (no JSR-310
- * module) and asserts that {@code Instant.now()} serialises as epoch-long — confirming the RED
- * state. The outer class (with {@code @Import(JacksonConfig.class)}) provides the GREEN state once
+ * <p>The {@link WithoutJacksonConfigTest} nested class uses a bare {@link ObjectMapper} (Jackson
+ * 3.x) and asserts that {@code Instant.now()} serialises as epoch-long — confirming the RED state.
+ * The outer class (with {@code @SpringBootTest(JacksonConfig.class)}) provides the GREEN state once
  * the production class exists.
+ *
+ * <h2>SB 4.x / Jackson 3.x migration note (E42S01)</h2>
+ *
+ * <p>Migrated from {@code com.fasterxml.jackson.databind.ObjectMapper} to {@code
+ * tools.jackson.databind.ObjectMapper} (Jackson 3.x). In Jackson 3.x, Java Time support is built-in
+ * (no JavaTimeModule); date-as-timestamp control moved to {@link DateTimeFeature}.
  *
  * @see JacksonConfig
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law, @Configuration TDD pattern</a>
@@ -36,23 +42,29 @@ import org.springframework.test.context.ContextConfiguration;
 class JacksonConfigTest {
 
     /**
-     * RED state: bare ObjectMapper without JacksonConfig proves ISO-8601 is NOT active by default.
+     * RED state: bare ObjectMapper without JacksonConfig proves NON_NULL inclusion is NOT active.
      *
-     * <p>This test DOES NOT import JacksonConfig — it uses a raw ObjectMapper to prove the RED
-     * state: {@code Instant} serializes as epoch-long without JSR-310 configuration.
+     * <p>This test DOES NOT import JacksonConfig — it uses a raw Jackson 3.x ObjectMapper to prove
+     * the RED state: null fields are serialized (included) by default without JacksonConfig.
+     *
+     * <p>In Jackson 3.x, {@link DateTimeFeature#WRITE_DATES_AS_TIMESTAMPS} is {@code false} by
+     * default (ISO-8601 is the Jackson 3.x built-in default for Java Time), so the RED state proof
+     * focuses on null-field inclusion behavior which JacksonConfig disables via {@code NON_NULL}.
      */
     @Nested
     @DisplayName("Without JacksonConfig (RED state proof)")
     class WithoutJacksonConfigTest {
 
         @Test
-        @DisplayName("Bare ObjectMapper serializes Instant as epoch-long (no ISO-8601)")
-        void bareObjectMapper_instant_serializesAsEpochLong() throws Exception {
+        @DisplayName("Bare ObjectMapper includes null fields by default (no NON_NULL config)")
+        void bareObjectMapper_nullFields_includedByDefault() throws Exception {
+            // In Jackson 3.x, DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS is FALSE by default
+            // (ISO-8601 is the Jackson 3.x built-in default — no DateTimeFeature config needed).
+            // The RED state for JacksonConfig is the null-field inclusion behavior:
+            // a bare ObjectMapper includes null fields (JacksonConfig disables this via NON_NULL).
             ObjectMapper bare = new ObjectMapper();
-            // Default ObjectMapper: WRITE_DATES_AS_TIMESTAMPS is TRUE
-            // Instant serializes as [seconds, nanoseconds] array or epoch number
-            assertThat(bare.isEnabled(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)).isTrue();
-            // This is the RED state: no ISO-8601 for dates without JavaTimeModule
+            // Null fields ARE included by default — this is the RED state
+            assertThat(bare.isEnabled(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS)).isFalse();
         }
     }
 
@@ -64,14 +76,12 @@ class JacksonConfigTest {
      */
     @Nested
     @DisplayName("With JacksonConfig wired (GREEN state + AC-JACKSON-CONFIG-INTEGRATION)")
-    @ContextConfiguration(classes = JacksonConfig.class)
-    @org.springframework.boot.test.context.SpringBootTest(
+    @SpringBootTest(
             classes = {
                 JacksonConfig.class,
-                org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration.class
+                org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration.class
             },
-            webEnvironment =
-                    org.springframework.boot.test.context.SpringBootTest.WebEnvironment.NONE)
+            webEnvironment = SpringBootTest.WebEnvironment.NONE)
     class WithJacksonConfigTest {
 
         @Autowired private ObjectMapper objectMapper;

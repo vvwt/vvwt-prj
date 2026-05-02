@@ -19,9 +19,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -72,6 +73,7 @@ import org.springframework.test.context.ActiveProfiles;
  * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
  * @see <a href="E22S07">E22S07 — Controller relocation to de.vvwt.tm.web</a>
  */
+@AutoConfigureTestRestTemplate
 @ApplicationModuleTest(
         mode = ApplicationModuleTest.BootstrapMode.ALL_DEPENDENCIES,
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)

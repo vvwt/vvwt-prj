@@ -11,7 +11,7 @@ import org.assertj.db.type.AssertDbConnectionFactory;
 import org.h2.jdbcx.JdbcDataSource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.datasource.init.ScriptUtils;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
  * Poka-Yoke test-infrastructure utility for DAO integration tests in {@code vvwt-info-server}.
@@ -82,7 +82,7 @@ public final class InfoDaoTestSupport {
      * @param container a started PostgreSQL Testcontainers container
      * @return a DataSource connected to the container
      */
-    public static DataSource freshPostgresDataSource(PostgreSQLContainer<?> container) {
+    public static DataSource freshPostgresDataSource(PostgreSQLContainer container) {
         org.postgresql.ds.PGSimpleDataSource ds = new org.postgresql.ds.PGSimpleDataSource();
         ds.setUrl(container.getJdbcUrl());
         ds.setUser(container.getUsername());

@@ -8,14 +8,14 @@ import de.vvwt.tm.tenant.TenantRegistryPort;
 import javax.sql.DataSource;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.flyway.FlywayDataSource;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.flyway.autoconfigure.FlywayDataSource;
+import org.springframework.boot.jdbc.autoconfigure.DataSourceProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
-import org.springframework.data.relational.core.dialect.Dialect;
-import org.springframework.data.relational.core.dialect.H2Dialect;
+import org.springframework.data.jdbc.core.dialect.JdbcDialect;
+import org.springframework.data.jdbc.core.dialect.JdbcH2Dialect;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -352,32 +352,40 @@ public class TenantContextConfiguration {
     }
 
     /**
-     * Spring Data JDBC {@link Dialect} bean — explicitly registered as {@link H2Dialect} (E14S11,
-     * AC2).
+     * Spring Data JDBC {@link JdbcDialect} bean — explicitly registered as {@link JdbcH2Dialect}
+     * (E14S11, AC2; updated for Spring Data JDBC 4.x in E42S01).
      *
      * <h2>Why we register this explicitly (E14S11, AC2)</h2>
      *
      * <p>Spring Boot's {@code
-     * JdbcRepositoriesAutoConfiguration$SpringBootJdbcConfiguration.jdbcDialect} auto-detects the
-     * SQL dialect by opening a JDBC connection via {@code NamedParameterJdbcOperations} (which
+     * DataJdbcRepositoriesAutoConfiguration$SpringBootJdbcConfiguration.jdbcDialect} auto-detects
+     * the SQL dialect by opening a JDBC connection via {@code NamedParameterJdbcOperations} (which
      * resolves to the {@code @Primary} routing DataSource). At context startup, before any tenant
      * is bound, this causes {@code IllegalStateException: No tenant is bound to the current
      * thread}.
      *
-     * <p>By registering the dialect explicitly as {@link H2Dialect#INSTANCE}, Spring Boot's
-     * {@code @ConditionalOnMissingBean(Dialect.class)} condition suppresses the probe entirely.
-     * This is correct because ALL databases in the system are H2: the flat main-DB and every
-     * per-tenant DB. No dialect probe is needed.
+     * <p>By registering the dialect explicitly as {@link JdbcH2Dialect#INSTANCE}, Spring Boot's
+     * {@code @ConditionalOnMissingBean} condition on its auto-configured {@code JdbcDialect} bean
+     * is satisfied and the probe is suppressed entirely. This is correct because ALL databases in
+     * the system are H2: the flat main-DB and every per-tenant DB. No dialect probe is needed.
      *
-     * @return the H2 dialect for Spring Data JDBC mapping context
-     * @see org.springframework.data.relational.core.dialect.H2Dialect
+     * <h2>E42S01 migration</h2>
+     *
+     * <p>Migrated from {@code org.springframework.data.relational.core.dialect.H2Dialect} (which
+     * only implements {@code Dialect}) to {@code
+     * org.springframework.data.jdbc.core.dialect.JdbcH2Dialect} (which implements {@code
+     * JdbcDialect extends Dialect}). In Spring Data JDBC 4.x, the auto-config's
+     * {@code @ConditionalOnMissingBean} checks for {@code JdbcDialect} — the old {@code Dialect}
+     * return type no longer satisfies the condition.
+     *
+     * @return the H2 JDBC dialect for Spring Data JDBC mapping context
+     * @see org.springframework.data.jdbc.core.dialect.JdbcH2Dialect
      * @see <a href="../../../../../../../../docs/governance/stories/E14S11.story.md">Story E14S11
      *     (AC2)</a>
      */
     @Bean
-    @ConditionalOnMissingBean(Dialect.class)
-    public Dialect jdbcDialect() {
-        return H2Dialect.INSTANCE;
+    public JdbcDialect jdbcDialect() {
+        return JdbcH2Dialect.INSTANCE;
     }
 
     /**
@@ -444,7 +452,7 @@ public class TenantContextConfiguration {
      *
      * @param flatDataSource the flat {@code "dataSource"} bean
      * @return the same DataSource, exposed with {@code @FlywayDataSource} qualifier
-     * @see org.springframework.boot.autoconfigure.flyway.FlywayDataSource
+     * @see org.springframework.boot.flyway.autoconfigure.FlywayDataSource
      * @see <a href="../../../../../../../../docs/governance/stories/E14S11.story.md">Story E14S11
      *     (AC2)</a>
      */

@@ -10,9 +10,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -42,8 +43,9 @@ import org.springframework.test.context.ActiveProfiles;
  * <ul>
  *   <li>DEC-22 Iron Law Q-1a — RED-first: this test written before {@link TimerViewController}
  *       exists; RED commit = this commit; GREEN commit = next (TimerViewController production code)
- *   <li>DEC-44 D1 — {@code @SpringBootTest(RANDOM_PORT)} + {@code @Import({WebModuleTestConfig,
- *       TestAdminCredentials})} per 2026-04-27 empirical refinement
+ *   <li>DEC-44 D1 — {@code @AutoConfigureTestRestTemplate @SpringBootTest(RANDOM_PORT)} +
+ *       {@code @Import({WebModuleTestConfig, TestAdminCredentials})} per 2026-04-27 empirical
+ *       refinement
  *   <li>DEC-44 D2 — per-IT inner {@code TestAdminCredentials} provides {@code @Primary
  *       AdminCredentialsProvider}; no {@code UserDetailsService} or {@code SecurityFilterChain}
  *       substitute
@@ -54,6 +56,7 @@ import org.springframework.test.context.ActiveProfiles;
  * @see WebModuleTestConfig
  * @since E26S03
  */
+@AutoConfigureTestRestTemplate
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         classes = de.vvwt.tm.TournamentManagerApplication.class,

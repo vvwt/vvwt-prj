@@ -10,7 +10,11 @@ import java.util.Arrays;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration;
+import org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration;
+import org.springframework.boot.security.autoconfigure.web.servlet.SecurityFilterAutoConfiguration;
+import org.springframework.boot.security.autoconfigure.web.servlet.ServletWebSecurityAutoConfiguration;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -31,7 +35,14 @@ import org.springframework.test.web.servlet.MockMvc;
  *
  * <p>Story: E37S10; AC-CACHE-CONTROLLER; DEC-22, DEC-35, DEC-36
  */
-@WebMvcTest(CacheController.class)
+@WebMvcTest(
+        value = CacheController.class,
+        excludeAutoConfiguration = {
+            SecurityAutoConfiguration.class,
+            UserDetailsServiceAutoConfiguration.class,
+            SecurityFilterAutoConfiguration.class,
+            ServletWebSecurityAutoConfiguration.class
+        })
 class CacheControllerSliceTest {
 
     @Autowired private MockMvc mockMvc;

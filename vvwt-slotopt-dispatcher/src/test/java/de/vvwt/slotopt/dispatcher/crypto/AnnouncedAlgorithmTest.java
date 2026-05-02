@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.time.LocalDate;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -61,7 +62,10 @@ class AnnouncedAlgorithmTest {
 
     private static ObjectMapper jsonMapper() {
         ObjectMapper mapper = new ObjectMapper();
-        mapper.findAndRegisterModules(); // registers JavaTimeModule for LocalDate
+        // Explicitly register JavaTimeModule for LocalDate serialization (E42S01: SB 4.x uses
+        // Jackson 3.x as primary; findAndRegisterModules() may not find Jackson 2.x jsr310
+        // module on the classpath — explicit registration is more reliable).
+        mapper.registerModule(new JavaTimeModule());
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS); // ISO-8601 strings
         return mapper;
     }
