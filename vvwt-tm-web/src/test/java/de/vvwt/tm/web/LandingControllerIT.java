@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.http.client.HttpRedirects;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -77,13 +78,19 @@ class LandingControllerIT {
 
     @Autowired private TestRestTemplate restTemplate;
 
-    /** {@code TestRestTemplate} configured to NOT follow redirects (used by AC1 and AC3). */
+    /**
+     * {@code TestRestTemplate} configured to NOT follow redirects (used by AC1 and AC3).
+     *
+     * <p>Spring Boot 4's {@link TestRestTemplate} defaults to {@code FOLLOW_WHEN_POSSIBLE} (follows
+     * redirects). AC1 needs the raw {@code 302} response before any redirect is followed. Using
+     * {@link HttpRedirects#DONT_FOLLOW} gives the raw server response.
+     */
     private TestRestTemplate noRedirect;
 
     @BeforeEach
     void setUp() {
-        // TestRestTemplate by default does NOT follow redirects — use as-is for AC1/AC3.
-        noRedirect = restTemplate;
+        // Use DONT_FOLLOW so AC1 sees the raw 302 (not the followed /admin/ response).
+        noRedirect = restTemplate.withRedirects(HttpRedirects.DONT_FOLLOW);
     }
 
     // =========================================================================
