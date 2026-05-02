@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<actions>
+    <action>
+        <actionName>run</actionName>
+        <packagings>
+            <packaging>jar</packaging>
+        </packagings>
+        <goals>
+            <goal>process-classes</goal>
+            <goal>org.springframework.boot:spring-boot-maven-plugin:run</goal>
+        </goals>
+    </action>
+    <action>
+        <actionName>debug</actionName>
+        <packagings>
+            <packaging>jar</packaging>
+        </packagings>
+        <goals>
+            <goal>process-classes</goal>
+            <goal>org.springframework.boot:spring-boot-maven-plugin:run</goal>
+        </goals>
+        <properties>
+            <jpda.listen>true</jpda.listen>
+            <spring-boot.run.jvmArguments>-agentlib:jdwp=transport=dt_socket,server=n,address=${jpda.address},suspend=n</spring-boot.run.jvmArguments>
+        </properties>
+    </action>
+    <action>
+        <actionName>profile</actionName>
+        <packagings>
+            <packaging>jar</packaging>
+        </packagings>
+        <goals>
+            <goal>process-classes</goal>
+            <goal>org.springframework.boot:spring-boot-maven-plugin:run</goal>
+        </goals>
+    </action>
+</actions>
