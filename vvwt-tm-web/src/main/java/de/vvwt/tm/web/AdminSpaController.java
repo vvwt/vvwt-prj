@@ -1,7 +1,11 @@
 package de.vvwt.tm.web;
 
-import org.springframework.stereotype.Controller;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Serves the Svelte Admin SPA at {@code /admin/} and all nested paths (E21S09,
@@ -24,8 +28,20 @@ import org.springframework.web.bind.annotation.GetMapping;
  *   <li>{@code /admin/**} — deep-link URL typed into the address bar
  * </ul>
  *
- * <p>All of the above are forwarded to {@code classpath:/static/admin/index.html}. The Svelte
- * router then handles sub-routing client-side via the hash fragment.
+ * <p>All of the above are served by reading {@code classpath:/static/admin/index.html} directly as
+ * a {@link ResponseEntity} backed by a {@link ClassPathResource}. This is the pattern used by
+ * {@link de.vvwt.tm.web.timer.TimerViewController} for the Timer SPA (E26S03).
+ *
+ * <h2>E42S02 bug-fix: why ClassPathResource instead of {@code forward:}</h2>
+ *
+ * <p>The pre-fix implementation used {@code return "forward:/static/admin/index.html"}. Under
+ * Spring Framework 7.x / Spring Boot 4.x, the {@code /static/} prefix is not valid as a URL path:
+ * Spring Boot maps {@code classpath:/static/} onto URL {@code /} (NOT {@code /static/}). The
+ * correct URL for the static resource is {@code /admin/index.html}. However, forwarding to {@code
+ * /admin/index.html} causes an infinite dispatch loop because this controller maps {@code
+ * /admin/**}, which intercepts the forward before the static resource handler can serve it. To
+ * avoid the loop, this controller returns the resource directly (same approach as {@link
+ * de.vvwt.tm.web.timer.TimerViewController} for {@code /timer/tournaments/{id}}, E26S03).
  *
  * <h2>Static asset serving</h2>
  *
@@ -43,36 +59,43 @@ import org.springframework.web.bind.annotation.GetMapping;
  * <h2>404 / SPA fallback behaviour (AC-SPA-404)</h2>
  *
  * <p>Requests to {@code /admin/**} (including paths like {@code /admin/nonexistent.file.html}) are
- * forwarded to {@code index.html}. The Svelte router renders a client-side 404 page for unknown
- * routes. A raw stack trace is NEVER surfaced — Spring Boot's error handler ensures a structured
- * error response if the static file is absent.
+ * served with the SPA {@code index.html}. The Svelte router renders a client-side 404 page for
+ * unknown routes. A raw stack trace is NEVER surfaced.
  */
-@Controller
+@RestController
 public class AdminSpaController {
+
+    private static final Resource ADMIN_INDEX_HTML =
+            new ClassPathResource("static/admin/index.html");
 
     /**
      * Serves {@code /admin/} and {@code /admin} (SPA root).
      *
-     * <p>Maps both {@code /admin} (without trailing slash) and {@code /admin/} (with trailing
-     * slash) to forward to the SPA {@code index.html} in {@code classpath:/static/admin/}.
+     * <p>Returns the Vite-built Admin SPA shell from {@code classpath:/static/admin/index.html}
+     * directly as a {@code text/html} {@link ResponseEntity}. The Svelte router handles sub-routing
+     * client-side via the hash fragment.
+     *
+     * @return {@code text/html} response with the Admin SPA index.html content
      */
     @GetMapping({"/admin", "/admin/"})
-    public String adminRoot() {
-        return "forward:/static/admin/index.html";
+    public ResponseEntity<Resource> adminRoot() {
+        return ResponseEntity.ok().contentType(MediaType.TEXT_HTML).body(ADMIN_INDEX_HTML);
     }
 
     /**
      * SPA fallback: serves {@code /admin/**} (deep-link support).
      *
-     * <p>Paths such as {@code /admin/tournaments} typed directly into the address bar are forwarded
-     * to the SPA {@code index.html}. The Svelte router handles the hash-based sub-route
+     * <p>Paths such as {@code /admin/tournaments} typed directly into the address bar are served
+     * with the SPA {@code index.html}. The Svelte router handles the hash-based sub-route
      * client-side.
      *
      * <p>This mapping does NOT match static asset paths ({@code /admin/assets/**}) because Spring
      * Boot resolves classpath static resources before dispatching to controllers.
+     *
+     * @return {@code text/html} response with the Admin SPA index.html content
      */
     @GetMapping("/admin/**")
-    public String adminDeepLink() {
-        return "forward:/static/admin/index.html";
+    public ResponseEntity<Resource> adminDeepLink() {
+        return ResponseEntity.ok().contentType(MediaType.TEXT_HTML).body(ADMIN_INDEX_HTML);
     }
 }
