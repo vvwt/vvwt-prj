@@ -35,8 +35,8 @@ import org.springframework.test.context.ActiveProfiles;
  *       Spring's resource handler chain independently of the controller forward.
  * </ol>
  *
- * <p>Per DEC-22 Iron Law Q-1a (AC1): this class was committed RED (failing) before any fix code
- * was written. The failing tests confirm that {@code forward:/static/admin/index.html} in {@link
+ * <p>Per DEC-22 Iron Law Q-1a (AC1): this class was committed RED (failing) before any fix code was
+ * written. The failing tests confirm that {@code forward:/static/admin/index.html} in {@link
  * AdminSpaController} resolves to HTTP 404 under Spring Framework 7 / Spring Boot 4 semantics.
  *
  * <h2>DEC compliance</h2>
@@ -45,8 +45,8 @@ import org.springframework.test.context.ActiveProfiles;
  *   <li>DEC-44 D1 — {@code @AutoConfigureTestRestTemplate @SpringBootTest(RANDOM_PORT, classes =
  *       TournamentManagerApplication.class)} per E42S02 (web-module IT canon)
  *   <li>DEC-44 D2 empirical refinement — {@code @Import({WebModuleTestConfig.class,
- *       TestAdminCredentials.class})}; single {@code @Primary AdminCredentialsProvider} via
- *       per-IT inner {@code TestAdminCredentials}
+ *       TestAdminCredentials.class})}; single {@code @Primary AdminCredentialsProvider} via per-IT
+ *       inner {@code TestAdminCredentials}
  *   <li>DEC-40 Clause A — {@code AdminSpaController} at {@code de.vvwt.tm.web.*}
  *   <li>DEC-22 Iron Law Q-1a — RED-first: this class was authored and committed failing before fix
  * </ul>
@@ -61,7 +61,7 @@ import org.springframework.test.context.ActiveProfiles;
         classes = de.vvwt.tm.TournamentManagerApplication.class,
         properties = {
             "spring.datasource.url=jdbc:h2:mem:e42s02adminspaitdb;DB_CLOSE_DELAY=-1"
-                + ";DB_CLOSE_ON_EXIT=FALSE;CASE_INSENSITIVE_IDENTIFIERS=TRUE"
+                    + ";DB_CLOSE_ON_EXIT=FALSE;CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
 @Import({WebModuleTestConfig.class, AdminSpaControllerIT.TestAdminCredentials.class})
@@ -78,9 +78,7 @@ class AdminSpaControllerIT {
 
     @BeforeEach
     void setUp() {
-        authed =
-                restTemplate.withBasicAuth(
-                        AdminCredentialsProvider.ADMIN_USERNAME, TEST_PASSWORD);
+        authed = restTemplate.withBasicAuth(AdminCredentialsProvider.ADMIN_USERNAME, TEST_PASSWORD);
     }
 
     // =========================================================================
@@ -105,8 +103,8 @@ class AdminSpaControllerIT {
 
         assertThat(response.getStatusCode())
                 .as(
-                        "GET /admin/ with valid auth must return HTTP 200"
-                                + " (AC1 — regression: was 404 after Spring Boot 4 migration E42S01)")
+                        "GET /admin/ with valid auth must return HTTP 200 (AC1 — regression: was"
+                                + " 404 after Spring Boot 4 migration E42S01)")
                 .isEqualTo(HttpStatus.OK);
     }
 
