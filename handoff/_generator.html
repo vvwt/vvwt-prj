@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>VVW Logo SVG Generator</title>
+  <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
+</head>
+<body>
+<pre id="log">Loading...</pre>
+<div id="out"></div>
+<script>
+const log = (m) => { document.getElementById('log').textContent += '\n' + m; };
+
+async function loadJakarta(weight) {
+  // Plus Jakarta Sans GitHub release — direct TTF files (one variable font, but we use the static fallback set).
+  // Static TTFs from the Tokotype repo, served via jsdelivr CDN.
+  const map = { 600: 'PlusJakartaSans-SemiBold.ttf', 700: 'PlusJakartaSans-Bold.ttf' };
+  const url = `https://cdn.jsdelivr.net/gh/tokotype/PlusJakartaSans@master/fonts/ttf/${map[weight]}`;
+  const buf = await fetch(url).then(r => {
+    if (!r.ok) throw new Error('HTTP ' + r.status + ' for ' + url);
+    return r.arrayBuffer();
+  });
+  return opentype.parse(buf);
+}
+
+// Hex + trophy markup as a string for embedding (with viewBox 0..100 origin at letter-mark insertion point)
+// We'll position it scaled relative to font size.
+const HEX_SVG = (invert) => {
+  const bg = invert ? '#ffcb1f' : '#1956a8';
+  const fg = invert ? '#1956a8' : '#ffcb1f';
+  const accent = invert ? '#ffcb1f' : '#1956a8';
+  return `
+  <path d="M50 4 L90 27 L90 73 L50 96 L10 73 L10 27 Z" fill="${bg}"/>
+  <g transform="translate(0 3)">
+    <path d="M30 24 L70 24 L70 32 Q70 52 56 56 L56 66 L62 66 L62 74 L38 74 L38 66 L44 66 L44 56 Q30 52 30 32 Z" fill="${fg}"/>
+    <path d="M30 28 Q20 30 22 44 Q24 52 32 52" stroke="${fg}" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M70 28 Q80 30 78 44 Q76 52 68 52" stroke="${fg}" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <circle cx="50" cy="40" r="7" fill="${accent}"/>
+    <path d="M50 33 Q47 36.5 50 40 Q53 43.5 50 47" stroke="${fg}" stroke-width="1.4" fill="none"/>
+    <path d="M43 40 Q46.5 38 50 40 Q53.5 42 57 40" stroke="${fg}" stroke-width="1.4" fill="none"/>
+  </g>`;
+};
+
+async function loadFont(url) {
+  const buf = await fetch(url).then(r => r.arrayBuffer());
+  return opentype.parse(buf);
+}
+
+// Build a complete SVG file string for one lockup, with all text as paths.
+function buildLockup({ letters, suffix, invert, fontBold, fontSemi }) {
+  // Sizing rules (mirrored from logos.jsx TMInline at "production" scale):
+  //   wordmark fontPx = 144 (viewBox-px); letter spacing -4.8px; gap between glyphs = 12
+  //   mark size = fontPx (= 144), placed between letters[0] and letters[1]
+  //   suffix fontPx = 36; letter spacing 4.8; uppercase; marginTop 24
+  const F = 144;             // bold caps cap-height ~= F * 0.72 in jakarta
+  const SUFFIX_F = 36;
+  const GAP = 12;
+  const LETTER_SP = -4.8;
+  const SUFFIX_SP = 4.8;
+  const SUFFIX_GAP = 24;
+  const wordColor = '#0a1f3a';
+  const suffixColor = '#1956a8';
+
+  // Pre-measure pieces along x axis.
+  // For each letter, opentype getPath gives us a path at baseline (y=0).
+  // We'll lay them out with advance widths + LETTER_SP.
+  const pieces = [];     // {kind, w, draw(x,y)->{paths string}}
+  let x = 0;
+
+  letters.forEach((L, i) => {
+    if (i === 1) {
+      // insert hex mark, occupies F × F box, vertically centered on cap height
+      pieces.push({ kind: 'mark', w: F, x });
+      x += F + GAP + LETTER_SP;
+    }
+    const glyph = fontBold.charToGlyph(L);
+    const path = glyph.getPath(0, 0, F);  // baseline y=0
+    const bbox = path.getBoundingBox();
+    pieces.push({ kind: 'glyph', glyph, path, bbox, w: bbox.x2 - bbox.x1, x, advance: glyph.advanceWidth * (F / fontBold.unitsPerEm) });
+    x += glyph.advanceWidth * (F / fontBold.unitsPerEm) + LETTER_SP + GAP;
+  });
+  const wordmarkW = x - LETTER_SP - GAP;
+
+  // Suffix: tracked uppercase
+  const suf = suffix.toUpperCase();
+  let sx = 0;
+  const sufPieces = [];
+  for (const ch of suf) {
+    const g = fontSemi.charToGlyph(ch);
+    const p = g.getPath(0, 0, SUFFIX_F);
+    const adv = g.advanceWidth * (SUFFIX_F / fontSemi.unitsPerEm);
+    sufPieces.push({ ch, g, p, adv, x: sx });
+    sx += adv + SUFFIX_SP;
+  }
+  const sufW = sx - SUFFIX_SP;
+
+  // Vertical layout:
+  //   wordmark baseline y0 = F (ascenders fit above)
+  //   suffix baseline = y0 + SUFFIX_GAP + SUFFIX_F * 0.9
+  const baseline = F;
+  const sufBaseline = baseline + SUFFIX_GAP + SUFFIX_F;
+
+  // Cap height of bold (approx via 'H' bbox) for vertical centering of mark
+  const Hg = fontBold.charToGlyph('H');
+  const Hpath = Hg.getPath(0, 0, F);
+  const Hbbox = Hpath.getBoundingBox();
+  const capTop = Hbbox.y1;     // negative number
+  const capHeight = -capTop;   // positive
+  const markY = baseline + capTop;  // align mark top with cap-top
+  const markSize = capHeight;       // mark height = cap height
+
+  // Render everything to <path> strings. Recompute pieces' x because mark is now markSize, not F.
+  // Re-layout with markSize instead of F:
+  pieces.length = 0;
+  x = 0;
+  letters.forEach((L, i) => {
+    if (i === 1) {
+      pieces.push({ kind: 'mark', x, size: markSize, y: markY });
+      x += markSize + GAP + LETTER_SP;
+    }
+    const glyph = fontBold.charToGlyph(L);
+    const path = glyph.getPath(x, baseline, F);
+    pieces.push({ kind: 'glyph', d: path.toPathData(2) });
+    x += glyph.advanceWidth * (F / fontBold.unitsPerEm) + LETTER_SP + GAP;
+  });
+  const totalW = Math.max(x - LETTER_SP - GAP, sufW);
+
+  // Suffix paths
+  let sufPaths = '';
+  for (const sp of sufPieces) {
+    sufPaths += fontSemi.charToGlyph(sp.ch).getPath(sp.x, sufBaseline, SUFFIX_F).toPathData(2) + ' ';
+  }
+
+  // Wordmark paths + mark
+  let wordPaths = '';
+  let markBlock = '';
+  for (const p of pieces) {
+    if (p.kind === 'glyph') wordPaths += p.d + ' ';
+    if (p.kind === 'mark') {
+      markBlock = `<g transform="translate(${p.x} ${p.y}) scale(${p.size/100})">${HEX_SVG(invert)}</g>`;
+    }
+  }
+
+  const totalH = sufBaseline + 4;  // small bottom padding
+  const PAD = 16;
+  const W = totalW + PAD * 2;
+  const H = totalH + PAD * 2;
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W.toFixed(1)} ${H.toFixed(1)}" width="${W.toFixed(0)}" height="${H.toFixed(0)}" role="img" aria-label="VVW ${letters.join('')} ${suffix}">
+  <title>VVW ${letters.join('')} — ${suffix}</title>
+  <g transform="translate(${PAD} ${PAD})">
+    <g fill="${wordColor}">
+      <path d="${wordPaths.trim()}"/>
+    </g>
+    ${markBlock}
+    <g fill="${suffixColor}">
+      <path d="${sufPaths.trim()}"/>
+    </g>
+  </g>
+</svg>
+`;
+}
+
+(async () => {
+  try {
+    log('Fetching fonts…');
+    const [fontBold, fontSemi] = await Promise.all([loadJakarta(700), loadJakarta(600)]);
+    log('Fonts loaded. Bold em=' + fontBold.unitsPerEm + ', SemiBold em=' + fontSemi.unitsPerEm);
+
+    const lockups = [
+      { name: 'vvw-tm-logo.svg',   letters: ['T','M'], suffix: 'Tournament Manager', invert: false },
+      { name: 'vvw-info-logo.svg', letters: ['T','M'], suffix: 'Live Information',   invert: true  },
+      { name: 'vvw-sod-logo.svg',  letters: ['T','M'], suffix: 'Slot-Opt Dispatcher', invert: false },
+    ];
+
+    const results = {};
+    for (const L of lockups) {
+      const svg = buildLockup({ ...L, fontBold, fontSemi });
+      results[L.name] = svg;
+      const div = document.createElement('div');
+      div.style.cssText = 'background:#fff; padding:24px; margin:12px; border:1px solid #ddd;';
+      div.innerHTML = `<div style="font-family:monospace;font-size:11px;color:#666">${L.name}</div>` + svg;
+      document.getElementById('out').appendChild(div);
+    }
+    window.__svgResults = results;
+    log('Done. ' + Object.keys(results).length + ' lockups built.');
+  } catch (e) {
+    log('ERROR: ' + e.message);
+    console.error(e);
+  }
+})();
+</script>
+</body>
+</html>
