@@ -157,6 +157,33 @@ public class TenantFileRegistry implements TenantRegistryPort {
     /**
      * {@inheritDoc}
      *
+     * <p>Registers the tenant with {@code language} stored in the JSON registry entry (E46S05).
+     * Overrides the default-method delegation so that {@link TenantRecord#language()} is non-null
+     * for tenants bootstrapped after E46S05.
+     *
+     * @throws DuplicateTenantException if {@code tenantId} is already registered
+     * @throws IllegalArgumentException if {@code tenantId} or {@code displayName} is null
+     */
+    @Override
+    public synchronized void register(UUID tenantId, String displayName, String language) {
+        if (tenantId == null) {
+            throw new IllegalArgumentException("tenantId must not be null");
+        }
+        if (displayName == null) {
+            throw new IllegalArgumentException("displayName must not be null");
+        }
+        if (inMemoryRegistry.containsKey(tenantId)) {
+            throw new DuplicateTenantException(tenantId);
+        }
+
+        TenantRecord record = new TenantRecord(tenantId, displayName, language);
+        inMemoryRegistry.put(tenantId, record);
+        persistRegistryToFile();
+    }
+
+    /**
+     * {@inheritDoc}
+     *
      * <p>Returns a snapshot of all registered tenants at the time of the call.
      */
     @Override
@@ -167,9 +194,11 @@ public class TenantFileRegistry implements TenantRegistryPort {
     /**
      * {@inheritDoc}
      *
-     * <p>Scans the in-memory registry for the unique tenant entry whose {@code displayName} equals
-     * {@link DefaultTenantBootstrapRunner#DEFAULT_TENANT_DISPLAY_NAME} ({@code "Default (LAN)"}),
-     * which is the display name assigned by E14S05.
+     * <p>Wave-1 strategy: in LAN mode there is at most one tenant. If the registry contains exactly
+     * one entry, that entry IS the default tenant — regardless of its display name. This makes the
+     * lookup name-agnostic: operator-overridden bootstrap names (e.g. "My Club" via {@code
+     * tm.bootstrap.default-tenant.display-name}) are recognised without being added to a hard-coded
+     * allowlist (E46S05).
      *
      * <h2>Thread safety</h2>
      *
@@ -177,25 +206,24 @@ public class TenantFileRegistry implements TenantRegistryPort {
      * with a single default tenant bootstrapped at app start, the value is stable for the lifetime
      * of the process. Caching is an acceptable future optimization (Wave-2 scope).
      *
-     * @throws IllegalStateException if zero or multiple default tenants are registered
+     * @throws IllegalStateException if zero tenants are registered (bootstrap not complete)
+     * @throws IllegalStateException if more than one tenant is registered (Wave-1 invariant
+     *     violated)
      */
     @Override
     public synchronized UUID getDefault() {
-        List<TenantRecord> defaults =
-                inMemoryRegistry.values().stream()
-                        .filter(
-                                r ->
-                                        DefaultTenantBootstrapRunner.DEFAULT_TENANT_DISPLAY_NAME
-                                                .equals(r.displayName()))
-                        .toList();
-        if (defaults.isEmpty()) {
+        // Wave-1 strategy: at most one tenant exists in LAN mode. The sole tenant IS the default
+        // regardless of its display name — so operator-overridden bootstrap names work without
+        // being added to a hard-coded allowlist (E46S05 AC-PROP-DISPLAY-NAME-OVERRIDE compat).
+        List<TenantRecord> all = new ArrayList<>(inMemoryRegistry.values());
+        if (all.isEmpty()) {
             throw new IllegalStateException(
                     "no default tenant registered \u2014 bootstrap not complete");
         }
-        if (defaults.size() > 1) {
+        if (all.size() > 1) {
             throw new IllegalStateException("registry violates single-default invariant");
         }
-        return defaults.get(0).tenantId();
+        return all.get(0).tenantId();
     }
 
     /**
@@ -223,7 +251,8 @@ public class TenantFileRegistry implements TenantRegistryPort {
      * @see <a href="../../../../../../../../docs/governance/stories/E14S05.story.md">Story E14S05
      *     AC6</a>
      */
-    synchronized boolean registerIfDisplayNameAbsent(UUID tenantId, String displayName) {
+    synchronized boolean registerIfDisplayNameAbsent(
+            UUID tenantId, String displayName, String language) {
         if (tenantId == null) {
             throw new IllegalArgumentException("tenantId must not be null");
         }
@@ -245,7 +274,7 @@ public class TenantFileRegistry implements TenantRegistryPort {
             throw new DuplicateTenantException(tenantId);
         }
 
-        TenantRecord record = new TenantRecord(tenantId, displayName);
+        TenantRecord record = new TenantRecord(tenantId, displayName, language);
         inMemoryRegistry.put(tenantId, record);
         persistRegistryToFile();
         return true;
@@ -280,7 +309,8 @@ public class TenantFileRegistry implements TenantRegistryPort {
                             registryFile.toFile(), new TypeReference<List<RegistryEntry>>() {});
             for (RegistryEntry entry : entries) {
                 inMemoryRegistry.put(
-                        entry.tenantId(), new TenantRecord(entry.tenantId(), entry.displayName()));
+                        entry.tenantId(),
+                        new TenantRecord(entry.tenantId(), entry.displayName(), entry.language()));
             }
         } catch (IOException e) {
             throw new IllegalStateException(
@@ -299,7 +329,8 @@ public class TenantFileRegistry implements TenantRegistryPort {
     private void persistRegistryToFile() {
         List<RegistryEntry> entries = new ArrayList<>();
         for (TenantRecord record : inMemoryRegistry.values()) {
-            entries.add(new RegistryEntry(record.tenantId(), record.displayName()));
+            entries.add(
+                    new RegistryEntry(record.tenantId(), record.displayName(), record.language()));
         }
 
         // Write to a temp file first, then atomically move — crash-safe (AC3)
@@ -332,7 +363,8 @@ public class TenantFileRegistry implements TenantRegistryPort {
      */
     record RegistryEntry(
             @JsonProperty("tenantId") UUID tenantId,
-            @JsonProperty("displayName") String displayName) {}
+            @JsonProperty("displayName") String displayName,
+            @JsonProperty("language") String language) {}
 
     /**
      * Thrown by {@link TenantFileRegistry#register(UUID, String)} when the given tenant UUID is
