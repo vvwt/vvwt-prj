@@ -244,8 +244,10 @@ public final class TenantDaoTestSupport {
      */
     public static void applyTournamentSchema(DataSource ds) {
         // Post-Reset (E45S05): load per-module V1 files in allowedDependencies order.
+        // E46S01: V2 files added for tenant and tournament modules (language + organizer columns).
         // Applied per DEC-26 Rule 1 (production migration files are the schema source of truth).
-        // Order: auth → tenant → tournament → certificate → infoportal
+        // Order: auth → tenant/V1 → tenant/V2 → tournament/V1 → tournament/V2 → certificate →
+        // infoportal
         //   - auth and tenant are independent (no inter-dependency)
         //   - tournament depends on tenant (FK tournament.location_id → tenant/locations.id)
         //   - certificate and infoportal are independent of tournament
@@ -253,7 +255,9 @@ public final class TenantDaoTestSupport {
         String[] migrations = {
             "db/migration/auth/V1__admin_credentials.sql",
             "db/migration/tenant/V1__initial_schema.sql",
+            "db/migration/tenant/V2__e46s01_certificate_default_template_i18n.sql",
             "db/migration/tournament/V1__initial_schema.sql",
+            "db/migration/tournament/V2__e46s01_certificate_default_template_i18n.sql",
             "db/migration/certificate/V1__initial_schema.sql",
             "db/migration/infoportal/V1__initial_schema.sql",
         };
