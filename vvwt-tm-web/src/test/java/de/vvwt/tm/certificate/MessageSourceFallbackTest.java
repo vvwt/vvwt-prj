@@ -1,0 +1,111 @@
+package de.vvwt.tm.certificate;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.Locale;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.MessageSource;
+import org.springframework.test.context.ActiveProfiles;
+
+/**
+ * Verifies the deterministic-fallback behaviour of the {@link MessageSource} configuration
+ * introduced by E46S02.
+ *
+ * <p>Spring Boot auto-configuration is used (Path A per AC-MESSAGE-SOURCE-FALLBACK-FALSE): {@code
+ * spring.messages.basename=messages} and {@code spring.messages.fallback-to-system-locale=false}
+ * set in {@code application.yml}. This test confirms that requests for an unmatched locale fall
+ * back to {@code messages.properties} (the canonical DE bundle per Brief D-7), NOT to the
+ * JVM-default locale and NOT returning the literal key string.
+ *
+ * <h2>DEC-38 + DEC-44 annotation choice — @SpringBootTest exception</h2>
+ *
+ * <p>Uses {@code @SpringBootTest} (not {@code @ApplicationModuleTest}) to ensure the full
+ * application.yml is loaded (including the {@code spring.messages} block added by E46S02).
+ * {@code @ApplicationModuleTest} in STANDALONE or ALL_DEPENDENCIES mode does not guarantee that
+ * autoconfiguration properties from application.yml are fully applied in all Spring Boot versions.
+ * Using {@code @SpringBootTest} is the lowest-risk choice and is consistent with all other ITs that
+ * verify application.yml-driven configuration in this codebase.
+ *
+ * <h2>AC references</h2>
+ *
+ * <ul>
+ *   <li>AC-FALLBACK-OBSERVABLE-IN-TEST — asserts fallback for unmatched locales
+ *   <li>AC-MESSAGE-SOURCE-BASENAME-EXPLICIT — {@code @Value} check for the property
+ *   <li>AC-MESSAGES-PROPERTIES-EXTENDED — all 6 V1 label keys asserted
+ * </ul>
+ *
+ * @see LocaleResolver
+ */
+@SpringBootTest(
+        classes = de.vvwt.tm.TournamentManagerApplication.class,
+        webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@ActiveProfiles("test")
+@DisplayName("MessageSource deterministic-fallback tests — E46S02")
+class MessageSourceFallbackTest {
+
+    @Autowired MessageSource messageSource;
+
+    @Value("${spring.messages.basename:UNSET}")
+    String basename;
+
+    @Test
+    @DisplayName("AC-MESSAGE-SOURCE-BASENAME-EXPLICIT: spring.messages.basename is set explicitly")
+    void messageSourceBasenameIsExplicit() {
+        assertThat(basename)
+                .as(
+                        "spring.messages.basename must be explicitly set"
+                                + " (AC-MESSAGE-SOURCE-BASENAME-EXPLICIT)")
+                .isNotEqualTo("UNSET")
+                .isEqualTo("messages");
+    }
+
+    @Test
+    @DisplayName(
+            "AC-FALLBACK-OBSERVABLE-IN-TEST: French locale falls back to messages.properties DE"
+                    + " value")
+    void getMessage_frLocale_fallsBackToMessagesProperties() {
+        String result =
+                messageSource.getMessage(
+                        "tom.label.certificate", null, Locale.forLanguageTag("fr"));
+        assertThat(result)
+                .as(
+                        "French locale should fall back to messages.properties (deterministic"
+                                + " fallback, not JVM default)")
+                .isEqualTo("URKUNDE");
+    }
+
+    @Test
+    @DisplayName(
+            "AC-FALLBACK-OBSERVABLE-IN-TEST: German locale resolves against messages.properties (no"
+                    + " messages_de.properties)")
+    void getMessage_germanLocale_resolvesFromMessagesProperties() {
+        String result = messageSource.getMessage("tom.label.certificate", null, Locale.GERMAN);
+        assertThat(result)
+                .as(
+                        "German locale should resolve from messages.properties"
+                                + " (messages_de.properties is intentionally absent)")
+                .isEqualTo("URKUNDE");
+    }
+
+    @Test
+    @DisplayName(
+            "AC-FALLBACK-OBSERVABLE-IN-TEST: all 6 V1 label keys resolve for Japanese locale"
+                    + " (arbitrary unmatched)")
+    void allSixV1LabelKeys_resolveForJapaneseLocale() {
+        Locale japan = Locale.JAPAN;
+        assertThat(messageSource.getMessage("tom.label.certificate", null, japan))
+                .isEqualTo("URKUNDE");
+        assertThat(messageSource.getMessage("tom.label.place", null, japan)).isEqualTo("PLATZ");
+        assertThat(messageSource.getMessage("tom.label.achieved_by", null, japan))
+                .isEqualTo("erreicht von");
+        assertThat(messageSource.getMessage("tom.label.team_photo", null, japan))
+                .isEqualTo("Mannschaftsfoto");
+        assertThat(messageSource.getMessage("tom.label.generated_by", null, japan))
+                .isEqualTo("generated by");
+        assertThat(messageSource.getMessage("tom.label.on", null, japan)).isEqualTo("am");
+    }
+}
