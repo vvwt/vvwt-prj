@@ -160,14 +160,36 @@ public class PerTenantFlywayRunner {
             return;
         }
 
-        Flyway flyway =
-                Flyway.configure()
-                        .dataSource(dataSource)
-                        .locations(locations.toArray(String[]::new))
-                        .load();
-
-        // FlywayException propagates — no try/catch. Flyway skips applied migrations (idempotent).
-        flyway.migrate();
+        // Post-Reset (E45S05 / DEC-25): each module has its own V1__*.sql. Applying all locations
+        // in a single Flyway instance would cause "Found more than one migration with version 1"
+        // because Flyway treats all locations as a flat version namespace. Instead, apply each
+        // module's location in a separate Flyway instance (in dependency order). Each module's
+        // flyway_schema_history_{moduleName} table tracks its own version history independently.
+        // This mirrors how SpringModulithFlywayMigrationStrategy applies per-module migrations.
+        for (String location : locations) {
+            // Extract module name from location for the schema history table suffix.
+            // Location format: "classpath:db/migration/{moduleName}"
+            String moduleName = location.substring(location.lastIndexOf('/') + 1);
+            Flyway flyway =
+                    Flyway.configure()
+                            .dataSource(dataSource)
+                            .locations(location)
+                            .table("flyway_schema_history_" + moduleName)
+                            // baselineOnMigrate=true + baselineVersion="0": when a subsequent
+                            // module runs against the same H2 database (which already has tables
+                            // from earlier modules but no flyway_schema_history_{moduleName}
+                            // table), Flyway refuses with "non-empty schema but no history table".
+                            // baselineOnMigrate tells Flyway to create the history table and
+                            // baseline at version "0". V1 migrations are then applied normally
+                            // (version 1 > baseline 0). Without baselineVersion="0", Flyway
+                            // defaults to baseline version "1", which marks V1 as already applied
+                            // and skips the migration — leaving tables uncreated.
+                            .baselineOnMigrate(true)
+                            .baselineVersion("0")
+                            .load();
+            // FlywayException propagates — no try/catch. Flyway skips applied migrations (AC5).
+            flyway.migrate();
+        }
     }
 
     /**

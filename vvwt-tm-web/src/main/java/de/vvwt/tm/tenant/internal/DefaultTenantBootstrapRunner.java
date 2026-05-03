@@ -19,6 +19,7 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -366,6 +367,17 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
                             + "generating new UUID={} (DEC-17 amendment).",
                     generated);
             return generated;
+        } catch (BadSqlGrammarException noTable) {
+            // Post-Reset (E45S05 / DEC-25): the flat DataSource has no TENANTS table.
+            // Per-tenant schema is now in per-tenant H2 files only (DEC-20 end-state).
+            // Treat "table not found" identically to an empty table — generate new UUID.
+            UUID generated = UUID.randomUUID();
+            log.info(
+                    "[tm-e14s12] AC11 idempotency guard: TENANTS table absent from flat DataSource"
+                            + " (post-Reset DEC-25 end-state) — generating new UUID={} (DEC-17"
+                            + " amendment).",
+                    generated);
+            return generated;
         } catch (DataAccessException e) {
             throw new IllegalStateException(
                     "[tm-e14s12] AC11 idempotency guard: cannot query shared JPA TENANTS table to"
@@ -465,32 +477,43 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
      * @param tenantId the tenant UUID to insert; must not be {@code null}
      */
     private void upsertMainDbTenantRow(UUID tenantId) {
-        Integer count =
-                sharedJdbcTemplate.queryForObject(SELECT_TENANT_BY_ID_SQL, Integer.class, tenantId);
-        if (count != null && count > 0) {
-            // Tenant row already present — idempotent; check location too
-            log.debug("[tm-e14s07] Main-DB tenant row already present for UUID={}", tenantId);
-            upsertDefaultLocationRow(tenantId);
-            return;
-        }
         try {
-            final UUID locationId = UUID.randomUUID();
-            transactionTemplate.executeWithoutResult(
-                    status -> {
-                        sharedJdbcTemplate.update(INSERT_TENANT_SQL, tenantId);
-                        sharedJdbcTemplate.update(INSERT_LOCATION_SQL, locationId, tenantId);
-                    });
-            log.info(
-                    "[tm-e14s07] Main-DB tenant row inserted for UUID={}, location UUID={}",
-                    tenantId,
-                    locationId);
-        } catch (DataIntegrityViolationException race) {
-            // Concurrent insert won — rows are present, nothing to do
-            log.info(
-                    "[tm-e14s07] Main-DB tenant row insert race (concurrent process won) for"
-                            + " UUID={}: {}",
-                    tenantId,
-                    race.getMessage());
+            Integer count =
+                    sharedJdbcTemplate.queryForObject(
+                            SELECT_TENANT_BY_ID_SQL, Integer.class, tenantId);
+            if (count != null && count > 0) {
+                // Tenant row already present — idempotent; check location too
+                log.debug("[tm-e14s07] Main-DB tenant row already present for UUID={}", tenantId);
+                upsertDefaultLocationRow(tenantId);
+                return;
+            }
+            try {
+                final UUID locationId = UUID.randomUUID();
+                transactionTemplate.executeWithoutResult(
+                        status -> {
+                            sharedJdbcTemplate.update(INSERT_TENANT_SQL, tenantId);
+                            sharedJdbcTemplate.update(INSERT_LOCATION_SQL, locationId, tenantId);
+                        });
+                log.info(
+                        "[tm-e14s07] Main-DB tenant row inserted for UUID={}, location UUID={}",
+                        tenantId,
+                        locationId);
+            } catch (DataIntegrityViolationException race) {
+                // Concurrent insert won — rows are present, nothing to do
+                log.info(
+                        "[tm-e14s07] Main-DB tenant row insert race (concurrent process won) for"
+                                + " UUID={}: {}",
+                        tenantId,
+                        race.getMessage());
+            }
+        } catch (BadSqlGrammarException noTable) {
+            // Post-Reset (E45S05 / DEC-25): flat DataSource has no schema (no tenants table).
+            // Per-tenant schema lives in per-tenant H2 files only (DEC-20 end-state).
+            // upsertDbTenantRow() handles the per-tenant DB row insertion separately.
+            log.debug(
+                    "[tm-e14s07] Main-DB tenants table absent (post-Reset DEC-25) — skipping"
+                            + " upsert for UUID={}",
+                    tenantId);
         }
     }
 
@@ -504,27 +527,40 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
      * @param tenantId the tenant UUID; must not be {@code null}
      */
     private void upsertDefaultLocationRow(UUID tenantId) {
-        Integer locationCount =
-                sharedJdbcTemplate.queryForObject(
-                        SELECT_LOCATION_COUNT_SQL, Integer.class, tenantId);
-        if (locationCount != null && locationCount > 0) {
-            log.debug("[tm-e14s07] Default location already present for tenant UUID={}", tenantId);
-            return;
-        }
         try {
-            UUID locationId = UUID.randomUUID();
-            transactionTemplate.executeWithoutResult(
-                    status -> sharedJdbcTemplate.update(INSERT_LOCATION_SQL, locationId, tenantId));
-            log.info(
-                    "[tm-e14s07] Default location row inserted for tenant UUID={}, location"
-                            + " UUID={}",
-                    tenantId,
-                    locationId);
-        } catch (DataIntegrityViolationException race) {
-            log.info(
-                    "[tm-e14s07] Default location row insert race for tenant UUID={}: {}",
-                    tenantId,
-                    race.getMessage());
+            Integer locationCount =
+                    sharedJdbcTemplate.queryForObject(
+                            SELECT_LOCATION_COUNT_SQL, Integer.class, tenantId);
+            if (locationCount != null && locationCount > 0) {
+                log.debug(
+                        "[tm-e14s07] Default location already present for tenant UUID={}",
+                        tenantId);
+                return;
+            }
+            try {
+                UUID locationId = UUID.randomUUID();
+                transactionTemplate.executeWithoutResult(
+                        status ->
+                                sharedJdbcTemplate.update(
+                                        INSERT_LOCATION_SQL, locationId, tenantId));
+                log.info(
+                        "[tm-e14s07] Default location row inserted for tenant UUID={}, location"
+                                + " UUID={}",
+                        tenantId,
+                        locationId);
+            } catch (DataIntegrityViolationException race) {
+                log.info(
+                        "[tm-e14s07] Default location row insert race for tenant UUID={}: {}",
+                        tenantId,
+                        race.getMessage());
+            }
+        } catch (BadSqlGrammarException noTable) {
+            // Post-Reset (E45S05 / DEC-25): flat DataSource has no schema (no locations table).
+            // Per-tenant schema lives in per-tenant H2 files only (DEC-20 end-state).
+            log.debug(
+                    "[tm-e14s07] Main-DB locations table absent (post-Reset DEC-25) — skipping"
+                            + " location upsert for UUID={}",
+                    tenantId);
         }
     }
 
