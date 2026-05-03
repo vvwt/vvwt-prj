@@ -16,9 +16,10 @@ spring:
     username: sa
     password:
   flyway:
-    enabled: true
-    locations: classpath:db/migration
-    fail-on-missing-locations: false
+    # Post-Reset (E45S05 / DEC-25): flat DataSource has no schema; PerTenantFlywayRunner
+    # is the sole schema-application path. Disabled here to prevent recursive sub-dir scan
+    # finding multiple V1 files (infoportal, certificate, tenant, tournament).
+    enabled: false
 
   # E05S02: allow TestAdminCredentials @Primary bean to override AdminCredentialsBootstrap's
   # AdminCredentialsProvider bean registration in SecurityConfigIT tests.

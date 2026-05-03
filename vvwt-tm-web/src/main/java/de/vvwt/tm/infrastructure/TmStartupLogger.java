@@ -3,6 +3,7 @@ package de.vvwt.tm.infrastructure;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
+import java.util.Optional;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationInfo;
@@ -41,13 +42,20 @@ public class TmStartupLogger {
     private static final Logger log = LoggerFactory.getLogger(TmStartupLogger.class);
 
     private final DataSource dataSource;
-    private final Flyway flyway;
+
+    /**
+     * Optional post-Reset (E45S05 / DEC-25): when {@code spring.flyway.enabled=false} Spring Boot
+     * does not register a {@code Flyway} bean. {@link Optional} injection resolves to {@link
+     * Optional#empty()} in that case — no wiring failure.
+     */
+    private final Optional<Flyway> flyway;
+
     private final String datasourceUrl;
     private final int serverPort;
 
     public TmStartupLogger(
             @Qualifier("dataSource") DataSource dataSource,
-            Flyway flyway,
+            Optional<Flyway> flyway,
             @Value("${spring.datasource.url}") String datasourceUrl,
             @Value("${server.port}") int serverPort) {
         this.dataSource = dataSource;
@@ -104,7 +112,15 @@ public class TmStartupLogger {
         }
         log.info("[tm-bootstrap] Flyway version: {}", flywayVersion);
 
-        MigrationInfo[] appliedMigrations = flyway.info().applied();
+        if (flyway.isEmpty()) {
+            // Post-Reset (E45S05 / DEC-25): spring.flyway.enabled=false — flat DataSource has
+            // no schema. PerTenantFlywayRunner is the sole schema-application path (DEC-20).
+            log.info(
+                    "[tm-bootstrap] Flyway migrations applied: 0 (flat DataSource disabled"
+                        + " post-Reset; per-tenant Flyway runner applies per-module migrations)");
+            return;
+        }
+        MigrationInfo[] appliedMigrations = flyway.get().info().applied();
         log.info("[tm-bootstrap] Flyway migrations applied: {}", appliedMigrations.length);
     }
 

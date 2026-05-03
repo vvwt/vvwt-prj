@@ -144,101 +144,29 @@ public class TenantContextConfiguration {
      * <p>{@link ConditionalOnMissingBean} allows test configurations to override (e.g., for testing
      * E14S05 without running real Flyway migrations in the test context).
      *
-     * <h2>Wave-1 legacy-root fallback (E14S11)</h2>
+     * <h2>Post-Reset production semantics (E45S05 / DEC-25)</h2>
      *
-     * <p>In Wave-1, no per-module migration directories exist yet (they are added by E15 stories).
-     * {@link PerTenantFlywayRunner#buildLocations()} therefore returns an empty list, which would
-     * leave every per-tenant H2 database with no schema — causing repository calls routed through
-     * {@link RoutingTenantDataSource} to fail with "table not found" after E14S11 activation.
-     *
-     * <p>This bean overrides {@code buildLocations()} to fall back to {@code
-     * classpath:db/migration} (the legacy root) when the per-module scan returns nothing. This
-     * ensures that the per-tenant DB receives the same schema as the flat main-DB in Wave-1. In
-     * Wave-2 (E15+), when per-module directories are added, the override no longer activates (the
-     * per-module scan returns non-empty), and the production {@code PerTenantFlywayRunner}
-     * semantics are restored automatically.
+     * <p>After the Wave-2 Big-Bang-Reset, per-module migration directories ({@code tenant/}, {@code
+     * tournament/}, {@code auth/}, {@code certificate/}, {@code infoportal/}) are the sole schema
+     * source. The Wave-1 legacy-root override (which ran root V1–V16 via {@code
+     * FlywayRootMigrationsCustomizer.RootLevelOnlyResourceProvider}) is removed. The production
+     * {@link PerTenantFlywayRunner} applies each module's migrations in {@code ApplicationModule}
+     * dependency-tree order, each with its own history table ({@code
+     * flyway_schema_history_{module}}). This is the DEC-20 + DEC-21 end-state.
      *
      * @see PerTenantFlywayRunner
      * @see <a href="../../../../../../../../docs/governance/stories/E14S04.story.md">Story
      *     E14S04</a>
-     * @see <a href="../../../../../../../../docs/governance/stories/E14S11.story.md">Story E14S11
-     *     (Wave-1 fallback)</a>
      * @see <a href="../../../../../../../../docs/governance/decisions/DEC-20.md">DEC-20</a>
      * @see <a href="../../../../../../../../docs/governance/decisions/DEC-21.md">DEC-21</a>
+     * @see <a href="../../../../../../../../docs/governance/decisions/DEC-25.md">DEC-25</a>
      */
     @Bean
     @ConditionalOnMissingBean(PerTenantFlywayRunner.class)
     public PerTenantFlywayRunner perTenantFlywayRunner(
             TenantDataSourceResolver tenantDataSourceResolver) {
         return new PerTenantFlywayRunner(
-                tenantDataSourceResolver, TournamentManagerApplication.class) {
-            /**
-             * Wave-1 override: runs root domain migrations (V1–V16) first, then runs each
-             * module-specific location in a separate Flyway instance with its own schema-history
-             * table.
-             *
-             * <p>In Wave-1, the module-specific directories (e.g. {@code auth/}) use version
-             * numbers that overlap with the root (both have V1). Running them in the same Flyway
-             * instance causes a "Found more than one migration with version 1" error. The solution
-             * is to mirror what Spring Modulith's {@code FlywayMigrationStrategy} does: each module
-             * directory uses its own Flyway instance with its own schema-history table ({@code
-             * flyway_schema_history_{module}}).
-             *
-             * <p>In Wave-2 (E15+), migrations will be relocated to per-module directories with
-             * non-conflicting version numbers and the standard {@link PerTenantFlywayRunner}
-             * behavior will be used.
-             */
-            @Override
-            public void runWithDataSource(
-                    java.util.UUID tenantId, javax.sql.DataSource dataSource) {
-                // Wave-1: apply root domain migrations (V1–V16) and per-module migrations in
-                // SEPARATE Flyway instances, each with its own schema-history table.
-                //
-                // Root (V1–V16) and the auth module both use version 1. Running them in a single
-                // Flyway instance causes "Found more than one migration with version 1".
-                //
-                // The production FlywayRootMigrationsCustomizer (used by Spring Boot auto-config)
-                // solves this by supplying a custom ResourceProvider that returns only root-level
-                // files. We apply the same pattern here for the per-tenant Flyway instance.
-
-                // Step 1: root domain migrations (V1–V16) using the standard
-                // flyway_schema_history table. The per-tenant DB is a separate H2 file — it
-                // has its own history table, independent of the flat main-DB's history.
-                // We use RootLevelOnlyResourceProvider (from FlywayRootMigrationsCustomizer)
-                // to exclude auth/V1 from the root scan, exactly as Spring Boot auto-config does
-                // for the flat DB.
-                org.flywaydb.core.Flyway.configure()
-                        .dataSource(dataSource)
-                        .locations("classpath:db/migration")
-                        .resourceProvider(
-                                new de.vvwt.tm.infrastructure.FlywayRootMigrationsCustomizer
-                                        .RootLevelOnlyResourceProvider())
-                        .load()
-                        .migrate();
-
-                // Step 2: per-module migrations, each with its own history table.
-                // baselineOnMigrate(true) + baselineVersion("0") handles the case where the
-                // per-tenant DB already has tables from Step 1 but the module-specific history
-                // table does not yet exist. Flyway would otherwise throw "non-empty schema but
-                // no schema history table". With baseline-on-migrate, Flyway creates the history
-                // table and baselines at version 0 (before V1), then applies the module's
-                // pending migrations. On subsequent runs the history table already exists and
-                // baselineOnMigrate is a no-op.
-                java.util.List<String> moduleLocations = super.buildLocations();
-                for (String location : moduleLocations) {
-                    String moduleName = location.substring(location.lastIndexOf('/') + 1);
-                    String historyTable = "flyway_schema_history_" + moduleName;
-                    org.flywaydb.core.Flyway.configure()
-                            .dataSource(dataSource)
-                            .locations(location)
-                            .table(historyTable)
-                            .baselineOnMigrate(true)
-                            .baselineVersion("0")
-                            .load()
-                            .migrate();
-                }
-            }
-        };
+                tenantDataSourceResolver, TournamentManagerApplication.class);
     }
 
     /**

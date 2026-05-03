@@ -31,12 +31,12 @@ spring:
   # Flyway schema migration (DEC-14)
   # ---------------------------------------------------------------------------
   flyway:
-    enabled: true
-    # Migration scripts live in src/main/resources/db/migration (AC4)
-    locations: classpath:db/migration
-    # AC8: if Flyway raises any error during startup, abort with non-zero exit.
-    # fail-on-missing-locations defaults to false — empty migration dir is OK (AC6).
-    fail-on-missing-locations: false
+    # Post-Reset (E45S05 / DEC-25): the flat DataSource has no schema to migrate.
+    # PerTenantFlywayRunner is the sole schema-application path (DEC-20, DEC-21).
+    # Spring Boot Flyway is disabled here to prevent recursive scan of db/migration
+    # subdirs (infoportal, certificate, tenant, tournament all have V1 files —
+    # enabling it would fail with "Found more than one migration with version 1").
+    enabled: false
 
   # ---------------------------------------------------------------------------
   # Multipart upload limits — audio file upload (E11S01 AC7)

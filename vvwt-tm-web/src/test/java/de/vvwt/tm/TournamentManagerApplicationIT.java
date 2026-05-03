@@ -4,22 +4,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import de.vvwt.tm.tenant.TenantDataSourceResolver;
+import de.vvwt.tm.tenant.TenantRegistryPort;
 import java.net.URI;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -32,14 +30,32 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * Integration tests for E02S02 + E02S03.
+ * Integration tests for E02S02 + E02S03 — updated for E45S05 post-Reset bootstrap.
  *
  * <p>Covers E02S02 baseline (persistence stack wiring, health endpoint) and E02S03 acceptance
- * criteria (Flyway migration, schema invariants, idempotency).
+ * criteria (schema invariants, idempotency).
+ *
+ * <h2>Post-Reset bootstrap path (E45S05)</h2>
+ *
+ * <p>After the Wave-2 Big-Bang-Reset (DEC-25), the {@code db/migration/} root contains no {@code
+ * V*.sql} files. Spring Boot's auto-configured Flyway scans {@code db/migration} and finds nothing
+ * — it becomes a no-op against the flat DataSource. Schema application is exclusively via {@link
+ * de.vvwt.tm.tenant.internal.PerTenantFlywayRunner}, which applies {@code
+ * db/migration/{module}/V1__*.sql} to each per-tenant H2 file (DEC-20, DEC-21).
+ *
+ * <p>Implications for this test class:
+ *
+ * <ul>
+ *   <li>The flat DataSource has NO Flyway-applied schema. Querying {@code flyway_schema_history} or
+ *       any domain table on the flat DataSource will fail (no such table).
+ *   <li>The {@code tenants} and {@code locations} tables now live exclusively in per-tenant H2
+ *       files, applied by the per-tenant Flyway runner.
+ *   <li>Tests that exercise schema invariants (e.g., duplicate default-tenant rejection) must use
+ *       the per-tenant DataSource via {@link TenantDataSourceResolver}.
+ * </ul>
  *
  * <p>Uses the "test" profile ({@code application-test.yml}): in-memory H2 so no filesystem
- * side-effects occur during test runs. Flyway runs the V1 migration against the in-memory database
- * on every context load.
+ * side-effects occur during test runs.
  *
  * <p>Acceptance criteria covered:
  *
@@ -47,18 +63,16 @@ import org.springframework.test.context.ActiveProfiles;
  *   <li>E02S02 AC5 — health endpoint returns HTTP 200 with {@code "status":"UP"}
  *   <li>E02S02 AC6 — application context loads without errors
  *   <li>E02S02 AC10 — POSIX DB directory gets owner-only permissions (POSIX hosts only)
- *   <li>E02S03 AC8 — Flyway idempotency: exactly one V1 row in flyway_schema_history
- *   <li>E02S03 AC9 — migration failure aborts context load (covered implicitly: if the SQL were
- *       invalid the context would not load and contextLoads() would fail)
- *   <li>E02S03 AC10 — duplicate is_default=TRUE insert raises a constraint violation
- *   <li>E02S03 AC11 — flyway_schema_history contains the V1 migration row with success=true (this
- *       is the reliable proxy for the INFO log produced by Flyway at startup)
+ *   <li>E02S03 AC10 — duplicate is_default=TRUE insert raises a constraint violation (tested
+ *       against per-tenant DataSource post-Reset)
  * </ul>
  *
  * @see <a href="../../../../../../.gaai/project/contexts/artefacts/stories/E02S02.story.md">Story
  *     E02S02</a>
  * @see <a href="../../../../../../.gaai/project/contexts/artefacts/stories/E02S03.story.md">Story
  *     E02S03</a>
+ * @see <a href="../../../../../../.gaai/project/contexts/artefacts/stories/E45S05.story.md">Story
+ *     E45S05 (AC-TM-APP-IT-*)</a>
  */
 @AutoConfigureTestRestTemplate
 @SpringBootTest(
@@ -73,21 +87,25 @@ class TournamentManagerApplicationIT {
     @Autowired private TestRestTemplate restTemplate;
 
     /**
-     * Flat (non-routing) DataSource — used to query main-DB tables ({@code flyway_schema_history},
-     * {@code tenants}) that are managed by the flat DataSource, not the per-tenant routing
-     * DataSource. Using the auto-wired {@link JdbcTemplate} (which resolves to the {@code @Primary}
-     * routing DS) would fail with "No tenant is bound" since no tenant context is set up in this
-     * test class.
+     * Per-tenant DataSource resolver — used to obtain the default tenant's DataSource.
+     *
+     * <p>Post-Reset (E45S05): domain tables ({@code tenants}, {@code locations}, etc.) now live in
+     * per-tenant H2 files, not in the flat DataSource. Tests that query or mutate domain tables
+     * must use the per-tenant DataSource.
      */
-    @Autowired
-    @Qualifier("dataSource")
-    private DataSource flatDataSource;
+    @Autowired private TenantDataSourceResolver tenantDataSourceResolver;
 
-    private JdbcTemplate jdbcTemplate;
+    /** Registry for resolving the default-tenant UUID, used in {@link #perTenantJdbcTemplate()}. */
+    @Autowired private TenantRegistryPort tenantRegistryPort;
 
-    @org.junit.jupiter.api.BeforeEach
-    void setUpJdbcTemplate() {
-        jdbcTemplate = new JdbcTemplate(flatDataSource);
+    /**
+     * Returns a {@link JdbcTemplate} backed by the default tenant's per-tenant H2 DataSource.
+     *
+     * <p>Post-Reset: the {@code tenants} table lives in the per-tenant H2 file, applied by {@link
+     * de.vvwt.tm.tenant.internal.PerTenantFlywayRunner} via {@code tenant/V1__initial_schema.sql}.
+     */
+    private JdbcTemplate perTenantJdbcTemplate() {
+        return new JdbcTemplate(tenantDataSourceResolver.resolve(tenantRegistryPort.getDefault()));
     }
 
     // -------------------------------------------------------------------------
@@ -95,10 +113,12 @@ class TournamentManagerApplicationIT {
     // -------------------------------------------------------------------------
 
     /**
-     * E02S02 AC6 / E02S03 AC9 (implicit) — Verifies the Spring application context loads without
-     * errors. With V1__initial_schema.sql present, Flyway applies the migration before the context
-     * finishes loading. A SQL syntax error or constraint conflict in the migration would abort
-     * context load and fail this test.
+     * E02S02 AC6 — Verifies the Spring application context loads without errors.
+     *
+     * <p>Post-Reset (E45S05): Spring Boot Flyway finds zero root {@code V*.sql} files and is a
+     * no-op against the flat DataSource. The per-tenant Flyway runner applies per-module migrations
+     * to each tenant's H2 file during default-tenant bootstrap. A failure in either path would
+     * abort context load and fail this test.
      */
     @Test
     void contextLoads() {
@@ -162,63 +182,28 @@ class TournamentManagerApplicationIT {
     // -------------------------------------------------------------------------
 
     /**
-     * E02S03 AC8 + AC11 — Flyway idempotency and observability.
+     * E02S03 AC10 — Duplicate default-tenant constraint violation (post-Reset variant).
      *
-     * <p>Verifies that {@code flyway_schema_history} contains exactly one row for version "1" with
-     * {@code success = true} and a script name that contains "V1". This confirms:
+     * <p>Post-Reset (E45S05): the {@code tenants} table lives in the default tenant's per-tenant H2
+     * file. The {@code DefaultTenantBootstrapRunner} inserts the default-tenant row during context
+     * startup. This test verifies that the unique index ({@code idx_tenants_single_default} on the
+     * generated {@code default_sentinel} column) rejects a second insert of a row with {@code
+     * is_default = TRUE}.
      *
-     * <ul>
-     *   <li>AC8: Flyway applied the migration exactly once (idempotency: a second context boot
-     *       against the same schema would not re-apply — enforced by Flyway's checksum guard)
-     *   <li>AC11: The migration row in {@code flyway_schema_history} is the reliable proxy for the
-     *       INFO log line "Successfully applied 1 migration" that Flyway emits at startup.
-     *       Asserting the row exists and {@code success = true} confirms the log was produced.
-     * </ul>
-     */
-    @Test
-    void flywaySchemaHistoryHasExactlyOneV1Entry() {
-        // H2 with case-sensitive identifiers: Flyway creates the table and columns with
-        // lowercase names. Quoting is required in both the table and column references.
-        List<Map<String, Object>> rows =
-                jdbcTemplate.queryForList(
-                        "SELECT \"version\", \"script\", \"success\" "
-                                + "FROM \"flyway_schema_history\" "
-                                + "WHERE \"version\" = '1'");
-
-        assertThat(rows)
-                .as("flyway_schema_history must contain exactly one row for version '1'")
-                .hasSize(1);
-
-        Map<String, Object> v1Row = rows.get(0);
-
-        assertThat(v1Row.get("success"))
-                .as("Flyway V1 migration must have success = true")
-                .isEqualTo(true);
-
-        assertThat(String.valueOf(v1Row.get("script")))
-                .as("Flyway V1 migration script name must reference V1__initial_schema")
-                .containsIgnoringCase("V1")
-                .containsIgnoringCase("initial_schema");
-    }
-
-    /**
-     * E02S03 AC10 — Duplicate default-tenant constraint violation.
-     *
-     * <p>As of E02S04, the {@code DefaultTenantBootstrap} ApplicationRunner inserts a
-     * default-tenant row ({@code is_default = TRUE}) during context startup. This test therefore
-     * verifies that the unique index rejects a second insert of a row with {@code is_default =
-     * TRUE} — the bootstrap row already occupies the slot.
-     *
-     * <p>UUID primary key is generated per-insert to avoid PK collision.
+     * <p>Uses the per-tenant DataSource (via {@link TenantDataSourceResolver}) because domain
+     * tables are no longer on the flat DataSource post-Reset.
      */
     @Test
     void duplicateDefaultTenantIsRejected() {
+        // Use the per-tenant DataSource — tenants table is in per-tenant H2 post-Reset.
+        JdbcTemplate perTenantJdbc = perTenantJdbcTemplate();
+
         // The bootstrap has already inserted one is_default=TRUE row during context startup.
         // Attempting a second insert must be rejected by idx_tenants_single_default.
         UUID duplicateId = UUID.randomUUID();
         assertThatThrownBy(
                         () ->
-                                jdbcTemplate.update(
+                                perTenantJdbc.update(
                                         "INSERT INTO tenants (id, display_name,"
                                                 + " tenant_location_count, is_default) VALUES (?,"
                                                 + " 'Another Default', 1, TRUE)",

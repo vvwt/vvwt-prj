@@ -91,8 +91,10 @@ class Wave1CutoverSmokeIT {
      * Per-tenant JdbcTemplate — built from the default tenant's DataSource in {@link #setUp()}.
      *
      * <p>The {@code admin_credentials} table lives in the per-tenant H2 database (created by {@code
-     * auth/V1__admin_credentials.sql} via {@code PerTenantFlywayRunner}). Using the shared Spring
-     * Boot DataSource would fail because the root V6 migration is deleted post-E15S07 (DEC-25).
+     * auth/V1__admin_credentials.sql} via {@code PerTenantFlywayRunner}). After the Wave-2
+     * Big-Bang-Reset (E45S05 / DEC-25), all root {@code V*.sql} files are deleted and the flat
+     * DataSource has no Flyway-applied schema — using it would fail with "table not found". The
+     * per-tenant DataSource is the correct source for all domain tables post-Reset.
      */
     private JdbcTemplate jdbcTemplate;
 
