@@ -1,0 +1,26 @@
+[
+  {
+    "turnier_name": "26. Frühjahrsturnier",
+    "verein": "Volleyballverein Werratal",
+    "platz": "1",
+    "mannschaft": "Smashing Pumpkins",
+    "datum": "18.05.2019",
+    "foto": "team-photo.jpg"
+  },
+  {
+    "turnier_name": "26. Frühjahrsturnier",
+    "verein": "Volleyballverein Werratal",
+    "platz": "2",
+    "mannschaft": "Die Netzhechte",
+    "datum": "18.05.2019",
+    "foto": "team-photo.jpg"
+  },
+  {
+    "turnier_name": "26. Frühjahrsturnier",
+    "verein": "Volleyballverein Werratal",
+    "platz": "12",
+    "mannschaft": "Die Mannschaft mit dem aller-aller-längsten Namen",
+    "datum": "Volleyballverein Werratal am 18.05.2019",
+    "foto": "team-photo.jpg"
+  }
+]
