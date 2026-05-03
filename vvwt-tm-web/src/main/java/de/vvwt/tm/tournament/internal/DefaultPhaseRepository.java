@@ -38,21 +38,17 @@ public class DefaultPhaseRepository implements PhaseRepository {
                     + " VALUES (?, ?, ?, ?, ?, ?, ?)";
 
     private static final String UPDATE_SQL =
-            "UPDATE phase"
-                    + " SET description=?, status=?, current_lap_number=?"
-                    + " WHERE id=? AND tenant_id=?";
+            "UPDATE phase" + " SET description=?, status=?, current_lap_number=?" + " WHERE id=?";
 
-    private static final String SELECT_BY_ID = "SELECT * FROM phase WHERE id=? AND tenant_id=?";
+    private static final String SELECT_BY_ID = "SELECT * FROM phase WHERE id=?";
 
-    private static final String SELECT_ALL = "SELECT * FROM phase WHERE tenant_id=?";
+    private static final String SELECT_ALL = "SELECT * FROM phase";
 
-    private static final String SELECT_BY_TOURNAMENT =
-            "SELECT * FROM phase WHERE tournament_id=? AND tenant_id=?";
+    private static final String SELECT_BY_TOURNAMENT = "SELECT * FROM phase WHERE tournament_id=?";
 
-    private static final String DELETE_BY_ID = "DELETE FROM phase WHERE id=? AND tenant_id=?";
+    private static final String DELETE_BY_ID = "DELETE FROM phase WHERE id=?";
 
-    private static final String EXISTS_BY_ID =
-            "SELECT COUNT(*) FROM phase WHERE id=? AND tenant_id=?";
+    private static final String EXISTS_BY_ID = "SELECT COUNT(*) FROM phase WHERE id=?";
 
     public DefaultPhaseRepository(JdbcTemplate jdbc, TenantContext tenantContext) {
         this.jdbc = jdbc;
@@ -64,7 +60,7 @@ public class DefaultPhaseRepository implements PhaseRepository {
     public Phase save(Phase phase) {
         UUID tenantId = tenantContext.current();
         phase.setTenantId(tenantId);
-        Integer count = jdbc.queryForObject(EXISTS_BY_ID, Integer.class, phase.getId(), tenantId);
+        Integer count = jdbc.queryForObject(EXISTS_BY_ID, Integer.class, phase.getId());
         boolean exists = count != null && count > 0;
         if (exists) {
             jdbc.update(
@@ -72,8 +68,7 @@ public class DefaultPhaseRepository implements PhaseRepository {
                     phase.getDescription(),
                     phase.getStatus(),
                     phase.getCurrentLapNumber(),
-                    phase.getId(),
-                    tenantId);
+                    phase.getId());
         } else {
             jdbc.update(
                     INSERT_SQL,
@@ -91,30 +86,26 @@ public class DefaultPhaseRepository implements PhaseRepository {
     /** {@inheritDoc} */
     @Override
     public Optional<Phase> findById(UUID id) {
-        UUID tenantId = tenantContext.current();
-        List<Phase> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id, tenantId);
+        List<Phase> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
     /** {@inheritDoc} */
     @Override
     public List<Phase> findAll() {
-        UUID tenantId = tenantContext.current();
-        return jdbc.query(SELECT_ALL, ROW_MAPPER, tenantId);
+        return jdbc.query(SELECT_ALL, ROW_MAPPER);
     }
 
     /** {@inheritDoc} */
     @Override
     public List<Phase> findByTournamentId(UUID tournamentId) {
-        UUID tenantId = tenantContext.current();
-        return jdbc.query(SELECT_BY_TOURNAMENT, ROW_MAPPER, tournamentId, tenantId);
+        return jdbc.query(SELECT_BY_TOURNAMENT, ROW_MAPPER, tournamentId);
     }
 
     /** {@inheritDoc} */
     @Override
     public void deleteById(UUID id) {
-        UUID tenantId = tenantContext.current();
-        jdbc.update(DELETE_BY_ID, id, tenantId);
+        jdbc.update(DELETE_BY_ID, id);
     }
 
     // -------------------------------------------------------------------------

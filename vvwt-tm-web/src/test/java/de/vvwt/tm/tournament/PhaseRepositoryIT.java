@@ -149,9 +149,15 @@ class PhaseRepositoryIT {
         assertThat(result.get().getDescription()).isEqualTo("Vorrunde");
     }
 
-    /** AC-TDD-PhaseRepository: findById returns empty for a different tenant. */
+    /**
+     * E45S03 — DEC-41 Snapshot-Driven replacement: after WHERE tenant_id predicate removal,
+     * findById returns the row regardless of which tenant_id was stored. Cross-tenant isolation is
+     * enforced by AbstractRoutingDataSource (DEC-20), not by SQL filter. The old {@code
+     * findById_differentTenant_returnsEmpty} test (Snapshot-Driven, pre-S03) is replaced by this
+     * Spec-Anchored test.
+     */
     @Test
-    void findById_differentTenant_returnsEmpty() {
+    void findById_noTenantPredicate_returnsPresentForAnyStoredTenantId() {
         UUID id = UUID.randomUUID();
         UUID otherTenantId = UUID.randomUUID();
         TenantDaoTestSupport.insertDirectly(
@@ -166,6 +172,8 @@ class PhaseRepositoryIT {
                         1,
                         "is_default",
                         false));
+        // Insert a row with a *different* tenant_id to the one bound in context.
+        // Post-S03: findById has no WHERE tenant_id=? predicate — it must return the row.
         TenantDaoTestSupport.insertDirectly(
                 ds,
                 "phase",
@@ -187,7 +195,9 @@ class PhaseRepositoryIT {
 
         Optional<Phase> result = repo.findById(id);
 
-        assertThat(result).isEmpty();
+        // Post-predicate-removal: row is returned; isolation comes from DataSource routing (DEC-20)
+        assertThat(result).isPresent();
+        assertThat(result.get().getId()).isEqualTo(id);
     }
 
     /** AC-TDD-PhaseRepository: findByTournamentId returns all phases for a tournament. */

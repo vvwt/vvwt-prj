@@ -10,6 +10,7 @@ import de.vvwt.tm.tournament.AuditLogEntry;
 import de.vvwt.tm.tournament.AuditLogRepository;
 import de.vvwt.tm.tournament.SetState;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import javax.sql.DataSource;
 import org.assertj.db.type.AssertDbConnection;
@@ -243,5 +244,29 @@ class AuditLogRepositoryIT {
         List<AuditLogEntry> entries =
                 auditLogRepository.findByMatchIdAndSetIndexOrderByChangedAt(matchId, 0);
         assertThat(entries).hasSize(2);
+    }
+
+    /**
+     * E45S03 — DEC-41 Snapshot-Driven: WHERE tenant_id predicate removed from findById and
+     * findByMatchIdAndSetIndexOrderByChangedAt. Post-removal, both execute without tenant_id in
+     * WHERE.
+     */
+    @Test
+    @DisplayName("E45S03: findById executes without tenant_id WHERE predicate (DEC-20 isolates)")
+    void e45s03_findById_noTenantPredicate_returnsRow() {
+        AuditLogEntry entry = new AuditLogEntry();
+        entry.setId(UUID.randomUUID());
+        entry.setMatchId(matchId);
+        entry.setSetIndex(0);
+        entry.setTenantId(tenantId);
+        entry.setTeam1PointsNew(25);
+        entry.setTeam2PointsNew(20);
+        entry.setSetStateNew(1);
+
+        auditLogRepository.save(entry);
+
+        Optional<AuditLogEntry> found = auditLogRepository.findById(entry.getId());
+        assertThat(found).isPresent();
+        assertThat(found.get().getId()).isEqualTo(entry.getId());
     }
 }

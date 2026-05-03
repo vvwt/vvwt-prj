@@ -71,8 +71,7 @@ public class PhaseBreakService {
                         });
 
         PhaseBreak phaseBreak =
-                new PhaseBreak(
-                        UUID.randomUUID(), null, phaseId, afterLapNumber, durationMinutes, label);
+                new PhaseBreak(UUID.randomUUID(), phaseId, afterLapNumber, durationMinutes, label);
         return phaseBreakRepository.save(phaseBreak);
     }
 

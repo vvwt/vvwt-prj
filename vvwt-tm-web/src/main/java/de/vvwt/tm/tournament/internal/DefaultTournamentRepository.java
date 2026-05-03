@@ -48,20 +48,18 @@ public class DefaultTournamentRepository implements TournamentRepository {
             "UPDATE tournament SET description=?, match_format=?, scoring_rule_id=?,"
                     + " set_validation_rule_id=?, match_generator_id=?, status=?,"
                     + " appointment=?, field_count=?, team_count=?, planned_start_time=?,"
-                    + " draft_json=? WHERE id=? AND tenant_id=?";
+                    + " draft_json=? WHERE id=?";
 
-    private static final String SELECT_BY_ID =
-            "SELECT * FROM tournament WHERE id=? AND tenant_id=?";
+    private static final String SELECT_BY_ID = "SELECT * FROM tournament WHERE id=?";
 
     private static final String SELECT_BY_ID_FOR_UPDATE =
-            "SELECT * FROM tournament WHERE id=? AND tenant_id=? FOR UPDATE";
+            "SELECT * FROM tournament WHERE id=? FOR UPDATE";
 
-    private static final String SELECT_ALL = "SELECT * FROM tournament WHERE tenant_id=?";
+    private static final String SELECT_ALL = "SELECT * FROM tournament";
 
-    private static final String DELETE_BY_ID = "DELETE FROM tournament WHERE id=? AND tenant_id=?";
+    private static final String DELETE_BY_ID = "DELETE FROM tournament WHERE id=?";
 
-    private static final String EXISTS_BY_ID =
-            "SELECT COUNT(*) FROM tournament WHERE id=? AND tenant_id=?";
+    private static final String EXISTS_BY_ID = "SELECT COUNT(*) FROM tournament WHERE id=?";
 
     public DefaultTournamentRepository(JdbcTemplate jdbc, TenantContext tenantContext) {
         this.jdbc = jdbc;
@@ -71,28 +69,16 @@ public class DefaultTournamentRepository implements TournamentRepository {
     /**
      * {@inheritDoc}
      *
-     * <p>Inserts if new (no existing row with this id+tenantId), updates otherwise. Tenant scoping
-     * is enforced — the entity's tenantId is set to the current tenant before insert.
+     * <p>Inserts if new (no existing row with this id), updates otherwise. Tenant scoping is
+     * enforced — the entity's tenantId is set to the current tenant before insert.
      */
     @Override
     public Tournament save(Tournament tournament) {
         UUID currentTenantId = tenantContext.current();
         tournament.setTenantId(currentTenantId);
 
-        boolean exists =
-                Boolean.TRUE.equals(
-                        jdbc.queryForObject(
-                                                EXISTS_BY_ID,
-                                                Integer.class,
-                                                tournament.getId(),
-                                                currentTenantId)
-                                        != null
-                                && jdbc.queryForObject(
-                                                EXISTS_BY_ID,
-                                                Integer.class,
-                                                tournament.getId(),
-                                                currentTenantId)
-                                        > 0);
+        Integer count = jdbc.queryForObject(EXISTS_BY_ID, Integer.class, tournament.getId());
+        boolean exists = count != null && count > 0;
 
         if (exists) {
             jdbc.update(
@@ -108,8 +94,7 @@ public class DefaultTournamentRepository implements TournamentRepository {
                     tournament.getTeamCount(),
                     tournament.getPlannedStartTime(),
                     tournament.getDraftJson(),
-                    tournament.getId(),
-                    currentTenantId);
+                    tournament.getId());
         } else {
             jdbc.update(
                     INSERT_SQL,
@@ -136,23 +121,20 @@ public class DefaultTournamentRepository implements TournamentRepository {
     /** {@inheritDoc} */
     @Override
     public Optional<Tournament> findById(UUID id) {
-        UUID tenantId = tenantContext.current();
-        List<Tournament> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id, tenantId);
+        List<Tournament> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
     /** {@inheritDoc} */
     @Override
     public List<Tournament> findAll() {
-        UUID tenantId = tenantContext.current();
-        return jdbc.query(SELECT_ALL, ROW_MAPPER, tenantId);
+        return jdbc.query(SELECT_ALL, ROW_MAPPER);
     }
 
     /** {@inheritDoc} */
     @Override
     public void deleteById(UUID id) {
-        UUID tenantId = tenantContext.current();
-        jdbc.update(DELETE_BY_ID, id, tenantId);
+        jdbc.update(DELETE_BY_ID, id);
     }
 
     /**
@@ -160,7 +142,7 @@ public class DefaultTournamentRepository implements TournamentRepository {
      *
      * <p>Acquires a pessimistic DB row-lock via {@code SELECT … FOR UPDATE} on the {@code
      * tournament} table. Structural clone of {@link #findById(UUID)} with a {@code FOR UPDATE} SQL
-     * suffix — same RowMapper, same tenant-scope enforcement, same exception contract.
+     * suffix — same RowMapper, same exception contract.
      *
      * @throws IllegalArgumentException if no tournament with the given id exists for the current
      *     tenant
@@ -168,11 +150,9 @@ public class DefaultTournamentRepository implements TournamentRepository {
      */
     @Override
     public Tournament findByIdForUpdate(UUID id) {
-        UUID tenantId = tenantContext.current();
-        List<Tournament> results = jdbc.query(SELECT_BY_ID_FOR_UPDATE, ROW_MAPPER, id, tenantId);
+        List<Tournament> results = jdbc.query(SELECT_BY_ID_FOR_UPDATE, ROW_MAPPER, id);
         if (results.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Tournament not found for update: id=" + id + " tenant=" + tenantId);
+            throw new IllegalArgumentException("Tournament not found for update: id=" + id);
         }
         return results.get(0);
     }

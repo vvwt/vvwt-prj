@@ -42,19 +42,19 @@ public class DefaultDeviceRepository implements DeviceRepository {
     private static final String UPDATE_SQL =
             "UPDATE devices SET location_id=?, device_token=?, pin=?, device_type=?,"
                     + " assigned_field=?, status=?, last_seen_at=?, device_name=?,"
-                    + " configuration=? WHERE id=? AND tenant_id=?";
+                    + " configuration=? WHERE id=?";
 
-    private static final String SELECT_BY_ID = "SELECT * FROM devices WHERE id=? AND tenant_id=?";
+    private static final String SELECT_BY_ID = "SELECT * FROM devices WHERE id=?";
 
     private static final String SELECT_BY_TOKEN = "SELECT * FROM devices WHERE device_token=?";
 
-    private static final String SELECT_BY_PIN = "SELECT * FROM devices WHERE tenant_id=? AND pin=?";
+    private static final String SELECT_BY_PIN = "SELECT * FROM devices WHERE pin=?";
 
     private static final String SELECT_BY_LOCATION_AND_FIELD_WITH_LOCATION =
-            "SELECT * FROM devices WHERE tenant_id=? AND location_id=? AND assigned_field=?";
+            "SELECT * FROM devices WHERE location_id=? AND assigned_field=?";
 
     private static final String SELECT_BY_FIELD_NO_LOCATION =
-            "SELECT * FROM devices WHERE tenant_id=? AND location_id IS NULL AND assigned_field=?";
+            "SELECT * FROM devices WHERE location_id IS NULL AND assigned_field=?";
 
     private static final String SELECT_ALL_BY_TENANT = "SELECT * FROM devices WHERE tenant_id=?";
 
@@ -63,15 +63,13 @@ public class DefaultDeviceRepository implements DeviceRepository {
     private static final String COUNT_DISPLAY_BY_TENANT =
             "SELECT COUNT(*) FROM devices WHERE tenant_id=? AND device_type='DISPLAY'";
 
-    private static final String EXISTS_BY_ID =
-            "SELECT COUNT(*) FROM devices WHERE id=? AND tenant_id=?";
+    private static final String EXISTS_BY_ID = "SELECT COUNT(*) FROM devices WHERE id=?";
 
-    private static final String PIN_TAKEN =
-            "SELECT COUNT(*) FROM devices WHERE tenant_id=? AND pin=?";
+    private static final String PIN_TAKEN = "SELECT COUNT(*) FROM devices WHERE pin=?";
 
-    private static final String DELETE_BY_ID = "DELETE FROM devices WHERE id=? AND tenant_id=?";
+    private static final String DELETE_BY_ID = "DELETE FROM devices WHERE id=?";
 
-    private static final String DELETE_ALL_BY_TENANT = "DELETE FROM devices WHERE tenant_id=?";
+    private static final String DELETE_ALL_BY_TENANT = "DELETE FROM devices";
 
     private static final String COUNT_LOCATION_BY_TENANT =
             "SELECT COUNT(*) FROM locations WHERE id=? AND tenant_id=?";
@@ -87,8 +85,7 @@ public class DefaultDeviceRepository implements DeviceRepository {
         UUID currentTenantId = tenantContext.current();
         device.setTenantId(currentTenantId);
 
-        Integer existsCount =
-                jdbc.queryForObject(EXISTS_BY_ID, Integer.class, device.getId(), currentTenantId);
+        Integer existsCount = jdbc.queryForObject(EXISTS_BY_ID, Integer.class, device.getId());
         boolean exists = existsCount != null && existsCount > 0;
 
         if (exists) {
@@ -103,8 +100,7 @@ public class DefaultDeviceRepository implements DeviceRepository {
                     device.getLastSeenAt(),
                     device.getDeviceName(),
                     device.getConfiguration(),
-                    device.getId(),
-                    currentTenantId);
+                    device.getId());
         } else {
             jdbc.update(
                     INSERT_SQL,
@@ -129,8 +125,7 @@ public class DefaultDeviceRepository implements DeviceRepository {
     /** {@inheritDoc} */
     @Override
     public Optional<Device> findById(UUID id) {
-        UUID tenantId = tenantContext.current();
-        List<Device> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id, tenantId);
+        List<Device> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
@@ -144,24 +139,21 @@ public class DefaultDeviceRepository implements DeviceRepository {
     /** {@inheritDoc} */
     @Override
     public Optional<Device> findByPin(String pin) {
-        UUID tenantId = tenantContext.current();
-        List<Device> results = jdbc.query(SELECT_BY_PIN, ROW_MAPPER, tenantId, pin);
+        List<Device> results = jdbc.query(SELECT_BY_PIN, ROW_MAPPER, pin);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
     /** {@inheritDoc} */
     @Override
     public Optional<Device> findByLocationAndField(UUID locationId, int assignedField) {
-        UUID tenantId = tenantContext.current();
         List<Device> results;
         if (locationId == null) {
-            results = jdbc.query(SELECT_BY_FIELD_NO_LOCATION, ROW_MAPPER, tenantId, assignedField);
+            results = jdbc.query(SELECT_BY_FIELD_NO_LOCATION, ROW_MAPPER, assignedField);
         } else {
             results =
                     jdbc.query(
                             SELECT_BY_LOCATION_AND_FIELD_WITH_LOCATION,
                             ROW_MAPPER,
-                            tenantId,
                             locationId,
                             assignedField);
         }
@@ -191,16 +183,14 @@ public class DefaultDeviceRepository implements DeviceRepository {
     /** {@inheritDoc} */
     @Override
     public boolean isPinTaken(String pin) {
-        UUID tenantId = tenantContext.current();
-        Integer count = jdbc.queryForObject(PIN_TAKEN, Integer.class, tenantId, pin);
+        Integer count = jdbc.queryForObject(PIN_TAKEN, Integer.class, pin);
         return count != null && count > 0;
     }
 
     /** {@inheritDoc} */
     @Override
     public void deleteById(UUID id) {
-        UUID tenantId = tenantContext.current();
-        jdbc.update(DELETE_BY_ID, id, tenantId);
+        jdbc.update(DELETE_BY_ID, id);
     }
 
     /** {@inheritDoc} */
@@ -214,8 +204,7 @@ public class DefaultDeviceRepository implements DeviceRepository {
     /** {@inheritDoc} */
     @Override
     public void deleteAllByTenant() {
-        UUID tenantId = tenantContext.current();
-        jdbc.update(DELETE_ALL_BY_TENANT, tenantId);
+        jdbc.update(DELETE_ALL_BY_TENANT);
     }
 
     // -------------------------------------------------------------------------

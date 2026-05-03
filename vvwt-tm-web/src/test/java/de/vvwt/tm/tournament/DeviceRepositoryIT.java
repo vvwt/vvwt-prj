@@ -264,6 +264,23 @@ class DeviceRepositoryIT {
                 .noneMatch(row -> deletedId.equals(row.getColumnValue("ID").getValue()));
     }
 
+    /**
+     * E45S03 — DEC-41 Snapshot-Driven: WHERE tenant_id predicate removed from findById.
+     * Post-removal, findById executes without tenant_id in the WHERE clause; isolation via DEC-20
+     * routing.
+     */
+    @Test
+    @DisplayName("E45S03: findById executes without tenant_id WHERE predicate (DEC-20 isolates)")
+    void e45s03_findById_noTenantPredicate_returnsRow() {
+        UUID id = UUID.randomUUID();
+        insertDeviceDirectly(id, tenantId, "token-e45s03", "7777", Device.TYPE_SCORING_TABLET);
+
+        Optional<Device> result = deviceRepository.findById(id);
+
+        assertThat(result).isPresent();
+        assertThat(result.get().getId()).isEqualTo(id);
+    }
+
     // =========================================================================
     // Helpers
     // =========================================================================

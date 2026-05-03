@@ -43,30 +43,27 @@ public class DefaultMatchRepository implements MatchRepository {
             "UPDATE match SET tournament_id=?, phase_id=?, member_avatar_1_id=?,"
                     + " member_avatar_2_id=?, state=?, set_limit=?, lap_number=?, field_number=?,"
                     + " referee_team_id=?, referee_description=?, referee_preference_config=?"
-                    + " WHERE id=? AND tenant_id=?";
+                    + " WHERE id=?";
 
-    private static final String SELECT_BY_ID = "SELECT * FROM match WHERE id=? AND tenant_id=?";
+    private static final String SELECT_BY_ID = "SELECT * FROM match WHERE id=?";
 
-    private static final String SELECT_ALL = "SELECT * FROM match WHERE tenant_id=?";
+    private static final String SELECT_ALL = "SELECT * FROM match";
 
-    private static final String SELECT_BY_PHASE =
-            "SELECT * FROM match WHERE phase_id=? AND tenant_id=?";
+    private static final String SELECT_BY_PHASE = "SELECT * FROM match WHERE phase_id=?";
 
     private static final String SELECT_BY_FIELD_LAP =
-            "SELECT * FROM match WHERE field_number=? AND lap_number=? AND tenant_id=?";
+            "SELECT * FROM match WHERE field_number=? AND lap_number=?";
 
     private static final String SELECT_TERMINAL_BY_PHASE_AND_AVATAR =
-            "SELECT * FROM match WHERE phase_id=? AND tenant_id=?"
+            "SELECT * FROM match WHERE phase_id=?"
                     + " AND (member_avatar_1_id=? OR member_avatar_2_id=?)"
                     + " AND state IN (50, 51, 52)";
 
-    private static final String DELETE_BY_PHASE =
-            "DELETE FROM match WHERE phase_id=? AND tenant_id=?";
+    private static final String DELETE_BY_PHASE = "DELETE FROM match WHERE phase_id=?";
 
-    private static final String DELETE_BY_ID = "DELETE FROM match WHERE id=? AND tenant_id=?";
+    private static final String DELETE_BY_ID = "DELETE FROM match WHERE id=?";
 
-    private static final String EXISTS_BY_ID =
-            "SELECT COUNT(*) FROM match WHERE id=? AND tenant_id=?";
+    private static final String EXISTS_BY_ID = "SELECT COUNT(*) FROM match WHERE id=?";
 
     public DefaultMatchRepository(JdbcTemplate jdbc, TenantContext tenantContext) {
         this.jdbc = jdbc;
@@ -79,8 +76,7 @@ public class DefaultMatchRepository implements MatchRepository {
         UUID currentTenantId = tenantContext.current();
         match.setTenantId(currentTenantId);
 
-        Integer count =
-                jdbc.queryForObject(EXISTS_BY_ID, Integer.class, match.getId(), currentTenantId);
+        Integer count = jdbc.queryForObject(EXISTS_BY_ID, Integer.class, match.getId());
         boolean exists = count != null && count > 0;
 
         if (exists) {
@@ -97,8 +93,7 @@ public class DefaultMatchRepository implements MatchRepository {
                     match.getRefereeTeamId(),
                     match.getRefereeDescription(),
                     match.getRefereePreferenceConfig(),
-                    match.getId(),
-                    currentTenantId);
+                    match.getId());
         } else {
             jdbc.update(
                     INSERT_SQL,
@@ -123,57 +118,45 @@ public class DefaultMatchRepository implements MatchRepository {
     /** {@inheritDoc} */
     @Override
     public Optional<Match> findById(UUID id) {
-        UUID tenantId = tenantContext.current();
-        List<Match> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id, tenantId);
+        List<Match> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
     /** {@inheritDoc} */
     @Override
     public List<Match> findAll() {
-        UUID tenantId = tenantContext.current();
-        return jdbc.query(SELECT_ALL, ROW_MAPPER, tenantId);
+        return jdbc.query(SELECT_ALL, ROW_MAPPER);
     }
 
     /** {@inheritDoc} */
     @Override
     public List<Match> findByPhaseId(UUID phaseId) {
-        UUID tenantId = tenantContext.current();
-        return jdbc.query(SELECT_BY_PHASE, ROW_MAPPER, phaseId, tenantId);
+        return jdbc.query(SELECT_BY_PHASE, ROW_MAPPER, phaseId);
     }
 
     /** {@inheritDoc} */
     @Override
     public List<Match> findByFieldNumberAndLapNumber(int fieldNumber, int lapNumber) {
-        UUID tenantId = tenantContext.current();
-        return jdbc.query(SELECT_BY_FIELD_LAP, ROW_MAPPER, fieldNumber, lapNumber, tenantId);
+        return jdbc.query(SELECT_BY_FIELD_LAP, ROW_MAPPER, fieldNumber, lapNumber);
     }
 
     /** {@inheritDoc} */
     @Override
     public List<Match> findTerminalByPhaseIdAndAvatarId(UUID phaseId, UUID avatarId) {
-        UUID tenantId = tenantContext.current();
         return jdbc.query(
-                SELECT_TERMINAL_BY_PHASE_AND_AVATAR,
-                ROW_MAPPER,
-                phaseId,
-                tenantId,
-                avatarId,
-                avatarId);
+                SELECT_TERMINAL_BY_PHASE_AND_AVATAR, ROW_MAPPER, phaseId, avatarId, avatarId);
     }
 
     /** {@inheritDoc} */
     @Override
     public void deleteByPhaseId(UUID phaseId) {
-        UUID tenantId = tenantContext.current();
-        jdbc.update(DELETE_BY_PHASE, phaseId, tenantId);
+        jdbc.update(DELETE_BY_PHASE, phaseId);
     }
 
     /** {@inheritDoc} */
     @Override
     public void deleteById(UUID id) {
-        UUID tenantId = tenantContext.current();
-        jdbc.update(DELETE_BY_ID, id, tenantId);
+        jdbc.update(DELETE_BY_ID, id);
     }
 
     // -------------------------------------------------------------------------

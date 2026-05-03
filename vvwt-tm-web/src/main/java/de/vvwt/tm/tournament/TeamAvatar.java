@@ -90,6 +90,31 @@ public class TeamAvatar {
         this.createdAt = createdAt;
     }
 
+    /**
+     * Service-layer constructor — tenantId omitted; set by the repository from active {@link
+     * de.vvwt.tm.tenant.TenantContext} on save (E45S03).
+     */
+    public TeamAvatar(
+            UUID id,
+            UUID tournamentId,
+            UUID phaseId,
+            int groupNumber,
+            int groupPosition,
+            UUID teamId,
+            String description,
+            LocalDateTime createdAt) {
+        this(
+                id,
+                null,
+                tournamentId,
+                phaseId,
+                groupNumber,
+                groupPosition,
+                teamId,
+                description,
+                createdAt);
+    }
+
     // -------------------------------------------------------------------------
     // Getters and setters
     // -------------------------------------------------------------------------

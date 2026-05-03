@@ -133,6 +133,29 @@ public class Phase {
         this.createdAt = createdAt;
     }
 
+    /**
+     * Service-layer constructor — tenantId omitted; set by the repository from active {@link
+     * de.vvwt.tm.tenant.TenantContext} on save (E45S03).
+     */
+    public Phase(
+            UUID id,
+            UUID tournamentId,
+            int sequenceNumber,
+            String description,
+            String status,
+            int currentLapNumber,
+            LocalDateTime createdAt) {
+        this(
+                id,
+                null,
+                tournamentId,
+                sequenceNumber,
+                description,
+                status,
+                currentLapNumber,
+                createdAt);
+    }
+
     // -------------------------------------------------------------------------
     // Accessors
     // -------------------------------------------------------------------------

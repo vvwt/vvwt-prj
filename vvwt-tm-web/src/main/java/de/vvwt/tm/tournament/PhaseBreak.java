@@ -98,6 +98,15 @@ public class PhaseBreak {
         this.label = label;
     }
 
+    /**
+     * Service-layer constructor — tenantId omitted; set by the repository from active {@link
+     * de.vvwt.tm.tenant.TenantContext} on save (E45S03).
+     */
+    public PhaseBreak(
+            UUID id, UUID phaseId, int afterLapNumber, int durationMinutes, String label) {
+        this(id, null, phaseId, afterLapNumber, durationMinutes, label);
+    }
+
     // -------------------------------------------------------------------------
     // Accessors
     // -------------------------------------------------------------------------

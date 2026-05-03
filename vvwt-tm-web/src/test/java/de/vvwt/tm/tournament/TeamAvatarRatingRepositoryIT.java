@@ -206,6 +206,22 @@ class TeamAvatarRatingRepositoryIT {
                 .noneMatch(row -> avatarId.equals(row.getColumnValue("AVATAR_ID").getValue()));
     }
 
+    /**
+     * E45S03 — DEC-41 Snapshot-Driven: WHERE tenant_id predicate removed from findByAvatarId.
+     * Post-removal, findByAvatarId executes without tenant_id in the WHERE clause.
+     */
+    @Test
+    @DisplayName(
+            "E45S03: findByAvatarId executes without tenant_id WHERE predicate (DEC-20 isolates)")
+    void e45s03_findByAvatarId_noTenantPredicate_returnsRow() {
+        insertRatingDirectly(avatarId, 15, 5, 1, 5.0, 2.0);
+
+        Optional<TeamAvatarRating> result = teamAvatarRatingRepository.findByAvatarId(avatarId);
+
+        assertThat(result).isPresent();
+        assertThat(result.get().getAvatarId()).isEqualTo(avatarId);
+    }
+
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------

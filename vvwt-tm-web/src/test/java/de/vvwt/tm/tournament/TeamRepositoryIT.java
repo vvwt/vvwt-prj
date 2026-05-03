@@ -242,6 +242,23 @@ class TeamRepositoryIT {
         assertThat(teamRepository.teamNumberExists(tournamentId, 6, excludeId)).isFalse();
     }
 
+    /**
+     * E45S03 — DEC-41 Snapshot-Driven: WHERE tenant_id predicate removed from findById.
+     * Post-removal, findById executes without tenant_id in the WHERE clause; isolation via DEC-20
+     * routing.
+     */
+    @Test
+    @DisplayName("E45S03: findById executes without tenant_id WHERE predicate (DEC-20 isolates)")
+    void e45s03_findById_noTenantPredicate_returnsRow() {
+        UUID id = UUID.randomUUID();
+        insertTeamDirectly(id, tenantId, tournamentId, 99, "E45S03-team");
+
+        Optional<Team> result = teamRepository.findById(id);
+
+        assertThat(result).isPresent();
+        assertThat(result.get().getId()).isEqualTo(id);
+    }
+
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
