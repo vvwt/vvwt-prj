@@ -23,6 +23,12 @@ import org.springframework.stereotype.Repository;
  *   <li>DEC-46 scope extension: three rules apply to this table per DEC-46 clause #1.
  * </ul>
  *
+ * <p>E45S04 — DEC-39/DEC-50 predicate removal: {@code tenant_id = ?} WHERE predicates removed from
+ * SELECT/UPDATE operations. {@code upsertRegistration} retains {@code tenantId} parameter
+ * (INSERT/MERGE side, AC-INSERT-UPDATE-UNTOUCHED). Under DEC-20 DB-per-Tenant, connection-level
+ * routing ensures all rows in the per-tenant DataSource belong to the bound tenant — the
+ * discriminator predicate is redundant.
+ *
  * @see <a
  *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09
  *     AC12</a>
@@ -43,6 +49,12 @@ public class InfoPortalStateDao {
     /**
      * Upsert a registration row. If the row already exists (same PK), it is updated with the new
      * token and secret. {@code last_published_seq} is preserved on update (not reset to 0).
+     *
+     * <p>{@code tenantId} is retained in this method signature (AC-INSERT-UPDATE-UNTOUCHED,
+     * E45S04): the MERGE KEY includes {@code tenant_id} as part of the 3-column PK {@code
+     * (tenant_id, location_id, tournament_id)}; the INSERT side writes the tenant_id column value;
+     * the COALESCE sub-select preserves the existing seq for upsert semantics. These
+     * INSERT/MERGE-side writes remain until the Wave-2 Big-Bang-Reset (DEC-50 S05).
      *
      * @param tenantId tenant identifier
      * @param locationId location identifier
@@ -83,30 +95,30 @@ public class InfoPortalStateDao {
      *
      * <p>TM assigns seq BEFORE posting to info-server. This is the production seq-generation path.
      *
+     * <p>E45S04 — DEC-39/DEC-50: {@code tenantId} param removed; {@code tenant_id = ?} WHERE
+     * predicate dropped. Per DEC-20 DB-per-Tenant, connection-level routing guarantees all rows
+     * belong to the bound tenant.
+     *
      * @return the new (incremented) sequence number
      * @throws IllegalStateException if the tournament row is not found
      */
-    public long incrementAndGetSeq(String tenantId, String locationId, String tournamentId) {
+    public long incrementAndGetSeq(String locationId, String tournamentId) {
         // H2 supports UPDATE ... SET col = col + 1; then SELECT for updated value
         jdbc.update(
                 "UPDATE info_portal_state SET last_published_seq = last_published_seq + 1"
-                        + " WHERE tenant_id = ? AND location_id = ? AND tournament_id = ?",
-                tenantId,
+                        + " WHERE location_id = ? AND tournament_id = ?",
                 locationId,
                 tournamentId);
         Long seq =
                 jdbc.queryForObject(
                         "SELECT last_published_seq FROM info_portal_state"
-                                + " WHERE tenant_id = ? AND location_id = ? AND tournament_id = ?",
+                                + " WHERE location_id = ? AND tournament_id = ?",
                         Long.class,
-                        tenantId,
                         locationId,
                         tournamentId);
         if (seq == null) {
             throw new IllegalStateException(
                     "Tournament row not found for seq increment: "
-                            + tenantId
-                            + "/"
                             + locationId
                             + "/"
                             + tournamentId);
@@ -117,34 +129,44 @@ public class InfoPortalStateDao {
     /**
      * Returns the current {@code last_published_seq} without incrementing. Used for snapshot-post
      * payloads (seq NOT reset on FULL_RESYNC per AC12).
+     *
+     * <p>E45S04 — DEC-39/DEC-50: {@code tenantId} param removed; {@code tenant_id = ?} WHERE
+     * predicate dropped.
      */
-    public long findCurrentSeq(String tenantId, String locationId, String tournamentId) {
+    public long findCurrentSeq(String locationId, String tournamentId) {
         Long seq =
                 jdbc.queryForObject(
                         "SELECT last_published_seq FROM info_portal_state"
-                                + " WHERE tenant_id = ? AND location_id = ? AND tournament_id = ?",
+                                + " WHERE location_id = ? AND tournament_id = ?",
                         Long.class,
-                        tenantId,
                         locationId,
                         tournamentId);
         return seq != null ? seq : 0L;
     }
 
-    /** Updates {@code last_published_at} to the given instant after a successful publish. */
-    public void updateLastPublishedAt(
-            String tenantId, String locationId, String tournamentId, Instant at) {
+    /**
+     * Updates {@code last_published_at} to the given instant after a successful publish.
+     *
+     * <p>E45S04 — DEC-39/DEC-50: {@code tenantId} param removed; {@code tenant_id = ?} WHERE
+     * predicate dropped.
+     */
+    public void updateLastPublishedAt(String locationId, String tournamentId, Instant at) {
         jdbc.update(
                 "UPDATE info_portal_state SET last_published_at = ?"
-                        + " WHERE tenant_id = ? AND location_id = ? AND tournament_id = ?",
+                        + " WHERE location_id = ? AND tournament_id = ?",
                 java.sql.Timestamp.from(at),
-                tenantId,
                 locationId,
                 tournamentId);
     }
 
-    /** Finds the state record for a specific tournament. Returns empty if not registered. */
+    /**
+     * Finds the state record for a specific tournament. Returns empty if not registered.
+     *
+     * <p>E45S04 — DEC-39/DEC-50: {@code tenantId} param removed; {@code tenant_id = ?} WHERE
+     * predicate dropped.
+     */
     public Optional<InfoPortalStateRecord> findByTournament(
-            String tenantId, String locationId, String tournamentId) {
+            String locationId, String tournamentId) {
         try {
             InfoPortalStateRecord rec =
                     jdbc.queryForObject(
@@ -153,7 +175,7 @@ public class InfoPortalStateDao {
                                     + " per_tournament_secret, last_published_at,"
                                     + " registration_status"
                                     + " FROM info_portal_state"
-                                    + " WHERE tenant_id = ? AND location_id = ?"
+                                    + " WHERE location_id = ?"
                                     + "   AND tournament_id = ?",
                             (rs, rowNum) ->
                                     new InfoPortalStateRecord(
@@ -168,7 +190,6 @@ public class InfoPortalStateDao {
                                                             .toInstant()
                                                     : null,
                                             rs.getString("registration_status")),
-                            tenantId,
                             locationId,
                             tournamentId);
             return Optional.ofNullable(rec);

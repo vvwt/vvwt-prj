@@ -208,8 +208,7 @@ public class CertificateRenderController {
                         .findFirst()
                         .orElseThrow(() -> new TournamentNotFoundException(teamId));
 
-        String locationDisplayName =
-                locationDisplayResolver.resolveLocationDisplayName(tenantContext.current());
+        String locationDisplayName = locationDisplayResolver.resolveLocationDisplayName();
 
         CertificateTemplateService.TemplateFile templateFile = templateOpt.get();
         String format = templateFile.metadata().format();
@@ -310,8 +309,7 @@ public class CertificateRenderController {
                                     + " Spiele.");
         }
 
-        String locationDisplayName =
-                locationDisplayResolver.resolveLocationDisplayName(tenantContext.current());
+        String locationDisplayName = locationDisplayResolver.resolveLocationDisplayName();
 
         CertificateTemplateService.TemplateFile templateFile = templateOpt.get();
         String format = templateFile.metadata().format();

@@ -26,6 +26,11 @@ import org.junit.jupiter.api.Test;
  *   <li>Rule 3 — JDBC direct-insert for read-path fixture (not DAO write method)
  * </ol>
  *
+ * <p>E45S04 — DEC-39/DEC-50 predicate removal: {@code tenantId} param dropped from {@code
+ * incrementAndGetSeq}, {@code findCurrentSeq}, {@code updateLastPublishedAt}, and {@code
+ * findByTournament}. {@code upsertRegistration} retains {@code tenantId} (INSERT/MERGE side,
+ * AC-INSERT-UPDATE-UNTOUCHED).
+ *
  * @see <a
  *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09
  *     AC12</a>
@@ -89,8 +94,8 @@ class InfoPortalStateDaoIT {
         // GIVEN — row with last_published_seq = 0
         dao.upsertRegistration("t", "l", "tour-2", "tok", new byte[] {1});
 
-        // WHEN
-        long seq = dao.incrementAndGetSeq("t", "l", "tour-2");
+        // WHEN — E45S04: tenantId param dropped (DEC-39/DEC-50)
+        long seq = dao.incrementAndGetSeq("l", "tour-2");
 
         // THEN
         assertThat(seq).isEqualTo(1L);
@@ -100,9 +105,10 @@ class InfoPortalStateDaoIT {
     void incrementAndGetSeq_incrementsMonotonically() {
         dao.upsertRegistration("t", "l", "tour-3", "tok", new byte[] {1});
 
-        long seq1 = dao.incrementAndGetSeq("t", "l", "tour-3");
-        long seq2 = dao.incrementAndGetSeq("t", "l", "tour-3");
-        long seq3 = dao.incrementAndGetSeq("t", "l", "tour-3");
+        // E45S04: tenantId param dropped
+        long seq1 = dao.incrementAndGetSeq("l", "tour-3");
+        long seq2 = dao.incrementAndGetSeq("l", "tour-3");
+        long seq3 = dao.incrementAndGetSeq("l", "tour-3");
 
         assertThat(seq1).isEqualTo(1L);
         assertThat(seq2).isEqualTo(2L);
@@ -114,7 +120,8 @@ class InfoPortalStateDaoIT {
         dao.upsertRegistration("t", "l", "tour-4", "tok", new byte[] {1});
         Instant now = Instant.now();
 
-        dao.updateLastPublishedAt("t", "l", "tour-4", now);
+        // E45S04: tenantId param dropped
+        dao.updateLastPublishedAt("l", "tour-4", now);
 
         // DEC-26 Rule 2: assertj-db row count (structural check — timestamp value not easily
         // compared via assertj-db; correctness verified by read-path test below)
@@ -141,7 +148,8 @@ class InfoPortalStateDaoIT {
                         "per_tournament_secret", new byte[] {5, 6},
                         "registration_status", "REGISTERED"));
 
-        Optional<InfoPortalStateRecord> found = dao.findByTournament("t2", "l2", "tour-read-1");
+        // E45S04: tenantId param dropped
+        Optional<InfoPortalStateRecord> found = dao.findByTournament("l2", "tour-read-1");
 
         assertThat(found).isPresent();
         assertThat(found.get().tournamentToken()).isEqualTo("read-tok");
@@ -151,7 +159,8 @@ class InfoPortalStateDaoIT {
 
     @Test
     void findByTournament_returnsEmpty_whenNoRow() {
-        Optional<InfoPortalStateRecord> found = dao.findByTournament("none", "none", "none");
+        // E45S04: tenantId param dropped
+        Optional<InfoPortalStateRecord> found = dao.findByTournament("none", "none");
         assertThat(found).isEmpty();
     }
 
@@ -169,7 +178,8 @@ class InfoPortalStateDaoIT {
                         "per_tournament_secret", new byte[] {9},
                         "registration_status", "REGISTERED"));
 
-        long seq = dao.findCurrentSeq("t3", "l3", "tour-seq-1");
+        // E45S04: tenantId param dropped
+        long seq = dao.findCurrentSeq("l3", "tour-seq-1");
 
         assertThat(seq).isEqualTo(42L);
     }

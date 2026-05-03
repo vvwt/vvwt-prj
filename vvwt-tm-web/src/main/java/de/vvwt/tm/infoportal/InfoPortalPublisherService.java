@@ -207,8 +207,7 @@ public class InfoPortalPublisherService {
         }
 
         Optional<InfoPortalStateRecord> stateOpt =
-                stateDao.findByTournament(
-                        properties.getTenantId(), properties.getLocationId(), tournamentId);
+                stateDao.findByTournament(properties.getLocationId(), tournamentId);
         if (stateOpt.isEmpty()) {
             log.warn(
                     "[InfoPortal] No registration found for tournament '{}' — cannot publish delta",
@@ -218,9 +217,7 @@ public class InfoPortalPublisherService {
 
         try {
             // Atomic seq increment BEFORE posting (AC12)
-            long seq =
-                    stateDao.incrementAndGetSeq(
-                            properties.getTenantId(), properties.getLocationId(), tournamentId);
+            long seq = stateDao.incrementAndGetSeq(properties.getLocationId(), tournamentId);
 
             Envelope<String> envelope = new Envelope<>(Envelope.SCHEMA_VERSION, eventJson);
             String envelopeJson = objectMapper.writeValueAsString(envelope);
@@ -245,11 +242,7 @@ public class InfoPortalPublisherService {
                     new HttpEntity<>(envelopeJson, headers),
                     Object.class);
 
-            stateDao.updateLastPublishedAt(
-                    properties.getTenantId(),
-                    properties.getLocationId(),
-                    tournamentId,
-                    Instant.now());
+            stateDao.updateLastPublishedAt(properties.getLocationId(), tournamentId, Instant.now());
             status.recordPublishSuccess();
 
         } catch (HttpClientErrorException e) {
@@ -285,9 +278,7 @@ public class InfoPortalPublisherService {
     public void postSnapshot(String tournamentId, String snapshotJson) {
         try {
             // Seq NOT reset (AC12): carry current seq in snapshot
-            long currentSeq =
-                    stateDao.findCurrentSeq(
-                            properties.getTenantId(), properties.getLocationId(), tournamentId);
+            long currentSeq = stateDao.findCurrentSeq(properties.getLocationId(), tournamentId);
 
             String snapshotPayload =
                     "{\"sequenceNumber\":" + currentSeq + ",\"state\":" + snapshotJson + "}";

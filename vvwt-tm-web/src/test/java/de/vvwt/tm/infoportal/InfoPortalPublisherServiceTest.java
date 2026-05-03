@@ -131,9 +131,8 @@ class InfoPortalPublisherServiceTest {
                         new byte[] {1},
                         null,
                         "REGISTERED");
-        when(stateDao.findByTournament("tenant-1", "venue-1", tournamentId))
-                .thenReturn(Optional.of(stateRec));
-        when(stateDao.incrementAndGetSeq("tenant-1", "venue-1", tournamentId)).thenReturn(6L);
+        when(stateDao.findByTournament("venue-1", tournamentId)).thenReturn(Optional.of(stateRec));
+        when(stateDao.incrementAndGetSeq("venue-1", tournamentId)).thenReturn(6L);
 
         when(restTemplate.postForEntity(anyString(), any(), eq(Object.class)))
                 .thenThrow(
@@ -161,10 +160,9 @@ class InfoPortalPublisherServiceTest {
                         new byte[] {1},
                         null,
                         "REGISTERED");
-        when(stateDao.findByTournament("tenant-1", "venue-1", tournamentId))
-                .thenReturn(Optional.of(stateRec));
-        when(stateDao.incrementAndGetSeq("tenant-1", "venue-1", tournamentId)).thenReturn(4L);
-        when(stateDao.findCurrentSeq("tenant-1", "venue-1", tournamentId)).thenReturn(3L);
+        when(stateDao.findByTournament("venue-1", tournamentId)).thenReturn(Optional.of(stateRec));
+        when(stateDao.incrementAndGetSeq("venue-1", tournamentId)).thenReturn(4L);
+        when(stateDao.findCurrentSeq("venue-1", tournamentId)).thenReturn(3L);
 
         // First call (delta): 409; second call (snapshot): success
         when(restTemplate.postForEntity(anyString(), any(), eq(Object.class)))
@@ -196,9 +194,8 @@ class InfoPortalPublisherServiceTest {
                         new byte[] {1},
                         null,
                         "REGISTERED");
-        when(stateDao.findByTournament("tenant-1", "venue-1", tournamentId))
-                .thenReturn(Optional.of(stateRec));
-        when(stateDao.incrementAndGetSeq("tenant-1", "venue-1", tournamentId)).thenReturn(2L);
+        when(stateDao.findByTournament("venue-1", tournamentId)).thenReturn(Optional.of(stateRec));
+        when(stateDao.incrementAndGetSeq("venue-1", tournamentId)).thenReturn(2L);
 
         when(restTemplate.postForEntity(anyString(), any(), eq(Object.class)))
                 .thenThrow(
