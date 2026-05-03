@@ -1,6 +1,9 @@
 package de.vvwt.tm.certificate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -17,18 +20,26 @@ import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.MessageSource;
 
 /**
- * Interface contract tests for {@link CertificateAssembler} — E23S08, DEC-22 Q-1a RED-first.
+ * Interface contract tests for {@link CertificateAssembler} — E23S08 + E46S03, DEC-22 Q-1a
+ * RED-first.
  *
  * <p>These tests were authored RED-first against the non-existent {@code CertificateAssembler}
  * interface (DEC-22 Iron Law). They went RED (compile failure) at Step 2 of E23S08 execution and
  * GREEN after the interface and {@code DefaultCertificateAssembler} implementation were created.
+ *
+ * <p><b>E46S03 extension:</b> {@code toMustacheMap_returnsAllKeys} updated to assert the 13 {@code
+ * tom_}-prefixed keys (RED-first: the test failed against the unchanged production code before
+ * {@code buildMustacheMap} was rewritten). New test methods for labels, organizer, and locale-aware
+ * date were added under the same RED-first discipline.
  *
  * <p>Per DEC-36: this test class is in {@code de.vvwt.tm.certificate} — a DIFFERENT package than
  * the implementation at {@code de.vvwt.tm.certificate.internal.DefaultCertificateAssembler}.
@@ -38,12 +49,13 @@ import org.junit.jupiter.api.Test;
  * <p>Per DEC-41: the {@code computePlacementOrder_resultMatchesTeamAvatarRatingNaturalOrder} test
  * asserts a named algebraic invariant (criterion d): the result ordering is determined by {@code
  * TeamAvatarRating.compareTo} natural ordering, verified over a representative 3-team input set.
- * This qualifies as Spec-Anchored observable form per DEC-41 § 1(d).
+ * This qualifies as Spec-Anchored observable form per DEC-41 § 1(d). This test is PRESERVED
+ * UNCHANGED per AC-DEC41-OBSERVABLE-FORM-CLASSIFICATION.
  *
  * @see CertificateAssembler
- * @since E23S08
+ * @since E23S08 (updated E46S03)
  */
-@DisplayName("CertificateAssembler interface contract — E23S08 DEC-22 Q-1a")
+@DisplayName("CertificateAssembler interface contract — E23S08/E46S03 DEC-22 Q-1a")
 class CertificateAssemblerTest {
 
     // -------------------------------------------------------------------------
@@ -70,6 +82,8 @@ class CertificateAssemblerTest {
     private TeamRepository teamRepository;
     private PhotoStorageService photoStorageService;
     private PhotoUrlBuilder photoUrlBuilder;
+    private MessageSource messageSource;
+    private LocaleResolver localeResolver;
 
     /** DEC-36: field type is the PUBLIC interface. */
     private CertificateAssembler assembler;
@@ -124,18 +138,21 @@ class CertificateAssemblerTest {
     }
 
     private static Tournament makeTournament() {
-        return new Tournament(
-                TOURNAMENT_ID,
-                "Stadtmeisterschaft 2026",
-                "BEST_OF_3",
-                "setPoints",
-                "standardVolleyball",
-                "roundRobin",
-                "COMPLETED",
-                null,
-                LocalDateTime.of(2026, 4, 15, 9, 0),
-                4,
-                8);
+        Tournament t =
+                new Tournament(
+                        TOURNAMENT_ID,
+                        "Stadtmeisterschaft 2026",
+                        "BEST_OF_3",
+                        "setPoints",
+                        "standardVolleyball",
+                        "roundRobin",
+                        "COMPLETED",
+                        null,
+                        LocalDateTime.of(2026, 4, 15, 9, 0),
+                        4,
+                        8);
+        t.setOrganizer("Volleyball-Verein Musterstadt");
+        return t;
     }
 
     @BeforeEach
@@ -146,6 +163,16 @@ class CertificateAssemblerTest {
         teamRepository = mock(TeamRepository.class);
         photoStorageService = mock(PhotoStorageService.class);
         photoUrlBuilder = mock(PhotoUrlBuilder.class);
+        messageSource = mock(MessageSource.class);
+        localeResolver = mock(LocaleResolver.class);
+
+        // Stub messageSource for standard German labels
+        stubGermanLabels();
+
+        // Stub localeResolver to return GERMAN by default
+        when(localeResolver.resolveForTeam(any(UUID.class), any(UUID.class)))
+                .thenReturn(Locale.GERMAN);
+        when(localeResolver.resolveForTournament(any(UUID.class))).thenReturn(Locale.GERMAN);
 
         // DEC-36: the assembly uses DefaultCertificateAssembler but the declared type is the
         // interface — the test does NOT import the impl class at all (cross-package rule)
@@ -156,7 +183,24 @@ class CertificateAssemblerTest {
                         teamAvatarRatingRepository,
                         teamRepository,
                         photoStorageService,
-                        photoUrlBuilder);
+                        photoUrlBuilder,
+                        messageSource,
+                        localeResolver);
+    }
+
+    private void stubGermanLabels() {
+        when(messageSource.getMessage(eq("tom.label.certificate"), isNull(), any(Locale.class)))
+                .thenReturn("URKUNDE");
+        when(messageSource.getMessage(eq("tom.label.place"), isNull(), any(Locale.class)))
+                .thenReturn("PLATZ");
+        when(messageSource.getMessage(eq("tom.label.achieved_by"), isNull(), any(Locale.class)))
+                .thenReturn("erreicht von");
+        when(messageSource.getMessage(eq("tom.label.team_photo"), isNull(), any(Locale.class)))
+                .thenReturn("Mannschaftsfoto");
+        when(messageSource.getMessage(eq("tom.label.generated_by"), isNull(), any(Locale.class)))
+                .thenReturn("generated by");
+        when(messageSource.getMessage(eq("tom.label.on"), isNull(), any(Locale.class)))
+                .thenReturn("am");
     }
 
     // -------------------------------------------------------------------------
@@ -192,6 +236,8 @@ class CertificateAssemblerTest {
     // TeamAvatarRating.compareTo natural ordering (DEC-33 named invariant).
     // Verified over a representative 3-team input set (varying points, setQuotient,
     // withoutAssessment) to satisfy DEC-41 § 1(d) "quantified body".
+    //
+    // PRESERVED UNCHANGED per AC-DEC41-OBSERVABLE-FORM-CLASSIFICATION (E46S03).
     // -------------------------------------------------------------------------
 
     @Test
@@ -312,8 +358,8 @@ class CertificateAssemblerTest {
                     + " (AC-INTERFACE-CREATED)")
     void renderSvgTemplate_fillsPlaceholders() {
         String template =
-                "<svg><text>{{placement}}</text><text>{{teamName}}</text>"
-                        + "<image href=\"{{teamPhoto}}\"/><text>{{location}}</text></svg>";
+                "<svg><text>{{tom_placement}}</text><text>{{tom_team_name}}</text>"
+                        + "<image href=\"{{tom_team_photo}}\"/><text>{{tom_location}}</text></svg>";
         CertificatePlacementRow row =
                 new CertificatePlacementRow(
                         1,
@@ -322,7 +368,8 @@ class CertificateAssemblerTest {
                         "data:image/jpeg;base64,/9j/4AAQ==",
                         "Stadtmeisterschaft",
                         "15. April 2026",
-                        "Sporthalle");
+                        "Sporthalle",
+                        "Volleyball-Verein Musterstadt");
 
         String rendered = assembler.renderSvgTemplate(template, row);
 
@@ -336,25 +383,191 @@ class CertificateAssemblerTest {
     }
 
     // -------------------------------------------------------------------------
-    // AC-INTERFACE-CREATED: toMustacheMap
+    // AC-RED-FIRST-EVIDENCE-VARIABLE-RENAME + AC-MAP-CONTAINS-13-PREFIXED-KEYS
+    // AC-MAP-NO-UNPREFIXED-KEYS + AC-NO-BACKWARD-COMPAT-LAYER
+    //
+    // E46S03: test was UPDATED to assert 13 tom_-prefixed keys (RED-first:
+    // the test failed assertion "doesNotContainKey placement" against the old
+    // production code before buildMustacheMap was rewritten).
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("toMustacheMap: returns map with all 6 D-4 template variable keys")
+    @DisplayName("toMustacheMap: returns map with all 13 tom_-prefixed keys (E46S03 D-17 + D-16)")
     void toMustacheMap_returnsAllKeys() {
         CertificatePlacementRow row =
                 new CertificatePlacementRow(
-                        2, TEAM_B_ID, "Beta", "", "Tournament", "2026-04-15", "Location");
+                        2,
+                        TEAM_B_ID,
+                        "Beta",
+                        "",
+                        "Tournament",
+                        "2026-04-15",
+                        "Location",
+                        "Organizer Club");
 
         java.util.Map<String, Object> map = assembler.toMustacheMap(row);
 
+        // AC-MAP-CONTAINS-13-PREFIXED-KEYS: all 13 tom_-prefixed keys present
         assertThat(map)
-                .containsKey("placement")
-                .containsKey("teamName")
-                .containsKey("teamPhoto")
-                .containsKey("tournamentName")
-                .containsKey("date")
-                .containsKey("location")
-                .containsKey("hasPhoto");
+                .containsKey("tom_placement")
+                .containsKey("tom_team_name")
+                .containsKey("tom_team_photo")
+                .containsKey("tom_tournament_name")
+                .containsKey("tom_date")
+                .containsKey("tom_location")
+                .containsKey("tom_organizer")
+                .containsKey("tom_label_certificate")
+                .containsKey("tom_label_place")
+                .containsKey("tom_label_achieved_by")
+                .containsKey("tom_label_team_photo")
+                .containsKey("tom_label_generated_by")
+                .containsKey("tom_label_on");
+
+        // AC-MAP-NO-UNPREFIXED-KEYS: legacy keys absent
+        assertThat(map)
+                .doesNotContainKey("placement")
+                .doesNotContainKey("teamName")
+                .doesNotContainKey("teamPhoto")
+                .doesNotContainKey("tournamentName")
+                .doesNotContainKey("date")
+                .doesNotContainKey("location");
+
+        // AC-NO-BACKWARD-COMPAT-LAYER: all keys start with tom_
+        assertThat(map.keySet())
+                .allSatisfy(
+                        key ->
+                                assertThat(key)
+                                        .as("key '%s' must start with 'tom_'", key)
+                                        .startsWith("tom_"));
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-RED-FIRST-EVIDENCE-LABELS: 6 tom_label_* keys with MessageSource values
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName(
+            "toMustacheMap: 6 tom_label_* keys resolved via MessageSource (E46S03 D-13,"
+                    + " AC-LABELS-RESOLVED-AT-RENDER-TIME)")
+    void toMustacheMap_labelKeysResolvedViaMessageSource() {
+        CertificatePlacementRow row =
+                new CertificatePlacementRow(
+                        1,
+                        TEAM_A_ID,
+                        "Alpha",
+                        "",
+                        "Tournament",
+                        "15. April 2026",
+                        "Location",
+                        "Organizer");
+
+        java.util.Map<String, Object> map = assembler.toMustacheMap(row);
+
+        // AC-LABELS-V1-GERMAN-RESOLVED: values match German bundle
+        assertThat(map.get("tom_label_certificate")).isEqualTo("URKUNDE");
+        assertThat(map.get("tom_label_place")).isEqualTo("PLATZ");
+        assertThat(map.get("tom_label_achieved_by")).isEqualTo("erreicht von");
+        assertThat(map.get("tom_label_team_photo")).isEqualTo("Mannschaftsfoto");
+        assertThat(map.get("tom_label_generated_by")).isEqualTo("generated by");
+        assertThat(map.get("tom_label_on")).isEqualTo("am");
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-RED-FIRST-EVIDENCE-ORGANIZER: tom_organizer in map
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName(
+            "toMustacheMap: tom_organizer present with tournament organizer value"
+                    + " (E46S03 AC-ORGANIZER-IN-MAP)")
+    void toMustacheMap_organizerKeyPresentWithCorrectValue() {
+        CertificatePlacementRow row =
+                new CertificatePlacementRow(
+                        1,
+                        TEAM_A_ID,
+                        "Alpha",
+                        "",
+                        "Tournament",
+                        "15. April 2026",
+                        "Location",
+                        "Acme Sport Club");
+
+        java.util.Map<String, Object> map = assembler.toMustacheMap(row);
+
+        assertThat(map.get("tom_organizer")).isEqualTo("Acme Sport Club");
+    }
+
+    @Test
+    @DisplayName(
+            "toMustacheMap: tom_organizer is empty string when organizer is null"
+                    + " (E46S03 AC-ORGANIZER-IN-MAP null-handling)")
+    void toMustacheMap_organizerIsEmptyStringWhenNull() {
+        CertificatePlacementRow row =
+                new CertificatePlacementRow(
+                        1,
+                        TEAM_A_ID,
+                        "Alpha",
+                        "",
+                        "Tournament",
+                        "15. April 2026",
+                        "Location",
+                        null); // null organizer → must render as "" per defaultValue("")
+
+        java.util.Map<String, Object> map = assembler.toMustacheMap(row);
+
+        assertThat(map.get("tom_organizer")).isEqualTo("");
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-RED-FIRST-EVIDENCE-DATE-FORMATTER: locale-aware date
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName(
+            "buildSvgRows: tom_date is locale-aware — GERMAN locale produces long German date"
+                    + " (E46S03 AC-DATE-FORMATTER-LOCALE-AWARE)")
+    void buildSvgRows_dateFormattedForGermanLocale() {
+        Tournament tournament = makeTournament(); // appointment = 2026-04-15T09:00
+        when(teamRepository.findByTournamentId(TOURNAMENT_ID))
+                .thenReturn(List.of(makeTeam(TEAM_A_ID, "Alpha")));
+        when(photoStorageService.retrieve(TOURNAMENT_ID, TEAM_A_ID)).thenReturn(Optional.empty());
+        when(localeResolver.resolveForTeam(TOURNAMENT_ID, TEAM_A_ID)).thenReturn(Locale.GERMAN);
+
+        List<CertificatePlacementRow> rows =
+                assembler.buildSvgRows(
+                        tournament,
+                        List.of(
+                                new CertificateAssembler.AvatarPlacement(
+                                        1, TEAM_A_ID, AVATAR_A_ID)),
+                        "Sporthalle");
+
+        assertThat(rows).hasSize(1);
+        // FormatStyle.LONG for GERMAN: "15. April 2026"
+        assertThat(rows.get(0).date()).isEqualTo("15. April 2026");
+    }
+
+    @Test
+    @DisplayName(
+            "buildSvgRows: tom_date uses FormatStyle.LONG for non-DE locale"
+                    + " (E46S03 AC-DATE-FORMATTER-NON-DE-PATH-SMOKE)")
+    void buildSvgRows_dateFormattedForEnglishLocale() {
+        Tournament tournament = makeTournament(); // appointment = 2026-04-15T09:00
+        when(teamRepository.findByTournamentId(TOURNAMENT_ID))
+                .thenReturn(List.of(makeTeam(TEAM_A_ID, "Alpha")));
+        when(photoStorageService.retrieve(TOURNAMENT_ID, TEAM_A_ID)).thenReturn(Optional.empty());
+        // Override localeResolver to return ENGLISH for this team
+        when(localeResolver.resolveForTeam(TOURNAMENT_ID, TEAM_A_ID)).thenReturn(Locale.ENGLISH);
+
+        List<CertificatePlacementRow> rows =
+                assembler.buildSvgRows(
+                        tournament,
+                        List.of(
+                                new CertificateAssembler.AvatarPlacement(
+                                        1, TEAM_A_ID, AVATAR_A_ID)),
+                        "Sporthalle");
+
+        assertThat(rows).hasSize(1);
+        // FormatStyle.LONG for ENGLISH: "April 15, 2026"
+        assertThat(rows.get(0).date()).isEqualTo("April 15, 2026");
     }
 }
