@@ -571,15 +571,43 @@ class DefaultCertificateTemplateServiceTest {
     // =========================================================================
 
     @Test
-    @DisplayName("AC6: listVariables returns all 6 variables")
-    void listVariables_returnsAllSixVariables() {
+    @DisplayName(
+            "AC6 (E46S03): listVariables returns exactly 13 tom_-prefixed variables"
+                    + " (AC-VARIABLES-LIST-COUNT-EXACTLY-13, AC-VARIABLES-LIST-13-PREFIXED)")
+    void listVariables_returnsAllThirteenPrefixedVariables() {
         List<CertificateTemplateVariable> variables = service.listVariables();
 
-        assertThat(variables).hasSize(6);
+        // AC-VARIABLES-LIST-COUNT-EXACTLY-13
+        assertThat(variables).hasSize(13);
+
+        // AC-VARIABLES-LIST-13-PREFIXED: all entries have tom_-prefixed names
         assertThat(variables)
                 .extracting(CertificateTemplateVariable::name)
-                .containsExactly(
+                .allSatisfy(name -> assertThat(name).startsWith("tom_"));
+
+        // AC-VARIABLES-LIST-NO-UNPREFIXED: no legacy unprefixed names
+        assertThat(variables)
+                .extracting(CertificateTemplateVariable::name)
+                .doesNotContain(
                         "placement", "teamName", "teamPhoto", "tournamentName", "date", "location");
+
+        // Spot-check canonical names are present
+        assertThat(variables)
+                .extracting(CertificateTemplateVariable::name)
+                .contains(
+                        "tom_placement",
+                        "tom_team_name",
+                        "tom_team_photo",
+                        "tom_tournament_name",
+                        "tom_date",
+                        "tom_location",
+                        "tom_organizer",
+                        "tom_label_certificate",
+                        "tom_label_place",
+                        "tom_label_achieved_by",
+                        "tom_label_team_photo",
+                        "tom_label_generated_by",
+                        "tom_label_on");
     }
 
     @Test

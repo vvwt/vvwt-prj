@@ -135,7 +135,8 @@ class CertificateRenderControllerSliceTest {
                         "data:image/png;base64,abc",
                         "Test Tournament",
                         "2026-04-26",
-                        "Test Location");
+                        "Test Location",
+                        "Test Organizer");
         htmlRow =
                 new CertificatePlacementRow(
                         1,
@@ -144,7 +145,8 @@ class CertificateRenderControllerSliceTest {
                         "/api/photo/teams/" + TEAM_ID,
                         "Test Tournament",
                         "2026-04-26",
-                        "Test Location");
+                        "Test Location",
+                        "Test Organizer");
         svgMetadata =
                 new CertificateTemplateMetadata(
                         TOURNAMENT_ID, "certificate.svg", "svg", Instant.now(), 1024L);
