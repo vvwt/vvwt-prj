@@ -15,13 +15,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.vvwt.tm.domain.ActivityType;
-import de.vvwt.tm.domain.ActivityTypeService;
 import de.vvwt.tm.infrastructure.testsupport.TenantContextSliceTestSupport;
 import de.vvwt.tm.infrastructure.tournament.dto.ActivityTypeCreateRequest;
 import de.vvwt.tm.infrastructure.tournament.dto.ActivityTypeUpdateRequest;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantRegistryPort;
+import de.vvwt.tm.tournament.activity.ActivityType;
+import de.vvwt.tm.tournament.activity.ActivityTypeService;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import java.util.List;
 import java.util.NoSuchElementException;

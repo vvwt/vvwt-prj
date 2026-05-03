@@ -1,4 +1,4 @@
-package de.vvwt.tm.domain.activity;
+package de.vvwt.tm.tournament.activity;
 
 import java.util.Objects;
 import java.util.UUID;
@@ -9,13 +9,16 @@ import java.util.UUID;
  * <p>Records that a specific team ({@code teamId}) is assigned to perform an activity (identified
  * by {@code activityTypeName}) during the given {@code lapNumber}.
  *
- * <p>Assignments are computed on demand by {@link ActivityAssignmentServiceImpl} — they are never
+ * <p>Assignments are computed on demand by {@link ActivityAssignmentService} — they are never
  * persisted (see E08S04 Out of Scope).
  *
+ * <p><b>E45S01 relocation note:</b> Relocated from {@code
+ * de.vvwt.tm.domain.activity.ActivityAssignment} into {@code tournament.activity} public surface
+ * per DEC-21 + DEC-35. This type crosses module boundaries (print context, web context) so it must
+ * be at the public package level.
+ *
  * @see ActivityAssignmentResult
- * @see <a
- *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S04.story.md">Story
- *     E08S04 AC1</a>
+ * @see ActivityAssignmentService
  */
 public final class ActivityAssignment {
 
@@ -30,8 +33,7 @@ public final class ActivityAssignment {
 
     /**
      * The human-readable name of the activity type (e.g., "Mannschaftsfoto"). Denormalised from
-     * {@link de.vvwt.tm.domain.ActivityType#getName()} for convenience in print templates (E08S08,
-     * E08S09).
+     * {@link ActivityType#getName()} for convenience in print templates (E08S08, E08S09).
      */
     private final String activityTypeName;
 

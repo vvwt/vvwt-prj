@@ -1,7 +1,10 @@
-package de.vvwt.tm.domain.activity;
+package de.vvwt.tm.tournament.activity.internal;
 
-import de.vvwt.tm.domain.ActivityType;
-import de.vvwt.tm.domain.AssignmentRule;
+import de.vvwt.tm.tournament.activity.ActivityAssignmentResult;
+import de.vvwt.tm.tournament.activity.ActivityAssignmentService;
+import de.vvwt.tm.tournament.activity.ActivityType;
+import de.vvwt.tm.tournament.activity.AssignmentRule;
+import de.vvwt.tm.tournament.activity.UnsupportedAssignmentRuleException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,46 +15,26 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
- * Spring {@code @Service} implementation of {@link ActivityAssignmentService}.
+ * Default implementation of {@link ActivityAssignmentService} (DEC-35 naming canon).
  *
  * <p>Dispatches each {@link ActivityType} to the appropriate rule implementation based on {@link
- * ActivityType#getAssignmentRule()}. V1 supports {@link AssignmentRule#FIRST_FREE_ROUND} only — any
- * other rule value triggers {@link UnsupportedAssignmentRuleException} (AC8).
+ * ActivityType#getAssignmentRule()}. V1 supports {@link AssignmentRule#FIRST_FREE_ROUND} only.
  *
- * <p>Each activity type is processed independently — there is no shared mutable state between
- * activity types (AC5).
+ * <p><b>E45S01 relocation note:</b> Relocated and renamed from {@code
+ * de.vvwt.tm.domain.activity.ActivityAssignmentServiceImpl} per DEC-35 naming canon ({@code
+ * Default*Service} not {@code *ServiceImpl}). Behavior byte-equivalent.
  *
- * <p>The service makes no direct database queries (AC10). All inputs are pre-loaded by the caller.
- *
- * <h2>Determinism (AC7)</h2>
- *
- * <p>Given identical inputs, the service always produces identical outputs. Tie-breaking within a
- * lap's free-team set uses UUID natural ordering (ascending), which is total and stable.
- *
+ * @see ActivityAssignmentService
  * @see FirstFreeRoundAssigner
- * @see <a
- *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S04.story.md">Story
- *     E08S04</a>
  */
 @Service
-public class ActivityAssignmentServiceImpl implements ActivityAssignmentService {
+public class DefaultActivityAssignmentService implements ActivityAssignmentService {
 
-    private static final Logger LOG = LoggerFactory.getLogger(ActivityAssignmentServiceImpl.class);
+    private static final Logger LOG =
+            LoggerFactory.getLogger(DefaultActivityAssignmentService.class);
 
-    /** Stateless; safe to share. */
     private final FirstFreeRoundAssigner firstFreeRoundAssigner = new FirstFreeRoundAssigner();
 
-    /**
-     * {@inheritDoc}
-     *
-     * <p>Processes each activity type in the order provided. Returns an {@link
-     * ActivityAssignmentResult} containing all assignments and the set of teams that could not be
-     * assigned per type.
-     *
-     * @throws IllegalArgumentException if any required parameter is null or totalLapCount &lt; 1
-     * @throws UnsupportedAssignmentRuleException if an activity type references an unknown rule
-     *     (AC8)
-     */
     @Override
     public ActivityAssignmentResult assignActivities(
             List<ActivityType> activityTypes,
@@ -60,7 +43,6 @@ public class ActivityAssignmentServiceImpl implements ActivityAssignmentService 
             int totalLapCount,
             Set<UUID> allTeamIds) {
 
-        // Input validation
         if (activityTypes == null) {
             throw new IllegalArgumentException("activityTypes must not be null");
         }
@@ -77,18 +59,17 @@ public class ActivityAssignmentServiceImpl implements ActivityAssignmentService 
             throw new IllegalArgumentException("allTeamIds must not be null");
         }
 
-        // Short-circuit: no activity types → return empty result
         if (activityTypes.isEmpty()) {
             LOG.debug(
-                    "ActivityAssignmentService: no activity types provided — returning empty"
+                    "DefaultActivityAssignmentService: no activity types provided — returning empty"
                             + " result.");
             return new ActivityAssignmentResult(Map.of(), Map.of());
         }
 
         LapSchedule lapSchedule = new LapSchedule(matchSchedule, refereeSchedule);
 
-        // LinkedHashMap preserves the order of activityTypes (stable for tests and templates)
-        Map<ActivityType, List<ActivityAssignment>> resultAssignments = new LinkedHashMap<>();
+        Map<ActivityType, List<de.vvwt.tm.tournament.activity.ActivityAssignment>>
+                resultAssignments = new LinkedHashMap<>();
         Map<ActivityType, Set<UUID>> resultUnassigned = new LinkedHashMap<>();
 
         for (ActivityType activityType : activityTypes) {
@@ -113,7 +94,6 @@ public class ActivityAssignmentServiceImpl implements ActivityAssignmentService 
                                     activityType, lapSchedule, totalLapCount, allTeamIds);
                 }
                 default -> {
-                    // Defensive: new enum constants without a switch arm throw immediately (AC8)
                     throw new UnsupportedAssignmentRuleException(ruleName);
                 }
             }
@@ -122,7 +102,7 @@ public class ActivityAssignmentServiceImpl implements ActivityAssignmentService 
             resultUnassigned.put(activityType, ruleResult.getUnassignedTeams());
 
             LOG.info(
-                    "ActivityAssignmentService: activityType='{}' rule={} assigned={}"
+                    "DefaultActivityAssignmentService: activityType='{}' rule={} assigned={}"
                             + " unassigned={}",
                     activityType.getName(),
                     rule,

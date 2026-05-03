@@ -1,7 +1,5 @@
 package de.vvwt.tm.web;
 
-import de.vvwt.tm.domain.ActivityType;
-import de.vvwt.tm.domain.repo.ActivityTypeRepository;
 import de.vvwt.tm.print.ActivityScheduleAssembler;
 import de.vvwt.tm.print.ActivityScheduleModel;
 import de.vvwt.tm.print.ActivityScheduleRow;
@@ -21,6 +19,8 @@ import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.activity.ActivityType;
+import de.vvwt.tm.tournament.activity.ActivityTypeRepository;
 import de.vvwt.tm.tournament.exceptions.TournamentNotFoundException;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;

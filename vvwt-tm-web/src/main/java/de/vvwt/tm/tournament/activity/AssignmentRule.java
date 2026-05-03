@@ -1,4 +1,4 @@
-package de.vvwt.tm.domain;
+package de.vvwt.tm.tournament.activity;
 
 /**
  * Enumeration of supported activity assignment rules (E08S02, AC3).
@@ -19,10 +19,10 @@ package de.vvwt.tm.domain;
  *       (non-playing) round in the phase.
  * </ul>
  *
+ * <p><b>E45S01 relocation note:</b> Relocated from {@code de.vvwt.tm.domain.AssignmentRule} into
+ * the {@code tournament.activity} sub-package per DEC-21 atomic-cutover + DEC-35.
+ *
  * @see ActivityType
- * @see <a
- *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S02.story.md">Story
- *     E08S02</a>
  */
 public enum AssignmentRule {
 

@@ -14,6 +14,11 @@
  *       per-tenant DataSource routing (DEC-20).
  *   <li>{@code tournament} — tournament root-package types: entities ({@code Tournament}, {@code
  *       Match}, {@code Phase}, {@code Team}), repository interfaces, service interfaces, enums.
+ *   <li>{@code tournament::activity} — activity sub-module types ({@code ActivityType}, {@code
+ *       ActivityTypeRepository}, {@code ActivityTypeService}, {@code ActivityAssignmentService},
+ *       {@code ActivityAssignment}, {@code ActivityAssignmentResult}, {@code AssignmentRule}).
+ *       {@code PrintController} fetches activity types for both print endpoints (Laufzettel,
+ *       ActivitySchedule). Added at E45S01 following relocation from {@code de.vvwt.tm.domain.*}.
  *   <li>{@code tournament::exceptions} — {@code ValidationException}, {@code ForbiddenException},
  *       etc. Required because Spring Modulith named-interface sub-packages are NOT accessible via
  *       the root-module declaration alone.
@@ -83,6 +88,7 @@
         allowedDependencies = {
             "tenant",
             "tournament",
+            "tournament::activity",
             "tournament::exceptions",
             "tournament::dto",
             "scoring",

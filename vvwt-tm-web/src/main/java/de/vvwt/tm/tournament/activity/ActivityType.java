@@ -1,4 +1,4 @@
-package de.vvwt.tm.domain;
+package de.vvwt.tm.tournament.activity;
 
 import java.util.UUID;
 import org.springframework.data.annotation.Id;
@@ -26,14 +26,14 @@ import org.springframework.data.relational.core.mapping.Table;
  *
  * <h2>Tenant scope (AC7, DEC-5, DEC-17)</h2>
  *
- * <p>{@code tenantId} is NOT NULL. All repository operations are tenant-scoped via {@link
- * de.vvwt.tm.domain.repo.TenantScopedRepository}.
+ * <p>{@code tenantId} is NOT NULL. All repository operations are tenant-scoped via the active
+ * {@link de.vvwt.tm.tenant.TenantContext}.
+ *
+ * <p><b>E45S01 relocation note:</b> Relocated from {@code de.vvwt.tm.domain.ActivityType} into the
+ * {@code tournament} bounded context per DEC-21 atomic-cutover protocol + DEC-35 hexagonal-pragma.
  *
  * @see AssignmentRule
- * @see de.vvwt.tm.domain.repo.ActivityTypeRepository
- * @see <a
- *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S02.story.md">Story
- *     E08S02</a>
+ * @see ActivityTypeRepository
  */
 @Table("activity_types")
 public class ActivityType {

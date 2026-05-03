@@ -3,14 +3,14 @@ package de.vvwt.tm;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import de.vvwt.tm.domain.ActivityType;
-import de.vvwt.tm.domain.ActivityTypeService;
-import de.vvwt.tm.domain.AssignmentRule;
-import de.vvwt.tm.domain.repo.ActivityTypeRepository;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tournament.MatchFormat;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.activity.ActivityType;
+import de.vvwt.tm.tournament.activity.ActivityTypeRepository;
+import de.vvwt.tm.tournament.activity.ActivityTypeService;
+import de.vvwt.tm.tournament.activity.AssignmentRule;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import java.time.LocalDateTime;
 import java.util.List;
