@@ -2,7 +2,6 @@ package de.vvwt.tm.tenant.internal;
 
 import de.vvwt.tm.tenant.LocationDisplayResolver;
 import java.util.List;
-import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -13,21 +12,13 @@ import org.springframework.stereotype.Service;
  * RoutingTenantDataSource} per DEC-20):
  *
  * <pre>{@code
- * SELECT display_name FROM locations WHERE tenant_id = ? LIMIT 1
+ * SELECT display_name FROM locations LIMIT 1
  * }</pre>
  *
- * <p>Byte-equivalent to the legacy SQL at {@code
- * de.vvwt.tm.infrastructure.print.PrintController:1186}. Returns empty string {@code ""} when the
- * query returns no rows.
- *
- * <h2>DEC-39 interim-state note</h2>
- *
- * <p>The {@code tenant_id = ?} predicate is PRESERVED byte-equivalent to the legacy method. Under
- * DEC-39, {@code tenant_id} columns are removed from tenant-scoped tables at the Wave-2
- * Big-Bang-Reset (DEC-25). Until that commit lands, {@code V1__initial_schema.sql} retains the
- * {@code locations.tenant_id} column, and this predicate remains the correct isolation mechanism
- * within a single DataSource. After the Big-Bang-Reset this class will require updating to drop the
- * predicate.
+ * <p>E45S04 — DEC-39/DEC-50 predicate removal: the {@code WHERE tenant_id = ?} clause is dropped.
+ * Under DEC-20 DB-per-Tenant, connection-level routing ensures all rows in the per-tenant
+ * DataSource belong to the bound tenant — the discriminator predicate is redundant. The {@code
+ * tenantId} parameter is removed from the method signature accordingly.
  *
  * <h2>DEC-35 package placement</h2>
  *
@@ -36,13 +27,12 @@ import org.springframework.stereotype.Service;
  * de.vvwt.tm.tenant.internal} per DEC-35 convention.
  *
  * @see LocationDisplayResolver
- * @since E24S04 — predicate preserved until DEC-25 Big-Bang-Reset
+ * @since E24S04; amended E45S04 (DEC-39/DEC-50 predicate removal)
  */
 @Service
 public class DefaultLocationDisplayResolver implements LocationDisplayResolver {
 
-    private static final String SQL =
-            "SELECT display_name FROM locations WHERE tenant_id = ? LIMIT 1";
+    private static final String SQL = "SELECT display_name FROM locations LIMIT 1";
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -58,14 +48,14 @@ public class DefaultLocationDisplayResolver implements LocationDisplayResolver {
     /**
      * {@inheritDoc}
      *
-     * <p>Uses a parameterised {@code JdbcTemplate} query — no string concatenation of the {@code
-     * tenantId} value. SQL injection is not possible through the {@code tenantId} parameter
-     * (AC-SECURITY-NO-SQL-INJECTION).
+     * <p>Returns the display_name of the first location row in the per-tenant DataSource. Per
+     * DEC-20 DB-per-Tenant, connection-level routing guarantees all rows belong to the bound tenant
+     * — no tenant_id predicate is required (E45S04 removal, DEC-39/DEC-50).
      */
     @Override
-    public String resolveLocationDisplayName(UUID tenantId) {
+    public String resolveLocationDisplayName() {
         List<String> results =
-                jdbcTemplate.query(SQL, (rs, rowNum) -> rs.getString("display_name"), tenantId);
+                jdbcTemplate.query(SQL, (rs, rowNum) -> rs.getString("display_name"));
         return results.isEmpty() ? "" : results.get(0);
     }
 }

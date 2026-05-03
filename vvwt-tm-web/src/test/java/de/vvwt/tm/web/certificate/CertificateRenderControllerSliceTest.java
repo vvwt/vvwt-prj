@@ -194,7 +194,7 @@ class CertificateRenderControllerSliceTest {
         when(certificateAssembler.getFinalPhase(TOURNAMENT_ID)).thenReturn(Optional.of(phase));
         when(certificateAssembler.computePlacementOrder(eq(TOURNAMENT_ID), any()))
                 .thenReturn(List.of(teamPlacement));
-        when(locationDisplayResolver.resolveLocationDisplayName(any())).thenReturn("Test Location");
+        when(locationDisplayResolver.resolveLocationDisplayName()).thenReturn("Test Location");
         when(certificateAssembler.buildSvgRows(any(), any(), any())).thenReturn(List.of(svgRow));
         when(certificateAssembler.renderSvgTemplate(any(), any()))
                 .thenReturn("<svg><text>Test</text></svg>");
@@ -230,7 +230,7 @@ class CertificateRenderControllerSliceTest {
         when(certificateAssembler.getFinalPhase(TOURNAMENT_ID)).thenReturn(Optional.of(phase));
         when(certificateAssembler.computePlacementOrder(eq(TOURNAMENT_ID), any()))
                 .thenReturn(List.of(teamPlacement));
-        when(locationDisplayResolver.resolveLocationDisplayName(any())).thenReturn("Test Location");
+        when(locationDisplayResolver.resolveLocationDisplayName()).thenReturn("Test Location");
         when(certificateAssembler.buildHtmlRows(any(), any(), any())).thenReturn(List.of(htmlRow));
         when(certificateAssembler.toMustacheMap(any()))
                 .thenReturn(
@@ -271,7 +271,7 @@ class CertificateRenderControllerSliceTest {
         when(certificateAssembler.getFinalPhase(TOURNAMENT_ID)).thenReturn(Optional.of(phase));
         when(certificateAssembler.computePlacementOrder(eq(TOURNAMENT_ID), any()))
                 .thenReturn(List.of(teamPlacement));
-        when(locationDisplayResolver.resolveLocationDisplayName(any())).thenReturn("Test Location");
+        when(locationDisplayResolver.resolveLocationDisplayName()).thenReturn("Test Location");
         when(certificateAssembler.buildSvgRows(any(), any(), any())).thenReturn(List.of(svgRow));
         when(certificateAssembler.renderSvgTemplate(any(), any())).thenReturn("<svg></svg>");
         when(tenantContext.current()).thenReturn(UUID.randomUUID());
@@ -329,7 +329,7 @@ class CertificateRenderControllerSliceTest {
         when(certificateAssembler.getFinalPhase(TOURNAMENT_ID)).thenReturn(Optional.of(phase));
         when(certificateAssembler.computePlacementOrder(eq(TOURNAMENT_ID), any()))
                 .thenReturn(List.of(teamPlacement));
-        when(locationDisplayResolver.resolveLocationDisplayName(any())).thenReturn("Test Location");
+        when(locationDisplayResolver.resolveLocationDisplayName()).thenReturn("Test Location");
         when(certificateAssembler.buildSvgRows(any(), any(), any())).thenReturn(List.of(svgRow));
         when(certificateAssembler.renderSvgTemplate(any(), any()))
                 .thenThrow(new MustacheException("template variable missing: {{teamName}}"));

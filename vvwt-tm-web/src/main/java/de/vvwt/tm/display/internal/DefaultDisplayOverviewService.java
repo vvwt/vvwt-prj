@@ -132,7 +132,7 @@ public class DefaultDisplayOverviewService implements DisplayOverviewService {
     @Transactional(readOnly = true)
     public DisplayPhaseOverviewResponse getPhaseOverview(String deviceToken) {
         Device device = validateDisplayDeviceToken(deviceToken);
-        Phase phase = resolveActiveOrPreviewPhase(device.getTenantId());
+        Phase phase = resolveActiveOrPreviewPhase();
         Tournament tournament = resolveTournamentForPhase(phase);
         List<TeamAvatar> avatars = teamAvatarRepository.findByPhaseId(phase.getId());
         List<Match> matches = matchRepository.findByPhaseId(phase.getId());
@@ -184,7 +184,7 @@ public class DefaultDisplayOverviewService implements DisplayOverviewService {
     @Transactional(readOnly = true)
     public DisplayMatchesResponse getMatchesByLap(String deviceToken, Integer lap) {
         Device device = validateDisplayDeviceToken(deviceToken);
-        Phase phase = resolveActiveOrPreviewPhase(device.getTenantId());
+        Phase phase = resolveActiveOrPreviewPhase();
         resolveTournamentForPhase(phase); // validates tournament exists
 
         int effectiveLap = (lap != null) ? lap : phase.getCurrentLapNumber();
@@ -248,7 +248,7 @@ public class DefaultDisplayOverviewService implements DisplayOverviewService {
     @Transactional(readOnly = true)
     public DisplayGroupStandingsResponse getGroupStandings(String deviceToken) {
         Device device = validateDisplayDeviceToken(deviceToken);
-        Phase phase = resolveActiveOrPreviewPhase(device.getTenantId());
+        Phase phase = resolveActiveOrPreviewPhase();
 
         List<TeamAvatar> avatars = teamAvatarRepository.findByPhaseId(phase.getId());
 
@@ -359,11 +359,10 @@ public class DefaultDisplayOverviewService implements DisplayOverviewService {
      *   <li>If neither exists, throw {@link NoActivePhaseException}.
      * </ol>
      *
-     * @param tenantId the tenant UUID (from the device)
      * @return the resolved phase
      * @throws NoActivePhaseException if no displayable phase is available
      */
-    private Phase resolveActiveOrPreviewPhase(UUID tenantId) {
+    private Phase resolveActiveOrPreviewPhase() {
         List<Tournament> tournaments = tournamentRepository.findAll();
 
         // Find the first ACTIVE tournament

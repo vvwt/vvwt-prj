@@ -1,14 +1,12 @@
 package de.vvwt.tm.tenant;
 
-import java.util.UUID;
-
 /**
  * Tenant-scoped location display-name lookup service for rendering controllers.
  *
- * <p>Resolves the display name of the location associated with a given tenant. Returns the {@code
- * display_name} of the first matching {@code locations} row for the tenant, or an empty string
- * {@code ""} when no location row exists for the tenant — never throws an exception for an absent
- * result.
+ * <p>Resolves the display name of the location for the current tenant. Returns the {@code
+ * display_name} of the first {@code locations} row in the per-tenant DataSource (DEC-20
+ * AbstractRoutingDataSource ensures all rows belong to the bound tenant), or an empty string {@code
+ * ""} when no location row exists — never throws an exception for an absent result.
  *
  * <p>Consumed by fresh {@code CertificateRenderController} (S05) and fresh {@code PrintController}
  * (S06) in the {@code de.vvwt.tm.web} module. The legacy {@code
@@ -26,21 +24,26 @@ import java.util.UUID;
  *       TenantFileRegistryDataSourceResolver}.
  * </ol>
  *
+ * <h2>E45S04 — DEC-39/DEC-50 predicate removal</h2>
+ *
+ * <p>The {@code tenant_id = ?} WHERE predicate is dropped from the SQL query. Under DEC-20
+ * DB-per-Tenant, all rows in the per-tenant DataSource belong to one tenant by connection-level
+ * routing — the discriminator is redundant. The {@code tenantId} parameter is removed accordingly.
+ *
  * @see de.vvwt.tm.tenant.internal.DefaultLocationDisplayResolver
- * @since E24S04
+ * @since E24S04; amended E45S04 (DEC-39/DEC-50 predicate removal)
  */
 public interface LocationDisplayResolver {
 
     /**
-     * Resolves the display name of the location associated with the given tenant.
+     * Resolves the display name of the location for the current tenant.
      *
-     * <p>Returns the {@code display_name} column of the first (and, via {@code LIMIT 1}, only)
-     * matching {@code locations} row for the given tenant identifier. Returns an empty string
-     * {@code ""} when no location row exists — never throws an exception for an absent result.
+     * <p>Returns the {@code display_name} column of the first {@code locations} row in the
+     * per-tenant DataSource. Per-tenant routing (DEC-20) ensures all rows belong to the bound
+     * tenant — no {@code tenant_id} filter is required. Returns an empty string {@code ""} when no
+     * location row exists — never throws an exception for an absent result.
      *
-     * @param tenantId the UUID identifier of the tenant whose location display name is requested;
-     *     must not be {@code null}
-     * @return the location display name, or {@code ""} when no location row exists for the tenant
+     * @return the location display name, or {@code ""} when no location row exists
      */
-    String resolveLocationDisplayName(UUID tenantId);
+    String resolveLocationDisplayName();
 }
