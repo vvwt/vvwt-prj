@@ -26,8 +26,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * Integration tests for {@link AdminSpaController} asset delivery — E21S18 (bug-triage: fix
- * {@code /admin/assets/*.css|*.js} served as {@code text/html}).
+ * Integration tests for {@link AdminSpaController} asset delivery — E21S18 (bug-triage: fix {@code
+ * /admin/assets/*.css|*.js} served as {@code text/html}).
  *
  * <h2>Scope (AC1–AC7)</h2>
  *
@@ -35,23 +35,23 @@ import org.springframework.test.context.ActiveProfiles;
  *   <li><b>AC1 — Reproduction RED-first per DEC-22 Iron Law</b>: this class was authored and
  *       committed RED (failing) before any fix code. The failing tests reproduce the incident: CSS
  *       and JS assets under {@code /admin/assets/} are served with {@code Content-Type: text/html}
- *       and body identical to {@code index.html}, because {@code AdminSpaController.adminDeepLink()}
- *       {@code @GetMapping("/admin/**")} catches the asset requests before Spring Boot's {@code
- *       ResourceHttpRequestHandler} can serve them.
+ *       and body identical to {@code index.html}, because {@code
+ *       AdminSpaController.adminDeepLink()} {@code @GetMapping("/admin/**")} catches the asset
+ *       requests before Spring Boot's {@code ResourceHttpRequestHandler} can serve them.
  *   <li><b>AC2 — CSS asset MIME</b>: dynamic discovery of {@code <link rel="stylesheet">} hrefs
  *       from the served {@code /admin/} response; each CSS asset must return HTTP 200 + {@code
  *       text/css} + correct body length.
  *   <li><b>AC3 — JS asset MIME</b>: dynamic discovery of {@code <script src>} from the served
  *       {@code /admin/} response; each JS asset must return HTTP 200 + {@code
  *       application/javascript} or {@code text/javascript} + correct body length.
- *   <li><b>AC4 — Body identity NOT index.html</b>: asset response body must NOT contain {@code
- *       <div id="app">}.
+ *   <li><b>AC4 — Body identity NOT index.html</b>: asset response body must NOT contain {@code <div
+ *       id="app">}.
  *   <li><b>AC5 — False-green guard</b>: parse must discover at least one CSS link and one JS
  *       script; if zero of either kind, test fails explicitly.
  *   <li><b>AC6 — Auth-wall positive path</b>: with valid HTTP Basic, asset retrievals succeed; no
  *       {@code permitAll} bypass introduced.
- *   <li><b>AC7 — Auth-wall negative path</b>: unauthenticated request returns HTTP 401; must NOT
- *       be 200 with {@code text/css}.
+ *   <li><b>AC7 — Auth-wall negative path</b>: unauthenticated request returns HTTP 401; must NOT be
+ *       200 with {@code text/css}.
  * </ol>
  *
  * <h2>DEC compliance</h2>
@@ -97,7 +97,7 @@ class AdminSpaAssetIT {
      */
     private static final Pattern JS_SCRIPT_PATTERN =
             Pattern.compile(
-                    "<script[^>]+src=[\"']([^\"']+/admin/assets/[^\"']+\\.js[^\"']*)[\"']",
+                    "<script[^>]+src=[\"']([^\"']*/admin/assets/[^\"']+\\.js[^\"']*)[\"']",
                     Pattern.CASE_INSENSITIVE);
 
     @LocalServerPort private int port;
@@ -191,8 +191,8 @@ class AdminSpaAssetIT {
     // =========================================================================
 
     /**
-     * AC2 — Each CSS asset discovered from {@code /admin/} index.html MUST return HTTP 200 +
-     * {@code Content-Type} matching {@code ^text/css($|;.*)} + correct body length (NOT equal to
+     * AC2 — Each CSS asset discovered from {@code /admin/} index.html MUST return HTTP 200 + {@code
+     * Content-Type} matching {@code ^text/css($|;.*)} + correct body length (NOT equal to
      * index.html body length).
      *
      * <p>This test was authored RED-first per DEC-22 Iron Law (AC1). Before the fix, {@link
@@ -207,16 +207,17 @@ class AdminSpaAssetIT {
     void cssAssets_withAuthentication_returnCorrectMimeAndLength() throws Exception {
         List<String> cssUrls = discoverCssAssets();
 
-        // Fetch index.html body length to compare (AC2: body length != index.html length)
-        ResponseEntity<String> indexResponse =
-                authed.getForEntity("http://localhost:" + port + "/admin/", String.class);
+        // Fetch index.html as byte[] so length comparison is apples-to-apples
+        ResponseEntity<byte[]> indexBytesResponse =
+                authed.getForEntity("http://localhost:" + port + "/admin/", byte[].class);
         int indexBodyLength =
-                indexResponse.getBody() != null ? indexResponse.getBody().length() : 0;
+                indexBytesResponse.getBody() != null ? indexBytesResponse.getBody().length : 0;
 
         for (String cssUrl : cssUrls) {
             // CSS URL from Vite is absolute (/admin/assets/...) — use it directly
+            // Use byte[] to get accurate byte length comparison against classpath resource
             String url = "http://localhost:" + port + cssUrl;
-            ResponseEntity<String> cssResponse = authed.getForEntity(url, String.class);
+            ResponseEntity<byte[]> cssResponse = authed.getForEntity(url, byte[].class);
 
             assertThat(cssResponse.getStatusCode())
                     .as("AC2: GET %s with auth must return HTTP 200", cssUrl)
@@ -230,20 +231,20 @@ class AdminSpaAssetIT {
                             cssUrl, contentType)
                     .matches("(?i)^text/css($|;.*)");
 
-            // Body length check: classpath resource length != index.html length
-            int assetBodyLength =
-                    cssResponse.getBody() != null ? cssResponse.getBody().length() : 0;
+            // Body byte length check: classpath resource byte length != index.html byte length
+            int assetBodyLength = cssResponse.getBody() != null ? cssResponse.getBody().length : 0;
             assertThat(assetBodyLength)
                     .as(
-                            "AC2: GET %s response body length (%d) must NOT equal index.html body"
-                                    + " length (%d) — bug: controller serving index.html as CSS",
+                            "AC2: GET %s response body byte length (%d) must NOT equal index.html"
+                                    + " byte length (%d) — bug: controller serving index.html as"
+                                    + " CSS",
                             cssUrl, assetBodyLength, indexBodyLength)
                     .isNotEqualTo(indexBodyLength);
             assertThat(assetBodyLength)
                     .as("AC2: GET %s CSS asset body must not be empty", cssUrl)
                     .isGreaterThan(0);
 
-            // Also verify against classpath resource length
+            // Verify byte length matches classpath resource
             String filename = cssUrl.substring(cssUrl.lastIndexOf('/') + 1);
             ClassPathResource classpathResource =
                     new ClassPathResource("static/admin/assets/" + filename);
@@ -251,8 +252,8 @@ class AdminSpaAssetIT {
                 long classpathLength = classpathResource.contentLength();
                 assertThat((long) assetBodyLength)
                         .as(
-                                "AC2: GET %s body length (%d) must equal classpath resource"
-                                        + " length (%d)",
+                                "AC2: GET %s body byte length (%d) must equal classpath resource"
+                                        + " byte length (%d)",
                                 cssUrl, assetBodyLength, classpathLength)
                         .isEqualTo(classpathLength);
             }
@@ -264,9 +265,9 @@ class AdminSpaAssetIT {
     // =========================================================================
 
     /**
-     * AC3 — Each JS asset discovered from {@code /admin/} index.html MUST return HTTP 200 +
-     * {@code Content-Type} matching {@code ^(application|text)/javascript($|;.*)} + correct body
-     * length (NOT equal to index.html body length).
+     * AC3 — Each JS asset discovered from {@code /admin/} index.html MUST return HTTP 200 + {@code
+     * Content-Type} matching {@code ^(application|text)/javascript($|;.*)} + correct body length
+     * (NOT equal to index.html body length).
      *
      * <p>This test was authored RED-first per DEC-22 Iron Law (AC1). Before the fix, {@link
      * AdminSpaController#adminDeepLink()} intercepts {@code /admin/assets/*.js} and returns {@code
@@ -279,14 +280,16 @@ class AdminSpaAssetIT {
     void jsAssets_withAuthentication_returnCorrectMimeAndLength() throws Exception {
         List<String> jsUrls = discoverJsAssets();
 
-        ResponseEntity<String> indexResponse =
-                authed.getForEntity("http://localhost:" + port + "/admin/", String.class);
+        // Fetch index.html as byte[] so length comparison with asset byte[] is apples-to-apples
+        ResponseEntity<byte[]> indexBytesResponse =
+                authed.getForEntity("http://localhost:" + port + "/admin/", byte[].class);
         int indexBodyLength =
-                indexResponse.getBody() != null ? indexResponse.getBody().length() : 0;
+                indexBytesResponse.getBody() != null ? indexBytesResponse.getBody().length : 0;
 
         for (String jsUrl : jsUrls) {
             String url = "http://localhost:" + port + jsUrl;
-            ResponseEntity<String> jsResponse = authed.getForEntity(url, String.class);
+            // Use byte[] to get accurate byte length comparison against classpath resource
+            ResponseEntity<byte[]> jsResponse = authed.getForEntity(url, byte[].class);
 
             assertThat(jsResponse.getStatusCode())
                     .as("AC3: GET %s with auth must return HTTP 200", jsUrl)
@@ -300,12 +303,12 @@ class AdminSpaAssetIT {
                             jsUrl, contentType)
                     .matches("(?i)^(application|text)/javascript($|;.*)");
 
-            int assetBodyLength =
-                    jsResponse.getBody() != null ? jsResponse.getBody().length() : 0;
+            int assetBodyLength = jsResponse.getBody() != null ? jsResponse.getBody().length : 0;
             assertThat(assetBodyLength)
                     .as(
-                            "AC3: GET %s response body length (%d) must NOT equal index.html body"
-                                    + " length (%d) — bug: controller serving index.html as JS",
+                            "AC3: GET %s response body byte length (%d) must NOT equal index.html"
+                                    + " body String length (%d) — if equal, controller is still"
+                                    + " serving index.html as JS",
                             jsUrl, assetBodyLength, indexBodyLength)
                     .isNotEqualTo(indexBodyLength);
             assertThat(assetBodyLength)
@@ -319,8 +322,8 @@ class AdminSpaAssetIT {
                 long classpathLength = classpathResource.contentLength();
                 assertThat((long) assetBodyLength)
                         .as(
-                                "AC3: GET %s body length (%d) must equal classpath resource"
-                                        + " length (%d)",
+                                "AC3: GET %s body byte length (%d) must equal classpath resource"
+                                        + " byte length (%d)",
                                 jsUrl, assetBodyLength, classpathLength)
                         .isEqualTo(classpathLength);
             }
@@ -390,8 +393,7 @@ class AdminSpaAssetIT {
         List<String> jsUrls = discoverJsAssets();
 
         ResponseEntity<String> cssResponse =
-                authed.getForEntity(
-                        "http://localhost:" + port + cssUrls.get(0), String.class);
+                authed.getForEntity("http://localhost:" + port + cssUrls.get(0), String.class);
         assertThat(cssResponse.getStatusCode())
                 .as(
                         "AC6: GET %s with valid auth must return HTTP 200 (security config"
@@ -400,8 +402,7 @@ class AdminSpaAssetIT {
                 .isEqualTo(HttpStatus.OK);
 
         ResponseEntity<String> jsResponse =
-                authed.getForEntity(
-                        "http://localhost:" + port + jsUrls.get(0), String.class);
+                authed.getForEntity("http://localhost:" + port + jsUrls.get(0), String.class);
         assertThat(jsResponse.getStatusCode())
                 .as(
                         "AC6: GET %s with valid auth must return HTTP 200 (security config"

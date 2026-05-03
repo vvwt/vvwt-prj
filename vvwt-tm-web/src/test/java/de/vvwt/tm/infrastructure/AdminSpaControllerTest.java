@@ -27,6 +27,17 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
  * {@code ResponseEntity<ClassPathResource>} (ClassPathResource pattern per {@link
  * de.vvwt.tm.web.timer.TimerViewController}, E26S03). Forward assertions are no longer applicable.
  * Full body assertions (AC2) are in {@link de.vvwt.tm.web.AdminSpaControllerIT}.
+ *
+ * <p>E21S18 update (AC8): tests for {@code adminDeepLink()} ({@code @GetMapping("/admin/**")})
+ * removed because that method was deleted as part of the E21S18 bug-fix. Under Spring Framework 7 /
+ * Spring Boot 4, the catch-all intercepted asset requests ({@code /admin/assets/*.css}, {@code
+ * /admin/assets/*.js}) and served them as {@code text/html}. With hash-based routing
+ * (svelte-spa-router), the catch-all was vestigial — sub-routes are {@code #/path} fragments never
+ * sent to the server. Deletion of {@code adminDeepLink()} allows asset requests to reach Spring
+ * Boot's {@code ResourceHttpRequestHandler} for correct MIME-type-aware static resource serving.
+ * Tests verifying deep-link paths ({@code /admin/tournaments}, {@code /admin/teams/42}, {@code
+ * /admin/unknown-path}) are removed here per AC8 (incompatible with the fix). The remaining test of
+ * /admin/ and /admin root delivery is retained.
  */
 @DisplayName("AdminSpaController — SPA routing tests (E05S01)")
 class AdminSpaControllerTest {
@@ -61,34 +72,5 @@ class AdminSpaControllerTest {
     @DisplayName("AC3: GET /admin (no trailing slash) returns HTTP 200")
     void adminRootWithoutTrailingSlash_returns200() throws Exception {
         mockMvc.perform(get("/admin").accept(MediaType.TEXT_HTML)).andExpect(status().isOk());
-    }
-
-    // -----------------------------------------------------------------------
-    // AC4 — Deep-link paths within /admin/ fall through to index.html
-    // -----------------------------------------------------------------------
-
-    @Test
-    @DisplayName("AC4: GET /admin/tournaments (deep-link) returns HTTP 200")
-    void adminDeepLink_tournaments_returns200() throws Exception {
-        mockMvc.perform(get("/admin/tournaments").accept(MediaType.TEXT_HTML))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    @DisplayName("AC4: GET /admin/teams/42 (nested deep-link) returns HTTP 200")
-    void adminDeepLink_nestedPath_returns200() throws Exception {
-        mockMvc.perform(get("/admin/teams/42").accept(MediaType.TEXT_HTML))
-                .andExpect(status().isOk());
-    }
-
-    // -----------------------------------------------------------------------
-    // AC8 — Unknown paths under /admin/ return index.html (SPA handles 404)
-    // -----------------------------------------------------------------------
-
-    @Test
-    @DisplayName("AC8: GET /admin/unknown-path returns HTTP 200 (SPA handles 404 client-side)")
-    void adminUnknownPath_returns200() throws Exception {
-        mockMvc.perform(get("/admin/unknown-path").accept(MediaType.TEXT_HTML))
-                .andExpect(status().isOk());
     }
 }

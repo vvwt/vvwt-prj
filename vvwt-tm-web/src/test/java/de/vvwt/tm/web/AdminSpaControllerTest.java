@@ -28,13 +28,23 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
  * Boot context with Vite build phase). No new test obligation; this is an AC4-mandated update to
  * keep the existing tests compatible with the fix.
  *
+ * <p>E21S18 update (AC8): the deep-link fallback method {@code adminDeepLink()}
+ * ({@code @GetMapping("/admin/**")}) was deleted as part of the E21S18 fix. Under Spring Framework
+ * 7 / Spring Boot 4, {@code PathPatternParser} dispatches controller mappings before Spring Boot's
+ * {@code ResourceHttpRequestHandler}, so the catch-all intercepted asset requests and served them
+ * as {@code text/html}. With hash-based routing (svelte-spa-router), the catch-all was vestigial —
+ * sub-routes are {@code #/path} fragments, never sent to the server. Tests for {@code
+ * adminDeepLink()} are removed in this update (AC8 — incompatible assertions updated). The
+ * AC-SPA-404 obligation is met client-side by the Svelte router; no server-side SPA fallback route
+ * is needed.
+ *
  * <h2>Test approach</h2>
  *
  * <p>Standalone MockMvc is used (matching the legacy {@code
  * de.vvwt.tm.infrastructure.AdminSpaControllerTest} pattern, E05S01). This avoids full Spring
- * context startup. Requests to {@code /admin/**} paths return HTTP 200 with content-type {@code
- * text/html}; the actual body is served from {@code classpath:/static/admin/index.html} when the
- * Vite build has run (full body assertions are in {@link AdminSpaControllerIT}).
+ * context startup. Requests to {@code /admin} and {@code /admin/} return HTTP 200 with content-type
+ * {@code text/html}; the actual body is served from {@code classpath:/static/admin/index.html} when
+ * the Vite build has run (full body assertions are in {@link AdminSpaControllerIT}).
  *
  * <h2>Security (AC-SEC-NO-AUTH-BYPASS)</h2>
  *
@@ -43,16 +53,9 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
  * SecurityConfig} (auth.internal) — it is NOT declared in this controller. This is documented
  * explicitly: no {@code @PermitAll}, no {@code @PreAuthorize("permitAll()")}, no bypass of any kind
  * exists in this controller class. Security is tested at the integration level by the production
- * {@code SecurityConfig} filter chain, which is verified by {@code SecurityConfig}'s own test
- * class. This controller strictly delegates security to the framework.
- *
- * <h2>SPA fallback (AC-SPA-404)</h2>
- *
- * <p>All {@code /admin/**} paths return the SPA entry point ({@code
- * classpath:/static/admin/index.html}) with content-type {@code text/html}. The Svelte router
- * handles client-side routing.
+ * {@code SecurityConfig} filter chain.
  */
-@DisplayName("AdminSpaControllerTest (web) — E21S09 AC-TDD-AdminSpaController + AC-SPA-404")
+@DisplayName("AdminSpaControllerTest (web) — E21S09 AC-TDD-AdminSpaController")
 class AdminSpaControllerTest {
 
     private MockMvc mockMvc;
@@ -85,28 +88,6 @@ class AdminSpaControllerTest {
     @DisplayName("AC-TDD-AdminSpaController: GET /admin (no slash) returns HTTP 200")
     void adminRootWithoutTrailingSlash_returns200() throws Exception {
         mockMvc.perform(get("/admin").accept(MediaType.TEXT_HTML)).andExpect(status().isOk());
-    }
-
-    // -----------------------------------------------------------------------
-    // AC-SPA-404: Deep-link paths
-    // -----------------------------------------------------------------------
-
-    @Test
-    @DisplayName("AC-SPA-404: GET /admin/dashboard (deeplink) returns HTTP 200")
-    void adminDeepLink_dashboard_returns200() throws Exception {
-        mockMvc.perform(get("/admin/dashboard").accept(MediaType.TEXT_HTML))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    @DisplayName(
-            "AC-SPA-404: GET /admin/nonexistent.file.html returns HTTP 200 (SPA handles 404"
-                    + " client-side)")
-    void adminDeepLink_nonexistentFile_returns200() throws Exception {
-        // SPA fallback: all /admin/** paths serve index.html.
-        // The Svelte router handles the client-side 404 for unknown sub-paths.
-        mockMvc.perform(get("/admin/nonexistent.file.html").accept(MediaType.TEXT_HTML))
-                .andExpect(status().isOk());
     }
 
     // -----------------------------------------------------------------------
