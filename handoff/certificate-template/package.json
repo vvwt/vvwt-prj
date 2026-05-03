@@ -1,0 +1,12 @@
+{
+  "name": "vvw-urkunden",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VVW Tournament Manager · Urkunden-Renderer (Mustache)",
+  "scripts": {
+    "render": "node render.js"
+  },
+  "dependencies": {
+    "mustache": "^4.2.0"
+  }
+}

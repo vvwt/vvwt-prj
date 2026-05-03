@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8"/>
+<title>{{turnier_name}} · {{platz}}. Platz · {{mannschaft}}</title>
+<style>
+  /* ================================================================
+     Plus Jakarta Sans — embedded as base64 WOFF2
+     SIL Open Font License 1.1 — https://github.com/tokotype/PlusJakartaSans
+     Two weights only: 700 (Bold) + 800 (ExtraBold)
+     ================================================================ */
+  @font-face {
+    font-family: 'Plus Jakarta Sans';
+    font-style: normal;
+    font-weight: 700;
+    font-display: block;
+    src: url(data:font/woff2;base64,{{font_700_base64}}) format('woff2');
+  }
+  @font-face {
+    font-family: 'Plus Jakarta Sans';
+    font-style: normal;
+    font-weight: 800;
+    font-display: block;
+    src: url(data:font/woff2;base64,{{font_800_base64}}) format('woff2');
+  }
+
+  :root { --ink:#0a1f3a; --blue:#1956a8; --yellow:#ffcb1f; --paper:#fafaf7; --line:#ece9e3; --muted:#7a7570; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #e6e4dd; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: var(--ink); font-weight: 700; }
+  body { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+  .stage { width: min(1180px, 100%); }
+
+  .page {
+    position: relative;
+    background: var(--paper);
+    aspect-ratio: 1684 / 1191;       /* DIN A4 landscape */
+    box-shadow: 0 12px 40px rgba(10,31,58,.18), 0 2px 6px rgba(10,31,58,.08);
+    overflow: hidden;
+    border-radius: 4px;
+    container-type: inline-size;
+    display: flex; flex-direction: column;
+    padding: 5cqh 7cqw 4cqh;
+  }
+
+  .watermark {
+    position: absolute; right: -22cqw; top: -22cqw; width: 60cqw; height: 60cqw; opacity: .04; z-index: 0; pointer-events: none;
+  }
+
+  .header { display: flex; justify-content: space-between; align-items: center; flex: 0 0 auto; position: relative; z-index: 2; }
+  .lockup { display: flex; flex-direction: column; line-height: 1; }
+  .lockup-row { display: flex; align-items: center; gap: 2px; font-weight: 800; font-size: 36px; letter-spacing: -1px; color: var(--ink); }
+  .lockup-row .hex { width: 36px; height: 36px; display: block; margin: 0 1px; }
+  .wm-tag  { font-weight: 700; font-size: 9px; letter-spacing: 2.6px; color: var(--blue); margin-top: 6px; text-transform: uppercase; }
+  .meta { display: flex; gap: 36px; }
+
+  .urkunde-badge { position: relative; display: inline-flex; align-items: center; justify-content: center; padding: 14px 28px; }
+  .urkunde-badge .glow {
+    position: absolute; inset: -8px;
+    background: radial-gradient(ellipse at center,
+      rgba(255, 203, 31, 0.55) 0%,
+      rgba(255, 203, 31, 0.30) 35%,
+      rgba(255, 203, 31, 0.10) 60%,
+      rgba(255, 203, 31, 0)   100%);
+    filter: blur(6px);
+    z-index: 0;
+  }
+  .urkunde-badge .label {
+    position: relative; z-index: 1;
+    font-weight: 800;
+    font-size: 28px;
+    letter-spacing: 6px;
+    color: var(--ink);
+  }
+
+  .divider { height: 1px; background: var(--line); margin: 18px 0 0; flex: 0 0 auto; position: relative; z-index: 1; }
+
+  .hero { text-align: center; flex: 0 0 auto; position: relative; z-index: 2; margin-top: 2cqh; }
+  .hero-title {
+    font-weight: 800;
+    font-size: clamp(40px, 5cqw, 64px);
+    letter-spacing: -.025em;
+    line-height: 1;
+    margin: 8px 0 0;
+    color: var(--ink);
+  }
+  .hero-subtitle {
+    font-weight: 700; font-size: 14px; color: var(--muted);
+    letter-spacing: .3px; margin-top: 10px;
+  }
+
+  .placement { display: flex; align-items: center; gap: 28px; flex: 0 0 auto; position: relative; z-index: 2; margin-top: 1.6cqh; }
+  .place-num {
+    font-weight: 800; line-height: .8; color: var(--blue);
+    letter-spacing: -.05em; font-size: clamp(64px, 7.5cqw, 110px);
+    font-variant-numeric: tabular-nums;
+  }
+  .place-meta { flex: 1; min-width: 0; padding-bottom: 6px; }
+  .place-meta .row { display: flex; align-items: baseline; gap: 18px; margin-bottom: 12px; }
+  .place-meta .lbl { font-weight: 700; font-size: 13px; letter-spacing: 3.0px; color: var(--blue); }
+  .place-meta .of  { font-weight: 700; font-size: 18px; color: var(--ink); letter-spacing: .2px; transform: translateY(0.3em); }
+  .place-meta .accent { width: 56px; height: 3px; background: var(--yellow); margin-bottom: 12px; }
+  .place-meta .team-name {
+    font-weight: 800; letter-spacing: -.025em; line-height: 1.1;
+    font-size: clamp(20px, 2.6cqw, 34px); text-wrap: balance;
+  }
+
+  .photo-wrap {
+    flex: 1 1 auto;
+    margin-top: 1.6cqh;
+    position: relative;
+    border-radius: 12px; overflow: hidden; border: 1px solid var(--line);
+    box-shadow: 0 6px 20px rgba(10,31,58,.08);
+    z-index: 2;
+    min-height: 0;
+  }
+  .photo { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-fade {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0) 60%, rgba(0,0,0,.32) 100%);
+    pointer-events: none;
+  }
+  .stamp {
+    position: absolute; right: 16px; bottom: 16px;
+    width: 88px; height: 88px;
+    transform: rotate(-8deg);
+    opacity: .95;
+  }
+
+  .tom-inline { font-weight: 700; letter-spacing: .5px; color: var(--ink); }
+  .tom-inline .o {
+    font-size: 1em;
+    display: inline-block;
+    transform: translateY(-0.08em);
+    color: var(--blue);
+    margin: 0 0.5px;
+  }
+
+  .footer { display: flex; justify-content: space-between; font-size: 10px; letter-spacing: 1.6px; color: var(--muted); font-weight: 700; flex: 0 0 auto; margin-top: 16px; position: relative; z-index: 2; }
+
+  @media print {
+    body { background: white; padding: 0; }
+    .stage { width: 100%; }
+    .page { box-shadow: none; border-radius: 0; }
+    @page { size: A4 landscape; margin: 0; }
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="page">
+
+      <svg class="watermark" viewBox="0 0 100 100" aria-hidden="true">
+        <path d="M50 4 L90 27 L90 73 L50 96 L10 73 L10 27 Z" fill="#1956a8"/>
+      </svg>
+
+      <header class="header">
+        <div class="lockup">
+          <div class="lockup-row">
+            <span>T</span>
+            <svg class="hex" viewBox="0 0 100 100" aria-hidden="true">
+              <path d="M50 4 L90 27 L90 73 L50 96 L10 73 L10 27 Z" fill="#1956a8"/>
+              <g transform="translate(0 3)">
+                <path d="M30 24 L70 24 L70 32 Q70 52 56 56 L56 66 L62 66 L62 74 L38 74 L38 66 L44 66 L44 56 Q30 52 30 32 Z" fill="#ffcb1f"/>
+                <path d="M30 28 Q20 30 22 44 Q24 52 32 52" stroke="#ffcb1f" stroke-width="4" fill="none" stroke-linecap="round"/>
+                <path d="M70 28 Q80 30 78 44 Q76 52 68 52" stroke="#ffcb1f" stroke-width="4" fill="none" stroke-linecap="round"/>
+                <circle cx="50" cy="40" r="7" fill="#1956a8"/>
+                <path d="M50 33 Q47 36.5 50 40 Q53 43.5 50 47" stroke="#ffcb1f" stroke-width="1.4" fill="none"/>
+                <path d="M43 40 Q46.5 38 50 40 Q53.5 42 57 40" stroke="#ffcb1f" stroke-width="1.4" fill="none"/>
+              </g>
+            </svg>
+            <span>M</span>
+          </div>
+          <div class="wm-tag">Tournament Manager</div>
+        </div>
+        <div class="meta">
+          <div class="urkunde-badge">
+            <span class="glow"></span>
+            <span class="label">URKUNDE</span>
+          </div>
+        </div>
+      </header>
+
+      <div class="divider"></div>
+
+      <section class="hero">
+        <h1 class="hero-title">{{turnier_name}}</h1>
+        <div class="hero-subtitle">{{verein}}</div>
+      </section>
+
+      <section class="placement">
+        <div class="place-num">{{platz}}.</div>
+        <div class="place-meta">
+          <div class="row">
+            <div class="lbl">PLATZ</div>
+            <div class="of">erreicht von</div>
+          </div>
+          <div class="accent"></div>
+          <div class="team-name">{{mannschaft}}</div>
+        </div>
+      </section>
+
+      <div class="photo-wrap">
+        <img class="photo" src="data:image/jpeg;base64,{{foto_base64}}" alt="Mannschaftsfoto"/>
+        <div class="photo-fade"></div>
+        <svg class="stamp" viewBox="0 0 100 100" aria-hidden="true">
+          <g fill="none" stroke="#ffcb1f" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">
+            <path d="M50 4 L90 27 L90 73 L50 96 L10 73 L10 27 Z"/>
+            <g transform="translate(0 3)">
+              <path d="M30 24 L70 24 L70 32 Q70 52 56 56 L56 66 L62 66 L62 74 L38 74 L38 66 L44 66 L44 56 Q30 52 30 32 Z"/>
+              <path d="M30 28 Q20 30 22 44 Q24 52 32 52"/>
+              <path d="M70 28 Q80 30 78 44 Q76 52 68 52"/>
+              <circle cx="50" cy="40" r="7"/>
+              <path d="M50 33 Q47 36.5 50 40 Q53 43.5 50 47"/>
+              <path d="M43 40 Q46.5 38 50 40 Q53.5 42 57 40"/>
+            </g>
+          </g>
+        </svg>
+      </div>
+
+      <footer class="footer">
+        <span>{{verein}}&nbsp;am&nbps;{{datum}}</span>
+        <span>generated by <span class="tom-inline">T<span class="o">o</span>M</span></span>
+      </footer>
+
+    </div>
+  </div>
+</body>
+</html>
