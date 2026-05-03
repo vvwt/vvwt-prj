@@ -4,6 +4,7 @@
     "verein": "Volleyballverein Werratal",
     "platz": "1",
     "mannschaft": "Smashing Pumpkins",
+    "veranstaltungsort": "Werner-Seelenbinder-Halle, Bad Salzungen",
     "datum": "18.05.2019",
     "foto": "team-photo.jpg"
   },
@@ -12,6 +13,7 @@
     "verein": "Volleyballverein Werratal",
     "platz": "2",
     "mannschaft": "Die Netzhechte",
+    "veranstaltungsort": "Werner-Seelenbinder-Halle, Bad Salzungen",
     "datum": "18.05.2019",
     "foto": "team-photo.jpg"
   },
@@ -20,6 +22,7 @@
     "verein": "Volleyballverein Werratal",
     "platz": "12",
     "mannschaft": "Die Mannschaft mit dem aller-aller-längsten Namen",
+    "veranstaltungsort": "Werner-Seelenbinder-Halle, Bad Salzungen",
     "datum": "Volleyballverein Werratal am 18.05.2019",
     "foto": "team-photo.jpg"
   }
