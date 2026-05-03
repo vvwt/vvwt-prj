@@ -35,8 +35,6 @@ public class TeamAvatarRating implements Comparable<TeamAvatarRating> {
     /** PK: same as the referenced TeamAvatar's UUID — 1:1 relationship. */
     private UUID avatarId;
 
-    private UUID tenantId;
-
     private int matchCount;
 
     private int setCount;
@@ -82,7 +80,6 @@ public class TeamAvatarRating implements Comparable<TeamAvatarRating> {
      * Full constructor for explicit creation in service / repository code.
      *
      * @param avatarId PK — same as the referenced TeamAvatar UUID
-     * @param tenantId owning tenant
      * @param matchCount number of matches played
      * @param setCount total sets played
      * @param points score points accumulated
@@ -97,7 +94,6 @@ public class TeamAvatarRating implements Comparable<TeamAvatarRating> {
      */
     public TeamAvatarRating(
             UUID avatarId,
-            UUID tenantId,
             int matchCount,
             int setCount,
             int points,
@@ -110,7 +106,6 @@ public class TeamAvatarRating implements Comparable<TeamAvatarRating> {
             boolean withoutAssessment,
             LocalDateTime updatedAt) {
         this.avatarId = avatarId;
-        this.tenantId = tenantId;
         this.matchCount = matchCount;
         this.setCount = setCount;
         this.points = points;
@@ -134,14 +129,6 @@ public class TeamAvatarRating implements Comparable<TeamAvatarRating> {
 
     public void setAvatarId(UUID avatarId) {
         this.avatarId = avatarId;
-    }
-
-    public UUID getTenantId() {
-        return tenantId;
-    }
-
-    public void setTenantId(UUID tenantId) {
-        this.tenantId = tenantId;
     }
 
     public int getMatchCount() {

@@ -130,6 +130,7 @@ class ScoringCutoverIT {
     private UUID avatar2Id;
     private UUID deviceId;
     private String deviceToken;
+    private UUID defaultLocationId;
 
     // -----------------------------------------------------------------------
     // Setup / teardown
@@ -138,6 +139,7 @@ class ScoringCutoverIT {
     @BeforeEach
     void setUpData() {
         tenantId = tenantContextBinder.bindDefaultTenant();
+        defaultLocationId = tenantContextBinder.getDefaultLocationId();
 
         tournamentId = UUID.randomUUID();
         phaseId = UUID.randomUUID();
@@ -161,6 +163,8 @@ class ScoringCutoverIT {
         tournament.setMatchGeneratorId("roundRobin");
         tournament.setStatus("ACTIVE");
         tournament.setCreatedAt(now);
+        // E45S06: location_id NOT NULL (DEC-39 D2)
+        tournament.setLocationId(defaultLocationId);
         tournamentRepository.save(tournament);
 
         // Phase
@@ -175,18 +179,15 @@ class ScoringCutoverIT {
 
         // Teams
         teamRepository.save(
-                new Team(
-                        team1Id, tenantId, tournamentId, 1, "Team Alpha", true, false, false, now));
+                new Team(team1Id, tournamentId, 1, "Team Alpha", true, false, false, now));
         teamRepository.save(
-                new Team(team2Id, tenantId, tournamentId, 2, "Team Beta", true, false, false, now));
+                new Team(team2Id, tournamentId, 2, "Team Beta", true, false, false, now));
 
         // TeamAvatars
         teamAvatarRepository.save(
-                new TeamAvatar(
-                        avatar1Id, tenantId, tournamentId, phaseId, 1, 1, team1Id, null, now));
+                new TeamAvatar(avatar1Id, tournamentId, phaseId, 1, 1, team1Id, null, now));
         teamAvatarRepository.save(
-                new TeamAvatar(
-                        avatar2Id, tenantId, tournamentId, phaseId, 1, 2, team2Id, null, now));
+                new TeamAvatar(avatar2Id, tournamentId, phaseId, 1, 2, team2Id, null, now));
 
         // Match — OPEN state, field 1, lap 1
         Match match = new Match();
@@ -203,7 +204,6 @@ class ScoringCutoverIT {
         // Device — SCORING_TABLET, ASSIGNED to field 1 (required by ScoreEntryService AC8/AC12)
         Device device = new Device();
         device.setId(deviceId);
-        device.setTenantId(tenantId);
         device.setDeviceToken(deviceToken);
         device.setDeviceType(Device.TYPE_SCORING_TABLET);
         device.setStatus(Device.STATUS_ASSIGNED);

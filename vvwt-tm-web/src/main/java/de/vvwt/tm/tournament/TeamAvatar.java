@@ -29,8 +29,6 @@ public class TeamAvatar {
 
     private UUID id;
 
-    private UUID tenantId;
-
     private UUID tournamentId;
 
     /** Structural identity field (DEC-9). */
@@ -60,7 +58,6 @@ public class TeamAvatar {
      * Full constructor for explicit creation in service / repository code.
      *
      * @param id entity PK
-     * @param tenantId owning tenant
      * @param tournamentId owning tournament
      * @param phaseId structural identity — phase (DEC-9)
      * @param groupNumber structural identity — group (DEC-9)
@@ -71,7 +68,6 @@ public class TeamAvatar {
      */
     public TeamAvatar(
             UUID id,
-            UUID tenantId,
             UUID tournamentId,
             UUID phaseId,
             int groupNumber,
@@ -80,7 +76,6 @@ public class TeamAvatar {
             String description,
             LocalDateTime createdAt) {
         this.id = id;
-        this.tenantId = tenantId;
         this.tournamentId = tournamentId;
         this.phaseId = phaseId;
         this.groupNumber = groupNumber;
@@ -88,31 +83,6 @@ public class TeamAvatar {
         this.teamId = teamId;
         this.description = description;
         this.createdAt = createdAt;
-    }
-
-    /**
-     * Service-layer constructor — tenantId omitted; set by the repository from active {@link
-     * de.vvwt.tm.tenant.TenantContext} on save (E45S03).
-     */
-    public TeamAvatar(
-            UUID id,
-            UUID tournamentId,
-            UUID phaseId,
-            int groupNumber,
-            int groupPosition,
-            UUID teamId,
-            String description,
-            LocalDateTime createdAt) {
-        this(
-                id,
-                null,
-                tournamentId,
-                phaseId,
-                groupNumber,
-                groupPosition,
-                teamId,
-                description,
-                createdAt);
     }
 
     // -------------------------------------------------------------------------
@@ -125,14 +95,6 @@ public class TeamAvatar {
 
     public void setId(UUID id) {
         this.id = id;
-    }
-
-    public UUID getTenantId() {
-        return tenantId;
-    }
-
-    public void setTenantId(UUID tenantId) {
-        this.tenantId = tenantId;
     }
 
     public UUID getTournamentId() {

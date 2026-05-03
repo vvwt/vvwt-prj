@@ -68,8 +68,8 @@ class DefaultCertificateTemplateRepositoryIT {
     private DataSource dataSource;
     private AssertDbConnection assertDb;
 
-    /** Fixture tenant ID — inserted into tenants table for FK chain. */
-    private static final UUID TENANT_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+    /** Fixture location ID — inserted into locations table for tournament.location_id FK. */
+    private static final UUID LOCATION_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
     /** Fixture tournament ID — FK for certificate_template.tournament_id. */
     private static final UUID TOURNAMENT_ID =
@@ -86,8 +86,9 @@ class DefaultCertificateTemplateRepositoryIT {
         // DEC-26 Rule 2: independent assertj-db verifier
         assertDb = TenantDaoTestSupport.assertDbOf(dataSource);
 
-        // Insert FK fixture rows (tenant + tournament) so certificate_template rows can satisfy FKs
-        insertTenantFixture();
+        // E45S06: tenant_id removed (DEC-39 D1); tournament requires location_id (DEC-39 D2)
+        // Insert FK fixture rows (locations + tournament) for certificate_template FK constraints
+        insertLocationFixture();
         insertTournamentFixture();
 
         // DEC-36: typed as interface
@@ -225,21 +226,21 @@ class DefaultCertificateTemplateRepositoryIT {
     // Private fixture helpers (DEC-26 Rule 3)
     // -------------------------------------------------------------------------
 
-    /** Inserts a minimal tenant row to satisfy the tenants FK on tournament. */
-    private void insertTenantFixture() {
+    /** Inserts a minimal locations row to satisfy the tournament.location_id FK. */
+    private void insertLocationFixture() {
+        // E45S06: tenant_id removed from locations (DEC-50); tournament requires location_id FK
         Map<String, Object> cols = new LinkedHashMap<>();
-        cols.put("id", TENANT_ID);
-        cols.put("display_name", "Test Tenant");
-        cols.put("tenant_location_count", 1);
-        cols.put("is_default", false);
-        TenantDaoTestSupport.insertDirectly(dataSource, "tenants", cols);
+        cols.put("id", LOCATION_ID);
+        cols.put("display_name", "Test Location");
+        TenantDaoTestSupport.insertDirectly(dataSource, "locations", cols);
     }
 
     /** Inserts a minimal tournament row to satisfy the FK on certificate_template. */
     private void insertTournamentFixture() {
+        // E45S06: tenant_id removed; location_id NOT NULL (DEC-39 D1/D2)
         Map<String, Object> cols = new LinkedHashMap<>();
         cols.put("id", TOURNAMENT_ID);
-        cols.put("tenant_id", TENANT_ID);
+        cols.put("location_id", LOCATION_ID);
         cols.put("description", "Test Tournament");
         cols.put("match_format", "SETS");
         cols.put("scoring_rule_id", "default");

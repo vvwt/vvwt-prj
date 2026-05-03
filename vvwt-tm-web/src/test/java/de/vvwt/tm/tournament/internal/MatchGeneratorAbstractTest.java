@@ -33,7 +33,6 @@ public abstract class MatchGeneratorAbstractTest {
     protected Phase minimalPhase() {
         Phase p = new Phase();
         p.setId(UUID.randomUUID());
-        p.setTenantId(UUID.randomUUID());
         p.setTournamentId(UUID.randomUUID());
         p.setSequenceNumber(1);
         p.setDescription("Test Phase");
@@ -46,7 +45,6 @@ public abstract class MatchGeneratorAbstractTest {
     protected TeamAvatar minimalAvatar(UUID id) {
         TeamAvatar a = new TeamAvatar();
         a.setId(id);
-        a.setTenantId(UUID.randomUUID());
         a.setPhaseId(UUID.randomUUID());
         return a;
     }

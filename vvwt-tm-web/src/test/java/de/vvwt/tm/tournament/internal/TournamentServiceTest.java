@@ -23,6 +23,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 
 /**
  * Unit tests for {@link DefaultTournamentService} (E21S02, AC-TDD-TournamentService; renamed E33S01
@@ -67,9 +69,12 @@ class TournamentServiceTest {
 
     @Mock private MatchGeneratorRegistry matchGeneratorRegistry;
 
+    @Mock private JdbcTemplate jdbcTemplate;
+
     private DefaultTournamentService service;
 
     private static final UUID TENANT_ID = UUID.randomUUID();
+    private static final UUID DEFAULT_LOCATION_ID = UUID.randomUUID();
     private static final String VALID_FORMAT = "BEST_OF_3";
     private static final String VALID_SCORING = "setPoints";
     private static final String VALID_VALIDATION = "standardVolleyball";
@@ -77,9 +82,19 @@ class TournamentServiceTest {
 
     @BeforeEach
     void setUp() {
+        // Stub JdbcTemplate.query for resolveDefaultLocationId() used in createTournament
+        org.mockito.Mockito.lenient()
+                .when(
+                        jdbcTemplate.query(
+                                org.mockito.ArgumentMatchers.anyString(),
+                                org.mockito.ArgumentMatchers.<RowMapper<UUID>>any()))
+                .thenReturn(List.of(DEFAULT_LOCATION_ID));
         service =
                 new DefaultTournamentService(
-                        tournamentRepository, phaseRepository, matchGeneratorRegistry);
+                        tournamentRepository,
+                        phaseRepository,
+                        matchGeneratorRegistry,
+                        jdbcTemplate);
     }
 
     // =========================================================================
@@ -286,7 +301,6 @@ class TournamentServiceTest {
     private Tournament buildTournamentWithStatus(String description, String status) {
         Tournament t = new Tournament();
         t.setId(UUID.randomUUID());
-        t.setTenantId(TENANT_ID);
         t.setDescription(description);
         t.setMatchFormat(VALID_FORMAT);
         t.setScoringRuleId(VALID_SCORING);

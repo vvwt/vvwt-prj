@@ -1,6 +1,5 @@
 package de.vvwt.tm.tournament.internal;
 
-import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.AuditLogEntry;
 import de.vvwt.tm.tournament.AuditLogRepository;
 import java.sql.ResultSet;
@@ -41,11 +40,11 @@ import org.springframework.stereotype.Repository;
 public class DefaultAuditLogRepository implements AuditLogRepository {
 
     private static final String INSERT_SQL =
-            "INSERT INTO audit_log (id, tenant_id, match_id, set_index,"
+            "INSERT INTO audit_log (id, match_id, set_index,"
                     + " team1_points_old, team2_points_old, set_state_old,"
                     + " team1_points_new, team2_points_new, set_state_new,"
                     + " actor_id, reason, source_type, source_device_id)"
-                    + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     private static final String SELECT_BY_ID = "SELECT * FROM audit_log WHERE id = ?";
 
@@ -53,27 +52,17 @@ public class DefaultAuditLogRepository implements AuditLogRepository {
             "SELECT * FROM audit_log WHERE match_id = ? AND set_index = ? ORDER BY changed_at ASC";
 
     private final JdbcTemplate jdbc;
-    private final TenantContext tenantContext;
 
-    public DefaultAuditLogRepository(JdbcTemplate jdbc, TenantContext tenantContext) {
+    public DefaultAuditLogRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
-        this.tenantContext = tenantContext;
     }
 
-    /**
-     * {@inheritDoc}
-     *
-     * <p>Tenant scoping is enforced — the entity's tenantId is set to the current tenant before
-     * insert.
-     */
+    /** {@inheritDoc} */
     @Override
     public AuditLogEntry save(AuditLogEntry entry) {
-        UUID currentTenantId = tenantContext.current();
-        entry.setTenantId(currentTenantId);
         jdbc.update(
                 INSERT_SQL,
                 entry.getId(),
-                currentTenantId,
                 entry.getMatchId(),
                 entry.getSetIndex(),
                 entry.getTeam1PointsOld(),
@@ -92,7 +81,6 @@ public class DefaultAuditLogRepository implements AuditLogRepository {
     /** {@inheritDoc} */
     @Override
     public Optional<AuditLogEntry> findById(UUID id) {
-        tenantContext.current();
         List<AuditLogEntry> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
@@ -101,7 +89,6 @@ public class DefaultAuditLogRepository implements AuditLogRepository {
     @Override
     public List<AuditLogEntry> findByMatchIdAndSetIndexOrderByChangedAt(
             UUID matchId, int setIndex) {
-        tenantContext.current();
         return jdbc.query(SELECT_BY_MATCH_SET, ROW_MAPPER, matchId, setIndex);
     }
 
@@ -125,7 +112,6 @@ public class DefaultAuditLogRepository implements AuditLogRepository {
     private static AuditLogEntry mapRow(ResultSet rs, int rowNum) throws SQLException {
         AuditLogEntry e = new AuditLogEntry();
         e.setId(rs.getObject("id", UUID.class));
-        e.setTenantId(rs.getObject("tenant_id", UUID.class));
         e.setMatchId(rs.getObject("match_id", UUID.class));
         e.setSetIndex(rs.getInt("set_index"));
         e.setTeam1PointsOld(getBoxedInt(rs, "team1_points_old"));

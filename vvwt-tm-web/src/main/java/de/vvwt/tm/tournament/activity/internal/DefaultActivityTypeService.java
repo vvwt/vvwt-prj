@@ -77,9 +77,7 @@ public class DefaultActivityTypeService implements ActivityTypeService {
                         name,
                         assignmentRule,
                         capacityPerRound,
-                        sortOrder,
-                        null // tenantId set by DefaultActivityTypeRepository
-                        );
+                        sortOrder);
         return activityTypeRepository.save(activityType);
     }
 

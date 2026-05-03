@@ -221,7 +221,6 @@ class TournamentControllerSliceTest {
     private Tournament buildDraftTournament(String description) {
         Tournament t = new Tournament();
         t.setId(UUID.randomUUID());
-        t.setTenantId(TENANT_ID);
         t.setDescription(description);
         t.setMatchFormat("BEST_OF_3");
         t.setScoringRuleId("setPoints");

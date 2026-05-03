@@ -125,7 +125,6 @@ class ActivityAssignmentPreviewControllerTest {
                         Optional.of(
                                 new de.vvwt.tm.tournament.Tournament(
                                         TOURNAMENT_ID,
-                                        TENANT_ID,
                                         "Test",
                                         "BEST_OF_3",
                                         "setPoints",
@@ -169,7 +168,6 @@ class ActivityAssignmentPreviewControllerTest {
                         Optional.of(
                                 new de.vvwt.tm.tournament.Tournament(
                                         TOURNAMENT_ID,
-                                        TENANT_ID,
                                         "Test",
                                         "BEST_OF_3",
                                         "setPoints",
@@ -181,7 +179,6 @@ class ActivityAssignmentPreviewControllerTest {
         Phase phase =
                 new Phase(
                         phaseId,
-                        TENANT_ID,
                         TOURNAMENT_ID,
                         1,
                         "Phase 1",
@@ -194,7 +191,6 @@ class ActivityAssignmentPreviewControllerTest {
         Match match =
                 new Match(
                         UUID.randomUUID(),
-                        TENANT_ID,
                         TOURNAMENT_ID,
                         phaseId,
                         avatarId,
@@ -211,32 +207,17 @@ class ActivityAssignmentPreviewControllerTest {
 
         TeamAvatar avatar =
                 new TeamAvatar(
-                        avatarId,
-                        TENANT_ID,
-                        TOURNAMENT_ID,
-                        phaseId,
-                        1,
-                        1,
-                        teamId,
-                        null,
-                        LocalDateTime.now());
+                        avatarId, TOURNAMENT_ID, phaseId, 1, 1, teamId, null, LocalDateTime.now());
         when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(List.of(avatar));
 
         ActivityType at =
                 new ActivityType(
-                        activityTypeId,
-                        TOURNAMENT_ID,
-                        "Photo",
-                        "FIRST_FREE_ROUND",
-                        null,
-                        1,
-                        TENANT_ID);
+                        activityTypeId, TOURNAMENT_ID, "Photo", "FIRST_FREE_ROUND", null, 1);
         when(activityTypeService.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(at));
 
         Team team =
                 new Team(
                         teamId,
-                        TENANT_ID,
                         TOURNAMENT_ID,
                         1,
                         "Team A",

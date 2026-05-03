@@ -101,13 +101,9 @@ class DeviceRepositoryIT {
     @AfterEach
     void tearDown() throws Exception {
         try (var conn = dataSource.getConnection()) {
-            for (String sql :
-                    new String[] {
-                        "DELETE FROM devices WHERE tenant_id = ?",
-                        "DELETE FROM tenants WHERE id = ?"
-                    }) {
+            // E45S06: tenant_id removed — simple DELETE (per-tenant DB isolation via DEC-20)
+            for (String sql : new String[] {"DELETE FROM devices"}) {
                 try (var ps = conn.prepareStatement(sql)) {
-                    ps.setObject(1, tenantId);
                     ps.executeUpdate();
                 } catch (Exception ignored) {
                     // Best-effort cleanup
@@ -129,13 +125,12 @@ class DeviceRepositoryIT {
 
         Table table = assertDb.table("devices").build();
         final UUID savedId = device.getId();
+        // E45S06: TENANT_ID column removed from devices (DEC-39 D1)
         assertThat(table.getRowsList())
                 .as("saved device must appear in the devices table")
                 .anyMatch(
                         row ->
                                 savedId.equals(row.getColumnValue("ID").getValue())
-                                        && tenantId.equals(
-                                                row.getColumnValue("TENANT_ID").getValue())
                                         && Objects.equals(
                                                 row.getColumnValue("DEVICE_TOKEN").getValue(),
                                                 "token-save-1"));
@@ -229,7 +224,7 @@ class DeviceRepositoryIT {
                 UUID.randomUUID(), tenantId, "t-cnt-1", "1111", Device.TYPE_SCORING_TABLET);
         insertDeviceDirectly(UUID.randomUUID(), tenantId, "t-cnt-2", null, Device.TYPE_DISPLAY);
 
-        long count = deviceRepository.countByTenant(tenantId);
+        long count = deviceRepository.countByTenant();
 
         assertThat(count).isGreaterThanOrEqualTo(2);
     }
@@ -288,7 +283,6 @@ class DeviceRepositoryIT {
     private Device newDevice(UUID tid, String type, String token, String pin) {
         Device d = new Device();
         d.setId(UUID.randomUUID());
-        d.setTenantId(tid);
         d.setDeviceToken(token);
         d.setPin(pin);
         d.setDeviceType(type);
@@ -299,7 +293,6 @@ class DeviceRepositoryIT {
     private void insertDeviceDirectly(UUID id, UUID tid, String token, String pin, String type) {
         Map<String, Object> cols = new LinkedHashMap<>();
         cols.put("id", id);
-        cols.put("tenant_id", tid);
         cols.put("device_token", token);
         cols.put("pin", pin);
         cols.put("device_type", type);
@@ -312,15 +305,14 @@ class DeviceRepositoryIT {
         // AC-FAILURE-1-FIXED: insert parent locations row first (Parent-First ordering)
         // to satisfy FK_DEVICES_LOCATION before inserting the devices row.
         // Default tenant is already provisioned by DefaultTenantBootstrapRunner.
+        // E45S06: tenant_id column removed from locations (DEC-50)
         Map<String, Object> locationCols = new LinkedHashMap<>();
         locationCols.put("id", locationId);
-        locationCols.put("tenant_id", tid);
         locationCols.put("display_name", "IT-Location-" + locationId.toString().substring(0, 8));
         TenantDaoTestSupport.insertDirectly(dataSource, "locations", locationCols);
 
         Map<String, Object> cols = new LinkedHashMap<>();
         cols.put("id", id);
-        cols.put("tenant_id", tid);
         cols.put("location_id", locationId);
         cols.put("device_token", token);
         cols.put("pin", pin);

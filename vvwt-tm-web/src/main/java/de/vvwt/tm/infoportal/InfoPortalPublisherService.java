@@ -168,7 +168,6 @@ public class InfoPortalPublisherService {
             if (resp.getStatusCode().is2xxSuccessful()
                     && resp.getBody() instanceof TournamentRegistrationResponse tResp) {
                 stateDao.upsertRegistration(
-                        properties.getTenantId(),
                         properties.getLocationId(),
                         tournamentId,
                         tResp.tournamentToken(),

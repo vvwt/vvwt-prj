@@ -25,17 +25,9 @@ class PhaseTest {
 
         Phase phase =
                 new Phase(
-                        id,
-                        tenantId,
-                        tournamentId,
-                        1,
-                        "Vorrunde",
-                        Phase.PhaseStatus.PENDING.name(),
-                        0,
-                        null);
+                        id, tournamentId, 1, "Vorrunde", Phase.PhaseStatus.PENDING.name(), 0, null);
 
         assertThat(phase.getId()).isEqualTo(id);
-        assertThat(phase.getTenantId()).isEqualTo(tenantId);
         assertThat(phase.getTournamentId()).isEqualTo(tournamentId);
         assertThat(phase.getSequenceNumber()).isEqualTo(1);
         assertThat(phase.getDescription()).isEqualTo("Vorrunde");

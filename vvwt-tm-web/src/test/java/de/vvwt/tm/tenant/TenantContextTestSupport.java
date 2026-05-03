@@ -2,6 +2,7 @@ package de.vvwt.tm.tenant;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.sql.DataSource;
@@ -10,6 +11,7 @@ import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.boot.jdbc.autoconfigure.DataSourceProperties;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * Shared {@code @TestConfiguration} that provides auto-bind infrastructure for the default-tenant
@@ -91,8 +93,9 @@ public class TenantContextTestSupport {
     @Bean
     public Binder tenantContextBinder(
             @Qualifier("tenantRoutingContext") TenantContext tenantContext,
-            TenantRegistryPort tenantRegistryPort) {
-        return new Binder(tenantContext, tenantRegistryPort);
+            TenantRegistryPort tenantRegistryPort,
+            @Qualifier("routingTenantDataSource") DataSource routingDataSource) {
+        return new Binder(tenantContext, tenantRegistryPort, routingDataSource);
     }
 
     /**
@@ -179,6 +182,7 @@ public class TenantContextTestSupport {
 
         private final TenantContext tenantContext;
         private final TenantRegistryPort tenantRegistryPort;
+        private final DataSource routingDataSource;
 
         /**
          * Stack of active scopes held between paired {@link #bindDefaultTenant()} and {@link
@@ -199,8 +203,12 @@ public class TenantContextTestSupport {
          *
          * @param tenantContext the {@code tenant::api} {@link TenantContext} implementation
          * @param tenantRegistryPort the registry used to resolve the default-tenant UUID
+         * @param routingDataSource the routing DataSource for location lookups
          */
-        public Binder(TenantContext tenantContext, TenantRegistryPort tenantRegistryPort) {
+        public Binder(
+                TenantContext tenantContext,
+                TenantRegistryPort tenantRegistryPort,
+                DataSource routingDataSource) {
             if (tenantContext == null) {
                 throw new IllegalArgumentException("tenantContext must not be null");
             }
@@ -209,6 +217,7 @@ public class TenantContextTestSupport {
             }
             this.tenantContext = tenantContext;
             this.tenantRegistryPort = tenantRegistryPort;
+            this.routingDataSource = routingDataSource;
         }
 
         /**
@@ -230,6 +239,34 @@ public class TenantContextTestSupport {
             TenantContext.Scope scope = tenantContext.bind(defaultTenantId);
             scopeStack.push(scope);
             return defaultTenantId;
+        }
+
+        /**
+         * Returns the UUID of the default location bootstrapped for the active tenant (DEC-39 D2).
+         *
+         * <p>Reads the first location row from the current tenant's database via the routing
+         * DataSource. Requires {@link #bindDefaultTenant()} to have been called first.
+         *
+         * <p>Used by IT tests that insert {@code Tournament} rows, which require {@code location_id
+         * NOT NULL} per the E45S06 / DEC-39 D2 schema.
+         *
+         * @return the default location UUID; never {@code null}
+         * @throws IllegalStateException if no location row exists (should not occur in a properly
+         *     bootstrapped context)
+         */
+        public UUID getDefaultLocationId() {
+            JdbcTemplate jdbc = new JdbcTemplate(routingDataSource);
+            List<UUID> ids =
+                    jdbc.query(
+                            "SELECT id FROM locations LIMIT 1",
+                            (rs, rowNum) -> UUID.fromString(rs.getString("id")));
+            if (ids.isEmpty()) {
+                throw new IllegalStateException(
+                        "No location row found in the current tenant database. "
+                                + "Ensure bindDefaultTenant() has been called before"
+                                + " getDefaultLocationId().");
+            }
+            return ids.get(0);
         }
 
         /**

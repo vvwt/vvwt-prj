@@ -76,6 +76,7 @@ class TeamAvatarRatingRepositoryIT {
     @Autowired private TenantContextTestSupport.Binder tenantBinder;
 
     private UUID tenantId;
+    private UUID defaultLocationId;
     private UUID tournamentId;
     private UUID phaseId;
     private UUID teamId;
@@ -86,6 +87,8 @@ class TeamAvatarRatingRepositoryIT {
     void setUp() {
         assertDb = AssertDbConnectionFactory.of(dataSource).create();
         tenantId = tenantBinder.bindDefaultTenant();
+        // E45S06: tenant_id removed (DEC-39 D1); tournament uses location_id (D2)
+        defaultLocationId = tenantBinder.getDefaultLocationId();
 
         tournamentId = insertTournamentFixture();
         phaseId = insertPhaseFixture(tournamentId);
@@ -96,17 +99,16 @@ class TeamAvatarRatingRepositoryIT {
     @AfterEach
     void tearDown() throws Exception {
         try (var conn = dataSource.getConnection()) {
+            // E45S06: tenant_id removed — simple DELETE (per-tenant DB isolation via DEC-20)
             for (String sql :
                     new String[] {
-                        "DELETE FROM team_avatar_rating WHERE tenant_id = ?",
-                        "DELETE FROM team_avatar WHERE tenant_id = ?",
-                        "DELETE FROM team WHERE tenant_id = ?",
-                        "DELETE FROM phase WHERE tenant_id = ?",
-                        "DELETE FROM tournament WHERE tenant_id = ?",
-                        "DELETE FROM tenants WHERE id = ?"
+                        "DELETE FROM team_avatar_rating",
+                        "DELETE FROM team_avatar",
+                        "DELETE FROM team",
+                        "DELETE FROM phase",
+                        "DELETE FROM tournament"
                     }) {
                 try (var ps = conn.prepareStatement(sql)) {
-                    ps.setObject(1, tenantId);
                     ps.executeUpdate();
                 } catch (Exception ignored) {
                     // Best-effort cleanup
@@ -130,13 +132,12 @@ class TeamAvatarRatingRepositoryIT {
         // DEC-26 Rule 2: verify via assertj-db, not repo read.
         // Row-presence check (not exact row count) for isolation in shared H2 DB.
         Table table = assertDb.table("team_avatar_rating").build();
+        // E45S06: TENANT_ID column removed from team_avatar_rating (DEC-39 D1)
         assertThat(table.getRowsList())
                 .as("saved rating must appear in team_avatar_rating table")
                 .anyMatch(
                         row ->
                                 avatarId.equals(row.getColumnValue("AVATAR_ID").getValue())
-                                        && tenantId.equals(
-                                                row.getColumnValue("TENANT_ID").getValue())
                                         && Objects.equals(
                                                 row.getColumnValue("POINTS").getValue(), 10)
                                         && Objects.equals(
@@ -229,7 +230,6 @@ class TeamAvatarRatingRepositoryIT {
     private TeamAvatarRating newRating(UUID avId) {
         TeamAvatarRating r = new TeamAvatarRating();
         r.setAvatarId(avId);
-        r.setTenantId(tenantId);
         r.setMatchCount(3);
         r.setSetCount(6);
         r.setPoints(10);
@@ -246,7 +246,7 @@ class TeamAvatarRatingRepositoryIT {
             UUID avId, int points, int setsWon, int setsLost, double setQ, double ballQ) {
         Map<String, Object> cols = new LinkedHashMap<>();
         cols.put("avatar_id", avId);
-        cols.put("tenant_id", tenantId);
+        // E45S06: tenant_id removed from team_avatar_rating (DEC-39 D1)
         cols.put("match_count", 2);
         cols.put("set_count", 4);
         cols.put("points", points);
@@ -261,20 +261,11 @@ class TeamAvatarRatingRepositoryIT {
     }
 
     private UUID insertTournamentFixture() {
-        try {
-            Map<String, Object> tenantCols = new LinkedHashMap<>();
-            tenantCols.put("id", tenantId);
-            tenantCols.put("name", "tenant-" + tenantId);
-            tenantCols.put("subdomain", "t-" + tenantId.toString().substring(0, 8));
-            TenantDaoTestSupport.insertDirectly(dataSource, "tenants", tenantCols);
-        } catch (Exception ignored) {
-            // tenant may already exist
-        }
-
         UUID trnId = UUID.randomUUID();
         Map<String, Object> cols = new LinkedHashMap<>();
         cols.put("id", trnId);
-        cols.put("tenant_id", tenantId);
+        // E45S06: tenant_id removed; location_id NOT NULL (DEC-39 D1/D2)
+        cols.put("location_id", defaultLocationId);
         cols.put("description", "Test Tournament - TeamAvatarRatingRepositoryIT");
         cols.put("match_format", "BEST_OF_1");
         cols.put("scoring_rule_id", "defaultScoringRule");
@@ -289,7 +280,7 @@ class TeamAvatarRatingRepositoryIT {
         UUID id = UUID.randomUUID();
         Map<String, Object> cols = new LinkedHashMap<>();
         cols.put("id", id);
-        cols.put("tenant_id", tenantId);
+        // E45S06: tenant_id removed from phase (DEC-39 D1)
         cols.put("tournament_id", trnId);
         cols.put("sequence_number", 1);
         cols.put("description", "Phase 1");
@@ -302,7 +293,7 @@ class TeamAvatarRatingRepositoryIT {
         UUID id = UUID.randomUUID();
         Map<String, Object> cols = new LinkedHashMap<>();
         cols.put("id", id);
-        cols.put("tenant_id", tenantId);
+        // E45S06: tenant_id removed from team (DEC-39 D1)
         cols.put("tournament_id", trnId);
         cols.put("team_number", 1);
         cols.put("description", "Fixture Team");
@@ -317,7 +308,7 @@ class TeamAvatarRatingRepositoryIT {
         UUID id = UUID.randomUUID();
         Map<String, Object> cols = new LinkedHashMap<>();
         cols.put("id", id);
-        cols.put("tenant_id", tenantId);
+        // E45S06: tenant_id removed from team_avatar (DEC-39 D1)
         cols.put("tournament_id", trnId);
         cols.put("phase_id", pId);
         cols.put("group_number", 1);

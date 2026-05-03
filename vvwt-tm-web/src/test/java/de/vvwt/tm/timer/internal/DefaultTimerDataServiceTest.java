@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.timer.InvalidTimerUrlException;
 import de.vvwt.tm.timer.NoActiveTournamentException;
 import de.vvwt.tm.timer.TimerAudioResponse;
@@ -72,6 +73,7 @@ class DefaultTimerDataServiceTest {
     @Mock private PhaseBreakRepository phaseBreakRepository;
     @Mock private TimelineCalculationService timelineCalculationService;
     @Mock private AudioStorageService audioStorageService;
+    @Mock private TenantContext tenantContext;
 
     @InjectMocks private DefaultTimerDataService service;
 
@@ -82,6 +84,7 @@ class DefaultTimerDataServiceTest {
     void setUp() {
         tournamentId = UUID.randomUUID();
         tenantId = UUID.randomUUID();
+        org.mockito.Mockito.lenient().when(tenantContext.current()).thenReturn(tenantId);
     }
 
     // ── Helper factories ──────────────────────────────────────────────────────
@@ -89,7 +92,6 @@ class DefaultTimerDataServiceTest {
     private Tournament activeTournament() {
         Tournament t = new Tournament();
         t.setId(tournamentId);
-        t.setTenantId(tenantId);
         t.setDescription("Test Tournament");
         t.setStatus("ACTIVE");
         return t;
@@ -98,7 +100,6 @@ class DefaultTimerDataServiceTest {
     private Tournament tournamentWithStatus(String status) {
         Tournament t = new Tournament();
         t.setId(tournamentId);
-        t.setTenantId(tenantId);
         t.setDescription("Test Tournament");
         t.setStatus(status);
         return t;

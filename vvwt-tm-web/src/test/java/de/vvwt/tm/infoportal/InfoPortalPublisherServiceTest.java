@@ -54,7 +54,6 @@ class InfoPortalPublisherServiceTest {
         canonicalizer = mock(TmJcsCanonicalizer.class);
         properties = new InfoPortalProperties();
         properties.setUrl("https://info.example.com");
-        properties.setTenantId("tenant-1");
         properties.setLocationId("venue-1");
         properties.setDeprecationWarningThresholdDays(30);
 
@@ -123,14 +122,7 @@ class InfoPortalPublisherServiceTest {
         String tournamentId = "tourn-1";
         InfoPortalStateRecord stateRec =
                 new InfoPortalStateRecord(
-                        "tenant-1",
-                        "venue-1",
-                        tournamentId,
-                        5L,
-                        "tok",
-                        new byte[] {1},
-                        null,
-                        "REGISTERED");
+                        "venue-1", tournamentId, 5L, "tok", new byte[] {1}, null, "REGISTERED");
         when(stateDao.findByTournament("venue-1", tournamentId)).thenReturn(Optional.of(stateRec));
         when(stateDao.incrementAndGetSeq("venue-1", tournamentId)).thenReturn(6L);
 
@@ -152,14 +144,7 @@ class InfoPortalPublisherServiceTest {
         String tournamentId = "tourn-2";
         InfoPortalStateRecord stateRec =
                 new InfoPortalStateRecord(
-                        "tenant-1",
-                        "venue-1",
-                        tournamentId,
-                        3L,
-                        "tok",
-                        new byte[] {1},
-                        null,
-                        "REGISTERED");
+                        "venue-1", tournamentId, 3L, "tok", new byte[] {1}, null, "REGISTERED");
         when(stateDao.findByTournament("venue-1", tournamentId)).thenReturn(Optional.of(stateRec));
         when(stateDao.incrementAndGetSeq("venue-1", tournamentId)).thenReturn(4L);
         when(stateDao.findCurrentSeq("venue-1", tournamentId)).thenReturn(3L);
@@ -186,14 +171,7 @@ class InfoPortalPublisherServiceTest {
         String tournamentId = "tourn-3";
         InfoPortalStateRecord stateRec =
                 new InfoPortalStateRecord(
-                        "tenant-1",
-                        "venue-1",
-                        tournamentId,
-                        1L,
-                        "tok",
-                        new byte[] {1},
-                        null,
-                        "REGISTERED");
+                        "venue-1", tournamentId, 1L, "tok", new byte[] {1}, null, "REGISTERED");
         when(stateDao.findByTournament("venue-1", tournamentId)).thenReturn(Optional.of(stateRec));
         when(stateDao.incrementAndGetSeq("venue-1", tournamentId)).thenReturn(2L);
 

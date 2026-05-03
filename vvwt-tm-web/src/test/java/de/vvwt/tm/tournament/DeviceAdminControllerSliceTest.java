@@ -174,7 +174,6 @@ class DeviceAdminControllerSliceTest {
     private Device buildDevice(UUID id, String type, String token, String pin) {
         Device d = new Device();
         d.setId(id);
-        d.setTenantId(TENANT_ID);
         d.setDeviceToken(token);
         d.setPin(pin);
         d.setDeviceType(type);

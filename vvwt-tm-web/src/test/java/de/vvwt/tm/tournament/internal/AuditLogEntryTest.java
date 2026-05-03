@@ -75,11 +75,9 @@ class AuditLogEntryTest {
 
         AuditLogEntry entry = new AuditLogEntry();
         entry.setId(id);
-        entry.setTenantId(tenantId);
         entry.setMatchId(matchId);
 
         assertThat(entry.getId()).isEqualTo(id);
-        assertThat(entry.getTenantId()).isEqualTo(tenantId);
         assertThat(entry.getMatchId()).isEqualTo(matchId);
     }
 }

@@ -1,6 +1,5 @@
 package de.vvwt.tm.tournament.internal;
 
-import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.Device;
 import de.vvwt.tm.tournament.DeviceRepository;
 import java.sql.ResultSet;
@@ -32,12 +31,11 @@ import org.springframework.stereotype.Repository;
 public class DefaultDeviceRepository implements DeviceRepository {
 
     private final JdbcTemplate jdbc;
-    private final TenantContext tenantContext;
 
     private static final String INSERT_SQL =
-            "INSERT INTO devices (id, tenant_id, location_id, device_token, pin, device_type,"
+            "INSERT INTO devices (id, location_id, device_token, pin, device_type,"
                     + " assigned_field, status, registered_at, last_seen_at, device_name,"
-                    + " configuration) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    + " configuration) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     private static final String UPDATE_SQL =
             "UPDATE devices SET location_id=?, device_token=?, pin=?, device_type=?,"
@@ -56,12 +54,12 @@ public class DefaultDeviceRepository implements DeviceRepository {
     private static final String SELECT_BY_FIELD_NO_LOCATION =
             "SELECT * FROM devices WHERE location_id IS NULL AND assigned_field=?";
 
-    private static final String SELECT_ALL_BY_TENANT = "SELECT * FROM devices WHERE tenant_id=?";
+    private static final String SELECT_ALL = "SELECT * FROM devices";
 
-    private static final String COUNT_BY_TENANT = "SELECT COUNT(*) FROM devices WHERE tenant_id=?";
+    private static final String COUNT_ALL = "SELECT COUNT(*) FROM devices";
 
-    private static final String COUNT_DISPLAY_BY_TENANT =
-            "SELECT COUNT(*) FROM devices WHERE tenant_id=? AND device_type='DISPLAY'";
+    private static final String COUNT_DISPLAY =
+            "SELECT COUNT(*) FROM devices WHERE device_type='DISPLAY'";
 
     private static final String EXISTS_BY_ID = "SELECT COUNT(*) FROM devices WHERE id=?";
 
@@ -71,20 +69,15 @@ public class DefaultDeviceRepository implements DeviceRepository {
 
     private static final String DELETE_ALL_BY_TENANT = "DELETE FROM devices";
 
-    private static final String COUNT_LOCATION_BY_TENANT =
-            "SELECT COUNT(*) FROM locations WHERE id=? AND tenant_id=?";
+    private static final String COUNT_LOCATION = "SELECT COUNT(*) FROM locations WHERE id=?";
 
-    public DefaultDeviceRepository(JdbcTemplate jdbc, TenantContext tenantContext) {
+    public DefaultDeviceRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
-        this.tenantContext = tenantContext;
     }
 
     /** {@inheritDoc} */
     @Override
     public Device save(Device device) {
-        UUID currentTenantId = tenantContext.current();
-        device.setTenantId(currentTenantId);
-
         Integer existsCount = jdbc.queryForObject(EXISTS_BY_ID, Integer.class, device.getId());
         boolean exists = existsCount != null && existsCount > 0;
 
@@ -105,7 +98,6 @@ public class DefaultDeviceRepository implements DeviceRepository {
             jdbc.update(
                     INSERT_SQL,
                     device.getId(),
-                    currentTenantId,
                     device.getLocationId(),
                     device.getDeviceToken(),
                     device.getPin(),
@@ -162,21 +154,21 @@ public class DefaultDeviceRepository implements DeviceRepository {
 
     /** {@inheritDoc} */
     @Override
-    public List<Device> findAllByTenant(UUID tenantId) {
-        return jdbc.query(SELECT_ALL_BY_TENANT, ROW_MAPPER, tenantId);
+    public List<Device> findAllByTenant() {
+        return jdbc.query(SELECT_ALL, ROW_MAPPER);
     }
 
     /** {@inheritDoc} */
     @Override
-    public long countByTenant(UUID tenantId) {
-        Long count = jdbc.queryForObject(COUNT_BY_TENANT, Long.class, tenantId);
+    public long countByTenant() {
+        Long count = jdbc.queryForObject(COUNT_ALL, Long.class);
         return count != null ? count : 0L;
     }
 
     /** {@inheritDoc} */
     @Override
-    public long countDisplayByTenant(UUID tenantId) {
-        Long count = jdbc.queryForObject(COUNT_DISPLAY_BY_TENANT, Long.class, tenantId);
+    public long countDisplayByTenant() {
+        Long count = jdbc.queryForObject(COUNT_DISPLAY, Long.class);
         return count != null ? count : 0L;
     }
 
@@ -195,9 +187,8 @@ public class DefaultDeviceRepository implements DeviceRepository {
 
     /** {@inheritDoc} */
     @Override
-    public boolean locationExistsForTenant(UUID locationId, UUID tenantId) {
-        Integer count =
-                jdbc.queryForObject(COUNT_LOCATION_BY_TENANT, Integer.class, locationId, tenantId);
+    public boolean locationExistsForTenant(UUID locationId) {
+        Integer count = jdbc.queryForObject(COUNT_LOCATION, Integer.class, locationId);
         return count != null && count > 0;
     }
 
@@ -216,7 +207,6 @@ public class DefaultDeviceRepository implements DeviceRepository {
     private static Device mapRow(ResultSet rs) throws SQLException {
         Device d = new Device();
         d.setId(rs.getObject("id", UUID.class));
-        d.setTenantId(rs.getObject("tenant_id", UUID.class));
         d.setLocationId(rs.getObject("location_id", UUID.class));
         d.setDeviceToken(rs.getString("device_token"));
         d.setPin(rs.getString("pin"));

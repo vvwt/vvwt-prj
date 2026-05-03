@@ -190,8 +190,7 @@ class ActivityAssignmentServiceTest {
                         "Future Activity",
                         "FUTURE_ROUND_ROBIN",
                         null,
-                        1,
-                        TENANT_ID);
+                        1);
 
         assertThatThrownBy(
                         () ->
@@ -261,7 +260,6 @@ class ActivityAssignmentServiceTest {
                 name,
                 AssignmentRule.FIRST_FREE_ROUND.name(),
                 capacityPerRound,
-                1,
-                TENANT_ID);
+                1);
     }
 }

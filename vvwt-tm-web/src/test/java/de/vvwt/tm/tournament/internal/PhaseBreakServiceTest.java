@@ -36,8 +36,7 @@ class PhaseBreakServiceTest {
     @Test
     void createPhaseBreak_withValidInput_savesAndReturns() {
         UUID phaseId = UUID.randomUUID();
-        PhaseBreak saved =
-                new PhaseBreak(UUID.randomUUID(), UUID.randomUUID(), phaseId, 2, 30, "Pause");
+        PhaseBreak saved = new PhaseBreak(UUID.randomUUID(), phaseId, 2, 30, "Pause");
         when(phaseBreakRepository.findByPhaseIdAndAfterLapNumber(phaseId, 2))
                 .thenReturn(Optional.empty());
         when(phaseBreakRepository.save(any(PhaseBreak.class))).thenReturn(saved);
@@ -52,8 +51,7 @@ class PhaseBreakServiceTest {
     @Test
     void createPhaseBreak_whenDuplicateLapBoundary_throwsIllegalArgumentException() {
         UUID phaseId = UUID.randomUUID();
-        PhaseBreak existing =
-                new PhaseBreak(UUID.randomUUID(), UUID.randomUUID(), phaseId, 2, 30, null);
+        PhaseBreak existing = new PhaseBreak(UUID.randomUUID(), phaseId, 2, 30, null);
         when(phaseBreakRepository.findByPhaseIdAndAfterLapNumber(phaseId, 2))
                 .thenReturn(Optional.of(existing));
 

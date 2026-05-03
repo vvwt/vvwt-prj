@@ -74,6 +74,7 @@ class TournamentRepositoryIT {
     @Autowired private TenantContextTestSupport.Binder tenantBinder;
 
     private UUID tenantId;
+    private UUID defaultLocationId;
     private AssertDbConnection assertDb;
 
     @BeforeEach
@@ -81,25 +82,26 @@ class TournamentRepositoryIT {
         assertDb = AssertDbConnectionFactory.of(dataSource).create();
         // Bind the default tenant for all operations in this test
         tenantId = tenantBinder.bindDefaultTenant();
+        defaultLocationId = tenantBinder.getDefaultLocationId();
     }
 
     @AfterEach
     void tearDown() throws Exception {
         // Remove test-inserted data via direct JDBC. Delete child tables first to satisfy FK
-        // constraints (team, phase, match etc. reference tournament). Only clean up the tenant's
-        // rows so other concurrent test contexts are unaffected.
+        // constraints (team, phase, match etc. reference tournament).
+        // E45S06: tenant_id column removed from all tables (DEC-39 D1); cleanup is per-tenant
+        // via DB-per-tenant routing (DEC-20).
         try (var conn = dataSource.getConnection()) {
             // Delete dependent child rows first (ordered by FK depth)
             for (String sql :
                     new String[] {
-                        "DELETE FROM set_result WHERE tenant_id = ?",
-                        "DELETE FROM match_entity WHERE tenant_id = ?",
-                        "DELETE FROM team WHERE tenant_id = ?",
-                        "DELETE FROM phase WHERE tenant_id = ?",
-                        "DELETE FROM tournament WHERE tenant_id = ?"
+                        "DELETE FROM set_result",
+                        "DELETE FROM match",
+                        "DELETE FROM team",
+                        "DELETE FROM phase",
+                        "DELETE FROM tournament"
                     }) {
                 try (var ps = conn.prepareStatement(sql)) {
-                    ps.setObject(1, tenantId);
                     ps.executeUpdate();
                 } catch (Exception ignored) {
                     // Best-effort cleanup: ignore tables that do not exist or have no rows
@@ -209,7 +211,6 @@ class TournamentRepositoryIT {
     private Tournament buildTournament(UUID id, UUID tenantId, String description, String fmt) {
         Tournament t = new Tournament();
         t.setId(id);
-        t.setTenantId(tenantId);
         t.setDescription(description);
         t.setMatchFormat(fmt);
         t.setScoringRuleId("setPoints");
@@ -219,6 +220,8 @@ class TournamentRepositoryIT {
         t.setCreatedAt(LocalDateTime.now());
         t.setFieldCount(2);
         t.setTeamCount(4);
+        // E45S06: location_id NOT NULL (DEC-39 D2) — resolved via TenantContextTestSupport.Binder
+        t.setLocationId(defaultLocationId);
         return t;
     }
 
@@ -226,12 +229,15 @@ class TournamentRepositoryIT {
      * Inserts a tournament row via {@link TenantDaoTestSupport#insertDirectly} — DEC-26 Rule 3
      * compliance for read-path tests. Must not be replaced with {@code tournamentRepository.save()}
      * in any read-path test.
+     *
+     * <p>E45S06: tenant_id removed from tournament table (DEC-39 D1); location_id added (DEC-39
+     * D2).
      */
     private void insertTournamentViaTestSupport(
             UUID id, UUID tId, String description, String matchFormat) {
         var cols = new LinkedHashMap<String, Object>();
         cols.put("id", id);
-        cols.put("tenant_id", tId);
+        cols.put("location_id", defaultLocationId);
         cols.put("description", description);
         cols.put("match_format", matchFormat);
         cols.put("scoring_rule_id", "setPoints");

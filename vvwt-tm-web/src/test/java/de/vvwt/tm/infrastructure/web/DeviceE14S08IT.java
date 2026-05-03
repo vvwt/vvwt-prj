@@ -329,12 +329,10 @@ class DeviceE14S08IT {
     }
 
     private UUID resolveDefaultLocationId() {
-        UUID defaultTenantId = tenantRegistryPort.getDefault();
+        // E45S06: tenant_id removed from locations (DEC-50); select first location row.
+        // In Wave-1 single-location model each per-tenant DB has exactly one location row.
         try (Connection conn = dataSource.getConnection();
-                PreparedStatement ps =
-                        conn.prepareStatement(
-                                "SELECT id FROM locations WHERE tenant_id = ? LIMIT 1")) {
-            ps.setString(1, defaultTenantId.toString());
+                PreparedStatement ps = conn.prepareStatement("SELECT id FROM locations LIMIT 1")) {
             try (ResultSet rs = ps.executeQuery()) {
                 assertThat(rs.next())
                         .as("At least one location must exist for the default tenant")

@@ -70,28 +70,25 @@ public interface DeviceRepository {
     Optional<Device> findByLocationAndField(UUID locationId, int assignedField);
 
     /**
-     * Returns all devices for the current tenant.
+     * Returns all devices for the current tenant (DB-per-tenant routing provides scoping).
      *
-     * @param tenantId the tenant UUID
      * @return list of all devices; never null
      */
-    List<Device> findAllByTenant(UUID tenantId);
+    List<Device> findAllByTenant();
 
     /**
-     * Returns the count of all devices (all types) for the given tenant.
+     * Returns the count of all devices (all types) for the current tenant.
      *
-     * @param tenantId the tenant UUID
-     * @return number of devices registered for this tenant
+     * @return number of devices in the current tenant database
      */
-    long countByTenant(UUID tenantId);
+    long countByTenant();
 
     /**
-     * Returns the count of DISPLAY devices for the given tenant.
+     * Returns the count of DISPLAY devices for the current tenant.
      *
-     * @param tenantId the tenant UUID
-     * @return number of DISPLAY devices registered for this tenant
+     * @return number of DISPLAY devices in the current tenant database
      */
-    long countDisplayByTenant(UUID tenantId);
+    long countDisplayByTenant();
 
     /**
      * Returns whether the given PIN is already in use by any device of the current tenant.
@@ -109,13 +106,12 @@ public interface DeviceRepository {
     void deleteById(UUID id);
 
     /**
-     * Returns whether the given location exists for the given tenant.
+     * Returns whether the given location exists in the current tenant database.
      *
      * @param locationId the location UUID to validate
-     * @param tenantId the active tenant UUID
-     * @return true if the location exists in this tenant, false otherwise
+     * @return true if the location exists, false otherwise
      */
-    boolean locationExistsForTenant(UUID locationId, UUID tenantId);
+    boolean locationExistsForTenant(UUID locationId);
 
     /** Deletes all devices for the current tenant. */
     void deleteAllByTenant();

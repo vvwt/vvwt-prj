@@ -270,7 +270,6 @@ class DeviceTokenHandshakeInterceptorTest {
     private Device makeDevice(String type, String status, UUID locationId) {
         return new Device(
                 UUID.randomUUID(),
-                DEFAULT_TENANT_ID,
                 locationId,
                 "token-" + UUID.randomUUID(),
                 null,

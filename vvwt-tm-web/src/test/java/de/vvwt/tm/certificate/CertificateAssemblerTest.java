@@ -50,7 +50,6 @@ class CertificateAssemblerTest {
     // Shared test IDs
     // -------------------------------------------------------------------------
 
-    private static final UUID TENANT_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final UUID TOURNAMENT_ID =
             UUID.fromString("00000000-0000-0000-0000-000000000002");
     private static final UUID PHASE_ID = UUID.fromString("00000000-0000-0000-0000-000000000003");
@@ -82,7 +81,6 @@ class CertificateAssemblerTest {
     private static Phase makePhase(UUID phaseId, int sequenceNumber) {
         return new Phase(
                 phaseId,
-                TENANT_ID,
                 TOURNAMENT_ID,
                 sequenceNumber,
                 "Phase " + sequenceNumber,
@@ -92,8 +90,7 @@ class CertificateAssemblerTest {
     }
 
     private static TeamAvatar makeAvatar(UUID avatarId, UUID teamId, UUID phaseId) {
-        return new TeamAvatar(
-                avatarId, TENANT_ID, TOURNAMENT_ID, phaseId, 1, 1, teamId, null, null);
+        return new TeamAvatar(avatarId, TOURNAMENT_ID, phaseId, 1, 1, teamId, null, null);
     }
 
     private static TeamAvatarRating makeRating(
@@ -104,7 +101,6 @@ class CertificateAssemblerTest {
             boolean withoutAssessment) {
         return new TeamAvatarRating(
                 avatarId,
-                TENANT_ID,
                 3,
                 6,
                 points,
@@ -121,7 +117,6 @@ class CertificateAssemblerTest {
     private static Team makeTeam(UUID teamId, String description) {
         Team t = new Team();
         t.setId(teamId);
-        t.setTenantId(TENANT_ID);
         t.setTournamentId(TOURNAMENT_ID);
         t.setDescription(description);
         t.setTeamNumber(1);
@@ -131,7 +126,6 @@ class CertificateAssemblerTest {
     private static Tournament makeTournament() {
         return new Tournament(
                 TOURNAMENT_ID,
-                TENANT_ID,
                 "Stadtmeisterschaft 2026",
                 "BEST_OF_3",
                 "setPoints",

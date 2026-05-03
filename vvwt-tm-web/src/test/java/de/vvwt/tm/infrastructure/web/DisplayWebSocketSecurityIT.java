@@ -299,7 +299,6 @@ class DisplayWebSocketSecurityIT {
         deviceRepository.save(
                 new Device(
                         UUID.randomUUID(),
-                        defaultTenantId,
                         null,
                         token,
                         null,
@@ -321,7 +320,6 @@ class DisplayWebSocketSecurityIT {
         deviceRepository.save(
                 new Device(
                         UUID.randomUUID(),
-                        defaultTenantId,
                         null,
                         token,
                         pin,

@@ -58,7 +58,7 @@ class DefaultLocationDisplayResolverTest {
         JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
         resolver = new DefaultLocationDisplayResolver(jdbcTemplate);
 
-        // Insert tenant row (required by FK on locations.tenant_id in current pre-Reset schema)
+        // Insert tenant row (no longer required as FK; kept for schema completeness)
         TenantDaoTestSupport.insertDirectly(
                 dataSource,
                 "tenants",
@@ -83,17 +83,11 @@ class DefaultLocationDisplayResolverTest {
     @DisplayName("returns display_name when a location row exists (no tenantId param)")
     void resolveLocationDisplayName_returnsDisplayName_whenLocationExists() {
         // DEC-26 Rule 3: fixture via direct JDBC
-        // tenant_id still required by FK (pre-Reset schema); uses the tenant inserted in setUp()
+        // E45S06: tenant_id removed from locations table (DEC-50)
         TenantDaoTestSupport.insertDirectly(
                 dataSource,
                 "locations",
-                Map.of(
-                        "id",
-                        UUID.randomUUID(),
-                        "tenant_id",
-                        TENANT_ID,
-                        "display_name",
-                        "Sporthalle Musterstadt"));
+                Map.of("id", UUID.randomUUID(), "display_name", "Sporthalle Musterstadt"));
 
         String result = resolver.resolveLocationDisplayName();
 

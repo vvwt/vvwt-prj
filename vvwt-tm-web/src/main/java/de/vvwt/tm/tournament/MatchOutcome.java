@@ -48,9 +48,6 @@ public class MatchOutcome {
      */
     @Id private UUID matchId;
 
-    /** Tenant scope — NOT NULL per DEC-17. FK references {@code tenants(id)}. */
-    private UUID tenantId;
-
     /** Sets won by team 1 (team in the first slot). Default 0. */
     private int team1SetsWon;
 
@@ -100,7 +97,6 @@ public class MatchOutcome {
      * Full constructor for persistence-layer creation (cascade service).
      *
      * @param matchId primary key / FK to {@code match(id)}
-     * @param tenantId tenant scope (NOT NULL)
      * @param team1SetsWon sets won by team 1 (&ge; 0)
      * @param team1BallsWon balls won by team 1 (&ge; 0)
      * @param team2SetsWon sets won by team 2 (&ge; 0)
@@ -111,7 +107,6 @@ public class MatchOutcome {
      */
     public MatchOutcome(
             UUID matchId,
-            UUID tenantId,
             int team1SetsWon,
             int team1BallsWon,
             int team2SetsWon,
@@ -120,7 +115,6 @@ public class MatchOutcome {
             int computedState,
             LocalDateTime updatedAt) {
         this.matchId = matchId;
-        this.tenantId = tenantId;
         this.team1SetsWon = team1SetsWon;
         this.team1BallsWon = team1BallsWon;
         this.team2SetsWon = team2SetsWon;
@@ -185,14 +179,6 @@ public class MatchOutcome {
 
     public void setMatchId(UUID matchId) {
         this.matchId = matchId;
-    }
-
-    public UUID getTenantId() {
-        return tenantId;
-    }
-
-    public void setTenantId(UUID tenantId) {
-        this.tenantId = tenantId;
     }
 
     public int getTeam1SetsWon() {

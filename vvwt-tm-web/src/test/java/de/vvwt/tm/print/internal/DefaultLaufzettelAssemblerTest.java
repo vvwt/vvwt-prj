@@ -106,32 +106,11 @@ class DefaultLaufzettelAssemblerTest {
 
     @BeforeEach
     void setUp() {
-        team1 =
-                new Team(
-                        TEAM1_ID,
-                        TENANT_ID,
-                        TOURNAMENT_ID,
-                        1,
-                        "Rote Wölfe",
-                        true,
-                        false,
-                        false,
-                        null);
-        team2 =
-                new Team(
-                        TEAM2_ID,
-                        TENANT_ID,
-                        TOURNAMENT_ID,
-                        2,
-                        "Blaue Haie",
-                        true,
-                        false,
-                        false,
-                        null);
+        team1 = new Team(TEAM1_ID, TOURNAMENT_ID, 1, "Rote Wölfe", true, false, false, null);
+        team2 = new Team(TEAM2_ID, TOURNAMENT_ID, 2, "Blaue Haie", true, false, false, null);
         team3 =
                 new Team(
                         TEAM3_ID,
-                        TENANT_ID,
                         TOURNAMENT_ID,
                         3,
                         null /* null description */,
@@ -140,23 +119,16 @@ class DefaultLaufzettelAssemblerTest {
                         false,
                         null);
 
-        phase1 = new Phase(PHASE_ID, TENANT_ID, TOURNAMENT_ID, 1, "Vorrunde", "ACTIVE", 0, null);
+        phase1 = new Phase(PHASE_ID, TOURNAMENT_ID, 1, "Vorrunde", "ACTIVE", 0, null);
 
-        avatar1 =
-                new TeamAvatar(
-                        AVATAR1_ID, TENANT_ID, TOURNAMENT_ID, PHASE_ID, 1, 1, TEAM1_ID, null, null);
-        avatar2 =
-                new TeamAvatar(
-                        AVATAR2_ID, TENANT_ID, TOURNAMENT_ID, PHASE_ID, 1, 2, TEAM2_ID, null, null);
-        avatar3 =
-                new TeamAvatar(
-                        AVATAR3_ID, TENANT_ID, TOURNAMENT_ID, PHASE_ID, 1, 3, TEAM3_ID, null, null);
+        avatar1 = new TeamAvatar(AVATAR1_ID, TOURNAMENT_ID, PHASE_ID, 1, 1, TEAM1_ID, null, null);
+        avatar2 = new TeamAvatar(AVATAR2_ID, TOURNAMENT_ID, PHASE_ID, 1, 2, TEAM2_ID, null, null);
+        avatar3 = new TeamAvatar(AVATAR3_ID, TOURNAMENT_ID, PHASE_ID, 1, 3, TEAM3_ID, null, null);
 
         // lap=1, field=2, no referee, team1 vs team2
         matchLap1 =
                 new Match(
                         MATCH_ID,
-                        TENANT_ID,
                         TOURNAMENT_ID,
                         PHASE_ID,
                         AVATAR1_ID,
@@ -253,7 +225,6 @@ class DefaultLaufzettelAssemblerTest {
         Match matchWithRef =
                 new Match(
                         MATCH_ID,
-                        TENANT_ID,
                         TOURNAMENT_ID,
                         PHASE_ID,
                         AVATAR1_ID,
@@ -373,7 +344,6 @@ class DefaultLaufzettelAssemblerTest {
         Match matchLap2 =
                 new Match(
                         UUID.randomUUID(),
-                        TENANT_ID,
                         TOURNAMENT_ID,
                         PHASE_ID,
                         AVATAR1_ID,
@@ -518,22 +488,18 @@ class DefaultLaufzettelAssemblerTest {
         Tournament tournament = noTimeT();
 
         UUID phase2Id = UUID.fromString("00000000-0000-0000-0001-000000000099");
-        Phase phase2 =
-                new Phase(phase2Id, TENANT_ID, TOURNAMENT_ID, 2, "Finale", "PENDING", 0, null);
+        Phase phase2 = new Phase(phase2Id, TOURNAMENT_ID, 2, "Finale", "PENDING", 0, null);
 
         UUID av1p2 = UUID.fromString("00000000-0000-0000-0001-0000000000a1");
         UUID av2p2 = UUID.fromString("00000000-0000-0000-0001-0000000000a2");
         TeamAvatar avP2T1 =
-                new TeamAvatar(
-                        av1p2, TENANT_ID, TOURNAMENT_ID, phase2Id, 1, 1, TEAM1_ID, null, null);
+                new TeamAvatar(av1p2, TOURNAMENT_ID, phase2Id, 1, 1, TEAM1_ID, null, null);
         TeamAvatar avP2T2 =
-                new TeamAvatar(
-                        av2p2, TENANT_ID, TOURNAMENT_ID, phase2Id, 1, 2, TEAM2_ID, null, null);
+                new TeamAvatar(av2p2, TOURNAMENT_ID, phase2Id, 1, 2, TEAM2_ID, null, null);
 
         Match matchP2 =
                 new Match(
                         UUID.randomUUID(),
-                        TENANT_ID,
                         TOURNAMENT_ID,
                         phase2Id,
                         av1p2,
@@ -584,7 +550,6 @@ class DefaultLaufzettelAssemblerTest {
         Match matchSelfRef =
                 new Match(
                         MATCH_ID,
-                        TENANT_ID,
                         TOURNAMENT_ID,
                         PHASE_ID,
                         AVATAR1_ID,
@@ -647,14 +612,11 @@ class DefaultLaufzettelAssemblerTest {
         // Match: team3(null desc) vs team1
         UUID avA = UUID.fromString("00000000-0000-0000-0001-000000000050");
         UUID avB = UUID.fromString("00000000-0000-0000-0001-000000000051");
-        TeamAvatar avT3 =
-                new TeamAvatar(avA, TENANT_ID, TOURNAMENT_ID, PHASE_ID, 1, 1, TEAM3_ID, null, null);
-        TeamAvatar avT1 =
-                new TeamAvatar(avB, TENANT_ID, TOURNAMENT_ID, PHASE_ID, 1, 2, TEAM1_ID, null, null);
+        TeamAvatar avT3 = new TeamAvatar(avA, TOURNAMENT_ID, PHASE_ID, 1, 1, TEAM3_ID, null, null);
+        TeamAvatar avT1 = new TeamAvatar(avB, TOURNAMENT_ID, PHASE_ID, 1, 2, TEAM1_ID, null, null);
         Match m =
                 new Match(
                         UUID.randomUUID(),
-                        TENANT_ID,
                         TOURNAMENT_ID,
                         PHASE_ID,
                         avA,
@@ -790,7 +752,6 @@ class DefaultLaufzettelAssemblerTest {
         Match matchLap2 =
                 new Match(
                         UUID.randomUUID(),
-                        TENANT_ID,
                         TOURNAMENT_ID,
                         PHASE_ID,
                         AVATAR1_ID,
@@ -875,20 +836,16 @@ class DefaultLaufzettelAssemblerTest {
         Tournament tournament = withTimeT(LocalTime.of(9, 0));
 
         UUID phase2Id = UUID.fromString("00000000-0000-0000-0001-000000000088");
-        Phase phase2 =
-                new Phase(phase2Id, TENANT_ID, TOURNAMENT_ID, 2, "Finale", "PENDING", 0, null);
+        Phase phase2 = new Phase(phase2Id, TOURNAMENT_ID, 2, "Finale", "PENDING", 0, null);
         UUID av1p2 = UUID.fromString("00000000-0000-0000-0001-0000000000b1");
         UUID av2p2 = UUID.fromString("00000000-0000-0000-0001-0000000000b2");
         TeamAvatar avP2T1 =
-                new TeamAvatar(
-                        av1p2, TENANT_ID, TOURNAMENT_ID, phase2Id, 1, 1, TEAM1_ID, null, null);
+                new TeamAvatar(av1p2, TOURNAMENT_ID, phase2Id, 1, 1, TEAM1_ID, null, null);
         TeamAvatar avP2T2 =
-                new TeamAvatar(
-                        av2p2, TENANT_ID, TOURNAMENT_ID, phase2Id, 1, 2, TEAM2_ID, null, null);
+                new TeamAvatar(av2p2, TOURNAMENT_ID, phase2Id, 1, 2, TEAM2_ID, null, null);
         Match matchP2 =
                 new Match(
                         UUID.randomUUID(),
-                        TENANT_ID,
                         TOURNAMENT_ID,
                         phase2Id,
                         av1p2,
@@ -956,7 +913,6 @@ class DefaultLaufzettelAssemblerTest {
     private Tournament noTimeT() {
         return new Tournament(
                 TOURNAMENT_ID,
-                TENANT_ID,
                 "Test",
                 "BEST_OF_3",
                 "setPoints",
@@ -973,7 +929,6 @@ class DefaultLaufzettelAssemblerTest {
     private Tournament withTimeT(LocalTime startTime) {
         return new Tournament(
                 TOURNAMENT_ID,
-                TENANT_ID,
                 "Test",
                 "BEST_OF_3",
                 "setPoints",

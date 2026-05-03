@@ -1,6 +1,5 @@
 package de.vvwt.tm.tournament.internal;
 
-import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.Device;
 import de.vvwt.tm.tournament.DeviceRepository;
 import de.vvwt.tm.tournament.DeviceService;
@@ -64,7 +63,6 @@ public class DefaultDeviceService implements DeviceService {
     private static final int MAX_PIN_RETRIES = 20;
 
     private final DeviceRepository deviceRepository;
-    private final TenantContext tenantContext;
     private final DeviceLimitConfig limitConfig;
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -82,15 +80,10 @@ public class DefaultDeviceService implements DeviceService {
      * Constructs the service with its required collaborators.
      *
      * @param deviceRepository device persistence
-     * @param tenantContext current tenant context
      * @param limitConfig device limit configuration
      */
-    public DefaultDeviceService(
-            DeviceRepository deviceRepository,
-            TenantContext tenantContext,
-            DeviceLimitConfig limitConfig) {
+    public DefaultDeviceService(DeviceRepository deviceRepository, DeviceLimitConfig limitConfig) {
         this.deviceRepository = deviceRepository;
-        this.tenantContext = tenantContext;
         this.limitConfig = limitConfig;
     }
 
@@ -108,8 +101,6 @@ public class DefaultDeviceService implements DeviceService {
      */
     @Override
     public Device register(String deviceType) {
-        UUID tenantId = tenantContext.current();
-
         // Display-device-specific limit (429 Too Many Requests, legacy parity)
         String effectiveType = deviceType != null ? deviceType : Device.TYPE_SCORING_TABLET;
 
@@ -125,14 +116,14 @@ public class DefaultDeviceService implements DeviceService {
                             + Device.TYPE_DISPLAY);
         }
         if (Device.TYPE_DISPLAY.equals(effectiveType) && maxDisplayCount > 0) {
-            long displayCount = deviceRepository.countDisplayByTenant(tenantId);
+            long displayCount = deviceRepository.countDisplayByTenant();
             if (displayCount >= maxDisplayCount) {
                 throw new DisplayDeviceLimitExceededException(maxDisplayCount, displayCount);
             }
         }
 
         // Total device limit (409 Conflict)
-        long currentCount = deviceRepository.countByTenant(tenantId);
+        long currentCount = deviceRepository.countByTenant();
         int limit = limitConfig.getMaxDeviceCount();
         if (currentCount >= limit) {
             throw new DeviceLimitExceededException(limit, currentCount);
@@ -140,7 +131,6 @@ public class DefaultDeviceService implements DeviceService {
 
         Device device = new Device();
         device.setId(UUID.randomUUID());
-        device.setTenantId(tenantId);
         device.setDeviceToken(UUID.randomUUID().toString());
         device.setDeviceType(deviceType != null ? deviceType : Device.TYPE_SCORING_TABLET);
         device.setStatus(Device.STATUS_REGISTERED);
@@ -176,8 +166,7 @@ public class DefaultDeviceService implements DeviceService {
     /** {@inheritDoc} */
     @Override
     public List<Device> listDevices() {
-        UUID tenantId = tenantContext.current();
-        return deviceRepository.findAllByTenant(tenantId);
+        return deviceRepository.findAllByTenant();
     }
 
     // -------------------------------------------------------------------------
@@ -221,14 +210,13 @@ public class DefaultDeviceService implements DeviceService {
      */
     @Override
     public Device assignLocation(UUID deviceId, UUID locationId) {
-        UUID tenantId = tenantContext.current();
         Device device =
                 deviceRepository
                         .findById(deviceId)
                         .orElseThrow(
                                 () -> new NoSuchElementException("Device not found: " + deviceId));
-        // AC8 — cross-tenant guard: locationId must belong to the active tenant
-        if (!deviceRepository.locationExistsForTenant(locationId, tenantId)) {
+        // AC8 — validate locationId exists in the current tenant database
+        if (!deviceRepository.locationExistsForTenant(locationId)) {
             throw new IllegalArgumentException(
                     "Location " + locationId + " does not exist for the active tenant");
         }

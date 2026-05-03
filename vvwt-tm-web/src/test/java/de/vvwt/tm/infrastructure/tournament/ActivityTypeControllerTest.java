@@ -154,14 +154,7 @@ class ActivityTypeControllerTest {
     @DisplayName("AC2: GET list returns activity types with correct fields")
     void listReturnsActivityTypesWithCorrectFields() throws Exception {
         ActivityType at =
-                new ActivityType(
-                        ACTIVITY_ID,
-                        TOURNAMENT_ID,
-                        "Photo",
-                        "FIRST_FREE_ROUND",
-                        null,
-                        1,
-                        TENANT_ID);
+                new ActivityType(ACTIVITY_ID, TOURNAMENT_ID, "Photo", "FIRST_FREE_ROUND", null, 1);
         when(activityTypeService.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(at));
 
         mockMvc.perform(get("/api/tournaments/{id}/activity-types", TOURNAMENT_ID))
@@ -191,14 +184,7 @@ class ActivityTypeControllerTest {
     @DisplayName("AC2: POST creates activity type and returns 201 with Location header")
     void postCreatesAndReturns201() throws Exception {
         ActivityType created =
-                new ActivityType(
-                        ACTIVITY_ID,
-                        TOURNAMENT_ID,
-                        "Photo",
-                        "FIRST_FREE_ROUND",
-                        null,
-                        1,
-                        TENANT_ID);
+                new ActivityType(ACTIVITY_ID, TOURNAMENT_ID, "Photo", "FIRST_FREE_ROUND", null, 1);
         when(activityTypeService.create(
                         eq(TOURNAMENT_ID), eq("Photo"), eq("FIRST_FREE_ROUND"), eq(null), eq(1)))
                 .thenReturn(created);
@@ -294,8 +280,7 @@ class ActivityTypeControllerTest {
     @DisplayName("AC2: PUT updates activity type and returns 200")
     void putUpdatesAndReturns200() throws Exception {
         ActivityType updated =
-                new ActivityType(
-                        ACTIVITY_ID, TOURNAMENT_ID, "NewName", "FIRST_FREE_ROUND", 3, 2, TENANT_ID);
+                new ActivityType(ACTIVITY_ID, TOURNAMENT_ID, "NewName", "FIRST_FREE_ROUND", 3, 2);
         when(activityTypeService.update(
                         eq(TOURNAMENT_ID),
                         eq(ACTIVITY_ID),

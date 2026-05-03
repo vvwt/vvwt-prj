@@ -21,15 +21,16 @@ import org.junit.jupiter.api.Test;
  * <p>DEC-26 three rules:
  *
  * <ol>
- *   <li>Rule 1 — schema from production migration {@code V17__e38s09_info_portal_state.sql}
+ *   <li>Rule 1 — schema from production migration {@code infoportal/V1__initial_schema.sql} (E45S05
+ *       per-module schema; replaces root {@code V17__e38s09_info_portal_state.sql})
  *   <li>Rule 2 — assertj-db independent persistence verifier (not DAO read method)
  *   <li>Rule 3 — JDBC direct-insert for read-path fixture (not DAO write method)
  * </ol>
  *
- * <p>E45S04 — DEC-39/DEC-50 predicate removal: {@code tenantId} param dropped from {@code
- * incrementAndGetSeq}, {@code findCurrentSeq}, {@code updateLastPublishedAt}, and {@code
- * findByTournament}. {@code upsertRegistration} retains {@code tenantId} (INSERT/MERGE side,
- * AC-INSERT-UPDATE-UNTOUCHED).
+ * <p>E45S06 — DEC-50 Big-Bang-Reset cleanup: {@code tenant_id} column removed from schema and DAO.
+ * {@code upsertRegistration} signature changed from 5-param (tenantId, locationId, tournamentId,
+ * token, secret) to 4-param (locationId, tournamentId, token, secret). Direct-insert fixtures no
+ * longer include {@code tenant_id}.
  *
  * @see <a
  *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09
@@ -47,10 +48,11 @@ class InfoPortalStateDaoIT {
 
     @BeforeEach
     void setUp() {
-        // DEC-26 Rule 1: schema from production migration, DEC-46 via TenantDaoTestSupport
+        // DEC-26 Rule 1: schema from production migration (infoportal module), DEC-46 via
+        // TenantDaoTestSupport
         dataSource = TenantDaoTestSupport.freshDataSource();
         TenantDaoTestSupport.applyMigration(
-                dataSource, "db/migration/V17__e38s09_info_portal_state.sql");
+                dataSource, "db/migration/infoportal/V1__initial_schema.sql");
         // DEC-26 Rule 2: independent assertj-db verifier
         assertDb = TenantDaoTestSupport.assertDbOf(dataSource);
         dao = new InfoPortalStateDao(dataSource);
@@ -63,14 +65,13 @@ class InfoPortalStateDaoIT {
     @Test
     void upsertRegistration_insertsNewRow() {
         // GIVEN
-        String tenantId = "tenant-1";
         String locationId = "venue-1";
         String tournamentId = "tourn-abc";
         String tournamentToken = "tok-xyz";
         byte[] secret = new byte[] {1, 2, 3, 4};
 
-        // WHEN
-        dao.upsertRegistration(tenantId, locationId, tournamentId, tournamentToken, secret);
+        // WHEN — E45S06: tenantId param removed (DEC-50)
+        dao.upsertRegistration(locationId, tournamentId, tournamentToken, secret);
 
         // THEN — DEC-26 Rule 2: assertj-db, NOT dao.find()
         Table table = assertDb.table("info_portal_state").build();
@@ -80,9 +81,9 @@ class InfoPortalStateDaoIT {
     @Test
     void upsertRegistration_updatesExistingRow() {
         // GIVEN — initial row
-        dao.upsertRegistration("t", "l", "tour-1", "old-token", new byte[] {1});
+        dao.upsertRegistration("l", "tour-1", "old-token", new byte[] {1});
         // Update with new token
-        dao.upsertRegistration("t", "l", "tour-1", "new-token", new byte[] {2});
+        dao.upsertRegistration("l", "tour-1", "new-token", new byte[] {2});
 
         // THEN — still exactly 1 row (upsert, not insert)
         Table table = assertDb.table("info_portal_state").build();
@@ -92,7 +93,7 @@ class InfoPortalStateDaoIT {
     @Test
     void incrementAndGetSeq_atomicIncrementFromZero() {
         // GIVEN — row with last_published_seq = 0
-        dao.upsertRegistration("t", "l", "tour-2", "tok", new byte[] {1});
+        dao.upsertRegistration("l", "tour-2", "tok", new byte[] {1});
 
         // WHEN — E45S04: tenantId param dropped (DEC-39/DEC-50)
         long seq = dao.incrementAndGetSeq("l", "tour-2");
@@ -103,7 +104,7 @@ class InfoPortalStateDaoIT {
 
     @Test
     void incrementAndGetSeq_incrementsMonotonically() {
-        dao.upsertRegistration("t", "l", "tour-3", "tok", new byte[] {1});
+        dao.upsertRegistration("l", "tour-3", "tok", new byte[] {1});
 
         // E45S04: tenantId param dropped
         long seq1 = dao.incrementAndGetSeq("l", "tour-3");
@@ -117,7 +118,7 @@ class InfoPortalStateDaoIT {
 
     @Test
     void updateLastPublishedAt_updatesTimestamp() {
-        dao.upsertRegistration("t", "l", "tour-4", "tok", new byte[] {1});
+        dao.upsertRegistration("l", "tour-4", "tok", new byte[] {1});
         Instant now = Instant.now();
 
         // E45S04: tenantId param dropped
@@ -136,11 +137,11 @@ class InfoPortalStateDaoIT {
     @Test
     void findByTournament_returnsRecord_whenRowExists() {
         // DEC-26 Rule 3: JDBC direct-insert, not dao.upsertRegistration()
+        // E45S06: tenant_id column removed from insert (DEC-50)
         TenantDaoTestSupport.insertDirectly(
                 dataSource,
                 "info_portal_state",
                 Map.of(
-                        "tenant_id", "t2",
                         "location_id", "l2",
                         "tournament_id", "tour-read-1",
                         "last_published_seq", 7L,
@@ -170,7 +171,6 @@ class InfoPortalStateDaoIT {
                 dataSource,
                 "info_portal_state",
                 Map.of(
-                        "tenant_id", "t3",
                         "location_id", "l3",
                         "tournament_id", "tour-seq-1",
                         "last_published_seq", 42L,

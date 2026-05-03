@@ -46,6 +46,7 @@ class PhaseRepositoryIT {
     private TenantContext.Scope tenantScope;
     private UUID tenantId;
     private UUID tournamentId;
+    private UUID locationId;
 
     @BeforeEach
     void setUp() {
@@ -55,31 +56,23 @@ class PhaseRepositoryIT {
         assertDb = TenantDaoTestSupport.assertDbOf(ds);
         tenantId = UUID.randomUUID();
         tournamentId = UUID.randomUUID();
+        locationId = UUID.randomUUID();
         // Standalone test — no Spring context; use ThreadLocalTenantContextImpl directly.
         // TenantContextTestSupport.Binder requires a full @SpringBootTest application context
         // (AC-TENANT-BINDER-ADOPTION departure: standalone lifecycle differs — documented in
         // impl-report).
         tenantContext = new ThreadLocalTenantContextImpl();
         tenantScope = tenantContext.bind(tenantId);
-        // Insert prerequisite tenant and tournament rows for FK constraints
+        // E45S06: tenant_id removed from all tables (DEC-39 D1).
+        // Insert prerequisite locations row (FK target for tournament.location_id) and tournament.
         TenantDaoTestSupport.insertDirectly(
-                ds,
-                "tenants",
-                Map.of(
-                        "id",
-                        tenantId,
-                        "display_name",
-                        "IT Tenant",
-                        "tenant_location_count",
-                        1,
-                        "is_default",
-                        false));
+                ds, "locations", Map.of("id", locationId, "display_name", "IT Location"));
         TenantDaoTestSupport.insertDirectly(
                 ds,
                 "tournament",
                 Map.of(
                         "id", tournamentId,
-                        "tenant_id", tenantId,
+                        "location_id", locationId,
                         "description", "IT Tournament",
                         "match_format", "BEST_OF_1",
                         "scoring_rule_id", "default",
@@ -88,7 +81,7 @@ class PhaseRepositoryIT {
                         "status", "DRAFT",
                         "field_count", 2,
                         "team_count", 4));
-        repo = new DefaultPhaseRepository(new JdbcTemplate(ds), tenantContext);
+        repo = new DefaultPhaseRepository(new JdbcTemplate(ds));
     }
 
     @AfterEach
@@ -100,7 +93,7 @@ class PhaseRepositoryIT {
     @Test
     void save_persistsPhaseRow() {
         UUID id = UUID.randomUUID();
-        Phase phase = new Phase(id, tenantId, tournamentId, 1, "Vorrunde", "PENDING", 0, null);
+        Phase phase = new Phase(id, tournamentId, 1, "Vorrunde", "PENDING", 0, null);
 
         repo.save(phase);
 
@@ -122,14 +115,13 @@ class PhaseRepositoryIT {
     void findById_returnsSavedPhase() {
         UUID id = UUID.randomUUID();
         // Rule 3: insert fixture via direct JDBC for read-path test
+        // E45S06: tenant_id removed from phase (DEC-39 D1)
         TenantDaoTestSupport.insertDirectly(
                 ds,
                 "phase",
                 Map.of(
                         "id",
                         id,
-                        "tenant_id",
-                        tenantId,
                         "tournament_id",
                         tournamentId,
                         "sequence_number",
@@ -145,43 +137,23 @@ class PhaseRepositoryIT {
 
         assertThat(result).isPresent();
         assertThat(result.get().getId()).isEqualTo(id);
-        assertThat(result.get().getTenantId()).isEqualTo(tenantId);
         assertThat(result.get().getDescription()).isEqualTo("Vorrunde");
     }
 
     /**
-     * E45S03 — DEC-41 Snapshot-Driven replacement: after WHERE tenant_id predicate removal,
-     * findById returns the row regardless of which tenant_id was stored. Cross-tenant isolation is
-     * enforced by AbstractRoutingDataSource (DEC-20), not by SQL filter. The old {@code
-     * findById_differentTenant_returnsEmpty} test (Snapshot-Driven, pre-S03) is replaced by this
-     * Spec-Anchored test.
+     * E45S03/E45S06 — DEC-41 Snapshot-Driven: findById executes without tenant_id WHERE predicate.
+     * Post-S06: phase table has no tenant_id column (DEC-39 D1); isolation via DEC-20 routing.
      */
     @Test
     void findById_noTenantPredicate_returnsPresentForAnyStoredTenantId() {
         UUID id = UUID.randomUUID();
-        UUID otherTenantId = UUID.randomUUID();
-        TenantDaoTestSupport.insertDirectly(
-                ds,
-                "tenants",
-                Map.of(
-                        "id",
-                        otherTenantId,
-                        "display_name",
-                        "Other Tenant",
-                        "tenant_location_count",
-                        1,
-                        "is_default",
-                        false));
-        // Insert a row with a *different* tenant_id to the one bound in context.
-        // Post-S03: findById has no WHERE tenant_id=? predicate — it must return the row.
+        // E45S06: tenant_id removed from phase (DEC-39 D1) — just insert a phase row
         TenantDaoTestSupport.insertDirectly(
                 ds,
                 "phase",
                 Map.of(
                         "id",
                         id,
-                        "tenant_id",
-                        otherTenantId,
                         "tournament_id",
                         tournamentId,
                         "sequence_number",
@@ -205,14 +177,13 @@ class PhaseRepositoryIT {
     void findByTournamentId_returnsAllPhasesForTournament() {
         UUID id1 = UUID.randomUUID();
         UUID id2 = UUID.randomUUID();
+        // E45S06: tenant_id removed from phase (DEC-39 D1)
         TenantDaoTestSupport.insertDirectly(
                 ds,
                 "phase",
                 Map.of(
                         "id",
                         id1,
-                        "tenant_id",
-                        tenantId,
                         "tournament_id",
                         tournamentId,
                         "sequence_number",
@@ -229,8 +200,6 @@ class PhaseRepositoryIT {
                 Map.of(
                         "id",
                         id2,
-                        "tenant_id",
-                        tenantId,
                         "tournament_id",
                         tournamentId,
                         "sequence_number",

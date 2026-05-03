@@ -109,7 +109,6 @@ class DefaultScoreEntryServiceTest {
         // Device fixture — status ASSIGNED, assigned to FIELD_NUMBER
         assignedDevice = new Device();
         assignedDevice.setId(DEVICE_ID);
-        assignedDevice.setTenantId(TENANT_ID);
         assignedDevice.setDeviceToken(DEVICE_TOKEN);
         assignedDevice.setStatus(Device.STATUS_ASSIGNED);
         assignedDevice.setAssignedField(FIELD_NUMBER);
@@ -117,7 +116,6 @@ class DefaultScoreEntryServiceTest {
         // Tournament fixture — status ACTIVE
         activeTournament = new Tournament();
         activeTournament.setId(TOURNAMENT_ID);
-        activeTournament.setTenantId(TENANT_ID);
         activeTournament.setStatus("ACTIVE");
 
         // Phase fixture — status ACTIVE, lap 1
@@ -130,7 +128,6 @@ class DefaultScoreEntryServiceTest {
         // Match fixture — INPROGRESS, field 1, lap 1
         activeMatch = new Match();
         activeMatch.setId(MATCH_ID);
-        activeMatch.setTenantId(TENANT_ID);
         activeMatch.setTournamentId(TOURNAMENT_ID);
         activeMatch.setPhaseId(PHASE_ID);
         activeMatch.setMatchState(MatchState.INPROGRESS);
@@ -217,7 +214,6 @@ class DefaultScoreEntryServiceTest {
     void getMatchForField_deviceOnDifferentField_throwsForbiddenException() {
         Device deviceOnField2 = new Device();
         deviceOnField2.setId(DEVICE_ID);
-        deviceOnField2.setTenantId(TENANT_ID);
         deviceOnField2.setDeviceToken(DEVICE_TOKEN);
         deviceOnField2.setStatus(Device.STATUS_ASSIGNED);
         deviceOnField2.setAssignedField(2); // device is on field 2
@@ -357,7 +353,6 @@ class DefaultScoreEntryServiceTest {
     void submitSetResult_deviceOnWrongField_throwsForbiddenException_noCascade() {
         Device deviceOnField2 = new Device();
         deviceOnField2.setId(DEVICE_ID);
-        deviceOnField2.setTenantId(TENANT_ID);
         deviceOnField2.setDeviceToken(DEVICE_TOKEN);
         deviceOnField2.setStatus(Device.STATUS_ASSIGNED);
         deviceOnField2.setAssignedField(2);

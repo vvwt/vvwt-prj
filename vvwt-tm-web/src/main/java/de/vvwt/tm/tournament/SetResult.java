@@ -47,9 +47,6 @@ public class SetResult {
     /** 0-based index of this set within its match — part of the composite PK. */
     private int setIndex;
 
-    /** Tenant scope — NOT NULL per DEC-17. FK references {@code tenants(id)}. */
-    private UUID tenantId;
-
     /** FK to {@code phase(id)} — denormalized for query performance. NOT NULL. */
     private UUID phaseId;
 
@@ -89,20 +86,18 @@ public class SetResult {
      *
      * @param matchId FK to match — part of composite PK (NOT NULL)
      * @param setIndex 0-based set index within the match — part of composite PK
-     * @param tenantId tenant scope (NOT NULL, DEC-17)
      * @param phaseId denormalized phase FK (NOT NULL)
      * @param team1Points points scored by team 1 (must be >= 0)
      * @param team2Points points scored by team 2 (must be >= 0)
      * @param setState legacy int state code (use {@link SetState#getLegacyCode()})
      * @param changeTime last-modification cache (may be null; DB sets default)
      * @param createdAt creation timestamp (may be null; DB sets default)
-     * @throws NullPointerException if matchId, tenantId, or phaseId is null
+     * @throws NullPointerException if matchId or phaseId is null
      * @throws IllegalArgumentException if team1Points or team2Points is negative
      */
     public SetResult(
             UUID matchId,
             int setIndex,
-            UUID tenantId,
             UUID phaseId,
             int team1Points,
             int team2Points,
@@ -111,9 +106,6 @@ public class SetResult {
             LocalDateTime createdAt) {
         if (matchId == null) {
             throw new NullPointerException("matchId must not be null");
-        }
-        if (tenantId == null) {
-            throw new NullPointerException("tenantId must not be null");
         }
         if (phaseId == null) {
             throw new NullPointerException("phaseId must not be null");
@@ -126,7 +118,6 @@ public class SetResult {
         }
         this.matchId = matchId;
         this.setIndex = setIndex;
-        this.tenantId = tenantId;
         this.phaseId = phaseId;
         this.team1Points = team1Points;
         this.team2Points = team2Points;
@@ -180,14 +171,6 @@ public class SetResult {
 
     public void setSetIndex(int setIndex) {
         this.setIndex = setIndex;
-    }
-
-    public UUID getTenantId() {
-        return tenantId;
-    }
-
-    public void setTenantId(UUID tenantId) {
-        this.tenantId = tenantId;
     }
 
     public UUID getPhaseId() {

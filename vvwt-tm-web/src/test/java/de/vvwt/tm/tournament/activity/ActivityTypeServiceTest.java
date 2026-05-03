@@ -72,14 +72,7 @@ class ActivityTypeServiceTest {
         when(activityTypeRepository.existsByTournamentIdAndName(TOURNAMENT_ID, "Photo"))
                 .thenReturn(false);
         ActivityType saved =
-                new ActivityType(
-                        ACTIVITY_ID,
-                        TOURNAMENT_ID,
-                        "Photo",
-                        "FIRST_FREE_ROUND",
-                        null,
-                        1,
-                        TENANT_ID);
+                new ActivityType(ACTIVITY_ID, TOURNAMENT_ID, "Photo", "FIRST_FREE_ROUND", null, 1);
         when(activityTypeRepository.save(org.mockito.ArgumentMatchers.any())).thenReturn(saved);
 
         ActivityType result = service.create(TOURNAMENT_ID, "Photo", "FIRST_FREE_ROUND", null, 1);
@@ -131,20 +124,13 @@ class ActivityTypeServiceTest {
     void updateReturnsUpdatedEntity() {
         ActivityType existing =
                 new ActivityType(
-                        ACTIVITY_ID,
-                        TOURNAMENT_ID,
-                        "OldName",
-                        "FIRST_FREE_ROUND",
-                        null,
-                        1,
-                        TENANT_ID);
+                        ACTIVITY_ID, TOURNAMENT_ID, "OldName", "FIRST_FREE_ROUND", null, 1);
         when(activityTypeRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(existing));
         when(activityTypeRepository.findByTournamentId(TOURNAMENT_ID))
                 .thenReturn(List.of(existing));
 
         ActivityType updated =
-                new ActivityType(
-                        ACTIVITY_ID, TOURNAMENT_ID, "NewName", "FIRST_FREE_ROUND", 3, 2, TENANT_ID);
+                new ActivityType(ACTIVITY_ID, TOURNAMENT_ID, "NewName", "FIRST_FREE_ROUND", 3, 2);
         when(activityTypeRepository.save(org.mockito.ArgumentMatchers.any())).thenReturn(updated);
 
         ActivityType result =
@@ -177,22 +163,10 @@ class ActivityTypeServiceTest {
     void updateThrowsConflictWhenDuplicateName() {
         ActivityType self =
                 new ActivityType(
-                        ACTIVITY_ID,
-                        TOURNAMENT_ID,
-                        "OldName",
-                        "FIRST_FREE_ROUND",
-                        null,
-                        1,
-                        TENANT_ID);
+                        ACTIVITY_ID, TOURNAMENT_ID, "OldName", "FIRST_FREE_ROUND", null, 1);
         ActivityType other =
                 new ActivityType(
-                        UUID.randomUUID(),
-                        TOURNAMENT_ID,
-                        "TakenName",
-                        "FIRST_FREE_ROUND",
-                        null,
-                        2,
-                        TENANT_ID);
+                        UUID.randomUUID(), TOURNAMENT_ID, "TakenName", "FIRST_FREE_ROUND", null, 2);
         when(activityTypeRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(self));
         when(activityTypeRepository.findByTournamentId(TOURNAMENT_ID))
                 .thenReturn(List.of(self, other));
@@ -214,13 +188,7 @@ class ActivityTypeServiceTest {
     void updateAllowsSameName() {
         ActivityType self =
                 new ActivityType(
-                        ACTIVITY_ID,
-                        TOURNAMENT_ID,
-                        "SameName",
-                        "FIRST_FREE_ROUND",
-                        null,
-                        1,
-                        TENANT_ID);
+                        ACTIVITY_ID, TOURNAMENT_ID, "SameName", "FIRST_FREE_ROUND", null, 1);
         when(activityTypeRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(self));
         when(activityTypeRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(self));
         when(activityTypeRepository.save(org.mockito.ArgumentMatchers.any())).thenReturn(self);
@@ -240,13 +208,7 @@ class ActivityTypeServiceTest {
     void deleteRemovesExistingActivity() {
         ActivityType existing =
                 new ActivityType(
-                        ACTIVITY_ID,
-                        TOURNAMENT_ID,
-                        "ToDelete",
-                        "FIRST_FREE_ROUND",
-                        null,
-                        1,
-                        TENANT_ID);
+                        ACTIVITY_ID, TOURNAMENT_ID, "ToDelete", "FIRST_FREE_ROUND", null, 1);
         when(activityTypeRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(existing));
 
         service.delete(TOURNAMENT_ID, ACTIVITY_ID);
@@ -282,14 +244,7 @@ class ActivityTypeServiceTest {
     @DisplayName("findByTournamentId() — returns activity types from repository")
     void findByTournamentIdDelegatesToRepository() {
         ActivityType at =
-                new ActivityType(
-                        ACTIVITY_ID,
-                        TOURNAMENT_ID,
-                        "Photo",
-                        "FIRST_FREE_ROUND",
-                        null,
-                        1,
-                        TENANT_ID);
+                new ActivityType(ACTIVITY_ID, TOURNAMENT_ID, "Photo", "FIRST_FREE_ROUND", null, 1);
         when(activityTypeRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(at));
 
         List<ActivityType> result = service.findByTournamentId(TOURNAMENT_ID);
