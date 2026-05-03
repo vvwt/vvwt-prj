@@ -205,6 +205,15 @@
 </script>
 
 <main class="app">
+  <!-- AC3 (E44S03): Brand lockup — yellow-inverted Info logo (NOT blue vvw-tm-logo.svg).
+       alt="Live Information": speaking alt per Brief Q-4.
+       src uses import.meta.env.BASE_URL + filename: Vite base-resolved URL, no hardcoded /info/ literal (AC11).
+       AC12: class="brand-lockup" enforces min-width: 120px (Brief C-9). -->
+  <img
+    src="{import.meta.env.BASE_URL}vvw-info-logo.svg"
+    alt="Live Information"
+    class="brand-lockup"
+  />
   <ConnectionStatus connectionLost={connState.connectionLost} dataStale={connState.dataStale} />
 
   {#if connState.linkExpired}
@@ -221,11 +230,22 @@
 </main>
 
 <style>
+  /* AC10 (E44S03): brand-tokens.css imported globally for --vvw-blue, --vvw-yellow, --vvw-ink. */
+  @import './styles/brand-tokens.css';
+
   .app {
     font-family: sans-serif;
     max-width: 720px;
     margin: 0 auto;
     padding: 1rem;
+  }
+
+  /* AC3, AC12 (E44S03): Brand lockup — yellow-inverted Info logo.
+     min-width: 120px enforces Brief C-9 minimum render size. */
+  .brand-lockup {
+    min-width: 120px;
+    display: block;
+    margin-bottom: 1rem;
   }
 
   .loading {
