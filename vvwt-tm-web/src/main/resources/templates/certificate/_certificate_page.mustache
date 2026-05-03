@@ -1,0 +1,76 @@
+    <div class="page">
+
+      <svg class="watermark" viewBox="0 0 100 100" aria-hidden="true">
+        <path d="M50 4 L90 27 L90 73 L50 96 L10 73 L10 27 Z" fill="#1956a8"/>
+      </svg>
+
+      <header class="header">
+        <div class="lockup">
+          <div class="lockup-row">
+            <span>T</span>
+            <svg class="hex" viewBox="0 0 100 100" aria-hidden="true">
+              <path d="M50 4 L90 27 L90 73 L50 96 L10 73 L10 27 Z" fill="#1956a8"/>
+              <g transform="translate(0 3)">
+                <path d="M30 24 L70 24 L70 32 Q70 52 56 56 L56 66 L62 66 L62 74 L38 74 L38 66 L44 66 L44 56 Q30 52 30 32 Z" fill="#ffcb1f"/>
+                <path d="M30 28 Q20 30 22 44 Q24 52 32 52" stroke="#ffcb1f" stroke-width="4" fill="none" stroke-linecap="round"/>
+                <path d="M70 28 Q80 30 78 44 Q76 52 68 52" stroke="#ffcb1f" stroke-width="4" fill="none" stroke-linecap="round"/>
+                <circle cx="50" cy="40" r="7" fill="#1956a8"/>
+                <path d="M50 33 Q47 36.5 50 40 Q53 43.5 50 47" stroke="#ffcb1f" stroke-width="1.4" fill="none"/>
+                <path d="M43 40 Q46.5 38 50 40 Q53.5 42 57 40" stroke="#ffcb1f" stroke-width="1.4" fill="none"/>
+              </g>
+            </svg>
+            <span>M</span>
+          </div>
+          <div class="wm-tag">Tournament Manager</div>
+        </div>
+        <div class="meta">
+          <div class="urkunde-badge">
+            <span class="glow"></span>
+            <span class="label">{{tom_label_certificate}}</span>
+          </div>
+        </div>
+      </header>
+
+      <div class="divider"></div>
+
+      <section class="hero">
+        <h1 class="hero-title">{{tom_tournament_name}}</h1>
+        <div class="hero-subtitle">{{tom_organizer}}</div>
+      </section>
+
+      <section class="placement">
+        <div class="place-num">{{tom_placement}}.</div>
+        <div class="place-meta">
+          <div class="row">
+            <div class="lbl">{{tom_label_place}}</div>
+            <div class="of">{{tom_label_achieved_by}}</div>
+          </div>
+          <div class="accent"></div>
+          <div class="team-name">{{tom_team_name}}</div>
+        </div>
+      </section>
+
+      <div class="photo-wrap">
+        {{#tom_has_photo}}<img class="photo" src="{{tom_team_photo}}" alt="{{tom_label_team_photo}}"/>{{/tom_has_photo}}
+        <div class="photo-fade"></div>
+        <svg class="stamp" viewBox="0 0 100 100" aria-hidden="true">
+          <g fill="none" stroke="#ffcb1f" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">
+            <path d="M50 4 L90 27 L90 73 L50 96 L10 73 L10 27 Z"/>
+            <g transform="translate(0 3)">
+              <path d="M30 24 L70 24 L70 32 Q70 52 56 56 L56 66 L62 66 L62 74 L38 74 L38 66 L44 66 L44 56 Q30 52 30 32 Z"/>
+              <path d="M30 28 Q20 30 22 44 Q24 52 32 52"/>
+              <path d="M70 28 Q80 30 78 44 Q76 52 68 52"/>
+              <circle cx="50" cy="40" r="7"/>
+              <path d="M50 33 Q47 36.5 50 40 Q53 43.5 50 47"/>
+              <path d="M43 40 Q46.5 38 50 40 Q53.5 42 57 40"/>
+            </g>
+          </g>
+        </svg>
+      </div>
+
+      <footer class="footer">
+        <span>{{tom_location}}&nbsp;{{tom_label_on}}&nbsp;{{tom_date}}</span>
+        <span>{{tom_label_generated_by}} <span class="tom-inline">T<span class="o">o</span>M</span></span>
+      </footer>
+
+    </div>
