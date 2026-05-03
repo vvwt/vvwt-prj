@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-39.md at aa96d457e8b0711b634d5c89b52415b300d3f3a9 2026-04-23 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-39.md at 5546cc3c2525a2bb844a7f6ecfa654f3d196664b 2026-05-03 -->
 ---
 id: DEC-39
 domain: architecture
@@ -8,9 +8,10 @@ status: active
 created_by: discovery
 created_at: 2026-04-22
 last_updated_by: discovery
-last_updated_at: 2026-04-22
+last_updated_at: 2026-05-03
 supersedes: null
 superseded_by: null
+amended_by: [DEC-50]
 tags:
   - multi-tenant
   - schema
@@ -290,3 +291,24 @@ and DEC-39 stall together as a coherent target-state pair, not as drift.
   — current schema with `tenant_id NOT NULL` + per-tenant `active_sentinel`
 - `vvwt-prj/vvwt-tm-web/src/main/resources/db/migration/V1__initial_schema.sql`
   — current `tenants` and `locations` tables with FK
+
+---
+
+## 2026-05-03 Amendment — info_portal_state added to D1's table list
+
+See **DEC-50** for the full amendment. In summary: a 17th tenant-scoped table
+(`info_portal_state`, introduced by V17 under E38S09 in 2026-04-26+, after this DEC
+was authored on 2026-04-22) is added to D1's `tenant_id`-removal scope. The
+amendment follows the DEC-46/DEC-48 delta-override pattern: D1's textual
+16-table list remains unchanged; DEC-50 names the additional table with locality-
+bounded scope (does NOT extend D1 to a class of future tables). Rationale
+identical to D1's base case — `info_portal_state` is tenant-scoped under DEC-20,
+the discriminator column is redundant under per-tenant routing, and the schema-
+shape coherence post-Reset requires consistent `tenant_id` absence across all
+tenant-scoped tables. PK rewrite from `(tenant_id, location_id, tournament_id)`
+to `(location_id, tournament_id)`; VARCHAR(255) typing preserved (DEC-39 D1's
+UUID vocabulary applies as principle, type-coercion N/A). Application happens at
+the same Wave-2 Big-Bang-Reset commit (DEC-25) as the original 16 D1 tables.
+D2/D3/D4/D5 remain TEXTUALLY UNCHANGED by DEC-50. `last_updated_at` advances to
+2026-05-03; `amended_by` field appends `DEC-50`. `status` remains `active`; no
+`supersedes`/`superseded_by` change.
