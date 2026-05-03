@@ -6,7 +6,10 @@
     <title>ToM · Live Information</title>
     <!-- AC1, AC6 (E44S03): SVG-first favicon — yellow variant (DEC-42 D-6 / Brief D-6).
          SVG declared first for browsers that support it; PNG fallbacks in largest-to-smallest
-         order per Brief Q-3 (SVG-first → PNG largest-to-smallest = browser-standard fallback). -->
+         order per Brief Q-3 (SVG-first → PNG largest-to-smallest = browser-standard fallback).
+         Test fixture: mirrors production intent from vvwt-info-client/src/main/ui/index.html
+         (Vite template). Spring ResourceHttpRequestHandler serves this from classpath:/static/info/
+         at GET /info/ during InfoStaticResourcesIT (RANDOM_PORT). -->
     <link rel="icon" type="image/svg+xml" href="vvw-icon-yellow.svg">
     <link rel="icon" type="image/png" sizes="256x256" href="vvw-favicon-yellow-256.png">
     <link rel="icon" type="image/png" sizes="128x128" href="vvw-favicon-yellow-128.png">
@@ -21,6 +24,6 @@
   </head>
   <body>
     <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
+    <script type="module" src="/info/assets/index.js"></script>
   </body>
 </html>
