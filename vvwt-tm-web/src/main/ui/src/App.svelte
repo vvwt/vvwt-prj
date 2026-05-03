@@ -55,7 +55,28 @@
   }
 </script>
 
+<!-- E44S02 AC5: VVW brand lockup — header strip with speaking alt per Brief Q-4 -->
+<!-- AC13: min-width 120px ensures minimum render size per Brief C-9 -->
+<header class="brand-header">
+  <img src="/admin/vvw-tm-logo.svg" alt="Tournament Manager" class="brand-lockup" />
+</header>
+
 <!-- E38S09: Info Portal publisher status banner (AC4, AC10, DEC-43 D3) —
      Silently hidden when the info-portal feature is disabled (AC6).  -->
 <InfoPortalStatus />
 <Router {routes} on:routeEvent={routeNotFound} />
+
+<style>
+  /* E44S02 AC5 + AC13: brand lockup header */
+  .brand-header {
+    padding: 0.5rem 1rem;
+    background: #fff;
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  .brand-lockup {
+    min-width: 120px;
+    height: auto;
+    display: block;
+  }
+</style>

@@ -373,6 +373,12 @@
   }
 </script>
 
+<!-- E44S02 AC5: VVW brand lockup — header strip with speaking alt per Brief Q-4 -->
+<!-- AC13: min-width 120px ensures minimum render size per Brief C-9 -->
+<header class="brand-header">
+  <img src="/timer/vvw-tm-logo.svg" alt="Tournament Manager" class="brand-lockup" />
+</header>
+
 <div class="timer-app">
 
   {#if appState === 'clock-sync'}
@@ -702,5 +708,18 @@
 
   .timer-app__col-time {
     width: 9rem;
+  }
+
+  /* E44S02 AC5 + AC13: brand lockup header */
+  :global(.brand-header) {
+    padding: 0.5rem 1rem;
+    background: #fff;
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  :global(.brand-lockup) {
+    min-width: 120px;
+    height: auto;
+    display: block;
   }
 </style>

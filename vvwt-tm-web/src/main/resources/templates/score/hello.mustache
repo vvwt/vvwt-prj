@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{title}}</title>
+    <!-- E44S02 AC3: VVW blue hex-icon favicon links — SVG first, PNG largest-to-smallest (AC7) -->
+    <link rel="icon" type="image/svg+xml" href="/score/vvw-icon-blue.svg">
+    <link rel="icon" type="image/png" sizes="256x256" href="/score/vvw-favicon-blue-256.png">
+    <link rel="icon" type="image/png" sizes="128x128" href="/score/vvw-favicon-blue-128.png">
+    <link rel="icon" type="image/png" sizes="64x64" href="/score/vvw-favicon-blue-64.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/score/vvw-favicon-blue-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/score/vvw-favicon-blue-16.png">
     <style>
         /* Minimal reset — iOS 9 Safari compatible; no flexbox/grid to avoid quirks */
         body { margin: 0; padding: 16px; font-family: Arial, sans-serif; font-size: 16px; background: #f4f4f4; }
@@ -13,6 +20,12 @@
     </style>
 </head>
 <body>
+    <!-- E44S02 AC5: VVW brand lockup — score-tablet header strip (DEC-19 ES5 carve-out: HTML-only, no JS) -->
+    <!-- AC13: width="120" ensures minimum 120px render size per Brief C-9 -->
+    <div style="padding: 8px 16px; background: #fff; border-bottom: 1px solid #ddd;">
+        <img src="/score/vvw-tm-logo.svg" alt="Tournament Manager" width="120">
+    </div>
+
     <!-- E06S02 AC8: global error banner — shown by window.onerror in vvwt-tablet.js -->
     <div id="error-banner"></div>
 
