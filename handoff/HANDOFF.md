@@ -48,10 +48,24 @@ handoff/
 ├── icons/
 │   ├── vvw-icon-blue.svg        100×100  — Standard-Hex
 │   └── vvw-icon-yellow.svg      100×100  — Info-Variante (gelb invertiert)
-└── favicons/
-    ├── vvw-favicon-blue-{16,32,64,128,256}.png
-    └── vvw-favicon-yellow-{16,32,64,128,256}.png
+├── favicons/
+│   ├── vvw-favicon-blue-{16,32,64,128,256}.png
+│   └── vvw-favicon-yellow-{16,32,64,128,256}.png
+└── icons/ (Outline-Varianten für Stempel-Anwendungen, z.B. Urkunden)
+    ├── vvw-icon-outline-yellow.svg  100×100  — primär für Mannschaftsfotos
+    ├── vvw-icon-outline-ink.svg     100×100  — klassischer Stempel auf hellem Grund
+    └── vvw-icon-outline-blue.svg    100×100  — dezent, für Markendokumente
 ```
+
+## Outline-Stempel (für Urkunden & Foto-Overlays)
+
+Die Outline-Variante ist eine reine Linien-Version des Hex-Icons mit transparenter Innenfläche — ideal als „Stempel" auf Mannschaftsfotos, da sie das darunterliegende Bild nicht verdeckt.
+
+- **Gelb** (`vvw-icon-outline-yellow.svg`) — primäre Wahl für Mannschaftsfotos (passt zum gelben Pokal-Akzent, hebt sich auf grünen/dunklen Hintergründen ab)
+- **Tinte** (`vvw-icon-outline-ink.svg`) — klassischer Stempel-Look auf hellen Hintergründen
+- **Blau** (`vvw-icon-outline-blue.svg`) — dezente Markenanwendung in Dokumenten/Briefköpfen
+
+Strichstärke: 1.6 Einheiten (im 100er-Viewbox). Bei sehr großer Skalierung Strichstärke proportional skalieren oder leicht reduzieren.
 
 ## Einsatz
 
