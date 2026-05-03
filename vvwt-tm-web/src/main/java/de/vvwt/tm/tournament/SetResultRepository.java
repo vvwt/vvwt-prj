@@ -41,16 +41,15 @@ public class SetResultRepository {
     private static final String UPDATE_SQL =
             "UPDATE set_result SET team1_points=?, team2_points=?, set_state=?,"
                     + " change_time=CURRENT_TIMESTAMP"
-                    + " WHERE match_id=? AND set_index=? AND tenant_id=?";
+                    + " WHERE match_id=? AND set_index=?";
 
-    private static final String SELECT_BY_MATCH =
-            "SELECT * FROM set_result WHERE match_id=? AND tenant_id=?";
+    private static final String SELECT_BY_MATCH = "SELECT * FROM set_result WHERE match_id=?";
 
     private static final String SELECT_BY_PK =
-            "SELECT * FROM set_result WHERE match_id=? AND set_index=? AND tenant_id=?";
+            "SELECT * FROM set_result WHERE match_id=? AND set_index=?";
 
     private static final String DELETE_BY_PK =
-            "DELETE FROM set_result WHERE match_id=? AND set_index=? AND tenant_id=?";
+            "DELETE FROM set_result WHERE match_id=? AND set_index=?";
 
     private final JdbcTemplate jdbc;
     private final TenantContext tenantContext;
@@ -96,25 +95,23 @@ public class SetResultRepository {
                 setResult.getTeam2Points(),
                 setResult.getSetStateCode(),
                 setResult.getMatchId(),
-                setResult.getSetIndex(),
-                activeTenant);
+                setResult.getSetIndex());
     }
 
     /**
-     * Returns all set results for a given match, scoped to the active tenant.
+     * Returns all set results for a given match.
      *
      * @param matchId the match whose set results to retrieve
      * @return list of set results ordered by {@code set_index}; never {@code null}
      * @throws IllegalStateException if no tenant context is active
      */
     public List<SetResult> findByMatchId(UUID matchId) {
-        UUID activeTenant = tenantContext.current(); // guard fires here
-        return jdbc.query(SELECT_BY_MATCH, ROW_MAPPER, matchId, activeTenant);
+        tenantContext.current(); // guard fires here
+        return jdbc.query(SELECT_BY_MATCH, ROW_MAPPER, matchId);
     }
 
     /**
-     * Finds a set result by composite PK {@code (match_id, set_index)}, scoped to the active
-     * tenant.
+     * Finds a set result by composite PK {@code (match_id, set_index)}.
      *
      * @param matchId the match FK
      * @param setIndex the 0-based set index
@@ -122,22 +119,21 @@ public class SetResultRepository {
      * @throws IllegalStateException if no tenant context is active
      */
     public Optional<SetResult> findByMatchIdAndSetIndex(UUID matchId, int setIndex) {
-        UUID activeTenant = tenantContext.current(); // guard fires here
-        List<SetResult> results =
-                jdbc.query(SELECT_BY_PK, ROW_MAPPER, matchId, setIndex, activeTenant);
+        tenantContext.current(); // guard fires here
+        List<SetResult> results = jdbc.query(SELECT_BY_PK, ROW_MAPPER, matchId, setIndex);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
     /**
-     * Deletes a set result by composite PK, scoped to the active tenant.
+     * Deletes a set result by composite PK.
      *
      * @param matchId the match FK
      * @param setIndex the 0-based set index
      * @throws IllegalStateException if no tenant context is active
      */
     public void deleteByMatchIdAndSetIndex(UUID matchId, int setIndex) {
-        UUID activeTenant = tenantContext.current(); // guard fires here
-        jdbc.update(DELETE_BY_PK, matchId, setIndex, activeTenant);
+        tenantContext.current(); // guard fires here
+        jdbc.update(DELETE_BY_PK, matchId, setIndex);
     }
 
     // -------------------------------------------------------------------------

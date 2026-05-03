@@ -161,7 +161,6 @@ public class DefaultDraftService implements DraftService {
             Phase phase =
                     new Phase(
                             UUID.randomUUID(),
-                            null, // tenantId — set by repository (tenant-scoped)
                             tournamentId,
                             section.getSectionNumber(),
                             "Phase " + section.getSectionNumber(),
@@ -207,7 +206,6 @@ public class DefaultDraftService implements DraftService {
             TeamAvatar avatar =
                     new TeamAvatar(
                             UUID.randomUUID(),
-                            null, // tenantId — set by repository
                             tournamentId,
                             phase.getId(),
                             groupNumber,
@@ -269,7 +267,6 @@ public class DefaultDraftService implements DraftService {
             PhaseBreak phaseBreak =
                     new PhaseBreak(
                             UUID.randomUUID(),
-                            null, // tenantId — set by TenantScopedRepository.save()
                             phaseId,
                             draftBreak.getAfterLapNumber(),
                             draftBreak.getDurationMinutes(),

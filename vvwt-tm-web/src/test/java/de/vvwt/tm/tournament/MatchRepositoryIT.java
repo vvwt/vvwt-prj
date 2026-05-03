@@ -224,6 +224,34 @@ class MatchRepositoryIT {
         assertThat(found.get().getId()).isEqualTo(matchId);
     }
 
+    /**
+     * E45S03 — DEC-41 Snapshot-Driven: WHERE tenant_id predicate removed. findById and
+     * findByPhaseId execute without tenant_id in the WHERE clause; isolation via
+     * AbstractRoutingDataSource (DEC-20).
+     */
+    @Test
+    @DisplayName(
+            "E45S03: findById succeeds without tenant_id WHERE predicate (DEC-20 routing isolates)")
+    void e45s03_findById_noTenantPredicate_returnsRow() {
+        UUID matchId = UUID.randomUUID();
+        jdbcTemplate.update(
+                "INSERT INTO match (id, tenant_id, tournament_id, phase_id,"
+                        + " member_avatar_1_id, member_avatar_2_id, state, set_limit)"
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                matchId,
+                tenantId,
+                tournamentId,
+                phaseId,
+                avatar1Id,
+                avatar2Id,
+                0,
+                3);
+
+        Optional<Match> found = matchRepository.findById(matchId);
+        assertThat(found).isPresent();
+        assertThat(found.get().getId()).isEqualTo(matchId);
+    }
+
     @Test
     @DisplayName("findByPhaseId returns all matches for a phase (fixture via direct JDBC)")
     void findByPhaseIdReturnsMatchesForPhase() {

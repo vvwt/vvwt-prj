@@ -40,17 +40,16 @@ public class DefaultTeamRepository implements TeamRepository {
     private static final String UPDATE_SQL =
             "UPDATE team SET team_number=?, description=?, participate=?,"
                     + " referee_assignment=?, without_assessment=?"
-                    + " WHERE id=? AND tenant_id=?";
+                    + " WHERE id=?";
 
-    private static final String SELECT_BY_ID = "SELECT * FROM team WHERE id=? AND tenant_id=?";
+    private static final String SELECT_BY_ID = "SELECT * FROM team WHERE id=?";
 
     private static final String SELECT_BY_TOURNAMENT =
-            "SELECT * FROM team WHERE tournament_id=? AND tenant_id=? ORDER BY team_number ASC";
+            "SELECT * FROM team WHERE tournament_id=? ORDER BY team_number ASC";
 
-    private static final String DELETE_BY_ID = "DELETE FROM team WHERE id=? AND tenant_id=?";
+    private static final String DELETE_BY_ID = "DELETE FROM team WHERE id=?";
 
-    private static final String EXISTS_BY_ID =
-            "SELECT COUNT(*) FROM team WHERE id=? AND tenant_id=?";
+    private static final String EXISTS_BY_ID = "SELECT COUNT(*) FROM team WHERE id=?";
 
     private static final String MAX_TEAM_NUMBER =
             "SELECT COALESCE(MAX(team_number), 0) FROM team WHERE tournament_id=?";
@@ -72,8 +71,7 @@ public class DefaultTeamRepository implements TeamRepository {
         UUID currentTenantId = tenantContext.current();
         team.setTenantId(currentTenantId);
 
-        Integer count =
-                jdbc.queryForObject(EXISTS_BY_ID, Integer.class, team.getId(), currentTenantId);
+        Integer count = jdbc.queryForObject(EXISTS_BY_ID, Integer.class, team.getId());
         boolean exists = count != null && count > 0;
 
         if (exists) {
@@ -84,8 +82,7 @@ public class DefaultTeamRepository implements TeamRepository {
                     team.isParticipate(),
                     team.isRefereeAssignment(),
                     team.isWithoutAssessment(),
-                    team.getId(),
-                    currentTenantId);
+                    team.getId());
         } else {
             jdbc.update(
                     INSERT_SQL,
@@ -105,23 +102,20 @@ public class DefaultTeamRepository implements TeamRepository {
     /** {@inheritDoc} */
     @Override
     public Optional<Team> findById(UUID id) {
-        UUID tenantId = tenantContext.current();
-        List<Team> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id, tenantId);
+        List<Team> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
     /** {@inheritDoc} */
     @Override
     public List<Team> findByTournamentId(UUID tournamentId) {
-        UUID tenantId = tenantContext.current();
-        return jdbc.query(SELECT_BY_TOURNAMENT, ROW_MAPPER, tournamentId, tenantId);
+        return jdbc.query(SELECT_BY_TOURNAMENT, ROW_MAPPER, tournamentId);
     }
 
     /** {@inheritDoc} */
     @Override
     public void deleteById(UUID id) {
-        UUID tenantId = tenantContext.current();
-        jdbc.update(DELETE_BY_ID, id, tenantId);
+        jdbc.update(DELETE_BY_ID, id);
     }
 
     /** {@inheritDoc} */

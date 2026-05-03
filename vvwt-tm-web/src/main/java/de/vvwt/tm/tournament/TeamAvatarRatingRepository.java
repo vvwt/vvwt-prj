@@ -55,16 +55,16 @@ public class TeamAvatarRatingRepository {
                     + " sets_won=?, sets_lost=?, balls_won=?, balls_lost=?,"
                     + " set_quotient=?, ball_quotient=?, is_without_assessment=?,"
                     + " updated_at=?"
-                    + " WHERE avatar_id=? AND tenant_id=?";
+                    + " WHERE avatar_id=?";
 
     private static final String SELECT_BY_AVATAR_ID =
-            "SELECT * FROM team_avatar_rating WHERE avatar_id=? AND tenant_id=?";
+            "SELECT * FROM team_avatar_rating WHERE avatar_id=?";
 
     private static final String DELETE_BY_AVATAR_ID =
-            "DELETE FROM team_avatar_rating WHERE avatar_id=? AND tenant_id=?";
+            "DELETE FROM team_avatar_rating WHERE avatar_id=?";
 
     private static final String EXISTS_BY_AVATAR_ID =
-            "SELECT COUNT(*) FROM team_avatar_rating WHERE avatar_id=? AND tenant_id=?";
+            "SELECT COUNT(*) FROM team_avatar_rating WHERE avatar_id=?";
 
     public TeamAvatarRatingRepository(JdbcTemplate jdbc, TenantContext tenantContext) {
         this.jdbc = jdbc;
@@ -82,8 +82,7 @@ public class TeamAvatarRatingRepository {
         rating.setTenantId(currentTenantId);
 
         Integer count =
-                jdbc.queryForObject(
-                        EXISTS_BY_AVATAR_ID, Integer.class, rating.getAvatarId(), currentTenantId);
+                jdbc.queryForObject(EXISTS_BY_AVATAR_ID, Integer.class, rating.getAvatarId());
         boolean exists = count != null && count > 0;
 
         LocalDateTime now = LocalDateTime.now();
@@ -102,8 +101,7 @@ public class TeamAvatarRatingRepository {
                     rating.getBallQuotient(),
                     rating.isWithoutAssessment(),
                     now,
-                    rating.getAvatarId(),
-                    currentTenantId);
+                    rating.getAvatarId());
         } else {
             jdbc.update(
                     INSERT_SQL,
@@ -125,15 +123,14 @@ public class TeamAvatarRatingRepository {
     }
 
     /**
-     * Returns the TeamAvatarRating for the given avatarId, scoped to the current tenant.
+     * Returns the TeamAvatarRating for the given avatarId.
      *
      * @param avatarId the avatar UUID (PK)
-     * @return Optional.of(rating) if found, Optional.empty() if not found or wrong tenant
+     * @return Optional.of(rating) if found, Optional.empty() if not found
      */
     public Optional<TeamAvatarRating> findByAvatarId(UUID avatarId) {
-        UUID tenantId = tenantContext.current();
-        List<TeamAvatarRating> results =
-                jdbc.query(SELECT_BY_AVATAR_ID, ROW_MAPPER, avatarId, tenantId);
+        tenantContext.current();
+        List<TeamAvatarRating> results = jdbc.query(SELECT_BY_AVATAR_ID, ROW_MAPPER, avatarId);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
@@ -159,8 +156,8 @@ public class TeamAvatarRatingRepository {
      * @param avatarId the avatar UUID (PK)
      */
     public void deleteByAvatarId(UUID avatarId) {
-        UUID tenantId = tenantContext.current();
-        jdbc.update(DELETE_BY_AVATAR_ID, avatarId, tenantId);
+        tenantContext.current();
+        jdbc.update(DELETE_BY_AVATAR_ID, avatarId);
     }
 
     // -------------------------------------------------------------------------

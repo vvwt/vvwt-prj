@@ -227,4 +227,33 @@ class SetResultRepositoryIT {
         Optional<SetResult> result = setResultRepository.findByMatchIdAndSetIndex(matchId, 99);
         assertThat(result).isEmpty();
     }
+
+    /**
+     * E45S03 — DEC-41 Snapshot-Driven: WHERE tenant_id predicate removed from SELECT_BY_MATCH and
+     * DELETE_BY_PK. Verifies insert-find-delete cycle executes without tenant_id in WHERE clauses.
+     */
+    @Test
+    @DisplayName(
+            "E45S03: insert, findByMatchId, deleteByMatchIdAndSetIndex without tenant_id WHERE")
+    void e45s03_insertFindDelete_noTenantPredicate() {
+        SetResult sr =
+                new SetResult(
+                        matchId,
+                        0,
+                        tenantId,
+                        phaseId,
+                        25,
+                        20,
+                        SetState.WINNER1.getLegacyCode(),
+                        null,
+                        null);
+        setResultRepository.insert(sr);
+
+        List<SetResult> found = setResultRepository.findByMatchId(matchId);
+        assertThat(found).hasSize(1);
+        assertThat(found.get(0).getTeam1Points()).isEqualTo(25);
+
+        setResultRepository.deleteByMatchIdAndSetIndex(matchId, 0);
+        assertThat(setResultRepository.findByMatchIdAndSetIndex(matchId, 0)).isEmpty();
+    }
 }

@@ -47,12 +47,10 @@ public class DefaultAuditLogRepository implements AuditLogRepository {
                     + " actor_id, reason, source_type, source_device_id)"
                     + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-    private static final String SELECT_BY_ID =
-            "SELECT * FROM audit_log WHERE id = ? AND tenant_id = ?";
+    private static final String SELECT_BY_ID = "SELECT * FROM audit_log WHERE id = ?";
 
     private static final String SELECT_BY_MATCH_SET =
-            "SELECT * FROM audit_log WHERE match_id = ? AND set_index = ? AND tenant_id = ?"
-                    + " ORDER BY changed_at ASC";
+            "SELECT * FROM audit_log WHERE match_id = ? AND set_index = ? ORDER BY changed_at ASC";
 
     private final JdbcTemplate jdbc;
     private final TenantContext tenantContext;
@@ -94,8 +92,8 @@ public class DefaultAuditLogRepository implements AuditLogRepository {
     /** {@inheritDoc} */
     @Override
     public Optional<AuditLogEntry> findById(UUID id) {
-        UUID tenantId = tenantContext.current();
-        List<AuditLogEntry> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id, tenantId);
+        tenantContext.current();
+        List<AuditLogEntry> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
@@ -103,8 +101,8 @@ public class DefaultAuditLogRepository implements AuditLogRepository {
     @Override
     public List<AuditLogEntry> findByMatchIdAndSetIndexOrderByChangedAt(
             UUID matchId, int setIndex) {
-        UUID tenantId = tenantContext.current();
-        return jdbc.query(SELECT_BY_MATCH_SET, ROW_MAPPER, matchId, setIndex, tenantId);
+        tenantContext.current();
+        return jdbc.query(SELECT_BY_MATCH_SET, ROW_MAPPER, matchId, setIndex);
     }
 
     /**

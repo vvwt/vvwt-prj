@@ -218,4 +218,26 @@ class MatchOutcomeRepositoryIT {
         assertThat(found).isPresent();
         assertThat(found.get().getMatchId()).isEqualTo(matchId);
     }
+
+    /**
+     * E45S03 — DEC-41 Snapshot-Driven: WHERE tenant_id predicate removed from findById and
+     * deleteByMatchId. Verifies save-then-delete cycle executes without tenant_id in WHERE clauses.
+     */
+    @Test
+    @DisplayName("E45S03: save and deleteByMatchId execute without tenant_id WHERE predicate")
+    void e45s03_saveAndDelete_noTenantPredicate() {
+        MatchOutcome mo = new MatchOutcome();
+        mo.setMatchId(matchId);
+        mo.setTenantId(tenantId);
+        mo.setTeam1SetsWon(1);
+        mo.setTeam2SetsWon(2);
+        mo.setSetCount(3);
+        mo.setComputedMatchState(MatchState.FINISHED_WINNER2);
+
+        matchOutcomeRepository.save(mo);
+        matchOutcomeRepository.deleteByMatchId(matchId);
+
+        Optional<MatchOutcome> found = matchOutcomeRepository.findById(matchId);
+        assertThat(found).isEmpty();
+    }
 }
