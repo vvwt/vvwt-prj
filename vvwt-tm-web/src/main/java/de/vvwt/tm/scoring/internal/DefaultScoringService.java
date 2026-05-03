@@ -5,6 +5,7 @@ import de.vvwt.tm.scoring.ScoringRule;
 import de.vvwt.tm.scoring.ScoringService;
 import de.vvwt.tm.scoring.SetValidationRule;
 import de.vvwt.tm.scoring.ValidationResult;
+import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.AuditLogEntry;
 import de.vvwt.tm.tournament.AuditLogRepository;
 import de.vvwt.tm.tournament.Match;
@@ -99,6 +100,7 @@ public class DefaultScoringService implements ScoringService {
     private final AuditLogRepository auditLogRepository;
     private final TournamentRuleResolver ruleResolver;
     private final ApplicationEventPublisher eventPublisher;
+    private final TenantContext tenantContext;
 
     public DefaultScoringService(
             MatchRepository matchRepository,
@@ -110,7 +112,8 @@ public class DefaultScoringService implements ScoringService {
             TeamAvatarRepository teamAvatarRepository,
             AuditLogRepository auditLogRepository,
             TournamentRuleResolver ruleResolver,
-            ApplicationEventPublisher eventPublisher) {
+            ApplicationEventPublisher eventPublisher,
+            TenantContext tenantContext) {
         this.matchRepository = matchRepository;
         this.tournamentRepository = tournamentRepository;
         this.phaseRepository = phaseRepository;
@@ -121,6 +124,7 @@ public class DefaultScoringService implements ScoringService {
         this.auditLogRepository = auditLogRepository;
         this.ruleResolver = ruleResolver;
         this.eventPublisher = eventPublisher;
+        this.tenantContext = tenantContext;
     }
 
     // ---------------------------------------------------------------------------
@@ -257,7 +261,6 @@ public class DefaultScoringService implements ScoringService {
                     new SetResult(
                             input.matchId(),
                             input.setIndex(),
-                            match.getTenantId(),
                             match.getPhaseId(),
                             input.team1Points(),
                             input.team2Points(),
@@ -282,7 +285,6 @@ public class DefaultScoringService implements ScoringService {
                     new SetResult(
                             input.matchId(),
                             input.setIndex(),
-                            match.getTenantId(),
                             match.getPhaseId(),
                             input.team1Points(),
                             input.team2Points(),
@@ -305,7 +307,6 @@ public class DefaultScoringService implements ScoringService {
         AuditLogEntry auditEntry =
                 new AuditLogEntry(
                         UUID.randomUUID(),
-                        match.getTenantId(),
                         input.matchId(),
                         input.setIndex(),
                         team1PointsOld,
@@ -362,7 +363,6 @@ public class DefaultScoringService implements ScoringService {
         MatchOutcome outcome =
                 new MatchOutcome(
                         input.matchId(),
-                        match.getTenantId(),
                         team1SetsWon,
                         team1BallsWon,
                         team2SetsWon,
@@ -495,7 +495,7 @@ public class DefaultScoringService implements ScoringService {
         MatchResultChangedEvent event =
                 new MatchResultChangedEvent(
                         this,
-                        match.getTenantId(),
+                        tenantContext.current(),
                         match.getTournamentId(),
                         match.getPhaseId(),
                         input.matchId(),
@@ -516,7 +516,7 @@ public class DefaultScoringService implements ScoringService {
             LapAdvancedEvent lapEvent =
                     new LapAdvancedEvent(
                             this,
-                            match.getTenantId(),
+                            tenantContext.current(),
                             match.getTournamentId(),
                             match.getPhaseId(),
                             previousLapNumber,
@@ -629,7 +629,6 @@ public class DefaultScoringService implements ScoringService {
         TeamAvatarRating rating =
                 new TeamAvatarRating(
                         avatarId,
-                        null, // tenantId set by TenantScopedRepository.save()
                         matchCount,
                         totalSetCount,
                         totalPoints,

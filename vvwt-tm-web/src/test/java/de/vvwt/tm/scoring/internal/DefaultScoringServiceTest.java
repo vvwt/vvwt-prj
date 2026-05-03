@@ -13,6 +13,7 @@ import de.vvwt.tm.scoring.ScoringResult;
 import de.vvwt.tm.scoring.ScoringRule;
 import de.vvwt.tm.scoring.SetValidationRule;
 import de.vvwt.tm.scoring.ValidationResult;
+import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.AuditLogEntry;
 import de.vvwt.tm.tournament.AuditLogRepository;
 import de.vvwt.tm.tournament.Match;
@@ -87,6 +88,7 @@ class DefaultScoringServiceTest {
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private SetValidationRule validationRule;
     @Mock private ScoringRule scoringRule;
+    @Mock private TenantContext tenantContext;
 
     @InjectMocks private DefaultScoringService service;
 
@@ -110,14 +112,12 @@ class DefaultScoringServiceTest {
     void setUp() {
         tournament = new Tournament();
         tournament.setId(TOURNAMENT_ID);
-        tournament.setTenantId(TENANT_ID);
         tournament.setMatchFormat("BEST_OF_1"); // 1 set needed to win — simplifies test setup
         tournament.setScoringRuleId("standardVolleyball");
         tournament.setSetValidationRuleId("standardVolleyball");
 
         match = new Match();
         match.setId(MATCH_ID);
-        match.setTenantId(TENANT_ID);
         match.setTournamentId(TOURNAMENT_ID);
         match.setPhaseId(PHASE_ID);
         match.setMemberAvatar1Id(AVATAR1_ID);
@@ -127,7 +127,6 @@ class DefaultScoringServiceTest {
 
         phase = new Phase();
         phase.setId(PHASE_ID);
-        phase.setTenantId(TENANT_ID);
         phase.setTournamentId(TOURNAMENT_ID);
         phase.setCurrentLapNumber(0);
 
@@ -237,7 +236,7 @@ class DefaultScoringServiceTest {
         when(validationRule.isSetClosed(anyInt(), anyInt(), anyInt(), any()))
                 .thenReturn(ValidationResult.winner1());
 
-        SetResult existing = new SetResult(MATCH_ID, 0, TENANT_ID, PHASE_ID, 20, 18, 1, null, null);
+        SetResult existing = new SetResult(MATCH_ID, 0, PHASE_ID, 20, 18, 1, null, null);
         when(setResultRepository.findByMatchIdAndSetIndex(MATCH_ID, 0))
                 .thenReturn(Optional.of(existing));
         when(setResultRepository.findByMatchId(MATCH_ID)).thenReturn(List.of(existing));
@@ -448,7 +447,6 @@ class DefaultScoringServiceTest {
                 new SetResult(
                         MATCH_ID,
                         0,
-                        TENANT_ID,
                         PHASE_ID,
                         25,
                         15,

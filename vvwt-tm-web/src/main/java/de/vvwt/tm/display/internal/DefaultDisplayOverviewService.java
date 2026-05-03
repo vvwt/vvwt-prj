@@ -5,6 +5,7 @@ import de.vvwt.tm.display.DisplayMatchesResponse;
 import de.vvwt.tm.display.DisplayOverviewService;
 import de.vvwt.tm.display.DisplayPhaseOverviewResponse;
 import de.vvwt.tm.display.NoActivePhaseException;
+import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.Device;
 import de.vvwt.tm.tournament.DeviceRepository;
 import de.vvwt.tm.tournament.Match;
@@ -81,6 +82,7 @@ public class DefaultDisplayOverviewService implements DisplayOverviewService {
     private final TeamAvatarRatingRepository teamAvatarRatingRepository;
     private final TeamRepository teamRepository;
     private final SetResultRepository setResultRepository;
+    private final TenantContext tenantContext;
 
     /**
      * 8-arg constructor — signature preserved verbatim per C-3 signature-preservation.
@@ -105,7 +107,8 @@ public class DefaultDisplayOverviewService implements DisplayOverviewService {
             TeamAvatarRepository teamAvatarRepository,
             TeamAvatarRatingRepository teamAvatarRatingRepository,
             TeamRepository teamRepository,
-            SetResultRepository setResultRepository) {
+            SetResultRepository setResultRepository,
+            TenantContext tenantContext) {
         this.deviceRepository = deviceRepository;
         this.tournamentRepository = tournamentRepository;
         this.phaseRepository = phaseRepository;
@@ -114,6 +117,7 @@ public class DefaultDisplayOverviewService implements DisplayOverviewService {
         this.teamAvatarRatingRepository = teamAvatarRatingRepository;
         this.teamRepository = teamRepository;
         this.setResultRepository = setResultRepository;
+        this.tenantContext = tenantContext;
     }
 
     // =========================================================================
@@ -163,7 +167,7 @@ public class DefaultDisplayOverviewService implements DisplayOverviewService {
 
         return new DisplayPhaseOverviewResponse(
                 phase.getId(),
-                device.getTenantId(),
+                tenantContext.current(),
                 phase.getDescription(),
                 phase.getStatus(),
                 (int) lapCount,

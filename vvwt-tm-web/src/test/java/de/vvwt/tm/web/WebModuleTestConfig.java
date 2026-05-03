@@ -122,8 +122,10 @@ public class WebModuleTestConfig {
     @Bean
     public TenantContextTestSupport.Binder tenantContextBinder(
             @Qualifier("tenantRoutingContext") TenantContext tenantContext,
-            TenantRegistryPort tenantRegistryPort) {
-        return new TenantContextTestSupport.Binder(tenantContext, tenantRegistryPort);
+            TenantRegistryPort tenantRegistryPort,
+            @Qualifier("routingTenantDataSource") DataSource routingDataSource) {
+        return new TenantContextTestSupport.Binder(
+                tenantContext, tenantRegistryPort, routingDataSource);
     }
 
     /**

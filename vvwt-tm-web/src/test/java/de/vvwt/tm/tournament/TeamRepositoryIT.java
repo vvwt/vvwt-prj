@@ -75,6 +75,7 @@ class TeamRepositoryIT {
     @Autowired private TenantContextTestSupport.Binder tenantBinder;
 
     private UUID tenantId;
+    private UUID defaultLocationId;
     private AssertDbConnection assertDb;
 
     /** Pre-existing tournament row required by FK on team.tournament_id. */
@@ -84,20 +85,17 @@ class TeamRepositoryIT {
     void setUp() {
         assertDb = AssertDbConnectionFactory.of(dataSource).create();
         tenantId = tenantBinder.bindDefaultTenant();
+        // E45S06: tenant_id removed (DEC-39 D1); tournament uses location_id (D2)
+        defaultLocationId = tenantBinder.getDefaultLocationId();
         tournamentId = insertTournamentFixture();
     }
 
     @AfterEach
     void tearDown() throws Exception {
         try (var conn = dataSource.getConnection()) {
-            for (String sql :
-                    new String[] {
-                        "DELETE FROM team WHERE tenant_id = ?",
-                        "DELETE FROM tournament WHERE tenant_id = ?",
-                        "DELETE FROM tenants WHERE id = ?"
-                    }) {
+            // E45S06: tenant_id removed — simple DELETE (per-tenant DB isolation via DEC-20)
+            for (String sql : new String[] {"DELETE FROM team", "DELETE FROM tournament"}) {
                 try (var ps = conn.prepareStatement(sql)) {
-                    ps.setObject(1, tenantId);
                     ps.executeUpdate();
                 } catch (Exception ignored) {
                     // Best-effort cleanup
@@ -123,11 +121,10 @@ class TeamRepositoryIT {
         final UUID savedId = team.getId();
         assertThat(table.getRowsList())
                 .as("saved team must appear in the team table")
+                // E45S06: TENANT_ID column removed from team (DEC-39 D1)
                 .anyMatch(
                         row ->
                                 savedId.equals(row.getColumnValue("ID").getValue())
-                                        && tenantId.equals(
-                                                row.getColumnValue("TENANT_ID").getValue())
                                         && tournamentId.equals(
                                                 row.getColumnValue("TOURNAMENT_ID").getValue())
                                         && Objects.equals(
@@ -266,7 +263,6 @@ class TeamRepositoryIT {
     private Team newTeam(UUID tId, UUID trnId, int num, String desc) {
         Team t = new Team();
         t.setId(UUID.randomUUID());
-        t.setTenantId(tId);
         t.setTournamentId(trnId);
         t.setTeamNumber(num);
         t.setDescription(desc);
@@ -277,7 +273,7 @@ class TeamRepositoryIT {
     private void insertTeamDirectly(UUID id, UUID tId, UUID trnId, int num, String desc) {
         Map<String, Object> cols = new LinkedHashMap<>();
         cols.put("id", id);
-        cols.put("tenant_id", tId);
+        // E45S06: tenant_id removed from team (DEC-39 D1)
         cols.put("tournament_id", trnId);
         cols.put("team_number", num);
         cols.put("description", desc);
@@ -292,22 +288,11 @@ class TeamRepositoryIT {
     }
 
     private UUID insertTournamentFixtureForTenant(UUID tId) {
-        // Insert a minimal tenant row first if not already present
-        try {
-            Map<String, Object> tenantCols = new LinkedHashMap<>();
-            UUID tid = tId;
-            tenantCols.put("id", tid);
-            tenantCols.put("name", "tenant-" + tid);
-            tenantCols.put("subdomain", "t-" + tid.toString().substring(0, 8));
-            TenantDaoTestSupport.insertDirectly(dataSource, "tenants", tenantCols);
-        } catch (Exception ignored) {
-            // tenant may already exist
-        }
-
         UUID trnId = UUID.randomUUID();
         Map<String, Object> cols = new LinkedHashMap<>();
         cols.put("id", trnId);
-        cols.put("tenant_id", tId);
+        // E45S06: tenant_id removed; location_id NOT NULL (DEC-39 D1/D2)
+        cols.put("location_id", defaultLocationId);
         cols.put("description", "Test Tournament");
         cols.put("match_format", "BEST_OF_1");
         cols.put("scoring_rule_id", "defaultScoringRule");

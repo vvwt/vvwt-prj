@@ -104,8 +104,6 @@ class MatchOutcomeTest {
         UUID tenantId = UUID.randomUUID();
         MatchOutcome mo = new MatchOutcome();
         mo.setMatchId(matchId);
-        mo.setTenantId(tenantId);
         assertThat(mo.getMatchId()).isEqualTo(matchId);
-        assertThat(mo.getTenantId()).isEqualTo(tenantId);
     }
 }

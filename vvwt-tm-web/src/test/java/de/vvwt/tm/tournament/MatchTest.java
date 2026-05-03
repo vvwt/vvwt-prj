@@ -66,13 +66,11 @@ class MatchTest {
 
         Match m = new Match();
         m.setId(id);
-        m.setTenantId(tenantId);
         m.setPhaseId(phaseId);
         m.setMemberAvatar1Id(avatar1);
         m.setMemberAvatar2Id(avatar2);
 
         assertThat(m.getId()).isEqualTo(id);
-        assertThat(m.getTenantId()).isEqualTo(tenantId);
         assertThat(m.getPhaseId()).isEqualTo(phaseId);
         assertThat(m.getMemberAvatar1Id()).isEqualTo(avatar1);
         assertThat(m.getMemberAvatar2Id()).isEqualTo(avatar2);

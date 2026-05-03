@@ -185,7 +185,8 @@ public class DeviceTokenHandshakeInterceptor implements ChannelInterceptor {
             }
 
             // Bind TenantContext to device's tenant for session duration
-            TenantContext.Scope tenantScope = tenantContext.bind(device.getTenantId());
+            // DEC-50/E45S06: device.tenantId removed; use defaultTenantId (DB-per-Tenant routing)
+            TenantContext.Scope tenantScope = tenantContext.bind(defaultTenantId);
 
             // Bind LocationContext (if location assigned) or mark overview mode
             if (device.getLocationId() != null) {
@@ -200,7 +201,7 @@ public class DeviceTokenHandshakeInterceptor implements ChannelInterceptor {
                         "[ws-auth] Device authenticated: type={} locationId={} tenantId={}",
                         device.getDeviceType(),
                         device.getLocationId(),
-                        device.getTenantId());
+                        defaultTenantId);
             } else {
                 // DISPLAY with null location → overview mode (AC7a)
                 if (accessor.getSessionAttributes() != null) {
@@ -209,11 +210,11 @@ public class DeviceTokenHandshakeInterceptor implements ChannelInterceptor {
                 }
                 log.debug(
                         "[ws-auth] DISPLAY device in overview mode (no location) tenantId={}",
-                        device.getTenantId());
+                        defaultTenantId);
             }
 
             // Build principal for the session
-            String principalName = "display-device:" + device.getTenantId();
+            String principalName = "display-device:" + defaultTenantId;
             UsernamePasswordAuthenticationToken auth =
                     new UsernamePasswordAuthenticationToken(
                             principalName,

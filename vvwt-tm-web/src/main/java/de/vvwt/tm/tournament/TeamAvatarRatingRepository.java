@@ -1,6 +1,5 @@
 package de.vvwt.tm.tournament;
 
-import de.vvwt.tm.tenant.TenantContext;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -40,14 +39,13 @@ import org.springframework.stereotype.Repository;
 public class TeamAvatarRatingRepository {
 
     private final JdbcTemplate jdbc;
-    private final TenantContext tenantContext;
 
     private static final String INSERT_SQL =
             "INSERT INTO team_avatar_rating"
-                    + " (avatar_id, tenant_id, match_count, set_count, points,"
+                    + " (avatar_id, match_count, set_count, points,"
                     + " sets_won, sets_lost, balls_won, balls_lost,"
                     + " set_quotient, ball_quotient, is_without_assessment, updated_at)"
-                    + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     private static final String UPDATE_SQL =
             "UPDATE team_avatar_rating SET"
@@ -66,21 +64,17 @@ public class TeamAvatarRatingRepository {
     private static final String EXISTS_BY_AVATAR_ID =
             "SELECT COUNT(*) FROM team_avatar_rating WHERE avatar_id=?";
 
-    public TeamAvatarRatingRepository(JdbcTemplate jdbc, TenantContext tenantContext) {
+    public TeamAvatarRatingRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
-        this.tenantContext = tenantContext;
     }
 
     /**
-     * Persists a TeamAvatarRating. Inserts if new, updates if it exists. Tenant scoping enforced.
+     * Persists a TeamAvatarRating. Inserts if new, updates if it exists.
      *
      * @param rating the rating to save (avatarId must be set by caller)
      * @return the saved rating
      */
     public TeamAvatarRating save(TeamAvatarRating rating) {
-        UUID currentTenantId = tenantContext.current();
-        rating.setTenantId(currentTenantId);
-
         Integer count =
                 jdbc.queryForObject(EXISTS_BY_AVATAR_ID, Integer.class, rating.getAvatarId());
         boolean exists = count != null && count > 0;
@@ -106,7 +100,6 @@ public class TeamAvatarRatingRepository {
             jdbc.update(
                     INSERT_SQL,
                     rating.getAvatarId(),
-                    currentTenantId,
                     rating.getMatchCount(),
                     rating.getSetCount(),
                     rating.getPoints(),
@@ -129,7 +122,6 @@ public class TeamAvatarRatingRepository {
      * @return Optional.of(rating) if found, Optional.empty() if not found
      */
     public Optional<TeamAvatarRating> findByAvatarId(UUID avatarId) {
-        tenantContext.current();
         List<TeamAvatarRating> results = jdbc.query(SELECT_BY_AVATAR_ID, ROW_MAPPER, avatarId);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
@@ -156,7 +148,6 @@ public class TeamAvatarRatingRepository {
      * @param avatarId the avatar UUID (PK)
      */
     public void deleteByAvatarId(UUID avatarId) {
-        tenantContext.current();
         jdbc.update(DELETE_BY_AVATAR_ID, avatarId);
     }
 
@@ -170,7 +161,6 @@ public class TeamAvatarRatingRepository {
     private static TeamAvatarRating mapRow(ResultSet rs) throws SQLException {
         TeamAvatarRating r = new TeamAvatarRating();
         r.setAvatarId(rs.getObject("avatar_id", UUID.class));
-        r.setTenantId(rs.getObject("tenant_id", UUID.class));
         r.setMatchCount(rs.getInt("match_count"));
         r.setSetCount(rs.getInt("set_count"));
         r.setPoints(rs.getInt("points"));

@@ -273,7 +273,6 @@ class RoundRobinMatchGeneratorTest extends MatchGeneratorAbstractTest {
         for (int i = 0; i < n; i++) {
             TeamAvatar a = new TeamAvatar();
             a.setId(UUID.randomUUID());
-            a.setTenantId(UUID.randomUUID());
             a.setPhaseId(phaseId);
             a.setTeamId(UUID.randomUUID());
             list.add(a);

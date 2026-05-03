@@ -69,7 +69,6 @@ class TeamAvatarTest {
 
         TeamAvatar avatar = new TeamAvatar();
         avatar.setId(id);
-        avatar.setTenantId(tenantId);
         avatar.setTournamentId(tournamentId);
         avatar.setPhaseId(phaseId);
         avatar.setGroupNumber(1);
@@ -79,7 +78,6 @@ class TeamAvatarTest {
         avatar.setCreatedAt(now);
 
         assertThat(avatar.getId()).isEqualTo(id);
-        assertThat(avatar.getTenantId()).isEqualTo(tenantId);
         assertThat(avatar.getTournamentId()).isEqualTo(tournamentId);
         assertThat(avatar.getPhaseId()).isEqualTo(phaseId);
         assertThat(avatar.getGroupNumber()).isEqualTo(1);

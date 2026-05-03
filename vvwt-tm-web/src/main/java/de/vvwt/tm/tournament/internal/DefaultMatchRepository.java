@@ -1,6 +1,5 @@
 package de.vvwt.tm.tournament.internal;
 
-import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.Match;
 import de.vvwt.tm.tournament.MatchRepository;
 import java.sql.ResultSet;
@@ -30,14 +29,13 @@ import org.springframework.stereotype.Repository;
 public class DefaultMatchRepository implements MatchRepository {
 
     private final JdbcTemplate jdbc;
-    private final TenantContext tenantContext;
 
     private static final String INSERT_SQL =
-            "INSERT INTO match (id, tenant_id, tournament_id, phase_id,"
+            "INSERT INTO match (id, tournament_id, phase_id,"
                     + " member_avatar_1_id, member_avatar_2_id, state, set_limit,"
                     + " lap_number, field_number, referee_team_id, referee_description,"
                     + " referee_preference_config, created_at)"
-                    + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     private static final String UPDATE_SQL =
             "UPDATE match SET tournament_id=?, phase_id=?, member_avatar_1_id=?,"
@@ -65,17 +63,13 @@ public class DefaultMatchRepository implements MatchRepository {
 
     private static final String EXISTS_BY_ID = "SELECT COUNT(*) FROM match WHERE id=?";
 
-    public DefaultMatchRepository(JdbcTemplate jdbc, TenantContext tenantContext) {
+    public DefaultMatchRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
-        this.tenantContext = tenantContext;
     }
 
     /** {@inheritDoc} */
     @Override
     public Match save(Match match) {
-        UUID currentTenantId = tenantContext.current();
-        match.setTenantId(currentTenantId);
-
         Integer count = jdbc.queryForObject(EXISTS_BY_ID, Integer.class, match.getId());
         boolean exists = count != null && count > 0;
 
@@ -98,7 +92,6 @@ public class DefaultMatchRepository implements MatchRepository {
             jdbc.update(
                     INSERT_SQL,
                     match.getId(),
-                    currentTenantId,
                     match.getTournamentId(),
                     match.getPhaseId(),
                     match.getMemberAvatar1Id(),
@@ -168,7 +161,6 @@ public class DefaultMatchRepository implements MatchRepository {
     private static Match mapRow(ResultSet rs, int rowNum) throws SQLException {
         Match m = new Match();
         m.setId(rs.getObject("id", UUID.class));
-        m.setTenantId(rs.getObject("tenant_id", UUID.class));
         m.setTournamentId(rs.getObject("tournament_id", UUID.class));
         m.setPhaseId(rs.getObject("phase_id", UUID.class));
         m.setMemberAvatar1Id(rs.getObject("member_avatar_1_id", UUID.class));

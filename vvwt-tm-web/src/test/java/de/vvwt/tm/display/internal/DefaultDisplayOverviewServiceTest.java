@@ -8,6 +8,7 @@ import de.vvwt.tm.display.DisplayGroupStandingsResponse;
 import de.vvwt.tm.display.DisplayMatchesResponse;
 import de.vvwt.tm.display.DisplayPhaseOverviewResponse;
 import de.vvwt.tm.display.NoActivePhaseException;
+import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.Device;
 import de.vvwt.tm.tournament.DeviceRepository;
 import de.vvwt.tm.tournament.Match;
@@ -65,6 +66,8 @@ class DefaultDisplayOverviewServiceTest {
 
     @Mock private SetResultRepository setResultRepository;
 
+    @Mock private TenantContext tenantContext;
+
     private DefaultDisplayOverviewService service;
 
     @BeforeEach
@@ -78,7 +81,8 @@ class DefaultDisplayOverviewServiceTest {
                         teamAvatarRepository,
                         teamAvatarRatingRepository,
                         teamRepository,
-                        setResultRepository);
+                        setResultRepository,
+                        tenantContext);
     }
 
     // =========================================================================
@@ -193,6 +197,7 @@ class DefaultDisplayOverviewServiceTest {
         when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(phase));
         when(matchRepository.findByPhaseId(phaseId)).thenReturn(List.of(match1, match2));
         when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(List.of(avatar1, avatar2));
+        when(tenantContext.current()).thenReturn(tenantId);
 
         DisplayPhaseOverviewResponse response = service.getPhaseOverview("valid-token");
 
@@ -484,7 +489,6 @@ class DefaultDisplayOverviewServiceTest {
         Device d = new Device();
         d.setDeviceType("DISPLAY");
         d.setStatus("REGISTERED");
-        d.setTenantId(tenantId);
         return d;
     }
 
@@ -506,7 +510,6 @@ class DefaultDisplayOverviewServiceTest {
             int currentLap) {
         Phase p = new Phase();
         p.setId(id);
-        p.setTenantId(tenantId);
         p.setTournamentId(tournamentId);
         p.setDescription(description);
         p.setStatus(status);
@@ -518,7 +521,6 @@ class DefaultDisplayOverviewServiceTest {
         TeamAvatar ta = new TeamAvatar();
         ta.setId(id);
         ta.setPhaseId(phaseId);
-        ta.setTenantId(tenantId);
         ta.setGroupNumber(groupNumber);
         ta.setTeamId(UUID.randomUUID());
         return ta;
@@ -529,7 +531,6 @@ class DefaultDisplayOverviewServiceTest {
         TeamAvatar ta = new TeamAvatar();
         ta.setId(id);
         ta.setPhaseId(phaseId);
-        ta.setTenantId(tenantId);
         ta.setGroupNumber(groupNumber);
         ta.setTeamId(teamId);
         return ta;
@@ -606,7 +607,6 @@ class DefaultDisplayOverviewServiceTest {
             double ballQuotient) {
         TeamAvatarRating r = new TeamAvatarRating();
         r.setAvatarId(avatarId);
-        r.setTenantId(tenantId);
         r.setPoints(points);
         r.setSetsWon(setsWon);
         r.setSetsLost(setsLost);

@@ -79,13 +79,13 @@ class ActivityAssignmentPreviewEndpointIT {
         baseUrl = "http://localhost:" + port;
         authed = restTemplate.withBasicAuth(ADMIN_USER, ADMIN_PASS);
 
-        UUID defaultTenantId = tenantBinder.bindDefaultTenant();
+        tenantBinder.bindDefaultTenant();
+        UUID defaultLocationId = tenantBinder.getDefaultLocationId();
 
         tournamentId = UUID.randomUUID();
         Tournament t =
                 new Tournament(
                         tournamentId,
-                        defaultTenantId,
                         "Preview IT Tournament " + tournamentId,
                         MatchFormat.BEST_OF_3.name(),
                         "setPoints",
@@ -93,6 +93,8 @@ class ActivityAssignmentPreviewEndpointIT {
                         "roundRobin",
                         "DRAFT",
                         LocalDateTime.now());
+        // E45S06: location_id NOT NULL (DEC-39 D2)
+        t.setLocationId(defaultLocationId);
         tournamentRepository.save(t);
 
         tenantBinder.unbind();

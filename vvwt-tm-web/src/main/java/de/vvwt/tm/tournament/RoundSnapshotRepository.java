@@ -1,6 +1,5 @@
 package de.vvwt.tm.tournament;
 
-import de.vvwt.tm.tenant.TenantContext;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
@@ -32,27 +31,22 @@ import org.springframework.stereotype.Repository;
 public class RoundSnapshotRepository {
 
     private final JdbcTemplate jdbc;
-    private final TenantContext tenantContext;
 
     private static final String INSERT_SQL =
             "INSERT INTO round_snapshots"
-                    + " (id, tenant_id, tournament_id, phase_id, lap_number, snapshot_payload)"
-                    + " VALUES (?, ?, ?, ?, ?, ?)";
+                    + " (id, tournament_id, phase_id, lap_number, snapshot_payload)"
+                    + " VALUES (?, ?, ?, ?, ?)";
 
-    private static final String SELECT_BY_ID =
-            "SELECT * FROM round_snapshots WHERE id=? AND tenant_id=?";
+    private static final String SELECT_BY_ID = "SELECT * FROM round_snapshots WHERE id=?";
 
-    private static final String SELECT_ALL = "SELECT * FROM round_snapshots WHERE tenant_id=?";
+    private static final String SELECT_ALL = "SELECT * FROM round_snapshots";
 
-    private static final String DELETE_BY_ID =
-            "DELETE FROM round_snapshots WHERE id=? AND tenant_id=?";
+    private static final String DELETE_BY_ID = "DELETE FROM round_snapshots WHERE id=?";
 
-    private static final String EXISTS_BY_ID =
-            "SELECT COUNT(*) FROM round_snapshots WHERE id=? AND tenant_id=?";
+    private static final String EXISTS_BY_ID = "SELECT COUNT(*) FROM round_snapshots WHERE id=?";
 
-    public RoundSnapshotRepository(JdbcTemplate jdbc, TenantContext tenantContext) {
+    public RoundSnapshotRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
-        this.tenantContext = tenantContext;
     }
 
     /**
@@ -65,17 +59,13 @@ public class RoundSnapshotRepository {
      * @return the saved snapshot
      */
     public RoundSnapshot save(RoundSnapshot snapshot) {
-        UUID tenantId = tenantContext.current();
-        snapshot.setTenantId(tenantId);
-        Integer count =
-                jdbc.queryForObject(EXISTS_BY_ID, Integer.class, snapshot.getId(), tenantId);
+        Integer count = jdbc.queryForObject(EXISTS_BY_ID, Integer.class, snapshot.getId());
         if (count != null && count > 0) {
             return snapshot; // immutable — no update
         }
         jdbc.update(
                 INSERT_SQL,
                 snapshot.getId(),
-                tenantId,
                 snapshot.getTournamentId(),
                 snapshot.getPhaseId(),
                 snapshot.getLapNumber(),
@@ -84,35 +74,32 @@ public class RoundSnapshotRepository {
     }
 
     /**
-     * Returns the snapshot with the given id, scoped to the current tenant.
+     * Returns the snapshot with the given id.
      *
      * @param id the snapshot UUID
-     * @return Optional containing the snapshot if found and in tenant scope, empty otherwise
+     * @return Optional containing the snapshot if found, empty otherwise
      */
     public Optional<RoundSnapshot> findById(UUID id) {
-        UUID tenantId = tenantContext.current();
-        List<RoundSnapshot> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id, tenantId);
+        List<RoundSnapshot> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
     /**
-     * Returns all snapshots for the current tenant.
+     * Returns all snapshots for the current tenant database.
      *
      * @return list of snapshots; never null
      */
     public List<RoundSnapshot> findAll() {
-        UUID tenantId = tenantContext.current();
-        return jdbc.query(SELECT_ALL, ROW_MAPPER, tenantId);
+        return jdbc.query(SELECT_ALL, ROW_MAPPER);
     }
 
     /**
-     * Deletes the snapshot with the given id, scoped to the current tenant.
+     * Deletes the snapshot with the given id.
      *
      * @param id the snapshot UUID
      */
     public void deleteById(UUID id) {
-        UUID tenantId = tenantContext.current();
-        jdbc.update(DELETE_BY_ID, id, tenantId);
+        jdbc.update(DELETE_BY_ID, id);
     }
 
     // -------------------------------------------------------------------------
@@ -124,7 +111,6 @@ public class RoundSnapshotRepository {
     private static RoundSnapshot mapRow(ResultSet rs) throws SQLException {
         RoundSnapshot s = new RoundSnapshot();
         s.setId(rs.getObject("id", UUID.class));
-        s.setTenantId(rs.getObject("tenant_id", UUID.class));
         s.setTournamentId(rs.getObject("tournament_id", UUID.class));
         s.setPhaseId(rs.getObject("phase_id", UUID.class));
         s.setLapNumber(rs.getInt("lap_number"));

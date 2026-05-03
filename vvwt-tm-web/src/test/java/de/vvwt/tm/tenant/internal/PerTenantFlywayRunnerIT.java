@@ -80,11 +80,15 @@ class PerTenantFlywayRunnerIT {
         runnerA.run(tenantA);
         runnerB.run(tenantB);
 
-        // Both tenants have their own flyway_schema_history (Flyway ran in each)
-        assertThat(H2TestDataSourceHelper.tableExists(dsA, "flyway_schema_history"))
+        // Both tenants have their own flyway_schema_history_tenant (Flyway ran in each)
+        // E45S06: PerTenantFlywayRunner uses module-namespaced history tables
+        // (flyway_schema_history_{moduleName}); the test migration location is
+        // "classpath:db/migration-test/tenant" → moduleName = "tenant" → table =
+        // "flyway_schema_history_tenant".
+        assertThat(H2TestDataSourceHelper.tableExists(dsA, "flyway_schema_history_tenant"))
                 .as("Tenant A must have flyway_schema_history in its own file")
                 .isTrue();
-        assertThat(H2TestDataSourceHelper.tableExists(dsB, "flyway_schema_history"))
+        assertThat(H2TestDataSourceHelper.tableExists(dsB, "flyway_schema_history_tenant"))
                 .as("Tenant B must have flyway_schema_history in its own file")
                 .isTrue();
 
@@ -115,8 +119,9 @@ class PerTenantFlywayRunnerIT {
 
         runner.run(tenantId);
 
-        assertThat(H2TestDataSourceHelper.tableExists(ds, "flyway_schema_history"))
-                .as("flyway_schema_history must exist after runner completes")
+        // E45S06: module-namespaced history table (flyway_schema_history_{moduleName})
+        assertThat(H2TestDataSourceHelper.tableExists(ds, "flyway_schema_history_tenant"))
+                .as("flyway_schema_history_tenant must exist after runner completes")
                 .isTrue();
         assertThat(H2TestDataSourceHelper.tableExists(ds, "tenant_test_marker"))
                 .as("Migration table must exist after runner completes")

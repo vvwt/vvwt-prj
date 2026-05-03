@@ -5,10 +5,10 @@ import java.time.Instant;
 /**
  * Immutable value type representing a row from the {@code info_portal_state} table (AC12).
  *
- * <p>Schema per E38S09 AC12:
+ * <p>Schema per E38S09 AC12 + E45S06 Big-Bang-Reset cleanup (tenant_id column removed, DEC-50):
  *
  * <ul>
- *   <li>{@code tenantId} / {@code locationId} / {@code tournamentId} — composite PK
+ *   <li>{@code locationId} / {@code tournamentId} — composite PK (DEC-50)
  *   <li>{@code lastPublishedSeq} — monotonic per-tournament sequence; TM assigns BEFORE posting
  *   <li>{@code tournamentToken} — opaque bearer token from tournament-registration
  *   <li>{@code perTournamentSecret} — 32-byte HMAC secret; used to derive team tokens
@@ -22,7 +22,6 @@ import java.time.Instant;
  *     AC12</a>
  */
 public record InfoPortalStateRecord(
-        String tenantId,
         String locationId,
         String tournamentId,
         long lastPublishedSeq,

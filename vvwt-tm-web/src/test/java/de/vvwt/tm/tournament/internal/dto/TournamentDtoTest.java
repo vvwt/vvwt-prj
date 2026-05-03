@@ -145,7 +145,6 @@ class TournamentDtoTest {
 
         Tournament t = new Tournament();
         t.setId(id);
-        t.setTenantId(tenantId);
         t.setDescription("Test Tournament");
         t.setMatchFormat("BEST_OF_3");
         t.setScoringRuleId("setPoints");
@@ -179,7 +178,6 @@ class TournamentDtoTest {
         // from the response DTO (tenantId is an internal implementation detail, not client-visible)
         Tournament t = new Tournament();
         t.setId(UUID.randomUUID());
-        t.setTenantId(UUID.randomUUID());
         t.setDescription("Test");
         t.setMatchFormat("BEST_OF_1");
         t.setScoringRuleId("setPoints");

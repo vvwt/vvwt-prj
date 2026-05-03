@@ -74,12 +74,6 @@ public class ActivityType {
      */
     private int sortOrder;
 
-    /**
-     * Tenant scope — NOT NULL per DEC-17. Every activity type belongs to exactly one tenant.
-     * Foreign key references {@code tenants(id)}.
-     */
-    private UUID tenantId;
-
     // -------------------------------------------------------------------------
     // Constructors
     // -------------------------------------------------------------------------
@@ -96,7 +90,6 @@ public class ActivityType {
      * @param assignmentRule rule identifier — {@link AssignmentRule} name (NOT NULL)
      * @param capacityPerRound max teams per round (nullable; non-null must be &gt; 0)
      * @param sortOrder display ordering (NOT NULL)
-     * @param tenantId tenant scope (NOT NULL)
      */
     public ActivityType(
             UUID id,
@@ -104,15 +97,13 @@ public class ActivityType {
             String name,
             String assignmentRule,
             Integer capacityPerRound,
-            int sortOrder,
-            UUID tenantId) {
+            int sortOrder) {
         this.id = id;
         this.tournamentId = tournamentId;
         this.name = name;
         this.assignmentRule = assignmentRule;
         this.capacityPerRound = capacityPerRound;
         this.sortOrder = sortOrder;
-        this.tenantId = tenantId;
     }
 
     // -------------------------------------------------------------------------
@@ -165,13 +156,5 @@ public class ActivityType {
 
     public void setSortOrder(int sortOrder) {
         this.sortOrder = sortOrder;
-    }
-
-    public UUID getTenantId() {
-        return tenantId;
-    }
-
-    public void setTenantId(UUID tenantId) {
-        this.tenantId = tenantId;
     }
 }

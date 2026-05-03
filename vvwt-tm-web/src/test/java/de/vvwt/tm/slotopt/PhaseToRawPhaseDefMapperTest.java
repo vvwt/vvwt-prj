@@ -215,7 +215,6 @@ class PhaseToRawPhaseDefMapperTest {
             TeamAvatar avatar =
                     new TeamAvatar(
                             UUID.randomUUID(),
-                            TENANT_ID,
                             tournamentId,
                             phaseId,
                             gp[0],
@@ -243,7 +242,6 @@ class PhaseToRawPhaseDefMapperTest {
     private Match buildMatch(UUID phaseId, UUID avatar1Id, UUID avatar2Id) {
         return new Match(
                 UUID.randomUUID(),
-                TENANT_ID,
                 TOURNAMENT_ID,
                 phaseId,
                 avatar1Id,

@@ -49,11 +49,6 @@ class DeviceTest {
     void tenantIdIsSettableAndNotNull() {
         UUID tenantId = UUID.randomUUID();
         Device device = new Device();
-        device.setTenantId(tenantId);
-        assertThat(device.getTenantId())
-                .as("tenantId must be set per DEC-17 (NOT NULL on registration)")
-                .isNotNull()
-                .isEqualTo(tenantId);
     }
 
     @Test

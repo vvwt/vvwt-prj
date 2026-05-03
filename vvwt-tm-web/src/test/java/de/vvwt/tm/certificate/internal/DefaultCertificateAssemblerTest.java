@@ -63,7 +63,6 @@ class DefaultCertificateAssemblerTest {
     // Shared test IDs
     // -------------------------------------------------------------------------
 
-    private static final UUID TENANT_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final UUID TOURNAMENT_ID =
             UUID.fromString("00000000-0000-0000-0000-000000000002");
     private static final UUID PHASE_ID = UUID.fromString("00000000-0000-0000-0000-000000000003");
@@ -98,7 +97,6 @@ class DefaultCertificateAssemblerTest {
     private static Phase makePhase(int sequenceNumber) {
         return new Phase(
                 PHASE_ID,
-                TENANT_ID,
                 TOURNAMENT_ID,
                 sequenceNumber,
                 "Phase " + sequenceNumber,
@@ -108,8 +106,7 @@ class DefaultCertificateAssemblerTest {
     }
 
     private static TeamAvatar makeAvatar(UUID avatarId, UUID teamId) {
-        return new TeamAvatar(
-                avatarId, TENANT_ID, TOURNAMENT_ID, PHASE_ID, 1, 1, teamId, null, null);
+        return new TeamAvatar(avatarId, TOURNAMENT_ID, PHASE_ID, 1, 1, teamId, null, null);
     }
 
     /**
@@ -129,7 +126,6 @@ class DefaultCertificateAssemblerTest {
             boolean withoutAssessment) {
         return new TeamAvatarRating(
                 avatarId,
-                TENANT_ID,
                 3,
                 6,
                 points,
@@ -146,7 +142,6 @@ class DefaultCertificateAssemblerTest {
     private static Team makeTeam(UUID teamId, String description) {
         Team t = new Team();
         t.setId(teamId);
-        t.setTenantId(TENANT_ID);
         t.setTournamentId(TOURNAMENT_ID);
         t.setDescription(description);
         t.setTeamNumber(1);
@@ -156,7 +151,6 @@ class DefaultCertificateAssemblerTest {
     private static Tournament makeTournament() {
         return new Tournament(
                 TOURNAMENT_ID,
-                TENANT_ID,
                 "Stadtmeisterschaft 2026",
                 "BEST_OF_3",
                 "setPoints",
@@ -199,7 +193,7 @@ class DefaultCertificateAssemblerTest {
     void getFinalPhase_returnsHighestSequencePhase() {
         Phase p1 = makePhase(1);
         UUID p2Id = UUID.fromString("00000000-0000-0000-0000-000000000099");
-        Phase p2 = new Phase(p2Id, TENANT_ID, TOURNAMENT_ID, 2, "Final", "COMPLETED", 0, null);
+        Phase p2 = new Phase(p2Id, TOURNAMENT_ID, 2, "Final", "COMPLETED", 0, null);
         when(phaseRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(p1, p2));
 
         Optional<Phase> result = assembler.getFinalPhase(TOURNAMENT_ID);

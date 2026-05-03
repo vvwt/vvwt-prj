@@ -201,7 +201,6 @@ class PhasePreparationServiceTest {
     private Phase buildPhase() {
         Phase p = new Phase();
         p.setId(phaseId);
-        p.setTenantId(tenantId);
         p.setTournamentId(tournamentId);
         p.setStatus("PENDING");
         return p;
@@ -210,7 +209,6 @@ class PhasePreparationServiceTest {
     private Match buildMatch() {
         Match m = new Match();
         m.setId(UUID.randomUUID());
-        m.setTenantId(tenantId);
         m.setTournamentId(tournamentId);
         m.setPhaseId(phaseId);
         m.setMemberAvatar1Id(UUID.randomUUID());
@@ -223,7 +221,6 @@ class PhasePreparationServiceTest {
     private TeamAvatar buildAvatar(UUID id) {
         TeamAvatar a = new TeamAvatar();
         a.setId(id);
-        a.setTenantId(tenantId);
         a.setPhaseId(phaseId);
         a.setTeamId(UUID.randomUUID());
         return a;

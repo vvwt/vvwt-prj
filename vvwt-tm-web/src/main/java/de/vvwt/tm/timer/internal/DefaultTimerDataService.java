@@ -1,5 +1,6 @@
 package de.vvwt.tm.timer.internal;
 
+import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.timer.InvalidTimerUrlException;
 import de.vvwt.tm.timer.NoActiveTournamentException;
 import de.vvwt.tm.timer.TimerAudioResponse;
@@ -106,6 +107,7 @@ public class DefaultTimerDataService implements TimerDataService {
     private final PhaseBreakRepository phaseBreakRepository;
     private final TimelineCalculationService timelineCalculationService;
     private final AudioStorageService audioStorageService;
+    private final TenantContext tenantContext;
 
     /**
      * 6-arg constructor preserved verbatim per C-3 signature-preservation.
@@ -120,13 +122,15 @@ public class DefaultTimerDataService implements TimerDataService {
             MatchRepository matchRepository,
             PhaseBreakRepository phaseBreakRepository,
             TimelineCalculationService timelineCalculationService,
-            AudioStorageService audioStorageService) {
+            AudioStorageService audioStorageService,
+            TenantContext tenantContext) {
         this.tournamentRepository = tournamentRepository;
         this.phaseRepository = phaseRepository;
         this.matchRepository = matchRepository;
         this.phaseBreakRepository = phaseBreakRepository;
         this.timelineCalculationService = timelineCalculationService;
         this.audioStorageService = audioStorageService;
+        this.tenantContext = tenantContext;
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -239,7 +243,7 @@ public class DefaultTimerDataService implements TimerDataService {
         TimerDataResponse response = new TimerDataResponse();
         response.setTournamentName(tournament.getDescription());
         response.setTournamentId(tournamentId);
-        response.setTenantId(tournament.getTenantId());
+        response.setTenantId(tenantContext.current());
         response.setTournamentStatus(tournament.getStatus());
         response.setCurrentPhaseNumber(currentPhaseNumber);
         response.setCurrentLapNumber(currentLapNumber);
@@ -259,7 +263,7 @@ public class DefaultTimerDataService implements TimerDataService {
         TimerDataResponse response = new TimerDataResponse();
         response.setTournamentName(tournament.getDescription());
         response.setTournamentId(tournament.getId());
-        response.setTenantId(tournament.getTenantId());
+        response.setTenantId(tenantContext.current());
         response.setTournamentStatus(tournament.getStatus());
         response.setCurrentPhaseNumber(0);
         response.setCurrentLapNumber(0);

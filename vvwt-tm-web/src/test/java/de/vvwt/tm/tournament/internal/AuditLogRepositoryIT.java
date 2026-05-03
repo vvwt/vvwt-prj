@@ -86,25 +86,26 @@ class AuditLogRepositoryIT {
         assertDb = AssertDbConnectionFactory.of(dataSource).create();
         // Bind the default tenant — no manual tenants INSERT needed (DEC-26 Rule 3)
         tenantId = tenantBinder.bindDefaultTenant();
+        // E45S06: tenant_id removed (DEC-39 D1); tournament uses location_id (D2)
+        UUID locationId = tenantBinder.getDefaultLocationId();
         jdbcTemplate.update(
-                "INSERT INTO tournament (id, tenant_id, description, match_format,"
+                "INSERT INTO tournament (id, location_id, description, match_format,"
                         + " scoring_rule_id, set_validation_rule_id, match_generator_id,"
                         + " status, created_at)"
                         + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
                 tournamentId,
-                tenantId,
+                locationId,
                 "T",
                 "BEST_OF_3",
                 "r",
                 "v",
                 "g",
-                "CREATED");
+                "DRAFT");
         jdbcTemplate.update(
-                "INSERT INTO phase (id, tenant_id, tournament_id, sequence_number,"
+                "INSERT INTO phase (id, tournament_id, sequence_number,"
                         + " description, status, current_lap_number)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        + " VALUES (?, ?, ?, ?, ?, ?)",
                 phaseId,
-                tenantId,
                 tournamentId,
                 1,
                 "P",
@@ -113,49 +114,44 @@ class AuditLogRepositoryIT {
         UUID teamId1 = UUID.randomUUID();
         UUID teamId2 = UUID.randomUUID();
         jdbcTemplate.update(
-                "INSERT INTO team (id, tenant_id, tournament_id, team_number, description)"
-                        + " VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO team (id, tournament_id, team_number, description)"
+                        + " VALUES (?, ?, ?, ?)",
                 teamId1,
-                tenantId,
                 tournamentId,
                 1,
                 "TA");
         jdbcTemplate.update(
-                "INSERT INTO team (id, tenant_id, tournament_id, team_number, description)"
-                        + " VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO team (id, tournament_id, team_number, description)"
+                        + " VALUES (?, ?, ?, ?)",
                 teamId2,
-                tenantId,
                 tournamentId,
                 2,
                 "TB");
         jdbcTemplate.update(
-                "INSERT INTO team_avatar (id, tenant_id, tournament_id, phase_id, team_id,"
+                "INSERT INTO team_avatar (id, tournament_id, phase_id, team_id,"
                         + " group_number, group_position)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        + " VALUES (?, ?, ?, ?, ?, ?)",
                 avatar1Id,
-                tenantId,
                 tournamentId,
                 phaseId,
                 teamId1,
                 1,
                 1);
         jdbcTemplate.update(
-                "INSERT INTO team_avatar (id, tenant_id, tournament_id, phase_id, team_id,"
+                "INSERT INTO team_avatar (id, tournament_id, phase_id, team_id,"
                         + " group_number, group_position)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        + " VALUES (?, ?, ?, ?, ?, ?)",
                 avatar2Id,
-                tenantId,
                 tournamentId,
                 phaseId,
                 teamId2,
                 1,
                 2);
         jdbcTemplate.update(
-                "INSERT INTO match (id, tenant_id, tournament_id, phase_id,"
+                "INSERT INTO match (id, tournament_id, phase_id,"
                         + " member_avatar_1_id, member_avatar_2_id, state, set_limit)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
                 matchId,
-                tenantId,
                 tournamentId,
                 phaseId,
                 avatar1Id,
@@ -167,16 +163,16 @@ class AuditLogRepositoryIT {
     @AfterEach
     void tearDown() {
         // Best-effort cleanup of this test's rows (FK-ordered, child-before-parent)
-        jdbcTemplate.update("DELETE FROM set_result WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM audit_log WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM match_outcome WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM match WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM team_avatar_rating WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM team_avatar WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM team WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM activity_types WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM phase WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM tournament WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM set_result");
+        jdbcTemplate.update("DELETE FROM audit_log");
+        jdbcTemplate.update("DELETE FROM match_outcome");
+        jdbcTemplate.update("DELETE FROM match");
+        jdbcTemplate.update("DELETE FROM team_avatar_rating");
+        jdbcTemplate.update("DELETE FROM team_avatar");
+        jdbcTemplate.update("DELETE FROM team");
+        jdbcTemplate.update("DELETE FROM activity_types");
+        jdbcTemplate.update("DELETE FROM phase");
+        jdbcTemplate.update("DELETE FROM tournament");
         tenantBinder.unbind();
     }
 
@@ -185,7 +181,6 @@ class AuditLogRepositoryIT {
     void saveAppendsAuditLogRow() {
         AuditLogEntry entry = new AuditLogEntry();
         entry.setId(UUID.randomUUID());
-        entry.setTenantId(tenantId);
         entry.setMatchId(matchId);
         entry.setSetIndex(0);
         entry.setTeam1PointsNew(25);
@@ -219,22 +214,20 @@ class AuditLogRepositoryIT {
         UUID entry2Id = UUID.randomUUID();
         // DEC-26 Rule 3: insert fixtures via direct JDBC
         jdbcTemplate.update(
-                "INSERT INTO audit_log (id, tenant_id, match_id, set_index,"
+                "INSERT INTO audit_log (id, match_id, set_index,"
                         + " team1_points_new, team2_points_new, set_state_new)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        + " VALUES (?, ?, ?, ?, ?, ?)",
                 entry1Id,
-                tenantId,
                 matchId,
                 0,
                 25,
                 20,
                 1);
         jdbcTemplate.update(
-                "INSERT INTO audit_log (id, tenant_id, match_id, set_index,"
+                "INSERT INTO audit_log (id, match_id, set_index,"
                         + " team1_points_new, team2_points_new, set_state_new)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        + " VALUES (?, ?, ?, ?, ?, ?)",
                 entry2Id,
-                tenantId,
                 matchId,
                 0,
                 23,
@@ -258,7 +251,6 @@ class AuditLogRepositoryIT {
         entry.setId(UUID.randomUUID());
         entry.setMatchId(matchId);
         entry.setSetIndex(0);
-        entry.setTenantId(tenantId);
         entry.setTeam1PointsNew(25);
         entry.setTeam2PointsNew(20);
         entry.setSetStateNew(1);

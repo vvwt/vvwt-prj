@@ -26,7 +26,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -67,11 +66,14 @@ import org.springframework.test.context.ActiveProfiles;
  * @see <a href="E22S07">E22S07 — Controller relocation to de.vvwt.tm.web</a>
  */
 @AutoConfigureTestRestTemplate
-@ApplicationModuleTest(
-        mode = ApplicationModuleTest.BootstrapMode.ALL_DEPENDENCIES,
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(TournamentModuleTestConfig.class)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        classes = {
+            de.vvwt.tm.TournamentManagerApplication.class,
+            DeviceAdminControllerIT.TestAdminCredentials.class
+        })
 @ActiveProfiles("test")
+@Import(TenantContextTestSupport.class)
 @DisplayName("DeviceAdminController IT — E21S06 AC-REST-IT (3-test minimalist, DEC-24)")
 class DeviceAdminControllerIT {
 
@@ -219,20 +221,14 @@ class DeviceAdminControllerIT {
     // =========================================================================
 
     private void insertLocationDirectly(UUID locationId, UUID tenantId) throws Exception {
-        // AC-HELPER-INSERTLOCATIONDIRECTLY-FIXED:
-        // (a) table: locations (plural, V1 schema)
-        // (b) column: display_name (V1 schema — not 'name')
-        // (c) no ON CONFLICT DO NOTHING (H2-incompatible Postgres-only syntax)
-        // (d) catch removed — SQL exceptions propagate uncaught (Brief S-3, Q-1)
+        // E45S06: tenant_id removed from locations (DEC-50); only id + display_name needed.
         // Default tenant FK parent is already provisioned by DefaultTenantBootstrapRunner.
         try (var conn = dataSource.getConnection();
                 var ps =
                         conn.prepareStatement(
-                                "INSERT INTO locations (id, tenant_id, display_name)"
-                                        + " VALUES (?, ?, ?)")) {
+                                "INSERT INTO locations (id, display_name) VALUES (?, ?)")) {
             ps.setObject(1, locationId);
-            ps.setObject(2, tenantId);
-            ps.setString(3, "IT-Location-" + locationId.toString().substring(0, 8));
+            ps.setString(2, "IT-Location-" + locationId.toString().substring(0, 8));
             ps.executeUpdate();
         }
     }

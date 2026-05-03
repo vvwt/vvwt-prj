@@ -261,7 +261,6 @@ class RefereeAssignerTest {
     private Phase buildPhase() {
         Phase p = new Phase();
         p.setId(phaseId);
-        p.setTenantId(tenantId);
         p.setTournamentId(tournamentId);
         p.setStatus("PENDING");
         return p;
@@ -271,7 +270,6 @@ class RefereeAssignerTest {
             UUID avatar1Id, UUID avatar2Id, Integer lapNumber, Integer fieldNumber) {
         Match m = new Match();
         m.setId(UUID.randomUUID());
-        m.setTenantId(tenantId);
         m.setTournamentId(tournamentId);
         m.setPhaseId(phaseId);
         m.setMemberAvatar1Id(avatar1Id);
@@ -285,7 +283,6 @@ class RefereeAssignerTest {
     private TeamAvatar buildAvatar(UUID id, UUID teamId) {
         TeamAvatar a = new TeamAvatar();
         a.setId(id);
-        a.setTenantId(tenantId);
         a.setPhaseId(phaseId);
         a.setTeamId(teamId);
         return a;
@@ -294,7 +291,6 @@ class RefereeAssignerTest {
     private Team buildTeam(UUID id, boolean participate, boolean refereeAssignment) {
         Team t = new Team();
         t.setId(id);
-        t.setTenantId(tenantId);
         t.setTournamentId(tournamentId);
         t.setParticipate(participate);
         t.setRefereeAssignment(refereeAssignment);

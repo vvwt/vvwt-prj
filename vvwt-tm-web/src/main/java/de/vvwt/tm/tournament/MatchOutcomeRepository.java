@@ -1,6 +1,5 @@
 package de.vvwt.tm.tournament;
 
-import de.vvwt.tm.tenant.TenantContext;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -31,12 +30,11 @@ import org.springframework.stereotype.Repository;
 public class MatchOutcomeRepository {
 
     private final JdbcTemplate jdbc;
-    private final TenantContext tenantContext;
 
     private static final String INSERT_SQL =
-            "INSERT INTO match_outcome (match_id, tenant_id, team1_sets_won, team1_balls_won,"
+            "INSERT INTO match_outcome (match_id, team1_sets_won, team1_balls_won,"
                     + " team2_sets_won, team2_balls_won, set_count, computed_state, updated_at)"
-                    + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
     private static final String UPDATE_SQL =
             "UPDATE match_outcome SET team1_sets_won=?, team1_balls_won=?, team2_sets_won=?,"
@@ -50,9 +48,8 @@ public class MatchOutcomeRepository {
 
     private static final String DELETE_BY_MATCH_ID = "DELETE FROM match_outcome WHERE match_id=?";
 
-    public MatchOutcomeRepository(JdbcTemplate jdbc, TenantContext tenantContext) {
+    public MatchOutcomeRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
-        this.tenantContext = tenantContext;
     }
 
     /**
@@ -60,12 +57,8 @@ public class MatchOutcomeRepository {
      *
      * @param matchOutcome the outcome to save (matchId must be set by caller)
      * @return the saved match outcome
-     * @throws IllegalStateException if no tenant context is active
      */
     public MatchOutcome save(MatchOutcome matchOutcome) {
-        UUID currentTenantId = tenantContext.current(); // guard fires here
-        matchOutcome.setTenantId(currentTenantId);
-
         Integer count = jdbc.queryForObject(EXISTS_BY_ID, Integer.class, matchOutcome.getMatchId());
         boolean exists = count != null && count > 0;
 
@@ -85,7 +78,6 @@ public class MatchOutcomeRepository {
             jdbc.update(
                     INSERT_SQL,
                     matchOutcome.getMatchId(),
-                    currentTenantId,
                     matchOutcome.getTeam1SetsWon(),
                     matchOutcome.getTeam1BallsWon(),
                     matchOutcome.getTeam2SetsWon(),
@@ -102,10 +94,8 @@ public class MatchOutcomeRepository {
      *
      * @param matchId the match UUID (same as match_outcome primary key)
      * @return Optional.of(outcome) if found, Optional.empty() if not found
-     * @throws IllegalStateException if no tenant context is active
      */
     public Optional<MatchOutcome> findById(UUID matchId) {
-        tenantContext.current(); // guard fires here
         List<MatchOutcome> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, matchId);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
@@ -114,10 +104,8 @@ public class MatchOutcomeRepository {
      * Deletes the match outcome for the given match id.
      *
      * @param matchId the match UUID
-     * @throws IllegalStateException if no tenant context is active
      */
     public void deleteByMatchId(UUID matchId) {
-        tenantContext.current(); // guard fires here
         jdbc.update(DELETE_BY_MATCH_ID, matchId);
     }
 
@@ -130,7 +118,6 @@ public class MatchOutcomeRepository {
     private static MatchOutcome mapRow(ResultSet rs, int rowNum) throws SQLException {
         MatchOutcome mo = new MatchOutcome();
         mo.setMatchId(rs.getObject("match_id", UUID.class));
-        mo.setTenantId(rs.getObject("tenant_id", UUID.class));
         mo.setTeam1SetsWon(rs.getInt("team1_sets_won"));
         mo.setTeam1BallsWon(rs.getInt("team1_balls_won"));
         mo.setTeam2SetsWon(rs.getInt("team2_sets_won"));

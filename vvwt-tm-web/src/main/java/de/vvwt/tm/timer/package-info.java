@@ -31,14 +31,15 @@
  * AC-TIMER-ALLOWED-DEPS-TOURNAMENT-ONLY + DEC-40 "per-entry justification (mandatory)" principle
  * (no allowedDependencies-bloat).
  *
- * <p>{@code tenant} is NOT included. {@code TimerDataService} does not directly compile-reference
- * {@code de.vvwt.tm.tenant.*} types. Tenant context binding happens via Spring DI infrastructure
- * outside timer Java code (analog to display module).
+ * <p>{@code tenant} — now included. {@code DefaultTimerDataService} injects {@link
+ * de.vvwt.tm.tenant.TenantContext} to obtain the current tenant UUID for the STOMP routing key
+ * field in {@link de.vvwt.tm.timer.TimerDataResponse#tenantId} (preserved per E45S06 allowlist).
+ * Previously omitted; added by E45S06 when {@code tournament.getTenantId()} was removed per DEC-50.
  *
  * <p>Reconstruction of legacy timer domain package (formerly at the domain.timer package location,
  * no {@code @ApplicationModule} declaration) via D-7 Coexistence Option γ (E26S01). Story E26S01.
  *
  * @since E26S01
  */
-@org.springframework.modulith.ApplicationModule(allowedDependencies = {"tournament"})
+@org.springframework.modulith.ApplicationModule(allowedDependencies = {"tournament", "tenant"})
 package de.vvwt.tm.timer;

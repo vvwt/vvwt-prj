@@ -93,14 +93,14 @@ class ActivityTypeEndpointIT {
         authed = restTemplate.withBasicAuth(ADMIN_USER, ADMIN_PASS);
 
         // Bind the default tenant context so repository operations are tenant-scoped
-        UUID defaultTenantId = tenantBinder.bindDefaultTenant();
+        tenantBinder.bindDefaultTenant();
+        UUID defaultLocationId = tenantBinder.getDefaultLocationId();
 
         // Create a tournament for test isolation
         tournamentId = UUID.randomUUID();
         Tournament t =
                 new Tournament(
                         tournamentId,
-                        defaultTenantId,
                         "IT Tournament " + tournamentId,
                         MatchFormat.BEST_OF_3.name(),
                         "setPoints",
@@ -108,6 +108,8 @@ class ActivityTypeEndpointIT {
                         "roundRobin",
                         "DRAFT",
                         LocalDateTime.now());
+        // E45S06: location_id NOT NULL (DEC-39 D2)
+        t.setLocationId(defaultLocationId);
         tournamentRepository.save(t);
 
         tenantBinder.unbind();

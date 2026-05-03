@@ -25,11 +25,9 @@ class RoundSnapshotTest {
         UUID phaseId = UUID.randomUUID();
         String payload = "{\"lapNumber\":3,\"standings\":[]}";
 
-        RoundSnapshot snapshot =
-                new RoundSnapshot(id, tenantId, tournamentId, phaseId, 3, payload, null);
+        RoundSnapshot snapshot = new RoundSnapshot(id, tournamentId, phaseId, 3, payload, null);
 
         assertThat(snapshot.getId()).isEqualTo(id);
-        assertThat(snapshot.getTenantId()).isEqualTo(tenantId);
         assertThat(snapshot.getTournamentId()).isEqualTo(tournamentId);
         assertThat(snapshot.getPhaseId()).isEqualTo(phaseId);
         assertThat(snapshot.getLapNumber()).isEqualTo(3);

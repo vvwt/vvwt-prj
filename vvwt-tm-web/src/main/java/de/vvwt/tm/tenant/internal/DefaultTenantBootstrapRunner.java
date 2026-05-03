@@ -119,14 +119,16 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
     private static final String SELECT_TENANT_BY_ID_SQL =
             "SELECT COUNT(*) FROM tenants WHERE id = ?";
 
-    /** SQL to insert the default-location row for the default tenant. */
+    /**
+     * SQL to insert the default-location row. E45S06 (DEC-50): tenant_id column removed from
+     * locations table.
+     */
     private static final String INSERT_LOCATION_SQL =
-            "INSERT INTO locations (id, tenant_id, display_name, created_at) "
-                    + "VALUES (?, ?, 'Default Location', CURRENT_TIMESTAMP)";
+            "INSERT INTO locations (id, display_name, created_at) "
+                    + "VALUES (?, 'Default Location', CURRENT_TIMESTAMP)";
 
-    /** SQL to check whether a location row already exists for the given tenant. */
-    private static final String SELECT_LOCATION_COUNT_SQL =
-            "SELECT COUNT(*) FROM locations WHERE tenant_id = ?";
+    /** SQL to check whether any location row already exists (post-DEC-50: no tenant_id column). */
+    private static final String SELECT_LOCATION_COUNT_SQL = "SELECT COUNT(*) FROM locations";
 
     private final TenantRegistryPort registry;
     private final PerTenantFlywayRunner flywayRunner;
@@ -492,7 +494,7 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
                 transactionTemplate.executeWithoutResult(
                         status -> {
                             sharedJdbcTemplate.update(INSERT_TENANT_SQL, tenantId);
-                            sharedJdbcTemplate.update(INSERT_LOCATION_SQL, locationId, tenantId);
+                            sharedJdbcTemplate.update(INSERT_LOCATION_SQL, locationId);
                         });
                 log.info(
                         "[tm-e14s07] Main-DB tenant row inserted for UUID={}, location UUID={}",
@@ -529,8 +531,7 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
     private void upsertDefaultLocationRow(UUID tenantId) {
         try {
             Integer locationCount =
-                    sharedJdbcTemplate.queryForObject(
-                            SELECT_LOCATION_COUNT_SQL, Integer.class, tenantId);
+                    sharedJdbcTemplate.queryForObject(SELECT_LOCATION_COUNT_SQL, Integer.class);
             if (locationCount != null && locationCount > 0) {
                 log.debug(
                         "[tm-e14s07] Default location already present for tenant UUID={}",
@@ -540,9 +541,7 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
             try {
                 UUID locationId = UUID.randomUUID();
                 transactionTemplate.executeWithoutResult(
-                        status ->
-                                sharedJdbcTemplate.update(
-                                        INSERT_LOCATION_SQL, locationId, tenantId));
+                        status -> sharedJdbcTemplate.update(INSERT_LOCATION_SQL, locationId));
                 log.info(
                         "[tm-e14s07] Default location row inserted for tenant UUID={}, location"
                                 + " UUID={}",
@@ -592,11 +591,10 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
                         tenantId);
                 // Check location too
                 Integer locationCount =
-                        jdbcTemplate.queryForObject(
-                                SELECT_LOCATION_COUNT_SQL, Integer.class, tenantId);
+                        jdbcTemplate.queryForObject(SELECT_LOCATION_COUNT_SQL, Integer.class);
                 if (locationCount == null || locationCount == 0) {
                     try {
-                        jdbcTemplate.update(INSERT_LOCATION_SQL, UUID.randomUUID(), tenantId);
+                        jdbcTemplate.update(INSERT_LOCATION_SQL, UUID.randomUUID());
                         log.info(
                                 "[tm-e14s11] Location row inserted in target DB for UUID={}",
                                 tenantId);
@@ -607,7 +605,7 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
                 return;
             }
             jdbcTemplate.update(INSERT_TENANT_SQL, tenantId);
-            jdbcTemplate.update(INSERT_LOCATION_SQL, UUID.randomUUID(), tenantId);
+            jdbcTemplate.update(INSERT_LOCATION_SQL, UUID.randomUUID());
             log.info(
                     "[tm-e14s11] Tenant+location rows inserted in target DB for UUID={}", tenantId);
         } catch (DataIntegrityViolationException race) {

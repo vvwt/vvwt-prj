@@ -63,12 +63,6 @@ public class Device {
     private UUID id;
 
     /**
-     * Tenant scope — NOT NULL. Every device belongs to exactly one tenant. Foreign key references
-     * {@code tenants(id)}.
-     */
-    private UUID tenantId;
-
-    /**
      * Location the device is assigned to — NULLABLE per DEC-24. Set to {@code null} at
      * registration; populated by an admin via {@link DeviceAdminController} after registration.
      * Foreign key references {@code location(id)}.
@@ -126,13 +120,11 @@ public class Device {
     public Device() {}
 
     /**
-     * Full constructor for programmatic creation. Parameter order matches the legacy {@code
-     * de.vvwt.tm.domain.Device} constructor for backward compatibility with existing test code.
+     * Full constructor for programmatic creation.
      *
      * <p>Added in E21S13 cutover — DEC-22 refactor phase fix.
      *
      * @param id primary key
-     * @param tenantId tenant scope
      * @param locationId location scope (nullable)
      * @param deviceToken opaque auth token
      * @param pin short numeric PIN (nullable for display devices)
@@ -146,7 +138,6 @@ public class Device {
      */
     public Device(
             UUID id,
-            UUID tenantId,
             UUID locationId,
             String deviceToken,
             String pin,
@@ -158,7 +149,6 @@ public class Device {
             String deviceName,
             String configuration) {
         this.id = id;
-        this.tenantId = tenantId;
         this.locationId = locationId;
         this.deviceToken = deviceToken;
         this.pin = pin;
@@ -181,14 +171,6 @@ public class Device {
 
     public void setId(UUID id) {
         this.id = id;
-    }
-
-    public UUID getTenantId() {
-        return tenantId;
-    }
-
-    public void setTenantId(UUID tenantId) {
-        this.tenantId = tenantId;
     }
 
     public UUID getLocationId() {

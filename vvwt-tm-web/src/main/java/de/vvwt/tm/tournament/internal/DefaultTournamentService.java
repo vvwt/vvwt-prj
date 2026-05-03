@@ -14,6 +14,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 /**
@@ -59,6 +60,7 @@ public class DefaultTournamentService implements TournamentService {
     private final TournamentRepository tournamentRepository;
     private final PhaseRepository phaseRepository;
     private final MatchGeneratorRegistry matchGeneratorRegistry;
+    private final JdbcTemplate jdbcTemplate;
 
     /**
      * Constructs the service with its required collaborators.
@@ -66,14 +68,17 @@ public class DefaultTournamentService implements TournamentService {
      * @param tournamentRepository tournament persistence (tenant-scoped, new Modulith repository)
      * @param phaseRepository phase persistence (legacy, tenant-scoped) — for delete check (AC5)
      * @param matchGeneratorRegistry validates matchGeneratorId bean references (AC3)
+     * @param jdbcTemplate JDBC template for auxiliary queries (e.g., default location lookup)
      */
     public DefaultTournamentService(
             TournamentRepository tournamentRepository,
             PhaseRepository phaseRepository,
-            MatchGeneratorRegistry matchGeneratorRegistry) {
+            MatchGeneratorRegistry matchGeneratorRegistry,
+            JdbcTemplate jdbcTemplate) {
         this.tournamentRepository = tournamentRepository;
         this.phaseRepository = phaseRepository;
         this.matchGeneratorRegistry = matchGeneratorRegistry;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     // -------------------------------------------------------------------------
@@ -163,6 +168,9 @@ public class DefaultTournamentService implements TournamentService {
         tournament.setAppointment(appointment);
         tournament.setFieldCount(fieldCount);
         tournament.setTeamCount(teamCount);
+        // DEC-39 D2: location_id NOT NULL — resolved from the first location row for this tenant.
+        // In the Wave-1 single-location model, only one location exists per tenant DB.
+        tournament.setLocationId(resolveDefaultLocationId());
 
         return tournamentRepository.save(tournament);
     }
@@ -301,5 +309,27 @@ public class DefaultTournamentService implements TournamentService {
     private void validateBeanIds(String matchFormat, String matchGeneratorId) {
         MatchFormat.fromPersistedName(matchFormat);
         matchGeneratorRegistry.get(matchGeneratorId);
+    }
+
+    /**
+     * Resolves the default location ID for the current tenant (DEC-39 D2).
+     *
+     * <p>In the Wave-1 single-location model, each tenant database contains exactly one location
+     * row (inserted by {@code DefaultTenantBootstrapRunner}). This method returns its UUID.
+     *
+     * @return the first location UUID found in the current tenant database
+     * @throws java.util.NoSuchElementException if no location row exists
+     */
+    private UUID resolveDefaultLocationId() {
+        List<UUID> ids =
+                jdbcTemplate.query(
+                        "SELECT id FROM locations LIMIT 1",
+                        (rs, rowNum) -> UUID.fromString(rs.getString("id")));
+        if (ids.isEmpty()) {
+            throw new NoSuchElementException(
+                    "No location found in the current tenant database. Ensure the default location"
+                            + " was created by DefaultTenantBootstrapRunner.");
+        }
+        return ids.get(0);
     }
 }

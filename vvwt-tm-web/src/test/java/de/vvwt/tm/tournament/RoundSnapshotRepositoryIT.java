@@ -61,25 +61,17 @@ class RoundSnapshotRepositoryIT {
         // impl-report).
         tenantContext = new ThreadLocalTenantContextImpl();
         tenantScope = tenantContext.bind(tenantId);
-        // Insert prerequisite rows for FK constraints
+        // E45S06: tenant_id removed (DEC-39 D1); tournament requires location_id (DEC-39 D2)
+        // Insert locations row, then tournament (FK), then phase (FK)
+        UUID locationId = UUID.randomUUID();
         TenantDaoTestSupport.insertDirectly(
-                ds,
-                "tenants",
-                Map.of(
-                        "id",
-                        tenantId,
-                        "display_name",
-                        "IT Tenant",
-                        "tenant_location_count",
-                        1,
-                        "is_default",
-                        false));
+                ds, "locations", Map.of("id", locationId, "display_name", "IT Location"));
         TenantDaoTestSupport.insertDirectly(
                 ds,
                 "tournament",
                 Map.of(
                         "id", tournamentId,
-                        "tenant_id", tenantId,
+                        "location_id", locationId,
                         "description", "IT Tournament",
                         "match_format", "BEST_OF_1",
                         "scoring_rule_id", "default",
@@ -94,8 +86,6 @@ class RoundSnapshotRepositoryIT {
                 Map.of(
                         "id",
                         phaseId,
-                        "tenant_id",
-                        tenantId,
                         "tournament_id",
                         tournamentId,
                         "sequence_number",
@@ -106,7 +96,7 @@ class RoundSnapshotRepositoryIT {
                         "PENDING",
                         "current_lap_number",
                         0));
-        repo = new RoundSnapshotRepository(new JdbcTemplate(ds), tenantContext);
+        repo = new RoundSnapshotRepository(new JdbcTemplate(ds));
     }
 
     @AfterEach
@@ -119,8 +109,7 @@ class RoundSnapshotRepositoryIT {
     void save_persistsRoundSnapshotRow() {
         UUID id = UUID.randomUUID();
         String payload = "{\"lapNumber\":1,\"standings\":[]}";
-        RoundSnapshot snapshot =
-                new RoundSnapshot(id, tenantId, tournamentId, phaseId, 1, payload, null);
+        RoundSnapshot snapshot = new RoundSnapshot(id, tournamentId, phaseId, 1, payload, null);
 
         repo.save(snapshot);
 
@@ -143,12 +132,12 @@ class RoundSnapshotRepositoryIT {
         UUID id = UUID.randomUUID();
         String payload = "{\"lapNumber\":2,\"standings\":[]}";
         // Rule 3: insert fixture via direct JDBC for read-path test
+        // E45S06: tenant_id removed from round_snapshots (DEC-39 D1)
         TenantDaoTestSupport.insertDirectly(
                 ds,
                 "round_snapshots",
                 Map.of(
                         "id", id,
-                        "tenant_id", tenantId,
                         "tournament_id", tournamentId,
                         "phase_id", phaseId,
                         "lap_number", 2,
@@ -162,29 +151,21 @@ class RoundSnapshotRepositoryIT {
         assertThat(result.get().getSnapshotPayload()).isEqualTo(payload);
     }
 
-    /** AC-TDD-RoundSnapshotRepository: findById returns empty for a different tenant. */
+    /**
+     * E45S06 — DEC-41 Snapshot-Driven: findById executes without tenant_id WHERE predicate.
+     * Post-S06: round_snapshots table has no tenant_id column (DEC-39 D1); isolation via DEC-20
+     * routing. The old {@code findById_differentTenant_returnsEmpty} test is replaced — the
+     * column-discriminator predicate no longer exists; routing provides cross-tenant isolation.
+     */
     @Test
-    void findById_differentTenant_returnsEmpty() {
+    void findById_noTenantPredicate_returnsRow() {
         UUID id = UUID.randomUUID();
-        UUID otherTenantId = UUID.randomUUID();
-        TenantDaoTestSupport.insertDirectly(
-                ds,
-                "tenants",
-                Map.of(
-                        "id",
-                        otherTenantId,
-                        "display_name",
-                        "Other Tenant",
-                        "tenant_location_count",
-                        1,
-                        "is_default",
-                        false));
+        // E45S06: tenant_id removed from round_snapshots (DEC-39 D1)
         TenantDaoTestSupport.insertDirectly(
                 ds,
                 "round_snapshots",
                 Map.of(
                         "id", id,
-                        "tenant_id", otherTenantId,
                         "tournament_id", tournamentId,
                         "phase_id", phaseId,
                         "lap_number", 1,
@@ -192,6 +173,8 @@ class RoundSnapshotRepositoryIT {
 
         Optional<RoundSnapshot> result = repo.findById(id);
 
-        assertThat(result).isEmpty();
+        // Post-predicate-removal: row is returned; isolation comes from DataSource routing (DEC-20)
+        assertThat(result).isPresent();
+        assertThat(result.get().getId()).isEqualTo(id);
     }
 }

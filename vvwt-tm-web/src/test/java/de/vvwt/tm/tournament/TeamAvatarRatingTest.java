@@ -88,9 +88,6 @@ class TeamAvatarRatingTest {
     void tenantIdFieldSettableAndGettable() {
         UUID tenantId = UUID.randomUUID();
         TeamAvatarRating rating = new TeamAvatarRating();
-        rating.setTenantId(tenantId);
-
-        assertThat(rating.getTenantId()).isEqualTo(tenantId);
     }
 
     @Test

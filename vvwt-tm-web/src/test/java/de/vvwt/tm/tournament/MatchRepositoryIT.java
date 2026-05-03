@@ -83,27 +83,28 @@ class MatchRepositoryIT {
         assertDb = AssertDbConnectionFactory.of(dataSource).create();
         // Bind the default tenant — no manual tenants INSERT needed (DEC-26 Rule 3)
         tenantId = tenantBinder.bindDefaultTenant();
+        // E45S06: tenant_id removed from all tables (DEC-39 D1); tournament uses location_id (D2)
+        UUID locationId = tenantBinder.getDefaultLocationId();
 
         // Insert required FK rows directly via JDBC (DEC-26 Rule 3)
         jdbcTemplate.update(
-                "INSERT INTO tournament (id, tenant_id, description, match_format,"
+                "INSERT INTO tournament (id, location_id, description, match_format,"
                         + " scoring_rule_id, set_validation_rule_id, match_generator_id,"
                         + " status, created_at)"
                         + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
                 tournamentId,
-                tenantId,
+                locationId,
                 "Test Tournament",
                 "BEST_OF_3",
                 "r1",
                 "v1",
                 "g1",
-                "CREATED");
+                "DRAFT");
         jdbcTemplate.update(
-                "INSERT INTO phase (id, tenant_id, tournament_id, sequence_number,"
+                "INSERT INTO phase (id, tournament_id, sequence_number,"
                         + " description, status, current_lap_number)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        + " VALUES (?, ?, ?, ?, ?, ?)",
                 phaseId,
-                tenantId,
                 tournamentId,
                 1,
                 "Group Phase",
@@ -113,38 +114,34 @@ class MatchRepositoryIT {
         UUID teamId1 = UUID.randomUUID();
         UUID teamId2 = UUID.randomUUID();
         jdbcTemplate.update(
-                "INSERT INTO team (id, tenant_id, tournament_id, team_number, description)"
-                        + " VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO team (id, tournament_id, team_number, description)"
+                        + " VALUES (?, ?, ?, ?)",
                 teamId1,
-                tenantId,
                 tournamentId,
                 1,
                 "Team A");
         jdbcTemplate.update(
-                "INSERT INTO team (id, tenant_id, tournament_id, team_number, description)"
-                        + " VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO team (id, tournament_id, team_number, description)"
+                        + " VALUES (?, ?, ?, ?)",
                 teamId2,
-                tenantId,
                 tournamentId,
                 2,
                 "Team B");
         jdbcTemplate.update(
-                "INSERT INTO team_avatar (id, tenant_id, tournament_id, phase_id, team_id,"
+                "INSERT INTO team_avatar (id, tournament_id, phase_id, team_id,"
                         + " group_number, group_position)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        + " VALUES (?, ?, ?, ?, ?, ?)",
                 avatar1Id,
-                tenantId,
                 tournamentId,
                 phaseId,
                 teamId1,
                 1,
                 1);
         jdbcTemplate.update(
-                "INSERT INTO team_avatar (id, tenant_id, tournament_id, phase_id, team_id,"
+                "INSERT INTO team_avatar (id, tournament_id, phase_id, team_id,"
                         + " group_number, group_position)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        + " VALUES (?, ?, ?, ?, ?, ?)",
                 avatar2Id,
-                tenantId,
                 tournamentId,
                 phaseId,
                 teamId2,
@@ -155,16 +152,18 @@ class MatchRepositoryIT {
     @AfterEach
     void tearDown() {
         // Best-effort cleanup of this test's rows (FK-ordered, child-before-parent)
-        jdbcTemplate.update("DELETE FROM set_result WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM audit_log WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM match_outcome WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM match WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM team_avatar_rating WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM team_avatar WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM team WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM activity_types WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM phase WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM tournament WHERE tenant_id = ?", tenantId);
+        // E45S06: tenant_id removed — simple DELETE without WHERE (per-tenant DB isolation via
+        // DEC-20)
+        jdbcTemplate.update("DELETE FROM set_result");
+        jdbcTemplate.update("DELETE FROM audit_log");
+        jdbcTemplate.update("DELETE FROM match_outcome");
+        jdbcTemplate.update("DELETE FROM match");
+        jdbcTemplate.update("DELETE FROM team_avatar_rating");
+        jdbcTemplate.update("DELETE FROM team_avatar");
+        jdbcTemplate.update("DELETE FROM team");
+        jdbcTemplate.update("DELETE FROM activity_types");
+        jdbcTemplate.update("DELETE FROM phase");
+        jdbcTemplate.update("DELETE FROM tournament");
         tenantBinder.unbind();
     }
 
@@ -178,7 +177,6 @@ class MatchRepositoryIT {
         UUID matchId = UUID.randomUUID();
         Match match = new Match();
         match.setId(matchId);
-        match.setTenantId(tenantId);
         match.setTournamentId(tournamentId);
         match.setPhaseId(phaseId);
         match.setMemberAvatar1Id(avatar1Id);
@@ -207,11 +205,10 @@ class MatchRepositoryIT {
         UUID matchId = UUID.randomUUID();
         // Rule 3: insert fixture via direct JDBC
         jdbcTemplate.update(
-                "INSERT INTO match (id, tenant_id, tournament_id, phase_id,"
+                "INSERT INTO match (id, tournament_id, phase_id,"
                         + " member_avatar_1_id, member_avatar_2_id, state, set_limit)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
                 matchId,
-                tenantId,
                 tournamentId,
                 phaseId,
                 avatar1Id,
@@ -235,11 +232,10 @@ class MatchRepositoryIT {
     void e45s03_findById_noTenantPredicate_returnsRow() {
         UUID matchId = UUID.randomUUID();
         jdbcTemplate.update(
-                "INSERT INTO match (id, tenant_id, tournament_id, phase_id,"
+                "INSERT INTO match (id, tournament_id, phase_id,"
                         + " member_avatar_1_id, member_avatar_2_id, state, set_limit)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
                 matchId,
-                tenantId,
                 tournamentId,
                 phaseId,
                 avatar1Id,
@@ -258,11 +254,10 @@ class MatchRepositoryIT {
         UUID matchId1 = UUID.randomUUID();
         UUID matchId2 = UUID.randomUUID();
         jdbcTemplate.update(
-                "INSERT INTO match (id, tenant_id, tournament_id, phase_id,"
+                "INSERT INTO match (id, tournament_id, phase_id,"
                         + " member_avatar_1_id, member_avatar_2_id, state, set_limit)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
                 matchId1,
-                tenantId,
                 tournamentId,
                 phaseId,
                 avatar1Id,
@@ -270,11 +265,10 @@ class MatchRepositoryIT {
                 0,
                 3);
         jdbcTemplate.update(
-                "INSERT INTO match (id, tenant_id, tournament_id, phase_id,"
+                "INSERT INTO match (id, tournament_id, phase_id,"
                         + " member_avatar_1_id, member_avatar_2_id, state, set_limit)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
                 matchId2,
-                tenantId,
                 tournamentId,
                 phaseId,
                 avatar2Id,

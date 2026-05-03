@@ -245,7 +245,6 @@ class SlotResultApplicatorTest {
             TeamAvatar avatar =
                     new TeamAvatar(
                             UUID.randomUUID(),
-                            TENANT_ID,
                             tournamentId,
                             phaseId,
                             gp[0],
@@ -265,7 +264,6 @@ class SlotResultApplicatorTest {
                 matches.add(
                         new Match(
                                 UUID.randomUUID(),
-                                TENANT_ID,
                                 TOURNAMENT_ID,
                                 phaseId,
                                 avatars.get(i).getId(),

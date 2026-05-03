@@ -51,7 +51,6 @@ class SetResultTest {
                                 new SetResult(
                                         matchId,
                                         0,
-                                        tenantId,
                                         phaseId,
                                         -1,
                                         0,
@@ -73,7 +72,6 @@ class SetResultTest {
                                 new SetResult(
                                         null,
                                         0,
-                                        tenantId,
                                         phaseId,
                                         0,
                                         0,

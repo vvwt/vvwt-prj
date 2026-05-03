@@ -50,20 +50,15 @@ public class InfoPortalStateDao {
      * Upsert a registration row. If the row already exists (same PK), it is updated with the new
      * token and secret. {@code last_published_seq} is preserved on update (not reset to 0).
      *
-     * <p>{@code tenantId} is retained in this method signature (AC-INSERT-UPDATE-UNTOUCHED,
-     * E45S04): the MERGE KEY includes {@code tenant_id} as part of the 3-column PK {@code
-     * (tenant_id, location_id, tournament_id)}; the INSERT side writes the tenant_id column value;
-     * the COALESCE sub-select preserves the existing seq for upsert semantics. These
-     * INSERT/MERGE-side writes remain until the Wave-2 Big-Bang-Reset (DEC-50 S05).
+     * <p>E45S06 — DEC-50 Big-Bang-Reset cleanup: {@code tenant_id} column removed from MERGE SQL.
+     * The PK is now {@code (location_id, tournament_id)} per DEC-50.
      *
-     * @param tenantId tenant identifier
      * @param locationId location identifier
      * @param tournamentId tournament identifier
      * @param tournamentToken opaque bearer token from info-server
      * @param perTournamentSecret 32-byte HMAC secret from info-server
      */
     public void upsertRegistration(
-            String tenantId,
             String locationId,
             String tournamentId,
             String tournamentToken,
@@ -71,21 +66,19 @@ public class InfoPortalStateDao {
         jdbc.update(
                 """
                 MERGE INTO info_portal_state (
-                    tenant_id, location_id, tournament_id,
+                    location_id, tournament_id,
                     tournament_token, per_tournament_secret,
                     last_published_seq, registration_status)
-                KEY (tenant_id, location_id, tournament_id)
-                VALUES (?, ?, ?, ?, ?, COALESCE(
+                KEY (location_id, tournament_id)
+                VALUES (?, ?, ?, ?, COALESCE(
                     (SELECT last_published_seq FROM info_portal_state
-                     WHERE tenant_id = ? AND location_id = ? AND tournament_id = ?), 0),
+                     WHERE location_id = ? AND tournament_id = ?), 0),
                     'REGISTERED')
                 """,
-                tenantId,
                 locationId,
                 tournamentId,
                 tournamentToken,
                 perTournamentSecret,
-                tenantId,
                 locationId,
                 tournamentId);
     }
@@ -170,7 +163,7 @@ public class InfoPortalStateDao {
         try {
             InfoPortalStateRecord rec =
                     jdbc.queryForObject(
-                            "SELECT tenant_id, location_id, tournament_id,"
+                            "SELECT location_id, tournament_id,"
                                     + " last_published_seq, tournament_token,"
                                     + " per_tournament_secret, last_published_at,"
                                     + " registration_status"
@@ -179,7 +172,6 @@ public class InfoPortalStateDao {
                                     + "   AND tournament_id = ?",
                             (rs, rowNum) ->
                                     new InfoPortalStateRecord(
-                                            rs.getString("tenant_id"),
                                             rs.getString("location_id"),
                                             rs.getString("tournament_id"),
                                             rs.getLong("last_published_seq"),

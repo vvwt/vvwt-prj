@@ -108,12 +108,14 @@ class WebSocketEventBridgeIT {
     @Autowired private MatchRepository matchRepository;
 
     private UUID defaultTenantId;
+    private UUID defaultLocationId;
     private UUID matchId;
     private UUID tournamentId;
 
     @BeforeEach
     void setUp() {
         defaultTenantId = tenantContextBinder.bindDefaultTenant();
+        defaultLocationId = tenantContextBinder.getDefaultLocationId();
         UUID[] ids = createMinimalFixture();
         tournamentId = ids[0];
         matchId = ids[1];
@@ -232,36 +234,30 @@ class WebSocketEventBridgeIT {
      */
     private UUID[] createMinimalFixture() {
         UUID tournamentId = UUID.randomUUID();
-        tournamentRepository.save(
+        Tournament bridgeTournament =
                 new Tournament(
                         tournamentId,
-                        defaultTenantId,
                         "Bridge Test Tournament " + tournamentId,
                         MatchFormat.BEST_OF_1.name(),
                         "setPoints",
                         "standardVolleyball",
                         "roundRobin",
                         "DRAFT",
-                        LocalDateTime.now()));
+                        LocalDateTime.now());
+        // E45S06: location_id NOT NULL (DEC-39 D2)
+        bridgeTournament.setLocationId(defaultLocationId);
+        tournamentRepository.save(bridgeTournament);
 
         UUID phaseId = UUID.randomUUID();
         phaseRepository.save(
                 new Phase(
-                        phaseId,
-                        defaultTenantId,
-                        tournamentId,
-                        1,
-                        "Test Phase",
-                        "ACTIVE",
-                        0,
-                        LocalDateTime.now()));
+                        phaseId, tournamentId, 1, "Test Phase", "ACTIVE", 0, LocalDateTime.now()));
 
         UUID team1Id = UUID.randomUUID();
         UUID team2Id = UUID.randomUUID();
         teamRepository.save(
                 new Team(
                         team1Id,
-                        defaultTenantId,
                         tournamentId,
                         1,
                         "Team WS-A",
@@ -272,7 +268,6 @@ class WebSocketEventBridgeIT {
         teamRepository.save(
                 new Team(
                         team2Id,
-                        defaultTenantId,
                         tournamentId,
                         2,
                         "Team WS-B",
@@ -285,32 +280,15 @@ class WebSocketEventBridgeIT {
         UUID av2 = UUID.randomUUID();
         teamAvatarRepository.save(
                 new TeamAvatar(
-                        av1,
-                        defaultTenantId,
-                        tournamentId,
-                        phaseId,
-                        1,
-                        1,
-                        team1Id,
-                        null,
-                        LocalDateTime.now()));
+                        av1, tournamentId, phaseId, 1, 1, team1Id, null, LocalDateTime.now()));
         teamAvatarRepository.save(
                 new TeamAvatar(
-                        av2,
-                        defaultTenantId,
-                        tournamentId,
-                        phaseId,
-                        1,
-                        2,
-                        team2Id,
-                        null,
-                        LocalDateTime.now()));
+                        av2, tournamentId, phaseId, 1, 2, team2Id, null, LocalDateTime.now()));
 
         UUID mId = UUID.randomUUID();
         matchRepository.save(
                 new Match(
                         mId,
-                        defaultTenantId,
                         tournamentId,
                         phaseId,
                         av1,

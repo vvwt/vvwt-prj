@@ -1,6 +1,5 @@
 package de.vvwt.tm.tournament;
 
-import de.vvwt.tm.tenant.TenantContext;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -38,37 +37,33 @@ import org.springframework.stereotype.Repository;
 public class TeamAvatarRepository {
 
     private final JdbcTemplate jdbc;
-    private final TenantContext tenantContext;
 
     private static final String INSERT_SQL =
             "INSERT INTO team_avatar"
-                    + " (id, tenant_id, tournament_id, phase_id, group_number, group_position,"
+                    + " (id, tournament_id, phase_id, group_number, group_position,"
                     + " team_id, description, created_at)"
-                    + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
-    private static final String SELECT_BY_ID =
-            "SELECT * FROM team_avatar WHERE id=? AND tenant_id=?";
+    private static final String SELECT_BY_ID = "SELECT * FROM team_avatar WHERE id=?";
 
     private static final String SELECT_BY_TEAM_ID =
-            "SELECT * FROM team_avatar WHERE team_id=? AND tenant_id=? ORDER BY group_number ASC,"
+            "SELECT * FROM team_avatar WHERE team_id=? ORDER BY group_number ASC,"
                     + " group_position ASC";
 
     private static final String SELECT_BY_TOURNAMENT_AND_PHASE =
-            "SELECT * FROM team_avatar WHERE tournament_id=? AND phase_id=? AND tenant_id=?"
+            "SELECT * FROM team_avatar WHERE tournament_id=? AND phase_id=?"
                     + " ORDER BY group_number ASC, group_position ASC";
 
     private static final String SELECT_BY_PHASE =
-            "SELECT * FROM team_avatar WHERE phase_id=? AND tenant_id=?"
+            "SELECT * FROM team_avatar WHERE phase_id=?"
                     + " ORDER BY group_number ASC, group_position ASC";
 
-    private static final String DELETE_BY_ID = "DELETE FROM team_avatar WHERE id=? AND tenant_id=?";
+    private static final String DELETE_BY_ID = "DELETE FROM team_avatar WHERE id=?";
 
-    private static final String EXISTS_BY_ID =
-            "SELECT COUNT(*) FROM team_avatar WHERE id=? AND tenant_id=?";
+    private static final String EXISTS_BY_ID = "SELECT COUNT(*) FROM team_avatar WHERE id=?";
 
-    public TeamAvatarRepository(JdbcTemplate jdbc, TenantContext tenantContext) {
+    public TeamAvatarRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
-        this.tenantContext = tenantContext;
     }
 
     /**
@@ -79,18 +74,13 @@ public class TeamAvatarRepository {
      * @return the saved avatar
      */
     public TeamAvatar save(TeamAvatar avatar) {
-        UUID currentTenantId = tenantContext.current();
-        avatar.setTenantId(currentTenantId);
-
-        Integer count =
-                jdbc.queryForObject(EXISTS_BY_ID, Integer.class, avatar.getId(), currentTenantId);
+        Integer count = jdbc.queryForObject(EXISTS_BY_ID, Integer.class, avatar.getId());
         boolean exists = count != null && count > 0;
 
         if (!exists) {
             jdbc.update(
                     INSERT_SQL,
                     avatar.getId(),
-                    currentTenantId,
                     avatar.getTournamentId(),
                     avatar.getPhaseId(),
                     avatar.getGroupNumber(),
@@ -103,66 +93,55 @@ public class TeamAvatarRepository {
     }
 
     /**
-     * Returns the TeamAvatar with the given id, scoped to the current tenant.
+     * Returns the TeamAvatar with the given id.
      *
      * @param id the avatar UUID
-     * @return Optional.of(avatar) if found, Optional.empty() if not found or wrong tenant
+     * @return Optional.of(avatar) if found, Optional.empty() if not found
      */
     public Optional<TeamAvatar> findById(UUID id) {
-        UUID tenantId = tenantContext.current();
-        List<TeamAvatar> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id, tenantId);
+        List<TeamAvatar> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
     /**
-     * Returns all TeamAvatars assigned to the given team, scoped to the current tenant.
+     * Returns all TeamAvatars assigned to the given team.
      *
      * @param teamId the team UUID
      * @return list of avatars; never null
      */
     public List<TeamAvatar> findByTeamId(UUID teamId) {
-        UUID tenantId = tenantContext.current();
-        return jdbc.query(SELECT_BY_TEAM_ID, ROW_MAPPER, teamId, tenantId);
+        return jdbc.query(SELECT_BY_TEAM_ID, ROW_MAPPER, teamId);
     }
 
     /**
-     * Returns all TeamAvatars for a given tournament and phase, scoped to the current tenant,
-     * ordered by group_number and group_position.
+     * Returns all TeamAvatars for a given tournament and phase, ordered by group_number and
+     * group_position.
      *
      * @param tournamentId the tournament UUID
      * @param phaseId the phase UUID
      * @return list of avatars; never null
      */
     public List<TeamAvatar> findByTournamentIdAndPhaseId(UUID tournamentId, UUID phaseId) {
-        UUID tenantId = tenantContext.current();
-        return jdbc.query(
-                SELECT_BY_TOURNAMENT_AND_PHASE, ROW_MAPPER, tournamentId, phaseId, tenantId);
+        return jdbc.query(SELECT_BY_TOURNAMENT_AND_PHASE, ROW_MAPPER, tournamentId, phaseId);
     }
 
     /**
-     * Returns all TeamAvatars for a given phase, scoped to the current tenant, ordered by
-     * group_number and group_position.
-     *
-     * <p>Convenience method equivalent to querying by phase_id only (without requiring
-     * tournamentId). Added in E21S13 cutover to maintain compatibility with consumer contexts that
-     * used the legacy {@code domain.repo.TeamAvatarRepository#findByPhaseId(UUID)} API.
+     * Returns all TeamAvatars for a given phase, ordered by group_number and group_position.
      *
      * @param phaseId the phase UUID
      * @return list of avatars; never null
      */
     public List<TeamAvatar> findByPhaseId(UUID phaseId) {
-        UUID tenantId = tenantContext.current();
-        return jdbc.query(SELECT_BY_PHASE, ROW_MAPPER, phaseId, tenantId);
+        return jdbc.query(SELECT_BY_PHASE, ROW_MAPPER, phaseId);
     }
 
     /**
-     * Deletes the TeamAvatar with the given id, scoped to the current tenant.
+     * Deletes the TeamAvatar with the given id.
      *
      * @param id the avatar UUID
      */
     public void deleteById(UUID id) {
-        UUID tenantId = tenantContext.current();
-        jdbc.update(DELETE_BY_ID, id, tenantId);
+        jdbc.update(DELETE_BY_ID, id);
     }
 
     // -------------------------------------------------------------------------
@@ -175,7 +154,6 @@ public class TeamAvatarRepository {
     private static TeamAvatar mapRow(ResultSet rs) throws SQLException {
         TeamAvatar a = new TeamAvatar();
         a.setId(rs.getObject("id", UUID.class));
-        a.setTenantId(rs.getObject("tenant_id", UUID.class));
         a.setTournamentId(rs.getObject("tournament_id", UUID.class));
         a.setPhaseId(rs.getObject("phase_id", UUID.class));
         a.setGroupNumber(rs.getInt("group_number"));

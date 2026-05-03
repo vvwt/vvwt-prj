@@ -101,12 +101,14 @@ class TimerControllerIT {
 
     private String baseUrl;
     private UUID defaultTenantId;
+    private UUID defaultLocationId;
     private UUID tournamentId;
 
     @BeforeEach
     void setUp() {
         baseUrl = "http://localhost:" + port;
         defaultTenantId = tenantContextBinder.bindDefaultTenant();
+        defaultLocationId = tenantContextBinder.getDefaultLocationId();
         cleanupTestData();
         setupTestData();
     }
@@ -142,7 +144,6 @@ class TimerControllerIT {
         Tournament tournament =
                 new Tournament(
                         tournamentId,
-                        defaultTenantId,
                         "E26S03 Timer Test Tournament",
                         "BEST_OF_1",
                         "threePointMatchRule",
@@ -153,19 +154,12 @@ class TimerControllerIT {
                         null,
                         3,
                         4);
+        tournament.setLocationId(defaultLocationId);
         tournamentRepository.save(tournament);
 
         // Create one active phase with currentLapNumber=1 so timer data is non-empty
         Phase phase =
-                new Phase(
-                        UUID.randomUUID(),
-                        defaultTenantId,
-                        tournamentId,
-                        1,
-                        "Vorrunde E26S03",
-                        "ACTIVE",
-                        1,
-                        now);
+                new Phase(UUID.randomUUID(), tournamentId, 1, "Vorrunde E26S03", "ACTIVE", 1, now);
         phaseRepository.save(phase);
     }
 

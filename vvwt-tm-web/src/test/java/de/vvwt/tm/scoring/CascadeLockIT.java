@@ -135,6 +135,7 @@ class CascadeLockIT {
     // -----------------------------------------------------------------------
 
     private UUID tenantId;
+    private UUID defaultLocationId;
     private UUID tournamentId;
     private UUID phaseId;
     private UUID matchAId;
@@ -153,6 +154,7 @@ class CascadeLockIT {
     @BeforeEach
     void setUpData() {
         tenantId = tenantContextBinder.bindDefaultTenant();
+        defaultLocationId = tenantContextBinder.getDefaultLocationId();
 
         tournamentId = UUID.randomUUID();
         phaseId = UUID.randomUUID();
@@ -178,6 +180,8 @@ class CascadeLockIT {
         tournament.setCreatedAt(LocalDateTime.now());
         tournament.setFieldCount(2);
         tournament.setTeamCount(3);
+        // E45S06: location_id NOT NULL (DEC-39 D2)
+        tournament.setLocationId(defaultLocationId);
         tournamentRepository.save(tournament);
 
         // Phase
@@ -192,47 +196,20 @@ class CascadeLockIT {
 
         // Teams — required by team_avatar FK
         LocalDateTime now = LocalDateTime.now();
-        teamRepository.save(
-                new Team(team1Id, tenantId, tournamentId, 1, "Team 1", true, false, false, now));
-        teamRepository.save(
-                new Team(team2Id, tenantId, tournamentId, 2, "Team 2", true, false, false, now));
-        teamRepository.save(
-                new Team(team3Id, tenantId, tournamentId, 3, "Team 3", true, false, false, now));
+        teamRepository.save(new Team(team1Id, tournamentId, 1, "Team 1", true, false, false, now));
+        teamRepository.save(new Team(team2Id, tournamentId, 2, "Team 2", true, false, false, now));
+        teamRepository.save(new Team(team3Id, tournamentId, 3, "Team 3", true, false, false, now));
 
         // TeamAvatars — required by match FK (FK_MATCH_MEMBER_AVATAR_1/2)
         teamAvatarRepository.save(
                 new TeamAvatar(
-                        avatar1Id,
-                        tenantId,
-                        tournamentId,
-                        phaseId,
-                        1,
-                        1,
-                        team1Id,
-                        "Team 1 avatar",
-                        now));
+                        avatar1Id, tournamentId, phaseId, 1, 1, team1Id, "Team 1 avatar", now));
         teamAvatarRepository.save(
                 new TeamAvatar(
-                        avatar2Id,
-                        tenantId,
-                        tournamentId,
-                        phaseId,
-                        1,
-                        2,
-                        team2Id,
-                        "Team 2 avatar",
-                        now));
+                        avatar2Id, tournamentId, phaseId, 1, 2, team2Id, "Team 2 avatar", now));
         teamAvatarRepository.save(
                 new TeamAvatar(
-                        avatar3Id,
-                        tenantId,
-                        tournamentId,
-                        phaseId,
-                        1,
-                        3,
-                        team3Id,
-                        "Team 3 avatar",
-                        now));
+                        avatar3Id, tournamentId, phaseId, 1, 3, team3Id, "Team 3 avatar", now));
 
         // Match A: AVATAR1 vs AVATAR2, lap 1, field 1
         Match matchA = new Match();

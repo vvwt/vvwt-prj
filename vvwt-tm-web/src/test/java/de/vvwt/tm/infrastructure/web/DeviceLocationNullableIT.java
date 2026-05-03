@@ -78,20 +78,20 @@ class DeviceLocationNullableIT {
         UUID deviceId = UUID.randomUUID();
         String token = UUID.randomUUID().toString();
 
+        // E45S06: tenant_id removed from devices (DEC-39 D1)
         assertThatCode(
                         () -> {
                             try (Connection conn = dataSource.getConnection();
                                     PreparedStatement ps =
                                             conn.prepareStatement(
-                                                    "INSERT INTO devices (id, tenant_id,"
-                                                            + " location_id, device_token, pin,"
-                                                            + " device_type, status, registered_at)"
-                                                            + " VALUES (?, ?, NULL, ?, '9991',"
+                                                    "INSERT INTO devices (id, location_id,"
+                                                            + " device_token, pin, device_type,"
+                                                            + " status, registered_at)"
+                                                            + " VALUES (?, NULL, ?, '9991',"
                                                             + " 'SCORING_TABLET', 'REGISTERED',"
                                                             + " CURRENT_TIMESTAMP)")) {
                                 ps.setObject(1, deviceId);
-                                ps.setObject(2, tenantId);
-                                ps.setString(3, token);
+                                ps.setString(2, token);
                                 ps.executeUpdate();
                             }
                         })
@@ -130,17 +130,17 @@ class DeviceLocationNullableIT {
         UUID deviceId = UUID.randomUUID();
         String token = UUID.randomUUID().toString();
 
+        // E45S06: tenant_id removed from devices (DEC-39 D1)
         try (Connection conn = dataSource.getConnection();
                 PreparedStatement ps =
                         conn.prepareStatement(
-                                "INSERT INTO devices (id, tenant_id, location_id, device_token,"
-                                    + " pin, device_type, status, registered_at) VALUES (?, ?, ?,"
-                                    + " ?, '9992', 'SCORING_TABLET', 'REGISTERED',"
-                                    + " CURRENT_TIMESTAMP)")) {
+                                "INSERT INTO devices (id, location_id, device_token,"
+                                        + " pin, device_type, status, registered_at) VALUES (?, ?,"
+                                        + " ?, '9992', 'SCORING_TABLET', 'REGISTERED',"
+                                        + " CURRENT_TIMESTAMP)")) {
             ps.setObject(1, deviceId);
-            ps.setObject(2, tenantId);
-            ps.setObject(3, locationId);
-            ps.setString(4, token);
+            ps.setObject(2, locationId);
+            ps.setString(3, token);
             ps.executeUpdate();
         }
 
@@ -180,11 +180,10 @@ class DeviceLocationNullableIT {
     }
 
     private UUID resolveDefaultLocationId(UUID tenantId) throws SQLException {
+        // E45S06: tenant_id removed from locations (DEC-50); select first location row.
+        // In Wave-1 single-location model each per-tenant DB has exactly one location row.
         try (Connection conn = dataSource.getConnection();
-                PreparedStatement ps =
-                        conn.prepareStatement(
-                                "SELECT id FROM locations WHERE tenant_id = ? LIMIT 1")) {
-            ps.setObject(1, tenantId);
+                PreparedStatement ps = conn.prepareStatement("SELECT id FROM locations LIMIT 1")) {
             try (ResultSet rs = ps.executeQuery()) {
                 assertThat(rs.next()).as("Default location must exist after bootstrap").isTrue();
                 return UUID.fromString(rs.getString("id"));

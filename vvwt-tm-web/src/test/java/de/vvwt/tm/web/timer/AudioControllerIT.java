@@ -113,6 +113,7 @@ class AudioControllerIT {
 
     private String baseUrl;
     private UUID defaultTenantId;
+    private UUID defaultLocationId;
     private UUID tournamentId;
 
     // Minimal valid MP3 header bytes (ID3v2 + null frame) for upload tests
@@ -125,6 +126,7 @@ class AudioControllerIT {
     void setUp() {
         baseUrl = "http://localhost:" + port;
         defaultTenantId = tenantContextBinder.bindDefaultTenant();
+        defaultLocationId = tenantContextBinder.getDefaultLocationId();
         cleanupTestData();
         setupTestData();
     }
@@ -159,7 +161,6 @@ class AudioControllerIT {
         Tournament tournament =
                 new Tournament(
                         tournamentId,
-                        defaultTenantId,
                         "E26S03 Audio IT Tournament",
                         "BEST_OF_1",
                         "threePointMatchRule",
@@ -170,6 +171,7 @@ class AudioControllerIT {
                         null,
                         3,
                         4);
+        tournament.setLocationId(defaultLocationId);
         tournamentRepository.save(tournament);
     }
 

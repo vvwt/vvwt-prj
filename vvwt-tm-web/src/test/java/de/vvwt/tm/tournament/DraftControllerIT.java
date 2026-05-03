@@ -29,7 +29,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -74,11 +73,14 @@ import org.springframework.test.context.ActiveProfiles;
  * @see <a href="E22S07">E22S07 — Controller relocation to de.vvwt.tm.web</a>
  */
 @AutoConfigureTestRestTemplate
-@ApplicationModuleTest(
-        mode = ApplicationModuleTest.BootstrapMode.ALL_DEPENDENCIES,
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(TournamentModuleTestConfig.class)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        classes = {
+            de.vvwt.tm.TournamentManagerApplication.class,
+            DraftControllerIT.TestAdminCredentials.class
+        })
 @ActiveProfiles("test")
+@Import(TenantContextTestSupport.class)
 @DisplayName("DraftController IT — E21S07 AC-REST-IT (2-test minimalist)")
 class DraftControllerIT {
 

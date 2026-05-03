@@ -16,11 +16,11 @@
  *   <li>{@code tournament::exceptions} — {@code UnauthorizedException} thrown by token validation.
  * </ul>
  *
- * <p>NOT included: {@code tenant} (no direct compile-time tenant import; tenant context resolved by
- * the HTTP interceptor outside domain service scope per audit (iii)); {@code web} (display module
- * does not depend on the web module — data flows display → web, not vice versa).
- *
- * <p>Exactly 2 array entries per AC-DISPLAY-ALLOWED-DEPS-EXACTLY-2.
+ * <p>Included: {@code tenant} — {@link de.vvwt.tm.display.internal.DefaultDisplayOverviewService}
+ * now injects {@link de.vvwt.tm.tenant.TenantContext} to obtain the current tenant UUID (replacing
+ * the removed {@code device.getTenantId()} column-discriminator call per E45S06 / DEC-50). {@code
+ * web} (display module does not depend on the web module — data flows display → web, not vice
+ * versa).
  *
  * @see DEC-21
  * @see DEC-35
@@ -28,5 +28,5 @@
  * @since E25S01
  */
 @org.springframework.modulith.ApplicationModule(
-        allowedDependencies = {"tournament", "tournament::exceptions"})
+        allowedDependencies = {"tournament", "tournament::exceptions", "tenant"})
 package de.vvwt.tm.display;

@@ -82,25 +82,26 @@ class SetResultRepositoryIT {
         assertDb = AssertDbConnectionFactory.of(dataSource).create();
         // Bind the default tenant — no manual tenants INSERT needed (DEC-26 Rule 3)
         tenantId = tenantBinder.bindDefaultTenant();
+        // E45S06: tenant_id removed from all tables (DEC-39 D1); tournament uses location_id (D2)
+        UUID locationId = tenantBinder.getDefaultLocationId();
         jdbcTemplate.update(
-                "INSERT INTO tournament (id, tenant_id, description, match_format,"
+                "INSERT INTO tournament (id, location_id, description, match_format,"
                         + " scoring_rule_id, set_validation_rule_id, match_generator_id,"
                         + " status, created_at)"
                         + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
                 tournamentId,
-                tenantId,
+                locationId,
                 "T",
                 "BEST_OF_3",
                 "r",
                 "v",
                 "g",
-                "CREATED");
+                "DRAFT");
         jdbcTemplate.update(
-                "INSERT INTO phase (id, tenant_id, tournament_id, sequence_number,"
+                "INSERT INTO phase (id, tournament_id, sequence_number,"
                         + " description, status, current_lap_number)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        + " VALUES (?, ?, ?, ?, ?, ?)",
                 phaseId,
-                tenantId,
                 tournamentId,
                 1,
                 "P",
@@ -109,49 +110,44 @@ class SetResultRepositoryIT {
         UUID teamId1 = UUID.randomUUID();
         UUID teamId2 = UUID.randomUUID();
         jdbcTemplate.update(
-                "INSERT INTO team (id, tenant_id, tournament_id, team_number, description)"
-                        + " VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO team (id, tournament_id, team_number, description)"
+                        + " VALUES (?, ?, ?, ?)",
                 teamId1,
-                tenantId,
                 tournamentId,
                 1,
                 "TA");
         jdbcTemplate.update(
-                "INSERT INTO team (id, tenant_id, tournament_id, team_number, description)"
-                        + " VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO team (id, tournament_id, team_number, description)"
+                        + " VALUES (?, ?, ?, ?)",
                 teamId2,
-                tenantId,
                 tournamentId,
                 2,
                 "TB");
         jdbcTemplate.update(
-                "INSERT INTO team_avatar (id, tenant_id, tournament_id, phase_id, team_id,"
+                "INSERT INTO team_avatar (id, tournament_id, phase_id, team_id,"
                         + " group_number, group_position)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        + " VALUES (?, ?, ?, ?, ?, ?)",
                 avatar1Id,
-                tenantId,
                 tournamentId,
                 phaseId,
                 teamId1,
                 1,
                 1);
         jdbcTemplate.update(
-                "INSERT INTO team_avatar (id, tenant_id, tournament_id, phase_id, team_id,"
+                "INSERT INTO team_avatar (id, tournament_id, phase_id, team_id,"
                         + " group_number, group_position)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        + " VALUES (?, ?, ?, ?, ?, ?)",
                 avatar2Id,
-                tenantId,
                 tournamentId,
                 phaseId,
                 teamId2,
                 1,
                 2);
         jdbcTemplate.update(
-                "INSERT INTO match (id, tenant_id, tournament_id, phase_id,"
+                "INSERT INTO match (id, tournament_id, phase_id,"
                         + " member_avatar_1_id, member_avatar_2_id, state, set_limit)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
                 matchId,
-                tenantId,
                 tournamentId,
                 phaseId,
                 avatar1Id,
@@ -163,15 +159,17 @@ class SetResultRepositoryIT {
     @AfterEach
     void tearDown() {
         // Best-effort cleanup of this test's rows (FK-ordered, child-before-parent)
-        jdbcTemplate.update("DELETE FROM set_result WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM audit_log WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM match_outcome WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM match WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM team_avatar WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM team WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM activity_types WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM phase WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM tournament WHERE tenant_id = ?", tenantId);
+        // E45S06: tenant_id removed — simple DELETE without WHERE (per-tenant DB isolation via
+        // DEC-20)
+        jdbcTemplate.update("DELETE FROM set_result");
+        jdbcTemplate.update("DELETE FROM audit_log");
+        jdbcTemplate.update("DELETE FROM match_outcome");
+        jdbcTemplate.update("DELETE FROM match");
+        jdbcTemplate.update("DELETE FROM team_avatar");
+        jdbcTemplate.update("DELETE FROM team");
+        jdbcTemplate.update("DELETE FROM activity_types");
+        jdbcTemplate.update("DELETE FROM phase");
+        jdbcTemplate.update("DELETE FROM tournament");
         tenantBinder.unbind();
     }
 
@@ -180,15 +178,7 @@ class SetResultRepositoryIT {
     void insertCreatesSetResultRow() {
         SetResult sr =
                 new SetResult(
-                        matchId,
-                        0,
-                        tenantId,
-                        phaseId,
-                        25,
-                        20,
-                        SetState.WINNER1.getLegacyCode(),
-                        null,
-                        null);
+                        matchId, 0, phaseId, 25, 20, SetState.WINNER1.getLegacyCode(), null, null);
 
         setResultRepository.insert(sr);
 
@@ -205,13 +195,13 @@ class SetResultRepositoryIT {
     @DisplayName("findByMatchId returns rows for existing match (fixture via direct JDBC)")
     void findByMatchIdReturnsRows() {
         // DEC-26 Rule 3: fixture via direct JDBC
+        // E45S06: tenant_id removed from set_result (DEC-39 D1)
         jdbcTemplate.update(
-                "INSERT INTO set_result (match_id, set_index, tenant_id, phase_id,"
+                "INSERT INTO set_result (match_id, set_index, phase_id,"
                         + " team1_points, team2_points, set_state)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        + " VALUES (?, ?, ?, ?, ?, ?)",
                 matchId,
                 0,
-                tenantId,
                 phaseId,
                 25,
                 20,
@@ -238,15 +228,7 @@ class SetResultRepositoryIT {
     void e45s03_insertFindDelete_noTenantPredicate() {
         SetResult sr =
                 new SetResult(
-                        matchId,
-                        0,
-                        tenantId,
-                        phaseId,
-                        25,
-                        20,
-                        SetState.WINNER1.getLegacyCode(),
-                        null,
-                        null);
+                        matchId, 0, phaseId, 25, 20, SetState.WINNER1.getLegacyCode(), null, null);
         setResultRepository.insert(sr);
 
         List<SetResult> found = setResultRepository.findByMatchId(matchId);

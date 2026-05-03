@@ -116,7 +116,6 @@ class DraftServiceTest {
         Phase savedPhase =
                 new Phase(
                         UUID.randomUUID(),
-                        UUID.randomUUID(),
                         tournamentId,
                         1,
                         "Phase 1",
@@ -144,7 +143,6 @@ class DraftServiceTest {
         Phase phase1 =
                 new Phase(
                         UUID.randomUUID(),
-                        UUID.randomUUID(),
                         tournamentId,
                         1,
                         "Phase 1",
@@ -153,7 +151,6 @@ class DraftServiceTest {
                         LocalDateTime.now());
         Phase phase2 =
                 new Phase(
-                        UUID.randomUUID(),
                         UUID.randomUUID(),
                         tournamentId,
                         2,
@@ -181,7 +178,6 @@ class DraftServiceTest {
         Phase savedPhase =
                 new Phase(
                         UUID.randomUUID(),
-                        UUID.randomUUID(),
                         tournamentId,
                         1,
                         "Phase 1",
@@ -206,7 +202,6 @@ class DraftServiceTest {
 
         Phase existingPhase =
                 new Phase(
-                        UUID.randomUUID(),
                         UUID.randomUUID(),
                         tournamentId,
                         1,

@@ -126,6 +126,7 @@ class DisplayOverviewControllerIT {
 
     private String baseUrl;
     private UUID defaultTenantId;
+    private UUID defaultLocationId;
 
     // -----------------------------------------------------------------------
     // Shared test-data state (set by setupTestData)
@@ -142,6 +143,7 @@ class DisplayOverviewControllerIT {
     void setUp() {
         baseUrl = "http://localhost:" + port;
         defaultTenantId = tenantContextBinder.bindDefaultTenant();
+        defaultLocationId = tenantContextBinder.getDefaultLocationId();
         cleanupTestData();
         setupTestData();
     }
@@ -189,7 +191,6 @@ class DisplayOverviewControllerIT {
         Device displayDevice =
                 new Device(
                         UUID.randomUUID(),
-                        defaultTenantId,
                         null,
                         displayDeviceToken,
                         null,
@@ -207,7 +208,6 @@ class DisplayOverviewControllerIT {
         Device tabletDevice =
                 new Device(
                         UUID.randomUUID(),
-                        defaultTenantId,
                         null,
                         scoringTabletToken,
                         "1234",
@@ -225,7 +225,6 @@ class DisplayOverviewControllerIT {
         Tournament tournament =
                 new Tournament(
                         tournamentId,
-                        defaultTenantId,
                         "E25S02 Test Tournament",
                         "BEST_OF_1",
                         "threePointMatchRule",
@@ -236,20 +235,12 @@ class DisplayOverviewControllerIT {
                         null,
                         3,
                         4);
+        tournament.setLocationId(defaultLocationId);
         tournamentRepository.save(tournament);
 
         // Create active phase (currentLapNumber=1)
         phaseId = UUID.randomUUID();
-        Phase phase =
-                new Phase(
-                        phaseId,
-                        defaultTenantId,
-                        tournamentId,
-                        1,
-                        "Vorrunde E25S02",
-                        "ACTIVE",
-                        1,
-                        now);
+        Phase phase = new Phase(phaseId, tournamentId, 1, "Vorrunde E25S02", "ACTIVE", 1, now);
         phaseRepository.save(phase);
 
         // Create team A and team B
@@ -257,28 +248,8 @@ class DisplayOverviewControllerIT {
         teamBName = "Team Beta E25";
         UUID teamAId = UUID.randomUUID();
         UUID teamBId = UUID.randomUUID();
-        Team teamA =
-                new Team(
-                        teamAId,
-                        defaultTenantId,
-                        tournamentId,
-                        1,
-                        teamAName,
-                        true,
-                        false,
-                        false,
-                        now);
-        Team teamB =
-                new Team(
-                        teamBId,
-                        defaultTenantId,
-                        tournamentId,
-                        2,
-                        teamBName,
-                        true,
-                        false,
-                        false,
-                        now);
+        Team teamA = new Team(teamAId, tournamentId, 1, teamAName, true, false, false, now);
+        Team teamB = new Team(teamBId, tournamentId, 2, teamBName, true, false, false, now);
         teamRepository.save(teamA);
         teamRepository.save(teamB);
 
@@ -287,26 +258,10 @@ class DisplayOverviewControllerIT {
         UUID avatarBId = UUID.randomUUID();
         TeamAvatar avatarA =
                 new TeamAvatar(
-                        avatarAId,
-                        defaultTenantId,
-                        tournamentId,
-                        phaseId,
-                        1,
-                        1,
-                        teamAId,
-                        "Gruppe 1, Platz 1",
-                        now);
+                        avatarAId, tournamentId, phaseId, 1, 1, teamAId, "Gruppe 1, Platz 1", now);
         TeamAvatar avatarB =
                 new TeamAvatar(
-                        avatarBId,
-                        defaultTenantId,
-                        tournamentId,
-                        phaseId,
-                        1,
-                        2,
-                        teamBId,
-                        "Gruppe 1, Platz 2",
-                        now);
+                        avatarBId, tournamentId, phaseId, 1, 2, teamBId, "Gruppe 1, Platz 2", now);
         teamAvatarRepository.save(avatarA);
         teamAvatarRepository.save(avatarB);
 
@@ -317,7 +272,6 @@ class DisplayOverviewControllerIT {
         TeamAvatarRating ratingA =
                 new TeamAvatarRating(
                         avatarAId,
-                        defaultTenantId,
                         1, // matchCount
                         1, // setCount
                         3, // points
@@ -331,8 +285,7 @@ class DisplayOverviewControllerIT {
                         now);
         // Team Beta: 0 points → ranks second
         TeamAvatarRating ratingB =
-                new TeamAvatarRating(
-                        avatarBId, defaultTenantId, 1, 1, 0, 0, 1, 15, 25, 0.0, 0.6, false, now);
+                new TeamAvatarRating(avatarBId, 1, 1, 0, 0, 1, 15, 25, 0.0, 0.6, false, now);
         teamAvatarRatingRepository.save(ratingA);
         teamAvatarRatingRepository.save(ratingB);
 
@@ -341,7 +294,6 @@ class DisplayOverviewControllerIT {
         Match match =
                 new Match(
                         matchId,
-                        defaultTenantId,
                         tournamentId,
                         phaseId,
                         avatarAId,

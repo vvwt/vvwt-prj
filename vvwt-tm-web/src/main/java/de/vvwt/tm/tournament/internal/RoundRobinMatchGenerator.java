@@ -132,7 +132,6 @@ public class RoundRobinMatchGenerator implements MatchGenerator {
             Match match =
                     new Match(
                             UUID.randomUUID(),
-                            phase.getTenantId(),
                             phase.getTournamentId(),
                             phase.getId(),
                             pair[0],

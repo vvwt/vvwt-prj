@@ -111,6 +111,7 @@ class DisplayWebSocketEventsIT {
     @Autowired private MatchRepository matchRepository;
 
     private UUID defaultTenantId;
+    private UUID defaultLocationId;
     private UUID matchId;
     private UUID tournamentId;
     private String displayToken;
@@ -118,6 +119,7 @@ class DisplayWebSocketEventsIT {
     @BeforeEach
     void setUp() {
         defaultTenantId = tenantContextBinder.bindDefaultTenant();
+        defaultLocationId = tenantContextBinder.getDefaultLocationId();
 
         displayToken = UUID.randomUUID().toString();
         saveDisplayDevice(displayToken, Device.STATUS_REGISTERED);
@@ -345,7 +347,6 @@ class DisplayWebSocketEventsIT {
         deviceRepository.save(
                 new Device(
                         UUID.randomUUID(),
-                        defaultTenantId,
                         null,
                         token,
                         null,
@@ -368,23 +369,24 @@ class DisplayWebSocketEventsIT {
      */
     private UUID[] createMinimalFixture() {
         UUID tournamentId = UUID.randomUUID();
-        tournamentRepository.save(
+        Tournament displayTournament =
                 new Tournament(
                         tournamentId,
-                        defaultTenantId,
                         "Display Events Fixture " + tournamentId,
                         MatchFormat.BEST_OF_1.name(),
                         "setPoints",
                         "standardVolleyball",
                         "roundRobin",
                         "DRAFT",
-                        LocalDateTime.now()));
+                        LocalDateTime.now());
+        // E45S06: location_id NOT NULL (DEC-39 D2)
+        displayTournament.setLocationId(defaultLocationId);
+        tournamentRepository.save(displayTournament);
 
         UUID phaseId = UUID.randomUUID();
         phaseRepository.save(
                 new Phase(
                         phaseId,
-                        defaultTenantId,
                         tournamentId,
                         1,
                         "Events Test Phase",
@@ -397,7 +399,6 @@ class DisplayWebSocketEventsIT {
         teamRepository.save(
                 new Team(
                         team1Id,
-                        defaultTenantId,
                         tournamentId,
                         1,
                         "Display Team A",
@@ -408,7 +409,6 @@ class DisplayWebSocketEventsIT {
         teamRepository.save(
                 new Team(
                         team2Id,
-                        defaultTenantId,
                         tournamentId,
                         2,
                         "Display Team B",
@@ -421,32 +421,15 @@ class DisplayWebSocketEventsIT {
         UUID av2 = UUID.randomUUID();
         teamAvatarRepository.save(
                 new TeamAvatar(
-                        av1,
-                        defaultTenantId,
-                        tournamentId,
-                        phaseId,
-                        1,
-                        1,
-                        team1Id,
-                        null,
-                        LocalDateTime.now()));
+                        av1, tournamentId, phaseId, 1, 1, team1Id, null, LocalDateTime.now()));
         teamAvatarRepository.save(
                 new TeamAvatar(
-                        av2,
-                        defaultTenantId,
-                        tournamentId,
-                        phaseId,
-                        1,
-                        2,
-                        team2Id,
-                        null,
-                        LocalDateTime.now()));
+                        av2, tournamentId, phaseId, 1, 2, team2Id, null, LocalDateTime.now()));
 
         UUID mId = UUID.randomUUID();
         matchRepository.save(
                 new Match(
                         mId,
-                        defaultTenantId,
                         tournamentId,
                         phaseId,
                         av1,

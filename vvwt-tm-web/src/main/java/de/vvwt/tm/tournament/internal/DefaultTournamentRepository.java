@@ -1,6 +1,5 @@
 package de.vvwt.tm.tournament.internal;
 
-import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import java.sql.ResultSet;
@@ -35,10 +34,9 @@ import org.springframework.stereotype.Repository;
 public class DefaultTournamentRepository implements TournamentRepository {
 
     private final JdbcTemplate jdbc;
-    private final TenantContext tenantContext;
 
     private static final String INSERT_SQL =
-            "INSERT INTO tournament (id, tenant_id, description, match_format,"
+            "INSERT INTO tournament (id, location_id, description, match_format,"
                     + " scoring_rule_id, set_validation_rule_id, match_generator_id,"
                     + " status, created_at, appointment, field_count, team_count,"
                     + " planned_start_time, draft_json)"
@@ -61,9 +59,8 @@ public class DefaultTournamentRepository implements TournamentRepository {
 
     private static final String EXISTS_BY_ID = "SELECT COUNT(*) FROM tournament WHERE id=?";
 
-    public DefaultTournamentRepository(JdbcTemplate jdbc, TenantContext tenantContext) {
+    public DefaultTournamentRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
-        this.tenantContext = tenantContext;
     }
 
     /**
@@ -74,9 +71,6 @@ public class DefaultTournamentRepository implements TournamentRepository {
      */
     @Override
     public Tournament save(Tournament tournament) {
-        UUID currentTenantId = tenantContext.current();
-        tournament.setTenantId(currentTenantId);
-
         Integer count = jdbc.queryForObject(EXISTS_BY_ID, Integer.class, tournament.getId());
         boolean exists = count != null && count > 0;
 
@@ -99,7 +93,7 @@ public class DefaultTournamentRepository implements TournamentRepository {
             jdbc.update(
                     INSERT_SQL,
                     tournament.getId(),
-                    currentTenantId,
+                    tournament.getLocationId(),
                     tournament.getDescription(),
                     tournament.getMatchFormat(),
                     tournament.getScoringRuleId(),
@@ -167,7 +161,7 @@ public class DefaultTournamentRepository implements TournamentRepository {
     private static Tournament mapRow(ResultSet rs) throws SQLException {
         Tournament t = new Tournament();
         t.setId(rs.getObject("id", UUID.class));
-        t.setTenantId(rs.getObject("tenant_id", UUID.class));
+        t.setLocationId(rs.getObject("location_id", UUID.class));
         t.setDescription(rs.getString("description"));
         t.setMatchFormat(rs.getString("match_format"));
         t.setScoringRuleId(rs.getString("scoring_rule_id"));

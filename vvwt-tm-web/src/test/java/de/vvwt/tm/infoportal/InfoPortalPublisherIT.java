@@ -73,7 +73,6 @@ class InfoPortalPublisherIT {
 
         properties = new InfoPortalProperties();
         // properties.setUrl("http://localhost:" + infoServer.getMappedPort(8082));
-        properties.setTenantId("test-tenant");
         properties.setLocationId("test-venue");
 
         // TODO: wire InfoPortalStateDao with a real H2 DataSource via TenantDaoTestSupport

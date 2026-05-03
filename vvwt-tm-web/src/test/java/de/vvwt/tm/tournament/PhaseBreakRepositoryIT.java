@@ -61,25 +61,17 @@ class PhaseBreakRepositoryIT {
         // impl-report).
         tenantContext = new ThreadLocalTenantContextImpl();
         tenantScope = tenantContext.bind(tenantId);
-        // Insert prerequisite tenant, tournament, and phase rows for FK constraints
+        // E45S06: tenant_id removed (DEC-39 D1); tournament requires location_id (DEC-39 D2)
+        // Insert locations row, then tournament (FK), then phase (FK)
+        UUID locationId = UUID.randomUUID();
         TenantDaoTestSupport.insertDirectly(
-                ds,
-                "tenants",
-                Map.of(
-                        "id",
-                        tenantId,
-                        "display_name",
-                        "IT Tenant",
-                        "tenant_location_count",
-                        1,
-                        "is_default",
-                        false));
+                ds, "locations", Map.of("id", locationId, "display_name", "IT Location"));
         TenantDaoTestSupport.insertDirectly(
                 ds,
                 "tournament",
                 Map.of(
                         "id", tournamentId,
-                        "tenant_id", tenantId,
+                        "location_id", locationId,
                         "description", "IT Tournament",
                         "match_format", "BEST_OF_1",
                         "scoring_rule_id", "default",
@@ -94,8 +86,6 @@ class PhaseBreakRepositoryIT {
                 Map.of(
                         "id",
                         phaseId,
-                        "tenant_id",
-                        tenantId,
                         "tournament_id",
                         tournamentId,
                         "sequence_number",
@@ -106,7 +96,7 @@ class PhaseBreakRepositoryIT {
                         "PENDING",
                         "current_lap_number",
                         0));
-        repo = new PhaseBreakRepository(new JdbcTemplate(ds), tenantContext);
+        repo = new PhaseBreakRepository(new JdbcTemplate(ds));
     }
 
     @AfterEach
@@ -118,7 +108,7 @@ class PhaseBreakRepositoryIT {
     @Test
     void save_persistsPhaseBreakRow() {
         UUID id = UUID.randomUUID();
-        PhaseBreak phaseBreak = new PhaseBreak(id, tenantId, phaseId, 2, 30, "Mittagspause");
+        PhaseBreak phaseBreak = new PhaseBreak(id, phaseId, 2, 30, "Mittagspause");
 
         repo.save(phaseBreak);
 
@@ -143,24 +133,31 @@ class PhaseBreakRepositoryIT {
         UUID id1 = UUID.randomUUID();
         UUID id2 = UUID.randomUUID();
         // Rule 3: fixture via direct JDBC
+        // E45S06: tenant_id removed from phase_breaks (DEC-39 D1)
         TenantDaoTestSupport.insertDirectly(
                 ds,
                 "phase_breaks",
                 Map.of(
-                        "id", id1,
-                        "phase_id", phaseId,
-                        "after_lap_number", 2,
-                        "duration_minutes", 30,
-                        "tenant_id", tenantId));
+                        "id",
+                        id1,
+                        "phase_id",
+                        phaseId,
+                        "after_lap_number",
+                        2,
+                        "duration_minutes",
+                        30));
         TenantDaoTestSupport.insertDirectly(
                 ds,
                 "phase_breaks",
                 Map.of(
-                        "id", id2,
-                        "phase_id", phaseId,
-                        "after_lap_number", 4,
-                        "duration_minutes", 15,
-                        "tenant_id", tenantId));
+                        "id",
+                        id2,
+                        "phase_id",
+                        phaseId,
+                        "after_lap_number",
+                        4,
+                        "duration_minutes",
+                        15));
 
         List<PhaseBreak> results = repo.findByPhaseId(phaseId);
 
@@ -172,15 +169,19 @@ class PhaseBreakRepositoryIT {
     @Test
     void findByPhaseIdAndAfterLapNumber_whenExists_returnsPresent() {
         UUID id = UUID.randomUUID();
+        // E45S06: tenant_id removed from phase_breaks (DEC-39 D1)
         TenantDaoTestSupport.insertDirectly(
                 ds,
                 "phase_breaks",
                 Map.of(
-                        "id", id,
-                        "phase_id", phaseId,
-                        "after_lap_number", 3,
-                        "duration_minutes", 20,
-                        "tenant_id", tenantId));
+                        "id",
+                        id,
+                        "phase_id",
+                        phaseId,
+                        "after_lap_number",
+                        3,
+                        "duration_minutes",
+                        20));
 
         Optional<PhaseBreak> result = repo.findByPhaseIdAndAfterLapNumber(phaseId, 3);
 

@@ -1,6 +1,5 @@
 package de.vvwt.tm.tournament.internal;
 
-import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
 import java.sql.ResultSet;
@@ -29,13 +28,12 @@ import org.springframework.stereotype.Repository;
 public class DefaultPhaseRepository implements PhaseRepository {
 
     private final JdbcTemplate jdbc;
-    private final TenantContext tenantContext;
 
     private static final String INSERT_SQL =
             "INSERT INTO phase"
-                    + " (id, tenant_id, tournament_id, sequence_number, description, status,"
+                    + " (id, tournament_id, sequence_number, description, status,"
                     + " current_lap_number)"
-                    + " VALUES (?, ?, ?, ?, ?, ?, ?)";
+                    + " VALUES (?, ?, ?, ?, ?, ?)";
 
     private static final String UPDATE_SQL =
             "UPDATE phase" + " SET description=?, status=?, current_lap_number=?" + " WHERE id=?";
@@ -50,16 +48,13 @@ public class DefaultPhaseRepository implements PhaseRepository {
 
     private static final String EXISTS_BY_ID = "SELECT COUNT(*) FROM phase WHERE id=?";
 
-    public DefaultPhaseRepository(JdbcTemplate jdbc, TenantContext tenantContext) {
+    public DefaultPhaseRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
-        this.tenantContext = tenantContext;
     }
 
     /** {@inheritDoc} */
     @Override
     public Phase save(Phase phase) {
-        UUID tenantId = tenantContext.current();
-        phase.setTenantId(tenantId);
         Integer count = jdbc.queryForObject(EXISTS_BY_ID, Integer.class, phase.getId());
         boolean exists = count != null && count > 0;
         if (exists) {
@@ -73,7 +68,6 @@ public class DefaultPhaseRepository implements PhaseRepository {
             jdbc.update(
                     INSERT_SQL,
                     phase.getId(),
-                    tenantId,
                     phase.getTournamentId(),
                     phase.getSequenceNumber(),
                     phase.getDescription(),
@@ -117,7 +111,6 @@ public class DefaultPhaseRepository implements PhaseRepository {
     private static Phase mapRow(ResultSet rs) throws SQLException {
         Phase p = new Phase();
         p.setId(rs.getObject("id", UUID.class));
-        p.setTenantId(rs.getObject("tenant_id", UUID.class));
         p.setTournamentId(rs.getObject("tournament_id", UUID.class));
         p.setSequenceNumber(rs.getInt("sequence_number"));
         p.setDescription(rs.getString("description"));

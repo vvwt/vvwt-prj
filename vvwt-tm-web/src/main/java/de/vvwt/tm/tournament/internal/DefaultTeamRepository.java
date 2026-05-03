@@ -1,6 +1,5 @@
 package de.vvwt.tm.tournament.internal;
 
-import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamRepository;
 import java.sql.ResultSet;
@@ -30,12 +29,11 @@ import org.springframework.stereotype.Repository;
 public class DefaultTeamRepository implements TeamRepository {
 
     private final JdbcTemplate jdbc;
-    private final TenantContext tenantContext;
 
     private static final String INSERT_SQL =
-            "INSERT INTO team (id, tenant_id, tournament_id, team_number, description,"
+            "INSERT INTO team (id, tournament_id, team_number, description,"
                     + " participate, referee_assignment, without_assessment, created_at)"
-                    + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
     private static final String UPDATE_SQL =
             "UPDATE team SET team_number=?, description=?, participate=?,"
@@ -60,17 +58,13 @@ public class DefaultTeamRepository implements TeamRepository {
     private static final String COUNT_AVATARS_BY_TEAM =
             "SELECT COUNT(*) FROM team_avatar WHERE team_id=?";
 
-    public DefaultTeamRepository(JdbcTemplate jdbc, TenantContext tenantContext) {
+    public DefaultTeamRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
-        this.tenantContext = tenantContext;
     }
 
     /** {@inheritDoc} */
     @Override
     public Team save(Team team) {
-        UUID currentTenantId = tenantContext.current();
-        team.setTenantId(currentTenantId);
-
         Integer count = jdbc.queryForObject(EXISTS_BY_ID, Integer.class, team.getId());
         boolean exists = count != null && count > 0;
 
@@ -87,7 +81,6 @@ public class DefaultTeamRepository implements TeamRepository {
             jdbc.update(
                     INSERT_SQL,
                     team.getId(),
-                    currentTenantId,
                     team.getTournamentId(),
                     team.getTeamNumber(),
                     team.getDescription(),
@@ -155,7 +148,6 @@ public class DefaultTeamRepository implements TeamRepository {
     private static Team mapRow(ResultSet rs) throws SQLException {
         Team t = new Team();
         t.setId(rs.getObject("id", UUID.class));
-        t.setTenantId(rs.getObject("tenant_id", UUID.class));
         t.setTournamentId(rs.getObject("tournament_id", UUID.class));
         t.setTeamNumber(rs.getInt("team_number"));
         t.setDescription(rs.getString("description"));

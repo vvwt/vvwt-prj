@@ -41,18 +41,24 @@ final class H2TestDataSourceHelper {
     }
 
     /**
-     * Returns the number of rows in {@code flyway_schema_history} for the given DataSource. Returns
-     * 0 if the table does not exist (Flyway has not yet run).
+     * Returns the number of rows in {@code flyway_schema_history_tenant} for the given DataSource.
+     * Returns 0 if the table does not exist (Flyway has not yet run).
+     *
+     * <p>E45S06: {@link PerTenantFlywayRunner} uses module-namespaced history tables (e.g., {@code
+     * flyway_schema_history_tenant} for the tenant module). This helper counts rows from the
+     * tenant-module history table used by {@link PerTenantFlywayRunnerIT}.
      */
     static int countFlywayHistoryRows(DataSource ds) throws SQLException {
         try (Connection conn = ds.getConnection()) {
-            if (!tableExistsViaSql(conn, "flyway_schema_history")) {
+            if (!tableExistsViaSql(conn, "flyway_schema_history_tenant")) {
                 return 0;
             }
             // H2 2.x: unquoted identifiers are folded to uppercase.
             // The table was created by Flyway with lowercase name — must quote to preserve case.
             try (var stmt = conn.createStatement();
-                    var rs = stmt.executeQuery("SELECT COUNT(*) FROM \"flyway_schema_history\"")) {
+                    var rs =
+                            stmt.executeQuery(
+                                    "SELECT COUNT(*) FROM \"flyway_schema_history_tenant\"")) {
                 rs.next();
                 return rs.getInt(1);
             }

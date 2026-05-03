@@ -3,11 +3,9 @@ package de.vvwt.tm.tournament.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.Device;
 import de.vvwt.tm.tournament.DeviceRepository;
 import de.vvwt.tm.tournament.exceptions.DeviceLimitExceededException;
@@ -65,7 +63,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class DeviceServiceTest {
 
     @Mock private DeviceRepository deviceRepository;
-    @Mock private TenantContext tenantContext;
 
     private DeviceLimitConfig limitConfig;
     private DefaultDeviceService service;
@@ -76,8 +73,7 @@ class DeviceServiceTest {
     void setUp() {
         limitConfig = new DeviceLimitConfig();
         limitConfig.setMaxDeviceCount(5);
-        lenient().when(tenantContext.current()).thenReturn(TENANT_ID);
-        service = new DefaultDeviceService(deviceRepository, tenantContext, limitConfig);
+        service = new DefaultDeviceService(deviceRepository, limitConfig);
     }
 
     // =========================================================================
@@ -87,17 +83,13 @@ class DeviceServiceTest {
     @Test
     @DisplayName("register SCORING_TABLET: persists device with token + PIN, returns saved entity")
     void register_scoringTablet_persistsWithTokenAndPin() {
-        when(deviceRepository.countByTenant(TENANT_ID)).thenReturn(0L);
+        when(deviceRepository.countByTenant()).thenReturn(0L);
         when(deviceRepository.isPinTaken(any())).thenReturn(false);
         ArgumentCaptor<Device> captor = ArgumentCaptor.forClass(Device.class);
         when(deviceRepository.save(captor.capture()))
                 .thenAnswer(inv -> captor.getValue()); // return as-saved
 
         Device result = service.register(Device.TYPE_SCORING_TABLET);
-
-        assertThat(result.getTenantId())
-                .as("tenantId must be set from TenantContext")
-                .isEqualTo(TENANT_ID);
         assertThat(result.getDeviceToken())
                 .as("deviceToken must be a non-blank UUID string")
                 .isNotBlank();
@@ -115,7 +107,7 @@ class DeviceServiceTest {
     @Test
     @DisplayName("register DISPLAY: persists device without PIN")
     void register_display_persistsWithoutPin() {
-        when(deviceRepository.countByTenant(TENANT_ID)).thenReturn(0L);
+        when(deviceRepository.countByTenant()).thenReturn(0L);
         ArgumentCaptor<Device> captor = ArgumentCaptor.forClass(Device.class);
         when(deviceRepository.save(captor.capture())).thenAnswer(inv -> captor.getValue());
 
@@ -134,7 +126,7 @@ class DeviceServiceTest {
     void register_atCap_nthDeviceSucceeds() {
         int cap = limitConfig.getMaxDeviceCount(); // 5
         // 4 existing devices → 5th is the Nth — must succeed
-        when(deviceRepository.countByTenant(TENANT_ID)).thenReturn((long) (cap - 1));
+        when(deviceRepository.countByTenant()).thenReturn((long) (cap - 1));
         when(deviceRepository.isPinTaken(any())).thenReturn(false);
         ArgumentCaptor<Device> captor = ArgumentCaptor.forClass(Device.class);
         when(deviceRepository.save(captor.capture())).thenAnswer(inv -> captor.getValue());
@@ -147,7 +139,7 @@ class DeviceServiceTest {
     @DisplayName("register beyond cap: (N+1)th device throws DeviceLimitExceededException → 409")
     void register_beyondCap_throwsDeviceLimitExceededException() {
         int cap = limitConfig.getMaxDeviceCount(); // 5
-        when(deviceRepository.countByTenant(TENANT_ID)).thenReturn((long) cap); // already at cap
+        when(deviceRepository.countByTenant()).thenReturn((long) cap); // already at cap
 
         assertThatThrownBy(() -> service.register(Device.TYPE_SCORING_TABLET))
                 .as("(N+1)th device must be rejected with DeviceLimitExceededException")
@@ -165,7 +157,7 @@ class DeviceServiceTest {
     void register_cap1_firstSucceedsSecondRejected() {
         limitConfig.setMaxDeviceCount(1);
         // First device: count=0
-        when(deviceRepository.countByTenant(TENANT_ID)).thenReturn(0L);
+        when(deviceRepository.countByTenant()).thenReturn(0L);
         when(deviceRepository.isPinTaken(any())).thenReturn(false);
         ArgumentCaptor<Device> captor = ArgumentCaptor.forClass(Device.class);
         when(deviceRepository.save(captor.capture())).thenAnswer(inv -> captor.getValue());
@@ -174,7 +166,7 @@ class DeviceServiceTest {
         assertThat(first).isNotNull();
 
         // Second device: count=1 (cap reached)
-        when(deviceRepository.countByTenant(TENANT_ID)).thenReturn(1L);
+        when(deviceRepository.countByTenant()).thenReturn(1L);
         assertThatThrownBy(() -> service.register(Device.TYPE_SCORING_TABLET))
                 .isInstanceOf(DeviceLimitExceededException.class);
     }
@@ -189,7 +181,6 @@ class DeviceServiceTest {
         UUID deviceId = UUID.randomUUID();
         Device existing = new Device();
         existing.setId(deviceId);
-        existing.setTenantId(TENANT_ID);
         existing.setDeviceType(Device.TYPE_DISPLAY);
         when(deviceRepository.findById(deviceId)).thenReturn(Optional.of(existing));
         when(deviceRepository.save(existing)).thenReturn(existing);
@@ -207,7 +198,6 @@ class DeviceServiceTest {
         UUID deviceId = UUID.randomUUID();
         Device existing = new Device();
         existing.setId(deviceId);
-        existing.setTenantId(TENANT_ID);
         existing.setDeviceType(Device.TYPE_SCORING_TABLET);
         when(deviceRepository.findById(deviceId)).thenReturn(Optional.of(existing));
 
@@ -236,9 +226,8 @@ class DeviceServiceTest {
         UUID locationId = UUID.randomUUID();
         Device existing = new Device();
         existing.setId(deviceId);
-        existing.setTenantId(TENANT_ID);
         when(deviceRepository.findById(deviceId)).thenReturn(Optional.of(existing));
-        when(deviceRepository.locationExistsForTenant(locationId, TENANT_ID)).thenReturn(true);
+        when(deviceRepository.locationExistsForTenant(locationId)).thenReturn(true);
         when(deviceRepository.save(existing)).thenReturn(existing);
 
         Device result = service.assignLocation(deviceId, locationId);
@@ -264,12 +253,12 @@ class DeviceServiceTest {
     void listDevices_delegatesToRepository() {
         Device d1 = new Device();
         d1.setId(UUID.randomUUID());
-        when(deviceRepository.findAllByTenant(TENANT_ID)).thenReturn(List.of(d1));
+        when(deviceRepository.findAllByTenant()).thenReturn(List.of(d1));
 
         List<Device> result = service.listDevices();
 
         assertThat(result).hasSize(1);
-        verify(deviceRepository).findAllByTenant(TENANT_ID);
+        verify(deviceRepository).findAllByTenant();
     }
 
     @Test
@@ -278,7 +267,6 @@ class DeviceServiceTest {
         UUID deviceId = UUID.randomUUID();
         Device existing = new Device();
         existing.setId(deviceId);
-        existing.setTenantId(TENANT_ID);
         when(deviceRepository.findById(deviceId)).thenReturn(Optional.of(existing));
 
         service.deleteDevice(deviceId);

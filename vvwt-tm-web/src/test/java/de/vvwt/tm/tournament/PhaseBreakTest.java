@@ -22,10 +22,9 @@ class PhaseBreakTest {
         UUID tenantId = UUID.randomUUID();
         UUID phaseId = UUID.randomUUID();
 
-        PhaseBreak phaseBreak = new PhaseBreak(id, tenantId, phaseId, 2, 30, "Mittagspause");
+        PhaseBreak phaseBreak = new PhaseBreak(id, phaseId, 2, 30, "Mittagspause");
 
         assertThat(phaseBreak.getId()).isEqualTo(id);
-        assertThat(phaseBreak.getTenantId()).isEqualTo(tenantId);
         assertThat(phaseBreak.getPhaseId()).isEqualTo(phaseId);
         assertThat(phaseBreak.getAfterLapNumber()).isEqualTo(2);
         assertThat(phaseBreak.getDurationMinutes()).isEqualTo(30);
@@ -39,7 +38,7 @@ class PhaseBreakTest {
         UUID tenantId = UUID.randomUUID();
         UUID phaseId = UUID.randomUUID();
 
-        PhaseBreak phaseBreak = new PhaseBreak(id, tenantId, phaseId, 1, 15, null);
+        PhaseBreak phaseBreak = new PhaseBreak(id, phaseId, 1, 15, null);
 
         assertThat(phaseBreak.getLabel()).isNull();
     }
