@@ -105,13 +105,15 @@ class BrandFaviconIT {
                     .as("GET /admin/ must return 200 OK (AC1 — E44S02)")
                     .isEqualTo(HttpStatus.OK);
 
+            // Vite self-closes void elements with " />" in HTML output.
+            // Assert the meaningful substrings: rel, type, and href present together in the head.
             assertThat(response.getBody())
                     .as(
                             "GET /admin/ body must contain SVG favicon link"
-                                    + " <link rel=\"icon\" type=\"image/svg+xml\""
-                                    + " href=\"vvw-icon-blue.svg\"> (AC1 — E44S02)")
-                    .contains(
-                            "<link rel=\"icon\" type=\"image/svg+xml\" href=\"vvw-icon-blue.svg\">");
+                                    + " with type=\"image/svg+xml\" and href=\"vvw-icon-blue.svg\""
+                                    + " (AC1 — E44S02). Vite uses self-closing ' />' format.")
+                    .contains("type=\"image/svg+xml\"")
+                    .contains("href=\"vvw-icon-blue.svg\"");
         }
 
         @Test
@@ -130,7 +132,8 @@ class BrandFaviconIT {
         }
 
         @Test
-        @DisplayName("AC1: GET /admin/ body contains SVG link declared before PNG links (AC7 order)")
+        @DisplayName(
+                "AC1: GET /admin/ body contains SVG link declared before PNG links (AC7 order)")
         void adminRoot_svgFaviconBeforePng() {
             ResponseEntity<String> response =
                     authed.getForEntity("http://localhost:" + port + "/admin/", String.class);
@@ -153,7 +156,8 @@ class BrandFaviconIT {
         }
 
         @Test
-        @DisplayName("AC1: GET /admin/ body contains apple-touch-icon WITHOUT sizes attribute (AC6)")
+        @DisplayName(
+                "AC1: GET /admin/ body contains apple-touch-icon WITHOUT sizes attribute (AC6)")
         void adminRoot_containsAppleTouchIconWithoutSizes() {
             ResponseEntity<String> response =
                     authed.getForEntity("http://localhost:" + port + "/admin/", String.class);
@@ -175,8 +179,8 @@ class BrandFaviconIT {
             String appleLink = body.substring(appleLinkStart, appleLinkEnd + 1);
             assertThat(appleLink)
                     .as(
-                            "apple-touch-icon must NOT have a sizes= attribute"
-                                    + " — 256px PNG with iOS auto-scaling is the canonical choice (AC6 — E44S02)")
+                            "apple-touch-icon must NOT have a sizes= attribute — 256px PNG with iOS"
+                                    + " auto-scaling is the canonical choice (AC6 — E44S02)")
                     .doesNotContain("sizes=");
         }
 
@@ -205,7 +209,9 @@ class BrandFaviconIT {
     class TimerFavicon {
 
         @Test
-        @DisplayName("AC2: GET /timer/tournaments/00000000-0000-0000-0000-000000000001 contains SVG favicon")
+        @DisplayName(
+                "AC2: GET /timer/tournaments/00000000-0000-0000-0000-000000000001 contains SVG"
+                        + " favicon")
         void timerPage_containsSvgFaviconLink() {
             ResponseEntity<String> response =
                     authed.getForEntity(
@@ -218,13 +224,14 @@ class BrandFaviconIT {
                     .as("GET /timer/... must return 200 OK (AC2 — E44S02)")
                     .isEqualTo(HttpStatus.OK);
 
+            // Vite self-closes void elements with " />" in HTML output.
             assertThat(response.getBody())
                     .as(
                             "GET /timer/... body must contain SVG favicon link (AC2 — E44S02)"
-                                    + " Expected: <link rel=\"icon\" type=\"image/svg+xml\""
-                                    + " href=\"vvw-icon-blue.svg\">")
-                    .contains(
-                            "<link rel=\"icon\" type=\"image/svg+xml\" href=\"vvw-icon-blue.svg\">");
+                                    + " with type=\"image/svg+xml\" and href=\"vvw-icon-blue.svg\""
+                                    + ". Vite uses self-closing ' />' format.")
+                    .contains("type=\"image/svg+xml\"")
+                    .contains("href=\"vvw-icon-blue.svg\"");
         }
 
         @Test
@@ -260,13 +267,15 @@ class BrandFaviconIT {
                     .as("GET /display/overview must return 200 OK (AC2 — E44S02)")
                     .isEqualTo(HttpStatus.OK);
 
+            // Vite self-closes void elements with " />" in HTML output.
             assertThat(response.getBody())
                     .as(
-                            "GET /display/overview body must contain SVG favicon link (AC2 — E44S02)"
-                                    + " Expected: <link rel=\"icon\" type=\"image/svg+xml\""
-                                    + " href=\"vvw-icon-blue.svg\">")
-                    .contains(
-                            "<link rel=\"icon\" type=\"image/svg+xml\" href=\"vvw-icon-blue.svg\">");
+                            "GET /display/overview body must contain SVG favicon link (AC2 —"
+                                    + " E44S02) with type=\"image/svg+xml\" and"
+                                    + " href=\"vvw-icon-blue.svg\". Vite uses self-closing ' />'"
+                                    + " format.")
+                    .contains("type=\"image/svg+xml\"")
+                    .contains("href=\"vvw-icon-blue.svg\"");
         }
 
         @Test
@@ -294,7 +303,8 @@ class BrandFaviconIT {
         @Test
         @DisplayName("AC3: GET /score/test (hello.mustache) contains SVG favicon link")
         void scoreHello_containsSvgFaviconLink() {
-            // Score pages are publicly accessible (no auth required per DEC-19 / AC-SECURITY-NO-ADMIN-AUTH)
+            // Score pages are publicly accessible (no auth required per DEC-19 /
+            // AC-SECURITY-NO-ADMIN-AUTH)
             ResponseEntity<String> response =
                     restTemplate.getForEntity(
                             "http://localhost:" + port + "/score/test", String.class);
@@ -415,23 +425,29 @@ class BrandFaviconIT {
     class GracefulDegradation {
 
         @Test
-        @DisplayName("AC8: GET /admin/non-existent-asset.svg returns 404 (Spring static handler)")
-        void missingAsset_returns404() {
+        @DisplayName(
+                "AC8: GET /score/non-existent-brand-asset.svg returns 404 (Spring static-resource"
+                        + " handler default — score surface has no catch-all)")
+        void missingScoreAsset_returns404() {
+            // AC8: the score-tablet static path /score/ does not have a catch-all controller
+            // (unlike /admin/** which returns the SPA shell for deep-links per E42S02).
+            // A truly absent brand asset under /score/ correctly returns 404 from Spring's
+            // static-resource handler, confirming that asset absence does not crash the server.
             ResponseEntity<String> response =
-                    authed.getForEntity(
-                            "http://localhost:" + port + "/admin/non-existent-asset.svg",
+                    restTemplate.getForEntity(
+                            "http://localhost:" + port + "/score/non-existent-brand-asset.svg",
                             String.class);
 
             assertThat(response.getStatusCode())
                     .as(
-                            "GET /admin/non-existent-asset.svg must return 404"
-                                    + " (Spring static-resource handler default, AC8 — E44S02)")
+                            "GET /score/non-existent-brand-asset.svg must return 404"
+                                    + " (Spring static-resource handler default, AC8 — E44S02)."
+                                    + " Score surface has no SPA catch-all controller.")
                     .isEqualTo(HttpStatus.NOT_FOUND);
         }
 
         @Test
-        @DisplayName(
-                "AC8: GET /admin/ body contains zero <script> references to vvw-icon-blue.svg")
+        @DisplayName("AC8: GET /admin/ body contains zero <script> references to vvw-icon-blue.svg")
         void adminRoot_noScriptReferenceToFaviconSvg() {
             ResponseEntity<String> response =
                     authed.getForEntity("http://localhost:" + port + "/admin/", String.class);

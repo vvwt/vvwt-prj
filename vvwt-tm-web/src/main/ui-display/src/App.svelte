@@ -317,6 +317,12 @@
   });
 </script>
 
+<!-- E44S02 AC5: VVW brand lockup — header strip with speaking alt per Brief Q-4 -->
+<!-- AC13: min-width 120px ensures minimum render size per Brief C-9 -->
+<header class="brand-header">
+  <img src="/display/vvw-tm-logo.svg" alt="Tournament Manager" class="brand-lockup" />
+</header>
+
 {#if isRegisterPage}
   <!--
     E07S07: /display/register path — render the device registration lifecycle.
@@ -399,5 +405,18 @@
 
   @keyframes spin {
     to { transform: rotate(360deg); }
+  }
+
+  /* E44S02 AC5 + AC13: brand lockup header */
+  .brand-header {
+    padding: 0.5rem 1rem;
+    background: #fff;
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  .brand-lockup {
+    min-width: 120px;
+    height: auto;
+    display: block;
   }
 </style>
