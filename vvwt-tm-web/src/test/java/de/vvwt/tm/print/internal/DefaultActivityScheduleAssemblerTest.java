@@ -5,11 +5,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 
-import de.vvwt.tm.domain.ActivityType;
-import de.vvwt.tm.domain.AssignmentRule;
-import de.vvwt.tm.domain.activity.ActivityAssignment;
-import de.vvwt.tm.domain.activity.ActivityAssignmentResult;
-import de.vvwt.tm.domain.activity.ActivityAssignmentService;
 import de.vvwt.tm.print.ActivityScheduleModel;
 import de.vvwt.tm.print.ActivityScheduleRow;
 import de.vvwt.tm.tournament.Match;
@@ -20,6 +15,11 @@ import de.vvwt.tm.tournament.TimelineCalculationService;
 import de.vvwt.tm.tournament.TimelineEntry;
 import de.vvwt.tm.tournament.TimelineEntryType;
 import de.vvwt.tm.tournament.Tournament;
+import de.vvwt.tm.tournament.activity.ActivityAssignment;
+import de.vvwt.tm.tournament.activity.ActivityAssignmentResult;
+import de.vvwt.tm.tournament.activity.ActivityAssignmentService;
+import de.vvwt.tm.tournament.activity.ActivityType;
+import de.vvwt.tm.tournament.activity.AssignmentRule;
 import java.time.LocalTime;
 import java.util.Collections;
 import java.util.List;
@@ -62,7 +62,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  *   <li>{@code TimelineCalculationService} — mocked via interface ({@code de.vvwt.tm.tournament.*}
  *       public interface), cross-package usage → DEC-36 interface reference required
  *   <li>{@code ActivityAssignmentService} — mocked via interface ({@code
- *       de.vvwt.tm.domain.activity.*} public interface), cross-package → DEC-36
+ *       de.vvwt.tm.tournament.activity.*} public interface), cross-package → DEC-36
  * </ul>
  */
 @ExtendWith(MockitoExtension.class)

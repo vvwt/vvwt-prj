@@ -1,12 +1,12 @@
 package de.vvwt.tm.print;
 
-import de.vvwt.tm.domain.ActivityType;
 import de.vvwt.tm.tournament.Match;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseBreak;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.Tournament;
+import de.vvwt.tm.tournament.activity.ActivityType;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;

@@ -1,10 +1,5 @@
 package de.vvwt.tm.infrastructure.tournament;
 
-import de.vvwt.tm.domain.ActivityType;
-import de.vvwt.tm.domain.ActivityTypeService;
-import de.vvwt.tm.domain.activity.ActivityAssignment;
-import de.vvwt.tm.domain.activity.ActivityAssignmentResult;
-import de.vvwt.tm.domain.activity.ActivityAssignmentService;
 import de.vvwt.tm.infrastructure.tournament.dto.ActivityAssignmentPreviewResponse;
 import de.vvwt.tm.infrastructure.tournament.dto.ActivityAssignmentPreviewResponse.ActivityTypeAssignment;
 import de.vvwt.tm.infrastructure.tournament.dto.ActivityAssignmentPreviewResponse.LapEntry;
@@ -19,6 +14,11 @@ import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.activity.ActivityAssignment;
+import de.vvwt.tm.tournament.activity.ActivityAssignmentResult;
+import de.vvwt.tm.tournament.activity.ActivityAssignmentService;
+import de.vvwt.tm.tournament.activity.ActivityType;
+import de.vvwt.tm.tournament.activity.ActivityTypeService;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;

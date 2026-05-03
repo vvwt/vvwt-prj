@@ -12,7 +12,11 @@
  *   <li>{@code tournament} — Print assemblers (S02: LaufzettelAssembler, S03:
  *       ActivityScheduleAssembler) consume tournament entities ({@code Tournament}, {@code Match},
  *       {@code Phase}, {@code Team}, {@code Match} result types) to produce print-ready models.
- *       {@code tournament} is the sole bounded-context dependency at E24 scope.
+ *   <li>{@code tournament::activity} — Print assemblers also consume activity sub-module types
+ *       ({@code ActivityType}, {@code ActivityAssignmentService}, {@code ActivityAssignment},
+ *       {@code ActivityAssignmentResult}) relocated from {@code de.vvwt.tm.domain.*} at E45S01.
+ *       Spring Modulith 2.x treats {@code tournament.activity} as a separate named sub-module;
+ *       listing {@code "tournament"} alone does not cover it.
  * </ul>
  *
  * <p>Explicitly excluded from {@code allowedDependencies}:
@@ -55,5 +59,6 @@
  *     Primary-Adapter-Isolation</a>
  * @since E24S01
  */
-@org.springframework.modulith.ApplicationModule(allowedDependencies = {"tournament"})
+@org.springframework.modulith.ApplicationModule(
+        allowedDependencies = {"tournament", "tournament::activity"})
 package de.vvwt.tm.print;

@@ -1,9 +1,5 @@
 package de.vvwt.tm.print.internal;
 
-import de.vvwt.tm.domain.ActivityType;
-import de.vvwt.tm.domain.activity.ActivityAssignment;
-import de.vvwt.tm.domain.activity.ActivityAssignmentResult;
-import de.vvwt.tm.domain.activity.ActivityAssignmentService;
 import de.vvwt.tm.print.LaufzettelAssembler;
 import de.vvwt.tm.print.LaufzettelRow;
 import de.vvwt.tm.tournament.Match;
@@ -17,6 +13,10 @@ import de.vvwt.tm.tournament.TimelineCalculationService;
 import de.vvwt.tm.tournament.TimelineEntry;
 import de.vvwt.tm.tournament.TimelineEntryType;
 import de.vvwt.tm.tournament.Tournament;
+import de.vvwt.tm.tournament.activity.ActivityAssignment;
+import de.vvwt.tm.tournament.activity.ActivityAssignmentResult;
+import de.vvwt.tm.tournament.activity.ActivityAssignmentService;
+import de.vvwt.tm.tournament.activity.ActivityType;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;

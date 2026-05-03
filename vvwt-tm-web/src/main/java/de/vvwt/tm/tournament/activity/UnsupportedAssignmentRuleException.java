@@ -1,21 +1,21 @@
-package de.vvwt.tm.domain.activity;
+package de.vvwt.tm.tournament.activity;
 
 /**
- * Thrown when an {@link de.vvwt.tm.domain.ActivityType} references an assignment rule that is not
- * yet implemented by the {@link ActivityAssignmentService}.
+ * Thrown when an {@link ActivityType} references an assignment rule that is not yet implemented by
+ * the {@link ActivityAssignmentService}.
  *
- * <p>V1 supports {@link de.vvwt.tm.domain.AssignmentRule#FIRST_FREE_ROUND} only. Post-V1 rules
- * stored in the database will trigger this exception until the corresponding rule implementation is
- * added (E08S04 AC8).
+ * <p>V1 supports {@link AssignmentRule#FIRST_FREE_ROUND} only. Post-V1 rules stored in the database
+ * will trigger this exception until the corresponding rule implementation is added (E08S04 AC8).
  *
  * <p>This exception enables clean failure-reporting at the service layer. The REST endpoint
  * (E08S06) is responsible for translating it into an appropriate HTTP error response using an i18n
  * message key.
  *
+ * <p><b>E45S01 relocation note:</b> Relocated from {@code
+ * de.vvwt.tm.domain.activity.UnsupportedAssignmentRuleException} into {@code tournament.activity}
+ * public surface per DEC-21 + DEC-35.
+ *
  * @see ActivityAssignmentService
- * @see <a
- *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S04.story.md">Story
- *     E08S04 AC8</a>
  */
 public class UnsupportedAssignmentRuleException extends RuntimeException {
 
@@ -32,7 +32,7 @@ public class UnsupportedAssignmentRuleException extends RuntimeException {
         super(
                 "Unsupported activity assignment rule: '"
                         + ruleName
-                        + "'. Implement the rule in ActivityAssignmentServiceImpl before using"
+                        + "'. Implement the rule in DefaultActivityAssignmentService before using"
                         + " it.");
         this.ruleName = ruleName;
     }

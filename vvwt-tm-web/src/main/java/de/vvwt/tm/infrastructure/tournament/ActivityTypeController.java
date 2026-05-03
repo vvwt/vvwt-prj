@@ -1,10 +1,10 @@
 package de.vvwt.tm.infrastructure.tournament;
 
-import de.vvwt.tm.domain.ActivityType;
-import de.vvwt.tm.domain.ActivityTypeService;
 import de.vvwt.tm.infrastructure.tournament.dto.ActivityTypeCreateRequest;
 import de.vvwt.tm.infrastructure.tournament.dto.ActivityTypeResponse;
 import de.vvwt.tm.infrastructure.tournament.dto.ActivityTypeUpdateRequest;
+import de.vvwt.tm.tournament.activity.ActivityType;
+import de.vvwt.tm.tournament.activity.ActivityTypeService;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
@@ -33,7 +33,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
  * {@code infrastructure} Spring Modulith context. No new top-level module is introduced, so {@code
  * ApplicationModulesTest.verify()} passes without annotation.
  *
- * @see de.vvwt.tm.domain.ActivityTypeService
+ * @see de.vvwt.tm.tournament.activity.ActivityTypeService
  * @see ActivityTypeResponse
  */
 @RestController

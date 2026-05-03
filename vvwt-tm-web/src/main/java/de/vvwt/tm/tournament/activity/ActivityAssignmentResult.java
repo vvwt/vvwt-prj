@@ -1,6 +1,5 @@
-package de.vvwt.tm.domain.activity;
+package de.vvwt.tm.tournament.activity;
 
-import de.vvwt.tm.domain.ActivityType;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -17,11 +16,11 @@ import java.util.UUID;
  * <p>Consuming code (print templates E08S08, E08S09; preview REST endpoint E08S06) reads this
  * result to build schedules.
  *
+ * <p><b>E45S01 relocation note:</b> Relocated from {@code de.vvwt.tm.domain.activity} into {@code
+ * tournament.activity} public surface per DEC-21 + DEC-35.
+ *
  * @see ActivityAssignment
  * @see ActivityAssignmentService
- * @see <a
- *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E08S04.story.md">Story
- *     E08S04 AC1, AC6</a>
  */
 public final class ActivityAssignmentResult {
 

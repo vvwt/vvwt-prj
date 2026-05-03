@@ -5,7 +5,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
-import de.vvwt.tm.domain.repo.ActivityTypeRepository;
 import de.vvwt.tm.infrastructure.testsupport.TenantContextSliceTestSupport;
 import de.vvwt.tm.print.ActivityScheduleAssembler;
 import de.vvwt.tm.print.LaufzettelAssembler;
@@ -21,6 +20,7 @@ import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.activity.ActivityTypeRepository;
 import de.vvwt.tm.tournament.exceptions.TournamentNotFoundException;
 import java.util.List;
 import java.util.Optional;
@@ -330,7 +330,8 @@ class PrintControllerSliceTest {
     void activitySchedule_happyPath_returnsActivitySchedule() throws Exception {
         Tournament tournament = tournament(TOURNAMENT_ID, "Test Tournament");
         Phase phase = phase(TOURNAMENT_ID);
-        de.vvwt.tm.domain.ActivityType actType = activityType(ACTIVITY_TYPE_ID, "Mannschaftsfoto");
+        de.vvwt.tm.tournament.activity.ActivityType actType =
+                activityType(ACTIVITY_TYPE_ID, "Mannschaftsfoto");
 
         Mockito.when(tournamentRepository.findById(TOURNAMENT_ID))
                 .thenReturn(Optional.of(tournament));
@@ -417,8 +418,9 @@ class PrintControllerSliceTest {
         return m;
     }
 
-    private de.vvwt.tm.domain.ActivityType activityType(UUID id, String name) {
-        de.vvwt.tm.domain.ActivityType at = new de.vvwt.tm.domain.ActivityType();
+    private de.vvwt.tm.tournament.activity.ActivityType activityType(UUID id, String name) {
+        de.vvwt.tm.tournament.activity.ActivityType at =
+                new de.vvwt.tm.tournament.activity.ActivityType();
         at.setId(id);
         at.setName(name);
         return at;

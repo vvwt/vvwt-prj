@@ -1,8 +1,6 @@
 package de.vvwt.tm.web;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import de.vvwt.tm.domain.activity.ActivityAssignmentService;
-import de.vvwt.tm.domain.repo.ActivityTypeRepository;
 import de.vvwt.tm.photo.PhotoStorageService;
 import de.vvwt.tm.scoring.ScoringRuleRegistry;
 import de.vvwt.tm.scoring.SetValidationRuleRegistry;
@@ -11,6 +9,8 @@ import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tenant.TenantDataSourceResolver;
 import de.vvwt.tm.tenant.TenantRegistryPort;
+import de.vvwt.tm.tournament.activity.ActivityAssignmentService;
+import de.vvwt.tm.tournament.activity.ActivityTypeRepository;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.UUID;
@@ -254,10 +254,11 @@ public class WebModuleTestConfig {
      * DefaultActivityScheduleAssembler} constructor injection when the {@code print} module is
      * loaded transitively via {@code @ApplicationModuleTest(ALL_DEPENDENCIES)}.
      *
-     * <p>{@code ActivityAssignmentServiceImpl} lives in {@code de.vvwt.tm.domain.activity} which is
-     * NOT a Modulith module — Spring Modulith does not component-scan it in {@code
-     * ALL_DEPENDENCIES} mode. Added at E24S06 when {@code web.allowedDependencies} was extended to
-     * include {@code "print"}.
+     * <p>{@code DefaultActivityAssignmentService} lives in {@code
+     * de.vvwt.tm.tournament.activity.internal} (E45S01: relocated from {@code
+     * de.vvwt.tm.domain.activity}). It is NOT a Modulith module — Spring Modulith does not
+     * component-scan it in {@code ALL_DEPENDENCIES} mode. Added at E24S06 when {@code
+     * web.allowedDependencies} was extended to include {@code "print"}.
      */
     @Bean
     @Primary

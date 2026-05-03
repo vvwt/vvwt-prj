@@ -1,6 +1,6 @@
 package de.vvwt.tm.infrastructure.tournament.dto;
 
-import de.vvwt.tm.domain.ActivityType;
+import de.vvwt.tm.tournament.activity.ActivityType;
 import java.util.UUID;
 
 /**

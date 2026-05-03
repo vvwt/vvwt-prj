@@ -8,10 +8,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.vvwt.tm.domain.ActivityType;
-import de.vvwt.tm.domain.ActivityTypeService;
-import de.vvwt.tm.domain.activity.ActivityAssignmentResult;
-import de.vvwt.tm.domain.activity.ActivityAssignmentService;
 import de.vvwt.tm.infrastructure.testsupport.TenantContextSliceTestSupport;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantRegistryPort;
@@ -24,6 +20,10 @@ import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.activity.ActivityAssignmentResult;
+import de.vvwt.tm.tournament.activity.ActivityAssignmentService;
+import de.vvwt.tm.tournament.activity.ActivityType;
+import de.vvwt.tm.tournament.activity.ActivityTypeService;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
