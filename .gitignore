@@ -44,3 +44,10 @@ vvwt-tm-web/src/main/ui-timer/.vite/
 vvwt-info-client/src/main/ui/node_modules/
 vvwt-info-client/src/main/ui/dist/
 vvwt-info-client/src/main/ui/.vite/
+
+# Info Server SPA build output (E44S01 — AC5/AC9b):
+# vvwt-info-client writes its Vite outDir directly into vvwt-info-server/src/main/resources/static/info/
+# with emptyOutDir: true, which wipes the entire directory on every npm run build.
+# Gitignoring this directory prevents committed build-output residue after each rebuild.
+# This is the mechanical primary gate per DEC-42 internet-facing posture (C-7).
+vvwt-info-server/src/main/resources/static/info/

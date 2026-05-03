@@ -440,6 +440,57 @@
                 <groupId>com.diffplug.spotless</groupId>
                 <artifactId>spotless-maven-plugin</artifactId>
             </plugin>
+
+            <!--
+                 E44S01 (AC2, AC7): Brand-asset distribution mechanism.
+                 Two exec-maven-plugin executions wired to the verify phase at parent-POM level:
+                 (1) verify-brand-structure-test — asserts public/ dirs, script existence/executability,
+                     and verify-brand-assets.sh behavioural contract (AC1, AC2, AC3). RED before S01
+                     implementation lands, GREEN after (DEC-22 Iron Law).
+                 (2) verify-brand-assets — invokes verify-brand-assets.sh to check that all vendored
+                     brand-asset copies match their handoff/ masters (AC7). Exits 0 when all match
+                     or when no vendored copies exist (fresh clone before first sync); exits 1 with
+                     the diverging path on stderr when any file drifts.
+                 Both scripts are POSIX-compatible bash; run from ${project.basedir} (the vvwt-prj root).
+            -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <!--
+                     inherited=false: these executions run ONLY at the parent POM root build
+                     (when packaging=pom, i.e. the vvwt-prj root). Child modules must NOT inherit
+                     them — scripts/ only exists at the vvwt-prj root, not in each submodule.
+                -->
+                <inherited>false</inherited>
+                <executions>
+                    <execution>
+                        <!-- AC1, AC2, AC3: structure + script existence + verify-contract test -->
+                        <id>verify-brand-structure-test</id>
+                        <phase>verify</phase>
+                        <goals><goal>exec</goal></goals>
+                        <configuration>
+                            <executable>bash</executable>
+                            <arguments>
+                                <argument>scripts/verify-brand-structure-test.sh</argument>
+                            </arguments>
+                            <workingDirectory>${project.basedir}</workingDirectory>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <!-- AC7: verify vendored brand assets match handoff/ masters -->
+                        <id>verify-brand-assets</id>
+                        <phase>verify</phase>
+                        <goals><goal>exec</goal></goals>
+                        <configuration>
+                            <executable>bash</executable>
+                            <arguments>
+                                <argument>scripts/verify-brand-assets.sh</argument>
+                            </arguments>
+                            <workingDirectory>${project.basedir}</workingDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 
