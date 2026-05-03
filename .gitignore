@@ -51,3 +51,6 @@ vvwt-info-client/src/main/ui/.vite/
 # Gitignoring this directory prevents committed build-output residue after each rebuild.
 # This is the mechanical primary gate per DEC-42 internet-facing posture (C-7).
 vvwt-info-server/src/main/resources/static/info/
+/handoff/certificate-template/node_modules/
+/handoff/certificate-template/out/
+/handoff/certificate-template/package-lock.json
