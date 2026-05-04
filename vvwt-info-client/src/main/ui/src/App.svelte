@@ -240,10 +240,10 @@
     padding: 1rem;
   }
 
-  /* AC3, AC12 (E44S03): Brand lockup — yellow-inverted Info logo.
-     min-width: 120px enforces Brief C-9 minimum render size. */
+  /* AC3 (E44S03), AC6 (E44S04): Brand lockup — yellow-inverted Info logo.
+     height: 2em (~32px) per E44S04 oversize fix; margin-bottom preserved for Info layout. */
   .brand-lockup {
-    min-width: 120px;
+    height: 2em;
     display: block;
     margin-bottom: 1rem;
   }
