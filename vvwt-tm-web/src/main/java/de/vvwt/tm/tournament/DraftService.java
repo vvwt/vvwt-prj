@@ -3,7 +3,6 @@ package de.vvwt.tm.tournament;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftPreviewResult;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 /**
