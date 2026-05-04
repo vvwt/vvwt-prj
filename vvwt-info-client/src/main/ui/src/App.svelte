@@ -208,7 +208,7 @@
   <!-- AC3 (E44S03): Brand lockup — yellow-inverted Info logo (NOT blue vvw-tm-logo.svg).
        alt="Live Information": speaking alt per Brief Q-4.
        src uses import.meta.env.BASE_URL + filename: Vite base-resolved URL, no hardcoded /info/ literal (AC11).
-       AC12: class="brand-lockup" enforces min-width: 120px (Brief C-9). -->
+       AC6 (E44S04): class="brand-lockup" renders at height:2em (~32px) per oversize fix. -->
   <img
     src="{import.meta.env.BASE_URL}vvw-info-logo.svg"
     alt="Live Information"
@@ -240,10 +240,10 @@
     padding: 1rem;
   }
 
-  /* AC3, AC12 (E44S03): Brand lockup — yellow-inverted Info logo.
-     min-width: 120px enforces Brief C-9 minimum render size. */
+  /* AC3 (E44S03), AC6 (E44S04): Brand lockup — yellow-inverted Info logo.
+     height: 2em (~32px) per E44S04 oversize fix; margin-bottom preserved for Info layout. */
   .brand-lockup {
-    min-width: 120px;
+    height: 2em;
     display: block;
     margin-bottom: 1rem;
   }

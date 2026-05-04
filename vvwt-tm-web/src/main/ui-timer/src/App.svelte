@@ -718,8 +718,7 @@
   }
 
   :global(.brand-lockup) {
-    min-width: 120px;
-    height: auto;
+    height: 2em;
     display: block;
   }
 </style>
