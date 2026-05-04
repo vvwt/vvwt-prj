@@ -68,25 +68,53 @@ describe('Info branding — lockup img (AC3)', () => {
   });
 });
 
-describe('Info branding — lockup minimum render size (AC12)', () => {
-  afterEach(() => {
-    cleanup();
+/**
+ * AC4 (E44S04) — Brand lockup height invariant for Info SPA.
+ *
+ * DEC-22 Iron Law: this describe block is written BEFORE the App.svelte CSS edit (RED state).
+ * RED: current App.svelte has `.brand-lockup { min-width: 120px; display: block; margin-bottom: 1rem; }` —
+ *   POSITIVE regex fails (no height:2em), NEGATIVE for min-width:* matches (fails).
+ *   NEGATIVE for height:auto is trivially satisfied (no height declaration exists), but included for symmetry.
+ *
+ * Strategy: fs.readFileSync source inspection + 3-step pre-process + 3 regex assertions.
+ * Replaces the E44S03 AC12 describe block (min-width:120px class-proxy assertion) per E44S04 scope.
+ * Other describe blocks (AC3 alt-text checks at lines 22–69) are preserved unchanged.
+ *
+ * DEC-22. Story: E44S04 — brand-lockup oversize fix.
+ */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+describe('Info branding — lockup height invariant', () => {
+  const APP_SVELTE = resolve(new URL(import.meta.url).pathname, '..', '..', 'App.svelte');
+
+  function extractBrandLockupRuleBody(source: string): string {
+    // Pre-process step 1: extract <style>...</style> block content
+    const styleMatch = source.match(/<style[^>]*>([\s\S]*?)<\/style>/);
+    if (!styleMatch) throw new Error('No <style> block found in App.svelte');
+    const styleContent = styleMatch[1];
+
+    // Pre-process step 2: strip CSS block comments
+    const stripped = styleContent.replace(/\/\*[\s\S]*?\*\//g, '');
+
+    // Pre-process step 3: locate .brand-lockup rule body
+    const ruleMatch = stripped.match(/(?::global\()?\.brand-lockup\)?\s*\{([^}]*)\}/);
+    if (!ruleMatch) throw new Error('No .brand-lockup rule found in <style> block');
+    return ruleMatch[1];
+  }
+
+  const source = readFileSync(APP_SVELTE, 'utf-8');
+  const ruleBody = extractBrandLockupRuleBody(source);
+
+  it('POSITIVE: .brand-lockup declares height: 2em', () => {
+    expect(ruleBody).toMatch(/\bheight\s*:\s*2em\s*[;}]/);
   });
 
-  it('lockup img has CSS class or style enforcing min-width >= 120px (AC12 — Brief C-9)', () => {
-    // AC12: lockup rendered at >=120px CSS width
-    // jsdom does not compute CSS from stylesheets, so we check for the brand-lockup CSS class
-    // which must declare min-width: 120px in the <style> block of App.svelte.
-    const { container } = render(App, {
-      props: { tournamentToken: 'tok-test', teamToken: 'team-test' },
-    });
-    const img = container.querySelector('img[alt="Live Information"]') as HTMLImageElement | null;
-    expect(img).not.toBeNull();
-    // Must have a class (brand-lockup or equivalent) — CSS width is declared on it
-    const hasStyling =
-      img!.classList.length > 0 ||
-      (img!.getAttribute('style') !== null &&
-        img!.getAttribute('style')!.includes('min-width'));
-    expect(hasStyling).toBe(true);
+  it('NEGATIVE: .brand-lockup does NOT declare min-width:', () => {
+    expect(ruleBody).not.toMatch(/\bmin-width\s*:/);
+  });
+
+  it('NEGATIVE: .brand-lockup does NOT declare height: auto (symmetry assertion)', () => {
+    expect(ruleBody).not.toMatch(/\bheight\s*:\s*auto\b/);
   });
 });
