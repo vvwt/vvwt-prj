@@ -29,6 +29,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.stereotype.Component;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -359,6 +360,31 @@ public class GlobalExceptionHandler {
         log.debug("[tm-web] MissingServletRequestParameterException: {}", ex.getMessage());
         return buildResponse(
                 HttpStatus.BAD_REQUEST, ex.getMessage(), "error.missingParameter", request);
+    }
+
+    /**
+     * Maps Spring MVC's {@link HttpMessageNotReadableException} (unparseable / malformed JSON body)
+     * to HTTP 400 Bad Request.
+     *
+     * <p>Spring throws this when Jackson cannot deserialize a {@code @RequestBody}. Without this
+     * handler, the catch-all {@link RuntimeException} handler would intercept it first and return
+     * 500 — because {@code HttpMessageNotReadableException} extends {@code RuntimeException} (via
+     * {@code HttpMessageConversionException}). Explicit handling here short-circuits that path and
+     * returns the correct 400 status (E21S19 Scenario E: DraftController PUT with malformed body;
+     * DraftController POST /preview with malformed body).
+     *
+     * @see org.springframework.http.converter.HttpMessageNotReadableException
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiErrorResponse> handleHttpMessageNotReadable(
+            HttpMessageNotReadableException ex, HttpServletRequest request) {
+        log.debug("[tm-web] HttpMessageNotReadableException (malformed request body): {}",
+                ex.getMessage());
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                "Malformed or unreadable request body.",
+                "error.badRequest",
+                request);
     }
 
     /**

@@ -1,5 +1,6 @@
 package de.vvwt.tm.tournament.internal;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.tournament.DraftService;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseBreak;
@@ -9,12 +10,16 @@ import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.TeamRepository;
+import de.vvwt.tm.tournament.Tournament;
+import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.draft.DraftBreak;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftPreviewResult;
 import de.vvwt.tm.tournament.draft.DraftPreviewSection;
 import de.vvwt.tm.tournament.draft.DraftSection;
+import de.vvwt.tm.tournament.exceptions.ConflictException;
 import de.vvwt.tm.tournament.exceptions.DraftAlreadyAppliedException;
+import de.vvwt.tm.tournament.exceptions.TournamentNotFoundException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -34,6 +39,9 @@ import org.springframework.stereotype.Service;
  *   <li>{@link #preview(DraftConfig, int)} — pure computation, no DB side effect
  *   <li>{@link #apply(UUID, DraftConfig)} — creates Phase entities via the Phase-aggregate
  *       collaborators from E21S03
+ *   <li>{@link #loadDraft(UUID)} — loads current draft config from Tournament.draftJson (E21S19)
+ *   <li>{@link #saveDraft(UUID, DraftConfig)} — persists draft config to Tournament.draftJson
+ *       (E21S19)
  * </ul>
  *
  * <h2>Idempotency (AC-DRAFT-APPLY-IDEMPOTENCY)</h2>
@@ -59,6 +67,7 @@ import org.springframework.stereotype.Service;
  * @see <a href="DEC-35">DEC-35 — interface in public package, impl in internal</a>
  * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
  * @see <a href="E33S05">E33S05 — DraftService interface extraction (DEC-35 retrofit)</a>
+ * @see <a href="E21S19">E21S19 — Restore GET/PUT mappings: loadDraft + saveDraft</a>
  */
 @Service("tmDraftService")
 public class DefaultDraftService implements DraftService {
@@ -68,15 +77,20 @@ public class DefaultDraftService implements DraftService {
     private final TeamRepository teamRepository;
     private final TeamAvatarRepository teamAvatarRepository;
     private final PhasePreparationService phasePreparationService;
+    private final TournamentRepository tournamentRepository;
+    private final ObjectMapper objectMapper;
 
     /**
-     * Constructs the service with Phase-aggregate collaborators from E21S03 and phase preparation.
+     * Constructs the service with Phase-aggregate collaborators from E21S03, phase preparation,
+     * and tournament repository + Jackson ObjectMapper for draft JSON serialization (E21S19).
      *
      * @param phaseRepository phase persistence (tenant-scoped, E21S03)
      * @param phaseBreakRepository phase break persistence (tenant-scoped, E21S03)
      * @param teamRepository team persistence (tenant-scoped)
      * @param teamAvatarRepository team avatar persistence (tenant-scoped, E21S04)
      * @param phasePreparationService match generation service (E21S08)
+     * @param tournamentRepository tournament persistence for draft JSON read/write (E21S19)
+     * @param objectMapper Jackson ObjectMapper for DraftConfig ↔ JSON round-trip (E21S19)
      */
     public DefaultDraftService(
             @Qualifier("tmPhaseRepository") PhaseRepository phaseRepository,
@@ -84,12 +98,16 @@ public class DefaultDraftService implements DraftService {
             TeamRepository teamRepository,
             TeamAvatarRepository teamAvatarRepository,
             @Qualifier("tmPhasePreparationService")
-                    PhasePreparationService phasePreparationService) {
+                    PhasePreparationService phasePreparationService,
+            @Qualifier("tmTournamentRepository") TournamentRepository tournamentRepository,
+            ObjectMapper objectMapper) {
         this.phaseRepository = phaseRepository;
         this.phaseBreakRepository = phaseBreakRepository;
         this.teamRepository = teamRepository;
         this.teamAvatarRepository = teamAvatarRepository;
         this.phasePreparationService = phasePreparationService;
+        this.tournamentRepository = tournamentRepository;
+        this.objectMapper = objectMapper;
     }
 
     // -------------------------------------------------------------------------
@@ -182,6 +200,87 @@ public class DefaultDraftService implements DraftService {
         }
 
         return createdPhaseIds;
+    }
+
+    // -------------------------------------------------------------------------
+    // loadDraft — read draft configuration (E21S19 AC-TEST-GET-EMPTY-RED)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Loads the current draft configuration for a tournament.
+     *
+     * <p>Returns {@link DraftConfig#empty()} if no draft has been saved ({@code
+     * Tournament.draftJson IS NULL}). Returns the deserialized config if a draft was previously
+     * saved via {@link #saveDraft}.
+     *
+     * <p>Tenant scoping enforced at the repository layer via TenantContext (DEC-20).
+     *
+     * @param tournamentId the tournament UUID
+     * @return current draft config; never {@code null}; may have empty sections list
+     * @throws TournamentNotFoundException if the tournament does not exist in the current tenant
+     * @see <a href="E21S19">E21S19 — AC-TEST-GET-EMPTY-RED, AC-TEST-GET-WITH-DATA-ROUND-TRIP-RED</a>
+     */
+    @Override
+    public DraftConfig loadDraft(UUID tournamentId) {
+        Tournament tournament =
+                tournamentRepository
+                        .findById(tournamentId)
+                        .orElseThrow(() -> new TournamentNotFoundException(tournamentId));
+        String json = tournament.getDraftJson();
+        if (json == null || json.isBlank()) {
+            return DraftConfig.empty();
+        }
+        try {
+            return objectMapper.readValue(json, DraftConfig.class);
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Failed to deserialize draft config for tournament " + tournamentId, e);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // saveDraft — persist draft configuration (E21S19 AC-TEST-PUT-SUCCESS-RED)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Saves the draft configuration for a tournament in {@code DRAFT} status.
+     *
+     * <p>Only tournaments in {@code DRAFT} status may have their draft configuration saved. Attempts
+     * to save for non-{@code DRAFT} tournaments throw a 409 {@link ConflictException}.
+     *
+     * <p>Tenant scoping enforced at the repository layer via TenantContext (DEC-20).
+     *
+     * @param tournamentId the tournament UUID
+     * @param config the draft configuration to save; must not be {@code null}
+     * @return the saved draft configuration (round-trip read from persistence); never {@code null}
+     * @throws TournamentNotFoundException if the tournament does not exist in the current tenant
+     * @throws ConflictException if the tournament is not in {@code DRAFT} status
+     * @see <a href="E21S19">E21S19 — AC-TEST-PUT-SUCCESS-RED, AC-TEST-PUT-NON-DRAFT-409-RED</a>
+     */
+    @Override
+    public DraftConfig saveDraft(UUID tournamentId, DraftConfig config) {
+        Tournament tournament =
+                tournamentRepository
+                        .findById(tournamentId)
+                        .orElseThrow(() -> new TournamentNotFoundException(tournamentId));
+        if (!"DRAFT".equals(tournament.getStatus())) {
+            throw new ConflictException(
+                    "Draft cannot be modified: tournament '"
+                            + tournamentId
+                            + "' is in status "
+                            + tournament.getStatus()
+                            + " (only DRAFT tournaments may be saved).");
+        }
+        String json;
+        try {
+            json = objectMapper.writeValueAsString(config);
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Failed to serialize draft config for tournament " + tournamentId, e);
+        }
+        tournament.setDraftJson(json);
+        tournamentRepository.save(tournament);
+        return loadDraft(tournamentId);
     }
 
     /**
