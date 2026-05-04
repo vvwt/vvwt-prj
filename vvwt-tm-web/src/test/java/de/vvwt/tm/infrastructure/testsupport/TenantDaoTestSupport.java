@@ -220,10 +220,13 @@ public final class TenantDaoTestSupport {
      *
      * <ol>
      *   <li>{@code auth/V1__admin_credentials.sql} — auth context
-     *   <li>{@code tenant/V1__initial_schema.sql} — tenants + locations (post-Reset per-module)
+     *   <li>{@code tenant/V1__initial_schema.sql} — tenants + locations (post-Reset per-module;
+     *       includes {@code tenants.language} per DEC-52 / E46S06 V2→V1 consolidation)
      *   <li>{@code tournament/V1__initial_schema.sql} — all tournament domain tables consolidated
      *       (tournament, phase, team, team_avatar, match, set_result, match_outcome,
-     *       team_avatar_rating, audit_log, round_snapshots, phase_breaks, activity_types, devices)
+     *       team_avatar_rating, audit_log, round_snapshots, phase_breaks, activity_types, devices;
+     *       includes {@code tournament.organizer}, {@code tournament.language}, {@code
+     *       team.language} per DEC-52 / E46S06 V2→V1 consolidation)
      *   <li>{@code certificate/V1__initial_schema.sql} — certificate context
      *   <li>{@code infoportal/V1__initial_schema.sql} — info_portal_state
      * </ol>
@@ -232,6 +235,9 @@ public final class TenantDaoTestSupport {
      * the sole schema source. Applied in {@code allowedDependencies} order: tenant before
      * tournament (FK {@code tournament.location_id → tenant/locations.id}). Auth and certificate
      * are independent; infoportal is independent of tournament.
+     *
+     * <p>E46S06 (DEC-52): The V2 migrations for {@code tenant} and {@code tournament} modules were
+     * consolidated into their respective V1 files. No V2 files exist in these modules after E46S06.
      *
      * <p>This helper is the entry point for all DAO stories that need to set up the full schema
      * before testing their own aggregate tables.
@@ -244,10 +250,10 @@ public final class TenantDaoTestSupport {
      */
     public static void applyTournamentSchema(DataSource ds) {
         // Post-Reset (E45S05): load per-module V1 files in allowedDependencies order.
-        // E46S01: V2 files added for tenant and tournament modules (language + organizer columns).
-        // Applied per DEC-26 Rule 1 (production migration files are the schema source of truth).
-        // Order: auth → tenant/V1 → tenant/V2 → tournament/V1 → tournament/V2 → certificate →
-        // infoportal
+        // E46S06 (DEC-52): V2 files for tenant and tournament modules deleted; columns are now
+        // inlined in their respective V1 files (language in tenant/V1, organizer+language in
+        // tournament/V1). Applied per DEC-26 Rule 1 (production migration file is schema source).
+        // Order: auth → tenant/V1 → tournament/V1 → certificate → infoportal
         //   - auth and tenant are independent (no inter-dependency)
         //   - tournament depends on tenant (FK tournament.location_id → tenant/locations.id)
         //   - certificate and infoportal are independent of tournament
@@ -255,9 +261,7 @@ public final class TenantDaoTestSupport {
         String[] migrations = {
             "db/migration/auth/V1__admin_credentials.sql",
             "db/migration/tenant/V1__initial_schema.sql",
-            "db/migration/tenant/V2__e46s01_certificate_default_template_i18n.sql",
             "db/migration/tournament/V1__initial_schema.sql",
-            "db/migration/tournament/V2__e46s01_certificate_default_template_i18n.sql",
             "db/migration/certificate/V1__initial_schema.sql",
             "db/migration/infoportal/V1__initial_schema.sql",
         };

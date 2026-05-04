@@ -18,15 +18,15 @@ import org.junit.jupiter.api.io.TempDir;
  *
  * <p>Asserts the V1-only baseline state of the per-tenant Flyway schema after the E46S06
  * consolidation: each of the {@code tenant} and {@code tournament} modules should have exactly
- * <strong>one migration row</strong> (version {@code 1}) in their respective
- * {@code flyway_schema_history_*} tables when bootstrapped against a fresh tenant DB.
+ * <strong>one migration row</strong> (version {@code 1}) in their respective {@code
+ * flyway_schema_history_*} tables when bootstrapped against a fresh tenant DB.
  *
  * <h2>RED state</h2>
  *
  * <p>This test was committed RED against the pre-consolidation codebase (E46S01 V2 files still
- * present): the {@code flyway_schema_history_tenant} table contains a V2 row in addition to V1,
- * and similarly for {@code flyway_schema_history_tournament}. The assertion {@code hasSize(1)}
- * fails because each migration-version list has size 2 ({@code [1, 2]}).
+ * present): the {@code flyway_schema_history_tenant} table contains a V2 row in addition to V1, and
+ * similarly for {@code flyway_schema_history_tournament}. The assertion {@code hasSize(1)} fails
+ * because each migration-version list has size 2 ({@code [1, 2]}).
  *
  * <h2>GREEN state</h2>
  *
@@ -41,13 +41,13 @@ import org.junit.jupiter.api.io.TempDir;
  *
  * <h2>Flyway history table structure</h2>
  *
- * <p>The {@link PerTenantFlywayRunner} uses module-namespaced history tables:
- * {@code flyway_schema_history_tenant} and {@code flyway_schema_history_tournament}. With
- * {@code baselineOnMigrate=true} and {@code baselineVersion="0"}, Flyway creates a baseline row
- * for version {@code "0"} only when it encounters a non-empty schema without a history table.
- * For a fresh empty DB, no baseline row is created — only the V1 migration row appears.
- * This test queries only {@code installed_rank} rows where {@code version} = {@code '1'} (i.e.,
- * real migration rows, not baseline rows) and asserts exactly one such row per module.
+ * <p>The {@link PerTenantFlywayRunner} uses module-namespaced history tables: {@code
+ * flyway_schema_history_tenant} and {@code flyway_schema_history_tournament}. With {@code
+ * baselineOnMigrate=true} and {@code baselineVersion="0"}, Flyway creates a baseline row for
+ * version {@code "0"} only when it encounters a non-empty schema without a history table. For a
+ * fresh empty DB, no baseline row is created — only the V1 migration row appears. This test queries
+ * only {@code installed_rank} rows where {@code version} = {@code '1'} (i.e., real migration rows,
+ * not baseline rows) and asserts exactly one such row per module.
  *
  * @see PerTenantFlywayRunner
  * @see <a href="../../../../../../../../docs/governance/stories/E46S06.story.md">Story E46S06</a>
@@ -61,12 +61,11 @@ import org.junit.jupiter.api.io.TempDir;
 class FlywayV1BaselineIT {
 
     /**
-     * AC12: Fresh tenant bootstrap produces exactly one migration row (version {@code 1}) in
-     * {@code flyway_schema_history_tenant} and exactly one in
-     * {@code flyway_schema_history_tournament}.
+     * AC12: Fresh tenant bootstrap produces exactly one migration row (version {@code 1}) in {@code
+     * flyway_schema_history_tenant} and exactly one in {@code flyway_schema_history_tournament}.
      *
-     * <p>FAILs before E46S06 consolidation (V2 rows present → version list is [1, 2]).
-     * PASSes after E46S06 consolidation (V2 files deleted → version list is [1]).
+     * <p>FAILs before E46S06 consolidation (V2 rows present → version list is [1, 2]). PASSes after
+     * E46S06 consolidation (V2 files deleted → version list is [1]).
      */
     @Test
     void freshTenantBootstrap_tenantAndTournamentModules_haveExactlyOneSchemaHistoryRowEach(
@@ -103,13 +102,13 @@ class FlywayV1BaselineIT {
     }
 
     /**
-     * Returns the ordered list of migration {@code version} values from the given
-     * {@code flyway_schema_history_*} table, excluding baseline rows (type = 'BASELINE').
+     * Returns the ordered list of migration {@code version} values from the given {@code
+     * flyway_schema_history_*} table, excluding baseline rows (type = 'BASELINE').
      *
      * <p>Queries only rows where {@code type} is {@code 'MIGRATE'} — the standard migration type
-     * that Flyway uses for real V*.sql migrations. Baseline rows (type='BASELINE', version='0')
-     * are excluded because they are an implementation detail of Flyway's baselineOnMigrate setting
-     * and do not represent actual schema versions.
+     * that Flyway uses for real V*.sql migrations. Baseline rows (type='BASELINE', version='0') are
+     * excluded because they are an implementation detail of Flyway's baselineOnMigrate setting and
+     * do not represent actual schema versions.
      *
      * @param ds the DataSource to query
      * @param historyTable the Flyway history table name (e.g., "flyway_schema_history_tenant")

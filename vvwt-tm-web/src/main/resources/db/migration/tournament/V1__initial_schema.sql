@@ -1,9 +1,10 @@
 -- ============================================================
 -- tournament/V1__initial_schema.sql — Tournament context schema
--- Epic:  E45 (Wave-2 Big-Bang-Reset)
--- Story: E45S05
+-- Epic:  E45 (Wave-2 Big-Bang-Reset) + E46S06 (DEC-52 V2→V1 i18n consolidation)
+-- Story: E45S05, E46S06
 -- DECs:  DEC-20 (DB-per-Tenant; tenant-scoped tables in per-tenant H2 file)
---        DEC-25 (Wave-2 Big-Bang-Reset: single atomic commit, reconstructed-from-scratch)
+--        DEC-25 (Wave-2 Big-Bang-Reset: single atomic commit, reconstructed-from-scratch;
+--                no-prod-data condition authorises E46S06 consolidation per DEC-52)
 --        DEC-39 D1 (tenant_id removed from all enumerated tenant-scoped tables)
 --        DEC-39 D2 (tournament.location_id UUID NOT NULL, FK to tenant/locations(id))
 --        DEC-39 D3 (active_sentinel re-scoped per location, not per tenant)
@@ -15,10 +16,18 @@
 --                valid because tournament/package-info.java declares
 --                allowedDependencies = {"tenant"} — tenant/V1 applied before tournament/V1)
 --        DEC-24 (devices.location_id nullable: post-registration assignment)
+--        DEC-52 (E46S01 V2 i18n columns retroactively reclassified as V1 baseline;
+--                organizer + language columns inlined per DEC-52 §Reclassification — E46S06)
 -- ============================================================
 --
 -- Consolidates root V2, V3, V4, V5, V7, V8, V9, V10, V11, V12, V13, V14, V16
 -- into a single per-module V1, reconstructed-from-scratch per DEC-25 §Decision.
+--
+-- E46S06 (DEC-52): Three columns were originally introduced as
+-- tournament/V2__e46s01_certificate_default_template_i18n.sql by E46S01 (PR #178).
+-- DEC-52 retroactively reclassifies them as part of the V1 baseline (i18n is a
+-- foundational requirement of the application rewrite). The V2 file is deleted;
+-- columns are inlined here. See git log for V2 provenance.
 --
 -- Key differences from root migrations:
 --   - All tenant_id columns DROPPED from all tables (DEC-39 D1)
@@ -41,6 +50,7 @@
 -- V7 columns: appointment, field_count, team_count (included here — reconstructed-from-scratch)
 -- V11 column: planned_start_time TIME NULL
 -- V14 column: draft_json TEXT
+-- DEC-52 (E46S06): organizer + language columns inlined from former tournament/V2 (E46S01)
 -- ============================================================
 CREATE TABLE tournament (
     id                      UUID          NOT NULL,
@@ -63,6 +73,16 @@ CREATE TABLE tournament (
     planned_start_time      TIME          NULL,
     -- V14 (E08S05): draft configuration as JSON text
     draft_json              TEXT          DEFAULT NULL,
+    -- DEC-52 (E46S06): organizer column inlined from former tournament/V2 (E46S01).
+    -- Snapshot of tenants.display_name captured at tournament INSERT time.
+    -- No DEFAULT clause — value computed by application code (DefaultTournamentRepository.save()).
+    -- No index, no FK, no check constraint (pure data-carrier per E46S01 AC-INSERT-NO-DEFAULT-CLAUSE).
+    organizer               VARCHAR(255)  NULL,
+    -- DEC-52 (E46S06): language column inlined from former tournament/V2 (E46S01).
+    -- Per-tournament language override for the LocaleResolver chain (E46S02).
+    -- NULL semantics: fall through to tenants.language ?? default 'de'.
+    -- No DEFAULT clause, no index, no FK, no check constraint.
+    language                VARCHAR(8)    NULL,
     -- DEC-39 D3: active_sentinel = location_id for ACTIVE, NULL otherwise.
     -- Enforces: at most one ACTIVE tournament per location within this per-tenant file.
     -- NULLs (non-ACTIVE tournaments) are distinct in UNIQUE — multiple non-active coexist.
@@ -99,6 +119,7 @@ CREATE TABLE phase (
 
 -- ============================================================
 -- team
+-- DEC-52 (E46S06): language column inlined from former tournament/V2 (E46S01).
 -- ============================================================
 CREATE TABLE team (
     id                  UUID          NOT NULL,
@@ -109,6 +130,11 @@ CREATE TABLE team (
     referee_assignment  BOOLEAN       NOT NULL  DEFAULT FALSE,
     without_assessment  BOOLEAN       NOT NULL  DEFAULT FALSE,
     created_at          TIMESTAMP     NOT NULL  DEFAULT CURRENT_TIMESTAMP,
+    -- DEC-52 (E46S06): language column inlined from former tournament/V2 (E46S01).
+    -- Per-team language override for the LocaleResolver chain (E46S02).
+    -- NULL semantics: fall through to tournament.language ?? tenants.language ?? 'de'.
+    -- No DEFAULT clause, no index, no FK, no check constraint.
+    language            VARCHAR(8)    NULL,
     CONSTRAINT pk_team PRIMARY KEY (id),
     CONSTRAINT fk_team_tournament
         FOREIGN KEY (tournament_id) REFERENCES tournament (id)
