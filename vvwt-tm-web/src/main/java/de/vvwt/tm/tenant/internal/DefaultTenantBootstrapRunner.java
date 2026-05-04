@@ -107,13 +107,29 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultTenantBootstrapRunner.class);
 
-    /** Display name used to identify the default tenant in the registry. */
-    static final String DEFAULT_TENANT_DISPLAY_NAME = "Default (LAN)";
+    /**
+     * Historical display name for the default tenant from pre-E46S05 installations. Retained as a
+     * historical constant for backward-compat detection in {@link
+     * #isKnownDefaultTenantName(String)} and for documentation purposes only. MUST NOT be used as
+     * the live bootstrap value — use {@link #bootstrapDisplayName} instead.
+     */
+    static final String LEGACY_DEFAULT_TENANT_DISPLAY_NAME = "Default (LAN)";
 
-    /** SQL to insert the default-tenant row into the main application {@code tenants} table. */
+    /**
+     * Current product-brand default tenant display name (E46S05+). Property-bound via {@link
+     * TmBootstrapProperties}; this constant is the fallback/default.
+     */
+    static final String DEFAULT_BOOTSTRAP_DISPLAY_NAME = "ToM Tournament Manager (LAN)";
+
+    /**
+     * SQL to insert the default-tenant row into the main application {@code tenants} table.
+     * Extended by E46S05 (AC-INSERT-TENANTS-DISPLAY-NAME-AT-BOOTSTRAP,
+     * AC-INSERT-TENANTS-LANGUAGE-AT-BOOTSTRAP) to use parameterized bind for display_name and to
+     * include the language column added by E46S01.
+     */
     private static final String INSERT_TENANT_SQL =
-            "INSERT INTO tenants (id, display_name, tenant_location_count, is_default, created_at) "
-                    + "VALUES (?, 'Default (LAN)', 1, TRUE, CURRENT_TIMESTAMP)";
+            "INSERT INTO tenants (id, display_name, language, tenant_location_count, is_default,"
+                    + " created_at) VALUES (?, ?, ?, 1, TRUE, CURRENT_TIMESTAMP)";
 
     /** SQL to check whether a tenant row already exists by primary key. */
     private static final String SELECT_TENANT_BY_ID_SQL =
@@ -153,17 +169,36 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
     private final TransactionTemplate transactionTemplate;
 
     /**
+     * Display name to use when bootstrapping the default tenant on first boot. Resolved from {@link
+     * TmBootstrapProperties#getDisplayName()} (default: {@link #DEFAULT_BOOTSTRAP_DISPLAY_NAME}).
+     * ONLY evaluated when the registry is empty (first boot,
+     * AC-FIRST-BOOT-ONLY-PROPERTY-EVALUATION).
+     */
+    private final String bootstrapDisplayName;
+
+    /**
+     * Language tag to use when bootstrapping the default tenant on first boot. Resolved from {@link
+     * TmBootstrapProperties#getLanguage()} (default: {@code "de"}). ONLY evaluated when the
+     * registry is empty (first boot, AC-FIRST-BOOT-ONLY-PROPERTY-EVALUATION).
+     */
+    private final String bootstrapLanguage;
+
+    /**
      * Constructs a {@code DefaultTenantBootstrapRunner}.
      *
      * @param registry the tenant registry for existence checks and registration; must not be {@code
      *     null}
      * @param flywayRunner the per-tenant Flyway runner for applying schema migrations; must not be
      *     {@code null}
+     * @param tenantDataSourceResolver the resolver for per-tenant DataSources; must not be {@code
+     *     null}
      * @param dataDir the root data directory ({@code ${tm.data.dir}}); must not be {@code null}
      * @param sharedJdbcTemplate the shared JPA JdbcTemplate for the AC11 idempotency guard and
      *     main-DB upsert; must not be {@code null}
      * @param transactionTemplate the TransactionTemplate for transactional main-DB inserts; must
      *     not be {@code null}
+     * @param bootstrapProperties Spring-bound properties for first-boot default-tenant parameters;
+     *     must not be {@code null}
      * @throws IllegalArgumentException if any argument is {@code null}
      */
     public DefaultTenantBootstrapRunner(
@@ -172,7 +207,8 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
             TenantDataSourceResolver tenantDataSourceResolver,
             Path dataDir,
             JdbcTemplate sharedJdbcTemplate,
-            TransactionTemplate transactionTemplate) {
+            TransactionTemplate transactionTemplate,
+            TmBootstrapProperties bootstrapProperties) {
         if (registry == null) {
             throw new IllegalArgumentException("registry must not be null");
         }
@@ -191,12 +227,17 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
         if (transactionTemplate == null) {
             throw new IllegalArgumentException("transactionTemplate must not be null");
         }
+        if (bootstrapProperties == null) {
+            throw new IllegalArgumentException("bootstrapProperties must not be null");
+        }
         this.registry = registry;
         this.flywayRunner = flywayRunner;
         this.tenantDataSourceResolver = tenantDataSourceResolver;
         this.dataDir = dataDir;
         this.sharedJdbcTemplate = sharedJdbcTemplate;
         this.transactionTemplate = transactionTemplate;
+        this.bootstrapDisplayName = bootstrapProperties.getDisplayName();
+        this.bootstrapLanguage = bootstrapProperties.getLanguage();
     }
 
     // -------------------------------------------------------------------------
@@ -228,7 +269,7 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
                     existingId);
             // Idempotent main-DB upsert: ensures the tenants row exists even if the main DB
             // is a fresh in-memory H2 (e.g. integration tests) while the file registry persists.
-            upsertMainDbTenantRow(existingId);
+            upsertMainDbTenantRow(existingId, bootstrapDisplayName, bootstrapLanguage);
             // E14S11 — Idempotent per-tenant Flyway run on subsequent starts.
             // Applies any migrations that were not present when the DB was first created (e.g.
             // wave-1 migration bootstrap: per-tenant DB was created with empty locations, now
@@ -242,7 +283,11 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
             // Use the resolver (not createDataSourceForTenant) so that test overrides that
             // provide an in-memory TenantDataSourceResolver are honoured here too.
             DataSource perTenantDs = tenantDataSourceResolver.resolve(existingId);
-            upsertDbTenantRow(existingId, new JdbcTemplate(perTenantDs));
+            upsertDbTenantRow(
+                    existingId,
+                    new JdbcTemplate(perTenantDs),
+                    bootstrapDisplayName,
+                    bootstrapLanguage);
             return;
         }
 
@@ -288,19 +333,24 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
         // This populates the shared `tenants` table that other entities (devices, tournaments,
         // etc.)
         // reference via FK. Runs after per-tenant Flyway but before file-registry registration.
-        upsertMainDbTenantRow(tenantId);
+        upsertMainDbTenantRow(tenantId, bootstrapDisplayName, bootstrapLanguage);
 
         // Step 6c (E14S11 wave-1): Also upsert tenant/location rows into the per-tenant DB via
         // the FILE-based DataSource. The resolver is NOT used here because the tenant has not been
         // registered yet — TenantFileRegistryDataSourceResolver would throw UnknownTenantException.
         // The resolver-based idempotent upsert is deferred to step 7b (after registration).
-        upsertDbTenantRow(tenantId, new JdbcTemplate(fileDataSource));
+        upsertDbTenantRow(
+                tenantId,
+                new JdbcTemplate(fileDataSource),
+                bootstrapDisplayName,
+                bootstrapLanguage);
 
-        // Step 7: Atomically register if no "Default (LAN)" entry exists yet (AC6).
+        // Step 7: Atomically register if no entry with the bootstrap display name exists yet (AC6).
         // Uses TenantFileRegistry.registerIfDisplayNameAbsent() for atomic check+write when
         // available (same package — package-private method). Falls back to non-atomic for
         // test doubles and alternative implementations.
-        boolean registered = atomicRegisterIfAbsent(tenantId, DEFAULT_TENANT_DISPLAY_NAME);
+        boolean registered =
+                atomicRegisterIfAbsent(tenantId, bootstrapDisplayName, bootstrapLanguage);
         if (registered) {
             log.info(
                     "[tm-e14s05] Default tenant bootstrap complete — UUID={} registered"
@@ -314,12 +364,16 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
             // subsequent integration-test queries.
             DataSource resolverDs = tenantDataSourceResolver.resolve(tenantId);
             flywayRunner.runWithDataSource(tenantId, resolverDs);
-            upsertDbTenantRow(tenantId, new JdbcTemplate(resolverDs));
+            upsertDbTenantRow(
+                    tenantId,
+                    new JdbcTemplate(resolverDs),
+                    bootstrapDisplayName,
+                    bootstrapLanguage);
         } else {
             // Concurrent winner already registered — self-clean our directory (AC6)
             log.info(
-                    "[tm-e14s05] Concurrent start detected: another process already registered"
-                        + " 'Default (LAN)'. Self-cleaning our directory UUID={} and deferring to"
+                    "[tm-e14s05] Concurrent start detected: another process already registered the"
+                        + " default tenant. Self-cleaning our directory UUID={} and deferring to"
                         + " winner. (AC6)",
                     tenantId);
             deleteTenantDirectory(tenantId);
@@ -478,7 +532,7 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
      *
      * @param tenantId the tenant UUID to insert; must not be {@code null}
      */
-    private void upsertMainDbTenantRow(UUID tenantId) {
+    private void upsertMainDbTenantRow(UUID tenantId, String displayName, String language) {
         try {
             Integer count =
                     sharedJdbcTemplate.queryForObject(
@@ -493,7 +547,8 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
                 final UUID locationId = UUID.randomUUID();
                 transactionTemplate.executeWithoutResult(
                         status -> {
-                            sharedJdbcTemplate.update(INSERT_TENANT_SQL, tenantId);
+                            sharedJdbcTemplate.update(
+                                    INSERT_TENANT_SQL, tenantId, displayName, language);
                             sharedJdbcTemplate.update(INSERT_LOCATION_SQL, locationId);
                         });
                 log.info(
@@ -581,7 +636,8 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
      * @param tenantId the tenant UUID to upsert; must not be {@code null}
      * @param jdbcTemplate the JdbcTemplate backed by the target DataSource (flat or per-tenant)
      */
-    void upsertDbTenantRow(UUID tenantId, JdbcTemplate jdbcTemplate) {
+    void upsertDbTenantRow(
+            UUID tenantId, JdbcTemplate jdbcTemplate, String displayName, String language) {
         try {
             Integer count =
                     jdbcTemplate.queryForObject(SELECT_TENANT_BY_ID_SQL, Integer.class, tenantId);
@@ -604,7 +660,7 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
                 }
                 return;
             }
-            jdbcTemplate.update(INSERT_TENANT_SQL, tenantId);
+            jdbcTemplate.update(INSERT_TENANT_SQL, tenantId, displayName, language);
             jdbcTemplate.update(INSERT_LOCATION_SQL, UUID.randomUUID());
             log.info(
                     "[tm-e14s11] Tenant+location rows inserted in target DB for UUID={}", tenantId);
@@ -638,32 +694,71 @@ public class DefaultTenantBootstrapRunner implements ApplicationRunner {
      *
      * @param tenantId the tenant UUID to register
      * @param displayName the display name to check for uniqueness
+     * @param language the ISO 639-1 language tag to store alongside the display name
      * @return {@code true} if registration succeeded; {@code false} if the displayName already
      *     existed
      */
-    private boolean atomicRegisterIfAbsent(UUID tenantId, String displayName) {
+    private boolean atomicRegisterIfAbsent(UUID tenantId, String displayName, String language) {
         if (registry instanceof TenantFileRegistry fileRegistry) {
             // Fast path: atomic check+register in the same synchronized block (AC6)
-            return fileRegistry.registerIfDisplayNameAbsent(tenantId, displayName);
+            return fileRegistry.registerIfDisplayNameAbsent(tenantId, displayName, language);
         }
         // Fallback (non-atomic): used with test doubles or future alternative implementations
         Optional<TenantRecord> existing = findDefaultTenantRecord();
         if (existing.isPresent()) {
             return false;
         }
-        registry.register(tenantId, displayName);
+        registry.register(tenantId, displayName, language);
         return true;
     }
 
     /**
-     * Searches the registry for a tenant record with the default-tenant display name.
+     * Searches the registry for the default-tenant record.
      *
-     * @return the first matching record, or empty if no default tenant is registered
+     * <p>Wave-1 strategy: if there is exactly one tenant in the registry, that tenant IS the
+     * default (LAN mode always bootstraps a single tenant). If there are multiple tenants, falls
+     * back to {@link #isKnownDefaultTenantName(String)} to identify the default by known display
+     * names — preserving backward-compat with legacy {@code "Default (LAN)"} entries and the new
+     * {@code "ToM Tournament Manager (LAN)"} default.
+     *
+     * <p>The first-record fallback makes operator-overridden bootstrap names (e.g. "My Club" via
+     * {@code tm.bootstrap.default-tenant.display-name}) work without being hard-coded here
+     * (AC-PROP-DISPLAY-NAME-OVERRIDE + AC-FIRST-BOOT-ONLY-PROPERTY-EVALUATION).
+     *
+     * @return the default-tenant record, or empty if no default tenant is registered
      */
     private Optional<TenantRecord> findDefaultTenantRecord() {
-        return registry.findAll().stream()
-                .filter(r -> DEFAULT_TENANT_DISPLAY_NAME.equals(r.displayName()))
-                .findFirst();
+        List<TenantRecord> all = registry.findAll();
+        if (all.size() == 1) {
+            // Wave-1: sole tenant is always the default regardless of display name
+            return Optional.of(all.get(0));
+        }
+        // Multi-tenant fallback: identify by known display names (backward compat)
+        return all.stream().filter(r -> isKnownDefaultTenantName(r.displayName())).findFirst();
+    }
+
+    /**
+     * Returns {@code true} if the given display name is a known default-tenant name.
+     *
+     * <p>Recognizes:
+     *
+     * <ul>
+     *   <li>{@code "Default (LAN)"} — legacy name used by pre-E46S05 installations.
+     *   <li>{@code "ToM Tournament Manager (LAN)"} — product-brand name introduced by E46S05.
+     * </ul>
+     *
+     * <p>Package-private to allow {@link TenantFileRegistry#getDefault()} to use the same
+     * recognition set without duplicating the known-names logic.
+     *
+     * <p>AC-BACKWARD-COMPAT-LEGACY-DEFAULT-LAN-PRESERVED: an existing {@code "Default (LAN)"}
+     * registry entry is recognized as the default tenant and must NOT be re-bootstrapped.
+     *
+     * @param displayName the display name to check; may be {@code null}
+     * @return {@code true} if the display name is a known default-tenant name
+     */
+    static boolean isKnownDefaultTenantName(String displayName) {
+        return LEGACY_DEFAULT_TENANT_DISPLAY_NAME.equals(displayName)
+                || DEFAULT_BOOTSTRAP_DISPLAY_NAME.equals(displayName);
     }
 
     /**

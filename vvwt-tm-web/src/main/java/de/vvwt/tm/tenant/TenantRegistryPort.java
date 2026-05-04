@@ -100,6 +100,33 @@ public interface TenantRegistryPort {
     void register(UUID tenantId, String displayName);
 
     /**
+     * Registers a new tenant with the given UUID, display name, and language tag (E46S05).
+     *
+     * <p>This is the 3-arg extension added in E46S05 so that the bootstrap language is persisted in
+     * the registry alongside the display name. Implementors that do not override this default
+     * delegate to the 2-arg {@link #register(UUID, String)} (language is silently dropped — only
+     * for mock/stub implementations in legacy tests that do not need language persistence).
+     *
+     * <p>The {@link de.vvwt.tm.tenant.internal.TenantFileRegistry} overrides this default to store
+     * {@code language} in the JSON registry entry, making {@link TenantRecord#language()} non-null
+     * after the first-boot bootstrap.
+     *
+     * @param tenantId the UUID of the new tenant; must not be {@code null}
+     * @param displayName a human-readable label for the tenant; must not be {@code null}
+     * @param language the ISO 639-1 language tag for this tenant; may be {@code null} (stored as
+     *     {@code null} for legacy registries — E46S02 LocaleResolver falls through to system
+     *     default on null)
+     * @throws IllegalArgumentException if {@code tenantId} or {@code displayName} is null
+     * @throws RuntimeException (implementation-defined subtype) if {@code tenantId} is already
+     *     registered
+     * @see <a href="../../../../../../../../docs/governance/stories/E46S05.story.md">Story
+     *     E46S05</a>
+     */
+    default void register(UUID tenantId, String displayName, String language) {
+        register(tenantId, displayName);
+    }
+
+    /**
      * Returns all currently registered tenants.
      *
      * <p>The returned list is a snapshot of the registry at the time of the call. Concurrent
@@ -157,12 +184,16 @@ public interface TenantRegistryPort {
      * An immutable record representing a registered tenant entry in the registry.
      *
      * <p>The tenant identifier is UUID-based per DEC-17. The {@code displayName} is a
-     * human-readable label for the tenant (e.g., "Default (LAN)").
+     * human-readable label for the tenant. The {@code language} is the BCP 47 / ISO 639-1 language
+     * tag bootstrapped at first boot (e.g., "de", "en"). {@code null} indicates a pre-E46S05 legacy
+     * record — callers must handle null gracefully (E46S02 LocaleResolver chain falls through to
+     * system default "de" on null).
      *
      * @param tenantId the tenant's UUID; never {@code null}
      * @param displayName the human-readable tenant label; never {@code null}
+     * @param language the tenant's bootstrap language; may be {@code null} for legacy records
      */
-    record TenantRecord(UUID tenantId, String displayName) {
+    record TenantRecord(UUID tenantId, String displayName, String language) {
 
         /**
          * Compact canonical constructor — validates invariants.
@@ -176,6 +207,21 @@ public interface TenantRegistryPort {
             if (displayName == null) {
                 throw new IllegalArgumentException("TenantRecord.displayName must not be null");
             }
+            // language may be null (legacy records pre-E46S05)
+        }
+
+        /**
+         * Convenience constructor for legacy code and test fixtures that do not need to set {@code
+         * language} (e.g., existing 2-arg call-sites — E46S01 D-14 compatibility shape).
+         *
+         * <p>Sets {@code language = null}. Callers that need a language-aware record must use the
+         * 3-arg canonical constructor.
+         *
+         * @param tenantId the tenant's UUID; never {@code null}
+         * @param displayName the human-readable tenant label; never {@code null}
+         */
+        public TenantRecord(UUID tenantId, String displayName) {
+            this(tenantId, displayName, null);
         }
     }
 }

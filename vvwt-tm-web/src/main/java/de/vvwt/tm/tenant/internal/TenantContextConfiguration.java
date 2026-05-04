@@ -268,7 +268,8 @@ public class TenantContextConfiguration {
             TenantDataSourceResolver tenantDataSourceResolver,
             TmDataDirProperties dataDirProperties,
             @Qualifier("dataSource") DataSource flatDataSource,
-            TransactionTemplate transactionTemplate) {
+            TransactionTemplate transactionTemplate,
+            TmBootstrapProperties bootstrapProperties) {
         JdbcTemplate flatJdbcTemplate = new JdbcTemplate(flatDataSource);
         return new DefaultTenantBootstrapRunner(
                 tenantRegistryPort,
@@ -276,7 +277,8 @@ public class TenantContextConfiguration {
                 tenantDataSourceResolver,
                 dataDirProperties.asPath(),
                 flatJdbcTemplate,
-                transactionTemplate);
+                transactionTemplate,
+                bootstrapProperties);
     }
 
     /**

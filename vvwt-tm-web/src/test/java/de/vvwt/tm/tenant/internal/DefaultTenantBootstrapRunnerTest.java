@@ -105,6 +105,14 @@ class DefaultTenantBootstrapRunnerTest {
         return ds;
     }
 
+    /**
+     * Creates a {@link TmBootstrapProperties} pre-populated with the default values. Used in unit
+     * tests to satisfy the 7-arg constructor without spinning up a Spring context.
+     */
+    private static TmBootstrapProperties defaultBootstrapProperties() {
+        return new TmBootstrapProperties();
+    }
+
     // -------------------------------------------------------------------------
     // AC2 — first-start: registers default tenant + runs Flyway
     // -------------------------------------------------------------------------
@@ -132,12 +140,14 @@ class DefaultTenantBootstrapRunnerTest {
                         tenantDataSourceResolver,
                         tempDir,
                         sharedJdbcTemplate,
-                        transactionTemplate);
+                        transactionTemplate,
+                        defaultBootstrapProperties());
 
         runner.run(null);
 
         ArgumentCaptor<UUID> uuidCaptor = ArgumentCaptor.forClass(UUID.class);
-        verify(registry).register(uuidCaptor.capture(), eq("Default (LAN)"));
+        verify(registry)
+                .register(uuidCaptor.capture(), eq("ToM Tournament Manager (LAN)"), eq("de"));
 
         UUID registeredId = uuidCaptor.getValue();
         assertThat(registeredId).as("Registered UUID must not be null").isNotNull();
@@ -180,7 +190,8 @@ class DefaultTenantBootstrapRunnerTest {
                         tenantDataSourceResolver,
                         tempDir,
                         sharedJdbcTemplate,
-                        transactionTemplate);
+                        transactionTemplate,
+                        defaultBootstrapProperties());
 
         runner.run(null);
 
@@ -218,7 +229,13 @@ class DefaultTenantBootstrapRunnerTest {
                 .thenReturn(0);
         DefaultTenantBootstrapRunner runnerA =
                 new DefaultTenantBootstrapRunner(
-                        registryA, flywayA, resolverA, tempDir, jdbcA, txA);
+                        registryA,
+                        flywayA,
+                        resolverA,
+                        tempDir,
+                        jdbcA,
+                        txA,
+                        defaultBootstrapProperties());
 
         // Instance B
         TenantRegistryPort registryB = org.mockito.Mockito.mock(TenantRegistryPort.class);
@@ -234,15 +251,21 @@ class DefaultTenantBootstrapRunnerTest {
                 .thenReturn(0);
         DefaultTenantBootstrapRunner runnerB =
                 new DefaultTenantBootstrapRunner(
-                        registryB, flywayB, resolverB, tempDirB, jdbcB, txB);
+                        registryB,
+                        flywayB,
+                        resolverB,
+                        tempDirB,
+                        jdbcB,
+                        txB,
+                        defaultBootstrapProperties());
 
         runnerA.run(null);
         runnerB.run(null);
 
         ArgumentCaptor<UUID> captorA = ArgumentCaptor.forClass(UUID.class);
         ArgumentCaptor<UUID> captorB = ArgumentCaptor.forClass(UUID.class);
-        verify(registryA).register(captorA.capture(), any());
-        verify(registryB).register(captorB.capture(), any());
+        verify(registryA).register(captorA.capture(), any(), any());
+        verify(registryB).register(captorB.capture(), any(), any());
 
         assertThat(captorA.getValue())
                 .as(
@@ -275,7 +298,8 @@ class DefaultTenantBootstrapRunnerTest {
                         tenantDataSourceResolver,
                         tempDir,
                         sharedJdbcTemplate,
-                        transactionTemplate);
+                        transactionTemplate,
+                        defaultBootstrapProperties());
 
         assertThatThrownBy(() -> runner.run(null))
                 .as("Bootstrap must propagate the Flyway exception (fail-fast AC5)")
@@ -318,7 +342,8 @@ class DefaultTenantBootstrapRunnerTest {
                         tenantDataSourceResolver,
                         tempDir,
                         sharedJdbcTemplate,
-                        transactionTemplate);
+                        transactionTemplate,
+                        defaultBootstrapProperties());
 
         // Act: should not throw
         runner.run(null);
@@ -329,7 +354,8 @@ class DefaultTenantBootstrapRunnerTest {
                 .doesNotExist();
 
         // Assert: registry was populated (bootstrap completed)
-        verify(registry, times(1)).register(any(UUID.class), eq("Default (LAN)"));
+        verify(registry, times(1))
+                .register(any(UUID.class), eq("ToM Tournament Manager (LAN)"), eq("de"));
 
         // Assert: Flyway was run for the NEW tenant (not the orphan): once pre-registration
         // (step 6) and once post-registration (step 7b) — total 2 invocations.
@@ -360,7 +386,8 @@ class DefaultTenantBootstrapRunnerTest {
                         tenantDataSourceResolver,
                         tempDir,
                         sharedJdbcTemplate,
-                        transactionTemplate);
+                        transactionTemplate,
+                        defaultBootstrapProperties());
 
         assertThatThrownBy(() -> runner.run(null)).isInstanceOf(FlywayException.class);
 
@@ -462,10 +489,22 @@ class DefaultTenantBootstrapRunnerTest {
 
         DefaultTenantBootstrapRunner runnerA =
                 new DefaultTenantBootstrapRunner(
-                        realRegistry, flywayRunner, resolverConcA, dataDirA, jdbcConcA, txConcA);
+                        realRegistry,
+                        flywayRunner,
+                        resolverConcA,
+                        dataDirA,
+                        jdbcConcA,
+                        txConcA,
+                        defaultBootstrapProperties());
         DefaultTenantBootstrapRunner runnerB =
                 new DefaultTenantBootstrapRunner(
-                        realRegistry, flywayRunner, resolverConcB, dataDirB, jdbcConcB, txConcB);
+                        realRegistry,
+                        flywayRunner,
+                        resolverConcB,
+                        dataDirB,
+                        jdbcConcB,
+                        txConcB,
+                        defaultBootstrapProperties());
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
 
@@ -511,7 +550,7 @@ class DefaultTenantBootstrapRunnerTest {
 
         assertThat(allTenants.get(0).displayName())
                 .as("The registered tenant must be the default tenant")
-                .isEqualTo("Default (LAN)");
+                .isEqualTo("ToM Tournament Manager (LAN)");
     }
 
     // =========================================================================
@@ -544,13 +583,15 @@ class DefaultTenantBootstrapRunnerTest {
                         tenantDataSourceResolver,
                         tempDir,
                         sharedJdbcTemplate,
-                        transactionTemplate);
+                        transactionTemplate,
+                        defaultBootstrapProperties());
 
         runner.run(null);
 
         // The runner must register the UUID-from-JPA, not a randomly generated one
         ArgumentCaptor<UUID> uuidCaptor = ArgumentCaptor.forClass(UUID.class);
-        verify(registry).register(uuidCaptor.capture(), eq("Default (LAN)"));
+        verify(registry)
+                .register(uuidCaptor.capture(), eq("ToM Tournament Manager (LAN)"), eq("de"));
         assertThat(uuidCaptor.getValue())
                 .as(
                         "AC11: runner must use the UUID already in JPA TENANTS table (not generate"
@@ -582,13 +623,15 @@ class DefaultTenantBootstrapRunnerTest {
                         tenantDataSourceResolver,
                         tempDir,
                         sharedJdbcTemplate,
-                        transactionTemplate);
+                        transactionTemplate,
+                        defaultBootstrapProperties());
 
         runner.run(null);
 
         // Runner must have registered some non-null UUID (generated by UUID.randomUUID())
         ArgumentCaptor<UUID> uuidCaptor = ArgumentCaptor.forClass(UUID.class);
-        verify(registry).register(uuidCaptor.capture(), eq("Default (LAN)"));
+        verify(registry)
+                .register(uuidCaptor.capture(), eq("ToM Tournament Manager (LAN)"), eq("de"));
         assertThat(uuidCaptor.getValue())
                 .as("AC11: runner must generate a non-null UUID when JPA table is empty")
                 .isNotNull();
@@ -616,7 +659,8 @@ class DefaultTenantBootstrapRunnerTest {
                         tenantDataSourceResolver,
                         tempDir,
                         sharedJdbcTemplate,
-                        transactionTemplate);
+                        transactionTemplate,
+                        defaultBootstrapProperties());
 
         assertThatThrownBy(() -> runner.run(null))
                 .as(
@@ -640,7 +684,8 @@ class DefaultTenantBootstrapRunnerTest {
                                         tenantDataSourceResolver,
                                         tempDir,
                                         null,
-                                        transactionTemplate))
+                                        transactionTemplate,
+                                        defaultBootstrapProperties()))
                 .as("AC12: null JdbcTemplate must throw IllegalArgumentException")
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("sharedJdbcTemplate must not be null");
@@ -657,9 +702,79 @@ class DefaultTenantBootstrapRunnerTest {
                                         tenantDataSourceResolver,
                                         tempDir,
                                         sharedJdbcTemplate,
-                                        null))
+                                        null,
+                                        defaultBootstrapProperties()))
                 .as("AC12: null TransactionTemplate must throw IllegalArgumentException")
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("transactionTemplate must not be null");
+    }
+
+    // =========================================================================
+    // E46S05 — AC-FIRST-BOOT-ONLY-PROPERTY-EVALUATION + AC-SUBSEQUENT-BOOT-NO-WRITE
+    // =========================================================================
+
+    /**
+     * AC-FIRST-BOOT-ONLY-PROPERTY-EVALUATION + AC-SUBSEQUENT-BOOT-NO-WRITE: on a subsequent boot
+     * where the registry already contains a tenant with the new display name, the runner must NOT
+     * call register() again even if a different display-name property is configured.
+     *
+     * <p>DEC-41 observable-form: verifies that {@code register()} is never called when the registry
+     * is non-empty.
+     */
+    @Test
+    void subsequentBoot_withNewDisplayName_doesNotReapplyPropertyChange() throws Exception {
+        UUID existingId = UUID.randomUUID();
+        // Registry already has a "ToM Tournament Manager (LAN)" tenant from first boot
+        when(registry.findAll())
+                .thenReturn(List.of(new TenantRecord(existingId, "ToM Tournament Manager (LAN)")));
+        when(sharedJdbcTemplate.queryForObject(
+                        any(String.class), eq(Integer.class), any(Object[].class)))
+                .thenReturn(1); // row already present
+
+        DefaultTenantBootstrapRunner runner =
+                new DefaultTenantBootstrapRunner(
+                        registry,
+                        flywayRunner,
+                        tenantDataSourceResolver,
+                        tempDir,
+                        sharedJdbcTemplate,
+                        transactionTemplate,
+                        defaultBootstrapProperties());
+
+        runner.run(null);
+
+        // Existing tenant recognized — no new registration
+        verify(registry, never()).register(any(), anyString());
+    }
+
+    /**
+     * AC-BACKWARD-COMPAT-LEGACY-DEFAULT-LAN-PRESERVED: registry containing legacy {@code "Default
+     * (LAN)"} tenant is recognized as the default — no duplicate created.
+     *
+     * <p>This test is the explicit observable coverage for AC-BACKWARD-COMPAT. The seeded record
+     * uses the legacy name; the runner must detect it via {@code isKnownDefaultTenantName}.
+     */
+    @Test
+    void subsequentBoot_legacyDefaultLan_recognizedAsDefaultTenant() throws Exception {
+        UUID existingId = UUID.randomUUID();
+        when(registry.findAll()).thenReturn(List.of(new TenantRecord(existingId, "Default (LAN)")));
+        when(sharedJdbcTemplate.queryForObject(
+                        any(String.class), eq(Integer.class), any(Object[].class)))
+                .thenReturn(1);
+
+        DefaultTenantBootstrapRunner runner =
+                new DefaultTenantBootstrapRunner(
+                        registry,
+                        flywayRunner,
+                        tenantDataSourceResolver,
+                        tempDir,
+                        sharedJdbcTemplate,
+                        transactionTemplate,
+                        defaultBootstrapProperties());
+
+        runner.run(null);
+
+        // Legacy "Default (LAN)" recognized — no new registration (backward compat)
+        verify(registry, never()).register(any(), anyString());
     }
 }

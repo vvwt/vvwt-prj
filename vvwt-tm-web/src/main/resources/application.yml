@@ -103,6 +103,26 @@ tm:
   certificate-templates:
     data-dir: ${TM_CERT_TEMPLATES_DATA_DIR:${user.home}/.tournament-manager/certificate-templates}
     max-size-bytes: ${TM_CERT_TEMPLATES_MAX_SIZE_BYTES:2097152}
+  # ---------------------------------------------------------------------------
+  # First-boot default-tenant bootstrap parameters (E46S05)
+  # These properties are evaluated ONLY on the FIRST boot (empty registry).
+  # On subsequent boots the existing registry entry is preserved as-is — re-configuring these
+  # properties after first boot has NO effect (AC-FIRST-BOOT-ONLY-PROPERTY-EVALUATION).
+  #
+  #   display-name — human-readable label for the default tenant
+  #     Default: "ToM Tournament Manager (LAN)"
+  #     Override: export TM_BOOTSTRAP_DEFAULT_TENANT_DISPLAY_NAME=... or
+  #               -Dtm.bootstrap.default-tenant.display-name=...
+  #
+  #   language — ISO 639-1 language tag for the default tenant's locale (E46S02 LocaleResolver)
+  #     Default: "de" (system default per Brief C-15)
+  #     Override: export TM_BOOTSTRAP_DEFAULT_TENANT_LANGUAGE=... or
+  #               -Dtm.bootstrap.default-tenant.language=...
+  # ---------------------------------------------------------------------------
+  bootstrap:
+    default-tenant:
+      display-name: ${TM_BOOTSTRAP_DEFAULT_TENANT_DISPLAY_NAME:ToM Tournament Manager (LAN)}
+      language: ${TM_BOOTSTRAP_DEFAULT_TENANT_LANGUAGE:de}
   slotopt:
     fallback:
       # Number of courts (fields) available per lap for slot assignment.
