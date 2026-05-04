@@ -28,6 +28,20 @@ spring:
     password:
 
   # ---------------------------------------------------------------------------
+  # i18n — MessageSource deterministic fallback (E46S02, AC-MESSAGE-SOURCE-FALLBACK-FALSE)
+  # ---------------------------------------------------------------------------
+  # Path A per AC-MESSAGE-SOURCE-FALLBACK-FALSE + AC-MESSAGE-SOURCE-BASENAME-EXPLICIT:
+  # Both properties are mandatory — relying on Spring Boot autoconfigured defaults is forbidden
+  # (explicit declaration anchors the contract regardless of future autoconfig drift).
+  # fallback-to-system-locale: false — ensures unmatched locales fall back to messages.properties
+  #   (canonical DE bundle per Brief D-7) rather than the JVM system locale.
+  # basename: messages — canonical bundle name; messages_de.properties intentionally absent
+  #   (AC-MESSAGES-DE-NOT-SHIPPED).
+  messages:
+    basename: messages
+    fallback-to-system-locale: false
+
+  # ---------------------------------------------------------------------------
   # Flyway schema migration (DEC-14)
   # ---------------------------------------------------------------------------
   flyway:

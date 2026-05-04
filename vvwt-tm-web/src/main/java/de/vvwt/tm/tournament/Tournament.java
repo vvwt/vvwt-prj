@@ -111,6 +111,18 @@ public class Tournament {
     @Column("draft_json")
     private String draftJson;
 
+    /**
+     * Organizer name — snapshot of the tenant's {@code display_name} at INSERT time (E46S01,
+     * E46S03). Populated by {@code DefaultTournamentRepository.save()} on the INSERT path via an
+     * intra-DB SELECT against {@code tenants.display_name}. Immutable after INSERT (UPDATE SQL does
+     * NOT include this column). May be {@code null} for legacy rows written before E46S01
+     * migration.
+     *
+     * @see de.vvwt.tm.tournament.internal.DefaultTournamentRepository
+     */
+    @Column("organizer")
+    private String organizer;
+
     // -------------------------------------------------------------------------
     // Constructors
     // -------------------------------------------------------------------------
@@ -340,5 +352,13 @@ public class Tournament {
 
     public void setDraftJson(String draftJson) {
         this.draftJson = draftJson;
+    }
+
+    public String getOrganizer() {
+        return organizer;
+    }
+
+    public void setOrganizer(String organizer) {
+        this.organizer = organizer;
     }
 }

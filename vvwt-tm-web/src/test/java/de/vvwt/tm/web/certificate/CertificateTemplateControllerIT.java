@@ -402,7 +402,9 @@ class CertificateTemplateControllerIT {
     // =========================================================================
 
     @Test
-    @DisplayName("AC6: GET /variables returns 200 with exactly 6 variables")
+    @DisplayName(
+            "AC6 (E46S03): GET /variables returns 200 with exactly 13 tom_-prefixed variables"
+                    + " (AC-VARIABLES-LIST-COUNT-EXACTLY-13)")
     void variablesEndpointReturns6Variables() throws Exception {
         ResponseEntity<VariableResponse[]> response =
                 authed.getForEntity(
@@ -411,7 +413,9 @@ class CertificateTemplateControllerIT {
         assertThat(response.getStatusCode())
                 .as("AC6: variables endpoint must return 200")
                 .isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).as("AC6: must return exactly 6 variables").hasSize(6);
+        assertThat(response.getBody())
+                .as("AC6 (E46S03): must return exactly 13 variables")
+                .hasSize(13);
     }
 
     // =========================================================================
@@ -420,7 +424,8 @@ class CertificateTemplateControllerIT {
 
     @Test
     @DisplayName(
-            "AC6: Variables contain placement, teamName, teamPhoto, tournamentName, date, location")
+            "AC6 (E46S03): Variables contain 13 tom_-prefixed names"
+                    + " (AC-VARIABLES-LIST-13-PREFIXED)")
     void variablesEndpointContainsExpectedNames() throws Exception {
         ResponseEntity<VariableResponse[]> response =
                 authed.getForEntity(
@@ -433,9 +438,21 @@ class CertificateTemplateControllerIT {
                         .toArray(String[]::new);
 
         assertThat(names)
-                .as("AC6: variable names must match system contract in order")
+                .as("AC6 (E46S03): variable names must match tom_-prefixed contract in order")
                 .containsExactly(
-                        "placement", "teamName", "teamPhoto", "tournamentName", "date", "location");
+                        "tom_placement",
+                        "tom_team_name",
+                        "tom_team_photo",
+                        "tom_tournament_name",
+                        "tom_date",
+                        "tom_location",
+                        "tom_organizer",
+                        "tom_label_certificate",
+                        "tom_label_place",
+                        "tom_label_achieved_by",
+                        "tom_label_team_photo",
+                        "tom_label_generated_by",
+                        "tom_label_on");
     }
 
     // =========================================================================

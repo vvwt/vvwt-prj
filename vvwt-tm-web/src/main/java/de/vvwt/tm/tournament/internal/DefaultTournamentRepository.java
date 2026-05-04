@@ -228,6 +228,7 @@ public class DefaultTournamentRepository implements TournamentRepository {
                         : null;
         t.setPlannedStartTime(pst);
         t.setDraftJson(rs.getString("draft_json"));
+        t.setOrganizer(rs.getString("organizer"));
         return t;
     }
 }

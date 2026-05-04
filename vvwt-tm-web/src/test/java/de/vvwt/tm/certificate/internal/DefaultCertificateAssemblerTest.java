@@ -1,11 +1,15 @@
 package de.vvwt.tm.certificate.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import de.vvwt.tm.certificate.CertificateAssembler;
 import de.vvwt.tm.certificate.CertificatePlacementRow;
+import de.vvwt.tm.certificate.LocaleResolver;
 import de.vvwt.tm.photo.PhotoFileMetadata;
 import de.vvwt.tm.photo.PhotoStorageService;
 import de.vvwt.tm.photo.PhotoUrlBuilder;
@@ -23,12 +27,14 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.MessageSource;
 
 /**
  * Q-1a TDD RED-first test suite for the rebuilt {@link DefaultCertificateAssembler} (E36S05, DEC-22
@@ -37,6 +43,12 @@ import org.junit.jupiter.api.Test;
  * <p>Authored RED-first against the absent impl after the legacy Q-1b {@code
  * DefaultCertificateAssembler} was deleted at commit {@code c40db76}. These tests first failed at
  * compile time (RED state per AC-TDD-RED-FIRST-EVIDENCE model (a)).
+ *
+ * <p><b>E46S03 extension:</b> constructor expanded to 8-arg (added {@link MessageSource} + {@link
+ * LocaleResolver}); existing CertificatePlacementRow constructor calls updated to 8-component;
+ * tests for the new buildMustacheMap behavior (13 tom_-prefixed keys + labels + organizer +
+ * locale-aware date) added under RED-first discipline. WHITE-BOX tests for the renamed {@code
+ * tom_has_photo} key added.
  *
  * <p>Per DEC-36: this test class is in {@code de.vvwt.tm.certificate.internal} — the SAME package
  * as {@code DefaultCertificateAssembler}. White-box access (package-private helpers, constructor
@@ -54,9 +66,9 @@ import org.junit.jupiter.api.Test;
  *
  * @see DefaultCertificateAssembler
  * @see CertificateAssembler
- * @since E36S05
+ * @since E36S05 (updated E46S03)
  */
-@DisplayName("DefaultCertificateAssembler — E36S05 Q-1a TDD RED-first rebuild")
+@DisplayName("DefaultCertificateAssembler — E36S05 Q-1a TDD RED-first rebuild (E46S03 extension)")
 class DefaultCertificateAssemblerTest {
 
     // -------------------------------------------------------------------------
@@ -83,6 +95,8 @@ class DefaultCertificateAssemblerTest {
     private TeamRepository teamRepository;
     private PhotoStorageService photoStorageService;
     private PhotoUrlBuilder photoUrlBuilder;
+    private MessageSource messageSource;
+    private LocaleResolver localeResolver;
 
     /**
      * DEC-36: declared as public interface (best practice even in same-package context). White-box
@@ -148,19 +162,25 @@ class DefaultCertificateAssemblerTest {
         return t;
     }
 
+    /**
+     * Makes a tournament with organizer "Volleyball-Verein Musterstadt" and appointment 2026-04-15.
+     */
     private static Tournament makeTournament() {
-        return new Tournament(
-                TOURNAMENT_ID,
-                "Stadtmeisterschaft 2026",
-                "BEST_OF_3",
-                "setPoints",
-                "standardVolleyball",
-                "roundRobin",
-                "COMPLETED",
-                null,
-                LocalDateTime.of(2026, 4, 15, 9, 0),
-                4,
-                8);
+        Tournament t =
+                new Tournament(
+                        TOURNAMENT_ID,
+                        "Stadtmeisterschaft 2026",
+                        "BEST_OF_3",
+                        "setPoints",
+                        "standardVolleyball",
+                        "roundRobin",
+                        "COMPLETED",
+                        null,
+                        LocalDateTime.of(2026, 4, 15, 9, 0),
+                        4,
+                        8);
+        t.setOrganizer("Volleyball-Verein Musterstadt");
+        return t;
     }
 
     @BeforeEach
@@ -171,9 +191,19 @@ class DefaultCertificateAssemblerTest {
         teamRepository = mock(TeamRepository.class);
         photoStorageService = mock(PhotoStorageService.class);
         photoUrlBuilder = mock(PhotoUrlBuilder.class);
+        messageSource = mock(MessageSource.class);
+        localeResolver = mock(LocaleResolver.class);
+
+        // Stub messageSource for standard German labels (default stubs for most tests)
+        stubGermanLabels();
+
+        // Default locale: GERMAN
+        when(localeResolver.resolveForTeam(any(UUID.class), any(UUID.class)))
+                .thenReturn(Locale.GERMAN);
+        when(localeResolver.resolveForTournament(any(UUID.class))).thenReturn(Locale.GERMAN);
 
         // White-box constructor call (same package — DEC-36 same-package exception).
-        // 6-arg signature preserved verbatim per AC-CONSTRUCTOR-INJECTION-PRESERVED.
+        // 8-arg signature: original 6 + MessageSource + LocaleResolver (E46S03).
         assembler =
                 new DefaultCertificateAssembler(
                         phaseRepository,
@@ -181,7 +211,24 @@ class DefaultCertificateAssemblerTest {
                         teamAvatarRatingRepository,
                         teamRepository,
                         photoStorageService,
-                        photoUrlBuilder);
+                        photoUrlBuilder,
+                        messageSource,
+                        localeResolver);
+    }
+
+    private void stubGermanLabels() {
+        when(messageSource.getMessage(eq("tom.label.certificate"), isNull(), any(Locale.class)))
+                .thenReturn("URKUNDE");
+        when(messageSource.getMessage(eq("tom.label.place"), isNull(), any(Locale.class)))
+                .thenReturn("PLATZ");
+        when(messageSource.getMessage(eq("tom.label.achieved_by"), isNull(), any(Locale.class)))
+                .thenReturn("erreicht von");
+        when(messageSource.getMessage(eq("tom.label.team_photo"), isNull(), any(Locale.class)))
+                .thenReturn("Mannschaftsfoto");
+        when(messageSource.getMessage(eq("tom.label.generated_by"), isNull(), any(Locale.class)))
+                .thenReturn("generated by");
+        when(messageSource.getMessage(eq("tom.label.on"), isNull(), any(Locale.class)))
+                .thenReturn("am");
     }
 
     // =========================================================================
@@ -474,12 +521,13 @@ class DefaultCertificateAssemblerTest {
     // =========================================================================
 
     @Test
-    @DisplayName("renderSvgTemplate: fills all 6 template variable placeholders")
+    @DisplayName("renderSvgTemplate: fills tom_-prefixed template variable placeholders (E46S03)")
     void renderSvgTemplate_fillsAllPlaceholders() {
         String template =
-                "<svg><text>{{placement}}</text><text>{{teamName}}</text>"
-                        + "<image href=\"{{teamPhoto}}\"/><text>{{tournamentName}}</text>"
-                        + "<text>{{date}}</text><text>{{location}}</text></svg>";
+                "<svg><text>{{tom_placement}}</text><text>{{tom_team_name}}</text>"
+                        + "<image href=\"{{tom_team_photo}}\"/><text>{{tom_tournament_name}}</text>"
+                        + "<text>{{tom_date}}</text><text>{{tom_location}}</text>"
+                        + "<text>{{tom_organizer}}</text></svg>";
         CertificatePlacementRow row =
                 new CertificatePlacementRow(
                         1,
@@ -488,7 +536,8 @@ class DefaultCertificateAssemblerTest {
                         "data:image/png;base64,abc==",
                         "Stadtmeisterschaft 2026",
                         "15. April 2026",
-                        "Sporthalle Musterstadt");
+                        "Sporthalle Musterstadt",
+                        "Volleyball-Verein Musterstadt");
 
         String rendered = assembler.renderSvgTemplate(template, row);
 
@@ -499,17 +548,25 @@ class DefaultCertificateAssemblerTest {
                 .contains("Stadtmeisterschaft 2026")
                 .contains("15. April 2026")
                 .contains("Sporthalle Musterstadt")
+                .contains("Volleyball-Verein Musterstadt")
                 .doesNotContain("{{");
     }
 
     @Test
     @DisplayName("renderSvgTemplate: preserves base64 == — escapeHTML=false mandatory (E12S01 AC6)")
     void renderSvgTemplate_preservesBase64Equals_escapeHtmlFalse() {
-        String template = "<image href=\"{{teamPhoto}}\"/>";
+        String template = "<image href=\"{{tom_team_photo}}\"/>";
         String dataUri = "data:image/jpeg;base64,/9j/4AAQSkZJRgAB==";
         CertificatePlacementRow row =
                 new CertificatePlacementRow(
-                        1, TEAM_A_ID, "Team", dataUri, "Tournament", "2026-04-15", "Location");
+                        1,
+                        TEAM_A_ID,
+                        "Team",
+                        dataUri,
+                        "Tournament",
+                        "2026-04-15",
+                        "Location",
+                        "Organizer");
 
         String rendered = assembler.renderSvgTemplate(template, row);
 
@@ -526,57 +583,90 @@ class DefaultCertificateAssemblerTest {
             "renderSvgTemplate: renders empty string for missing teamPhoto (defaultValue=''"
                     + " lenient)")
     void renderSvgTemplate_emptyStringForMissingPhoto() {
-        String template = "<image href=\"{{teamPhoto}}\"/>";
+        String template = "<image href=\"{{tom_team_photo}}\"/>";
         CertificatePlacementRow row =
                 new CertificatePlacementRow(
-                        1, TEAM_A_ID, "Team", "", "Tournament", "date", "location");
+                        1, TEAM_A_ID, "Team", "", "Tournament", "date", "location", "Organizer");
 
         String rendered = assembler.renderSvgTemplate(template, row);
 
         assertThat(rendered)
                 .as("Missing teamPhoto renders as empty string (lenient mode)")
                 .contains("href=\"\"")
-                .doesNotContain("{{teamPhoto}}");
+                .doesNotContain("{{tom_team_photo}}");
     }
 
     // =========================================================================
-    // 6. toMustacheMap — all 7 keys present (AC-INTERFACE-CONTRACT-PRESERVED)
+    // 6. toMustacheMap — 13 tom_-prefixed keys (E46S03 AC-MAP-CONTAINS-13-PREFIXED-KEYS)
     // =========================================================================
 
     @Test
-    @DisplayName("toMustacheMap: returns map with all 7 required keys including hasPhoto")
-    void toMustacheMap_returnsAllSevenKeys() {
+    @DisplayName("toMustacheMap: returns map with all 13 tom_-prefixed keys (E46S03 D-17 + D-16)")
+    void toMustacheMap_returnsAllThirteenPrefixedKeys() {
         CertificatePlacementRow row =
                 new CertificatePlacementRow(
-                        2, TEAM_B_ID, "Beta", "", "Tournament", "2026-04-15", "Location");
+                        2,
+                        TEAM_B_ID,
+                        "Beta",
+                        "",
+                        "Tournament",
+                        "2026-04-15",
+                        "Location",
+                        "Organizer Club");
 
         Map<String, Object> map = assembler.toMustacheMap(row);
 
+        // AC-MAP-CONTAINS-13-PREFIXED-KEYS: all 13 tom_-prefixed keys present
         assertThat(map)
-                .containsKey("placement")
-                .containsKey("teamName")
-                .containsKey("teamPhoto")
-                .containsKey("tournamentName")
-                .containsKey("date")
-                .containsKey("location")
-                .containsKey("hasPhoto");
+                .containsKey("tom_placement")
+                .containsKey("tom_team_name")
+                .containsKey("tom_team_photo")
+                .containsKey("tom_tournament_name")
+                .containsKey("tom_date")
+                .containsKey("tom_location")
+                .containsKey("tom_organizer")
+                .containsKey("tom_label_certificate")
+                .containsKey("tom_label_place")
+                .containsKey("tom_label_achieved_by")
+                .containsKey("tom_label_team_photo")
+                .containsKey("tom_label_generated_by")
+                .containsKey("tom_label_on");
+
+        // AC-MAP-NO-UNPREFIXED-KEYS: legacy keys absent
+        assertThat(map)
+                .doesNotContainKey("placement")
+                .doesNotContainKey("teamName")
+                .doesNotContainKey("teamPhoto")
+                .doesNotContainKey("tournamentName")
+                .doesNotContainKey("date")
+                .doesNotContainKey("location");
     }
 
     @Test
-    @DisplayName("toMustacheMap: hasPhoto is false when teamPhoto is empty")
-    void toMustacheMap_hasPhotoFalse_whenEmptyPhoto() {
+    @DisplayName(
+            "toMustacheMap: tom_has_photo convenience key present and false when photo empty"
+                    + " (E46S03 AC-CONVENIENCE-KEY-DECISION-RECORDED)")
+    void toMustacheMap_tomHasPhotoFalse_whenEmptyPhoto() {
         CertificatePlacementRow row =
                 new CertificatePlacementRow(
-                        1, TEAM_A_ID, "Alpha", "", "Tournament", "2026-04-15", "Location");
+                        1,
+                        TEAM_A_ID,
+                        "Alpha",
+                        "",
+                        "Tournament",
+                        "2026-04-15",
+                        "Location",
+                        "Organizer");
 
         Map<String, Object> map = assembler.toMustacheMap(row);
 
-        assertThat(map.get("hasPhoto")).isEqualTo(false);
+        assertThat(map.get("tom_has_photo")).isEqualTo(false);
     }
 
     @Test
-    @DisplayName("toMustacheMap: hasPhoto is true when teamPhoto is non-empty")
-    void toMustacheMap_hasPhotoTrue_whenNonEmptyPhoto() {
+    @DisplayName(
+            "toMustacheMap: tom_has_photo convenience key is true when photo non-empty (E46S03)")
+    void toMustacheMap_tomHasPhotoTrue_whenNonEmptyPhoto() {
         CertificatePlacementRow row =
                 new CertificatePlacementRow(
                         1,
@@ -585,11 +675,113 @@ class DefaultCertificateAssemblerTest {
                         "data:image/jpeg;base64,abc",
                         "Tournament",
                         "2026-04-15",
-                        "Location");
+                        "Location",
+                        "Organizer");
 
         Map<String, Object> map = assembler.toMustacheMap(row);
 
-        assertThat(map.get("hasPhoto")).isEqualTo(true);
+        assertThat(map.get("tom_has_photo")).isEqualTo(true);
+    }
+
+    @Test
+    @DisplayName(
+            "toMustacheMap: tom_organizer is empty string when organizer is null"
+                    + " (E46S03 AC-ORGANIZER-IN-MAP null handling)")
+    void toMustacheMap_organizerIsEmptyString_whenNull() {
+        CertificatePlacementRow row =
+                new CertificatePlacementRow(
+                        1, TEAM_A_ID, "Alpha", "", "Tournament", "2026-04-15", "Location", null);
+
+        Map<String, Object> map = assembler.toMustacheMap(row);
+
+        assertThat(map.get("tom_organizer")).isEqualTo("");
+    }
+
+    @Test
+    @DisplayName(
+            "toMustacheMap: 6 label keys resolved via MessageSource"
+                    + " (E46S03 AC-LABELS-RESOLVED-AT-RENDER-TIME)")
+    void toMustacheMap_labelKeysResolvedViaMessageSource() {
+        CertificatePlacementRow row =
+                new CertificatePlacementRow(
+                        1,
+                        TEAM_A_ID,
+                        "Alpha",
+                        "",
+                        "Tournament",
+                        "2026-04-15",
+                        "Location",
+                        "Organizer");
+
+        Map<String, Object> map = assembler.toMustacheMap(row);
+
+        assertThat(map.get("tom_label_certificate")).isEqualTo("URKUNDE");
+        assertThat(map.get("tom_label_place")).isEqualTo("PLATZ");
+        assertThat(map.get("tom_label_achieved_by")).isEqualTo("erreicht von");
+        assertThat(map.get("tom_label_team_photo")).isEqualTo("Mannschaftsfoto");
+        assertThat(map.get("tom_label_generated_by")).isEqualTo("generated by");
+        assertThat(map.get("tom_label_on")).isEqualTo("am");
+    }
+
+    // =========================================================================
+    // E46S03: AC-CUSTOM-UPLOAD-LEGACY-RENDERS-EMPTY + AC-NO-BACKWARD-COMPAT-LAYER
+    // =========================================================================
+
+    @Test
+    @DisplayName(
+            "renderSvgTemplate: legacy unprefixed {{placement}} renders as empty string"
+                    + " (E46S03 AC-CUSTOM-UPLOAD-LEGACY-RENDERS-EMPTY, H-2 codified residual risk)")
+    void renderSvgTemplate_legacyUnprefixedVariable_rendersEmpty() {
+        // A legacy custom-upload template that uses the OLD unprefixed variable name
+        String legacyTemplate = "<svg><text>{{placement}}</text></svg>";
+        CertificatePlacementRow row =
+                new CertificatePlacementRow(
+                        1,
+                        TEAM_A_ID,
+                        "Alpha",
+                        "",
+                        "Tournament",
+                        "2026-04-15",
+                        "Sporthalle",
+                        "Organizer");
+
+        String rendered = assembler.renderSvgTemplate(legacyTemplate, row);
+
+        // defaultValue("") means missing keys render as empty string — not "null", not the key name
+        assertThat(rendered)
+                .as(
+                        "Legacy {{placement}} must render as empty string (D-17 hard-cut"
+                                + " + H-2 accepted residual risk)")
+                .contains("<text></text>")
+                .doesNotContain("{{placement}}")
+                .doesNotContain("placement"); // The VALUE is empty — the key name does not appear
+    }
+
+    @Test
+    @DisplayName(
+            "toMustacheMap: all keys start with tom_ — no backward-compat aliases"
+                    + " (E46S03 AC-NO-BACKWARD-COMPAT-LAYER)")
+    void toMustacheMap_allKeysPrefixedWithTom_noBackwardCompatAliases() {
+        CertificatePlacementRow row =
+                new CertificatePlacementRow(
+                        1,
+                        TEAM_A_ID,
+                        "Alpha",
+                        "photo",
+                        "Tournament",
+                        "2026-04-15",
+                        "Location",
+                        "Organizer");
+
+        Map<String, Object> map = assembler.toMustacheMap(row);
+
+        // Every key in the map must start with "tom_"
+        assertThat(map.keySet())
+                .allSatisfy(
+                        key ->
+                                assertThat(key)
+                                        .as("key '%s' must start with 'tom_'", key)
+                                        .startsWith("tom_"));
     }
 
     // =========================================================================
