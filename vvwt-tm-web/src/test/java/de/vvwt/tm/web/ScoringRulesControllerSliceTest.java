@@ -25,8 +25,13 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 /**
- * Slice test for {@link TournamentRulesController} (E21S10,
- * AC-REST-SLICE-TournamentRulesController, DEC-26 C-13 methodology, inventory row 412).
+ * Slice test for {@link ScoringRulesController} (E21S10 + E21S20 rename,
+ * AC-REST-SLICE-ScoringRulesController, DEC-26 C-13 methodology, inventory row 412).
+ *
+ * <p>Renamed from {@code TournamentRulesControllerSliceTest} to {@code
+ * ScoringRulesControllerSliceTest} at E21S20 (class+URL rename per DEC-40 Clause A DDD-ownership,
+ * AC-RENAME-SCORINGRULES-TESTS). URL updated from {@code /api/tournament-rules} to {@code
+ * /api/scoring/rules}.
  *
  * <p>Moved from {@code de.vvwt.tm.tournament} to {@code de.vvwt.tm.web} at E22S11 atomic cutover
  * (DEC-40 — REST controllers in web.*).
@@ -34,19 +39,20 @@ import org.springframework.web.context.WebApplicationContext;
  * <h2>Coverage (C-13 methodology)</h2>
  *
  * <ul>
- *   <li>Happy-path GET /api/tournament-rules with admin auth returns 200 + correct JSON shape
- *   <li>Anonymous GET /api/tournament-rules returns 401 (AC-REST-IT-SEC-TournamentRulesController)
+ *   <li>Happy-path GET /api/scoring/rules with admin auth returns 200 + correct JSON shape
+ *   <li>Anonymous GET /api/scoring/rules returns 401 (AC-REST-IT-SEC-ScoringRulesController)
  * </ul>
  *
- * @see TournamentRulesController
+ * @see ScoringRulesController
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
  * @see <a href="DEC-26">DEC-26 — controller test methodology (C-13)</a>
  * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
  * @see <a href="E21S10">E21S10 — inventory row 412</a>
+ * @see <a href="E21S20">E21S20 — class+URL rename TournamentRules → ScoringRules</a>
  */
-@WebMvcTest(TournamentRulesController.class)
-@DisplayName("TournamentRulesController slice tests — E21S10 AC-REST-SLICE")
-class TournamentRulesControllerSliceTest {
+@WebMvcTest(ScoringRulesController.class)
+@DisplayName("ScoringRulesController slice tests — E21S10+E21S20 AC-REST-SLICE")
+class ScoringRulesControllerSliceTest {
 
     @Autowired private WebApplicationContext context;
 
@@ -92,9 +98,9 @@ class TournamentRulesControllerSliceTest {
     // =========================================================================
 
     @Test
-    @DisplayName("AC-REST-IT-SEC: Anonymous GET /api/tournament-rules returns 401")
+    @DisplayName("AC-REST-IT-SEC: Anonymous GET /api/scoring/rules returns 401")
     void anonymousGet_returns401() throws Exception {
-        mockMvc.perform(get("/api/tournament-rules")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/scoring/rules")).andExpect(status().isUnauthorized());
     }
 
     // =========================================================================
@@ -103,11 +109,11 @@ class TournamentRulesControllerSliceTest {
 
     @Test
     @DisplayName(
-            "AC-REST-SLICE-TournamentRulesController: authenticated GET returns 200 + correct"
+            "AC-REST-SLICE-ScoringRulesController: authenticated GET returns 200 + correct"
                     + " JSON shape")
     @org.springframework.security.test.context.support.WithMockUser
-    void authenticatedGet_returns200WithRuleRegistries() throws Exception {
-        mockMvc.perform(get("/api/tournament-rules"))
+    void authenticatedGet_returns200WithScoringRules() throws Exception {
+        mockMvc.perform(get("/api/scoring/rules"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.matchGeneratorIds").isArray())
                 .andExpect(jsonPath("$.scoringRuleIds").isArray())

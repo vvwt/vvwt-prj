@@ -46,17 +46,18 @@ import org.springframework.test.context.ActiveProfiles;
  * <h2>Test scope (E21S19 RED-first discipline per DEC-22 Iron Law)</h2>
  *
  * <p>This IT was committed RED against the unchanged DraftController (which had no GET/PUT
- * mappings). The new test methods ({@code getDraft_*}, {@code putDraft_*}) failed at runtime
- * with 404 (or 405) before the GET/PUT implementation landed. The move of existing {@code
- * applyDraft_*} tests from {@code de.vvwt.tm.tournament.DraftControllerIT} is a Q-1b whole-class
- * relocation per DEC-22 §refactor-clause; existing tests continue to pass throughout the move.
+ * mappings). The new test methods ({@code getDraft_*}, {@code putDraft_*}) failed at runtime with
+ * 404 (or 405) before the GET/PUT implementation landed. The move of existing {@code applyDraft_*}
+ * tests from {@code de.vvwt.tm.tournament.DraftControllerIT} is a Q-1b whole-class relocation per
+ * DEC-22 §refactor-clause; existing tests continue to pass throughout the move.
  *
  * <h2>Scenarios covered (E21S19 ACs)</h2>
  *
  * <ul>
- *   <li>AC-TEST-GET-EMPTY-RED (Scenario B): GET on tournament with null draft_json → 200 +
- *       empty sections list
- *   <li>AC-TEST-GET-WITH-DATA-ROUND-TRIP-RED (Scenario A): PUT then GET → round-trip byte-equivalent
+ *   <li>AC-TEST-GET-EMPTY-RED (Scenario B): GET on tournament with null draft_json → 200 + empty
+ *       sections list
+ *   <li>AC-TEST-GET-WITH-DATA-ROUND-TRIP-RED (Scenario A): PUT then GET → round-trip
+ *       byte-equivalent
  *   <li>AC-TEST-PUT-SUCCESS-RED (Scenario C): PUT on DRAFT tournament → 200 + DraftResponse
  *   <li>AC-TEST-PUT-NON-DRAFT-409-RED (Scenario D): PUT on non-DRAFT tournament → 409 Conflict
  *   <li>AC-TEST-PUT-MALFORMED-400-RED (Scenario E): PUT with malformed body → 400 Bad Request
@@ -91,8 +92,11 @@ import org.springframework.test.context.ActiveProfiles;
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         classes = de.vvwt.tm.TournamentManagerApplication.class)
-@Import({WebModuleTestConfig.class, DraftControllerIT.TestAdminCredentials.class,
-        TenantContextTestSupport.class})
+@Import({
+    WebModuleTestConfig.class,
+    DraftControllerIT.TestAdminCredentials.class,
+    TenantContextTestSupport.class
+})
 @ActiveProfiles("test")
 @DisplayName("DraftController IT — E21S19 GET/PUT + relocation (DEC-44 web-module-IT canon)")
 class DraftControllerIT {
@@ -105,7 +109,11 @@ class DraftControllerIT {
     @Autowired private TestRestTemplate restTemplate;
     @Autowired private TenantContextTestSupport.Binder tenantBinder;
     @Autowired private TournamentService tournamentService;
-    @Autowired @Qualifier("tmTournamentRepository") private TournamentRepository tournamentRepository;
+
+    @Autowired
+    @Qualifier("tmTournamentRepository")
+    private TournamentRepository tournamentRepository;
+
     @Autowired private DataSource dataSource;
 
     private String baseUrl;
@@ -234,8 +242,8 @@ class DraftControllerIT {
     // =========================================================================
 
     /**
-     * AC-TEST-PUT-SUCCESS-RED: PUT on a DRAFT-status tournament returns 200 + DraftResponse
-     * echoing the saved draft (Scenario C). RED-first: PUT returned 404 before the fix.
+     * AC-TEST-PUT-SUCCESS-RED: PUT on a DRAFT-status tournament returns 200 + DraftResponse echoing
+     * the saved draft (Scenario C). RED-first: PUT returned 404 before the fix.
      */
     @Test
     @DisplayName("PUT /draft on DRAFT tournament returns 200 + DraftResponse (Scenario C)")
@@ -348,7 +356,8 @@ class DraftControllerIT {
      * to simulate cross-tenant isolation — the behaviour is identical: no row found → 404.
      */
     @Test
-    @DisplayName("GET /draft for unknown tournamentId returns 404 (cross-tenant isolation, Scenario F)")
+    @DisplayName(
+            "GET /draft for unknown tournamentId returns 404 (cross-tenant isolation, Scenario F)")
     void getDraft_forUnknownTournamentId_returns404() throws Exception {
         UUID nonExistentId = UUID.randomUUID(); // unknown UUID, not in the DB
 
@@ -363,7 +372,8 @@ class DraftControllerIT {
     }
 
     @Test
-    @DisplayName("PUT /draft for unknown tournamentId returns 404 (cross-tenant isolation, Scenario F)")
+    @DisplayName(
+            "PUT /draft for unknown tournamentId returns 404 (cross-tenant isolation, Scenario F)")
     void putDraft_forUnknownTournamentId_returns404() throws Exception {
         UUID nonExistentId = UUID.randomUUID();
         DraftRequest request = sampleRequest();

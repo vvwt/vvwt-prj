@@ -1,10 +1,11 @@
-package de.vvwt.tm.tournament;
+package de.vvwt.tm.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.db.api.Assertions.assertThat;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import de.vvwt.tm.tournament.DeviceService;
 import de.vvwt.tm.tournament.internal.dto.DeviceSummaryResponse;
 import java.net.URI;
 import java.util.UUID;

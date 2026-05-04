@@ -81,8 +81,8 @@ public class DefaultDraftService implements DraftService {
     private final ObjectMapper objectMapper;
 
     /**
-     * Constructs the service with Phase-aggregate collaborators from E21S03, phase preparation,
-     * and tournament repository + Jackson ObjectMapper for draft JSON serialization (E21S19).
+     * Constructs the service with Phase-aggregate collaborators from E21S03, phase preparation, and
+     * tournament repository + Jackson ObjectMapper for draft JSON serialization (E21S19).
      *
      * @param phaseRepository phase persistence (tenant-scoped, E21S03)
      * @param phaseBreakRepository phase break persistence (tenant-scoped, E21S03)
@@ -97,8 +97,7 @@ public class DefaultDraftService implements DraftService {
             @Qualifier("tmPhaseBreakRepository") PhaseBreakRepository phaseBreakRepository,
             TeamRepository teamRepository,
             TeamAvatarRepository teamAvatarRepository,
-            @Qualifier("tmPhasePreparationService")
-                    PhasePreparationService phasePreparationService,
+            @Qualifier("tmPhasePreparationService") PhasePreparationService phasePreparationService,
             @Qualifier("tmTournamentRepository") TournamentRepository tournamentRepository,
             ObjectMapper objectMapper) {
         this.phaseRepository = phaseRepository;
@@ -218,7 +217,8 @@ public class DefaultDraftService implements DraftService {
      * @param tournamentId the tournament UUID
      * @return current draft config; never {@code null}; may have empty sections list
      * @throws TournamentNotFoundException if the tournament does not exist in the current tenant
-     * @see <a href="E21S19">E21S19 — AC-TEST-GET-EMPTY-RED, AC-TEST-GET-WITH-DATA-ROUND-TRIP-RED</a>
+     * @see <a href="E21S19">E21S19 — AC-TEST-GET-EMPTY-RED,
+     *     AC-TEST-GET-WITH-DATA-ROUND-TRIP-RED</a>
      */
     @Override
     public DraftConfig loadDraft(UUID tournamentId) {
@@ -245,8 +245,8 @@ public class DefaultDraftService implements DraftService {
     /**
      * Saves the draft configuration for a tournament in {@code DRAFT} status.
      *
-     * <p>Only tournaments in {@code DRAFT} status may have their draft configuration saved. Attempts
-     * to save for non-{@code DRAFT} tournaments throw a 409 {@link ConflictException}.
+     * <p>Only tournaments in {@code DRAFT} status may have their draft configuration saved.
+     * Attempts to save for non-{@code DRAFT} tournaments throw a 409 {@link ConflictException}.
      *
      * <p>Tenant scoping enforced at the repository layer via TenantContext (DEC-20).
      *
