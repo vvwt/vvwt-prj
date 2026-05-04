@@ -33,16 +33,15 @@
  *       de.vvwt.tm.tournament.internal.dto.draft.DraftSectionResponse}, {@link
  *       de.vvwt.tm.tournament.internal.dto.draft.DraftBreakRequest}, {@link
  *       de.vvwt.tm.tournament.internal.dto.draft.DraftBreakResponse}). Spring Modulith 2.x does NOT
- *       extend {@code tournament::dto} to sub-packages; this separate named interface is required for
- *       the relocated {@code web.DraftController} to access draft wire types cross-module (E21S19,
- *       AC-NEW-DRAFT-DTO-NAMED-INTERFACE, DEC-40 Clause A).
- *   <li>{@code tournament::draft} — Draft value objects (VOs) in {@code tournament.draft.*}
- *       ({@link de.vvwt.tm.tournament.draft.DraftConfig}, {@link
- *       de.vvwt.tm.tournament.draft.DraftSection}, {@link de.vvwt.tm.tournament.draft.DraftBreak},
- *       etc.). Required by the relocated {@code web.DraftController} for the {@code GET}
- *       and {@code PUT} handler logic that converts between VOs and wire DTOs (E21S19,
- *       AC-WEB-ALLOWED-DEPS-EXTENDED, DEC-40 Clause A). Named interface already declared at
- *       {@code tournament.draft.package-info.java} by E33S04.
+ *       extend {@code tournament::dto} to sub-packages; this separate named interface is required
+ *       for the relocated {@code web.DraftController} to access draft wire types cross-module
+ *       (E21S19, AC-NEW-DRAFT-DTO-NAMED-INTERFACE, DEC-40 Clause A).
+ *   <li>{@code tournament::draft} — Draft value objects (VOs) in {@code tournament.draft.*} ({@link
+ *       de.vvwt.tm.tournament.draft.DraftConfig}, {@link de.vvwt.tm.tournament.draft.DraftSection},
+ *       {@link de.vvwt.tm.tournament.draft.DraftBreak}, etc.). Required by the relocated {@code
+ *       web.DraftController} for the {@code GET} and {@code PUT} handler logic that converts
+ *       between VOs and wire DTOs (E21S19, AC-WEB-ALLOWED-DEPS-EXTENDED, DEC-40 Clause A). Named
+ *       interface already declared at {@code tournament.draft.package-info.java} by E33S04.
  *   <li>{@code scoring} — controllers that invoke {@code ScoringService} import from the scoring
  *       root package.
  *   <li>{@code photo} — {@code TeamPhotoController} (at {@code infrastructure.web.photo.*},

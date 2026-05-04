@@ -1,4 +1,4 @@
-package de.vvwt.tm.tournament;
+package de.vvwt.tm.web;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -11,6 +11,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import de.vvwt.tm.infrastructure.testsupport.TenantContextSliceTestSupport;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantRegistryPort;
+import de.vvwt.tm.tournament.Device;
+import de.vvwt.tm.tournament.DeviceService;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

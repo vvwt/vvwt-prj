@@ -1,5 +1,7 @@
-package de.vvwt.tm.tournament;
+package de.vvwt.tm.web;
 
+import de.vvwt.tm.tournament.Device;
+import de.vvwt.tm.tournament.DeviceService;
 import de.vvwt.tm.tournament.internal.dto.DeviceSummaryResponse;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -12,13 +14,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Admin REST controller for device location management — reconstruction-in-place target
- * (DEC-21/DEC-22, DEC-24).
- *
- * <p>Mirrors {@code de.vvwt.tm.infrastructure.web.DeviceAdminController} but lives at the Modulith
- * target package {@code de.vvwt.tm.tournament} (public API surface per DEC-21 §Module layout). Uses
- * {@code /api/admin/devices} mapping to avoid {@code RequestMappingHandlerMapping} ambiguity with
- * the legacy {@code /api/admin/devices} controller during reconstruction-in-place.
+ * Admin REST controller for device location management — relocated to {@code de.vvwt.tm.web} per
+ * DEC-40 Primary-Adapter-Isolation (E21S20, Q-1b whole-class relocation from {@code
+ * de.vvwt.tm.tournament}).
  *
  * <p>All endpoints require ADMIN role (DEC-24: location assignment is an admin-only step).
  * Method-level security is enforced via {@code @PreAuthorize("hasRole('ADMIN')")} (requires
@@ -33,10 +31,13 @@ import org.springframework.web.bind.annotation.RestController;
  * </ul>
  *
  * @see DeviceService
- * @see DeviceController
+ * @see de.vvwt.tm.web.DeviceController
  * @see <a href="DEC-21">DEC-21 — Spring Modulith, root package = public API surface</a>
  * @see <a href="DEC-24">DEC-24 — device location nullable; admin role for assignment</a>
+ * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation — REST controllers MUST reside in
+ *     web.*</a>
  * @see <a href="E21S06">E21S06 — Device aggregate reconstruction (inventory line 420)</a>
+ * @see <a href="E21S20">E21S20 — Q-1b whole-class relocation tournament → web</a>
  */
 @RestController("tmDeviceAdminController")
 @RequestMapping("/api/admin/devices")

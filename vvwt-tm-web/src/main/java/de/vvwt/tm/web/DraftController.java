@@ -37,8 +37,10 @@ import org.springframework.web.bind.annotation.RestController;
  * <h2>Endpoints</h2>
  *
  * <ul>
- *   <li>GET /api/tournaments/{tournamentId}/draft → 200 + {@link DraftResponse} (E21S19 Scenario A/B)
- *   <li>PUT /api/tournaments/{tournamentId}/draft → 200 + {@link DraftResponse} (E21S19 Scenario C/D)
+ *   <li>GET /api/tournaments/{tournamentId}/draft → 200 + {@link DraftResponse} (E21S19 Scenario
+ *       A/B)
+ *   <li>PUT /api/tournaments/{tournamentId}/draft → 200 + {@link DraftResponse} (E21S19 Scenario
+ *       C/D)
  *   <li>POST /api/tournaments/{tournamentId}/draft/preview → 200 + {@link DraftPreviewResponse}
  *       (pre-existing E21S07)
  *   <li>POST /api/tournaments/{tournamentId}/draft/apply → 200 + {@link DraftApplyResponse}
@@ -48,6 +50,7 @@ import org.springframework.web.bind.annotation.RestController;
  * <h2>Exception handling</h2>
  *
  * <p>Exception mapping is delegated to {@link GlobalExceptionHandler}:
+ *
  * <ul>
  *   <li>{@link de.vvwt.tm.tournament.exceptions.TournamentNotFoundException} → 404 (via
  *       {@code @ResponseStatus(NOT_FOUND)} on the exception class)
@@ -104,8 +107,7 @@ public class DraftController {
      * @return 200 OK with DraftResponse (sections may be empty); 404 if tournament not found
      */
     @GetMapping("")
-    public ResponseEntity<DraftResponse> getDraft(
-            @PathVariable("tournamentId") UUID tournamentId) {
+    public ResponseEntity<DraftResponse> getDraft(@PathVariable("tournamentId") UUID tournamentId) {
         DraftConfig config = draftService.loadDraft(tournamentId);
         return ResponseEntity.ok(DraftResponse.from(config));
     }
@@ -117,13 +119,13 @@ public class DraftController {
     /**
      * Saves the draft configuration for a {@code DRAFT}-status tournament.
      *
-     * <p>Returns {@code 200 OK} with {@link DraftResponse} echoing the persisted draft (Scenario C).
-     * Returns {@code 409 Conflict} if the tournament is not in {@code DRAFT} status (Scenario D).
-     * Returns {@code 400 Bad Request} if the body is not parseable as {@link DraftRequest}
-     * (Scenario E — handled by Spring MVC via {@code HttpMessageNotReadableException}).
-     * Returns {@code 404 Not Found} on cross-tenant access (Scenario F — via
-     * TournamentNotFoundException). Two consecutive identical PUTs return byte-equivalent responses
-     * (Scenario G — the underlying column overwrite is naturally idempotent).
+     * <p>Returns {@code 200 OK} with {@link DraftResponse} echoing the persisted draft (Scenario
+     * C). Returns {@code 409 Conflict} if the tournament is not in {@code DRAFT} status (Scenario
+     * D). Returns {@code 400 Bad Request} if the body is not parseable as {@link DraftRequest}
+     * (Scenario E — handled by Spring MVC via {@code HttpMessageNotReadableException}). Returns
+     * {@code 404 Not Found} on cross-tenant access (Scenario F — via TournamentNotFoundException).
+     * Two consecutive identical PUTs return byte-equivalent responses (Scenario G — the underlying
+     * column overwrite is naturally idempotent).
      *
      * @param tournamentId the tournament UUID (from path)
      * @param request the draft configuration to save (validated via {@link Valid})

@@ -9,7 +9,7 @@
    *   - id (optional): if provided, loads the tournament and performs PUT; otherwise POST
    *
    * AC8: form includes all AC3 fields; dropdowns for matchFormat, scoringRuleId,
-   *   setValidationRuleId, matchGeneratorId are populated from /api/tournament-rules.
+   *   setValidationRuleId, matchGeneratorId are populated from /api/scoring/rules.
    * AC10: API validation errors are displayed inline next to the relevant field.
    * AC11: all visible strings sourced from svelte-i18n $_ function.
    */

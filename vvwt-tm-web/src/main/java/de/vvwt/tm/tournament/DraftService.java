@@ -66,15 +66,16 @@ public interface DraftService {
      * @return the current draft config; never {@code null}; may have an empty sections list
      * @throws de.vvwt.tm.tournament.exceptions.TournamentNotFoundException if the tournament does
      *     not exist in the current tenant context
-     * @see <a href="E21S19">E21S19 — AC-TEST-GET-EMPTY-RED, AC-TEST-GET-WITH-DATA-ROUND-TRIP-RED</a>
+     * @see <a href="E21S19">E21S19 — AC-TEST-GET-EMPTY-RED,
+     *     AC-TEST-GET-WITH-DATA-ROUND-TRIP-RED</a>
      */
     DraftConfig loadDraft(UUID tournamentId);
 
     /**
      * Saves the draft configuration for a tournament in {@code DRAFT} status.
      *
-     * <p>Only tournaments in {@code DRAFT} status may have their draft configuration saved. Attempts
-     * to save for non-{@code DRAFT} tournaments throw a 409 Conflict exception.
+     * <p>Only tournaments in {@code DRAFT} status may have their draft configuration saved.
+     * Attempts to save for non-{@code DRAFT} tournaments throw a 409 Conflict exception.
      *
      * <p>Tenant scoping is enforced at the repository layer via TenantContext (DEC-20).
      *
@@ -83,8 +84,8 @@ public interface DraftService {
      * @return the saved draft configuration (round-trip read from persistence); never {@code null}
      * @throws de.vvwt.tm.tournament.exceptions.TournamentNotFoundException if the tournament does
      *     not exist in the current tenant context
-     * @throws de.vvwt.tm.tournament.exceptions.ConflictException if the tournament is not in
-     *     {@code DRAFT} status
+     * @throws de.vvwt.tm.tournament.exceptions.ConflictException if the tournament is not in {@code
+     *     DRAFT} status
      * @see <a href="E21S19">E21S19 — AC-TEST-PUT-SUCCESS-RED, AC-TEST-PUT-NON-DRAFT-409-RED</a>
      */
     DraftConfig saveDraft(UUID tournamentId, DraftConfig config);

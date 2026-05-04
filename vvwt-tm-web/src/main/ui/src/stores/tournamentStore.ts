@@ -38,7 +38,7 @@ export interface Tournament {
     plannedStartTime: string | null;  // HH:mm LocalTime or null (E08S05 AC1)
 }
 
-/** Available rule options returned by GET /api/tournament-rules. */
+/** Available rule options returned by GET /api/scoring/rules. */
 export interface TournamentRules {
     scoringRuleIds: string[];
     setValidationRuleIds: string[];
@@ -204,7 +204,7 @@ export async function deleteTournament(id: string): Promise<void> {
  * @throws Error if the request fails
  */
 export async function getTournamentRules(): Promise<TournamentRules> {
-    const res = await apiFetch('/api/tournament-rules');
+    const res = await apiFetch('/api/scoring/rules');
     if (!res.ok) {
         throw new Error(`Failed to load tournament rules: ${res.status}`);
     }

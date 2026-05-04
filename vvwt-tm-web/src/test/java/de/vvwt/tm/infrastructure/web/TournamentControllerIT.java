@@ -29,8 +29,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * Integration tests for {@link TournamentController} and {@link TournamentRulesController}
- * (E05S04).
+ * Integration tests for {@link TournamentController} and ScoringRulesController (renamed from
+ * TournamentRulesController at E21S20) (E05S04).
  *
  * <p>Tests the full HTTP stack including Spring Security (basic auth), Jackson serialization, and
  * the {@link GlobalExceptionHandler}.
@@ -43,7 +43,8 @@ import org.springframework.test.context.ActiveProfiles;
  *   <li>AC3 — POST /api/tournaments returns 201 with Location header
  *   <li>AC4 — PUT on ACTIVE tournament returns 409
  *   <li>AC5 — DELETE on ACTIVE tournament returns 409
- *   <li>AC8 — GET /api/tournament-rules returns all dropdowns
+ *   <li>AC8 — GET /api/scoring/rules returns all dropdowns (renamed from /api/tournament-rules at
+ *       E21S20)
  *   <li>AC10 — POST with missing required fields returns 400
  *   <li>AC12 — 401 without credentials
  * </ul>
@@ -291,7 +292,8 @@ class TournamentControllerIT {
     }
 
     // =========================================================================
-    // AC8 — GET /api/tournament-rules
+    // AC8 — GET /api/scoring/rules (renamed from /api/tournament-rules at E21S20 per DEC-40
+    // DDD-ownership)
     // =========================================================================
 
     @Test
@@ -302,11 +304,10 @@ class TournamentControllerIT {
     // changes test readability minimally (E18S01/DEC-29)
     void getTournamentRulesReturns200WithAllDropdowns() throws Exception {
         ResponseEntity<java.util.Map> response =
-                authed.getForEntity(
-                        new URI(baseUrl + "/api/tournament-rules"), java.util.Map.class);
+                authed.getForEntity(new URI(baseUrl + "/api/scoring/rules"), java.util.Map.class);
 
         assertThat(response.getStatusCode())
-                .as("AC8 — GET /api/tournament-rules must return 200")
+                .as("AC8 — GET /api/scoring/rules must return 200")
                 .isEqualTo(HttpStatus.OK);
         assertThat(response.getBody())
                 .as("AC8 — response must include all four key collections")

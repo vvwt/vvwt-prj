@@ -14,9 +14,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * REST endpoint exposing available tournament rule/strategy options (E21S10,
- * AC-REST-SLICE-TournamentRulesController, AC-REST-IT-HAPPY-TournamentRulesController,
- * AC-REST-IT-SEC-TournamentRulesController, inventory row 412).
+ * REST endpoint exposing available scoring rule/strategy options (E21S10 + E21S20 rename,
+ * AC-REST-SLICE-ScoringRulesController, AC-REST-IT-HAPPY-ScoringRulesController,
+ * AC-REST-IT-SEC-ScoringRulesController, inventory row 412).
+ *
+ * <p>Renamed from {@code TournamentRulesController} to {@code ScoringRulesController} at E21S20
+ * (DEC-40 Clause A DDD-ownership — this controller serves scoring rules, not tournament lifecycle).
+ * URL updated from {@code /api/tournament-rules} to {@code /api/scoring/rules} (E22S08 D-2 Option B
+ * atomic-cutover; see AC-FRONTEND-URL-UPDATE-ATOMIC for the coordinated Svelte update).
  *
  * <p>Moved from {@code de.vvwt.tm.tournament.TournamentRulesController} to {@code
  * de.vvwt.tm.web.TournamentRulesController} at the E22S11 atomic cutover (DEC-40
@@ -42,13 +47,14 @@ import org.springframework.web.bind.annotation.RestController;
  * @see de.vvwt.tm.scoring.ScoringRuleRegistry
  * @see de.vvwt.tm.scoring.SetValidationRuleRegistry
  * @see <a href="DEC-21">DEC-21 — Spring Modulith boundary rules</a>
- * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
+ * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation + DDD-ownership</a>
  * @see <a href="E21S10">E21S10 — inventory row 412</a>
  * @see <a href="E22S11">E22S11 — atomic cutover, controller relocated to web.*</a>
+ * @see <a href="E21S20">E21S20 — class+URL rename TournamentRules → ScoringRules</a>
  */
-@RestController("tmTournamentRulesController")
-@RequestMapping("/api/tournament-rules")
-public class TournamentRulesController {
+@RestController("tmScoringRulesController")
+@RequestMapping("/api/scoring/rules")
+public class ScoringRulesController {
 
     private final ScoringRuleRegistry scoringRuleRegistry;
     private final SetValidationRuleRegistry setValidationRuleRegistry;
@@ -56,7 +62,7 @@ public class TournamentRulesController {
     /** S08 public-package {@link MatchGeneratorRegistry} (AC-S08-REGISTRY-IMPORT). */
     private final MatchGeneratorRegistry matchGeneratorRegistry;
 
-    public TournamentRulesController(
+    public ScoringRulesController(
             ScoringRuleRegistry scoringRuleRegistry,
             SetValidationRuleRegistry setValidationRuleRegistry,
             MatchGeneratorRegistry matchGeneratorRegistry) {
@@ -71,7 +77,7 @@ public class TournamentRulesController {
      * @return 200 OK with a JSON object containing four sorted lists
      */
     @GetMapping
-    public ResponseEntity<Map<String, List<String>>> getTournamentRules() {
+    public ResponseEntity<Map<String, List<String>>> getScoringRules() {
         List<String> scoringRuleIds =
                 new TreeSet<>(scoringRuleRegistry.knownIds()).stream().toList();
         List<String> setValidationRuleIds =
