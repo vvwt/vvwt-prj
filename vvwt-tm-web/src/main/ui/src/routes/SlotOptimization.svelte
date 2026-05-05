@@ -8,7 +8,11 @@
    *
    * Hash route: /tournaments/:tournamentId/slot-optimization
    */
-  import { onDestroy } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
+  import { get } from 'svelte/store';
+  import { _ } from 'svelte-i18n';
+  import { pageHeader, resetPageHeader } from '../stores/pageHeaderStore.js';
+  import { resolveParent } from '../lib/parentRouteMap.js';
 
   /** Route params injected by svelte-spa-router. */
   export let params: { tournamentId?: string } = {};
@@ -64,15 +68,33 @@
     }
   }
 
+  // E47S02 AC2/AC3/AC5/AC6/AC7/AC9: register page title via pageHeader store.
+  // SlotOptimization is a sub-route with tournament context (Brief D-5/D-6):
+  //   - backTo: resolveParent resolves /tournaments/:tournamentId/slot-optimization → /tournaments/:tournamentId/edit
+  //   - tournamentId: params.tournamentId — tournament name shown in header per D-6
+  //   - actions: [] — the inline cancel button is job-state-bound (stays in-page per D-4 + story notes)
+  //   - title: slotopt.title i18n key per Brief D-14 (AC1)
+  onMount(() => {
+    const tid = params.tournamentId ?? '';
+    pageHeader.set({
+      title: get(_)('slotopt.title'),
+      backTo: resolveParent('/tournaments/:tournamentId/slot-optimization', tid),
+      tournamentId: tid || null,
+      actions: [],
+    });
+  });
+
   // Start polling
   fetchStatus();
   const interval = setInterval(() => { if (polling) fetchStatus(); }, 2000);
-  onDestroy(() => { polling = false; clearInterval(interval); });
+  onDestroy(() => {
+    polling = false;
+    clearInterval(interval);
+    resetPageHeader();
+  });
 </script>
 
 <section class="slot-opt-panel">
-  <h2>Slot Optimization</h2>
-
   {#if errorMsg}
     <p class="error">{errorMsg}</p>
   {/if}
