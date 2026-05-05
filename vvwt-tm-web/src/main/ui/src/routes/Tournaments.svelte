@@ -16,8 +16,9 @@
    *
    * All visible strings use the svelte-i18n `$_()` function (AC11 — no hardcoded strings).
    */
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { push } from 'svelte-spa-router';
+  import { get } from 'svelte/store';
   import { _ } from 'svelte-i18n';
   import {
     listTournaments,
@@ -26,6 +27,7 @@
     selectedTournamentId,
     type Tournament,
   } from '../stores/tournamentStore.js';
+  import { pageHeader, resetPageHeader } from '../stores/pageHeaderStore.js';
 
   let tournaments: Tournament[] = $state([]);
   let loading = $state(true);
@@ -33,7 +35,25 @@
   let deleteError = $state<string | null>(null);
 
   onMount(async () => {
+    // E47S01 AC1/AC3/AC4: register title and create button in persistent header (top-level: no backTo, no tournamentId)
+    pageHeader.set({
+      title: get(_)('tournaments.title'),
+      backTo: null,
+      tournamentId: null,
+      actions: [
+        {
+          label: get(_)('tournaments.createButton'),
+          ariaLabel: get(_)('tournaments.createButton'),
+          handler: () => push('/tournaments/new'),
+          variant: 'primary',
+        },
+      ],
+    });
     await loadTournaments();
+  });
+
+  onDestroy(() => {
+    resetPageHeader();
   });
 
   async function loadTournaments(): Promise<void> {
@@ -76,12 +96,6 @@
 </script>
 
 <main class="tournaments">
-  <div class="tournaments__header">
-    <h1>{$_('tournaments.title')}</h1>
-    <button class="btn btn--primary" onclick={() => push('/tournaments/new')}>
-      {$_('tournaments.createButton')}
-    </button>
-  </div>
 
   {#if loading}
     <p class="tournaments__loading">…</p>
@@ -173,17 +187,6 @@
   .tournaments {
     padding: 2rem;
     font-family: sans-serif;
-  }
-
-  .tournaments__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 1.5rem;
-  }
-
-  .tournaments__header h1 {
-    margin: 0;
   }
 
   .tournaments__table {

@@ -18,9 +18,12 @@
    * Props:
    *   params.tournamentId — the tournament UUID from the route (#/tournaments/:tournamentId/audio)
    */
-  import { onMount } from 'svelte';
-  import { pop, push } from 'svelte-spa-router';
+  import { onMount, onDestroy } from 'svelte';
+  import { push } from 'svelte-spa-router';
+  import { get } from 'svelte/store';
   import { _ } from 'svelte-i18n';
+  import { pageHeader, resetPageHeader } from '../stores/pageHeaderStore.js';
+  import { resolveParent } from '../lib/parentRouteMap.js';
   import {
     listAudio,
     uploadAudio,
@@ -66,12 +69,33 @@
 
   // ── Init ─────────────────────────────────────────────────────────────────
   onMount(async () => {
+    // E47S01 AC3/AC5/AC6/AC12: register title, back-arrow, tournament context, and timerLink action
+    const actions = tournamentId
+      ? [
+          {
+            label: get(_)('audio.timerLinkButton'),
+            ariaLabel: get(_)('audio.timerLinkButton'),
+            handler: () => push(`/tournaments/${tournamentId}/timer-link`),
+            variant: 'secondary' as const,
+          },
+        ]
+      : [];
+    pageHeader.set({
+      title: get(_)('audio.title'),
+      backTo: resolveParent('/tournaments/:tournamentId/audio', tournamentId),
+      tournamentId: tournamentId || null,
+      actions,
+    });
     if (!tournamentId) {
       loadError = $_('audio.error.noTournament');
       loading = false;
       return;
     }
     await loadAudioFiles();
+  });
+
+  onDestroy(() => {
+    resetPageHeader();
   });
 
   async function loadAudioFiles(): Promise<void> {
@@ -255,18 +279,6 @@
 </script>
 
 <main class="timer-audio">
-  <div class="timer-audio__header">
-    <h1>{$_('audio.title')}</h1>
-    <!-- E11S07 AC3: quick navigation to the timer link & QR code view -->
-    {#if tournamentId}
-      <button class="btn btn--secondary" onclick={() => push(`/tournaments/${tournamentId}/timer-link`)}>
-        {$_('audio.timerLinkButton')}
-      </button>
-    {/if}
-    <button class="btn btn--secondary" onclick={() => pop()}>
-      {$_('audio.backButton')}
-    </button>
-  </div>
 
   {#if loading}
     <p class="timer-audio__loading">…</p>
@@ -370,18 +382,6 @@
     padding: 2rem;
     font-family: sans-serif;
     max-width: 800px;
-  }
-
-  .timer-audio__header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .timer-audio__header h1 {
-    margin: 0;
-    flex: 1;
   }
 
   .timer-audio__loading {

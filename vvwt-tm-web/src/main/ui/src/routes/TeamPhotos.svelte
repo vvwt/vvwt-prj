@@ -20,9 +20,11 @@
    * Props:
    *   params.tournamentId — the tournament UUID from the route (#/tournaments/:tournamentId/photos)
    */
-  import { onMount } from 'svelte';
-  import { pop } from 'svelte-spa-router';
+  import { onMount, onDestroy } from 'svelte';
+  import { get } from 'svelte/store';
   import { _ } from 'svelte-i18n';
+  import { pageHeader, resetPageHeader } from '../stores/pageHeaderStore.js';
+  import { resolveParent } from '../lib/parentRouteMap.js';
   import {
     listTeams,
     type Team,
@@ -77,12 +79,23 @@
 
   // ── Init ─────────────────────────────────────────────────────────────────
   onMount(async () => {
+    // E47S01 AC3/AC5/AC6/AC12: register title, back-arrow, and tournament context in persistent header
+    pageHeader.set({
+      title: get(_)('photos.title'),
+      backTo: resolveParent('/tournaments/:tournamentId/photos', tournamentId),
+      tournamentId: tournamentId || null,
+      actions: [],
+    });
     if (!tournamentId) {
       loadError = $_('photos.error.noTournament');
       loading = false;
       return;
     }
     await loadTeams();
+  });
+
+  onDestroy(() => {
+    resetPageHeader();
   });
 
   async function loadTeams(): Promise<void> {
@@ -202,12 +215,6 @@
 </script>
 
 <main class="team-photos">
-  <div class="team-photos__header">
-    <h1>{$_('photos.title')}</h1>
-    <button class="btn btn--secondary" onclick={() => pop()}>
-      {$_('photos.backButton')}
-    </button>
-  </div>
 
   {#if loading}
     <p class="team-photos__loading">…</p>
@@ -328,18 +335,6 @@
     padding: 2rem;
     font-family: sans-serif;
     max-width: 860px;
-  }
-
-  .team-photos__header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1rem;
-  }
-
-  .team-photos__header h1 {
-    margin: 0;
-    flex: 1;
   }
 
   .team-photos__summary {

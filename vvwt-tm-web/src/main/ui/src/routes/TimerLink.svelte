@@ -17,9 +17,11 @@
    * Props:
    *   params.tournamentId — the tournament UUID from the route (#/tournaments/:tournamentId/timer-link)
    */
-  import { onMount } from 'svelte';
-  import { pop } from 'svelte-spa-router';
+  import { onMount, onDestroy } from 'svelte';
+  import { get } from 'svelte/store';
   import { _ } from 'svelte-i18n';
+  import { pageHeader, resetPageHeader } from '../stores/pageHeaderStore.js';
+  import { resolveParent } from '../lib/parentRouteMap.js';
   import * as QRCodeLib from 'qrcode';
 
   // ── Props ────────────────────────────────────────────────────────────────
@@ -50,9 +52,20 @@
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   onMount(() => {
+    // E47S01 AC3/AC5/AC6/AC12: register title, back-arrow, and tournament context in persistent header
+    pageHeader.set({
+      title: get(_)('timerLink.title'),
+      backTo: resolveParent('/tournaments/:tournamentId/timer-link', tournamentId),
+      tournamentId: tournamentId || null,
+      actions: [],
+    });
     if (timerUrl) {
       qrSvg = buildQrSvg(timerUrl);
     }
+  });
+
+  onDestroy(() => {
+    resetPageHeader();
   });
 
   // ── QR code rendering (AC2) ───────────────────────────────────────────────
@@ -136,12 +149,6 @@
 </script>
 
 <main class="timer-link">
-  <div class="timer-link__header">
-    <h1>{$_('timerLink.title')}</h1>
-    <button class="btn btn--secondary" onclick={() => pop()}>
-      {$_('timerLink.backButton')}
-    </button>
-  </div>
 
   {#if !tournamentId}
     <!-- AC6 / edge case: no tournamentId in route params -->
@@ -203,18 +210,6 @@
     padding: 2rem;
     font-family: sans-serif;
     max-width: 700px;
-  }
-
-  .timer-link__header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .timer-link__header h1 {
-    margin: 0;
-    flex: 1;
   }
 
   /* ── Informational note (AC6) ─────────────────────────────────────────────── */
