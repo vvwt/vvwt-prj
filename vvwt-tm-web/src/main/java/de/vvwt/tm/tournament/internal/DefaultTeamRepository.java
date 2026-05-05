@@ -47,6 +47,8 @@ public class DefaultTeamRepository implements TeamRepository {
 
     private static final String DELETE_BY_ID = "DELETE FROM team WHERE id=?";
 
+    private static final String DELETE_BY_TOURNAMENT = "DELETE FROM team WHERE tournament_id=?";
+
     private static final String EXISTS_BY_ID = "SELECT COUNT(*) FROM team WHERE id=?";
 
     private static final String MAX_TEAM_NUMBER =
@@ -109,6 +111,12 @@ public class DefaultTeamRepository implements TeamRepository {
     @Override
     public void deleteById(UUID id) {
         jdbc.update(DELETE_BY_ID, id);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void deleteByTournamentId(UUID tournamentId) {
+        jdbc.update(DELETE_BY_TOURNAMENT, tournamentId);
     }
 
     /** {@inheritDoc} */

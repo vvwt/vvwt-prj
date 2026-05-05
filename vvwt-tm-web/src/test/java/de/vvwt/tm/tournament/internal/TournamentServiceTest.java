@@ -9,11 +9,14 @@ import static org.mockito.Mockito.when;
 import de.vvwt.tm.tournament.MatchGeneratorRegistry;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
+import de.vvwt.tm.tournament.Team;
+import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,8 +24,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.MessageSource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 
@@ -71,6 +76,10 @@ class TournamentServiceTest {
 
     @Mock private JdbcTemplate jdbcTemplate;
 
+    @Mock private MessageSource messageSource;
+
+    @Mock private TeamRepository teamRepository;
+
     private DefaultTournamentService service;
 
     private static final UUID TENANT_ID = UUID.randomUUID();
@@ -89,12 +98,33 @@ class TournamentServiceTest {
                                 org.mockito.ArgumentMatchers.anyString(),
                                 org.mockito.ArgumentMatchers.<RowMapper<UUID>>any()))
                 .thenReturn(List.of(DEFAULT_LOCATION_ID));
+        // Stub JdbcTemplate.queryForList for resolveTenantLanguage() — returns "de"
+        org.mockito.Mockito.lenient()
+                .when(
+                        jdbcTemplate.queryForList(
+                                ArgumentMatchers.anyString(), ArgumentMatchers.eq(String.class)))
+                .thenReturn(List.of("de"));
+        // Stub MessageSource for team.defaultLabel → "Mannschaft"
+        org.mockito.Mockito.lenient()
+                .when(
+                        messageSource.getMessage(
+                                ArgumentMatchers.eq("team.defaultLabel"),
+                                ArgumentMatchers.isNull(),
+                                ArgumentMatchers.eq("Mannschaft"),
+                                ArgumentMatchers.any(Locale.class)))
+                .thenReturn("Mannschaft");
+        // Stub teamRepository.save to return the team passed in
+        org.mockito.Mockito.lenient()
+                .when(teamRepository.save(ArgumentMatchers.any(Team.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
         service =
                 new DefaultTournamentService(
                         tournamentRepository,
                         phaseRepository,
                         matchGeneratorRegistry,
-                        jdbcTemplate);
+                        jdbcTemplate,
+                        messageSource,
+                        teamRepository);
     }
 
     // =========================================================================

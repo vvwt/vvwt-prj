@@ -68,6 +68,17 @@ public interface TeamRepository {
     boolean teamNumberExists(UUID tournamentId, int teamNumber, UUID excludeId);
 
     /**
+     * Deletes all teams for the given tournament, scoped to the current tenant.
+     *
+     * <p>Used by {@link de.vvwt.tm.tournament.TournamentService#deleteTournament} to remove
+     * auto-seeded team rows before deleting the tournament row (E05S12 AC-ERR-ATOMIC-ROLLBACK
+     * consequence — {@code ON DELETE RESTRICT} FK on team.tournament_id).
+     *
+     * @param tournamentId the tournament whose teams should be deleted
+     */
+    void deleteByTournamentId(UUID tournamentId);
+
+    /**
      * Returns whether the given team has any {@code TeamAvatar} references (for delete guard).
      *
      * @param teamId the team UUID

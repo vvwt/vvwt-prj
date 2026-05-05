@@ -112,18 +112,20 @@ class TeamControllerIT {
     }
 
     // =========================================================================
-    // AC1 — GET returns empty list initially
+    // AC1 — GET returns seeded team rows for new tournament (E05S12)
     // =========================================================================
 
     @Test
     void listTeamsReturnsEmptyListForNewTournament() {
+        // E05S12: createDraftTournament uses teamCount=8, so 8 teams are auto-seeded.
+        // The list is non-empty on creation; this test now verifies the seeded count.
         TournamentResponse tournament = createDraftTournament();
 
         ResponseEntity<TeamResponse[]> response =
                 authed.getForEntity(teamsUrl(tournament.id()), TeamResponse[].class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).isNotNull().isEmpty();
+        assertThat(response.getBody()).isNotNull().hasSize(8);
     }
 
     // =========================================================================
@@ -134,18 +136,18 @@ class TeamControllerIT {
     void listTeamsReturnsOrderedByTeamNumber() {
         TournamentResponse tournament = createDraftTournament();
 
-        // Create teams out of order
+        // 8 teams are seeded (1–8). Add 3 extra teams with numbers 9, 10, 11 out of order.
         authed.postForEntity(
                 teamsUrl(tournament.id()),
-                new TeamCreateRequest("Team C", 3, null, null, null),
+                new TeamCreateRequest("Team C", 11, null, null, null),
                 TeamResponse.class);
         authed.postForEntity(
                 teamsUrl(tournament.id()),
-                new TeamCreateRequest("Team A", 1, null, null, null),
+                new TeamCreateRequest("Team A", 9, null, null, null),
                 TeamResponse.class);
         authed.postForEntity(
                 teamsUrl(tournament.id()),
-                new TeamCreateRequest("Team B", 2, null, null, null),
+                new TeamCreateRequest("Team B", 10, null, null, null),
                 TeamResponse.class);
 
         ResponseEntity<TeamResponse[]> response =
@@ -153,10 +155,11 @@ class TeamControllerIT {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         TeamResponse[] teams = response.getBody();
-        assertThat(teams).isNotNull().hasSize(3);
-        assertThat(teams[0].teamNumber()).isEqualTo(1);
-        assertThat(teams[1].teamNumber()).isEqualTo(2);
-        assertThat(teams[2].teamNumber()).isEqualTo(3);
+        // 8 seeded + 3 added = 11 total; all ordered by team_number ascending
+        assertThat(teams).isNotNull().hasSize(11);
+        assertThat(teams[8].teamNumber()).isEqualTo(9);
+        assertThat(teams[9].teamNumber()).isEqualTo(10);
+        assertThat(teams[10].teamNumber()).isEqualTo(11);
     }
 
     // =========================================================================
@@ -167,6 +170,7 @@ class TeamControllerIT {
     void createTeamReturns201WithLocation() {
         TournamentResponse tournament = createDraftTournament();
 
+        // E05S12: 8 teams seeded (1–8); next auto-assigned number is 9.
         var request = new TeamCreateRequest("Team Alpha", null, null, null, null);
         ResponseEntity<TeamResponse> response =
                 authed.postForEntity(teamsUrl(tournament.id()), request, TeamResponse.class);
@@ -176,7 +180,7 @@ class TeamControllerIT {
         TeamResponse body = response.getBody();
         assertThat(body).isNotNull();
         assertThat(body.description()).isEqualTo("Team Alpha");
-        assertThat(body.teamNumber()).isEqualTo(1); // auto-assigned
+        assertThat(body.teamNumber()).isEqualTo(9); // auto-assigned: max(1..8)+1 = 9
         assertThat(body.participate()).isTrue(); // default
         assertThat(body.refereeAssignment()).isFalse(); // default
         assertThat(body.withoutAssessment()).isFalse(); // default
@@ -190,13 +194,14 @@ class TeamControllerIT {
     void createTeamAutoAssignsSequentialNumber() {
         TournamentResponse tournament = createDraftTournament();
 
-        // First team → number 1
+        // E05S12: 8 teams seeded (1–8); auto-assigned numbers start at 9.
+        // First additional team → number 9
         authed.postForEntity(
                 teamsUrl(tournament.id()),
                 new TeamCreateRequest("Team One", null, null, null, null),
                 TeamResponse.class);
 
-        // Second team → number 2
+        // Second additional team → number 10
         ResponseEntity<TeamResponse> response =
                 authed.postForEntity(
                         teamsUrl(tournament.id()),
@@ -204,7 +209,7 @@ class TeamControllerIT {
                         TeamResponse.class);
 
         assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().teamNumber()).isEqualTo(2);
+        assertThat(response.getBody().teamNumber()).isEqualTo(10);
     }
 
     // =========================================================================
@@ -243,6 +248,7 @@ class TeamControllerIT {
     void deleteTeamReturns204() {
         TournamentResponse tournament = createDraftTournament();
 
+        // E05S12: 8 teams seeded (1–8). Create one more (auto-assigned #9) then delete it.
         ResponseEntity<TeamResponse> created =
                 authed.postForEntity(
                         teamsUrl(tournament.id()),
@@ -259,10 +265,10 @@ class TeamControllerIT {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
 
-        // Verify no longer in list
+        // After deletion: 8 seeded teams remain
         ResponseEntity<TeamResponse[]> listResponse =
                 authed.getForEntity(teamsUrl(tournament.id()), TeamResponse[].class);
-        assertThat(listResponse.getBody()).isEmpty();
+        assertThat(listResponse.getBody()).hasSize(8);
     }
 
     // =========================================================================
@@ -273,12 +279,13 @@ class TeamControllerIT {
     void bulkCreateTeamsReturns201WithResults() {
         TournamentResponse tournament = createDraftTournament();
 
+        // E05S12: 8 teams seeded (1–8); use numbers 9, 10, 11 to avoid conflicts.
         var bulkRequest =
                 new TeamBulkCreateRequest(
                         List.of(
-                                new TeamCreateRequest("Bulk Team 1", 1, null, null, null),
-                                new TeamCreateRequest("Bulk Team 2", 2, null, null, null),
-                                new TeamCreateRequest("Bulk Team 3", 3, null, null, null)));
+                                new TeamCreateRequest("Bulk Team 1", 9, null, null, null),
+                                new TeamCreateRequest("Bulk Team 2", 10, null, null, null),
+                                new TeamCreateRequest("Bulk Team 3", 11, null, null, null)));
 
         ResponseEntity<TeamBulkCreateResponse> response =
                 authed.postForEntity(
@@ -301,17 +308,17 @@ class TeamControllerIT {
     void createTeamWithDuplicateNumberReturns409() {
         TournamentResponse tournament = createDraftTournament();
 
-        // Create team with number 5
+        // E05S12: numbers 1–8 are already seeded. Use number 9 for first explicit create.
         authed.postForEntity(
                 teamsUrl(tournament.id()),
-                new TeamCreateRequest("First Team", 5, null, null, null),
+                new TeamCreateRequest("First Team", 9, null, null, null),
                 TeamResponse.class);
 
-        // Try to create another with same number
+        // Try to create another with the same number → 409 Conflict
         ResponseEntity<ApiErrorResponse> response =
                 authed.postForEntity(
                         teamsUrl(tournament.id()),
-                        new TeamCreateRequest("Second Team", 5, null, null, null),
+                        new TeamCreateRequest("Second Team", 9, null, null, null),
                         ApiErrorResponse.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);

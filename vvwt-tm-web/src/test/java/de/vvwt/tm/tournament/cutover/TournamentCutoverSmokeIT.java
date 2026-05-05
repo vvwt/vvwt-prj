@@ -169,9 +169,11 @@ class TournamentCutoverSmokeIT {
             assertThat(teamsResp.getBody()).isNotNull();
 
             // Verify via new TeamRepository (de.vvwt.tm.tournament.TeamRepository)
+            // E05S12: tournament was created with teamCount=4, so 4 teams are auto-seeded.
+            // The bulk request adds 4 more. Total = 4 (seeded) + 4 (bulk) = 8.
             assertThat(teamRepository.findByTournamentId(tournamentId))
-                    .as("TeamRepository (new tournament.*) must return the created teams")
-                    .hasSize(teamRequests.size());
+                    .as("TeamRepository (new tournament.*) must return all teams (seeded + bulk)")
+                    .hasSize(teamRequests.size() + 4);
 
             // Step 3: Apply draft → start Phase
             var section =
