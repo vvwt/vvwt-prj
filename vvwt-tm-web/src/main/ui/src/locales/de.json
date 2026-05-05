@@ -351,5 +351,8 @@
       "title": "Publisher nicht erreichbar",
       "body": "Der Info-Portal-Publisher hat 5 aufeinanderfolgende Fehler gemeldet. Bitte Verbindung prüfen."
     }
+  },
+  "slotopt": {
+    "title": "Slot-Optimierung"
   }
 }

@@ -13,9 +13,11 @@
    * AC10: API validation errors are displayed inline next to the relevant field.
    * AC11: all visible strings sourced from svelte-i18n $_ function.
    */
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
+  import { get } from 'svelte/store';
   import { pop } from 'svelte-spa-router';
   import { _ } from 'svelte-i18n';
+  import { pageHeader, resetPageHeader } from '../stores/pageHeaderStore.js';
   import {
     getTournament,
     createTournament,
@@ -53,6 +55,17 @@
 
   // ── Init ─────────────────────────────────────────────────────────────────
   onMount(async () => {
+    // E47S02 AC3/AC4/AC5/AC7/AC8/AC9: register page title + back-arrow via pageHeader store.
+    // TournamentForm is used for both /tournaments/new and /tournaments/:id/edit.
+    // backTo: '/tournaments' — both routes are sub-routes of /tournaments (Brief D-12, AC5).
+    // tournamentId: null — D-6 carve-out: the form contains the tournament name → no header-name.
+    // actions: [] — Save/Cancel STAY in form__actions footer per D-13 (HTML form-association).
+    pageHeader.set({
+      title: get(_)(editId ? 'tournamentForm.editTitle' : 'tournamentForm.createTitle'),
+      backTo: '/tournaments',
+      tournamentId: null,
+      actions: [],
+    });
     try {
       rules = await getTournamentRules();
       // Set default selections to first option in each list
@@ -79,6 +92,11 @@
     } finally {
       loading = false;
     }
+  });
+
+  // ── Cleanup ──────────────────────────────────────────────────────────────
+  onDestroy(() => {
+    resetPageHeader();
   });
 
   // ── Submit ────────────────────────────────────────────────────────────────
@@ -141,10 +159,6 @@
 </script>
 
 <main class="tournament-form">
-  <h1>
-    {editId ? $_('tournamentForm.editTitle') : $_('tournamentForm.createTitle')}
-  </h1>
-
   {#if loading}
     <p>…</p>
   {:else}
