@@ -115,14 +115,18 @@ export async function saveDraft(tournamentId: string, config: DraftConfig): Prom
 }
 
 /**
- * Calculates a preview of the draft without creating any entities (E05S06 AC4; E08S05 AC3).
+ * Calculates a preview of the draft without creating any entities (E05S06 AC4; E08S05 AC3;
+ * E21S21 AC-IMPL-FE-DRAFTSTORE-BODY).
  *
  * @param tournamentId the tournament UUID
+ * @param config       the current draft configuration to preview (sent as JSON body)
  * @throws Error if the request fails or the draft has no sections
  */
-export async function previewDraft(tournamentId: string): Promise<DraftPreview> {
+export async function previewDraft(tournamentId: string, config: DraftConfig): Promise<DraftPreview> {
     const res = await apiFetch(`/api/tournaments/${tournamentId}/draft/preview`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -136,14 +140,18 @@ export async function previewDraft(tournamentId: string): Promise<DraftPreview> 
 
 /**
  * Applies the draft configuration: creates Phase entities and transitions the tournament
- * to PLANNED status (E05S06 AC5; E08S05 AC7 — persists PhaseBreak entities).
+ * to PLANNED status (E05S06 AC5; E08S05 AC7 — persists PhaseBreak entities;
+ * E21S21 AC-IMPL-FE-DRAFTSTORE-BODY).
  *
  * @param tournamentId the tournament UUID
+ * @param config       the draft configuration to apply (sent as JSON body)
  * @throws Error if the request fails
  */
-export async function applyDraft(tournamentId: string): Promise<DraftApplyResponse> {
+export async function applyDraft(tournamentId: string, config: DraftConfig): Promise<DraftApplyResponse> {
     const res = await apiFetch(`/api/tournaments/${tournamentId}/draft/apply`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));

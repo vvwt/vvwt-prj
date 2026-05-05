@@ -1,10 +1,13 @@
 package de.vvwt.tm.web;
 
 import de.vvwt.tm.tournament.DraftService;
+import de.vvwt.tm.tournament.Tournament;
+import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.draft.DraftBreak;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftPreviewResult;
 import de.vvwt.tm.tournament.draft.DraftSection;
+import de.vvwt.tm.tournament.exceptions.TournamentNotFoundException;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftApplyResponse;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftBreakRequest;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftPreviewResponse;
@@ -79,12 +82,19 @@ import org.springframework.web.bind.annotation.RestController;
 public class DraftController {
 
     private final DraftService draftService;
+    private final TournamentRepository tournamentRepository;
 
     /**
      * @param draftService the draft service ({@code "tmDraftService"} qualifier)
+     * @param tournamentRepository the tournament repository ({@code "tmTournamentRepository"}
+     *     qualifier) — used to load {@link Tournament#getTeamCount()} for the preview computation
+     *     (E21S21 AC-IMPL-BE-CONTROLLER-LOAD-TEAMCOUNT)
      */
-    public DraftController(@Qualifier("tmDraftService") DraftService draftService) {
+    public DraftController(
+            @Qualifier("tmDraftService") DraftService draftService,
+            @Qualifier("tmTournamentRepository") TournamentRepository tournamentRepository) {
         this.draftService = draftService;
+        this.tournamentRepository = tournamentRepository;
     }
 
     // -------------------------------------------------------------------------
@@ -147,19 +157,26 @@ public class DraftController {
     /**
      * Calculates a preview of what the draft will produce WITHOUT creating any entities.
      *
+     * <p>E21S21 AC-IMPL-BE-CONTROLLER-LOAD-TEAMCOUNT: loads {@link Tournament#getTeamCount()} from
+     * the repository to supply the correct participating team count to the service — replacing the
+     * pre-fix hardcoded {@code 0} which caused meaningless preview math (Bug 1b). Returns 404 if
+     * the tournament is not found (AC-TEST-BE-CROSS-TENANT-404-PRESERVED).
+     *
      * @param tournamentId the tournament UUID (from path)
      * @param request the draft configuration to preview (validated via {@link Valid})
-     * @return 200 OK with the preview result for each section
+     * @return 200 OK with the preview result for each section; 404 if tournament not found
      */
     @PostMapping("/preview")
     public ResponseEntity<DraftPreviewResponse> previewDraft(
             @PathVariable("tournamentId") UUID tournamentId,
             @RequestBody @Valid DraftRequest request) {
 
+        Tournament tournament =
+                tournamentRepository
+                        .findById(tournamentId)
+                        .orElseThrow(() -> new TournamentNotFoundException(tournamentId));
         DraftConfig config = toDraftConfig(request);
-        // participatingTeamCount=0 during preview — section math uses provided groupCount
-        // (future: load from tournament repository; for now DraftService computes with 0)
-        DraftPreviewResult result = draftService.preview(config, 0);
+        DraftPreviewResult result = draftService.preview(config, tournament.getTeamCount());
         return ResponseEntity.ok(DraftPreviewResponse.from(result.sections(), result.timeline()));
     }
 

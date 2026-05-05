@@ -15,6 +15,8 @@ import de.vvwt.tm.infrastructure.testsupport.TenantContextSliceTestSupport;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantRegistryPort;
 import de.vvwt.tm.tournament.DraftService;
+import de.vvwt.tm.tournament.Tournament;
+import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftPreviewResult;
 import de.vvwt.tm.tournament.draft.DraftPreviewSection;
@@ -23,6 +25,7 @@ import de.vvwt.tm.tournament.exceptions.TournamentNotFoundException;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftRequest;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftSectionRequest;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -41,6 +44,14 @@ import org.springframework.web.context.WebApplicationContext;
  * Slice tests for {@link DraftController} (E21S19 — DraftController relocated to {@code
  * de.vvwt.tm.web}; new {@code GET} and {@code PUT} mappings added).
  *
+ * <h2>E21S21 additions (DEC-22 Iron Law — RED-first)</h2>
+ *
+ * <p>Tests added for AC-TEST-BE-PREVIEW-WITH-N-TEAMS-RED and AC-TEST-BE-PREVIEW-ZERO-TEAMS-BOUNDARY
+ * were committed RED before the production fix was applied (DEC-22 Iron Law). The pre-existing test
+ * {@code previewDraft_withValidRequest_returns200WithPreviewResponse} was updated from {@code
+ * eq(0)} to {@code eq(8)} — stubbing the correct post-fix behavior. Added {@code @MockitoBean} for
+ * {@link TournamentRepository} with the {@code "tmTournamentRepository"} qualifier.
+ *
  * <h2>RED-first discipline (DEC-22 Iron Law)</h2>
  *
  * <p>This test class was committed RED: the relocated {@link DraftController} at {@code
@@ -56,7 +67,12 @@ import org.springframework.web.context.WebApplicationContext;
  *   <li>PUT /api/tournaments/{id}/draft with valid body → 200 + DraftResponse
  *   <li>PUT /api/tournaments/{id}/draft with malformed JSON → 400
  *   <li>GET /api/tournaments/{id}/draft for unknown tournament → 404
- *   <li>POST /preview with valid body → 200 + DraftPreviewResponse (pre-existing)
+ *   <li>POST /preview with valid body, teamCount=8 → 200 + teamsPerGroup=2 (E21S21
+ *       AC-TEST-BE-PREVIEW-WITH-N-TEAMS-RED)
+ *   <li>POST /preview with valid body, teamCount=0 → 200 + teamsPerGroup=0 (E21S21
+ *       AC-TEST-BE-PREVIEW-ZERO-TEAMS-BOUNDARY)
+ *   <li>POST /preview cross-tenant → 404 (E21S21 AC-TEST-BE-CROSS-TENANT-404-PRESERVED)
+ *   <li>POST /preview without body → 400 (AC-TEST-BE-PREVIEW-NO-BODY-RED preserved)
  *   <li>POST /apply with valid body → 200 + DraftApplyResponse (pre-existing)
  *   <li>Anonymous request → 401 (pre-existing security gate)
  * </ul>
@@ -66,9 +82,11 @@ import org.springframework.web.context.WebApplicationContext;
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
  * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation: web module</a>
  * @see <a href="E21S19">E21S19 — Restore GET + PUT + DraftController relocation</a>
+ * @see <a href="E21S21">E21S21 — Fix Vorschau/Apply 400 + remove auto-save + load
+ *     getTeamCount()</a>
  */
 @WebMvcTest(DraftController.class)
-@DisplayName("DraftController slice tests — E21S19 GET/PUT + relocation")
+@DisplayName("DraftController slice tests — E21S19 GET/PUT + relocation + E21S21 team count")
 class DraftControllerSliceTest {
 
     @Autowired private WebApplicationContext context;
@@ -76,6 +94,9 @@ class DraftControllerSliceTest {
 
     @MockitoBean(name = "tmDraftService")
     private DraftService draftService;
+
+    @MockitoBean(name = "tmTournamentRepository")
+    private TournamentRepository tournamentRepository;
 
     @MockitoBean private TenantContext tenantContext;
     @MockitoBean private TenantRegistryPort tenantRegistryPort;
@@ -204,17 +225,128 @@ class DraftControllerSliceTest {
     }
 
     // =========================================================================
-    // Pre-existing: POST /preview → 200 (Scenario: preview endpoint preserved)
+    // E21S21 AC-TEST-BE-PREVIEW-WITH-N-TEAMS-RED: teamCount=8, groupCount=4 → teamsPerGroup=2
+    // Anti-fooling: confirms Tournament.getTeamCount() is used, not isParticipate filter
     // =========================================================================
 
-    /** Pre-existing: POST /preview with valid body → 200 + DraftPreviewResponse. */
+    /**
+     * E21S21 AC-TEST-BE-PREVIEW-WITH-N-TEAMS-RED — POST /preview with teamCount=8, groupCount=4 →
+     * teamsPerGroup=2.
+     *
+     * <p>Anti-fooling: Tournament.teamCount=8; if the implementation used a Team-row filter
+     * returning 6 (isParticipate=true), teamsPerGroup would be 1 (floor(6/4)=1), not 2 (8/4=2). The
+     * mock returns teamsPerGroup=2 only when draftService.preview is called with eq(8) — confirming
+     * Tournament.getTeamCount() is the count source.
+     */
+    @Test
+    @WithMockUser
+    @DisplayName(
+            "E21S21: POST /preview with teamCount=8, groupCount=4 → teamsPerGroup=2 (anti-fooling)")
+    void previewDraft_withTeamCount8_returnsTeamsPerGroup2() throws Exception {
+        // Fixture: tournament with teamCount=8 (anti-fooling: NOT isParticipate filter result)
+        Tournament tournament = new Tournament();
+        tournament.setTeamCount(8);
+        when(tournamentRepository.findById(eq(TOURNAMENT_ID))).thenReturn(Optional.of(tournament));
+
+        // Mock: draftService.preview called with participatingTeamCount=8 → teamsPerGroup=2
+        DraftPreviewSection section = new DraftPreviewSection(1, 4, 2, 1, 1, 4, 60);
+        DraftPreviewResult serviceResult = new DraftPreviewResult(List.of(section), List.of());
+        when(draftService.preview(any(DraftConfig.class), eq(8))).thenReturn(serviceResult);
+
+        DraftSectionRequest sectionRequest =
+                new DraftSectionRequest(1, "team_number", 4, "roundrobin", 5, 10, 15, 1, null);
+        DraftRequest requestBody = new DraftRequest(List.of(sectionRequest));
+
+        mockMvc.perform(
+                        post("/api/tournaments/{id}/draft/preview", TOURNAMENT_ID)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(requestBody))
+                                .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sections[0].teamsPerGroup").value(2));
+    }
+
+    // =========================================================================
+    // E21S21 AC-TEST-BE-PREVIEW-ZERO-TEAMS-BOUNDARY: teamCount=0 → teamsPerGroup=0
+    // =========================================================================
+
+    /**
+     * E21S21 AC-TEST-BE-PREVIEW-ZERO-TEAMS-BOUNDARY — Tournament.teamCount=0 → preview returns
+     * teamsPerGroup=0. Formula path unchanged; only input source changed.
+     */
+    @Test
+    @WithMockUser
+    @DisplayName("E21S21: POST /preview with teamCount=0 → teamsPerGroup=0 (boundary)")
+    void previewDraft_withTeamCount0_returnsZeroMath() throws Exception {
+        Tournament tournament = new Tournament();
+        tournament.setTeamCount(0);
+        when(tournamentRepository.findById(eq(TOURNAMENT_ID))).thenReturn(Optional.of(tournament));
+
+        DraftPreviewSection section = new DraftPreviewSection(1, 4, 0, 0, 0, 0, 0);
+        DraftPreviewResult serviceResult = new DraftPreviewResult(List.of(section), List.of());
+        when(draftService.preview(any(DraftConfig.class), eq(0))).thenReturn(serviceResult);
+
+        DraftSectionRequest sectionRequest =
+                new DraftSectionRequest(1, "team_number", 4, "roundrobin", 5, 10, 15, 1, null);
+        DraftRequest requestBody = new DraftRequest(List.of(sectionRequest));
+
+        mockMvc.perform(
+                        post("/api/tournaments/{id}/draft/preview", TOURNAMENT_ID)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(requestBody))
+                                .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sections[0].teamsPerGroup").value(0));
+    }
+
+    // =========================================================================
+    // E21S21 AC-TEST-BE-CROSS-TENANT-404-PRESERVED: cross-tenant → 404
+    // =========================================================================
+
+    /**
+     * E21S21 AC-TEST-BE-CROSS-TENANT-404-PRESERVED — When tournamentRepository.findById returns
+     * empty (cross-tenant / not found), DraftController throws TournamentNotFoundException → 404.
+     * No draft data or team count is leaked.
+     */
+    @Test
+    @WithMockUser
+    @DisplayName("E21S21: POST /preview cross-tenant → 404 (no data leaked)")
+    void previewDraft_crossTenant_returns404() throws Exception {
+        when(tournamentRepository.findById(eq(TOURNAMENT_ID))).thenReturn(Optional.empty());
+
+        DraftSectionRequest sectionRequest =
+                new DraftSectionRequest(1, "team_number", 4, "roundrobin", 5, 10, 15, 1, null);
+        DraftRequest requestBody = new DraftRequest(List.of(sectionRequest));
+
+        mockMvc.perform(
+                        post("/api/tournaments/{id}/draft/preview", TOURNAMENT_ID)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(requestBody))
+                                .with(csrf()))
+                .andExpect(status().isNotFound());
+    }
+
+    // =========================================================================
+    // Pre-existing: POST /preview → 200 (updated for E21S21: eq(8) for teamCount)
+    // =========================================================================
+
+    /**
+     * Pre-existing: POST /preview with valid body → 200 + DraftPreviewResponse.
+     *
+     * <p>Updated for E21S21: tournament mock returns teamCount=8; draftService.preview stubbed with
+     * eq(8) (not eq(0) — the hardcoded zero was the bug). Confirms post-fix behavior.
+     */
     @Test
     @WithMockUser
     @DisplayName("POST /draft/preview with valid body returns 200 + DraftPreviewResponse")
     void previewDraft_withValidRequest_returns200WithPreviewResponse() throws Exception {
+        Tournament tournament = new Tournament();
+        tournament.setTeamCount(8);
+        when(tournamentRepository.findById(eq(TOURNAMENT_ID))).thenReturn(Optional.of(tournament));
+
         DraftPreviewSection section = new DraftPreviewSection(1, 2, 4, 6, 3, 12, 75);
         DraftPreviewResult serviceResult = new DraftPreviewResult(List.of(section), List.of());
-        when(draftService.preview(any(DraftConfig.class), eq(0))).thenReturn(serviceResult);
+        when(draftService.preview(any(DraftConfig.class), eq(8))).thenReturn(serviceResult);
 
         DraftSectionRequest sectionRequest =
                 new DraftSectionRequest(1, "team_number", 2, "roundrobin", 5, 10, 15, 1, null);
