@@ -85,7 +85,7 @@ public class DraftController {
     private final TournamentRepository tournamentRepository;
 
     /**
-     * @param draftService         the draft service ({@code "tmDraftService"} qualifier)
+     * @param draftService the draft service ({@code "tmDraftService"} qualifier)
      * @param tournamentRepository the tournament repository ({@code "tmTournamentRepository"}
      *     qualifier) — used to load {@link Tournament#getTeamCount()} for the preview computation
      *     (E21S21 AC-IMPL-BE-CONTROLLER-LOAD-TEAMCOUNT)

@@ -48,9 +48,9 @@ import org.springframework.web.context.WebApplicationContext;
  *
  * <p>Tests added for AC-TEST-BE-PREVIEW-WITH-N-TEAMS-RED and AC-TEST-BE-PREVIEW-ZERO-TEAMS-BOUNDARY
  * were committed RED before the production fix was applied (DEC-22 Iron Law). The pre-existing test
- * {@code previewDraft_withValidRequest_returns200WithPreviewResponse} was updated from {@code eq(0)}
- * to {@code eq(8)} — stubbing the correct post-fix behavior. Added {@code @MockitoBean} for {@link
- * TournamentRepository} with the {@code "tmTournamentRepository"} qualifier.
+ * {@code previewDraft_withValidRequest_returns200WithPreviewResponse} was updated from {@code
+ * eq(0)} to {@code eq(8)} — stubbing the correct post-fix behavior. Added {@code @MockitoBean} for
+ * {@link TournamentRepository} with the {@code "tmTournamentRepository"} qualifier.
  *
  * <h2>RED-first discipline (DEC-22 Iron Law)</h2>
  *
@@ -67,8 +67,10 @@ import org.springframework.web.context.WebApplicationContext;
  *   <li>PUT /api/tournaments/{id}/draft with valid body → 200 + DraftResponse
  *   <li>PUT /api/tournaments/{id}/draft with malformed JSON → 400
  *   <li>GET /api/tournaments/{id}/draft for unknown tournament → 404
- *   <li>POST /preview with valid body, teamCount=8 → 200 + teamsPerGroup=2 (E21S21 AC-TEST-BE-PREVIEW-WITH-N-TEAMS-RED)
- *   <li>POST /preview with valid body, teamCount=0 → 200 + teamsPerGroup=0 (E21S21 AC-TEST-BE-PREVIEW-ZERO-TEAMS-BOUNDARY)
+ *   <li>POST /preview with valid body, teamCount=8 → 200 + teamsPerGroup=2 (E21S21
+ *       AC-TEST-BE-PREVIEW-WITH-N-TEAMS-RED)
+ *   <li>POST /preview with valid body, teamCount=0 → 200 + teamsPerGroup=0 (E21S21
+ *       AC-TEST-BE-PREVIEW-ZERO-TEAMS-BOUNDARY)
  *   <li>POST /preview cross-tenant → 404 (E21S21 AC-TEST-BE-CROSS-TENANT-404-PRESERVED)
  *   <li>POST /preview without body → 400 (AC-TEST-BE-PREVIEW-NO-BODY-RED preserved)
  *   <li>POST /apply with valid body → 200 + DraftApplyResponse (pre-existing)
@@ -80,7 +82,8 @@ import org.springframework.web.context.WebApplicationContext;
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
  * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation: web module</a>
  * @see <a href="E21S19">E21S19 — Restore GET + PUT + DraftController relocation</a>
- * @see <a href="E21S21">E21S21 — Fix Vorschau/Apply 400 + remove auto-save + load getTeamCount()</a>
+ * @see <a href="E21S21">E21S21 — Fix Vorschau/Apply 400 + remove auto-save + load
+ *     getTeamCount()</a>
  */
 @WebMvcTest(DraftController.class)
 @DisplayName("DraftController slice tests — E21S19 GET/PUT + relocation + E21S21 team count")
@@ -231,9 +234,9 @@ class DraftControllerSliceTest {
      * teamsPerGroup=2.
      *
      * <p>Anti-fooling: Tournament.teamCount=8; if the implementation used a Team-row filter
-     * returning 6 (isParticipate=true), teamsPerGroup would be 1 (floor(6/4)=1), not 2 (8/4=2).
-     * The mock returns teamsPerGroup=2 only when draftService.preview is called with eq(8) —
-     * confirming Tournament.getTeamCount() is the count source.
+     * returning 6 (isParticipate=true), teamsPerGroup would be 1 (floor(6/4)=1), not 2 (8/4=2). The
+     * mock returns teamsPerGroup=2 only when draftService.preview is called with eq(8) — confirming
+     * Tournament.getTeamCount() is the count source.
      */
     @Test
     @WithMockUser
