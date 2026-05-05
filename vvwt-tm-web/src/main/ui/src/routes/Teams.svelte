@@ -13,7 +13,8 @@
    *
    * All visible strings use the svelte-i18n `$_()` function (AC12 — no hardcoded strings).
    */
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
+  import { get } from 'svelte/store';
   import { _ } from 'svelte-i18n';
   import {
     listTeams,
@@ -22,6 +23,8 @@
     deleteTeam,
     type Team,
   } from '../stores/teamStore.js';
+  import { pageHeader, resetPageHeader } from '../stores/pageHeaderStore.js';
+  import { resolveParent } from '../lib/parentRouteMap.js';
 
   // ── Props (Svelte 5 runes) ────────────────────────────────────────────────
   interface Props {
@@ -61,7 +64,25 @@
 
   // ─── Lifecycle ───────────────────────────────────────────────
   onMount(async () => {
+    // E47S01 AC3/AC4/AC5/AC6: register title, back-arrow, tournament context, and add-team action
+    pageHeader.set({
+      title: get(_)('teams.title'),
+      backTo: resolveParent('/tournaments/:tournamentId/teams', tournamentId),
+      tournamentId: tournamentId || null,
+      actions: [
+        {
+          label: get(_)('teams.addButton'),
+          ariaLabel: get(_)('teams.addButton'),
+          handler: openAddRow,
+          variant: 'primary',
+        },
+      ],
+    });
     await load();
+  });
+
+  onDestroy(() => {
+    resetPageHeader();
   });
 
   async function load(): Promise<void> {
@@ -189,12 +210,6 @@
 </script>
 
 <main class="teams">
-  <div class="teams__header">
-    <h1>{$_('teams.title')}</h1>
-    <button class="btn btn--primary" onclick={openAddRow} disabled={addRow !== null}>
-      {$_('teams.addButton')}
-    </button>
-  </div>
 
   <!-- AC9: team count indicator -->
   <div class="teams__summary">
@@ -345,17 +360,6 @@
   .teams {
     padding: 2rem;
     font-family: sans-serif;
-  }
-
-  .teams__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 0.75rem;
-  }
-
-  .teams__header h1 {
-    margin: 0;
   }
 
   .teams__summary {

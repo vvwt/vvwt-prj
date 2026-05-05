@@ -16,9 +16,11 @@
    *   params.tournamentId — the tournament UUID from the route
    *     (#/tournaments/:tournamentId/certificate-template)
    */
-  import { onMount } from 'svelte';
-  import { pop } from 'svelte-spa-router';
+  import { onMount, onDestroy } from 'svelte';
+  import { get } from 'svelte/store';
   import { _ } from 'svelte-i18n';
+  import { pageHeader, resetPageHeader } from '../stores/pageHeaderStore.js';
+  import { resolveParent } from '../lib/parentRouteMap.js';
   import {
     getTemplateMetadata,
     uploadTemplate,
@@ -63,6 +65,13 @@
 
   // ── Init ──────────────────────────────────────────────────────────────────
   onMount(async () => {
+    // E47S01 AC3/AC5/AC6/AC12: register title, back-arrow, and tournament context in persistent header
+    pageHeader.set({
+      title: get(_)('certificateTemplate.title'),
+      backTo: resolveParent('/tournaments/:tournamentId/certificate-template', tournamentId),
+      tournamentId: tournamentId || null,
+      actions: [],
+    });
     if (!tournamentId) {
       loadError = $_('certificateTemplate.error.noTournament');
       loading = false;
@@ -70,6 +79,10 @@
     }
     await Promise.all([loadMetadata(), loadVariables()]);
     loading = false;
+  });
+
+  onDestroy(() => {
+    resetPageHeader();
   });
 
   async function loadMetadata(): Promise<void> {
@@ -215,13 +228,6 @@
 </script>
 
 <main class="cert-template">
-  <!-- ── Header ──────────────────────────────────────────────────────────── -->
-  <div class="cert-template__header">
-    <h1>{$_('certificateTemplate.title')}</h1>
-    <button class="btn btn--secondary" onclick={() => pop()}>
-      {$_('certificateTemplate.backButton')}
-    </button>
-  </div>
 
   {#if loading}
     <p class="cert-template__loading">…</p>
@@ -375,18 +381,6 @@
     padding: 2rem;
     font-family: sans-serif;
     max-width: 900px;
-  }
-
-  .cert-template__header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .cert-template__header h1 {
-    margin: 0;
-    flex: 1;
   }
 
   .cert-template__loading {

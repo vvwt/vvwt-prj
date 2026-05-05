@@ -16,9 +16,12 @@
    * Props:
    *   params.tournamentId — the tournament UUID from the route
    */
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { pop } from 'svelte-spa-router';
+  import { get } from 'svelte/store';
   import { _ } from 'svelte-i18n';
+  import { pageHeader, resetPageHeader } from '../stores/pageHeaderStore.js';
+  import { resolveParent } from '../lib/parentRouteMap.js';
   import {
     getDraft,
     saveDraft,
@@ -55,6 +58,13 @@
 
   // ── Init ─────────────────────────────────────────────────────────────────
   onMount(async () => {
+    // E47S01 AC3/AC5/AC6/AC12: register title, back-arrow, and tournament context in persistent header
+    pageHeader.set({
+      title: get(_)('draft.title'),
+      backTo: resolveParent('/tournaments/:tournamentId/draft', tournamentId),
+      tournamentId: tournamentId || null,
+      actions: [],
+    });
     if (!tournamentId) {
       loadError = $_('draft.error.noTournament');
       loading = false;
@@ -75,6 +85,10 @@
     } finally {
       loading = false;
     }
+  });
+
+  onDestroy(() => {
+    resetPageHeader();
   });
 
   // ── Section management ───────────────────────────────────────────────────
@@ -252,17 +266,6 @@
 </script>
 
 <main class="draft-config">
-  <div class="draft-config__header">
-    <h1>{$_('draft.title')}</h1>
-    {#if plannedStartTime}
-      <span class="draft-config__start-time">
-        {$_('draft.startTimeLabel')}: <strong>{plannedStartTime}</strong>
-      </span>
-    {/if}
-    <button class="btn btn--secondary" onclick={() => pop()}>
-      {$_('draft.backButton')}
-    </button>
-  </div>
 
   {#if loading}
     <p class="draft-config__loading">…</p>
@@ -481,24 +484,6 @@
     padding: 2rem;
     font-family: sans-serif;
     max-width: 900px;
-  }
-
-  .draft-config__header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-  }
-
-  .draft-config__header h1 {
-    margin: 0;
-    flex: 1;
-  }
-
-  .draft-config__start-time {
-    font-size: 0.9rem;
-    color: #555;
   }
 
   .draft-config__actions {

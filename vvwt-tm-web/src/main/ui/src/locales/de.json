@@ -2,6 +2,9 @@
   "app": {
     "title": "Turnierverwaltung"
   },
+  "common": {
+    "moreActions": "weitere Aktionen"
+  },
   "nav": {
     "home": "Startseite",
     "tournaments": "Turniere",

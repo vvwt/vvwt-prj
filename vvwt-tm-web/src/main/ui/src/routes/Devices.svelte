@@ -22,7 +22,9 @@
    * section only shown when filter is "all" or "scoring" (AC7 preservation).
    */
   import { onMount, onDestroy } from 'svelte';
+  import { get } from 'svelte/store';
   import { _ } from 'svelte-i18n';
+  import { pageHeader, resetPageHeader } from '../stores/pageHeaderStore.js';
   import { Client as StompClient } from '@stomp/stompjs';
   import SockJS from 'sockjs-client';
   import * as QRCodeLib from 'qrcode';
@@ -123,11 +125,32 @@
   // ──────────────────────────────────────────────────────────────────────
 
   onMount(async () => {
+    // E47S01 AC3/AC4/AC8: register title and actions (QR=secondary, clearAll=danger) in persistent header
+    pageHeader.set({
+      title: get(_)('devices.title'),
+      backTo: null,
+      tournamentId: null,
+      actions: [
+        {
+          label: get(_)('devices.showQrButton'),
+          ariaLabel: get(_)('devices.showQrButton'),
+          handler: handleShowQr,
+          variant: 'secondary',
+        },
+        {
+          label: get(_)('devices.clearAllButton'),
+          ariaLabel: get(_)('devices.clearAllButton'),
+          handler: handleClearAll,
+          variant: 'danger',
+        },
+      ],
+    });
     await Promise.all([loadDevices(), loadDisplayLimit()]);
     connectWebSocket();
   });
 
   onDestroy(() => {
+    resetPageHeader();
     if (stompClient) {
       stompClient.deactivate();
       stompClient = null;
@@ -466,19 +489,6 @@
 
 <!-- E06S05 AC8: navigation link provided via App.svelte -->
 <main class="devices">
-  <div class="devices__header">
-    <h1>{$_('devices.title')}</h1>
-    <div class="devices__header-actions">
-      <!-- E06S05 AC5: QR code display -->
-      <button class="btn btn--secondary" onclick={handleShowQr}>
-        {$_('devices.showQrButton')}
-      </button>
-      <!-- E06S05 AC7: clear all devices -->
-      <button class="btn btn--danger" onclick={handleClearAll}>
-        {$_('devices.clearAllButton')}
-      </button>
-    </div>
-  </div>
 
   <!-- QR code modal (E06S05 AC5) -->
   {#if showQr}
@@ -792,22 +802,6 @@
   .devices {
     padding: 2rem;
     font-family: sans-serif;
-  }
-
-  .devices__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 1.5rem;
-  }
-
-  .devices__header h1 {
-    margin: 0;
-  }
-
-  .devices__header-actions {
-    display: flex;
-    gap: 0.5rem;
   }
 
   /* Filter tabs (E07S03 AC1) */

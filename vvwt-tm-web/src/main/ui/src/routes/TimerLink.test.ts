@@ -214,3 +214,57 @@ describe('QR code SVG generation (AC2)', () => {
     expect(svg).toMatch(/^<svg/);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E47S01: Shell migration tests for TimerLink route
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('TimerLink.svelte — AC3: per-page header removed (E47S01)', () => {
+  it('TimerLink.svelte source does NOT contain .timer-link__header class', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './TimerLink.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).not.toContain('timer-link__header');
+  });
+
+  it('TimerLink.svelte source registers title via pageHeader store', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './TimerLink.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain('pageHeader');
+    expect(source).toContain('timerLink.title');
+  });
+});
+
+describe('TimerLink.svelte — AC5: backTo registered (E47S01)', () => {
+  it('TimerLink.svelte source registers backTo in pageHeader', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './TimerLink.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain('backTo');
+  });
+});
+
+describe('TimerLink.svelte — AC6: tournamentId registered (E47S01)', () => {
+  it('TimerLink.svelte source passes tournamentId to pageHeader', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './TimerLink.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    const pageHeaderCall = source.match(/pageHeader\.set\(\{([^}]*)\}/s)?.[1] ?? '';
+    expect(pageHeaderCall).toContain('tournamentId');
+  });
+});
+
+describe('TimerLink.svelte — AC12: pop() back-button removed (E47S01)', () => {
+  it('TimerLink.svelte source has NO button template with timerLink.backButton', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './TimerLink.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).not.toMatch(/<button[^>]*>\s*\{[^}]*timerLink\.backButton/);
+  });
+});
