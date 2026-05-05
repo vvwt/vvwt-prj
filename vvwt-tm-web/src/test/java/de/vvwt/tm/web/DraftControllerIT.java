@@ -149,7 +149,7 @@ class DraftControllerIT {
     }
 
     private static DraftSectionRequest sampleSection() {
-        return new DraftSectionRequest(1, "team_number", 1, "roundrobin", 0, 0, 15, 1, null);
+        return new DraftSectionRequest(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, null);
     }
 
     private static DraftRequest sampleRequest() {
@@ -232,7 +232,7 @@ class DraftControllerIT {
         assertThat(section.sectionNumber()).isEqualTo(1);
         assertThat(section.sortType()).isEqualTo("team_number");
         assertThat(section.groupCount()).isEqualTo(1);
-        assertThat(section.gameMode()).isEqualTo("roundrobin");
+        assertThat(section.gameMode()).isEqualTo("roundRobin");
         assertThat(section.lapTimeMinutes()).isEqualTo(15);
         assertThat(section.setQuantity()).isEqualTo(1);
     }

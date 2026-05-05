@@ -18,6 +18,7 @@ import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -46,7 +47,8 @@ import org.springframework.jdbc.core.RowMapper;
  * <h2>Same-package white-box access (DEC-36)</h2>
  *
  * <p>This test class resides in {@code de.vvwt.tm.tournament.internal} (same package as {@link
- * DefaultTournamentService}) — white-box access to the implementation class is permitted per DEC-36.
+ * DefaultTournamentService}) — white-box access to the implementation class is permitted per
+ * DEC-36.
  *
  * <h2>Coverage — E05S12 acceptance criteria</h2>
  *
@@ -126,15 +128,22 @@ class DefaultTournamentServiceSeedTest {
     // =========================================================================
 
     @Test
-    @DisplayName("createTournament() seeds exactly N=teamCount Team rows (AC-IMPL-AUTO-SEED-AT-CREATE)")
+    @DisplayName(
+            "createTournament() seeds exactly N=teamCount Team rows (AC-IMPL-AUTO-SEED-AT-CREATE)")
     void createTournament_seedsExactlyNTeamRows() {
         int teamCount = 4;
         when(tournamentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(teamRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         service.createTournament(
-                "Seed Test Tournament", null, teamCount, 2, "BEST_OF_3", "setPoints",
-                "standardVolleyball", "roundRobin");
+                "Seed Test Tournament",
+                null,
+                teamCount,
+                2,
+                "BEST_OF_3",
+                "setPoints",
+                "standardVolleyball",
+                "roundRobin");
 
         ArgumentCaptor<Team> teamCaptor = ArgumentCaptor.forClass(Team.class);
         verify(teamRepository, org.mockito.Mockito.times(teamCount)).save(teamCaptor.capture());
@@ -147,15 +156,23 @@ class DefaultTournamentServiceSeedTest {
     // =========================================================================
 
     @Test
-    @DisplayName("createTournament() assigns teamNumbers 1..N sequentially (AC-IMPL-TEAMNUMBER-PLACEHOLDER)")
+    @DisplayName(
+            "createTournament() assigns teamNumbers 1..N sequentially"
+                    + " (AC-IMPL-TEAMNUMBER-PLACEHOLDER)")
     void createTournament_teamNumbers_are1ToN() {
         int teamCount = 3;
         when(tournamentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(teamRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         service.createTournament(
-                "Number Test", null, teamCount, 2, "BEST_OF_3", "setPoints",
-                "standardVolleyball", "roundRobin");
+                "Number Test",
+                null,
+                teamCount,
+                2,
+                "BEST_OF_3",
+                "setPoints",
+                "standardVolleyball",
+                "roundRobin");
 
         ArgumentCaptor<Team> captor = ArgumentCaptor.forClass(Team.class);
         verify(teamRepository, org.mockito.Mockito.times(teamCount)).save(captor.capture());
@@ -177,16 +194,21 @@ class DefaultTournamentServiceSeedTest {
         when(teamRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         service.createTournament(
-                "Format Test", null, teamCount, 2, "BEST_OF_3", "setPoints",
-                "standardVolleyball", "roundRobin");
+                "Format Test",
+                null,
+                teamCount,
+                2,
+                "BEST_OF_3",
+                "setPoints",
+                "standardVolleyball",
+                "roundRobin");
 
         ArgumentCaptor<Team> captor = ArgumentCaptor.forClass(Team.class);
         verify(teamRepository, org.mockito.Mockito.times(teamCount)).save(captor.capture());
 
         List<String> descriptions =
                 captor.getAllValues().stream()
-                        .sorted(
-                                java.util.Comparator.comparingInt(Team::getTeamNumber))
+                        .sorted(java.util.Comparator.comparingInt(Team::getTeamNumber))
                         .map(Team::getDescription)
                         .toList();
         assertThat(descriptions).containsExactly("Mannschaft 01", "Mannschaft 02");
@@ -199,8 +221,14 @@ class DefaultTournamentServiceSeedTest {
         when(teamRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         service.createTournament(
-                "Large Count", null, 100, 2, "BEST_OF_3", "setPoints",
-                "standardVolleyball", "roundRobin");
+                "Large Count",
+                null,
+                100,
+                2,
+                "BEST_OF_3",
+                "setPoints",
+                "standardVolleyball",
+                "roundRobin");
 
         ArgumentCaptor<Team> captor = ArgumentCaptor.forClass(Team.class);
         verify(teamRepository, org.mockito.Mockito.times(100)).save(captor.capture());
@@ -218,26 +246,30 @@ class DefaultTournamentServiceSeedTest {
     // =========================================================================
 
     @Test
-    @DisplayName("createTournament() seeds teams with participate=true, refereeAssignment=false, withoutAssessment=false")
+    @DisplayName(
+            "createTournament() seeds teams with participate=true, refereeAssignment=false,"
+                    + " withoutAssessment=false")
     void createTournament_defaultFlags_participateTrue_refFalse_assessFalse() {
         when(tournamentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(teamRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         service.createTournament(
-                "Flags Test", null, 2, 2, "BEST_OF_3", "setPoints",
-                "standardVolleyball", "roundRobin");
+                "Flags Test",
+                null,
+                2,
+                2,
+                "BEST_OF_3",
+                "setPoints",
+                "standardVolleyball",
+                "roundRobin");
 
         ArgumentCaptor<Team> captor = ArgumentCaptor.forClass(Team.class);
         verify(teamRepository, org.mockito.Mockito.times(2)).save(captor.capture());
 
         for (Team team : captor.getAllValues()) {
             assertThat(team.isParticipate()).as("participate must be true").isTrue();
-            assertThat(team.isRefereeAssignment())
-                    .as("refereeAssignment must be false")
-                    .isFalse();
-            assertThat(team.isWithoutAssessment())
-                    .as("withoutAssessment must be false")
-                    .isFalse();
+            assertThat(team.isRefereeAssignment()).as("refereeAssignment must be false").isFalse();
+            assertThat(team.isWithoutAssessment()).as("withoutAssessment must be false").isFalse();
         }
     }
 
@@ -252,15 +284,17 @@ class DefaultTournamentServiceSeedTest {
         when(teamRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         service.createTournament(
-                "i18n Test", null, 2, 2, "BEST_OF_3", "setPoints",
-                "standardVolleyball", "roundRobin");
+                "i18n Test",
+                null,
+                2,
+                2,
+                "BEST_OF_3",
+                "setPoints",
+                "standardVolleyball",
+                "roundRobin");
 
         verify(messageSource, atLeastOnce())
-                .getMessage(
-                        eq("team.defaultLabel"),
-                        isNull(),
-                        eq("Mannschaft"),
-                        any(Locale.class));
+                .getMessage(eq("team.defaultLabel"), isNull(), eq("Mannschaft"), any(Locale.class));
     }
 
     // =========================================================================
@@ -268,15 +302,23 @@ class DefaultTournamentServiceSeedTest {
     // =========================================================================
 
     @Test
-    @DisplayName("createTournament() uses tenant.language='de' and resolves Locale.GERMAN (AC-I18N-LOCALE-CHAIN)")
+    @DisplayName(
+            "createTournament() uses tenant.language='de' and resolves Locale.GERMAN"
+                    + " (AC-I18N-LOCALE-CHAIN)")
     void createTournament_localeChain_deFromTenant_resolvesGermanLocale() {
         // tenant language = "de" (already stubbed in setUp)
         when(tournamentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(teamRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         service.createTournament(
-                "Locale Test", null, 2, 2, "BEST_OF_3", "setPoints",
-                "standardVolleyball", "roundRobin");
+                "Locale Test",
+                null,
+                2,
+                2,
+                "BEST_OF_3",
+                "setPoints",
+                "standardVolleyball",
+                "roundRobin");
 
         // Verify MessageSource was called with a German locale
         ArgumentCaptor<Locale> localeCaptor = ArgumentCaptor.forClass(Locale.class);
@@ -292,17 +334,25 @@ class DefaultTournamentServiceSeedTest {
     }
 
     @Test
-    @DisplayName("createTournament() falls back to 'de' locale when tenant language is null (AC-I18N-LOCALE-CHAIN)")
+    @DisplayName(
+            "createTournament() falls back to 'de' locale when tenant language is null"
+                    + " (AC-I18N-LOCALE-CHAIN)")
     void createTournament_localeChain_fallsBackToDeWhenTenantLanguageNull() {
         // Override: queryForList returns null tenant language
         when(jdbcTemplate.queryForList(anyString(), eq(String.class)))
-                .thenReturn(List.of((String) null));
+                .thenReturn(new ArrayList<>(Arrays.asList((String) null)));
         when(tournamentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(teamRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         service.createTournament(
-                "Null-Language Tenant", null, 2, 2, "BEST_OF_3", "setPoints",
-                "standardVolleyball", "roundRobin");
+                "Null-Language Tenant",
+                null,
+                2,
+                2,
+                "BEST_OF_3",
+                "setPoints",
+                "standardVolleyball",
+                "roundRobin");
 
         ArgumentCaptor<Locale> localeCaptor = ArgumentCaptor.forClass(Locale.class);
         verify(messageSource, atLeastOnce())
@@ -321,7 +371,9 @@ class DefaultTournamentServiceSeedTest {
     // =========================================================================
 
     @Test
-    @DisplayName("createTournament() propagates DataAccessException from teamRepository.save (AC-ERR-ATOMIC-ROLLBACK)")
+    @DisplayName(
+            "createTournament() propagates DataAccessException from teamRepository.save"
+                    + " (AC-ERR-ATOMIC-ROLLBACK)")
     void createTournament_propagatesDataAccessException_onTeamInsertFailure() {
         when(tournamentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         doThrow(new DataIntegrityViolationException("simulated constraint violation"))
@@ -331,8 +383,14 @@ class DefaultTournamentServiceSeedTest {
         assertThatThrownBy(
                         () ->
                                 service.createTournament(
-                                        "Rollback Test", null, 2, 2, "BEST_OF_3", "setPoints",
-                                        "standardVolleyball", "roundRobin"))
+                                        "Rollback Test",
+                                        null,
+                                        2,
+                                        2,
+                                        "BEST_OF_3",
+                                        "setPoints",
+                                        "standardVolleyball",
+                                        "roundRobin"))
                 .isInstanceOf(DataAccessException.class);
     }
 
@@ -347,8 +405,14 @@ class DefaultTournamentServiceSeedTest {
         when(teamRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         service.createTournament(
-                "TournamentId Test", null, 3, 2, "BEST_OF_3", "setPoints",
-                "standardVolleyball", "roundRobin");
+                "TournamentId Test",
+                null,
+                3,
+                2,
+                "BEST_OF_3",
+                "setPoints",
+                "standardVolleyball",
+                "roundRobin");
 
         ArgumentCaptor<Tournament> tCaptor = ArgumentCaptor.forClass(Tournament.class);
         verify(tournamentRepository).save(tCaptor.capture());

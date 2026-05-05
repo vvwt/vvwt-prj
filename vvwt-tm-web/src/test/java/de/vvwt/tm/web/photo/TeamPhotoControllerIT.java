@@ -316,16 +316,19 @@ class TeamPhotoControllerIT {
     @Test
     @DisplayName("AC4: GET /teams returns hasPhoto=false before upload, true after upload")
     void teamListingHasPhotoFalseBeforeUploadTrueAfter() throws Exception {
+        // E05S12: createTournament seeds teamCount=8 teams automatically.
+        // Use the first seeded team (team_number=1) for the photo upload test.
         UUID tournamentId = createTournament("HasPhoto Test E36S02");
-        UUID teamId = createTeam(tournamentId, "Team HP");
 
         TeamResponse[] before =
                 authed.getForObject(
                         new URI(baseUrl + "/api/tournaments/" + tournamentId + "/teams"),
                         TeamResponse[].class);
 
-        assertThat(before).hasSize(1);
-        assertThat(before[0].hasPhoto()).as("AC4: hasPhoto must be false before upload").isFalse();
+        assertThat(before).isNotNull().isNotEmpty();
+        TeamResponse targetTeam = before[0]; // first seeded team
+        UUID teamId = targetTeam.id();
+        assertThat(targetTeam.hasPhoto()).as("AC4: hasPhoto must be false before upload").isFalse();
 
         uploadPhoto(authed, tournamentId, teamId, "photo.jpg", SAMPLE_JPEG, MediaType.IMAGE_JPEG);
 
@@ -334,8 +337,13 @@ class TeamPhotoControllerIT {
                         new URI(baseUrl + "/api/tournaments/" + tournamentId + "/teams"),
                         TeamResponse[].class);
 
-        assertThat(after).hasSize(1);
-        assertThat(after[0].hasPhoto()).as("AC4: hasPhoto must be true after upload").isTrue();
+        assertThat(after).isNotNull().isNotEmpty();
+        TeamResponse afterTarget =
+                java.util.Arrays.stream(after)
+                        .filter(t -> teamId.equals(t.id()))
+                        .findFirst()
+                        .orElseThrow();
+        assertThat(afterTarget.hasPhoto()).as("AC4: hasPhoto must be true after upload").isTrue();
     }
 
     @Test

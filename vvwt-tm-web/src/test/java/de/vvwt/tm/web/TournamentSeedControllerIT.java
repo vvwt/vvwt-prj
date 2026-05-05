@@ -112,7 +112,9 @@ class TournamentSeedControllerIT {
      * (tenant.language="de", tournament.language=NULL → description "Mannschaft 01" for first row).
      */
     @Test
-    @DisplayName("POST /api/tournaments seeds exactly N team rows; first row description 'Mannschaft 01' (AC-IMPL-AUTO-SEED + AC-I18N-LOCALE-CHAIN)")
+    @DisplayName(
+            "POST /api/tournaments seeds exactly N team rows; first row description 'Mannschaft 01'"
+                    + " (AC-IMPL-AUTO-SEED + AC-I18N-LOCALE-CHAIN)")
     void postCreateTournament_seedsNTeamRows_assertjDbVerifiesCount() throws Exception {
         int teamCount = 4;
         var request =
@@ -150,7 +152,9 @@ class TournamentSeedControllerIT {
                             .filter(id -> tournamentId.equals(id))
                             .toList();
             assertThat(teamTournamentIds)
-                    .as("exactly %d team rows must exist for tournament %s", teamCount, tournamentId)
+                    .as(
+                            "exactly %d team rows must exist for tournament %s",
+                            teamCount, tournamentId)
                     .hasSize(teamCount);
 
             // AC-I18N-LOCALE-CHAIN: team with team_number=1 has description "Mannschaft 01"
@@ -183,7 +187,9 @@ class TournamentSeedControllerIT {
     // =========================================================================
 
     @Test
-    @DisplayName("POST /api/tournaments with teamCount=0 returns HTTP 400, zero tournament+team rows (AC-ERR-MIN-TEAMCOUNT-PRESERVED)")
+    @DisplayName(
+            "POST /api/tournaments with teamCount=0 returns HTTP 400, zero tournament+team rows"
+                    + " (AC-ERR-MIN-TEAMCOUNT-PRESERVED)")
     void postCreateTournament_teamCountZero_returns400_zeroRows() throws Exception {
         // teamCount=0 violates @Min(2) constraint on TournamentCreateRequest
         String requestBody =
@@ -195,9 +201,7 @@ class TournamentSeedControllerIT {
         ResponseEntity<String> response =
                 authed.postForEntity(
                         new URI(baseUrl + "/api/tournaments"),
-                        new org.springframework.http.HttpEntity<>(
-                                requestBody,
-                                buildJsonHeaders()),
+                        new org.springframework.http.HttpEntity<>(requestBody, buildJsonHeaders()),
                         String.class);
 
         assertThat(response.getStatusCode())
@@ -206,7 +210,9 @@ class TournamentSeedControllerIT {
     }
 
     @Test
-    @DisplayName("POST /api/tournaments with teamCount=1 returns HTTP 400 (AC-ERR-MIN-TEAMCOUNT-PRESERVED)")
+    @DisplayName(
+            "POST /api/tournaments with teamCount=1 returns HTTP 400"
+                    + " (AC-ERR-MIN-TEAMCOUNT-PRESERVED)")
     void postCreateTournament_teamCountOne_returns400() throws Exception {
         String requestBody =
                 "{\"description\":\"TeamCount One\",\"teamCount\":1,\"fieldCount\":2,"
@@ -217,9 +223,7 @@ class TournamentSeedControllerIT {
         ResponseEntity<String> response =
                 authed.postForEntity(
                         new URI(baseUrl + "/api/tournaments"),
-                        new org.springframework.http.HttpEntity<>(
-                                requestBody,
-                                buildJsonHeaders()),
+                        new org.springframework.http.HttpEntity<>(requestBody, buildJsonHeaders()),
                         String.class);
 
         assertThat(response.getStatusCode())
