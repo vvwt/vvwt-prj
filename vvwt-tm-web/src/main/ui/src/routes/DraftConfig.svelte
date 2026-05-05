@@ -218,10 +218,8 @@
     previewError = null;
     preview = null;
     previewing = true;
-    // Save first so server has the latest config
     try {
-      await saveDraft(tournamentId, { sections });
-      preview = await previewDraft(tournamentId);
+      preview = await previewDraft(tournamentId, { sections });
     } catch (e: unknown) {
       previewError = e instanceof Error ? e.message : $_('draft.error.previewFailed');
     } finally {
@@ -236,7 +234,7 @@
     applyError = null;
     applying = true;
     try {
-      await applyDraft(tournamentId);
+      await applyDraft(tournamentId, { sections });
       applySuccess = true;
     } catch (e: unknown) {
       applyError = e instanceof Error ? e.message : $_('draft.error.applyFailed');
