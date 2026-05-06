@@ -48,6 +48,19 @@ public interface PhaseRepository {
     List<Phase> findByTournamentId(UUID tournamentId);
 
     /**
+     * Returns the phase for the given tournament at the given sequence number, scoped to the
+     * current tenant.
+     *
+     * <p>Used by {@link PhaseTransitionService} to resolve {@code fromPhase} from {@code
+     * toPhase.sequenceNumber - 1} within the same tournament.
+     *
+     * @param tournamentId the owning tournament UUID
+     * @param sequenceNumber the 1-indexed ordering of the phase within the tournament
+     * @return Optional.of(phase) if found, Optional.empty() otherwise
+     */
+    Optional<Phase> findByTournamentIdAndSequenceNumber(UUID tournamentId, int sequenceNumber);
+
+    /**
      * Deletes the phase with the given id, scoped to the current tenant.
      *
      * @param id the phase UUID
