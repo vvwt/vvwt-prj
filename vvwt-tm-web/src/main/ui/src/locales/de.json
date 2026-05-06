@@ -71,6 +71,15 @@
       "PENDING": "Ausstehend",
       "ACTIVE": "Aktiv",
       "COMPLETED": "Abgeschlossen"
+    },
+    "startButton": "Phase starten",
+    "completeButton": "Phase abschließen",
+    "forceCompleteButton": "Notabschluss",
+    "completeDisabledTooltip": "Phase kann erst abgeschlossen werden, wenn alle Matches finished sind",
+    "forceCompleteConfirm": "Notabschluss: {count} unfinished Matches werden als abgebrochen markiert. Wirklich fortfahren?",
+    "lifecycleError": "Fehler beim Ändern des Phasenstatus.",
+    "columns": {
+      "actions": "Aktionen"
     }
   },
   "tournamentForm": {

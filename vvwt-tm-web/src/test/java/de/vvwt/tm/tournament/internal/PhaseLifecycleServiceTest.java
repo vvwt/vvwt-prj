@@ -1,0 +1,292 @@
+package de.vvwt.tm.tournament.internal;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import de.vvwt.tm.tournament.MatchLockdownService;
+import de.vvwt.tm.tournament.MatchRepository;
+import de.vvwt.tm.tournament.Phase;
+import de.vvwt.tm.tournament.PhaseLifecycleService;
+import de.vvwt.tm.tournament.PhaseRepository;
+import de.vvwt.tm.tournament.Tournament;
+import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.exceptions.ConflictException;
+import java.util.Optional;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
+
+/**
+ * Unit tests for {@link DefaultPhaseLifecycleService} — RED-first per DEC-22.
+ *
+ * <p>Same-package test: MAY white-box against implementation class per DEC-36 (same-package test
+ * typing rule). Injected as the implementation type.
+ *
+ * <p>Covers:
+ *
+ * <ul>
+ *   <li>AC-TEST-PHASE-START-RED: start() PENDING → ACTIVE; exception on wrong state; event
+ *       published
+ *   <li>AC-TEST-PHASE-COMPLETE-ALL-FINISHED-RED: complete() ACTIVE → COMPLETED only when all
+ *       finished; exception otherwise
+ *   <li>AC-TEST-PHASE-FORCE-COMPLETE-RED: forceComplete() ACTIVE → COMPLETED + void unfinished
+ *       matches; event published
+ * </ul>
+ *
+ * @see DefaultPhaseLifecycleService
+ * @see PhaseLifecycleService
+ * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
+ * @see <a href="DEC-36">DEC-36 — same-package test typing rule</a>
+ * @see <a href="E48S06">E48S06 — Phase-Lifecycle service</a>
+ */
+@ExtendWith(MockitoExtension.class)
+@DisplayName("DefaultPhaseLifecycleService unit tests — E48S06")
+class PhaseLifecycleServiceTest {
+
+    @Mock private TournamentRepository tournamentRepository;
+    @Mock private PhaseRepository phaseRepository;
+    @Mock private MatchRepository matchRepository;
+    @Mock private MatchLockdownService matchLockdownService;
+    @Mock private ApplicationEventPublisher eventPublisher;
+
+    private DefaultPhaseLifecycleService service;
+
+    private UUID tournamentId;
+    private UUID phaseId;
+    private Tournament tournament;
+
+    @BeforeEach
+    void setUp() {
+        service =
+                new DefaultPhaseLifecycleService(
+                        tournamentRepository,
+                        phaseRepository,
+                        matchRepository,
+                        matchLockdownService,
+                        eventPublisher);
+
+        tournamentId = UUID.randomUUID();
+        phaseId = UUID.randomUUID();
+
+        tournament = new Tournament();
+        tournament.setId(tournamentId);
+        tournament.setStatus("ACTIVE");
+
+        // Default: findByIdForUpdate returns a locked tournament
+        when(tournamentRepository.findByIdForUpdate(tournamentId)).thenReturn(tournament);
+    }
+
+    // =========================================================================
+    // AC-TEST-PHASE-START-RED: start() PENDING → ACTIVE
+    // =========================================================================
+
+    @Test
+    @DisplayName("start() — PENDING phase transitions to ACTIVE")
+    void start_pendingPhase_transitionsToActive() {
+        Phase phase = pendingPhase();
+        when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
+        when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Phase result = service.start(phaseId);
+
+        assertThat(result.getStatus()).isEqualTo("ACTIVE");
+        verify(phaseRepository).save(argThat(p -> "ACTIVE".equals(p.getStatus())));
+    }
+
+    @Test
+    @DisplayName("start() — publishes PhaseStatusChangedEvent on PENDING→ACTIVE")
+    void start_pendingPhase_publishesPhaseStatusChangedEvent() {
+        Phase phase = pendingPhase();
+        when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
+        when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.start(phaseId);
+
+        verify(eventPublisher)
+                .publishEvent(
+                        argThat(
+                                e ->
+                                        e.toString().contains("PENDING")
+                                                && e.toString().contains("ACTIVE")));
+    }
+
+    @Test
+    @DisplayName("start() — ACTIVE phase throws ConflictException (invalid transition)")
+    void start_activePhase_throwsConflictException() {
+        Phase phase = activePhase();
+        when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
+
+        assertThatThrownBy(() -> service.start(phaseId))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("ACTIVE");
+    }
+
+    @Test
+    @DisplayName("start() — acquires per-tournament row-lock (DEC-37 Clause B) as first read")
+    void start_acquiresTournamentLockFirst() {
+        Phase phase = pendingPhase();
+        when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
+        when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.start(phaseId);
+
+        verify(tournamentRepository).findByIdForUpdate(tournamentId);
+    }
+
+    // =========================================================================
+    // AC-TEST-PHASE-COMPLETE-ALL-FINISHED-RED: complete() only when all finished
+    // =========================================================================
+
+    @Test
+    @DisplayName("complete() — ACTIVE phase with all matches finished → COMPLETED")
+    void complete_activePhaseAllFinished_transitionsToCompleted() {
+        Phase phase = activePhase();
+        when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
+        when(matchRepository.countUnfinishedByPhaseId(phaseId)).thenReturn(0L);
+        when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Phase result = service.complete(phaseId);
+
+        assertThat(result.getStatus()).isEqualTo("COMPLETED");
+        verify(phaseRepository).save(argThat(p -> "COMPLETED".equals(p.getStatus())));
+    }
+
+    @Test
+    @DisplayName("complete() — ACTIVE phase with unfinished matches → ConflictException")
+    void complete_activePhaseWithUnfinishedMatches_throwsConflictException() {
+        Phase phase = activePhase();
+        when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
+        when(matchRepository.countUnfinishedByPhaseId(phaseId)).thenReturn(3L);
+
+        assertThatThrownBy(() -> service.complete(phaseId))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("unfinished");
+    }
+
+    @Test
+    @DisplayName("complete() — PENDING phase throws ConflictException")
+    void complete_pendingPhase_throwsConflictException() {
+        Phase phase = pendingPhase();
+        when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
+
+        assertThatThrownBy(() -> service.complete(phaseId))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("PENDING");
+    }
+
+    @Test
+    @DisplayName("complete() — publishes PhaseStatusChangedEvent on ACTIVE→COMPLETED")
+    void complete_allFinished_publishesPhaseStatusChangedEvent() {
+        Phase phase = activePhase();
+        when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
+        when(matchRepository.countUnfinishedByPhaseId(phaseId)).thenReturn(0L);
+        when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.complete(phaseId);
+
+        verify(eventPublisher)
+                .publishEvent(
+                        argThat(
+                                e ->
+                                        e.toString().contains("ACTIVE")
+                                                && e.toString().contains("COMPLETED")));
+    }
+
+    // =========================================================================
+    // AC-TEST-PHASE-FORCE-COMPLETE-RED: forceComplete() voids unfinished + COMPLETED
+    // =========================================================================
+
+    @Test
+    @DisplayName("forceComplete() — ACTIVE phase → COMPLETED + cancels unfinished matches")
+    void forceComplete_activePhase_transitionsToCompletedAndCancelsMatches() {
+        Phase phase = activePhase();
+        when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
+        when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Phase result = service.forceComplete(phaseId);
+
+        assertThat(result.getStatus()).isEqualTo("COMPLETED");
+        verify(matchLockdownService).cancelOpenMatchesByTournamentId(tournamentId);
+    }
+
+    @Test
+    @DisplayName("forceComplete() — PENDING phase throws ConflictException")
+    void forceComplete_pendingPhase_throwsConflictException() {
+        Phase phase = pendingPhase();
+        when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
+
+        assertThatThrownBy(() -> service.forceComplete(phaseId))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("PENDING");
+    }
+
+    @Test
+    @DisplayName("forceComplete() — publishes PhaseStatusChangedEvent on ACTIVE→COMPLETED")
+    void forceComplete_activePhase_publishesPhaseStatusChangedEvent() {
+        Phase phase = activePhase();
+        when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
+        when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.forceComplete(phaseId);
+
+        verify(eventPublisher)
+                .publishEvent(
+                        argThat(
+                                e ->
+                                        e.toString().contains("ACTIVE")
+                                                && e.toString().contains("COMPLETED")));
+    }
+
+    @Test
+    @DisplayName("forceComplete() — acquires per-tournament row-lock (DEC-37 Clause B)")
+    void forceComplete_acquiresTournamentLockFirst() {
+        Phase phase = activePhase();
+        when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
+        when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.forceComplete(phaseId);
+
+        verify(tournamentRepository).findByIdForUpdate(tournamentId);
+    }
+
+    // =========================================================================
+    // AC-GOVERNANCE-NO-AUTO-ADVANCE-IN-CASCADE: cascade does not change phase status
+    // (non-DefaultPhaseLifecycleService behavior — verified via MatchRepository)
+    // This story's service is phase-status-agnostic from the scoring side (D-12).
+    // =========================================================================
+
+    // =========================================================================
+    // Helpers
+    // =========================================================================
+
+    private Phase pendingPhase() {
+        Phase p = new Phase();
+        p.setId(phaseId);
+        p.setTournamentId(tournamentId);
+        p.setStatus("PENDING");
+        p.setSequenceNumber(1);
+        p.setDescription("Vorrunde");
+        p.setCurrentLapNumber(0);
+        return p;
+    }
+
+    private Phase activePhase() {
+        Phase p = new Phase();
+        p.setId(phaseId);
+        p.setTournamentId(tournamentId);
+        p.setStatus("ACTIVE");
+        p.setSequenceNumber(1);
+        p.setDescription("Vorrunde");
+        p.setCurrentLapNumber(2);
+        return p;
+    }
+}

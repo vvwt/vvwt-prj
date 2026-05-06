@@ -177,6 +177,17 @@ public class DefaultMatchRepository implements MatchRepository {
         return jdbc.update(BULK_CANCEL_BY_TOURNAMENT, tournamentId);
     }
 
+    private static final String COUNT_UNFINISHED_BY_PHASE =
+            "SELECT COUNT(*) FROM match WHERE phase_id = ?"
+                    + " AND state IN (0, 10, 30, 35)"; // OPEN, ENABLED, INPROGRESS, ONCHECK
+
+    /** {@inheritDoc} */
+    @Override
+    public long countUnfinishedByPhaseId(UUID phaseId) {
+        Long count = jdbc.queryForObject(COUNT_UNFINISHED_BY_PHASE, Long.class, phaseId);
+        return count != null ? count : 0L;
+    }
+
     // -------------------------------------------------------------------------
     // Row mapper
     // -------------------------------------------------------------------------

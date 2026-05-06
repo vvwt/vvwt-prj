@@ -1,8 +1,7 @@
 /**
- * Phase overview API functions for the Tournament Manager Admin SPA (E48S05).
+ * Phase overview API functions for the Tournament Manager Admin SPA (E48S05 + E48S06).
  *
- * Provides types and API calls for reading phases of a tournament.
- * The API is read-only — no mutations (AC-NO-WRITES-IN-THIS-STORY).
+ * Provides types and API calls for reading phases and for phase lifecycle mutations (E48S06).
  */
 import { apiFetch } from '../lib/api.js';
 
@@ -48,4 +47,48 @@ export async function listPhases(tournamentId: string): Promise<PhaseOverview[]>
         throw new Error((err as { message?: string }).message ?? `HTTP ${res.status}`);
     }
     return res.json() as Promise<PhaseOverview[]>;
+}
+
+// ── Lifecycle mutations (E48S06) ──────────────────────────────────────────────
+
+/**
+ * Starts a phase: PENDING → ACTIVE.
+ *
+ * @param phaseId the phase UUID
+ * @throws Error with operator-actionable message on HTTP 409 (invalid transition)
+ */
+export async function startPhase(phaseId: string): Promise<void> {
+    const res = await apiFetch(`/api/phases/${phaseId}/start`, { method: 'POST' });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { message?: string }).message ?? `HTTP ${res.status}`);
+    }
+}
+
+/**
+ * Completes a phase: ACTIVE → COMPLETED (only when all matches are finished).
+ *
+ * @param phaseId the phase UUID
+ * @throws Error with operator-actionable message on HTTP 409 (unfinished matches or invalid state)
+ */
+export async function completePhase(phaseId: string): Promise<void> {
+    const res = await apiFetch(`/api/phases/${phaseId}/complete`, { method: 'POST' });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { message?: string }).message ?? `HTTP ${res.status}`);
+    }
+}
+
+/**
+ * Force-completes a phase (Notabschluss): ACTIVE → COMPLETED + voids unfinished matches.
+ *
+ * @param phaseId the phase UUID
+ * @throws Error with operator-actionable message on HTTP 409 (invalid transition)
+ */
+export async function forceCompletePhase(phaseId: string): Promise<void> {
+    const res = await apiFetch(`/api/phases/${phaseId}/force-complete`, { method: 'POST' });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { message?: string }).message ?? `HTTP ${res.status}`);
+    }
 }

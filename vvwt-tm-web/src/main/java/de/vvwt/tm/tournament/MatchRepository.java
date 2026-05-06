@@ -104,4 +104,20 @@ public interface MatchRepository {
      * @see <a href="E48S04">E48S04 — Match-Cancel-Lockdown</a>
      */
     int bulkCancelByTournamentId(UUID tournamentId);
+
+    /**
+     * Counts unfinished matches in the given phase.
+     *
+     * <p>Unfinished = {@code state IN (OPEN=0, ENABLED=10, INPROGRESS=30, ONCHECK=35)}. Used by
+     * {@link de.vvwt.tm.tournament.PhaseLifecycleService#complete(UUID)} to verify that all matches
+     * are terminal before allowing the transition to {@code COMPLETED} (E48S06
+     * AC-TEST-PHASE-COMPLETE-ALL-FINISHED-RED).
+     *
+     * @param phaseId the phase to query
+     * @return count of matches with non-terminal state; 0 if all are finished or phase has no
+     *     matches
+     * @throws IllegalStateException if no tenant context is active
+     * @see <a href="E48S06">E48S06 — AC-TEST-PHASE-COMPLETE-ALL-FINISHED-RED</a>
+     */
+    long countUnfinishedByPhaseId(UUID phaseId);
 }
