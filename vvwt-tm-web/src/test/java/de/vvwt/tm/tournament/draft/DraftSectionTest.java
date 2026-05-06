@@ -24,7 +24,7 @@ class DraftSectionTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static DraftSection validSection() {
-        return new DraftSection(1, "team_number", 2, "roundrobin", 5, 10, 15, 1, List.of());
+        return new DraftSection(1, "team_number", 2, "roundRobin", 5, 10, 15, 1, List.of());
     }
 
     /** AC-TDD-DraftSection: valid section constructs without error. */
@@ -35,7 +35,7 @@ class DraftSectionTest {
         assertThat(section.getSectionNumber()).isEqualTo(1);
         assertThat(section.getSortType()).isEqualTo("team_number");
         assertThat(section.getGroupCount()).isEqualTo(2);
-        assertThat(section.getGameMode()).isEqualTo("roundrobin");
+        assertThat(section.getGameMode()).isEqualTo("roundRobin");
         assertThat(section.getLapBreakTimeMinutes()).isEqualTo(5);
         assertThat(section.getSectionBreakTimeMinutes()).isEqualTo(10);
         assertThat(section.getLapTimeMinutes()).isEqualTo(15);
@@ -47,7 +47,7 @@ class DraftSectionTest {
     @Test
     void constructor_withNullBreaks_treatsAsEmpty() {
         DraftSection section =
-                new DraftSection(1, "team_number", 2, "roundrobin", 5, 10, 15, 1, null);
+                new DraftSection(1, "team_number", 2, "roundRobin", 5, 10, 15, 1, null);
 
         assertThat(section.getBreaks()).isEmpty();
     }
@@ -65,7 +65,7 @@ class DraftSectionTest {
     @Test
     void validate_withSectionNumberZero_throwsIllegalArgument() {
         DraftSection section =
-                new DraftSection(0, "team_number", 2, "roundrobin", 5, 10, 15, 1, List.of());
+                new DraftSection(0, "team_number", 2, "roundRobin", 5, 10, 15, 1, List.of());
 
         assertThatThrownBy(section::validate).isInstanceOf(IllegalArgumentException.class);
     }
@@ -73,7 +73,7 @@ class DraftSectionTest {
     /** AC-TDD-DraftSection: validate() throws on null sortType. */
     @Test
     void validate_withNullSortType_throwsIllegalArgument() {
-        DraftSection section = new DraftSection(1, null, 2, "roundrobin", 5, 10, 15, 1, List.of());
+        DraftSection section = new DraftSection(1, null, 2, "roundRobin", 5, 10, 15, 1, List.of());
 
         assertThatThrownBy(section::validate).isInstanceOf(IllegalArgumentException.class);
     }
@@ -82,7 +82,7 @@ class DraftSectionTest {
     @Test
     void validate_withInvalidSortType_throwsIllegalArgument() {
         DraftSection section =
-                new DraftSection(1, "invalid", 2, "roundrobin", 5, 10, 15, 1, List.of());
+                new DraftSection(1, "invalid", 2, "roundRobin", 5, 10, 15, 1, List.of());
 
         assertThatThrownBy(section::validate).isInstanceOf(IllegalArgumentException.class);
     }
@@ -91,7 +91,7 @@ class DraftSectionTest {
     @Test
     void validate_withGroupCountZero_throwsIllegalArgument() {
         DraftSection section =
-                new DraftSection(1, "team_number", 0, "roundrobin", 5, 10, 15, 1, List.of());
+                new DraftSection(1, "team_number", 0, "roundRobin", 5, 10, 15, 1, List.of());
 
         assertThatThrownBy(section::validate).isInstanceOf(IllegalArgumentException.class);
     }
@@ -100,7 +100,7 @@ class DraftSectionTest {
     @Test
     void validate_withLapTimeZero_throwsIllegalArgument() {
         DraftSection section =
-                new DraftSection(1, "team_number", 2, "roundrobin", 5, 10, 0, 1, List.of());
+                new DraftSection(1, "team_number", 2, "roundRobin", 5, 10, 0, 1, List.of());
 
         assertThatThrownBy(section::validate).isInstanceOf(IllegalArgumentException.class);
     }
@@ -109,7 +109,43 @@ class DraftSectionTest {
     @Test
     void validate_withPlacementGroupSortType_passes() {
         DraftSection section =
-                new DraftSection(1, "placement_group", 2, "roundrobin", 5, 10, 15, 1, List.of());
+                new DraftSection(1, "placement_group", 2, "roundRobin", 5, 10, 15, 1, List.of());
+
+        section.validate(); // must not throw
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-TEST-DRAFT-SECTION-WHITELIST-RED (E48S01)
+    // -------------------------------------------------------------------------
+
+    /**
+     * AC-TEST-DRAFT-SECTION-WHITELIST-RED: validate() throws for gameMode not in whitelist.
+     *
+     * <p>RED-first per DEC-22 Iron Law. Was RED before production whitelist was added.
+     *
+     * @see <a href="E48S01">E48S01 — gameMode whitelist</a>
+     */
+    @Test
+    void validate_withInvalidGameMode_throwsWithWhitelistMessage() {
+        DraftSection section =
+                new DraftSection(1, "team_number", 2, "invalid_mode", 5, 10, 15, 1, List.of());
+
+        assertThatThrownBy(section::validate)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must be one of: roundRobin, siegerehrung");
+    }
+
+    /**
+     * AC-TEST-DRAFT-SECTION-WHITELIST-RED: validate() accepts siegerehrung as a valid gameMode.
+     *
+     * <p>Verifies the whitelist expansion includes siegerehrung.
+     *
+     * @see <a href="E48S01">E48S01 — gameMode whitelist</a>
+     */
+    @Test
+    void validate_withSiegerehrungGameMode_passes() {
+        DraftSection section =
+                new DraftSection(1, "team_number", 2, "siegerehrung", 5, 10, 15, 1, List.of());
 
         section.validate(); // must not throw
     }

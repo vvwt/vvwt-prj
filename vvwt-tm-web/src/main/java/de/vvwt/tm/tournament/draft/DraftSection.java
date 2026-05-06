@@ -36,7 +36,14 @@ public final class DraftSection {
     /** Number of groups to split participating teams into. Must be ≥ 1. */
     private final int groupCount;
 
-    /** Game mode for this phase. {@code roundrobin} is the only V1-supported mode. */
+    /**
+     * Game mode for this phase. Valid values: {@code roundRobin}, {@code siegerehrung}.
+     *
+     * <p>The last phase in a draft MUST use {@code siegerehrung} (enforced at apply time via {@link
+     * de.vvwt.tm.tournament.internal.DefaultDraftService#apply}).
+     *
+     * @see <a href="E48S01">E48S01 — gameMode whitelist + last-phase invariant</a>
+     */
     private final String gameMode;
 
     /** Pause between rounds within the section, in minutes. Must be ≥ 0. */
@@ -60,7 +67,7 @@ public final class DraftSection {
      * @param sectionNumber ordering within the draft (≥ 1)
      * @param sortType team-entry sort strategy
      * @param groupCount number of groups (≥ 1)
-     * @param gameMode game mode ({@code roundrobin} for V1)
+     * @param gameMode game mode ({@code roundRobin} or {@code siegerehrung})
      * @param lapBreakTimeMinutes pause between laps (≥ 0)
      * @param sectionBreakTimeMinutes pause after section (≥ 0)
      * @param lapTimeMinutes lap duration in minutes (> 0)
@@ -115,8 +122,10 @@ public final class DraftSection {
         if (groupCount < 1) {
             throw new IllegalArgumentException("groupCount must be ≥ 1, got: " + groupCount);
         }
-        if (gameMode == null || gameMode.isBlank()) {
-            throw new IllegalArgumentException("gameMode must not be blank");
+        if (gameMode == null
+                || (!gameMode.equals("roundRobin") && !gameMode.equals("siegerehrung"))) {
+            throw new IllegalArgumentException(
+                    "gameMode must be one of: roundRobin, siegerehrung. Got: " + gameMode);
         }
         if (lapBreakTimeMinutes < 0) {
             throw new IllegalArgumentException(

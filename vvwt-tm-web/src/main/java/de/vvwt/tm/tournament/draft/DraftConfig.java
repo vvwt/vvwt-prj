@@ -3,6 +3,7 @@ package de.vvwt.tm.tournament.draft;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -52,5 +53,33 @@ public final class DraftConfig {
      */
     public static DraftConfig empty() {
         return new DraftConfig(Collections.emptyList());
+    }
+
+    /**
+     * Validates that the last phase (highest {@code sectionNumber}) has {@code
+     * gameMode=siegerehrung}, as required by the D-10 invariant.
+     *
+     * <p>No-op if there are no sections (empty draft has nothing to enforce).
+     *
+     * @throws IllegalArgumentException if the last phase does not have {@code
+     *     gameMode=siegerehrung}; the message identifies the offending sectionNumber and its actual
+     *     gameMode
+     * @see <a href="E48S01">E48S01 — last-phase-siegerehrung invariant (D-10)</a>
+     */
+    public void validateLastPhaseSiegerehrung() {
+        if (sections.isEmpty()) {
+            return;
+        }
+        DraftSection lastSection =
+                sections.stream()
+                        .max(Comparator.comparingInt(DraftSection::getSectionNumber))
+                        .orElseThrow();
+        if (!"siegerehrung".equals(lastSection.getGameMode())) {
+            throw new IllegalArgumentException(
+                    "Last phase (sectionNumber "
+                            + lastSection.getSectionNumber()
+                            + ") must have gameMode=siegerehrung, got: "
+                            + lastSection.getGameMode());
+        }
     }
 }

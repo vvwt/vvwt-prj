@@ -109,6 +109,7 @@
       "removeButton": "Entfernen",
       "fields": {
         "sortType": "Sortiermodus",
+        "gameMode": "Spielmodus",
         "groupCount": "Gruppenanzahl",
         "lapTimeMinutes": "Rundenzeit (Minuten)",
         "lapBreakTimeMinutes": "Pause zwischen Runden (Minuten)",
@@ -170,6 +171,15 @@
       "saveFailed": "Fehler beim Speichern.",
       "previewFailed": "Fehler beim Berechnen der Vorschau.",
       "applyFailed": "Fehler beim Anwenden des Phasenplans."
+    }
+  },
+  "draftConfig": {
+    "gameMode": {
+      "roundRobin": "RoundRobin",
+      "siegerehrung": "Siegerehrung"
+    },
+    "errors": {
+      "lastPhaseMustBeSiegerehrung": "Die letzte Phase muss den Spielmodus Siegerehrung haben."
     }
   },
   "teams": {
