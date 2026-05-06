@@ -142,7 +142,8 @@ class DraftControllerIT {
                             "BEST_OF_3",
                             "setPoints",
                             "standardVolleyball",
-                            "roundRobin")
+                            "roundRobin",
+                            null)
                     .getId();
         } finally {
             tenantBinder.unbind();
@@ -561,7 +562,8 @@ class DraftControllerIT {
                                     "BEST_OF_3",
                                     "setPoints",
                                     "standardVolleyball",
-                                    "roundRobin")
+                                    "roundRobin",
+                                    null)
                             .getId();
         } finally {
             tenantBinder.unbind();
@@ -637,7 +639,8 @@ class DraftControllerIT {
                                     "BEST_OF_3",
                                     "setPoints",
                                     "standardVolleyball",
-                                    "roundRobin")
+                                    "roundRobin",
+                                    null)
                             .getId();
         } finally {
             tenantBinder.unbind();

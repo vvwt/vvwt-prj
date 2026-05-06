@@ -8,7 +8,10 @@ import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tournament.internal.dto.TournamentCreateRequest;
 import de.vvwt.tm.tournament.internal.dto.TournamentResponse;
 import java.net.URI;
+import java.time.LocalTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import javax.sql.DataSource;
 import org.assertj.db.type.AssertDbConnection;
@@ -114,7 +117,8 @@ class TournamentControllerIT {
                         "BEST_OF_3",
                         "setPoints",
                         "standardVolleyball",
-                        "roundRobin");
+                        "roundRobin",
+                        null);
 
         ResponseEntity<TournamentResponse> response =
                 authed.postForEntity(
@@ -162,7 +166,8 @@ class TournamentControllerIT {
                         "BEST_OF_3",
                         "setPoints",
                         "standardVolleyball",
-                        "roundRobin");
+                        "roundRobin",
+                        null);
 
         ResponseEntity<String> response =
                 restTemplate.postForEntity(
@@ -171,6 +176,106 @@ class TournamentControllerIT {
         assertThat(response.getStatusCode())
                 .as("unauthenticated request must return 401")
                 .isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    // =========================================================================
+    // AC-TEST-CREATE-WITH-PLANNED-START-TIME-IT-RED (E48S14)
+    // RED-first: before production fix, plannedStartTime is silently dropped by all four layers.
+    // After fix, POST with plannedStartTime persists the value; GET returns it.
+    // =========================================================================
+
+    @Test
+    @DisplayName(
+            "E48S14 AC-TEST-CREATE-WITH-PLANNED-START-TIME-IT-RED: "
+                    + "POST with plannedStartTime='09:00' → 201; GET returns plannedStartTime set")
+    void createWithPlannedStartTime_persistsAndReturnsStartTime() throws Exception {
+        // Use raw Map to include plannedStartTime in the JSON body regardless of DTO state.
+        // Before the fix: TournamentCreateRequest.java lacks the field → backend ignores it →
+        // GET returns null → assertion FAILS (RED).
+        // After the fix: all four layers wire the field → assertion PASSES (GREEN).
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("description", "E48S14 IT Tournament With Start Time");
+        body.put("appointment", null);
+        body.put("teamCount", 4);
+        body.put("fieldCount", 2);
+        body.put("matchFormat", "BEST_OF_3");
+        body.put("scoringRuleId", "setPoints");
+        body.put("setValidationRuleId", "standardVolleyball");
+        body.put("matchGeneratorId", "roundRobin");
+        body.put("plannedStartTime", "09:00");
+
+        ResponseEntity<TournamentResponse> createResponse =
+                authed.postForEntity(
+                        new URI(baseUrl + "/api/tournaments"), body, TournamentResponse.class);
+
+        assertThat(createResponse.getStatusCode())
+                .as("POST must return 201 Created")
+                .isEqualTo(HttpStatus.CREATED);
+        assertThat(createResponse.getBody()).isNotNull();
+        UUID newId = createResponse.getBody().id();
+
+        // Fetch the newly created tournament and verify plannedStartTime is persisted.
+        ResponseEntity<TournamentResponse> getResponse =
+                authed.getForEntity(
+                        new URI(baseUrl + "/api/tournaments/" + newId), TournamentResponse.class);
+
+        assertThat(getResponse.getStatusCode())
+                .as("GET must return 200 OK")
+                .isEqualTo(HttpStatus.OK);
+        assertThat(getResponse.getBody()).isNotNull();
+        // Jackson 3.x serializes LocalTime as ISO-8601 "HH:mm:ss" when timestamps are disabled
+        // (confirmed: WRITE_DATES_AS_TIMESTAMPS disabled in JacksonConfig, E21S10).
+        // TournamentResponse.plannedStartTime is a LocalTime field deserialized from the DB value
+        // persisted by DefaultTournamentService.createTournament (E48S14 fix).
+        assertThat(getResponse.getBody().plannedStartTime())
+                .as("plannedStartTime must be persisted by CREATE (E48S14 fix)")
+                .isEqualTo(LocalTime.of(9, 0));
+    }
+
+    // =========================================================================
+    // AC-TEST-CREATE-WITHOUT-PLANNED-START-TIME-IT-GREEN (E48S14)
+    // Complementary: POST without plannedStartTime → 201; GET returns plannedStartTime null.
+    // Confirms field is optional and does not break existing CREATE callers.
+    // =========================================================================
+
+    @Test
+    @DisplayName(
+            "E48S14 AC-TEST-CREATE-WITHOUT-PLANNED-START-TIME-IT-GREEN: "
+                    + "POST without plannedStartTime → 201; GET returns plannedStartTime null")
+    void createWithoutPlannedStartTime_returnsNullStartTime() throws Exception {
+        // This test should be GREEN both before and after the fix:
+        // before: field is silently dropped (never set anyway) → null;
+        // after: field is optional (null means "no start time") → null.
+        var request =
+                new TournamentCreateRequest(
+                        "E48S14 IT Tournament Without Start Time",
+                        null,
+                        4,
+                        2,
+                        "BEST_OF_3",
+                        "setPoints",
+                        "standardVolleyball",
+                        "roundRobin",
+                        null);
+
+        ResponseEntity<TournamentResponse> createResponse =
+                authed.postForEntity(
+                        new URI(baseUrl + "/api/tournaments"), request, TournamentResponse.class);
+
+        assertThat(createResponse.getStatusCode())
+                .as("POST must return 201 Created")
+                .isEqualTo(HttpStatus.CREATED);
+        assertThat(createResponse.getBody()).isNotNull();
+        UUID newId = createResponse.getBody().id();
+
+        ResponseEntity<TournamentResponse> getResponse =
+                authed.getForEntity(
+                        new URI(baseUrl + "/api/tournaments/" + newId), TournamentResponse.class);
+
+        assertThat(getResponse.getBody()).isNotNull();
+        assertThat(getResponse.getBody().plannedStartTime())
+                .as("plannedStartTime must be null when not provided")
+                .isNull();
     }
 
     // =========================================================================

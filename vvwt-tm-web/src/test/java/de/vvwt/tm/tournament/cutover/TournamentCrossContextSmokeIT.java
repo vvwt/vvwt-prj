@@ -178,7 +178,8 @@ class TournamentCrossContextSmokeIT {
                             "BEST_OF_3",
                             "setPoints",
                             "standardVolleyball",
-                            "roundRobin");
+                            "roundRobin",
+                            null);
             ResponseEntity<TournamentResponse> tournamentResp =
                     authed.postForEntity(
                             new URI(baseUrl + "/api/tournaments"),

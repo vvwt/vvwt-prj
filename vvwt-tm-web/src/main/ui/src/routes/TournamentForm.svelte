@@ -132,6 +132,7 @@
           scoringRuleId,
           setValidationRuleId,
           matchGeneratorId,
+          plannedStartTime: plannedStartTime.trim() ? plannedStartTime.trim() : null,  // E48S14
         };
         await createTournament(req);
       }

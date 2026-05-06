@@ -110,7 +110,10 @@ public class TournamentController {
                         request.matchFormat(),
                         request.scoringRuleId(),
                         request.setValidationRuleId(),
-                        request.matchGeneratorId());
+                        request.matchGeneratorId(),
+                        // E48S14 bug-fix: pass plannedStartTime to the service (was previously
+                        // omitted, causing the field to be silently dropped on CREATE).
+                        request.plannedStartTime());
 
         URI location =
                 ServletUriComponentsBuilder.fromCurrentRequest()

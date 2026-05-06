@@ -272,7 +272,8 @@ class CertificateRenderControllerIT {
                         "BEST_OF_3",
                         "setPoints",
                         "standardVolleyball",
-                        "roundRobin");
+                        "roundRobin",
+                        null);
 
         ResponseEntity<TournamentResponse> created =
                 authed.postForEntity(

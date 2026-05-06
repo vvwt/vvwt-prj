@@ -203,12 +203,15 @@ public class DefaultTournamentService implements TournamentService {
      * @param scoringRuleId Spring bean ID of the scoring rule (persisted verbatim)
      * @param setValidationRuleId Spring bean ID of the set validation rule (persisted verbatim)
      * @param matchGeneratorId Spring bean ID of the match generator
+     * @param plannedStartTime optional planned start time for timeline calculation; {@code null}
+     *     means no start time — mirrors UPDATE method at line ~341 (E08S05 AC4; E48S14 bug-fix)
      * @return the persisted tournament (never {@code null}); team rows are persisted as a side
      *     effect within the same transaction — they are NOT embedded in the returned object
      * @throws IllegalArgumentException if matchFormat is invalid or matchGeneratorId is not
      *     registered
      * @see <a href="E05S12">E05S12 — AC-IMPL-AUTO-SEED-AT-CREATE, AC-ERR-ATOMIC-ROLLBACK,
      *     AC-I18N-LOCALE-CHAIN</a>
+     * @see <a href="E48S14">E48S14 — Bug-fix: plannedStartTime was not wired in CREATE path</a>
      */
     @Transactional
     @Override
@@ -220,7 +223,8 @@ public class DefaultTournamentService implements TournamentService {
             String matchFormat,
             String scoringRuleId,
             String setValidationRuleId,
-            String matchGeneratorId) {
+            String matchGeneratorId,
+            LocalTime plannedStartTime) {
         validateBeanIds(matchFormat, matchGeneratorId);
 
         Tournament tournament = new Tournament();
@@ -235,6 +239,10 @@ public class DefaultTournamentService implements TournamentService {
         tournament.setAppointment(appointment);
         tournament.setFieldCount(fieldCount);
         tournament.setTeamCount(teamCount);
+        // E48S14 bug-fix: wire plannedStartTime into the CREATE path (was previously omitted,
+        // causing the field to be silently dropped on tournament creation).
+        // Mirrors the UPDATE method pattern at DefaultTournamentService.java ~341 (E08S05 AC4).
+        tournament.setPlannedStartTime(plannedStartTime);
         // DEC-39 D2: location_id NOT NULL — resolved from the first location row for this tenant.
         // In the Wave-1 single-location model, only one location exists per tenant DB.
         tournament.setLocationId(resolveDefaultLocationId());

@@ -99,7 +99,8 @@ class TeamControllerIT {
                         "BEST_OF_3",
                         "threePoint",
                         "standardVolleyball",
-                        "roundRobin");
+                        "roundRobin",
+                        null);
         ResponseEntity<TournamentResponse> response =
                 authed.postForEntity(
                         baseUrl + "/api/tournaments", request, TournamentResponse.class);

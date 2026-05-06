@@ -56,6 +56,7 @@ export interface TournamentCreateRequest {
     scoringRuleId: string;
     setValidationRuleId: string;
     matchGeneratorId: string;
+    plannedStartTime?: string | null;  // HH:mm or null (E48S14)
 }
 
 /** Request body for PUT /api/tournaments/{id}. Null means "do not change". */

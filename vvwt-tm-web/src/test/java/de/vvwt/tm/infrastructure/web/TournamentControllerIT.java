@@ -132,7 +132,8 @@ class TournamentControllerIT {
                         "BEST_OF_3",
                         "setPoints",
                         "standardVolleyball",
-                        "roundRobin");
+                        "roundRobin",
+                        null);
 
         ResponseEntity<TournamentResponse> response =
                 authed.postForEntity(
@@ -169,7 +170,8 @@ class TournamentControllerIT {
                         "BEST_OF_1",
                         "setPoints",
                         "standardVolleyball",
-                        "roundRobin");
+                        "roundRobin",
+                        null);
         ResponseEntity<TournamentResponse> created =
                 authed.postForEntity(
                         new URI(baseUrl + "/api/tournaments"), create, TournamentResponse.class);
@@ -215,7 +217,8 @@ class TournamentControllerIT {
                         "BEST_OF_3",
                         "setPoints",
                         "standardVolleyball",
-                        "roundRobin");
+                        "roundRobin",
+                        null);
         TournamentResponse created =
                 authed.postForEntity(
                                 new URI(baseUrl + "/api/tournaments"),
@@ -256,7 +259,8 @@ class TournamentControllerIT {
                         "BEST_OF_1",
                         "setPoints",
                         "standardVolleyball",
-                        "roundRobin");
+                        "roundRobin",
+                        null);
         TournamentResponse created =
                 authed.postForEntity(
                                 new URI(baseUrl + "/api/tournaments"),

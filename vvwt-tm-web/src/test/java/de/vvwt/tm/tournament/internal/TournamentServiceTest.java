@@ -204,7 +204,8 @@ class TournamentServiceTest {
                         VALID_FORMAT,
                         VALID_SCORING,
                         VALID_VALIDATION,
-                        VALID_GENERATOR);
+                        VALID_GENERATOR,
+                        null);
 
         assertThat(result.getId()).as("UUID must be generated").isNotNull();
         assertThat(result.getStatus()).isEqualTo("DRAFT");
@@ -225,7 +226,8 @@ class TournamentServiceTest {
                                         "INVALID_FORMAT",
                                         VALID_SCORING,
                                         VALID_VALIDATION,
-                                        VALID_GENERATOR))
+                                        VALID_GENERATOR,
+                                        null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 

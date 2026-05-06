@@ -2,6 +2,7 @@ package de.vvwt.tm.web;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -110,7 +111,8 @@ class TournamentControllerSliceTest {
                         "BEST_OF_3",
                         "setPoints",
                         "standardVolleyball",
-                        "roundRobin");
+                        "roundRobin",
+                        null);
         mockMvc.perform(
                         post("/api/tournaments")
                                 .contentType(MediaType.APPLICATION_JSON)
@@ -168,7 +170,8 @@ class TournamentControllerSliceTest {
                         eq("BEST_OF_3"),
                         eq("setPoints"),
                         eq("standardVolleyball"),
-                        eq("roundRobin")))
+                        eq("roundRobin"),
+                        isNull()))
                 .thenReturn(created);
 
         TournamentCreateRequest req =
@@ -180,7 +183,8 @@ class TournamentControllerSliceTest {
                         "BEST_OF_3",
                         "setPoints",
                         "standardVolleyball",
-                        "roundRobin");
+                        "roundRobin",
+                        null);
 
         mockMvc.perform(
                         post("/api/tournaments")
@@ -204,7 +208,8 @@ class TournamentControllerSliceTest {
                         "BEST_OF_3",
                         "setPoints",
                         "standardVolleyball",
-                        "roundRobin");
+                        "roundRobin",
+                        null);
 
         mockMvc.perform(
                         post("/api/tournaments")
