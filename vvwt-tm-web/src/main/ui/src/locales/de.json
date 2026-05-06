@@ -401,5 +401,15 @@
   },
   "slotopt": {
     "title": "Slot-Optimierung"
+  },
+  "phaseTransition": {
+    "pageTitle": "Phasenwechsel",
+    "commitButton": "Übernehmen",
+    "cancelButton": "Abbrechen",
+    "loading": "Lade Zuordnung…",
+    "errorBanner": "Fehler beim Laden der Zuordnung.",
+    "commitError": "Fehler beim Bestätigen der Zuordnung.",
+    "groupHeader": "Gruppe {n}",
+    "positionLabel": "Platz {n}"
   }
 }

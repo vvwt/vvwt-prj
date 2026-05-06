@@ -16,6 +16,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { get } from 'svelte/store';
   import { _ } from 'svelte-i18n';
+  import { push } from 'svelte-spa-router';
   import {
     listPhases,
     startPhase,
@@ -130,6 +131,9 @@
     try {
       await completePhase(phaseId);
       await loadPhases();
+      // AC-FRONTEND-ROUTING-HOOK: after success, navigate to transition route for next phase
+      // (unless this was the last phase — then stay on phases overview).
+      navigateAfterComplete(phaseId);
     } catch (e: unknown) {
       actionError = e instanceof Error ? e.message : get(_)('phases.lifecycleError');
     } finally {
@@ -150,10 +154,37 @@
     try {
       await forceCompletePhase(phase.id);
       await loadPhases();
+      // AC-FRONTEND-ROUTING-HOOK: same logic as handleComplete
+      navigateAfterComplete(phase.id);
     } catch (e: unknown) {
       actionError = e instanceof Error ? e.message : get(_)('phases.lifecycleError');
     } finally {
       actionInProgress = null;
+    }
+  }
+
+  /**
+   * AC-FRONTEND-ROUTING-HOOK: After a successful phase completion, navigate to the
+   * drag-and-drop transition route for the NEXT phase (sequenceNumber + 1).
+   * If the completed phase was the last phase, navigate to the phases overview.
+   *
+   * Implementation note: this runs AFTER loadPhases() so `phases` is refreshed.
+   * The completed phase is looked up by phaseId; the next phase is found by sequenceNumber.
+   */
+  function navigateAfterComplete(completedPhaseId: string): void {
+    const completedPhase = phases.find(p => p.id === completedPhaseId);
+    if (!completedPhase) return;
+
+    const nextPhase = phases.find(
+      p => p.sequenceNumber === completedPhase.sequenceNumber + 1
+    );
+
+    if (nextPhase) {
+      // Non-last phase: navigate to drag-and-drop transition for next phase
+      push(`/tournaments/${tournamentId}/phases/${nextPhase.id}/transition`);
+    } else {
+      // Last phase: navigate to phases overview (Tournament awaits manual ACTIVE→COMPLETED)
+      push(`/tournaments/${tournamentId}/phases`);
     }
   }
 </script>

@@ -51,6 +51,7 @@
   import CertificateTemplate from './routes/CertificateTemplate.svelte';
   import SlotOptimization from './routes/SlotOptimization.svelte';
   import PhaseList from './routes/PhaseList.svelte';
+  import PhaseTransition from './routes/PhaseTransition.svelte';
   import { pageHeader, type PageHeaderState } from './stores/pageHeaderStore.js';
   import { getTournament, type Tournament } from './stores/tournamentStore.js';
   import { _ } from 'svelte-i18n';
@@ -69,6 +70,7 @@
     ['/tournaments/:tournamentId/certificate-template', CertificateTemplate],
     ['/tournaments/:tournamentId/slot-optimization', SlotOptimization],
     ['/tournaments/:tournamentId/phases', PhaseList],
+    ['/tournaments/:tournamentId/phases/:phaseId/transition', PhaseTransition],
     ['/devices', Devices],
   ]);
 

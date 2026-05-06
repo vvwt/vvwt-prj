@@ -37,6 +37,8 @@ export const PARENT_ROUTE_MAP: Record<string, string> = {
   '/tournaments/:tournamentId/slot-optimization': '/tournaments/:tournamentId/edit',
   // E48S05: phases overview — back-arrow to tournament list
   '/tournaments/:tournamentId/phases': '/tournaments',
+  // E48S08: phase-transition DnD — back-arrow to phases overview
+  '/tournaments/:tournamentId/phases/:phaseId/transition': '/tournaments/:tournamentId/phases',
 };
 
 /**
