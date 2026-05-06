@@ -213,6 +213,13 @@
                   {$_('tournaments.timerLinkButton')}
                 </button>
               {/if}
+              <!-- E48S05 AC-FRONTEND-NAV-FROM-TOURNAMENTS: Phasen nav for PLANNED/ACTIVE/COMPLETED/CANCELLED -->
+              {#if t.status === 'PLANNED' || t.status === 'ACTIVE' || t.status === 'COMPLETED' || t.status === 'CANCELLED'}
+                <button class="btn btn--secondary btn--sm"
+                        onclick={() => push(`/tournaments/${t.id}/phases`)}>
+                  {$_('tournaments.phasesButton')}
+                </button>
+              {/if}
               <!-- E48S03 AC-FRONTEND-LIFECYCLE-BUTTONS + AC-FRONTEND-VISIBILITY-RULES -->
               {#if t.status === 'DRAFT'}
                 <!-- DRAFT: mark-planned transition -->

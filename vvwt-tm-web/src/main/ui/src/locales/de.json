@@ -52,7 +52,26 @@
     "activateConfirm": "Turnier aktivieren?",
     "completeConfirm": "Turnier abschließen?",
     "cancelConfirm": "Turnier wirklich abbrechen?",
-    "lifecycleError": "Fehler beim Statuswechsel."
+    "lifecycleError": "Fehler beim Statuswechsel.",
+    "phasesButton": "Phasen"
+  },
+  "phases": {
+    "pageTitle": "Phasenübersicht",
+    "empty": "Keine Phasen vorhanden.",
+    "loadError": "Fehler beim Laden der Phasen.",
+    "columns": {
+      "sequenceNumber": "Nr.",
+      "description": "Phase",
+      "status": "Status",
+      "gameMode": "Spielmodus",
+      "currentLap": "Runde",
+      "matches": "Spiele (fertig / gesamt)"
+    },
+    "status": {
+      "PENDING": "Ausstehend",
+      "ACTIVE": "Aktiv",
+      "COMPLETED": "Abgeschlossen"
+    }
   },
   "tournamentForm": {
     "createTitle": "Neues Turnier erstellen",

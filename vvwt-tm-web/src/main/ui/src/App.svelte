@@ -11,6 +11,7 @@
    * Story E12S03 — adds /tournaments/:tournamentId/photos route (AC1–AC9).
    * Story E12S05 — adds /tournaments/:tournamentId/certificate-template route (AC1–AC9).
    * Story E27S02 — adds /tournaments/:tournamentId/slot-optimization route (AC-SVELTE-CANCEL-UI-AUTHORED).
+   * Story E48S05 — adds /tournaments/:tournamentId/phases route (AC-FRONTEND-PHASES-ROUTE).
    * Story E47S01 — shell foundation: persistent header with page title, back-arrow,
    *                tournament name, action buttons. Sticky on scroll. Responsive collapse.
    *
@@ -49,6 +50,7 @@
   import TeamPhotos from './routes/TeamPhotos.svelte';
   import CertificateTemplate from './routes/CertificateTemplate.svelte';
   import SlotOptimization from './routes/SlotOptimization.svelte';
+  import PhaseList from './routes/PhaseList.svelte';
   import { pageHeader, type PageHeaderState } from './stores/pageHeaderStore.js';
   import { getTournament, type Tournament } from './stores/tournamentStore.js';
   import { _ } from 'svelte-i18n';
@@ -66,6 +68,7 @@
     ['/tournaments/:tournamentId/photos', TeamPhotos],
     ['/tournaments/:tournamentId/certificate-template', CertificateTemplate],
     ['/tournaments/:tournamentId/slot-optimization', SlotOptimization],
+    ['/tournaments/:tournamentId/phases', PhaseList],
     ['/devices', Devices],
   ]);
 
