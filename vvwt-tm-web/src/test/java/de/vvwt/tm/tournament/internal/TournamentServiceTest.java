@@ -7,13 +7,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import de.vvwt.tm.tournament.MatchGeneratorRegistry;
-import de.vvwt.tm.tournament.Phase;
-import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
+import de.vvwt.tm.tournament.exceptions.TournamentCascadeDeleteActiveException;
+import de.vvwt.tm.tournament.exceptions.TournamentCascadeDeleteCompletedException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
@@ -70,8 +70,6 @@ class TournamentServiceTest {
 
     @Mock private TournamentRepository tournamentRepository;
 
-    @Mock private PhaseRepository phaseRepository;
-
     @Mock private MatchGeneratorRegistry matchGeneratorRegistry;
 
     @Mock private JdbcTemplate jdbcTemplate;
@@ -120,7 +118,6 @@ class TournamentServiceTest {
         service =
                 new DefaultTournamentService(
                         tournamentRepository,
-                        phaseRepository,
                         matchGeneratorRegistry,
                         jdbcTemplate,
                         messageSource,
@@ -277,45 +274,78 @@ class TournamentServiceTest {
     }
 
     // =========================================================================
-    // AC5 — deleteTournament
+    // AC5 — deleteTournament (E48S13 cascade-delete behavior)
+    // Old DRAFT-only + phase-check semantics REPLACED per DEC-22 Iron Law §refactor-clause
     // =========================================================================
 
     @Test
-    @DisplayName("deleteTournament() throws ConflictException for ACTIVE tournament")
-    void deleteTournament_activeTournament_throwsConflictException() {
+    @DisplayName(
+            "deleteTournament() throws TournamentCascadeDeleteActiveException for ACTIVE"
+                    + " tournament (E48S13)")
+    void deleteTournament_activeTournament_throwsTypedException() {
         UUID id = UUID.randomUUID();
         Tournament active = buildTournamentWithStatus("Active", "ACTIVE");
         active.setId(id);
-        when(tournamentRepository.findById(id)).thenReturn(Optional.of(active));
+        when(tournamentRepository.findByIdForUpdate(id)).thenReturn(active);
 
         assertThatThrownBy(() -> service.deleteTournament(id))
-                .isInstanceOf(ConflictException.class)
-                .hasMessageContaining("ACTIVE");
+                .isInstanceOf(TournamentCascadeDeleteActiveException.class);
     }
 
     @Test
-    @DisplayName("deleteTournament() throws ConflictException when phases exist")
-    void deleteTournament_withPhases_throwsConflictException() {
+    @DisplayName(
+            "deleteTournament() throws TournamentCascadeDeleteCompletedException for COMPLETED"
+                    + " tournament (E48S13)")
+    void deleteTournament_completedTournament_throwsTypedException() {
         UUID id = UUID.randomUUID();
-        Tournament draft = buildDraftTournament("Draft With Phases");
-        draft.setId(id);
-        when(tournamentRepository.findById(id)).thenReturn(Optional.of(draft));
-        Phase phase = new Phase();
-        when(phaseRepository.findByTournamentId(id)).thenReturn(List.of(phase));
+        Tournament completed = buildTournamentWithStatus("Completed", "COMPLETED");
+        completed.setId(id);
+        when(tournamentRepository.findByIdForUpdate(id)).thenReturn(completed);
 
         assertThatThrownBy(() -> service.deleteTournament(id))
-                .isInstanceOf(ConflictException.class)
-                .hasMessageContaining("phase");
+                .isInstanceOf(TournamentCascadeDeleteCompletedException.class);
     }
 
     @Test
-    @DisplayName("deleteTournament() deletes DRAFT tournament with no phases")
-    void deleteTournament_draftWithNoPhases_deletesSuccessfully() {
+    @DisplayName("deleteTournament() cascade-deletes DRAFT tournament (E48S13)")
+    void deleteTournament_draftTournament_cascadeDeletesSuccessfully() {
         UUID id = UUID.randomUUID();
         Tournament draft = buildDraftTournament("Draft");
         draft.setId(id);
-        when(tournamentRepository.findById(id)).thenReturn(Optional.of(draft));
-        when(phaseRepository.findByTournamentId(id)).thenReturn(List.of());
+        when(tournamentRepository.findByIdForUpdate(id)).thenReturn(draft);
+        // Stub JdbcTemplate.update for all cascade-delete SQL steps (no-op stubs)
+        when(jdbcTemplate.update(ArgumentMatchers.anyString(), ArgumentMatchers.eq(id)))
+                .thenReturn(0);
+
+        service.deleteTournament(id);
+
+        verify(tournamentRepository).deleteById(id);
+    }
+
+    @Test
+    @DisplayName("deleteTournament() cascade-deletes PLANNED tournament (E48S13)")
+    void deleteTournament_plannedTournament_cascadeDeletesSuccessfully() {
+        UUID id = UUID.randomUUID();
+        Tournament planned = buildTournamentWithStatus("Planned", "PLANNED");
+        planned.setId(id);
+        when(tournamentRepository.findByIdForUpdate(id)).thenReturn(planned);
+        when(jdbcTemplate.update(ArgumentMatchers.anyString(), ArgumentMatchers.eq(id)))
+                .thenReturn(0);
+
+        service.deleteTournament(id);
+
+        verify(tournamentRepository).deleteById(id);
+    }
+
+    @Test
+    @DisplayName("deleteTournament() cascade-deletes CANCELLED tournament (E48S13)")
+    void deleteTournament_cancelledTournament_cascadeDeletesSuccessfully() {
+        UUID id = UUID.randomUUID();
+        Tournament cancelled = buildTournamentWithStatus("Cancelled", "CANCELLED");
+        cancelled.setId(id);
+        when(tournamentRepository.findByIdForUpdate(id)).thenReturn(cancelled);
+        when(jdbcTemplate.update(ArgumentMatchers.anyString(), ArgumentMatchers.eq(id)))
+                .thenReturn(0);
 
         service.deleteTournament(id);
 

@@ -185,7 +185,7 @@ export async function updateTournament(id: string, data: TournamentUpdateRequest
 }
 
 /**
- * Deletes a tournament (AC5).
+ * Deletes a tournament (AC5, legacy path — DRAFT-only semantics, no phases).
  * Only DRAFT tournaments with no phases may be deleted.
  *
  * @param id the tournament UUID
@@ -197,6 +197,43 @@ export async function deleteTournament(id: string): Promise<void> {
         const err = await res.json().catch(() => ({}));
         throw Object.assign(new Error(err.message ?? `Delete failed: ${res.status}`), { apiError: err, status: res.status });
     }
+}
+
+/**
+ * Cascade-deletes a tournament and all its structural data (E48S13, AC-IMPL-CASCADE-DELETE-OP).
+ *
+ * Permitted for status ∈ {DRAFT, PLANNED, CANCELLED}. Rejects ACTIVE (→ typed 409
+ * error.tournament.cascadeDelete.activeRejected) and COMPLETED (→ typed 409
+ * error.tournament.cascadeDelete.completedRejected).
+ *
+ * @param id the tournament UUID
+ * @throws Error with apiError and status if the request fails (e.g. 409 Conflict)
+ */
+export async function cascadeDeleteTournament(id: string): Promise<void> {
+    const res = await apiFetch(`/api/tournaments/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw Object.assign(new Error(err.message ?? `Cascade-delete failed: ${res.status}`), { apiError: err, status: res.status });
+    }
+}
+
+/**
+ * Resets the Phasenplan of a PLANNED tournament back to DRAFT (E48S13, AC-IMPL-RESET-PLAN-OP).
+ *
+ * Only PLANNED tournaments may be reset. Returns the updated tournament with status DRAFT on
+ * success. Rejects ACTIVE/CANCELLED/COMPLETED/DRAFT with a typed 409 error messageKey.
+ *
+ * @param id the tournament UUID
+ * @returns the updated tournament with status DRAFT
+ * @throws Error with apiError and status if the request fails (e.g. 409 Conflict)
+ */
+export async function resetPlan(id: string): Promise<Tournament> {
+    const res = await apiFetch(`/api/tournaments/${id}/draft/reset-plan`, { method: 'POST' });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw Object.assign(new Error(err.message ?? `resetPlan failed: ${res.status}`), { apiError: err, status: res.status });
+    }
+    return res.json();
 }
 
 /**

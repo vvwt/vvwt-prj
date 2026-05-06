@@ -297,3 +297,42 @@ describe('DraftConfig.svelte — AC-TEST-FRONTEND-RUNDENZEIT-DISABLED-RED (E48S0
     expect(source).toContain('draftConfig.rundenzeit.disabledTooltip');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E48S13 — AC-TEST-FRONTEND-VITEST-RED (reset-plan button in DraftConfig)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('DraftConfig.svelte — E48S13 reset-plan button (AC-TEST-FRONTEND-VITEST-RED)', () => {
+  it('DraftConfig.svelte source contains resetPlanButton i18n key', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain('draft.resetPlanButton');
+  });
+
+  it('DraftConfig.svelte source contains resetPlanConfirm i18n key', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain('draft.resetPlanConfirm');
+  });
+
+  it('DraftConfig.svelte source shows reset-plan button only for PLANNED status', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain("tournamentStatus === 'PLANNED'");
+    expect(source).toContain('handleResetPlan');
+  });
+
+  it('DraftConfig.svelte imports resetPlan from tournamentStore', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain('resetPlan');
+  });
+});

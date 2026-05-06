@@ -117,3 +117,73 @@ describe('App.svelte + pageHeaderStore — AC7: icon-collapse rule (E47S01)', ()
     expect(t.createButton.length).toBeGreaterThan(0);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E48S13 — Cascade-Delete button visibility + i18n (AC-IMPL-FE-CASCADE-DELETE-BUTTON)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Tournaments.svelte — E48S13 cascade-delete button (AC-TEST-FRONTEND-VITEST-RED)', () => {
+  it('Tournaments.svelte source contains cascadeDeleteButton i18n key', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './Tournaments.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain('tournaments.cascadeDeleteButton');
+  });
+
+  it('Tournaments.svelte source contains cascadeDeleteConfirm i18n key', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './Tournaments.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain('tournaments.cascadeDeleteConfirm');
+  });
+
+  it('Tournaments.svelte source shows cascade-delete button for DRAFT status', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './Tournaments.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // The cascade-delete button must appear in a DRAFT block
+    expect(source).toContain("status === 'DRAFT'");
+    expect(source).toContain('handleCascadeDelete');
+  });
+
+  it('Tournaments.svelte source shows cascade-delete button for PLANNED status', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './Tournaments.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain("status === 'PLANNED'");
+  });
+
+  it('Tournaments.svelte source shows cascade-delete button for CANCELLED status', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './Tournaments.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain("status === 'CANCELLED'");
+  });
+
+  it('de.json contains cascadeDeleteButton key', () => {
+    const t = (deMessages as unknown as Record<string, Record<string, string>>).tournaments;
+    expect(t).toHaveProperty('cascadeDeleteButton');
+    expect(typeof t.cascadeDeleteButton).toBe('string');
+    expect(t.cascadeDeleteButton.length).toBeGreaterThan(0);
+  });
+
+  it('de.json contains cascadeDeleteConfirm key', () => {
+    const t = (deMessages as unknown as Record<string, Record<string, string>>).tournaments;
+    expect(t).toHaveProperty('cascadeDeleteConfirm');
+    expect(typeof t.cascadeDeleteConfirm).toBe('string');
+    expect(t.cascadeDeleteConfirm.length).toBeGreaterThan(0);
+  });
+
+  it('Tournaments.svelte imports cascadeDeleteTournament from tournamentStore', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './Tournaments.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain('cascadeDeleteTournament');
+  });
+});

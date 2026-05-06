@@ -16,6 +16,7 @@ import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.constraints.IntRange;
 import org.mockito.Mockito;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * AC-TEST-PROPERTY-LAP-INVARIANT-RED — jqwik {@code @Property} test for the field-aware lap formula
@@ -62,7 +63,8 @@ class DefaultDraftServiceLapInvariantTest {
                 Mockito.mock(PhasePreparationService.class),
                 Mockito.mock(TournamentRepository.class),
                 new ObjectMapper(),
-                Mockito.mock(de.vvwt.tm.tournament.TimelineCalculationService.class)); // E48S12
+                Mockito.mock(de.vvwt.tm.tournament.TimelineCalculationService.class), // E48S12
+                Mockito.mock(JdbcTemplate.class)); // E48S13
     }
 
     /**

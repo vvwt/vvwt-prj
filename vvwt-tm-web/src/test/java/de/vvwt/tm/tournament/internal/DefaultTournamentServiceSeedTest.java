@@ -12,7 +12,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import de.vvwt.tm.tournament.MatchGeneratorRegistry;
-import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
@@ -74,8 +73,6 @@ class DefaultTournamentServiceSeedTest {
 
     @Mock private TournamentRepository tournamentRepository;
 
-    @Mock private PhaseRepository phaseRepository;
-
     @Mock private MatchGeneratorRegistry matchGeneratorRegistry;
 
     @Mock private JdbcTemplate jdbcTemplate;
@@ -116,7 +113,6 @@ class DefaultTournamentServiceSeedTest {
         service =
                 new DefaultTournamentService(
                         tournamentRepository,
-                        phaseRepository,
                         matchGeneratorRegistry,
                         jdbcTemplate,
                         messageSource,

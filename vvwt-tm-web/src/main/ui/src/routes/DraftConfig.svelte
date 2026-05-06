@@ -35,7 +35,7 @@
     type DraftBreak,
     type DraftPreview,
   } from '../stores/draftStore.js';
-  import { getTournament } from '../stores/tournamentStore.js';
+  import { getTournament, resetPlan } from '../stores/tournamentStore.js';
   import { formatDuration } from '../lib/formatDuration.js';
   import { formatStartTime } from '../lib/formatStartTime.js';
 
@@ -59,6 +59,14 @@
   let applySuccess = $state(false);
   let preview = $state<DraftPreview | null>(null);
   let plannedStartTime = $state<string | null>(null);
+  // Derived preview aggregates (E48S12 — moved from {#if} block to script for Svelte 5 @const compatibility)
+  let totalMatches = $derived(preview ? preview.sections.reduce((s, p) => s + p.totalMatches, 0) : 0);
+  let totalMinutes = $derived(preview ? preview.sections.reduce((s, p) => s + p.estimatedTimeMinutes, 0) : 0);
+  let showStartTime = $derived(plannedStartTime != null && formatStartTime(plannedStartTime, 0) !== '');
+  /** Tournament status (E48S13): controls reset-plan button visibility (PLANNED only). */
+  let tournamentStatus = $state<string | null>(null);
+  let resetPlanError = $state<string | null>(null);
+  let resettingPlan = $state(false);
   /** Break validation errors: key = `${sectionIdx}-${breakIdx}`, value = error message. */
   let breakErrors = $state<Record<string, string>>({});
 
@@ -86,6 +94,7 @@
         breaks: s.breaks ?? [],
       }));
       plannedStartTime = tournament.plannedStartTime ?? null;
+      tournamentStatus = tournament.status ?? null;
     } catch (e: unknown) {
       loadError = e instanceof Error ? e.message : String(e);
     } finally {
@@ -306,6 +315,37 @@
     }
   }
 
+  // ── Reset-Plan (E48S13 AC-IMPL-FE-RESET-PLAN-BUTTON) ─────────────────────
+
+  /**
+   * Resets the Phasenplan back to DRAFT for a PLANNED tournament.
+   * Dialog fires on click; on success: re-fetches tournament + draft, renders DRAFT-edit mode.
+   * On 409: shows typed messageKey via i18n.
+   */
+  async function handleResetPlan(): Promise<void> {
+    if (!confirm($_('draft.resetPlanConfirm'))) return;
+    resetPlanError = null;
+    resettingPlan = true;
+    try {
+      const updated = await resetPlan(tournamentId);
+      tournamentStatus = updated.status;
+      // Re-fetch draft to re-populate form with preserved draftJson
+      const config = await getDraft(tournamentId);
+      sections = config.sections.map(s => ({ ...s, breaks: s.breaks ?? [] }));
+      applySuccess = false;
+    } catch (e: unknown) {
+      const apiErr = e && typeof e === 'object' && 'apiError' in e
+        ? (e as { apiError: { messageKey?: string } }).apiError
+        : null;
+      const msgKey = apiErr?.messageKey;
+      resetPlanError = msgKey
+        ? $_(`${msgKey}`, { default: e instanceof Error ? e.message : $_('draft.error.resetPlanFailed') })
+        : (e instanceof Error ? e.message : $_('draft.error.resetPlanFailed'));
+    } finally {
+      resettingPlan = false;
+    }
+  }
+
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   function formatTime(t: string): string {
@@ -478,6 +518,15 @@
       {#if applyError}
         <p class="draft-config__error">{applyError}</p>
       {/if}
+      <!-- E48S13 AC-IMPL-FE-RESET-PLAN-BUTTON: visible only for PLANNED tournaments -->
+      {#if tournamentStatus === 'PLANNED'}
+        <button class="btn btn--danger" onclick={handleResetPlan} disabled={resettingPlan}>
+          {$_('draft.resetPlanButton')}
+        </button>
+        {#if resetPlanError}
+          <p class="draft-config__error">{resetPlanError}</p>
+        {/if}
+      {/if}
     </div>
 
     <!-- Preview table (E08S05 AC3, AC6) -->
@@ -489,9 +538,6 @@
         <h2>{$_('draft.preview.title')}</h2>
 
         <!-- Structural preview -->
-        {@const totalMatches = preview.sections.reduce((s, p) => s + p.totalMatches, 0)}
-        {@const totalMinutes = preview.sections.reduce((s, p) => s + p.estimatedTimeMinutes, 0)}
-        {@const showStartTime = plannedStartTime != null && formatStartTime(plannedStartTime, 0) !== ''}
         <table class="preview-table">
           <thead>
             <tr>

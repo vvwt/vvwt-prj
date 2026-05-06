@@ -732,7 +732,8 @@ class DraftControllerIT {
                                     "BEST_OF_3",
                                     "setPoints",
                                     "standardVolleyball",
-                                    "roundRobin")
+                                    "roundRobin",
+                                    null) // plannedStartTime set below via repository (E48S14)
                             .getId();
             // Set plannedStartTime directly on the tournament entity (createTournament does not
             // accept plannedStartTime; use repository to set it for the fixture)

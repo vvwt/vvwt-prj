@@ -290,9 +290,11 @@ class TournamentControllerIT {
                         null,
                         ApiErrorResponse.class);
 
+        // E48S13: deleteTournament now uses findByIdForUpdate (DEC-37 Clause B) which throws
+        // IllegalArgumentException → GlobalExceptionHandler → 400 BAD_REQUEST (not 404).
         assertThat(response.getStatusCode())
-                .as("AC5 — DELETE with unknown ID must return 404")
-                .isEqualTo(HttpStatus.NOT_FOUND);
+                .as("AC5 — DELETE with unknown ID must return 400 (findByIdForUpdate → IAE → 400)")
+                .isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     // =========================================================================

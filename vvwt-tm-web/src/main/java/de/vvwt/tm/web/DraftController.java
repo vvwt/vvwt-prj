@@ -223,6 +223,30 @@ public class DraftController {
     }
 
     // -------------------------------------------------------------------------
+    // POST /reset-plan — reset Phasenplan from PLANNED back to DRAFT (E48S13)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Resets the Phasenplan for a {@code PLANNED} tournament back to {@code DRAFT} (E48S13,
+     * AC-IMPL-REST-RESET-PLAN).
+     *
+     * <p>Returns {@code 200 OK} with the updated {@link Tournament} body (status flipped to {@code
+     * DRAFT}). Returns {@code 409 Conflict} with a typed messageKey for any disallowed status
+     * (ACTIVE, CANCELLED, COMPLETED, DRAFT-idempotent). Returns {@code 404 Not Found} if the
+     * tournament does not exist.
+     *
+     * <p>Maps to {@link DraftService#resetPlan(UUID)}.
+     *
+     * @param tournamentId the tournament UUID (from path)
+     * @return 200 OK with the updated Tournament body; 404/409 on errors
+     */
+    @PostMapping("/reset-plan")
+    public ResponseEntity<Tournament> resetPlan(@PathVariable("tournamentId") UUID tournamentId) {
+        Tournament updated = draftService.resetPlan(tournamentId);
+        return ResponseEntity.ok(updated);
+    }
+
+    // -------------------------------------------------------------------------
     // Mapping helpers
     // -------------------------------------------------------------------------
 
