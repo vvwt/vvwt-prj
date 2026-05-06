@@ -59,6 +59,10 @@
   let applySuccess = $state(false);
   let preview = $state<DraftPreview | null>(null);
   let plannedStartTime = $state<string | null>(null);
+  // Derived preview aggregates (E48S12 — moved from {#if} block to script for Svelte 5 @const compatibility)
+  let totalMatches = $derived(preview ? preview.sections.reduce((s, p) => s + p.totalMatches, 0) : 0);
+  let totalMinutes = $derived(preview ? preview.sections.reduce((s, p) => s + p.estimatedTimeMinutes, 0) : 0);
+  let showStartTime = $derived(plannedStartTime != null && formatStartTime(plannedStartTime, 0) !== '');
   /** Tournament status (E48S13): controls reset-plan button visibility (PLANNED only). */
   let tournamentStatus = $state<string | null>(null);
   let resetPlanError = $state<string | null>(null);
@@ -534,9 +538,6 @@
         <h2>{$_('draft.preview.title')}</h2>
 
         <!-- Structural preview -->
-        {@const totalMatches = preview.sections.reduce((s, p) => s + p.totalMatches, 0)}
-        {@const totalMinutes = preview.sections.reduce((s, p) => s + p.estimatedTimeMinutes, 0)}
-        {@const showStartTime = plannedStartTime != null && formatStartTime(plannedStartTime, 0) !== ''}
         <table class="preview-table">
           <thead>
             <tr>

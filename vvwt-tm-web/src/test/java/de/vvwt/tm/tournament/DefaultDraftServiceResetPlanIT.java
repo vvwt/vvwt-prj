@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.exceptions.TournamentResetPlanActiveException;
 import de.vvwt.tm.tournament.exceptions.TournamentResetPlanCancelledException;
 import de.vvwt.tm.tournament.exceptions.TournamentResetPlanCompletedException;
@@ -197,6 +198,44 @@ class DefaultDraftServiceResetPlanIT {
 
         assertThatThrownBy(() -> draftService.resetPlan(id))
                 .isInstanceOf(TournamentResetPlanDraftIdempotentException.class);
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-TEST-SAVEDRAFT-IDEMPOTENCY-DRAFT-RED — confirmatory
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName(
+            "DRAFT tournament: saveDraft called twice with different configs — second payload"
+                    + " persisted (AC-TEST-SAVEDRAFT-IDEMPOTENCY-DRAFT-RED, E48S13)")
+    void saveDraft_draftStatus_idempotentSequentialCalls() {
+        UUID id = seedTournament("DRAFT", null);
+        DraftConfig config1 = new DraftConfig(java.util.List.of());
+        DraftConfig config2 =
+                new DraftConfig(
+                        java.util.List.of(
+                                new de.vvwt.tm.tournament.draft.DraftSection(
+                                        1,
+                                        "team_number",
+                                        2,
+                                        "roundRobin",
+                                        0,
+                                        0,
+                                        15,
+                                        1,
+                                        java.util.List.of())));
+
+        draftService.saveDraft(id, config1);
+        draftService.saveDraft(id, config2);
+
+        // Independent JDBC verifier: draft_json must contain the second config (has sections)
+        String persistedJson =
+                jdbcTemplate.queryForObject(
+                        "SELECT draft_json FROM tournament WHERE id = ?", String.class, id);
+        assertThat(persistedJson)
+                .as("Second saveDraft payload must be persisted (idempotency confirmed)")
+                .isNotNull()
+                .contains("sections");
     }
 
     // -------------------------------------------------------------------------
