@@ -252,7 +252,7 @@
 
   function startPreview(category: AudioCategory): void {
     stopPreview();  // stop any existing preview first
-    const url = `/api/tournaments/${tournamentId}/audio/${category}/stream`;
+    const url = `/api/audio/tournaments/${tournamentId}/${category}/stream`;
     const audio = new Audio(url);
     audio.addEventListener('ended', () => {
       if (previewCategory === category) {

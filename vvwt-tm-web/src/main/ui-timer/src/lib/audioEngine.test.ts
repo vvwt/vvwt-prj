@@ -70,9 +70,9 @@ describe('AudioEngine.preload', () => {
   });
 
   it('non-null URL → loading status, element created (AC1)', () => {
-    const mockEl = createMockAudioElement('/api/tournaments/x/audio/START/stream');
+    const mockEl = createMockAudioElement('/api/audio/tournaments/x/START/stream');
     const engine = new AudioEngine(() => mockEl as unknown as HTMLAudioElement);
-    engine.preload('/api/tournaments/x/audio/START/stream', null, null);
+    engine.preload('/api/audio/tournaments/x/START/stream', null, null);
     expect(engine.getState().statusStart).toBe('loading');
   });
 

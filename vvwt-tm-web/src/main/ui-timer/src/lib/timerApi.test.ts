@@ -46,7 +46,7 @@ const VALID_TIMER_DATA: TimerData = {
   phases: [
     { phaseNumber: 1, description: 'Vorrunde', status: 'ACTIVE', lapCount: 3 },
   ],
-  audio: { startUrl: '/api/tournaments/x/audio/START/stream', endUrl: null, pauseUrl: null },
+  audio: { startUrl: '/api/audio/tournaments/x/START/stream', endUrl: null, pauseUrl: null },
 };
 
 // ── fetch mock helpers ────────────────────────────────────────────────────────

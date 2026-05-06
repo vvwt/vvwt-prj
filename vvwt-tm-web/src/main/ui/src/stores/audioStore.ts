@@ -1,16 +1,16 @@
 /**
  * API client for tournament audio file management (E11S06).
  *
- * Wraps the E11S01 REST endpoints:
- *   GET    /api/tournaments/{id}/audio          — list uploaded files
- *   POST   /api/tournaments/{id}/audio/{cat}    — upload (or replace) file
- *   DELETE /api/tournaments/{id}/audio/{cat}    — delete file
+ * Wraps the E26S03 REST endpoints (canonical Wave-2 URL-schema per Brief v1.1 D-10):
+ *   GET    /api/audio/tournaments/{id}          — list uploaded files
+ *   POST   /api/audio/tournaments/{id}/{cat}    — upload (or replace) file
+ *   DELETE /api/audio/tournaments/{id}/{cat}    — delete file
  *
  * Upload uses XMLHttpRequest instead of fetch to expose upload progress (AC2).
  * All authenticated endpoints rely on browser-cached basic-auth via same-origin credentials
  * (consistent with the existing `apiFetch` pattern in `lib/api.ts`).
  *
- * @see AudioController  (Java, E11S01)
+ * @see AudioController  (Java, E26S03)
  * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest}
  */
 
@@ -26,7 +26,7 @@ export interface AudioMetadata {
 }
 
 // ---------------------------------------------------------------------------
-// listAudio — GET /api/tournaments/{id}/audio
+// listAudio — GET /api/audio/tournaments/{id}
 // ---------------------------------------------------------------------------
 
 /**
@@ -38,7 +38,7 @@ export interface AudioMetadata {
  * @throws              Error with message on HTTP error or network failure
  */
 export async function listAudio(tournamentId: string): Promise<AudioMetadata[]> {
-    const response = await fetch(`/api/tournaments/${tournamentId}/audio`, {
+    const response = await fetch(`/api/audio/tournaments/${tournamentId}`, {
         credentials: 'same-origin',
     });
     if (!response.ok) {
@@ -48,7 +48,7 @@ export async function listAudio(tournamentId: string): Promise<AudioMetadata[]> 
 }
 
 // ---------------------------------------------------------------------------
-// uploadAudio — POST /api/tournaments/{id}/audio/{category}
+// uploadAudio — POST /api/audio/tournaments/{id}/{category}
 // ---------------------------------------------------------------------------
 
 /**
@@ -112,13 +112,13 @@ export function uploadAudio(
             reject(new Error('Upload cancelled'));
         });
 
-        xhr.open('POST', `/api/tournaments/${tournamentId}/audio/${category}`);
+        xhr.open('POST', `/api/audio/tournaments/${tournamentId}/${category}`);
         xhr.send(formData);
     });
 }
 
 // ---------------------------------------------------------------------------
-// deleteAudio — DELETE /api/tournaments/{id}/audio/{category}
+// deleteAudio — DELETE /api/audio/tournaments/{id}/{category}
 // ---------------------------------------------------------------------------
 
 /**
@@ -129,7 +129,7 @@ export function uploadAudio(
  * @throws              Error with message if the file does not exist (404) or on network failure
  */
 export async function deleteAudio(tournamentId: string, category: AudioCategory): Promise<void> {
-    const response = await fetch(`/api/tournaments/${tournamentId}/audio/${category}`, {
+    const response = await fetch(`/api/audio/tournaments/${tournamentId}/${category}`, {
         method: 'DELETE',
         credentials: 'same-origin',
     });

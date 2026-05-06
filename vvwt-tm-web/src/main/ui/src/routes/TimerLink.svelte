@@ -32,11 +32,25 @@
   const tournamentId = $derived(params.tournamentId ?? '');
 
   // ── Derived timer URL (AC5 — deterministic from origin + tournamentId) ───
-  const timerUrl = $derived(
-    tournamentId
-      ? `${window.location.origin}/timer/${tournamentId}`
-      : ''
-  );
+
+  /**
+   * Builds the canonical timer URL for a given origin and tournamentId.
+   *
+   * Extracted as a named export for Vitest production-import testability (E11S08 AC5/AC7).
+   * Pure function — no Svelte reactivity; usable in plain spec context.
+   *
+   * Canonical Wave-2 path: /timer/tournaments/{tournamentId} (per TimerViewController E26S03).
+   *
+   * @param origin       e.g. window.location.origin — "http://localhost:8080"
+   * @param tournamentId the tournament UUID
+   * @returns            the full timer URL, or '' if tournamentId is empty
+   */
+  export function buildTimerUrl(origin: string, tournamentId: string): string {
+    if (!tournamentId) return '';
+    return `${origin}/timer/tournaments/${tournamentId}`;
+  }
+
+  const timerUrl = $derived(buildTimerUrl(window.location.origin, tournamentId));
 
   // ── State ────────────────────────────────────────────────────────────────
 

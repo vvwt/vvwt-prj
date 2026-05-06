@@ -42,8 +42,8 @@ import org.springframework.security.web.SecurityFilterChain;
  *   <li>{@code /api/score/**} — public
  *   <li>{@code /api/display/**} — public
  *   <li>{@code /display/**} — public
- *   <li>{@code /timer/**} — public
- *   <li>{@code /api/tournaments/{id}/audio/{name}/stream} — public
+ *   <li>{@code /timer/tournaments/**} — public
+ *   <li>{@code /api/audio/tournaments/{id}/{cat}/stream} — public
  *   <li>{@code /print/assets/**} — public
  *   <li>{@code /api/timer/**} — public
  *   <li>{@code /} — public (LandingController redirect to /admin/, E43S01 AC7)
