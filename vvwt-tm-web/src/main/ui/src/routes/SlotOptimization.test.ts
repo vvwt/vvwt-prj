@@ -4,7 +4,7 @@
  * AC1: de.json has slotopt.title = "Slot-Optimierung".
  * AC2: Header renders "Slot-Optimierung" from slotopt.title; legacy <h2>Slot Optimization</h2> gone.
  * AC3: In-page <h2> gone; title registered via pageHeader store.
- * AC5: Back-arrow registered; backTo = '/tournaments/:tournamentId/edit'.
+ * AC5: Back-arrow registered; backTo = '/tournaments' (E48S15: updated from /edit to /tournaments).
  * AC6: SlotOptimization registers tournamentId → header shows tournament name.
  * AC7: Action-area empty (cancel button stays in-page per D-4 + story notes).
  * AC10: Inline cancel button NOT relocated to header; still present in route body.
@@ -87,14 +87,17 @@ describe('SlotOptimization.svelte — AC3: in-page h2 removed (E47S02)', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC5 — Back-arrow on SlotOptimization: backTo = '/tournaments/:tournamentId/edit'
+// AC5 — Back-arrow on SlotOptimization: backTo = '/tournaments' (updated E48S15)
 // ─────────────────────────────────────────────────────────────────────────────
+// E48S15 P→Tournaments: slot-optimization now targets /tournaments (not /edit).
+// Assertion updated to reflect the new convention (corrected-spec-test value per
+// E48S15 story notes + DEC-22 §refactor-clause clarification).
 
-describe('parentRouteMap — AC5: SlotOptimization back-arrow (E47S02)', () => {
-  it('parentRouteMap resolves SlotOptimization to /tournaments/:tournamentId/edit', async () => {
+describe('parentRouteMap — AC5: SlotOptimization back-arrow (E47S02 / E48S15)', () => {
+  it('parentRouteMap resolves SlotOptimization to /tournaments (E48S15 P→Tournaments)', async () => {
     const { resolveParent } = await import('../lib/parentRouteMap.js');
     const result = resolveParent('/tournaments/:tournamentId/slot-optimization', 'abc-123');
-    expect(result).toBe('/tournaments/abc-123/edit');
+    expect(result).toBe('/tournaments');
   });
 
   it('SlotOptimization.svelte source registers backTo via resolveParent', async () => {

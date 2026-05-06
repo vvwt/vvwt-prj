@@ -1,9 +1,10 @@
 /**
- * Tests for Teams route — Story E47S01.
+ * Tests for Teams route — Story E47S01 / E48S15.
  *
  * AC3: No per-page .teams__header; title registered via pageHeader store.
  * AC4: Per-page "Team hinzufügen" button gone from <main>; action registered via store invokes openAddRow.
- * AC5: Back-arrow action navigates to /tournaments/:tournamentId/edit (via parentRouteMap).
+ * AC5 (E47S01): Back-arrow action navigates via parentRouteMap.
+ * E48S15: parentRouteMap 7 sub-routes updated to target /tournaments (P→Tournaments).
  * AC6: Tournament name displayed in header (via tournamentStore.getTournament).
  * AC7: Narrow viewport — "Team hinzufügen" is icon-only with aria-label.
  * AC14: getTournament returns undefined → no literal "undefined"/"null" in header; back-arrow + title still registered.
@@ -65,53 +66,93 @@ describe('Teams.svelte — AC4: per-page add button removed (E47S01)', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC5 — Back-arrow navigation via parentRouteMap
+// AC5 / E48S15 — Back-arrow navigation via parentRouteMap (P→Tournaments)
 // ─────────────────────────────────────────────────────────────────────────────
+// E48S15 RED-first (DEC-22): 6 assertions updated + 1 new (slot-optimization)
+// to expect '/tournaments' instead of '/tournaments/:tournamentId/edit'.
+// Phase-routes + CRUD-routes assertions cover AC-NO-IMPACT-ON-PHASE-ROUTES and
+// AC-NO-IMPACT-ON-TOURNAMENT-CRUD-ROUTES. Unknown-route null-assertions cover
+// AC-ERROR-HANDLING-UNKNOWN-ROUTE-PATTERN.
 
-describe('parentRouteMap — AC5: back-arrow navigation (E47S01)', () => {
+describe('parentRouteMap — back-arrow navigation (E47S01 / E48S15)', () => {
   it('parentRouteMap.ts exports resolveParent function', async () => {
     const mod = await import('../lib/parentRouteMap.js');
     expect(typeof mod.resolveParent).toBe('function');
   });
 
-  it('resolveParent resolves Teams route to /tournaments/:tournamentId/edit', async () => {
+  // 7 sub-routes: P→Tournaments (E48S15 RED-first — AC-TEST-PARENT-ROUTE-MAP-TARGETS-RED)
+  it('resolveParent resolves Teams route to /tournaments (E48S15)', async () => {
     const { resolveParent } = await import('../lib/parentRouteMap.js');
     const result = resolveParent('/tournaments/:tournamentId/teams', 'abc-123');
-    expect(result).toBe('/tournaments/abc-123/edit');
+    expect(result).toBe('/tournaments');
   });
 
-  it('resolveParent resolves DraftConfig route to /tournaments/:tournamentId/edit', async () => {
+  it('resolveParent resolves DraftConfig route to /tournaments (E48S15)', async () => {
     const { resolveParent } = await import('../lib/parentRouteMap.js');
     const result = resolveParent('/tournaments/:tournamentId/draft', 'abc-123');
-    expect(result).toBe('/tournaments/abc-123/edit');
+    expect(result).toBe('/tournaments');
   });
 
-  it('resolveParent resolves TimerAudio route to /tournaments/:tournamentId/edit', async () => {
+  it('resolveParent resolves TimerAudio route to /tournaments (E48S15)', async () => {
     const { resolveParent } = await import('../lib/parentRouteMap.js');
     const result = resolveParent('/tournaments/:tournamentId/audio', 'abc-123');
-    expect(result).toBe('/tournaments/abc-123/edit');
+    expect(result).toBe('/tournaments');
   });
 
-  it('resolveParent resolves TimerLink route to /tournaments/:tournamentId/edit', async () => {
+  it('resolveParent resolves TimerLink route to /tournaments (E48S15)', async () => {
     const { resolveParent } = await import('../lib/parentRouteMap.js');
     const result = resolveParent('/tournaments/:tournamentId/timer-link', 'abc-123');
-    expect(result).toBe('/tournaments/abc-123/edit');
+    expect(result).toBe('/tournaments');
   });
 
-  it('resolveParent resolves TeamPhotos route to /tournaments/:tournamentId/edit', async () => {
+  it('resolveParent resolves TeamPhotos route to /tournaments (E48S15)', async () => {
     const { resolveParent } = await import('../lib/parentRouteMap.js');
     const result = resolveParent('/tournaments/:tournamentId/photos', 'abc-123');
-    expect(result).toBe('/tournaments/abc-123/edit');
+    expect(result).toBe('/tournaments');
   });
 
-  it('resolveParent resolves CertificateTemplate route to /tournaments/:tournamentId/edit', async () => {
+  it('resolveParent resolves CertificateTemplate route to /tournaments (E48S15)', async () => {
     const { resolveParent } = await import('../lib/parentRouteMap.js');
     const result = resolveParent('/tournaments/:tournamentId/certificate-template', 'abc-123');
-    expect(result).toBe('/tournaments/abc-123/edit');
+    expect(result).toBe('/tournaments');
   });
 
-  it('resolveParent returns null for top-level routes (no back-arrow)', async () => {
+  it('resolveParent resolves SlotOptimization route to /tournaments (E48S15 — new assertion)', async () => {
     const { resolveParent } = await import('../lib/parentRouteMap.js');
+    const result = resolveParent('/tournaments/:tournamentId/slot-optimization', 'abc-123');
+    expect(result).toBe('/tournaments');
+  });
+
+  // Phase-routes: unchanged (E48S05 + E48S08 — AC-NO-IMPACT-ON-PHASE-ROUTES)
+  it('resolveParent resolves phases overview to /tournaments (E48S05 — unchanged)', async () => {
+    const { resolveParent } = await import('../lib/parentRouteMap.js');
+    const result = resolveParent('/tournaments/:tournamentId/phases', 'abc-123');
+    expect(result).toBe('/tournaments');
+  });
+
+  it('resolveParent resolves phase transition to /phases (E48S08 — unchanged)', async () => {
+    const { resolveParent } = await import('../lib/parentRouteMap.js');
+    const result = resolveParent('/tournaments/:tournamentId/phases/:phaseId/transition', 'abc-123');
+    expect(result).toBe('/tournaments/abc-123/phases');
+  });
+
+  // Tournament CRUD routes: unchanged (AC-NO-IMPACT-ON-TOURNAMENT-CRUD-ROUTES)
+  it('resolveParent resolves /tournaments/new to /tournaments (unchanged)', async () => {
+    const { resolveParent } = await import('../lib/parentRouteMap.js');
+    const result = resolveParent('/tournaments/new', 'abc-123');
+    expect(result).toBe('/tournaments');
+  });
+
+  it('resolveParent resolves /tournaments/:id/edit to /tournaments (unchanged)', async () => {
+    const { resolveParent } = await import('../lib/parentRouteMap.js');
+    const result = resolveParent('/tournaments/:id/edit', 'abc-123');
+    expect(result).toBe('/tournaments');
+  });
+
+  // Unknown routes: null (AC-ERROR-HANDLING-UNKNOWN-ROUTE-PATTERN)
+  it('resolveParent returns null for unknown routes (AC-ERROR-HANDLING-UNKNOWN-ROUTE-PATTERN)', async () => {
+    const { resolveParent } = await import('../lib/parentRouteMap.js');
+    expect(resolveParent('/some/unknown/route', 'abc-123')).toBeNull();
     expect(resolveParent('/tournaments', '')).toBeNull();
     expect(resolveParent('/devices', '')).toBeNull();
     expect(resolveParent('/', '')).toBeNull();
