@@ -36,6 +36,8 @@
     type DraftPreview,
   } from '../stores/draftStore.js';
   import { getTournament } from '../stores/tournamentStore.js';
+  import { formatDuration } from '../lib/formatDuration.js';
+  import { formatStartTime } from '../lib/formatStartTime.js';
 
   // ── Props ────────────────────────────────────────────────────────────────
   interface Props {
@@ -487,6 +489,9 @@
         <h2>{$_('draft.preview.title')}</h2>
 
         <!-- Structural preview -->
+        {@const totalMatches = preview.sections.reduce((s, p) => s + p.totalMatches, 0)}
+        {@const totalMinutes = preview.sections.reduce((s, p) => s + p.estimatedTimeMinutes, 0)}
+        {@const showStartTime = plannedStartTime != null && formatStartTime(plannedStartTime, 0) !== ''}
         <table class="preview-table">
           <thead>
             <tr>
@@ -497,10 +502,14 @@
               <th>{$_('draft.preview.columns.totalLaps')}</th>
               <th>{$_('draft.preview.columns.totalMatches')}</th>
               <th>{$_('draft.preview.columns.estimatedTime')}</th>
+              {#if showStartTime}
+                <th>{$_('draftConfig.preview.columns.estimatedStart')}</th>
+              {/if}
             </tr>
           </thead>
           <tbody>
-            {#each preview.sections as ps (ps.phaseNumber)}
+            {#each preview.sections as ps, idx (ps.phaseNumber)}
+              {@const offsetBefore = preview.sections.slice(0, idx).reduce((s, p) => s + p.estimatedTimeMinutes, 0)}
               <tr>
                 <td>{ps.phaseNumber}</td>
                 <td>{ps.groupCount}</td>
@@ -508,10 +517,27 @@
                 <td>{ps.matchesPerGroup}</td>
                 <td>{ps.totalLaps}</td>
                 <td>{ps.totalMatches}</td>
-                <td>{ps.estimatedTimeMinutes} {$_('draft.preview.minutesSuffix')}</td>
+                <td>{formatDuration(ps.estimatedTimeMinutes)}</td>
+                {#if showStartTime}
+                  <td>{formatStartTime(plannedStartTime!, offsetBefore)}</td>
+                {/if}
               </tr>
             {/each}
           </tbody>
+          <tfoot>
+            <tr class="preview-table__sum-row">
+              <td>{$_('draftConfig.preview.sumLabel')}</td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td>{totalMatches}</td>
+              <td>{formatDuration(totalMinutes)}</td>
+              {#if showStartTime}
+                <td>{formatStartTime(plannedStartTime!, totalMinutes)}</td>
+              {/if}
+            </tr>
+          </tfoot>
         </table>
 
         <!-- Timeline table (only when plannedStartTime is set — AC6) -->
@@ -690,6 +716,11 @@
   .timeline-row--break td {
     color: #7f8c8d;
     font-style: italic;
+  }
+
+  .preview-table__sum-row td {
+    font-weight: bold;
+    border-top: 2px solid #ccc;
   }
 
   .btn {

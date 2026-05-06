@@ -192,6 +192,12 @@
     },
     "rundenzeit": {
       "disabledTooltip": "Rundenzeit ist für Siegerehrung-Phasen nicht relevant"
+    },
+    "preview": {
+      "sumLabel": "Summe",
+      "columns": {
+        "estimatedStart": "Voraussichtl. Beginn"
+      }
     }
   },
   "teams": {
