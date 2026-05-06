@@ -111,4 +111,34 @@ public interface DraftService {
      * @see <a href="E21S19">E21S19 — AC-TEST-PUT-SUCCESS-RED, AC-TEST-PUT-NON-DRAFT-409-RED</a>
      */
     DraftConfig saveDraft(UUID tournamentId, DraftConfig config);
+
+    /**
+     * Resets the Phasenplan for a {@code PLANNED} tournament back to {@code DRAFT} (E48S13,
+     * AC-IMPL-RESET-PLAN-OP).
+     *
+     * <p>Deletes all phase-derived structural data (phases, matches, team-avatars, audit-log rows,
+     * etc.) via the shared cascade-delete helper; then sets {@code tournament.status = 'DRAFT'}.
+     * Preserves {@code draftJson}, {@code team} rows, {@code activity_types}, and {@code
+     * certificate_template}. Once back in {@code DRAFT}, {@link #saveDraft} is unblocked and {@link
+     * #apply} succeeds again.
+     *
+     * <p>First read uses {@code findByIdForUpdate} (DEC-37 Clause B pessimistic lock). Operation is
+     * {@code @Transactional}.
+     *
+     * @param tournamentId the tournament UUID
+     * @return the updated tournament with {@code status = 'DRAFT'}; never {@code null}
+     * @throws de.vvwt.tm.tournament.exceptions.TournamentNotFoundException if the tournament does
+     *     not exist in the current tenant context
+     * @throws de.vvwt.tm.tournament.exceptions.TournamentResetPlanActiveException if status is
+     *     ACTIVE
+     * @throws de.vvwt.tm.tournament.exceptions.TournamentResetPlanCancelledException if status is
+     *     CANCELLED
+     * @throws de.vvwt.tm.tournament.exceptions.TournamentResetPlanCompletedException if status is
+     *     COMPLETED
+     * @throws de.vvwt.tm.tournament.exceptions.TournamentResetPlanDraftIdempotentException if
+     *     status is already DRAFT (idempotent path, 409 per AC-TEST-RESET-PLAN-DAO-IT-RED)
+     * @see <a href="E48S13">E48S13 — Tournament Admin Escape Hatch</a>
+     * @see <a href="DEC-37">DEC-37 — Clause B: findByIdForUpdate first-read for mutation ops</a>
+     */
+    Tournament resetPlan(UUID tournamentId);
 }

@@ -17,7 +17,13 @@ import de.vvwt.tm.tournament.exceptions.ConflictException;
 import de.vvwt.tm.tournament.exceptions.ForbiddenException;
 import de.vvwt.tm.tournament.exceptions.MatchCanceledException;
 import de.vvwt.tm.tournament.exceptions.TooManyRequestsException;
+import de.vvwt.tm.tournament.exceptions.TournamentCascadeDeleteActiveException;
+import de.vvwt.tm.tournament.exceptions.TournamentCascadeDeleteCompletedException;
 import de.vvwt.tm.tournament.exceptions.TournamentNotFoundException;
+import de.vvwt.tm.tournament.exceptions.TournamentResetPlanActiveException;
+import de.vvwt.tm.tournament.exceptions.TournamentResetPlanCancelledException;
+import de.vvwt.tm.tournament.exceptions.TournamentResetPlanCompletedException;
+import de.vvwt.tm.tournament.exceptions.TournamentResetPlanDraftIdempotentException;
 import de.vvwt.tm.tournament.exceptions.UnauthorizedException;
 import de.vvwt.tm.tournament.exceptions.ValidationException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -152,6 +158,117 @@ public class GlobalExceptionHandler {
             MatchCanceledException ex, HttpServletRequest request) {
         log.debug("[tm-web] MatchCanceledException: {}", ex.getMessage());
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), "error.match.canceled", request);
+    }
+
+    // =========================================================================
+    // E48S13 — Six typed ConflictException subclasses (AC-IMPL-TYPED-EXCEPTIONS-AND-HANDLERS)
+    // Each carries a differentiated i18n messageKey per Brief Q-2.
+    // Pattern precedent: MatchCanceledException handler above.
+    // The generic ConflictException handler (above, line ~137) is RETAINED for non-typed throws.
+    // =========================================================================
+
+    /**
+     * Maps {@link TournamentCascadeDeleteActiveException} to HTTP 409 Conflict (E48S13,
+     * AC-IMPL-TYPED-EXCEPTIONS-AND-HANDLERS).
+     *
+     * <p>Cascade-delete was attempted on an ACTIVE tournament. Message prompts the two-step Cancel
+     * → Delete path.
+     */
+    @ExceptionHandler(TournamentCascadeDeleteActiveException.class)
+    public ResponseEntity<ApiErrorResponse> handleCascadeDeleteActive(
+            TournamentCascadeDeleteActiveException ex, HttpServletRequest request) {
+        log.debug("[tm-web] TournamentCascadeDeleteActiveException: {}", ex.getMessage());
+        return buildResponse(
+                HttpStatus.CONFLICT,
+                ex.getMessage(),
+                "error.tournament.cascadeDelete.activeRejected",
+                request);
+    }
+
+    /**
+     * Maps {@link TournamentCascadeDeleteCompletedException} to HTTP 409 Conflict (E48S13,
+     * AC-IMPL-TYPED-EXCEPTIONS-AND-HANDLERS).
+     *
+     * <p>Cascade-delete was attempted on a COMPLETED tournament — not permitted.
+     */
+    @ExceptionHandler(TournamentCascadeDeleteCompletedException.class)
+    public ResponseEntity<ApiErrorResponse> handleCascadeDeleteCompleted(
+            TournamentCascadeDeleteCompletedException ex, HttpServletRequest request) {
+        log.debug("[tm-web] TournamentCascadeDeleteCompletedException: {}", ex.getMessage());
+        return buildResponse(
+                HttpStatus.CONFLICT,
+                ex.getMessage(),
+                "error.tournament.cascadeDelete.completedRejected",
+                request);
+    }
+
+    /**
+     * Maps {@link TournamentResetPlanActiveException} to HTTP 409 Conflict (E48S13,
+     * AC-IMPL-TYPED-EXCEPTIONS-AND-HANDLERS).
+     *
+     * <p>Reset-plan was attempted on an ACTIVE tournament — not permitted.
+     */
+    @ExceptionHandler(TournamentResetPlanActiveException.class)
+    public ResponseEntity<ApiErrorResponse> handleResetPlanActive(
+            TournamentResetPlanActiveException ex, HttpServletRequest request) {
+        log.debug("[tm-web] TournamentResetPlanActiveException: {}", ex.getMessage());
+        return buildResponse(
+                HttpStatus.CONFLICT,
+                ex.getMessage(),
+                "error.tournament.resetPlan.activeRejected",
+                request);
+    }
+
+    /**
+     * Maps {@link TournamentResetPlanCancelledException} to HTTP 409 Conflict (E48S13,
+     * AC-IMPL-TYPED-EXCEPTIONS-AND-HANDLERS).
+     *
+     * <p>Reset-plan was attempted on a CANCELLED tournament — not permitted.
+     */
+    @ExceptionHandler(TournamentResetPlanCancelledException.class)
+    public ResponseEntity<ApiErrorResponse> handleResetPlanCancelled(
+            TournamentResetPlanCancelledException ex, HttpServletRequest request) {
+        log.debug("[tm-web] TournamentResetPlanCancelledException: {}", ex.getMessage());
+        return buildResponse(
+                HttpStatus.CONFLICT,
+                ex.getMessage(),
+                "error.tournament.resetPlan.cancelledRejected",
+                request);
+    }
+
+    /**
+     * Maps {@link TournamentResetPlanCompletedException} to HTTP 409 Conflict (E48S13,
+     * AC-IMPL-TYPED-EXCEPTIONS-AND-HANDLERS).
+     *
+     * <p>Reset-plan was attempted on a COMPLETED tournament — not permitted.
+     */
+    @ExceptionHandler(TournamentResetPlanCompletedException.class)
+    public ResponseEntity<ApiErrorResponse> handleResetPlanCompleted(
+            TournamentResetPlanCompletedException ex, HttpServletRequest request) {
+        log.debug("[tm-web] TournamentResetPlanCompletedException: {}", ex.getMessage());
+        return buildResponse(
+                HttpStatus.CONFLICT,
+                ex.getMessage(),
+                "error.tournament.resetPlan.completedRejected",
+                request);
+    }
+
+    /**
+     * Maps {@link TournamentResetPlanDraftIdempotentException} to HTTP 409 Conflict (E48S13,
+     * AC-IMPL-TYPED-EXCEPTIONS-AND-HANDLERS).
+     *
+     * <p>Reset-plan was attempted on an already-DRAFT tournament — already in the desired state; no
+     * reset needed (idempotent path).
+     */
+    @ExceptionHandler(TournamentResetPlanDraftIdempotentException.class)
+    public ResponseEntity<ApiErrorResponse> handleResetPlanDraftIdempotent(
+            TournamentResetPlanDraftIdempotentException ex, HttpServletRequest request) {
+        log.debug("[tm-web] TournamentResetPlanDraftIdempotentException: {}", ex.getMessage());
+        return buildResponse(
+                HttpStatus.CONFLICT,
+                ex.getMessage(),
+                "error.tournament.resetPlan.draftIdempotent",
+                request);
     }
 
     /**

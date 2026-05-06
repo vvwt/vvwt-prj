@@ -9,5 +9,32 @@
         "estimatedStart": "Estimated Start"
       }
     }
+  },
+  "tournaments": {
+    "cascadeDeleteButton": "Delete tournament permanently",
+    "cascadeDeleteConfirm": "Delete tournament permanently? All phases, matches, scores, and audit data will be irreversibly removed.",
+    "cascadeDeleteError": "Error deleting the tournament."
+  },
+  "draft": {
+    "resetPlanButton": "Reset Phasenplan",
+    "resetPlanConfirm": "Reset Phasenplan? Phases, matches, and slot assignments will be deleted. Teams, settings, and the saved draft will be preserved.",
+    "resetPlanError": "Error resetting the Phasenplan.",
+    "error": {
+      "resetPlanFailed": "Failed to reset the Phasenplan."
+    }
+  },
+  "error": {
+    "tournament": {
+      "cascadeDelete": {
+        "activeRejected": "Active tournament cannot be deleted — please cancel it first (Cancel → Delete).",
+        "completedRejected": "Completed tournament cannot be deleted."
+      },
+      "resetPlan": {
+        "activeRejected": "Active tournament Phasenplan cannot be reset.",
+        "cancelledRejected": "Cancelled tournament Phasenplan cannot be reset.",
+        "completedRejected": "Completed tournament Phasenplan cannot be reset.",
+        "draftIdempotent": "Tournament is already in DRAFT status — no Phasenplan reset is needed."
+      }
+    }
   }
 }

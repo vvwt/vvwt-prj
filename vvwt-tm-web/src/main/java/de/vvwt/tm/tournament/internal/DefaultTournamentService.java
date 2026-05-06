@@ -2,14 +2,14 @@ package de.vvwt.tm.tournament.internal;
 
 import de.vvwt.tm.tournament.MatchFormat;
 import de.vvwt.tm.tournament.MatchGeneratorRegistry;
-import de.vvwt.tm.tournament.Phase;
-import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.TournamentService;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
+import de.vvwt.tm.tournament.exceptions.TournamentCascadeDeleteActiveException;
+import de.vvwt.tm.tournament.exceptions.TournamentCascadeDeleteCompletedException;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Comparator;
@@ -88,7 +88,6 @@ public class DefaultTournamentService implements TournamentService {
     private static final String DEFAULT_LANGUAGE = "de";
 
     private final TournamentRepository tournamentRepository;
-    private final PhaseRepository phaseRepository;
     private final MatchGeneratorRegistry matchGeneratorRegistry;
     private final JdbcTemplate jdbcTemplate;
     private final MessageSource messageSource;
@@ -98,23 +97,21 @@ public class DefaultTournamentService implements TournamentService {
      * Constructs the service with its required collaborators.
      *
      * @param tournamentRepository tournament persistence (tenant-scoped, new Modulith repository)
-     * @param phaseRepository phase persistence (legacy, tenant-scoped) — for delete check (AC5)
      * @param matchGeneratorRegistry validates matchGeneratorId bean references (AC3)
-     * @param jdbcTemplate JDBC template for auxiliary queries (location lookup, tenant language)
+     * @param jdbcTemplate JDBC template for auxiliary queries (location lookup, tenant language,
+     *     and cascade-delete bulk SQL — E48S13 AC-IMPL-CASCADE-DELETE-HELPER)
      * @param messageSource Spring MessageSource for i18n label resolution (E05S12
      *     AC-I18N-LABEL-FROM-MESSAGE-BUNDLE)
      * @param teamRepository team persistence (tenant-scoped) — for seed loop (E05S12
-     *     AC-IMPL-AUTO-SEED-AT-CREATE)
+     *     AC-IMPL-AUTO-SEED-AT-CREATE) and cascade-delete (E48S13 AC-IMPL-CASCADE-DELETE-OP)
      */
     public DefaultTournamentService(
             TournamentRepository tournamentRepository,
-            PhaseRepository phaseRepository,
             MatchGeneratorRegistry matchGeneratorRegistry,
             JdbcTemplate jdbcTemplate,
             MessageSource messageSource,
             TeamRepository teamRepository) {
         this.tournamentRepository = tournamentRepository;
-        this.phaseRepository = phaseRepository;
         this.matchGeneratorRegistry = matchGeneratorRegistry;
         this.jdbcTemplate = jdbcTemplate;
         this.messageSource = messageSource;
@@ -358,38 +355,123 @@ public class DefaultTournamentService implements TournamentService {
     // -------------------------------------------------------------------------
 
     /**
-     * Deletes a tournament. Only DRAFT tournaments with no associated phases may be deleted.
+     * Cascade-deletes a tournament and all its structural data (E48S13, AC-IMPL-CASCADE-DELETE-OP).
+     *
+     * <p>Widened from DRAFT-only to accept {@code status ∈ {DRAFT, PLANNED, CANCELLED}}. ACTIVE and
+     * COMPLETED remain rejected via typed {@link ConflictException} subclasses.
+     *
+     * <p>DEC-37 Clause B: {@code findByIdForUpdate} is the first read (pessimistic lock).
+     *
+     * <p>Execution order per Brief D-6:
+     *
+     * <ol>
+     *   <li>{@link #cascadeDeleteStructuralData(UUID)} — deletes 9 categories of phase-derived rows
+     *   <li>{@code DELETE FROM activity_types WHERE tournament_id = ?}
+     *   <li>{@code DELETE team WHERE tournament_id = ?} (FK ON DELETE RESTRICT)
+     *   <li>{@code tournamentRepository.deleteById} — auto-propagates to {@code
+     *       certificate_template} via FK ON DELETE CASCADE
+     * </ol>
      *
      * @param id the tournament UUID
-     * @throws NoSuchElementException if the tournament does not exist for the current tenant
-     * @throws ConflictException if the tournament is ACTIVE or has associated phases (AC5)
+     * @throws TournamentNotFoundException if the tournament does not exist for the current tenant
+     * @throws TournamentCascadeDeleteActiveException if the tournament is ACTIVE
+     * @throws TournamentCascadeDeleteCompletedException if the tournament is COMPLETED
+     * @see <a href="E48S13">E48S13 — AC-IMPL-CASCADE-DELETE-OP</a>
+     * @see <a href="DEC-37">DEC-37 — Clause B: findByIdForUpdate first-read for mutation ops</a>
      */
+    @Transactional
     @Override
     public void deleteTournament(UUID id) {
-        Tournament tournament = getTournament(id);
+        // DEC-37 Clause B: pessimistic lock as first read (throws IllegalArgumentException → 400
+        // on unknown id; same as DefaultTournamentLifecycleService precedent at lines
+        // 59/84/109/139)
+        Tournament tournament = tournamentRepository.findByIdForUpdate(id);
 
-        if ("ACTIVE".equals(tournament.getStatus())) {
-            throw new ConflictException(
-                    "Tournament '"
-                            + id
-                            + "' cannot be deleted because it is ACTIVE. "
-                            + "Only DRAFT tournaments with no phases may be deleted.");
+        String status = tournament.getStatus();
+        if ("ACTIVE".equals(status)) {
+            throw new TournamentCascadeDeleteActiveException(id);
         }
-
-        List<Phase> phases = phaseRepository.findByTournamentId(id);
-        if (!phases.isEmpty()) {
-            throw new ConflictException(
-                    "Tournament '"
-                            + id
-                            + "' cannot be deleted because it has "
-                            + phases.size()
-                            + " associated phase(s). Remove all phases first.");
+        if ("COMPLETED".equals(status)) {
+            throw new TournamentCascadeDeleteCompletedException(id);
         }
+        // status ∈ {DRAFT, PLANNED, CANCELLED} — proceed with cascade delete
 
-        // E05S12: remove auto-seeded team rows before deleting the tournament row.
-        // team.tournament_id is ON DELETE RESTRICT, so teams must be deleted first.
+        cascadeDeleteStructuralData(id);
+
+        // activity_types: ON DELETE RESTRICT — must delete before tournament row
+        jdbcTemplate.update("DELETE FROM activity_types WHERE tournament_id = ?", id);
+
+        // team: ON DELETE RESTRICT — must delete before tournament row
         teamRepository.deleteByTournamentId(id);
+
+        // tournament row: auto-propagates to certificate_template via FK ON DELETE CASCADE
         tournamentRepository.deleteById(id);
+    }
+
+    // -------------------------------------------------------------------------
+    // cascadeDeleteStructuralData — shared bulk-delete helper (E48S13)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Deletes all phase-derived structural data for a tournament in the correct FK-dependency order
+     * (E48S13, AC-IMPL-CASCADE-DELETE-HELPER).
+     *
+     * <p>Executes 9 bulk SQL statements via {@link JdbcTemplate} (no N+1). Does NOT touch the
+     * {@code tournament} row, {@code team}, {@code activity_types}, {@code certificate_template},
+     * or {@code draftJson}.
+     *
+     * <p>Step order per Brief D-6a:
+     *
+     * <ol>
+     *   <li>DELETE audit_log WHERE match_id IN (SELECT id FROM match WHERE tournament_id = ?)
+     *   <li>DELETE match_outcome WHERE match_id IN (SELECT id FROM match WHERE tournament_id = ?)
+     *   <li>DELETE set_result WHERE phase_id IN (SELECT id FROM phase WHERE tournament_id = ?)
+     *   <li>DELETE team_avatar_rating WHERE avatar_id IN (SELECT id FROM team_avatar WHERE
+     *       tournament_id = ?)
+     *   <li>DELETE round_snapshots WHERE tournament_id = ?
+     *   <li>DELETE match WHERE tournament_id = ?
+     *   <li>DELETE team_avatar WHERE tournament_id = ?
+     *   <li>DELETE phase_breaks WHERE phase_id IN (SELECT id FROM phase WHERE tournament_id = ?)
+     *   <li>DELETE phase WHERE tournament_id = ?
+     * </ol>
+     *
+     * @param tournamentId the tournament UUID whose structural data should be deleted
+     * @see <a href="E48S13">E48S13 — AC-IMPL-CASCADE-DELETE-HELPER</a>
+     */
+    private void cascadeDeleteStructuralData(UUID tournamentId) {
+        // 1. audit_log rows referencing matches of this tournament
+        jdbcTemplate.update(
+                "DELETE FROM audit_log WHERE match_id IN"
+                        + " (SELECT id FROM match WHERE tournament_id = ?)",
+                tournamentId);
+        // 2. match_outcome rows referencing matches of this tournament
+        jdbcTemplate.update(
+                "DELETE FROM match_outcome WHERE match_id IN"
+                        + " (SELECT id FROM match WHERE tournament_id = ?)",
+                tournamentId);
+        // 3. set_result rows referencing phases of this tournament
+        jdbcTemplate.update(
+                "DELETE FROM set_result WHERE phase_id IN"
+                        + " (SELECT id FROM phase WHERE tournament_id = ?)",
+                tournamentId);
+        // 4. team_avatar_rating rows referencing team_avatars of this tournament
+        jdbcTemplate.update(
+                "DELETE FROM team_avatar_rating WHERE avatar_id IN"
+                        + " (SELECT id FROM team_avatar WHERE tournament_id = ?)",
+                tournamentId);
+        // 5. round_snapshots for this tournament
+        jdbcTemplate.update("DELETE FROM round_snapshots WHERE tournament_id = ?", tournamentId);
+        // 6. match rows for this tournament
+        jdbcTemplate.update("DELETE FROM match WHERE tournament_id = ?", tournamentId);
+        // 7. team_avatar rows for this tournament
+        jdbcTemplate.update("DELETE FROM team_avatar WHERE tournament_id = ?", tournamentId);
+        // 8. phase_breaks rows referencing phases of this tournament
+        jdbcTemplate.update(
+                "DELETE FROM phase_breaks WHERE phase_id IN"
+                        + " (SELECT id FROM phase WHERE tournament_id = ?)",
+                tournamentId);
+        // 9. phase rows for this tournament
+        jdbcTemplate.update("DELETE FROM phase WHERE tournament_id = ?", tournamentId);
     }
 
     // -------------------------------------------------------------------------

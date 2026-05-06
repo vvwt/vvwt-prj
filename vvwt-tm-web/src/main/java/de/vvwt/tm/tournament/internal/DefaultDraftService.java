@@ -24,6 +24,10 @@ import de.vvwt.tm.tournament.draft.DraftSection;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import de.vvwt.tm.tournament.exceptions.DraftAlreadyAppliedException;
 import de.vvwt.tm.tournament.exceptions.TournamentNotFoundException;
+import de.vvwt.tm.tournament.exceptions.TournamentResetPlanActiveException;
+import de.vvwt.tm.tournament.exceptions.TournamentResetPlanCancelledException;
+import de.vvwt.tm.tournament.exceptions.TournamentResetPlanCompletedException;
+import de.vvwt.tm.tournament.exceptions.TournamentResetPlanDraftIdempotentException;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftTimelineEntryResponse;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -32,7 +36,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Default implementation of {@link DraftService}.
@@ -88,11 +94,13 @@ public class DefaultDraftService implements DraftService {
     private final TournamentRepository tournamentRepository;
     private final ObjectMapper objectMapper;
     private final TimelineCalculationService timelineCalculationService;
+    private final JdbcTemplate jdbcTemplate;
 
     /**
      * Constructs the service with Phase-aggregate collaborators from E21S03, phase preparation,
-     * tournament repository + Jackson ObjectMapper for draft JSON serialization (E21S19), and the
-     * timeline calculation service for preview timeline population (E48S12).
+     * tournament repository + Jackson ObjectMapper for draft JSON serialization (E21S19), the
+     * timeline calculation service for preview timeline population (E48S12), and JdbcTemplate for
+     * cascade-delete and reset-plan bulk SQL (E48S13).
      *
      * @param phaseRepository phase persistence (tenant-scoped, E21S03)
      * @param phaseBreakRepository phase break persistence (tenant-scoped, E21S03)
@@ -102,6 +110,7 @@ public class DefaultDraftService implements DraftService {
      * @param tournamentRepository tournament persistence for draft JSON read/write (E21S19)
      * @param objectMapper Jackson ObjectMapper for DraftConfig ↔ JSON round-trip (E21S19)
      * @param timelineCalculationService stateless timeline engine (E21S11, wired in E48S12)
+     * @param jdbcTemplate JDBC template for bulk cascade SQL (E48S13 AC-IMPL-CASCADE-DELETE-HELPER)
      */
     public DefaultDraftService(
             @Qualifier("tmPhaseRepository") PhaseRepository phaseRepository,
@@ -112,7 +121,8 @@ public class DefaultDraftService implements DraftService {
             @Qualifier("tmTournamentRepository") TournamentRepository tournamentRepository,
             ObjectMapper objectMapper,
             @Qualifier("tmTimelineCalculationService")
-                    TimelineCalculationService timelineCalculationService) {
+                    TimelineCalculationService timelineCalculationService,
+            JdbcTemplate jdbcTemplate) {
         this.phaseRepository = phaseRepository;
         this.phaseBreakRepository = phaseBreakRepository;
         this.teamRepository = teamRepository;
@@ -121,6 +131,7 @@ public class DefaultDraftService implements DraftService {
         this.tournamentRepository = tournamentRepository;
         this.objectMapper = objectMapper;
         this.timelineCalculationService = timelineCalculationService;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     // -------------------------------------------------------------------------
@@ -315,6 +326,124 @@ public class DefaultDraftService implements DraftService {
         tournament.setDraftJson(json);
         tournamentRepository.save(tournament);
         return loadDraft(tournamentId);
+    }
+
+    // -------------------------------------------------------------------------
+    // resetPlan — reset Phasenplan from PLANNED back to DRAFT (E48S13)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Resets the Phasenplan for a {@code PLANNED} tournament back to {@code DRAFT} (E48S13,
+     * AC-IMPL-RESET-PLAN-OP).
+     *
+     * <p>DEC-37 Clause B: {@code findByIdForUpdate} is the first read (pessimistic lock). Status
+     * guard: PLANNED only — all other statuses throw a typed {@link ConflictException} subclass.
+     * Then: invokes {@link #cascadeDeleteStructuralData(UUID)}; issues {@code UPDATE tournament SET
+     * status = 'DRAFT' WHERE id = ?}. Does NOT modify {@code draftJson}, {@code team}, {@code
+     * activity_types}, or {@code certificate_template}.
+     *
+     * @param tournamentId the tournament UUID
+     * @return the updated tournament with {@code status = 'DRAFT'}; never {@code null}
+     * @throws TournamentNotFoundException if the tournament does not exist in the current tenant
+     * @throws TournamentResetPlanActiveException if status is ACTIVE
+     * @throws TournamentResetPlanCancelledException if status is CANCELLED
+     * @throws TournamentResetPlanCompletedException if status is COMPLETED
+     * @throws TournamentResetPlanDraftIdempotentException if status is already DRAFT (409 per
+     *     AC-TEST-RESET-PLAN-DAO-IT-RED)
+     * @see <a href="E48S13">E48S13 — Tournament Admin Escape Hatch</a>
+     * @see <a href="DEC-37">DEC-37 — Clause B: findByIdForUpdate first-read for mutation ops</a>
+     */
+    @Transactional
+    @Override
+    public Tournament resetPlan(UUID tournamentId) {
+        // DEC-37 Clause B: pessimistic lock as first read (throws IllegalArgumentException → 400
+        // if not found; TournamentNotFoundException path is handled by the controller via
+        // GlobalExceptionHandler mapping IllegalArgumentException → 400)
+        Tournament tournament = tournamentRepository.findByIdForUpdate(tournamentId);
+
+        String status = tournament.getStatus();
+        switch (status) {
+            case "DRAFT" -> throw new TournamentResetPlanDraftIdempotentException(tournamentId);
+            case "ACTIVE" -> throw new TournamentResetPlanActiveException(tournamentId);
+            case "CANCELLED" -> throw new TournamentResetPlanCancelledException(tournamentId);
+            case "COMPLETED" -> throw new TournamentResetPlanCompletedException(tournamentId);
+            default -> {
+                // PLANNED — proceed with reset
+            }
+        }
+
+        cascadeDeleteStructuralData(tournamentId);
+        jdbcTemplate.update("UPDATE tournament SET status = 'DRAFT' WHERE id = ?", tournamentId);
+
+        return tournamentRepository
+                .findById(tournamentId)
+                .orElseThrow(() -> new TournamentNotFoundException(tournamentId));
+    }
+
+    // -------------------------------------------------------------------------
+    // cascadeDeleteStructuralData — shared bulk-delete helper (E48S13)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Deletes all phase-derived structural data for a tournament in the correct FK-dependency order
+     * (E48S13, AC-IMPL-CASCADE-DELETE-HELPER).
+     *
+     * <p>Executes 9 bulk SQL statements via {@link JdbcTemplate} (no N+1). Does NOT touch the
+     * {@code tournament} row, {@code team}, {@code activity_types}, {@code certificate_template},
+     * or {@code draftJson}.
+     *
+     * <p>Step order per Brief D-6a:
+     *
+     * <ol>
+     *   <li>DELETE audit_log WHERE match_id IN (SELECT id FROM match WHERE tournament_id = ?)
+     *   <li>DELETE match_outcome WHERE match_id IN (SELECT id FROM match WHERE tournament_id = ?)
+     *   <li>DELETE set_result WHERE phase_id IN (SELECT id FROM phase WHERE tournament_id = ?)
+     *   <li>DELETE team_avatar_rating WHERE avatar_id IN (SELECT id FROM team_avatar WHERE
+     *       tournament_id = ?)
+     *   <li>DELETE round_snapshots WHERE tournament_id = ?
+     *   <li>DELETE match WHERE tournament_id = ?
+     *   <li>DELETE team_avatar WHERE tournament_id = ?
+     *   <li>DELETE phase_breaks WHERE phase_id IN (SELECT id FROM phase WHERE tournament_id = ?)
+     *   <li>DELETE phase WHERE tournament_id = ?
+     * </ol>
+     *
+     * @param tournamentId the tournament UUID whose structural data should be deleted
+     * @see <a href="E48S13">E48S13 — AC-IMPL-CASCADE-DELETE-HELPER</a>
+     */
+    private void cascadeDeleteStructuralData(UUID tournamentId) {
+        // 1. audit_log rows referencing matches of this tournament
+        jdbcTemplate.update(
+                "DELETE FROM audit_log WHERE match_id IN"
+                        + " (SELECT id FROM match WHERE tournament_id = ?)",
+                tournamentId);
+        // 2. match_outcome rows referencing matches of this tournament
+        jdbcTemplate.update(
+                "DELETE FROM match_outcome WHERE match_id IN"
+                        + " (SELECT id FROM match WHERE tournament_id = ?)",
+                tournamentId);
+        // 3. set_result rows referencing phases of this tournament
+        jdbcTemplate.update(
+                "DELETE FROM set_result WHERE phase_id IN"
+                        + " (SELECT id FROM phase WHERE tournament_id = ?)",
+                tournamentId);
+        // 4. team_avatar_rating rows referencing team_avatars of this tournament
+        jdbcTemplate.update(
+                "DELETE FROM team_avatar_rating WHERE avatar_id IN"
+                        + " (SELECT id FROM team_avatar WHERE tournament_id = ?)",
+                tournamentId);
+        // 5. round_snapshots for this tournament
+        jdbcTemplate.update("DELETE FROM round_snapshots WHERE tournament_id = ?", tournamentId);
+        // 6. match rows for this tournament
+        jdbcTemplate.update("DELETE FROM match WHERE tournament_id = ?", tournamentId);
+        // 7. team_avatar rows for this tournament
+        jdbcTemplate.update("DELETE FROM team_avatar WHERE tournament_id = ?", tournamentId);
+        // 8. phase_breaks rows referencing phases of this tournament
+        jdbcTemplate.update(
+                "DELETE FROM phase_breaks WHERE phase_id IN"
+                        + " (SELECT id FROM phase WHERE tournament_id = ?)",
+                tournamentId);
+        // 9. phase rows for this tournament
+        jdbcTemplate.update("DELETE FROM phase WHERE tournament_id = ?", tournamentId);
     }
 
     /**

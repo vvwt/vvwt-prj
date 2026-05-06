@@ -37,6 +37,9 @@
     "draftButton": "Phasenplan",
     "timerAudioButton": "Timer-Audio",
     "timerLinkButton": "Timer-Link",
+    "cascadeDeleteButton": "Turnier endgültig löschen",
+    "cascadeDeleteConfirm": "Turnier endgültig löschen? Alle Phasen, Spiele, Wertungen und Audit-Daten werden unwiderruflich entfernt.",
+    "cascadeDeleteError": "Fehler beim Löschen des Turniers.",
     "status": {
       "DRAFT": "Entwurf",
       "PLANNED": "Geplant",
@@ -175,11 +178,15 @@
         "SECTION_BREAK": "Phasenpause"
       }
     },
+    "resetPlanButton": "Phasenplan zurücksetzen",
+    "resetPlanConfirm": "Phasenplan zurücksetzen? Phasen, Spiele und Slot-Zuordnungen werden gelöscht. Teams, Einstellungen und der gespeicherte Draft-Entwurf bleiben erhalten.",
+    "resetPlanError": "Fehler beim Zurücksetzen des Phasenplans.",
     "error": {
       "noTournament": "Kein Turnier ausgewählt.",
       "saveFailed": "Fehler beim Speichern.",
       "previewFailed": "Fehler beim Berechnen der Vorschau.",
-      "applyFailed": "Fehler beim Anwenden des Phasenplans."
+      "applyFailed": "Fehler beim Anwenden des Phasenplans.",
+      "resetPlanFailed": "Fehler beim Zurücksetzen des Phasenplans."
     }
   },
   "draftConfig": {
@@ -406,6 +413,20 @@
     "publisherUnhealthy": {
       "title": "Publisher nicht erreichbar",
       "body": "Der Info-Portal-Publisher hat 5 aufeinanderfolgende Fehler gemeldet. Bitte Verbindung prüfen."
+    }
+  },
+  "error": {
+    "tournament": {
+      "cascadeDelete": {
+        "activeRejected": "Aktives Turnier kann nicht gelöscht werden — bitte zuerst abbrechen (Abbrechen → Löschen).",
+        "completedRejected": "Abgeschlossenes Turnier kann nicht gelöscht werden."
+      },
+      "resetPlan": {
+        "activeRejected": "Phasenplan eines aktiven Turniers kann nicht zurückgesetzt werden.",
+        "cancelledRejected": "Phasenplan eines abgebrochenen Turniers kann nicht zurückgesetzt werden.",
+        "completedRejected": "Phasenplan eines abgeschlossenen Turniers kann nicht zurückgesetzt werden.",
+        "draftIdempotent": "Das Turnier hat bereits den Status ENTWURF — kein Zurücksetzen des Phasenplans erforderlich."
+      }
     }
   },
   "slotopt": {

@@ -23,6 +23,7 @@
   import {
     listTournaments,
     deleteTournament,
+    cascadeDeleteTournament,
     selectTournament,
     selectedTournamentId,
     markPlanned,
@@ -37,6 +38,7 @@
   let loading = $state(true);
   let loadError = $state<string | null>(null);
   let deleteError = $state<string | null>(null);
+  let cascadeDeleteError = $state<string | null>(null);
   let lifecycleError = $state<string | null>(null);
 
   onMount(async () => {
@@ -136,6 +138,32 @@
     }
   }
 
+  /**
+   * Cascade-delete handler (E48S13, AC-IMPL-FE-CASCADE-DELETE-BUTTON).
+   * Visible for DRAFT/PLANNED/CANCELLED; dialog fires regardless of source status (Brief Q-4).
+   * On success: reloads the tournament list.
+   * On 409: shows typed messageKey via i18n (apiError.messageKey lookup).
+   */
+  async function handleCascadeDelete(id: string): Promise<void> {
+    if (!confirm($_('tournaments.cascadeDeleteConfirm'))) return;
+    cascadeDeleteError = null;
+    try {
+      await cascadeDeleteTournament(id);
+      if ($selectedTournamentId === id) {
+        import('../stores/tournamentStore.js').then(m => m.clearSelection());
+      }
+      await loadTournaments();
+    } catch (e: unknown) {
+      const apiErr = e && typeof e === 'object' && 'apiError' in e
+        ? (e as { apiError: { messageKey?: string } }).apiError
+        : null;
+      const msgKey = apiErr?.messageKey;
+      cascadeDeleteError = msgKey
+        ? $_(`${msgKey}`, { default: e instanceof Error ? e.message : $_('tournaments.cascadeDeleteError') })
+        : (e instanceof Error ? e.message : $_('tournaments.cascadeDeleteError'));
+    }
+  }
+
   function formatAppointment(appointment: string | null): string {
     if (!appointment) return '—';
     // Display as date only (remove time portion for cleaner table display)
@@ -155,6 +183,9 @@
   {:else}
     {#if deleteError}
       <p class="tournaments__error">{deleteError}</p>
+    {/if}
+    {#if cascadeDeleteError}
+      <p class="tournaments__error">{cascadeDeleteError}</p>
     {/if}
     {#if lifecycleError}
       <p class="tournaments__error">{lifecycleError}</p>
@@ -238,6 +269,10 @@
                 <button class="btn btn--danger btn--sm" onclick={() => handleDelete(t.id)}>
                   {$_('tournaments.deleteButton')}
                 </button>
+                <!-- E48S13 AC-IMPL-FE-CASCADE-DELETE-BUTTON: cascade-delete for DRAFT -->
+                <button class="btn btn--danger btn--sm" onclick={() => handleCascadeDelete(t.id)}>
+                  {$_('tournaments.cascadeDeleteButton')}
+                </button>
               {/if}
               {#if t.status === 'PLANNED'}
                 <!-- PLANNED: activate or cancel -->
@@ -247,6 +282,10 @@
                 <button class="btn btn--danger btn--sm" onclick={() => handleCancel(t.id)}>
                   {$_('tournaments.cancelButton')}
                 </button>
+                <!-- E48S13 AC-IMPL-FE-CASCADE-DELETE-BUTTON: cascade-delete for PLANNED -->
+                <button class="btn btn--danger btn--sm" onclick={() => handleCascadeDelete(t.id)}>
+                  {$_('tournaments.cascadeDeleteButton')}
+                </button>
               {/if}
               {#if t.status === 'ACTIVE'}
                 <!-- ACTIVE: complete or cancel -->
@@ -255,6 +294,12 @@
                 </button>
                 <button class="btn btn--danger btn--sm" onclick={() => handleCancel(t.id)}>
                   {$_('tournaments.cancelButton')}
+                </button>
+              {/if}
+              <!-- E48S13 AC-IMPL-FE-CASCADE-DELETE-BUTTON: cascade-delete for CANCELLED -->
+              {#if t.status === 'CANCELLED'}
+                <button class="btn btn--danger btn--sm" onclick={() => handleCascadeDelete(t.id)}>
+                  {$_('tournaments.cascadeDeleteButton')}
                 </button>
               {/if}
             </td>
