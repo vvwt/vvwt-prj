@@ -214,7 +214,7 @@ public class TournamentModuleTestConfig {
                                         .permitAll()
                                         .requestMatchers("/timer/**")
                                         .permitAll()
-                                        .requestMatchers("/api/tournaments/*/audio/*/stream")
+                                        .requestMatchers("/api/audio/tournaments/*/*/stream")
                                         .permitAll()
                                         .requestMatchers("/print/assets/**")
                                         .permitAll()
