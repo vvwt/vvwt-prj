@@ -15,7 +15,7 @@ import java.util.UUID;
  * <h2>Operations</h2>
  *
  * <ul>
- *   <li>{@link #preview(DraftConfig, int)} — pure computation, no DB side effect
+ *   <li>{@link #preview(DraftConfig, int, int)} — pure computation, no DB side effect
  *   <li>{@link #apply(UUID, DraftConfig)} — creates Phase entities via the Phase-aggregate
  *       collaborators from E21S03
  *   <li>{@link #loadDraft(UUID)} — loads the current draft configuration from the tournament row
@@ -29,17 +29,29 @@ import java.util.UUID;
  * @see <a href="DEC-35">DEC-35 — Spring Modulith package layout (interface in public package)</a>
  * @see <a href="E33S05">E33S05 — DraftService interface extraction (DEC-35 retrofit)</a>
  * @see <a href="E21S19">E21S19 — Restore GET + PUT mappings on /api/tournaments/{id}/draft</a>
+ * @see <a href="E48S10">E48S10 — Field-count-aware lap formula (fieldCount param added)</a>
  */
 public interface DraftService {
 
     /**
      * Calculates a preview of what the draft will produce without creating any entities.
      *
+     * <p>The lap count is computed using a field-count-aware formula per E48S10: a "Runde" (round)
+     * is a time-slot where each team plays at most one match, bounded by the number of available
+     * fields and team-conflict constraints.
+     *
+     * <p>Formula: {@code effectivePerLap = max(1, min(floor(teamsPerGroup/2) * groupCount,
+     * fieldCount))}; {@code totalLaps = ceil(totalMatches / effectivePerLap)}.
+     *
+     * <p>No overload retained — the 2-arg form is removed per AC-IMPL-DRAFT-SERVICE-SIGNATURE.
+     *
      * @param config the draft configuration to preview; must not be {@code null}
      * @param participatingTeamCount number of participating teams
+     * @param fieldCount number of available fields; values ≤ 0 are clamped to 1
      * @return preview result; never {@code null}
+     * @see <a href="E48S10">E48S10 — AC-IMPL-COMPUTE-PREVIEW-FIELD-AWARE-FORMULA</a>
      */
-    DraftPreviewResult preview(DraftConfig config, int participatingTeamCount);
+    DraftPreviewResult preview(DraftConfig config, int participatingTeamCount, int fieldCount);
 
     /**
      * Applies the draft configuration to create Phase entities.

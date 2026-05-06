@@ -80,33 +80,211 @@ class DraftServiceTest {
     }
 
     // -------------------------------------------------------------------------
-    // preview() — pure computation
+    // preview() — pure computation (field-aware lap formula,
+    // AC-TEST-COMPUTE-PREVIEW-FIELD-AWARE-RED)
     // -------------------------------------------------------------------------
 
     /**
-     * AC-TDD-DraftService: preview returns one DraftPreviewSection per section in config. No DB
-     * side effect (no verify on repository interactions).
+     * AC-TDD-DraftService / AC-TEST-COMPUTE-PREVIEW-FIELD-AWARE-RED Scenario A: 6 teams in 1 group,
+     * fieldCount=3, RR → totalLaps=5.
+     *
+     * <p>Formula: teamConflict=floor(6/2)*1=3, eff=min(3,3)=3, matches=15, laps=ceil(15/3)=5.
+     *
+     * <p>RED-first: written before preview(DraftConfig, int, int) exists (E48S10).
+     */
+    @Test
+    void preview_scenarioA_6teams1group_field3_returns5Laps() {
+        // 6 teams / 1 group: section with groupCount=1
+        DraftSection section =
+                new DraftSection(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, List.of());
+        DraftConfig config = new DraftConfig(List.of(section));
+
+        DraftPreviewResult result = draftService.preview(config, 6, 3);
+
+        assertThat(result.sections().get(0).getTotalLaps()).isEqualTo(5);
+        assertThat(result.sections().get(0).getTotalMatches()).isEqualTo(15);
+    }
+
+    /**
+     * AC-TEST-COMPUTE-PREVIEW-FIELD-AWARE-RED Scenario B: 12 teams in 2 groups of 6, fieldCount=3 →
+     * totalLaps=10 (user's bug example).
+     *
+     * <p>Formula: teamConflict=floor(6/2)*2=6, eff=min(6,3)=3, matches=30, laps=ceil(30/3)=10.
+     *
+     * <p>Current bug yields 5 (teamsPerGroup-1). RED-first (E48S10).
+     */
+    @Test
+    void preview_scenarioB_12teams2groups_field3_returns10Laps() {
+        DraftSection section =
+                new DraftSection(1, "team_number", 2, "roundRobin", 0, 0, 15, 1, List.of());
+        DraftConfig config = new DraftConfig(List.of(section));
+
+        DraftPreviewResult result = draftService.preview(config, 12, 3);
+
+        assertThat(result.sections().get(0).getTotalLaps()).isEqualTo(10);
+        assertThat(result.sections().get(0).getTotalMatches()).isEqualTo(30);
+    }
+
+    /**
+     * AC-TEST-COMPUTE-PREVIEW-FIELD-AWARE-RED Scenario C: 12 teams in 3 groups of 4, fieldCount=3 →
+     * totalLaps=6.
+     *
+     * <p>Formula: teamConflict=floor(4/2)*3=6, eff=min(6,3)=3, matches=18, laps=ceil(18/3)=6.
+     *
+     * <p>Current bug yields 3 (teamsPerGroup-1). RED-first (E48S10).
+     */
+    @Test
+    void preview_scenarioC_12teams3groups_field3_returns6Laps() {
+        DraftSection section =
+                new DraftSection(1, "team_number", 3, "roundRobin", 0, 0, 15, 1, List.of());
+        DraftConfig config = new DraftConfig(List.of(section));
+
+        DraftPreviewResult result = draftService.preview(config, 12, 3);
+
+        assertThat(result.sections().get(0).getTotalLaps()).isEqualTo(6);
+        assertThat(result.sections().get(0).getTotalMatches()).isEqualTo(18);
+    }
+
+    /**
+     * AC-TEST-COMPUTE-PREVIEW-FIELD-AWARE-RED Scenario D: 12 teams in 4 groups of 3, fieldCount=3 →
+     * totalLaps=4.
+     *
+     * <p>Formula: teamConflict=floor(3/2)*4=4, eff=min(4,3)=3, matches=12, laps=ceil(12/3)=4.
+     */
+    @Test
+    void preview_scenarioD_12teams4groups_field3_returns4Laps() {
+        DraftSection section =
+                new DraftSection(1, "team_number", 4, "roundRobin", 0, 0, 15, 1, List.of());
+        DraftConfig config = new DraftConfig(List.of(section));
+
+        DraftPreviewResult result = draftService.preview(config, 12, 3);
+
+        assertThat(result.sections().get(0).getTotalLaps()).isEqualTo(4);
+        assertThat(result.sections().get(0).getTotalMatches()).isEqualTo(12);
+    }
+
+    /**
+     * AC-TEST-COMPUTE-PREVIEW-FIELD-AWARE-RED Scenario E (covers F-1 finding): 12 teams in 4 groups
+     * of 3, fieldCount=6 → totalLaps=3 (team-conflict-bound active).
+     *
+     * <p>Formula: teamConflict=floor(3/2)*4=4, eff=min(4,6)=4, matches=12, laps=ceil(12/4)=3.
+     */
+    @Test
+    void preview_scenarioE_12teams4groups_field6_returns3Laps() {
+        DraftSection section =
+                new DraftSection(1, "team_number", 4, "roundRobin", 0, 0, 15, 1, List.of());
+        DraftConfig config = new DraftConfig(List.of(section));
+
+        DraftPreviewResult result = draftService.preview(config, 12, 6);
+
+        assertThat(result.sections().get(0).getTotalLaps()).isEqualTo(3);
+    }
+
+    /**
+     * AC-TEST-COMPUTE-PREVIEW-FIELD-AWARE-RED Scenario F: 6 teams in 1 group, fieldCount=10 →
+     * totalLaps=5 (RR-bound, fields excess).
+     *
+     * <p>Formula: teamConflict=floor(6/2)*1=3, eff=min(3,10)=3, matches=15, laps=ceil(15/3)=5.
+     */
+    @Test
+    void preview_scenarioF_6teams1group_field10_returns5Laps() {
+        DraftSection section =
+                new DraftSection(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, List.of());
+        DraftConfig config = new DraftConfig(List.of(section));
+
+        DraftPreviewResult result = draftService.preview(config, 6, 10);
+
+        assertThat(result.sections().get(0).getTotalLaps()).isEqualTo(5);
+    }
+
+    /**
+     * AC-TEST-COMPUTE-PREVIEW-FIELD-AWARE-RED Scenario G: 8 teams in 2 groups of 4, fieldCount=1 →
+     * totalLaps=12.
+     *
+     * <p>Formula: teamConflict=floor(4/2)*2=4, eff=min(4,1)=1, matches=12, laps=ceil(12/1)=12.
+     */
+    @Test
+    void preview_scenarioG_8teams2groups_field1_returns12Laps() {
+        DraftSection section =
+                new DraftSection(1, "team_number", 2, "roundRobin", 0, 0, 15, 1, List.of());
+        DraftConfig config = new DraftConfig(List.of(section));
+
+        DraftPreviewResult result = draftService.preview(config, 8, 1);
+
+        assertThat(result.sections().get(0).getTotalLaps()).isEqualTo(12);
+        assertThat(result.sections().get(0).getTotalMatches()).isEqualTo(12);
+    }
+
+    /**
+     * AC-TEST-COMPUTE-PREVIEW-FIELD-AWARE-RED Scenario H: totalMatches=0 (teamsPerGroup<=1) →
+     * totalLaps=0. No division by zero.
+     *
+     * <p>Formula: teamsPerGroup=1 → matchesPerGroup=0, totalMatches=0, totalLaps=0. Also covers
+     * AC-ERROR-HANDLING-FIELDCOUNT-CLAMP for fieldCount=0 input → max(1, min(0, fieldCount)) =
+     * max(1, 0) = 1, then totalLaps=0 (zero matches).
+     */
+    @Test
+    void preview_scenarioH_totalMatchesZero_returns0Laps() {
+        // 1 team per group → matchesPerGroup=0 → totalMatches=0 → totalLaps=0
+        DraftSection section =
+                new DraftSection(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, List.of());
+        DraftConfig config = new DraftConfig(List.of(section));
+
+        // 1 participating team total, 1 group → teamsPerGroup=1 → 0 matches
+        DraftPreviewResult result = draftService.preview(config, 1, 3);
+
+        assertThat(result.sections().get(0).getTotalLaps()).isEqualTo(0);
+        assertThat(result.sections().get(0).getTotalMatches()).isEqualTo(0);
+    }
+
+    /**
+     * AC-ERROR-HANDLING-FIELDCOUNT-CLAMP: fieldCount=0 clamped to 1 via max(1,...). For 4 teams/1
+     * group: totalMatches=6, effectivePerLap=max(1,min(2,0))=1, laps=6.
+     */
+    @Test
+    void preview_fieldCountZero_clampedTo1() {
+        DraftSection section =
+                new DraftSection(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, List.of());
+        DraftConfig config = new DraftConfig(List.of(section));
+
+        DraftPreviewResult result = draftService.preview(config, 4, 0);
+
+        // effectivePerLap = max(1, min(2, 0)) = 1, totalMatches=6, laps=ceil(6/1)=6
+        assertThat(result.sections().get(0).getTotalLaps()).isEqualTo(6);
+    }
+
+    /**
+     * Refactored existing test (Q-1b under DEC-22 §refactor-clause): Updated to 3-arg API. 4 teams
+     * / 1 group, fieldCount=10 (excess) → laps=3, matches=6.
+     *
+     * <p>Formula: teamConflict=floor(4/2)*1=2, eff=min(2,10)=2, matches=6, laps=ceil(6/2)=3.
+     *
+     * <p>This is the refactored form of the pre-existing {@code
+     * preview_withOneSection_returnsOnePreviewSection} test — the original 2-arg API is removed per
+     * AC-IMPL-DRAFT-SERVICE-SIGNATURE; this test updates the call site atomically alongside the
+     * production change.
      */
     @Test
     void preview_withOneSection_returnsOnePreviewSection() {
         DraftConfig config = new DraftConfig(List.of(simpleSection(1)));
         int participatingTeamCount = 4;
 
-        DraftPreviewResult result = draftService.preview(config, participatingTeamCount);
+        // 3-arg API (E48S10): fieldCount=10 (excess) → effective=2, laps=ceil(6/2)=3
+        DraftPreviewResult result = draftService.preview(config, participatingTeamCount, 10);
 
         assertThat(result.sections()).hasSize(1);
-        // 4 teams / 1 group = 4 teams per group → round-robin: (4-1) = 3 laps, 6 matches
+        // 4 teams / 1 group = 4 teams per group → teamConflict=2, eff=2, laps=3, matches=6
         assertThat(result.sections().get(0).getTotalLaps()).isEqualTo(3);
         assertThat(result.sections().get(0).getTotalMatches()).isEqualTo(6);
         assertThat(result.timeline()).isEmpty();
     }
 
-    /** AC-TDD-DraftService: preview with empty config returns empty sections. */
+    /** Refactored existing test (Q-1b): preview with empty config returns empty sections. */
     @Test
     void preview_withEmptyConfig_returnsEmptySections() {
         DraftConfig config = DraftConfig.empty();
 
-        DraftPreviewResult result = draftService.preview(config, 4);
+        DraftPreviewResult result = draftService.preview(config, 4, 3);
 
         assertThat(result.sections()).isEmpty();
     }

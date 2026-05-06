@@ -1,6 +1,7 @@
 package de.vvwt.tm.web;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -249,9 +250,12 @@ class DraftControllerSliceTest {
         when(tournamentRepository.findById(eq(TOURNAMENT_ID))).thenReturn(Optional.of(tournament));
 
         // Mock: draftService.preview called with participatingTeamCount=8 → teamsPerGroup=2
+        // (E48S10 refactor: 3-arg API; anyInt() for fieldCount — this test validates teamCount
+        // threading)
         DraftPreviewSection section = new DraftPreviewSection(1, 4, 2, 1, 1, 4, 60);
         DraftPreviewResult serviceResult = new DraftPreviewResult(List.of(section), List.of());
-        when(draftService.preview(any(DraftConfig.class), eq(8))).thenReturn(serviceResult);
+        when(draftService.preview(any(DraftConfig.class), eq(8), anyInt()))
+                .thenReturn(serviceResult);
 
         DraftSectionRequest sectionRequest =
                 new DraftSectionRequest(1, "team_number", 4, "roundRobin", 5, 10, 15, 1, null);
@@ -284,7 +288,9 @@ class DraftControllerSliceTest {
 
         DraftPreviewSection section = new DraftPreviewSection(1, 4, 0, 0, 0, 0, 0);
         DraftPreviewResult serviceResult = new DraftPreviewResult(List.of(section), List.of());
-        when(draftService.preview(any(DraftConfig.class), eq(0))).thenReturn(serviceResult);
+        // E48S10 refactor: 3-arg API; anyInt() for fieldCount — test validates teamCount=0 boundary
+        when(draftService.preview(any(DraftConfig.class), eq(0), anyInt()))
+                .thenReturn(serviceResult);
 
         DraftSectionRequest sectionRequest =
                 new DraftSectionRequest(1, "team_number", 4, "roundRobin", 5, 10, 15, 1, null);
@@ -346,7 +352,9 @@ class DraftControllerSliceTest {
 
         DraftPreviewSection section = new DraftPreviewSection(1, 2, 4, 6, 3, 12, 75);
         DraftPreviewResult serviceResult = new DraftPreviewResult(List.of(section), List.of());
-        when(draftService.preview(any(DraftConfig.class), eq(8))).thenReturn(serviceResult);
+        // E48S10 refactor: 3-arg API; anyInt() for fieldCount — pre-existing 200-response test
+        when(draftService.preview(any(DraftConfig.class), eq(8), anyInt()))
+                .thenReturn(serviceResult);
 
         DraftSectionRequest sectionRequest =
                 new DraftSectionRequest(1, "team_number", 2, "roundRobin", 5, 10, 15, 1, null);
