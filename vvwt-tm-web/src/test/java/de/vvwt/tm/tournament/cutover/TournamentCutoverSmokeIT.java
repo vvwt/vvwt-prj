@@ -175,10 +175,19 @@ class TournamentCutoverSmokeIT {
                     .as("TeamRepository (new tournament.*) must return all teams (seeded + bulk)")
                     .hasSize(teamRequests.size() + 4);
 
-            // Step 3: Apply draft → start Phase
-            var section =
+            // Step 3: Apply draft → start Phase.
+            // Two-section config: section 1 = roundrobin (generates matches via
+            // RoundRobinMatchGenerator),
+            // section 2 = siegerehrung (last phase, satisfies D-10 invariant per
+            // AC-IMPL-LAST-PHASE-INVARIANT,
+            // E48S01). Match generation only runs for Phase 1, so no SiegerehrungMatchGenerator
+            // (E48S02)
+            // is required here.
+            var section1 =
                     new DraftSectionRequest(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, null);
-            var draftRequest = new DraftRequest(List.of(section));
+            var section2 =
+                    new DraftSectionRequest(2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, null);
+            var draftRequest = new DraftRequest(List.of(section1, section2));
             ResponseEntity<DraftApplyResponse> draftResp =
                     authed.postForEntity(
                             new URI(baseUrl + "/api/tournaments/" + tournamentId + "/draft/apply"),

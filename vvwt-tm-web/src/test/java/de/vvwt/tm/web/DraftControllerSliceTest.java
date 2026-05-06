@@ -149,7 +149,7 @@ class DraftControllerSliceTest {
     @DisplayName("GET /draft when service returns DraftConfig with sections → 200 + sections")
     void getDraft_whenServiceReturnsSections_returns200WithSections() throws Exception {
         DraftSection section =
-                new DraftSection(1, "team_number", 2, "roundrobin", 5, 10, 15, 1, List.of());
+                new DraftSection(1, "team_number", 2, "roundRobin", 5, 10, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(section));
         when(draftService.loadDraft(eq(TOURNAMENT_ID))).thenReturn(config);
 
@@ -158,7 +158,7 @@ class DraftControllerSliceTest {
                 .andExpect(jsonPath("$.sections").isArray())
                 .andExpect(jsonPath("$.sections[0].sectionNumber").value(1))
                 .andExpect(jsonPath("$.sections[0].groupCount").value(2))
-                .andExpect(jsonPath("$.sections[0].gameMode").value("roundrobin"));
+                .andExpect(jsonPath("$.sections[0].gameMode").value("roundRobin"));
     }
 
     // =========================================================================
@@ -187,13 +187,13 @@ class DraftControllerSliceTest {
     @DisplayName("PUT /draft with valid body → 200 + DraftResponse echoing sections")
     void saveDraft_withValidBody_returns200WithSavedData() throws Exception {
         DraftSection savedSection =
-                new DraftSection(1, "team_number", 1, "roundrobin", 0, 0, 15, 1, List.of());
+                new DraftSection(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, List.of());
         DraftConfig savedConfig = new DraftConfig(List.of(savedSection));
         when(draftService.saveDraft(eq(TOURNAMENT_ID), any(DraftConfig.class)))
                 .thenReturn(savedConfig);
 
         DraftSectionRequest sectionRequest =
-                new DraftSectionRequest(1, "team_number", 1, "roundrobin", 0, 0, 15, 1, null);
+                new DraftSectionRequest(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, null);
         DraftRequest requestBody = new DraftRequest(List.of(sectionRequest));
 
         mockMvc.perform(
@@ -254,7 +254,7 @@ class DraftControllerSliceTest {
         when(draftService.preview(any(DraftConfig.class), eq(8))).thenReturn(serviceResult);
 
         DraftSectionRequest sectionRequest =
-                new DraftSectionRequest(1, "team_number", 4, "roundrobin", 5, 10, 15, 1, null);
+                new DraftSectionRequest(1, "team_number", 4, "roundRobin", 5, 10, 15, 1, null);
         DraftRequest requestBody = new DraftRequest(List.of(sectionRequest));
 
         mockMvc.perform(
@@ -287,7 +287,7 @@ class DraftControllerSliceTest {
         when(draftService.preview(any(DraftConfig.class), eq(0))).thenReturn(serviceResult);
 
         DraftSectionRequest sectionRequest =
-                new DraftSectionRequest(1, "team_number", 4, "roundrobin", 5, 10, 15, 1, null);
+                new DraftSectionRequest(1, "team_number", 4, "roundRobin", 5, 10, 15, 1, null);
         DraftRequest requestBody = new DraftRequest(List.of(sectionRequest));
 
         mockMvc.perform(
@@ -315,7 +315,7 @@ class DraftControllerSliceTest {
         when(tournamentRepository.findById(eq(TOURNAMENT_ID))).thenReturn(Optional.empty());
 
         DraftSectionRequest sectionRequest =
-                new DraftSectionRequest(1, "team_number", 4, "roundrobin", 5, 10, 15, 1, null);
+                new DraftSectionRequest(1, "team_number", 4, "roundRobin", 5, 10, 15, 1, null);
         DraftRequest requestBody = new DraftRequest(List.of(sectionRequest));
 
         mockMvc.perform(
@@ -349,7 +349,7 @@ class DraftControllerSliceTest {
         when(draftService.preview(any(DraftConfig.class), eq(8))).thenReturn(serviceResult);
 
         DraftSectionRequest sectionRequest =
-                new DraftSectionRequest(1, "team_number", 2, "roundrobin", 5, 10, 15, 1, null);
+                new DraftSectionRequest(1, "team_number", 2, "roundRobin", 5, 10, 15, 1, null);
         DraftRequest requestBody = new DraftRequest(List.of(sectionRequest));
 
         mockMvc.perform(
@@ -376,7 +376,7 @@ class DraftControllerSliceTest {
                 .thenReturn(List.of(phaseId));
 
         DraftSectionRequest sectionRequest =
-                new DraftSectionRequest(1, "team_number", 2, "roundrobin", 5, 10, 15, 1, null);
+                new DraftSectionRequest(1, "team_number", 2, "roundRobin", 5, 10, 15, 1, null);
         DraftRequest requestBody = new DraftRequest(List.of(sectionRequest));
 
         mockMvc.perform(

@@ -199,15 +199,25 @@ class TournamentCrossContextSmokeIT {
                     new TeamBulkCreateRequest(teamRequests),
                     Object.class);
 
-            // Apply draft → creates Phase + Matches via tournament internal service
-            var section =
+            // Apply draft → creates Phase + Matches via tournament internal service.
+            // Two-section config: section 1 = roundrobin (generates matches via
+            // RoundRobinMatchGenerator),
+            // section 2 = siegerehrung (last phase, satisfies D-10 invariant per
+            // AC-IMPL-LAST-PHASE-INVARIANT,
+            // E48S01). Match generation is only triggered for Phase 1 (DefaultDraftService.apply()
+            // invariant),
+            // so no SiegerehrungMatchGenerator (E48S02) is needed here.
+            var section1 =
                     new DraftSectionRequest(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, null);
+            var section2 =
+                    new DraftSectionRequest(2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, null);
             ResponseEntity<DraftApplyResponse> draftResp =
                     authed.postForEntity(
                             new URI(baseUrl + "/api/tournaments/" + tournamentId + "/draft/apply"),
-                            new DraftRequest(List.of(section)),
+                            new DraftRequest(List.of(section1, section2)),
                             DraftApplyResponse.class);
             assertThat(draftResp.getStatusCode()).isEqualTo(HttpStatus.OK);
+            // Phase 1 (roundrobin) is the first phase — matches are generated for it
             UUID phaseId = draftResp.getBody().phaseIds().get(0);
 
             // Read matches via the new MatchRepository — the same repository that ScoreEntryService
@@ -220,7 +230,7 @@ class TournamentCrossContextSmokeIT {
                                     + " created phase — confirms scoring cross-context wiring")
                     .isNotEmpty();
 
-            // Verify Phase readable too (used by print + display consumer contexts after rewrite)
+            // Verify Phase 1 readable (used by print + display consumer contexts after rewrite)
             assertThat(phaseRepository.findById(phaseId))
                     .as("PhaseRepository must find the created phase")
                     .isPresent();

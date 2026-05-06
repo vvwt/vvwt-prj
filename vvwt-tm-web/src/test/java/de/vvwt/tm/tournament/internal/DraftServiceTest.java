@@ -55,15 +55,28 @@ class DraftServiceTest {
 
     @InjectMocks private DefaultDraftService draftService;
 
+    /**
+     * Simple section with roundrobin gameMode. Use as a non-last section or when testing behaviour
+     * that fires before the last-phase invariant check (e.g. DraftAlreadyApplied).
+     */
     private static DraftSection simpleSection(int sectionNumber) {
         return new DraftSection(
-                sectionNumber, "team_number", 1, "roundrobin", 0, 0, 15, 1, List.of());
+                sectionNumber, "team_number", 1, "roundRobin", 0, 0, 15, 1, List.of());
+    }
+
+    /**
+     * Simple section with siegerehrung gameMode. Use as the last section to satisfy the D-10
+     * invariant (AC-IMPL-LAST-PHASE-INVARIANT, E48S01).
+     */
+    private static DraftSection lastSection(int sectionNumber) {
+        return new DraftSection(
+                sectionNumber, "team_number", 1, "siegerehrung", 0, 0, 15, 1, List.of());
     }
 
     private static DraftSection sectionWithBreak(int sectionNumber) {
         DraftBreak breakItem = new DraftBreak(1, 10, "Pause");
         return new DraftSection(
-                sectionNumber, "team_number", 1, "roundrobin", 0, 0, 15, 1, List.of(breakItem));
+                sectionNumber, "team_number", 1, "siegerehrung", 0, 0, 15, 1, List.of(breakItem));
     }
 
     // -------------------------------------------------------------------------
@@ -106,7 +119,8 @@ class DraftServiceTest {
     @Test
     void apply_withOneSection_createsOnePhase() {
         UUID tournamentId = UUID.randomUUID();
-        DraftConfig config = new DraftConfig(List.of(simpleSection(1)));
+        // Last (and only) section must be siegerehrung per D-10 invariant (E48S01)
+        DraftConfig config = new DraftConfig(List.of(lastSection(1)));
 
         // PhaseRepository.findByTournamentId returns empty (no phases yet)
         when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of());
@@ -135,7 +149,8 @@ class DraftServiceTest {
     @Test
     void apply_withTwoSections_createsTwoPhases() {
         UUID tournamentId = UUID.randomUUID();
-        DraftConfig config = new DraftConfig(List.of(simpleSection(1), simpleSection(2)));
+        // Section 2 is last — must be siegerehrung per D-10 invariant (E48S01)
+        DraftConfig config = new DraftConfig(List.of(simpleSection(1), lastSection(2)));
 
         when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of());
         when(teamRepository.findByTournamentId(tournamentId)).thenReturn(List.of());

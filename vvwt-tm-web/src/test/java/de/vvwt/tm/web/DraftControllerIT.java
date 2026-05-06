@@ -149,11 +149,28 @@ class DraftControllerIT {
     }
 
     private static DraftSectionRequest sampleSection() {
-        return new DraftSectionRequest(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, null);
+        // gameMode=siegerehrung: single-section draft must use siegerehrung as last phase
+        // per D-10 invariant (AC-IMPL-LAST-PHASE-INVARIANT, E48S01).
+        return new DraftSectionRequest(1, "team_number", 1, "siegerehrung", 0, 0, 15, 1, null);
     }
 
     private static DraftRequest sampleRequest() {
         return new DraftRequest(List.of(sampleSection()));
+    }
+
+    /**
+     * Two-section apply request used by the apply test.
+     *
+     * <p>Section 1 = roundrobin: match generation runs via RoundRobinMatchGenerator (already
+     * registered). Section 2 = siegerehrung: last phase per D-10 invariant
+     * (AC-IMPL-LAST-PHASE-INVARIANT, E48S01); match generation is NOT triggered for phase 2
+     * (DefaultDraftService.apply() only generates matches for the first phase). This avoids a
+     * dependency on SiegerehrungMatchGenerator (delivered in E48S02).
+     */
+    private static DraftRequest applyRequest() {
+        var s1 = new DraftSectionRequest(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, null);
+        var s2 = new DraftSectionRequest(2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, null);
+        return new DraftRequest(List.of(s1, s2));
     }
 
     // =========================================================================
@@ -232,7 +249,7 @@ class DraftControllerIT {
         assertThat(section.sectionNumber()).isEqualTo(1);
         assertThat(section.sortType()).isEqualTo("team_number");
         assertThat(section.groupCount()).isEqualTo(1);
-        assertThat(section.gameMode()).isEqualTo("roundRobin");
+        assertThat(section.gameMode()).isEqualTo("siegerehrung");
         assertThat(section.lapTimeMinutes()).isEqualTo(15);
         assertThat(section.setQuantity()).isEqualTo(1);
     }
@@ -443,7 +460,8 @@ class DraftControllerIT {
     void authenticatedApplyDraft_createsTournamentAndPhaseRow() throws Exception {
         UUID tournamentId = createDraftTournament("IT apply E21S19");
 
-        DraftRequest draftRequest = sampleRequest();
+        // applyRequest() uses 2 sections (roundrobin + siegerehrung) — see helper javadoc
+        DraftRequest draftRequest = applyRequest();
         ResponseEntity<DraftApplyResponse> applyResponse =
                 authed.postForEntity(
                         new URI(baseUrl + "/api/tournaments/" + tournamentId + "/draft/apply"),

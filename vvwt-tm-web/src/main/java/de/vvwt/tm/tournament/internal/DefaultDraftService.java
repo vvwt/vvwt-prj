@@ -155,11 +155,14 @@ public class DefaultDraftService implements DraftService {
      */
     @Override
     public List<UUID> apply(UUID tournamentId, DraftConfig config) {
-        // AC-DRAFT-APPLY-IDEMPOTENCY: fails-fast if phases already exist
+        // AC-DRAFT-APPLY-IDEMPOTENCY: fails-fast if phases already exist (cheap check first)
         List<Phase> existingPhases = phaseRepository.findByTournamentId(tournamentId);
         if (!existingPhases.isEmpty()) {
             throw new DraftAlreadyAppliedException(tournamentId, existingPhases.size());
         }
+
+        // AC-IMPL-LAST-PHASE-INVARIANT (E48S01): D-10 — last phase must be siegerehrung
+        config.validateLastPhaseSiegerehrung();
 
         // Load participating teams sorted by teamNumber ascending (AC6 legacy parity)
         List<Team> participatingTeams =

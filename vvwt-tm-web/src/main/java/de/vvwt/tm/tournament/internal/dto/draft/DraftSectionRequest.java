@@ -32,7 +32,11 @@ public record DraftSectionRequest(
                                         + " group_placement")
                 String sortType,
         @NotNull @Min(value = 1, message = "groupCount must be ≥ 1") Integer groupCount,
-        @NotBlank String gameMode,
+        @NotBlank
+                @Pattern(
+                        regexp = "roundRobin|siegerehrung",
+                        message = "gameMode must be one of: roundRobin, siegerehrung")
+                String gameMode,
         @NotNull @Min(value = 0, message = "lapBreakTimeMinutes must be ≥ 0")
                 Integer lapBreakTimeMinutes,
         @NotNull @Min(value = 0, message = "sectionBreakTimeMinutes must be ≥ 0")

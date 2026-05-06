@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * Draft configuration view — Story E05S06 (AC2–AC5); extended by E08S05.
+   * Draft configuration view — Story E05S06 (AC2–AC5); extended by E08S05, E47S01, E48S01.
    *
    * E08S05 extensions:
    *   AC2 — break configuration per section (afterLapNumber, durationMinutes, label)
@@ -12,6 +12,10 @@
    *   AC9 — duplicate break position detection per section
    *  AC10 — all visible strings sourced from svelte-i18n
    *  AC11 — tenant-scoped via auth (existing infra)
+   *
+   * E48S01 extensions:
+   *  AC-FRONTEND-GAMEMODE-DROPDOWN — per-phase gameMode select (roundRobin / siegerehrung)
+   *  AC-FRONTEND-PRE-SUBMIT-VALIDATION-MIRROR — validateLastPhase() guards handleApply()
    *
    * Props:
    *   params.tournamentId — the tournament UUID from the route
@@ -101,7 +105,7 @@
         sectionNumber: next,
         sortType: 'team_number',
         groupCount: 1,
-        gameMode: 'roundrobin',
+        gameMode: 'roundRobin',
         lapBreakTimeMinutes: 5,
         sectionBreakTimeMinutes: 15,
         lapTimeMinutes: 15,
@@ -109,12 +113,16 @@
         breaks: [],
       },
     ];
+    // Auto-set last section to siegerehrung (AC-FRONTEND-GAMEMODE-DROPDOWN, E48S01)
+    enforceLastSectionSiegerehrung();
   }
 
   function removeSection(idx: number): void {
     sections = sections
       .filter((_, i) => i !== idx)
       .map((s, i) => ({ ...s, sectionNumber: i + 1 }));
+    // Auto-set last section to siegerehrung after removal (AC-FRONTEND-GAMEMODE-DROPDOWN)
+    enforceLastSectionSiegerehrung();
     // Clear break errors for removed section
     const newErrors: Record<string, string> = {};
     for (const [key, val] of Object.entries(breakErrors)) {
@@ -123,6 +131,39 @@
       }
     }
     breakErrors = newErrors;
+  }
+
+  // ── gameMode helpers (E48S01) ────────────────────────────────────────────
+
+  /**
+   * Ensures the last section always has gameMode='siegerehrung'.
+   * Called after addSection() and removeSection() to maintain the D-10 invariant in the UI.
+   * AC-FRONTEND-GAMEMODE-DROPDOWN: last-section auto-set on every structural change.
+   */
+  function enforceLastSectionSiegerehrung(): void {
+    if (sections.length === 0) return;
+    const lastIdx = sections.length - 1;
+    if (sections[lastIdx].gameMode !== 'siegerehrung') {
+      sections = sections.map((s, i) =>
+        i === lastIdx ? { ...s, gameMode: 'siegerehrung' } : s
+      );
+    }
+  }
+
+  /**
+   * Pre-submit validation: verifies the last section has gameMode='siegerehrung'.
+   * Returns an i18n error key string if invalid, or null if valid.
+   * AC-FRONTEND-PRE-SUBMIT-VALIDATION-MIRROR (E48S01).
+   */
+  function validateLastPhase(): string | null {
+    if (sections.length === 0) return null;
+    const lastSection = sections.reduce((max, s) =>
+      s.sectionNumber > max.sectionNumber ? s : max
+    );
+    if (lastSection.gameMode !== 'siegerehrung') {
+      return $_('draftConfig.errors.lastPhaseMustBeSiegerehrung');
+    }
+    return null;
   }
 
   // ── Break management ─────────────────────────────────────────────────────
@@ -244,6 +285,12 @@
   // ── Apply ─────────────────────────────────────────────────────────────────
 
   async function handleApply(): Promise<void> {
+    // AC-FRONTEND-PRE-SUBMIT-VALIDATION-MIRROR (E48S01): validate before backend call
+    const lastPhaseError = validateLastPhase();
+    if (lastPhaseError !== null) {
+      applyError = lastPhaseError;
+      return;
+    }
     if (!confirm($_('draft.applyConfirm'))) return;
     applyError = null;
     applying = true;
@@ -299,6 +346,19 @@
               <option value="team_number">{$_('draft.sortType.team_number')}</option>
               <option value="placement_group">{$_('draft.sortType.placement_group')}</option>
               <option value="group_placement">{$_('draft.sortType.group_placement')}</option>
+            </select>
+          </div>
+
+          <!-- Game mode (E48S01 AC-FRONTEND-GAMEMODE-DROPDOWN) -->
+          <div class="form__field">
+            <label>{$_('draft.section.fields.gameMode')}</label>
+            <select
+              bind:value={section.gameMode}
+              disabled={si === sections.length - 1}
+              title={si === sections.length - 1 ? $_('draftConfig.errors.lastPhaseMustBeSiegerehrung') : undefined}
+            >
+              <option value="roundRobin">{$_('draftConfig.gameMode.roundRobin')}</option>
+              <option value="siegerehrung">{$_('draftConfig.gameMode.siegerehrung')}</option>
             </select>
           </div>
 
