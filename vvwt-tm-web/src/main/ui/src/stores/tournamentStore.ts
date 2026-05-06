@@ -210,3 +210,71 @@ export async function getTournamentRules(): Promise<TournamentRules> {
     }
     return res.json();
 }
+
+// ─────────────────────────────────────────────────────────────────
+// Lifecycle API functions (E48S03)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Transitions a tournament from DRAFT to PLANNED (E48S03).
+ *
+ * @param id the tournament UUID
+ * @returns the updated tournament with status PLANNED
+ * @throws Error with apiError and status if the request fails (e.g. 409 Conflict)
+ */
+export async function markPlanned(id: string): Promise<Tournament> {
+    const res = await apiFetch(`/api/tournaments/${id}/mark-planned`, { method: 'POST' });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw Object.assign(new Error(err.message ?? `markPlanned failed: ${res.status}`), { apiError: err, status: res.status });
+    }
+    return res.json();
+}
+
+/**
+ * Transitions a tournament from PLANNED to ACTIVE (E48S03).
+ *
+ * @param id the tournament UUID
+ * @returns the updated tournament with status ACTIVE
+ * @throws Error with apiError and status if the request fails (e.g. 409 Conflict)
+ */
+export async function activate(id: string): Promise<Tournament> {
+    const res = await apiFetch(`/api/tournaments/${id}/activate`, { method: 'POST' });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw Object.assign(new Error(err.message ?? `activate failed: ${res.status}`), { apiError: err, status: res.status });
+    }
+    return res.json();
+}
+
+/**
+ * Transitions a tournament from ACTIVE to COMPLETED (E48S03).
+ *
+ * @param id the tournament UUID
+ * @returns the updated tournament with status COMPLETED
+ * @throws Error with apiError and status if the request fails (e.g. 409 Conflict)
+ */
+export async function complete(id: string): Promise<Tournament> {
+    const res = await apiFetch(`/api/tournaments/${id}/complete`, { method: 'POST' });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw Object.assign(new Error(err.message ?? `complete failed: ${res.status}`), { apiError: err, status: res.status });
+    }
+    return res.json();
+}
+
+/**
+ * Transitions a tournament from PLANNED or ACTIVE to CANCELLED (E48S03).
+ *
+ * @param id the tournament UUID
+ * @returns the updated tournament with status CANCELLED
+ * @throws Error with apiError and status if the request fails (e.g. 409 Conflict)
+ */
+export async function cancelTournament(id: string): Promise<Tournament> {
+    const res = await apiFetch(`/api/tournaments/${id}/cancel`, { method: 'POST' });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw Object.assign(new Error(err.message ?? `cancel failed: ${res.status}`), { apiError: err, status: res.status });
+    }
+    return res.json();
+}

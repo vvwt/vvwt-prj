@@ -43,7 +43,16 @@
       "ACTIVE": "Aktiv",
       "COMPLETED": "Abgeschlossen",
       "CANCELLED": "Abgebrochen"
-    }
+    },
+    "markPlannedButton": "Planen",
+    "activateButton": "Aktivieren",
+    "completeButton": "Abschließen",
+    "cancelButton": "Abbrechen",
+    "markPlannedConfirm": "Turnier als geplant markieren?",
+    "activateConfirm": "Turnier aktivieren?",
+    "completeConfirm": "Turnier abschließen?",
+    "cancelConfirm": "Turnier wirklich abbrechen?",
+    "lifecycleError": "Fehler beim Statuswechsel."
   },
   "tournamentForm": {
     "createTitle": "Neues Turnier erstellen",
