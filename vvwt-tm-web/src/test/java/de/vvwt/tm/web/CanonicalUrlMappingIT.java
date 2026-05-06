@@ -77,7 +77,7 @@ class CanonicalUrlMappingIT {
      * the DEC-22 Iron Law attestation for AC8.
      */
     private static final String AUDIO_LIST_PATTERN =
-            "/api/tournaments/{tournamentId}/audio"; // RED — deliberate legacy substitution
+            "/api/audio/tournaments/{tournamentId}"; // GREEN — canonical Wave-2 pattern
 
     private static final String AUDIO_UPLOAD_PATTERN =
             "/api/audio/tournaments/{tournamentId}/{category}"; // POST
