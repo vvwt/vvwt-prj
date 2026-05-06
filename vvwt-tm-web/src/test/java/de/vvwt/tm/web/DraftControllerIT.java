@@ -591,6 +591,89 @@ class DraftControllerIT {
     }
 
     // =========================================================================
+    // AC-TEST-CONTROLLER-IT-PREVIEW-SIEGEREHRUNG-GREEN (E48S09)
+    // =========================================================================
+
+    /**
+     * AC-TEST-CONTROLLER-IT-PREVIEW-SIEGEREHRUNG-GREEN: POST /api/tournaments/{id}/draft/preview
+     * for a 2-phase config (RoundRobin + Siegerehrung) returns phase 2 with totalMatches=0,
+     * totalLaps=0, estimatedTimeMinutes = sectionBreakTimeMinutes (no intra-phase breaks).
+     *
+     * <h2>Fixture</h2>
+     *
+     * <ul>
+     *   <li>Tournament: 12 teams, fieldCount=3
+     *   <li>Phase 1: roundRobin, groupCount=2
+     *   <li>Phase 2: siegerehrung, groupCount=1, sectionBreakTimeMinutes=20, no intra-breaks
+     * </ul>
+     *
+     * <h2>Expected</h2>
+     *
+     * <ul>
+     *   <li>Phase 2 totalMatches = 0
+     *   <li>Phase 2 totalLaps = 0
+     *   <li>Phase 2 estimatedTimeMinutes = 20 (sectionBreakTimeMinutes only)
+     * </ul>
+     *
+     * <p>DEC-44 §2026-04-27 empirical refinement: uses {@code @SpringBootTest(RANDOM_PORT, classes
+     * = TournamentManagerApplication.class)} with {@code @Import({WebModuleTestConfig.class,
+     * TestAdminCredentials.class})} inner class — already present in this IT class.
+     */
+    @Test
+    @DisplayName(
+            "POST /draft/preview with siegerehrung phase 2 returns totalMatches=0, totalLaps=0"
+                    + " (E48S09 AC-TEST-CONTROLLER-IT-PREVIEW-SIEGEREHRUNG-GREEN)")
+    void previewDraft_siegerehrungPhase_returnsZeroMatchesAndLaps() throws Exception {
+        UUID tournamentId;
+        tenantBinder.bindDefaultTenant();
+        try {
+            tournamentId =
+                    tournamentService
+                            .createTournament(
+                                    "IT preview siegerehrung E48S09",
+                                    null,
+                                    12, // teamCount
+                                    3, // fieldCount
+                                    "BEST_OF_3",
+                                    "setPoints",
+                                    "standardVolleyball",
+                                    "roundRobin")
+                            .getId();
+        } finally {
+            tenantBinder.unbind();
+        }
+
+        // Phase 1: roundRobin, groupCount=2; Phase 2: siegerehrung, sectionBreakTimeMinutes=20
+        var phase1 = new DraftSectionRequest(1, "team_number", 2, "roundRobin", 0, 0, 15, 1, null);
+        var phase2 =
+                new DraftSectionRequest(2, "team_number", 1, "siegerehrung", 0, 20, 15, 1, null);
+        DraftRequest request = new DraftRequest(List.of(phase1, phase2));
+
+        ResponseEntity<DraftPreviewResponse> response =
+                authed.postForEntity(
+                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/draft/preview"),
+                        request,
+                        DraftPreviewResponse.class);
+
+        assertThat(response.getStatusCode())
+                .as("POST /draft/preview must return 200 OK")
+                .isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().sections()).hasSize(2);
+
+        var phase2Preview = response.getBody().sections().get(1);
+        assertThat(phase2Preview.totalMatches())
+                .as("siegerehrung phase: totalMatches must be 0")
+                .isEqualTo(0);
+        assertThat(phase2Preview.totalLaps())
+                .as("siegerehrung phase: totalLaps must be 0")
+                .isEqualTo(0);
+        assertThat(phase2Preview.estimatedTimeMinutes())
+                .as("siegerehrung phase: estimatedTimeMinutes = sectionBreakTimeMinutes=20")
+                .isEqualTo(20);
+    }
+
+    // =========================================================================
     // Test-local AdminCredentials
     // =========================================================================
 

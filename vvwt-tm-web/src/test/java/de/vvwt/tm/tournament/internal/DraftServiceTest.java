@@ -409,4 +409,95 @@ class DraftServiceTest {
 
         verify(phaseRepository, never()).save(any(Phase.class));
     }
+
+    // =========================================================================
+    // preview() — siegerehrung branch (AC-TEST-COMPUTE-PREVIEW-SIEGEREHRUNG-ZERO-RED, E48S09)
+    // =========================================================================
+
+    /**
+     * AC-TEST-COMPUTE-PREVIEW-SIEGEREHRUNG-ZERO-RED: siegerehrung gameMode → 0 matches, 0 laps, 0
+     * totalMatches; estimatedTimeMinutes = intra-phase breaks + sectionBreakTimeMinutes only.
+     *
+     * <p>Fixture: gameMode="siegerehrung", groupCount=1, lapTimeMinutes=15,
+     * sectionBreakTimeMinutes=30, lapBreakTimeMinutes=2, breaks=[10min, 5min].
+     *
+     * <p>Expected estimatedTimeMinutes = 10 + 5 + 30 = 45 (lapTime=0, interLapBreaks=0).
+     *
+     * <p>RED-first per DEC-22 Iron Law (E48S09, Q-1a): written before the siegerehrung branch is
+     * added to computePreview.
+     */
+    @Test
+    void preview_siegerehrung_section_returnsZeroMatchesAndPreservesBreakTime() {
+        DraftBreak break1 = new DraftBreak(1, 10, "Pause 1");
+        DraftBreak break2 = new DraftBreak(2, 5, "Pause 2");
+        DraftSection section =
+                new DraftSection(
+                        1,
+                        "team_number",
+                        1,
+                        "siegerehrung",
+                        2, // lapBreakTimeMinutes
+                        30, // sectionBreakTimeMinutes
+                        15, // lapTimeMinutes
+                        1,
+                        List.of(break1, break2));
+        DraftConfig config = new DraftConfig(List.of(section));
+
+        DraftPreviewResult result = draftService.preview(config, 12, 3);
+
+        assertThat(result.sections()).hasSize(1);
+        assertThat(result.sections().get(0).getMatchesPerGroup())
+                .as("siegerehrung → matchesPerGroup = 0")
+                .isEqualTo(0);
+        assertThat(result.sections().get(0).getTotalLaps())
+                .as("siegerehrung → totalLaps = 0")
+                .isEqualTo(0);
+        assertThat(result.sections().get(0).getTotalMatches())
+                .as("siegerehrung → totalMatches = 0")
+                .isEqualTo(0);
+        assertThat(result.sections().get(0).getEstimatedTimeMinutes())
+                .as(
+                        "siegerehrung → estimatedTimeMinutes = intra-breaks(15) + sectionBreak(30)"
+                                + " = 45")
+                .isEqualTo(45);
+    }
+
+    /**
+     * AC-ERROR-HANDLING-NULL-OR-MISSING-GAMEMODE: null gameMode falls through to field-aware
+     * round-robin formula — no NPE, no exception.
+     *
+     * <p>Fixture: gameMode=null, 4 teams, 1 group, fieldCount=10 → teamConflict=2, eff=2,
+     * matches=6, laps=ceil(6/2)=3. estimatedTimeMinutes = 15*3 + 0 + 0 + 0 = 45.
+     *
+     * <p>RED-first per DEC-22 Iron Law (E48S09, Q-1a): null gameMode triggers NPE on {@code
+     * "siegerehrung".equals(section.getGameMode())} ONLY if implemented as {@code
+     * section.getGameMode().equals("siegerehrung")} — using the literal first makes the NPE
+     * impossible. This test verifies the fall-through behavior for defensive completeness.
+     */
+    @Test
+    void preview_nullGameMode_fallsThroughToRoundRobinFormula() {
+        DraftSection section =
+                new DraftSection(
+                        1,
+                        "team_number",
+                        1,
+                        null, // gameMode = null → falls through to field-aware formula
+                        0,
+                        0,
+                        15, // lapTimeMinutes
+                        1,
+                        List.of());
+        DraftConfig config = new DraftConfig(List.of(section));
+
+        // null gameMode → RR formula: 4 teams / 1 group, fieldCount=10
+        // teamConflict=floor(4/2)*1=2, eff=min(2,10)=2, matches=6, laps=ceil(6/2)=3
+        DraftPreviewResult result = draftService.preview(config, 4, 10);
+
+        assertThat(result.sections().get(0).getTotalMatches())
+                .as("null gameMode falls through to RR formula: 6 matches")
+                .isEqualTo(6);
+        assertThat(result.sections().get(0).getTotalLaps())
+                .as("null gameMode falls through to RR formula: 3 laps")
+                .isEqualTo(3);
+    }
 }

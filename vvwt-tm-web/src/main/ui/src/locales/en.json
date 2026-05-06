@@ -1,0 +1,7 @@
+{
+  "draftConfig": {
+    "rundenzeit": {
+      "disabledTooltip": "Lap time has no effect for Siegerehrung phases"
+    }
+  }
+}

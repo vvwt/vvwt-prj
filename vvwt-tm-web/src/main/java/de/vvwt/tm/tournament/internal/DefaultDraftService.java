@@ -361,6 +361,23 @@ public class DefaultDraftService implements DraftService {
      */
     private DraftPreviewSection computePreview(
             DraftSection section, int participatingTeamCount, int fieldCount) {
+        // Siegerehrung branch (E48S09, AC-IMPL-COMPUTE-PREVIEW-SIEGEREHRUNG-BRANCH):
+        // SiegerehrungMatchGenerator.generate() returns emptyList() at runtime (E48S02) →
+        // preview returns 0 matches/laps. Breaks and sectionBreak preserved for ceremony pause.
+        if ("siegerehrung".equals(section.getGameMode())) {
+            int intraPhaseBreakTime =
+                    section.getBreaks().stream().mapToInt(DraftBreak::getDurationMinutes).sum();
+            int estimatedTimeMinutes = intraPhaseBreakTime + section.getSectionBreakTimeMinutes();
+            return new DraftPreviewSection(
+                    section.getSectionNumber(),
+                    section.getGroupCount(),
+                    participatingTeamCount / section.getGroupCount(),
+                    0, // matchesPerGroup = 0
+                    0, // totalLaps = 0
+                    0, // totalMatches = 0
+                    estimatedTimeMinutes);
+        }
+
         int groupCount = section.getGroupCount();
         int teamsPerGroup = participatingTeamCount / groupCount;
         int matchesPerGroup = teamsPerGroup > 1 ? teamsPerGroup * (teamsPerGroup - 1) / 2 : 0;

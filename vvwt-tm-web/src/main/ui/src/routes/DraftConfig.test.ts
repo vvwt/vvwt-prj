@@ -192,3 +192,30 @@ describe('DraftConfig.svelte — AC-TEST-FRONTEND-DRAFT-CONFIG-PHASE-SUBMISSION-
     expect(source).toContain('validateLastPhase');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E48S09 — AC-TEST-FRONTEND-RUNDENZEIT-DISABLED-RED
+// Rundenzeit input disabled for siegerehrung gameMode sections
+// RED-first per DEC-22: these tests FAIL before DraftConfig.svelte adds the disabled attribute
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('DraftConfig.svelte — AC-TEST-FRONTEND-RUNDENZEIT-DISABLED-RED (E48S09)', () => {
+  it('DraftConfig.svelte lapTimeMinutes input is disabled for siegerehrung gameMode', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // RED: fails before disabled={section.gameMode === 'siegerehrung'} is added to lapTimeMinutes input
+    // The disabled binding must appear in the lapTimeMinutes input context
+    expect(source).toContain("disabled={section.gameMode === 'siegerehrung'}");
+  });
+
+  it('DraftConfig.svelte lapTimeMinutes input references draftConfig.rundenzeit.disabledTooltip i18n key', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // RED: fails before the tooltip i18n key is referenced on the lapTimeMinutes input
+    expect(source).toContain('draftConfig.rundenzeit.disabledTooltip');
+  });
+});
