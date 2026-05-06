@@ -22,6 +22,10 @@ import deMessages from '../locales/de.json';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import * as QRCodeLib from 'qrcode';
+// AC7 (E11S08): import the production URL builder extracted from TimerLink.svelte.
+// This import FAILS (RED) against the pre-AC5 code where buildTimerUrl is not yet exported.
+// It PASSes (GREEN) after AC5 extraction lands (canonical path includes /timer/tournaments/).
+import { buildTimerUrl } from './TimerLink.svelte';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // i18n coverage — all timerLink keys must be present in de.json (AC4, AC6)
@@ -80,32 +84,33 @@ describe('de.json — audio.timerLinkButton (E11S07 AC3)', () => {
 // Timer URL construction — AC1, AC5
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('Timer URL derivation (AC1, AC5)', () => {
+describe('Timer URL derivation (AC1, AC5 — E11S08 AC7: uses production buildTimerUrl)', () => {
   /**
-   * The timer URL is constructed as:
-   *   `${window.location.origin}/timer/${tournamentId}`
+   * The timer URL is constructed as (canonical Wave-2 path per E11S08 AC5):
+   *   `${window.location.origin}/timer/tournaments/${tournamentId}`
    *
    * AC5: for the same tournamentId and origin, the URL is always the same —
    * it does not depend on any runtime state that would change between loads
    * (no random tokens, no session IDs, no timestamps).
+   *
+   * AC7 (E11S08): the local `buildTimerUrl` helper (lines 96-99 in the original) is
+   * replaced by the production-imported function from TimerLink.svelte. The import above
+   * was RED before AC5 extraction; now GREEN with canonical /timer/tournaments/ path.
    */
 
   const SAMPLE_UUID = '550e8400-e29b-41d4-a716-446655440000';
   const SAMPLE_ORIGIN = 'http://localhost:8080';
 
-  function buildTimerUrl(origin: string, tournamentId: string): string {
-    if (!tournamentId) return '';
-    return `${origin}/timer/${tournamentId}`;
-  }
+  // buildTimerUrl is now the production import from TimerLink.svelte (AC7)
 
   it('should include the tournamentId in the path (AC1)', () => {
     const url = buildTimerUrl(SAMPLE_ORIGIN, SAMPLE_UUID);
     expect(url).toContain(SAMPLE_UUID);
   });
 
-  it('should use /timer/ as the path prefix (AC1)', () => {
+  it('should use /timer/tournaments/ as the path prefix (AC1 — canonical Wave-2)', () => {
     const url = buildTimerUrl(SAMPLE_ORIGIN, SAMPLE_UUID);
-    expect(url).toContain('/timer/');
+    expect(url).toContain('/timer/tournaments/');
   });
 
   it('should be deterministic for the same inputs (AC5)', () => {
@@ -121,12 +126,12 @@ describe('Timer URL derivation (AC1, AC5)', () => {
 
   it('should preserve port in origin (AC5 — dev vs prod parity)', () => {
     const url = buildTimerUrl('http://localhost:8080', SAMPLE_UUID);
-    expect(url).toMatch(/^http:\/\/localhost:8080\/timer\//);
+    expect(url).toMatch(/^http:\/\/localhost:8080\/timer\/tournaments\//);
   });
 
   it('should work with https origin (production scenario)', () => {
     const url = buildTimerUrl('https://tm.example.org', SAMPLE_UUID);
-    expect(url).toMatch(/^https:\/\/tm\.example\.org\/timer\//);
+    expect(url).toMatch(/^https:\/\/tm\.example\.org\/timer\/tournaments\//);
   });
 });
 
