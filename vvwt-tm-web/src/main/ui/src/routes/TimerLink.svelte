@@ -23,6 +23,9 @@
   import { pageHeader, resetPageHeader } from '../stores/pageHeaderStore.js';
   import { resolveParent } from '../lib/parentRouteMap.js';
   import * as QRCodeLib from 'qrcode';
+  // AC5/AC7 (E11S08): import the pure URL-builder from its own module so Vitest
+  // can test it via production import without Svelte component rendering.
+  import { buildTimerUrl } from '../lib/timerLinkUrl.js';
 
   // ── Props ────────────────────────────────────────────────────────────────
   interface Props {
@@ -31,25 +34,7 @@
   let { params = {} }: Props = $props();
   const tournamentId = $derived(params.tournamentId ?? '');
 
-  // ── Derived timer URL (AC5 — deterministic from origin + tournamentId) ───
-
-  /**
-   * Builds the canonical timer URL for a given origin and tournamentId.
-   *
-   * Extracted as a named export for Vitest production-import testability (E11S08 AC5/AC7).
-   * Pure function — no Svelte reactivity; usable in plain spec context.
-   *
-   * Canonical Wave-2 path: /timer/tournaments/{tournamentId} (per TimerViewController E26S03).
-   *
-   * @param origin       e.g. window.location.origin — "http://localhost:8080"
-   * @param tournamentId the tournament UUID
-   * @returns            the full timer URL, or '' if tournamentId is empty
-   */
-  export function buildTimerUrl(origin: string, tournamentId: string): string {
-    if (!tournamentId) return '';
-    return `${origin}/timer/tournaments/${tournamentId}`;
-  }
-
+  // ── Derived timer URL (AC5 — canonical Wave-2 path via timerLinkUrl module) ──
   const timerUrl = $derived(buildTimerUrl(window.location.origin, tournamentId));
 
   // ── State ────────────────────────────────────────────────────────────────

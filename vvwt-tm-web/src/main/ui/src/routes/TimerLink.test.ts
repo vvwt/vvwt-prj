@@ -22,10 +22,12 @@ import deMessages from '../locales/de.json';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import * as QRCodeLib from 'qrcode';
-// AC7 (E11S08): import the production URL builder extracted from TimerLink.svelte.
-// This import FAILS (RED) against the pre-AC5 code where buildTimerUrl is not yet exported.
-// It PASSes (GREEN) after AC5 extraction lands (canonical path includes /timer/tournaments/).
-import { buildTimerUrl } from './TimerLink.svelte';
+// AC7 (E11S08): import the production URL builder from its dedicated module.
+// The function was extracted from the inline $derived rune in TimerLink.svelte (AC5)
+// into lib/timerLinkUrl.ts so it is importable as a plain ESM module in Vitest.
+// This import used the legacy .svelte module path in the RED commit; corrected here to
+// the canonical lib module path after the AC5 extraction landed.
+import { buildTimerUrl } from '../lib/timerLinkUrl.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // i18n coverage — all timerLink keys must be present in de.json (AC4, AC6)
