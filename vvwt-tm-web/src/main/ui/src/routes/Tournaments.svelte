@@ -25,6 +25,10 @@
     deleteTournament,
     selectTournament,
     selectedTournamentId,
+    markPlanned,
+    activate,
+    complete,
+    cancelTournament,
     type Tournament,
   } from '../stores/tournamentStore.js';
   import { pageHeader, resetPageHeader } from '../stores/pageHeaderStore.js';
@@ -33,6 +37,7 @@
   let loading = $state(true);
   let loadError = $state<string | null>(null);
   let deleteError = $state<string | null>(null);
+  let lifecycleError = $state<string | null>(null);
 
   onMount(async () => {
     // E47S01 AC1/AC3/AC4: register title and create button in persistent header (top-level: no backTo, no tournamentId)
@@ -87,6 +92,50 @@
     selectTournament(id);
   }
 
+  async function handleMarkPlanned(id: string): Promise<void> {
+    if (!confirm($_('tournaments.markPlannedConfirm'))) return;
+    lifecycleError = null;
+    try {
+      await markPlanned(id);
+      await loadTournaments();
+    } catch (e: unknown) {
+      lifecycleError = e instanceof Error ? e.message : $_('tournaments.lifecycleError');
+    }
+  }
+
+  async function handleActivate(id: string): Promise<void> {
+    if (!confirm($_('tournaments.activateConfirm'))) return;
+    lifecycleError = null;
+    try {
+      await activate(id);
+      await loadTournaments();
+    } catch (e: unknown) {
+      lifecycleError = e instanceof Error ? e.message : $_('tournaments.lifecycleError');
+    }
+  }
+
+  async function handleComplete(id: string): Promise<void> {
+    if (!confirm($_('tournaments.completeConfirm'))) return;
+    lifecycleError = null;
+    try {
+      await complete(id);
+      await loadTournaments();
+    } catch (e: unknown) {
+      lifecycleError = e instanceof Error ? e.message : $_('tournaments.lifecycleError');
+    }
+  }
+
+  async function handleCancel(id: string): Promise<void> {
+    if (!confirm($_('tournaments.cancelConfirm'))) return;
+    lifecycleError = null;
+    try {
+      await cancelTournament(id);
+      await loadTournaments();
+    } catch (e: unknown) {
+      lifecycleError = e instanceof Error ? e.message : $_('tournaments.lifecycleError');
+    }
+  }
+
   function formatAppointment(appointment: string | null): string {
     if (!appointment) return '—';
     // Display as date only (remove time portion for cleaner table display)
@@ -106,6 +155,9 @@
   {:else}
     {#if deleteError}
       <p class="tournaments__error">{deleteError}</p>
+    {/if}
+    {#if lifecycleError}
+      <p class="tournaments__error">{lifecycleError}</p>
     {/if}
     <table class="tournaments__table">
       <thead>
@@ -161,7 +213,12 @@
                   {$_('tournaments.timerLinkButton')}
                 </button>
               {/if}
+              <!-- E48S03 AC-FRONTEND-LIFECYCLE-BUTTONS + AC-FRONTEND-VISIBILITY-RULES -->
               {#if t.status === 'DRAFT'}
+                <!-- DRAFT: mark-planned transition -->
+                <button class="btn btn--primary btn--sm" onclick={() => handleMarkPlanned(t.id)}>
+                  {$_('tournaments.markPlannedButton')}
+                </button>
                 <button class="btn btn--secondary btn--sm"
                         onclick={() => push(`/tournaments/${t.id}/edit`)}>
                   {$_('tournaments.editButton')}
@@ -173,6 +230,24 @@
                 </button>
                 <button class="btn btn--danger btn--sm" onclick={() => handleDelete(t.id)}>
                   {$_('tournaments.deleteButton')}
+                </button>
+              {/if}
+              {#if t.status === 'PLANNED'}
+                <!-- PLANNED: activate or cancel -->
+                <button class="btn btn--primary btn--sm" onclick={() => handleActivate(t.id)}>
+                  {$_('tournaments.activateButton')}
+                </button>
+                <button class="btn btn--danger btn--sm" onclick={() => handleCancel(t.id)}>
+                  {$_('tournaments.cancelButton')}
+                </button>
+              {/if}
+              {#if t.status === 'ACTIVE'}
+                <!-- ACTIVE: complete or cancel -->
+                <button class="btn btn--primary btn--sm" onclick={() => handleComplete(t.id)}>
+                  {$_('tournaments.completeButton')}
+                </button>
+                <button class="btn btn--danger btn--sm" onclick={() => handleCancel(t.id)}>
+                  {$_('tournaments.cancelButton')}
                 </button>
               {/if}
             </td>
