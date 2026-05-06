@@ -250,11 +250,10 @@ class DraftControllerSliceTest {
         when(tournamentRepository.findById(eq(TOURNAMENT_ID))).thenReturn(Optional.of(tournament));
 
         // Mock: draftService.preview called with participatingTeamCount=8 → teamsPerGroup=2
-        // (E48S10 refactor: 3-arg API; anyInt() for fieldCount — this test validates teamCount
-        // threading)
+        // (E48S10 refactor: 4-arg API; anyInt() for fieldCount, any() for plannedStartTime)
         DraftPreviewSection section = new DraftPreviewSection(1, 4, 2, 1, 1, 4, 60);
         DraftPreviewResult serviceResult = new DraftPreviewResult(List.of(section), List.of());
-        when(draftService.preview(any(DraftConfig.class), eq(8), anyInt()))
+        when(draftService.preview(any(DraftConfig.class), eq(8), anyInt(), any()))
                 .thenReturn(serviceResult);
 
         DraftSectionRequest sectionRequest =
@@ -288,8 +287,8 @@ class DraftControllerSliceTest {
 
         DraftPreviewSection section = new DraftPreviewSection(1, 4, 0, 0, 0, 0, 0);
         DraftPreviewResult serviceResult = new DraftPreviewResult(List.of(section), List.of());
-        // E48S10 refactor: 3-arg API; anyInt() for fieldCount — test validates teamCount=0 boundary
-        when(draftService.preview(any(DraftConfig.class), eq(0), anyInt()))
+        // E48S10 refactor: 4-arg API; anyInt() for fieldCount, any() for plannedStartTime
+        when(draftService.preview(any(DraftConfig.class), eq(0), anyInt(), any()))
                 .thenReturn(serviceResult);
 
         DraftSectionRequest sectionRequest =
@@ -352,8 +351,8 @@ class DraftControllerSliceTest {
 
         DraftPreviewSection section = new DraftPreviewSection(1, 2, 4, 6, 3, 12, 75);
         DraftPreviewResult serviceResult = new DraftPreviewResult(List.of(section), List.of());
-        // E48S10 refactor: 3-arg API; anyInt() for fieldCount — pre-existing 200-response test
-        when(draftService.preview(any(DraftConfig.class), eq(8), anyInt()))
+        // E48S10 refactor: 4-arg API; anyInt() for fieldCount, any() for plannedStartTime
+        when(draftService.preview(any(DraftConfig.class), eq(8), anyInt(), any()))
                 .thenReturn(serviceResult);
 
         DraftSectionRequest sectionRequest =

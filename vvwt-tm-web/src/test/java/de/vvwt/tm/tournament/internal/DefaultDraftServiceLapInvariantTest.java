@@ -61,7 +61,8 @@ class DefaultDraftServiceLapInvariantTest {
                 Mockito.mock(TeamAvatarRepository.class),
                 Mockito.mock(PhasePreparationService.class),
                 Mockito.mock(TournamentRepository.class),
-                new ObjectMapper());
+                new ObjectMapper(),
+                Mockito.mock(de.vvwt.tm.tournament.TimelineCalculationService.class)); // E48S12
     }
 
     /**
@@ -95,7 +96,8 @@ class DefaultDraftServiceLapInvariantTest {
 
         // participating team count = teamsPerGroup * groupCount
         int participatingTeamCount = teamsPerGroup * groupCount;
-        DraftPreviewResult result = service.preview(config, participatingTeamCount, fieldCount);
+        DraftPreviewResult result =
+                service.preview(config, participatingTeamCount, fieldCount, null);
 
         int totalLaps = result.sections().get(0).getTotalLaps();
         int totalMatches = result.sections().get(0).getTotalMatches();

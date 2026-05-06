@@ -167,6 +167,10 @@ public class DraftController {
      * getTeamCount()} (no second query) and passes it through to the service for the
      * field-count-aware lap formula.
      *
+     * <p>E48S12 AC-IMPL-LOCAL-DATE-TIME-NARROWING: {@link Tournament#getPlannedStartTime()} is
+     * already a {@link java.time.LocalTime} (stored as TIME column in the DB). Passed directly to
+     * {@link DraftService#preview} for timeline population when non-null.
+     *
      * @param tournamentId the tournament UUID (from path)
      * @param request the draft configuration to preview (validated via {@link Valid})
      * @return 200 OK with the preview result for each section; 404 if tournament not found
@@ -183,8 +187,14 @@ public class DraftController {
         DraftConfig config = toDraftConfig(request);
         // E48S10 AC-IMPL-DRAFT-CONTROLLER-LOAD-FIELDCOUNT: pass fieldCount from same Tournament
         // instance (no extra query) for the field-count-aware lap formula.
+        // E48S12 AC-IMPL-LOCAL-DATE-TIME-NARROWING: Tournament.plannedStartTime is already
+        // LocalTime (stored as TIME column); pass directly to preview() for timeline calculation.
         DraftPreviewResult result =
-                draftService.preview(config, tournament.getTeamCount(), tournament.getFieldCount());
+                draftService.preview(
+                        config,
+                        tournament.getTeamCount(),
+                        tournament.getFieldCount(),
+                        tournament.getPlannedStartTime());
         return ResponseEntity.ok(DraftPreviewResponse.from(result.sections(), result.timeline()));
     }
 

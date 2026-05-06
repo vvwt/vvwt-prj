@@ -4,12 +4,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.tournament.DraftService;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseBreak;
+import de.vvwt.tm.tournament.PhaseBreakConfig;
 import de.vvwt.tm.tournament.PhaseBreakRepository;
+import de.vvwt.tm.tournament.PhaseConfig;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.TeamRepository;
+import de.vvwt.tm.tournament.TimelineCalculationService;
+import de.vvwt.tm.tournament.TimelineEntry;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.draft.DraftBreak;
@@ -20,7 +24,9 @@ import de.vvwt.tm.tournament.draft.DraftSection;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import de.vvwt.tm.tournament.exceptions.DraftAlreadyAppliedException;
 import de.vvwt.tm.tournament.exceptions.TournamentNotFoundException;
+import de.vvwt.tm.tournament.internal.dto.draft.DraftTimelineEntryResponse;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -36,7 +42,8 @@ import org.springframework.stereotype.Service;
  * <h2>Scoped API</h2>
  *
  * <ul>
- *   <li>{@link #preview(DraftConfig, int, int)} — pure computation, no DB side effect
+ *   <li>{@link #preview(DraftConfig, int, int, LocalTime)} — pure computation, no DB side effect;
+ *       populates timeline when {@code plannedStartTime} is non-null (E48S12)
  *   <li>{@link #apply(UUID, DraftConfig)} — creates Phase entities via the Phase-aggregate
  *       collaborators from E21S03
  *   <li>{@link #loadDraft(UUID)} — loads current draft config from Tournament.draftJson (E21S19)
@@ -68,6 +75,7 @@ import org.springframework.stereotype.Service;
  * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
  * @see <a href="E33S05">E33S05 — DraftService interface extraction (DEC-35 retrofit)</a>
  * @see <a href="E21S19">E21S19 — Restore GET/PUT mappings: loadDraft + saveDraft</a>
+ * @see <a href="E48S12">E48S12 — Wire TimelineCalculationService into preview()</a>
  */
 @Service("tmDraftService")
 public class DefaultDraftService implements DraftService {
@@ -79,10 +87,12 @@ public class DefaultDraftService implements DraftService {
     private final PhasePreparationService phasePreparationService;
     private final TournamentRepository tournamentRepository;
     private final ObjectMapper objectMapper;
+    private final TimelineCalculationService timelineCalculationService;
 
     /**
-     * Constructs the service with Phase-aggregate collaborators from E21S03, phase preparation, and
-     * tournament repository + Jackson ObjectMapper for draft JSON serialization (E21S19).
+     * Constructs the service with Phase-aggregate collaborators from E21S03, phase preparation,
+     * tournament repository + Jackson ObjectMapper for draft JSON serialization (E21S19), and the
+     * timeline calculation service for preview timeline population (E48S12).
      *
      * @param phaseRepository phase persistence (tenant-scoped, E21S03)
      * @param phaseBreakRepository phase break persistence (tenant-scoped, E21S03)
@@ -91,6 +101,7 @@ public class DefaultDraftService implements DraftService {
      * @param phasePreparationService match generation service (E21S08)
      * @param tournamentRepository tournament persistence for draft JSON read/write (E21S19)
      * @param objectMapper Jackson ObjectMapper for DraftConfig ↔ JSON round-trip (E21S19)
+     * @param timelineCalculationService stateless timeline engine (E21S11, wired in E48S12)
      */
     public DefaultDraftService(
             @Qualifier("tmPhaseRepository") PhaseRepository phaseRepository,
@@ -99,7 +110,9 @@ public class DefaultDraftService implements DraftService {
             TeamAvatarRepository teamAvatarRepository,
             @Qualifier("tmPhasePreparationService") PhasePreparationService phasePreparationService,
             @Qualifier("tmTournamentRepository") TournamentRepository tournamentRepository,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            @Qualifier("tmTimelineCalculationService")
+                    TimelineCalculationService timelineCalculationService) {
         this.phaseRepository = phaseRepository;
         this.phaseBreakRepository = phaseBreakRepository;
         this.teamRepository = teamRepository;
@@ -107,6 +120,7 @@ public class DefaultDraftService implements DraftService {
         this.phasePreparationService = phasePreparationService;
         this.tournamentRepository = tournamentRepository;
         this.objectMapper = objectMapper;
+        this.timelineCalculationService = timelineCalculationService;
     }
 
     // -------------------------------------------------------------------------
@@ -120,9 +134,13 @@ public class DefaultDraftService implements DraftService {
      * (round-robin), total laps (field-count-aware per E48S10), total matches, and estimated
      * duration.
      *
-     * <p>Timeline entries are currently empty ({@code List.of()}) — the timeline domain classes
-     * ({@code TimelineCalculationService}, {@code TimelineEntry}) arrive in E21S11. The result
-     * shape is established here; E21S11 will populate the timeline list.
+     * <p>When {@code plannedStartTime} is non-null, this method additionally computes a full
+     * timeline via {@link TimelineCalculationService} (E48S12, AC-IMPL-DRAFT-SERVICE-PREVIEW-WIRES-
+     * TIMELINE-SERVICE). The timeline is built using Strategy (i): per-phase calls to {@code
+     * calculate()}, with per-section {@code sectionBreakTimeMinutes} applied between consecutive
+     * phases by manually appending {@link de.vvwt.tm.tournament.TimelineEntryType#SECTION_BREAK}
+     * entries. When {@code plannedStartTime} is {@code null} or {@code sections} is empty, the
+     * timeline is {@code List.of()} (AC-ERROR-HANDLING-NULL-SAFETY).
      *
      * <p>The {@code fieldCount} parameter is threaded from {@code tournament.getFieldCount()} by
      * the controller (E48S10, AC-IMPL-DRAFT-CONTROLLER-LOAD-FIELDCOUNT). Values ≤ 0 are clamped to
@@ -131,19 +149,24 @@ public class DefaultDraftService implements DraftService {
      * @param config the draft configuration to preview; must not be {@code null}
      * @param participatingTeamCount number of participating teams
      * @param fieldCount number of available fields; values ≤ 0 are clamped to 1
+     * @param plannedStartTime optional tournament start time; {@code null} → empty timeline
      * @return preview result; never {@code null}
-     * @see <a href="E21S11">E21S11 — Timeline domain classes (future timeline population)</a>
      * @see <a href="E48S10">E48S10 — AC-IMPL-COMPUTE-PREVIEW-FIELD-AWARE-FORMULA</a>
+     * @see <a href="E48S12">E48S12 — AC-IMPL-DRAFT-SERVICE-PREVIEW-WIRES-TIMELINE-SERVICE</a>
      */
     @Override
     public DraftPreviewResult preview(
-            DraftConfig config, int participatingTeamCount, int fieldCount) {
+            DraftConfig config,
+            int participatingTeamCount,
+            int fieldCount,
+            LocalTime plannedStartTime) {
         List<DraftPreviewSection> previews = new ArrayList<>();
         for (DraftSection section : config.getSections()) {
             previews.add(computePreview(section, participatingTeamCount, fieldCount));
         }
-        // Timeline entries deferred to E21S11 (TimelineCalculationService)
-        return new DraftPreviewResult(previews, List.of());
+        List<DraftTimelineEntryResponse> timeline =
+                buildTimeline(config.getSections(), previews, plannedStartTime);
+        return new DraftPreviewResult(previews, timeline);
     }
 
     // -------------------------------------------------------------------------
@@ -407,6 +430,139 @@ public class DefaultDraftService implements DraftService {
                 totalLaps,
                 totalMatches,
                 estimatedTimeMinutes);
+    }
+
+    // -------------------------------------------------------------------------
+    // Timeline building (E48S12)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Builds the timeline for the preview by invoking {@link TimelineCalculationService} per phase
+     * (Strategy i — loop strategy, AC-IMPL-IMPEDANCE-RESOLUTION).
+     *
+     * <p>Impedance note: {@code TimelineCalculationService.calculate()} accepts a SINGLE {@code
+     * sectionBreakMinutes} for ALL phase boundaries, while each {@link DraftSection} carries its
+     * own {@code sectionBreakTimeMinutes}. Strategy (i) resolves this by calling {@code
+     * calculate()} once per phase with a single-element phase list ({@code sectionBreakMinutes=0}),
+     * then appending the per-section {@code SECTION_BREAK} entries manually between consecutive
+     * phases.
+     *
+     * <p>When {@code plannedStartTime == null} or the section list is empty, returns {@code
+     * List.of()} immediately (AC-ERROR-HANDLING-NULL-SAFETY).
+     *
+     * @param sections the draft sections (ordered)
+     * @param previews the corresponding computed preview sections (for totalLaps per phase)
+     * @param plannedStartTime tournament start time; {@code null} → empty list
+     * @return ordered list of {@link DraftTimelineEntryResponse}; never {@code null}
+     */
+    private List<DraftTimelineEntryResponse> buildTimeline(
+            List<DraftSection> sections,
+            List<DraftPreviewSection> previews,
+            LocalTime plannedStartTime) {
+        // AC-ERROR-HANDLING-NULL-SAFETY: null startTime or empty sections → empty timeline
+        if (plannedStartTime == null || sections.isEmpty()) {
+            return List.of();
+        }
+
+        List<DraftTimelineEntryResponse> result = new ArrayList<>();
+        LocalTime cursor = plannedStartTime;
+
+        for (int i = 0; i < sections.size(); i++) {
+            DraftSection section = sections.get(i);
+            DraftPreviewSection preview = previews.get(i);
+            boolean isLastSection = (i == sections.size() - 1);
+
+            // Map DraftSection → PhaseConfig (AC-IMPL-DRAFT-CONFIG-TO-PHASE-CONFIG-MAPPING)
+            PhaseConfig phaseConfig = toPhaseConfig(section, preview.getTotalLaps(), i + 1);
+
+            // Call calculate() per phase with sectionBreakMinutes=0 (Strategy i)
+            List<TimelineEntry> phaseEntries =
+                    timelineCalculationService.calculate(cursor, List.of(phaseConfig), 0);
+
+            // Convert TimelineEntry → DraftTimelineEntryResponse and collect
+            for (TimelineEntry entry : phaseEntries) {
+                result.add(toResponse(entry));
+            }
+
+            // Advance cursor to end of last entry in this phase (if any)
+            if (!phaseEntries.isEmpty()) {
+                cursor = phaseEntries.get(phaseEntries.size() - 1).endTime();
+            }
+
+            // Append SECTION_BREAK entry between consecutive phases using per-section break time
+            if (!isLastSection && section.getSectionBreakTimeMinutes() > 0) {
+                LocalTime sectionBreakEnd =
+                        cursor.plusMinutes(section.getSectionBreakTimeMinutes());
+                result.add(
+                        new DraftTimelineEntryResponse(
+                                i + 1, 0, "SECTION_BREAK", cursor, sectionBreakEnd, null));
+                cursor = sectionBreakEnd;
+            }
+        }
+
+        return List.copyOf(result);
+    }
+
+    /**
+     * Maps a {@link DraftSection} to a {@link PhaseConfig} for the timeline engine.
+     *
+     * <p>Field mapping (AC-IMPL-DRAFT-CONFIG-TO-PHASE-CONFIG-MAPPING):
+     *
+     * <ul>
+     *   <li>{@code lapCount} = {@code totalLaps} from the computed preview (field-aware formula per
+     *       E48S10); for Siegerehrung phases {@code totalLaps == 0} → single zero-duration marker
+     *       per TimelineCalculationService Javadoc line 44-46
+     *   <li>{@code lapTimeMinutes} = {@code section.lapTimeMinutes}
+     *   <li>{@code lapBreakMinutes} = {@code section.lapBreakTimeMinutes}
+     *   <li>{@code phaseBreaks} = mapped from {@code section.breaks} (DraftBreak →
+     *       PhaseBreakConfig)
+     * </ul>
+     *
+     * <p>AC-IMPL-DEC-35-INTERFACE-FIRST inspection result: this mapping logic stays as a private
+     * method inside {@code DefaultDraftService}. No separate mapper class is introduced; the
+     * mapping is self-contained and does not cross module boundaries.
+     *
+     * @param section the draft section to map
+     * @param totalLaps the precomputed total laps for this section (0 for Siegerehrung)
+     * @param phaseNumber 1-based phase number within the draft
+     * @return a {@link PhaseConfig} suitable for {@link TimelineCalculationService#calculate}
+     */
+    private static PhaseConfig toPhaseConfig(DraftSection section, int totalLaps, int phaseNumber) {
+        List<PhaseBreakConfig> breaks =
+                section.getBreaks().stream()
+                        .map(
+                                b ->
+                                        new PhaseBreakConfig(
+                                                b.getAfterLapNumber(),
+                                                b.getDurationMinutes(),
+                                                b.getLabel()))
+                        .toList();
+        // PhaseConfig requires lapTimeMinutes > 0 when lapCount > 0; for lapCount=0 (Siegerehrung),
+        // lapTimeMinutes is ignored by the engine but must pass the constructor validation.
+        // Use section.getLapTimeMinutes() which is always > 0 per DraftSection validation.
+        return new PhaseConfig(
+                phaseNumber,
+                totalLaps,
+                section.getLapTimeMinutes(),
+                section.getLapBreakTimeMinutes(),
+                breaks);
+    }
+
+    /**
+     * Converts a {@link TimelineEntry} domain record to the REST response DTO {@link
+     * DraftTimelineEntryResponse}.
+     *
+     * @param entry the domain timeline entry; must not be {@code null}
+     * @return the response DTO
+     */
+    private static DraftTimelineEntryResponse toResponse(TimelineEntry entry) {
+        return new DraftTimelineEntryResponse(
+                entry.phaseNumber(),
+                entry.lapNumber(),
+                entry.type().name(),
+                entry.startTime(),
+                entry.endTime(),
+                entry.label());
     }
 
     /**

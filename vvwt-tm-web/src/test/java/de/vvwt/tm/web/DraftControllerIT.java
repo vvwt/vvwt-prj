@@ -674,6 +674,109 @@ class DraftControllerIT {
     }
 
     // =========================================================================
+    // AC-TEST-CONTROLLER-IT-PREVIEW-TIMELINE-WIRING (E48S12)
+    // =========================================================================
+
+    /**
+     * AC-TEST-CONTROLLER-IT-PREVIEW-TIMELINE-WIRING: POST /api/tournaments/{id}/draft/preview for a
+     * 2-phase config (RR + Siegerehrung) with a set {@code plannedStartTime} returns a non-empty
+     * {@code timeline} whose first entry has {@code startTime = "09:00:00"} (or starts with
+     * "09:00").
+     *
+     * <h2>Fixture</h2>
+     *
+     * <ul>
+     *   <li>Tournament: field_count=3, team_count=12, plannedStartTime=09:00
+     *   <li>Phase 1: roundRobin, groupCount=2, lapTimeMinutes=15, lapBreakTimeMinutes=2,
+     *       sectionBreakTimeMinutes=10
+     *   <li>Phase 2: siegerehrung, sectionBreakTimeMinutes=0
+     * </ul>
+     *
+     * <h2>Expected</h2>
+     *
+     * <ul>
+     *   <li>response.timeline is non-empty
+     *   <li>response.timeline[0].startTime starts with "09:00"
+     *   <li>response.timeline contains at least one entry with type = "MATCH_ROUND"
+     * </ul>
+     *
+     * <h2>RED-first discipline (DEC-22)</h2>
+     *
+     * <p>This test was written RED-first — before {@code DraftController.previewDraft()} passes
+     * {@code plannedStartTime} and before {@code DefaultDraftService.preview()} invokes {@code
+     * TimelineCalculationService}. At RED time, {@code response.timeline} is always empty because
+     * {@code DefaultDraftService.preview()} hardcodes {@code List.of()}.
+     *
+     * @see <a href="E48S12">E48S12 — AC-TEST-CONTROLLER-IT-PREVIEW-TIMELINE-WIRING</a>
+     * @see <a href="DEC-44">DEC-44 — web-module IT annotation canon</a>
+     */
+    @Test
+    @DisplayName(
+            "POST /draft/preview with plannedStartTime=09:00 returns non-empty timeline with"
+                    + " MATCH_ROUND entries (E48S12 AC-TEST-CONTROLLER-IT-PREVIEW-TIMELINE-WIRING)")
+    void previewDraft_withPlannedStartTime_returnsNonEmptyTimeline() throws Exception {
+        // Create tournament with plannedStartTime set to 09:00
+        UUID tournamentId;
+        tenantBinder.bindDefaultTenant();
+        try {
+            tournamentId =
+                    tournamentService
+                            .createTournament(
+                                    "IT preview timeline E48S12",
+                                    null,
+                                    12, // teamCount
+                                    3, // fieldCount
+                                    "BEST_OF_3",
+                                    "setPoints",
+                                    "standardVolleyball",
+                                    "roundRobin")
+                            .getId();
+            // Set plannedStartTime directly on the tournament entity (createTournament does not
+            // accept plannedStartTime; use repository to set it for the fixture)
+            Tournament t = tournamentRepository.findById(tournamentId).orElseThrow();
+            t.setPlannedStartTime(java.time.LocalTime.of(9, 0));
+            tournamentRepository.save(t);
+        } finally {
+            tenantBinder.unbind();
+        }
+
+        // Phase 1: roundRobin, 2 groups, lapTime=15min, lapBreak=2min, sectionBreak=10min
+        // Phase 2: siegerehrung (lapCount=0 → zero-duration marker)
+        var phase1 = new DraftSectionRequest(1, "team_number", 2, "roundRobin", 2, 10, 15, 1, null);
+        var phase2 =
+                new DraftSectionRequest(2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, null);
+        DraftRequest request = new DraftRequest(List.of(phase1, phase2));
+
+        ResponseEntity<DraftPreviewResponse> response =
+                authed.postForEntity(
+                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/draft/preview"),
+                        request,
+                        DraftPreviewResponse.class);
+
+        assertThat(response.getStatusCode())
+                .as("POST /draft/preview must return 200 OK")
+                .isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().timeline())
+                .as(
+                        "plannedStartTime non-null → timeline must be populated"
+                                + " (E48S12 AC-TEST-CONTROLLER-IT-PREVIEW-TIMELINE-WIRING)")
+                .isNotEmpty();
+
+        var firstEntry = response.getBody().timeline().get(0);
+        assertThat(firstEntry.startTime().toString())
+                .as("first timeline entry must start at plannedStartTime 09:00")
+                .startsWith("09:00");
+
+        boolean hasMatchRound =
+                response.getBody().timeline().stream()
+                        .anyMatch(e -> "MATCH_ROUND".equals(e.type()));
+        assertThat(hasMatchRound)
+                .as("timeline must contain at least one MATCH_ROUND entry")
+                .isTrue();
+    }
+
+    // =========================================================================
     // Test-local AdminCredentials
     // =========================================================================
 
