@@ -87,4 +87,24 @@ public interface MatchRepository {
      * @throws IllegalStateException if no tenant context is active
      */
     void deleteById(UUID id);
+
+    /**
+     * Bulk-cancels all unfinished matches for the given tournament (E48S04,
+     * AC-IMPL-MATCH-BULK-CANCEL).
+     *
+     * <p>Executes: {@code UPDATE match SET state = -10 WHERE tournament_id = ? AND state IN (0, 10,
+     * 30, 35)}. Finished matches ({@code state IN (50, 51, 52)}) are NOT touched. Already-cancelled
+     * matches ({@code state = -10}) are excluded by the {@code state IN} predicate — idempotent.
+     *
+     * <p>MUST be called within an existing {@code @Transactional} boundary that has already
+     * acquired the per-tournament row-lock via {@link
+     * de.vvwt.tm.tournament.TournamentRepository#findByIdForUpdate(UUID)} (DEC-37 Clause B).
+     *
+     * @param tournamentId the tournament whose open matches to cancel
+     * @return count of rows updated (for audit / logging); 0 if all matches were already terminal
+     * @throws IllegalStateException if no tenant context is active
+     * @see de.vvwt.tm.tournament.internal.DefaultTournamentLifecycleService#cancel(UUID)
+     * @see <a href="E48S04">E48S04 — Match-Cancel-Lockdown Backend</a>
+     */
+    int cancelOpenMatchesByTournamentId(UUID tournamentId);
 }

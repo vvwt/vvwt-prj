@@ -15,6 +15,7 @@ import de.vvwt.tm.timer.audio.AudioStorageException;
 import de.vvwt.tm.tournament.ApiErrorResponse;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import de.vvwt.tm.tournament.exceptions.ForbiddenException;
+import de.vvwt.tm.tournament.exceptions.MatchCanceledException;
 import de.vvwt.tm.tournament.exceptions.TooManyRequestsException;
 import de.vvwt.tm.tournament.exceptions.TournamentNotFoundException;
 import de.vvwt.tm.tournament.exceptions.UnauthorizedException;
@@ -138,6 +139,24 @@ public class GlobalExceptionHandler {
             ConflictException ex, HttpServletRequest request) {
         log.debug("[tm-web] ConflictException: {}", ex.getMessage());
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), "error.conflict", request);
+    }
+
+    /**
+     * Maps {@link MatchCanceledException} to HTTP 409 Conflict (E48S04,
+     * AC-ERROR-HANDLING-CANCELED-MATCH-MESSAGE).
+     *
+     * <p>Score submissions on a CANCELED match are a conflict condition — the match is in a final
+     * state and cannot accept new scores. The response body contains the operator-actionable
+     * message from {@link MatchCanceledException} (includes matchId and "CANCELED").
+     *
+     * @see de.vvwt.tm.scoring.internal.DefaultScoreEntryService
+     * @see <a href="E48S04">E48S04 — Match-Cancel-Lockdown Backend</a>
+     */
+    @ExceptionHandler(MatchCanceledException.class)
+    public ResponseEntity<ApiErrorResponse> handleMatchCanceled(
+            MatchCanceledException ex, HttpServletRequest request) {
+        log.debug("[tm-web] MatchCanceledException: {}", ex.getMessage());
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), "error.match.canceled", request);
     }
 
     /**

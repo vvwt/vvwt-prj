@@ -20,6 +20,7 @@ import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.exceptions.ForbiddenException;
+import de.vvwt.tm.tournament.exceptions.MatchCanceledException;
 import de.vvwt.tm.tournament.exceptions.UnauthorizedException;
 import java.util.Optional;
 import java.util.UUID;
@@ -278,6 +279,15 @@ public class DefaultScoreEntryService implements ScoreEntryService {
                                 () ->
                                         new IllegalArgumentException(
                                                 "Match not found: " + request.matchId()));
+
+        // AC-IMPL-SCORE-SERVICE-GUARD (E48S04): reject score submission on CANCELED match
+        if (match.getMatchState() == MatchState.CANCELED) {
+            throw new MatchCanceledException(
+                    "Match "
+                            + match.getId()
+                            + " is CANCELED — score submission rejected."
+                            + " Tournament was cancelled.");
+        }
 
         if (match.getFieldNumber() != null
                 && device.getAssignedField() != null

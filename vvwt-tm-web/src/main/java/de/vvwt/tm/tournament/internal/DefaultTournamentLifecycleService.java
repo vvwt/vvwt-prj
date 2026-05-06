@@ -1,11 +1,14 @@
 package de.vvwt.tm.tournament.internal;
 
+import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentLifecycleService;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import java.util.Set;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,12 +32,18 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class DefaultTournamentLifecycleService implements TournamentLifecycleService {
 
+    private static final Logger log =
+            LoggerFactory.getLogger(DefaultTournamentLifecycleService.class);
+
     private static final Set<String> CANCELLABLE_STATUSES = Set.of("PLANNED", "ACTIVE");
 
     private final TournamentRepository tournamentRepository;
+    private final MatchRepository matchRepository;
 
-    public DefaultTournamentLifecycleService(TournamentRepository tournamentRepository) {
+    public DefaultTournamentLifecycleService(
+            TournamentRepository tournamentRepository, MatchRepository matchRepository) {
         this.tournamentRepository = tournamentRepository;
+        this.matchRepository = matchRepository;
     }
 
     /**
@@ -136,8 +145,19 @@ public class DefaultTournamentLifecycleService implements TournamentLifecycleSer
                             + tournamentId);
         }
 
-        // AC-NO-MATCH-CANCEL-IN-THIS-STORY: only update tournament.status
+        // E48S04: update tournament.status then bulk-cancel open matches
         t.setStatus("CANCELLED");
-        return tournamentRepository.save(t);
+        Tournament saved = tournamentRepository.save(t);
+
+        // AC-IMPL-MATCH-BULK-CANCEL (E48S04): bulk-cancel all unfinished matches inside the
+        // same @Transactional boundary — DEC-37 Clause B lock inherited from findByIdForUpdate
+        // above
+        int canceledCount = matchRepository.cancelOpenMatchesByTournamentId(tournamentId);
+        log.info(
+                "[E48S04] Bulk-cancelled {} open match(es) for tournament {}",
+                canceledCount,
+                tournamentId);
+
+        return saved;
     }
 }

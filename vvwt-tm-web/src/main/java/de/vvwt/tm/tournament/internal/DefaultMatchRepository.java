@@ -63,6 +63,15 @@ public class DefaultMatchRepository implements MatchRepository {
 
     private static final String EXISTS_BY_ID = "SELECT COUNT(*) FROM match WHERE id=?";
 
+    /**
+     * Bulk-cancels all unfinished matches for a tournament (E48S04, AC-IMPL-MATCH-BULK-CANCEL).
+     *
+     * <p>SQL: {@code UPDATE match SET state = -10 WHERE tournament_id = ? AND state IN (0, 10, 30,
+     * 35)}. Finished and already-cancelled matches are excluded — idempotent.
+     */
+    private static final String BULK_CANCEL_OPEN_MATCHES =
+            "UPDATE match SET state = -10 WHERE tournament_id = ? AND state IN (0, 10, 30, 35)";
+
     public DefaultMatchRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
     }
@@ -150,6 +159,12 @@ public class DefaultMatchRepository implements MatchRepository {
     @Override
     public void deleteById(UUID id) {
         jdbc.update(DELETE_BY_ID, id);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int cancelOpenMatchesByTournamentId(UUID tournamentId) {
+        return jdbc.update(BULK_CANCEL_OPEN_MATCHES, tournamentId);
     }
 
     // -------------------------------------------------------------------------
