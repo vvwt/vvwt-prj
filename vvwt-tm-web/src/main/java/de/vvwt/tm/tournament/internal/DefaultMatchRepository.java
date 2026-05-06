@@ -63,6 +63,18 @@ public class DefaultMatchRepository implements MatchRepository {
 
     private static final String EXISTS_BY_ID = "SELECT COUNT(*) FROM match WHERE id=?";
 
+    /**
+     * Bulk-cancel SQL — updates state to CANCELED(-10) for all unfinished matches. Only matches
+     * with state IN (OPEN=0, ENABLED=10, INPROGRESS=30, ONCHECK=35) are updated. Terminal states
+     * (FINISHED_*=50/51/52, CANCELED=-10) are excluded by the WHERE clause. schema-source:
+     * db/migration/tournament/V1__initial_schema.sql §match (AC-GOVERNANCE-NO-SCHEMA-CHANGE: pure
+     * DML, no DDL)
+     */
+    private static final String BULK_CANCEL_BY_TOURNAMENT =
+            "UPDATE match SET state = -10"
+                    + " WHERE tournament_id = ?"
+                    + " AND state IN (0, 10, 30, 35)";
+
     public DefaultMatchRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
     }
@@ -150,6 +162,19 @@ public class DefaultMatchRepository implements MatchRepository {
     @Override
     public void deleteById(UUID id) {
         jdbc.update(DELETE_BY_ID, id);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Executes a bulk UPDATE using {@link #BULK_CANCEL_BY_TOURNAMENT}: sets {@code state=-10}
+     * for all rows where {@code state IN (0, 10, 30, 35)} (OPEN/ENABLED/INPROGRESS/ONCHECK).
+     * Terminal matches (FINISHED_*, already-CANCELED) are excluded by the WHERE clause — their
+     * audit records are preserved (AC-TEST-FINISHED-MATCH-AUDIT-PRESERVED-RED, E48S04).
+     */
+    @Override
+    public int bulkCancelByTournamentId(UUID tournamentId) {
+        return jdbc.update(BULK_CANCEL_BY_TOURNAMENT, tournamentId);
     }
 
     // -------------------------------------------------------------------------

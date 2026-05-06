@@ -87,4 +87,21 @@ public interface MatchRepository {
      * @throws IllegalStateException if no tenant context is active
      */
     void deleteById(UUID id);
+
+    /**
+     * Bulk-cancels all unfinished matches for the given tournament by updating {@code state} to
+     * {@code CANCELED(-10)} where {@code state IN (OPEN=0, ENABLED=10, INPROGRESS=30, ONCHECK=35)}.
+     *
+     * <p>Terminal matches ({@code FINISHED_*} and already-{@code CANCELED}) are NOT touched — their
+     * audit records are preserved (AC-TEST-FINISHED-MATCH-AUDIT-PRESERVED-RED, E48S04).
+     *
+     * <p>This operation is pure DML — no DDL, no schema change (AC-GOVERNANCE-NO-SCHEMA-CHANGE).
+     *
+     * @param tournamentId the tournament whose unfinished matches to cancel
+     * @return the number of match rows updated (0 if all were already in terminal states)
+     * @throws IllegalStateException if no tenant context is active
+     * @see MatchState#CANCELED
+     * @see <a href="E48S04">E48S04 — Match-Cancel-Lockdown</a>
+     */
+    int bulkCancelByTournamentId(UUID tournamentId);
 }

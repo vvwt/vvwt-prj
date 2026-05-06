@@ -20,6 +20,7 @@ import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.exceptions.ForbiddenException;
+import de.vvwt.tm.tournament.exceptions.MatchCanceledException;
 import de.vvwt.tm.tournament.exceptions.UnauthorizedException;
 import java.util.Optional;
 import java.util.UUID;
@@ -287,6 +288,17 @@ public class DefaultScoreEntryService implements ScoreEntryService {
                             + device.getAssignedField()
                             + " but match is on field "
                             + match.getFieldNumber());
+        }
+
+        // E48S04 AC-IMPL-SCORE-SERVICE-GUARD: reject score submissions on CANCELED matches
+        // Lock-Order: state read is safe here (CANCELED is a terminal state — no write needed).
+        // Per AC-ERROR-HANDLING-CANCELED-MATCH-MESSAGE: operator-actionable message.
+        if (MatchState.CANCELED == match.getMatchState()) {
+            throw new MatchCanceledException(
+                    "Match "
+                            + request.matchId()
+                            + " is CANCELED — score submission rejected."
+                            + " Tournament was cancelled.");
         }
 
         UUID tournamentId = match.getTournamentId();

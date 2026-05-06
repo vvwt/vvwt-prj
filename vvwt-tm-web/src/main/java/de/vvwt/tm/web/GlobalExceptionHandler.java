@@ -15,6 +15,7 @@ import de.vvwt.tm.timer.audio.AudioStorageException;
 import de.vvwt.tm.tournament.ApiErrorResponse;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import de.vvwt.tm.tournament.exceptions.ForbiddenException;
+import de.vvwt.tm.tournament.exceptions.MatchCanceledException;
 import de.vvwt.tm.tournament.exceptions.TooManyRequestsException;
 import de.vvwt.tm.tournament.exceptions.TournamentNotFoundException;
 import de.vvwt.tm.tournament.exceptions.UnauthorizedException;
@@ -138,6 +139,19 @@ public class GlobalExceptionHandler {
             ConflictException ex, HttpServletRequest request) {
         log.debug("[tm-web] ConflictException: {}", ex.getMessage());
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), "error.conflict", request);
+    }
+
+    /**
+     * Maps {@link MatchCanceledException} to HTTP 409 Conflict (E48S04,
+     * AC-ERROR-HANDLING-CANCELED-MATCH-MESSAGE).
+     *
+     * <p>Score submissions on CANCELED matches are rejected with an operator-actionable message.
+     */
+    @ExceptionHandler(MatchCanceledException.class)
+    public ResponseEntity<ApiErrorResponse> handleMatchCanceled(
+            MatchCanceledException ex, HttpServletRequest request) {
+        log.debug("[tm-web] MatchCanceledException: {}", ex.getMessage());
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), "error.match.canceled", request);
     }
 
     /**

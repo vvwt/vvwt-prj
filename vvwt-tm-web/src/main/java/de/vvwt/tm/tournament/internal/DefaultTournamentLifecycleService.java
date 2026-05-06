@@ -1,5 +1,6 @@
 package de.vvwt.tm.tournament.internal;
 
+import de.vvwt.tm.tournament.MatchLockdownService;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentLifecycleService;
 import de.vvwt.tm.tournament.TournamentRepository;
@@ -17,14 +18,18 @@ import org.springframework.transaction.annotation.Transactional;
  * as its FIRST READ — serialising concurrent transitions on the same tournament aggregate root per
  * DEC-37 Clause B.
  *
- * <p>Match-Cancel-Lockdown (bulk-cancelling open matches when a tournament is cancelled) is NOT in
- * scope for this service — that belongs to E48S04. The {@code cancel()} method only updates {@code
- * tournament.status} per AC-NO-MATCH-CANCEL-IN-THIS-STORY.
+ * <p>Match-Cancel-Lockdown (bulk-cancelling open matches when a tournament is cancelled) is
+ * implemented in this service via {@link MatchLockdownService} injection. The {@code cancel()}
+ * method delegates to {@link MatchLockdownService#cancelOpenMatchesByTournamentId(UUID)} after the
+ * tournament status transition, within the same {@code @Transactional} boundary and under the same
+ * per-tournament DB row-lock (DEC-37 Clause B, E48S04).
  *
  * @see TournamentLifecycleService
+ * @see MatchLockdownService
  * @see <a href="DEC-35">DEC-35 — package layout: impl in .internal</a>
  * @see <a href="DEC-37">DEC-37 Clause B — per-tournament pessimistic DB row-lock</a>
  * @see <a href="E48S03">E48S03 — Tournament lifecycle transitions</a>
+ * @see <a href="E48S04">E48S04 — Match-Cancel-Lockdown</a>
  */
 @Service
 public class DefaultTournamentLifecycleService implements TournamentLifecycleService {
@@ -32,9 +37,12 @@ public class DefaultTournamentLifecycleService implements TournamentLifecycleSer
     private static final Set<String> CANCELLABLE_STATUSES = Set.of("PLANNED", "ACTIVE");
 
     private final TournamentRepository tournamentRepository;
+    private final MatchLockdownService matchLockdownService;
 
-    public DefaultTournamentLifecycleService(TournamentRepository tournamentRepository) {
+    public DefaultTournamentLifecycleService(
+            TournamentRepository tournamentRepository, MatchLockdownService matchLockdownService) {
         this.tournamentRepository = tournamentRepository;
+        this.matchLockdownService = matchLockdownService;
     }
 
     /**
@@ -119,8 +127,10 @@ public class DefaultTournamentLifecycleService implements TournamentLifecycleSer
      * read (DEC-37 Clause B). If the current status is not {@code PLANNED} or {@code ACTIVE},
      * throws {@link ConflictException} — mapped to HTTP 409 by {@code GlobalExceptionHandler}.
      *
-     * <p>This method only updates {@code tournament.status} — it does NOT cancel matches.
-     * Match-Cancel-Lockdown belongs to E48S04 per AC-NO-MATCH-CANCEL-IN-THIS-STORY.
+     * <p>After setting {@code tournament.status = CANCELLED}, delegates to {@link
+     * MatchLockdownService#cancelOpenMatchesByTournamentId(UUID)} to bulk-cancel all unfinished
+     * matches within the SAME transaction and under the SAME per-tournament DB row-lock (DEC-37
+     * Clause B, E48S04, AC-IMPL-MATCH-BULK-CANCEL).
      */
     @Override
     @Transactional
@@ -136,8 +146,13 @@ public class DefaultTournamentLifecycleService implements TournamentLifecycleSer
                             + tournamentId);
         }
 
-        // AC-NO-MATCH-CANCEL-IN-THIS-STORY: only update tournament.status
         t.setStatus("CANCELLED");
-        return tournamentRepository.save(t);
+        Tournament saved = tournamentRepository.save(t);
+
+        // E48S04 AC-IMPL-MATCH-BULK-CANCEL: bulk-cancel all unfinished matches
+        // within the same @Transactional boundary (DEC-37 Clause B lock is already held).
+        matchLockdownService.cancelOpenMatchesByTournamentId(tournamentId);
+
+        return saved;
     }
 }
