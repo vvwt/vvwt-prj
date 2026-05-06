@@ -1,6 +1,6 @@
 /**
  * Declarative parent-route map for the back-arrow navigation mechanism.
- * Story E47S01 — AC5, Brief D-12.
+ * Story E47S01 — AC5, Brief D-12. Updated by E48S15 — Brief D-2 (P→Tournaments).
  *
  * Maps route pattern → parent path template. The map is a const — no
  * regex-derivation, no path-segment-trimming heuristic (per Brief D-12
@@ -10,13 +10,23 @@
  * route params, returning the fully-resolved parent path. Returns null for
  * top-level routes (no back-arrow).
  *
- * S01 sub-routes (6): all map to /tournaments/:tournamentId/edit.
- * S02 adds TournamentForm-new (/tournaments/new → /tournaments),
- *          TournamentForm-edit (/tournaments/:id/edit → /tournaments),
- *          SlotOptimization (/tournaments/:tournamentId/slot-optimization → /tournaments/:tournamentId/edit).
+ * Convention (E48S15, User decision 2026-05-06):
+ *   - Tournament-sub-routes (/tournaments/:tournamentId/{subroute}) target /tournaments (the list).
+ *   - Sub-sub-routes (/tournaments/:tournamentId/phases/:phaseId/transition) target
+ *     their immediate parent (/phases).
+ *
+ * Rationale: Tournament-Edit is a one-time-setup page. Routing back through it strands
+ * the user and forces a 2-step navigation to reach the list. /tournaments is the user's
+ * natural navigation hub (User feedback 2026-05-06).
+ *
+ * Reference: Story E48S15, Brief discovery-2026-05-06-tournament-form-bugs D-2 (P→Tournaments).
+ *
+ * Future Discovery sessions adding new Tournament-sub-routes MUST default to /tournaments
+ * as the back-arrow target. Sub-sub-routes (per-phase, per-match drill-downs) target their
+ * immediate parent.
  *
  * DEC-2: pure TypeScript module — no SvelteKit primitives, no new npm dependency.
- * DEC-22: TDD Iron Law — RED-first tests in Teams.test.ts (AC5).
+ * DEC-22: TDD Iron Law — RED-first tests in Teams.test.ts.
  */
 
 /**
@@ -24,20 +34,20 @@
  * `:tournamentId` is a placeholder resolved at runtime by resolveParent().
  */
 export const PARENT_ROUTE_MAP: Record<string, string> = {
-  // S01 entries (8 Pattern-a routes)
-  '/tournaments/:tournamentId/teams': '/tournaments/:tournamentId/edit',
-  '/tournaments/:tournamentId/draft': '/tournaments/:tournamentId/edit',
-  '/tournaments/:tournamentId/audio': '/tournaments/:tournamentId/edit',
-  '/tournaments/:tournamentId/timer-link': '/tournaments/:tournamentId/edit',
-  '/tournaments/:tournamentId/photos': '/tournaments/:tournamentId/edit',
-  '/tournaments/:tournamentId/certificate-template': '/tournaments/:tournamentId/edit',
-  // S02 entries (3 special-pattern sub-routes — Brief D-12)
+  // Tournament sub-routes: all target /tournaments (the list) — E48S15 P→Tournaments convention
+  '/tournaments/:tournamentId/teams':                '/tournaments',
+  '/tournaments/:tournamentId/draft':                '/tournaments',
+  '/tournaments/:tournamentId/audio':                '/tournaments',
+  '/tournaments/:tournamentId/timer-link':           '/tournaments',
+  '/tournaments/:tournamentId/photos':               '/tournaments',
+  '/tournaments/:tournamentId/certificate-template': '/tournaments',
+  '/tournaments/:tournamentId/slot-optimization':    '/tournaments',
+  // Tournament CRUD routes (special-pattern — Brief D-12)
   '/tournaments/new': '/tournaments',
   '/tournaments/:id/edit': '/tournaments',
-  '/tournaments/:tournamentId/slot-optimization': '/tournaments/:tournamentId/edit',
   // E48S05: phases overview — back-arrow to tournament list
   '/tournaments/:tournamentId/phases': '/tournaments',
-  // E48S08: phase-transition DnD — back-arrow to phases overview
+  // E48S08: phase-transition DnD — sub-sub-route targets immediate parent (/phases)
   '/tournaments/:tournamentId/phases/:phaseId/transition': '/tournaments/:tournamentId/phases',
 };
 
@@ -50,7 +60,7 @@ export const PARENT_ROUTE_MAP: Record<string, string> = {
  *
  * @example
  * resolveParent('/tournaments/:tournamentId/teams', 'abc-123')
- * // → '/tournaments/abc-123/edit'
+ * // → '/tournaments'  (E48S15: P→Tournaments convention)
  *
  * resolveParent('/tournaments', '')
  * // → null
