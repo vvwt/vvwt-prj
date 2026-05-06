@@ -130,7 +130,8 @@ class TournamentCutoverSmokeIT {
                             "BEST_OF_3",
                             "setPoints",
                             "standardVolleyball",
-                            "roundRobin");
+                            "roundRobin",
+                            null);
             ResponseEntity<TournamentResponse> tournamentResp =
                     authed.postForEntity(
                             new URI(baseUrl + "/api/tournaments"),
@@ -227,7 +228,8 @@ class TournamentCutoverSmokeIT {
                         "BEST_OF_3",
                         "setPoints",
                         "standardVolleyball",
-                        "roundRobin");
+                        "roundRobin",
+                        null);
         ResponseEntity<String> response =
                 restTemplate.postForEntity(
                         new URI(baseUrl + "/api/tournaments"), request, String.class);

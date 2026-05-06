@@ -1,6 +1,7 @@
 /**
- * Tests for TournamentForm route — Story E47S02.
+ * Tests for TournamentForm route — Story E47S02 and E48S14.
  *
+ * E47S02 tests:
  * AC3: In-page <h1> gone from route body; title registered via pageHeader store.
  * AC4: main h1 GONE (RED: exists pre-migration) AND Save/Cancel still in form__actions (TRUE pre+post).
  * AC5: Back-arrow registered; backTo = '/tournaments' for both /new and /:id/edit.
@@ -9,8 +10,10 @@
  * AC8: No per-page back-button (pop() call bound to a back-button) in main body.
  * AC9: No in-template <h1> rendering the page title in main container.
  *
- * RED-first per DEC-22: AC3, AC4, AC5, AC8, AC9 fail before migration
- * (TournamentForm.svelte still has <h1> in main and no pageHeader registration).
+ * E48S14 tests:
+ * AC-TEST-FRONTEND-CREATE-PAYLOAD-RED: TournamentForm.svelte CREATE payload includes plannedStartTime.
+ * RED-first: before fix, the CREATE object literal at lines 126-135 omits plannedStartTime.
+ * After fix: plannedStartTime line mirrors the UPDATE payload at line 123.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -176,5 +179,44 @@ describe('TournamentForm.svelte — AC9: no in-place page title h1 in template (
     // Split at </script> to check only the template section
     const templatePart = source.split('</script>').slice(1).join('</script>');
     expect(templatePart).not.toContain('<h1');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AC-TEST-FRONTEND-CREATE-PAYLOAD-RED (E48S14)
+// RED-first: TournamentForm.svelte CREATE payload (lines 126-135) omits plannedStartTime
+// before the fix. After fix: mirrors the UPDATE payload which already includes it at line 123.
+// DEC-22 Iron Law: this test is RED before the payload-line addition.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('TournamentForm.svelte — AC-TEST-FRONTEND-CREATE-PAYLOAD-RED: CREATE payload includes plannedStartTime (E48S14)', () => {
+  it('TournamentForm.svelte CREATE payload object literal includes plannedStartTime field', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './TournamentForm.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // The CREATE payload is the const req: TournamentCreateRequest = { ... } block.
+    // Before fix: does NOT contain plannedStartTime in the CREATE branch.
+    // After fix: mirrors line 123 (UPDATE branch) with plannedStartTime conditional-trim.
+    // Mechanical check: the string 'plannedStartTime' must appear AFTER the 'else {' that starts
+    // the CREATE branch — specifically in the req object literal at 'const req: TournamentCreateRequest'.
+    const createBranchMatch = source.match(/const req: TournamentCreateRequest = \{([^}]+)\}/s);
+    expect(createBranchMatch).not.toBeNull();
+    const createBlock = createBranchMatch![1];
+    expect(createBlock).toContain('plannedStartTime');
+  });
+
+  it('TournamentCreateRequest TS interface in tournamentStore.ts includes optional plannedStartTime field', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const storeSrc = path.resolve(__dirname, '../stores/tournamentStore.ts');
+    const source = fs.readFileSync(storeSrc, 'utf8');
+    // Extract TournamentCreateRequest interface block
+    const ifaceMatch = source.match(/export interface TournamentCreateRequest \{([^}]+)\}/s);
+    expect(ifaceMatch).not.toBeNull();
+    const ifaceBlock = ifaceMatch![1];
+    // Before fix: interface does NOT declare plannedStartTime.
+    // After fix: declares 'plannedStartTime?: string | null'.
+    expect(ifaceBlock).toContain('plannedStartTime');
   });
 });

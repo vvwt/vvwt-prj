@@ -126,7 +126,8 @@ class TournamentSeedControllerIT {
                         "BEST_OF_3",
                         "setPoints",
                         "standardVolleyball",
-                        "roundRobin");
+                        "roundRobin",
+                        null);
 
         ResponseEntity<TournamentResponse> response =
                 authed.postForEntity(
@@ -247,7 +248,8 @@ class TournamentSeedControllerIT {
                         "BEST_OF_3",
                         "setPoints",
                         "standardVolleyball",
-                        "roundRobin");
+                        "roundRobin",
+                        null);
 
         ResponseEntity<String> response =
                 restTemplate.postForEntity(

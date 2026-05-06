@@ -76,6 +76,8 @@ public interface TournamentService {
      * @param scoringRuleId Spring bean ID of the scoring rule
      * @param setValidationRuleId Spring bean ID of the set validation rule
      * @param matchGeneratorId Spring bean ID of the match generator
+     * @param plannedStartTime optional planned start time for timeline calculation; {@code null}
+     *     means no start time set (E08S05 AC4; E48S14 bug-fix: was missing from CREATE path)
      * @return the persisted tournament (never {@code null})
      * @throws IllegalArgumentException if any bean ID is not registered or matchFormat is invalid
      */
@@ -87,7 +89,8 @@ public interface TournamentService {
             String matchFormat,
             String scoringRuleId,
             String setValidationRuleId,
-            String matchGeneratorId);
+            String matchGeneratorId,
+            LocalTime plannedStartTime);
 
     // -------------------------------------------------------------------------
     // AC4 — Update tournament

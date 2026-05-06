@@ -4,6 +4,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 /**
  * Request body for POST /api/tm/tournaments — reconstruction-in-place target (DEC-21/DEC-22).
@@ -19,7 +20,9 @@ import java.time.LocalDateTime;
  * @see de.vvwt.tm.tournament.internal.DefaultTournamentService
  * @see <a href="DEC-21">DEC-21 — Spring Modulith internal.dto package</a>
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
+ * @see <a href="E08S05">E08S05 — AC4 plannedStartTime introduction</a>
  * @see <a href="E21S02">E21S02 — Tournament aggregate reconstruction</a>
+ * @see <a href="E48S14">E48S14 — Bug-fix: plannedStartTime missing in CREATE path</a>
  */
 public record TournamentCreateRequest(
 
@@ -52,4 +55,14 @@ public record TournamentCreateRequest(
         @NotBlank(message = "setValidationRuleId is required") String setValidationRuleId,
 
         /** Spring bean ID of the match generator (required). */
-        @NotBlank(message = "matchGeneratorId is required") String matchGeneratorId) {}
+        @NotBlank(message = "matchGeneratorId is required") String matchGeneratorId,
+
+        /**
+         * Optional planned start time for timeline calculation. Null allowed — mirrors {@link
+         * TournamentUpdateRequest#plannedStartTime()} (E08S05 AC4). Bug-fix: previously missing
+         * from this record, causing {@code plannedStartTime} to be silently dropped on CREATE.
+         *
+         * @see <a href="E08S05">E08S05 — AC4 plannedStartTime introduction</a>
+         * @see <a href="E48S14">E48S14 — Bug-fix: field was absent from CREATE DTO</a>
+         */
+        LocalTime plannedStartTime) {}
