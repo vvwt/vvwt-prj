@@ -194,6 +194,84 @@ describe('DraftConfig.svelte — AC-TEST-FRONTEND-DRAFT-CONFIG-PHASE-SUBMISSION-
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// E48S11 — AC-TEST-FRONTEND-SUM-ROW-RED
+// Sum-row in Vorschau-Tabelle with Σ totalMatches + Σ estimatedTimeMinutes (formatDuration)
+// RED-first per DEC-22: these tests FAIL before DraftConfig.svelte adds <tfoot>
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('DraftConfig.svelte — AC-TEST-FRONTEND-SUM-ROW-RED (E48S11)', () => {
+  it('DraftConfig.svelte source contains a <tfoot> element for the sum-row', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // RED: fails before <tfoot> is added to the Vorschau-Tabelle
+    expect(source).toContain('<tfoot>');
+  });
+
+  it('DraftConfig.svelte source uses formatDuration in the preview table', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // RED: fails before formatDuration is imported and used
+    expect(source).toContain('formatDuration');
+  });
+
+  it('DraftConfig.svelte source references draftConfig.preview.sumLabel i18n key', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // RED: fails before the sum-row label key is added
+    expect(source).toContain('draftConfig.preview.sumLabel');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E48S11 — AC-TEST-FRONTEND-PHASE-START-TIME-RED
+// "Voraussichtl. Beginn" column — conditionally rendered when plannedStartTime != null
+// RED-first per DEC-22: these tests FAIL before DraftConfig.svelte adds the column
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('DraftConfig.svelte — AC-TEST-FRONTEND-PHASE-START-TIME-RED (E48S11)', () => {
+  it('DraftConfig.svelte source uses formatStartTime helper', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // RED: fails before formatStartTime is imported and used
+    expect(source).toContain('formatStartTime');
+  });
+
+  it('DraftConfig.svelte source references draftConfig.preview.columns.estimatedStart i18n key', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // RED: fails before the column header i18n key is added
+    expect(source).toContain('draftConfig.preview.columns.estimatedStart');
+  });
+
+  it('DraftConfig.svelte source conditionally renders start-time column based on plannedStartTime', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // RED: fails before the conditional render block is added
+    // The column must be conditioned on plannedStartTime being non-null.
+    // Implementations may use a derived boolean (e.g. showStartTime = plannedStartTime != null ...)
+    // or an inline {#if plannedStartTime ...} block — both are valid.
+    const hasDirectConditional = /\{#if.*plannedStartTime.*\}/.test(source);
+    const hasDerivedConditional =
+      /plannedStartTime\s*!=\s*null/.test(source) && /\{#if\s+showStartTime/.test(source);
+    expect(hasDirectConditional || hasDerivedConditional).toBe(true);
+    // And must reference the estimatedStart key
+    expect(source).toContain('draftConfig.preview.columns.estimatedStart');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // E48S09 — AC-TEST-FRONTEND-RUNDENZEIT-DISABLED-RED
 // Rundenzeit input disabled for siegerehrung gameMode sections
 // RED-first per DEC-22: these tests FAIL before DraftConfig.svelte adds the disabled attribute

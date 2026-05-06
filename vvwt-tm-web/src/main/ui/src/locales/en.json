@@ -2,6 +2,12 @@
   "draftConfig": {
     "rundenzeit": {
       "disabledTooltip": "Lap time has no effect for Siegerehrung phases"
+    },
+    "preview": {
+      "sumLabel": "Total",
+      "columns": {
+        "estimatedStart": "Estimated Start"
+      }
     }
   }
 }
