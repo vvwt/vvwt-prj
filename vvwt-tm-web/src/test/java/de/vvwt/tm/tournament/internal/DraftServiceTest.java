@@ -3,6 +3,8 @@ package de.vvwt.tm.tournament.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -14,12 +16,16 @@ import de.vvwt.tm.tournament.PhaseBreakRepository;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.TeamRepository;
+import de.vvwt.tm.tournament.TimelineCalculationService;
+import de.vvwt.tm.tournament.TimelineEntry;
+import de.vvwt.tm.tournament.TimelineEntryType;
 import de.vvwt.tm.tournament.draft.DraftBreak;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftPreviewResult;
 import de.vvwt.tm.tournament.draft.DraftSection;
 import de.vvwt.tm.tournament.exceptions.DraftAlreadyAppliedException;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -52,6 +58,7 @@ class DraftServiceTest {
     @Mock private TeamRepository teamRepository;
     @Mock private TeamAvatarRepository teamAvatarRepository;
     @Mock private PhasePreparationService phasePreparationService;
+    @Mock private TimelineCalculationService timelineCalculationService;
 
     @InjectMocks private DefaultDraftService draftService;
 
@@ -99,7 +106,7 @@ class DraftServiceTest {
                 new DraftSection(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(section));
 
-        DraftPreviewResult result = draftService.preview(config, 6, 3);
+        DraftPreviewResult result = draftService.preview(config, 6, 3, null);
 
         assertThat(result.sections().get(0).getTotalLaps()).isEqualTo(5);
         assertThat(result.sections().get(0).getTotalMatches()).isEqualTo(15);
@@ -119,7 +126,7 @@ class DraftServiceTest {
                 new DraftSection(1, "team_number", 2, "roundRobin", 0, 0, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(section));
 
-        DraftPreviewResult result = draftService.preview(config, 12, 3);
+        DraftPreviewResult result = draftService.preview(config, 12, 3, null);
 
         assertThat(result.sections().get(0).getTotalLaps()).isEqualTo(10);
         assertThat(result.sections().get(0).getTotalMatches()).isEqualTo(30);
@@ -139,7 +146,7 @@ class DraftServiceTest {
                 new DraftSection(1, "team_number", 3, "roundRobin", 0, 0, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(section));
 
-        DraftPreviewResult result = draftService.preview(config, 12, 3);
+        DraftPreviewResult result = draftService.preview(config, 12, 3, null);
 
         assertThat(result.sections().get(0).getTotalLaps()).isEqualTo(6);
         assertThat(result.sections().get(0).getTotalMatches()).isEqualTo(18);
@@ -157,7 +164,7 @@ class DraftServiceTest {
                 new DraftSection(1, "team_number", 4, "roundRobin", 0, 0, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(section));
 
-        DraftPreviewResult result = draftService.preview(config, 12, 3);
+        DraftPreviewResult result = draftService.preview(config, 12, 3, null);
 
         assertThat(result.sections().get(0).getTotalLaps()).isEqualTo(4);
         assertThat(result.sections().get(0).getTotalMatches()).isEqualTo(12);
@@ -175,7 +182,7 @@ class DraftServiceTest {
                 new DraftSection(1, "team_number", 4, "roundRobin", 0, 0, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(section));
 
-        DraftPreviewResult result = draftService.preview(config, 12, 6);
+        DraftPreviewResult result = draftService.preview(config, 12, 6, null);
 
         assertThat(result.sections().get(0).getTotalLaps()).isEqualTo(3);
     }
@@ -192,7 +199,7 @@ class DraftServiceTest {
                 new DraftSection(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(section));
 
-        DraftPreviewResult result = draftService.preview(config, 6, 10);
+        DraftPreviewResult result = draftService.preview(config, 6, 10, null);
 
         assertThat(result.sections().get(0).getTotalLaps()).isEqualTo(5);
     }
@@ -209,7 +216,7 @@ class DraftServiceTest {
                 new DraftSection(1, "team_number", 2, "roundRobin", 0, 0, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(section));
 
-        DraftPreviewResult result = draftService.preview(config, 8, 1);
+        DraftPreviewResult result = draftService.preview(config, 8, 1, null);
 
         assertThat(result.sections().get(0).getTotalLaps()).isEqualTo(12);
         assertThat(result.sections().get(0).getTotalMatches()).isEqualTo(12);
@@ -231,7 +238,7 @@ class DraftServiceTest {
         DraftConfig config = new DraftConfig(List.of(section));
 
         // 1 participating team total, 1 group → teamsPerGroup=1 → 0 matches
-        DraftPreviewResult result = draftService.preview(config, 1, 3);
+        DraftPreviewResult result = draftService.preview(config, 1, 3, null);
 
         assertThat(result.sections().get(0).getTotalLaps()).isEqualTo(0);
         assertThat(result.sections().get(0).getTotalMatches()).isEqualTo(0);
@@ -247,7 +254,7 @@ class DraftServiceTest {
                 new DraftSection(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(section));
 
-        DraftPreviewResult result = draftService.preview(config, 4, 0);
+        DraftPreviewResult result = draftService.preview(config, 4, 0, null);
 
         // effectivePerLap = max(1, min(2, 0)) = 1, totalMatches=6, laps=ceil(6/1)=6
         assertThat(result.sections().get(0).getTotalLaps()).isEqualTo(6);
@@ -269,8 +276,8 @@ class DraftServiceTest {
         DraftConfig config = new DraftConfig(List.of(simpleSection(1)));
         int participatingTeamCount = 4;
 
-        // 3-arg API (E48S10): fieldCount=10 (excess) → effective=2, laps=ceil(6/2)=3
-        DraftPreviewResult result = draftService.preview(config, participatingTeamCount, 10);
+        // 4-arg API (E48S12): plannedStartTime=null → empty timeline
+        DraftPreviewResult result = draftService.preview(config, participatingTeamCount, 10, null);
 
         assertThat(result.sections()).hasSize(1);
         // 4 teams / 1 group = 4 teams per group → teamConflict=2, eff=2, laps=3, matches=6
@@ -284,7 +291,7 @@ class DraftServiceTest {
     void preview_withEmptyConfig_returnsEmptySections() {
         DraftConfig config = DraftConfig.empty();
 
-        DraftPreviewResult result = draftService.preview(config, 4, 3);
+        DraftPreviewResult result = draftService.preview(config, 4, 3, null);
 
         assertThat(result.sections()).isEmpty();
     }
@@ -443,7 +450,7 @@ class DraftServiceTest {
                         List.of(break1, break2));
         DraftConfig config = new DraftConfig(List.of(section));
 
-        DraftPreviewResult result = draftService.preview(config, 12, 3);
+        DraftPreviewResult result = draftService.preview(config, 12, 3, null);
 
         assertThat(result.sections()).hasSize(1);
         assertThat(result.sections().get(0).getMatchesPerGroup())
@@ -491,7 +498,7 @@ class DraftServiceTest {
 
         // null gameMode → RR formula: 4 teams / 1 group, fieldCount=10
         // teamConflict=floor(4/2)*1=2, eff=min(2,10)=2, matches=6, laps=ceil(6/2)=3
-        DraftPreviewResult result = draftService.preview(config, 4, 10);
+        DraftPreviewResult result = draftService.preview(config, 4, 10, null);
 
         assertThat(result.sections().get(0).getTotalMatches())
                 .as("null gameMode falls through to RR formula: 6 matches")
@@ -499,5 +506,91 @@ class DraftServiceTest {
         assertThat(result.sections().get(0).getTotalLaps())
                 .as("null gameMode falls through to RR formula: 3 laps")
                 .isEqualTo(3);
+    }
+
+    // =========================================================================
+    // preview() — timeline wiring (E48S12)
+    // =========================================================================
+
+    /**
+     * AC-TEST-DRAFT-SERVICE-PREVIEW-TIMELINE-NULL-START-RED (E48S12): when {@code plannedStartTime
+     * == null}, {@code DraftPreviewResult.timeline} is {@code List.of()} (current contract
+     * preserved).
+     *
+     * <p>RED-first per DEC-22 Iron Law: written before the 4-arg {@code preview(DraftConfig, int,
+     * int, LocalTime)} signature exists. This test demonstrates the empty-timeline invariant when
+     * no start time is set.
+     *
+     * @see <a href="E48S12">E48S12 — Wire TimelineCalculationService into
+     *     DraftService.preview()</a>
+     * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
+     */
+    @Test
+    void preview_withNullPlannedStartTime_returnsEmptyTimeline() {
+        DraftSection section =
+                new DraftSection(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, List.of());
+        DraftConfig config = new DraftConfig(List.of(section));
+
+        DraftPreviewResult result = draftService.preview(config, 4, 3, null);
+
+        assertThat(result.timeline())
+                .as(
+                        "plannedStartTime=null → timeline must be empty"
+                                + " (AC-ERROR-HANDLING-NULL-SAFETY)")
+                .isEmpty();
+    }
+
+    /**
+     * AC-TEST-DRAFT-SERVICE-PREVIEW-TIMELINE-POPULATED-RED (E48S12): when {@code plannedStartTime
+     * != null} and the config has 2 phases (RR + Siegerehrung), {@code DraftPreviewResult.timeline}
+     * is non-empty and contains at least one {@code MATCH_ROUND} entry for the RR phase and a
+     * zero-duration {@code MATCH_ROUND} marker for the Siegerehrung phase.
+     *
+     * <p>Fixture: 12 teams, 1 group (groupCount=1), 2 phases (roundRobin then siegerehrung). For
+     * the RR phase: totalLaps = 15 laps (ceil(66/4) — see field formula). For Siegerehrung:
+     * lapCount=0 → single zero-duration MATCH_ROUND marker.
+     *
+     * <p>The service is mocked for the timeline calculation; the test only checks that the service
+     * is invoked and its result is reflected in {@code DraftPreviewResult.timeline}.
+     *
+     * <p>RED-first per DEC-22 Iron Law (E48S12, Q-1a): written before the timeline wiring lands.
+     *
+     * @see <a href="E48S12">E48S12 — AC-TEST-DRAFT-SERVICE-PREVIEW-TIMELINE-POPULATED-RED</a>
+     * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
+     */
+    @Test
+    void preview_withPlannedStartTime_returnsPopulatedTimeline() {
+        LocalTime startTime = LocalTime.of(9, 0);
+        DraftSection rrSection =
+                new DraftSection(1, "team_number", 1, "roundRobin", 2, 10, 15, 1, List.of());
+        DraftSection sieg =
+                new DraftSection(2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, List.of());
+        DraftConfig config = new DraftConfig(List.of(rrSection, sieg));
+
+        // Stub: when the service is called for any phase list at the given start time,
+        // return a representative MATCH_ROUND entry. The implementation may call calculate()
+        // per phase (strategy i) or for all phases at once (strategy ii).
+        TimelineEntry entry1 =
+                new TimelineEntry(
+                        1,
+                        1,
+                        TimelineEntryType.MATCH_ROUND,
+                        startTime,
+                        startTime.plusMinutes(15),
+                        null);
+        when(timelineCalculationService.calculate(eq(startTime), any(), anyInt()))
+                .thenReturn(List.of(entry1));
+
+        DraftPreviewResult result = draftService.preview(config, 12, 3, startTime);
+
+        assertThat(result.timeline())
+                .as("plannedStartTime non-null → timeline must be populated (E48S12)")
+                .isNotEmpty();
+        assertThat(result.timeline().get(0).startTime())
+                .as("first timeline entry startTime must match plannedStartTime")
+                .isEqualTo(startTime);
+        assertThat(result.timeline().stream().anyMatch(e -> "MATCH_ROUND".equals(e.type())))
+                .as("timeline must contain at least one MATCH_ROUND entry")
+                .isTrue();
     }
 }

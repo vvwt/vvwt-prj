@@ -2,6 +2,7 @@ package de.vvwt.tm.tournament;
 
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftPreviewResult;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -15,7 +16,7 @@ import java.util.UUID;
  * <h2>Operations</h2>
  *
  * <ul>
- *   <li>{@link #preview(DraftConfig, int, int)} — pure computation, no DB side effect
+ *   <li>{@link #preview(DraftConfig, int, int, LocalTime)} — pure computation, no DB side effect
  *   <li>{@link #apply(UUID, DraftConfig)} — creates Phase entities via the Phase-aggregate
  *       collaborators from E21S03
  *   <li>{@link #loadDraft(UUID)} — loads the current draft configuration from the tournament row
@@ -43,15 +44,24 @@ public interface DraftService {
      * <p>Formula: {@code effectivePerLap = max(1, min(floor(teamsPerGroup/2) * groupCount,
      * fieldCount))}; {@code totalLaps = ceil(totalMatches / effectivePerLap)}.
      *
-     * <p>No overload retained — the 2-arg form is removed per AC-IMPL-DRAFT-SERVICE-SIGNATURE.
+     * <p>When {@code plannedStartTime} is non-null, the result includes a populated {@code
+     * timeline} list computed by {@link TimelineCalculationService}. When {@code null}, the {@code
+     * timeline} field of the result is empty (AC-ERROR-HANDLING-NULL-SAFETY, E48S12).
      *
      * @param config the draft configuration to preview; must not be {@code null}
      * @param participatingTeamCount number of participating teams
      * @param fieldCount number of available fields; values ≤ 0 are clamped to 1
+     * @param plannedStartTime optional tournament start time; {@code null} → empty timeline
      * @return preview result; never {@code null}
      * @see <a href="E48S10">E48S10 — AC-IMPL-COMPUTE-PREVIEW-FIELD-AWARE-FORMULA</a>
+     * @see <a href="E48S12">E48S12 — Timeline wiring
+     *     (AC-IMPL-DRAFT-SERVICE-PREVIEW-WIRES-TIMELINE-SERVICE)</a>
      */
-    DraftPreviewResult preview(DraftConfig config, int participatingTeamCount, int fieldCount);
+    DraftPreviewResult preview(
+            DraftConfig config,
+            int participatingTeamCount,
+            int fieldCount,
+            LocalTime plannedStartTime);
 
     /**
      * Applies the draft configuration to create Phase entities.
