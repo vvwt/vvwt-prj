@@ -1,20 +1,28 @@
 <script lang="ts">
   /**
-   * Phase overview list for a tournament — Story E48S05.
+   * Phase overview list for a tournament — Story E48S05 + E48S06.
    *
    * Displays all phases of a tournament with their:
    *   - sequenceNumber, description, status badge, gameMode, currentLapNumber, match counts
+   *   - Status-conditional lifecycle buttons (E48S06):
+   *       PENDING: "Phase starten"
+   *       ACTIVE:  "Phase abschließen" (disabled when unfinished matches > 0, with tooltip)
+   *                "Notabschluss" (with confirmation, visible only in ACTIVE)
    *
    * Navigation entry point: Tournaments.svelte "Phasen" button (AC-FRONTEND-NAV-FROM-TOURNAMENTS).
    * E47 shell mechanism (AC-FRONTEND-E47-HEADER-INTEGRATION): registers title + back-button via
    * pageHeader store; no per-page __header block.
-   *
-   * Read-only — no lifecycle buttons (those are E48S06 scope).
    */
   import { onMount, onDestroy } from 'svelte';
   import { get } from 'svelte/store';
   import { _ } from 'svelte-i18n';
-  import { listPhases, type PhaseOverview } from '../stores/phaseStore.js';
+  import {
+    listPhases,
+    startPhase,
+    completePhase,
+    forceCompletePhase,
+    type PhaseOverview,
+  } from '../stores/phaseStore.js';
   import { pageHeader, resetPageHeader } from '../stores/pageHeaderStore.js';
   import { resolveParent } from '../lib/parentRouteMap.js';
 
@@ -29,6 +37,8 @@
   let phases = $state<PhaseOverview[]>([]);
   let loading = $state(true);
   let loadError = $state<string | null>(null);
+  let actionError = $state<string | null>(null);
+  let actionInProgress = $state<string | null>(null); // phaseId of in-flight action
 
   // ── Lifecycle ─────────────────────────────────────────────────
   onMount(async () => {
@@ -89,6 +99,63 @@
     return (s.OPEN ?? 0) + (s.ENABLED ?? 0) + (s.INPROGRESS ?? 0) + (s.ONCHECK ?? 0)
         + finishedCount(phase);
   }
+
+  /**
+   * AC-FRONTEND-COMPLETE-DISABLED-LOGIC: counts unfinished matches for a phase.
+   * Unfinished = OPEN + ENABLED + INPROGRESS + ONCHECK.
+   */
+  function unfinishedCount(phase: PhaseOverview): number {
+    const s = phase.matchCountsByState;
+    return (s.OPEN ?? 0) + (s.ENABLED ?? 0) + (s.INPROGRESS ?? 0) + (s.ONCHECK ?? 0);
+  }
+
+  // ── Action handlers ───────────────────────────────────────────
+
+  async function handleStart(phaseId: string): Promise<void> {
+    actionInProgress = phaseId;
+    actionError = null;
+    try {
+      await startPhase(phaseId);
+      await loadPhases();
+    } catch (e: unknown) {
+      actionError = e instanceof Error ? e.message : get(_)('phases.lifecycleError');
+    } finally {
+      actionInProgress = null;
+    }
+  }
+
+  async function handleComplete(phaseId: string): Promise<void> {
+    actionInProgress = phaseId;
+    actionError = null;
+    try {
+      await completePhase(phaseId);
+      await loadPhases();
+    } catch (e: unknown) {
+      actionError = e instanceof Error ? e.message : get(_)('phases.lifecycleError');
+    } finally {
+      actionInProgress = null;
+    }
+  }
+
+  async function handleForceComplete(phase: PhaseOverview): Promise<void> {
+    const unfinished = unfinishedCount(phase);
+    const confirmMsg = get(_)('phases.forceCompleteConfirm').replace(
+      '{count}',
+      String(unfinished)
+    );
+    if (!window.confirm(confirmMsg)) return;
+
+    actionInProgress = phase.id;
+    actionError = null;
+    try {
+      await forceCompletePhase(phase.id);
+      await loadPhases();
+    } catch (e: unknown) {
+      actionError = e instanceof Error ? e.message : get(_)('phases.lifecycleError');
+    } finally {
+      actionInProgress = null;
+    }
+  }
 </script>
 
 <main class="phases">
@@ -100,6 +167,9 @@
   {:else if phases.length === 0}
     <p class="phases__empty">{$_('phases.empty')}</p>
   {:else}
+    {#if actionError}
+      <div class="phases__action-error">{actionError}</div>
+    {/if}
     <table class="phases__table">
       <thead>
         <tr>
@@ -109,6 +179,7 @@
           <th>{$_('phases.columns.gameMode')}</th>
           <th>{$_('phases.columns.currentLap')}</th>
           <th>{$_('phases.columns.matches')}</th>
+          <th>{$_('phases.columns.actions')}</th>
         </tr>
       </thead>
       <tbody>
@@ -124,6 +195,41 @@
             <td>{formatGameMode(phase.gameMode)}</td>
             <td>{phase.currentLapNumber}</td>
             <td>{finishedCount(phase)}&thinsp;/&thinsp;{totalCount(phase)}</td>
+            <td class="phases__actions">
+              {#if phase.status === 'PENDING'}
+                <!-- AC-FRONTEND-PHASE-LIFECYCLE-BUTTONS: PENDING → "Phase starten" -->
+                <button
+                  class="btn btn--primary"
+                  disabled={actionInProgress === phase.id}
+                  onclick={() => handleStart(phase.id)}
+                >
+                  {$_('phases.startButton')}
+                </button>
+              {:else if phase.status === 'ACTIVE'}
+                <!-- AC-FRONTEND-PHASE-LIFECYCLE-BUTTONS: ACTIVE → "Phase abschließen" (disabled if unfinished) -->
+                <!-- AC-FRONTEND-COMPLETE-DISABLED-LOGIC: disabled when unfinished > 0 -->
+                <button
+                  class="btn btn--secondary"
+                  disabled={actionInProgress === phase.id || unfinishedCount(phase) > 0}
+                  title={unfinishedCount(phase) > 0
+                    ? $_('phases.completeDisabledTooltip')
+                    : undefined}
+                  onclick={() => handleComplete(phase.id)}
+                >
+                  {$_('phases.completeButton')}
+                </button>
+                <!-- AC-FRONTEND-PHASE-LIFECYCLE-BUTTONS: ACTIVE → "Notabschluss" (with confirmation) -->
+                <!-- AC-FRONTEND-FORCE-COMPLETE-CONFIRMATION: opens confirmation dialog -->
+                <button
+                  class="btn btn--danger"
+                  disabled={actionInProgress === phase.id}
+                  onclick={() => handleForceComplete(phase)}
+                >
+                  {$_('phases.forceCompleteButton')}
+                </button>
+              {/if}
+              <!-- COMPLETED: no buttons per AC-FRONTEND-PHASE-LIFECYCLE-BUTTONS -->
+            </td>
           </tr>
         {/each}
       </tbody>
@@ -159,9 +265,22 @@
     margin-bottom: 1rem;
   }
 
+  .phases__action-error {
+    color: #c0392b;
+    background: #fdecea;
+    border: 1px solid #e74c3c;
+    border-radius: 4px;
+    padding: 0.5rem 1rem;
+    margin-bottom: 1rem;
+  }
+
   .phases__loading,
   .phases__empty {
     color: #666;
+  }
+
+  .phases__actions {
+    white-space: nowrap;
   }
 
   /* AC-FRONTEND-STATUS-BADGE: color-coding per Brief Q-3 */
@@ -186,5 +305,48 @@
   .badge--completed {
     background: #d6eaf8;
     color: #1a5276;
+  }
+
+  /* Lifecycle buttons */
+  .btn {
+    display: inline-block;
+    border: none;
+    border-radius: 4px;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    margin-right: 0.25rem;
+  }
+
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn--primary {
+    background: #2980b9;
+    color: #fff;
+  }
+
+  .btn--primary:hover:not(:disabled) {
+    background: #1a6a9a;
+  }
+
+  .btn--secondary {
+    background: #27ae60;
+    color: #fff;
+  }
+
+  .btn--secondary:hover:not(:disabled) {
+    background: #1e8449;
+  }
+
+  .btn--danger {
+    background: #e74c3c;
+    color: #fff;
+  }
+
+  .btn--danger:hover:not(:disabled) {
+    background: #c0392b;
   }
 </style>
