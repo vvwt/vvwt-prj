@@ -9,6 +9,7 @@ import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.TournamentService;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftApplyResponse;
+import de.vvwt.tm.tournament.internal.dto.draft.DraftPreviewResponse;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftRequest;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftResponse;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftSectionRequest;
@@ -515,6 +516,78 @@ class DraftControllerIT {
         assertThat(response.getStatusCode())
                 .as("unauthenticated request must return 401")
                 .isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    // =========================================================================
+    // AC-TEST-CONTROLLER-IT-FIELDCOUNT-WIRING (E48S10)
+    // =========================================================================
+
+    /**
+     * AC-TEST-CONTROLLER-IT-FIELDCOUNT-WIRING: POST /api/tournaments/{id}/draft/preview returns
+     * totalLaps consistent with the tournament's persisted {@code field_count} value.
+     *
+     * <h2>Fixture (Brief Scenario B)</h2>
+     *
+     * <ul>
+     *   <li>Tournament: 12 teams, field_count=3
+     *   <li>Config: 1-phase round-robin, groupCount=2 (→ 2 groups of 6)
+     *   <li>Expected: totalLaps=10 (ceil(30/3)=10; current bug yields 5)
+     * </ul>
+     *
+     * <h2>DEC-44 §2026-04-27 empirical refinement</h2>
+     *
+     * <p>Uses {@code @Import({WebModuleTestConfig.class, TestAdminCredentials.class})} with inner
+     * {@code @Primary AdminCredentialsProvider} via {@code TestAdminCredentials} inner class.
+     *
+     * <p>RED-first: written before {@code DraftController.previewDraft} passes fieldCount (E48S10,
+     * DEC-22 Iron Law). The controller still calls 2-arg preview at RED time.
+     */
+    @Test
+    @DisplayName(
+            "POST /draft/preview with field_count=3, 12 teams, 2 groups returns totalLaps=10"
+                    + " (E48S10 Scenario B)")
+    void previewDraft_withFieldCount3_12teams2groups_returns10Laps() throws Exception {
+        // Create tournament with 12 teams, field_count=3
+        UUID tournamentId;
+        tenantBinder.bindDefaultTenant();
+        try {
+            tournamentId =
+                    tournamentService
+                            .createTournament(
+                                    "IT preview fieldCount E48S10",
+                                    null,
+                                    12, // teamCount
+                                    3, // fieldCount
+                                    "BEST_OF_3",
+                                    "setPoints",
+                                    "standardVolleyball",
+                                    "roundRobin")
+                            .getId();
+        } finally {
+            tenantBinder.unbind();
+        }
+
+        // Config: 1 phase, groupCount=2 (2 groups of 6 teams each), roundRobin
+        var section = new DraftSectionRequest(1, "team_number", 2, "roundRobin", 0, 0, 15, 1, null);
+        DraftRequest request = new DraftRequest(List.of(section));
+
+        ResponseEntity<DraftPreviewResponse> response =
+                authed.postForEntity(
+                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/draft/preview"),
+                        request,
+                        DraftPreviewResponse.class);
+
+        assertThat(response.getStatusCode())
+                .as("POST /draft/preview must return 200 OK")
+                .isEqualTo(org.springframework.http.HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().sections()).hasSize(1);
+        assertThat(response.getBody().sections().get(0).totalLaps())
+                .as(
+                        "12 teams, 2 groups of 6, field_count=3 → "
+                                + "teamConflict=3*2=6, eff=min(6,3)=3, "
+                                + "matches=30, laps=ceil(30/3)=10")
+                .isEqualTo(10);
     }
 
     // =========================================================================

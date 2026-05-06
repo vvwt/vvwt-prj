@@ -36,7 +36,7 @@ import org.springframework.stereotype.Service;
  * <h2>Scoped API</h2>
  *
  * <ul>
- *   <li>{@link #preview(DraftConfig, int)} — pure computation, no DB side effect
+ *   <li>{@link #preview(DraftConfig, int, int)} — pure computation, no DB side effect
  *   <li>{@link #apply(UUID, DraftConfig)} — creates Phase entities via the Phase-aggregate
  *       collaborators from E21S03
  *   <li>{@link #loadDraft(UUID)} — loads current draft config from Tournament.draftJson (E21S19)
@@ -117,22 +117,30 @@ public class DefaultDraftService implements DraftService {
      * Calculates a preview of what the draft will produce without creating any entities.
      *
      * <p>For each section, computes: phase number, group count, teams per group, matches per group
-     * (round-robin), total laps, total matches, and estimated duration.
+     * (round-robin), total laps (field-count-aware per E48S10), total matches, and estimated
+     * duration.
      *
      * <p>Timeline entries are currently empty ({@code List.of()}) — the timeline domain classes
      * ({@code TimelineCalculationService}, {@code TimelineEntry}) arrive in E21S11. The result
      * shape is established here; E21S11 will populate the timeline list.
      *
+     * <p>The {@code fieldCount} parameter is threaded from {@code tournament.getFieldCount()} by
+     * the controller (E48S10, AC-IMPL-DRAFT-CONTROLLER-LOAD-FIELDCOUNT). Values ≤ 0 are clamped to
+     * 1 by the formula (AC-ERROR-HANDLING-FIELDCOUNT-CLAMP).
+     *
      * @param config the draft configuration to preview; must not be {@code null}
      * @param participatingTeamCount number of participating teams
+     * @param fieldCount number of available fields; values ≤ 0 are clamped to 1
      * @return preview result; never {@code null}
      * @see <a href="E21S11">E21S11 — Timeline domain classes (future timeline population)</a>
+     * @see <a href="E48S10">E48S10 — AC-IMPL-COMPUTE-PREVIEW-FIELD-AWARE-FORMULA</a>
      */
     @Override
-    public DraftPreviewResult preview(DraftConfig config, int participatingTeamCount) {
+    public DraftPreviewResult preview(
+            DraftConfig config, int participatingTeamCount, int fieldCount) {
         List<DraftPreviewSection> previews = new ArrayList<>();
         for (DraftSection section : config.getSections()) {
-            previews.add(computePreview(section, participatingTeamCount));
+            previews.add(computePreview(section, participatingTeamCount, fieldCount));
         }
         // Timeline entries deferred to E21S11 (TimelineCalculationService)
         return new DraftPreviewResult(previews, List.of());
@@ -325,18 +333,44 @@ public class DefaultDraftService implements DraftService {
     // -------------------------------------------------------------------------
 
     /**
-     * Computes the preview for one section given the participating team count.
+     * Computes the preview for one section given the participating team count and field count.
+     *
+     * <h2>Field-count-aware lap formula (E48S10)</h2>
+     *
+     * <p>A "Runde" (round) is a time-slot where each team plays at most one match. The number of
+     * concurrent matches per round is bounded by two constraints:
+     *
+     * <ul>
+     *   <li><b>Team-conflict bound:</b> {@code floor(teamsPerGroup / 2) * groupCount} — at most one
+     *       match per team per round; this is the maximum simultaneous matches across all groups.
+     *   <li><b>Field bound:</b> {@code fieldCount} — the number of available playing fields.
+     * </ul>
+     *
+     * <p>Formula: {@code effectivePerLap = max(1, min(teamConflictPerLap, fieldCount))}; {@code
+     * totalLaps = totalMatches == 0 ? 0 : ceil(totalMatches / effectivePerLap)}.
+     *
+     * <p>Lower-bound rationale (T-6): the real slot-optimizer may achieve fewer laps via smarter
+     * scheduling; the preview is a conservative estimate, not an exact scheduler simulation.
      *
      * @param section the section configuration
      * @param participatingTeamCount total participating teams in the tournament
+     * @param fieldCount number of available fields; values ≤ 0 are clamped to 1 via {@code max(1,
+     *     ...)}
      * @return the computed preview section
+     * @see <a href="E48S10">E48S10 — AC-IMPL-COMPUTE-PREVIEW-FIELD-AWARE-FORMULA</a>
      */
-    private DraftPreviewSection computePreview(DraftSection section, int participatingTeamCount) {
+    private DraftPreviewSection computePreview(
+            DraftSection section, int participatingTeamCount, int fieldCount) {
         int groupCount = section.getGroupCount();
         int teamsPerGroup = participatingTeamCount / groupCount;
         int matchesPerGroup = teamsPerGroup > 1 ? teamsPerGroup * (teamsPerGroup - 1) / 2 : 0;
-        int totalLaps = teamsPerGroup > 1 ? teamsPerGroup - 1 : 0;
         int totalMatches = groupCount * matchesPerGroup;
+
+        // Field-count-aware lap formula (E48S10, AC-IMPL-COMPUTE-PREVIEW-FIELD-AWARE-FORMULA)
+        int teamConflictPerLap = (teamsPerGroup / 2) * groupCount;
+        int effectivePerLap = Math.max(1, Math.min(teamConflictPerLap, fieldCount));
+        int totalLaps =
+                totalMatches == 0 ? 0 : (int) Math.ceil((double) totalMatches / effectivePerLap);
 
         int interLapBreaks = Math.max(0, totalLaps - 1) * section.getLapBreakTimeMinutes();
         int lapTime = totalLaps * section.getLapTimeMinutes();

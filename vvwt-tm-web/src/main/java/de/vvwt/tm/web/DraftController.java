@@ -162,6 +162,11 @@ public class DraftController {
      * pre-fix hardcoded {@code 0} which caused meaningless preview math (Bug 1b). Returns 404 if
      * the tournament is not found (AC-TEST-BE-CROSS-TENANT-404-PRESERVED).
      *
+     * <p>E48S10 AC-IMPL-DRAFT-CONTROLLER-LOAD-FIELDCOUNT: additionally loads {@link
+     * Tournament#getFieldCount()} from the SAME Tournament instance already fetched for {@code
+     * getTeamCount()} (no second query) and passes it through to the service for the
+     * field-count-aware lap formula.
+     *
      * @param tournamentId the tournament UUID (from path)
      * @param request the draft configuration to preview (validated via {@link Valid})
      * @return 200 OK with the preview result for each section; 404 if tournament not found
@@ -176,7 +181,10 @@ public class DraftController {
                         .findById(tournamentId)
                         .orElseThrow(() -> new TournamentNotFoundException(tournamentId));
         DraftConfig config = toDraftConfig(request);
-        DraftPreviewResult result = draftService.preview(config, tournament.getTeamCount());
+        // E48S10 AC-IMPL-DRAFT-CONTROLLER-LOAD-FIELDCOUNT: pass fieldCount from same Tournament
+        // instance (no extra query) for the field-count-aware lap formula.
+        DraftPreviewResult result =
+                draftService.preview(config, tournament.getTeamCount(), tournament.getFieldCount());
         return ResponseEntity.ok(DraftPreviewResponse.from(result.sections(), result.timeline()));
     }
 
