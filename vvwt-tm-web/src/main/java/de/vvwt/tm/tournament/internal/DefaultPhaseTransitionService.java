@@ -1,0 +1,414 @@
+package de.vvwt.tm.tournament.internal;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import de.vvwt.tm.tournament.Phase;
+import de.vvwt.tm.tournament.PhaseRepository;
+import de.vvwt.tm.tournament.PhaseTransitionService;
+import de.vvwt.tm.tournament.TeamAvatar;
+import de.vvwt.tm.tournament.TeamAvatarProposal;
+import de.vvwt.tm.tournament.TeamAvatarRatingRepository;
+import de.vvwt.tm.tournament.TeamAvatarRepository;
+import de.vvwt.tm.tournament.Tournament;
+import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.draft.DraftConfig;
+import de.vvwt.tm.tournament.draft.DraftSection;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * Default implementation of {@link PhaseTransitionService} (DEC-35, E48S07).
+ *
+ * <p>Implements the generic Phase N → N+1 transition workflow:
+ *
+ * <ul>
+ *   <li>{@link #proposeTransition(UUID)} — pure read-only; no lock; no persistence. Derives
+ *       team-to-(group, position) assignment from {@code toPhase}'s sortType.
+ *   <li>{@link #commitTransition(UUID, List)} — acquires per-tournament pessimistic DB row-lock
+ *       (DEC-37 Clause B), persists {@link TeamAvatar} entities for {@code toPhaseId}, then invokes
+ *       match generation via {@link PhasePreparationService#generateMatches}.
+ * </ul>
+ *
+ * <h2>sortType algorithms</h2>
+ *
+ * <ul>
+ *   <li>{@code team_number} — Round-Robin distribution over the avatar list sorted by
+ *       (group_number, group_position) ascending (fromPhase seeding order) across N target groups.
+ *   <li>{@code placement_group} — Teams keep their Phase-N group; positions are re-assigned by
+ *       descending points (higher points = better placement = lower position number).
+ *   <li>{@code group_placement} — Cross-group: rank-1 from every Phase-N group → target group 1,
+ *       rank-2 → group 2, etc. Truncates to the minimum group size when groups are unequal.
+ * </ul>
+ *
+ * @see PhaseTransitionService
+ * @see <a href="DEC-35">DEC-35 — interface in public package, impl in .internal</a>
+ * @see <a href="DEC-37">DEC-37 Clause B — per-tournament pessimistic DB row-lock
+ *     (commitTransition)</a>
+ * @see <a href="E48S07">E48S07 — Drag&amp;Drop Phase-Transition Backend</a>
+ */
+@Service("tmPhaseTransitionService")
+public class DefaultPhaseTransitionService implements PhaseTransitionService {
+
+    private static final Logger log = LoggerFactory.getLogger(DefaultPhaseTransitionService.class);
+
+    private final TournamentRepository tournamentRepository;
+    private final PhaseRepository phaseRepository;
+    private final TeamAvatarRepository teamAvatarRepository;
+    private final TeamAvatarRatingRepository teamAvatarRatingRepository;
+    private final PhasePreparationService phasePreparationService;
+    private final ObjectMapper objectMapper;
+
+    public DefaultPhaseTransitionService(
+            @Qualifier("tmTournamentRepository") TournamentRepository tournamentRepository,
+            @Qualifier("tmPhaseRepository") PhaseRepository phaseRepository,
+            TeamAvatarRepository teamAvatarRepository,
+            TeamAvatarRatingRepository teamAvatarRatingRepository,
+            @Qualifier("tmPhasePreparationService") PhasePreparationService phasePreparationService,
+            ObjectMapper objectMapper) {
+        this.tournamentRepository = tournamentRepository;
+        this.phaseRepository = phaseRepository;
+        this.teamAvatarRepository = teamAvatarRepository;
+        this.teamAvatarRatingRepository = teamAvatarRatingRepository;
+        this.phasePreparationService = phasePreparationService;
+        this.objectMapper = objectMapper;
+    }
+
+    // -------------------------------------------------------------------------
+    // proposeTransition — read-only, no lock, no persistence
+    // -------------------------------------------------------------------------
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>No DB lock required. Resolves fromPhase via {@code
+     * phaseRepository.findByTournamentIdAndSequenceNumber(toPhase.tournamentId,
+     * toPhase.sequenceNumber - 1)}.
+     */
+    @Override
+    public List<TeamAvatarProposal> proposeTransition(UUID toPhaseId) {
+        Phase toPhase = requirePhase(toPhaseId);
+        Tournament tournament = requireTournament(toPhase.getTournamentId());
+        DraftSection toSection = resolveDraftSection(tournament, toPhase.getSequenceNumber());
+
+        Phase fromPhase = requireFromPhase(toPhase);
+        List<TeamAvatar> fromAvatars = teamAvatarRepository.findByPhaseId(fromPhase.getId());
+
+        return computeProposals(fromAvatars, toSection);
+    }
+
+    // -------------------------------------------------------------------------
+    // commitTransition — DEC-37 lock + persist + match generation
+    // -------------------------------------------------------------------------
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>DEC-37 Clause B: acquires per-tournament pessimistic DB row-lock via {@link
+     * TournamentRepository#findByIdForUpdate(UUID)} as the FIRST read. Persists {@link TeamAvatar}
+     * entities for {@code toPhaseId}. Invokes match generation via {@link
+     * PhasePreparationService#generateMatches(UUID, String)}.
+     */
+    @Override
+    @Transactional
+    public void commitTransition(UUID toPhaseId, List<TeamAvatarProposal> assignments) {
+        // Initial read to get the tournamentId (needed for the lock)
+        Phase toPhase = requirePhase(toPhaseId);
+
+        // DEC-37 Clause B: acquire per-tournament row-lock BEFORE reading or writing mutable state.
+        tournamentRepository.findByIdForUpdate(toPhase.getTournamentId());
+
+        // Re-read phase under lock for fresh state
+        toPhase = requirePhase(toPhaseId);
+        Tournament tournament = requireTournament(toPhase.getTournamentId());
+        DraftSection toSection = resolveDraftSection(tournament, toPhase.getSequenceNumber());
+
+        validateAssignments(assignments, toSection);
+
+        // Persist TeamAvatar entities for toPhase
+        for (TeamAvatarProposal proposal : assignments) {
+            TeamAvatar avatar = new TeamAvatar();
+            avatar.setId(UUID.randomUUID());
+            avatar.setTournamentId(toPhase.getTournamentId());
+            avatar.setPhaseId(toPhaseId);
+            avatar.setTeamId(proposal.teamId());
+            avatar.setGroupNumber(proposal.groupNumber());
+            avatar.setGroupPosition(proposal.groupPosition());
+            avatar.setCreatedAt(LocalDateTime.now());
+            teamAvatarRepository.save(avatar);
+        }
+
+        log.debug(
+                "[E48S07] commitTransition: phase={}, avatars persisted={}",
+                toPhaseId,
+                assignments.size());
+
+        // Generate matches (siegerehrung no-op generator handles the siegerehrung case — E48S02)
+        phasePreparationService.generateMatches(toPhaseId, toSection.getGameMode());
+
+        log.debug(
+                "[E48S07] commitTransition: phase={}, match generation triggered for gameMode={}",
+                toPhaseId,
+                toSection.getGameMode());
+    }
+
+    // -------------------------------------------------------------------------
+    // sortType algorithms
+    // -------------------------------------------------------------------------
+
+    private List<TeamAvatarProposal> computeProposals(
+            List<TeamAvatar> fromAvatars, DraftSection toSection) {
+        return switch (toSection.getSortType()) {
+            case "team_number" -> computeTeamNumber(fromAvatars, toSection.getGroupCount());
+            case "placement_group" -> computePlacementGroup(fromAvatars);
+            case "group_placement" -> computeGroupPlacement(fromAvatars);
+            default ->
+                    throw new IllegalArgumentException(
+                            "Unknown sortType: " + toSection.getSortType());
+        };
+    }
+
+    /**
+     * Round-Robin distribution: avatars sorted by (group_number, group_position) ascending are
+     * distributed across {@code groupCount} groups in round-robin order.
+     *
+     * <p>Avatar at index i (0-indexed) goes to group {@code (i % groupCount) + 1} with position
+     * {@code (i / groupCount) + 1}.
+     */
+    private List<TeamAvatarProposal> computeTeamNumber(
+            List<TeamAvatar> fromAvatars, int groupCount) {
+        // fromAvatars is already ordered by group_number, group_position (repository contract)
+        // This corresponds to the seeding order (team number order) for Phase 1.
+        List<TeamAvatarProposal> proposals = new ArrayList<>(fromAvatars.size());
+        for (int i = 0; i < fromAvatars.size(); i++) {
+            int targetGroup = (i % groupCount) + 1;
+            int targetPosition = (i / groupCount) + 1;
+            proposals.add(
+                    new TeamAvatarProposal(
+                            fromAvatars.get(i).getTeamId(), targetGroup, targetPosition));
+        }
+        return proposals;
+    }
+
+    /**
+     * Placement-group distribution: teams keep their Phase-N group; positions within each group are
+     * re-assigned by descending points (higher points = rank 1 = position 1).
+     *
+     * <p>Teams with no rating are placed at the end (effectively rank last).
+     */
+    private List<TeamAvatarProposal> computePlacementGroup(List<TeamAvatar> fromAvatars) {
+        // Group avatars by their fromPhase groupNumber, preserving encounter order within each
+        // group
+        Map<Integer, List<TeamAvatar>> byGroup = new LinkedHashMap<>();
+        for (TeamAvatar av : fromAvatars) {
+            byGroup.computeIfAbsent(av.getGroupNumber(), k -> new ArrayList<>()).add(av);
+        }
+
+        List<TeamAvatarProposal> proposals = new ArrayList<>(fromAvatars.size());
+        for (Map.Entry<Integer, List<TeamAvatar>> entry : byGroup.entrySet()) {
+            int groupNumber = entry.getKey();
+            List<TeamAvatar> groupAvatars = entry.getValue();
+
+            // Sort by descending points — higher points = better placement = lower position index
+            groupAvatars.sort(
+                    Comparator.comparingInt(
+                                    (TeamAvatar av) ->
+                                            teamAvatarRatingRepository
+                                                    .findByAvatarId(av.getId())
+                                                    .map(r -> r.getPoints())
+                                                    .orElse(Integer.MIN_VALUE))
+                            .reversed());
+
+            for (int pos = 0; pos < groupAvatars.size(); pos++) {
+                proposals.add(
+                        new TeamAvatarProposal(
+                                groupAvatars.get(pos).getTeamId(), groupNumber, pos + 1));
+            }
+        }
+        return proposals;
+    }
+
+    /**
+     * Group-placement distribution: rank-N finisher from every Phase-N group → target group N.
+     *
+     * <p>Truncates to the minimum group size when groups are unequal — teams with rank beyond the
+     * minimum are excluded (no equivalent rank slot in the smaller group).
+     *
+     * <p>Within each target group, positions are assigned in the order the source groups are
+     * encountered (source group 1 first, source group 2 second, etc.).
+     */
+    private List<TeamAvatarProposal> computeGroupPlacement(List<TeamAvatar> fromAvatars) {
+        // Group avatars by their fromPhase groupNumber
+        Map<Integer, List<TeamAvatar>> byGroup = new LinkedHashMap<>();
+        for (TeamAvatar av : fromAvatars) {
+            byGroup.computeIfAbsent(av.getGroupNumber(), k -> new ArrayList<>()).add(av);
+        }
+
+        // Sort each group by descending points: index 0 = rank 1 (best), index 1 = rank 2, ...
+        for (List<TeamAvatar> groupAvatars : byGroup.values()) {
+            groupAvatars.sort(
+                    Comparator.comparingInt(
+                                    (TeamAvatar av) ->
+                                            teamAvatarRatingRepository
+                                                    .findByAvatarId(av.getId())
+                                                    .map(r -> r.getPoints())
+                                                    .orElse(Integer.MIN_VALUE))
+                            .reversed());
+        }
+
+        // Truncate to minimum group size
+        int minSize = byGroup.values().stream().mapToInt(List::size).min().orElse(0);
+
+        // Build proposals: rank slot r → target group (r+1), position = source-group order
+        List<TeamAvatarProposal> proposals = new ArrayList<>();
+        for (int rankSlot = 0; rankSlot < minSize; rankSlot++) {
+            int targetGroup = rankSlot + 1;
+            int posWithinGroup = 1;
+            for (List<TeamAvatar> sourceGroup : byGroup.values()) {
+                TeamAvatar av = sourceGroup.get(rankSlot);
+                proposals.add(new TeamAvatarProposal(av.getTeamId(), targetGroup, posWithinGroup));
+                posWithinGroup++;
+            }
+        }
+        return proposals;
+    }
+
+    // -------------------------------------------------------------------------
+    // Validation helpers
+    // -------------------------------------------------------------------------
+
+    private void validateAssignments(List<TeamAvatarProposal> assignments, DraftSection toSection) {
+        if (assignments == null || assignments.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "assignments must not be null or empty (AC-ERROR-HANDLING-INVALID-ASSIGNMENT)");
+        }
+
+        // Check for duplicate (teamId) entries
+        long distinctTeamIds =
+                assignments.stream().map(TeamAvatarProposal::teamId).distinct().count();
+        if (distinctTeamIds < assignments.size()) {
+            throw new IllegalArgumentException(
+                    "assignments contains duplicate teamIds"
+                            + " (AC-ERROR-HANDLING-INVALID-ASSIGNMENT)");
+        }
+
+        // Check for duplicate structural identity (groupNumber, groupPosition)
+        long distinctSlots =
+                assignments.stream()
+                        .map(p -> p.groupNumber() + ":" + p.groupPosition())
+                        .distinct()
+                        .count();
+        if (distinctSlots < assignments.size()) {
+            throw new IllegalArgumentException(
+                    "assignments contains duplicate (groupNumber, groupPosition) slots"
+                            + " (AC-ERROR-HANDLING-INVALID-ASSIGNMENT)");
+        }
+
+        // Check group/position ranges
+        int groupCount = toSection.getGroupCount();
+        for (TeamAvatarProposal p : assignments) {
+            if (p.groupNumber() < 1 || p.groupNumber() > groupCount) {
+                throw new IllegalArgumentException(
+                        "groupNumber "
+                                + p.groupNumber()
+                                + " out of range [1, "
+                                + groupCount
+                                + "] (AC-ERROR-HANDLING-INVALID-ASSIGNMENT)");
+            }
+            if (p.groupPosition() < 1) {
+                throw new IllegalArgumentException(
+                        "groupPosition must be ≥ 1, got: "
+                                + p.groupPosition()
+                                + " (AC-ERROR-HANDLING-INVALID-ASSIGNMENT)");
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Private helpers
+    // -------------------------------------------------------------------------
+
+    private Phase requirePhase(UUID phaseId) {
+        return phaseRepository
+                .findById(phaseId)
+                .orElseThrow(() -> new IllegalArgumentException("Phase not found: " + phaseId));
+    }
+
+    private Tournament requireTournament(UUID tournamentId) {
+        return tournamentRepository
+                .findById(tournamentId)
+                .orElseThrow(
+                        () ->
+                                new IllegalArgumentException(
+                                        "Tournament not found: " + tournamentId));
+    }
+
+    private Phase requireFromPhase(Phase toPhase) {
+        if (toPhase.getSequenceNumber() <= 1) {
+            throw new IllegalStateException(
+                    "No fromPhase: toPhase is the first phase (sequenceNumber="
+                            + toPhase.getSequenceNumber()
+                            + "). No prior standings to base the proposal on.");
+        }
+        return phaseRepository
+                .findByTournamentIdAndSequenceNumber(
+                        toPhase.getTournamentId(), toPhase.getSequenceNumber() - 1)
+                .orElseThrow(
+                        () ->
+                                new IllegalStateException(
+                                        "fromPhase not found for tournamentId="
+                                                + toPhase.getTournamentId()
+                                                + ", sequenceNumber="
+                                                + (toPhase.getSequenceNumber() - 1)));
+    }
+
+    /**
+     * Parses the tournament's {@code draft_json} and returns the {@link DraftSection} for the given
+     * {@code sequenceNumber}.
+     *
+     * @throws IllegalArgumentException if {@code draft_json} is null, blank, or unparseable (→ HTTP
+     *     400 per AC-ERROR-HANDLING-DRAFT-JSON-NULL)
+     * @throws IllegalArgumentException if no section with the given sequenceNumber exists
+     */
+    private DraftSection resolveDraftSection(Tournament tournament, int sequenceNumber) {
+        String json = tournament.getDraftJson();
+        if (json == null || json.isBlank()) {
+            throw new IllegalArgumentException(
+                    "draft_json is null or blank for tournamentId="
+                            + tournament.getId()
+                            + " (AC-ERROR-HANDLING-DRAFT-JSON-NULL)");
+        }
+
+        DraftConfig draftConfig;
+        try {
+            draftConfig = objectMapper.readValue(json, DraftConfig.class);
+        } catch (Exception e) {
+            throw new IllegalArgumentException(
+                    "Failed to parse draft_json for tournamentId="
+                            + tournament.getId()
+                            + ": "
+                            + e.getMessage()
+                            + " (AC-ERROR-HANDLING-DRAFT-JSON-NULL)",
+                    e);
+        }
+
+        return draftConfig.getSections().stream()
+                .filter(s -> s.getSectionNumber() == sequenceNumber)
+                .findFirst()
+                .orElseThrow(
+                        () ->
+                                new IllegalArgumentException(
+                                        "No DraftSection found for sectionNumber="
+                                                + sequenceNumber
+                                                + " in tournamentId="
+                                                + tournament.getId()));
+    }
+}

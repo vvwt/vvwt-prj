@@ -44,6 +44,9 @@ public class DefaultPhaseRepository implements PhaseRepository {
 
     private static final String SELECT_BY_TOURNAMENT = "SELECT * FROM phase WHERE tournament_id=?";
 
+    private static final String SELECT_BY_TOURNAMENT_AND_SEQ =
+            "SELECT * FROM phase WHERE tournament_id=? AND sequence_number=?";
+
     private static final String DELETE_BY_ID = "DELETE FROM phase WHERE id=?";
 
     private static final String EXISTS_BY_ID = "SELECT COUNT(*) FROM phase WHERE id=?";
@@ -94,6 +97,15 @@ public class DefaultPhaseRepository implements PhaseRepository {
     @Override
     public List<Phase> findByTournamentId(UUID tournamentId) {
         return jdbc.query(SELECT_BY_TOURNAMENT, ROW_MAPPER, tournamentId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Optional<Phase> findByTournamentIdAndSequenceNumber(
+            UUID tournamentId, int sequenceNumber) {
+        List<Phase> results =
+                jdbc.query(SELECT_BY_TOURNAMENT_AND_SEQ, ROW_MAPPER, tournamentId, sequenceNumber);
+        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
     /** {@inheritDoc} */
