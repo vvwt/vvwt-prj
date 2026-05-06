@@ -368,10 +368,16 @@
             <input type="number" min="1" bind:value={section.groupCount} />
           </div>
 
-          <!-- Lap time -->
+          <!-- Lap time (E48S09 AC-IMPL-FRONTEND-RUNDENZEIT-DISABLED + AC-IMPL-FRONTEND-RUNDENZEIT-TOOLTIP) -->
           <div class="form__field">
             <label>{$_('draft.section.fields.lapTimeMinutes')}</label>
-            <input type="number" min="1" bind:value={section.lapTimeMinutes} />
+            <input
+              type="number"
+              min="1"
+              bind:value={section.lapTimeMinutes}
+              disabled={section.gameMode === 'siegerehrung'}
+              title={section.gameMode === 'siegerehrung' ? $_('draftConfig.rundenzeit.disabledTooltip') : undefined}
+            />
           </div>
 
           <!-- Lap break -->

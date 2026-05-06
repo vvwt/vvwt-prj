@@ -15,6 +15,7 @@
 
 import { addMessages, getLocaleFromNavigator, init, locale } from 'svelte-i18n';
 import de from '../locales/de.json';
+import en from '../locales/en.json';
 
 /** Default locale when no translation exists for the detected browser locale. */
 const FALLBACK_LOCALE = 'de';
@@ -22,6 +23,7 @@ const FALLBACK_LOCALE = 'de';
 /** Register all available translation files. Add new locales here only. */
 function registerTranslations(): void {
   addMessages('de', de);
+  addMessages('en', en);
 }
 
 /**
