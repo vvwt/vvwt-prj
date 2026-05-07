@@ -35,12 +35,17 @@ class PhaseTest {
         assertThat(phase.getCurrentLapNumber()).isEqualTo(0);
     }
 
-    /** AC-TDD-Phase: PhaseStatus enum covers the expected lifecycle values. */
+    /**
+     * AC-TDD-Phase: PhaseStatus enum covers the expected lifecycle values.
+     *
+     * <p>E48S17: PREPARED added between PENDING and ACTIVE.
+     */
     @Test
     void phaseStatus_enumValues_coverFullLifecycle() {
         assertThat(Phase.PhaseStatus.values())
                 .containsExactlyInAnyOrder(
                         Phase.PhaseStatus.PENDING,
+                        Phase.PhaseStatus.PREPARED,
                         Phase.PhaseStatus.ACTIVE,
                         Phase.PhaseStatus.COMPLETED);
     }

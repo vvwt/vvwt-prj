@@ -200,14 +200,12 @@ class TournamentCrossContextSmokeIT {
                     new TeamBulkCreateRequest(teamRequests),
                     Object.class);
 
-            // Apply draft → creates Phase + Matches via tournament internal service.
-            // Two-section config: section 1 = roundrobin (generates matches via
-            // RoundRobinMatchGenerator),
-            // section 2 = siegerehrung (last phase, satisfies D-10 invariant per
-            // AC-IMPL-LAST-PHASE-INVARIANT,
-            // E48S01). Match generation is only triggered for Phase 1 (DefaultDraftService.apply()
-            // invariant),
-            // so no SiegerehrungMatchGenerator (E48S02) is needed here.
+            // Apply draft → creates Phase records in PENDING status.
+            // E48S17: apply() no longer creates TeamAvatars or matches. Match generation is
+            // deferred
+            // to the Drag&Drop / prepare() workflow (AC-IMPL-APPLY-NO-PHASE-1-TEAMAVATARS).
+            // Two-section config: section 1 = roundrobin, section 2 = siegerehrung (last phase,
+            // satisfies D-10 invariant per AC-IMPL-LAST-PHASE-INVARIANT, E48S01).
             var section1 =
                     new DraftSectionRequest(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, null);
             var section2 =
@@ -218,18 +216,18 @@ class TournamentCrossContextSmokeIT {
                             new DraftRequest(List.of(section1, section2)),
                             DraftApplyResponse.class);
             assertThat(draftResp.getStatusCode()).isEqualTo(HttpStatus.OK);
-            // Phase 1 (roundrobin) is the first phase — matches are generated for it
             UUID phaseId = draftResp.getBody().phaseIds().get(0);
 
-            // Read matches via the new MatchRepository — the same repository that ScoreEntryService
-            // now uses after the DEC-32 FQN-rewrite (domain.repo.MatchRepository →
-            // tournament.MatchRepository)
+            // E48S17: apply() no longer generates matches; verify MatchRepository is wired (empty
+            // result is the expected post-E48S17 behavior — cross-context wiring is confirmed by
+            // the fact that the call itself succeeds without ClassCastException or bean-not-found).
             List<Match> matches = matchRepository.findByPhaseId(phaseId);
             assertThat(matches)
                     .as(
-                            "MatchRepository (de.vvwt.tm.tournament.*) must return matches for the"
-                                    + " created phase — confirms scoring cross-context wiring")
-                    .isNotEmpty();
+                            "MatchRepository (de.vvwt.tm.tournament.*) must be readable from"
+                                    + " scoring context — E48S17: apply() no longer creates matches"
+                                    + " (empty is correct), confirms DEC-32 cross-context wiring")
+                    .isEmpty();
 
             // Verify Phase 1 readable (used by print + display consumer contexts after rewrite)
             assertThat(phaseRepository.findById(phaseId))

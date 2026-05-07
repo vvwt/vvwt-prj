@@ -14,8 +14,6 @@ import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseBreak;
 import de.vvwt.tm.tournament.PhaseBreakRepository;
 import de.vvwt.tm.tournament.PhaseRepository;
-import de.vvwt.tm.tournament.TeamAvatarRepository;
-import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.TimelineCalculationService;
 import de.vvwt.tm.tournament.TimelineEntry;
 import de.vvwt.tm.tournament.TimelineEntryType;
@@ -47,6 +45,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * @see PhaseRepository
  * @see PhaseBreakRepository
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
+ * @see <a href="E48S17">E48S17 — AC-IMPL-APPLY-NO-PHASE-1-TEAMAVATARS (removed TeamRepository,
+ *     TeamAvatarRepository, PhasePreparationService from constructor)</a>
  * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
  * @see <a href="E21S03">E21S03 — Phase aggregate (mocked collaborator)</a>
  */
@@ -55,9 +55,6 @@ class DraftServiceTest {
 
     @Mock private PhaseRepository phaseRepository;
     @Mock private PhaseBreakRepository phaseBreakRepository;
-    @Mock private TeamRepository teamRepository;
-    @Mock private TeamAvatarRepository teamAvatarRepository;
-    @Mock private PhasePreparationService phasePreparationService;
     @Mock private TimelineCalculationService timelineCalculationService;
 
     @InjectMocks private DefaultDraftService draftService;
@@ -309,8 +306,6 @@ class DraftServiceTest {
 
         // PhaseRepository.findByTournamentId returns empty (no phases yet)
         when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of());
-        // No participating teams — TeamAvatar distribution skipped
-        when(teamRepository.findByTournamentId(tournamentId)).thenReturn(List.of());
 
         Phase savedPhase =
                 new Phase(
@@ -338,7 +333,6 @@ class DraftServiceTest {
         DraftConfig config = new DraftConfig(List.of(simpleSection(1), lastSection(2)));
 
         when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of());
-        when(teamRepository.findByTournamentId(tournamentId)).thenReturn(List.of());
 
         Phase phase1 =
                 new Phase(
@@ -373,7 +367,6 @@ class DraftServiceTest {
         DraftConfig config = new DraftConfig(List.of(sectionWithBreak(1)));
 
         when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of());
-        when(teamRepository.findByTournamentId(tournamentId)).thenReturn(List.of());
 
         Phase savedPhase =
                 new Phase(

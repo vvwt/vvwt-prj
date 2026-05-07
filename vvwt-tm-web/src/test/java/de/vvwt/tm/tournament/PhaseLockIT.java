@@ -34,7 +34,8 @@ import org.springframework.test.context.ActiveProfiles;
  * <h2>Test scenario (CascadeLockIT-Pattern)</h2>
  *
  * <ol>
- *   <li>One PENDING phase is prepared for an ACTIVE tournament.
+ *   <li>One PREPARED phase (E48S17: start() now requires PREPARED) is set up for an ACTIVE
+ *       tournament.
  *   <li>Two threads simultaneously call {@code start(phaseId)}.
  *   <li>Exactly ONE must succeed (phase status = ACTIVE); the other MUST throw {@link
  *       ConflictException} (status already ACTIVE — invalid transition per lifecycle rules).
@@ -116,7 +117,7 @@ class PhaseLockIT {
                 2,
                 4);
 
-        // PENDING phase — ready to start
+        // PREPARED phase — ready to start (E48S17: start() now requires PREPARED, not PENDING)
         phaseId = UUID.randomUUID();
         jdbcTemplate.update(
                 "INSERT INTO phase (id, tournament_id, sequence_number, description, status,"
@@ -125,7 +126,7 @@ class PhaseLockIT {
                 tournamentId,
                 1,
                 "Vorrunde",
-                "PENDING",
+                "PREPARED",
                 0);
 
         tenantBinder.unbind();
@@ -143,9 +144,9 @@ class PhaseLockIT {
     /**
      * AC-TEST-DEC-37-LOCK-PHASE-RED — DEC-37 Clause B verification.
      *
-     * <p>Two threads race to start the same PENDING phase. The per-tournament DB row-lock
-     * serialises them: exactly ONE succeeds, the other sees status ACTIVE on its own read → {@link
-     * ConflictException}.
+     * <p>Two threads race to start the same PREPARED phase (E48S17: start() now requires PREPARED).
+     * The per-tournament DB row-lock serialises them: exactly ONE succeeds, the other sees status
+     * ACTIVE on its own read → {@link ConflictException}.
      */
     @Test
     @DisplayName("concurrent start() — exactly one succeeds, second throws ConflictException")
