@@ -4,10 +4,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.PhaseTransitionService;
+import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarProposal;
 import de.vvwt.tm.tournament.TeamAvatarRatingRepository;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
+import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.draft.DraftConfig;
@@ -18,6 +20,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +35,10 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <ul>
  *   <li>{@link #proposeTransition(UUID)} — pure read-only; no lock; no persistence. Derives
- *       team-to-(group, position) assignment from {@code toPhase}'s sortType.
+ *       team-to-(group, position) assignment from {@code toPhase}'s sortType. For Phase 1
+ *       (sequenceNumber=1), uses the Phase-1-Branch (E48S18): loads {@code tournament.Teams} where
+ *       {@code participate=true}, sorted by {@code teamNumber}, and distributes via Round-Robin.
+ *       For Phase 2+ (sequenceNumber&gt;1), uses the existing Phase-N-Avatar path.
  *   <li>{@link #commitTransition(UUID, List)} — acquires per-tournament pessimistic DB row-lock
  *       (DEC-37 Clause B), persists {@link TeamAvatar} entities for {@code toPhaseId}, then invokes
  *       match generation via {@link PhasePreparationService#generateMatches}.
@@ -41,7 +47,10 @@ import org.springframework.transaction.annotation.Transactional;
  * <h2>sortType algorithms</h2>
  *
  * <ul>
- *   <li>{@code team_number} — Round-Robin distribution over the avatar list sorted by
+ *   <li>{@code team_number} (Phase 1) — Round-Robin distribution over participating Tournament
+ *       Teams sorted by {@code teamNumber} ascending across N target groups. Source: {@link
+ *       TeamRepository#findByTournamentId(UUID)} filtered for {@code participate=true}.
+ *   <li>{@code team_number} (Phase 2+) — Round-Robin distribution over the avatar list sorted by
  *       (group_number, group_position) ascending (fromPhase seeding order) across N target groups.
  *   <li>{@code placement_group} — Teams keep their Phase-N group; positions are re-assigned by
  *       descending points (higher points = better placement = lower position number).
@@ -50,10 +59,12 @@ import org.springframework.transaction.annotation.Transactional;
  * </ul>
  *
  * @see PhaseTransitionService
+ * @see <a href="DEC-9">DEC-9 — TeamAvatar structural identity (groupNumber, groupPosition)</a>
  * @see <a href="DEC-35">DEC-35 — interface in public package, impl in .internal</a>
  * @see <a href="DEC-37">DEC-37 Clause B — per-tournament pessimistic DB row-lock
  *     (commitTransition)</a>
  * @see <a href="E48S07">E48S07 — Drag&amp;Drop Phase-Transition Backend</a>
+ * @see <a href="E48S18">E48S18 — Phase-1-Branch (proposeTransition for sequenceNumber=1)</a>
  */
 @Service("tmPhaseTransitionService")
 public class DefaultPhaseTransitionService implements PhaseTransitionService {
@@ -66,6 +77,7 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
     private final TeamAvatarRatingRepository teamAvatarRatingRepository;
     private final PhasePreparationService phasePreparationService;
     private final ObjectMapper objectMapper;
+    private final TeamRepository teamRepository;
 
     public DefaultPhaseTransitionService(
             @Qualifier("tmTournamentRepository") TournamentRepository tournamentRepository,
@@ -73,13 +85,15 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
             TeamAvatarRepository teamAvatarRepository,
             TeamAvatarRatingRepository teamAvatarRatingRepository,
             @Qualifier("tmPhasePreparationService") PhasePreparationService phasePreparationService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            @Qualifier("tmTeamRepository") TeamRepository teamRepository) {
         this.tournamentRepository = tournamentRepository;
         this.phaseRepository = phaseRepository;
         this.teamAvatarRepository = teamAvatarRepository;
         this.teamAvatarRatingRepository = teamAvatarRatingRepository;
         this.phasePreparationService = phasePreparationService;
         this.objectMapper = objectMapper;
+        this.teamRepository = teamRepository;
     }
 
     // -------------------------------------------------------------------------
@@ -89,9 +103,11 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
     /**
      * {@inheritDoc}
      *
-     * <p>No DB lock required. Resolves fromPhase via {@code
+     * <p>No DB lock required. For Phase 1 (sequenceNumber=1), uses the Phase-1-Branch (E48S18):
+     * loads participating Tournament Teams, sorted by teamNumber, distributes via Round-Robin. For
+     * Phase 2+ (sequenceNumber&gt;1), resolves fromPhase via {@code
      * phaseRepository.findByTournamentIdAndSequenceNumber(toPhase.tournamentId,
-     * toPhase.sequenceNumber - 1)}.
+     * toPhase.sequenceNumber - 1)} and uses existing avatar-based algorithms.
      */
     @Override
     public List<TeamAvatarProposal> proposeTransition(UUID toPhaseId) {
@@ -99,9 +115,15 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
         Tournament tournament = requireTournament(toPhase.getTournamentId());
         DraftSection toSection = resolveDraftSection(tournament, toPhase.getSequenceNumber());
 
-        Phase fromPhase = requireFromPhase(toPhase);
-        List<TeamAvatar> fromAvatars = teamAvatarRepository.findByPhaseId(fromPhase.getId());
+        Optional<Phase> fromPhaseOpt = requireFromPhase(toPhase);
+        if (fromPhaseOpt.isEmpty()) {
+            // Phase-1-Branch (E48S18): source is tournament.Teams where participate=true
+            return computePhase1Proposals(tournament, toSection);
+        }
 
+        // Phase N+1 branch: use fromPhase TeamAvatars (existing behavior — E48S07)
+        List<TeamAvatar> fromAvatars =
+                teamAvatarRepository.findByPhaseId(fromPhaseOpt.get().getId());
         return computeProposals(fromAvatars, toSection);
     }
 
@@ -158,6 +180,82 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
                 "[E48S07] commitTransition: phase={}, match generation triggered for gameMode={}",
                 toPhaseId,
                 toSection.getGameMode());
+    }
+
+    // -------------------------------------------------------------------------
+    // Phase-1-Branch algorithm (E48S18)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Computes a Round-Robin proposal for Phase 1 from participating Tournament Teams.
+     *
+     * <p>Source: {@link TeamRepository#findByTournamentId(UUID)} filtered for {@code
+     * participate=true}, sorted by {@code teamNumber} ascending (repository contract).
+     *
+     * <p>Round-Robin: team at index {@code i} (0-indexed) goes to group {@code (i % groupCount) +
+     * 1} with position {@code (i / groupCount) + 1}.
+     *
+     * <p>DEC-9: {@link TeamAvatarProposal} carries structural identity (groupNumber, groupPosition)
+     * plus teamId as the source-dataset reference.
+     *
+     * @param tournament the tournament containing the participating teams
+     * @param toSection the DraftSection for Phase 1 (must have sortType=team_number, E48S16
+     *     invariant)
+     * @return list of TeamAvatarProposals for Phase 1 (never null, never empty)
+     * @throws IllegalStateException if sortType ≠ team_number (defense-in-depth vs. E48S16 bypass)
+     * @throws IllegalArgumentException if no participating teams exist
+     *     (AC-ERROR-HANDLING-EMPTY-TEAMS)
+     */
+    private List<TeamAvatarProposal> computePhase1Proposals(
+            Tournament tournament, DraftSection toSection) {
+        // Defense-in-depth: Phase 1 MUST have sortType=team_number (E48S16 invariant)
+        if (!"team_number".equals(toSection.getSortType())) {
+            throw new IllegalStateException(
+                    "Phase 1 must have sortType=team_number, got: "
+                            + toSection.getSortType()
+                            + " — check tournament draft_json"
+                            + " (AC-TEST-FIRST-PHASE-WRONG-SORTTYPE-RED)");
+        }
+
+        // Load all teams for this tournament (ordered by teamNumber ASC per repository contract)
+        List<Team> allTeams = teamRepository.findByTournamentId(tournament.getId());
+
+        // Filter: only participating teams
+        // (AC-TEST-PROPOSE-TRANSITION-NON-PARTICIPATING-EXCLUDED-RED)
+        List<Team> participating = new ArrayList<>();
+        for (Team team : allTeams) {
+            if (team.isParticipate()) {
+                participating.add(team);
+            }
+        }
+
+        if (participating.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Tournament has no participating teams — register teams first"
+                            + " (AC-ERROR-HANDLING-EMPTY-TEAMS, tournamentId="
+                            + tournament.getId()
+                            + ")");
+        }
+
+        int groupCount = toSection.getGroupCount();
+        List<TeamAvatarProposal> proposals = new ArrayList<>(participating.size());
+        for (int i = 0; i < participating.size(); i++) {
+            int targetGroup = (i % groupCount) + 1;
+            int targetPosition = (i / groupCount) + 1;
+            // DEC-9: teamId is source-dataset reference; groupNumber + groupPosition are structural
+            proposals.add(
+                    new TeamAvatarProposal(
+                            participating.get(i).getId(), targetGroup, targetPosition));
+        }
+
+        log.debug(
+                "[E48S18] computePhase1Proposals: tournamentId={}, participatingTeams={},"
+                        + " groups={}",
+                tournament.getId(),
+                participating.size(),
+                groupCount);
+
+        return proposals;
     }
 
     // -------------------------------------------------------------------------
@@ -351,23 +449,33 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
                                         "Tournament not found: " + tournamentId));
     }
 
-    private Phase requireFromPhase(Phase toPhase) {
+    /**
+     * Returns the fromPhase for the given toPhase, or {@code Optional.empty()} if toPhase is the
+     * first phase (sequenceNumber ≤ 1).
+     *
+     * <p>Caller branches on the return value: Empty → Phase-1-Branch (E48S18); Present → Phase-N+1
+     * path (E48S07).
+     *
+     * @param toPhase the target phase
+     * @return Optional.empty() for Phase 1; Optional.of(fromPhase) for Phase 2+
+     * @throws IllegalStateException if Phase 2+ fromPhase is not found
+     */
+    private Optional<Phase> requireFromPhase(Phase toPhase) {
         if (toPhase.getSequenceNumber() <= 1) {
-            throw new IllegalStateException(
-                    "No fromPhase: toPhase is the first phase (sequenceNumber="
-                            + toPhase.getSequenceNumber()
-                            + "). No prior standings to base the proposal on.");
+            // Phase-1-Branch (E48S18): no fromPhase needed; caller uses tournament.Teams
+            return Optional.empty();
         }
-        return phaseRepository
-                .findByTournamentIdAndSequenceNumber(
-                        toPhase.getTournamentId(), toPhase.getSequenceNumber() - 1)
-                .orElseThrow(
-                        () ->
-                                new IllegalStateException(
-                                        "fromPhase not found for tournamentId="
-                                                + toPhase.getTournamentId()
-                                                + ", sequenceNumber="
-                                                + (toPhase.getSequenceNumber() - 1)));
+        return Optional.of(
+                phaseRepository
+                        .findByTournamentIdAndSequenceNumber(
+                                toPhase.getTournamentId(), toPhase.getSequenceNumber() - 1)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "fromPhase not found for tournamentId="
+                                                        + toPhase.getTournamentId()
+                                                        + ", sequenceNumber="
+                                                        + (toPhase.getSequenceNumber() - 1))));
     }
 
     /**

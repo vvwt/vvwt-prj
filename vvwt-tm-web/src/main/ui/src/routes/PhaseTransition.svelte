@@ -33,8 +33,12 @@
   // ── Props ──────────────────────────────────────────────────────────────────
   interface Props {
     params?: { tournamentId?: string; phaseId?: string };
+    /** Optional commit endpoint override (E48S18: Vorbereiten-Route uses /prepare). */
+    commitEndpoint?: string;
+    /** Optional i18n key override for the page title (E48S18: uses phases.prepareTitle). */
+    pageTitleKey?: string;
   }
-  let { params = {} }: Props = $props();
+  let { params = {}, commitEndpoint = undefined, pageTitleKey = undefined }: Props = $props();
   const tournamentId = $derived(params.tournamentId ?? '');
   const phaseId = $derived(params.phaseId ?? '');
 
@@ -49,9 +53,13 @@
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
   onMount(async () => {
+    const titleKey = pageTitleKey ?? 'phaseTransition.pageTitle';
+    const routeKey = pageTitleKey
+      ? '/tournaments/:tournamentId/phases/:phaseId/prepare'
+      : '/tournaments/:tournamentId/phases/:phaseId/transition';
     pageHeader.set({
-      title: get(_)('phaseTransition.pageTitle'),
-      backTo: resolveParent('/tournaments/:tournamentId/phases/:phaseId/transition', tournamentId),
+      title: get(_)(titleKey),
+      backTo: resolveParent(routeKey, tournamentId),
       tournamentId: tournamentId || null,
       actions: [],
     });
@@ -114,7 +122,7 @@
     committing = true;
     commitError = null;
     try {
-      await commitTransition(phaseId, slots);
+      await commitTransition(phaseId, slots, commitEndpoint);
       push(`/tournaments/${tournamentId}/phases`);
     } catch (e: unknown) {
       commitError = e instanceof Error ? e.message : get(_)('phaseTransition.commitError');

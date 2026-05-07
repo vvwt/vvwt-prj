@@ -184,3 +184,42 @@ describe('PhaseList.svelte — routing hook for transition navigation (AC-FRONTE
         expect(phaseListSource).toContain('sequenceNumber');
     });
 });
+
+// ── E48S18: Vorbereiten-Route structural checks ─────────────────────────────────
+
+describe('App.svelte — Vorbereiten-Route registration (E48S18, AC-FRONTEND-PREPARE-ROUTE-RED)', () => {
+    const appSource = fs.readFileSync(
+        path.resolve(__dirname_local, '../App.svelte'),
+        'utf8'
+    );
+
+    it('App.svelte route map includes /prepare route (AC-FRONTEND-PREPARE-ROUTE-RED)', () => {
+        expect(appSource).toContain('/prepare');
+    });
+
+    it('App.svelte imports PhasePreparation component for prepare route (AC-IMPL-FRONTEND-PREPARE-ROUTE)', () => {
+        expect(appSource).toContain('PhasePreparation');
+    });
+});
+
+describe('parentRouteMap.ts — prepare route back-navigation (E48S18)', () => {
+    const parentRouteMapSource = fs.readFileSync(
+        path.resolve(__dirname_local, '../lib/parentRouteMap.ts'),
+        'utf8'
+    );
+
+    it('parentRouteMap contains prepare route entry (back to phases)', () => {
+        expect(parentRouteMapSource).toContain('/prepare');
+    });
+});
+
+describe('de.json — phases.prepareTitle i18n key (E48S18)', () => {
+    const pt = (deMessages as unknown as Record<string, Record<string, string>>).phases;
+
+    it('phases.prepareTitle key exists in de.json (AC-IMPL-FRONTEND-PREPARE-ROUTE)', () => {
+        expect(pt).toBeDefined();
+        expect(pt).toHaveProperty('prepareTitle');
+        expect(pt.prepareTitle).toBeTypeOf('string');
+        expect(pt.prepareTitle.length).toBeGreaterThan(0);
+    });
+});
