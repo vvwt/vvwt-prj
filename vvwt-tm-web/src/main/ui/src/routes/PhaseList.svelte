@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * Phase overview list for a tournament — Story E48S05 + E48S06 + E48S17.
+   * Phase overview list for a tournament — Story E48S05 + E48S06 + E48S17 + E48S19.
    *
    * Displays all phases of a tournament with their:
    *   - sequenceNumber, description, status badge, gameMode, currentLapNumber, match counts
@@ -20,7 +20,6 @@
   import { push } from 'svelte-spa-router';
   import {
     listPhases,
-    preparePhase,
     startPhase,
     completePhase,
     forceCompletePhase,
@@ -116,18 +115,22 @@
 
   // ── Action handlers ───────────────────────────────────────────
 
-  /** E48S17: Prepares a phase (PENDING → PREPARED). */
-  async function handlePrepare(phaseId: string): Promise<void> {
-    actionInProgress = phaseId;
-    actionError = null;
-    try {
-      await preparePhase(phaseId);
-      await loadPhases();
-    } catch (e: unknown) {
-      actionError = e instanceof Error ? e.message : get(_)('phases.lifecycleError');
-    } finally {
-      actionInProgress = null;
+  /**
+   * E48S19: Navigates to the PhasePreparation Drag&Drop UI (PENDING → Vorbereiten-Route).
+   *
+   * Fixes the E48S17 bug where handlePrepare called preparePhase() API directly,
+   * bypassing the PhasePreparation.svelte route delivered by E48S18.
+   * Now follows AC-FRONTEND-PHASE-OVERVIEW-BUTTONS-EXTENDED: PENDING button navigates to
+   * /tournaments/:id/phases/:phaseId/prepare (no direct API call here).
+   *
+   * AC-ERROR-HANDLING-INVALID-NAVIGATION-CONTEXT: guards against falsy tournamentId or phaseId.
+   */
+  function handlePrepare(phaseId: string): void {
+    if (!tournamentId || !phaseId) {
+      actionError = get(_)('phases.lifecycleError');
+      return;
     }
+    push(`/tournaments/${tournamentId}/phases/${phaseId}/prepare`);
   }
 
   async function handleStart(phaseId: string): Promise<void> {
@@ -246,7 +249,7 @@
             <td>{finishedCount(phase)}&thinsp;/&thinsp;{totalCount(phase)}</td>
             <td class="phases__actions">
               {#if phase.status === 'PENDING'}
-                <!-- E48S17: PENDING → "Vorbereiten" (calls prepare endpoint) -->
+                <!-- E48S19: PENDING → "Vorbereiten" (navigates to PhasePreparation.svelte route, AC-FRONTEND-PHASE-OVERVIEW-BUTTONS-EXTENDED) -->
                 <button
                   class="btn btn--primary"
                   disabled={actionInProgress === phase.id}

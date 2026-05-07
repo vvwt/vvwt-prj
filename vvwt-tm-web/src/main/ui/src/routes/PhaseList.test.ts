@@ -31,10 +31,9 @@ describe('PhaseList.svelte — handlePrepare navigates to prepare route (AC-TEST
 
     it('handlePrepare function calls push() with /prepare path', () => {
         // The function body of handlePrepare must contain push(`...prepare`)
-        // Extract handlePrepare function body: from "function handlePrepare" to the
-        // closing "}" of that function (matched by looking for "\n  async function" or "\n  function" as delimiter).
+        // Use a lookahead on the next function declaration to bound the match.
         const handlePrepareMatch = source.match(
-            /function handlePrepare\(phaseId[^)]*\)[^{]*\{[^}]*(?:\{[^}]*\}[^}]*)*\}/
+            /function handlePrepare[\s\S]*?(?=\n  (?:async )?function \w)/
         );
         expect(handlePrepareMatch, 'handlePrepare function not found in source').toBeTruthy();
         const handlePrepareBody = handlePrepareMatch![0];
@@ -193,6 +192,7 @@ describe('PhaseList.svelte — handlePrepare fallback on invalid navigation cont
 
 // ── AC-IMPL-PHASELIST-IMPORT-CLEANUP ─────────────────────────────────────────
 // preparePhase import must be removed if unused after the handler refactor.
+// Check the import block specifically — it may appear in comments but must not be imported.
 
 describe('PhaseList.svelte — import cleanup (AC-IMPL-PHASELIST-IMPORT-CLEANUP)', () => {
     const source = fs.readFileSync(
@@ -200,7 +200,11 @@ describe('PhaseList.svelte — import cleanup (AC-IMPL-PHASELIST-IMPORT-CLEANUP)
         'utf8'
     );
 
-    it('preparePhase is not imported (unused after handlePrepare refactor)', () => {
-        expect(source).not.toContain('preparePhase');
+    it('preparePhase is not in the phaseStore import statement', () => {
+        // Extract the import block from phaseStore
+        const importMatch = source.match(/import\s*\{[^}]*\}\s*from\s*['"][^'"]*phaseStore[^'"]*['"]/);
+        expect(importMatch, 'phaseStore import not found').toBeTruthy();
+        const importBlock = importMatch![0];
+        expect(importBlock).not.toContain('preparePhase');
     });
 });
