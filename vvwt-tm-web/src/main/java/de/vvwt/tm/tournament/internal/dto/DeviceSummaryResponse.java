@@ -6,19 +6,22 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * Response DTO for device list and admin operations (E21S06 AC-TDD-DTOs).
+ * Response DTO for device list and admin operations (E21S06 AC-TDD-DTOs, E49S01 AC3).
  *
- * <p>Carries the full device summary: id, deviceToken, pin (nullable), deviceType, assignedField
- * (nullable), status, registeredAt (nullable), deviceName (nullable), configuration (nullable).
+ * <p>Carries the device summary: id, deviceToken, deviceType, assignedField (nullable), status,
+ * registeredAt (nullable), deviceName (nullable), configuration (nullable).
+ *
+ * <p>{@code pin} has been intentionally removed per E49S01 AC3 — the PIN is a one-time out-of-band
+ * credential and must not be exposed in list/summary responses.
  *
  * @see Device
  * @see <a href="E21S06">E21S06 — Device aggregate reconstruction</a>
+ * @see <a href="E49S01">E49S01 — AC3: pin removed from summary response</a>
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record DeviceSummaryResponse(
         UUID id,
         String deviceToken,
-        String pin,
         String deviceType,
         Integer assignedField,
         String status,
@@ -36,7 +39,6 @@ public record DeviceSummaryResponse(
         return new DeviceSummaryResponse(
                 device.getId(),
                 device.getDeviceToken(),
-                device.getPin(),
                 device.getDeviceType(),
                 device.getAssignedField(),
                 device.getStatus(),

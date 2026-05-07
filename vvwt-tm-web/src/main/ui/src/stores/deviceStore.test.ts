@@ -1,13 +1,13 @@
 /**
- * Unit tests for deviceStore (E06S05, E07S03).
+ * Unit tests for deviceStore (E06S05, E07S03, E49S01).
  *
  * Verifies:
  * - Store exports the expected API functions
  * - API functions make the correct HTTP calls (mocked fetch)
- * - AC9 error handling: 404 on PIN lookup throws with status 404
  * - de.json contains all device translation keys (AC11)
  * - E07S03: configureDisplayDevice, removeDevice, getDisplayLimit (AC3, AC4, AC5)
  * - E07S03: de.json contains all display device and filter translation keys (AC9)
+ * - E49S01: assignDevice with pin, resetPinLock, renameDevice (AC5, AC6, AC11)
  */
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
@@ -25,11 +25,11 @@ describe('de.json — device translations (AC11)', () => {
   it('should contain all required device column headers', () => {
     const devices = (deMessages as Record<string, Record<string, Record<string, string>>>).devices;
     const cols = devices.columns;
-    expect(cols).toHaveProperty('pin');
+    // E49S01 AC3: pin column removed from device list
     expect(cols).toHaveProperty('deviceType');
     expect(cols).toHaveProperty('assignedField');
     expect(cols).toHaveProperty('status');
-    expect(cols).toHaveProperty('lastSeen');
+    expect(cols).toHaveProperty('registeredAt');
   });
 
   it('should contain all device status labels', () => {
@@ -47,9 +47,7 @@ describe('de.json — device translations (AC11)', () => {
     expect(devices).toHaveProperty('clearAllButton');
     expect(devices).toHaveProperty('clearAllConfirm');
     expect(devices).toHaveProperty('showQrButton');
-    expect(devices).toHaveProperty('pinInputLabel');
-    expect(devices).toHaveProperty('lookupButton');
-    expect(devices).toHaveProperty('lookupError');
+    // E49S01 AC8: pinInputLabel / lookupButton / lookupError removed (PIN is inline per-row)
     expect(devices).toHaveProperty('assignButton');
     expect(devices).toHaveProperty('unassignButton');
     expect(devices).toHaveProperty('fieldConflictConfirm');
@@ -66,10 +64,10 @@ describe('de.json — device translations (AC11)', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('deviceStore — exported API functions', () => {
-  it('should export all required API functions (E06S05 + E07S03)', async () => {
+  it('should export all required API functions (E06S05 + E07S03 + E49S01)', async () => {
     const module = await import('./deviceStore.ts');
     expect(typeof module.listDevices).toBe('function');
-    expect(typeof module.findDeviceByPin).toBe('function');
+    // E49S01 AC8: findDeviceByPin removed (no PIN lookup endpoint)
     expect(typeof module.assignDevice).toBe('function');
     expect(typeof module.unassignDevice).toBe('function');
     expect(typeof module.clearAllDevices).toBe('function');
@@ -77,6 +75,9 @@ describe('deviceStore — exported API functions', () => {
     expect(typeof module.configureDisplayDevice).toBe('function');
     expect(typeof module.removeDevice).toBe('function');
     expect(typeof module.getDisplayLimit).toBe('function');
+    // E49S01 additions:
+    expect(typeof module.resetPinLock).toBe('function');
+    expect(typeof module.renameDevice).toBe('function');
   });
 });
 
@@ -101,11 +102,11 @@ describe('deviceStore — API calls (mocked fetch)', () => {
       {
         id: 'uuid-1',
         deviceType: 'SCORING_TABLET',
-        pin: '1234',
+        // E49S01 AC3: no pin in summary
         status: 'REGISTERED',
         assignedField: null,
         registeredAt: null,
-        lastSeenAt: null,
+        deviceName: 'Tablet-A1B2',
       },
     ];
     fetchSpy.mockResolvedValue({
@@ -123,50 +124,14 @@ describe('deviceStore — API calls (mocked fetch)', () => {
     expect(result).toEqual(mockDevices);
   });
 
-  it('findDeviceByPin — GET /api/devices?pin=1234 returns device (AC2)', async () => {
-    const mockDevice = {
-      id: 'uuid-1',
-      deviceType: 'SCORING_TABLET',
-      pin: '1234',
-      status: 'REGISTERED',
-      assignedField: null,
-      registeredAt: null,
-      lastSeenAt: null,
-    };
-    fetchSpy.mockResolvedValue({
-      ok: true,
-      json: async () => mockDevice,
-    });
-
-    const { findDeviceByPin } = await import('./deviceStore.ts');
-    const result = await findDeviceByPin('1234');
-
-    expect(fetchSpy).toHaveBeenCalledWith(
-      expect.stringContaining('/api/devices?pin=1234'),
-      expect.objectContaining({ credentials: 'same-origin' })
-    );
-    expect(result).toEqual(mockDevice);
-  });
-
-  it('findDeviceByPin — 404 throws error with status 404 (AC9)', async () => {
-    fetchSpy.mockResolvedValue({
-      ok: false,
-      status: 404,
-    });
-
-    const { findDeviceByPin } = await import('./deviceStore.ts');
-    await expect(findDeviceByPin('9999')).rejects.toMatchObject({ status: 404 });
-  });
-
-  it('assignDevice — PUT /api/devices/{id}/assign (AC2)', async () => {
+  it('assignDevice — PUT /api/devices/{id}/assign with PIN (E49S01 AC5)', async () => {
     const updatedDevice = {
       id: 'uuid-1',
       deviceType: 'SCORING_TABLET',
-      pin: '1234',
       status: 'ASSIGNED',
       assignedField: 3,
       registeredAt: null,
-      lastSeenAt: null,
+      deviceName: 'Tablet-A1B2',
     };
     fetchSpy.mockResolvedValue({
       ok: true,
@@ -174,7 +139,7 @@ describe('deviceStore — API calls (mocked fetch)', () => {
     });
 
     const { assignDevice } = await import('./deviceStore.ts');
-    const result = await assignDevice('uuid-1', 3);
+    const result = await assignDevice('uuid-1', 3, '4567');
 
     expect(fetchSpy).toHaveBeenCalledWith(
       expect.stringContaining('/api/devices/uuid-1/assign'),
@@ -192,18 +157,76 @@ describe('deviceStore — API calls (mocked fetch)', () => {
     });
 
     const { assignDevice } = await import('./deviceStore.ts');
-    await expect(assignDevice('uuid-1', 3)).rejects.toMatchObject({ status: 409 });
+    await expect(assignDevice('uuid-1', 3, '4567')).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('assignDevice — 403 throws error with status 403 on PIN mismatch (E49S01 AC5)', async () => {
+    fetchSpy.mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: async () => ({ type: 'urn:vvwt:tm:device:pin-mismatch', detail: 'PIN does not match' }),
+    });
+
+    const { assignDevice } = await import('./deviceStore.ts');
+    await expect(assignDevice('uuid-1', 1, '9999')).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('assignDevice — 423 throws error with status 423 when device is PIN-locked (E49S01 AC6)', async () => {
+    fetchSpy.mockResolvedValue({
+      ok: false,
+      status: 423,
+      json: async () => ({ type: 'urn:vvwt:tm:device:pin-locked', detail: 'Device is locked' }),
+    });
+
+    const { assignDevice } = await import('./deviceStore.ts');
+    await expect(assignDevice('uuid-1', 1, '4567')).rejects.toMatchObject({ status: 423 });
+  });
+
+  it('resetPinLock — POST /api/devices/{id}/pin-lock/reset returns void (E49S01 AC6)', async () => {
+    fetchSpy.mockResolvedValue({ ok: true });
+
+    const { resetPinLock } = await import('./deviceStore.ts');
+    await expect(resetPinLock('uuid-1')).resolves.toBeUndefined();
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining('/api/devices/uuid-1/pin-lock/reset'),
+      expect.objectContaining({ method: 'POST' })
+    );
+  });
+
+  it('renameDevice — PUT /api/devices/{id}/rename returns updated device (E49S01 AC11)', async () => {
+    const updatedDevice = {
+      id: 'uuid-1',
+      deviceType: 'SCORING_TABLET',
+      status: 'REGISTERED',
+      assignedField: null,
+      registeredAt: null,
+      deviceName: 'Tablet-NEW1',
+    };
+    fetchSpy.mockResolvedValue({
+      ok: true,
+      json: async () => updatedDevice,
+    });
+
+    const { renameDevice } = await import('./deviceStore.ts');
+    const result = await renameDevice('uuid-1', 'Tablet-NEW1');
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining('/api/devices/uuid-1/rename'),
+      expect.objectContaining({ method: 'PUT' })
+    );
+    expect(result.deviceName).toBe('Tablet-NEW1');
   });
 
   it('unassignDevice — PUT /api/devices/{id}/unassign (AC3)', async () => {
     const unassignedDevice = {
       id: 'uuid-1',
       deviceType: 'SCORING_TABLET',
-      pin: '1234',
+      // E49S01 AC3: no pin in summary
       status: 'REGISTERED',
       assignedField: null,
       registeredAt: null,
-      lastSeenAt: null,
+      deviceName: 'Tablet-A1B2',
     };
     fetchSpy.mockResolvedValue({
       ok: true,
@@ -239,11 +262,10 @@ describe('deviceStore — API calls (mocked fetch)', () => {
     const updatedDevice = {
       id: 'uuid-display-1',
       deviceType: 'DISPLAY',
-      pin: null,
+      // E49S01 AC3: no pin in summary
       status: 'REGISTERED',
       assignedField: null,
       registeredAt: null,
-      lastSeenAt: null,
       deviceName: 'Main Screen',
       configuration: '{"display_schema":"OVERVIEW"}',
     };
@@ -354,5 +376,23 @@ describe('de.json — E07S03 translation keys (AC9)', () => {
     const devices = (deMessages as Record<string, Record<string, Record<string, string>>>).devices;
     expect(devices.deviceType).toHaveProperty('DISPLAY');
     expect(devices.deviceType).toHaveProperty('SCORING_TABLET');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E49S01 i18n coverage
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('de.json — E49S01 translation keys', () => {
+  it('should contain scoringTablet sub-keys for inline PIN assignment and rename', () => {
+    const devices = (deMessages as Record<string, Record<string, Record<string, string>>>).devices;
+    expect(devices).toHaveProperty('scoringTablet');
+    const st = devices.scoringTablet;
+    expect(st).toHaveProperty('pinInputLabel');
+    expect(st).toHaveProperty('pinMismatch');
+    expect(st).toHaveProperty('pinLocked');
+    expect(st).toHaveProperty('pinLockResetButton');
+    expect(st).toHaveProperty('renameButton');
+    expect(st).toHaveProperty('renameLabel');
   });
 });

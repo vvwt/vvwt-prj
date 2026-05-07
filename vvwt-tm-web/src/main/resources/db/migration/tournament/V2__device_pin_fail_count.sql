@@ -1,0 +1,13 @@
+-- ============================================================
+-- E49S01 AC6: Add pin_fail_count column to devices table.
+--
+-- Tracks consecutive wrong-PIN attempts on PUT /api/devices/{id}/assign
+-- per device. Incremented on pin-mismatch; reset to 0 on successful
+-- assign; at N=10 the device is locked (device-pin-locked, 423 Locked).
+-- Counter is removed atomically with the device row on DELETE (hard-DELETE).
+--
+-- DEC-22: migration applied before writing any production code that reads
+-- this column (TDD Iron Law — column is the schema prerequisite).
+-- DEC-24 Clause E: PIN is per-device, lifetime-stable until removal.
+-- ============================================================
+ALTER TABLE devices ADD COLUMN pin_fail_count INT NOT NULL DEFAULT 0;

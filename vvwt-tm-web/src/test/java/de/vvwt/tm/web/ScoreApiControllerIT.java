@@ -229,21 +229,10 @@ class ScoreApiControllerIT {
         assertThat(regResp.getBody()).isNotNull();
         String token = regResp.getBody().deviceToken();
         String pin = regResp.getBody().pin();
+        String id = regResp.getBody().id().toString();
 
-        // 2. Look up device UUID by PIN (admin endpoint)
-        ResponseEntity<String> pinLookup =
-                authed.getForEntity(new URI(baseUrl + "/api/devices?pin=" + pin), String.class);
-        assertThat(pinLookup.getStatusCode())
-                .as("GET /api/devices?pin must return 200")
-                .isEqualTo(HttpStatus.OK);
-        String body = pinLookup.getBody();
-        String id = extractJsonField(body, "id");
-        assertThat(id)
-                .as("Device ID must be extractable from pin-lookup response: " + body)
-                .isNotNull();
-
-        // 3. Assign to field (admin endpoint)
-        DeviceAssignRequest assignRequest = new DeviceAssignRequest(fieldNumber);
+        // 3. Assign to field (admin endpoint) — E49S01 AC5: PIN required for SCORING_TABLET
+        DeviceAssignRequest assignRequest = new DeviceAssignRequest(fieldNumber, pin);
         ResponseEntity<String> assignResp =
                 authed.exchange(
                         new URI(baseUrl + "/api/devices/" + id + "/assign"),
