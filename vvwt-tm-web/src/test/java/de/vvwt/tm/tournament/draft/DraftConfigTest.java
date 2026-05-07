@@ -10,13 +10,16 @@ import org.junit.jupiter.api.Test;
 /**
  * RED — DraftConfig VO unit test (AC-TDD-DraftConfig).
  *
- * <p>Tests immutability, JSON (de)serialization round-trip, and null-input handling.
+ * <p>Tests immutability, JSON (de)serialization round-trip, null-input handling, last-phase
+ * invariant (E48S01), and first-phase invariant (E48S16).
  *
  * <p>Inventory: E21S01 line 238.
  *
  * @see DraftConfig
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
  * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
+ * @see <a href="E48S01">E48S01 — last-phase-siegerehrung invariant</a>
+ * @see <a href="E48S16">E48S16 — first-phase sortType=team_number invariant</a>
  */
 class DraftConfigTest {
 
@@ -134,5 +137,92 @@ class DraftConfigTest {
         DraftConfig config = DraftConfig.empty();
 
         config.validateLastPhaseSiegerehrung(); // must not throw
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-TEST-FIRST-PHASE-INVARIANT-RED (E48S16)
+    // RED-first per DEC-22 Iron Law. Tests written BEFORE validateFirstPhaseTeamNumber() exists.
+    // -------------------------------------------------------------------------
+
+    /**
+     * AC-TEST-FIRST-PHASE-INVARIANT-RED: DraftConfig where the first section (lowest sectionNumber)
+     * has sortType=placement_group throws IllegalArgumentException identifying the offending
+     * sectionNumber and actual sortType.
+     *
+     * <p>RED-first per DEC-22 Iron Law (Q-1a). Was RED before validateFirstPhaseTeamNumber() was
+     * added.
+     *
+     * @see <a href="E48S16">E48S16 — first-phase sortType=team_number invariant</a>
+     */
+    @Test
+    void validateFirstPhaseTeamNumber_withFirstPhasePlacementGroup_throwsIdentifyingSection() {
+        DraftSection phase1 =
+                new DraftSection(1, "placement_group", 2, "roundRobin", 5, 10, 15, 1, List.of());
+        DraftSection phase2 =
+                new DraftSection(2, "team_number", 1, "siegerehrung", 5, 10, 15, 1, List.of());
+        DraftConfig config = new DraftConfig(List.of(phase1, phase2));
+
+        assertThatThrownBy(config::validateFirstPhaseTeamNumber)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("1")
+                .hasMessageContaining("team_number");
+    }
+
+    /**
+     * AC-TEST-FIRST-PHASE-INVARIANT-RED: DraftConfig where the first section (lowest sectionNumber)
+     * has sortType=group_placement throws IllegalArgumentException.
+     *
+     * <p>RED-first per DEC-22 Iron Law (Q-1a).
+     *
+     * @see <a href="E48S16">E48S16 — first-phase sortType=team_number invariant</a>
+     */
+    @Test
+    void validateFirstPhaseTeamNumber_withFirstPhaseGroupPlacement_throwsIdentifyingSection() {
+        DraftSection phase1 =
+                new DraftSection(1, "group_placement", 2, "roundRobin", 5, 10, 15, 1, List.of());
+        DraftSection phase2 =
+                new DraftSection(2, "team_number", 1, "siegerehrung", 5, 10, 15, 1, List.of());
+        DraftConfig config = new DraftConfig(List.of(phase1, phase2));
+
+        assertThatThrownBy(config::validateFirstPhaseTeamNumber)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("1")
+                .hasMessageContaining("team_number");
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-TEST-FIRST-PHASE-VALID-GREEN (E48S16)
+    // -------------------------------------------------------------------------
+
+    /**
+     * AC-TEST-FIRST-PHASE-VALID-GREEN: DraftConfig with first section sortType=team_number is
+     * accepted even when further sections have other sortTypes.
+     *
+     * @see <a href="E48S16">E48S16 — first-phase sortType=team_number invariant</a>
+     */
+    @Test
+    void validateFirstPhaseTeamNumber_withFirstPhaseTeamNumber_passes() {
+        DraftSection phase1 =
+                new DraftSection(1, "team_number", 2, "roundRobin", 5, 10, 15, 1, List.of());
+        DraftSection phase2 =
+                new DraftSection(2, "placement_group", 1, "roundRobin", 5, 10, 15, 1, List.of());
+        DraftSection phase3 =
+                new DraftSection(3, "group_placement", 1, "siegerehrung", 5, 10, 15, 1, List.of());
+        DraftConfig config = new DraftConfig(List.of(phase1, phase2, phase3));
+
+        config.validateFirstPhaseTeamNumber(); // must not throw
+    }
+
+    /**
+     * AC-TEST-FIRST-PHASE-VALID-GREEN: Empty DraftConfig passes first-phase validation (no sections
+     * → nothing to enforce). Mirror of validateLastPhaseSiegerehrung empty-section no-op.
+     *
+     * @see <a href="E48S16">E48S16 — first-phase sortType=team_number invariant</a>
+     */
+    @Test
+    void validateFirstPhaseTeamNumber_withEmptySections_passes() {
+        DraftConfig config = DraftConfig.empty();
+
+        config.validateFirstPhaseTeamNumber(); // must not throw
     }
 }

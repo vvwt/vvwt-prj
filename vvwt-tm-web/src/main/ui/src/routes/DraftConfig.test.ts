@@ -141,10 +141,13 @@ describe('DraftConfig.svelte — AC-TEST-FRONTEND-PRE-SUBMIT-VALIDATION-RED (E48
     const path = await import('path');
     const src = path.resolve(__dirname, './DraftConfig.svelte');
     const source = fs.readFileSync(src, 'utf8');
-    // RED: handleApply must call validateLastPhase
-    // Extract handleApply function body and verify validateLastPhase appears before applyDraft call
-    const handleApplyMatch = source.match(/async function handleApply\(\)[^{]*\{([\s\S]*?)^\s*\}/m);
-    const handleApplyBody = handleApplyMatch?.[1] ?? '';
+    // Verify handleApply contains both validateLastPhase and applyDraft in relative order.
+    // Source-level substring search (avoids fragile regex body extraction).
+    const handleApplyStart = source.indexOf('async function handleApply()');
+    // Find the end of handleApply: search for the next top-level async function after handleApply
+    const nextFnStart = source.indexOf('\n  async function ', handleApplyStart + 1);
+    const handleApplyBody =
+      nextFnStart > -1 ? source.slice(handleApplyStart, nextFnStart) : source.slice(handleApplyStart);
     const validatePos = handleApplyBody.indexOf('validateLastPhase');
     const applyPos = handleApplyBody.indexOf('applyDraft');
     // validateLastPhase must appear before applyDraft in handleApply
@@ -334,5 +337,59 @@ describe('DraftConfig.svelte — E48S13 reset-plan button (AC-TEST-FRONTEND-VITE
     const src = path.resolve(__dirname, './DraftConfig.svelte');
     const source = fs.readFileSync(src, 'utf8');
     expect(source).toContain('resetPlan');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E48S16 — AC-TEST-FRONTEND-FIRST-PHASE-DROPDOWN-LOCK-RED
+// First-phase sortType dropdown auto-set to team_number + disabled
+// RED-first per DEC-22: these tests FAIL before DraftConfig.svelte adds the first-phase lock
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('DraftConfig.svelte — E48S16 first-phase sortType lock (AC-TEST-FRONTEND-FIRST-PHASE-DROPDOWN-LOCK-RED)', () => {
+  it('DraftConfig.svelte source contains a validateFirstPhase function', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // RED: fails before validateFirstPhase() is added to DraftConfig.svelte
+    expect(source).toContain('validateFirstPhase');
+  });
+
+  it('DraftConfig.svelte source references draftConfig.errors.firstPhaseMustBeTeamNumber i18n key', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // RED: fails before the i18n error key is referenced
+    expect(source).toContain('draftConfig.errors.firstPhaseMustBeTeamNumber');
+  });
+
+  it('DraftConfig.svelte handleApply calls validateFirstPhase before applyDraft', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // Verify handleApply contains both validateFirstPhase and applyDraft in relative order.
+    // Source-level substring search (avoids fragile regex body extraction).
+    const handleApplyStart = source.indexOf('async function handleApply()');
+    const nextFnStart = source.indexOf('\n  async function ', handleApplyStart + 1);
+    const handleApplyBody =
+      nextFnStart > -1 ? source.slice(handleApplyStart, nextFnStart) : source.slice(handleApplyStart);
+    const validateFirstPos = handleApplyBody.indexOf('validateFirstPhase');
+    const applyPos = handleApplyBody.indexOf('applyDraft');
+    // validateFirstPhase must appear before applyDraft in handleApply
+    expect(validateFirstPos).toBeGreaterThanOrEqual(0);
+    expect(validateFirstPos).toBeLessThan(applyPos > -1 ? applyPos : Infinity);
+  });
+
+  it('DraftConfig.svelte first-section (si === 0) sortType select is disabled', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // RED: fails before disabled={si === 0} is added to the sortType select
+    // Must disable the sortType select for the first section (si === 0)
+    expect(source).toContain('si === 0');
   });
 });

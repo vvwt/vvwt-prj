@@ -3,6 +3,9 @@
     "rundenzeit": {
       "disabledTooltip": "Lap time has no effect for Siegerehrung phases"
     },
+    "errors": {
+      "firstPhaseMustBeTeamNumber": "The first phase must use team number sorting."
+    },
     "preview": {
       "sumLabel": "Total",
       "columns": {

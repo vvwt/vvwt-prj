@@ -21,6 +21,8 @@ import java.util.List;
  * @see <a href="DEC-21">DEC-21 — Spring Modulith package layout</a>
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
  * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
+ * @see <a href="E48S01">E48S01 — last-phase-siegerehrung invariant (D-10)</a>
+ * @see <a href="E48S16">E48S16 — first-phase sortType=team_number invariant</a>
  */
 public final class DraftConfig {
 
@@ -53,6 +55,38 @@ public final class DraftConfig {
      */
     public static DraftConfig empty() {
         return new DraftConfig(Collections.emptyList());
+    }
+
+    /**
+     * Validates that the first phase (lowest {@code sectionNumber}) has {@code
+     * sortType=team_number}, as required by the E48S16 invariant.
+     *
+     * <p>Phase 1 has no predecessor; only {@code team_number} makes sense for the initial
+     * round-robin distribution. {@code placement_group} and {@code group_placement} require
+     * TeamAvatar ratings from a previous phase, which Phase 1 does not have.
+     *
+     * <p>No-op if there are no sections (empty draft has nothing to enforce).
+     *
+     * @throws IllegalArgumentException if the first phase does not have {@code
+     *     sortType=team_number}; the message identifies the offending sectionNumber and its actual
+     *     sortType
+     * @see <a href="E48S16">E48S16 — first-phase sortType=team_number invariant</a>
+     */
+    public void validateFirstPhaseTeamNumber() {
+        if (sections.isEmpty()) {
+            return;
+        }
+        DraftSection firstSection =
+                sections.stream()
+                        .min(Comparator.comparingInt(DraftSection::getSectionNumber))
+                        .orElseThrow();
+        if (!"team_number".equals(firstSection.getSortType())) {
+            throw new IllegalArgumentException(
+                    "First phase (sectionNumber "
+                            + firstSection.getSectionNumber()
+                            + ") must have sortType=team_number, got: "
+                            + firstSection.getSortType());
+        }
     }
 
     /**
