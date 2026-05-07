@@ -68,7 +68,8 @@
       "status": "Status",
       "gameMode": "Spielmodus",
       "currentLap": "Runde",
-      "matches": "Spiele (fertig / gesamt)"
+      "matches": "Spiele (fertig / gesamt)",
+      "actions": "Aktionen"
     },
     "status": {
       "PENDING": "Ausstehend",
@@ -83,10 +84,7 @@
     "forceCompleteButton": "Notabschluss",
     "completeDisabledTooltip": "Phase kann erst abgeschlossen werden, wenn alle Matches finished sind",
     "forceCompleteConfirm": "Notabschluss: {count} unfinished Matches werden als abgebrochen markiert. Wirklich fortfahren?",
-    "lifecycleError": "Fehler beim Ändern des Phasenstatus.",
-    "columns": {
-      "actions": "Aktionen"
-    }
+    "lifecycleError": "Fehler beim Ändern des Phasenstatus."
   },
   "tournamentForm": {
     "createTitle": "Neues Turnier erstellen",
