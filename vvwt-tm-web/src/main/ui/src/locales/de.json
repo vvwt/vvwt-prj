@@ -195,7 +195,8 @@
       "siegerehrung": "Siegerehrung"
     },
     "errors": {
-      "lastPhaseMustBeSiegerehrung": "Die letzte Phase muss den Spielmodus Siegerehrung haben."
+      "lastPhaseMustBeSiegerehrung": "Die letzte Phase muss den Spielmodus Siegerehrung haben.",
+      "firstPhaseMustBeTeamNumber": "Die erste Phase muss die Sortiermethode Teamnummer haben."
     },
     "rundenzeit": {
       "disabledTooltip": "Rundenzeit ist für Siegerehrung-Phasen nicht relevant"

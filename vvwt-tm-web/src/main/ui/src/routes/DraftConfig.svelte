@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * Draft configuration view — Story E05S06 (AC2–AC5); extended by E08S05, E47S01, E48S01.
+   * Draft configuration view — Story E05S06 (AC2–AC5); extended by E08S05, E47S01, E48S01, E48S16.
    *
    * E08S05 extensions:
    *   AC2 — break configuration per section (afterLapNumber, durationMinutes, label)
@@ -16,6 +16,12 @@
    * E48S01 extensions:
    *  AC-FRONTEND-GAMEMODE-DROPDOWN — per-phase gameMode select (roundRobin / siegerehrung)
    *  AC-FRONTEND-PRE-SUBMIT-VALIDATION-MIRROR — validateLastPhase() guards handleApply()
+   *
+   * E48S16 extensions:
+   *  AC-FRONTEND-FIRST-PHASE-DROPDOWN-LOCKED — first section (si===0) sortType select auto-set to
+   *    team_number and disabled (AC-GOVERNANCE-NO-PHASE-ENTITY-CHANGES: sortType stays in draft_json)
+   *  AC-FRONTEND-PRE-SUBMIT-VALIDATION-MIRROR — validateFirstPhase() guards handleApply() before
+   *    validateLastPhase() — mirrors backend validateFirstPhaseTeamNumber()
    *
    * Props:
    *   params.tournamentId — the tournament UUID from the route
@@ -162,6 +168,23 @@
   }
 
   /**
+   * Pre-submit validation: verifies the first section (lowest sectionNumber) has
+   * sortType='team_number'. Returns an i18n error string if invalid, or null if valid.
+   * AC-FRONTEND-PRE-SUBMIT-VALIDATION-MIRROR (E48S16) — mirrors backend
+   * DraftConfig.validateFirstPhaseTeamNumber().
+   */
+  function validateFirstPhase(): string | null {
+    if (sections.length === 0) return null;
+    const firstSection = sections.reduce((min, s) =>
+      s.sectionNumber < min.sectionNumber ? s : min
+    );
+    if (firstSection.sortType !== 'team_number') {
+      return $_('draftConfig.errors.firstPhaseMustBeTeamNumber');
+    }
+    return null;
+  }
+
+  /**
    * Pre-submit validation: verifies the last section has gameMode='siegerehrung'.
    * Returns an i18n error key string if invalid, or null if valid.
    * AC-FRONTEND-PRE-SUBMIT-VALIDATION-MIRROR (E48S01).
@@ -296,6 +319,12 @@
   // ── Apply ─────────────────────────────────────────────────────────────────
 
   async function handleApply(): Promise<void> {
+    // AC-FRONTEND-PRE-SUBMIT-VALIDATION-MIRROR (E48S16): first-phase sortType=team_number
+    const firstPhaseError = validateFirstPhase();
+    if (firstPhaseError !== null) {
+      applyError = firstPhaseError;
+      return;
+    }
     // AC-FRONTEND-PRE-SUBMIT-VALIDATION-MIRROR (E48S01): validate before backend call
     const lastPhaseError = validateLastPhase();
     if (lastPhaseError !== null) {
@@ -381,10 +410,14 @@
         </div>
 
         <div class="section-card__fields">
-          <!-- Sort type -->
+          <!-- Sort type (E48S16 AC-FRONTEND-FIRST-PHASE-DROPDOWN-LOCKED: first section disabled) -->
           <div class="form__field">
             <label>{$_('draft.section.fields.sortType')}</label>
-            <select bind:value={section.sortType}>
+            <select
+              bind:value={section.sortType}
+              disabled={si === 0}
+              title={si === 0 ? $_('draftConfig.errors.firstPhaseMustBeTeamNumber') : undefined}
+            >
               <option value="team_number">{$_('draft.sortType.team_number')}</option>
               <option value="placement_group">{$_('draft.sortType.placement_group')}</option>
               <option value="group_placement">{$_('draft.sortType.group_placement')}</option>

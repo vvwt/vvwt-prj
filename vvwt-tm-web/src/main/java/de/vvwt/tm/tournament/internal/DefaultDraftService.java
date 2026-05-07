@@ -203,6 +203,9 @@ public class DefaultDraftService implements DraftService {
             throw new DraftAlreadyAppliedException(tournamentId, existingPhases.size());
         }
 
+        // AC-IMPL-FIRST-PHASE-INVARIANT (E48S16): first phase must have sortType=team_number
+        config.validateFirstPhaseTeamNumber();
+
         // AC-IMPL-LAST-PHASE-INVARIANT (E48S01): D-10 — last phase must be siegerehrung
         config.validateLastPhaseSiegerehrung();
 
