@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-22.md at f671c4c2bfb0f764265162ea4ebd334f4698da32 2026-04-22 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-22.md at 9c78478e3474589ce04d5709ec49aaa2fcd12b2b 2026-05-07 -->
 ---
 id: DEC-22
 domain: governance
@@ -8,10 +8,10 @@ status: active
 created_by: discovery
 created_at: 2026-04-18
 last_updated_by: discovery
-last_updated_at: 2026-04-22
+last_updated_at: 2026-05-07
 supersedes: null
 superseded_by: null
-amended_by: [DEC-34, DEC-36, DEC-41]
+amended_by: [DEC-34, DEC-36, DEC-41, DEC-54]
 tags:
   - tdd
   - testing
@@ -144,3 +144,7 @@ See **DEC-36** for the full amendment. In summary: a new clause is added to this
 ## 2026-04-22 Amendment — Spec-Anchored Test Reuse vs. Characterization
 
 See **DEC-41** for the full amendment. In summary: new clauses are added to this DEC's `## Decision` section governing the reuse of pre-existing spec-anchored tests as supplementary regression safety in Reconstruction-in-Place stories — defines the Spec-Anchored vs. Snapshot-Driven classification by four observable criteria (jqwik `@Property`, round-trip/bijection, external-spec citation with locator, named algebraic invariant with quantified body); names the Contract Test pattern with shared-abstract-type precondition; codifies the test-obligation hierarchy (mandatory new TDD tests for new code per Iron Law / supplementary Spec-Anchored reuse / forbidden Snapshot-Driven reuse) explicitly preserving the Iron Law in full strength for new code; assigns enforcement to the `qa-review` skill (pre-PR-merge per `delivery-loop.workflow.md` § Step 7); the actual `qa-review` check text is delivered via the paired operationalization story E34S01. The "Characterization tests are forbidden" clause and the "every test must have been red" rule remain TEXTUALLY UNCHANGED in this DEC's `## Decision` section; DEC-41 narrows the scope of "characterization" to its originally-targeted snapshot-as-safety-net case and refines the red-first rule's scope of application to NEW code under reconstruction (not to admissibility of pre-existing tests reused as supplementary safety). All other clauses of this DEC remain UNCHANGED by DEC-41. `last_updated_at` advances to 2026-04-22; `status` remains `active`; no `supersedes`/`superseded_by` change.
+
+## 2026-05-07 Amendment — qa-review canonical-build gate
+
+See **DEC-54** for the full amendment. In summary: a new clause is added to this DEC's `## Decision` section requiring that the `qa-review` skill (`SKILL-QA-REVIEW-001` at `.gaai/core/skills/delivery/qa-review/SKILL.md`) verify the canonical full-Maven-lifecycle target (`mvn verify` invoked from the vvwt-prj root) succeeded with exit-zero before allowing the qa_report verdict to be PASS — closing the frontend-build-bypass class demonstrated by E48S11's `{@const}` Svelte compile error reaching `staging` 2026-05-06 (PR #203 had no CI gates, vitest source-inspection tests never invoked the Svelte compiler, and `mvn verify` was not run before close-story despite `vvwt-tm-web/pom.xml:341–349` binding `npm run build` to `generate-resources`). Partial Maven invocations (`mvn test`, `mvn package`) and partial frontend invocations (`npm run build` standalone, `npm test` standalone) are insufficient evidence — only `mvn verify`'s full phase traversal is. Asymmetric-error preference (false-FAIL preferred to false-PASS) applies: missing invocation, unparseable output, or non-zero exit all FAIL the gate; only verified exit-zero with parseable output produces verdict PASS contribution. Non-Maven projects (no `pom.xml` discoverable) emit verdict SKIPPED, not FAIL. Enforcement is a new Step in the qa-review skill (pre-PR-merge per `delivery-loop.workflow.md` § Step 7), inserted after Step 7 (DEC-41 Spec-Anchored Test Reuse Check); the actual Step text is delivered via the paired operationalization story E17S21. The Iron Law, JMH carve-out, reconstruction-in-place migration, characterization-test prohibition, Slot-Opt-tests-remain-valid, documentation duty, Wave-1 Epic-1/Epic-3 impact, characterization revisitation, CI implications conditional clause (§ Impact paragraph 4), and no-supersession statement all remain TEXTUALLY UNCHANGED in this DEC's `## Decision` and `## Impact` sections. DEC-54 introduces no new authority and no new state — it tightens the existing qa-review verdict scope from "tests pass + ACs met" to "tests pass + ACs met + canonical full-Maven-lifecycle target succeeds". All other clauses of this DEC remain UNCHANGED by DEC-54. `last_updated_at` advances to 2026-05-07; `status` remains `active`; no `supersedes`/`superseded_by` change.
