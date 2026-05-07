@@ -26,6 +26,7 @@ import org.springframework.stereotype.Repository;
  * @see <a href="DEC-26">DEC-26 — DAO test governance (three rules)</a>
  * @see <a href="E21S06">E21S06 — Device aggregate reconstruction (inventory line 290)</a>
  * @see <a href="E31S01">E31S01 — interface extraction</a>
+ * @see <a href="E49S01">E49S01 — PIN out-of-band + inline-row assignment</a>
  */
 @Repository("tmDeviceRepository")
 public class DefaultDeviceRepository implements DeviceRepository {
@@ -45,8 +46,6 @@ public class DefaultDeviceRepository implements DeviceRepository {
     private static final String SELECT_BY_ID = "SELECT * FROM devices WHERE id=?";
 
     private static final String SELECT_BY_TOKEN = "SELECT * FROM devices WHERE device_token=?";
-
-    private static final String SELECT_BY_PIN = "SELECT * FROM devices WHERE pin=?";
 
     private static final String SELECT_BY_LOCATION_AND_FIELD_WITH_LOCATION =
             "SELECT * FROM devices WHERE location_id=? AND assigned_field=?";
@@ -70,6 +69,17 @@ public class DefaultDeviceRepository implements DeviceRepository {
     private static final String DELETE_ALL_BY_TENANT = "DELETE FROM devices";
 
     private static final String COUNT_LOCATION = "SELECT COUNT(*) FROM locations WHERE id=?";
+
+    private static final String NAME_TAKEN = "SELECT COUNT(*) FROM devices WHERE device_name=?";
+
+    private static final String INCREMENT_PIN_FAIL_COUNT =
+            "UPDATE devices SET pin_fail_count = pin_fail_count + 1 WHERE id=?";
+
+    private static final String RESET_PIN_FAIL_COUNT =
+            "UPDATE devices SET pin_fail_count = 0 WHERE id=?";
+
+    private static final String GET_PIN_FAIL_COUNT =
+            "SELECT pin_fail_count FROM devices WHERE id=?";
 
     public DefaultDeviceRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
@@ -125,13 +135,6 @@ public class DefaultDeviceRepository implements DeviceRepository {
     @Override
     public Optional<Device> findByDeviceToken(String deviceToken) {
         List<Device> results = jdbc.query(SELECT_BY_TOKEN, ROW_MAPPER, deviceToken);
-        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Optional<Device> findByPin(String pin) {
-        List<Device> results = jdbc.query(SELECT_BY_PIN, ROW_MAPPER, pin);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
@@ -196,6 +199,32 @@ public class DefaultDeviceRepository implements DeviceRepository {
     @Override
     public void deleteAllByTenant() {
         jdbc.update(DELETE_ALL_BY_TENANT);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean isNameTaken(String name) {
+        Integer count = jdbc.queryForObject(NAME_TAKEN, Integer.class, name);
+        return count != null && count > 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void incrementPinFailCount(UUID id) {
+        jdbc.update(INCREMENT_PIN_FAIL_COUNT, id);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void resetPinFailCount(UUID id) {
+        jdbc.update(RESET_PIN_FAIL_COUNT, id);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int getPinFailCount(UUID id) {
+        Integer count = jdbc.queryForObject(GET_PIN_FAIL_COUNT, Integer.class, id);
+        return count != null ? count : 0;
     }
 
     // -------------------------------------------------------------------------

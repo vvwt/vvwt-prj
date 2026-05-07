@@ -32,6 +32,26 @@
     },
     "prepareButton": "Prepare"
   },
+  "devices": {
+    "columns": {
+      "registeredAt": "Registered at"
+    },
+    "scoringTablet": {
+      "pinInputLabel": "PIN",
+      "pinInputPlaceholder": "Enter PIN",
+      "pinMismatch": "Wrong PIN. Please try again.",
+      "pinLocked": "Device is locked after too many failed attempts. Please reset.",
+      "pinMissing": "PIN is required for scoring tablets.",
+      "pinLockResetButton": "Reset PIN lock",
+      "pinLockResetConfirm": "Reset PIN lock for this device?",
+      "pinLockResetError": "Error resetting PIN lock.",
+      "pinLockResetSuccess": "PIN lock has been reset.",
+      "renameButton": "Rename",
+      "renameLabel": "New name",
+      "renamePlaceholder": "e.g. Tablet-A1B2",
+      "renameError": "Error renaming device."
+    }
+  },
   "error": {
     "tournament": {
       "cascadeDelete": {

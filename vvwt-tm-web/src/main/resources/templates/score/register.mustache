@@ -89,6 +89,13 @@
             border-radius: 4px;
             cursor: pointer;
         }
+        /* E49S01 AC7: device name — shown below PIN after registration */
+        #device-name {
+            display: none;
+            margin-top: 12px;
+            font-size: 0.85em;
+            color: #888;
+        }
         /* App version — small, bottom */
         #version-info {
             margin-top: 48px;
@@ -119,6 +126,8 @@
             <div id="pin-instruction">{{msgPinInstruction}}</div>
             <!-- AC2: large, centered PIN; AC9: only PIN is shown here, never the device token -->
             <div id="pin-value"></div>
+            <!-- E49S01 AC7: device name — shown below PIN after registration -->
+            <div id="device-name"></div>
         </div>
 
         <!-- AC8: retry button — shown when registration or network fails -->
@@ -180,6 +189,7 @@
     var elStatusMsg  = vvwtQuery('#status-msg');
     var elPinBlock   = vvwtQuery('#pin-block');
     var elPinValue   = vvwtQuery('#pin-value');
+    var elDeviceName = vvwtQuery('#device-name');
     var elRetryBtn   = vvwtQuery('#retry-btn');
     var elErrorBanner = vvwtQuery('#error-banner');
 
@@ -317,14 +327,24 @@
     }
 
     /**
-     * Show the PIN and start polling for assignment (AC2, AC4).
+     * Show the PIN (and device name) and start polling for assignment (AC2, AC4, E49S01 AC7).
      * @param {string} pin
      * @param {string} deviceToken
+     * @param {string|null} deviceName
      */
-    function showPinAndPoll(pin, deviceToken) {
+    function showPinAndPoll(pin, deviceToken, deviceName) {
         /* AC2: show PIN prominently */
         vvwtShow(elPinBlock);
         vvwtSetText(elPinValue, pin);
+        /* E49S01 AC7: show device name below PIN if present */
+        if (elDeviceName) {
+            if (deviceName) {
+                vvwtSetText(elDeviceName, deviceName);
+                vvwtShow(elDeviceName);
+            } else {
+                vvwtHide(elDeviceName);
+            }
+        }
         vvwtHide(elRetryBtn);
         vvwtSetText(elStatusMsg, MSG_WAITING);
 
@@ -416,15 +436,15 @@
                 body: ''
             },
             function (data) {
-                /* Success: data = { deviceToken, pin } */
+                /* Success: data = { deviceToken, pin, deviceName } */
                 if (!data || !data.deviceToken || !data.pin) {
                     showError(MSG_ERROR_REG);
                     return;
                 }
                 /* AC3: store token before displaying PIN */
                 storeToken(data.deviceToken);
-                /* AC2, AC4: show PIN and begin polling */
-                showPinAndPoll(data.pin, data.deviceToken);
+                /* AC2, AC4, E49S01 AC7: show PIN + deviceName and begin polling */
+                showPinAndPoll(data.pin, data.deviceToken, data.deviceName || null);
             },
             function (err) {
                 /* AC8: registration failed — show error and retry button */

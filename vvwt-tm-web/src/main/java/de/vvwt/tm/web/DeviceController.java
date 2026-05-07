@@ -3,12 +3,18 @@ package de.vvwt.tm.web;
 import de.vvwt.tm.tournament.Device;
 import de.vvwt.tm.tournament.DeviceService;
 import de.vvwt.tm.tournament.exceptions.DeviceLimitExceededException;
+import de.vvwt.tm.tournament.exceptions.DevicePinLockedException;
 import de.vvwt.tm.tournament.exceptions.DisplayDeviceLimitExceededException;
+import de.vvwt.tm.tournament.exceptions.PinMismatchException;
+import de.vvwt.tm.tournament.exceptions.PinMissingForTabletException;
+import de.vvwt.tm.tournament.exceptions.RenameNotSupportedForDisplayException;
+import de.vvwt.tm.tournament.exceptions.UnexpectedPinForDisplayException;
 import de.vvwt.tm.tournament.internal.dto.DeviceAssignRequest;
 import de.vvwt.tm.tournament.internal.dto.DeviceConfigureRequest;
 import de.vvwt.tm.tournament.internal.dto.DeviceLimitErrorResponse;
 import de.vvwt.tm.tournament.internal.dto.DeviceRegisterRequest;
 import de.vvwt.tm.tournament.internal.dto.DeviceRegisterResponse;
+import de.vvwt.tm.tournament.internal.dto.DeviceRenameRequest;
 import de.vvwt.tm.tournament.internal.dto.DeviceStatusResponse;
 import de.vvwt.tm.tournament.internal.dto.DeviceSummaryResponse;
 import jakarta.validation.Valid;
@@ -44,6 +50,9 @@ import org.springframework.web.bind.annotation.RestController;
  *   <li>POST /api/devices/register — register a new device (SCORING_TABLET or DISPLAY)
  *   <li>GET /api/devices/status — get device status by token
  *   <li>GET /api/devices/list — list all devices for the current tenant
+ *   <li>PUT /api/devices/{id}/assign — assign device to field (with PIN for SCORING_TABLET)
+ *   <li>POST /api/devices/{id}/pin-lock/reset — admin unlock after PIN-lock (E49S01 AC6)
+ *   <li>PUT /api/devices/{id}/rename — rename SCORING_TABLET device (E49S01 AC11)
  * </ul>
  *
  * <h2>Device limit enforcement</h2>
@@ -56,6 +65,7 @@ import org.springframework.web.bind.annotation.RestController;
  * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
  * @see <a href="E22S07">E22S07 — Relocate DeviceController to de.vvwt.tm.web</a>
+ * @see <a href="E49S01">E49S01 — PIN out-of-band + inline-row assignment</a>
  */
 @RestController("tmDeviceController")
 @RequestMapping("/api/devices")
@@ -125,42 +135,23 @@ public class DeviceController {
     }
 
     // -------------------------------------------------------------------------
-    // GET /api/devices?pin={pin}
-    // -------------------------------------------------------------------------
-
-    /**
-     * Finds a device by its PIN for the current tenant.
-     *
-     * <p>Used by the admin UI to look up a registered scoring tablet by PIN. Requires admin
-     * authentication.
-     *
-     * <p>Migrated from the deleted legacy {@code de.vvwt.tm.infrastructure.web.DeviceController}
-     * during E21S13 cutover (DEC-22 refactor phase — behavior-preserving).
-     *
-     * @param pin the numeric PIN displayed on the tablet
-     * @return 200 OK with {@link DeviceSummaryResponse}, or 404 if not found
-     */
-    @GetMapping(produces = "application/json")
-    public ResponseEntity<DeviceSummaryResponse> findByPin(@RequestParam("pin") String pin) {
-        Device device = deviceService.getDeviceByPin(pin);
-        return ResponseEntity.ok(DeviceSummaryResponse.from(device));
-    }
-
-    // -------------------------------------------------------------------------
-    // PUT /api/devices/{id}/assign
+    // PUT /api/devices/{id}/assign (E49S01 — PIN out-of-band)
     // -------------------------------------------------------------------------
 
     /**
      * Assigns a device to a court field.
      *
-     * <p>Requires admin authentication. Returns 409 Conflict if another device is already assigned
-     * to the same field. Returns 404 if the device does not exist.
+     * <p>For SCORING_TABLET: requires {@code pin} in the request body matching the device's stored
+     * PIN (E49S01 AC5). Returns 422 if PIN absent, 403 if PIN wrong, 423 if device is PIN-locked
+     * (N=10 failures).
      *
-     * <p>Migrated from the deleted legacy {@code de.vvwt.tm.infrastructure.web.DeviceController}
-     * during E21S13 cutover (DEC-22 refactor phase — behavior-preserving).
+     * <p>For DISPLAY: {@code pin} must be absent. Returns 422 if PIN supplied.
+     *
+     * <p>Returns 409 Conflict if another device is already assigned to the same field. Returns 404
+     * if the device does not exist.
      *
      * @param deviceId the device UUID
-     * @param request the assign request (fieldNumber)
+     * @param request the assign request (fieldNumber, pin)
      * @return 200 OK with {@link DeviceSummaryResponse}
      */
     @PutMapping(
@@ -170,7 +161,49 @@ public class DeviceController {
     public ResponseEntity<DeviceSummaryResponse> assignDevice(
             @PathVariable("deviceId") UUID deviceId,
             @Valid @RequestBody DeviceAssignRequest request) {
-        Device device = deviceService.assignDevice(deviceId, request.fieldNumber());
+        Device device = deviceService.assignDevice(deviceId, request.fieldNumber(), request.pin());
+        return ResponseEntity.ok(DeviceSummaryResponse.from(device));
+    }
+
+    // -------------------------------------------------------------------------
+    // POST /api/devices/{id}/pin-lock/reset (E49S01 AC6)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Resets the PIN fail-counter for the given device to 0, unlocking it.
+     *
+     * <p>Admin-only endpoint. Returns 204 No Content on success, 404 if device not found.
+     *
+     * @param deviceId the device UUID
+     * @return 204 No Content
+     */
+    @PostMapping(value = "/{deviceId}/pin-lock/reset")
+    public ResponseEntity<Void> resetPinLock(@PathVariable("deviceId") UUID deviceId) {
+        deviceService.resetPinLockCounter(deviceId);
+        return ResponseEntity.noContent().build();
+    }
+
+    // -------------------------------------------------------------------------
+    // PUT /api/devices/{id}/rename (E49S01 AC11)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Renames a SCORING_TABLET device.
+     *
+     * <p>Admin-only endpoint. Returns 422 if device is DISPLAY. Returns 404 if device not found.
+     *
+     * @param deviceId the device UUID
+     * @param request the rename request (newName)
+     * @return 200 OK with {@link DeviceSummaryResponse}
+     */
+    @PutMapping(
+            value = "/{deviceId}/rename",
+            consumes = "application/json",
+            produces = "application/json")
+    public ResponseEntity<DeviceSummaryResponse> renameDevice(
+            @PathVariable("deviceId") UUID deviceId,
+            @Valid @RequestBody DeviceRenameRequest request) {
+        Device device = deviceService.renameDevice(deviceId, request.newName());
         return ResponseEntity.ok(DeviceSummaryResponse.from(device));
     }
 
@@ -302,5 +335,122 @@ public class DeviceController {
                         ex.getCurrentCount(),
                         "error.device.limitExceeded");
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(body);
+    }
+
+    /**
+     * Maps {@link PinMissingForTabletException} to HTTP 422 Unprocessable Entity (E49S01 AC5).
+     *
+     * @return 422 with RFC-7807 problem body
+     */
+    @ExceptionHandler(PinMissingForTabletException.class)
+    public ResponseEntity<java.util.Map<String, Object>> handlePinMissingForTablet(
+            PinMissingForTabletException ex) {
+        return ResponseEntity.status(422)
+                .contentType(
+                        org.springframework.http.MediaType.parseMediaType(
+                                "application/problem+json"))
+                .body(
+                        java.util.Map.of(
+                                "type",
+                                "urn:vvwt:tm:device:pin-missing",
+                                "title",
+                                "PIN required",
+                                "status",
+                                422,
+                                "detail",
+                                ex.getMessage()));
+    }
+
+    /**
+     * Maps {@link UnexpectedPinForDisplayException} to HTTP 422 Unprocessable Entity (E49S01 AC5).
+     *
+     * @return 422 with RFC-7807 problem body
+     */
+    @ExceptionHandler(UnexpectedPinForDisplayException.class)
+    public ResponseEntity<java.util.Map<String, Object>> handleUnexpectedPinForDisplay(
+            UnexpectedPinForDisplayException ex) {
+        return ResponseEntity.status(422)
+                .contentType(
+                        org.springframework.http.MediaType.parseMediaType(
+                                "application/problem+json"))
+                .body(
+                        java.util.Map.of(
+                                "type",
+                                "urn:vvwt:tm:device:unexpected-pin",
+                                "title",
+                                "PIN not expected for DISPLAY",
+                                "status",
+                                422,
+                                "detail",
+                                ex.getMessage()));
+    }
+
+    /**
+     * Maps {@link PinMismatchException} to HTTP 403 Forbidden (E49S01 AC5).
+     *
+     * @return 403 with RFC-7807 problem body
+     */
+    @ExceptionHandler(PinMismatchException.class)
+    public ResponseEntity<java.util.Map<String, Object>> handlePinMismatch(
+            PinMismatchException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .contentType(
+                        org.springframework.http.MediaType.parseMediaType(
+                                "application/problem+json"))
+                .body(
+                        java.util.Map.of(
+                                "type",
+                                "urn:vvwt:tm:device:pin-mismatch",
+                                "title",
+                                "PIN mismatch",
+                                "status",
+                                403,
+                                "detail",
+                                ex.getMessage()));
+    }
+
+    /**
+     * Maps {@link DevicePinLockedException} to HTTP 423 Locked (E49S01 AC6).
+     *
+     * @return 423 with RFC-7807 problem body
+     */
+    @ExceptionHandler(DevicePinLockedException.class)
+    public ResponseEntity<java.util.Map<String, Object>> handleDevicePinLocked(
+            DevicePinLockedException ex) {
+        return ResponseEntity.status(423)
+                .contentType(
+                        org.springframework.http.MediaType.parseMediaType(
+                                "application/problem+json"))
+                .body(
+                        java.util.Map.of(
+                                "type", "urn:vvwt:tm:device:pin-locked",
+                                "title", "Device PIN-locked",
+                                "status", 423,
+                                "detail", "Device is locked after too many failed PIN attempts"));
+    }
+
+    /**
+     * Maps {@link RenameNotSupportedForDisplayException} to HTTP 422 Unprocessable Entity (E49S01
+     * AC11).
+     *
+     * @return 422 with RFC-7807 problem body
+     */
+    @ExceptionHandler(RenameNotSupportedForDisplayException.class)
+    public ResponseEntity<java.util.Map<String, Object>> handleRenameNotSupportedForDisplay(
+            RenameNotSupportedForDisplayException ex) {
+        return ResponseEntity.status(422)
+                .contentType(
+                        org.springframework.http.MediaType.parseMediaType(
+                                "application/problem+json"))
+                .body(
+                        java.util.Map.of(
+                                "type",
+                                "urn:vvwt:tm:device:rename-not-supported",
+                                "title",
+                                "Rename not supported for DISPLAY",
+                                "status",
+                                422,
+                                "detail",
+                                ex.getMessage()));
     }
 }

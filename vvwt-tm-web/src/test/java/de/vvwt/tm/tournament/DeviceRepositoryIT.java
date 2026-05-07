@@ -56,7 +56,6 @@ import org.springframework.test.context.ActiveProfiles;
  * <ul>
  *   <li>{@code findByDeviceToken} — used by DeviceTokenHandshakeInterceptor,
  *       WebSocketSecurityConfig
- *   <li>{@code findByPin} — used by admin lookup in DeviceController
  *   <li>{@code findByLocationAndField} — conflict check for field assignment
  *   <li>{@code countDisplayDevicesByTenant} / {@code countByTenant} — device limit enforcement
  *   <li>{@code isPinTaken} — PIN uniqueness guard
@@ -177,23 +176,93 @@ class DeviceRepositoryIT {
         assertThat(result).isEmpty();
     }
 
+    // =========================================================================
+    // E49S01 — isNameTaken (AC1, AC12, DEC-26 three rules)
+    // RED state: methods do not exist at commit time — compile error
+    // =========================================================================
+
     @Test
-    @DisplayName("findByPin() — returns device when pin matches for this tenant")
-    void findByPin_returnsPresentWhenFound() {
-        UUID deviceId = UUID.randomUUID();
-        insertDeviceDirectly(deviceId, tenantId, "token-pin", "1234", Device.TYPE_SCORING_TABLET);
+    @DisplayName("E49S01: isNameTaken() — returns true when device_name exists in tenant")
+    void e49s01_isNameTaken_returnsTrueWhenNameExists() {
+        UUID id = UUID.randomUUID();
+        Map<String, Object> cols = new LinkedHashMap<>();
+        cols.put("id", id);
+        cols.put("device_token", "token-name-taken");
+        cols.put("device_type", Device.TYPE_SCORING_TABLET);
+        cols.put("status", Device.STATUS_REGISTERED);
+        cols.put("device_name", "Tablet-AAAA");
+        TenantDaoTestSupport.insertDirectly(dataSource, "devices", cols);
 
-        Optional<Device> result = deviceRepository.findByPin("1234");
-
-        assertThat(result).isPresent();
-        assertThat(result.get().getId()).isEqualTo(deviceId);
+        assertThat(deviceRepository.isNameTaken("Tablet-AAAA")).isTrue();
     }
 
     @Test
-    @DisplayName("findByPin() — returns empty for unknown pin")
-    void findByPin_returnsEmptyForUnknown() {
-        Optional<Device> result = deviceRepository.findByPin("0000");
-        assertThat(result).isEmpty();
+    @DisplayName("E49S01: isNameTaken() — returns false when device_name not in tenant")
+    void e49s01_isNameTaken_returnsFalseWhenNameAbsent() {
+        assertThat(deviceRepository.isNameTaken("Tablet-ZZZZ")).isFalse();
+    }
+
+    // =========================================================================
+    // E49S01 — pin_fail_count column persistence (AC6, AC12, DEC-26 three rules)
+    // Rule 1: V2__device_pin_fail_count.sql loaded via Flyway (SpringBootTest)
+    // Rule 2: assertj-db verifies column value — never via repository read method
+    // Rule 3: read-path uses TenantDaoTestSupport.insertDirectly
+    // =========================================================================
+
+    @Test
+    @DisplayName("E49S01: incrementPinFailCount() — persists increment atomically (assertj-db)")
+    void e49s01_incrementPinFailCount_persistsIncrement() {
+        UUID id = UUID.randomUUID();
+        Map<String, Object> cols = new LinkedHashMap<>();
+        cols.put("id", id);
+        cols.put("device_token", "token-failcnt");
+        cols.put("device_type", Device.TYPE_SCORING_TABLET);
+        cols.put("status", Device.STATUS_REGISTERED);
+        cols.put("pin", "4321");
+        TenantDaoTestSupport.insertDirectly(dataSource, "devices", cols);
+
+        deviceRepository.incrementPinFailCount(id);
+
+        // Rule 2: verify via assertj-db, not repository read
+        assertThat(assertDb.table("devices").build()).row().value("PIN_FAIL_COUNT").isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("E49S01: resetPinFailCount() — sets counter to 0 (assertj-db)")
+    void e49s01_resetPinFailCount_setsToZero() {
+        UUID id = UUID.randomUUID();
+        // Insert with pre-set fail count via direct JDBC (Rule 3)
+        Map<String, Object> cols = new LinkedHashMap<>();
+        cols.put("id", id);
+        cols.put("device_token", "token-reset");
+        cols.put("device_type", Device.TYPE_SCORING_TABLET);
+        cols.put("status", Device.STATUS_REGISTERED);
+        cols.put("pin", "5555");
+        cols.put("pin_fail_count", 7);
+        TenantDaoTestSupport.insertDirectly(dataSource, "devices", cols);
+
+        deviceRepository.resetPinFailCount(id);
+
+        // Rule 2: assertj-db
+        assertThat(assertDb.table("devices").build()).row().value("PIN_FAIL_COUNT").isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("E49S01: getPinFailCount() — returns current counter value")
+    void e49s01_getPinFailCount_returnsCurrentValue() {
+        UUID id = UUID.randomUUID();
+        Map<String, Object> cols = new LinkedHashMap<>();
+        cols.put("id", id);
+        cols.put("device_token", "token-getcount");
+        cols.put("device_type", Device.TYPE_SCORING_TABLET);
+        cols.put("status", Device.STATUS_REGISTERED);
+        cols.put("pin", "6666");
+        cols.put("pin_fail_count", 5);
+        TenantDaoTestSupport.insertDirectly(dataSource, "devices", cols);
+
+        int count = deviceRepository.getPinFailCount(id);
+
+        assertThat(count).isEqualTo(5);
     }
 
     @Test

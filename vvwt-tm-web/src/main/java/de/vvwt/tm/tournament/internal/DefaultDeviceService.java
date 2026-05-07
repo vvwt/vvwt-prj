@@ -5,7 +5,12 @@ import de.vvwt.tm.tournament.DeviceRepository;
 import de.vvwt.tm.tournament.DeviceService;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import de.vvwt.tm.tournament.exceptions.DeviceLimitExceededException;
+import de.vvwt.tm.tournament.exceptions.DevicePinLockedException;
 import de.vvwt.tm.tournament.exceptions.DisplayDeviceLimitExceededException;
+import de.vvwt.tm.tournament.exceptions.PinMismatchException;
+import de.vvwt.tm.tournament.exceptions.PinMissingForTabletException;
+import de.vvwt.tm.tournament.exceptions.RenameNotSupportedForDisplayException;
+import de.vvwt.tm.tournament.exceptions.UnexpectedPinForDisplayException;
 import java.security.SecureRandom;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -52,6 +57,7 @@ import org.springframework.stereotype.Service;
  * @see <a href="DEC-35">DEC-35 — Default* naming canon for service implementations</a>
  * @see <a href="E21S06">E21S06 — Device aggregate reconstruction (inventory line 170)</a>
  * @see <a href="E33S03">E33S03 — DEC-35 interface-extraction retrofit</a>
+ * @see <a href="E49S01">E49S01 — PIN out-of-band + inline-row assignment + device name</a>
  */
 @Service("tmDeviceService")
 public class DefaultDeviceService implements DeviceService {
@@ -61,6 +67,22 @@ public class DefaultDeviceService implements DeviceService {
 
     private static final int PIN_LENGTH = 4;
     private static final int MAX_PIN_RETRIES = 20;
+
+    /**
+     * Alphanumeric characters for device name suffix generation — uppercase A-Z plus digits 2-9
+     * (confusable digits 0, 1, 8 excluded for readability).
+     */
+    private static final char[] NAME_CHARS = {
+        'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M',
+        'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+        '2', '3', '4', '5', '6', '7', '9'
+    };
+
+    private static final int NAME_SUFFIX_LENGTH = 4;
+    private static final int MAX_NAME_RETRIES = 20;
+
+    /** Maximum consecutive PIN failures before the device is locked (E49S01 AC6). */
+    private static final int PIN_LOCK_THRESHOLD = 10;
 
     private final DeviceRepository deviceRepository;
     private final DeviceLimitConfig limitConfig;
@@ -138,8 +160,9 @@ public class DefaultDeviceService implements DeviceService {
 
         if (Device.TYPE_SCORING_TABLET.equals(device.getDeviceType())) {
             device.setPin(generateUniquePin());
+            device.setDeviceName(generateUniqueDeviceName());
         }
-        // DISPLAY: pin stays null
+        // DISPLAY: pin stays null; name set via configure()
 
         return deviceRepository.save(device);
     }
@@ -247,48 +270,58 @@ public class DefaultDeviceService implements DeviceService {
     }
 
     // -------------------------------------------------------------------------
-    // getDeviceByPin
+    // assignDevice (E49S01 — PIN out-of-band)
     // -------------------------------------------------------------------------
 
     /**
      * {@inheritDoc}
      *
-     * <p>Migrated from the deleted legacy {@code de.vvwt.tm.domain.DeviceService} during E21S13
-     * cutover (DEC-22 refactor phase — behavior-preserving).
+     * <p>For SCORING_TABLET: verifies pin is non-null, device is not PIN-locked, and pin matches.
+     * On mismatch the fail-counter is incremented; on success it is reset to 0.
      *
-     * @throws NoSuchElementException if no device with this PIN exists for the current tenant
-     */
-    @Override
-    public Device getDeviceByPin(String pin) {
-        return deviceRepository
-                .findByPin(pin)
-                .orElseThrow(() -> new NoSuchElementException("No device found for PIN: " + pin));
-    }
-
-    // -------------------------------------------------------------------------
-    // assignDevice
-    // -------------------------------------------------------------------------
-
-    /**
-     * {@inheritDoc}
+     * <p>For DISPLAY: pin must be null.
      *
      * <p>Validates that no other device is already assigned to the same field within the same
      * tenant (→ 409 Conflict if conflict). Sets {@code assignedField} and transitions status to
      * {@code ASSIGNED}.
      *
-     * <p>Migrated from the deleted legacy {@code de.vvwt.tm.domain.DeviceService} during E21S13
-     * cutover (DEC-22 refactor phase — behavior-preserving).
-     *
      * @throws NoSuchElementException if the device is not found for the current tenant
+     * @throws PinMissingForTabletException if SCORING_TABLET and pin is null
+     * @throws UnexpectedPinForDisplayException if DISPLAY and pin is non-null
+     * @throws DevicePinLockedException if the device's fail-counter has reached N=10
+     * @throws PinMismatchException if pin does not match the stored PIN
      * @throws ConflictException if another device is already assigned to the same field
      */
     @Override
-    public Device assignDevice(UUID deviceId, int fieldNumber) {
+    public Device assignDevice(UUID deviceId, int fieldNumber, String pin) {
         Device device =
                 deviceRepository
                         .findById(deviceId)
                         .orElseThrow(
                                 () -> new NoSuchElementException("Device not found: " + deviceId));
+
+        boolean isTablet = Device.TYPE_SCORING_TABLET.equals(device.getDeviceType());
+        boolean isDisplay = Device.TYPE_DISPLAY.equals(device.getDeviceType());
+
+        if (isTablet) {
+            if (pin == null || pin.isBlank()) {
+                throw new PinMissingForTabletException();
+            }
+            int failCount = deviceRepository.getPinFailCount(deviceId);
+            if (failCount >= PIN_LOCK_THRESHOLD) {
+                throw new DevicePinLockedException(deviceId);
+            }
+            if (!pin.equals(device.getPin())) {
+                deviceRepository.incrementPinFailCount(deviceId);
+                throw new PinMismatchException();
+            }
+            // PIN correct — reset fail-counter
+            deviceRepository.resetPinFailCount(deviceId);
+        } else if (isDisplay) {
+            if (pin != null && !pin.isBlank()) {
+                throw new UnexpectedPinForDisplayException();
+            }
+        }
 
         // Conflict check: another device already assigned to this field (locationId may be null)
         Optional<Device> existing =
@@ -301,6 +334,68 @@ public class DefaultDeviceService implements DeviceService {
         device.setAssignedField(fieldNumber);
         device.setStatus(Device.STATUS_ASSIGNED);
         return deviceRepository.save(device);
+    }
+
+    // -------------------------------------------------------------------------
+    // resetPinLockCounter (E49S01 AC6)
+    // -------------------------------------------------------------------------
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws NoSuchElementException if the device is not found for the current tenant
+     */
+    @Override
+    public void resetPinLockCounter(UUID deviceId) {
+        deviceRepository
+                .findById(deviceId)
+                .orElseThrow(() -> new NoSuchElementException("Device not found: " + deviceId));
+        deviceRepository.resetPinFailCount(deviceId);
+    }
+
+    // -------------------------------------------------------------------------
+    // renameDevice (E49S01 AC11)
+    // -------------------------------------------------------------------------
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws NoSuchElementException if the device is not found for the current tenant
+     * @throws RenameNotSupportedForDisplayException if the device is a DISPLAY device
+     */
+    @Override
+    public Device renameDevice(UUID deviceId, String newName) {
+        Device device =
+                deviceRepository
+                        .findById(deviceId)
+                        .orElseThrow(
+                                () -> new NoSuchElementException("Device not found: " + deviceId));
+        if (Device.TYPE_DISPLAY.equals(device.getDeviceType())) {
+            throw new RenameNotSupportedForDisplayException();
+        }
+        device.setDeviceName(newName);
+        return deviceRepository.save(device);
+    }
+
+    // -------------------------------------------------------------------------
+    // generateUniqueDeviceName (E49S01 AC1)
+    // -------------------------------------------------------------------------
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws IllegalStateException if a unique name cannot be generated after 20 attempts
+     */
+    @Override
+    public String generateUniqueDeviceName() {
+        for (int attempt = 0; attempt < MAX_NAME_RETRIES; attempt++) {
+            String name = generateDeviceName();
+            if (!deviceRepository.isNameTaken(name)) {
+                return name;
+            }
+        }
+        throw new IllegalStateException(
+                "Could not generate a unique device name after " + MAX_NAME_RETRIES + " attempts");
     }
 
     // -------------------------------------------------------------------------
@@ -380,5 +475,13 @@ public class DefaultDeviceService implements DeviceService {
             pin[i] = PIN_DIGITS[secureRandom.nextInt(PIN_DIGITS.length)];
         }
         return new String(pin);
+    }
+
+    private String generateDeviceName() {
+        char[] suffix = new char[NAME_SUFFIX_LENGTH];
+        for (int i = 0; i < NAME_SUFFIX_LENGTH; i++) {
+            suffix[i] = NAME_CHARS[secureRandom.nextInt(NAME_CHARS.length)];
+        }
+        return "Tablet-" + new String(suffix);
     }
 }

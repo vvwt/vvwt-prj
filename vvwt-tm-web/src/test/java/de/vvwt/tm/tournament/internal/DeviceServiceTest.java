@@ -9,6 +9,11 @@ import static org.mockito.Mockito.when;
 import de.vvwt.tm.tournament.Device;
 import de.vvwt.tm.tournament.DeviceRepository;
 import de.vvwt.tm.tournament.exceptions.DeviceLimitExceededException;
+import de.vvwt.tm.tournament.exceptions.DevicePinLockedException;
+import de.vvwt.tm.tournament.exceptions.PinMismatchException;
+import de.vvwt.tm.tournament.exceptions.PinMissingForTabletException;
+import de.vvwt.tm.tournament.exceptions.RenameNotSupportedForDisplayException;
+import de.vvwt.tm.tournament.exceptions.UnexpectedPinForDisplayException;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -81,10 +86,13 @@ class DeviceServiceTest {
     // =========================================================================
 
     @Test
-    @DisplayName("register SCORING_TABLET: persists device with token + PIN, returns saved entity")
+    @DisplayName(
+            "register SCORING_TABLET: persists device with token + PIN + deviceName, returns saved"
+                    + " entity")
     void register_scoringTablet_persistsWithTokenAndPin() {
         when(deviceRepository.countByTenant()).thenReturn(0L);
         when(deviceRepository.isPinTaken(any())).thenReturn(false);
+        when(deviceRepository.isNameTaken(any())).thenReturn(false);
         ArgumentCaptor<Device> captor = ArgumentCaptor.forClass(Device.class);
         when(deviceRepository.save(captor.capture()))
                 .thenAnswer(inv -> captor.getValue()); // return as-saved
@@ -97,6 +105,10 @@ class DeviceServiceTest {
                 .as("SCORING_TABLET must receive a PIN")
                 .isNotBlank()
                 .matches("\\d{4,6}");
+        assertThat(result.getDeviceName())
+                .as("SCORING_TABLET must receive a unique device name at registration (E49S01 AC1)")
+                .isNotBlank()
+                .startsWith("Tablet-");
         assertThat(result.getDeviceType()).isEqualTo(Device.TYPE_SCORING_TABLET);
         assertThat(result.getStatus()).isEqualTo(Device.STATUS_REGISTERED);
         assertThat(result.getLocationId())
@@ -128,6 +140,7 @@ class DeviceServiceTest {
         // 4 existing devices → 5th is the Nth — must succeed
         when(deviceRepository.countByTenant()).thenReturn((long) (cap - 1));
         when(deviceRepository.isPinTaken(any())).thenReturn(false);
+        when(deviceRepository.isNameTaken(any())).thenReturn(false);
         ArgumentCaptor<Device> captor = ArgumentCaptor.forClass(Device.class);
         when(deviceRepository.save(captor.capture())).thenAnswer(inv -> captor.getValue());
 
@@ -159,6 +172,7 @@ class DeviceServiceTest {
         // First device: count=0
         when(deviceRepository.countByTenant()).thenReturn(0L);
         when(deviceRepository.isPinTaken(any())).thenReturn(false);
+        when(deviceRepository.isNameTaken(any())).thenReturn(false);
         ArgumentCaptor<Device> captor = ArgumentCaptor.forClass(Device.class);
         when(deviceRepository.save(captor.capture())).thenAnswer(inv -> captor.getValue());
 
@@ -272,5 +286,165 @@ class DeviceServiceTest {
         service.deleteDevice(deviceId);
 
         verify(deviceRepository).deleteById(deviceId);
+    }
+
+    // =========================================================================
+    // E49S01 — assignDevice with PIN (AC5/AC6)
+    // =========================================================================
+
+    @Test
+    @DisplayName(
+            "E49S01 AC5: assignDevice SCORING_TABLET with correct PIN succeeds and resets"
+                    + " fail-counter")
+    void e49s01_assignDevice_scoringTablet_correctPin_succeeds() {
+        UUID deviceId = UUID.randomUUID();
+        Device device = scoringTablet(deviceId, "4567");
+        when(deviceRepository.findById(deviceId)).thenReturn(Optional.of(device));
+        when(deviceRepository.getPinFailCount(deviceId)).thenReturn(0);
+        when(deviceRepository.findByLocationAndField(null, 2)).thenReturn(Optional.empty());
+        when(deviceRepository.save(device)).thenReturn(device);
+
+        Device result = service.assignDevice(deviceId, 2, "4567");
+
+        assertThat(result.getAssignedField()).isEqualTo(2);
+        assertThat(result.getStatus()).isEqualTo(Device.STATUS_ASSIGNED);
+        verify(deviceRepository).resetPinFailCount(deviceId);
+    }
+
+    @Test
+    @DisplayName(
+            "E49S01 AC5: assignDevice SCORING_TABLET without PIN throws"
+                    + " PinMissingForTabletException")
+    void e49s01_assignDevice_scoringTablet_nullPin_throws() {
+        UUID deviceId = UUID.randomUUID();
+        Device device = scoringTablet(deviceId, "4567");
+        when(deviceRepository.findById(deviceId)).thenReturn(Optional.of(device));
+
+        assertThatThrownBy(() -> service.assignDevice(deviceId, 1, null))
+                .isInstanceOf(PinMissingForTabletException.class);
+    }
+
+    @Test
+    @DisplayName(
+            "E49S01 AC5: assignDevice SCORING_TABLET with wrong PIN throws PinMismatchException and"
+                    + " increments counter")
+    void e49s01_assignDevice_scoringTablet_wrongPin_incrementsCounterAndThrows() {
+        UUID deviceId = UUID.randomUUID();
+        Device device = scoringTablet(deviceId, "4567");
+        when(deviceRepository.findById(deviceId)).thenReturn(Optional.of(device));
+        when(deviceRepository.getPinFailCount(deviceId)).thenReturn(0);
+
+        assertThatThrownBy(() -> service.assignDevice(deviceId, 1, "9999"))
+                .isInstanceOf(PinMismatchException.class);
+        verify(deviceRepository).incrementPinFailCount(deviceId);
+    }
+
+    @Test
+    @DisplayName(
+            "E49S01 AC6: assignDevice SCORING_TABLET when locked throws DevicePinLockedException")
+    void e49s01_assignDevice_scoringTablet_locked_throws() {
+        UUID deviceId = UUID.randomUUID();
+        Device device = scoringTablet(deviceId, "4567");
+        when(deviceRepository.findById(deviceId)).thenReturn(Optional.of(device));
+        when(deviceRepository.getPinFailCount(deviceId)).thenReturn(10);
+
+        assertThatThrownBy(() -> service.assignDevice(deviceId, 1, "4567"))
+                .isInstanceOf(DevicePinLockedException.class);
+    }
+
+    @Test
+    @DisplayName("E49S01 AC5: assignDevice DISPLAY with null PIN succeeds")
+    void e49s01_assignDevice_display_nullPin_succeeds() {
+        UUID deviceId = UUID.randomUUID();
+        Device device = new Device();
+        device.setId(deviceId);
+        device.setDeviceType(Device.TYPE_DISPLAY);
+        device.setStatus(Device.STATUS_REGISTERED);
+        when(deviceRepository.findById(deviceId)).thenReturn(Optional.of(device));
+        when(deviceRepository.findByLocationAndField(null, 1)).thenReturn(Optional.empty());
+        when(deviceRepository.save(device)).thenReturn(device);
+
+        Device result = service.assignDevice(deviceId, 1, null);
+
+        assertThat(result.getAssignedField()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName(
+            "E49S01 AC5: assignDevice DISPLAY with non-null PIN throws"
+                    + " UnexpectedPinForDisplayException")
+    void e49s01_assignDevice_display_withPin_throws() {
+        UUID deviceId = UUID.randomUUID();
+        Device device = new Device();
+        device.setId(deviceId);
+        device.setDeviceType(Device.TYPE_DISPLAY);
+        when(deviceRepository.findById(deviceId)).thenReturn(Optional.of(device));
+
+        assertThatThrownBy(() -> service.assignDevice(deviceId, 1, "1234"))
+                .isInstanceOf(UnexpectedPinForDisplayException.class);
+    }
+
+    @Test
+    @DisplayName("E49S01 AC11: renameDevice SCORING_TABLET updates deviceName")
+    void e49s01_renameDevice_scoringTablet_updatesName() {
+        UUID deviceId = UUID.randomUUID();
+        Device device = scoringTablet(deviceId, "1234");
+        device.setDeviceName("Tablet-OLD1");
+        when(deviceRepository.findById(deviceId)).thenReturn(Optional.of(device));
+        when(deviceRepository.save(device)).thenReturn(device);
+
+        Device result = service.renameDevice(deviceId, "Tablet-NEW1");
+
+        assertThat(result.getDeviceName()).isEqualTo("Tablet-NEW1");
+    }
+
+    @Test
+    @DisplayName("E49S01 AC11: renameDevice DISPLAY throws RenameNotSupportedForDisplayException")
+    void e49s01_renameDevice_display_throws() {
+        UUID deviceId = UUID.randomUUID();
+        Device device = new Device();
+        device.setId(deviceId);
+        device.setDeviceType(Device.TYPE_DISPLAY);
+        when(deviceRepository.findById(deviceId)).thenReturn(Optional.of(device));
+
+        assertThatThrownBy(() -> service.renameDevice(deviceId, "Display-Name"))
+                .isInstanceOf(RenameNotSupportedForDisplayException.class);
+    }
+
+    @Test
+    @DisplayName("E49S01 AC6: resetPinLockCounter delegates to repository")
+    void e49s01_resetPinLockCounter_delegatesToRepository() {
+        UUID deviceId = UUID.randomUUID();
+        Device device = scoringTablet(deviceId, "1234");
+        when(deviceRepository.findById(deviceId)).thenReturn(Optional.of(device));
+
+        service.resetPinLockCounter(deviceId);
+
+        verify(deviceRepository).resetPinFailCount(deviceId);
+    }
+
+    @Test
+    @DisplayName("E49S01 AC1: generateUniqueDeviceName returns Tablet-XXXX format name")
+    void e49s01_generateUniqueDeviceName_returnsTabbletFormat() {
+        when(deviceRepository.isNameTaken(any())).thenReturn(false);
+
+        String name = service.generateUniqueDeviceName();
+
+        assertThat(name)
+                .as("Device name must match Tablet-XXXX format")
+                .matches("Tablet-[A-Z2-9]{4}");
+    }
+
+    // =========================================================================
+    // Helpers
+    // =========================================================================
+
+    private Device scoringTablet(UUID id, String pin) {
+        Device d = new Device();
+        d.setId(id);
+        d.setDeviceType(Device.TYPE_SCORING_TABLET);
+        d.setPin(pin);
+        d.setStatus(Device.STATUS_REGISTERED);
+        return d;
     }
 }

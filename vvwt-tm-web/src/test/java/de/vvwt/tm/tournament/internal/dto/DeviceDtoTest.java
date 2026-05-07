@@ -22,12 +22,13 @@ import org.junit.jupiter.api.Test;
  * <p>One JSON (de)serialization round-trip assertion per DTO:
  *
  * <ul>
- *   <li>{@link DeviceAssignRequest} — fieldNumber
+ *   <li>{@link DeviceAssignRequest} — fieldNumber, pin (nullable)
  *   <li>{@link DeviceConfigureRequest} — deviceName, configuration
  *   <li>{@link DeviceRegisterRequest} — deviceType nullable
- *   <li>{@link DeviceRegisterResponse} — deviceToken, pin (nullable)
+ *   <li>{@link DeviceRegisterResponse} — deviceToken, pin (nullable), deviceName (nullable)
  *   <li>{@link DeviceStatusResponse} — status, assignedField (nullable)
- *   <li>{@link DeviceSummaryResponse} — id, deviceToken, pin, deviceType, status
+ *   <li>{@link DeviceSummaryResponse} — id, deviceToken, deviceType, status (pin removed E49S01
+ *       AC3)
  * </ul>
  *
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
@@ -47,22 +48,24 @@ class DeviceDtoTest {
     class DeviceAssignRequestTests {
 
         @Test
-        @DisplayName("serializes fieldNumber")
+        @DisplayName("serializes fieldNumber and pin (E49S01 AC5)")
         void serializesFieldNumber() throws Exception {
-            DeviceAssignRequest req = new DeviceAssignRequest(3);
+            DeviceAssignRequest req = new DeviceAssignRequest(3, "2345");
             String json = mapper.writeValueAsString(req);
             JsonNode node = mapper.readTree(json);
 
             assertThat(node.get("fieldNumber").asInt()).isEqualTo(3);
+            assertThat(node.get("pin").asText()).isEqualTo("2345");
         }
 
         @Test
-        @DisplayName("deserializes fieldNumber")
+        @DisplayName("deserializes fieldNumber; pin is optional (null for DISPLAY)")
         void deserializesFieldNumber() throws Exception {
             String json = "{\"fieldNumber\":5}";
             DeviceAssignRequest req = mapper.readValue(json, DeviceAssignRequest.class);
 
             assertThat(req.fieldNumber()).isEqualTo(5);
+            assertThat(req.pin()).isNull();
         }
     }
 
@@ -135,22 +138,24 @@ class DeviceDtoTest {
     class DeviceRegisterResponseTests {
 
         @Test
-        @DisplayName("serializes deviceToken and pin (pin nullable for DISPLAY)")
+        @DisplayName("serializes deviceToken, pin and deviceName (E49S01 AC2)")
         void serializesTokenAndPin() throws Exception {
             DeviceRegisterResponse resp =
-                    new DeviceRegisterResponse(UUID.randomUUID(), "token-abc", "1234");
+                    new DeviceRegisterResponse(
+                            UUID.randomUUID(), "token-abc", "1234", "Tablet-A1B2");
             String json = mapper.writeValueAsString(resp);
             JsonNode node = mapper.readTree(json);
 
             assertThat(node.get("deviceToken").asText()).isEqualTo("token-abc");
             assertThat(node.get("pin").asText()).isEqualTo("1234");
+            assertThat(node.get("deviceName").asText()).isEqualTo("Tablet-A1B2");
         }
 
         @Test
-        @DisplayName("pin is null for DISPLAY device response")
+        @DisplayName("pin and deviceName are null for DISPLAY device response")
         void pinIsNullableForDisplay() throws Exception {
             DeviceRegisterResponse resp =
-                    new DeviceRegisterResponse(UUID.randomUUID(), "token-display", null);
+                    new DeviceRegisterResponse(UUID.randomUUID(), "token-display", null, null);
             String json = mapper.writeValueAsString(resp);
             JsonNode node = mapper.readTree(json);
 
@@ -203,26 +208,25 @@ class DeviceDtoTest {
     class DeviceSummaryResponseTests {
 
         @Test
-        @DisplayName("serializes id, deviceToken, deviceType, status")
+        @DisplayName("serializes id, deviceToken, deviceType, status (pin removed E49S01 AC3)")
         void serializesCoreFields() throws Exception {
             UUID id = UUID.randomUUID();
             DeviceSummaryResponse resp =
                     new DeviceSummaryResponse(
                             id,
                             "tok-xyz",
-                            "4321",
                             "SCORING_TABLET",
                             1,
                             "ASSIGNED",
                             null,
-                            null,
+                            "Tablet-A1B2",
                             null);
             String json = mapper.writeValueAsString(resp);
             JsonNode node = mapper.readTree(json);
 
             assertThat(node.get("id").asText()).isEqualTo(id.toString());
             assertThat(node.get("deviceToken").asText()).isEqualTo("tok-xyz");
-            assertThat(node.get("pin").asText()).isEqualTo("4321");
+            assertThat(node.has("pin")).as("E49S01 AC3: pin must not appear in summary").isFalse();
             assertThat(node.get("deviceType").asText()).isEqualTo("SCORING_TABLET");
             assertThat(node.get("status").asText()).isEqualTo("ASSIGNED");
         }

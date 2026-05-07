@@ -1,9 +1,9 @@
 /**
  * API client and types for the Device Management section of the admin SPA.
  *
- * Story E06S05 — AC1 (list), AC2 (PIN lookup), AC3 (unassign), AC5 (assign),
- * AC7 (clear all), AC9 (error handling).
+ * Story E06S05 — AC1 (list), AC3 (unassign), AC5 (assign), AC7 (clear all), AC9 (error handling).
  * Story E07S03 — AC3 (configure display device), AC4 (remove device), AC5 (display limit).
+ * Story E49S01 — PIN out-of-band assign, device name, pin-lock reset, rename.
  *
  * All API functions use `apiFetch` from api.ts to include browser-cached basic-auth
  * credentials (E05S02 AC7). Auth is enforced server-side for all endpoints except
@@ -17,27 +17,28 @@ import { apiFetch } from '../lib/api.js';
 // ─────────────────────────────────────────────────────────────────
 
 /**
- * A device as returned by the device management endpoints (E06S03, E06S05, E07S02).
+ * A device as returned by the device management endpoints (E06S03, E06S05, E07S02, E49S01).
  *
  * Matches the shape of DeviceSummaryResponse on the backend.
+ *
+ * E49S01 AC3: `pin` removed — PIN is a one-time out-of-band credential and must not appear
+ * in summary/list responses.
+ * E49S01 AC1: `deviceName` is non-optional — SCORING_TABLET receives a unique name at
+ * registration; DISPLAY devices receive a name via configure.
  */
 export interface Device {
     /** Device UUID — primary key on the server. */
     id: string;
     /** Device type enum name: "SCORING_TABLET" | "DISPLAY". */
     deviceType: string;
-    /** Short numeric PIN shown on the tablet (null for DISPLAY devices). */
-    pin: string | null;
     /** Lifecycle status: "REGISTERED" | "ASSIGNED" | "DISCONNECTED". */
     status: 'REGISTERED' | 'ASSIGNED' | 'DISCONNECTED';
     /** Assigned court field number, or null if unassigned. */
     assignedField: number | null;
     /** ISO-8601 timestamp when the device first registered. */
     registeredAt: string | null;
-    /** ISO-8601 timestamp of the device's last heartbeat, or null. */
-    lastSeenAt: string | null;
-    /** Human-readable device name for display devices (E07S02 AC4). Null for scoring tablets. */
-    deviceName?: string | null;
+    /** Human-readable device name (E49S01 AC1 for SCORING_TABLET; E07S02 AC4 for DISPLAY). */
+    deviceName: string | null;
     /** JSON configuration string for display devices (E07S02 AC4). Null for scoring tablets. */
     configuration?: string | null;
 }
@@ -64,58 +65,87 @@ export async function listDevices(): Promise<Device[]> {
 }
 
 /**
- * Looks up a device by the PIN entered in the admin UI (E06S05-AC2).
+ * Assigns a device to a court field (E06S05-AC2, AC4, E49S01 AC5).
  *
- * Endpoint: GET /api/devices?pin={pin}
+ * Endpoint: PUT /api/devices/{id}/assign
  * Auth: admin required.
  *
- * @param pin the numeric PIN displayed on the tablet
- * @returns the matching device
- * @throws Error with status 404 if no device matches the PIN
+ * For SCORING_TABLET: `pin` must be provided and match the device's stored PIN (E49S01 AC5).
+ * For DISPLAY: `pin` must be null.
+ *
+ * @param deviceId the device UUID
+ * @param fieldNumber the court field number to assign (>= 1)
+ * @param pin the PIN for SCORING_TABLET verification (null for DISPLAY)
+ * @returns the updated device
+ * @throws Error with status 409 on field conflict
+ * @throws Error with status 403 on PIN mismatch (E49S01 AC5)
+ * @throws Error with status 423 if device is PIN-locked (E49S01 AC6)
+ * @throws Error with status 422 if PIN missing for tablet or unexpected for display (E49S01 AC5)
  * @throws Error on other failures
  */
-export async function findDeviceByPin(pin: string): Promise<Device> {
-    const res = await apiFetch(`/api/devices?pin=${encodeURIComponent(pin)}`);
-    if (res.status === 404) {
-        const err = Object.assign(
-            new Error(`No device found for PIN: ${pin}`),
-            { status: 404 }
-        );
-        throw err;
-    }
+export async function assignDevice(deviceId: string, fieldNumber: number, pin: string | null): Promise<Device> {
+    const res = await apiFetch(`/api/devices/${encodeURIComponent(deviceId)}/assign`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fieldNumber, pin }),
+    });
     if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw Object.assign(
-            new Error(body.message ?? `PIN lookup failed: ${res.status}`),
-            { status: res.status }
+            new Error(body.detail ?? body.message ?? `Assign failed: ${res.status}`),
+            { status: res.status, apiError: body }
         );
     }
     return res.json();
 }
 
 /**
- * Assigns a device to a court field (E06S05-AC2, AC4).
+ * Resets the PIN fail-counter for a SCORING_TABLET device (E49S01 AC6).
  *
- * Endpoint: PUT /api/devices/{id}/assign
+ * Endpoint: POST /api/devices/{id}/pin-lock/reset
  * Auth: admin required.
  *
  * @param deviceId the device UUID
- * @param fieldNumber the court field number to assign (>= 1)
- * @returns the updated device
- * @throws Error with status 409 on field conflict (caller shows dialog — AC4)
+ * @throws Error with status 404 if the device is not found
  * @throws Error on other failures
  */
-export async function assignDevice(deviceId: string, fieldNumber: number): Promise<Device> {
-    const res = await apiFetch(`/api/devices/${encodeURIComponent(deviceId)}/assign`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fieldNumber }),
+export async function resetPinLock(deviceId: string): Promise<void> {
+    const res = await apiFetch(`/api/devices/${encodeURIComponent(deviceId)}/pin-lock/reset`, {
+        method: 'POST',
     });
     if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw Object.assign(
-            new Error(body.message ?? `Assign failed: ${res.status}`),
-            { status: res.status, apiError: body }
+            new Error(body.message ?? `Reset PIN lock failed: ${res.status}`),
+            { status: res.status }
+        );
+    }
+}
+
+/**
+ * Renames a SCORING_TABLET device (E49S01 AC11).
+ *
+ * Endpoint: PUT /api/devices/{id}/rename
+ * Auth: admin required.
+ *
+ * @param deviceId the device UUID
+ * @param newName the new device name
+ * @returns the updated device
+ * @throws Error with status 422 if device is DISPLAY
+ * @throws Error with status 404 if the device is not found
+ * @throws Error on other failures
+ */
+export async function renameDevice(deviceId: string, newName: string): Promise<Device> {
+    const res = await apiFetch(`/api/devices/${encodeURIComponent(deviceId)}/rename`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newName }),
+    });
+    if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw Object.assign(
+            new Error(body.detail ?? body.message ?? `Rename failed: ${res.status}`),
+            { status: res.status }
         );
     }
     return res.json();

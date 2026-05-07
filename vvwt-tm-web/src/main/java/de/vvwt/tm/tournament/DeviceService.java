@@ -17,6 +17,7 @@ import java.util.UUID;
  * @see <a href="DEC-35">DEC-35 — Spring Modulith package layout (service interfaces in public
  *     package)</a>
  * @see <a href="E33S03">E33S03 — DeviceService interface extraction (DEC-35 retrofit)</a>
+ * @see <a href="E49S01">E49S01 — PIN out-of-band + inline-row assignment + device name</a>
  */
 public interface DeviceService {
 
@@ -72,21 +73,62 @@ public interface DeviceService {
     Device unassignLocation(UUID deviceId);
 
     /**
-     * Returns the device matching the given PIN for the current tenant.
-     *
-     * @param pin the 4–6 digit PIN
-     * @return the device
-     */
-    Device getDeviceByPin(String pin);
-
-    /**
      * Assigns a device to a court field.
+     *
+     * <p>For SCORING_TABLET devices, {@code pin} must be provided and match the device's stored PIN
+     * (E49S01 AC5). For DISPLAY devices, {@code pin} must be {@code null} (E49S01 AC5).
      *
      * @param deviceId the device UUID
      * @param fieldNumber the court field number (1-based)
+     * @param pin the PIN supplied by the admin (nullable; required for SCORING_TABLET)
      * @return the updated device
+     * @throws de.vvwt.tm.tournament.exceptions.PinMissingForTabletException if SCORING_TABLET and
+     *     pin is null
+     * @throws de.vvwt.tm.tournament.exceptions.UnexpectedPinForDisplayException if DISPLAY and pin
+     *     is non-null
+     * @throws de.vvwt.tm.tournament.exceptions.DevicePinLockedException if the device is PIN-locked
+     * @throws de.vvwt.tm.tournament.exceptions.PinMismatchException if pin is wrong
+     * @see <a href="E49S01">E49S01 — AC5/AC6: PIN check on assign</a>
      */
-    Device assignDevice(UUID deviceId, int fieldNumber);
+    Device assignDevice(UUID deviceId, int fieldNumber, String pin);
+
+    /**
+     * Generates a unique device name for the current tenant.
+     *
+     * <p>Format: {@code Tablet-XXXX} where XXXX is a 4-char alphanumeric suffix. Retries up to 20
+     * times on name collision.
+     *
+     * @return a unique device name not currently used by any device in the tenant
+     * @see <a href="E49S01">E49S01 — AC1: unique device name generation</a>
+     */
+    String generateUniqueDeviceName();
+
+    /**
+     * Resets the PIN fail-counter for the given device to 0.
+     *
+     * <p>Called by the admin via {@code POST /api/devices/{id}/pin-lock/reset}.
+     *
+     * @param deviceId the device UUID
+     * @throws java.util.NoSuchElementException if the device is not found for the current tenant
+     * @see <a href="E49S01">E49S01 — AC6: manual counter reset</a>
+     */
+    void resetPinLockCounter(UUID deviceId);
+
+    /**
+     * Renames a SCORING_TABLET device.
+     *
+     * <p>Only SCORING_TABLET devices may be renamed via this method; use {@code configure} for
+     * DISPLAY devices.
+     *
+     * @param deviceId the device UUID
+     * @param newName the new device name
+     * @return the updated device
+     * @throws java.util.NoSuchElementException if the device is not found for the current tenant
+     * @throws de.vvwt.tm.tournament.exceptions.RenameNotSupportedForDisplayException if device is
+     *     DISPLAY
+     * @see <a href="E49S01">E49S01 — AC11: rename SCORING_TABLET</a>
+     */
+    Device renameDevice(UUID deviceId, String newName);
 
     /**
      * Clears the field assignment of a device, transitioning status back to REGISTERED.

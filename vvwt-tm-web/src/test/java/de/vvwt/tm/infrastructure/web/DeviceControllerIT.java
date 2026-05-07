@@ -42,12 +42,10 @@ import org.springframework.test.context.ActiveProfiles;
  *   <li>AC2 — POST /api/devices/register returns 201 with deviceToken and pin; no auth required
  *   <li>AC3 — GET /api/devices/status?token=... returns status and assignedField; 404 on unknown
  *       token
- *   <li>AC4 — GET /api/devices?pin=... returns device; 404 on unknown PIN; requires admin auth
- *   <li>AC5 — PUT /api/devices/{id}/assign sets field; 409 on conflict; 400 on bad field
+ *   <li>AC5 — PUT /api/devices/{id}/assign (with PIN) sets field; 409 on conflict; 400 on bad field
  *   <li>AC6 — PUT /api/devices/{id}/unassign clears field; idempotent
  *   <li>AC7 — PIN is 4–6 digits; unique per tenant
  *   <li>AC8 — /api/devices/status with invalid token returns 401
- *   <li>AC9 — tenant isolation (cross-tenant device not accessible)
  *   <li>AC11 — deviceToken is a valid UUID string
  *   <li>AC12 — error responses include messageKey field
  *   <li>E06S05-AC1 — GET /api/devices/list returns all devices for the tenant
@@ -220,57 +218,7 @@ class DeviceControllerIT {
     }
 
     // =========================================================================
-    // AC4 — GET /api/devices?pin=... (requires admin auth)
-    // =========================================================================
-
-    @Test
-    void findByPinReturnsDeviceSummary() {
-        DeviceRegisterResponse reg =
-                restTemplate
-                        .postForEntity(
-                                baseUrl + "/api/devices/register",
-                                null,
-                                DeviceRegisterResponse.class)
-                        .getBody();
-
-        ResponseEntity<DeviceSummaryResponse> response =
-                authed.getForEntity(
-                        baseUrl + "/api/devices?pin=" + reg.pin(), DeviceSummaryResponse.class);
-
-        assertThat(response.getStatusCode())
-                .as("AC4 — find by PIN must return 200")
-                .isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody().pin())
-                .as("AC4 — response PIN must match the registered PIN")
-                .isEqualTo(reg.pin());
-        assertThat(response.getBody().status())
-                .as("AC4 — status must be REGISTERED")
-                .isEqualTo("REGISTERED");
-    }
-
-    @Test
-    void findByPinReturns404ForUnknownPin() throws Exception {
-        ResponseEntity<ApiErrorResponse> response =
-                authed.getForEntity(
-                        new URI(baseUrl + "/api/devices?pin=0000"), ApiErrorResponse.class);
-
-        assertThat(response.getStatusCode())
-                .as("AC4 — unknown PIN must return 404")
-                .isEqualTo(HttpStatus.NOT_FOUND);
-    }
-
-    @Test
-    void findByPinRequiresAuthentication() throws Exception {
-        ResponseEntity<String> response =
-                restTemplate.getForEntity(new URI(baseUrl + "/api/devices?pin=1234"), String.class);
-
-        assertThat(response.getStatusCode())
-                .as("AC4 — find-by-PIN must require auth")
-                .isEqualTo(HttpStatus.UNAUTHORIZED);
-    }
-
-    // =========================================================================
-    // AC5 — PUT /api/devices/{id}/assign (requires admin auth)
+    // AC5 — PUT /api/devices/{id}/assign (requires admin auth, PIN required for SCORING_TABLET)
     // =========================================================================
 
     @Test
@@ -283,42 +231,15 @@ class DeviceControllerIT {
                                 DeviceRegisterResponse.class)
                         .getBody();
 
-        // Lookup to get the device ID — use String to diagnose deserialization issues
-        ResponseEntity<String> rawFound =
-                authed.getForEntity(baseUrl + "/api/devices?pin=" + reg.pin(), String.class);
-        assertThat(rawFound.getStatusCode())
-                .as("AC4 — lookup by PIN must return 200 before assign test")
-                .isEqualTo(HttpStatus.OK);
-
-        DeviceSummaryResponse found =
-                authed.getForEntity(
-                                baseUrl + "/api/devices?pin=" + reg.pin(),
-                                DeviceSummaryResponse.class)
-                        .getBody();
-        assertThat(found).as("AC5 setup — device lookup must return non-null body").isNotNull();
-        assertThat(found.id())
-                .as("AC5 setup — device id must not be null; raw response: " + rawFound.getBody())
-                .isNotNull();
-
-        DeviceAssignRequest request = new DeviceAssignRequest(3);
+        // E49S01 AC5: supply PIN in assign request for SCORING_TABLET
+        DeviceAssignRequest request = new DeviceAssignRequest(3, reg.pin());
         HttpHeaders assignHeaders = new HttpHeaders();
         assignHeaders.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
         HttpEntity<DeviceAssignRequest> entity = new HttpEntity<>(request, assignHeaders);
 
-        ResponseEntity<String> debugResponse =
-                authed.exchange(
-                        baseUrl + "/api/devices/" + found.id() + "/assign",
-                        HttpMethod.PUT,
-                        entity,
-                        String.class);
-
-        assertThat(debugResponse.getStatusCode())
-                .as("AC5 — assign must return 200; body=" + debugResponse.getBody())
-                .isEqualTo(HttpStatus.OK);
-
         ResponseEntity<DeviceSummaryResponse> response =
                 authed.exchange(
-                        baseUrl + "/api/devices/" + found.id() + "/assign",
+                        baseUrl + "/api/devices/" + reg.id() + "/assign",
                         HttpMethod.PUT,
                         entity,
                         DeviceSummaryResponse.class);
@@ -352,33 +273,22 @@ class DeviceControllerIT {
                                 DeviceRegisterResponse.class)
                         .getBody();
 
-        DeviceSummaryResponse d1 =
-                authed.getForEntity(
-                                baseUrl + "/api/devices?pin=" + reg1.pin(),
-                                DeviceSummaryResponse.class)
-                        .getBody();
-        DeviceSummaryResponse d2 =
-                authed.getForEntity(
-                                baseUrl + "/api/devices?pin=" + reg2.pin(),
-                                DeviceSummaryResponse.class)
-                        .getBody();
-
-        // Assign first device to field 5
-        DeviceAssignRequest req = new DeviceAssignRequest(5);
         HttpHeaders conflictHeaders = new HttpHeaders();
         conflictHeaders.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+
+        // Assign first device to field 5 (with PIN)
         authed.exchange(
-                baseUrl + "/api/devices/" + d1.id() + "/assign",
+                baseUrl + "/api/devices/" + reg1.id() + "/assign",
                 HttpMethod.PUT,
-                new HttpEntity<>(req, conflictHeaders),
+                new HttpEntity<>(new DeviceAssignRequest(5, reg1.pin()), conflictHeaders),
                 DeviceSummaryResponse.class);
 
         // Assign second device to same field — must conflict
         ResponseEntity<ApiErrorResponse> conflictResponse =
                 authed.exchange(
-                        baseUrl + "/api/devices/" + d2.id() + "/assign",
+                        baseUrl + "/api/devices/" + reg2.id() + "/assign",
                         HttpMethod.PUT,
-                        new HttpEntity<>(req, conflictHeaders),
+                        new HttpEntity<>(new DeviceAssignRequest(5, reg2.pin()), conflictHeaders),
                         ApiErrorResponse.class);
 
         assertThat(conflictResponse.getStatusCode())
@@ -395,19 +305,14 @@ class DeviceControllerIT {
                                 null,
                                 DeviceRegisterResponse.class)
                         .getBody();
-        DeviceSummaryResponse found =
-                authed.getForEntity(
-                                baseUrl + "/api/devices?pin=" + reg.pin(),
-                                DeviceSummaryResponse.class)
-                        .getBody();
 
         // Field 0 is invalid (< 1) — @Min(1) validation should return 400
-        DeviceAssignRequest req = new DeviceAssignRequest(0);
+        DeviceAssignRequest req = new DeviceAssignRequest(0, reg.pin());
         HttpHeaders badFieldHeaders = new HttpHeaders();
         badFieldHeaders.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
         ResponseEntity<ApiErrorResponse> response =
                 authed.exchange(
-                        baseUrl + "/api/devices/" + found.id() + "/assign",
+                        baseUrl + "/api/devices/" + reg.id() + "/assign",
                         HttpMethod.PUT,
                         new HttpEntity<>(req, badFieldHeaders),
                         ApiErrorResponse.class);
@@ -430,20 +335,15 @@ class DeviceControllerIT {
                                 null,
                                 DeviceRegisterResponse.class)
                         .getBody();
-        DeviceSummaryResponse found =
-                authed.getForEntity(
-                                baseUrl + "/api/devices?pin=" + reg.pin(),
-                                DeviceSummaryResponse.class)
-                        .getBody();
 
-        // Assign first
+        // Assign first (with PIN)
         HttpHeaders assignForUnassignHeaders = new HttpHeaders();
         assignForUnassignHeaders.setContentType(
                 org.springframework.http.MediaType.APPLICATION_JSON);
         authed.exchange(
-                baseUrl + "/api/devices/" + found.id() + "/assign",
+                baseUrl + "/api/devices/" + reg.id() + "/assign",
                 HttpMethod.PUT,
-                new HttpEntity<>(new DeviceAssignRequest(7), assignForUnassignHeaders),
+                new HttpEntity<>(new DeviceAssignRequest(7, reg.pin()), assignForUnassignHeaders),
                 DeviceSummaryResponse.class);
 
         // Then unassign
@@ -451,7 +351,7 @@ class DeviceControllerIT {
         unassignHeaders.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
         ResponseEntity<DeviceSummaryResponse> unassigned =
                 authed.exchange(
-                        baseUrl + "/api/devices/" + found.id() + "/unassign",
+                        baseUrl + "/api/devices/" + reg.id() + "/unassign",
                         HttpMethod.PUT,
                         new HttpEntity<>(unassignHeaders),
                         DeviceSummaryResponse.class);
@@ -476,11 +376,6 @@ class DeviceControllerIT {
                                 null,
                                 DeviceRegisterResponse.class)
                         .getBody();
-        DeviceSummaryResponse found =
-                authed.getForEntity(
-                                baseUrl + "/api/devices?pin=" + reg.pin(),
-                                DeviceSummaryResponse.class)
-                        .getBody();
 
         // Unassign without prior assignment — must return 200 (idempotent AC6)
         // Use Content-Type header to avoid Spring MVC 400 on empty PUT body
@@ -488,7 +383,7 @@ class DeviceControllerIT {
         headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
         ResponseEntity<DeviceSummaryResponse> response =
                 authed.exchange(
-                        baseUrl + "/api/devices/" + found.id() + "/unassign",
+                        baseUrl + "/api/devices/" + reg.id() + "/unassign",
                         HttpMethod.PUT,
                         new HttpEntity<>(headers),
                         DeviceSummaryResponse.class);
@@ -576,11 +471,12 @@ class DeviceControllerIT {
         assertThat(response.getStatusCode())
                 .as("E06S05-AC1 — list must return 200")
                 .isEqualTo(HttpStatus.OK);
+        // E49S01 AC3: pin is no longer in DeviceSummaryResponse — verify by device token instead
         assertThat(response.getBody())
                 .as("E06S05-AC1 — list must contain at least the newly registered device")
                 .isNotNull()
-                .extracting(DeviceSummaryResponse::pin)
-                .contains(reg.pin());
+                .extracting(DeviceSummaryResponse::deviceToken)
+                .contains(reg.deviceToken());
     }
 
     @Test
@@ -622,7 +518,7 @@ class DeviceControllerIT {
                                 DeviceRegisterResponse.class)
                         .getBody();
 
-        // Confirm it's visible in the list
+        // Confirm it's visible in the list (E49S01 AC3: pin removed, identify by deviceToken)
         @SuppressWarnings("unchecked")
         List<DeviceSummaryResponse> beforeClear =
                 authed.exchange(
@@ -633,8 +529,8 @@ class DeviceControllerIT {
                         .getBody();
         assertThat(beforeClear)
                 .as("E06S05-AC7 setup — device must appear in list before clear")
-                .extracting(DeviceSummaryResponse::pin)
-                .contains(reg.pin());
+                .extracting(DeviceSummaryResponse::deviceToken)
+                .contains(reg.deviceToken());
 
         // Clear all
         authed.exchange(baseUrl + "/api/devices", HttpMethod.DELETE, null, Void.class);
@@ -651,8 +547,8 @@ class DeviceControllerIT {
         assertThat(afterClear)
                 .as("E06S05-AC7 — device list must be empty after clear")
                 .isNotNull()
-                .extracting(DeviceSummaryResponse::pin)
-                .doesNotContain(reg.pin());
+                .extracting(DeviceSummaryResponse::deviceToken)
+                .doesNotContain(reg.deviceToken());
     }
 
     @Test

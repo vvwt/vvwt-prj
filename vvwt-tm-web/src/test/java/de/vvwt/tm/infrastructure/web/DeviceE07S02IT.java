@@ -329,9 +329,11 @@ class DeviceE07S02IT {
         assertThat(statusResponse.getBody().configuration())
                 .as("AC3 — scoring tablet status must not include configuration")
                 .isNull();
+        // E49S01 AC1: SCORING_TABLET now receives a unique device name at registration.
+        // The status endpoint returns this name; asserting it is non-null (not blank).
         assertThat(statusResponse.getBody().deviceName())
-                .as("AC3 — scoring tablet status must not include deviceName")
-                .isNull();
+                .as("AC3/E49S01-AC1 — scoring tablet status includes generated device name")
+                .isNotBlank();
     }
 
     // =========================================================================

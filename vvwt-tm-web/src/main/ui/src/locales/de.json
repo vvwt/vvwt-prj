@@ -263,6 +263,7 @@
       "assignedField": "Feld",
       "status": "Status",
       "lastSeen": "Zuletzt gesehen",
+      "registeredAt": "Registriert am",
       "configStatus": "Konfiguration",
       "name": "Name"
     },
@@ -298,7 +299,22 @@
     },
     "removeButton": "Entfernen",
     "removeConfirm": "Gerät \"{name}\" wirklich entfernen? Dies kann nicht rückgängig gemacht werden.",
-    "removeError": "Fehler beim Entfernen des Geräts."
+    "removeError": "Fehler beim Entfernen des Geräts.",
+    "scoringTablet": {
+      "pinInputLabel": "PIN",
+      "pinInputPlaceholder": "PIN eingeben",
+      "pinMismatch": "Falsche PIN. Bitte erneut versuchen.",
+      "pinLocked": "Gerät ist nach zu vielen Fehlversuchen gesperrt. Bitte zurücksetzen.",
+      "pinMissing": "PIN ist für Scoring-Tablets erforderlich.",
+      "pinLockResetButton": "PIN-Sperre zurücksetzen",
+      "pinLockResetConfirm": "PIN-Sperre für dieses Gerät zurücksetzen?",
+      "pinLockResetError": "Fehler beim Zurücksetzen der PIN-Sperre.",
+      "pinLockResetSuccess": "PIN-Sperre wurde zurückgesetzt.",
+      "renameButton": "Umbenennen",
+      "renameLabel": "Neuer Name",
+      "renamePlaceholder": "z.B. Tablet-A1B2",
+      "renameError": "Fehler beim Umbenennen."
+    }
   },
   "audio": {
     "title": "Timer-Audio",

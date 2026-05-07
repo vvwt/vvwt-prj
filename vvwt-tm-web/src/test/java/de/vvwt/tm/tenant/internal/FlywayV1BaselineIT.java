@@ -94,11 +94,14 @@ class FlywayV1BaselineIT {
                                 + " version 1 after E46S06 consolidation (DEC-52, DEC-25)")
                 .containsExactly("1");
 
+        // E49S01: V2__device_pin_fail_count.sql adds pin_fail_count column — tournament history
+        // now contains ["1", "2"]. The E46S06 consolidation guard (single-row invariant) is updated
+        // to accommodate E49S01's new additive migration.
         assertThat(tournamentVersions)
                 .as(
-                        "flyway_schema_history_tournament must contain exactly one migration row"
-                                + " with version 1 after E46S06 consolidation (DEC-52, DEC-25)")
-                .containsExactly("1");
+                        "flyway_schema_history_tournament must contain migration rows"
+                                + " [1, 2] after E49S01 (V2__device_pin_fail_count)")
+                .containsExactly("1", "2");
     }
 
     /**

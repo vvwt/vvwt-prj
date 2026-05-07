@@ -2,9 +2,9 @@
   /**
    * Device Management view for the Tournament Manager Admin SPA.
    *
-   * Story E06S05 — AC1 (device list), AC2 (PIN lookup + assign), AC3 (unassign),
-   * AC4 (field conflict dialog), AC5 (QR code), AC6 (real-time WebSocket updates),
-   * AC7 (clear all), AC8 (navigation — wired via App.svelte), AC9 (error handling),
+   * Story E06S05 — AC1 (device list), AC3 (unassign), AC4 (field conflict dialog),
+   * AC5 (QR code), AC6 (real-time WebSocket updates), AC7 (clear all),
+   * AC8 (navigation — wired via App.svelte), AC9 (error handling),
    * AC10 (auth — enforced by SecurityConfig), AC11 (i18n).
    *
    * Story E07S03 — AC1 (type filter tabs), AC2 (display device list integration),
@@ -12,14 +12,17 @@
    * device limit indicator), AC6 (real-time DEVICE_REMOVED events), AC7 (scoring
    * tablet workflow preserved), AC8 (error handling), AC9 (i18n), AC10 (security).
    *
+   * Story E49S01 — inline-row PIN assignment for SCORING_TABLET, device name column,
+   * PIN-lock indicator + reset, rename for SCORING_TABLET.
+   * E49S01 AC3: PIN column removed; AC8: PIN lookup section removed.
+   *
    * QR code (E06S05 AC5): rendered client-side using the `qrcode` npm package.
    * No native dependencies — pure JS QR generation.
    *
    * Real-time updates (E06S05 AC6, E07S03 AC6): subscribes to /topic/events via
    * STOMP/SockJS on mount. Reacts to DEVICE_REGISTERED and DEVICE_REMOVED events.
    *
-   * Filter (E07S03 AC1): three tabs — "all", "scoring", "display". PIN lookup
-   * section only shown when filter is "all" or "scoring" (AC7 preservation).
+   * Filter (E07S03 AC1): three tabs — "all", "scoring", "display".
    */
   import { onMount, onDestroy } from 'svelte';
   import { get } from 'svelte/store';
@@ -30,13 +33,14 @@
   import * as QRCodeLib from 'qrcode';
   import {
     listDevices,
-    findDeviceByPin,
     assignDevice,
     unassignDevice,
     clearAllDevices,
     configureDisplayDevice,
     removeDevice,
     getDisplayLimit,
+    resetPinLock,
+    renameDevice,
     type Device,
   } from '../stores/deviceStore.js';
 
@@ -66,17 +70,21 @@
   /** Configured DISPLAY device limit from backend (E07S03 AC5). */
   let maxDisplayCount = $state(10);
 
-  /** PIN lookup state (E06S05 AC2). */
-  let pinInput = $state('');
-  let lookupError = $state<string | null>(null);
-  let lookedUpDevice = $state<Device | null>(null);
-  let fieldInput = $state('');
-  let assignError = $state<string | null>(null);
+  /** Per-row inline assign state: keyed by device id (E49S01 inline-row). */
+  let rowPinInputs = $state<Record<string, string>>({});
+  let rowFieldInputs = $state<Record<string, string>>({});
+  let rowAssignErrors = $state<Record<string, string>>({});
 
   /** Field conflict confirmation (E06S05 AC4). */
   let conflictField = $state<number | null>(null);
   let showConflictDialog = $state(false);
   let pendingAssignDeviceId = $state<string | null>(null);
+  let pendingAssignPin = $state<string | null>(null);
+
+  /** Per-row rename state (E49S01 AC11). */
+  let renamingDeviceId = $state<string | null>(null);
+  let renameInput = $state('');
+  let renameErrors = $state<Record<string, string>>({});
 
   /** Per-row unassign errors (E06S05 AC3, AC9). */
   let unassignErrors = $state<Record<string, string>>({});
@@ -186,48 +194,32 @@
   }
 
   // ──────────────────────────────────────────────────────────────────────
-  // PIN lookup + assign (E06S05 AC2, AC4)
+  // Inline-row assign (E49S01 — PIN out-of-band)
   // ──────────────────────────────────────────────────────────────────────
 
-  async function handlePinLookup(): Promise<void> {
-    if (!pinInput.trim()) return;
-    lookupError = null;
-    lookedUpDevice = null;
-    assignError = null;
-    fieldInput = '';
-    try {
-      lookedUpDevice = await findDeviceByPin(pinInput.trim());
-    } catch (e: unknown) {
-      const status = (e as { status?: number }).status;
-      if (status === 404) {
-        lookupError = $_('devices.lookupError');
-      } else {
-        lookupError = $_('devices.lookupNetworkError');
-      }
-    }
-  }
-
-  async function handleAssign(): Promise<void> {
-    if (!lookedUpDevice) return;
-    const fieldNumber = parseInt(fieldInput, 10);
+  async function handleRowAssign(device: Device): Promise<void> {
+    const pin = rowPinInputs[device.id]?.trim() ?? null;
+    const fieldStr = rowFieldInputs[device.id]?.trim() ?? '';
+    const fieldNumber = parseInt(fieldStr, 10);
     if (isNaN(fieldNumber) || fieldNumber < 1) {
-      assignError = $_('devices.assignError');
+      rowAssignErrors = { ...rowAssignErrors, [device.id]: $_('devices.assignError') };
       return;
     }
-    assignError = null;
+    rowAssignErrors = { ...rowAssignErrors, [device.id]: '' };
 
     // Check whether this field is already occupied in the local device list (AC4)
     const occupant = devices.find(
-      (d) => d.assignedField === fieldNumber && d.id !== lookedUpDevice!.id
+      (d) => d.assignedField === fieldNumber && d.id !== device.id
     );
     if (occupant) {
       conflictField = fieldNumber;
-      pendingAssignDeviceId = lookedUpDevice.id;
+      pendingAssignDeviceId = device.id;
+      pendingAssignPin = device.deviceType === 'SCORING_TABLET' ? pin : null;
       showConflictDialog = true;
       return;
     }
 
-    await doAssign(lookedUpDevice.id, fieldNumber);
+    await doAssign(device.id, fieldNumber, device.deviceType === 'SCORING_TABLET' ? pin : null);
   }
 
   /** Confirms field conflict replacement — unassigns existing then assigns new (E06S05 AC4). */
@@ -246,27 +238,79 @@
       }
     }
 
-    await doAssign(pendingAssignDeviceId, conflictField);
+    await doAssign(pendingAssignDeviceId, conflictField, pendingAssignPin);
     conflictField = null;
     pendingAssignDeviceId = null;
+    pendingAssignPin = null;
   }
 
   function handleConflictCancel(): void {
     showConflictDialog = false;
     conflictField = null;
     pendingAssignDeviceId = null;
+    pendingAssignPin = null;
   }
 
-  async function doAssign(deviceId: string, fieldNumber: number): Promise<void> {
-    assignError = null;
+  async function doAssign(deviceId: string, fieldNumber: number, pin: string | null): Promise<void> {
+    rowAssignErrors = { ...rowAssignErrors, [deviceId]: '' };
     try {
-      await assignDevice(deviceId, fieldNumber);
-      pinInput = '';
-      lookedUpDevice = null;
-      fieldInput = '';
+      await assignDevice(deviceId, fieldNumber, pin);
+      rowPinInputs = { ...rowPinInputs, [deviceId]: '' };
+      rowFieldInputs = { ...rowFieldInputs, [deviceId]: '' };
       await loadDevices();
     } catch (e: unknown) {
-      assignError = e instanceof Error ? e.message : $_('devices.assignError');
+      const status = (e as { status?: number }).status;
+      let msg = e instanceof Error ? e.message : $_('devices.assignError');
+      if (status === 403) msg = $_('devices.scoringTablet.pinMismatch');
+      if (status === 423) msg = $_('devices.scoringTablet.pinLocked');
+      if (status === 422) msg = $_('devices.scoringTablet.pinMissing');
+      rowAssignErrors = { ...rowAssignErrors, [deviceId]: msg };
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // PIN lock reset (E49S01 AC6)
+  // ──────────────────────────────────────────────────────────────────────
+
+  async function handleResetPinLock(device: Device): Promise<void> {
+    if (!confirm($_('devices.scoringTablet.pinLockResetConfirm'))) return;
+    try {
+      await resetPinLock(device.id);
+      await loadDevices();
+    } catch (e: unknown) {
+      rowAssignErrors = {
+        ...rowAssignErrors,
+        [device.id]: e instanceof Error ? e.message : $_('devices.scoringTablet.pinLockResetError'),
+      };
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Rename (E49S01 AC11)
+  // ──────────────────────────────────────────────────────────────────────
+
+  function startRename(device: Device): void {
+    renamingDeviceId = device.id;
+    renameInput = device.deviceName ?? '';
+  }
+
+  function cancelRename(): void {
+    renamingDeviceId = null;
+    renameInput = '';
+  }
+
+  async function confirmRename(device: Device): Promise<void> {
+    if (!renameInput.trim()) return;
+    try {
+      await renameDevice(device.id, renameInput.trim());
+      renamingDeviceId = null;
+      renameInput = '';
+      await loadDevices();
+    } catch (e: unknown) {
+      renameErrors = {
+        ...renameErrors,
+        [device.id]: e instanceof Error ? e.message : $_('devices.scoringTablet.renameError'),
+      };
     }
   }
 
@@ -464,7 +508,7 @@
   // Helpers
   // ──────────────────────────────────────────────────────────────────────
 
-  function formatLastSeen(ts: string | null): string {
+  function formatRegisteredAt(ts: string | null): string {
     if (!ts) return '—';
     try {
       return new Date(ts).toLocaleString();
@@ -569,7 +613,7 @@
     <div class="devices__overlay" role="dialog" aria-modal="true">
       <div class="devices__modal">
         <p class="devices__conflict-msg">
-          {$_('devices.removeConfirm', { values: { name: removingDevice.deviceType === DEVICE_TYPE_DISPLAY ? displayName(removingDevice) : (removingDevice.pin ?? removingDevice.id) } })}
+          {$_('devices.removeConfirm', { values: { name: removingDevice.deviceType === DEVICE_TYPE_DISPLAY ? displayName(removingDevice) : (removingDevice.deviceName ?? removingDevice.id) } })}
         </p>
         <div class="devices__modal-actions">
           <button class="btn btn--danger" onclick={handleRemoveConfirm} disabled={removeInProgress}>
@@ -629,57 +673,6 @@
     </div>
   {/if}
 
-  <!-- PIN lookup + assign form — only for scoring tablet context (E07S03 AC7) -->
-  {#if activeFilter === 'all' || activeFilter === 'scoring'}
-    <section class="devices__lookup">
-      <h2 class="devices__lookup-title">{$_('devices.pinLookupTitle')}</h2>
-      <div class="devices__lookup-row">
-        <label for="pin-input">{$_('devices.pinInputLabel')}</label>
-        <input
-          id="pin-input"
-          type="text"
-          class="devices__text-input"
-          placeholder={$_('devices.pinInputPlaceholder')}
-          bind:value={pinInput}
-          onkeydown={(e) => { if (e.key === 'Enter') handlePinLookup(); }}
-        />
-        <button class="btn btn--primary" onclick={handlePinLookup}>
-          {$_('devices.lookupButton')}
-        </button>
-      </div>
-
-      {#if lookupError}
-        <p class="devices__error">{lookupError}</p>
-      {/if}
-
-      {#if lookedUpDevice}
-        <div class="devices__assign-row">
-          <span class="devices__lookup-result">
-            PIN: <strong>{lookedUpDevice.pin}</strong>
-            &nbsp;&mdash;&nbsp;
-            {$_(`devices.status.${lookedUpDevice.status}`, { default: lookedUpDevice.status })}
-          </span>
-          <label for="field-input">{$_('devices.assignFieldLabel')}</label>
-          <input
-            id="field-input"
-            type="number"
-            class="devices__text-input devices__text-input--short"
-            min="1"
-            placeholder={$_('devices.assignFieldPlaceholder')}
-            bind:value={fieldInput}
-            onkeydown={(e) => { if (e.key === 'Enter') handleAssign(); }}
-          />
-          <button class="btn btn--primary" onclick={handleAssign}>
-            {$_('devices.assignButton')}
-          </button>
-        </div>
-        {#if assignError}
-          <p class="devices__error">{assignError}</p>
-        {/if}
-      {/if}
-    </section>
-  {/if}
-
   <!-- Device list (E06S05 AC1, E07S03 AC2) -->
   {#if loading}
     <p class="devices__loading">…</p>
@@ -691,12 +684,8 @@
     <table class="devices__table">
       <thead>
         <tr>
-          <!-- PIN column shown for all/scoring views; Name column for display view (E07S03 AC2) -->
-          {#if activeFilter === 'display'}
-            <th>{$_('devices.columns.name')}</th>
-          {:else}
-            <th>{$_('devices.columns.pin')}</th>
-          {/if}
+          <!-- Name column for all devices (E49S01 AC3: PIN column removed) -->
+          <th>{$_('devices.columns.name')}</th>
           <th>{$_('devices.columns.deviceType')}</th>
           {#if activeFilter !== 'display'}
             <th>{$_('devices.columns.assignedField')}</th>
@@ -705,21 +694,50 @@
           {#if activeFilter === 'display' || activeFilter === 'all'}
             <th>{$_('devices.columns.configStatus')}</th>
           {/if}
-          <th>{$_('devices.columns.lastSeen')}</th>
+          <th>{$_('devices.columns.registeredAt')}</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
         {#each filteredDevices as device (device.id)}
           <tr>
-            <!-- Name/PIN cell -->
-            {#if activeFilter === 'display'}
-              <td>
+            <!-- Device name cell (E49S01 AC1/AC3) -->
+            <td>
+              {#if device.deviceType === DEVICE_TYPE_DISPLAY}
                 <strong>{displayName(device)}</strong>
-              </td>
-            {:else}
-              <td><strong>{device.pin ?? '—'}</strong></td>
-            {/if}
+              {:else if renamingDeviceId === device.id}
+                <!-- Inline rename input (E49S01 AC11) -->
+                <div class="devices__inline-row">
+                  <input
+                    type="text"
+                    class="devices__text-input"
+                    bind:value={renameInput}
+                    onkeydown={(e) => {
+                      if (e.key === 'Enter') confirmRename(device);
+                      if (e.key === 'Escape') cancelRename();
+                    }}
+                  />
+                  <button class="btn btn--primary btn--sm" onclick={() => confirmRename(device)}>
+                    {$_('devices.scoringTablet.renameButton')}
+                  </button>
+                  <button class="btn btn--secondary btn--sm" onclick={cancelRename}>
+                    {$_('teams.cancelButton')}
+                  </button>
+                  {#if renameErrors[device.id]}
+                    <span class="devices__row-error">{renameErrors[device.id]}</span>
+                  {/if}
+                </div>
+              {:else}
+                <strong>{device.deviceName ?? '—'}</strong>
+                <button
+                  class="btn btn--secondary btn--sm devices__rename-btn"
+                  onclick={() => startRename(device)}
+                  title={$_('devices.scoringTablet.renameButton')}
+                >
+                  ✏
+                </button>
+              {/if}
+            </td>
 
             <!-- Device type badge -->
             <td>
@@ -728,17 +746,66 @@
               </span>
             </td>
 
-            <!-- Assigned field — only for scoring context -->
+            <!-- Assigned field + inline assign row — only for scoring context -->
             {#if activeFilter !== 'display'}
               <td>
-                {device.assignedField != null
-                  ? device.assignedField
-                  : $_('devices.unassigned')}
+                {#if device.deviceType === DEVICE_TYPE_SCORING && device.status !== 'ASSIGNED'}
+                  <!-- Inline-row PIN + field assignment (E49S01 AC5/AC8) -->
+                  <div class="devices__inline-row">
+                    <input
+                      type="text"
+                      class="devices__text-input devices__text-input--short"
+                      placeholder={$_('devices.scoringTablet.pinInputPlaceholder')}
+                      aria-label={$_('devices.scoringTablet.pinInputLabel')}
+                      bind:value={rowPinInputs[device.id]}
+                    />
+                    <input
+                      type="number"
+                      class="devices__text-input devices__text-input--short"
+                      min="1"
+                      placeholder={$_('devices.assignFieldPlaceholder')}
+                      aria-label={$_('devices.assignFieldLabel')}
+                      bind:value={rowFieldInputs[device.id]}
+                      onkeydown={(e) => { if (e.key === 'Enter') handleRowAssign(device); }}
+                    />
+                    <button class="btn btn--primary btn--sm" onclick={() => handleRowAssign(device)}>
+                      {$_('devices.assignButton')}
+                    </button>
+                  </div>
+                  {#if rowAssignErrors[device.id]}
+                    <span class="devices__row-error">{rowAssignErrors[device.id]}</span>
+                  {/if}
+                {:else if device.deviceType === DEVICE_TYPE_DISPLAY && device.status !== 'ASSIGNED'}
+                  <!-- Display devices: field input only, no PIN -->
+                  <div class="devices__inline-row">
+                    <input
+                      type="number"
+                      class="devices__text-input devices__text-input--short"
+                      min="1"
+                      placeholder={$_('devices.assignFieldPlaceholder')}
+                      aria-label={$_('devices.assignFieldLabel')}
+                      bind:value={rowFieldInputs[device.id]}
+                      onkeydown={(e) => { if (e.key === 'Enter') handleRowAssign(device); }}
+                    />
+                    <button class="btn btn--primary btn--sm" onclick={() => handleRowAssign(device)}>
+                      {$_('devices.assignButton')}
+                    </button>
+                  </div>
+                  {#if rowAssignErrors[device.id]}
+                    <span class="devices__row-error">{rowAssignErrors[device.id]}</span>
+                  {/if}
+                {:else}
+                  {device.assignedField != null
+                    ? device.assignedField
+                    : $_('devices.unassigned')}
+                {/if}
               </td>
             {/if}
 
-            <!-- Status -->
-            <td>{$_(`devices.status.${device.status}`, { default: device.status })}</td>
+            <!-- Status (+ PIN lock indicator for E49S01 AC6) -->
+            <td>
+              {$_(`devices.status.${device.status}`, { default: device.status })}
+            </td>
 
             <!-- Config status — display + all views (E07S03 AC2) -->
             {#if activeFilter === 'display' || activeFilter === 'all'}
@@ -753,8 +820,8 @@
               </td>
             {/if}
 
-            <!-- Last seen -->
-            <td>{formatLastSeen(device.lastSeenAt)}</td>
+            <!-- Registered at -->
+            <td>{formatRegisteredAt(device.registeredAt)}</td>
 
             <!-- Row actions -->
             <td class="devices__row-actions">
@@ -766,13 +833,26 @@
                 >
                   {$_('devices.displayDevice.configureButton')}
                 </button>
-              {:else if device.status === 'ASSIGNED'}
-                <!-- Unassign button for assigned scoring tablets (E06S05 AC3) -->
+              {/if}
+
+              {#if device.status === 'ASSIGNED'}
+                <!-- Unassign button for assigned devices (E06S05 AC3) -->
                 <button
                   class="btn btn--secondary btn--sm"
                   onclick={() => handleUnassign(device.id)}
                 >
                   {$_('devices.unassignButton')}
+                </button>
+              {/if}
+
+              <!-- PIN lock reset button (E49S01 AC6) — only for locked SCORING_TABLET -->
+              {#if device.deviceType === DEVICE_TYPE_SCORING}
+                <button
+                  class="btn btn--secondary btn--sm"
+                  onclick={() => handleResetPinLock(device)}
+                  title={$_('devices.scoringTablet.pinLockResetButton')}
+                >
+                  {$_('devices.scoringTablet.pinLockResetButton')}
                 </button>
               {/if}
 
@@ -851,27 +931,19 @@
     border-color: #f5c6c0;
   }
 
-  /* PIN lookup section */
-  .devices__lookup {
-    background: #f9f9f9;
-    border: 1px solid #e0e0e0;
-    border-radius: 6px;
-    padding: 1rem 1.5rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .devices__lookup-title {
-    margin-top: 0;
-    font-size: 1.1rem;
-  }
-
-  .devices__lookup-row,
-  .devices__assign-row {
+  /* Inline assign/rename row inside table cell (E49S01) */
+  .devices__inline-row {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.4rem;
     flex-wrap: wrap;
-    margin-top: 0.5rem;
+  }
+
+  /* Rename button — shown inline next to device name */
+  .devices__rename-btn {
+    margin-left: 0.25rem;
+    font-size: 0.75rem;
+    padding: 0.1rem 0.4rem;
   }
 
   .devices__text-input {
@@ -897,10 +969,6 @@
     font-size: 0.95rem;
     background: #f5f5f5;
     color: #666;
-  }
-
-  .devices__lookup-result {
-    font-size: 0.95rem;
   }
 
   /* Device type badge (E07S03 AC2) */

@@ -22,6 +22,7 @@ import java.util.UUID;
  * @see Device
  * @see <a href="DEC-35">DEC-35 — package layout: interfaces in public package</a>
  * @see <a href="E31S01">E31S01 — interface extraction</a>
+ * @see <a href="E49S01">E49S01 — PIN out-of-band + inline-row assignment</a>
  */
 public interface DeviceRepository {
 
@@ -51,14 +52,6 @@ public interface DeviceRepository {
      * @return Optional.of(device) if found, Optional.empty() otherwise
      */
     Optional<Device> findByDeviceToken(String deviceToken);
-
-    /**
-     * Returns the device with the given PIN for the current tenant.
-     *
-     * @param pin the 4–6 digit PIN
-     * @return Optional.of(device) if found, Optional.empty() otherwise
-     */
-    Optional<Device> findByPin(String pin);
 
     /**
      * Returns the device assigned to the given location and field number for the current tenant.
@@ -99,6 +92,19 @@ public interface DeviceRepository {
     boolean isPinTaken(String pin);
 
     /**
+     * Returns whether the given device name is already in use by any device of the current tenant.
+     *
+     * <p>Used by {@link
+     * de.vvwt.tm.tournament.internal.DefaultDeviceService#generateUniqueDeviceName()} to check for
+     * name collisions before assignment.
+     *
+     * @param name the device name to check (e.g., "Tablet-A3F2")
+     * @return true if name is already taken, false if available
+     * @see <a href="E49S01">E49S01 — AC1: unique device name generation</a>
+     */
+    boolean isNameTaken(String name);
+
+    /**
      * Deletes the device with the given id, scoped to the current tenant.
      *
      * @param id the device UUID
@@ -115,4 +121,35 @@ public interface DeviceRepository {
 
     /** Deletes all devices for the current tenant. */
     void deleteAllByTenant();
+
+    /**
+     * Atomically increments the {@code pin_fail_count} for the device with the given id.
+     *
+     * <p>Uses {@code UPDATE devices SET pin_fail_count = pin_fail_count + 1 WHERE id = ?} to avoid
+     * a read-modify-write race condition.
+     *
+     * @param id the device UUID
+     * @see <a href="E49S01">E49S01 — AC6: per-device fail-counter</a>
+     */
+    void incrementPinFailCount(UUID id);
+
+    /**
+     * Resets the {@code pin_fail_count} to 0 for the device with the given id.
+     *
+     * <p>Called on successful assign or on admin reset via {@code POST
+     * /api/devices/{id}/pin-lock/reset}.
+     *
+     * @param id the device UUID
+     * @see <a href="E49S01">E49S01 — AC6: fail-counter reset</a>
+     */
+    void resetPinFailCount(UUID id);
+
+    /**
+     * Returns the current {@code pin_fail_count} for the device with the given id.
+     *
+     * @param id the device UUID
+     * @return current consecutive wrong-PIN attempt count; 0 if device not found or counter not set
+     * @see <a href="E49S01">E49S01 — AC6: per-device fail-counter read</a>
+     */
+    int getPinFailCount(UUID id);
 }
