@@ -8,10 +8,6 @@ import de.vvwt.tm.tournament.PhaseBreakConfig;
 import de.vvwt.tm.tournament.PhaseBreakRepository;
 import de.vvwt.tm.tournament.PhaseConfig;
 import de.vvwt.tm.tournament.PhaseRepository;
-import de.vvwt.tm.tournament.Team;
-import de.vvwt.tm.tournament.TeamAvatar;
-import de.vvwt.tm.tournament.TeamAvatarRepository;
-import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.TimelineCalculationService;
 import de.vvwt.tm.tournament.TimelineEntry;
 import de.vvwt.tm.tournament.Tournament;
@@ -32,7 +28,6 @@ import de.vvwt.tm.tournament.internal.dto.draft.DraftTimelineEntryResponse;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -50,8 +45,8 @@ import org.springframework.transaction.annotation.Transactional;
  * <ul>
  *   <li>{@link #preview(DraftConfig, int, int, LocalTime)} — pure computation, no DB side effect;
  *       populates timeline when {@code plannedStartTime} is non-null (E48S12)
- *   <li>{@link #apply(UUID, DraftConfig)} — creates Phase entities via the Phase-aggregate
- *       collaborators from E21S03
+ *   <li>{@link #apply(UUID, DraftConfig)} — creates Phase records (PENDING status, no TeamAvatars
+ *       or matches — E48S17 AC-IMPL-APPLY-NO-PHASE-1-TEAMAVATARS)
  *   <li>{@link #loadDraft(UUID)} — loads current draft config from Tournament.draftJson (E21S19)
  *   <li>{@link #saveDraft(UUID, DraftConfig)} — persists draft config to Tournament.draftJson
  *       (E21S19)
@@ -88,25 +83,23 @@ public class DefaultDraftService implements DraftService {
 
     private final PhaseRepository phaseRepository;
     private final PhaseBreakRepository phaseBreakRepository;
-    private final TeamRepository teamRepository;
-    private final TeamAvatarRepository teamAvatarRepository;
-    private final PhasePreparationService phasePreparationService;
     private final TournamentRepository tournamentRepository;
     private final ObjectMapper objectMapper;
     private final TimelineCalculationService timelineCalculationService;
     private final JdbcTemplate jdbcTemplate;
 
     /**
-     * Constructs the service with Phase-aggregate collaborators from E21S03, phase preparation,
-     * tournament repository + Jackson ObjectMapper for draft JSON serialization (E21S19), the
-     * timeline calculation service for preview timeline population (E48S12), and JdbcTemplate for
-     * cascade-delete and reset-plan bulk SQL (E48S13).
+     * Constructs the service with Phase-aggregate collaborators from E21S03, tournament repository
+     * + Jackson ObjectMapper for draft JSON serialization (E21S19), the timeline calculation
+     * service for preview timeline population (E48S12), and JdbcTemplate for cascade-delete and
+     * reset-plan bulk SQL (E48S13).
+     *
+     * <p>Phase-1 TeamAvatar distribution and match generation were removed in E48S17: apply() now
+     * only creates Phase records in PENDING status. TeamAvatar creation is deferred to the
+     * Drag&amp;Drop / prepare() workflow.
      *
      * @param phaseRepository phase persistence (tenant-scoped, E21S03)
      * @param phaseBreakRepository phase break persistence (tenant-scoped, E21S03)
-     * @param teamRepository team persistence (tenant-scoped)
-     * @param teamAvatarRepository team avatar persistence (tenant-scoped, E21S04)
-     * @param phasePreparationService match generation service (E21S08)
      * @param tournamentRepository tournament persistence for draft JSON read/write (E21S19)
      * @param objectMapper Jackson ObjectMapper for DraftConfig ↔ JSON round-trip (E21S19)
      * @param timelineCalculationService stateless timeline engine (E21S11, wired in E48S12)
@@ -115,9 +108,6 @@ public class DefaultDraftService implements DraftService {
     public DefaultDraftService(
             @Qualifier("tmPhaseRepository") PhaseRepository phaseRepository,
             @Qualifier("tmPhaseBreakRepository") PhaseBreakRepository phaseBreakRepository,
-            TeamRepository teamRepository,
-            TeamAvatarRepository teamAvatarRepository,
-            @Qualifier("tmPhasePreparationService") PhasePreparationService phasePreparationService,
             @Qualifier("tmTournamentRepository") TournamentRepository tournamentRepository,
             ObjectMapper objectMapper,
             @Qualifier("tmTimelineCalculationService")
@@ -125,9 +115,6 @@ public class DefaultDraftService implements DraftService {
             JdbcTemplate jdbcTemplate) {
         this.phaseRepository = phaseRepository;
         this.phaseBreakRepository = phaseBreakRepository;
-        this.teamRepository = teamRepository;
-        this.teamAvatarRepository = teamAvatarRepository;
-        this.phasePreparationService = phasePreparationService;
         this.tournamentRepository = tournamentRepository;
         this.objectMapper = objectMapper;
         this.timelineCalculationService = timelineCalculationService;
@@ -188,7 +175,9 @@ public class DefaultDraftService implements DraftService {
      * Applies the draft configuration to create Phase entities.
      *
      * <p>Fails-fast if phases already exist for the tournament (AC-DRAFT-APPLY-IDEMPOTENCY).
-     * Creates one Phase per section. Persists PhaseBreak entities for intra-phase breaks.
+     * Creates one Phase per section in PENDING status. Persists PhaseBreak entities for intra-phase
+     * breaks. No TeamAvatars or matches are created here — TeamAvatar creation is deferred to the
+     * Drag&amp;Drop / prepare() workflow (E48S17 AC-IMPL-APPLY-NO-PHASE-1-TEAMAVATARS).
      *
      * @param tournamentId the tournament UUID
      * @param config the draft configuration to apply; must not be {@code null}
@@ -209,20 +198,10 @@ public class DefaultDraftService implements DraftService {
         // AC-IMPL-LAST-PHASE-INVARIANT (E48S01): D-10 — last phase must be siegerehrung
         config.validateLastPhaseSiegerehrung();
 
-        // Load participating teams sorted by teamNumber ascending (AC6 legacy parity)
-        List<Team> participatingTeams =
-                teamRepository.findByTournamentId(tournamentId).stream()
-                        .filter(Team::isParticipate)
-                        .sorted(Comparator.comparingInt(Team::getTeamNumber))
-                        .toList();
-
         List<UUID> createdPhaseIds = new ArrayList<>();
         List<DraftSection> sections = config.getSections();
 
-        for (int i = 0; i < sections.size(); i++) {
-            DraftSection section = sections.get(i);
-            boolean isFirstPhase = (i == 0);
-
+        for (DraftSection section : sections) {
             Phase phase =
                     new Phase(
                             UUID.randomUUID(),
@@ -236,14 +215,6 @@ public class DefaultDraftService implements DraftService {
             createdPhaseIds.add(savedPhase.getId());
 
             persistPhaseBreaks(savedPhase.getId(), section.getBreaks());
-
-            // Distribute Phase 1 TeamAvatars (AC6 legacy parity — only for the first phase)
-            if (isFirstPhase && !participatingTeams.isEmpty()) {
-                distributeTeamAvatars(savedPhase, section, participatingTeams, tournamentId);
-                // Generate matches for Phase 1 (match-generation only — no referee assignment,
-                // as slot optimization has not yet run at this point)
-                phasePreparationService.generateMatches(savedPhase.getId(), section.getGameMode());
-            }
         }
 
         return createdPhaseIds;
@@ -447,40 +418,6 @@ public class DefaultDraftService implements DraftService {
                 tournamentId);
         // 9. phase rows for this tournament
         jdbcTemplate.update("DELETE FROM phase WHERE tournament_id = ?", tournamentId);
-    }
-
-    /**
-     * Distributes participating teams into Phase 1 groups using round-robin assignment (AC6).
-     *
-     * <p>Teams are sorted by teamNumber. For each team[i]: groupNumber = (i % groupCount) + 1;
-     * groupPosition = (i / groupCount) + 1.
-     *
-     * @param phase the newly created Phase 1
-     * @param section the first section configuration
-     * @param participatingTeams participating teams sorted by teamNumber ascending
-     * @param tournamentId the parent tournament
-     */
-    private void distributeTeamAvatars(
-            Phase phase, DraftSection section, List<Team> participatingTeams, UUID tournamentId) {
-        int groupCount = section.getGroupCount();
-        for (int i = 0; i < participatingTeams.size(); i++) {
-            Team team = participatingTeams.get(i);
-            int groupNumber = (i % groupCount) + 1;
-            int groupPosition = (i / groupCount) + 1;
-
-            TeamAvatar avatar =
-                    new TeamAvatar(
-                            UUID.randomUUID(),
-                            tournamentId,
-                            phase.getId(),
-                            groupNumber,
-                            groupPosition,
-                            team.getId(),
-                            null, // description — optional
-                            LocalDateTime.now() // createdAt
-                            );
-            teamAvatarRepository.save(avatar);
-        }
     }
 
     // -------------------------------------------------------------------------

@@ -247,6 +247,50 @@ class DefaultDisplayOverviewServiceTest {
     }
 
     // =========================================================================
+    // AC-DISPLAY-PREPARED-PHASE-PREVIEW (E48S17 — Display-Branch Pfad α)
+    // =========================================================================
+
+    /**
+     * RED-first test (E48S17): no ACTIVE phase, PREPARED phase with slot-optimized matches
+     * (lapNumber != null) → service resolves PREPARED phase as preview; preparationPreview=true,
+     * phaseStatus="PREPARED".
+     *
+     * <p>Before E48S17, only PENDING was checked in both the preparationPreview flag and the
+     * resolveActiveOrPreviewPhase() fallback loop. After E48S17, PREPARED must also satisfy both
+     * checks (Display-Branch-Erweiterung Pfad α).
+     *
+     * @see DefaultDisplayOverviewService#getPhaseOverview(String)
+     * @see <a href="E48S17">E48S17 — AC-IMPL-DISPLAY-PREPARED-PHASE-FALLBACK</a>
+     */
+    @Test
+    void getPhaseOverview_preparedPhaseWithScheduledMatches_returnsPreparationPreview() {
+        UUID tenantId = UUID.randomUUID();
+        UUID phaseId = UUID.randomUUID();
+        UUID tournamentId = UUID.randomUUID();
+
+        Device device = buildDisplayDevice(tenantId);
+        Tournament tournament = buildTournament(tournamentId, "ACTIVE", 2);
+        Phase phase = buildPhase(phaseId, tenantId, tournamentId, "Prep Phase", "PREPARED", 1, 0);
+        Match scheduledMatch = buildMatch(phaseId, 1); // non-null lapNumber
+
+        when(deviceRepository.findByDeviceToken("valid-token")).thenReturn(Optional.of(device));
+        when(tournamentRepository.findAll()).thenReturn(List.of(tournament));
+        when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(phase));
+        when(matchRepository.findByPhaseId(phaseId)).thenReturn(List.of(scheduledMatch));
+        when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(List.of());
+        when(tenantContext.current()).thenReturn(tenantId);
+
+        DisplayPhaseOverviewResponse response = service.getPhaseOverview("valid-token");
+
+        assertThat(response.phaseStatus())
+                .as("PREPARED phase must appear as phaseStatus=PREPARED (E48S17)")
+                .isEqualTo("PREPARED");
+        assertThat(response.preparationPreview())
+                .as("PREPARED phase with scheduled matches → preparationPreview=true (E48S17)")
+                .isTrue();
+    }
+
+    // =========================================================================
     // AC-PHASE-OVERVIEW-NO-ACTIVE-PHASE
     // =========================================================================
 

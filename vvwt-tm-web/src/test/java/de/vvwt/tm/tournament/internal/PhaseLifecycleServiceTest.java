@@ -86,13 +86,13 @@ class PhaseLifecycleServiceTest {
     }
 
     // =========================================================================
-    // AC-TEST-PHASE-START-RED: start() PENDING → ACTIVE
+    // AC-TEST-PHASE-START-RED: start() PREPARED → ACTIVE (E48S17 refactor)
     // =========================================================================
 
     @Test
-    @DisplayName("start() — PENDING phase transitions to ACTIVE")
-    void start_pendingPhase_transitionsToActive() {
-        Phase phase = pendingPhase();
+    @DisplayName("start() — PREPARED phase (seq=1) transitions to ACTIVE (E48S17 refactor)")
+    void start_preparedPhase_transitionsToActive() {
+        Phase phase = preparedPhase(); // sequenceNumber = 1, no predecessor check executed
         when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
         when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -103,9 +103,9 @@ class PhaseLifecycleServiceTest {
     }
 
     @Test
-    @DisplayName("start() — publishes PhaseStatusChangedEvent on PENDING→ACTIVE")
-    void start_pendingPhase_publishesPhaseStatusChangedEvent() {
-        Phase phase = pendingPhase();
+    @DisplayName("start() — publishes PhaseStatusChangedEvent on PREPARED→ACTIVE (E48S17)")
+    void start_preparedPhase_publishesPhaseStatusChangedEvent() {
+        Phase phase = preparedPhase();
         when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
         when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -115,7 +115,7 @@ class PhaseLifecycleServiceTest {
                 .publishEvent(
                         argThat(
                                 e ->
-                                        e.toString().contains("PENDING")
+                                        e.toString().contains("PREPARED")
                                                 && e.toString().contains("ACTIVE")));
     }
 
@@ -131,9 +131,20 @@ class PhaseLifecycleServiceTest {
     }
 
     @Test
+    @DisplayName("start() — PENDING phase throws ConflictException (E48S17: now requires PREPARED)")
+    void start_pendingPhase_throwsConflictException() {
+        Phase phase = pendingPhase();
+        when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
+
+        assertThatThrownBy(() -> service.start(phaseId))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("PENDING");
+    }
+
+    @Test
     @DisplayName("start() — acquires per-tournament row-lock (DEC-37 Clause B) as first read")
     void start_acquiresTournamentLockFirst() {
-        Phase phase = pendingPhase();
+        Phase phase = preparedPhase(); // seq=1 → no predecessor check
         when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
         when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -273,6 +284,17 @@ class PhaseLifecycleServiceTest {
         p.setId(phaseId);
         p.setTournamentId(tournamentId);
         p.setStatus("PENDING");
+        p.setSequenceNumber(1);
+        p.setDescription("Vorrunde");
+        p.setCurrentLapNumber(0);
+        return p;
+    }
+
+    private Phase preparedPhase() {
+        Phase p = new Phase();
+        p.setId(phaseId);
+        p.setTournamentId(tournamentId);
+        p.setStatus("PREPARED");
         p.setSequenceNumber(1);
         p.setDescription("Vorrunde");
         p.setCurrentLapNumber(0);

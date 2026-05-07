@@ -251,13 +251,11 @@ public class ActivityAssignmentPreviewController {
                 .min(Comparator.comparingInt(Phase::getSequenceNumber))
                 .orElseGet(
                         () ->
-                                // Fall back to last PENDING
+                                // Fall back to last PENDING or PREPARED (E48S17: PREPARED also
+                                // qualifies — Display-Branch-Erweiterung Pfad α;
+                                // DEC-40 Q-1a note: legacy controller, minimal touch rule applies)
                                 phases.stream()
-                                        .filter(
-                                                p ->
-                                                        Phase.PhaseStatus.PENDING
-                                                                .name()
-                                                                .equals(p.getStatus()))
+                                        .filter(p -> isPendingOrPrepared(p.getStatus()))
                                         .max(Comparator.comparingInt(Phase::getSequenceNumber))
                                         .orElse(null));
     }
@@ -346,5 +344,24 @@ public class ActivityAssignmentPreviewController {
             return new TeamRef(teamId, 0, "?");
         }
         return new TeamRef(teamId, team.getTeamNumber(), team.getDescription());
+    }
+
+    /**
+     * Returns {@code true} if the given phase status is {@code PENDING} or {@code PREPARED}.
+     *
+     * <p>E48S17 Display-Branch-Erweiterung Pfad α: PREPARED phases now qualify as the preview
+     * fallback alongside PENDING.
+     *
+     * <p>DEC-40 Q-1a note: this method is added as a minimal-touch change to this legacy
+     * controller. Full DEC-40 reconstruction of {@code ActivityAssignmentPreviewController} is
+     * deferred to a future Epic per the reconstruction-in-place plan.
+     *
+     * @param status the phase status string
+     * @return {@code true} for PENDING or PREPARED; {@code false} otherwise
+     * @see <a href="E48S17">E48S17 — AC-IMPL-DISPLAY-PREPARED-PHASE-FALLBACK</a>
+     */
+    private static boolean isPendingOrPrepared(String status) {
+        return Phase.PhaseStatus.PENDING.name().equals(status)
+                || Phase.PhaseStatus.PREPARED.name().equals(status);
     }
 }

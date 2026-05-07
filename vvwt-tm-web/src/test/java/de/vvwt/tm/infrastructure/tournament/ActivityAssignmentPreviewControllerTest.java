@@ -154,6 +154,63 @@ class ActivityAssignmentPreviewControllerTest {
                 .andExpect(status().isNotFound());
     }
 
+    // =========================================================================
+    // E48S17 — PREPARED phase fallback (Display-Branch Pfad α)
+    // =========================================================================
+
+    /**
+     * RED-first test (E48S17): when no ACTIVE phase exists but a PREPARED phase does, the
+     * controller falls back to the PREPARED phase (same as PENDING fallback).
+     *
+     * <p>Before E48S17, the fallback only checked {@code PENDING}; after E48S17 it also checks
+     * {@code PREPARED}.
+     *
+     * @see ActivityAssignmentPreviewController
+     * @see <a href="E48S17">E48S17 — AC-IMPL-DISPLAY-PREPARED-PHASE-FALLBACK (legacy
+     *     controller)</a>
+     */
+    @Test
+    @WithMockUser
+    @DisplayName(
+            "E48S17: GET falls back to PREPARED phase when no ACTIVE phase (Display-Branch Pfad α)")
+    void getReturnsPreparedPhaseAsPreviewFallback() throws Exception {
+        UUID phaseId = UUID.randomUUID();
+
+        when(tournamentRepository.findById(TOURNAMENT_ID))
+                .thenReturn(
+                        Optional.of(
+                                new de.vvwt.tm.tournament.Tournament(
+                                        TOURNAMENT_ID,
+                                        "Test",
+                                        "BEST_OF_3",
+                                        "setPoints",
+                                        "standard",
+                                        "roundRobin",
+                                        "DRAFT",
+                                        LocalDateTime.now())));
+
+        Phase preparedPhase =
+                new Phase(
+                        phaseId,
+                        TOURNAMENT_ID,
+                        1,
+                        "Vorrunde",
+                        Phase.PhaseStatus.PREPARED.name(),
+                        0,
+                        LocalDateTime.now());
+        when(phaseRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(preparedPhase));
+        when(matchRepository.findByPhaseId(phaseId)).thenReturn(List.of());
+        when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(List.of());
+        when(activityTypeService.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of());
+        when(teamRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of());
+        when(activityAssignmentService.assignActivities(any(), any(), any(), anyInt(), any()))
+                .thenReturn(new ActivityAssignmentResult(Map.of(), Map.of()));
+
+        mockMvc.perform(get("/api/tournaments/{id}/activity-assignments", TOURNAMENT_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.phaseId").value(phaseId.toString()));
+    }
+
     @Test
     @WithMockUser
     @DisplayName("AC2: GET returns structured preview with phase and assignments")

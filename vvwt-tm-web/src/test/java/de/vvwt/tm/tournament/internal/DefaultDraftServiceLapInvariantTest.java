@@ -5,8 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.tournament.PhaseBreakRepository;
 import de.vvwt.tm.tournament.PhaseRepository;
-import de.vvwt.tm.tournament.TeamAvatarRepository;
-import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftPreviewResult;
@@ -55,12 +53,12 @@ class DefaultDraftServiceLapInvariantTest {
      * the {@code preview()} pure-computation path is exercised — no repository calls occur.
      */
     private static DefaultDraftService buildService() {
+        // E48S17: TeamRepository, TeamAvatarRepository, PhasePreparationService removed from
+        // constructor (isFirstPhase distribution branch removed per
+        // AC-IMPL-APPLY-NO-PHASE-1-TEAMAVATARS)
         return new DefaultDraftService(
                 Mockito.mock(PhaseRepository.class),
                 Mockito.mock(PhaseBreakRepository.class),
-                Mockito.mock(TeamRepository.class),
-                Mockito.mock(TeamAvatarRepository.class),
-                Mockito.mock(PhasePreparationService.class),
                 Mockito.mock(TournamentRepository.class),
                 new ObjectMapper(),
                 Mockito.mock(de.vvwt.tm.tournament.TimelineCalculationService.class), // E48S12

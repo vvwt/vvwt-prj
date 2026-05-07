@@ -73,7 +73,8 @@ class PhaseLifecycleControllerIT {
 
     private UUID tournamentId;
     private UUID locationId;
-    private UUID pendingPhaseId;
+    private UUID pendingPhaseId; // E48S17: now inserts PREPARED status for start() tests
+    private UUID trulyPendingPhaseId; // status=PENDING for prepare() tests
     private UUID activePhaseId;
     private UUID activePhaseAllFinishedId;
     private UUID avatarId1;
@@ -112,8 +113,8 @@ class PhaseLifecycleControllerIT {
                 2,
                 4);
 
-        // PENDING phase — for start() tests
-        pendingPhaseId = UUID.randomUUID();
+        // PREPARED phase — for start() 200 test (E48S17: start() now requires PREPARED)
+        pendingPhaseId = UUID.randomUUID(); // field name kept for minimal diff; status is PREPARED
         jdbcTemplate.update(
                 "INSERT INTO phase (id, tournament_id, sequence_number, description, status,"
                         + " current_lap_number) VALUES (?, ?, ?, ?, ?, ?)",
@@ -121,6 +122,20 @@ class PhaseLifecycleControllerIT {
                 tournamentId,
                 1,
                 "Vorrunde",
+                "PREPARED", // E48S17: start() requires PREPARED status
+                0);
+
+        // PENDING phase — for prepare() 200 test (E48S17
+        // AC-IMPL-PHASE-LIFECYCLE-CONTROLLER-PREPARE-ENDPOINT)
+        trulyPendingPhaseId = UUID.randomUUID();
+        jdbcTemplate.update(
+                "INSERT INTO phase (id, tournament_id, sequence_number, description, status,"
+                        + " current_lap_number) VALUES (?, ?, ?, ?, ?, ?)",
+                trulyPendingPhaseId,
+                tournamentId,
+                5, // high seq number to avoid predecessor-check conflicts with
+                // pendingPhaseId(seq=1)
+                "Pending For Prepare",
                 "PENDING",
                 0);
 
@@ -230,7 +245,7 @@ class PhaseLifecycleControllerIT {
     // =========================================================================
 
     @Test
-    @DisplayName("POST /api/phases/{id}/start — PENDING phase → 200 OK")
+    @DisplayName("POST /api/phases/{id}/start — PREPARED phase → 200 OK (E48S17 refactor)")
     void start_pendingPhase_returns200() throws Exception {
         ResponseEntity<String> response =
                 authed.postForEntity(
@@ -279,6 +294,57 @@ class PhaseLifecycleControllerIT {
 
         assertThat(response.getStatusCode())
                 .as("Unauthenticated start() must return 401")
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    // =========================================================================
+    // POST /api/phases/{id}/prepare (E48S17 AC-IMPL-PHASE-LIFECYCLE-CONTROLLER-PREPARE-ENDPOINT)
+    // =========================================================================
+
+    @Test
+    @DisplayName(
+            "POST /api/phases/{id}/prepare — PENDING phase → 200 OK"
+                    + " (AC-TEST-CONTROLLER-IT-PER-METHOD-GREEN)")
+    void prepare_pendingPhase_returns200() throws Exception {
+        ResponseEntity<String> response =
+                authed.postForEntity(
+                        new URI(baseUrl + "/api/phases/" + trulyPendingPhaseId + "/prepare"),
+                        null,
+                        String.class);
+
+        assertThat(response.getStatusCode())
+                .as("prepare() on PENDING phase must return 200 OK")
+                .isEqualTo(HttpStatus.OK);
+
+        // DEC-26 Rule 2: verify DB state via direct JDBC
+        tenantBinder.bindDefaultTenant();
+        try {
+            String status =
+                    jdbcTemplate.queryForObject(
+                            "SELECT status FROM phase WHERE id = ?",
+                            String.class,
+                            trulyPendingPhaseId);
+            assertThat(status)
+                    .as("Phase status must be PREPARED after prepare()")
+                    .isEqualTo("PREPARED");
+        } finally {
+            tenantBinder.unbind();
+        }
+    }
+
+    @Test
+    @DisplayName(
+            "POST /api/phases/{id}/prepare — unauthenticated → 401"
+                    + " (AC-SECURITY-PHASE-LIFECYCLE-AUTH)")
+    void prepare_unauthenticated_returns401() throws Exception {
+        ResponseEntity<String> response =
+                restTemplate.postForEntity(
+                        new URI(baseUrl + "/api/phases/" + trulyPendingPhaseId + "/prepare"),
+                        null,
+                        String.class);
+
+        assertThat(response.getStatusCode())
+                .as("Unauthenticated prepare() must return 401")
                 .isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
