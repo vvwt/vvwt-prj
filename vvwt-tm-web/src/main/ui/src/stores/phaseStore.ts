@@ -1,7 +1,8 @@
 /**
- * Phase overview API functions for the Tournament Manager Admin SPA (E48S05 + E48S06).
+ * Phase overview API functions for the Tournament Manager Admin SPA (E48S05 + E48S06 + E48S17).
  *
- * Provides types and API calls for reading phases and for phase lifecycle mutations (E48S06).
+ * Provides types and API calls for reading phases and for phase lifecycle mutations (E48S06,
+ * E48S17). E48S17 adds the PREPARED status and the preparePhase() API call.
  */
 import { apiFetch } from '../lib/api.js';
 
@@ -25,7 +26,8 @@ export interface PhaseOverview {
     id: string;
     sequenceNumber: number;
     description: string;
-    status: 'PENDING' | 'ACTIVE' | 'COMPLETED';
+    /** E48S17: PREPARED added between PENDING and ACTIVE. */
+    status: 'PENDING' | 'PREPARED' | 'ACTIVE' | 'COMPLETED';
     gameMode: string | null;
     currentLapNumber: number;
     matchCountsByState: MatchCountsByState;
@@ -49,10 +51,28 @@ export async function listPhases(tournamentId: string): Promise<PhaseOverview[]>
     return res.json() as Promise<PhaseOverview[]>;
 }
 
-// ── Lifecycle mutations (E48S06) ──────────────────────────────────────────────
+// ── Lifecycle mutations (E48S06 + E48S17) ────────────────────────────────────
 
 /**
- * Starts a phase: PENDING → ACTIVE.
+ * Prepares a phase: PENDING → PREPARED (E48S17).
+ *
+ * Idempotent: returns successfully if the phase is already PREPARED.
+ *
+ * @param phaseId the phase UUID
+ * @throws Error with operator-actionable message on HTTP 409 (invalid transition)
+ */
+export async function preparePhase(phaseId: string): Promise<void> {
+    const res = await apiFetch(`/api/phases/${phaseId}/prepare`, { method: 'POST' });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { message?: string }).message ?? `HTTP ${res.status}`);
+    }
+}
+
+/**
+ * Starts a phase: PREPARED → ACTIVE (E48S17 refactor; previously PENDING → ACTIVE).
+ *
+ * Requires the phase to be in PREPARED status (use preparePhase() first).
  *
  * @param phaseId the phase UUID
  * @throws Error with operator-actionable message on HTTP 409 (invalid transition)

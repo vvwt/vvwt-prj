@@ -1,13 +1,14 @@
 <script lang="ts">
   /**
-   * Phase overview list for a tournament — Story E48S05 + E48S06.
+   * Phase overview list for a tournament — Story E48S05 + E48S06 + E48S17.
    *
    * Displays all phases of a tournament with their:
    *   - sequenceNumber, description, status badge, gameMode, currentLapNumber, match counts
-   *   - Status-conditional lifecycle buttons (E48S06):
-   *       PENDING: "Phase starten"
-   *       ACTIVE:  "Phase abschließen" (disabled when unfinished matches > 0, with tooltip)
-   *                "Notabschluss" (with confirmation, visible only in ACTIVE)
+   *   - Status-conditional lifecycle buttons (E48S06, E48S17):
+   *       PENDING:   "Vorbereiten" (→ PREPARED, E48S17)
+   *       PREPARED:  "Phase starten" (→ ACTIVE, E48S17 refactor)
+   *       ACTIVE:    "Phase abschließen" (disabled when unfinished matches > 0, with tooltip)
+   *                  "Notabschluss" (with confirmation, visible only in ACTIVE)
    *
    * Navigation entry point: Tournaments.svelte "Phasen" button (AC-FRONTEND-NAV-FROM-TOURNAMENTS).
    * E47 shell mechanism (AC-FRONTEND-E47-HEADER-INTEGRATION): registers title + back-button via
@@ -19,6 +20,7 @@
   import { push } from 'svelte-spa-router';
   import {
     listPhases,
+    preparePhase,
     startPhase,
     completePhase,
     forceCompletePhase,
@@ -76,6 +78,8 @@
         return 'badge badge--active';
       case 'COMPLETED':
         return 'badge badge--completed';
+      case 'PREPARED':
+        return 'badge badge--prepared';
       case 'PENDING':
       default:
         return 'badge badge--pending';
@@ -111,6 +115,20 @@
   }
 
   // ── Action handlers ───────────────────────────────────────────
+
+  /** E48S17: Prepares a phase (PENDING → PREPARED). */
+  async function handlePrepare(phaseId: string): Promise<void> {
+    actionInProgress = phaseId;
+    actionError = null;
+    try {
+      await preparePhase(phaseId);
+      await loadPhases();
+    } catch (e: unknown) {
+      actionError = e instanceof Error ? e.message : get(_)('phases.lifecycleError');
+    } finally {
+      actionInProgress = null;
+    }
+  }
 
   async function handleStart(phaseId: string): Promise<void> {
     actionInProgress = phaseId;
@@ -228,7 +246,16 @@
             <td>{finishedCount(phase)}&thinsp;/&thinsp;{totalCount(phase)}</td>
             <td class="phases__actions">
               {#if phase.status === 'PENDING'}
-                <!-- AC-FRONTEND-PHASE-LIFECYCLE-BUTTONS: PENDING → "Phase starten" -->
+                <!-- E48S17: PENDING → "Vorbereiten" (calls prepare endpoint) -->
+                <button
+                  class="btn btn--primary"
+                  disabled={actionInProgress === phase.id}
+                  onclick={() => handlePrepare(phase.id)}
+                >
+                  {$_('phases.prepareButton')}
+                </button>
+              {:else if phase.status === 'PREPARED'}
+                <!-- E48S17: PREPARED → "Phase starten" (calls start endpoint) -->
                 <button
                   class="btn btn--primary"
                   disabled={actionInProgress === phase.id}
@@ -326,6 +353,13 @@
   .badge--pending {
     background: #ecf0f1;
     color: #555;
+  }
+
+  /* E48S17: PREPARED status — amber/yellow tone to distinguish from PENDING and ACTIVE */
+  .badge--prepared {
+    background: #fef9e7;
+    color: #9a7d0a;
+    border: 1px solid #f9e79f;
   }
 
   .badge--active {

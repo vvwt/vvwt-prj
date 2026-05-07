@@ -141,8 +141,9 @@ public class DefaultDisplayOverviewService implements DisplayOverviewService {
         List<TeamAvatar> avatars = teamAvatarRepository.findByPhaseId(phase.getId());
         List<Match> matches = matchRepository.findByPhaseId(phase.getId());
 
+        // E48S17: extend to include PREPARED status (Display-Branch-Erweiterung Pfad α)
         boolean preparationPreview =
-                "PENDING".equals(phase.getStatus())
+                isPendingOrPrepared(phase.getStatus())
                         && matches.stream().anyMatch(m -> m.getLapNumber() != null);
 
         // Derive lapCount from the number of distinct lap values in scheduled matches
@@ -386,9 +387,10 @@ public class DefaultDisplayOverviewService implements DisplayOverviewService {
             return activePhase.get();
         }
 
-        // Fall back to PENDING phase with scheduled matches (preparationPreview)
+        // Fall back to PENDING/PREPARED phase with scheduled matches (preparationPreview)
+        // E48S17: PREPARED is now also eligible as a preview phase (Display-Branch Pfad α)
         for (Phase phase : phases) {
-            if ("PENDING".equals(phase.getStatus())) {
+            if (isPendingOrPrepared(phase.getStatus())) {
                 List<Match> matches = matchRepository.findByPhaseId(phase.getId());
                 boolean hasScheduled = matches.stream().anyMatch(m -> m.getLapNumber() != null);
                 if (hasScheduled) {
@@ -496,4 +498,19 @@ public class DefaultDisplayOverviewService implements DisplayOverviewService {
      * @param rating the TeamAvatarRating (possibly zero-default)
      */
     private record AvatarWithRating(TeamAvatar avatar, TeamAvatarRating rating) {}
+
+    /**
+     * Returns {@code true} if the given phase status is {@code PENDING} or {@code PREPARED}.
+     *
+     * <p>Used in the Display-Branch-Erweiterung Pfad α (E48S17): both statuses qualify a phase as a
+     * candidate for the preparationPreview display path in {@link #getPhaseOverview(String)} and
+     * the {@link #resolveActiveOrPreviewPhase()} fallback.
+     *
+     * @param status the phase status string
+     * @return {@code true} for PENDING or PREPARED; {@code false} otherwise
+     * @see <a href="E48S17">E48S17 — AC-IMPL-DISPLAY-PREPARED-PHASE-FALLBACK</a>
+     */
+    private static boolean isPendingOrPrepared(String status) {
+        return "PENDING".equals(status) || "PREPARED".equals(status);
+    }
 }

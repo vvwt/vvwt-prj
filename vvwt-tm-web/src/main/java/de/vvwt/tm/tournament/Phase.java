@@ -17,6 +17,7 @@ import org.springframework.data.relational.core.mapping.Table;
  *
  * <ul>
  *   <li>{@link PhaseStatus#PENDING} — created; not yet started
+ *   <li>{@link PhaseStatus#PREPARED} — TeamAvatars persisted, ready for activation (E48S17)
  *   <li>{@link PhaseStatus#ACTIVE} — currently in progress
  *   <li>{@link PhaseStatus#COMPLETED} — all matches in this phase are finished
  * </ul>
@@ -50,6 +51,12 @@ public class Phase {
     public enum PhaseStatus {
         /** Phase is created but not yet started. */
         PENDING,
+        /**
+         * Drag&amp;Drop done, TeamAvatars persistiert, ready for activation (E48S17). PENDING →
+         * PREPARED via {@code PhaseLifecycleService.prepare()}; PREPARED → ACTIVE via {@code
+         * PhaseLifecycleService.start()}.
+         */
+        PREPARED,
         /** Phase is currently in progress (at least one match has been played or is scheduled). */
         ACTIVE,
         /** All matches in this phase have been completed and standings are finalized. */

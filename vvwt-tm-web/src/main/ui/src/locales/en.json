@@ -26,6 +26,12 @@
       "resetPlanFailed": "Failed to reset the Phasenplan."
     }
   },
+  "phases": {
+    "status": {
+      "PREPARED": "Prepared"
+    },
+    "prepareButton": "Prepare"
+  },
   "error": {
     "tournament": {
       "cascadeDelete": {

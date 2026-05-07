@@ -8,7 +8,8 @@ import java.util.UUID;
  * <p>Drives each phase through its status lifecycle:
  *
  * <ul>
- *   <li>PENDING → ACTIVE via {@link #start(UUID)}
+ *   <li>PENDING → PREPARED via {@link #prepare(UUID)} (E48S17)
+ *   <li>PREPARED → ACTIVE via {@link #start(UUID)} (E48S17 refactor; predecessor must be COMPLETED)
  *   <li>ACTIVE → COMPLETED (only when all matches are FINISHED_*) via {@link #complete(UUID)}
  *   <li>ACTIVE → COMPLETED + void unfinished matches via {@link #forceComplete(UUID)}
  * </ul>
@@ -29,7 +30,27 @@ import java.util.UUID;
 public interface PhaseLifecycleService {
 
     /**
-     * Transitions the phase from {@code PENDING} to {@code ACTIVE}.
+     * Transitions the phase from {@code PENDING} to {@code PREPARED} (E48S17).
+     *
+     * <p>Idempotent: if the phase is already {@code PREPARED}, returns the phase unchanged without
+     * publishing an event. If the phase is in any other state, throws {@link
+     * de.vvwt.tm.tournament.exceptions.ConflictException}.
+     *
+     * <p>Acquires a per-tournament DB row-lock (DEC-37 Clause B) as the first read.
+     *
+     * @param phaseId the phase UUID
+     * @return the updated phase with {@code status = "PREPARED"} (or unchanged if already PREPARED)
+     * @throws de.vvwt.tm.tournament.exceptions.ConflictException if the phase's current status is
+     *     not {@code PENDING} and not {@code PREPARED}
+     * @throws IllegalArgumentException if no phase with the given id exists
+     */
+    Phase prepare(UUID phaseId);
+
+    /**
+     * Transitions the phase from {@code PREPARED} to {@code ACTIVE} (E48S17 refactor).
+     *
+     * <p>Requires the phase to be in {@code PREPARED} status. Additionally, if the phase has a
+     * predecessor (sequenceNumber &gt; 1), the predecessor must be in {@code COMPLETED} status.
      *
      * <p>Acquires a per-tournament DB row-lock (DEC-37 Clause B) as the first read. Publishes
      * {@link de.vvwt.tm.tournament.events.PhaseStatusChangedEvent} on success.
@@ -37,7 +58,7 @@ public interface PhaseLifecycleService {
      * @param phaseId the phase UUID
      * @return the updated phase with {@code status = "ACTIVE"}
      * @throws de.vvwt.tm.tournament.exceptions.ConflictException if the phase's current status is
-     *     not {@code PENDING}
+     *     not {@code PREPARED}, or if the predecessor phase is not {@code COMPLETED}
      * @throws IllegalArgumentException if no phase with the given id exists
      */
     Phase start(UUID phaseId);

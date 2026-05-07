@@ -19,7 +19,9 @@ import org.springframework.web.bind.annotation.RestController;
  * <h2>Endpoints</h2>
  *
  * <ul>
- *   <li>POST /api/phases/{id}/start — PENDING → ACTIVE
+ *   <li>POST /api/phases/{id}/prepare — PENDING → PREPARED (E48S17)
+ *   <li>POST /api/phases/{id}/start — PREPARED → ACTIVE (E48S17 refactor; predecessor must be
+ *       COMPLETED)
  *   <li>POST /api/phases/{id}/complete — ACTIVE → COMPLETED (only when all matches finished)
  *   <li>POST /api/phases/{id}/force-complete — ACTIVE → COMPLETED + void unfinished matches
  * </ul>
@@ -49,12 +51,32 @@ public class PhaseLifecycleController {
     }
 
     // -------------------------------------------------------------------------
-    // POST /api/phases/{id}/start — PENDING → ACTIVE
+    // POST /api/phases/{id}/prepare — PENDING → PREPARED (E48S17)
+    // (AC-IMPL-PHASE-LIFECYCLE-CONTROLLER-PREPARE-ENDPOINT, AC-SECURITY-PHASE-LIFECYCLE-AUTH)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Transitions the phase from {@code PENDING} to {@code PREPARED} (E48S17).
+     *
+     * <p>Idempotent: returns 200 OK with the current phase if already PREPARED.
+     *
+     * @param id the phase UUID (from path)
+     * @return 200 OK with the updated phase; 404 if not found; 409 if invalid transition
+     */
+    @PostMapping("/{id}/prepare")
+    public ResponseEntity<Phase> prepare(@PathVariable("id") UUID id) {
+        return ResponseEntity.ok(phaseLifecycleService.prepare(id));
+    }
+
+    // -------------------------------------------------------------------------
+    // POST /api/phases/{id}/start — PREPARED → ACTIVE (E48S17 refactor)
     // (AC-IMPL-PHASE-LIFECYCLE-CONTROLLER, AC-SECURITY-PHASE-LIFECYCLE-AUTH)
     // -------------------------------------------------------------------------
 
     /**
-     * Transitions the phase from {@code PENDING} to {@code ACTIVE}.
+     * Transitions the phase from {@code PREPARED} to {@code ACTIVE} (E48S17 refactor).
+     *
+     * <p>Requires predecessor phase (if any) to be COMPLETED.
      *
      * @param id the phase UUID (from path)
      * @return 200 OK with the updated phase; 404 if not found; 409 if invalid transition

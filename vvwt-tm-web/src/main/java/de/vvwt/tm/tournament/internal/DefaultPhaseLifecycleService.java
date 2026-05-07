@@ -8,6 +8,7 @@ import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.events.PhaseStatusChangedEvent;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
+import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,12 +17,21 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Default implementation of {@link PhaseLifecycleService} (DEC-35, E48S06).
+ * Default implementation of {@link PhaseLifecycleService} (DEC-35, E48S06, E48S17).
  *
  * <p>Drives each phase through its lifecycle status transitions. Every method acquires a
  * per-tournament pessimistic DB row-lock via {@link TournamentRepository#findByIdForUpdate(UUID)}
  * as its FIRST READ — serialising concurrent transitions on the same tournament aggregate root per
  * DEC-37 Clause B.
+ *
+ * <p>{@link #prepare(UUID)} transitions PENDING → PREPARED. Idempotent on PREPARED status.
+ * Re-entrant-lock note: prepare() acquires the DEC-37 lock; if it later delegates to
+ * commitTransition() in the same {@code @Transactional} scope, H2 + PostgreSQL treat SELECT FOR
+ * UPDATE on an already-held row as a no-op within the same transaction (semantically correct).
+ *
+ * <p>{@link #start(UUID)} requires {@code PREPARED} status (E48S17 refactor from {@code PENDING}).
+ * Additionally checks predecessor completion: if sequenceNumber &gt; 1, the predecessor phase
+ * (sequenceNumber - 1) must be {@code COMPLETED}.
  *
  * <p>{@link #complete(UUID)} verifies that all matches are in terminal states before allowing the
  * ACTIVE → COMPLETED transition (AC-TEST-PHASE-COMPLETE-ALL-FINISHED-RED).
@@ -37,6 +47,7 @@ import org.springframework.transaction.annotation.Transactional;
  * @see <a href="DEC-35">DEC-35 — package layout: impl in .internal</a>
  * @see <a href="DEC-37">DEC-37 Clause B — per-tournament pessimistic DB row-lock</a>
  * @see <a href="E48S06">E48S06 — Phase-Lifecycle Service</a>
+ * @see <a href="E48S17">E48S17 — PREPARED enum + prepare() + start() refactor</a>
  */
 @Service("tmPhaseLifecycleService")
 public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
@@ -66,8 +77,65 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
      * {@inheritDoc}
      *
      * <p>Lock is acquired via {@link TournamentRepository#findByIdForUpdate(UUID)} as the first
-     * read (DEC-37 Clause B). If the current status is not {@code PENDING}, throws {@link
+     * read (DEC-37 Clause B). If the phase is already {@code PREPARED}, returns idempotently
+     * without publishing an event. If status is any other state (ACTIVE, COMPLETED), throws {@link
      * ConflictException} — mapped to HTTP 409 by {@code GlobalExceptionHandler}.
+     *
+     * <p>AC-IMPL-PHASE-LIFECYCLE-PREPARE (E48S17).
+     */
+    @Override
+    @Transactional
+    public Phase prepare(UUID phaseId) {
+        // Initial phase read to get the tournamentId (needed for the lock)
+        Phase phase = requirePhase(phaseId);
+
+        // DEC-37 Clause B: acquire per-tournament row-lock BEFORE reading mutable state.
+        tournamentRepository.findByIdForUpdate(phase.getTournamentId());
+        phase = requirePhase(phaseId); // fresh read under the lock
+
+        // Idempotent: already PREPARED — return without transition or event
+        if ("PREPARED".equals(phase.getStatus())) {
+            log.debug("[E48S17] Phase {} already PREPARED — idempotent return", phaseId);
+            return phase;
+        }
+
+        if (!"PENDING".equals(phase.getStatus())) {
+            throw new ConflictException(
+                    "Cannot prepare phase: current status is "
+                            + phase.getStatus()
+                            + " (expected PENDING or PREPARED). Phase id="
+                            + phaseId);
+        }
+
+        String previous = phase.getStatus();
+        phase.setStatus("PREPARED");
+        Phase saved = phaseRepository.save(phase);
+
+        eventPublisher.publishEvent(
+                new PhaseStatusChangedEvent(
+                        this,
+                        null, // tenantId — resolved by DomainEventBridge via TenantContext
+                        phase.getTournamentId(),
+                        phaseId,
+                        previous,
+                        "PREPARED"));
+
+        log.debug("[E48S17] Phase {} transitioned {} → PREPARED", phaseId, previous);
+        return saved;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Lock is acquired via {@link TournamentRepository#findByIdForUpdate(UUID)} as the first
+     * read (DEC-37 Clause B). If the current status is not {@code PREPARED}, throws {@link
+     * ConflictException} — mapped to HTTP 409 by {@code GlobalExceptionHandler}.
+     *
+     * <p>Predecessor check (E48S17): if sequenceNumber &gt; 1, the predecessor phase
+     * (sequenceNumber - 1) must be {@code COMPLETED}. HTTP 409 with operator-actionable message if
+     * not.
+     *
+     * <p>AC-IMPL-PHASE-LIFECYCLE-START-REFACTOR (E48S17).
      */
     @Override
     @Transactional
@@ -81,12 +149,35 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
         tournamentRepository.findByIdForUpdate(phase.getTournamentId());
         phase = requirePhase(phaseId); // fresh read under the lock
 
-        if (!"PENDING".equals(phase.getStatus())) {
+        // E48S17: start() now requires PREPARED (not PENDING)
+        if (!"PREPARED".equals(phase.getStatus())) {
             throw new ConflictException(
                     "Cannot start phase: current status is "
                             + phase.getStatus()
-                            + " (expected PENDING). Phase id="
+                            + " (expected PREPARED). Use prepare() first. Phase id="
                             + phaseId);
+        }
+
+        // E48S17: predecessor check — predecessor must be COMPLETED (or absent for seq=1)
+        int sequenceNumber = phase.getSequenceNumber();
+        if (sequenceNumber > 1) {
+            Optional<Phase> predecessorOpt =
+                    phaseRepository.findByTournamentIdAndSequenceNumber(
+                            phase.getTournamentId(), sequenceNumber - 1);
+            if (predecessorOpt.isPresent()) {
+                Phase predecessor = predecessorOpt.get();
+                if (!"COMPLETED".equals(predecessor.getStatus())) {
+                    throw new ConflictException(
+                            "Cannot start phase "
+                                    + sequenceNumber
+                                    + ": predecessor phase "
+                                    + predecessor.getSequenceNumber()
+                                    + " is "
+                                    + predecessor.getStatus()
+                                    + ", expected COMPLETED. Phase id="
+                                    + phaseId);
+                }
+            }
         }
 
         String previous = phase.getStatus();
@@ -102,7 +193,7 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
                         previous,
                         "ACTIVE"));
 
-        log.debug("[E48S06] Phase {} transitioned {} → ACTIVE", phaseId, previous);
+        log.debug("[E48S17] Phase {} transitioned {} → ACTIVE", phaseId, previous);
         return saved;
     }
 

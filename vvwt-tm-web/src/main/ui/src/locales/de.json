@@ -72,9 +72,11 @@
     },
     "status": {
       "PENDING": "Ausstehend",
+      "PREPARED": "Vorbereitet",
       "ACTIVE": "Aktiv",
       "COMPLETED": "Abgeschlossen"
     },
+    "prepareButton": "Vorbereiten",
     "startButton": "Phase starten",
     "completeButton": "Phase abschließen",
     "forceCompleteButton": "Notabschluss",
