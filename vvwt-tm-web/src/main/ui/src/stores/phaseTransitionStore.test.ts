@@ -190,3 +190,59 @@ describe('phaseTransitionStore — commitTransition (E48S08, AC-FRONTEND-COMMIT-
         await expect(commitTransition(phaseId, assignments)).rejects.toThrow('Invalid assignment');
     });
 });
+
+// ── commitEndpoint override — AC-FRONTEND-PREPARE-COMMIT-CALLS-PREPARE-ENDPOINT-RED (E48S18) ──
+
+describe('phaseTransitionStore — commitEndpoint override (E48S18, AC-FRONTEND-PREPARE-COMMIT-CALLS-PREPARE-ENDPOINT-RED)', () => {
+    const phaseId = '550e8400-e29b-41d4-a716-446655440020';
+    const assignments = [
+        { teamId: 'team-1', groupNumber: 1, groupPosition: 1 },
+    ];
+    let originalFetch: typeof globalThis.fetch;
+
+    beforeEach(() => {
+        originalFetch = globalThis.fetch;
+    });
+
+    afterEach(() => {
+        globalThis.fetch = originalFetch;
+        vi.restoreAllMocks();
+    });
+
+    it('should call POST /api/phases/{id}/prepare when commitEndpoint override is provided (AC-FRONTEND-PREPARE-COMMIT-CALLS-PREPARE-ENDPOINT-RED)', async () => {
+        globalThis.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({}),
+        });
+
+        const { commitTransition } = await import('./phaseTransitionStore.js');
+        const prepareEndpoint = `/api/phases/${phaseId}/prepare`;
+        await commitTransition(phaseId, assignments, prepareEndpoint);
+
+        // Verify the override URL was used — NOT transition-commit
+        expect(globalThis.fetch).toHaveBeenCalledWith(
+            expect.stringContaining(`/api/phases/${phaseId}/prepare`),
+            expect.objectContaining({ method: 'POST' })
+        );
+        expect(globalThis.fetch).not.toHaveBeenCalledWith(
+            expect.stringContaining('transition-commit'),
+            expect.anything()
+        );
+    });
+
+    it('should fall back to transition-commit when no commitEndpoint override is given (regression)', async () => {
+        globalThis.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({}),
+        });
+
+        const { commitTransition } = await import('./phaseTransitionStore.js');
+        await commitTransition(phaseId, assignments);
+
+        // Default URL must still be transition-commit (existing Phase 2+ path)
+        expect(globalThis.fetch).toHaveBeenCalledWith(
+            expect.stringContaining('transition-commit'),
+            expect.objectContaining({ method: 'POST' })
+        );
+    });
+});

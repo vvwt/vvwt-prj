@@ -49,6 +49,8 @@ export const PARENT_ROUTE_MAP: Record<string, string> = {
   '/tournaments/:tournamentId/phases': '/tournaments',
   // E48S08: phase-transition DnD — sub-sub-route targets immediate parent (/phases)
   '/tournaments/:tournamentId/phases/:phaseId/transition': '/tournaments/:tournamentId/phases',
+  // E48S18: prepare route (Phase 1) — sub-sub-route targets immediate parent (/phases)
+  '/tournaments/:tournamentId/phases/:phaseId/prepare': '/tournaments/:tournamentId/phases',
 };
 
 /**

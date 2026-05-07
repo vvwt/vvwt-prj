@@ -8,11 +8,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.PhaseTransitionService;
+import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarProposal;
 import de.vvwt.tm.tournament.TeamAvatarRating;
 import de.vvwt.tm.tournament.TeamAvatarRatingRepository;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
+import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import java.time.LocalDateTime;
@@ -57,6 +59,7 @@ class PhaseTransitionServiceTest {
     @Mock private TeamAvatarRepository teamAvatarRepository;
     @Mock private TeamAvatarRatingRepository teamAvatarRatingRepository;
     @Mock private PhasePreparationService phasePreparationService;
+    @Mock private TeamRepository teamRepository;
 
     private DefaultPhaseTransitionService service;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -74,7 +77,8 @@ class PhaseTransitionServiceTest {
                         teamAvatarRepository,
                         teamAvatarRatingRepository,
                         phasePreparationService,
-                        objectMapper);
+                        objectMapper,
+                        teamRepository);
     }
 
     // -------------------------------------------------------------------------
@@ -452,6 +456,189 @@ class PhaseTransitionServiceTest {
     }
 
     // -------------------------------------------------------------------------
+    // AC-TEST-PROPOSE-TRANSITION-PHASE-1-RED (E48S18)
+    // -------------------------------------------------------------------------
+
+    /**
+     * AC-TEST-PROPOSE-TRANSITION-PHASE-1-RED: Phase 1 (sequenceNumber=1), sortType=team_number, 8
+     * participating Teams → Round-Robin proposal.
+     *
+     * <p>Fixture: 8 teams with teamNumber 1-8 (all participate=true), groupCount=2. Expected:
+     *
+     * <ul>
+     *   <li>Team 1 → group 1, pos 1
+     *   <li>Team 2 → group 2, pos 1
+     *   <li>Team 3 → group 1, pos 2
+     *   <li>Team 4 → group 2, pos 2
+     *   <li>Team 5 → group 1, pos 3
+     *   <li>Team 6 → group 2, pos 3
+     *   <li>Team 7 → group 1, pos 4
+     *   <li>Team 8 → group 2, pos 4
+     * </ul>
+     *
+     * <p>DEC-22 Iron Law: test written RED-first before production code change.
+     */
+    @Test
+    @DisplayName(
+            "proposeTransition — Phase 1 (sequenceNumber=1) — 8 Teams → Round-Robin 2 Gruppen"
+                    + " (AC-TEST-PROPOSE-TRANSITION-PHASE-1-RED)")
+    void proposeTransition_phase1_roundRobin_8teams2groups() throws Exception {
+        // Given
+        UUID phase1Id = UUID.randomUUID();
+        Phase toPhase = phase(phase1Id, 1); // sequenceNumber = 1 = Phase 1
+        Tournament tournament =
+                tournamentWithDraftJson(TOURNAMENT_ID, buildDraftJsonPhase1(2, "team_number"));
+
+        when(phaseRepository.findById(phase1Id)).thenReturn(Optional.of(toPhase));
+        when(tournamentRepository.findById(TOURNAMENT_ID)).thenReturn(Optional.of(tournament));
+
+        // 8 participating teams ordered by teamNumber ASC (TeamRepository contract)
+        List<Team> teams = participatingTeams8(TOURNAMENT_ID);
+        when(teamRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(teams);
+
+        // Act
+        List<TeamAvatarProposal> proposals = service.proposeTransition(phase1Id);
+
+        // Assert: 8 proposals (all participating teams), Round-Robin
+        assertThat(proposals).hasSize(8);
+
+        // Team with teamNumber=1 (first in sorted list) → group 1, pos 1
+        assertProposal(proposals, teamUuidForNumber(teams, 1), 1, 1);
+        // Team with teamNumber=2 → group 2, pos 1
+        assertProposal(proposals, teamUuidForNumber(teams, 2), 2, 1);
+        // Team with teamNumber=3 → group 1, pos 2
+        assertProposal(proposals, teamUuidForNumber(teams, 3), 1, 2);
+        // Team with teamNumber=4 → group 2, pos 2
+        assertProposal(proposals, teamUuidForNumber(teams, 4), 2, 2);
+        // Team with teamNumber=5 → group 1, pos 3
+        assertProposal(proposals, teamUuidForNumber(teams, 5), 1, 3);
+        // Team with teamNumber=6 → group 2, pos 3
+        assertProposal(proposals, teamUuidForNumber(teams, 6), 2, 3);
+        // Team with teamNumber=7 → group 1, pos 4
+        assertProposal(proposals, teamUuidForNumber(teams, 7), 1, 4);
+        // Team with teamNumber=8 → group 2, pos 4
+        assertProposal(proposals, teamUuidForNumber(teams, 8), 2, 4);
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-TEST-PROPOSE-TRANSITION-NON-PARTICIPATING-EXCLUDED-RED (E48S18)
+    // -------------------------------------------------------------------------
+
+    /**
+     * AC-TEST-PROPOSE-TRANSITION-NON-PARTICIPATING-EXCLUDED-RED: Teams with participate=false are
+     * excluded from Phase-1 proposals.
+     *
+     * <p>Fixture: 8 teams, 2 with participate=false → only 6 proposals.
+     *
+     * <p>DEC-22 Iron Law: test written RED-first before production code change.
+     */
+    @Test
+    @DisplayName(
+            "proposeTransition — Phase 1 — non-participating teams excluded"
+                    + " (AC-TEST-PROPOSE-TRANSITION-NON-PARTICIPATING-EXCLUDED-RED)")
+    void proposeTransition_phase1_nonParticipatingExcluded() throws Exception {
+        // Given
+        UUID phase1Id = UUID.randomUUID();
+        Phase toPhase = phase(phase1Id, 1);
+        Tournament tournament =
+                tournamentWithDraftJson(TOURNAMENT_ID, buildDraftJsonPhase1(2, "team_number"));
+
+        when(phaseRepository.findById(phase1Id)).thenReturn(Optional.of(toPhase));
+        when(tournamentRepository.findById(TOURNAMENT_ID)).thenReturn(Optional.of(tournament));
+
+        // 8 teams: teams 3 and 7 are referees (participate=false)
+        List<Team> allTeams = mixedParticipationTeams(TOURNAMENT_ID);
+        when(teamRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(allTeams);
+
+        // Act
+        List<TeamAvatarProposal> proposals = service.proposeTransition(phase1Id);
+
+        // Assert: only 6 proposals (not 8)
+        assertThat(proposals).hasSize(6);
+
+        // Non-participating teams must NOT appear
+        UUID nonParticipatingTeam3 = teamUuidForNumber(allTeams, 3);
+        UUID nonParticipatingTeam7 = teamUuidForNumber(allTeams, 7);
+        assertThat(proposals).noneMatch(p -> p.teamId().equals(nonParticipatingTeam3));
+        assertThat(proposals).noneMatch(p -> p.teamId().equals(nonParticipatingTeam7));
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-TEST-PROPOSE-TRANSITION-PHASE-2-PLUS-UNCHANGED-GREEN (E48S18)
+    // -------------------------------------------------------------------------
+
+    /**
+     * AC-TEST-PROPOSE-TRANSITION-PHASE-2-PLUS-UNCHANGED-GREEN: sequenceNumber > 1 (Phase 2+) still
+     * uses the existing Phase-N-Avatar path.
+     *
+     * <p>This test verifies the Phase 2+ behavior is NOT broken by the Phase-1-Branch refactoring.
+     * It should be GREEN before AND after the production code change.
+     *
+     * <p>DEC-22: regression safety for existing behavior.
+     */
+    @Test
+    @DisplayName(
+            "proposeTransition — Phase 2 (sequenceNumber=2) — existing avatar path unchanged"
+                    + " (AC-TEST-PROPOSE-TRANSITION-PHASE-2-PLUS-UNCHANGED-GREEN)")
+    void proposeTransition_phase2Plus_existingAvatarPath_unchanged() throws Exception {
+        // Given — same setup as the existing team_number test but verified as regression
+        Phase toPhase = phaseWithSortType(TO_PHASE_ID, 2, "team_number", 2);
+        Phase fromPhase = phase(FROM_PHASE_ID, 1);
+        Tournament tournament =
+                tournamentWithDraftJson(TOURNAMENT_ID, buildDraftJson(2, "team_number"));
+
+        when(phaseRepository.findById(TO_PHASE_ID)).thenReturn(Optional.of(toPhase));
+        when(phaseRepository.findByTournamentIdAndSequenceNumber(TOURNAMENT_ID, 1))
+                .thenReturn(Optional.of(fromPhase));
+        when(tournamentRepository.findById(TOURNAMENT_ID)).thenReturn(Optional.of(tournament));
+
+        List<TeamAvatar> fromAvatars = avatars8Teams(FROM_PHASE_ID);
+        when(teamAvatarRepository.findByPhaseId(FROM_PHASE_ID)).thenReturn(fromAvatars);
+
+        // Act — Phase 2 must still use the avatar-based path (TeamRepository NOT called)
+        List<TeamAvatarProposal> proposals = service.proposeTransition(TO_PHASE_ID);
+
+        // Assert: 8 proposals from fromAvatars, round-robin distribution
+        assertThat(proposals).hasSize(8);
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-TEST-FIRST-PHASE-WRONG-SORTTYPE-RED (E48S18)
+    // -------------------------------------------------------------------------
+
+    /**
+     * AC-TEST-FIRST-PHASE-WRONG-SORTTYPE-RED: Phase 1 with sortType ≠ team_number → throws
+     * IllegalStateException with operator-actionable message.
+     *
+     * <p>Defense-in-depth against E48S16-Invariant bypass.
+     *
+     * <p>DEC-22 Iron Law: test written RED-first before production code change.
+     */
+    @Test
+    @DisplayName(
+            "proposeTransition — Phase 1 — sortType=placement_group → IllegalStateException"
+                    + " (AC-TEST-FIRST-PHASE-WRONG-SORTTYPE-RED)")
+    void proposeTransition_phase1_wrongSortType_throwsIllegalStateException() throws Exception {
+        // Given: Phase 1 with sortType=placement_group (wrong for Phase 1)
+        UUID phase1Id = UUID.randomUUID();
+        Phase toPhase = phase(phase1Id, 1);
+        // draft_json for Phase 1 with sortType=placement_group instead of team_number
+        String wrongSortTypeDraftJson = buildDraftJsonPhase1(2, "placement_group");
+        Tournament tournament = tournamentWithDraftJson(TOURNAMENT_ID, wrongSortTypeDraftJson);
+
+        when(phaseRepository.findById(phase1Id)).thenReturn(Optional.of(toPhase));
+        when(tournamentRepository.findById(TOURNAMENT_ID)).thenReturn(Optional.of(tournament));
+        // Note: teamRepository is NOT stubbed — the service throws before reaching it
+        // (sortType validation happens before team lookup per
+        // AC-TEST-FIRST-PHASE-WRONG-SORTTYPE-RED)
+
+        // Act + Assert
+        assertThatThrownBy(() -> service.proposeTransition(phase1Id))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("team_number");
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
@@ -603,5 +790,70 @@ class PhaseTransitionServiceTest {
         assertThat(p.groupNumber())
                 .as("teamId=%s should be in group %d", teamId, expectedGroup)
                 .isEqualTo(expectedGroup);
+    }
+
+    // -------------------------------------------------------------------------
+    // E48S18 helper methods
+    // -------------------------------------------------------------------------
+
+    /**
+     * Builds a draft_json with a single section for Phase 1 (sectionNumber=1) with the given
+     * sortType and groupCount. Used by Phase-1-Branch tests.
+     */
+    private String buildDraftJsonPhase1(int groupCount, String sortType) {
+        return "{"
+                + "\"sections\": ["
+                + "  {\"sectionNumber\": 1, \"sortType\": \""
+                + sortType
+                + "\","
+                + "   \"groupCount\": "
+                + groupCount
+                + ", \"gameMode\": \"roundRobin\","
+                + "   \"lapBreakTimeMinutes\": 5, \"sectionBreakTimeMinutes\": 10,"
+                + "   \"lapTimeMinutes\": 15, \"setQuantity\": 3, \"breaks\": []}"
+                + "]"
+                + "}";
+    }
+
+    /**
+     * Creates 8 participating teams (teamNumber 1-8, all participate=true) ordered by teamNumber
+     * ascending (matching {@code TeamRepository.findByTournamentId} contract).
+     */
+    private List<Team> participatingTeams8(UUID tournamentId) {
+        List<Team> teams = new java.util.ArrayList<>();
+        for (int i = 1; i <= 8; i++) {
+            Team t = new Team();
+            t.setId(UUID.randomUUID());
+            t.setTournamentId(tournamentId);
+            t.setTeamNumber(i);
+            t.setDescription("Team " + i);
+            t.setParticipate(true);
+            teams.add(t);
+        }
+        return teams;
+    }
+
+    /** Creates 8 teams where teams 3 and 7 have participate=false. */
+    private List<Team> mixedParticipationTeams(UUID tournamentId) {
+        List<Team> teams = new java.util.ArrayList<>();
+        for (int i = 1; i <= 8; i++) {
+            Team t = new Team();
+            t.setId(UUID.randomUUID());
+            t.setTournamentId(tournamentId);
+            t.setTeamNumber(i);
+            t.setDescription("Team " + i);
+            t.setParticipate(i != 3 && i != 7); // teams 3 and 7 are non-participating
+            teams.add(t);
+        }
+        return teams;
+    }
+
+    /** Returns the UUID of the team with the given teamNumber from a list. */
+    private UUID teamUuidForNumber(List<Team> teams, int teamNumber) {
+        return teams.stream()
+                .filter(t -> t.getTeamNumber() == teamNumber)
+                .map(Team::getId)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("No team with teamNumber=" + teamNumber));
     }
 }

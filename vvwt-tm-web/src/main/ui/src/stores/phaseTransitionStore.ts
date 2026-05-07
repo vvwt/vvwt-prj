@@ -59,21 +59,29 @@ export async function fetchProposal(phaseId: string): Promise<TeamAvatarSlot[]> 
 /**
  * Commits the (admin-corrected) team assignment for the target phase.
  *
- * POST /api/phases/{phaseId}/transition-commit
+ * POST {commitEndpointOverride} (default: /api/phases/{phaseId}/transition-commit)
  * Body: JSON array of {teamId, groupNumber, groupPosition}
  *
  * phaseId is passed via URL — NOT in the body (DEC-9 governance,
  * AC-FRONTEND-COMMIT-PAYLOAD-SHAPE).
  *
+ * The optional {@code commitEndpointOverride} parameter allows callers (e.g. the
+ * Vorbereiten-Route, E48S18) to target a different commit endpoint such as
+ * {@code /api/phases/{phaseId}/prepare} without duplicating the DnD logic.
+ * When omitted, the default {@code transition-commit} endpoint is used (Phase 2+ path).
+ *
  * @param phaseId the UUID of the target phase
  * @param assignments the final (possibly drag-corrected) assignments
+ * @param commitEndpointOverride optional URL override; defaults to transition-commit endpoint
  * @throws Error when the server returns a non-2xx status
  */
 export async function commitTransition(
     phaseId: string,
-    assignments: TeamAvatarAssignment[]
+    assignments: TeamAvatarAssignment[],
+    commitEndpointOverride?: string
 ): Promise<void> {
-    const res = await apiFetch(`/api/phases/${phaseId}/transition-commit`, {
+    const url = commitEndpointOverride ?? `/api/phases/${phaseId}/transition-commit`;
+    const res = await apiFetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(assignments),
