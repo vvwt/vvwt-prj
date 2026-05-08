@@ -51,21 +51,28 @@ import org.junit.jupiter.api.io.TempDir;
  *
  * @see PerTenantFlywayRunner
  * @see <a href="../../../../../../../../docs/governance/stories/E46S06.story.md">Story E46S06</a>
+ * @see <a href="../../../../../../../../docs/governance/stories/E51S01.story.md">Story E51S01</a>
  * @see <a href="../../../../../../../../docs/governance/decisions/DEC-22.md">DEC-22 — TDD Iron
  *     Law</a>
  * @see <a href="../../../../../../../../docs/governance/decisions/DEC-52.md">DEC-52 — V2 i18n
  *     reclassification</a>
  * @see <a href="../../../../../../../../docs/governance/decisions/DEC-25.md">DEC-25 — no-prod-data
  *     condition</a>
+ * @see <a href="../../../../../../../../docs/governance/decisions/DEC-55.md">DEC-55 — Phase-Prep
+ *     Background-Job Pipeline</a>
  */
 class FlywayV1BaselineIT {
 
     /**
-     * AC12: Fresh tenant bootstrap produces exactly one migration row (version {@code 1}) in {@code
-     * flyway_schema_history_tenant} and exactly one in {@code flyway_schema_history_tournament}.
+     * AC12 (updated E51S01): Fresh tenant bootstrap produces exactly one migration row (version
+     * {@code 1}) in {@code flyway_schema_history_tenant} and rows [1, 2, 3] in {@code
+     * flyway_schema_history_tournament}.
      *
-     * <p>FAILs before E46S06 consolidation (V2 rows present → version list is [1, 2]). PASSes after
-     * E46S06 consolidation (V2 files deleted → version list is [1]).
+     * <p>Tenant history: FAILs before E46S06 consolidation (V2 rows present → [1, 2]). PASSes after
+     * E46S06 consolidation (V2 files deleted → [1]).
+     *
+     * <p>Tournament history: [1, 2] after E49S01 (V2__device_pin_fail_count). [1, 2, 3] after
+     * E51S01 (V3__phase_preparation_background_job_pipeline — DEC-55 schema deltas).
      */
     @Test
     void freshTenantBootstrap_tenantAndTournamentModules_haveExactlyOneSchemaHistoryRowEach(
@@ -94,14 +101,16 @@ class FlywayV1BaselineIT {
                                 + " version 1 after E46S06 consolidation (DEC-52, DEC-25)")
                 .containsExactly("1");
 
-        // E49S01: V2__device_pin_fail_count.sql adds pin_fail_count column — tournament history
-        // now contains ["1", "2"]. The E46S06 consolidation guard (single-row invariant) is updated
-        // to accommodate E49S01's new additive migration.
+        // E49S01: V2__device_pin_fail_count.sql adds pin_fail_count column.
+        // E51S01: V3__phase_preparation_background_job_pipeline.sql adds DEC-55 schema deltas
+        //         (team_avatar.team_id nullable, tournament.optimize, phase.optimized,
+        //          phase.last_job_state, FK ON DELETE CASCADE).
+        // Tournament history now contains ["1", "2", "3"].
         assertThat(tournamentVersions)
                 .as(
-                        "flyway_schema_history_tournament must contain migration rows"
-                                + " [1, 2] after E49S01 (V2__device_pin_fail_count)")
-                .containsExactly("1", "2");
+                        "flyway_schema_history_tournament must contain migration rows [1, 2, 3]"
+                                + " after E51S01 (V3__phase_preparation_background_job_pipeline)")
+                .containsExactly("1", "2", "3");
     }
 
     /**
