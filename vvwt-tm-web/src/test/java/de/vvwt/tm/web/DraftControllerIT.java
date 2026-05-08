@@ -37,6 +37,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -116,6 +117,8 @@ class DraftControllerIT {
     private TournamentRepository tournamentRepository;
 
     @Autowired private DataSource dataSource;
+
+    @Autowired private JdbcTemplate jdbcTemplate;
 
     private String baseUrl;
     private TestRestTemplate authed;
@@ -778,6 +781,278 @@ class DraftControllerIT {
         assertThat(hasMatchRound)
                 .as("timeline must contain at least one MATCH_ROUND entry")
                 .isTrue();
+    }
+
+    // =========================================================================
+    // AC-TEST-APPLY-DRAFT-PRECONDITION-RED (E48S22): apply() on non-DRAFT tournament → 409
+    // =========================================================================
+
+    /**
+     * AC-TEST-APPLY-DRAFT-PRECONDITION-RED (E48S22): applying draft on a non-DRAFT tournament
+     * must return HTTP 409 with messageKey {@code draft.error.notInDraftStatus}.
+     *
+     * <p>RED-first: current {@code apply()} has no DRAFT-status precondition check — it proceeds
+     * regardless of tournament status. This test FAILS before the E48S22 production fix lands.
+     *
+     * @see de.vvwt.tm.tournament.exceptions.TournamentNotInDraftException
+     */
+    @Test
+    @DisplayName(
+            "POST /draft/apply on PLANNED tournament returns 409 with notInDraftStatus messageKey"
+                    + " (E48S22 AC-TEST-APPLY-DRAFT-PRECONDITION-RED)")
+    void applyDraft_onPlannedTournament_returns409WithNotInDraftStatusMessageKey() throws Exception {
+        UUID tournamentId = createDraftTournament("IT apply precondition E48S22");
+
+        // Directly flip tournament to PLANNED via repository (test-fixture manipulation)
+        tenantBinder.bindDefaultTenant();
+        try {
+            Tournament t = tournamentRepository.findById(tournamentId).orElseThrow();
+            t.setStatus("PLANNED");
+            tournamentRepository.save(t);
+        } finally {
+            tenantBinder.unbind();
+        }
+
+        // POST apply on PLANNED tournament → must return 409 with typed messageKey
+        ResponseEntity<de.vvwt.tm.tournament.ApiErrorResponse> response =
+                authed.postForEntity(
+                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/draft/apply"),
+                        applyRequest(),
+                        de.vvwt.tm.tournament.ApiErrorResponse.class);
+
+        assertThat(response.getStatusCode().value())
+                .as("apply() on PLANNED tournament must return 409 Conflict")
+                .isEqualTo(409);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getMessageKey())
+                .as("response must carry messageKey draft.error.notInDraftStatus")
+                .isEqualTo("draft.error.notInDraftStatus");
+    }
+
+    // =========================================================================
+    // AC-TEST-APPLY-DRAFT-JSON-PERSISTED-RED (E48S22): apply() persists draft_json
+    // =========================================================================
+
+    /**
+     * AC-TEST-APPLY-DRAFT-JSON-PERSISTED-RED (E48S22): after a successful apply(), GET /draft
+     * must return a DraftConfig that is byte-equivalent to the apply request payload.
+     *
+     * <p>RED-first: current {@code apply()} does NOT persist {@code draft_json} — GET /draft
+     * returns empty sections. This test FAILS before the E48S22 production fix lands.
+     */
+    @Test
+    @DisplayName(
+            "apply() persists draft_json — GET /draft after apply returns apply payload"
+                    + " (E48S22 AC-TEST-APPLY-DRAFT-JSON-PERSISTED-RED)")
+    void applyDraft_persistsDraftJson_loadDraftReturnsEquivalent() throws Exception {
+        UUID tournamentId = createDraftTournament("IT apply draft_json E48S22");
+
+        // apply() with a 2-section request
+        ResponseEntity<DraftApplyResponse> applyResponse =
+                authed.postForEntity(
+                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/draft/apply"),
+                        applyRequest(),
+                        DraftApplyResponse.class);
+
+        assertThat(applyResponse.getStatusCode())
+                .as("apply must return 200 OK")
+                .isEqualTo(HttpStatus.OK);
+
+        // GET /draft — must return sections byte-equivalent to the apply payload
+        // applyRequest() has 2 sections: roundRobin (sectionNumber=1) + siegerehrung
+        // (sectionNumber=2)
+        ResponseEntity<DraftResponse> getResponse =
+                authed.getForEntity(
+                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/draft"),
+                        DraftResponse.class);
+
+        assertThat(getResponse.getStatusCode())
+                .as("GET /draft after apply must return 200 OK")
+                .isEqualTo(HttpStatus.OK);
+        assertThat(getResponse.getBody()).isNotNull();
+        assertThat(getResponse.getBody().sections())
+                .as("GET /draft must return 2 sections matching the apply payload")
+                .hasSize(2);
+        assertThat(getResponse.getBody().sections().get(0).sectionNumber())
+                .as("first section must be section 1")
+                .isEqualTo(1);
+        assertThat(getResponse.getBody().sections().get(0).gameMode())
+                .as("first section gameMode must be roundRobin")
+                .isEqualTo("roundRobin");
+        assertThat(getResponse.getBody().sections().get(1).gameMode())
+                .as("second section gameMode must be siegerehrung")
+                .isEqualTo("siegerehrung");
+    }
+
+    // =========================================================================
+    // AC-TEST-APPLY-STATUS-FLIPPED-RED (E48S22): apply() transitions to PLANNED
+    // =========================================================================
+
+    /**
+     * AC-TEST-APPLY-STATUS-FLIPPED-RED (E48S22): after a successful apply(), tournament status
+     * must be PLANNED (verified via direct JDBC — not via service).
+     *
+     * <p>RED-first: current {@code apply()} does NOT transition status — DRAFT remains.
+     * This test FAILS before the E48S22 production fix lands.
+     */
+    @Test
+    @DisplayName(
+            "apply() transitions tournament to PLANNED — JDBC verifies status post-commit"
+                    + " (E48S22 AC-TEST-APPLY-STATUS-FLIPPED-RED)")
+    void applyDraft_statusIsPlanned_afterSuccessfulApply() throws Exception {
+        UUID tournamentId = createDraftTournament("IT apply status E48S22");
+
+        ResponseEntity<DraftApplyResponse> applyResponse =
+                authed.postForEntity(
+                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/draft/apply"),
+                        applyRequest(),
+                        DraftApplyResponse.class);
+
+        assertThat(applyResponse.getStatusCode())
+                .as("apply must return 200 OK")
+                .isEqualTo(HttpStatus.OK);
+
+        // DEC-26 Rule 2 — independent JDBC verifier (not via service read)
+        tenantBinder.bindDefaultTenant();
+        try {
+            String dbStatus =
+                    jdbcTemplate.queryForObject(
+                            "SELECT status FROM tournament WHERE id = ?",
+                            String.class,
+                            tournamentId);
+            assertThat(dbStatus)
+                    .as("tournament status must be PLANNED after apply()")
+                    .isEqualTo("PLANNED");
+        } finally {
+            tenantBinder.unbind();
+        }
+    }
+
+    // =========================================================================
+    // AC-TEST-APPLY-ATOMICITY-ROLLBACK-RED (E48S22): apply() is atomic — all-or-nothing
+    // =========================================================================
+
+    /**
+     * AC-TEST-APPLY-ATOMICITY-ROLLBACK-RED (E48S22): a re-apply on an already-PLANNED tournament
+     * (where phases already exist) MUST return 409 (DRAFT-precondition) without creating any new
+     * phases or changing draft_json.
+     *
+     * <p>This test verifies the "all-or-nothing" property indirectly: the second apply() sees a
+     * non-DRAFT tournament and is rejected at the precondition — phases from the first apply remain
+     * and no additional phases are added. The transactional all-or-nothing boundary of the first
+     * apply() is covered by the JDBC status-verification in the previous test.
+     *
+     * <p>RED-first: current {@code apply()} has no DRAFT-status precondition — a re-apply would
+     * attempt to create phases on a PLANNED tournament and might fail with DraftAlreadyAppliedException
+     * or succeed with duplicate phases. After E48S22 fix, the DRAFT-precondition check stops the
+     * second apply() at step (b) cleanly, and the phase count remains exactly as left by apply() #1.
+     */
+    @Test
+    @DisplayName(
+            "re-apply on PLANNED tournament returns 409 — no new phases created (atomicity boundary)"
+                    + " (E48S22 AC-TEST-APPLY-ATOMICITY-ROLLBACK-RED)")
+    void applyDraft_reApplyOnPlanned_returns409AndNoNewPhasesCreated() throws Exception {
+        UUID tournamentId = createDraftTournament("IT apply atomicity E48S22");
+
+        // First apply — must succeed (DRAFT → PLANNED, phases created)
+        ResponseEntity<DraftApplyResponse> firstApply =
+                authed.postForEntity(
+                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/draft/apply"),
+                        applyRequest(),
+                        DraftApplyResponse.class);
+
+        assertThat(firstApply.getStatusCode())
+                .as("first apply must return 200 OK")
+                .isEqualTo(HttpStatus.OK);
+        int phaseCountAfterFirstApply = firstApply.getBody().phaseIds().size();
+
+        // Second apply — must return 409 (DRAFT-precondition: tournament is now PLANNED)
+        ResponseEntity<String> secondApply =
+                authed.postForEntity(
+                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/draft/apply"),
+                        applyRequest(),
+                        String.class);
+
+        assertThat(secondApply.getStatusCode().value())
+                .as("re-apply on PLANNED tournament must return 409")
+                .isEqualTo(409);
+
+        // Verify phase count is unchanged (no additional phases from the rejected re-apply)
+        tenantBinder.bindDefaultTenant();
+        try {
+            Integer phaseCount =
+                    jdbcTemplate.queryForObject(
+                            "SELECT COUNT(*) FROM phase WHERE tournament_id = ?",
+                            Integer.class,
+                            tournamentId);
+            assertThat(phaseCount)
+                    .as("phase count must equal the first apply's phase count — no new rows")
+                    .isEqualTo(phaseCountAfterFirstApply);
+        } finally {
+            tenantBinder.unbind();
+        }
+    }
+
+    // =========================================================================
+    // AC-TEST-SAVEDRAFT-MULTI-CALL-DRAFT-GREEN (E48S22): saveDraft N-times regression
+    // =========================================================================
+
+    /**
+     * AC-TEST-SAVEDRAFT-MULTI-CALL-DRAFT-GREEN (E48S22): regression test confirming that
+     * {@code saveDraft()} can be called N times in succession on a DRAFT tournament. All three calls
+     * must succeed (200 OK) and the final GET /draft must return the third payload.
+     *
+     * <p>GREEN test (confirmatory regression): current code already supports multi-call save
+     * (no first-time-only limit). Must pass on current code AND post-fix.
+     */
+    @Test
+    @DisplayName(
+            "PUT /draft called 3 times — all 200 OK, final GET returns third payload"
+                    + " (E48S22 AC-TEST-SAVEDRAFT-MULTI-CALL-DRAFT-GREEN)")
+    void saveDraft_multiCallOnDraftTournament_allSucceedAndLastPayloadReturned() throws Exception {
+        UUID tournamentId = createDraftTournament("IT saveDraft multi-call E48S22");
+
+        // Three different payloads — each with a distinct lapTimeMinutes to distinguish them
+        var section1st = new DraftSectionRequest(1, "team_number", 1, "siegerehrung", 0, 0, 10, 1, null);
+        var section2nd = new DraftSectionRequest(1, "team_number", 1, "siegerehrung", 0, 0, 20, 1, null);
+        var section3rd = new DraftSectionRequest(1, "team_number", 1, "siegerehrung", 0, 0, 30, 1, null);
+
+        ResponseEntity<DraftResponse> r1 =
+                authed.exchange(
+                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/draft"),
+                        HttpMethod.PUT,
+                        new HttpEntity<>(new DraftRequest(List.of(section1st))),
+                        DraftResponse.class);
+        assertThat(r1.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        ResponseEntity<DraftResponse> r2 =
+                authed.exchange(
+                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/draft"),
+                        HttpMethod.PUT,
+                        new HttpEntity<>(new DraftRequest(List.of(section2nd))),
+                        DraftResponse.class);
+        assertThat(r2.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        ResponseEntity<DraftResponse> r3 =
+                authed.exchange(
+                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/draft"),
+                        HttpMethod.PUT,
+                        new HttpEntity<>(new DraftRequest(List.of(section3rd))),
+                        DraftResponse.class);
+        assertThat(r3.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        // Final GET must return the third payload (lapTimeMinutes=30)
+        ResponseEntity<DraftResponse> getResponse =
+                authed.getForEntity(
+                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/draft"),
+                        DraftResponse.class);
+
+        assertThat(getResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(getResponse.getBody()).isNotNull();
+        assertThat(getResponse.getBody().sections()).hasSize(1);
+        assertThat(getResponse.getBody().sections().get(0).lapTimeMinutes())
+                .as("GET must return the third PUT payload (lapTimeMinutes=30)")
+                .isEqualTo(30);
     }
 
     // =========================================================================
