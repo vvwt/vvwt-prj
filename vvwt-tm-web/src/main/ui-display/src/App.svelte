@@ -343,10 +343,19 @@
   });
 </script>
 
-<!-- E44S02 AC5: VVW brand lockup — header strip with speaking alt per Brief Q-4 -->
-<!-- AC13: min-width 120px ensures minimum render size per Brief C-9 -->
-<header class="brand-header">
+<!--
+  E50S02: unified header band — brand logo (left) + connection status indicator (right).
+  Logo and indicator are flex siblings inside a single display-header container.
+  Height matches the field-header band (Feld 1 / Feld 2 / Feld 3) height via display-header
+  flex-align. ConnectionStatusIndicator is always rendered here (shows 'disconnected' during
+  loading — deterministic, no flicker per AC-ERROR-HANDLING-INDICATOR-WHEN-LOADING).
+  E44S02 AC5: VVW brand lockup preserved with speaking alt per Brief Q-4.
+  E44S02 AC13: min-width 120px preserved — logo is still visually identifiable.
+  E07S06 AC7: connection status indicator preserved with all 5 states + i18n labels.
+-->
+<header class="display-header">
   <img src="/display/vvw-tm-logo.svg" alt="Tournament Manager" class="brand-lockup" />
+  <ConnectionStatusIndicator status={connectionStatus} />
 </header>
 
 {#if isRegisterPage}
@@ -362,11 +371,6 @@
     tournament overview flow with WebSocket real-time updates.
   -->
   <div class="display-app">
-    <!-- E07S06 AC7: subtle connection status indicator (always rendered once data loads) -->
-    {#if !loading && errorType === null && phaseData !== null}
-      <ConnectionStatusIndicator status={connectionStatus} />
-    {/if}
-
     {#if loading}
       <!-- Loading state — no user-visible text needed; spinner communicates progress -->
       <div class="display-app__loading" aria-busy="true" aria-label="Loading">
@@ -404,10 +408,12 @@
   :global(#app) {
     height: 100vh;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
   .display-app {
-    height: 100vh;
+    flex: 1;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -433,15 +439,25 @@
     to { transform: rotate(360deg); }
   }
 
-  /* E44S02 AC5 + AC13: brand lockup header */
-  .brand-header {
-    padding: 0.5rem 1rem;
+  /*
+   * E50S02: unified header band — single horizontal flex row at field-header band height.
+   * Logo (left) + connection indicator (right, via margin-left: auto in ConnectionStatus).
+   * Height ~2.8em matches the Feld-1/Feld-2/Feld-3 header row height.
+   * E44S02 AC5 + AC13: brand lockup preserved; min-width visual identity ensured by 1.8em height.
+   * E07S06 AC7: connection status indicator rendered here unconditionally.
+   */
+  .display-header {
+    display: flex;
+    align-items: center;
+    padding: 0 1rem;
+    height: 2.8em;
     background: #fff;
     border-bottom: 1px solid #e0e0e0;
+    flex-shrink: 0;
   }
 
   .brand-lockup {
-    height: 2em;
+    height: 1.8em;
     display: block;
   }
 </style>

@@ -1,13 +1,17 @@
 /**
- * AC3 — Brand lockup height invariant test for TM Display SPA.
+ * Brand lockup height invariant test for TM Display SPA.
  *
- * DEC-22 Iron Law: written BEFORE App.svelte .brand-lockup CSS edit (RED state).
- * RED: current App.svelte has `.brand-lockup { min-width: 120px; height: auto; display: block; }` —
- *   POSITIVE regex fails (no height:2em), NEGATIVE for min-width:* matches (fails), NEGATIVE for height:auto matches (fails).
+ * Originally authored for E44S04 AC3 (height: 2em for brand-lockup).
+ * Updated for E50S02: brand-lockup height relaxed to 1.8em per
+ * AC-IMPL-LOGO-HEIGHT-FIELD-HEADER-EQUIVALENT (story notes: "This story relaxes
+ * the AC13 minimum-render-size if necessary"). The logo must still be visually
+ * identifiable (AC13 intent preserved); height: 1.8em within the <=~3em structural
+ * envelope satisfies this.
  *
- * Strategy: identical to AC1 and AC2.
+ * E44S04 AC3 POSITIVE assertion updated from height:2em → height:1.8em.
+ * NEGATIVE assertions unchanged (no min-width, no height:auto).
  *
- * DEC-22, DEC-42. Story: E44S04 — brand-lockup oversize fix.
+ * DEC-22, DEC-2. Story: E50S02 — unified header band layout fix.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -32,12 +36,12 @@ function extractBrandLockupRuleBody(source: string): string {
   return ruleMatch[1];
 }
 
-describe('TM display branding — lockup height invariant (E44S04 AC3)', () => {
+describe('TM display branding — lockup height invariant (E44S04 AC3, updated E50S02)', () => {
   const source = readFileSync(APP_SVELTE, 'utf-8');
   const ruleBody = extractBrandLockupRuleBody(source);
 
-  it('POSITIVE: .brand-lockup declares height: 2em', () => {
-    expect(ruleBody).toMatch(/\bheight\s*:\s*2em\s*[;}]/);
+  it('POSITIVE: .brand-lockup declares height: 1.8em (E50S02 — relaxed from 2em per AC-IMPL-LOGO-HEIGHT-FIELD-HEADER-EQUIVALENT)', () => {
+    expect(ruleBody).toMatch(/\bheight\s*:\s*1\.8em\s*[;}]/);
   });
 
   it('NEGATIVE: .brand-lockup does NOT declare min-width:', () => {
