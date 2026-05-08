@@ -1,21 +1,23 @@
 <script lang="ts">
   /**
-   * Drag-and-Drop Phase-Transition page — Story E48S08.
+   * Drag-and-Drop Phase-Transition page — Story E48S08 + E48S20.
    *
    * Route: /tournaments/:tournamentId/phases/:phaseId/transition
    *
-   * Renders the proposed team-to-(group, position) distribution from E48S07's
-   * GET /api/phases/:phaseId/transition-proposal as a table (groups = columns,
-   * positions = rows). Admin can drag teams between cells to correct the proposal.
-   * Confirm button POSTs the updated assignment to
-   * POST /api/phases/:phaseId/transition-commit.
+   * E48S20: Two-pane layout:
+   *   - Source pane (left, read-only): shows each team's current (fromPhase) slot with
+   *     a human-readable slot label ("Nr.5" for Phase 1; "Gruppe 1, Platz 2" for Phase 2+)
+   *     and the team name/description. Source pane is read-only — NOT a drag source.
+   *   - Target pane (right, interactive): shows the proposed assignment for the next phase.
+   *     All (group, position) cells are rendered explicitly, including empty ones ("— leer —").
+   *     Admin can drag teams between target cells to correct the proposal.
+   *
+   * DEC-9: teamId UUID must NOT appear in DOM. Organizer-facing labels: teamNumber + teamDescription.
+   * teamId is retained in slots array as the internal swap-key for the commit payload.
    *
    * HTML5 native Drag-and-Drop API — no npm dependency (AC-NO-NEW-NPM-DEPENDENCY, DEC-2).
    *
    * E47 shell mechanism: registers pageTitle + backTo via pageHeader store (AC-FRONTEND-E47-HEADER).
-   *
-   * DEC-9: structural identity (groupNumber, groupPosition) governs slot placement;
-   * teamId identifies which team occupies each slot.
    */
   import { onMount, onDestroy } from 'svelte';
   import { get } from 'svelte/store';
@@ -26,7 +28,9 @@
   import {
     fetchProposal,
     commitTransition,
+    hasSourceSlot,
     type TeamAvatarSlot,
+    type TeamAvatarAssignment,
   } from '../stores/phaseTransitionStore.js';
   import { swapSlots } from './phaseTransitionUtils.js';
 
@@ -82,7 +86,7 @@
     }
   }
 
-  // ── DnD handlers ──────────────────────────────────────────────────────────
+  // ── DnD handlers (target pane only) ───────────────────────────────────────
 
   function handleDragStart(idx: number): void {
     draggingIndex = idx;
@@ -98,7 +102,7 @@
   }
 
   /**
-   * Drop handler — swaps teamIds between source and target slots.
+   * Drop handler — swaps all team-bound fields between source and target slots.
    * Exported module-level swapSlots is called for testable pure logic.
    */
   function handleDrop(tgtIdx: number): void {
@@ -122,7 +126,13 @@
     committing = true;
     commitError = null;
     try {
-      await commitTransition(phaseId, slots, commitEndpoint);
+      // Map slots → commit-payload (only structural identity fields needed by server)
+      const assignments: TeamAvatarAssignment[] = slots.map(s => ({
+        teamId: s.teamId,
+        groupNumber: s.groupNumber,
+        groupPosition: s.groupPosition,
+      }));
+      await commitTransition(phaseId, assignments, commitEndpoint);
       push(`/tournaments/${tournamentId}/phases`);
     } catch (e: unknown) {
       commitError = e instanceof Error ? e.message : get(_)('phaseTransition.commitError');
@@ -135,14 +145,31 @@
     push(`/tournaments/${tournamentId}/phases`);
   }
 
-  // ── Table layout derivation ───────────────────────────────────────────────
+  // ── Source-pane label derivation (E48S20) ────────────────────────────────
 
-  /** Maximum group number across all slots (minimum 1 for layout guard). */
+  /**
+   * Returns the human-readable source-slot label for a slot:
+   * - Phase 1 (no source slot): "Nr.{teamNumber}"
+   * - Phase 2+ (has source slot): "Gruppe {g}, Platz {p}"
+   * (AC-IMPL-FRONTEND-SOURCE-PANE-LABEL)
+   */
+  function sourceLabel(slot: TeamAvatarSlot): string {
+    if (hasSourceSlot(slot)) {
+      return get(_)('phaseTransition.sourceLabelPhase2plus')
+        .replace('{g}', String(slot.sourceGroupNumber))
+        .replace('{p}', String(slot.sourceGroupPosition));
+    }
+    return get(_)('phaseTransition.sourceLabelPhase1').replace('{n}', String(slot.teamNumber));
+  }
+
+  // ── Target-pane grid layout derivation ──────────────────────────────────
+
+  /** Maximum group number across all slots (minimum 0 for empty guard). */
   const maxGroups = $derived(
     slots.length > 0 ? Math.max(...slots.map(s => s.groupNumber)) : 0
   );
 
-  /** Maximum position number across all slots (minimum 1 for layout guard). */
+  /** Maximum position number across all slots (minimum 0 for empty guard). */
   const maxPositions = $derived(
     slots.length > 0 ? Math.max(...slots.map(s => s.groupPosition)) : 0
   );
@@ -164,6 +191,11 @@
   function findSlotIndex(g: number, p: number): number {
     return slots.findIndex(s => s.groupNumber === g && s.groupPosition === p);
   }
+
+  /** Sorted source-pane slots for display (sorted by teamNumber ascending). */
+  const sourcePaneSlots = $derived(
+    [...slots].sort((a, b) => a.teamNumber - b.teamNumber)
+  );
 </script>
 
 <main class="phase-transition">
@@ -181,52 +213,87 @@
       </div>
     {/if}
 
-    <!-- AC-FRONTEND-LOAD-PROPOSAL + AC-FRONTEND-DRAGDROP-NATIVE: DnD table -->
     {#if slots.length === 0}
       <p class="phase-transition__empty">Keine Zuordnung vorhanden.</p>
     {:else}
-      <div class="phase-transition__table-wrapper">
-        <table class="phase-transition__table">
-          <thead>
-            <tr>
-              <th class="phase-transition__pos-header"></th>
-              {#each groupColumns as g (g)}
-                <th class="phase-transition__group-header">
-                  {$_('phaseTransition.groupHeader').replace('{n}', String(g))}
-                </th>
-              {/each}
-            </tr>
-          </thead>
-          <tbody>
-            {#each positionRows as p (p)}
+      <!-- E48S20: Two-pane layout: source (left, read-only) + target (right, interactive) -->
+      <div class="phase-transition__panes">
+
+        <!-- Source pane (read-only): shows fromPhase slots + team labels. NOT a drag source. -->
+        <section class="phase-transition__source-pane" aria-label={$_('phaseTransition.sourcePaneHeading')}>
+          <h2 class="phase-transition__pane-heading">{$_('phaseTransition.sourcePaneHeading')}</h2>
+          <table class="phase-transition__source-table">
+            <thead>
               <tr>
-                <td class="phase-transition__pos-cell">
-                  {$_('phaseTransition.positionLabel').replace('{n}', String(p))}
-                </td>
-                {#each groupColumns as g (g)}
-                  {@const slotIdx = findSlotIndex(g, p)}
-                  {@const slot = slotIdx >= 0 ? slots[slotIdx] : null}
-                  <!-- AC-FRONTEND-DRAGDROP-NATIVE: draggable cells with HTML5 API -->
-                  <td
-                    class="phase-transition__slot{dragOverIndex === slotIdx && slotIdx >= 0 ? ' phase-transition__slot--drag-over' : ''}{draggingIndex === slotIdx && slotIdx >= 0 ? ' phase-transition__slot--dragging' : ''}"
-                    draggable={slot !== null}
-                    ondragstart={() => { if (slotIdx >= 0) handleDragStart(slotIdx); }}
-                    ondragover={(evt: DragEvent) => { if (slotIdx >= 0) handleDragOver(evt, slotIdx); else evt.preventDefault(); }}
-                    ondragleave={handleDragLeave}
-                    ondrop={() => { if (draggingIndex !== null && slotIdx >= 0) handleDrop(slotIdx); else if (draggingIndex !== null) handleDrop(draggingIndex); }}
-                    ondragend={handleDragEnd}
-                    role="gridcell"
-                    aria-label={slot ? slot.teamId : 'empty'}
-                  >
-                    {#if slot}
-                      <span class="phase-transition__team-id">{slot.teamId}</span>
-                    {/if}
-                  </td>
-                {/each}
+                <th>{$_('phaseTransition.teamColumnHeading')}</th>
+                <th>{$_('phaseTransition.sourcePaneHeading')}</th>
               </tr>
-            {/each}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {#each sourcePaneSlots as slot (slot.teamId)}
+                <!-- Source pane is read-only: no draggable, no dragstart (AC-TEST-FRONTEND-SOURCE-PANE-NOT-DROP-TARGET-RED) -->
+                <tr class="phase-transition__source-row" role="row">
+                  <td class="phase-transition__team-label">{slot.teamDescription}</td>
+                  <td class="phase-transition__source-slot-label">{sourceLabel(slot)}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </section>
+
+        <!-- Target pane (interactive): explicit grid of all (group, position) cells. -->
+        <section class="phase-transition__target-pane" aria-label={$_('phaseTransition.targetPaneHeading')}>
+          <h2 class="phase-transition__pane-heading">{$_('phaseTransition.targetPaneHeading')}</h2>
+          <div class="phase-transition__table-wrapper">
+            <table class="phase-transition__table">
+              <thead>
+                <tr>
+                  <th class="phase-transition__pos-header"></th>
+                  {#each groupColumns as g (g)}
+                    <th class="phase-transition__group-header">
+                      {$_('phaseTransition.groupHeader').replace('{n}', String(g))}
+                    </th>
+                  {/each}
+                </tr>
+              </thead>
+              <tbody>
+                {#each positionRows as p (p)}
+                  <tr>
+                    <td class="phase-transition__pos-cell">
+                      {$_('phaseTransition.positionLabel').replace('{n}', String(p))}
+                    </td>
+                    {#each groupColumns as g (g)}
+                      {@const slotIdx = findSlotIndex(g, p)}
+                      {@const slot = slotIdx >= 0 ? slots[slotIdx] : null}
+                      <!-- AC-FRONTEND-DRAGDROP-NATIVE: draggable cells with HTML5 API -->
+                      <!-- AC-TEST-FRONTEND-ALL-TARGET-SLOTS-VISIBLE-RED: all cells rendered, empty shown -->
+                      <td
+                        class="phase-transition__slot{dragOverIndex === slotIdx && slotIdx >= 0 ? ' phase-transition__slot--drag-over' : ''}{draggingIndex === slotIdx && slotIdx >= 0 ? ' phase-transition__slot--dragging' : ''}"
+                        draggable={slot !== null}
+                        ondragstart={() => { if (slotIdx >= 0) handleDragStart(slotIdx); }}
+                        ondragover={(evt: DragEvent) => { if (slotIdx >= 0) handleDragOver(evt, slotIdx); else evt.preventDefault(); }}
+                        ondragleave={handleDragLeave}
+                        ondrop={() => { if (draggingIndex !== null && slotIdx >= 0) handleDrop(slotIdx); else if (draggingIndex !== null) handleDrop(draggingIndex); }}
+                        ondragend={handleDragEnd}
+                        role="gridcell"
+                        aria-label={slot ? slot.teamDescription : $_(	'phaseTransition.targetLabelEmpty')}
+                      >
+                        {#if slot}
+                          <!-- DEC-9: render teamDescription, NOT teamId (UUID must not appear in DOM) -->
+                          <span class="phase-transition__team-label">{slot.teamDescription}</span>
+                        {:else}
+                          <!-- Empty cell indicator (AC-TEST-FRONTEND-ALL-TARGET-SLOTS-VISIBLE-RED) -->
+                          <span class="phase-transition__empty-cell">{$_('phaseTransition.targetLabelEmpty')}</span>
+                        {/if}
+                      </td>
+                    {/each}
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
       </div>
     {/if}
 
@@ -275,9 +342,62 @@
     margin-top: 1rem;
   }
 
+  /* E48S20: two-pane side-by-side layout */
+  .phase-transition__panes {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+  }
+
+  .phase-transition__source-pane {
+    flex: 0 0 auto;
+    min-width: 14rem;
+  }
+
+  .phase-transition__target-pane {
+    flex: 1 1 auto;
+    overflow-x: auto;
+  }
+
+  .phase-transition__pane-heading {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #2c3e50;
+  }
+
+  /* Source pane table */
+  .phase-transition__source-table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  .phase-transition__source-table th,
+  .phase-transition__source-table td {
+    border: 1px solid #e0e0e0;
+    padding: 0.4rem 0.75rem;
+    text-align: left;
+    font-size: 0.9rem;
+  }
+
+  .phase-transition__source-table th {
+    background: #f5f5f5;
+    font-weight: 600;
+  }
+
+  /* Source rows are read-only — no hover cursor change */
+  .phase-transition__source-row {
+    cursor: default;
+  }
+
+  .phase-transition__source-slot-label {
+    color: #555;
+    white-space: nowrap;
+  }
+
   .phase-transition__table-wrapper {
     overflow-x: auto;
-    margin-bottom: 1.5rem;
   }
 
   .phase-transition__table {
@@ -307,7 +427,7 @@
   }
 
   .phase-transition__slot {
-    min-width: 6rem;
+    min-width: 8rem;
     min-height: 2.5rem;
     cursor: grab;
     user-select: none;
@@ -329,9 +449,17 @@
     opacity: 0.5;
   }
 
-  .phase-transition__team-id {
+  /* DEC-9: render team name, not UUID */
+  .phase-transition__team-label {
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+
+  /* Empty cell indicator (E48S20) */
+  .phase-transition__empty-cell {
     font-size: 0.85rem;
-    word-break: break-all;
+    color: #aaa;
+    font-style: italic;
   }
 
   .phase-transition__actions {

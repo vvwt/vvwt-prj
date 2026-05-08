@@ -104,12 +104,16 @@ public class PhaseTransitionController {
     public ResponseEntity<Void> commitTransition(
             @PathVariable("phaseId") UUID phaseId,
             @RequestBody List<TeamAvatarAssignment> assignments) {
-        // Map web-tier DTO → domain type (Modulith cycle prevention per DEC-40 Clause B)
+        // Map web-tier DTO → domain type (Modulith cycle prevention per DEC-40 Clause B).
+        // Commit path only needs structural identity fields (teamId, groupNumber, groupPosition) —
+        // display fields (teamNumber, teamDescription, sourceGroupNumber, sourceGroupPosition) are
+        // not used by commitTransition. Use forCommit factory to create minimal proposals.
+        // (E48S20 AC-IMPL-CONTROLLER-PASSTHROUGH)
         List<TeamAvatarProposal> domainAssignments =
                 assignments.stream()
                         .map(
                                 a ->
-                                        new TeamAvatarProposal(
+                                        TeamAvatarProposal.forCommit(
                                                 a.teamId(), a.groupNumber(), a.groupPosition()))
                         .collect(Collectors.toList());
         phaseTransitionService.commitTransition(phaseId, domainAssignments);
