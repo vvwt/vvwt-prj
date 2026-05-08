@@ -3,6 +3,7 @@ package de.vvwt.tm.tournament;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import de.vvwt.tm.slotopt.SlotOptimizationClient;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftSection;
@@ -19,7 +20,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -65,9 +69,27 @@ import org.springframework.test.context.ActiveProfiles;
                     + ";DB_CLOSE_ON_EXIT=FALSE;CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
-@Import(TenantContextTestSupport.class)
+@Import({TenantContextTestSupport.class, DefaultDraftServiceApplyAvatarsIT.SlotOptConfig.class})
 @DisplayName("DefaultDraftService apply() — avatar persistence at apply-time IT — E51S02 RED-first")
 class DefaultDraftServiceApplyAvatarsIT {
+
+    /**
+     * Overrides the production {@code routingSlotOptimizationClient} with a no-op that returns
+     * immediately. This prevents async slot-optimization from holding PHASE/TOURNAMENT row-locks
+     * during tearDown (H2 FK violation on DELETE FROM tournament while SlotOptInvocationListener TX
+     * is still active).
+     */
+    @TestConfiguration
+    static class SlotOptConfig {
+
+        @Bean("routingSlotOptimizationClient")
+        @Primary
+        SlotOptimizationClient testSlotOptimizationClient() {
+            return phaseId -> {
+                // No-op: returns immediately so SlotOptInvocationListener completes before tearDown
+            };
+        }
+    }
 
     /** Subject: inject via public interface per DEC-36. */
     @Autowired private DraftService draftService;
@@ -105,8 +127,8 @@ class DefaultDraftServiceApplyAvatarsIT {
         jdbcTemplate.update(
                 "INSERT INTO tournament (id, location_id, description, match_format,"
                         + " scoring_rule_id, set_validation_rule_id, match_generator_id,"
-                        + " status, created_at, field_count, team_count)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        + " status, created_at, field_count, team_count, optimize)"
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 tournamentA,
                 locationId,
                 "Avatar IT Tournament A",
@@ -117,7 +139,8 @@ class DefaultDraftServiceApplyAvatarsIT {
                 "DRAFT",
                 LocalDateTime.now(),
                 2,
-                6);
+                6,
+                false);
 
         participatingTeamIdsA = insertParticipatingTeams(tournamentA, 6);
 
@@ -126,8 +149,8 @@ class DefaultDraftServiceApplyAvatarsIT {
         jdbcTemplate.update(
                 "INSERT INTO tournament (id, location_id, description, match_format,"
                         + " scoring_rule_id, set_validation_rule_id, match_generator_id,"
-                        + " status, created_at, field_count, team_count)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        + " status, created_at, field_count, team_count, optimize)"
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 tournamentB,
                 locationId,
                 "Avatar IT Tournament B",
@@ -138,32 +161,81 @@ class DefaultDraftServiceApplyAvatarsIT {
                 "DRAFT",
                 LocalDateTime.now(),
                 2,
-                8);
+                8,
+                false);
 
         insertParticipatingTeams(tournamentB, 6);
         insertNonParticipatingTeams(tournamentB, 2, 7);
     }
 
     @AfterEach
-    void tearDown() {
-        for (UUID tid : List.of(tournamentA, tournamentB)) {
-            // Delete match rows before phase (FK ON DELETE RESTRICT: match → phase).
-            // Async MatchGenJobListener may have inserted match rows after apply() returned.
-            jdbcTemplate.update(
-                    "DELETE FROM match WHERE phase_id IN"
-                            + " (SELECT id FROM phase WHERE tournament_id = ?)",
-                    tid);
-            jdbcTemplate.update("DELETE FROM team_avatar WHERE tournament_id = ?", tid);
-            jdbcTemplate.update(
-                    "DELETE FROM phase_breaks WHERE phase_id IN"
-                            + " (SELECT id FROM phase WHERE tournament_id = ?)",
-                    tid);
-            jdbcTemplate.update("DELETE FROM phase WHERE tournament_id = ?", tid);
-            jdbcTemplate.update("DELETE FROM team WHERE tournament_id = ?", tid);
-            jdbcTemplate.update("DELETE FROM tournament WHERE id = ?", tid);
+    void tearDown() throws InterruptedException {
+        // Wait for async background pipeline (MatchGenJobListener, SlotOptInvocationListener) to
+        // quiesce before deleting. Async REQUIRES_NEW transactions may still write to phase/match
+        // after tearDown's DELETE — causing FK violations on subsequent deletes (E51S04 pipeline).
+        waitForPipelineQuiescent(tournamentA);
+        waitForPipelineQuiescent(tournamentB);
+
+        // H2 FK-safe deletion with referential-integrity checks temporarily disabled.
+        // This avoids residual FK violations from async transactions that committed a phase row
+        // after tearDown deleted the same tournament's phases (race window between quiesce-check
+        // and delete). SET REFERENTIAL_INTEGRITY FALSE is H2-specific and safe here: the in-memory
+        // test DB is torn down at the end of the test suite anyway.
+        jdbcTemplate.execute("SET REFERENTIAL_INTEGRITY FALSE");
+        try {
+            for (UUID tid : List.of(tournamentA, tournamentB)) {
+                jdbcTemplate.update(
+                        "DELETE FROM match WHERE phase_id IN"
+                                + " (SELECT id FROM phase WHERE tournament_id = ?)",
+                        tid);
+                jdbcTemplate.update("DELETE FROM team_avatar WHERE tournament_id = ?", tid);
+                jdbcTemplate.update(
+                        "DELETE FROM phase_breaks WHERE phase_id IN"
+                                + " (SELECT id FROM phase WHERE tournament_id = ?)",
+                        tid);
+                jdbcTemplate.update("DELETE FROM phase WHERE tournament_id = ?", tid);
+                jdbcTemplate.update("DELETE FROM team WHERE tournament_id = ?", tid);
+                jdbcTemplate.update("DELETE FROM tournament WHERE id = ?", tid);
+            }
+            jdbcTemplate.update("DELETE FROM locations WHERE id = ?", locationId);
+        } finally {
+            jdbcTemplate.execute("SET REFERENTIAL_INTEGRITY TRUE");
         }
-        jdbcTemplate.update("DELETE FROM locations WHERE id = ?", locationId);
         tenantBinder.unbind();
+    }
+
+    /**
+     * Polls until all phase rows for {@code tournamentId} have a terminal {@code last_job_state}
+     * (not {@code 'match_gen_running'} or {@code 'slot_opt_running'}). Uses a two-phase approach:
+     *
+     * <ol>
+     *   <li>Wait a short initial period to allow the async pipeline to START (so that {@code
+     *       last_job_state} transitions from {@code NULL} to {@code 'match_gen_running'}).
+     *   <li>Poll until no phases are in an in-flight state.
+     * </ol>
+     *
+     * Times out after 5 seconds total.
+     */
+    private void waitForPipelineQuiescent(UUID tournamentId) throws InterruptedException {
+        // Short initial sleep to allow async TX to start and set
+        // last_job_state='match_gen_running'.
+        // Without this, we might poll before any async work begins (all phases are NULL) and
+        // return immediately, racing with an async TX that then commits phase rows after tearDown.
+        Thread.sleep(100);
+        long deadline = System.currentTimeMillis() + 5_000;
+        while (System.currentTimeMillis() < deadline) {
+            Integer inFlightCount =
+                    jdbcTemplate.queryForObject(
+                            "SELECT COUNT(*) FROM phase WHERE tournament_id = ?"
+                                    + " AND last_job_state IN ('match_gen_running',"
+                                    + " 'slot_opt_running')",
+                            Integer.class,
+                            tournamentId);
+            if (inFlightCount == null || inFlightCount == 0) {
+                return;
+            }
+            Thread.sleep(50);
+        }
     }
 
     // =========================================================================
@@ -350,7 +422,7 @@ class DefaultDraftServiceApplyAvatarsIT {
     @DisplayName(
             "apply() is idempotent — re-applying same config produces same avatar count"
                     + " (AC-TEST-DRAFT-APPLY-IDEMPOTENT-GREEN)")
-    void apply_calledTwice_producesIdempotentAvatarSet() {
+    void apply_calledTwice_producesIdempotentAvatarSet() throws InterruptedException {
         // The tournament must be reset to DRAFT status between calls — but apply() transitions to
         // PLANNED. We use tournamentB (also in DRAFT) for the second call scenario by resetting:
         // Actually apply() leaves the tournament in PLANNED state, so we can't call apply() twice
@@ -372,6 +444,11 @@ class DefaultDraftServiceApplyAvatarsIT {
         assertThat(avatarsAfterFirstApply)
                 .as("First apply must create 6 avatars for Phase 1")
                 .isEqualTo(6);
+
+        // Wait for async background pipeline to quiesce before resetPlan() deletes phases.
+        // Without this, async MatchGenJobExecutor TX may still hold PHASE row locks,
+        // causing resetPlan() to race with in-flight transactions (E51S04 pipeline).
+        waitForPipelineQuiescent(tournamentA);
 
         // Reset plan (back to DRAFT) and re-apply
         draftService.resetPlan(tournamentA);
