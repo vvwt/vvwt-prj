@@ -225,13 +225,6 @@
                       onclick={() => push(`/tournaments/${t.id}/audio`)}>
                 {$_('tournaments.timerAudioButton')}
               </button>
-              <!-- E11S07 AC1/AC3: timer link + QR code — shown for PLANNED and ACTIVE tournaments -->
-              {#if t.status === 'PLANNED' || t.status === 'ACTIVE'}
-                <button class="btn btn--secondary btn--sm"
-                        onclick={() => push(`/tournaments/${t.id}/timer-link`)}>
-                  {$_('tournaments.timerLinkButton')}
-                </button>
-              {/if}
               <!-- E48S05 AC-FRONTEND-NAV-FROM-TOURNAMENTS: Phasen nav for PLANNED/ACTIVE/COMPLETED/CANCELLED -->
               <!-- E52S01 AC-IMPL-VISIBILITY-GATE: Zeitpläne button (print index) — same gate as phases (PLANNED|ACTIVE|COMPLETED|CANCELLED) -->
               {#if t.status === 'PLANNED' || t.status === 'ACTIVE' || t.status === 'COMPLETED' || t.status === 'CANCELLED'}
