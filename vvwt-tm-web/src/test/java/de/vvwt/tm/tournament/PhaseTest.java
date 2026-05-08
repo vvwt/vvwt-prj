@@ -39,6 +39,8 @@ class PhaseTest {
      * AC-TDD-Phase: PhaseStatus enum covers the expected lifecycle values.
      *
      * <p>E48S17: PREPARED added between PENDING and ACTIVE.
+     *
+     * <p>E51S05: ASSIGNED added between PREPARED and ACTIVE (DEC-55 D-4).
      */
     @Test
     void phaseStatus_enumValues_coverFullLifecycle() {
@@ -46,6 +48,7 @@ class PhaseTest {
                 .containsExactlyInAnyOrder(
                         Phase.PhaseStatus.PENDING,
                         Phase.PhaseStatus.PREPARED,
+                        Phase.PhaseStatus.ASSIGNED,
                         Phase.PhaseStatus.ACTIVE,
                         Phase.PhaseStatus.COMPLETED);
     }
