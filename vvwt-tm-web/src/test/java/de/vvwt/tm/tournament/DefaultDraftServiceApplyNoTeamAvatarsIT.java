@@ -94,7 +94,7 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
                 "setPoints",
                 "standardVolleyball",
                 "roundRobin",
-                "PLANNED",
+                "DRAFT", // E48S22: apply() requires DRAFT status (AC-IMPL-APPLY-FOUR-OPS-ATOMIC)
                 LocalDateTime.now(),
                 2,
                 6);

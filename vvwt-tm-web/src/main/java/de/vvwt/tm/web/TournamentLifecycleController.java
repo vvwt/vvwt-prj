@@ -18,11 +18,14 @@ import org.springframework.web.bind.annotation.RestController;
  * <h2>Endpoints</h2>
  *
  * <ul>
- *   <li>POST /api/tournaments/{id}/mark-planned — DRAFT → PLANNED
  *   <li>POST /api/tournaments/{id}/activate — PLANNED → ACTIVE
  *   <li>POST /api/tournaments/{id}/complete — ACTIVE → COMPLETED
  *   <li>POST /api/tournaments/{id}/cancel — PLANNED or ACTIVE → CANCELLED
  * </ul>
+ *
+ * <p>Note: The {@code POST /{id}/mark-planned} endpoint was removed in E48S22. The DRAFT→PLANNED
+ * transition is now an atomic side-effect of {@code POST /api/tournaments/{id}/draft/apply}
+ * (delegated to {@link TournamentLifecycleService#markPlanned} internally).
  *
  * <p>Invalid transitions throw {@link de.vvwt.tm.tournament.exceptions.ConflictException}, which is
  * mapped to HTTP 409 by {@code GlobalExceptionHandler}.
@@ -40,21 +43,6 @@ public class TournamentLifecycleController {
 
     public TournamentLifecycleController(TournamentLifecycleService lifecycleService) {
         this.lifecycleService = lifecycleService;
-    }
-
-    // -------------------------------------------------------------------------
-    // POST /api/tournaments/{id}/mark-planned — DRAFT → PLANNED
-    // -------------------------------------------------------------------------
-
-    /**
-     * Transitions the tournament from {@code DRAFT} to {@code PLANNED}.
-     *
-     * @param id the tournament UUID (from path)
-     * @return 200 OK with the updated tournament; 404 if not found; 409 if invalid transition
-     */
-    @PostMapping("/{id}/mark-planned")
-    public ResponseEntity<TournamentResponse> markPlanned(@PathVariable("id") UUID id) {
-        return ResponseEntity.ok(TournamentResponse.from(lifecycleService.markPlanned(id)));
     }
 
     // -------------------------------------------------------------------------

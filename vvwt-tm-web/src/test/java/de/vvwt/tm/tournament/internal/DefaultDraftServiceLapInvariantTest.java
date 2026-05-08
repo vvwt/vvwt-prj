@@ -62,7 +62,8 @@ class DefaultDraftServiceLapInvariantTest {
                 Mockito.mock(TournamentRepository.class),
                 new ObjectMapper(),
                 Mockito.mock(de.vvwt.tm.tournament.TimelineCalculationService.class), // E48S12
-                Mockito.mock(JdbcTemplate.class)); // E48S13
+                Mockito.mock(JdbcTemplate.class), // E48S13
+                Mockito.mock(de.vvwt.tm.tournament.TournamentLifecycleService.class)); // E48S22
     }
 
     /**

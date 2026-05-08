@@ -11,6 +11,7 @@ import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.TimelineCalculationService;
 import de.vvwt.tm.tournament.TimelineEntry;
 import de.vvwt.tm.tournament.Tournament;
+import de.vvwt.tm.tournament.TournamentLifecycleService;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.draft.DraftBreak;
 import de.vvwt.tm.tournament.draft.DraftConfig;
@@ -18,8 +19,8 @@ import de.vvwt.tm.tournament.draft.DraftPreviewResult;
 import de.vvwt.tm.tournament.draft.DraftPreviewSection;
 import de.vvwt.tm.tournament.draft.DraftSection;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
-import de.vvwt.tm.tournament.exceptions.DraftAlreadyAppliedException;
 import de.vvwt.tm.tournament.exceptions.TournamentNotFoundException;
+import de.vvwt.tm.tournament.exceptions.TournamentNotInDraftException;
 import de.vvwt.tm.tournament.exceptions.TournamentResetPlanActiveException;
 import de.vvwt.tm.tournament.exceptions.TournamentResetPlanCancelledException;
 import de.vvwt.tm.tournament.exceptions.TournamentResetPlanCompletedException;
@@ -45,18 +46,25 @@ import org.springframework.transaction.annotation.Transactional;
  * <ul>
  *   <li>{@link #preview(DraftConfig, int, int, LocalTime)} — pure computation, no DB side effect;
  *       populates timeline when {@code plannedStartTime} is non-null (E48S12)
- *   <li>{@link #apply(UUID, DraftConfig)} — creates Phase records (PENDING status, no TeamAvatars
- *       or matches — E48S17 AC-IMPL-APPLY-NO-PHASE-1-TEAMAVATARS)
+ *   <li>{@link #apply(UUID, DraftConfig)} — atomic six-step operation: (a) DRAFT-precondition
+ *       check, (b+c) invariant validation, (d) Phase record creation (PENDING, no TeamAvatars), (e)
+ *       draft_json persist, (f) DRAFT→PLANNED delegation to {@link
+ *       TournamentLifecycleService#markPlanned} — all in one {@code @Transactional} boundary
+ *       (E48S22, AC-IMPL-APPLY-FOUR-OPS-ATOMIC)
  *   <li>{@link #loadDraft(UUID)} — loads current draft config from Tournament.draftJson (E21S19)
  *   <li>{@link #saveDraft(UUID, DraftConfig)} — persists draft config to Tournament.draftJson
  *       (E21S19)
  * </ul>
  *
- * <h2>Idempotency (AC-DRAFT-APPLY-IDEMPOTENCY)</h2>
+ * <h2>DRAFT-precondition (E48S22, AC-IMPL-PHASES-EXIST-GUARD-REMOVED)</h2>
  *
- * <p>The service <strong>fails-fast</strong> on re-apply: if phases already exist for the
- * tournament, {@link DraftAlreadyAppliedException} is thrown (→ 409 Conflict). This matches the
- * legacy {@code de.vvwt.tm.domain.DraftService.applyDraft()} behaviour confirmed at lines 297–305.
+ * <p>The service <strong>fails-fast</strong> on non-DRAFT tournaments: {@code apply()} acquires the
+ * per-tournament row-lock (DEC-37 Clause B first-read), then checks {@code status == "DRAFT"}. If
+ * the status is anything else (PLANNED, ACTIVE, COMPLETED, CANCELLED), {@link
+ * TournamentNotInDraftException} is thrown (→ 409 Conflict with messageKey {@code
+ * draft.error.notInDraftStatus}). The former phases-exist guard (AC-DRAFT-APPLY-IDEMPOTENCY) is
+ * subsumed: under the new atomic-apply invariant, phases exist iff status=PLANNED, so the
+ * DRAFT-precondition at step (a) is sufficient.
  *
  * <h2>Reconstruction-in-place (DEC-21/DEC-22)</h2>
  *
@@ -87,12 +95,14 @@ public class DefaultDraftService implements DraftService {
     private final ObjectMapper objectMapper;
     private final TimelineCalculationService timelineCalculationService;
     private final JdbcTemplate jdbcTemplate;
+    private final TournamentLifecycleService lifecycleService;
 
     /**
      * Constructs the service with Phase-aggregate collaborators from E21S03, tournament repository
      * + Jackson ObjectMapper for draft JSON serialization (E21S19), the timeline calculation
-     * service for preview timeline population (E48S12), and JdbcTemplate for cascade-delete and
-     * reset-plan bulk SQL (E48S13).
+     * service for preview timeline population (E48S12), JdbcTemplate for cascade-delete and
+     * reset-plan bulk SQL (E48S13), and the {@link TournamentLifecycleService} for DRAFT→PLANNED
+     * delegation in {@link #apply} (E48S22, DEC-35 authority-locality).
      *
      * <p>Phase-1 TeamAvatar distribution and match generation were removed in E48S17: apply() now
      * only creates Phase records in PENDING status. TeamAvatar creation is deferred to the
@@ -104,6 +114,8 @@ public class DefaultDraftService implements DraftService {
      * @param objectMapper Jackson ObjectMapper for DraftConfig ↔ JSON round-trip (E21S19)
      * @param timelineCalculationService stateless timeline engine (E21S11, wired in E48S12)
      * @param jdbcTemplate JDBC template for bulk cascade SQL (E48S13 AC-IMPL-CASCADE-DELETE-HELPER)
+     * @param lifecycleService tournament lifecycle service for DRAFT→PLANNED delegation in apply()
+     *     (E48S22, DEC-35 AC-GOVERNANCE-DEC-35-AUTHORITY-LOCALITY)
      */
     public DefaultDraftService(
             @Qualifier("tmPhaseRepository") PhaseRepository phaseRepository,
@@ -112,13 +124,15 @@ public class DefaultDraftService implements DraftService {
             ObjectMapper objectMapper,
             @Qualifier("tmTimelineCalculationService")
                     TimelineCalculationService timelineCalculationService,
-            JdbcTemplate jdbcTemplate) {
+            JdbcTemplate jdbcTemplate,
+            TournamentLifecycleService lifecycleService) {
         this.phaseRepository = phaseRepository;
         this.phaseBreakRepository = phaseBreakRepository;
         this.tournamentRepository = tournamentRepository;
         this.objectMapper = objectMapper;
         this.timelineCalculationService = timelineCalculationService;
         this.jdbcTemplate = jdbcTemplate;
+        this.lifecycleService = lifecycleService;
     }
 
     // -------------------------------------------------------------------------
@@ -172,32 +186,59 @@ public class DefaultDraftService implements DraftService {
     // -------------------------------------------------------------------------
 
     /**
-     * Applies the draft configuration to create Phase entities.
+     * Atomically applies the draft configuration in six steps (E48S22,
+     * AC-IMPL-APPLY-FOUR-OPS-ATOMIC).
      *
-     * <p>Fails-fast if phases already exist for the tournament (AC-DRAFT-APPLY-IDEMPOTENCY).
-     * Creates one Phase per section in PENDING status. Persists PhaseBreak entities for intra-phase
-     * breaks. No TeamAvatars or matches are created here — TeamAvatar creation is deferred to the
-     * Drag&amp;Drop / prepare() workflow (E48S17 AC-IMPL-APPLY-NO-PHASE-1-TEAMAVATARS).
+     * <ol>
+     *   <li>(a) Acquires per-tournament DB row-lock via {@link
+     *       TournamentRepository#findByIdForUpdate(UUID)} as the FIRST read (DEC-37 Clause B).
+     *   <li>(b) DRAFT-precondition check: if {@code tournament.status != "DRAFT"}, throws {@link
+     *       TournamentNotInDraftException} (→ 409 with messageKey {@code
+     *       draft.error.notInDraftStatus}).
+     *   <li>(c) Invariant validation: {@link
+     *       de.vvwt.tm.tournament.draft.DraftConfig#validateFirstPhaseTeamNumber()} + {@link
+     *       de.vvwt.tm.tournament.draft.DraftConfig#validateLastPhaseSiegerehrung()}.
+     *   <li>(d) Phase record creation: one Phase per section in PENDING status; PhaseBreak entities
+     *       for intra-phase breaks. No TeamAvatars or matches (E48S17
+     *       AC-IMPL-APPLY-NO-PHASE-1-TEAMAVATARS).
+     *   <li>(e) Persists draft_json: {@code tournament.setDraftJson(serialized config)} +
+     *       repository save (makes draft_json available to loadDraft() post-Apply).
+     *   <li>(f) Delegates DRAFT→PLANNED transition to {@link
+     *       TournamentLifecycleService#markPlanned(UUID)} (DEC-35
+     *       AC-GOVERNANCE-DEC-35-AUTHORITY-LOCALITY — NOT an inline setStatus call here). {@code
+     *       markPlanned()} runs under REQUIRED propagation and re-acquires the row-lock on the same
+     *       row — re-entrant under H2 (same TX, no-op acquire per H2 lock semantics).
+     * </ol>
+     *
+     * <p>All six steps execute inside a single {@code @Transactional} boundary. Any exception from
+     * any step rolls back the entire transaction — zero Phase rows, unchanged draft_json, unchanged
+     * status (AC-TEST-APPLY-ATOMICITY-ROLLBACK-RED).
      *
      * @param tournamentId the tournament UUID
      * @param config the draft configuration to apply; must not be {@code null}
      * @return ordered list of created Phase IDs (one per section); never empty
-     * @throws DraftAlreadyAppliedException if phases already exist (AC-DRAFT-APPLY-IDEMPOTENCY)
+     * @throws TournamentNotInDraftException if the tournament's current status is not {@code DRAFT}
+     *     (AC-ERROR-HANDLING-NON-DRAFT-STATUS-TYPED-EXCEPTION, AC-IMPL-PHASES-EXIST-GUARD-REMOVED)
      */
+    @Transactional
     @Override
     public List<UUID> apply(UUID tournamentId, DraftConfig config) {
-        // AC-DRAFT-APPLY-IDEMPOTENCY: fails-fast if phases already exist (cheap check first)
-        List<Phase> existingPhases = phaseRepository.findByTournamentId(tournamentId);
-        if (!existingPhases.isEmpty()) {
-            throw new DraftAlreadyAppliedException(tournamentId, existingPhases.size());
+        // Step (a): DEC-37 Clause B — acquire per-tournament row-lock as the FIRST read
+        Tournament tournament = tournamentRepository.findByIdForUpdate(tournamentId);
+
+        // Step (b): DRAFT-precondition check
+        String status = tournament.getStatus();
+        if (!"DRAFT".equals(status)) {
+            throw new TournamentNotInDraftException(tournamentId, status);
         }
 
+        // Step (c): Invariant validation
         // AC-IMPL-FIRST-PHASE-INVARIANT (E48S16): first phase must have sortType=team_number
         config.validateFirstPhaseTeamNumber();
-
         // AC-IMPL-LAST-PHASE-INVARIANT (E48S01): D-10 — last phase must be siegerehrung
         config.validateLastPhaseSiegerehrung();
 
+        // Step (d): Phase record creation (PENDING status, no TeamAvatars — E48S17)
         List<UUID> createdPhaseIds = new ArrayList<>();
         List<DraftSection> sections = config.getSections();
 
@@ -216,6 +257,20 @@ public class DefaultDraftService implements DraftService {
 
             persistPhaseBreaks(savedPhase.getId(), section.getBreaks());
         }
+
+        // Step (e): Persist draft_json (makes loadDraft() return the applied config post-Apply)
+        try {
+            tournament.setDraftJson(objectMapper.writeValueAsString(config));
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Failed to serialize draft config for tournament " + tournamentId, e);
+        }
+        tournamentRepository.save(tournament);
+
+        // Step (f): Delegate DRAFT→PLANNED transition to TournamentLifecycleService (DEC-35)
+        // AC-GOVERNANCE-DEC-35-AUTHORITY-LOCALITY: transition via lifecycle service, NOT inline
+        // setStatus(). markPlanned() runs under REQUIRED propagation — joins the outer TX.
+        lifecycleService.markPlanned(tournamentId);
 
         return createdPhaseIds;
     }

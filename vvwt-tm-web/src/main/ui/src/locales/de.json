@@ -47,11 +47,9 @@
       "COMPLETED": "Abgeschlossen",
       "CANCELLED": "Abgebrochen"
     },
-    "markPlannedButton": "Planen",
     "activateButton": "Aktivieren",
     "completeButton": "Abschließen",
     "cancelButton": "Abbrechen",
-    "markPlannedConfirm": "Turnier als geplant markieren?",
     "activateConfirm": "Turnier aktivieren?",
     "completeConfirm": "Turnier abschließen?",
     "cancelConfirm": "Turnier wirklich abbrechen?",
@@ -187,7 +185,8 @@
       "saveFailed": "Fehler beim Speichern.",
       "previewFailed": "Fehler beim Berechnen der Vorschau.",
       "applyFailed": "Fehler beim Anwenden des Phasenplans.",
-      "resetPlanFailed": "Fehler beim Zurücksetzen des Phasenplans."
+      "resetPlanFailed": "Fehler beim Zurücksetzen des Phasenplans.",
+      "notInDraftStatus": "Der Phasenplan kann nur im Status ENTWURF angewendet werden."
     }
   },
   "draftConfig": {
