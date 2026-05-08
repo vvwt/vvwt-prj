@@ -187,3 +187,69 @@ describe('Tournaments.svelte — E48S13 cascade-delete button (AC-TEST-FRONTEND-
     expect(source).toContain('cascadeDeleteTournament');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E52S01 — Zeitpläne button (AC-TEST-ZEITPLAENE-*) — RED-first per DEC-22
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Tournaments.svelte — E52S01: Zeitpläne button (AC-TEST-ZEITPLAENE-BUTTON-VISIBLE-PLANNED-RED)', () => {
+  it('Tournaments.svelte source contains tournaments.schedulesButton i18n key', async () => {
+    // AC-TEST-ZEITPLAENE-BUTTON-VISIBLE-PLANNED-RED: button rendered for PLANNED|ACTIVE|COMPLETED|CANCELLED
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './Tournaments.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain('tournaments.schedulesButton');
+  });
+
+  it('Tournaments.svelte source contains schedulesButton inside the phases-gate block', async () => {
+    // AC-IMPL-VISIBILITY-GATE: button is inside PLANNED|ACTIVE|COMPLETED|CANCELLED gate
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './Tournaments.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // The schedulesButton key must appear after the phases-gate condition
+    const phasesGateIdx = source.indexOf("t.status === 'PLANNED' || t.status === 'ACTIVE' || t.status === 'COMPLETED' || t.status === 'CANCELLED'");
+    const buttonIdx = source.indexOf('tournaments.schedulesButton');
+    expect(phasesGateIdx).toBeGreaterThan(-1);
+    expect(buttonIdx).toBeGreaterThan(phasesGateIdx);
+  });
+});
+
+describe('Tournaments.svelte — E52S01: Zeitpläne button hidden for DRAFT (AC-TEST-ZEITPLAENE-BUTTON-HIDDEN-DRAFT-RED)', () => {
+  it('Tournaments.svelte source does NOT place schedulesButton inside a DRAFT-only block', async () => {
+    // AC-TEST-ZEITPLAENE-BUTTON-HIDDEN-DRAFT-RED: button absent for DRAFT tournaments
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './Tournaments.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // The schedulesButton must NOT appear between a DRAFT-only {#if} and its {/if}
+    // Simple heuristic: schedulesButton must not appear inside the DRAFT-only block
+    const draftBlockMatch = source.match(/\{#if t\.status === 'DRAFT'\}([\s\S]*?)\{\/if\}/);
+    if (draftBlockMatch) {
+      expect(draftBlockMatch[1]).not.toContain('tournaments.schedulesButton');
+    }
+    // No DRAFT block at all is also acceptable (button gated at higher level)
+  });
+});
+
+describe('Tournaments.svelte — E52S01: click reaches print index (AC-TEST-ZEITPLAENE-CLICK-REACHES-PRINT-INDEX-RED)', () => {
+  it('Tournaments.svelte source contains window.open call to /print/tournaments/', async () => {
+    // AC-TEST-ZEITPLAENE-CLICK-REACHES-PRINT-INDEX-RED: click opens PrintController printIndex
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './Tournaments.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain("window.open(`/print/tournaments/");
+    expect(source).toContain("'_blank'");
+  });
+});
+
+describe('de.json — E52S01: schedulesButton i18n key (AC-TEST-I18N-DE-KEY-PRESENT-RED)', () => {
+  it('de.json tournaments.schedulesButton key is present with value "Zeitpläne"', () => {
+    // AC-TEST-I18N-DE-KEY-PRESENT-RED + AC-I18N-DE-NEW-KEY
+    const t = (deMessages as unknown as Record<string, Record<string, string>>).tournaments;
+    expect(t).toHaveProperty('schedulesButton');
+    expect(t.schedulesButton).toBe('Zeitpläne');
+  });
+});

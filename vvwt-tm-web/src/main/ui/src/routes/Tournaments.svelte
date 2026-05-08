@@ -233,10 +233,16 @@
                 </button>
               {/if}
               <!-- E48S05 AC-FRONTEND-NAV-FROM-TOURNAMENTS: Phasen nav for PLANNED/ACTIVE/COMPLETED/CANCELLED -->
+              <!-- E52S01 AC-IMPL-VISIBILITY-GATE: Zeitpläne button (print index) — same gate as phases (PLANNED|ACTIVE|COMPLETED|CANCELLED) -->
               {#if t.status === 'PLANNED' || t.status === 'ACTIVE' || t.status === 'COMPLETED' || t.status === 'CANCELLED'}
                 <button class="btn btn--secondary btn--sm"
                         onclick={() => push(`/tournaments/${t.id}/phases`)}>
                   {$_('tournaments.phasesButton')}
+                </button>
+                <!-- E52S01: navigate to print index (team schedules + activity schedules) — new tab, shape (a) per AC-URL-ROUTING-PRINT-ENDPOINTS-REACHABLE -->
+                <button class="btn btn--secondary btn--sm"
+                        onclick={() => window.open(`/print/tournaments/${t.id}`, '_blank')}>
+                  {$_('tournaments.schedulesButton')}
                 </button>
               {/if}
               <!-- E48S03 AC-FRONTEND-LIFECYCLE-BUTTONS + AC-FRONTEND-VISIBILITY-RULES -->
