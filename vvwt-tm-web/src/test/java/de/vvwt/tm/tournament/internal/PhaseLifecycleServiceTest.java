@@ -12,6 +12,7 @@ import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseLifecycleService;
 import de.vvwt.tm.tournament.PhaseRepository;
+import de.vvwt.tm.tournament.PhaseTransitionService;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
@@ -57,6 +58,9 @@ class PhaseLifecycleServiceTest {
     @Mock private MatchRepository matchRepository;
     @Mock private MatchLockdownService matchLockdownService;
     @Mock private ApplicationEventPublisher eventPublisher;
+    // E48S21: phaseTransitionService is not exercised by the methods tested in this file
+    // (start/complete/forceComplete). Mock is required by the updated 6-arg constructor.
+    @Mock private PhaseTransitionService phaseTransitionService;
 
     private DefaultPhaseLifecycleService service;
 
@@ -72,7 +76,8 @@ class PhaseLifecycleServiceTest {
                         phaseRepository,
                         matchRepository,
                         matchLockdownService,
-                        eventPublisher);
+                        eventPublisher,
+                        phaseTransitionService);
 
         tournamentId = UUID.randomUUID();
         phaseId = UUID.randomUUID();

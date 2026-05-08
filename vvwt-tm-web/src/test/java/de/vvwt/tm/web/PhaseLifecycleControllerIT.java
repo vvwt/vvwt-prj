@@ -20,7 +20,10 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -95,12 +98,35 @@ class PhaseLifecycleControllerIT {
                 locationId,
                 "E48S06 IT Location");
 
+        // draft_json must include a section for sectionNumber=5 (trulyPendingPhaseId seq=5)
+        // and sectionNumber=1/2/3 for other phases — commitTransition reads draft_json
+        // to resolve the gameMode for match generation (E48S21 fix).
+        String draftJson =
+                "{\"sections\": ["
+                        + "  {\"sectionNumber\": 1, \"sortType\": \"team_number\","
+                        + "   \"groupCount\": 1, \"gameMode\": \"roundRobin\","
+                        + "   \"lapBreakTimeMinutes\": 0, \"sectionBreakTimeMinutes\": 0,"
+                        + "   \"lapTimeMinutes\": 15, \"setQuantity\": 3, \"breaks\": []},"
+                        + "  {\"sectionNumber\": 2, \"sortType\": \"team_number\","
+                        + "   \"groupCount\": 1, \"gameMode\": \"roundRobin\","
+                        + "   \"lapBreakTimeMinutes\": 0, \"sectionBreakTimeMinutes\": 0,"
+                        + "   \"lapTimeMinutes\": 15, \"setQuantity\": 3, \"breaks\": []},"
+                        + "  {\"sectionNumber\": 3, \"sortType\": \"team_number\","
+                        + "   \"groupCount\": 1, \"gameMode\": \"roundRobin\","
+                        + "   \"lapBreakTimeMinutes\": 0, \"sectionBreakTimeMinutes\": 0,"
+                        + "   \"lapTimeMinutes\": 15, \"setQuantity\": 3, \"breaks\": []},"
+                        + "  {\"sectionNumber\": 5, \"sortType\": \"team_number\","
+                        + "   \"groupCount\": 1, \"gameMode\": \"roundRobin\","
+                        + "   \"lapBreakTimeMinutes\": 0, \"sectionBreakTimeMinutes\": 0,"
+                        + "   \"lapTimeMinutes\": 15, \"setQuantity\": 3, \"breaks\": []}"
+                        + "]}";
+
         tournamentId = UUID.randomUUID();
         jdbcTemplate.update(
                 "INSERT INTO tournament (id, location_id, description, match_format,"
                         + " scoring_rule_id, set_validation_rule_id, match_generator_id,"
-                        + " status, created_at, field_count, team_count)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        + " status, created_at, field_count, team_count, draft_json)"
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 tournamentId,
                 locationId,
                 "E48S06 IT Tournament",
@@ -111,7 +137,8 @@ class PhaseLifecycleControllerIT {
                 "ACTIVE",
                 LocalDateTime.now(),
                 2,
-                4);
+                4,
+                draftJson);
 
         // PREPARED phase — for start() 200 test (E48S17: start() now requires PREPARED)
         pendingPhaseId = UUID.randomUUID(); // field name kept for minimal diff; status is PREPARED
@@ -303,17 +330,33 @@ class PhaseLifecycleControllerIT {
 
     @Test
     @DisplayName(
-            "POST /api/phases/{id}/prepare — PENDING phase → 200 OK"
+            "POST /api/phases/{id}/prepare — PENDING phase with slots → 200 OK (E48S21 fix)"
                     + " (AC-TEST-CONTROLLER-IT-PER-METHOD-GREEN)")
     void prepare_pendingPhase_returns200() throws Exception {
+        // E48S21: prepare() now requires a slot payload (team-to-group assignments).
+        // Fixture teams (teamId1=group1/pos1, teamId2=group1/pos2) satisfy groupCount=1.
+        String slotsJson =
+                "["
+                        + "{\"teamId\":\""
+                        + teamId1
+                        + "\",\"groupNumber\":1,\"groupPosition\":1},"
+                        + "{\"teamId\":\""
+                        + teamId2
+                        + "\",\"groupNumber\":1,\"groupPosition\":2}"
+                        + "]";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<String> request = new HttpEntity<>(slotsJson, headers);
+
         ResponseEntity<String> response =
                 authed.postForEntity(
                         new URI(baseUrl + "/api/phases/" + trulyPendingPhaseId + "/prepare"),
-                        null,
+                        request,
                         String.class);
 
         assertThat(response.getStatusCode())
-                .as("prepare() on PENDING phase must return 200 OK")
+                .as("prepare() on PENDING phase with slots must return 200 OK (E48S21)")
                 .isEqualTo(HttpStatus.OK);
 
         // DEC-26 Rule 2: verify DB state via direct JDBC
@@ -337,10 +380,18 @@ class PhaseLifecycleControllerIT {
             "POST /api/phases/{id}/prepare — unauthenticated → 401"
                     + " (AC-SECURITY-PHASE-LIFECYCLE-AUTH)")
     void prepare_unauthenticated_returns401() throws Exception {
+        // Send a minimal body — Spring Security rejects before parsing body, so content is
+        // irrelevant, but a non-empty body prevents 400 before auth check on some configs.
+        String minimalBody =
+                "[{\"teamId\":\"" + teamId1 + "\",\"groupNumber\":1,\"groupPosition\":1}]";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<String> request = new HttpEntity<>(minimalBody, headers);
+
         ResponseEntity<String> response =
                 restTemplate.postForEntity(
                         new URI(baseUrl + "/api/phases/" + trulyPendingPhaseId + "/prepare"),
-                        null,
+                        request,
                         String.class);
 
         assertThat(response.getStatusCode())
