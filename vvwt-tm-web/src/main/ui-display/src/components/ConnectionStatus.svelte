@@ -51,11 +51,14 @@
 </div>
 
 <style>
+  /*
+   * E50S02: connection indicator is now in-flow inside display-header (flex row).
+   * margin-left: auto pushes the indicator to the right side of the header band.
+   * Removed: position:fixed, top, right, z-index — no longer needed as overlay.
+   * All 5 connection-state styles (dots, spinner, colors) are preserved below.
+   */
   .connection-status {
-    position: fixed;
-    top: 0.5rem;
-    right: 0.75rem;
-    z-index: 100;
+    margin-left: auto;
     display: flex;
     align-items: center;
     gap: 0.35rem;
