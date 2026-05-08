@@ -262,6 +262,9 @@ public final class TenantDaoTestSupport {
             "db/migration/auth/V1__admin_credentials.sql",
             "db/migration/tenant/V1__initial_schema.sql",
             "db/migration/tournament/V1__initial_schema.sql",
+            // V2 was merged into V1 (E46S06 / DEC-52 — columns inlined; V2 file deleted).
+            // V3: E51S01 — adds last_job_state, optimized (phase), optimize (tournament)
+            "db/migration/tournament/V3__phase_preparation_background_job_pipeline.sql",
             "db/migration/certificate/V1__initial_schema.sql",
             "db/migration/infoportal/V1__initial_schema.sql",
         };

@@ -82,6 +82,10 @@ class DraftServiceTest {
     private JdbcTemplate
             jdbcTemplate; // E51S02: needed for DELETE-and-recreate in persistStructuralAvatars
 
+    @Mock
+    private org.springframework.context.ApplicationEventPublisher
+            eventPublisher; // E51S03: MatchGenJobScheduledEvent publication
+
     private final ObjectMapper objectMapper = new ObjectMapper();
     private DefaultDraftService draftService;
 
@@ -103,7 +107,8 @@ class DraftServiceTest {
                         // persistStructuralAvatars
                         lifecycleService,
                         teamAvatarRepository,
-                        teamRepository);
+                        teamRepository,
+                        eventPublisher); // E51S03: MatchGenJobScheduledEvent publication
     }
 
     /**

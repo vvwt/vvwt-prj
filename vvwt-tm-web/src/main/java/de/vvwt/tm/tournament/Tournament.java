@@ -123,6 +123,18 @@ public class Tournament {
     @Column("organizer")
     private String organizer;
 
+    /**
+     * Operator-controlled slot-optimization switch (DEC-55 D-5, E51S01 schema). Default {@code
+     * true}: slot-optimization is computed for all tournaments by default. Operator may set {@code
+     * false} at Tournament-create / DraftConfig-edit via {@code TournamentForm.svelte} checkbox (UI
+     * delivered by E51S07). When {@code false}: background job pipeline ends at Match-Gen ({@code
+     * phase.last_job_state='idle'}); {@code phase.optimized} stays {@code false}; phases activate
+     * freely (activation-guard {@code !optimize OR optimized} is trivially met when {@code
+     * optimize=false}).
+     */
+    @Column("optimize")
+    private boolean optimize = true;
+
     // -------------------------------------------------------------------------
     // Constructors
     // -------------------------------------------------------------------------
@@ -360,5 +372,23 @@ public class Tournament {
 
     public void setOrganizer(String organizer) {
         this.organizer = organizer;
+    }
+
+    /**
+     * Returns whether slot-optimization is enabled for this tournament (DEC-55 D-5, E51S03).
+     *
+     * @return {@code true} (default) when slot-opt runs; {@code false} when operator disabled it
+     */
+    public boolean isOptimize() {
+        return optimize;
+    }
+
+    /**
+     * Sets the slot-optimization operator switch (DEC-55 D-5).
+     *
+     * @param optimize {@code true} to enable slot-optimization; {@code false} to disable
+     */
+    public void setOptimize(boolean optimize) {
+        this.optimize = optimize;
     }
 }

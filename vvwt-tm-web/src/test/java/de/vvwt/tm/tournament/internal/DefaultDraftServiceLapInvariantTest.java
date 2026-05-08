@@ -67,7 +67,9 @@ class DefaultDraftServiceLapInvariantTest {
                 Mockito.mock(JdbcTemplate.class), // E48S13
                 Mockito.mock(de.vvwt.tm.tournament.TournamentLifecycleService.class), // E48S22
                 Mockito.mock(TeamAvatarRepository.class), // E51S02
-                Mockito.mock(TeamRepository.class)); // E51S02
+                Mockito.mock(TeamRepository.class), // E51S02
+                Mockito.mock(
+                        org.springframework.context.ApplicationEventPublisher.class)); // E51S03
     }
 
     /**

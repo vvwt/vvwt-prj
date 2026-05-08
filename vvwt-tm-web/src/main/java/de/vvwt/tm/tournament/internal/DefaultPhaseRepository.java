@@ -32,11 +32,14 @@ public class DefaultPhaseRepository implements PhaseRepository {
     private static final String INSERT_SQL =
             "INSERT INTO phase"
                     + " (id, tournament_id, sequence_number, description, status,"
-                    + " current_lap_number)"
-                    + " VALUES (?, ?, ?, ?, ?, ?)";
+                    + " current_lap_number, optimized, last_job_state)"
+                    + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
     private static final String UPDATE_SQL =
-            "UPDATE phase" + " SET description=?, status=?, current_lap_number=?" + " WHERE id=?";
+            "UPDATE phase"
+                    + " SET description=?, status=?, current_lap_number=?,"
+                    + " optimized=?, last_job_state=?"
+                    + " WHERE id=?";
 
     private static final String SELECT_BY_ID = "SELECT * FROM phase WHERE id=?";
 
@@ -66,6 +69,8 @@ public class DefaultPhaseRepository implements PhaseRepository {
                     phase.getDescription(),
                     phase.getStatus(),
                     phase.getCurrentLapNumber(),
+                    phase.isOptimized(),
+                    phase.getLastJobState(),
                     phase.getId());
         } else {
             jdbc.update(
@@ -75,7 +80,9 @@ public class DefaultPhaseRepository implements PhaseRepository {
                     phase.getSequenceNumber(),
                     phase.getDescription(),
                     phase.getStatus(),
-                    phase.getCurrentLapNumber());
+                    phase.getCurrentLapNumber(),
+                    phase.isOptimized(),
+                    phase.getLastJobState());
         }
         return phase;
     }
@@ -132,6 +139,8 @@ public class DefaultPhaseRepository implements PhaseRepository {
                 rs.getObject("created_at") != null
                         ? rs.getTimestamp("created_at").toLocalDateTime()
                         : null);
+        p.setOptimized(rs.getBoolean("optimized"));
+        p.setLastJobState(rs.getString("last_job_state"));
         return p;
     }
 }

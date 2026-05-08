@@ -61,8 +61,8 @@ public class DefaultTournamentRepository implements TournamentRepository {
             "INSERT INTO tournament (id, location_id, description, match_format,"
                     + " scoring_rule_id, set_validation_rule_id, match_generator_id,"
                     + " status, created_at, appointment, field_count, team_count,"
-                    + " planned_start_time, draft_json, organizer)"
-                    + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    + " planned_start_time, draft_json, organizer, optimize)"
+                    + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     private static final String UPDATE_SQL =
             "UPDATE tournament SET description=?, match_format=?, scoring_rule_id=?,"
@@ -151,7 +151,8 @@ public class DefaultTournamentRepository implements TournamentRepository {
                     tournament.getTeamCount(),
                     tournament.getPlannedStartTime(),
                     tournament.getDraftJson(),
-                    organizer);
+                    organizer,
+                    tournament.isOptimize());
         }
         return tournament;
     }
@@ -229,6 +230,8 @@ public class DefaultTournamentRepository implements TournamentRepository {
         t.setPlannedStartTime(pst);
         t.setDraftJson(rs.getString("draft_json"));
         t.setOrganizer(rs.getString("organizer"));
+        // E51S03 — DEC-55 D-5: optimize flag (column added by E51S01 V3 migration)
+        t.setOptimize(rs.getBoolean("optimize"));
         return t;
     }
 }

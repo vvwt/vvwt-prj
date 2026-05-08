@@ -121,6 +121,12 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
 
     @AfterEach
     void tearDown() {
+        // Delete match rows before phase (FK ON DELETE RESTRICT: match → phase).
+        // Async MatchGenJobListener may have inserted match rows after apply() returned.
+        jdbcTemplate.update(
+                "DELETE FROM match WHERE phase_id IN"
+                        + " (SELECT id FROM phase WHERE tournament_id = ?)",
+                tournamentId);
         jdbcTemplate.update("DELETE FROM team_avatar WHERE tournament_id = ?", tournamentId);
         jdbcTemplate.update("DELETE FROM phase WHERE tournament_id = ?", tournamentId);
         jdbcTemplate.update("DELETE FROM team WHERE tournament_id = ?", tournamentId);
