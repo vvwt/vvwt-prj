@@ -12,7 +12,6 @@ import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseLifecycleService;
 import de.vvwt.tm.tournament.PhaseRepository;
-import de.vvwt.tm.tournament.PhaseTransitionService;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
@@ -58,9 +57,6 @@ class PhaseLifecycleServiceTest {
     @Mock private MatchRepository matchRepository;
     @Mock private MatchLockdownService matchLockdownService;
     @Mock private ApplicationEventPublisher eventPublisher;
-    // E48S21: phaseTransitionService is not exercised by the methods tested in this file
-    // (start/complete/forceComplete). Mock is required by the updated 6-arg constructor.
-    @Mock private PhaseTransitionService phaseTransitionService;
 
     private DefaultPhaseLifecycleService service;
 
@@ -76,8 +72,7 @@ class PhaseLifecycleServiceTest {
                         phaseRepository,
                         matchRepository,
                         matchLockdownService,
-                        eventPublisher,
-                        phaseTransitionService);
+                        eventPublisher);
 
         tournamentId = UUID.randomUUID();
         phaseId = UUID.randomUUID();
@@ -95,9 +90,9 @@ class PhaseLifecycleServiceTest {
     // =========================================================================
 
     @Test
-    @DisplayName("start() — PREPARED phase (seq=1) transitions to ACTIVE (E48S17 refactor)")
+    @DisplayName("start() — ASSIGNED phase (seq=1) transitions to ACTIVE (E51S06 refactor)")
     void start_preparedPhase_transitionsToActive() {
-        Phase phase = preparedPhase(); // sequenceNumber = 1, no predecessor check executed
+        Phase phase = assignedPhase(); // sequenceNumber = 1, no predecessor check executed; E51S06
         when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
         when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -108,9 +103,9 @@ class PhaseLifecycleServiceTest {
     }
 
     @Test
-    @DisplayName("start() — publishes PhaseStatusChangedEvent on PREPARED→ACTIVE (E48S17)")
+    @DisplayName("start() — publishes PhaseStatusChangedEvent on ASSIGNED→ACTIVE (E51S06)")
     void start_preparedPhase_publishesPhaseStatusChangedEvent() {
-        Phase phase = preparedPhase();
+        Phase phase = assignedPhase(); // E51S06: ASSIGNED → ACTIVE
         when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
         when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -120,7 +115,7 @@ class PhaseLifecycleServiceTest {
                 .publishEvent(
                         argThat(
                                 e ->
-                                        e.toString().contains("PREPARED")
+                                        e.toString().contains("ASSIGNED")
                                                 && e.toString().contains("ACTIVE")));
     }
 
@@ -136,7 +131,7 @@ class PhaseLifecycleServiceTest {
     }
 
     @Test
-    @DisplayName("start() — PENDING phase throws ConflictException (E48S17: now requires PREPARED)")
+    @DisplayName("start() — PENDING phase throws ConflictException (E51S06: now requires ASSIGNED)")
     void start_pendingPhase_throwsConflictException() {
         Phase phase = pendingPhase();
         when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
@@ -149,7 +144,7 @@ class PhaseLifecycleServiceTest {
     @Test
     @DisplayName("start() — acquires per-tournament row-lock (DEC-37 Clause B) as first read")
     void start_acquiresTournamentLockFirst() {
-        Phase phase = preparedPhase(); // seq=1 → no predecessor check
+        Phase phase = assignedPhase(); // seq=1 → no predecessor check; E51S06
         when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
         when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -314,6 +309,17 @@ class PhaseLifecycleServiceTest {
         p.setSequenceNumber(1);
         p.setDescription("Vorrunde");
         p.setCurrentLapNumber(2);
+        return p;
+    }
+
+    private Phase assignedPhase() {
+        Phase p = new Phase();
+        p.setId(phaseId);
+        p.setTournamentId(tournamentId);
+        p.setStatus("ASSIGNED"); // E51S06: start() requires ASSIGNED
+        p.setSequenceNumber(1);
+        p.setDescription("Vorrunde");
+        p.setCurrentLapNumber(0);
         return p;
     }
 }

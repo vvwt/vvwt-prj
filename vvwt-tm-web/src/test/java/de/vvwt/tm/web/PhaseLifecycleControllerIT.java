@@ -20,10 +20,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -140,8 +137,8 @@ class PhaseLifecycleControllerIT {
                 4,
                 draftJson);
 
-        // PREPARED phase — for start() 200 test (E48S17: start() now requires PREPARED)
-        pendingPhaseId = UUID.randomUUID(); // field name kept for minimal diff; status is PREPARED
+        // ASSIGNED phase — for start() 200 test (E51S06: start() now requires ASSIGNED)
+        pendingPhaseId = UUID.randomUUID(); // field name kept for minimal diff; status is ASSIGNED
         jdbcTemplate.update(
                 "INSERT INTO phase (id, tournament_id, sequence_number, description, status,"
                         + " current_lap_number) VALUES (?, ?, ?, ?, ?, ?)",
@@ -149,7 +146,8 @@ class PhaseLifecycleControllerIT {
                 tournamentId,
                 1,
                 "Vorrunde",
-                "PREPARED", // E48S17: start() requires PREPARED status
+                "ASSIGNED", // E51S06: start() now requires ASSIGNED status (commitTransition flips
+                // PREPARED→ASSIGNED)
                 0);
 
         // PENDING phase — for prepare() 200 test (E48S17
@@ -272,7 +270,7 @@ class PhaseLifecycleControllerIT {
     // =========================================================================
 
     @Test
-    @DisplayName("POST /api/phases/{id}/start — PREPARED phase → 200 OK (E48S17 refactor)")
+    @DisplayName("POST /api/phases/{id}/start — ASSIGNED phase → 200 OK (E51S06 refactor)")
     void start_pendingPhase_returns200() throws Exception {
         ResponseEntity<String> response =
                 authed.postForEntity(
@@ -330,33 +328,18 @@ class PhaseLifecycleControllerIT {
 
     @Test
     @DisplayName(
-            "POST /api/phases/{id}/prepare — PENDING phase with slots → 200 OK (E48S21 fix)"
-                    + " (AC-TEST-CONTROLLER-IT-PER-METHOD-GREEN)")
+            "POST /api/phases/{id}/prepare — PENDING phase → 200 OK, status PREPARED (E51S06"
+                    + " rollback: no slot payload) (AC-TEST-CONTROLLER-IT-PER-METHOD-GREEN)")
     void prepare_pendingPhase_returns200() throws Exception {
-        // E48S21: prepare() now requires a slot payload (team-to-group assignments).
-        // Fixture teams (teamId1=group1/pos1, teamId2=group1/pos2) satisfy groupCount=1.
-        String slotsJson =
-                "["
-                        + "{\"teamId\":\""
-                        + teamId1
-                        + "\",\"groupNumber\":1,\"groupPosition\":1},"
-                        + "{\"teamId\":\""
-                        + teamId2
-                        + "\",\"groupNumber\":1,\"groupPosition\":2}"
-                        + "]";
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<String> request = new HttpEntity<>(slotsJson, headers);
-
+        // E51S06 rollback of E48S21: prepare() is a pure status flip (no slot payload required).
         ResponseEntity<String> response =
                 authed.postForEntity(
                         new URI(baseUrl + "/api/phases/" + trulyPendingPhaseId + "/prepare"),
-                        request,
+                        null,
                         String.class);
 
         assertThat(response.getStatusCode())
-                .as("prepare() on PENDING phase with slots must return 200 OK (E48S21)")
+                .as("prepare() on PENDING phase must return 200 OK (E51S06 pure-flip)")
                 .isEqualTo(HttpStatus.OK);
 
         // DEC-26 Rule 2: verify DB state via direct JDBC
@@ -380,18 +363,10 @@ class PhaseLifecycleControllerIT {
             "POST /api/phases/{id}/prepare — unauthenticated → 401"
                     + " (AC-SECURITY-PHASE-LIFECYCLE-AUTH)")
     void prepare_unauthenticated_returns401() throws Exception {
-        // Send a minimal body — Spring Security rejects before parsing body, so content is
-        // irrelevant, but a non-empty body prevents 400 before auth check on some configs.
-        String minimalBody =
-                "[{\"teamId\":\"" + teamId1 + "\",\"groupNumber\":1,\"groupPosition\":1}]";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<String> request = new HttpEntity<>(minimalBody, headers);
-
         ResponseEntity<String> response =
                 restTemplate.postForEntity(
                         new URI(baseUrl + "/api/phases/" + trulyPendingPhaseId + "/prepare"),
-                        request,
+                        null,
                         String.class);
 
         assertThat(response.getStatusCode())

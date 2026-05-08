@@ -1,6 +1,5 @@
 package de.vvwt.tm.tournament.internal;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -18,8 +17,6 @@ import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
-import de.vvwt.tm.tournament.internal.referee.RefereeAssigner;
-import de.vvwt.tm.tournament.internal.referee.RefereeAssignmentReport;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,45 +24,27 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Unit tests for {@link PhasePreparationService} (AC-TDD-PhasePreparationService +
- * AC-ORCHESTRATION-CONVERGENCE, E21S08).
+ * Unit tests for {@link PhasePreparationService#generateMatches} (E21S08 / E51S06).
  *
- * <p>Verifies the full 4-collaborator orchestration convergence per Brief O-8:
+ * <p>E51S06 refactor: {@code preparePhase()} removed (dead code per DEC-55 D-10). This test file
+ * now covers only {@link PhasePreparationService#generateMatches}, which is retained for the E51S03
+ * match-gen background job.
  *
- * <ul>
- *   <li>{@link MatchGeneratorRegistry} — from E21S08 (this story)
- *   <li>{@link Phase} aggregate — from E21S03
- *   <li>{@link Match} aggregate persistence ({@link MatchRepository}) — from E21S04/E21S05
- *   <li>Round / referee-pool collaborators ({@link TeamAvatarRepository}, {@link RefereeAssigner})
- *       — from E21S05/E21S08 (this story)
- * </ul>
+ * <p>The {@code RefereeAssigner} dependency was also removed from the constructor (E51S06).
  *
- * <p>All collaborators mocked per DEC-22 orchestration-logic pattern (E15S03 precedent).
- *
- * <p>Source: inventory row 180 — {@code de.vvwt.tm.tournament.internal.PhasePreparationService}.
- *
- * <p>Related DECs: DEC-21 (Modulith package placement), DEC-22 (TDD Iron Law), DEC-29
- * (compiler-hygiene), DEC-30 (Spotless formatting).
+ * @see PhasePreparationService
+ * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
+ * @see <a href="E21S08">E21S08 — inventory row 180</a>
+ * @see <a href="E51S06">E51S06 — preparePhase dead-code removal + constructor update</a>
  */
 class PhasePreparationServiceTest {
-
-    /*
-     * Brief O-8 Convergence map (referenced by AC-ORCHESTRATION-CONVERGENCE):
-     *   MatchGeneratorRegistry  → E21S08 (this story, new reconstruction)
-     *   PhaseRepository         → E21S03 (Phase aggregate reconstruction)
-     *   MatchRepository         → E21S04/E21S05 (Match aggregate + SetResult reconstruction)
-     *   TeamAvatarRepository    → E21S04 (TeamAvatar aggregate reconstruction)
-     *   RefereeAssigner         → E21S08 (this story, new reconstruction)
-     */
 
     private PhaseRepository phaseRepository;
     private MatchRepository matchRepository;
     private TeamAvatarRepository teamAvatarRepository;
     private MatchGeneratorRegistry matchGeneratorRegistry;
-    private RefereeAssigner refereeAssigner;
     private PhasePreparationService service;
 
-    private UUID tenantId;
     private UUID tournamentId;
     private UUID phaseId;
 
@@ -75,60 +54,58 @@ class PhasePreparationServiceTest {
         matchRepository = mock(MatchRepository.class);
         teamAvatarRepository = mock(TeamAvatarRepository.class);
         matchGeneratorRegistry = mock(MatchGeneratorRegistry.class);
-        refereeAssigner = mock(RefereeAssigner.class);
 
+        // E51S06: 4-arg constructor (refereeAssigner removed)
         service =
                 new PhasePreparationService(
                         phaseRepository,
                         matchRepository,
                         teamAvatarRepository,
-                        matchGeneratorRegistry,
-                        refereeAssigner);
+                        matchGeneratorRegistry);
 
-        tenantId = UUID.randomUUID();
         tournamentId = UUID.randomUUID();
         phaseId = UUID.randomUUID();
     }
 
     // -------------------------------------------------------------------------
-    // null phaseId → IAE
+    // generateMatches — null phaseId → IAE
     // -------------------------------------------------------------------------
 
     @Test
-    void preparePhase_nullPhaseId_throwsIAE() {
-        assertThatThrownBy(() -> service.preparePhase(null, "roundRobinNew"))
+    void generateMatches_nullPhaseId_throwsIAE() {
+        assertThatThrownBy(() -> service.generateMatches(null, "roundRobinNew"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     // -------------------------------------------------------------------------
-    // null generatorKey → IAE
+    // generateMatches — null generatorKey → IAE
     // -------------------------------------------------------------------------
 
     @Test
-    void preparePhase_nullGeneratorKey_throwsIAE() {
-        assertThatThrownBy(() -> service.preparePhase(phaseId, null))
+    void generateMatches_nullGeneratorKey_throwsIAE() {
+        assertThatThrownBy(() -> service.generateMatches(phaseId, null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     // -------------------------------------------------------------------------
-    // Phase not found → IAE
+    // generateMatches — phase not found → IAE
     // -------------------------------------------------------------------------
 
     @Test
-    void preparePhase_phaseNotFound_throwsIAE() {
+    void generateMatches_phaseNotFound_throwsIAE() {
         when(phaseRepository.findById(phaseId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.preparePhase(phaseId, "roundRobinNew"))
+        assertThatThrownBy(() -> service.generateMatches(phaseId, "roundRobinNew"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining(phaseId.toString());
     }
 
     // -------------------------------------------------------------------------
-    // Orchestration flow: resolves generator → generates matches → persists → assigns referees
+    // generateMatches — orchestration: resolves generator, generates, persists
     // -------------------------------------------------------------------------
 
     @Test
-    void preparePhase_orchestration_fullFlow() {
+    void generateMatches_orchestration_fullFlow() {
         Phase phase = buildPhase();
         when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
 
@@ -145,32 +122,19 @@ class PhasePreparationServiceTest {
         when(generator.generate(eq(phase), eq(avatars))).thenReturn(List.of(generatedMatch));
         when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        RefereeAssignmentReport report =
-                RefereeAssignmentReport.builder().totalMatches(1).incrementAssigned().build();
-        when(refereeAssigner.assignReferees(phaseId)).thenReturn(report);
+        service.generateMatches(phaseId, "roundRobinNew");
 
-        RefereeAssignmentReport result = service.preparePhase(phaseId, "roundRobinNew");
-
-        // Verify generator was resolved and called
         verify(matchGeneratorRegistry).get("roundRobinNew");
         verify(generator).generate(phase, avatars);
-
-        // Verify match was persisted
         verify(matchRepository).save(generatedMatch);
-
-        // Verify referee assignment was invoked
-        verify(refereeAssigner).assignReferees(phaseId);
-
-        // Verify report returned
-        assertThat(result.getAssignedCount()).isEqualTo(1);
     }
 
     // -------------------------------------------------------------------------
-    // Idempotent: existing matches cleared before re-generation
+    // generateMatches — idempotent: existing matches cleared before re-generation
     // -------------------------------------------------------------------------
 
     @Test
-    void preparePhase_existingMatchesCleared() {
+    void generateMatches_existingMatchesCleared() {
         Phase phase = buildPhase();
         when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
 
@@ -186,10 +150,7 @@ class PhasePreparationServiceTest {
         when(matchGeneratorRegistry.get("roundRobinNew")).thenReturn(generator);
         when(generator.generate(any(), any())).thenReturn(List.of());
 
-        RefereeAssignmentReport report = RefereeAssignmentReport.builder().totalMatches(0).build();
-        when(refereeAssigner.assignReferees(phaseId)).thenReturn(report);
-
-        service.preparePhase(phaseId, "roundRobinNew");
+        service.generateMatches(phaseId, "roundRobinNew");
 
         verify(matchRepository).deleteByPhaseId(phaseId);
     }

@@ -35,13 +35,14 @@ import org.springframework.test.context.ActiveProfiles;
  *
  * <ol>
  *   <li>One fromPhase (COMPLETED) with 2 teams is prepared for an ACTIVE tournament.
- *   <li>One toPhase (PENDING) is prepared.
- *   <li>Two threads simultaneously call {@code commitTransition(toPhaseId)} with DIFFERENT (but
- *       valid) assignments. Only one can acquire the DB lock; the other serialises after.
- *   <li>The structural-identity unique constraint {@code uq_team_avatar_structural_identity} on
- *       {@code team_avatar(tournamentId, phaseId, groupNumber, groupPosition)} ensures the second
- *       commit fails — both threads submit to (group=1, pos=1) and (group=1, pos=2). The lock
- *       ensures they do not interleave writes.
+ *   <li>One toPhase (PREPARED) is set up with 2 structural placeholder avatars (teamId=NULL per
+ *       E51S02).
+ *   <li>Two threads simultaneously call {@code commitTransition(toPhaseId)} with the same
+ *       assignments. Only one can acquire the DB lock; the other serialises after.
+ *   <li>E51S06 refactor: {@code commitTransition} UPDATEs existing placeholder avatars (no INSERT).
+ *       The second thread's lifecycle transition fails — phase is already ASSIGNED after the first
+ *       thread commits (ASSIGNED → ASSIGNED "assign" is not an allowed transition; only "re-assign"
+ *       is). The lock (DEC-37 Clause B) ensures exactly one thread runs first.
  *   <li>Post-assertion: exactly ONE thread succeeds, the other throws an exception. Final DB state
  *       has exactly 2 avatars for toPhase.
  * </ol>
@@ -147,6 +148,7 @@ class PhaseTransitionLockIT {
 
         // toPhase (siegerehrung — no matches generated, keeps test focused on lock + avatar
         // persistence)
+        // E51S06: status=PREPARED — commitTransition requires PREPARED → ASSIGNED transition
         toPhaseId = UUID.randomUUID();
         jdbcTemplate.update(
                 "INSERT INTO phase (id, tournament_id, sequence_number, description, status,"
@@ -155,7 +157,7 @@ class PhaseTransitionLockIT {
                 tournamentId,
                 2,
                 "Siegerehrung",
-                "PENDING",
+                "PREPARED",
                 0);
 
         // Teams
@@ -198,6 +200,29 @@ class PhaseTransitionLockIT {
                 tournamentId,
                 fromPhaseId,
                 teamId2,
+                1,
+                2,
+                LocalDateTime.now());
+
+        // E51S06: structural placeholder avatars in toPhaseId (teamId=NULL per E51S02).
+        // commitTransition will UPDATE teamId on these rows instead of INSERTing new rows.
+        // Both concurrent threads attempt to UPDATE the same rows — the second thread fails on the
+        // PREPARED → ASSIGNED lifecycle transition (phase already ASSIGNED by the first thread).
+        jdbcTemplate.update(
+                "INSERT INTO team_avatar (id, tournament_id, phase_id, team_id, group_number,"
+                        + " group_position, created_at) VALUES (?, ?, ?, NULL, ?, ?, ?)",
+                UUID.randomUUID(),
+                tournamentId,
+                toPhaseId,
+                1,
+                1,
+                LocalDateTime.now());
+        jdbcTemplate.update(
+                "INSERT INTO team_avatar (id, tournament_id, phase_id, team_id, group_number,"
+                        + " group_position, created_at) VALUES (?, ?, ?, NULL, ?, ?, ?)",
+                UUID.randomUUID(),
+                tournamentId,
+                toPhaseId,
                 1,
                 2,
                 LocalDateTime.now());

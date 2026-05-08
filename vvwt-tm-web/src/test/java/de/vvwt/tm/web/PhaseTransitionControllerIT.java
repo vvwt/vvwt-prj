@@ -87,6 +87,11 @@ class PhaseTransitionControllerIT {
     private UUID teamId2;
     private UUID avatarFromId1;
     private UUID avatarFromId2;
+    // E51S06: structural placeholder avatars in toPhases (teamId=NULL, set by commitTransition)
+    private UUID avatarToRoundRobinId1;
+    private UUID avatarToRoundRobinId2;
+    private UUID avatarToSiegerehrungId1;
+    private UUID avatarToSiegerehrungId2;
 
     /**
      * Draft JSON with 3 sections: - section 1: team_number, roundRobin - section 2: team_number,
@@ -156,6 +161,7 @@ class PhaseTransitionControllerIT {
                 1);
 
         // toPhase for roundRobin (sequenceNumber=2)
+        // E51S06: status=PREPARED — commitTransition requires PREPARED → ASSIGNED transition
         toPhaseRoundRobinId = UUID.randomUUID();
         jdbcTemplate.update(
                 "INSERT INTO phase (id, tournament_id, sequence_number, description, status,"
@@ -164,10 +170,11 @@ class PhaseTransitionControllerIT {
                 tournamentId,
                 2,
                 "Zwischenrunde",
-                "PENDING",
+                "PREPARED",
                 0);
 
         // toPhase for siegerehrung (sequenceNumber=3)
+        // E51S06: status=PREPARED — commitTransition requires PREPARED → ASSIGNED transition
         toSiegerehrungPhaseId = UUID.randomUUID();
         jdbcTemplate.update(
                 "INSERT INTO phase (id, tournament_id, sequence_number, description, status,"
@@ -176,7 +183,7 @@ class PhaseTransitionControllerIT {
                 tournamentId,
                 3,
                 "Siegerehrung",
-                "PENDING",
+                "PREPARED",
                 0);
 
         // Teams
@@ -219,6 +226,70 @@ class PhaseTransitionControllerIT {
                 tournamentId,
                 fromPhaseId,
                 teamId2,
+                1,
+                2,
+                LocalDateTime.now());
+
+        // E51S06: structural placeholder avatars in toPhaseRoundRobinId (teamId=NULL per E51S02)
+        // commitTransition will UPDATE teamId on these rows instead of INSERTing new rows.
+        avatarToRoundRobinId1 = UUID.randomUUID();
+        jdbcTemplate.update(
+                "INSERT INTO team_avatar (id, tournament_id, phase_id, team_id, group_number,"
+                        + " group_position, created_at) VALUES (?, ?, ?, NULL, ?, ?, ?)",
+                avatarToRoundRobinId1,
+                tournamentId,
+                toPhaseRoundRobinId,
+                1,
+                1,
+                LocalDateTime.now());
+        avatarToRoundRobinId2 = UUID.randomUUID();
+        jdbcTemplate.update(
+                "INSERT INTO team_avatar (id, tournament_id, phase_id, team_id, group_number,"
+                        + " group_position, created_at) VALUES (?, ?, ?, NULL, ?, ?, ?)",
+                avatarToRoundRobinId2,
+                tournamentId,
+                toPhaseRoundRobinId,
+                1,
+                2,
+                LocalDateTime.now());
+
+        // E51S06: matches for toPhaseRoundRobinId with lap_number + field_number set
+        // (simulates E51S03 background match-gen + slot-opt having already run)
+        // RefereeAssigner.assignReferees() requires non-null lap/field coordinates
+        jdbcTemplate.update(
+                "INSERT INTO match (id, tournament_id, phase_id, member_avatar_1_id,"
+                        + " member_avatar_2_id, state, set_limit, lap_number, field_number,"
+                        + " created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                UUID.randomUUID(),
+                tournamentId,
+                toPhaseRoundRobinId,
+                avatarToRoundRobinId1,
+                avatarToRoundRobinId2,
+                0,
+                1,
+                1,
+                1,
+                LocalDateTime.now());
+
+        // E51S06: structural placeholder avatars in toSiegerehrungPhaseId (teamId=NULL)
+        // siegerehrung has no matches (no-op generator), so no match INSERT needed here.
+        avatarToSiegerehrungId1 = UUID.randomUUID();
+        jdbcTemplate.update(
+                "INSERT INTO team_avatar (id, tournament_id, phase_id, team_id, group_number,"
+                        + " group_position, created_at) VALUES (?, ?, ?, NULL, ?, ?, ?)",
+                avatarToSiegerehrungId1,
+                tournamentId,
+                toSiegerehrungPhaseId,
+                1,
+                1,
+                LocalDateTime.now());
+        avatarToSiegerehrungId2 = UUID.randomUUID();
+        jdbcTemplate.update(
+                "INSERT INTO team_avatar (id, tournament_id, phase_id, team_id, group_number,"
+                        + " group_position, created_at) VALUES (?, ?, ?, NULL, ?, ?, ?)",
+                avatarToSiegerehrungId2,
+                tournamentId,
+                toSiegerehrungPhaseId,
                 1,
                 2,
                 LocalDateTime.now());
