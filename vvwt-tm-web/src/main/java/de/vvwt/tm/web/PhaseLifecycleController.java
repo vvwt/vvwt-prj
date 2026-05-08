@@ -2,11 +2,14 @@ package de.vvwt.tm.web;
 
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseLifecycleService;
+import de.vvwt.tm.tournament.TeamAvatarProposal;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -56,16 +59,23 @@ public class PhaseLifecycleController {
     // -------------------------------------------------------------------------
 
     /**
-     * Transitions the phase from {@code PENDING} to {@code PREPARED} (E48S17).
+     * Transitions the phase from {@code PENDING} to {@code PREPARED} (E48S21 fix).
      *
-     * <p>Idempotent: returns 200 OK with the current phase if already PREPARED.
+     * <p>Accepts the confirmed team-to-(group, position) slot payload from the Vorbereiten UI.
+     * Delegates avatar persistence + match generation to {@link PhaseLifecycleService#prepare(UUID,
+     * java.util.List)} before flipping status to PREPARED.
+     *
+     * <p>Idempotent: returns 200 OK with the current phase if already PREPARED (no duplicate
+     * avatars or matches created).
      *
      * @param id the phase UUID (from path)
-     * @return 200 OK with the updated phase; 404 if not found; 409 if invalid transition
+     * @param slots the confirmed team-to-(group, position) assignments (non-null, non-empty)
+     * @return 200 OK with the updated phase; 400 if slots is empty; 409 if invalid transition
      */
     @PostMapping("/{id}/prepare")
-    public ResponseEntity<Phase> prepare(@PathVariable("id") UUID id) {
-        return ResponseEntity.ok(phaseLifecycleService.prepare(id));
+    public ResponseEntity<Phase> prepare(
+            @PathVariable("id") UUID id, @RequestBody List<TeamAvatarProposal> slots) {
+        return ResponseEntity.ok(phaseLifecycleService.prepare(id, slots));
     }
 
     // -------------------------------------------------------------------------

@@ -13,6 +13,7 @@ import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseLifecycleService;
 import de.vvwt.tm.tournament.PhaseRepository;
+import de.vvwt.tm.tournament.PhaseTransitionService;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.events.PhaseStatusChangedEvent;
@@ -28,8 +29,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 
 /**
- * RED-first unit tests for {@link DefaultPhaseLifecycleService#prepare(UUID)} and the refactored
- * {@link DefaultPhaseLifecycleService#start(UUID)} (now requires PREPARED status) — E48S17.
+ * RED-first unit tests for the deprecated {@link DefaultPhaseLifecycleService#prepare(UUID)}
+ * (zero-arg, E48S17) and the refactored {@link DefaultPhaseLifecycleService#start(UUID)} (now
+ * requires PREPARED status) — E48S17.
  *
  * <p>Same-package test: MAY white-box against implementation class per DEC-36.
  *
@@ -50,6 +52,8 @@ import org.springframework.context.ApplicationEventPublisher;
  * @see <a href="DEC-37">DEC-37 Clause B — per-tournament pessimistic DB row-lock</a>
  * @see <a href="E48S17">E48S17 — PREPARED enum + prepare() + start() refactor</a>
  */
+@SuppressWarnings(
+        "deprecation") // Tests the deprecated prepare(UUID) path intentionally (E48S17 regression)
 @ExtendWith(MockitoExtension.class)
 @DisplayName("DefaultPhaseLifecycleService prepare() + start() refactor — E48S17 RED-first")
 class PhaseLifecyclePrepareServiceTest {
@@ -59,6 +63,9 @@ class PhaseLifecyclePrepareServiceTest {
     @Mock private MatchRepository matchRepository;
     @Mock private MatchLockdownService matchLockdownService;
     @Mock private ApplicationEventPublisher eventPublisher;
+    // E48S21: phaseTransitionService not exercised by the deprecated prepare(UUID) path.
+    // Mock is injected to satisfy the updated constructor; prepare(phaseId) does NOT call it.
+    @Mock private PhaseTransitionService phaseTransitionService;
 
     private DefaultPhaseLifecycleService service;
 
@@ -74,7 +81,8 @@ class PhaseLifecyclePrepareServiceTest {
                         phaseRepository,
                         matchRepository,
                         matchLockdownService,
-                        eventPublisher);
+                        eventPublisher,
+                        phaseTransitionService);
 
         tournamentId = UUID.randomUUID();
         phaseId = UUID.randomUUID();

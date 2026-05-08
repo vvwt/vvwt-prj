@@ -1,5 +1,6 @@
 package de.vvwt.tm.tournament;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -43,8 +44,34 @@ public interface PhaseLifecycleService {
      * @throws de.vvwt.tm.tournament.exceptions.ConflictException if the phase's current status is
      *     not {@code PENDING} and not {@code PREPARED}
      * @throws IllegalArgumentException if no phase with the given id exists
+     * @deprecated Use {@link #prepare(UUID, List)} to pass slot payload for match generation. This
+     *     zero-argument form does not generate matches.
      */
+    @Deprecated
     Phase prepare(UUID phaseId);
+
+    /**
+     * Transitions the phase from {@code PENDING} to {@code PREPARED} (E48S21 fix).
+     *
+     * <p>Delegates avatar persistence + match generation to {@link
+     * de.vvwt.tm.tournament.PhaseTransitionService#commitTransition(UUID, List)} before flipping
+     * status to PREPARED. All three operations execute within the same {@code @Transactional}
+     * boundary under the DEC-37 per-tournament row-lock.
+     *
+     * <p>Idempotent: if the phase is already {@code PREPARED}, returns the phase unchanged without
+     * calling {@code commitTransition} (no duplicate avatars or matches). If the phase is in any
+     * other state, throws {@link de.vvwt.tm.tournament.exceptions.ConflictException}.
+     *
+     * <p>Acquires a per-tournament DB row-lock (DEC-37 Clause B) as the first read.
+     *
+     * @param phaseId the phase UUID
+     * @param slots the confirmed team-to-(group, position) assignments from the Vorbereiten UI
+     * @return the updated phase with {@code status = "PREPARED"} (or unchanged if already PREPARED)
+     * @throws de.vvwt.tm.tournament.exceptions.ConflictException if the phase's current status is
+     *     not {@code PENDING} and not {@code PREPARED}
+     * @throws IllegalArgumentException if {@code slots} is null or empty, or if no phase exists
+     */
+    Phase prepare(UUID phaseId, List<TeamAvatarProposal> slots);
 
     /**
      * Transitions the phase from {@code PREPARED} to {@code ACTIVE} (E48S17 refactor).
