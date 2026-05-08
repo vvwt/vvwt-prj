@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.tournament.PhaseBreakRepository;
 import de.vvwt.tm.tournament.PhaseRepository;
+import de.vvwt.tm.tournament.TeamAvatarRepository;
+import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftPreviewResult;
@@ -53,9 +55,9 @@ class DefaultDraftServiceLapInvariantTest {
      * the {@code preview()} pure-computation path is exercised — no repository calls occur.
      */
     private static DefaultDraftService buildService() {
-        // E48S17: TeamRepository, TeamAvatarRepository, PhasePreparationService removed from
-        // constructor (isFirstPhase distribution branch removed per
-        // AC-IMPL-APPLY-NO-PHASE-1-TEAMAVATARS)
+        // E51S02: TeamAvatarRepository + TeamRepository added to constructor (avatar persistence at
+        // apply-time per DEC-55 D-1). Only the preview() pure-computation path is exercised here
+        // — no apply() or repository calls occur.
         return new DefaultDraftService(
                 Mockito.mock(PhaseRepository.class),
                 Mockito.mock(PhaseBreakRepository.class),
@@ -63,7 +65,9 @@ class DefaultDraftServiceLapInvariantTest {
                 new ObjectMapper(),
                 Mockito.mock(de.vvwt.tm.tournament.TimelineCalculationService.class), // E48S12
                 Mockito.mock(JdbcTemplate.class), // E48S13
-                Mockito.mock(de.vvwt.tm.tournament.TournamentLifecycleService.class)); // E48S22
+                Mockito.mock(de.vvwt.tm.tournament.TournamentLifecycleService.class), // E48S22
+                Mockito.mock(TeamAvatarRepository.class), // E51S02
+                Mockito.mock(TeamRepository.class)); // E51S02
     }
 
     /**

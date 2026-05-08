@@ -15,6 +15,9 @@ import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseBreak;
 import de.vvwt.tm.tournament.PhaseBreakRepository;
 import de.vvwt.tm.tournament.PhaseRepository;
+import de.vvwt.tm.tournament.Team;
+import de.vvwt.tm.tournament.TeamAvatarRepository;
+import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.TimelineCalculationService;
 import de.vvwt.tm.tournament.TimelineEntry;
 import de.vvwt.tm.tournament.TimelineEntryType;
@@ -35,6 +38,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * Unit test for {@link DefaultDraftService} (AC-TDD-DraftService, E48S22 update).
@@ -71,16 +75,20 @@ class DraftServiceTest {
     @Mock private TimelineCalculationService timelineCalculationService;
     @Mock private TournamentRepository tournamentRepository;
     @Mock private TournamentLifecycleService lifecycleService;
+    @Mock private TeamAvatarRepository teamAvatarRepository;
+    @Mock private TeamRepository teamRepository;
+    @Mock private JdbcTemplate jdbcTemplate; // E51S02: needed for DELETE-and-recreate in persistStructuralAvatars
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private DefaultDraftService draftService;
 
     @BeforeEach
     void setUp() {
-        // Construct manually: DefaultDraftService no longer supports @InjectMocks cleanly
-        // because JdbcTemplate is injected but not used by preview/apply unit-test paths.
-        // We pass null for JdbcTemplate (resetPlan path) — all tests here exercise preview() and
-        // apply() only.
+        // Construct manually: DefaultDraftService no longer supports @InjectMocks cleanly.
+        // E51S02: jdbcTemplate mock required because persistStructuralAvatars() calls
+        // jdbcTemplate.update("DELETE FROM team_avatar WHERE phase_id = ?") for idempotency
+        // before avatar saves — the mock silently accepts and returns 0 rows deleted.
+        // E51S02: teamAvatarRepository + teamRepository added for structural avatar persistence.
         draftService =
                 new DefaultDraftService(
                         phaseRepository,
@@ -88,8 +96,10 @@ class DraftServiceTest {
                         tournamentRepository,
                         objectMapper,
                         timelineCalculationService,
-                        null, // JdbcTemplate — only used by resetPlan(), not tested here
-                        lifecycleService);
+                        jdbcTemplate, // E51S02: mocked — DELETE-before-insert in persistStructuralAvatars
+                        lifecycleService,
+                        teamAvatarRepository,
+                        teamRepository);
     }
 
     /**
@@ -362,11 +372,19 @@ class DraftServiceTest {
         verify(phaseRepository, times(1)).save(any(Phase.class));
     }
 
-    /** AC-TDD-DraftService: apply with two sections creates two Phases. */
+    /**
+     * AC-TDD-DraftService: apply with two sections creates two Phases.
+     *
+     * <p>E51S02: Section 1 is roundRobin — triggers avatar persistence. teamRepository must return
+     * at least one participating team (empty → IllegalArgumentException per
+     * AC-ERROR-HANDLING-EMPTY-PARTICIPATING-TEAMS). The test stubs a single participating team so
+     * that the avatar-persistence path completes without error.
+     */
     @Test
     void apply_withTwoSections_createsTwoPhases() {
         UUID tournamentId = UUID.randomUUID();
-        // Section 2 is last — must be siegerehrung per D-10 invariant (E48S01)
+        // Section 1: roundRobin (non-siegerehrung → triggers avatar persistence)
+        // Section 2: last — must be siegerehrung per D-10 invariant (E48S01)
         DraftConfig config = new DraftConfig(List.of(simpleSection(1), lastSection(2)));
 
         Tournament draftTournament =
@@ -394,6 +412,13 @@ class DraftServiceTest {
                         0,
                         LocalDateTime.now());
         when(phaseRepository.save(any(Phase.class))).thenReturn(phase1, phase2);
+
+        // E51S02: stub one participating team to satisfy loadParticipatingTeams()
+        // (query collaborator — no verify() per feedback_testing_verify_scope.md)
+        UUID teamId = UUID.randomUUID();
+        Team participatingTeam = new Team(teamId, tournamentId, 1, "Team 1", true, false, false, null);
+        when(teamRepository.findByTournamentId(tournamentId)).thenReturn(List.of(participatingTeam));
+        // teamAvatarRepository.save() is lenient (Mockito lenient by default for return value)
 
         List<UUID> result = draftService.apply(tournamentId, config);
 
