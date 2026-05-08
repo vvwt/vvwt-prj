@@ -287,8 +287,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleNotInDraft(
             TournamentNotInDraftException ex, HttpServletRequest request) {
         log.debug("[tm-web] TournamentNotInDraftException: {}", ex.getMessage());
-        return buildResponse(
-                HttpStatus.CONFLICT, ex.getMessage(), ex.getMessageKey(), request);
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), ex.getMessageKey(), request);
     }
 
     /**

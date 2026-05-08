@@ -207,9 +207,9 @@ public class DraftController {
      * Atomically applies the draft configuration (E48S22): creates Phase entities, persists
      * draft_json, and transitions tournament DRAFT→PLANNED via TournamentLifecycleService.
      *
-     * <p>Fails with 409 if the tournament is not in DRAFT status (→
-     * {@link de.vvwt.tm.tournament.exceptions.TournamentNotInDraftException} with messageKey
-     * {@code draft.error.notInDraftStatus}, via GlobalExceptionHandler).
+     * <p>Fails with 409 if the tournament is not in DRAFT status (→ {@link
+     * de.vvwt.tm.tournament.exceptions.TournamentNotInDraftException} with messageKey {@code
+     * draft.error.notInDraftStatus}, via GlobalExceptionHandler).
      *
      * @param tournamentId the tournament UUID (from path)
      * @param request the draft configuration to apply (validated via {@link Valid})

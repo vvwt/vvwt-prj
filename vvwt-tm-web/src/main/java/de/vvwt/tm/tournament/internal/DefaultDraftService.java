@@ -47,9 +47,9 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>{@link #preview(DraftConfig, int, int, LocalTime)} — pure computation, no DB side effect;
  *       populates timeline when {@code plannedStartTime} is non-null (E48S12)
  *   <li>{@link #apply(UUID, DraftConfig)} — atomic six-step operation: (a) DRAFT-precondition
- *       check, (b+c) invariant validation, (d) Phase record creation (PENDING, no TeamAvatars),
- *       (e) draft_json persist, (f) DRAFT→PLANNED delegation to
- *       {@link TournamentLifecycleService#markPlanned} — all in one {@code @Transactional} boundary
+ *       check, (b+c) invariant validation, (d) Phase record creation (PENDING, no TeamAvatars), (e)
+ *       draft_json persist, (f) DRAFT→PLANNED delegation to {@link
+ *       TournamentLifecycleService#markPlanned} — all in one {@code @Transactional} boundary
  *       (E48S22, AC-IMPL-APPLY-FOUR-OPS-ATOMIC)
  *   <li>{@link #loadDraft(UUID)} — loads current draft config from Tournament.draftJson (E21S19)
  *   <li>{@link #saveDraft(UUID, DraftConfig)} — persists draft config to Tournament.draftJson
@@ -58,13 +58,13 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <h2>DRAFT-precondition (E48S22, AC-IMPL-PHASES-EXIST-GUARD-REMOVED)</h2>
  *
- * <p>The service <strong>fails-fast</strong> on non-DRAFT tournaments: {@code apply()} acquires
- * the per-tournament row-lock (DEC-37 Clause B first-read), then checks {@code status == "DRAFT"}.
- * If the status is anything else (PLANNED, ACTIVE, COMPLETED, CANCELLED),
- * {@link TournamentNotInDraftException} is thrown (→ 409 Conflict with messageKey
- * {@code draft.error.notInDraftStatus}). The former phases-exist guard
- * (AC-DRAFT-APPLY-IDEMPOTENCY) is subsumed: under the new atomic-apply invariant, phases exist
- * iff status=PLANNED, so the DRAFT-precondition at step (a) is sufficient.
+ * <p>The service <strong>fails-fast</strong> on non-DRAFT tournaments: {@code apply()} acquires the
+ * per-tournament row-lock (DEC-37 Clause B first-read), then checks {@code status == "DRAFT"}. If
+ * the status is anything else (PLANNED, ACTIVE, COMPLETED, CANCELLED), {@link
+ * TournamentNotInDraftException} is thrown (→ 409 Conflict with messageKey {@code
+ * draft.error.notInDraftStatus}). The former phases-exist guard (AC-DRAFT-APPLY-IDEMPOTENCY) is
+ * subsumed: under the new atomic-apply invariant, phases exist iff status=PLANNED, so the
+ * DRAFT-precondition at step (a) is sufficient.
  *
  * <h2>Reconstruction-in-place (DEC-21/DEC-22)</h2>
  *
@@ -186,26 +186,28 @@ public class DefaultDraftService implements DraftService {
     // -------------------------------------------------------------------------
 
     /**
-     * Atomically applies the draft configuration in six steps (E48S22, AC-IMPL-APPLY-FOUR-OPS-ATOMIC).
+     * Atomically applies the draft configuration in six steps (E48S22,
+     * AC-IMPL-APPLY-FOUR-OPS-ATOMIC).
      *
      * <ol>
      *   <li>(a) Acquires per-tournament DB row-lock via {@link
      *       TournamentRepository#findByIdForUpdate(UUID)} as the FIRST read (DEC-37 Clause B).
-     *   <li>(b) DRAFT-precondition check: if {@code tournament.status != "DRAFT"}, throws
-     *       {@link TournamentNotInDraftException} (→ 409 with messageKey
-     *       {@code draft.error.notInDraftStatus}).
-     *   <li>(c) Invariant validation: {@link de.vvwt.tm.tournament.draft.DraftConfig#validateFirstPhaseTeamNumber()}
-     *       + {@link de.vvwt.tm.tournament.draft.DraftConfig#validateLastPhaseSiegerehrung()}.
+     *   <li>(b) DRAFT-precondition check: if {@code tournament.status != "DRAFT"}, throws {@link
+     *       TournamentNotInDraftException} (→ 409 with messageKey {@code
+     *       draft.error.notInDraftStatus}).
+     *   <li>(c) Invariant validation: {@link
+     *       de.vvwt.tm.tournament.draft.DraftConfig#validateFirstPhaseTeamNumber()} + {@link
+     *       de.vvwt.tm.tournament.draft.DraftConfig#validateLastPhaseSiegerehrung()}.
      *   <li>(d) Phase record creation: one Phase per section in PENDING status; PhaseBreak entities
      *       for intra-phase breaks. No TeamAvatars or matches (E48S17
      *       AC-IMPL-APPLY-NO-PHASE-1-TEAMAVATARS).
      *   <li>(e) Persists draft_json: {@code tournament.setDraftJson(serialized config)} +
      *       repository save (makes draft_json available to loadDraft() post-Apply).
-     *   <li>(f) Delegates DRAFT→PLANNED transition to
-     *       {@link TournamentLifecycleService#markPlanned(UUID)} (DEC-35
-     *       AC-GOVERNANCE-DEC-35-AUTHORITY-LOCALITY — NOT an inline setStatus call here).
-     *       {@code markPlanned()} runs under REQUIRED propagation and re-acquires the row-lock on
-     *       the same row — re-entrant under H2 (same TX, no-op acquire per H2 lock semantics).
+     *   <li>(f) Delegates DRAFT→PLANNED transition to {@link
+     *       TournamentLifecycleService#markPlanned(UUID)} (DEC-35
+     *       AC-GOVERNANCE-DEC-35-AUTHORITY-LOCALITY — NOT an inline setStatus call here). {@code
+     *       markPlanned()} runs under REQUIRED propagation and re-acquires the row-lock on the same
+     *       row — re-entrant under H2 (same TX, no-op acquire per H2 lock semantics).
      * </ol>
      *
      * <p>All six steps execute inside a single {@code @Transactional} boundary. Any exception from

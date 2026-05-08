@@ -12,8 +12,8 @@ import java.util.UUID;
  *
  * <p>This exception replaces the now-deleted {@code DraftAlreadyAppliedException} (which guarded
  * against re-apply by checking whether phases existed). Under the new atomic-apply invariant,
- * "phases exist iff status=PLANNED" — so the DRAFT-status precondition check at step (b) of
- * {@code apply()} subsumes and replaces the phases-exist guard at the correct architectural level
+ * "phases exist iff status=PLANNED" — so the DRAFT-status precondition check at step (b) of {@code
+ * apply()} subsumes and replaces the phases-exist guard at the correct architectural level
  * (AC-ERROR-HANDLING-DRAFT-ALREADY-APPLIED-COLLAPSED, AC-IMPL-PHASES-EXIST-GUARD-REMOVED).
  *
  * <p>The {@code messageKey} field is accessible via {@link #getMessageKey()} for downstream

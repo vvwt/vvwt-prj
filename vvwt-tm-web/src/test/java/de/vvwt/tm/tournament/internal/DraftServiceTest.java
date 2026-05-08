@@ -339,8 +339,7 @@ class DraftServiceTest {
 
         // DEC-37 Clause B: first read is findByIdForUpdate (pessimistic lock)
         Tournament draftTournament =
-                new Tournament(
-                        tournamentId, "T", "best-of-1", "r1", "v1", "g1", "DRAFT", null);
+                new Tournament(tournamentId, "T", "best-of-1", "r1", "v1", "g1", "DRAFT", null);
         when(tournamentRepository.findByIdForUpdate(tournamentId)).thenReturn(draftTournament);
         when(tournamentRepository.save(any(Tournament.class))).thenReturn(draftTournament);
         when(lifecycleService.markPlanned(tournamentId)).thenReturn(draftTournament);
@@ -371,8 +370,7 @@ class DraftServiceTest {
         DraftConfig config = new DraftConfig(List.of(simpleSection(1), lastSection(2)));
 
         Tournament draftTournament =
-                new Tournament(
-                        tournamentId, "T", "best-of-1", "r1", "v1", "g1", "DRAFT", null);
+                new Tournament(tournamentId, "T", "best-of-1", "r1", "v1", "g1", "DRAFT", null);
         when(tournamentRepository.findByIdForUpdate(tournamentId)).thenReturn(draftTournament);
         when(tournamentRepository.save(any(Tournament.class))).thenReturn(draftTournament);
         when(lifecycleService.markPlanned(tournamentId)).thenReturn(draftTournament);
@@ -410,8 +408,7 @@ class DraftServiceTest {
         DraftConfig config = new DraftConfig(List.of(sectionWithBreak(1)));
 
         Tournament draftTournament =
-                new Tournament(
-                        tournamentId, "T", "best-of-1", "r1", "v1", "g1", "DRAFT", null);
+                new Tournament(tournamentId, "T", "best-of-1", "r1", "v1", "g1", "DRAFT", null);
         when(tournamentRepository.findByIdForUpdate(tournamentId)).thenReturn(draftTournament);
         when(tournamentRepository.save(any(Tournament.class))).thenReturn(draftTournament);
         when(lifecycleService.markPlanned(tournamentId)).thenReturn(draftTournament);
@@ -450,8 +447,7 @@ class DraftServiceTest {
 
         // Tournament is already PLANNED (post first apply) — DRAFT precondition fails
         Tournament plannedTournament =
-                new Tournament(
-                        tournamentId, "T", "best-of-1", "r1", "v1", "g1", "PLANNED", null);
+                new Tournament(tournamentId, "T", "best-of-1", "r1", "v1", "g1", "PLANNED", null);
         when(tournamentRepository.findByIdForUpdate(tournamentId)).thenReturn(plannedTournament);
 
         assertThatThrownBy(() -> draftService.apply(tournamentId, config))

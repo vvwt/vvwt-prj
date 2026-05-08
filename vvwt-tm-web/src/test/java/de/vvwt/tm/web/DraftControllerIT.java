@@ -788,8 +788,8 @@ class DraftControllerIT {
     // =========================================================================
 
     /**
-     * AC-TEST-APPLY-DRAFT-PRECONDITION-RED (E48S22): applying draft on a non-DRAFT tournament
-     * must return HTTP 409 with messageKey {@code draft.error.notInDraftStatus}.
+     * AC-TEST-APPLY-DRAFT-PRECONDITION-RED (E48S22): applying draft on a non-DRAFT tournament must
+     * return HTTP 409 with messageKey {@code draft.error.notInDraftStatus}.
      *
      * <p>RED-first: current {@code apply()} has no DRAFT-status precondition check — it proceeds
      * regardless of tournament status. This test FAILS before the E48S22 production fix lands.
@@ -800,7 +800,8 @@ class DraftControllerIT {
     @DisplayName(
             "POST /draft/apply on PLANNED tournament returns 409 with notInDraftStatus messageKey"
                     + " (E48S22 AC-TEST-APPLY-DRAFT-PRECONDITION-RED)")
-    void applyDraft_onPlannedTournament_returns409WithNotInDraftStatusMessageKey() throws Exception {
+    void applyDraft_onPlannedTournament_returns409WithNotInDraftStatusMessageKey()
+            throws Exception {
         UUID tournamentId = createDraftTournament("IT apply precondition E48S22");
 
         // Directly flip tournament to PLANNED via repository (test-fixture manipulation)
@@ -834,8 +835,8 @@ class DraftControllerIT {
     // =========================================================================
 
     /**
-     * AC-TEST-APPLY-DRAFT-JSON-PERSISTED-RED (E48S22): after a successful apply(), GET /draft
-     * must return a DraftConfig that is byte-equivalent to the apply request payload.
+     * AC-TEST-APPLY-DRAFT-JSON-PERSISTED-RED (E48S22): after a successful apply(), GET /draft must
+     * return a DraftConfig that is byte-equivalent to the apply request payload.
      *
      * <p>RED-first: current {@code apply()} does NOT persist {@code draft_json} — GET /draft
      * returns empty sections. This test FAILS before the E48S22 production fix lands.
@@ -889,11 +890,11 @@ class DraftControllerIT {
     // =========================================================================
 
     /**
-     * AC-TEST-APPLY-STATUS-FLIPPED-RED (E48S22): after a successful apply(), tournament status
-     * must be PLANNED (verified via direct JDBC — not via service).
+     * AC-TEST-APPLY-STATUS-FLIPPED-RED (E48S22): after a successful apply(), tournament status must
+     * be PLANNED (verified via direct JDBC — not via service).
      *
-     * <p>RED-first: current {@code apply()} does NOT transition status — DRAFT remains.
-     * This test FAILS before the E48S22 production fix lands.
+     * <p>RED-first: current {@code apply()} does NOT transition status — DRAFT remains. This test
+     * FAILS before the E48S22 production fix lands.
      */
     @Test
     @DisplayName(
@@ -943,14 +944,15 @@ class DraftControllerIT {
      * apply() is covered by the JDBC status-verification in the previous test.
      *
      * <p>RED-first: current {@code apply()} has no DRAFT-status precondition — a re-apply would
-     * attempt to create phases on a PLANNED tournament and might fail with DraftAlreadyAppliedException
-     * or succeed with duplicate phases. After E48S22 fix, the DRAFT-precondition check stops the
-     * second apply() at step (b) cleanly, and the phase count remains exactly as left by apply() #1.
+     * attempt to create phases on a PLANNED tournament and might fail with
+     * DraftAlreadyAppliedException or succeed with duplicate phases. After E48S22 fix, the
+     * DRAFT-precondition check stops the second apply() at step (b) cleanly, and the phase count
+     * remains exactly as left by apply() #1.
      */
     @Test
     @DisplayName(
-            "re-apply on PLANNED tournament returns 409 — no new phases created (atomicity boundary)"
-                    + " (E48S22 AC-TEST-APPLY-ATOMICITY-ROLLBACK-RED)")
+            "re-apply on PLANNED tournament returns 409 — no new phases created (atomicity"
+                    + " boundary) (E48S22 AC-TEST-APPLY-ATOMICITY-ROLLBACK-RED)")
     void applyDraft_reApplyOnPlanned_returns409AndNoNewPhasesCreated() throws Exception {
         UUID tournamentId = createDraftTournament("IT apply atomicity E48S22");
 
@@ -998,12 +1000,12 @@ class DraftControllerIT {
     // =========================================================================
 
     /**
-     * AC-TEST-SAVEDRAFT-MULTI-CALL-DRAFT-GREEN (E48S22): regression test confirming that
-     * {@code saveDraft()} can be called N times in succession on a DRAFT tournament. All three calls
-     * must succeed (200 OK) and the final GET /draft must return the third payload.
+     * AC-TEST-SAVEDRAFT-MULTI-CALL-DRAFT-GREEN (E48S22): regression test confirming that {@code
+     * saveDraft()} can be called N times in succession on a DRAFT tournament. All three calls must
+     * succeed (200 OK) and the final GET /draft must return the third payload.
      *
-     * <p>GREEN test (confirmatory regression): current code already supports multi-call save
-     * (no first-time-only limit). Must pass on current code AND post-fix.
+     * <p>GREEN test (confirmatory regression): current code already supports multi-call save (no
+     * first-time-only limit). Must pass on current code AND post-fix.
      */
     @Test
     @DisplayName(
@@ -1013,9 +1015,12 @@ class DraftControllerIT {
         UUID tournamentId = createDraftTournament("IT saveDraft multi-call E48S22");
 
         // Three different payloads — each with a distinct lapTimeMinutes to distinguish them
-        var section1st = new DraftSectionRequest(1, "team_number", 1, "siegerehrung", 0, 0, 10, 1, null);
-        var section2nd = new DraftSectionRequest(1, "team_number", 1, "siegerehrung", 0, 0, 20, 1, null);
-        var section3rd = new DraftSectionRequest(1, "team_number", 1, "siegerehrung", 0, 0, 30, 1, null);
+        var section1st =
+                new DraftSectionRequest(1, "team_number", 1, "siegerehrung", 0, 0, 10, 1, null);
+        var section2nd =
+                new DraftSectionRequest(1, "team_number", 1, "siegerehrung", 0, 0, 20, 1, null);
+        var section3rd =
+                new DraftSectionRequest(1, "team_number", 1, "siegerehrung", 0, 0, 30, 1, null);
 
         ResponseEntity<DraftResponse> r1 =
                 authed.exchange(
