@@ -160,23 +160,37 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
     }
 
     @AfterEach
-    void tearDown() {
-        // E51S08 RED state: waitForPipelineQuiescent(tournamentId) NOT yet called here.
-        // This tearDown is still race-prone: async MatchGenJobListener may insert match rows
-        // after tearDown deletes phase rows → FK_MATCH_PHASE DataIntegrityViolationException.
-        // The GREEN commit (immediately following this one) adds the quiescence call.
-        //
-        // Delete match rows before phase (FK ON DELETE RESTRICT: match → phase).
-        // Async MatchGenJobListener may have inserted match rows after apply() returned.
-        jdbcTemplate.update(
-                "DELETE FROM match WHERE phase_id IN"
-                        + " (SELECT id FROM phase WHERE tournament_id = ?)",
-                tournamentId);
-        jdbcTemplate.update("DELETE FROM team_avatar WHERE tournament_id = ?", tournamentId);
-        jdbcTemplate.update("DELETE FROM phase WHERE tournament_id = ?", tournamentId);
-        jdbcTemplate.update("DELETE FROM team WHERE tournament_id = ?", tournamentId);
-        jdbcTemplate.update("DELETE FROM tournament WHERE id = ?", tournamentId);
-        jdbcTemplate.update("DELETE FROM locations WHERE id = ?", locationId);
+    void tearDown() throws InterruptedException {
+        // Wait for async background pipeline (MatchGenJobListener, SlotOptInvocationListener) to
+        // quiesce before deleting. Async REQUIRES_NEW transactions may still write to phase/match
+        // after tearDown's DELETE — causing FK violations on subsequent deletes (E51S08 fix for
+        // FK_MATCH_PHASE race: symmetric port of the quiescence barrier from
+        // DefaultDraftServiceApplyAvatarsIT.tearDown, which had it since e25b917 / E51S04).
+        waitForPipelineQuiescent(tournamentId);
+
+        // H2 FK-safe deletion with referential-integrity checks temporarily disabled.
+        // This avoids residual FK violations from async transactions that committed a phase row
+        // after tearDown deleted the same tournament's phases (race window between quiesce-check
+        // and delete). SET REFERENTIAL_INTEGRITY FALSE is H2-specific and safe here: the in-memory
+        // test DB is torn down at the end of the test suite anyway.
+        jdbcTemplate.execute("SET REFERENTIAL_INTEGRITY FALSE");
+        try {
+            jdbcTemplate.update(
+                    "DELETE FROM match WHERE phase_id IN"
+                            + " (SELECT id FROM phase WHERE tournament_id = ?)",
+                    tournamentId);
+            jdbcTemplate.update("DELETE FROM team_avatar WHERE tournament_id = ?", tournamentId);
+            jdbcTemplate.update(
+                    "DELETE FROM phase_breaks WHERE phase_id IN"
+                            + " (SELECT id FROM phase WHERE tournament_id = ?)",
+                    tournamentId);
+            jdbcTemplate.update("DELETE FROM phase WHERE tournament_id = ?", tournamentId);
+            jdbcTemplate.update("DELETE FROM team WHERE tournament_id = ?", tournamentId);
+            jdbcTemplate.update("DELETE FROM tournament WHERE id = ?", tournamentId);
+            jdbcTemplate.update("DELETE FROM locations WHERE id = ?", locationId);
+        } finally {
+            jdbcTemplate.execute("SET REFERENTIAL_INTEGRITY TRUE");
+        }
         tenantBinder.unbind();
     }
 
