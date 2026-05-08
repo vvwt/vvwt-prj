@@ -208,9 +208,17 @@
   // ---------------------------------------------------------------------------
 
   /**
-   * Activates the polling fallback when WebSocket reconnects are exhausted (AC9).
+   * Activates the polling fallback (AC9, E50S01).
+   *
+   * Used in two scenarios:
+   *   1. WebSocket reconnects exhausted (AC9, E07S06) — fallback after WS failure.
+   *   2. Initial load returned noPhase (E50S01 fix) — poll until a tournament/phase
+   *      becomes active, then stop polling and connect WebSocket for live updates.
+   *
    * Polls all three REST endpoints at {@link POLLING_INTERVAL_MS} interval.
-   * If a poll returns 401, redirects to /display/register.
+   * On success: stops polling and connects WebSocket (if tenantId is available).
+   * If a poll returns 401: redirects to /display/register.
+   * If a poll returns 404 (noPhase): keeps polling (AC-ERROR-HANDLING-RECOVERY-FAILURE).
    */
   function activatePollingFallback(): void {
     if (pollingIntervalId !== null) return; // already polling
@@ -223,10 +231,21 @@
           fetchMatches(activeToken),
           fetchGroupStandings(activeToken),
         ]);
+        // SUCCESS: tournament/phase is now active — exit noPhase state
         phaseData = overview;
         matchesData = matches;
         standingsData = groups;
         errorType = null;
+        // Stop the recovery polling now that data is loaded
+        stopPolling();
+        // Connect WebSocket for real-time updates going forward (E50S01 AC-IMPL-DISPLAY-REACTIVITY-FROM-NOPHASE)
+        wsConnect(
+          activeToken,
+          overview.tenantId,
+          handleWsEvent,
+          (status) => { connectionStatus = status; },
+          activatePollingFallback
+        );
       } catch (err) {
         if (err instanceof UnauthorizedError) {
           stopPolling();
@@ -236,6 +255,7 @@
         else if (err instanceof NoActivePhaseError) {
           errorType = 'noPhase';
         }
+        // Other errors (5xx, network): keep polling, display stays in current state
       }
     }, POLLING_INTERVAL_MS);
   }
@@ -300,6 +320,12 @@
           (status) => { connectionStatus = status; },
           activatePollingFallback
         );
+      } else if (errorType === 'noPhase') {
+        // E50S01 fix: no active tournament/phase — start polling immediately so the
+        // display reacts automatically when the operator activates a tournament or phase.
+        // activatePollingFallback() will stop polling and connect WebSocket on recovery.
+        // (AC-IMPL-DISPLAY-REACTIVITY-FROM-NOPHASE, AC-IMPL-LATENCY-BUDGET ≤ 10 s)
+        activatePollingFallback();
       }
     });
   });
