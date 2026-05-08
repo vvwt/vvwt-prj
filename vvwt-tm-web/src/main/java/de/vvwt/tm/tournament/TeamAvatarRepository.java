@@ -62,6 +62,12 @@ public class TeamAvatarRepository {
 
     private static final String EXISTS_BY_ID = "SELECT COUNT(*) FROM team_avatar WHERE id=?";
 
+    private static final String SELECT_BY_PHASE_AND_STRUCTURAL_KEY =
+            "SELECT * FROM team_avatar"
+                    + " WHERE phase_id=? AND group_number=? AND group_position=?";
+
+    private static final String UPDATE_TEAM_ID = "UPDATE team_avatar SET team_id=? WHERE id=?";
+
     public TeamAvatarRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
     }
@@ -142,6 +148,47 @@ public class TeamAvatarRepository {
      */
     public void deleteById(UUID id) {
         jdbc.update(DELETE_BY_ID, id);
+    }
+
+    /**
+     * Finds the TeamAvatar for a given phase slot by structural identity (DEC-9).
+     *
+     * <p>Used by E51S06 {@code commitTransition} to locate the pre-existing structural placeholder
+     * avatar (persisted by E51S02 at DraftConfig-Apply) so its {@code teamId} can be updated
+     * (UPDATE not INSERT).
+     *
+     * @param phaseId the phase UUID
+     * @param groupNumber the group number within the phase (1-based)
+     * @param groupPosition the position within the group (1-based)
+     * @return Optional.of(avatar) if found; Optional.empty() if no avatar exists for the slot
+     * @see <a href="DEC-9">DEC-9 — structural identity (phaseId, groupNumber, groupPosition)</a>
+     * @see <a href="E51S06">E51S06 — AC-IMPL-COMMIT-TRANSITION-UPDATE-NOT-INSERT</a>
+     */
+    public Optional<TeamAvatar> findByPhaseIdAndGroupNumberAndGroupPosition(
+            UUID phaseId, int groupNumber, int groupPosition) {
+        List<TeamAvatar> results =
+                jdbc.query(
+                        SELECT_BY_PHASE_AND_STRUCTURAL_KEY,
+                        ROW_MAPPER,
+                        phaseId,
+                        groupNumber,
+                        groupPosition);
+        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+    }
+
+    /**
+     * Updates the {@code teamId} of the TeamAvatar with the given id.
+     *
+     * <p>Used by E51S06 {@code commitTransition} to persist the operator-confirmed team assignment
+     * without creating new avatar rows — DEC-9 identity (phaseId, groupNumber, groupPosition)
+     * remains stable; only the booking (teamId) changes.
+     *
+     * @param avatar the avatar whose {@code teamId} and {@code id} are used for the UPDATE
+     * @see <a href="DEC-9">DEC-9 — structural identity preserved across teamId UPDATE</a>
+     * @see <a href="E51S06">E51S06 — AC-IMPL-COMMIT-TRANSITION-UPDATE-NOT-INSERT</a>
+     */
+    public void updateTeamId(TeamAvatar avatar) {
+        jdbc.update(UPDATE_TEAM_ID, avatar.getTeamId(), avatar.getId());
     }
 
     // -------------------------------------------------------------------------

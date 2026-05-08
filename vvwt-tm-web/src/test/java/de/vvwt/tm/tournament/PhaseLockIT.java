@@ -34,7 +34,7 @@ import org.springframework.test.context.ActiveProfiles;
  * <h2>Test scenario (CascadeLockIT-Pattern)</h2>
  *
  * <ol>
- *   <li>One PREPARED phase (E48S17: start() now requires PREPARED) is set up for an ACTIVE
+ *   <li>One ASSIGNED phase (E51S06: start() now requires ASSIGNED) is set up for an ACTIVE
  *       tournament.
  *   <li>Two threads simultaneously call {@code start(phaseId)}.
  *   <li>Exactly ONE must succeed (phase status = ACTIVE); the other MUST throw {@link
@@ -117,7 +117,7 @@ class PhaseLockIT {
                 2,
                 4);
 
-        // PREPARED phase — ready to start (E48S17: start() now requires PREPARED, not PENDING)
+        // ASSIGNED phase — ready to start (E51S06: start() now requires ASSIGNED, not PREPARED)
         phaseId = UUID.randomUUID();
         jdbcTemplate.update(
                 "INSERT INTO phase (id, tournament_id, sequence_number, description, status,"
@@ -126,7 +126,7 @@ class PhaseLockIT {
                 tournamentId,
                 1,
                 "Vorrunde",
-                "PREPARED",
+                "ASSIGNED",
                 0);
 
         tenantBinder.unbind();
@@ -144,7 +144,7 @@ class PhaseLockIT {
     /**
      * AC-TEST-DEC-37-LOCK-PHASE-RED — DEC-37 Clause B verification.
      *
-     * <p>Two threads race to start the same PREPARED phase (E48S17: start() now requires PREPARED).
+     * <p>Two threads race to start the same ASSIGNED phase (E51S06: start() now requires ASSIGNED).
      * The per-tournament DB row-lock serialises them: exactly ONE succeeds, the other sees status
      * ACTIVE on its own read → {@link ConflictException}.
      */

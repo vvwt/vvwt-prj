@@ -13,7 +13,6 @@ import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseLifecycleService;
 import de.vvwt.tm.tournament.PhaseRepository;
-import de.vvwt.tm.tournament.PhaseTransitionService;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.events.PhaseStatusChangedEvent;
@@ -52,8 +51,6 @@ import org.springframework.context.ApplicationEventPublisher;
  * @see <a href="DEC-37">DEC-37 Clause B — per-tournament pessimistic DB row-lock</a>
  * @see <a href="E48S17">E48S17 — PREPARED enum + prepare() + start() refactor</a>
  */
-@SuppressWarnings(
-        "deprecation") // Tests the deprecated prepare(UUID) path intentionally (E48S17 regression)
 @ExtendWith(MockitoExtension.class)
 @DisplayName("DefaultPhaseLifecycleService prepare() + start() refactor — E48S17 RED-first")
 class PhaseLifecyclePrepareServiceTest {
@@ -63,9 +60,6 @@ class PhaseLifecyclePrepareServiceTest {
     @Mock private MatchRepository matchRepository;
     @Mock private MatchLockdownService matchLockdownService;
     @Mock private ApplicationEventPublisher eventPublisher;
-    // E48S21: phaseTransitionService not exercised by the deprecated prepare(UUID) path.
-    // Mock is injected to satisfy the updated constructor; prepare(phaseId) does NOT call it.
-    @Mock private PhaseTransitionService phaseTransitionService;
 
     private DefaultPhaseLifecycleService service;
 
@@ -81,8 +75,7 @@ class PhaseLifecyclePrepareServiceTest {
                         phaseRepository,
                         matchRepository,
                         matchLockdownService,
-                        eventPublisher,
-                        phaseTransitionService);
+                        eventPublisher);
 
         tournamentId = UUID.randomUUID();
         phaseId = UUID.randomUUID();
@@ -241,16 +234,16 @@ class PhaseLifecyclePrepareServiceTest {
     }
 
     @Test
-    @DisplayName("start() — PREPARED phase (seq=1, no predecessor) transitions to ACTIVE")
+    @DisplayName("start() — ASSIGNED phase (seq=1, no predecessor) transitions to ACTIVE (E51S06)")
     void start_preparedPhaseNoPredecessor_transitionsToActive() {
-        Phase phase = preparedPhase(); // sequenceNumber = 1 → no predecessor check executed
+        Phase phase = assignedPhase(); // sequenceNumber = 1, ASSIGNED (E51S06)
         when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
         when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         Phase result = service.start(phaseId);
 
         assertThat(result.getStatus())
-                .as("start() on PREPARED phase with no predecessor must set status to ACTIVE")
+                .as("start() on ASSIGNED phase with no predecessor must set status to ACTIVE")
                 .isEqualTo("ACTIVE");
     }
 
@@ -264,7 +257,7 @@ class PhaseLifecyclePrepareServiceTest {
                     + " (AC-TEST-PHASE-START-PREDECESSOR-COMPLETED-RED)")
     void start_predecessorActive_throwsConflictExceptionWithMessage() {
         UUID predecessorPhaseId = UUID.randomUUID();
-        Phase phase = preparedPhaseWithSeq(2); // sequenceNumber = 2
+        Phase phase = assignedPhaseWithSeq(2); // E51S06: ASSIGNED required for start()
         Phase predecessor = new Phase();
         predecessor.setId(predecessorPhaseId);
         predecessor.setTournamentId(tournamentId);
@@ -289,7 +282,7 @@ class PhaseLifecyclePrepareServiceTest {
                     + " (AC-TEST-PHASE-START-PREDECESSOR-COMPLETED-RED)")
     void start_predecessorPending_throwsConflictException() {
         UUID predecessorPhaseId = UUID.randomUUID();
-        Phase phase = preparedPhaseWithSeq(2);
+        Phase phase = assignedPhaseWithSeq(2); // E51S06: ASSIGNED required for start()
         Phase predecessor = new Phase();
         predecessor.setId(predecessorPhaseId);
         predecessor.setTournamentId(tournamentId);
@@ -311,7 +304,7 @@ class PhaseLifecyclePrepareServiceTest {
                     + " (AC-TEST-PHASE-START-FIRST-PHASE-NO-PREDECESSOR-GREEN)")
     void start_predecessorCompleted_transitionsToActive() {
         UUID predecessorPhaseId = UUID.randomUUID();
-        Phase phase = preparedPhaseWithSeq(2);
+        Phase phase = assignedPhaseWithSeq(2); // E51S06: ASSIGNED required for start()
         Phase predecessor = new Phase();
         predecessor.setId(predecessorPhaseId);
         predecessor.setTournamentId(tournamentId);
@@ -336,10 +329,10 @@ class PhaseLifecyclePrepareServiceTest {
 
     @Test
     @DisplayName(
-            "start() — seq=1 PREPARED phase with no predecessor succeeds"
+            "start() — seq=1 ASSIGNED phase with no predecessor succeeds (E51S06)"
                     + " (AC-TEST-PHASE-START-FIRST-PHASE-NO-PREDECESSOR-GREEN)")
     void start_preparedFirstPhase_noAncestor_transitionsToActive() {
-        Phase phase = preparedPhase(); // sequenceNumber = 1 → no predecessor check executed
+        Phase phase = assignedPhase(); // E51S06: ASSIGNED required for start()
         when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
         when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -404,6 +397,28 @@ class PhaseLifecyclePrepareServiceTest {
         p.setSequenceNumber(1);
         p.setDescription("Vorrunde");
         p.setCurrentLapNumber(3);
+        return p;
+    }
+
+    private Phase assignedPhase() {
+        Phase p = new Phase();
+        p.setId(phaseId);
+        p.setTournamentId(tournamentId);
+        p.setStatus("ASSIGNED"); // E51S06: start() requires ASSIGNED
+        p.setSequenceNumber(1);
+        p.setDescription("Vorrunde");
+        p.setCurrentLapNumber(0);
+        return p;
+    }
+
+    private Phase assignedPhaseWithSeq(int seq) {
+        Phase p = new Phase();
+        p.setId(phaseId);
+        p.setTournamentId(tournamentId);
+        p.setStatus("ASSIGNED"); // E51S06: start() requires ASSIGNED
+        p.setSequenceNumber(seq);
+        p.setDescription("Phase " + seq);
+        p.setCurrentLapNumber(0);
         return p;
     }
 }

@@ -6,13 +6,10 @@ import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.Phase.PhaseStatus;
 import de.vvwt.tm.tournament.PhaseLifecycleService;
 import de.vvwt.tm.tournament.PhaseRepository;
-import de.vvwt.tm.tournament.PhaseTransitionService;
-import de.vvwt.tm.tournament.TeamAvatarProposal;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.events.PhaseStatusChangedEvent;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -36,17 +33,15 @@ import org.springframework.transaction.annotation.Transactional;
  * (DEC-55 D-4). The {@code ASSIGNED → ACTIVE "start"} transition additionally enforces the
  * activation-guard {@code !tournament.optimize OR phase.optimized} (DEC-55 D-6).
  *
- * <p>{@link #prepare(UUID, List)} transitions PENDING → PREPARED (E48S21 fix) — delegates avatar
- * persistence + match generation to {@link PhaseTransitionService#commitTransition(UUID, List)}
- * before flipping status. The DEC-37 row-lock is re-entrant: H2 + PostgreSQL treat SELECT FOR
- * UPDATE on an already-held row as a no-op within the same transaction (semantically correct).
+ * <p>{@link #prepare(UUID)} transitions PENDING → PREPARED (E48S17 / E51S06 rollback of E48S21).
+ * Pure status flip only — avatar persistence (E51S02) and match generation (E51S03) are separate
+ * pipeline steps. The E48S21 {@code prepare(UUID, List)} delegate to commitTransition has been
+ * rolled back per DEC-55 D-10.
  *
- * <p>{@link #prepare(UUID)} (zero-arg, deprecated) retains the E48S17 behaviour for callers that
- * cannot supply a slot payload; it does NOT call commitTransition — matches are not generated.
- *
- * <p>{@link #start(UUID)} requires {@code PREPARED} status (E48S17 refactor from {@code PENDING}).
- * Additionally checks predecessor completion: if sequenceNumber &gt; 1, the predecessor phase
- * (sequenceNumber - 1) must be {@code COMPLETED}.
+ * <p>{@link #start(UUID)} requires {@code ASSIGNED} status (E51S06 refactor from E48S17's PREPARED)
+ * because {@code commitTransition} now sets ASSIGNED (not PREPARED). Additionally checks
+ * predecessor completion: if sequenceNumber &gt; 1, the predecessor phase (sequenceNumber - 1) must
+ * be {@code COMPLETED}.
  *
  * <p>{@link #complete(UUID)} verifies that all matches are in terminal states before allowing the
  * ACTIVE → COMPLETED transition (AC-TEST-PHASE-COMPLETE-ALL-FINISHED-RED).
@@ -125,21 +120,18 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
     private final MatchRepository matchRepository;
     private final MatchLockdownService matchLockdownService;
     private final ApplicationEventPublisher eventPublisher;
-    private final PhaseTransitionService phaseTransitionService;
 
     public DefaultPhaseLifecycleService(
             TournamentRepository tournamentRepository,
             PhaseRepository phaseRepository,
             MatchRepository matchRepository,
             MatchLockdownService matchLockdownService,
-            ApplicationEventPublisher eventPublisher,
-            PhaseTransitionService phaseTransitionService) {
+            ApplicationEventPublisher eventPublisher) {
         this.tournamentRepository = tournamentRepository;
         this.phaseRepository = phaseRepository;
         this.matchRepository = matchRepository;
         this.matchLockdownService = matchLockdownService;
         this.eventPublisher = eventPublisher;
-        this.phaseTransitionService = phaseTransitionService;
     }
 
     // =========================================================================
@@ -254,15 +246,16 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
      *
      * <p>Lock is acquired via {@link TournamentRepository#findByIdForUpdate(UUID)} as the first
      * read (DEC-37 Clause B). If the phase is already {@code PREPARED}, returns idempotently
-     * without publishing an event. If status is any other state (ACTIVE, COMPLETED), throws {@link
-     * ConflictException} — mapped to HTTP 409 by {@code GlobalExceptionHandler}.
+     * without publishing an event. If status is any other state (ACTIVE, COMPLETED, ASSIGNED),
+     * throws {@link ConflictException} — mapped to HTTP 409 by {@code GlobalExceptionHandler}.
      *
-     * <p>AC-IMPL-PHASE-LIFECYCLE-PREPARE (E48S17). Does NOT generate matches.
+     * <p>E51S06 rollback of E48S21: pure status flip only. Avatar persistence and match generation
+     * are handled by separate pipeline steps (E51S02 + E51S03). This method does NOT call {@code
+     * commitTransition}.
      *
-     * @deprecated Use {@link #prepare(UUID, List)} to supply the slot payload for match generation.
+     * <p>AC-IMPL-PHASE-LIFECYCLE-PREPARE (E48S17 / E51S06).
      */
     @Override
-    @Deprecated
     @Transactional
     public Phase prepare(UUID phaseId) {
         // Initial phase read to get the tournamentId (needed for the lock)
@@ -306,99 +299,19 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
     /**
      * {@inheritDoc}
      *
-     * <p>E48S21 fix: delegates avatar persistence + match generation to {@link
-     * PhaseTransitionService#commitTransition(UUID, List)} before flipping status to PREPARED.
-     *
      * <p>Lock is acquired via {@link TournamentRepository#findByIdForUpdate(UUID)} as the first
-     * read (DEC-37 Clause B). The re-entrant lock inside {@code commitTransition} is a no-op in H2
-     * and PostgreSQL within the same transaction — semantically correct.
-     *
-     * <p>If {@code slots} is null or empty, throws {@link IllegalArgumentException} — mapped to
-     * HTTP 400 by {@code GlobalExceptionHandler} (AC-ERROR-HANDLING-EMPTY-SLOTS-PAYLOAD).
-     *
-     * <p>If {@code commitTransition} throws (e.g., DB error, match-gen failure), the entire
-     * transaction rolls back — no partial persistence (AC-ERROR-HANDLING-NO-PARTIAL-PERSISTENCE).
-     *
-     * <p>AC-IMPL-PREPARE-FLOW-PRODUCES-MATCHES (E48S21).
-     */
-    @Override
-    @Transactional
-    public Phase prepare(UUID phaseId, List<TeamAvatarProposal> slots) {
-        // AC-ERROR-HANDLING-EMPTY-SLOTS-PAYLOAD: reject empty payload before acquiring lock
-        if (slots == null || slots.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "slots must not be null or empty — provide at least one"
-                            + " TeamAvatarProposal (AC-ERROR-HANDLING-EMPTY-SLOTS-PAYLOAD,"
-                            + " phaseId="
-                            + phaseId
-                            + ")");
-        }
-
-        // Initial phase read to get the tournamentId (needed for the lock)
-        Phase phase = requirePhase(phaseId);
-
-        // DEC-37 Clause B: acquire per-tournament row-lock BEFORE reading mutable state.
-        tournamentRepository.findByIdForUpdate(phase.getTournamentId());
-        phase = requirePhase(phaseId); // fresh read under the lock
-
-        // AC-TEST-PREPARE-IDEMPOTENT-ON-PREPARED-GREEN (AC6): already PREPARED → no-op
-        if ("PREPARED".equals(phase.getStatus())) {
-            log.debug(
-                    "[E48S21] Phase {} already PREPARED — idempotent return (no commitTransition)",
-                    phaseId);
-            return phase;
-        }
-
-        // AC-ERROR-HANDLING-WRONG-PHASE-STATUS: only PENDING is valid for prepare-with-slots
-        if (!"PENDING".equals(phase.getStatus())) {
-            throw new ConflictException(
-                    "Cannot prepare phase: current status is "
-                            + phase.getStatus()
-                            + " (expected PENDING or PREPARED). Phase id="
-                            + phaseId);
-        }
-
-        // E48S21 fix: delegate avatar persistence + match generation before status flip.
-        // commitTransition acquires its own DEC-37 lock internally; within the same transaction
-        // that lock call is a no-op (re-entrant — H2 + PostgreSQL semantics).
-        // If this throws, @Transactional rolls back the entire boundary → no partial persistence.
-        phaseTransitionService.commitTransition(phaseId, slots);
-
-        log.debug(
-                "[E48S21] Phase {} commitTransition complete — {} avatars persisted, matches"
-                        + " generated",
-                phaseId,
-                slots.size());
-
-        String previous = phase.getStatus();
-        phase.setStatus("PREPARED");
-        Phase saved = phaseRepository.save(phase);
-
-        eventPublisher.publishEvent(
-                new PhaseStatusChangedEvent(
-                        this,
-                        null, // tenantId — resolved by DomainEventBridge via TenantContext
-                        phase.getTournamentId(),
-                        phaseId,
-                        previous,
-                        "PREPARED"));
-
-        log.debug("[E48S21] Phase {} transitioned {} → PREPARED (with matches)", phaseId, previous);
-        return saved;
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * <p>Lock is acquired via {@link TournamentRepository#findByIdForUpdate(UUID)} as the first
-     * read (DEC-37 Clause B). If the current status is not {@code PREPARED}, throws {@link
+     * read (DEC-37 Clause B). If the current status is not {@code ASSIGNED}, throws {@link
      * ConflictException} — mapped to HTTP 409 by {@code GlobalExceptionHandler}.
      *
      * <p>Predecessor check (E48S17): if sequenceNumber &gt; 1, the predecessor phase
      * (sequenceNumber - 1) must be {@code COMPLETED}. HTTP 409 with operator-actionable message if
      * not.
      *
-     * <p>AC-IMPL-PHASE-LIFECYCLE-START-REFACTOR (E48S17).
+     * <p>E51S06 refactor: {@code start()} now requires {@code ASSIGNED} status (not PREPARED).
+     * After E51S06, {@code commitTransition} flips the phase to ASSIGNED (via the PREPARED→ASSIGNED
+     * "assign" verb transition). This replaces the E48S17 PREPARED check.
+     *
+     * <p>AC-IMPL-PHASE-LIFECYCLE-START-REFACTOR (E48S17 / E51S06).
      */
     @Override
     @Transactional
@@ -412,12 +325,12 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
         tournamentRepository.findByIdForUpdate(phase.getTournamentId());
         phase = requirePhase(phaseId); // fresh read under the lock
 
-        // E48S17: start() now requires PREPARED (not PENDING)
-        if (!"PREPARED".equals(phase.getStatus())) {
+        // E51S06: start() now requires ASSIGNED (commitTransition flips PREPARED → ASSIGNED)
+        if (!"ASSIGNED".equals(phase.getStatus())) {
             throw new ConflictException(
                     "Cannot start phase: current status is "
                             + phase.getStatus()
-                            + " (expected PREPARED). Use prepare() first. Phase id="
+                            + " (expected ASSIGNED). Use commitTransition first. Phase id="
                             + phaseId);
         }
 

@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.tournament.Phase;
+import de.vvwt.tm.tournament.PhaseLifecycleService;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.PhaseTransitionService;
 import de.vvwt.tm.tournament.Team;
@@ -17,6 +18,7 @@ import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.internal.referee.RefereeAssigner;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -58,8 +60,9 @@ class PhaseTransitionServiceTest {
     @Mock private PhaseRepository phaseRepository;
     @Mock private TeamAvatarRepository teamAvatarRepository;
     @Mock private TeamAvatarRatingRepository teamAvatarRatingRepository;
-    @Mock private PhasePreparationService phasePreparationService;
     @Mock private TeamRepository teamRepository;
+    @Mock private RefereeAssigner refereeAssigner;
+    @Mock private PhaseLifecycleService phaseLifecycleService;
 
     private DefaultPhaseTransitionService service;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -76,9 +79,10 @@ class PhaseTransitionServiceTest {
                         phaseRepository,
                         teamAvatarRepository,
                         teamAvatarRatingRepository,
-                        phasePreparationService,
                         objectMapper,
-                        teamRepository);
+                        teamRepository,
+                        refereeAssigner,
+                        phaseLifecycleService);
     }
 
     // -------------------------------------------------------------------------

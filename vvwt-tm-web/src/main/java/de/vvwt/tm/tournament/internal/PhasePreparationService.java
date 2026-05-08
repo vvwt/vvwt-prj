@@ -8,8 +8,6 @@ import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
-import de.vvwt.tm.tournament.internal.referee.RefereeAssigner;
-import de.vvwt.tm.tournament.internal.referee.RefereeAssignmentReport;
 import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -75,7 +73,6 @@ public class PhasePreparationService {
     private final MatchRepository matchRepository;
     private final TeamAvatarRepository teamAvatarRepository;
     private final MatchGeneratorRegistry matchGeneratorRegistry;
-    private final RefereeAssigner refereeAssigner;
 
     /**
      * Constructs the service.
@@ -87,20 +84,22 @@ public class PhasePreparationService {
      *   <li>{@code matchRepository} — E21S04/E21S05 (Match aggregate + SetResult)
      *   <li>{@code teamAvatarRepository} — E21S04 (TeamAvatar aggregate)
      *   <li>{@code matchGeneratorRegistry} — E21S08 (this story, MatchGenerator SPI)
-     *   <li>{@code refereeAssigner} — E21S08 (this story, referee subsystem)
      * </ul>
+     *
+     * <p>E51S06: {@code refereeAssigner} removed from this constructor — referee assignment is now
+     * part of {@code commitTransition} in {@link
+     * de.vvwt.tm.tournament.internal.DefaultPhaseTransitionService} (DEC-55 D-10). {@link
+     * #generateMatches} remains for the E51S03 match-gen background job.
      */
     public PhasePreparationService(
             PhaseRepository phaseRepository,
             MatchRepository matchRepository,
             TeamAvatarRepository teamAvatarRepository,
-            MatchGeneratorRegistry matchGeneratorRegistry,
-            RefereeAssigner refereeAssigner) {
+            MatchGeneratorRegistry matchGeneratorRegistry) {
         this.phaseRepository = phaseRepository;
         this.matchRepository = matchRepository;
         this.teamAvatarRepository = teamAvatarRepository;
         this.matchGeneratorRegistry = matchGeneratorRegistry;
-        this.refereeAssigner = refereeAssigner;
     }
 
     /**
@@ -157,71 +156,5 @@ public class PhasePreparationService {
                 generatorKey,
                 avatars.size(),
                 generatedMatches.size());
-    }
-
-    /**
-     * Prepares a phase by generating matches and assigning referees.
-     *
-     * <p>Idempotent: existing matches are deleted before new ones are generated.
-     *
-     * @param phaseId the phase to prepare; must not be {@code null}
-     * @param generatorKey the key to look up in {@link MatchGeneratorRegistry}; must not be {@code
-     *     null}
-     * @return a referee assignment report; never {@code null}
-     * @throws IllegalArgumentException if {@code phaseId} or {@code generatorKey} is null, or if
-     *     the phase does not exist
-     */
-    @Transactional
-    public RefereeAssignmentReport preparePhase(UUID phaseId, String generatorKey) {
-        if (phaseId == null) {
-            throw new IllegalArgumentException("phaseId must not be null");
-        }
-        if (generatorKey == null) {
-            throw new IllegalArgumentException("generatorKey must not be null");
-        }
-
-        Phase phase =
-                phaseRepository
-                        .findById(phaseId)
-                        .orElseThrow(
-                                () -> new IllegalArgumentException("Phase not found: " + phaseId));
-
-        // Idempotent delete: clear any existing matches before re-generation
-        List<Match> existing = matchRepository.findByPhaseId(phaseId);
-        if (!existing.isEmpty()) {
-            matchRepository.deleteByPhaseId(phaseId);
-            LOG.info(
-                    "preparePhase: phase={} — deleted {} existing matches before re-generation",
-                    phaseId,
-                    existing.size());
-        }
-
-        List<TeamAvatar> avatars =
-                teamAvatarRepository.findByTournamentIdAndPhaseId(phase.getTournamentId(), phaseId);
-
-        MatchGenerator generator = matchGeneratorRegistry.get(generatorKey);
-        List<Match> generatedMatches = generator.generate(phase, avatars);
-
-        for (Match match : generatedMatches) {
-            matchRepository.save(match);
-        }
-
-        LOG.info(
-                "preparePhase: phase={}, generator={}, avatars={}, generated {} matches",
-                phaseId,
-                generatorKey,
-                avatars.size(),
-                generatedMatches.size());
-
-        RefereeAssignmentReport report = refereeAssigner.assignReferees(phaseId);
-
-        LOG.info(
-                "preparePhase: phase={} — assigned={}, overridden={}, noReferee={}",
-                phaseId,
-                report.getAssignedCount(),
-                report.getOverriddenCount(),
-                report.getNoRefereeCount());
-
-        return report;
     }
 }
