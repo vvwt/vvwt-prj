@@ -6,7 +6,7 @@
  * - AC2: QR code SVG is generated for a valid URL (module-level unit test; canvas not required)
  * - AC4: de.json contains all required i18n keys for the timerLink namespace
  * - AC6: de.json contains the noScheduleNote key
- * - de.json: tournaments.timerLinkButton and audio.timerLinkButton keys are present (AC3)
+ * - de.json: audio.timerLinkButton keys are present (AC3)
  *
  * Note: Component rendering tests for TimerLink.svelte are omitted because the Svelte
  * component relies on `window.location.origin` (jsdom sets this to 'http://localhost'),
@@ -61,15 +61,6 @@ describe('de.json — timerLink translations (E11S07)', () => {
     const tl = (deMessages as unknown as Record<string, Record<string, string>>).timerLink;
     expect(typeof tl.noScheduleNote).toBe('string');
     expect(tl.noScheduleNote.length).toBeGreaterThan(0);
-  });
-});
-
-describe('de.json — tournaments.timerLinkButton (E11S07 AC3)', () => {
-  it('should contain the timerLinkButton key in the tournaments namespace', () => {
-    const t = (deMessages as unknown as Record<string, Record<string, string>>).tournaments;
-    expect(t).toHaveProperty('timerLinkButton');
-    expect(typeof t.timerLinkButton).toBe('string');
-    expect(t.timerLinkButton.length).toBeGreaterThan(0);
   });
 });
 

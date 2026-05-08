@@ -36,7 +36,6 @@
     },
     "draftButton": "Phasenplan",
     "timerAudioButton": "Timer-Audio",
-    "timerLinkButton": "Timer-Link",
     "cascadeDeleteButton": "Turnier endgültig löschen",
     "cascadeDeleteConfirm": "Turnier endgültig löschen? Alle Phasen, Spiele, Wertungen und Audit-Daten werden unwiderruflich entfernt.",
     "cascadeDeleteError": "Fehler beim Löschen des Turniers.",
