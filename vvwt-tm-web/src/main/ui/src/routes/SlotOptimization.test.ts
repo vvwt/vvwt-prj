@@ -190,6 +190,55 @@ describe('SlotOptimization — AC14: graceful undefined tournamentId handling (E
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// E51S07 — lastJobState display from phase.last_job_state (DEC-55 D-8)
+// SlotOptimization.svelte must display the lastJobState value returned by the
+// status API in a "Phase Job-Status" row.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('SlotOptimization.svelte — E51S07: lastJobState display (DEC-55 D-8)', () => {
+  it('SlotOptimization.svelte source declares a lastJobState state variable', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './SlotOptimization.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain('lastJobState');
+  });
+
+  it('SlotOptimization.svelte StatusResponse interface includes lastJobState field', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './SlotOptimization.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // StatusResponse must declare lastJobState
+    const ifaceMatch = source.match(/interface StatusResponse \{([^}]+)\}/s);
+    expect(ifaceMatch, 'StatusResponse interface not found').not.toBeNull();
+    const ifaceBlock = ifaceMatch![1];
+    expect(ifaceBlock).toContain('lastJobState');
+  });
+
+  it('SlotOptimization.svelte renders a job-state-row section when lastJobState is not null', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './SlotOptimization.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // The template must have a conditional block for lastJobState !== null
+    const templatePart = source.split('</script>').slice(1).join('</script>');
+    expect(templatePart).toContain('lastJobState');
+    // The row must only render when lastJobState is not null
+    expect(templatePart).toMatch(/\{#if lastJobState !== null\}/);
+  });
+
+  it('SlotOptimization.svelte assigns body.lastJobState from the status API response', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './SlotOptimization.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // fetchStatus() must assign lastJobState from body.lastJobState
+    expect(source).toContain('body.lastJobState');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // AC13 — No __header BEM blocks in any of the 4 S02 route files
 // ─────────────────────────────────────────────────────────────────────────────
 

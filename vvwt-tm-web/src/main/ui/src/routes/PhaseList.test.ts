@@ -321,6 +321,177 @@ describe("PhaseList.svelte — Reset-Plan handler calls resetPlan(tournamentId) 
     });
 });
 
+// ── E51S07: AC-TEST-PHASELIST-JOB-STATUS-ICONS-RED ───────────────────────────
+// PhaseList.svelte must render job-status icons per phase.jobStatus value (DEC-55 D-8):
+//   - spinner (⏳) for match_gen_running / slot_opt_running
+//   - check-mark (✅) for jobStatus != null && optimized === true (done)
+//   - warning (⚠️) for cancelled / failed states
+//   - no icon (—) when jobStatus is null
+// Verified via source-code structural check.
+
+describe('PhaseList.svelte — E51S07: job-status icon helper function (DEC-55 D-8)', () => {
+    const source = fs.readFileSync(
+        path.resolve(__dirname_local, './PhaseList.svelte'),
+        'utf8'
+    );
+
+    it('source contains a jobStatusIcon function', () => {
+        expect(source).toMatch(/function jobStatusIcon/);
+    });
+
+    it('jobStatusIcon returns spinner emoji for match_gen_running', () => {
+        const fnMatch = source.match(/function jobStatusIcon[\s\S]*?\n  \}/);
+        expect(fnMatch, 'jobStatusIcon function not found').toBeTruthy();
+        const fnBody = fnMatch![0];
+        expect(fnBody).toContain('match_gen_running');
+        expect(fnBody).toContain('⏳');
+    });
+
+    it('jobStatusIcon returns spinner emoji for slot_opt_running', () => {
+        const fnMatch = source.match(/function jobStatusIcon[\s\S]*?\n  \}/);
+        const fnBody = fnMatch![0];
+        expect(fnBody).toContain('slot_opt_running');
+        expect(fnBody).toContain('⏳');
+    });
+
+    it('jobStatusIcon returns check-mark for optimized=true phase', () => {
+        const fnMatch = source.match(/function jobStatusIcon[\s\S]*?\n  \}/);
+        const fnBody = fnMatch![0];
+        expect(fnBody).toContain('✅');
+    });
+
+    it('jobStatusIcon returns warning emoji for cancelled or failed state', () => {
+        const fnMatch = source.match(/function jobStatusIcon[\s\S]*?\n  \}/);
+        const fnBody = fnMatch![0];
+        expect(fnBody).toContain('⚠');
+    });
+
+    it('jobStatusIcon returns null or "—" when jobStatus is null', () => {
+        const fnMatch = source.match(/function jobStatusIcon[\s\S]*?\n  \}/);
+        const fnBody = fnMatch![0];
+        // The null case must be handled (returns null so template shows "—")
+        expect(fnBody).toMatch(/null/);
+    });
+});
+
+// ── E51S07: AC-TEST-PHASELIST-ACTIVATE-GUARD-RED ─────────────────────────────
+// When tournament.optimize=true and phase.optimized=false, the "Phase starten"
+// button must be disabled with a tooltip (DEC-55 D-5 activate guard).
+
+describe('PhaseList.svelte — E51S07: activate guard on start button (DEC-55 D-5)', () => {
+    const source = fs.readFileSync(
+        path.resolve(__dirname_local, './PhaseList.svelte'),
+        'utf8'
+    );
+
+    it('source contains an activateGuardFails function or equivalent guard expression', () => {
+        expect(source).toMatch(/activateGuardFails|activateGuard/);
+    });
+
+    it('activateGuardFails checks tournamentOptimize and phase.optimized', () => {
+        const fnMatch = source.match(/function activateGuardFails[\s\S]*?\n  \}/);
+        expect(fnMatch, 'activateGuardFails function not found').toBeTruthy();
+        const fnBody = fnMatch![0];
+        expect(fnBody).toContain('tournamentOptimize');
+        expect(fnBody).toContain('optimized');
+    });
+
+    it('source uses phases.activateGuardTooltip i18n key for the guard tooltip', () => {
+        expect(source).toContain('phases.activateGuardTooltip');
+    });
+
+    it('de.json phases.activateGuardTooltip is defined and non-empty', () => {
+        type PhasesSection = { activateGuardTooltip: string };
+        const phases = (deMessages as unknown as Record<string, PhasesSection>).phases;
+        expect(phases).toHaveProperty('activateGuardTooltip');
+        expect(phases.activateGuardTooltip.length).toBeGreaterThan(0);
+    });
+});
+
+// ── E51S07: AC-TEST-PHASELIST-JOB-COLUMN-RED ─────────────────────────────────
+// PhaseList.svelte must render a "Job" column header and per-row job-status cell.
+
+describe('PhaseList.svelte — E51S07: Job column in phase table (DEC-55 D-8)', () => {
+    const source = fs.readFileSync(
+        path.resolve(__dirname_local, './PhaseList.svelte'),
+        'utf8'
+    );
+
+    it('source renders a job-status cell per phase row using jobStatusIcon', () => {
+        // The template must call jobStatusIcon(phase) to render the icon
+        expect(source).toContain('jobStatusIcon(phase)');
+    });
+
+    it('source contains isJobRunning function for spinner-click navigation', () => {
+        expect(source).toMatch(/function isJobRunning/);
+    });
+
+    it('isJobRunning navigates to slot-optimization route when clicked', () => {
+        // The template must wire a clickable element (for running state) to navigate to slot-optimization
+        expect(source).toContain('slot-optimization');
+    });
+});
+
+// ── E51S07: AC-TEST-PHASELIST-ASSIGNED-STATUS-RED ────────────────────────────
+// PhaseList.svelte must handle ASSIGNED phase status (DEC-55 D-3):
+//   - statusBadgeClass maps ASSIGNED to a CSS class
+//   - the ASSIGNED start button invokes the same handleStart path as PREPARED
+
+describe('PhaseList.svelte — E51S07: ASSIGNED status handling (DEC-55 D-3)', () => {
+    const source = fs.readFileSync(
+        path.resolve(__dirname_local, './PhaseList.svelte'),
+        'utf8'
+    );
+
+    it('statusBadgeClass function or expression handles ASSIGNED status', () => {
+        expect(source).toContain('ASSIGNED');
+    });
+
+    it('de.json phases.status.ASSIGNED is defined and non-empty', () => {
+        type PhasesSection = { status: Record<string, string> };
+        const phases = (deMessages as unknown as Record<string, PhasesSection>).phases;
+        expect(phases.status).toHaveProperty('ASSIGNED');
+        expect(phases.status.ASSIGNED.length).toBeGreaterThan(0);
+    });
+});
+
+// ── E51S07: AC-TEST-PHASELIST-TOURNAMENT-OPTIMIZE-STATE-RED ──────────────────
+// PhaseList.svelte must maintain a tournamentOptimize state variable that is set
+// from the tournament.optimize field fetched from the API (DEC-55 D-5).
+
+describe('PhaseList.svelte — E51S07: tournamentOptimize state loaded from tournament (DEC-55 D-5)', () => {
+    const source = fs.readFileSync(
+        path.resolve(__dirname_local, './PhaseList.svelte'),
+        'utf8'
+    );
+
+    it('source declares a tournamentOptimize state variable', () => {
+        expect(source).toMatch(/tournamentOptimize/);
+    });
+
+    it('PhaseOverview interface in phaseStore.ts includes jobStatus field', async () => {
+        const fs2 = await import('fs');
+        const path2 = await import('path');
+        const storeSrc = path2.resolve(__dirname_local, '../stores/phaseStore.ts');
+        const storeSource = fs2.readFileSync(storeSrc, 'utf8');
+        const ifaceMatch = storeSource.match(/export interface PhaseOverview \{([\s\S]*?)\}/);
+        expect(ifaceMatch).not.toBeNull();
+        const ifaceBlock = ifaceMatch![1];
+        expect(ifaceBlock).toContain('jobStatus');
+    });
+
+    it('PhaseOverview interface in phaseStore.ts includes optimized field', async () => {
+        const fs2 = await import('fs');
+        const path2 = await import('path');
+        const storeSrc = path2.resolve(__dirname_local, '../stores/phaseStore.ts');
+        const storeSource = fs2.readFileSync(storeSrc, 'utf8');
+        const ifaceMatch = storeSource.match(/export interface PhaseOverview \{([\s\S]*?)\}/);
+        expect(ifaceMatch).not.toBeNull();
+        const ifaceBlock = ifaceMatch![1];
+        expect(ifaceBlock).toContain('optimized');
+    });
+});
+
 // ── E48S23: AC-TEST-RESET-PLAN-ERROR-RENDERS-MESSAGEKEY-RED ──────────────────
 // handleResetPlan must extract apiError.messageKey and render the i18n-resolved
 // text — mirroring DraftConfig.svelte:366-372 typed-error pattern.

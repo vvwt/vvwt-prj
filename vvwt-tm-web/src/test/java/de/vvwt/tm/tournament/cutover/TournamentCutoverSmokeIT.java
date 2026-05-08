@@ -131,6 +131,7 @@ class TournamentCutoverSmokeIT {
                             "setPoints",
                             "standardVolleyball",
                             "roundRobin",
+                            null,
                             null);
             ResponseEntity<TournamentResponse> tournamentResp =
                     authed.postForEntity(
@@ -229,6 +230,7 @@ class TournamentCutoverSmokeIT {
                         "setPoints",
                         "standardVolleyball",
                         "roundRobin",
+                        null,
                         null);
         ResponseEntity<String> response =
                 restTemplate.postForEntity(

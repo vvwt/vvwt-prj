@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,7 +19,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * REST controller for slot-optimization admin-cancel and status (E27S02,
- * AC-CANCEL-CONTROLLER-AUTHORED, DEC-40 Clause A, DEC-49 D-11).
+ * AC-CANCEL-CONTROLLER-AUTHORED, DEC-40 Clause A, DEC-49 D-11; E51S07
+ * AC-IMPL-STATUS-ENDPOINT-EXTENSION).
  *
  * <h2>Endpoints</h2>
  *
@@ -27,7 +29,8 @@ import org.springframework.web.bind.annotation.RestController;
  *       optimization for the given tournament; returns HTTP 200 with the Best-So-Far {@link
  *       OptimizationResult} on success, HTTP 409 Conflict if no optimization is active.
  *   <li>{@code GET /api/slotopt/tournaments/{tournamentId}/status} — returns the current
- *       optimization state ({@code running}, {@code idle}) with optional best-so-far score.
+ *       optimization state ({@code running}, {@code idle}) with optional best-so-far score and
+ *       {@code lastJobState} from {@code phase.last_job_state} (E51S07 extension).
  * </ul>
  *
  * <h2>Placement (DEC-40 Clause A)</h2>
@@ -45,10 +48,21 @@ import org.springframework.web.bind.annotation.RestController;
  * detects the cancellation flag. This controller triggers cancellation and returns the handle's
  * best-so-far result; the match writes occur in the compute thread's transactional scope.
  *
+ * <h2>lastJobState read path (E51S07 AC-IMPL-STATUS-ENDPOINT-EXTENSION)</h2>
+ *
+ * <p>{@code lastJobState} is read from {@code phase.last_job_state} via {@link JdbcTemplate} using
+ * the FIFO-head {@code phaseId} from the job registry (or {@code null} if no phase is queued). A
+ * direct JDBC read is used instead of going through the tournament bounded-context service to avoid
+ * introducing a compile-time dependency from the {@code web.slotopt} sub-package on the tournament
+ * context service (DEC-21 Modulith edge avoidance).
+ *
  * @see SlotOptimizationJobRegistry
  * @see <a href="../../../../../../../../../docs/governance/decisions/DEC-49.md">DEC-49 D-11</a>
+ * @see <a href="../../../../../../../../../docs/governance/decisions/DEC-55.md">DEC-55 D-9</a>
  * @see <a href="../../../../../../../../../docs/governance/stories/E27S02.story.md">Story
  *     E27S02</a>
+ * @see <a href="../../../../../../../../../docs/governance/stories/E51S07.story.md">Story
+ *     E51S07</a>
  */
 @RestController
 @RequestMapping("/api/slotopt/tournaments")
@@ -57,15 +71,22 @@ public class SlotOptimizationCancelController {
     private static final Logger LOG =
             LoggerFactory.getLogger(SlotOptimizationCancelController.class);
 
+    private static final String SELECT_LAST_JOB_STATE =
+            "SELECT last_job_state FROM phase WHERE id = ?";
+
     private final SlotOptimizationJobRegistry jobRegistry;
+    private final JdbcTemplate jdbc;
 
     /**
-     * Constructs the controller with the required job registry.
+     * Constructs the controller with the required job registry and JDBC template.
      *
      * @param jobRegistry the per-tournament job handle registry
+     * @param jdbc the JDBC template for reading {@code phase.last_job_state}
      */
-    public SlotOptimizationCancelController(SlotOptimizationJobRegistry jobRegistry) {
+    public SlotOptimizationCancelController(
+            SlotOptimizationJobRegistry jobRegistry, JdbcTemplate jdbc) {
         this.jobRegistry = jobRegistry;
+        this.jdbc = jdbc;
     }
 
     /**
@@ -114,18 +135,24 @@ public class SlotOptimizationCancelController {
     /**
      * {@code GET /api/slotopt/tournaments/{tournamentId}/status}
      *
-     * <p>Returns the current optimization state for the given tournament.
+     * <p>Returns the current optimization state for the given tournament, including {@code
+     * lastJobState} from {@code phase.last_job_state} of the FIFO-head phase (E51S07
+     * AC-IMPL-STATUS-ENDPOINT-EXTENSION).
      *
      * @param tournamentId the tournament UUID
      * @return HTTP 200 with state ({@code "running"} | {@code "idle"} | {@code "cancelled"}) +
-     *     optional startedAt and bestSoFarVarietyScore
+     *     optional startedAt, bestSoFarVarietyScore, and lastJobState
      */
     @GetMapping("/{tournamentId}/status")
     public ResponseEntity<SlotOptimizationStatusResponse> getStatus(
             @PathVariable UUID tournamentId) {
+        // Read lastJobState from DB for the FIFO-head phase (E51S07
+        // AC-IMPL-STATUS-ENDPOINT-EXTENSION)
+        String lastJobState = readLastJobState(tournamentId);
+
         Optional<JobHandle> handleOpt = jobRegistry.getHandle(tournamentId);
         if (handleOpt.isEmpty()) {
-            return ResponseEntity.ok(SlotOptimizationStatusResponse.idle());
+            return ResponseEntity.ok(SlotOptimizationStatusResponse.withLastJobState(lastJobState));
         }
 
         JobHandle handle = handleOpt.get();
@@ -134,10 +161,40 @@ public class SlotOptimizationCancelController {
 
         if (handle.getCancellationToken().isCancelled()) {
             return ResponseEntity.ok(
-                    SlotOptimizationStatusResponse.cancelled(handle.getStartedAt(), score));
+                    SlotOptimizationStatusResponse.cancelledWithJobState(
+                            handle.getStartedAt(), score, lastJobState));
         }
         return ResponseEntity.ok(
-                SlotOptimizationStatusResponse.running(handle.getStartedAt(), score));
+                SlotOptimizationStatusResponse.runningWithJobState(
+                        handle.getStartedAt(), score, lastJobState));
+    }
+
+    /**
+     * Reads {@code phase.last_job_state} for the FIFO-head phase of the given tournament.
+     *
+     * <p>Returns {@code null} if no phase is in the FIFO queue or if the column is null.
+     *
+     * @param tournamentId the tournament UUID
+     * @return the last_job_state string, or {@code null}
+     */
+    private String readLastJobState(UUID tournamentId) {
+        return jobRegistry
+                .peekQueue(tournamentId)
+                .map(
+                        phaseId -> {
+                            try {
+                                return jdbc.queryForObject(
+                                        SELECT_LAST_JOB_STATE, String.class, phaseId);
+                            } catch (Exception e) {
+                                LOG.warn(
+                                        "SlotOptimizationCancelController: could not read"
+                                                + " last_job_state for phaseId={}: {}",
+                                        phaseId,
+                                        e.getMessage());
+                                return null;
+                            }
+                        })
+                .orElse(null);
     }
 
     // -------------------------------------------------------------------------

@@ -45,6 +45,7 @@
   let scoringRuleId = $state('');
   let setValidationRuleId = $state('');
   let matchGeneratorId = $state('');
+  let optimize = $state(true); // E51S07: default true per DEC-55 D-5
 
   let rules = $state<TournamentRules | null>(null);
   let loading = $state(true);
@@ -86,6 +87,7 @@
         scoringRuleId = t.scoringRuleId;
         setValidationRuleId = t.setValidationRuleId;
         matchGeneratorId = t.matchGeneratorId;
+        optimize = t.optimize ?? true;  // E51S07: load optimize from tournament; default true
       }
     } catch (e: unknown) {
       saveError = e instanceof Error ? e.message : String(e);
@@ -121,6 +123,7 @@
           setValidationRuleId,
           matchGeneratorId,
           plannedStartTime: plannedStartTime.trim() ? plannedStartTime.trim() : null,  // E08S05 AC4
+          optimize,  // E51S07: pass optimize field
         });
       } else {
         const req: TournamentCreateRequest = {
@@ -133,6 +136,7 @@
           setValidationRuleId,
           matchGeneratorId,
           plannedStartTime: plannedStartTime.trim() ? plannedStartTime.trim() : null,  // E48S14
+          optimize,  // E51S07: pass optimize field
         };
         await createTournament(req);
       }
@@ -267,6 +271,14 @@
           {/if}
         </div>
       {/if}
+
+      <!-- Slot-optimization checkbox (E51S07, DEC-55 D-5) -->
+      <div class="form__field form__field--checkbox">
+        <label for="optimize" title={$_('slotopt.checkbox.tooltip')}>
+          <input id="optimize" type="checkbox" bind:checked={optimize} />
+          {$_('slotopt.checkbox.label')}
+        </label>
+      </div>
 
       <div class="form__actions">
         <button type="submit" class="btn btn--primary" disabled={saving}>

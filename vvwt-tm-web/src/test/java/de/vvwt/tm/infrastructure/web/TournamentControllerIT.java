@@ -133,6 +133,7 @@ class TournamentControllerIT {
                         "setPoints",
                         "standardVolleyball",
                         "roundRobin",
+                        null,
                         null);
 
         ResponseEntity<TournamentResponse> response =
@@ -171,6 +172,7 @@ class TournamentControllerIT {
                         "setPoints",
                         "standardVolleyball",
                         "roundRobin",
+                        null,
                         null);
         ResponseEntity<TournamentResponse> created =
                 authed.postForEntity(
@@ -218,6 +220,7 @@ class TournamentControllerIT {
                         "setPoints",
                         "standardVolleyball",
                         "roundRobin",
+                        null,
                         null);
         TournamentResponse created =
                 authed.postForEntity(
@@ -228,7 +231,7 @@ class TournamentControllerIT {
 
         TournamentUpdateRequest update =
                 new TournamentUpdateRequest(
-                        "Updated Name", null, null, null, null, null, null, null, null);
+                        "Updated Name", null, null, null, null, null, null, null, null, null);
 
         ResponseEntity<TournamentResponse> response =
                 authed.exchange(
@@ -260,6 +263,7 @@ class TournamentControllerIT {
                         "setPoints",
                         "standardVolleyball",
                         "roundRobin",
+                        null,
                         null);
         TournamentResponse created =
                 authed.postForEntity(

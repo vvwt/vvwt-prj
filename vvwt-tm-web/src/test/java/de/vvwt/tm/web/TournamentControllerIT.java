@@ -118,6 +118,7 @@ class TournamentControllerIT {
                         "setPoints",
                         "standardVolleyball",
                         "roundRobin",
+                        null,
                         null);
 
         ResponseEntity<TournamentResponse> response =
@@ -167,6 +168,7 @@ class TournamentControllerIT {
                         "setPoints",
                         "standardVolleyball",
                         "roundRobin",
+                        null,
                         null);
 
         ResponseEntity<String> response =
@@ -256,6 +258,7 @@ class TournamentControllerIT {
                         "setPoints",
                         "standardVolleyball",
                         "roundRobin",
+                        null,
                         null);
 
         ResponseEntity<TournamentResponse> createResponse =

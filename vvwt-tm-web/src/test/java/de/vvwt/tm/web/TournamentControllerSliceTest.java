@@ -112,6 +112,7 @@ class TournamentControllerSliceTest {
                         "setPoints",
                         "standardVolleyball",
                         "roundRobin",
+                        null,
                         null);
         mockMvc.perform(
                         post("/api/tournaments")
@@ -171,6 +172,7 @@ class TournamentControllerSliceTest {
                         eq("setPoints"),
                         eq("standardVolleyball"),
                         eq("roundRobin"),
+                        isNull(),
                         isNull()))
                 .thenReturn(created);
 
@@ -184,6 +186,7 @@ class TournamentControllerSliceTest {
                         "setPoints",
                         "standardVolleyball",
                         "roundRobin",
+                        null,
                         null);
 
         mockMvc.perform(
@@ -209,6 +212,7 @@ class TournamentControllerSliceTest {
                         "setPoints",
                         "standardVolleyball",
                         "roundRobin",
+                        null,
                         null);
 
         mockMvc.perform(

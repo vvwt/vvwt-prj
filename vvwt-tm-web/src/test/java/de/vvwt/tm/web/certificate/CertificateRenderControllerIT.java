@@ -273,6 +273,7 @@ class CertificateRenderControllerIT {
                         "setPoints",
                         "standardVolleyball",
                         "roundRobin",
+                        null,
                         null);
 
         ResponseEntity<TournamentResponse> created =

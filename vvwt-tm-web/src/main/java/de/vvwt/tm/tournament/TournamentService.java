@@ -90,7 +90,8 @@ public interface TournamentService {
             String scoringRuleId,
             String setValidationRuleId,
             String matchGeneratorId,
-            LocalTime plannedStartTime);
+            LocalTime plannedStartTime,
+            Boolean optimize);
 
     // -------------------------------------------------------------------------
     // AC4 — Update tournament
@@ -124,7 +125,8 @@ public interface TournamentService {
             String scoringRuleId,
             String setValidationRuleId,
             String matchGeneratorId,
-            LocalTime plannedStartTime);
+            LocalTime plannedStartTime,
+            Boolean optimize);
 
     // -------------------------------------------------------------------------
     // AC5 — Delete tournament

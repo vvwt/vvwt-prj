@@ -221,7 +221,8 @@ public class DefaultTournamentService implements TournamentService {
             String scoringRuleId,
             String setValidationRuleId,
             String matchGeneratorId,
-            LocalTime plannedStartTime) {
+            LocalTime plannedStartTime,
+            Boolean optimize) {
         validateBeanIds(matchFormat, matchGeneratorId);
 
         Tournament tournament = new Tournament();
@@ -240,6 +241,11 @@ public class DefaultTournamentService implements TournamentService {
         // causing the field to be silently dropped on tournament creation).
         // Mirrors the UPDATE method pattern at DefaultTournamentService.java ~341 (E08S05 AC4).
         tournament.setPlannedStartTime(plannedStartTime);
+        // E51S07 AC-IMPL-TOURNAMENT-FORM-CHECKBOX: wire optimize flag; null → use entity default
+        // (true per DEC-55 D-5).
+        if (optimize != null) {
+            tournament.setOptimize(optimize);
+        }
         // DEC-39 D2: location_id NOT NULL — resolved from the first location row for this tenant.
         // In the Wave-1 single-location model, only one location exists per tenant DB.
         tournament.setLocationId(resolveDefaultLocationId());
@@ -309,7 +315,8 @@ public class DefaultTournamentService implements TournamentService {
             String scoringRuleId,
             String setValidationRuleId,
             String matchGeneratorId,
-            LocalTime plannedStartTime) {
+            LocalTime plannedStartTime,
+            Boolean optimize) {
         Tournament tournament = getTournament(id);
 
         if (!"DRAFT".equals(tournament.getStatus())) {
@@ -344,6 +351,10 @@ public class DefaultTournamentService implements TournamentService {
             tournament.setMatchGeneratorId(matchGeneratorId);
         }
         tournament.setPlannedStartTime(plannedStartTime);
+        // E51S07 AC-IMPL-TOURNAMENT-FORM-CHECKBOX: apply optimize if provided; null = no change.
+        if (optimize != null) {
+            tournament.setOptimize(optimize);
+        }
 
         validateBeanIds(tournament.getMatchFormat(), tournament.getMatchGeneratorId());
 

@@ -202,6 +202,7 @@ class TournamentServiceTest {
                         VALID_SCORING,
                         VALID_VALIDATION,
                         VALID_GENERATOR,
+                        null,
                         null);
 
         assertThat(result.getId()).as("UUID must be generated").isNotNull();
@@ -224,6 +225,7 @@ class TournamentServiceTest {
                                         VALID_SCORING,
                                         VALID_VALIDATION,
                                         VALID_GENERATOR,
+                                        null,
                                         null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
@@ -243,7 +245,17 @@ class TournamentServiceTest {
         assertThatThrownBy(
                         () ->
                                 service.updateTournament(
-                                        id, "New Name", null, 0, 0, null, null, null, null, null))
+                                        id,
+                                        "New Name",
+                                        null,
+                                        0,
+                                        0,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        null))
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("ACTIVE");
     }
@@ -268,6 +280,7 @@ class TournamentServiceTest {
                         VALID_SCORING,
                         VALID_VALIDATION,
                         VALID_GENERATOR,
+                        null,
                         null);
 
         assertThat(result.getDescription()).isEqualTo("Updated Name");

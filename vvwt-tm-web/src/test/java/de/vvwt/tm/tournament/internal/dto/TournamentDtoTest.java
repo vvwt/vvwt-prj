@@ -64,6 +64,7 @@ class TournamentDtoTest {
                         "setPoints",
                         "standardVolleyball",
                         "roundRobin",
+                        null,
                         null);
 
         Set<ConstraintViolation<TournamentCreateRequest>> violations = validator.validate(req);
@@ -83,6 +84,7 @@ class TournamentDtoTest {
                         "setPoints",
                         "standardVolleyball",
                         "roundRobin",
+                        null,
                         null);
 
         Set<ConstraintViolation<TournamentCreateRequest>> violations = validator.validate(req);
@@ -106,6 +108,7 @@ class TournamentDtoTest {
                         "setPoints",
                         "standardVolleyball",
                         "roundRobin",
+                        null,
                         null);
 
         Set<ConstraintViolation<TournamentCreateRequest>> violations = validator.validate(req);
@@ -127,6 +130,7 @@ class TournamentDtoTest {
                         "setPoints",
                         "standardVolleyball",
                         "roundRobin",
+                        null,
                         null);
 
         Set<ConstraintViolation<TournamentCreateRequest>> violations = validator.validate(req);
@@ -209,7 +213,8 @@ class TournamentDtoTest {
             "TournamentUpdateRequest: all-null update request is valid (partial-update semantics)")
     void updateRequest_allNull_isValid() {
         TournamentUpdateRequest req =
-                new TournamentUpdateRequest(null, null, null, null, null, null, null, null, null);
+                new TournamentUpdateRequest(
+                        null, null, null, null, null, null, null, null, null, null);
 
         Set<ConstraintViolation<TournamentUpdateRequest>> violations = validator.validate(req);
         assertThat(violations)
@@ -221,7 +226,8 @@ class TournamentDtoTest {
     @DisplayName("TournamentUpdateRequest: teamCount below 2 produces @Min violation")
     void updateRequest_teamCountBelowMin_producesViolation() {
         TournamentUpdateRequest req =
-                new TournamentUpdateRequest(null, null, 1, null, null, null, null, null, null);
+                new TournamentUpdateRequest(
+                        null, null, 1, null, null, null, null, null, null, null);
 
         Set<ConstraintViolation<TournamentUpdateRequest>> violations = validator.validate(req);
         assertThat(violations)
@@ -237,7 +243,7 @@ class TournamentDtoTest {
         LocalTime startTime = LocalTime.of(9, 30);
         TournamentUpdateRequest req =
                 new TournamentUpdateRequest(
-                        null, null, null, null, null, null, null, null, startTime);
+                        null, null, null, null, null, null, null, null, startTime, null);
 
         assertThat(req.plannedStartTime()).isEqualTo(startTime);
     }
