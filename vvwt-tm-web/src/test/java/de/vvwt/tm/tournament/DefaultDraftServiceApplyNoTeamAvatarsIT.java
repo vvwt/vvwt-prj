@@ -2,6 +2,7 @@ package de.vvwt.tm.tournament;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import de.vvwt.tm.slotopt.SlotOptimizationClient;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftSection;
@@ -19,7 +20,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -30,6 +34,15 @@ import org.springframework.test.context.ActiveProfiles;
  * distribution removed). Updated in E51S02 to reflect DEC-55 D-1: apply() now DOES create
  * structural TeamAvatars for all phases. The core Phase-creation assertion (3 PENDING phases)
  * remains unchanged; the avatar-count assertion is updated to the new expected value.
+ *
+ * <p>E51S08 RED-first: this commit adds the {@link SlotOptConfig} override and the {@link
+ * #waitForPipelineQuiescent(UUID)} helper — but does NOT yet call the helper from {@link
+ * #tearDown()}. In this state, {@code tearDown()} is still race-prone: the async {@code
+ * MatchGenJobListener} may insert {@code match} rows after {@code tearDown()} has already deleted
+ * the {@code phase} rows, triggering {@code FK_MATCH_PHASE: FK_MATCH_PHASE} {@code
+ * DataIntegrityViolationException}. The GREEN commit (immediately following this one) calls {@code
+ * waitForPipelineQuiescent(tournamentId)} as the first line of {@code tearDown()} to eliminate the
+ * race. RED evidence: intermittent failure in repeated runs of this IT before the GREEN commit.
  *
  * <h2>DEC-26/DEC-46 three-rule conformance</h2>
  *
@@ -44,6 +57,8 @@ import org.springframework.test.context.ActiveProfiles;
  * @see de.vvwt.tm.tournament.internal.DefaultDraftService
  * @see <a href="E48S17">E48S17 — Phase-1-Distribution removal (original RED-first)</a>
  * @see <a href="E51S02">E51S02 — Avatar persistence at apply-time (DEC-55 D-1 update)</a>
+ * @see <a href="E51S08">E51S08 — Symmetric waitForPipelineQuiescent quiescence barrier
+ *     (RED-first)</a>
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law (RED-first)</a>
  * @see <a href="DEC-26">DEC-26 — DAO test governance (three rules)</a>
  * @see <a href="DEC-46">DEC-46 — DEC-26 scope extension to all vvwt-prj modules</a>
@@ -58,9 +73,34 @@ import org.springframework.test.context.ActiveProfiles;
                     + ";DB_CLOSE_ON_EXIT=FALSE;CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
-@Import(TenantContextTestSupport.class)
+@Import({
+    TenantContextTestSupport.class,
+    DefaultDraftServiceApplyNoTeamAvatarsIT.SlotOptConfig.class
+})
 @DisplayName("DefaultDraftService apply() — Phase creation + avatar persistence IT — E48S17/E51S02")
 class DefaultDraftServiceApplyNoTeamAvatarsIT {
+
+    /**
+     * Overrides the production {@code routingSlotOptimizationClient} with a no-op that returns
+     * immediately. This prevents async slot-optimization from holding PHASE/TOURNAMENT row-locks
+     * during tearDown (H2 FK violation on DELETE FROM tournament while SlotOptInvocationListener TX
+     * is still active).
+     *
+     * <p>E51S08: ported from {@link DefaultDraftServiceApplyAvatarsIT.SlotOptConfig} (added there
+     * at {@code e25b917} / E51S04). The NoTeamAvatarsIT was left without this override at {@code
+     * e25b917} — the asymmetric omission that this Story repairs.
+     */
+    @TestConfiguration
+    static class SlotOptConfig {
+
+        @Bean("routingSlotOptimizationClient")
+        @Primary
+        SlotOptimizationClient testSlotOptimizationClient() {
+            return phaseId -> {
+                // No-op: returns immediately so SlotOptInvocationListener completes before tearDown
+            };
+        }
+    }
 
     /** Subject: inject via public interface per DEC-36. */
     @Autowired private DraftService draftService;
@@ -121,6 +161,11 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
 
     @AfterEach
     void tearDown() {
+        // E51S08 RED state: waitForPipelineQuiescent(tournamentId) NOT yet called here.
+        // This tearDown is still race-prone: async MatchGenJobListener may insert match rows
+        // after tearDown deletes phase rows → FK_MATCH_PHASE DataIntegrityViolationException.
+        // The GREEN commit (immediately following this one) adds the quiescence call.
+        //
         // Delete match rows before phase (FK ON DELETE RESTRICT: match → phase).
         // Async MatchGenJobListener may have inserted match rows after apply() returned.
         jdbcTemplate.update(
@@ -133,6 +178,67 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
         jdbcTemplate.update("DELETE FROM tournament WHERE id = ?", tournamentId);
         jdbcTemplate.update("DELETE FROM locations WHERE id = ?", locationId);
         tenantBinder.unbind();
+    }
+
+    /**
+     * Polls until all phase rows for {@code tournamentId} have a terminal {@code last_job_state}
+     * (not {@code 'match_gen_running'} or {@code 'slot_opt_running'}). Uses a two-phase approach:
+     *
+     * <ol>
+     *   <li>Wait a short initial period to allow the async pipeline to START (so that {@code
+     *       last_job_state} transitions from {@code NULL} to {@code 'match_gen_running'}).
+     *   <li>Poll until no phases are in an in-flight state.
+     * </ol>
+     *
+     * <p>Times out after 5 seconds total. On budget exhaustion, throws {@link AssertionError} with
+     * the in-flight phase IDs and {@code last_job_state} values — satisfying
+     * AC-ERROR-HANDLING-QUIESCENCE-BUDGET-OBSERVABLE: the diagnostic is retrievable from Failsafe
+     * report XML ({@code target/failsafe-reports/}) so it surfaces in {@code mvn verify} console
+     * output.
+     *
+     * <p>E51S08: ported from {@link
+     * DefaultDraftServiceApplyAvatarsIT#waitForPipelineQuiescent(UUID)} (added there at {@code
+     * e25b917} / E51S04). Enhanced with budget-exhaustion AssertionError per
+     * AC-ERROR-HANDLING-QUIESCENCE-BUDGET-OBSERVABLE (the AvatarsIT helper predates this AC and
+     * uses a silent return on timeout — this version provides the observable diagnostic).
+     *
+     * @param tournamentId the tournament whose background pipeline to wait for
+     * @throws InterruptedException if the waiting thread is interrupted
+     * @throws AssertionError if the pipeline does not quiesce within 5 seconds
+     */
+    @SuppressWarnings("java:S2925") // Thread.sleep is intentional here — deterministic poll wait
+    private void waitForPipelineQuiescent(UUID tournamentId) throws InterruptedException {
+        // Short initial sleep to allow async TX to start and set
+        // last_job_state='match_gen_running'.
+        // Without this, we might poll before any async work begins (all phases are NULL) and
+        // return immediately, racing with an async TX that then commits phase rows after tearDown.
+        Thread.sleep(100);
+        long deadline = System.currentTimeMillis() + 5_000;
+        while (System.currentTimeMillis() < deadline) {
+            Integer inFlightCount =
+                    jdbcTemplate.queryForObject(
+                            "SELECT COUNT(*) FROM phase WHERE tournament_id = ?"
+                                    + " AND last_job_state IN ('match_gen_running',"
+                                    + " 'slot_opt_running')",
+                            Integer.class,
+                            tournamentId);
+            if (inFlightCount == null || inFlightCount == 0) {
+                return;
+            }
+            Thread.sleep(50);
+        }
+        // Budget exhausted — fail with observable diagnostic
+        // (AC-ERROR-HANDLING-QUIESCENCE-BUDGET-OBSERVABLE)
+        var inFlightRows =
+                jdbcTemplate.queryForList(
+                        "SELECT id, last_job_state FROM phase WHERE tournament_id = ? AND"
+                                + " last_job_state IN ('match_gen_running', 'slot_opt_running')",
+                        tournamentId);
+        throw new AssertionError(
+                "waitForPipelineQuiescent: pipeline did not quiesce within 5s for tournament "
+                        + tournamentId
+                        + ". In-flight phase rows (id, last_job_state): "
+                        + inFlightRows);
     }
 
     // =========================================================================
