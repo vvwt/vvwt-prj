@@ -10,7 +10,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import javax.sql.DataSource;
-import org.assertj.db.api.Assertions;
 import org.assertj.db.type.AssertDbConnection;
 import org.assertj.db.type.AssertDbConnectionFactory;
 import org.assertj.db.type.Table;
@@ -39,8 +38,8 @@ import org.springframework.test.context.ActiveProfiles;
  * <h2>DEC-36 cross-package typing</h2>
  *
  * <p>Tests are in package {@code de.vvwt.tm.tournament} — the same package as the public interface
- * {@link DraftService}. Injection uses the public interface type per DEC-36. The concrete
- * {@code DefaultDraftService} is never referenced.
+ * {@link DraftService}. Injection uses the public interface type per DEC-36. The concrete {@code
+ * DefaultDraftService} is never referenced.
  *
  * <h2>DEC-22 RED-first governance</h2>
  *
@@ -55,7 +54,8 @@ import org.springframework.test.context.ActiveProfiles;
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law (RED-first)</a>
  * @see <a href="DEC-26">DEC-26 — DAO test governance (three rules)</a>
  * @see <a href="DEC-46">DEC-46 — DEC-26 scope extension</a>
- * @see <a href="DEC-55">DEC-55 D-1 — Avatar-Erzeugung-Zeitpunkt verschoben auf DraftConfig-Apply</a>
+ * @see <a href="DEC-55">DEC-55 D-1 — Avatar-Erzeugung-Zeitpunkt verschoben auf
+ *     DraftConfig-Apply</a>
  */
 @SpringBootTest(
         classes = de.vvwt.tm.TournamentManagerApplication.class,
@@ -165,10 +165,10 @@ class DefaultDraftServiceApplyAvatarsIT {
     // =========================================================================
 
     /**
-     * RED-first: given a tournament with 6 participating teams and a 2-group Phase 1, when
-     * {@code apply()} is called, exactly 6 TeamAvatar records are persisted for Phase 1 with
-     * structural identity {@code (phaseId, groupNumber, groupPosition)} populated AND {@code teamId}
-     * populated from the participating team's UUID.
+     * RED-first: given a tournament with 6 participating teams and a 2-group Phase 1, when {@code
+     * apply()} is called, exactly 6 TeamAvatar records are persisted for Phase 1 with structural
+     * identity {@code (phaseId, groupNumber, groupPosition)} populated AND {@code teamId} populated
+     * from the participating team's UUID.
      *
      * <p>Test fails BEFORE the fix (0 avatars currently created by apply()).
      */
@@ -211,9 +211,7 @@ class DefaultDraftServiceApplyAvatarsIT {
         // Verify all Phase 1 avatar teamIds are from the participating team set
         List<UUID> avatarTeamIds =
                 jdbcTemplate.queryForList(
-                        "SELECT team_id FROM team_avatar WHERE phase_id = ?",
-                        UUID.class,
-                        phase1Id);
+                        "SELECT team_id FROM team_avatar WHERE phase_id = ?", UUID.class, phase1Id);
         assertThat(avatarTeamIds)
                 .as("Phase 1 avatar teamIds must match the participating teams")
                 .containsExactlyInAnyOrderElementsOf(participatingTeamIdsA);
@@ -273,7 +271,8 @@ class DefaultDraftServiceApplyAvatarsIT {
         // Verify all Phase 2 avatars have teamId IS NULL (structural placeholder — DEC-55 D-1)
         Integer phase2AvatarsWithNonNullTeamId =
                 jdbcTemplate.queryForObject(
-                        "SELECT COUNT(*) FROM team_avatar WHERE phase_id = ? AND team_id IS NOT NULL",
+                        "SELECT COUNT(*) FROM team_avatar WHERE phase_id = ? AND team_id IS NOT"
+                                + " NULL",
                         Integer.class,
                         phase2Id);
         assertThat(phase2AvatarsWithNonNullTeamId)
@@ -336,8 +335,8 @@ class DefaultDraftServiceApplyAvatarsIT {
     // =========================================================================
 
     /**
-     * Idempotency regression: re-applying the same DraftConfig produces the same set of avatars
-     * (no duplicates, no orphan rows).
+     * Idempotency regression: re-applying the same DraftConfig produces the same set of avatars (no
+     * duplicates, no orphan rows).
      *
      * <p>This test is not RED-first — it validates idempotency semantics introduced by the fix.
      */
@@ -436,7 +435,9 @@ class DefaultDraftServiceApplyAvatarsIT {
                         "SELECT id FROM team WHERE tournament_id = ? AND participate = FALSE",
                         UUID.class,
                         tournamentB);
-        assertThat(nonParticipatingTeamIds).as("Fixture must have 2 non-participating teams").hasSize(2);
+        assertThat(nonParticipatingTeamIds)
+                .as("Fixture must have 2 non-participating teams")
+                .hasSize(2);
 
         for (UUID nonParticipatingId : nonParticipatingTeamIds) {
             Integer countForNonParticipating =
@@ -493,7 +494,8 @@ class DefaultDraftServiceApplyAvatarsIT {
                     .as("apply() must throw when no participating teams exist")
                     .isInstanceOf(Exception.class);
 
-            // Verify no phases or avatars were persisted (AC-ERROR-HANDLING-EMPTY-PARTICIPATING-TEAMS)
+            // Verify no phases or avatars were persisted
+            // (AC-ERROR-HANDLING-EMPTY-PARTICIPATING-TEAMS)
             Integer phaseCount =
                     jdbcTemplate.queryForObject(
                             "SELECT COUNT(*) FROM phase WHERE tournament_id = ?",
@@ -576,8 +578,10 @@ class DefaultDraftServiceApplyAvatarsIT {
     private static DraftConfig twoPhaseConfig(int groupCount) {
         return new DraftConfig(
                 List.of(
-                        new DraftSection(1, "team_number", groupCount, "roundRobin", 0, 0, 15, 1, List.of()),
-                        new DraftSection(2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, List.of())));
+                        new DraftSection(
+                                1, "team_number", groupCount, "roundRobin", 0, 0, 15, 1, List.of()),
+                        new DraftSection(
+                                2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, List.of())));
     }
 
     /**
@@ -592,9 +596,26 @@ class DefaultDraftServiceApplyAvatarsIT {
         return new DraftConfig(
                 List.of(
                         new DraftSection(
-                                1, "team_number", phase1Groups, "roundRobin", 0, 0, 15, 1, List.of()),
+                                1,
+                                "team_number",
+                                phase1Groups,
+                                "roundRobin",
+                                0,
+                                0,
+                                15,
+                                1,
+                                List.of()),
                         new DraftSection(
-                                2, "team_number", phase2Groups, "roundRobin", 0, 0, 15, 1, List.of()),
-                        new DraftSection(3, "team_number", 1, "siegerehrung", 0, 0, 15, 1, List.of())));
+                                2,
+                                "team_number",
+                                phase2Groups,
+                                "roundRobin",
+                                0,
+                                0,
+                                15,
+                                1,
+                                List.of()),
+                        new DraftSection(
+                                3, "team_number", 1, "siegerehrung", 0, 0, 15, 1, List.of())));
     }
 }

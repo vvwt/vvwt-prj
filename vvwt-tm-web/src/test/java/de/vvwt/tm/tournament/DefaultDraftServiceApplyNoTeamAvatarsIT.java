@@ -47,7 +47,8 @@ import org.springframework.test.context.ActiveProfiles;
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law (RED-first)</a>
  * @see <a href="DEC-26">DEC-26 — DAO test governance (three rules)</a>
  * @see <a href="DEC-46">DEC-46 — DEC-26 scope extension to all vvwt-prj modules</a>
- * @see <a href="DEC-55">DEC-55 D-1 — Avatar-Erzeugung-Zeitpunkt verschoben auf DraftConfig-Apply</a>
+ * @see <a href="DEC-55">DEC-55 D-1 — Avatar-Erzeugung-Zeitpunkt verschoben auf
+ *     DraftConfig-Apply</a>
  */
 @SpringBootTest(
         classes = de.vvwt.tm.TournamentManagerApplication.class,
@@ -136,16 +137,18 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
      * apply() for a tournament with 3 participating teams creates 3 Phase records (PENDING status)
      * and structural TeamAvatars per DEC-55 D-1 (E51S02).
      *
-     * <p>Original E48S17 assertion (0 TeamAvatars) is superseded by E51S02 (DEC-55 D-1):
-     * apply() now creates avatars at apply-time. The test is updated to verify the new contract.
+     * <p>Original E48S17 assertion (0 TeamAvatars) is superseded by E51S02 (DEC-55 D-1): apply()
+     * now creates avatars at apply-time. The test is updated to verify the new contract.
      *
      * <p>Fixture: 3 participating teams (team_number 1-3), 2-group Phase 1 (roundRobin), 2-group
      * Phase 2 (roundRobin), 1-group siegerehrung Phase 3. Expected avatars:
+     *
      * <ul>
-     *   <li>Phase 1: 3 avatars (N=3 participating teams, groupCount=2, teamId populated)</li>
-     *   <li>Phase 2: 4 avatars (2 groups × ceil(3/2)=2 positions per group, teamId=null)</li>
-     *   <li>Phase 3: 0 avatars (siegerehrung → skipped)</li>
+     *   <li>Phase 1: 3 avatars (N=3 participating teams, groupCount=2, teamId populated)
+     *   <li>Phase 2: 4 avatars (2 groups × ceil(3/2)=2 positions per group, teamId=null)
+     *   <li>Phase 3: 0 avatars (siegerehrung → skipped)
      * </ul>
+     *
      * Total: 7 avatars.
      */
     @Test
@@ -215,7 +218,9 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
                         Integer.class,
                         phase2Id);
         assertThat(phase2AvatarCount)
-                .as("Phase 2 must have 4 structural avatars (groupCount=2, posPerGroup=ceil(3/2)=2)")
+                .as(
+                        "Phase 2 must have 4 structural avatars (groupCount=2,"
+                                + " posPerGroup=ceil(3/2)=2)")
                 .isEqualTo(4);
 
         // Phase 3: siegerehrung → 0 avatars
@@ -225,9 +230,7 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
                         "SELECT COUNT(*) FROM team_avatar WHERE phase_id = ?",
                         Integer.class,
                         phase3Id);
-        assertThat(phase3AvatarCount)
-                .as("Phase 3 (siegerehrung) must have 0 avatars")
-                .isEqualTo(0);
+        assertThat(phase3AvatarCount).as("Phase 3 (siegerehrung) must have 0 avatars").isEqualTo(0);
 
         // Total: 3 + 4 + 0 = 7 avatars
         Table avatarTable = assertDb.table("team_avatar").build();

@@ -77,7 +77,10 @@ class DraftServiceTest {
     @Mock private TournamentLifecycleService lifecycleService;
     @Mock private TeamAvatarRepository teamAvatarRepository;
     @Mock private TeamRepository teamRepository;
-    @Mock private JdbcTemplate jdbcTemplate; // E51S02: needed for DELETE-and-recreate in persistStructuralAvatars
+
+    @Mock
+    private JdbcTemplate
+            jdbcTemplate; // E51S02: needed for DELETE-and-recreate in persistStructuralAvatars
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private DefaultDraftService draftService;
@@ -96,7 +99,8 @@ class DraftServiceTest {
                         tournamentRepository,
                         objectMapper,
                         timelineCalculationService,
-                        jdbcTemplate, // E51S02: mocked — DELETE-before-insert in persistStructuralAvatars
+                        jdbcTemplate, // E51S02: mocked — DELETE-before-insert in
+                        // persistStructuralAvatars
                         lifecycleService,
                         teamAvatarRepository,
                         teamRepository);
@@ -416,8 +420,10 @@ class DraftServiceTest {
         // E51S02: stub one participating team to satisfy loadParticipatingTeams()
         // (query collaborator — no verify() per feedback_testing_verify_scope.md)
         UUID teamId = UUID.randomUUID();
-        Team participatingTeam = new Team(teamId, tournamentId, 1, "Team 1", true, false, false, null);
-        when(teamRepository.findByTournamentId(tournamentId)).thenReturn(List.of(participatingTeam));
+        Team participatingTeam =
+                new Team(teamId, tournamentId, 1, "Team 1", true, false, false, null);
+        when(teamRepository.findByTournamentId(tournamentId))
+                .thenReturn(List.of(participatingTeam));
         // teamAvatarRepository.save() is lenient (Mockito lenient by default for return value)
 
         List<UUID> result = draftService.apply(tournamentId, config);

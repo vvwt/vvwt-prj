@@ -50,11 +50,11 @@ import org.springframework.transaction.annotation.Transactional;
  * <ul>
  *   <li>{@link #preview(DraftConfig, int, int, LocalTime)} — pure computation, no DB side effect;
  *       populates timeline when {@code plannedStartTime} is non-null (E48S12)
- *   <li>{@link #apply(UUID, DraftConfig)} — atomic operation: (a) DRAFT-precondition check,
- *       (b+c) invariant validation, (d) Phase record creation (PENDING status), (d2) structural
- *       TeamAvatar persistence for every phase per DEC-55 D-1 (E51S02), (e) draft_json persist,
- *       (f) DRAFT→PLANNED delegation to {@link TournamentLifecycleService#markPlanned} — all in
- *       one {@code @Transactional} boundary (E48S22, AC-IMPL-APPLY-FOUR-OPS-ATOMIC)
+ *   <li>{@link #apply(UUID, DraftConfig)} — atomic operation: (a) DRAFT-precondition check, (b+c)
+ *       invariant validation, (d) Phase record creation (PENDING status), (d2) structural
+ *       TeamAvatar persistence for every phase per DEC-55 D-1 (E51S02), (e) draft_json persist, (f)
+ *       DRAFT→PLANNED delegation to {@link TournamentLifecycleService#markPlanned} — all in one
+ *       {@code @Transactional} boundary (E48S22, AC-IMPL-APPLY-FOUR-OPS-ATOMIC)
  *   <li>{@link #loadDraft(UUID)} — loads current draft config from Tournament.draftJson (E21S19)
  *   <li>{@link #saveDraft(UUID, DraftConfig)} — persists draft config to Tournament.draftJson
  *       (E21S19)
@@ -65,11 +65,11 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Step (d2) persists structural {@link TeamAvatar} placeholders for every phase at apply-time.
  * Phase 1 avatars have {@code teamId} populated (from {@code participate=true} Tournament.Teams
  * sorted by {@code teamNumber}). Phase 2+ avatars have {@code teamId = null} — they are structural
- * placeholders that enable Match-Gen and Slot-Opt to run upfront before the operator's drag&amp;drop
- * assignment. Siegerehrung phases are skipped (no competitive slots). Delete-and-recreate
- * idempotency: existing avatars for each phase are deleted before insertion (FK CASCADE per E51S01
- * schema absorbs downstream rows safely). No event publication, no match generation in this step
- * (E51S03 scope).
+ * placeholders that enable Match-Gen and Slot-Opt to run upfront before the operator's
+ * drag&amp;drop assignment. Siegerehrung phases are skipped (no competitive slots).
+ * Delete-and-recreate idempotency: existing avatars for each phase are deleted before insertion (FK
+ * CASCADE per E51S01 schema absorbs downstream rows safely). No event publication, no match
+ * generation in this step (E51S03 scope).
  *
  * <h2>DRAFT-precondition (E48S22, AC-IMPL-PHASES-EXIST-GUARD-REMOVED)</h2>
  *
@@ -131,10 +131,10 @@ public class DefaultDraftService implements DraftService {
      * @param jdbcTemplate JDBC template for bulk cascade SQL (E48S13 AC-IMPL-CASCADE-DELETE-HELPER)
      * @param lifecycleService tournament lifecycle service for DRAFT→PLANNED delegation in apply()
      *     (E48S22, DEC-35 AC-GOVERNANCE-DEC-35-AUTHORITY-LOCALITY)
-     * @param teamAvatarRepository avatar persistence for DEC-55 D-1 structural placeholder
-     *     creation at apply-time (E51S02)
-     * @param teamRepository team persistence for Phase 1 teamId population from
-     *     {@code participate=true} teams (E51S02)
+     * @param teamAvatarRepository avatar persistence for DEC-55 D-1 structural placeholder creation
+     *     at apply-time (E51S02)
+     * @param teamRepository team persistence for Phase 1 teamId population from {@code
+     *     participate=true} teams (E51S02)
      */
     public DefaultDraftService(
             @Qualifier("tmPhaseRepository") PhaseRepository phaseRepository,
@@ -209,8 +209,8 @@ public class DefaultDraftService implements DraftService {
     // -------------------------------------------------------------------------
 
     /**
-     * Atomically applies the draft configuration (E48S22, AC-IMPL-APPLY-FOUR-OPS-ATOMIC;
-     * E51S02, AC-IMPL-AVATAR-PERSISTENCE-AT-APPLY).
+     * Atomically applies the draft configuration (E48S22, AC-IMPL-APPLY-FOUR-OPS-ATOMIC; E51S02,
+     * AC-IMPL-AVATAR-PERSISTENCE-AT-APPLY).
      *
      * <ol>
      *   <li>(a) Acquires per-tournament DB row-lock via {@link
@@ -224,10 +224,11 @@ public class DefaultDraftService implements DraftService {
      *   <li>(d) Phase record creation: one Phase per section in PENDING status; PhaseBreak entities
      *       for intra-phase breaks.
      *   <li>(d2) Structural TeamAvatar persistence (E51S02, DEC-55 D-1): for every non-siegerehrung
-     *       phase, structural avatars are created with {@code (phaseId, groupNumber, groupPosition)}
-     *       populated. Phase 1: {@code teamId} populated from {@code participate=true} teams. Phase
-     *       2+: {@code teamId = null} (structural placeholder). Delete-and-recreate idempotency.
-     *       No event publication, no match generation (E51S03 scope).
+     *       phase, structural avatars are created with {@code (phaseId, groupNumber,
+     *       groupPosition)} populated. Phase 1: {@code teamId} populated from {@code
+     *       participate=true} teams. Phase 2+: {@code teamId = null} (structural placeholder).
+     *       Delete-and-recreate idempotency. No event publication, no match generation (E51S03
+     *       scope).
      *   <li>(e) Persists draft_json: {@code tournament.setDraftJson(serialized config)} +
      *       repository save (makes draft_json available to loadDraft() post-Apply).
      *   <li>(f) Delegates DRAFT→PLANNED transition to {@link
@@ -565,8 +566,8 @@ public class DefaultDraftService implements DraftService {
      * CASCADE) ensures no orphan downstream rows on delete.
      *
      * <p>Phase 1 ({@code sectionIndex == 0}): {@code teamId} is populated from the corresponding
-     * participating team (Round-Robin: team at index {@code i} → group {@code (i % groupCount) + 1},
-     * position {@code (i / groupCount) + 1}).
+     * participating team (Round-Robin: team at index {@code i} → group {@code (i % groupCount) +
+     * 1}, position {@code (i / groupCount) + 1}).
      *
      * <p>Phase 2+ ({@code sectionIndex > 0}): {@code teamId = null} (structural placeholder). Slot
      * count = {@code groupCount × positionsPerGroup} where {@code positionsPerGroup =
@@ -578,7 +579,8 @@ public class DefaultDraftService implements DraftService {
      * @param sectionIndex 0-based index of this section within the draft (0 = Phase 1)
      * @param participatingTeams ordered list of participating teams (teamNumber ascending)
      * @see <a href="DEC-9">DEC-9 — TeamAvatar structural identity</a>
-     * @see <a href="DEC-55">DEC-55 D-1 — Avatar-Erzeugung-Zeitpunkt verschoben auf DraftConfig-Apply</a>
+     * @see <a href="DEC-55">DEC-55 D-1 — Avatar-Erzeugung-Zeitpunkt verschoben auf
+     *     DraftConfig-Apply</a>
      */
     private void persistStructuralAvatars(
             UUID tournamentId,
@@ -642,7 +644,8 @@ public class DefaultDraftService implements DraftService {
         avatar.setPhaseId(phaseId);
         avatar.setGroupNumber(groupNumber);
         avatar.setGroupPosition(groupPosition);
-        // teamId = null (set by caller for Phase 1; remains null for Phase 2+ structural placeholders)
+        // teamId = null (set by caller for Phase 1; remains null for Phase 2+ structural
+        // placeholders)
         avatar.setCreatedAt(LocalDateTime.now());
         return avatar;
     }
