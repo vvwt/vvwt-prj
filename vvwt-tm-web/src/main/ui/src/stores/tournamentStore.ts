@@ -254,22 +254,6 @@ export async function getTournamentRules(): Promise<TournamentRules> {
 // ─────────────────────────────────────────────────────────────────
 
 /**
- * Transitions a tournament from DRAFT to PLANNED (E48S03).
- *
- * @param id the tournament UUID
- * @returns the updated tournament with status PLANNED
- * @throws Error with apiError and status if the request fails (e.g. 409 Conflict)
- */
-export async function markPlanned(id: string): Promise<Tournament> {
-    const res = await apiFetch(`/api/tournaments/${id}/mark-planned`, { method: 'POST' });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw Object.assign(new Error(err.message ?? `markPlanned failed: ${res.status}`), { apiError: err, status: res.status });
-    }
-    return res.json();
-}
-
-/**
  * Transitions a tournament from PLANNED to ACTIVE (E48S03).
  *
  * @param id the tournament UUID

@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
-import de.vvwt.tm.tournament.internal.dto.TournamentResponse;
 import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -127,43 +126,6 @@ class TournamentLifecycleControllerIT {
         jdbcTemplate.update("DELETE FROM tournament WHERE id = ?", tournamentId);
         jdbcTemplate.update("DELETE FROM locations WHERE id = ?", locationId);
         tenantBinder.unbind();
-    }
-
-    // =========================================================================
-    // Happy-path: mark-planned — authenticated POST → 200, status verified via JDBC
-    // =========================================================================
-
-    @Test
-    @DisplayName("authenticated POST /api/tournaments/{id}/mark-planned returns 200 PLANNED status")
-    void authenticatedPost_markPlanned_returns200AndSetsPLANNED() throws Exception {
-        ResponseEntity<TournamentResponse> response =
-                authed.postForEntity(
-                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/mark-planned"),
-                        null,
-                        TournamentResponse.class);
-
-        assertThat(response.getStatusCode())
-                .as("POST mark-planned must return 200 OK")
-                .isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().status())
-                .as("Response body must show PLANNED status")
-                .isEqualTo("PLANNED");
-
-        // DEC-26 Rule 2 — independent JDBC verifier (not via service read)
-        tenantBinder.bindDefaultTenant();
-        try {
-            String dbStatus =
-                    jdbcTemplate.queryForObject(
-                            "SELECT status FROM tournament WHERE id = ?",
-                            String.class,
-                            tournamentId);
-            assertThat(dbStatus)
-                    .as("DB must show PLANNED status after mark-planned")
-                    .isEqualTo("PLANNED");
-        } finally {
-            tenantBinder.unbind();
-        }
     }
 
     // =========================================================================

@@ -117,7 +117,7 @@ describe('tournamentStore — exported API functions', () => {
 describe('tournamentStore — lifecycle API exports (E48S03)', () => {
   it('should export all lifecycle API functions', async () => {
     const module = await import('./tournamentStore.ts');
-    expect(typeof module.markPlanned).toBe('function');
+    // markPlanned removed in E48S22: DRAFT→PLANNED is now an atomic side-effect of apply()
     expect(typeof module.activate).toBe('function');
     expect(typeof module.complete).toBe('function');
     expect(typeof module.cancelTournament).toBe('function');
@@ -131,7 +131,7 @@ describe('tournamentStore — lifecycle API exports (E48S03)', () => {
 describe('de.json — lifecycle i18n keys (E48S03)', () => {
   it('should contain all lifecycle button labels', () => {
     const t = (deMessages as unknown as Record<string, Record<string, string>>).tournaments;
-    expect(t).toHaveProperty('markPlannedButton');
+    // markPlannedButton removed in E48S22: Planen-button removed from UI
     expect(t).toHaveProperty('activateButton');
     expect(t).toHaveProperty('completeButton');
     expect(t).toHaveProperty('cancelButton');
@@ -139,7 +139,7 @@ describe('de.json — lifecycle i18n keys (E48S03)', () => {
 
   it('should contain all lifecycle confirmation dialog keys', () => {
     const t = (deMessages as unknown as Record<string, Record<string, string>>).tournaments;
-    expect(t).toHaveProperty('markPlannedConfirm');
+    // markPlannedConfirm removed in E48S22: confirm dialog removed with the Planen-button
     expect(t).toHaveProperty('activateConfirm');
     expect(t).toHaveProperty('completeConfirm');
     expect(t).toHaveProperty('cancelConfirm');
@@ -156,13 +156,15 @@ describe('de.json — lifecycle i18n keys (E48S03)', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('Tournaments.svelte — lifecycle visibility rules (E48S03)', () => {
-  it('source contains markPlannedButton only inside DRAFT branch', async () => {
+  it('DRAFT branch exists in source (Planen-button removed in E48S22)', async () => {
+    // E48S22: markPlannedButton removed — DRAFT→PLANNED is now an atomic side-effect of apply().
+    // Verify DRAFT branch still exists (for edit/draft/delete buttons) but no markPlannedButton.
     const fs = await import('fs');
     const path = await import('path');
     const src = path.resolve(__dirname, '../routes/Tournaments.svelte');
     const source = fs.readFileSync(src, 'utf8');
-    expect(source).toContain("tournaments.markPlannedButton");
     expect(source).toContain("t.status === 'DRAFT'");
+    expect(source).not.toContain("tournaments.markPlannedButton");
   });
 
   it('source contains activateButton and cancelButton inside PLANNED branch', async () => {
@@ -183,23 +185,25 @@ describe('Tournaments.svelte — lifecycle visibility rules (E48S03)', () => {
     expect(source).toContain("t.status === 'ACTIVE'");
   });
 
-  it('source contains confirmation dialog calls for all lifecycle actions', async () => {
+  it('source contains confirmation dialog calls for remaining lifecycle actions', async () => {
+    // E48S22: markPlannedConfirm removed — confirm dialog removed with the Planen-button.
     const fs = await import('fs');
     const path = await import('path');
     const src = path.resolve(__dirname, '../routes/Tournaments.svelte');
     const source = fs.readFileSync(src, 'utf8');
-    expect(source).toContain("tournaments.markPlannedConfirm");
+    expect(source).not.toContain("tournaments.markPlannedConfirm");
     expect(source).toContain("tournaments.activateConfirm");
     expect(source).toContain("tournaments.completeConfirm");
     expect(source).toContain("tournaments.cancelConfirm");
   });
 
-  it('source imports all lifecycle functions from tournamentStore', async () => {
+  it('source imports remaining lifecycle functions from tournamentStore', async () => {
+    // E48S22: markPlanned removed from import — DRAFT→PLANNED is atomic side-effect of apply().
     const fs = await import('fs');
     const path = await import('path');
     const src = path.resolve(__dirname, '../routes/Tournaments.svelte');
     const source = fs.readFileSync(src, 'utf8');
-    expect(source).toContain("markPlanned");
+    expect(source).not.toContain("markPlanned");
     expect(source).toContain("activate");
     expect(source).toContain("complete");
     expect(source).toContain("cancelTournament");

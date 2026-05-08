@@ -10,6 +10,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseBreak;
 import de.vvwt.tm.tournament.PhaseBreakRepository;
@@ -17,27 +18,36 @@ import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.TimelineCalculationService;
 import de.vvwt.tm.tournament.TimelineEntry;
 import de.vvwt.tm.tournament.TimelineEntryType;
+import de.vvwt.tm.tournament.Tournament;
+import de.vvwt.tm.tournament.TournamentLifecycleService;
+import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.draft.DraftBreak;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftPreviewResult;
 import de.vvwt.tm.tournament.draft.DraftSection;
-import de.vvwt.tm.tournament.exceptions.DraftAlreadyAppliedException;
+import de.vvwt.tm.tournament.exceptions.TournamentNotInDraftException;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * RED — DraftService unit test (AC-TDD-DraftService).
+ * Unit test for {@link DefaultDraftService} (AC-TDD-DraftService, E48S22 update).
  *
- * <p>Tests {@code preview(DraftConfig, int)} pure computation and {@code apply(UUID, DraftConfig)}
- * phase-creation delegation. Mocks Phase-aggregate collaborators from E21S03 — the collaborator's
- * persistence is already tested in E21S03 own DAO tests (E15S03 precedent).
+ * <p>Tests {@code preview(DraftConfig, int, int, LocalTime)} pure computation and {@code
+ * apply(UUID, DraftConfig)} atomic six-step phase-creation delegation. Mocks Phase-aggregate
+ * collaborators from E21S03, TournamentRepository for the DRAFT-precondition findByIdForUpdate
+ * (DEC-37 Clause B, E48S22), ObjectMapper for draft_json serialization (E48S22), and
+ * TournamentLifecycleService for DRAFT→PLANNED delegation (E48S22, DEC-35).
+ *
+ * <p>The DraftAlreadyAppliedException-based idempotency test (AC-DRAFT-APPLY-IDEMPOTENCY) is
+ * migrated to AC-DRAFT-APPLY-NON-DRAFT-STATUS-409 semantics per E48S22
+ * AC-ERROR-HANDLING-DRAFT-ALREADY-APPLIED-COLLAPSED.
  *
  * <p>Inventory: E21S01 line 171.
  *
@@ -45,8 +55,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * @see PhaseRepository
  * @see PhaseBreakRepository
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
- * @see <a href="E48S17">E48S17 — AC-IMPL-APPLY-NO-PHASE-1-TEAMAVATARS (removed TeamRepository,
- *     TeamAvatarRepository, PhasePreparationService from constructor)</a>
+ * @see <a href="DEC-37">DEC-37 — Clause B: findByIdForUpdate first-read</a>
+ * @see <a href="DEC-35">DEC-35 — authority-locality: lifecycle delegation</a>
+ * @see <a href="E48S17">E48S17 — AC-IMPL-APPLY-NO-PHASE-1-TEAMAVATARS</a>
+ * @see <a href="E48S22">E48S22 — Atomic apply() + DRAFT-precondition + DraftAlreadyApplied
+ *     collapse</a>
  * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
  * @see <a href="E21S03">E21S03 — Phase aggregate (mocked collaborator)</a>
  */
@@ -56,8 +69,28 @@ class DraftServiceTest {
     @Mock private PhaseRepository phaseRepository;
     @Mock private PhaseBreakRepository phaseBreakRepository;
     @Mock private TimelineCalculationService timelineCalculationService;
+    @Mock private TournamentRepository tournamentRepository;
+    @Mock private TournamentLifecycleService lifecycleService;
 
-    @InjectMocks private DefaultDraftService draftService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private DefaultDraftService draftService;
+
+    @BeforeEach
+    void setUp() {
+        // Construct manually: DefaultDraftService no longer supports @InjectMocks cleanly
+        // because JdbcTemplate is injected but not used by preview/apply unit-test paths.
+        // We pass null for JdbcTemplate (resetPlan path) — all tests here exercise preview() and
+        // apply() only.
+        draftService =
+                new DefaultDraftService(
+                        phaseRepository,
+                        phaseBreakRepository,
+                        tournamentRepository,
+                        objectMapper,
+                        timelineCalculationService,
+                        null, // JdbcTemplate — only used by resetPlan(), not tested here
+                        lifecycleService);
+    }
 
     /**
      * Simple section with roundrobin gameMode. Use as a non-last section or when testing behaviour
@@ -304,8 +337,13 @@ class DraftServiceTest {
         // Last (and only) section must be siegerehrung per D-10 invariant (E48S01)
         DraftConfig config = new DraftConfig(List.of(lastSection(1)));
 
-        // PhaseRepository.findByTournamentId returns empty (no phases yet)
-        when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of());
+        // DEC-37 Clause B: first read is findByIdForUpdate (pessimistic lock)
+        Tournament draftTournament =
+                new Tournament(
+                        tournamentId, "T", "best-of-1", "r1", "v1", "g1", "DRAFT", null);
+        when(tournamentRepository.findByIdForUpdate(tournamentId)).thenReturn(draftTournament);
+        when(tournamentRepository.save(any(Tournament.class))).thenReturn(draftTournament);
+        when(lifecycleService.markPlanned(tournamentId)).thenReturn(draftTournament);
 
         Phase savedPhase =
                 new Phase(
@@ -332,7 +370,12 @@ class DraftServiceTest {
         // Section 2 is last — must be siegerehrung per D-10 invariant (E48S01)
         DraftConfig config = new DraftConfig(List.of(simpleSection(1), lastSection(2)));
 
-        when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of());
+        Tournament draftTournament =
+                new Tournament(
+                        tournamentId, "T", "best-of-1", "r1", "v1", "g1", "DRAFT", null);
+        when(tournamentRepository.findByIdForUpdate(tournamentId)).thenReturn(draftTournament);
+        when(tournamentRepository.save(any(Tournament.class))).thenReturn(draftTournament);
+        when(lifecycleService.markPlanned(tournamentId)).thenReturn(draftTournament);
 
         Phase phase1 =
                 new Phase(
@@ -366,7 +409,12 @@ class DraftServiceTest {
         UUID tournamentId = UUID.randomUUID();
         DraftConfig config = new DraftConfig(List.of(sectionWithBreak(1)));
 
-        when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of());
+        Tournament draftTournament =
+                new Tournament(
+                        tournamentId, "T", "best-of-1", "r1", "v1", "g1", "DRAFT", null);
+        when(tournamentRepository.findByIdForUpdate(tournamentId)).thenReturn(draftTournament);
+        when(tournamentRepository.save(any(Tournament.class))).thenReturn(draftTournament);
+        when(lifecycleService.markPlanned(tournamentId)).thenReturn(draftTournament);
 
         Phase savedPhase =
                 new Phase(
@@ -385,27 +433,29 @@ class DraftServiceTest {
     }
 
     /**
-     * AC-DRAFT-APPLY-IDEMPOTENCY: re-apply throws DraftAlreadyAppliedException (fails-fast). Legacy
-     * behaviour confirmed from domain.DraftService.applyDraft() line 297–305.
+     * AC-ERROR-HANDLING-DRAFT-ALREADY-APPLIED-COLLAPSED (E48S22): re-apply on a non-DRAFT
+     * tournament (e.g. PLANNED) throws TournamentNotInDraftException (fails-fast at precondition).
+     *
+     * <p>DraftAlreadyAppliedException is collapsed per E48S22 — the DRAFT-precondition check (step
+     * b) fires before any phase creation, so a re-apply attempt on a PLANNED tournament is caught
+     * at the same 409-path.
+     *
+     * <p>Migrated from {@code apply_whenPhasesAlreadyExist_throwsDraftAlreadyAppliedException} per
+     * AC-ERROR-HANDLING-DRAFT-ALREADY-APPLIED-COLLAPSED.
      */
     @Test
-    void apply_whenPhasesAlreadyExist_throwsDraftAlreadyAppliedException() {
+    void apply_whenTournamentNotDraft_throwsTournamentNotInDraftException() {
         UUID tournamentId = UUID.randomUUID();
         DraftConfig config = new DraftConfig(List.of(simpleSection(1)));
 
-        Phase existingPhase =
-                new Phase(
-                        UUID.randomUUID(),
-                        tournamentId,
-                        1,
-                        "Phase 1",
-                        "PENDING",
-                        0,
-                        LocalDateTime.now());
-        when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(existingPhase));
+        // Tournament is already PLANNED (post first apply) — DRAFT precondition fails
+        Tournament plannedTournament =
+                new Tournament(
+                        tournamentId, "T", "best-of-1", "r1", "v1", "g1", "PLANNED", null);
+        when(tournamentRepository.findByIdForUpdate(tournamentId)).thenReturn(plannedTournament);
 
         assertThatThrownBy(() -> draftService.apply(tournamentId, config))
-                .isInstanceOf(DraftAlreadyAppliedException.class);
+                .isInstanceOf(TournamentNotInDraftException.class);
 
         verify(phaseRepository, never()).save(any(Phase.class));
     }

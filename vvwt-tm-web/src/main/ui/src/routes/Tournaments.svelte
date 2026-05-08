@@ -26,7 +26,6 @@
     cascadeDeleteTournament,
     selectTournament,
     selectedTournamentId,
-    markPlanned,
     activate,
     complete,
     cancelTournament,
@@ -92,17 +91,6 @@
 
   function handleSelect(id: string): void {
     selectTournament(id);
-  }
-
-  async function handleMarkPlanned(id: string): Promise<void> {
-    if (!confirm($_('tournaments.markPlannedConfirm'))) return;
-    lifecycleError = null;
-    try {
-      await markPlanned(id);
-      await loadTournaments();
-    } catch (e: unknown) {
-      lifecycleError = e instanceof Error ? e.message : $_('tournaments.lifecycleError');
-    }
   }
 
   async function handleActivate(id: string): Promise<void> {
@@ -253,10 +241,6 @@
               {/if}
               <!-- E48S03 AC-FRONTEND-LIFECYCLE-BUTTONS + AC-FRONTEND-VISIBILITY-RULES -->
               {#if t.status === 'DRAFT'}
-                <!-- DRAFT: mark-planned transition -->
-                <button class="btn btn--primary btn--sm" onclick={() => handleMarkPlanned(t.id)}>
-                  {$_('tournaments.markPlannedButton')}
-                </button>
                 <button class="btn btn--secondary btn--sm"
                         onclick={() => push(`/tournaments/${t.id}/edit`)}>
                   {$_('tournaments.editButton')}

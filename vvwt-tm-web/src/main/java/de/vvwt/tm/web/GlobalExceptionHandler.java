@@ -20,6 +20,7 @@ import de.vvwt.tm.tournament.exceptions.TooManyRequestsException;
 import de.vvwt.tm.tournament.exceptions.TournamentCascadeDeleteActiveException;
 import de.vvwt.tm.tournament.exceptions.TournamentCascadeDeleteCompletedException;
 import de.vvwt.tm.tournament.exceptions.TournamentNotFoundException;
+import de.vvwt.tm.tournament.exceptions.TournamentNotInDraftException;
 import de.vvwt.tm.tournament.exceptions.TournamentResetPlanActiveException;
 import de.vvwt.tm.tournament.exceptions.TournamentResetPlanCancelledException;
 import de.vvwt.tm.tournament.exceptions.TournamentResetPlanCompletedException;
@@ -269,6 +270,25 @@ public class GlobalExceptionHandler {
                 ex.getMessage(),
                 "error.tournament.resetPlan.draftIdempotent",
                 request);
+    }
+
+    /**
+     * Maps {@link TournamentNotInDraftException} to HTTP 409 Conflict (E48S22,
+     * AC-ERROR-HANDLING-NON-DRAFT-STATUS-TYPED-EXCEPTION).
+     *
+     * <p>Apply was attempted on a tournament that is not in {@code DRAFT} status (e.g., already
+     * {@code PLANNED}, {@code ACTIVE}, or {@code CANCELLED}). The operator-actionable message
+     * includes the current status and the tournament ID.
+     *
+     * <p>Uses the typed messageKey {@code draft.error.notInDraftStatus} so the SPA can display a
+     * localised error message (de.json {@code draft.error.notInDraftStatus} key).
+     */
+    @ExceptionHandler(TournamentNotInDraftException.class)
+    public ResponseEntity<ApiErrorResponse> handleNotInDraft(
+            TournamentNotInDraftException ex, HttpServletRequest request) {
+        log.debug("[tm-web] TournamentNotInDraftException: {}", ex.getMessage());
+        return buildResponse(
+                HttpStatus.CONFLICT, ex.getMessage(), ex.getMessageKey(), request);
     }
 
     /**

@@ -64,14 +64,29 @@ public interface DraftService {
             LocalTime plannedStartTime);
 
     /**
-     * Applies the draft configuration to create Phase entities.
+     * Atomically applies the draft configuration to create Phase entities, persist the draft config,
+     * and transition the tournament from DRAFT to PLANNED (E48S22, AC-IMPL-APPLY-FOUR-OPS-ATOMIC).
      *
-     * <p>Fails-fast if phases already exist for the tournament (AC-DRAFT-APPLY-IDEMPOTENCY).
+     * <p>All six steps execute in a single {@code @Transactional} boundary:
+     *
+     * <ol>
+     *   <li>Acquires per-tournament row-lock as the FIRST read (DEC-37 Clause B).
+     *   <li>DRAFT-precondition check (→ {@link de.vvwt.tm.tournament.exceptions.TournamentNotInDraftException}
+     *       if not DRAFT).
+     *   <li>Invariant validation (first-phase team_number, last-phase siegerehrung).
+     *   <li>Phase record creation (one per section, PENDING status, no TeamAvatars).
+     *   <li>Persists {@code draft_json} to the tournament row.
+     *   <li>Delegates DRAFT→PLANNED to {@link
+     *       de.vvwt.tm.tournament.TournamentLifecycleService#markPlanned} (DEC-35
+     *       authority-locality).
+     * </ol>
      *
      * @param tournamentId the tournament UUID
      * @param config the draft configuration to apply; must not be {@code null}
      * @return ordered list of created Phase IDs (one per section); never empty
-     * @throws de.vvwt.tm.tournament.exceptions.DraftAlreadyAppliedException if phases already exist
+     * @throws de.vvwt.tm.tournament.exceptions.TournamentNotInDraftException if the tournament's
+     *     current status is not {@code DRAFT} (→ HTTP 409 with messageKey
+     *     {@code draft.error.notInDraftStatus})
      */
     List<UUID> apply(UUID tournamentId, DraftConfig config);
 

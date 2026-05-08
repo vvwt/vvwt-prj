@@ -58,7 +58,8 @@ import org.springframework.web.bind.annotation.RestController;
  *   <li>{@link de.vvwt.tm.tournament.exceptions.TournamentNotFoundException} → 404 (via
  *       {@code @ResponseStatus(NOT_FOUND)} on the exception class)
  *   <li>{@link de.vvwt.tm.tournament.exceptions.ConflictException} (including {@link
- *       de.vvwt.tm.tournament.exceptions.DraftAlreadyAppliedException} which now extends it) → 409
+ *       de.vvwt.tm.tournament.exceptions.TournamentNotInDraftException} for non-DRAFT apply
+ *       attempts — E48S22) → 409
  *   <li>Spring MVC {@code HttpMessageNotReadableException} → 400 (via Spring's default handler)
  * </ul>
  *
@@ -203,10 +204,12 @@ public class DraftController {
     // -------------------------------------------------------------------------
 
     /**
-     * Applies the draft configuration to create Phase entities.
+     * Atomically applies the draft configuration (E48S22): creates Phase entities, persists
+     * draft_json, and transitions tournament DRAFT→PLANNED via TournamentLifecycleService.
      *
-     * <p>Fails-fast if phases already exist (AC-DRAFT-APPLY-IDEMPOTENCY → 409 via
-     * GlobalExceptionHandler handling DraftAlreadyAppliedException extends ConflictException).
+     * <p>Fails with 409 if the tournament is not in DRAFT status (→
+     * {@link de.vvwt.tm.tournament.exceptions.TournamentNotInDraftException} with messageKey
+     * {@code draft.error.notInDraftStatus}, via GlobalExceptionHandler).
      *
      * @param tournamentId the tournament UUID (from path)
      * @param request the draft configuration to apply (validated via {@link Valid})
