@@ -41,6 +41,8 @@ export const PARENT_ROUTE_MAP: Record<string, string> = {
   '/tournaments/:tournamentId/timer-link':           '/tournaments',
   '/tournaments/:tournamentId/photos':               '/tournaments',
   '/tournaments/:tournamentId/certificate-template': '/tournaments',
+  // E52S02: certificates generation route — back-arrow to tournament list (E48S15 P→Tournaments convention)
+  '/tournaments/:tournamentId/certificates':         '/tournaments',
   '/tournaments/:tournamentId/slot-optimization':    '/tournaments',
   // Tournament CRUD routes (special-pattern — Brief D-12)
   '/tournaments/new': '/tournaments',

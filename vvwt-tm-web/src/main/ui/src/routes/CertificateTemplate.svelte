@@ -19,8 +19,10 @@
   import { onMount, onDestroy } from 'svelte';
   import { get } from 'svelte/store';
   import { _ } from 'svelte-i18n';
+  import { push } from 'svelte-spa-router';
   import { pageHeader, resetPageHeader } from '../stores/pageHeaderStore.js';
   import { resolveParent } from '../lib/parentRouteMap.js';
+  import { getTournament } from '../stores/tournamentStore.js';
   import {
     getTemplateMetadata,
     uploadTemplate,
@@ -63,6 +65,9 @@
   /** Inline SVG content for SVG previews. */
   let svgContent = $state<string | null>(null);
 
+  /** Tournament status — fetched for "Urkunden erstellen" visibility gate (E52S02 AC-TEST-SUB-PAGE-BUTTON-VISIBLE-COMPLETED-RED). */
+  let tournamentStatus = $state<string | null>(null);
+
   // ── Init ──────────────────────────────────────────────────────────────────
   onMount(async () => {
     // E47S01 AC3/AC5/AC6/AC12: register title, back-arrow, and tournament context in persistent header
@@ -77,7 +82,31 @@
       loading = false;
       return;
     }
-    await Promise.all([loadMetadata(), loadVariables()]);
+    // E52S02: fetch tournament status for "Urkunden erstellen" button visibility gate (COMPLETED-only).
+    // Fetch concurrently with metadata+variables; status failure must NOT block template management.
+    await Promise.all([
+      loadMetadata(),
+      loadVariables(),
+      getTournament(tournamentId)
+        .then(t => {
+          tournamentStatus = t.status ?? null;
+          // Register "Urkunden erstellen" action when tournament is COMPLETED (E52S02 AC-TEST-SUB-PAGE-BUTTON-VISIBLE-COMPLETED-RED)
+          if (tournamentStatus === 'COMPLETED') {
+            pageHeader.update(h => ({
+              ...h,
+              actions: [
+                {
+                  label: get(_)('certificateTemplate.createCertificatesButton'),
+                  ariaLabel: 'Urkunden erstellen',
+                  handler: () => push(`/tournaments/${tournamentId}/certificates`),
+                  variant: 'secondary' as const,
+                },
+              ],
+            }));
+          }
+        })
+        .catch(() => { /* status fetch failure is non-fatal — button stays hidden */ }),
+    ]);
     loading = false;
   });
 

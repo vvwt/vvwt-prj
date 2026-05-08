@@ -10,6 +10,7 @@
    * Story E11S07 — adds /tournaments/:tournamentId/timer-link route (AC1).
    * Story E12S03 — adds /tournaments/:tournamentId/photos route (AC1–AC9).
    * Story E12S05 — adds /tournaments/:tournamentId/certificate-template route (AC1–AC9).
+   * Story E52S02 — adds /tournaments/:tournamentId/certificates route (AC-URL-FE-NEW-ROUTE-CERTIFICATES).
    * Story E27S02 — adds /tournaments/:tournamentId/slot-optimization route (AC-SVELTE-CANCEL-UI-AUTHORED).
    * Story E48S05 — adds /tournaments/:tournamentId/phases route (AC-FRONTEND-PHASES-ROUTE).
    * Story E47S01 — shell foundation: persistent header with page title, back-arrow,
@@ -49,6 +50,7 @@
   import TimerLink from './routes/TimerLink.svelte';
   import TeamPhotos from './routes/TeamPhotos.svelte';
   import CertificateTemplate from './routes/CertificateTemplate.svelte';
+  import Certificates from './routes/Certificates.svelte';
   import SlotOptimization from './routes/SlotOptimization.svelte';
   import PhaseList from './routes/PhaseList.svelte';
   import PhaseTransition from './routes/PhaseTransition.svelte';
@@ -69,6 +71,7 @@
     ['/tournaments/:tournamentId/timer-link', TimerLink],
     ['/tournaments/:tournamentId/photos', TeamPhotos],
     ['/tournaments/:tournamentId/certificate-template', CertificateTemplate],
+    ['/tournaments/:tournamentId/certificates', Certificates],
     ['/tournaments/:tournamentId/slot-optimization', SlotOptimization],
     ['/tournaments/:tournamentId/phases', PhaseList],
     ['/tournaments/:tournamentId/phases/:phaseId/transition', PhaseTransition],

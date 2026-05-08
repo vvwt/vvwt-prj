@@ -60,3 +60,57 @@ describe('CertificateTemplate.svelte — AC12: pop() back-button removed (E47S01
     expect(source).not.toMatch(/<button[^>]*>\s*\{[^}]*certificateTemplate\.backButton/);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E52S02 — "Urkunden erstellen" header-right button on CertificateTemplate.svelte
+// Visibility-gated: visible only when tournament.status === 'COMPLETED'.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('CertificateTemplate.svelte — E52S02: "Urkunden erstellen" button (AC-TEST-SUB-PAGE-BUTTON-VISIBLE-COMPLETED-RED)', () => {
+  it('CertificateTemplate.svelte source contains certificateTemplate.createCertificatesButton i18n key', async () => {
+    // AC-TEST-SUB-PAGE-BUTTON-VISIBLE-COMPLETED-RED: button must use new i18n key
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './CertificateTemplate.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain('certificateTemplate.createCertificatesButton');
+  });
+
+  it('CertificateTemplate.svelte source gates "Urkunden erstellen" button on COMPLETED status', async () => {
+    // AC-TEST-SUB-PAGE-BUTTON-VISIBLE-COMPLETED-RED: button must be inside COMPLETED gate
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './CertificateTemplate.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain("COMPLETED");
+    expect(source).toContain('createCertificatesButton');
+  });
+});
+
+describe('CertificateTemplate.svelte — E52S02: button hidden for non-COMPLETED (AC-TEST-SUB-PAGE-BUTTON-HIDDEN-NON-COMPLETED-RED)', () => {
+  it('CertificateTemplate.svelte source does NOT show createCertificatesButton unconditionally (no status gate = fail)', async () => {
+    // AC-TEST-SUB-PAGE-BUTTON-HIDDEN-NON-COMPLETED-RED: button must be gated
+    // Verify that createCertificatesButton appears INSIDE a status conditional block (COMPLETED guard)
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './CertificateTemplate.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // The COMPLETED check must appear before the createCertificatesButton reference
+    const completedIdx = source.indexOf("=== 'COMPLETED'");
+    const buttonIdx = source.indexOf('createCertificatesButton');
+    expect(completedIdx).toBeGreaterThan(-1);
+    expect(buttonIdx).toBeGreaterThan(-1);
+    expect(completedIdx).toBeLessThan(buttonIdx);
+  });
+});
+
+describe('CertificateTemplate.svelte — E52S02: button click navigates to /certificates (AC-TEST-SUB-PAGE-BUTTON-CLICK-NAVIGATES-TO-CERTIFICATES-ROUTE-RED)', () => {
+  it('CertificateTemplate.svelte source navigates to /certificates route on button click', async () => {
+    // AC-TEST-SUB-PAGE-BUTTON-CLICK-NAVIGATES-TO-CERTIFICATES-ROUTE-RED
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './CertificateTemplate.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain('/certificates');
+  });
+});
