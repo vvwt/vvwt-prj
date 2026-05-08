@@ -183,6 +183,98 @@ describe('TournamentForm.svelte — AC9: no in-place page title h1 in template (
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// E51S07: optimize checkbox presence and payload inclusion
+// DEC-55 D-5: TournamentForm must render a slot-optimization checkbox (default checked)
+// and include the `optimize` field in both CREATE and UPDATE payloads.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('TournamentForm.svelte — E51S07: optimize checkbox present with default checked (DEC-55 D-5)', () => {
+  it('TournamentForm.svelte source contains an input[type=checkbox] with id="optimize"', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './TournamentForm.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain('id="optimize"');
+    expect(source).toContain('type="checkbox"');
+  });
+
+  it('TournamentForm.svelte source binds checkbox to an optimize state variable defaulting to true', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './TournamentForm.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // $state(true) default for the checkbox (DEC-55 D-5)
+    expect(source).toMatch(/let optimize.*=.*\$state\s*\(\s*true\s*\)/);
+    // bind:checked wires the checkbox to the state variable
+    expect(source).toContain('bind:checked={optimize}');
+  });
+
+  it('TournamentForm.svelte source uses slotopt.checkbox.label i18n key as checkbox label', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './TournamentForm.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain('slotopt.checkbox.label');
+  });
+
+  it('de.json slotopt.checkbox.label is a non-empty string', async () => {
+    const d = (await import('../locales/de.json')).default as unknown as Record<string, Record<string, Record<string, string>>>;
+    expect(d.slotopt.checkbox).toHaveProperty('label');
+    expect(d.slotopt.checkbox.label.length).toBeGreaterThan(0);
+  });
+});
+
+describe('TournamentForm.svelte — E51S07: optimize field in CREATE payload (DEC-55 D-5)', () => {
+  it('TournamentForm.svelte CREATE payload object literal includes optimize field', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './TournamentForm.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    const createBranchMatch = source.match(/const req: TournamentCreateRequest = \{([^}]+)\}/s);
+    expect(createBranchMatch).not.toBeNull();
+    const createBlock = createBranchMatch![1];
+    expect(createBlock).toContain('optimize');
+  });
+
+  it('TournamentCreateRequest TS interface in tournamentStore.ts includes optional optimize field', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const storeSrc = path.resolve(__dirname, '../stores/tournamentStore.ts');
+    const source = fs.readFileSync(storeSrc, 'utf8');
+    const ifaceMatch = source.match(/export interface TournamentCreateRequest \{([^}]+)\}/s);
+    expect(ifaceMatch).not.toBeNull();
+    const ifaceBlock = ifaceMatch![1];
+    expect(ifaceBlock).toContain('optimize');
+  });
+});
+
+describe('TournamentForm.svelte — E51S07: optimize field in UPDATE payload (DEC-55 D-5)', () => {
+  it('TournamentForm.svelte UPDATE (editId branch) call includes optimize field', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './TournamentForm.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // The edit branch calls updateTournament(editId, { ... optimize, ... })
+    // We extract the updateTournament call block
+    const updateMatch = source.match(/await updateTournament\(editId,\s*\{([^}]+)\}/s);
+    expect(updateMatch, 'updateTournament call not found in source').not.toBeNull();
+    const updateBlock = updateMatch![1];
+    expect(updateBlock).toContain('optimize');
+  });
+
+  it('TournamentUpdateRequest TS interface in tournamentStore.ts includes optional optimize field', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const storeSrc = path.resolve(__dirname, '../stores/tournamentStore.ts');
+    const source = fs.readFileSync(storeSrc, 'utf8');
+    const ifaceMatch = source.match(/export interface TournamentUpdateRequest \{([^}]+)\}/s);
+    expect(ifaceMatch).not.toBeNull();
+    const ifaceBlock = ifaceMatch![1];
+    expect(ifaceBlock).toContain('optimize');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // AC-TEST-FRONTEND-CREATE-PAYLOAD-RED (E48S14)
 // RED-first: TournamentForm.svelte CREATE payload (lines 126-135) omits plannedStartTime
 // before the fix. After fix: mirrors the UPDATE payload which already includes it at line 123.

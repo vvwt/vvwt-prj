@@ -106,6 +106,7 @@ class TeamControllerIT {
                         "setPoints",
                         "standardVolleyball",
                         "roundRobin",
+                        null,
                         null);
 
         ResponseEntity<de.vvwt.tm.tournament.internal.dto.TournamentResponse> tournamentResponse =

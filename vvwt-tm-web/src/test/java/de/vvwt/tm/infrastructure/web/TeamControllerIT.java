@@ -100,6 +100,7 @@ class TeamControllerIT {
                         "threePoint",
                         "standardVolleyball",
                         "roundRobin",
+                        null,
                         null);
         ResponseEntity<TournamentResponse> response =
                 authed.postForEntity(

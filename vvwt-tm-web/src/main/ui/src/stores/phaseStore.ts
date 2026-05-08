@@ -26,11 +26,15 @@ export interface PhaseOverview {
     id: string;
     sequenceNumber: number;
     description: string;
-    /** E48S17: PREPARED added between PENDING and ACTIVE. */
-    status: 'PENDING' | 'PREPARED' | 'ACTIVE' | 'COMPLETED';
+    /** E48S17: PREPARED added between PENDING and ACTIVE. E51S05: ASSIGNED added. */
+    status: 'PENDING' | 'PREPARED' | 'ASSIGNED' | 'ACTIVE' | 'COMPLETED';
     gameMode: string | null;
     currentLapNumber: number;
     matchCountsByState: MatchCountsByState;
+    /** E51S07: phase.last_job_state from backend; null when no background job has run (DEC-55 D-2). */
+    jobStatus: string | null;
+    /** E51S07: whether slot-optimization has completed for this phase (DEC-55 D-5). */
+    optimized?: boolean;
 }
 
 // ── API ───────────────────────────────────────────────────────────────────────

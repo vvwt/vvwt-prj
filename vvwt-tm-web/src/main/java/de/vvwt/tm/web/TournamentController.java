@@ -113,7 +113,9 @@ public class TournamentController {
                         request.matchGeneratorId(),
                         // E48S14 bug-fix: pass plannedStartTime to the service (was previously
                         // omitted, causing the field to be silently dropped on CREATE).
-                        request.plannedStartTime());
+                        request.plannedStartTime(),
+                        // E51S07 AC-IMPL-TOURNAMENT-FORM-CHECKBOX: pass optimize flag.
+                        request.optimize());
 
         URI location =
                 ServletUriComponentsBuilder.fromCurrentRequest()
@@ -150,7 +152,9 @@ public class TournamentController {
                         request.scoringRuleId(),
                         request.setValidationRuleId(),
                         request.matchGeneratorId(),
-                        request.plannedStartTime());
+                        request.plannedStartTime(),
+                        // E51S07 AC-IMPL-TOURNAMENT-FORM-CHECKBOX: pass optimize flag.
+                        request.optimize());
 
         return ResponseEntity.ok(TournamentResponse.from(tournament));
     }

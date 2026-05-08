@@ -127,6 +127,7 @@ class TournamentSeedControllerIT {
                         "setPoints",
                         "standardVolleyball",
                         "roundRobin",
+                        null,
                         null);
 
         ResponseEntity<TournamentResponse> response =
@@ -249,6 +250,7 @@ class TournamentSeedControllerIT {
                         "setPoints",
                         "standardVolleyball",
                         "roundRobin",
+                        null,
                         null);
 
         ResponseEntity<String> response =

@@ -18,6 +18,7 @@ import java.time.LocalTime;
  * @see <a href="DEC-21">DEC-21 — Spring Modulith internal.dto package</a>
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
  * @see <a href="E21S02">E21S02 — Tournament aggregate reconstruction</a>
+ * @see <a href="E51S07">E51S07 — AC-IMPL-TOURNAMENT-FORM-CHECKBOX (optimize field)</a>
  */
 public record TournamentUpdateRequest(
 
@@ -49,4 +50,11 @@ public record TournamentUpdateRequest(
          * Optional planned start time for timeline calculation. Applied unconditionally — {@code
          * null} clears the existing value.
          */
-        LocalTime plannedStartTime) {}
+        LocalTime plannedStartTime,
+
+        /**
+         * Whether slot-optimization should run for this tournament. Applied if not {@code null}.
+         * {@code null} means "no change" (matches the nullable-field convention of other fields in
+         * this record). E51S07 AC-IMPL-TOURNAMENT-FORM-CHECKBOX.
+         */
+        Boolean optimize) {}

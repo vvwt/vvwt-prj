@@ -72,9 +72,11 @@
     "status": {
       "PENDING": "Ausstehend",
       "PREPARED": "Vorbereitet",
+      "ASSIGNED": "Zugewiesen",
       "ACTIVE": "Aktiv",
       "COMPLETED": "Abgeschlossen"
     },
+    "activateGuardTooltip": "Phase kann erst gestartet werden, wenn die Slot-Optimierung abgeschlossen ist.",
     "prepareButton": "Vorbereiten",
     "prepareTitle": "Phase vorbereiten",
     "startButton": "Phase starten",
@@ -461,7 +463,11 @@
     }
   },
   "slotopt": {
-    "title": "Slot-Optimierung"
+    "title": "Slot-Optimierung",
+    "checkbox": {
+      "label": "Slot-Optimierung berechnen",
+      "tooltip": "Langsamer für große Phasen, bessere Spielzeitausnutzung. Bei 'aus' startet die Phase ohne berechnete Spielreihenfolge."
+    }
   },
   "phaseTransition": {
     "pageTitle": "Phasenwechsel",

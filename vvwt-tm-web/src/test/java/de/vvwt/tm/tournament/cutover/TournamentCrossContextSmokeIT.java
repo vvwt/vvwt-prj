@@ -179,6 +179,7 @@ class TournamentCrossContextSmokeIT {
                             "setPoints",
                             "standardVolleyball",
                             "roundRobin",
+                            null,
                             null);
             ResponseEntity<TournamentResponse> tournamentResp =
                     authed.postForEntity(

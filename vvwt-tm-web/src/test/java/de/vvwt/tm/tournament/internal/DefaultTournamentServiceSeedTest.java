@@ -140,6 +140,7 @@ class DefaultTournamentServiceSeedTest {
                 "setPoints",
                 "standardVolleyball",
                 "roundRobin",
+                null,
                 null);
 
         ArgumentCaptor<Team> teamCaptor = ArgumentCaptor.forClass(Team.class);
@@ -170,6 +171,7 @@ class DefaultTournamentServiceSeedTest {
                 "setPoints",
                 "standardVolleyball",
                 "roundRobin",
+                null,
                 null);
 
         ArgumentCaptor<Team> captor = ArgumentCaptor.forClass(Team.class);
@@ -200,6 +202,7 @@ class DefaultTournamentServiceSeedTest {
                 "setPoints",
                 "standardVolleyball",
                 "roundRobin",
+                null,
                 null);
 
         ArgumentCaptor<Team> captor = ArgumentCaptor.forClass(Team.class);
@@ -228,6 +231,7 @@ class DefaultTournamentServiceSeedTest {
                 "setPoints",
                 "standardVolleyball",
                 "roundRobin",
+                null,
                 null);
 
         ArgumentCaptor<Team> captor = ArgumentCaptor.forClass(Team.class);
@@ -262,6 +266,7 @@ class DefaultTournamentServiceSeedTest {
                 "setPoints",
                 "standardVolleyball",
                 "roundRobin",
+                null,
                 null);
 
         ArgumentCaptor<Team> captor = ArgumentCaptor.forClass(Team.class);
@@ -293,6 +298,7 @@ class DefaultTournamentServiceSeedTest {
                 "setPoints",
                 "standardVolleyball",
                 "roundRobin",
+                null,
                 null);
 
         verify(messageSource, atLeastOnce())
@@ -321,6 +327,7 @@ class DefaultTournamentServiceSeedTest {
                 "setPoints",
                 "standardVolleyball",
                 "roundRobin",
+                null,
                 null);
 
         // Verify MessageSource was called with a German locale
@@ -356,6 +363,7 @@ class DefaultTournamentServiceSeedTest {
                 "setPoints",
                 "standardVolleyball",
                 "roundRobin",
+                null,
                 null);
 
         ArgumentCaptor<Locale> localeCaptor = ArgumentCaptor.forClass(Locale.class);
@@ -395,6 +403,7 @@ class DefaultTournamentServiceSeedTest {
                                         "setPoints",
                                         "standardVolleyball",
                                         "roundRobin",
+                                        null,
                                         null))
                 .isInstanceOf(DataAccessException.class);
     }
@@ -418,6 +427,7 @@ class DefaultTournamentServiceSeedTest {
                 "setPoints",
                 "standardVolleyball",
                 "roundRobin",
+                null,
                 null);
 
         ArgumentCaptor<Tournament> tCaptor = ArgumentCaptor.forClass(Tournament.class);

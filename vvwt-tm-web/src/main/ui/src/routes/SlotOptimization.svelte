@@ -23,10 +23,12 @@
     state: OptState;
     startedAt?: string;
     bestSoFarVarietyScore?: number;
+    lastJobState?: string | null;  // E51S07: phase.last_job_state from DB (DEC-55 D-8)
   }
 
   let state: OptState = 'unknown';
   let bestScore: number | null = null;
+  let lastJobState: string | null = null;  // E51S07
   let errorMsg: string | null = null;
   let cancelMsg: string | null = null;
   let polling = true;
@@ -42,6 +44,7 @@
       const body: StatusResponse = await res.json();
       state = body.state ?? 'unknown';
       bestScore = body.bestSoFarVarietyScore ?? null;
+      lastJobState = body.lastJobState ?? null;  // E51S07
       errorMsg = null;
     } catch (e) {
       errorMsg = String(e);
@@ -108,6 +111,14 @@
     <div class="score-row">
       <span class="label">Best score so far:</span>
       <span>{bestScore.toFixed(4)}</span>
+    </div>
+  {/if}
+
+  <!-- E51S07: display lastJobState from phase.last_job_state (DEC-55 D-8) -->
+  {#if lastJobState !== null}
+    <div class="job-state-row">
+      <span class="label">Phase Job-Status:</span>
+      <span class="badge badge--{lastJobState}">{lastJobState}</span>
     </div>
   {/if}
 

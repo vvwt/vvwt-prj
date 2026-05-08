@@ -19,6 +19,7 @@ import java.util.UUID;
  * @see <a href="DEC-21">DEC-21 — Spring Modulith internal.dto package</a>
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
  * @see <a href="E21S02">E21S02 — Tournament aggregate reconstruction</a>
+ * @see <a href="E51S07">E51S07 — AC-IMPL-TOURNAMENT-FORM-CHECKBOX (optimize field)</a>
  */
 public record TournamentResponse(
         UUID id,
@@ -32,7 +33,8 @@ public record TournamentResponse(
         String setValidationRuleId,
         String matchGeneratorId,
         LocalDateTime createdAt,
-        LocalTime plannedStartTime) {
+        LocalTime plannedStartTime,
+        boolean optimize) {
 
     /**
      * Maps a {@link Tournament} domain entity to a {@link TournamentResponse} DTO.
@@ -53,6 +55,7 @@ public record TournamentResponse(
                 t.getSetValidationRuleId(),
                 t.getMatchGeneratorId(),
                 t.getCreatedAt(),
-                t.getPlannedStartTime());
+                t.getPlannedStartTime(),
+                t.isOptimize());
     }
 }

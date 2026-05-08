@@ -483,6 +483,7 @@ class TeamPhotoControllerIT {
                         "setPoints",
                         "standardVolleyball",
                         "roundRobin",
+                        null,
                         null);
 
         ResponseEntity<TournamentResponse> created =

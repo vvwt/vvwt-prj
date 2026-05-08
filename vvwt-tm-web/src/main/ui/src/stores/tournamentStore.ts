@@ -36,6 +36,7 @@ export interface Tournament {
     matchGeneratorId: string;
     createdAt: string;
     plannedStartTime: string | null;  // HH:mm LocalTime or null (E08S05 AC1)
+    optimize: boolean;  // E51S07: slot-optimization flag (DEC-55 D-5)
 }
 
 /** Available rule options returned by GET /api/scoring/rules. */
@@ -57,6 +58,7 @@ export interface TournamentCreateRequest {
     setValidationRuleId: string;
     matchGeneratorId: string;
     plannedStartTime?: string | null;  // HH:mm or null (E48S14)
+    optimize?: boolean | null;  // E51S07: slot-optimization flag; null → server default (true)
 }
 
 /** Request body for PUT /api/tournaments/{id}. Null means "do not change". */
@@ -70,6 +72,7 @@ export interface TournamentUpdateRequest {
     setValidationRuleId?: string | null;
     matchGeneratorId?: string | null;
     plannedStartTime?: string | null;  // HH:mm or null to clear (E08S05 AC1)
+    optimize?: boolean | null;  // E51S07: slot-optimization flag; null → no change
 }
 
 // ─────────────────────────────────────────────────────────────────

@@ -34,6 +34,7 @@ import org.springframework.stereotype.Service;
  * @see PhaseQueryService
  * @see <a href="DEC-35">DEC-35 — impl in tournament.internal</a>
  * @see <a href="E48S05">E48S05 — AC-IMPL-PHASE-LIST-ENDPOINT, AC-IMPL-MATCH-COUNTS-BY-STATE</a>
+ * @see <a href="E51S07">E51S07 — AC-IMPL-PHASELIST-ENDPOINT-EXTENSION (jobStatus field)</a>
  */
 @Service("tmPhaseQueryService")
 public class DefaultPhaseQueryService implements PhaseQueryService {
@@ -43,7 +44,7 @@ public class DefaultPhaseQueryService implements PhaseQueryService {
 
     /** SQL: list all phases for a tournament, ordered by sequenceNumber asc. */
     private static final String SELECT_PHASES =
-            "SELECT id, sequence_number, description, status, current_lap_number"
+            "SELECT id, sequence_number, description, status, current_lap_number, last_job_state"
                     + " FROM phase WHERE tournament_id = ? ORDER BY sequence_number";
 
     /** SQL: aggregate match counts by state for all phases of a tournament — single query. */
@@ -84,6 +85,8 @@ public class DefaultPhaseQueryService implements PhaseQueryService {
                     String description = rs.getString("description");
                     String status = rs.getString("status");
                     int currentLap = rs.getInt("current_lap_number");
+                    // E51S07 AC-IMPL-PHASELIST-ENDPOINT-EXTENSION: jobStatus from last_job_state
+                    String jobStatus = rs.getString("last_job_state");
 
                     // AC-IMPL-GAMEMODE-FROM-DRAFT-JSON: look up by sequenceNumber
                     String gameMode = gameModeBySection.get(seq);
@@ -103,7 +106,8 @@ public class DefaultPhaseQueryService implements PhaseQueryService {
                                     status,
                                     gameMode,
                                     currentLap,
-                                    counts));
+                                    counts,
+                                    jobStatus));
                 },
                 tournamentId);
 

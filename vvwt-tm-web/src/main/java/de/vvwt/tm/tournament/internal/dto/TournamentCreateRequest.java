@@ -23,6 +23,7 @@ import java.time.LocalTime;
  * @see <a href="E08S05">E08S05 — AC4 plannedStartTime introduction</a>
  * @see <a href="E21S02">E21S02 — Tournament aggregate reconstruction</a>
  * @see <a href="E48S14">E48S14 — Bug-fix: plannedStartTime missing in CREATE path</a>
+ * @see <a href="E51S07">E51S07 — AC-IMPL-TOURNAMENT-FORM-CHECKBOX (optimize field)</a>
  */
 public record TournamentCreateRequest(
 
@@ -65,4 +66,17 @@ public record TournamentCreateRequest(
          * @see <a href="E08S05">E08S05 — AC4 plannedStartTime introduction</a>
          * @see <a href="E48S14">E48S14 — Bug-fix: field was absent from CREATE DTO</a>
          */
-        LocalTime plannedStartTime) {}
+        LocalTime plannedStartTime,
+
+        /**
+         * Whether slot-optimization should run as a background job for phases of this tournament.
+         * {@code true} enables the pipeline; {@code false} skips slot-opt. Default {@code null}
+         * means the server applies the entity default ({@code true} per DEC-55 D-5 + {@code
+         * tournament.optimize} column DEFAULT TRUE in schema E51S01). Null is acceptable: the
+         * service maps null → {@code true} (default-on per DEC-55 D-5).
+         *
+         * @see <a href="E51S07">E51S07 — AC-IMPL-TOURNAMENT-FORM-CHECKBOX</a>
+         * @see <a href="../../../../../../../../../docs/governance/decisions/DEC-55.md">DEC-55
+         *     D-5</a>
+         */
+        Boolean optimize) {}

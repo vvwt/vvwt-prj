@@ -321,8 +321,8 @@ class CommitTransitionE51S06IT {
 
         List<TeamAvatarProposal> assignments =
                 List.of(
-                        new TeamAvatarProposal(team1Id, 1, 1),
-                        new TeamAvatarProposal(team2Id, 1, 2));
+                        TeamAvatarProposal.forCommit(team1Id, 1, 1),
+                        TeamAvatarProposal.forCommit(team2Id, 1, 2));
 
         phaseTransitionService.commitTransition(phase2Id, assignments);
 
@@ -382,8 +382,8 @@ class CommitTransitionE51S06IT {
 
         List<TeamAvatarProposal> assignments =
                 List.of(
-                        new TeamAvatarProposal(team1Id, 1, 1),
-                        new TeamAvatarProposal(team2Id, 1, 2));
+                        TeamAvatarProposal.forCommit(team1Id, 1, 1),
+                        TeamAvatarProposal.forCommit(team2Id, 1, 2));
 
         phaseTransitionService.commitTransition(phase2Id, assignments);
 
@@ -424,8 +424,8 @@ class CommitTransitionE51S06IT {
     void commitTransition_invokesRefereeAssignerAndFlipsToAssigned() {
         List<TeamAvatarProposal> assignments =
                 List.of(
-                        new TeamAvatarProposal(team1Id, 1, 1),
-                        new TeamAvatarProposal(team2Id, 1, 2));
+                        TeamAvatarProposal.forCommit(team1Id, 1, 1),
+                        TeamAvatarProposal.forCommit(team2Id, 1, 2));
 
         phaseTransitionService.commitTransition(phase2Id, assignments);
 
@@ -459,8 +459,8 @@ class CommitTransitionE51S06IT {
     void commitTransition_avatarUuidStable_DEC9IdentityPreserved() {
         List<TeamAvatarProposal> assignments =
                 List.of(
-                        new TeamAvatarProposal(team1Id, 1, 1),
-                        new TeamAvatarProposal(team2Id, 1, 2));
+                        TeamAvatarProposal.forCommit(team1Id, 1, 1),
+                        TeamAvatarProposal.forCommit(team2Id, 1, 2));
 
         phaseTransitionService.commitTransition(phase2Id, assignments);
 
@@ -522,7 +522,7 @@ class CommitTransitionE51S06IT {
         // Assign to slot (1,3) which has no structural placeholder
         List<TeamAvatarProposal> badAssignment =
                 List.of(
-                        new TeamAvatarProposal(team1Id, 1, 3) // position 3 does not exist
+                        TeamAvatarProposal.forCommit(team1Id, 1, 3) // position 3 does not exist
                         );
 
         assertThatThrownBy(() -> phaseTransitionService.commitTransition(phase2Id, badAssignment))

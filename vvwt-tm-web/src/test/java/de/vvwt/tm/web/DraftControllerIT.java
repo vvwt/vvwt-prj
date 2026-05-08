@@ -146,6 +146,7 @@ class DraftControllerIT {
                             "setPoints",
                             "standardVolleyball",
                             "roundRobin",
+                            null,
                             null)
                     .getId();
         } finally {
@@ -566,6 +567,7 @@ class DraftControllerIT {
                                     "setPoints",
                                     "standardVolleyball",
                                     "roundRobin",
+                                    null,
                                     null)
                             .getId();
         } finally {
@@ -643,6 +645,7 @@ class DraftControllerIT {
                                     "setPoints",
                                     "standardVolleyball",
                                     "roundRobin",
+                                    null,
                                     null)
                             .getId();
         } finally {
@@ -736,7 +739,8 @@ class DraftControllerIT {
                                     "setPoints",
                                     "standardVolleyball",
                                     "roundRobin",
-                                    null) // plannedStartTime set below via repository (E48S14)
+                                    null, // plannedStartTime set below via repository (E48S14)
+                                    null)
                             .getId();
             // Set plannedStartTime directly on the tournament entity (createTournament does not
             // accept plannedStartTime; use repository to set it for the fixture)

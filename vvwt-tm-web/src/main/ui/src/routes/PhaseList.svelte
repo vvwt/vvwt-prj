@@ -47,6 +47,8 @@
 
   // E48S23: tournament-level status for Reset-Plan affordance (AC-IMPL-PHASELIST-FETCHES-TOURNAMENT-STATUS)
   let tournamentStatus = $state<string | null>(null);
+  // E51S07: tournament.optimize for D-6 activation-guard client mirror (DEC-55 D-6)
+  let tournamentOptimize = $state<boolean>(true);
   let resettingPlan = $state(false);
   let resetPlanError = $state<string | null>(null);
 
@@ -64,7 +66,7 @@
     await Promise.all([
       loadPhases(),
       getTournament(tournamentId)
-        .then(t => { tournamentStatus = t.status; })
+        .then(t => { tournamentStatus = t.status; tournamentOptimize = t.optimize ?? true; })
         .catch(() => { /* degraded mode: tournamentStatus stays null → button hidden */ }),
     ]);
   });
@@ -94,10 +96,40 @@
         return 'badge badge--completed';
       case 'PREPARED':
         return 'badge badge--prepared';
+      case 'ASSIGNED':
+        return 'badge badge--assigned';
       case 'PENDING':
       default:
         return 'badge badge--pending';
     }
+  }
+
+  /**
+   * Returns the job-status icon character for a phase (E51S07, DEC-55 D-2/D-9).
+   * Spinner for running, check-mark for idle+optimized=true, warning for cancelled/failed, null for null.
+   */
+  function jobStatusIcon(phase: PhaseOverview): string | null {
+    const js = phase.jobStatus;
+    if (!js) return null;
+    if (js === 'match_gen_running' || js === 'slot_opt_running') return '⏳';
+    if (js === 'idle' && phase.optimized) return '✅';
+    if (js === 'cancelled' || js === 'failed') return '⚠️';
+    return null;
+  }
+
+  /**
+   * Returns whether clicking the job-status icon should navigate to slot-opt (E51S07, DEC-55 D-9).
+   */
+  function isJobRunning(phase: PhaseOverview): boolean {
+    return phase.jobStatus === 'match_gen_running' || phase.jobStatus === 'slot_opt_running';
+  }
+
+  /**
+   * Returns whether the activate guard blocks the "Phase starten" button (E51S07, DEC-55 D-6).
+   * Client mirror of server-side guard: tournament.optimize=true && phase.optimized=false.
+   */
+  function activateGuardFails(phase: PhaseOverview): boolean {
+    return tournamentOptimize && phase.optimized === false;
   }
 
   /** Formats a gameMode string for display. Returns "—" when null/absent (AC-PHASE-LIST-DEFENSIVE). */
@@ -279,6 +311,7 @@
           <th>{$_('phases.columns.gameMode')}</th>
           <th>{$_('phases.columns.currentLap')}</th>
           <th>{$_('phases.columns.matches')}</th>
+          <th>Job</th>
           <th>{$_('phases.columns.actions')}</th>
         </tr>
       </thead>
@@ -295,6 +328,23 @@
             <td>{formatGameMode(phase.gameMode)}</td>
             <td>{phase.currentLapNumber}</td>
             <td>{finishedCount(phase)}&thinsp;/&thinsp;{totalCount(phase)}</td>
+            <!-- E51S07: job status icon (DEC-55 D-2/D-9) -->
+            <td class="phases__job-status">
+              {#if jobStatusIcon(phase) !== null}
+                {#if isJobRunning(phase)}
+                  <!-- Click navigates to SlotOptimization view (DEC-55 D-9) -->
+                  <button
+                    class="btn btn--icon"
+                    onclick={() => push(`/tournaments/${tournamentId}/slot-optimization`)}
+                    title="Slot-Optimierung läuft..."
+                  >{jobStatusIcon(phase)}</button>
+                {:else}
+                  <span title={phase.jobStatus ?? ''}>{jobStatusIcon(phase)}</span>
+                {/if}
+              {:else}
+                <span class="phases__job-none">—</span>
+              {/if}
+            </td>
             <td class="phases__actions">
               {#if phase.status === 'PENDING'}
                 <!-- E48S19: PENDING → "Vorbereiten" (navigates to PhasePreparation.svelte route, AC-FRONTEND-PHASE-OVERVIEW-BUTTONS-EXTENDED) -->
@@ -307,9 +357,21 @@
                 </button>
               {:else if phase.status === 'PREPARED'}
                 <!-- E48S17: PREPARED → "Phase starten" (calls start endpoint) -->
+                <!-- E51S07: activate guard: disabled when tournament.optimize=true && phase.optimized=false (DEC-55 D-6) -->
                 <button
                   class="btn btn--primary"
-                  disabled={actionInProgress === phase.id}
+                  disabled={actionInProgress === phase.id || activateGuardFails(phase)}
+                  title={activateGuardFails(phase) ? $_('phases.activateGuardTooltip') : undefined}
+                  onclick={() => handleStart(phase.id)}
+                >
+                  {$_('phases.startButton')}
+                </button>
+              {:else if phase.status === 'ASSIGNED'}
+                <!-- E51S07/E51S05: ASSIGNED → "Phase starten" button with same activate guard -->
+                <button
+                  class="btn btn--primary"
+                  disabled={actionInProgress === phase.id || activateGuardFails(phase)}
+                  title={activateGuardFails(phase) ? $_('phases.activateGuardTooltip') : undefined}
                   onclick={() => handleStart(phase.id)}
                 >
                   {$_('phases.startButton')}
