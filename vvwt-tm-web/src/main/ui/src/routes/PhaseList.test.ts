@@ -1,11 +1,18 @@
 /**
- * RED-first tests for PhaseList.svelte (E48S19).
+ * RED-first tests for PhaseList.svelte (E48S19 + E48S23).
  *
- * Covers:
+ * Covers (E48S19):
  *   - AC-TEST-PHASELIST-PREPARE-NAVIGATES-RED: handlePrepare navigates to /prepare route, NOT preparePhase API
  *   - AC-TEST-PHASELIST-START-UNCHANGED-GREEN: handleStart regression — push() never called
  *   - AC-TEST-I18N-PHASES-COLUMNS-RESOLVE-RED: de.json has all 7 phases.columns keys
  *   - AC-ERROR-HANDLING-INVALID-NAVIGATION-CONTEXT: handlePrepare sets actionError when context invalid
+ *
+ * Covers (E48S23 — Reset-Plan affordance on Phasen-Übersicht):
+ *   - AC-TEST-RESET-PLAN-VISIBLE-WHEN-PLANNED-RED: button with draft.resetPlanButton key rendered inside PLANNED conditional
+ *   - AC-TEST-RESET-PLAN-HIDDEN-WHEN-NOT-PLANNED-RED: button NOT rendered outside PLANNED conditional
+ *   - AC-TEST-RESET-PLAN-CLICK-CALLS-CONFIRM-RED: handler calls window.confirm with draft.resetPlanConfirm key
+ *   - AC-TEST-RESET-PLAN-CONFIRM-INVOKES-API-RED: handler calls resetPlan(tournamentId) from tournamentStore
+ *   - AC-TEST-RESET-PLAN-ERROR-RENDERS-MESSAGEKEY-RED: handler extracts apiError.messageKey + renders i18n-resolved error
  *
  * Source-code structural checks (pattern: PhaseTransition.test.ts / fs.readFileSync).
  * DEC-22 Iron Law: all tests written RED-first before production-code changes.
@@ -206,5 +213,150 @@ describe('PhaseList.svelte — import cleanup (AC-IMPL-PHASELIST-IMPORT-CLEANUP)
         expect(importMatch, 'phaseStore import not found').toBeTruthy();
         const importBlock = importMatch![0];
         expect(importBlock).not.toContain('preparePhase');
+    });
+});
+
+// ── E48S23: AC-TEST-RESET-PLAN-VISIBLE-WHEN-PLANNED-RED ──────────────────────
+// PhaseList.svelte must render a button with i18n key draft.resetPlanButton
+// inside a block conditioned on tournamentStatus === 'PLANNED'.
+// RED-first: test fails before the button conditional render is added.
+
+describe("PhaseList.svelte — Reset-Plan button visible when PLANNED (AC-TEST-RESET-PLAN-VISIBLE-WHEN-PLANNED-RED)", () => {
+    const source = fs.readFileSync(
+        path.resolve(__dirname_local, './PhaseList.svelte'),
+        'utf8'
+    );
+
+    it("source contains draft.resetPlanButton i18n key reference", () => {
+        expect(source).toContain("draft.resetPlanButton");
+    });
+
+    it("draft.resetPlanButton reference is inside a PLANNED-only conditional block", () => {
+        // The button must appear inside an {#if tournamentStatus === 'PLANNED'} block.
+        // Structural check: find the PLANNED conditional, verify button key is within it.
+        const plannedBlockMatch = source.match(
+            /\{#if tournamentStatus\s*===\s*['"]PLANNED['"]\}[\s\S]*?\{\/if\}/
+        );
+        expect(plannedBlockMatch, "{#if tournamentStatus === 'PLANNED'} block not found in source").toBeTruthy();
+        const plannedBlock = plannedBlockMatch![0];
+        expect(plannedBlock).toContain("draft.resetPlanButton");
+    });
+});
+
+// ── E48S23: AC-TEST-RESET-PLAN-HIDDEN-WHEN-NOT-PLANNED-RED ───────────────────
+// Button must NOT appear outside the PLANNED conditional.
+// RED-first: test fails before conditional render is added (button may be unconditional).
+
+describe("PhaseList.svelte — Reset-Plan button hidden when not PLANNED (AC-TEST-RESET-PLAN-HIDDEN-WHEN-NOT-PLANNED-RED)", () => {
+    const source = fs.readFileSync(
+        path.resolve(__dirname_local, './PhaseList.svelte'),
+        'utf8'
+    );
+
+    it("draft.resetPlanButton appears only inside the PLANNED conditional, not unconditionally", () => {
+        // All occurrences of draft.resetPlanButton must be inside a {#if tournamentStatus === 'PLANNED'} block.
+        // Simple structural check: strip the PLANNED block and verify key is no longer present.
+        const withoutPlannedBlock = source.replace(
+            /\{#if tournamentStatus\s*===\s*['"]PLANNED['"]\}[\s\S]*?\{\/if\}/,
+            '<<PLANNED_BLOCK_REMOVED>>'
+        );
+        expect(withoutPlannedBlock).not.toContain("draft.resetPlanButton");
+    });
+});
+
+// ── E48S23: AC-TEST-RESET-PLAN-CLICK-CALLS-CONFIRM-RED ───────────────────────
+// The handleResetPlan handler must call window.confirm (or bare confirm()) with
+// the i18n key draft.resetPlanConfirm.
+// RED-first: test fails before handler is added.
+
+describe("PhaseList.svelte — Reset-Plan handler calls confirm with draft.resetPlanConfirm (AC-TEST-RESET-PLAN-CLICK-CALLS-CONFIRM-RED)", () => {
+    const source = fs.readFileSync(
+        path.resolve(__dirname_local, './PhaseList.svelte'),
+        'utf8'
+    );
+
+    it("source contains a handleResetPlan function", () => {
+        expect(source).toMatch(/function handleResetPlan/);
+    });
+
+    it("handleResetPlan calls confirm() with draft.resetPlanConfirm i18n key", () => {
+        // Match the handleResetPlan async function body
+        const handlerMatch = source.match(
+            /async function handleResetPlan\(\)[^{]*\{[\s\S]*?\n  \}/
+        );
+        expect(handlerMatch, "handleResetPlan function not found in source").toBeTruthy();
+        const handlerBody = handlerMatch![0];
+        expect(handlerBody).toMatch(/confirm\s*\(/);
+        expect(handlerBody).toContain("draft.resetPlanConfirm");
+    });
+});
+
+// ── E48S23: AC-TEST-RESET-PLAN-CONFIRM-INVOKES-API-RED ───────────────────────
+// When confirm returns true, handleResetPlan must call resetPlan(tournamentId)
+// from tournamentStore.
+// RED-first: test fails before handler is added.
+
+describe("PhaseList.svelte — Reset-Plan handler calls resetPlan(tournamentId) (AC-TEST-RESET-PLAN-CONFIRM-INVOKES-API-RED)", () => {
+    const source = fs.readFileSync(
+        path.resolve(__dirname_local, './PhaseList.svelte'),
+        'utf8'
+    );
+
+    it("source imports resetPlan from tournamentStore", () => {
+        const tournamentStoreImportMatch = source.match(
+            /import\s*\{[^}]*\}\s*from\s*['"][^'"]*tournamentStore[^'"]*['"]/
+        );
+        expect(tournamentStoreImportMatch, "tournamentStore import not found").toBeTruthy();
+        const importBlock = tournamentStoreImportMatch![0];
+        expect(importBlock).toContain("resetPlan");
+    });
+
+    it("handleResetPlan calls resetPlan(tournamentId) — invokes API with the tournament id", () => {
+        const handlerMatch = source.match(
+            /async function handleResetPlan\(\)[^{]*\{[\s\S]*?\n  \}/
+        );
+        expect(handlerMatch, "handleResetPlan function not found in source").toBeTruthy();
+        const handlerBody = handlerMatch![0];
+        expect(handlerBody).toContain("resetPlan(tournamentId)");
+    });
+});
+
+// ── E48S23: AC-TEST-RESET-PLAN-ERROR-RENDERS-MESSAGEKEY-RED ──────────────────
+// handleResetPlan must extract apiError.messageKey and render the i18n-resolved
+// text — mirroring DraftConfig.svelte:366-372 typed-error pattern.
+// RED-first: test fails before typed-error handling is added.
+
+describe("PhaseList.svelte — Reset-Plan error renders typed messageKey (AC-TEST-RESET-PLAN-ERROR-RENDERS-MESSAGEKEY-RED)", () => {
+    const source = fs.readFileSync(
+        path.resolve(__dirname_local, './PhaseList.svelte'),
+        'utf8'
+    );
+
+    it("handleResetPlan catch block extracts apiError.messageKey", () => {
+        const handlerMatch = source.match(
+            /async function handleResetPlan\(\)[^{]*\{[\s\S]*?\n  \}/
+        );
+        expect(handlerMatch, "handleResetPlan function not found in source").toBeTruthy();
+        const handlerBody = handlerMatch![0];
+        // Must extract apiError field (mirrors DraftConfig.svelte:366 pattern)
+        expect(handlerBody).toContain("apiError");
+        expect(handlerBody).toContain("messageKey");
+    });
+
+    it("handleResetPlan falls back to draft.error.resetPlanFailed when no messageKey", () => {
+        const handlerMatch = source.match(
+            /async function handleResetPlan\(\)[^{]*\{[\s\S]*?\n  \}/
+        );
+        const handlerBody = handlerMatch![0];
+        // Fallback key per E48S13 family contract
+        expect(handlerBody).toContain("draft.error.resetPlanFailed");
+    });
+
+    it("handleResetPlan sets a resetPlanError state variable on error", () => {
+        const handlerMatch = source.match(
+            /async function handleResetPlan\(\)[^{]*\{[\s\S]*?\n  \}/
+        );
+        const handlerBody = handlerMatch![0];
+        expect(handlerBody).toContain("resetPlanError");
     });
 });
