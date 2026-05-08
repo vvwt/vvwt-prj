@@ -1,7 +1,9 @@
 package de.vvwt.tm.tournament;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
+import de.vvwt.tm.slotopt.SlotOptimizationClient;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftSection;
@@ -22,7 +24,9 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.event.ApplicationEvents;
@@ -118,12 +122,53 @@ class MatchGenJobListenerIT {
         }
     }
 
-    /** Registers {@link SlotOptEventCapture} as a test-only bean. */
+    /**
+     * Registers {@link SlotOptEventCapture} as a test-only bean and provides a no-op {@link
+     * SimpMessagingTemplate} mock.
+     *
+     * <p>With {@code webEnvironment=NONE}, the WebSocket message broker is not started, so {@code
+     * SimpMessagingTemplate} is not auto-configured. {@link
+     * de.vvwt.tm.scoring.internal.DefaultScoreEntryService} requires it; this mock satisfies the
+     * dependency without starting a full WebSocket stack.
+     */
     @TestConfiguration
     static class SlotOptEventCaptureConfig {
         @Bean
         SlotOptEventCapture slotOptEventCapture() {
             return new SlotOptEventCapture();
+        }
+
+        /**
+         * No-op {@link SimpMessagingTemplate} mock — satisfies {@code DefaultScoreEntryService}'s
+         * dependency when {@code webEnvironment=NONE} prevents the WebSocket broker from providing
+         * the primary template. Named {@code testSimpMessagingTemplate} to avoid clash with any
+         * broker-registered bean. {@code @Primary} ensures it wins over any broker-created {@code
+         * brokerMessagingTemplate}.
+         */
+        @Bean
+        @Primary
+        SimpMessagingTemplate testSimpMessagingTemplate() {
+            return mock(SimpMessagingTemplate.class);
+        }
+
+        /**
+         * No-op {@link SlotOptimizationClient} — replaces {@link
+         * de.vvwt.tm.slotopt.internal.RoutingSlotOptimizationClient} in this IT.
+         *
+         * <p>This IT verifies match-gen event pipeline and {@code last_job_state} transitions, NOT
+         * the slot-optimization algorithm. The real {@link
+         * de.vvwt.tm.slotopt.internal.RoutingSlotOptimizationClient} with N=15 matches (6-team
+         * round-robin) routes to Leg 3 (cancelable in-process, 15! permutations) and locks the
+         * phase table indefinitely, causing subsequent tests to fail with H2 lock timeouts. This
+         * no-op stub returns immediately so the {@link
+         * de.vvwt.tm.slotopt.internal.SlotOptInvocationListener} completes and releases locks.
+         */
+        @Bean("routingSlotOptimizationClient")
+        @Primary
+        SlotOptimizationClient testSlotOptimizationClient() {
+            return phaseId -> {
+                // No-op: immediately returns, allowing SlotOptInvocationListener to complete
+            };
         }
     }
 
@@ -234,7 +279,8 @@ class MatchGenJobListenerIT {
     @DisplayName(
             "apply() publishes exactly N MatchGenJobScheduledEvents (one per non-siegerehrung"
                     + " phase) — AC-TEST-APPLY-PUBLISHES-MATCH-GEN-EVENT-RED")
-    void apply_publishesMatchGenJobScheduledEventPerNonSiegerehrungPhase() {
+    void apply_publishesMatchGenJobScheduledEventPerNonSiegerehrungPhase()
+            throws InterruptedException {
         DraftConfig config = twoPhaseRoundRobinPlusSiegerehrung(2);
 
         List<UUID> phaseIds = draftService.apply(tournamentOptimizeTrue, config);
@@ -262,6 +308,12 @@ class MatchGenJobListenerIT {
                         assertThat(e.tournamentId())
                                 .as("MatchGenJobScheduledEvent tournamentId must match")
                                 .isEqualTo(tournamentOptimizeTrue));
+
+        // Wait for full async pipeline to complete (MatchGen + SlotOpt) before tearDown runs.
+        // Without this, SlotOptInvocationListener's REQUIRES_NEW TX may still hold PHASE locks
+        // while tearDown deletes, causing FK violation on DELETE FROM tournament (E51S04 pipeline).
+        waitForListenerCompletion(phaseIds.get(0), "idle", 5_000);
+        waitForListenerCompletion(phaseIds.get(1), "idle", 5_000);
     }
 
     // =========================================================================
