@@ -17,7 +17,8 @@ import org.springframework.data.relational.core.mapping.Table;
  *
  * <ul>
  *   <li>{@link PhaseStatus#PENDING} — created; not yet started
- *   <li>{@link PhaseStatus#PREPARED} — TeamAvatars persisted, ready for activation (E48S17)
+ *   <li>{@link PhaseStatus#PREPARED} — match-gen completed, ready for team assignment (E51S05)
+ *   <li>{@link PhaseStatus#ASSIGNED} — avatar→team mapping confirmed + referee assigned (E51S05)
  *   <li>{@link PhaseStatus#ACTIVE} — currently in progress
  *   <li>{@link PhaseStatus#COMPLETED} — all matches in this phase are finished
  * </ul>
@@ -49,14 +50,21 @@ public class Phase {
      * reads this as a String; the domain layer works with the enum for type safety.
      */
     public enum PhaseStatus {
-        /** Phase is created but not yet started. */
+        /** Phase is created but not yet started; avatars persisted, match-gen not yet complete. */
         PENDING,
         /**
-         * Drag&amp;Drop done, TeamAvatars persistiert, ready for activation (E48S17). PENDING →
-         * PREPARED via {@code PhaseLifecycleService.prepare()}; PREPARED → ACTIVE via {@code
-         * PhaseLifecycleService.start()}.
+         * Match-Gen completed; matches persisted with {@code lap=null, field=null}. Slot-Opt may
+         * run independently (parallel side-computation per DEC-55 D-6). PENDING → PREPARED via
+         * {@code PhaseLifecycleService.transition(phaseId, PREPARED, "match-gen-done")} (E51S05).
          */
         PREPARED,
+        /**
+         * Avatar→Team-Mapping confirmed (drag&amp;drop commit) AND Referee-Assignment completed.
+         * Phase is ready for activation. PREPARED → ASSIGNED via {@code transition(phaseId,
+         * ASSIGNED, "assign")} (E51S05 / E51S06). ASSIGNED → ACTIVE requires activation-guard
+         * {@code !tournament.optimize OR phase.optimized} (DEC-55 D-6, E51S05).
+         */
+        ASSIGNED,
         /** Phase is currently in progress (at least one match has been played or is scheduled). */
         ACTIVE,
         /** All matches in this phase have been completed and standings are finalized. */

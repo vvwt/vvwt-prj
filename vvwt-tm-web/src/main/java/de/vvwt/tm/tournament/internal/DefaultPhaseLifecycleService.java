@@ -3,15 +3,19 @@ package de.vvwt.tm.tournament.internal;
 import de.vvwt.tm.tournament.MatchLockdownService;
 import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.Phase;
+import de.vvwt.tm.tournament.Phase.PhaseStatus;
 import de.vvwt.tm.tournament.PhaseLifecycleService;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.PhaseTransitionService;
 import de.vvwt.tm.tournament.TeamAvatarProposal;
+import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.events.PhaseStatusChangedEvent;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,12 +24,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Default implementation of {@link PhaseLifecycleService} (DEC-35, E48S06, E48S17).
+ * Default implementation of {@link PhaseLifecycleService} (DEC-35, E48S06, E48S17, E51S05).
  *
  * <p>Drives each phase through its lifecycle status transitions. Every method acquires a
  * per-tournament pessimistic DB row-lock via {@link TournamentRepository#findByIdForUpdate(UUID)}
  * as its FIRST READ — serialising concurrent transitions on the same tournament aggregate root per
  * DEC-37 Clause B.
+ *
+ * <p>{@link #transition(UUID, PhaseStatus, String)} (E51S05) is the single-source-of-truth method
+ * for all status mutations; it validates every call against the {@link #ALLOWED} transition table
+ * (DEC-55 D-4). The {@code ASSIGNED → ACTIVE "start"} transition additionally enforces the
+ * activation-guard {@code !tournament.optimize OR phase.optimized} (DEC-55 D-6).
  *
  * <p>{@link #prepare(UUID, List)} transitions PENDING → PREPARED (E48S21 fix) — delegates avatar
  * persistence + match generation to {@link PhaseTransitionService#commitTransition(UUID, List)}
@@ -52,13 +61,64 @@ import org.springframework.transaction.annotation.Transactional;
  * @see MatchLockdownService
  * @see <a href="DEC-35">DEC-35 — package layout: impl in .internal</a>
  * @see <a href="DEC-37">DEC-37 Clause B — per-tournament pessimistic DB row-lock</a>
+ * @see <a href="DEC-55">DEC-55 D-4 + D-6 — ASSIGNED status, transition-table, activation-guard</a>
  * @see <a href="E48S06">E48S06 — Phase-Lifecycle Service</a>
  * @see <a href="E48S17">E48S17 — PREPARED enum + prepare() + start() refactor</a>
+ * @see <a href="E51S05">E51S05 — transition-table + activation-guard implementation</a>
  */
 @Service("tmPhaseLifecycleService")
 public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultPhaseLifecycleService.class);
+
+    // =========================================================================
+    // Verb-encoded transition table (DEC-55 D-4, AC-IMPL-TRANSITION-TABLE-IN-LIFECYCLE-SERVICE)
+    // =========================================================================
+
+    /**
+     * Immutable record representing a directed transition edge in the phase lifecycle graph.
+     *
+     * <p>The {@code verb} discriminates edges that share the same {@code (source, target)} pair,
+     * e.g. {@code ACTIVE → COMPLETED "complete"} vs {@code ACTIVE → COMPLETED "force-complete"}.
+     * Stored as {@code String} constants per established Spring/Java idioms.
+     *
+     * @param target the target {@link PhaseStatus}
+     * @param verb the action verb that labels this edge
+     * @see <a href="DEC-55">DEC-55 D-4 — verb-encoded transition table</a>
+     * @see <a href="E51S05">E51S05 — AC-IMPL-TRANSITION-TABLE-IN-LIFECYCLE-SERVICE</a>
+     */
+    record TransitionEdge(PhaseStatus target, String verb) {}
+
+    /**
+     * Single-source-of-truth phase transition table (DEC-55 D-4, E51S05).
+     *
+     * <p>Maps each source {@link PhaseStatus} to the set of outbound {@link TransitionEdge}s. Every
+     * call to {@link #transition(UUID, PhaseStatus, String)} validates the requested {@code
+     * (source, target, verb)} triple against this map.
+     *
+     * <pre>
+     * PENDING  → PREPARED  "match-gen-done"
+     * PREPARED → ASSIGNED  "assign"
+     * ASSIGNED → ASSIGNED  "re-assign"    (idempotent self-loop)
+     * ASSIGNED → ACTIVE    "start"        (activation-guard applies — DEC-55 D-6)
+     * ACTIVE   → COMPLETED "complete"
+     * ACTIVE   → COMPLETED "force-complete"
+     * </pre>
+     */
+    private static final Map<PhaseStatus, Set<TransitionEdge>> ALLOWED =
+            Map.of(
+                    PhaseStatus.PENDING,
+                    Set.of(new TransitionEdge(PhaseStatus.PREPARED, "match-gen-done")),
+                    PhaseStatus.PREPARED,
+                    Set.of(new TransitionEdge(PhaseStatus.ASSIGNED, "assign")),
+                    PhaseStatus.ASSIGNED,
+                    Set.of(
+                            new TransitionEdge(PhaseStatus.ACTIVE, "start"),
+                            new TransitionEdge(PhaseStatus.ASSIGNED, "re-assign")),
+                    PhaseStatus.ACTIVE,
+                    Set.of(
+                            new TransitionEdge(PhaseStatus.COMPLETED, "complete"),
+                            new TransitionEdge(PhaseStatus.COMPLETED, "force-complete")));
 
     private final TournamentRepository tournamentRepository;
     private final PhaseRepository phaseRepository;
@@ -80,6 +140,113 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
         this.matchLockdownService = matchLockdownService;
         this.eventPublisher = eventPublisher;
         this.phaseTransitionService = phaseTransitionService;
+    }
+
+    // =========================================================================
+    // transition() — single entry point for all status mutations (E51S05)
+    // =========================================================================
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>AC-IMPL-TRANSITION-METHOD-API (E51S05). Validates {@code (source, target, verb)} against
+     * {@link #ALLOWED} before any mutation. Acquires the per-tournament row-lock (DEC-37 Clause B)
+     * as the first read after the null/not-found guards.
+     *
+     * <p>AC-IMPL-DEC-37-LOCK-PRESERVED: {@link TournamentRepository#findByIdForUpdate(UUID)} is
+     * called as the first read inside the transaction.
+     *
+     * <p>AC-IMPL-ACTIVATION-GUARD-INSIDE-START: for the {@code ASSIGNED → ACTIVE "start"}
+     * transition, the guard {@code !tournament.optimize OR phase.optimized} is evaluated before the
+     * status mutation.
+     */
+    @Override
+    @Transactional
+    public Phase transition(UUID phaseId, PhaseStatus target, String verb) {
+        // AC-ERROR-HANDLING-NULL-VERB-REJECTED: reject null verb before any DB access
+        if (verb == null) {
+            throw new IllegalArgumentException(
+                    "verb must not be null — provide a transition verb (E51S05,"
+                            + " AC-ERROR-HANDLING-NULL-VERB-REJECTED)");
+        }
+
+        // AC-ERROR-HANDLING-PHASE-NOT-FOUND: fail fast on unknown phaseId before lock + table
+        Phase phase = requirePhase(phaseId);
+
+        // DEC-37 Clause B: acquire per-tournament row-lock as the first read in the TX.
+        // Re-read the phase under the lock to get the authoritative committed status.
+        Tournament tournament = tournamentRepository.findByIdForUpdate(phase.getTournamentId());
+        phase = requirePhase(phaseId); // fresh read under the lock
+
+        PhaseStatus source;
+        try {
+            source = PhaseStatus.valueOf(phase.getStatus());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException(
+                    "Phase "
+                            + phaseId
+                            + " has unrecognised status '"
+                            + phase.getStatus()
+                            + "' — cannot resolve transition (E51S05)",
+                    e);
+        }
+
+        // Validate (source, target, verb) against ALLOWED transition table
+        Set<TransitionEdge> outbound = ALLOWED.getOrDefault(source, Set.of());
+        boolean edgeAllowed =
+                outbound.stream().anyMatch(e -> e.target() == target && e.verb().equals(verb));
+        if (!edgeAllowed) {
+            throw new IllegalStateException(
+                    "Phase "
+                            + phaseId
+                            + ": transition ("
+                            + source.name()
+                            + " → "
+                            + target.name()
+                            + " '"
+                            + verb
+                            + "') is not in the allowed transition table (DEC-55 D-4, E51S05,"
+                            + " AC-TEST-TRANSITION-TABLE-DISALLOWED-REJECTED-RED)");
+        }
+
+        // AC-IMPL-ACTIVATION-GUARD-INSIDE-START (E51S05): guard for ASSIGNED → ACTIVE "start"
+        // Guard: !tournament.optimize OR phase.optimized
+        if (target == PhaseStatus.ACTIVE && "start".equals(verb)) {
+            boolean optimizeEnabled = tournament != null && tournament.isOptimize();
+            boolean phaseOptimized = phase.isOptimized();
+            if (optimizeEnabled && !phaseOptimized) {
+                throw new ConflictException(
+                        "Phase "
+                                + phaseId
+                                + " cannot transition to ACTIVE: tournament "
+                                + phase.getTournamentId()
+                                + " has optimize=true and this phase has optimized=false;"
+                                + " wait for slot-opt completion or cancel the slot-opt"
+                                + " to apply Best-So-Far"
+                                + " (DEC-55 D-6, E51S05, AC-IMPL-ACTIVATION-GUARD-INSIDE-START)");
+            }
+        }
+
+        String previous = phase.getStatus();
+        phase.setStatus(target.name());
+        Phase saved = phaseRepository.save(phase);
+
+        eventPublisher.publishEvent(
+                new PhaseStatusChangedEvent(
+                        this,
+                        null, // tenantId — resolved by DomainEventBridge via TenantContext
+                        phase.getTournamentId(),
+                        phaseId,
+                        previous,
+                        target.name()));
+
+        log.debug(
+                "[E51S05] Phase {} transitioned {} → {} (verb={})",
+                phaseId,
+                previous,
+                target,
+                verb);
+        return saved;
     }
 
     /**

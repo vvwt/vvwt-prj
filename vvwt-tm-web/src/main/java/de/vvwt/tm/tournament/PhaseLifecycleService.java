@@ -1,18 +1,24 @@
 package de.vvwt.tm.tournament;
 
+import de.vvwt.tm.tournament.Phase.PhaseStatus;
 import java.util.List;
 import java.util.UUID;
 
 /**
- * Public port for phase lifecycle status transitions (DEC-35, E48S06).
+ * Public port for phase lifecycle status transitions (DEC-35, E48S06, E51S05).
  *
  * <p>Drives each phase through its status lifecycle:
  *
  * <ul>
- *   <li>PENDING → PREPARED via {@link #prepare(UUID)} (E48S17)
- *   <li>PREPARED → ACTIVE via {@link #start(UUID)} (E48S17 refactor; predecessor must be COMPLETED)
- *   <li>ACTIVE → COMPLETED (only when all matches are FINISHED_*) via {@link #complete(UUID)}
- *   <li>ACTIVE → COMPLETED + void unfinished matches via {@link #forceComplete(UUID)}
+ *   <li>PENDING → PREPARED via {@link #transition(UUID, PhaseStatus, String)} with verb {@code
+ *       "match-gen-done"} (E51S05)
+ *   <li>PREPARED → ASSIGNED via {@link #transition(UUID, PhaseStatus, String)} with verb {@code
+ *       "assign"} (E51S05 / E51S06)
+ *   <li>ASSIGNED → ACTIVE via {@link #transition(UUID, PhaseStatus, String)} with verb {@code
+ *       "start"} — gated by activation-guard {@code !tournament.optimize OR phase.optimized}
+ *       (DEC-55 D-6, E51S05)
+ *   <li>ACTIVE → COMPLETED via {@link #transition(UUID, PhaseStatus, String)} with verb {@code
+ *       "complete"} or {@code "force-complete"} (E51S05)
  * </ul>
  *
  * <p>All methods acquire a per-tournament pessimistic DB row-lock as their first read (DEC-37
@@ -26,9 +32,52 @@ import java.util.UUID;
  * @see <a href="DEC-35">DEC-35 — package layout: interface in public package</a>
  * @see <a href="DEC-37">DEC-37 — cascade serialization via per-tournament pessimistic DB
  *     row-lock</a>
+ * @see <a href="DEC-55">DEC-55 D-4 + D-6 — ASSIGNED status + transition-table +
+ *     activation-guard</a>
  * @see <a href="E48S06">E48S06 — Phase-Lifecycle Service</a>
+ * @see <a href="E51S05">E51S05 — transition-table + activation-guard implementation</a>
  */
 public interface PhaseLifecycleService {
+
+    /**
+     * Transitions the phase to the given {@code target} status using the specified {@code verb},
+     * validated against the single-source-of-truth transition table (DEC-55 D-4, E51S05).
+     *
+     * <p>The allowed transitions are:
+     *
+     * <pre>
+     * PENDING    → PREPARED   "match-gen-done"
+     * PREPARED   → ASSIGNED   "assign"
+     * ASSIGNED   → ASSIGNED   "re-assign"  (idempotent self-loop)
+     * ASSIGNED   → ACTIVE     "start"      (activation-guard: !tournament.optimize OR phase.optimized)
+     * ACTIVE     → COMPLETED  "complete"
+     * ACTIVE     → COMPLETED  "force-complete"
+     * </pre>
+     *
+     * <p>Any other {@code (source, target, verb)} triple throws {@link IllegalStateException} with
+     * a message naming source status, target status, and verb.
+     *
+     * <p>The {@code ASSIGNED → ACTIVE "start"} transition additionally enforces the
+     * activation-guard: {@code !tournament.optimize OR phase.optimized}. If the guard fails, throws
+     * {@link de.vvwt.tm.tournament.exceptions.ConflictException} (HTTP 409) with an
+     * operator-actionable message naming the phase UUID and the unmet condition.
+     *
+     * <p>Acquires a per-tournament DB row-lock (DEC-37 Clause B) as the first read. Publishes
+     * {@link de.vvwt.tm.tournament.events.PhaseStatusChangedEvent} on success.
+     *
+     * @param phaseId the phase UUID
+     * @param target the target {@link PhaseStatus}
+     * @param verb the action verb that discriminates edges with identical source+target (e.g.,
+     *     {@code "complete"} vs {@code "force-complete"} for ACTIVE→COMPLETED)
+     * @return the updated phase with the new status persisted
+     * @throws IllegalArgumentException if {@code verb} is {@code null}, or if no phase with the
+     *     given id exists (before any guard or table lookup)
+     * @throws IllegalStateException if the {@code (source, target, verb)} triple is not in the
+     *     allowed transitions table
+     * @throws de.vvwt.tm.tournament.exceptions.ConflictException if the activation-guard for
+     *     ASSIGNED→ACTIVE fails (HTTP 409)
+     */
+    Phase transition(UUID phaseId, PhaseStatus target, String verb);
 
     /**
      * Transitions the phase from {@code PENDING} to {@code PREPARED} (E48S17).
