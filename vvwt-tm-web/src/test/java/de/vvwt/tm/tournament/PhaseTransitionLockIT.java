@@ -232,8 +232,8 @@ class PhaseTransitionLockIT {
         // Both threads try to commit the same valid assignment
         List<TeamAvatarProposal> assignments =
                 List.of(
-                        new TeamAvatarProposal(teamId1, 1, 1),
-                        new TeamAvatarProposal(teamId2, 1, 2));
+                        TeamAvatarProposal.forCommit(teamId1, 1, 1),
+                        TeamAvatarProposal.forCommit(teamId2, 1, 2));
 
         int threadCount = 2;
         CyclicBarrier barrier = new CyclicBarrier(threadCount);

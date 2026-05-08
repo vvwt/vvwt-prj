@@ -458,6 +458,12 @@
     "errorBanner": "Fehler beim Laden der Zuordnung.",
     "commitError": "Fehler beim Bestätigen der Zuordnung.",
     "groupHeader": "Gruppe {n}",
-    "positionLabel": "Platz {n}"
+    "positionLabel": "Platz {n}",
+    "sourcePaneHeading": "Bisherige Zuordnung",
+    "targetPaneHeading": "Neue Zuordnung",
+    "sourceLabelPhase1": "Nr.{n}",
+    "sourceLabelPhase2plus": "Gruppe {g}, Platz {p}",
+    "targetLabelEmpty": "— leer —",
+    "teamColumnHeading": "Mannschaft"
   }
 }

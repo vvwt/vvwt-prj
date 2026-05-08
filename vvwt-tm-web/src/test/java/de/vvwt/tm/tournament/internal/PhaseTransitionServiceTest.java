@@ -119,6 +119,12 @@ class PhaseTransitionServiceTest {
         List<TeamAvatar> fromAvatars = avatars8Teams(FROM_PHASE_ID);
         when(teamAvatarRepository.findByPhaseId(FROM_PHASE_ID)).thenReturn(fromAvatars);
 
+        // E48S20: teamRepository.findById stubs needed for buildTeamLookup (Phase 2+ path)
+        for (int i = 1; i <= 8; i++) {
+            UUID tid = teamIdForNumber(i);
+            when(teamRepository.findById(tid)).thenReturn(Optional.of(teamWithNumber(tid, i)));
+        }
+
         // No ratings needed for team_number algorithm
         // Act
         List<TeamAvatarProposal> proposals = service.proposeTransition(TO_PHASE_ID);
@@ -223,6 +229,14 @@ class PhaseTransitionServiceTest {
                         avatar(avatarF, FROM_PHASE_ID, teamF, 2, 3));
         when(teamAvatarRepository.findByPhaseId(FROM_PHASE_ID)).thenReturn(fromAvatars);
 
+        // E48S20: teamRepository.findById stubs needed for buildTeamLookup (Phase 2+ path)
+        when(teamRepository.findById(teamA)).thenReturn(Optional.of(teamWithNumber(teamA, 1)));
+        when(teamRepository.findById(teamB)).thenReturn(Optional.of(teamWithNumber(teamB, 2)));
+        when(teamRepository.findById(teamC)).thenReturn(Optional.of(teamWithNumber(teamC, 3)));
+        when(teamRepository.findById(teamD)).thenReturn(Optional.of(teamWithNumber(teamD, 4)));
+        when(teamRepository.findById(teamE)).thenReturn(Optional.of(teamWithNumber(teamE, 5)));
+        when(teamRepository.findById(teamF)).thenReturn(Optional.of(teamWithNumber(teamF, 6)));
+
         // Ratings: A is rank 1 in group 1 (highest points), B rank 2, C rank 3
         // D is rank 1 in group 2, E rank 2, F rank 3
         // compareTo: higher points = lower rank index = better position
@@ -324,6 +338,16 @@ class PhaseTransitionServiceTest {
                         avatar(avatarB4, FROM_PHASE_ID, teamB4, 2, 4));
         when(teamAvatarRepository.findByPhaseId(FROM_PHASE_ID)).thenReturn(fromAvatars);
 
+        // E48S20: teamRepository.findById stubs needed for buildTeamLookup (Phase 2+ path)
+        when(teamRepository.findById(teamA1)).thenReturn(Optional.of(teamWithNumber(teamA1, 1)));
+        when(teamRepository.findById(teamA2)).thenReturn(Optional.of(teamWithNumber(teamA2, 2)));
+        when(teamRepository.findById(teamA3)).thenReturn(Optional.of(teamWithNumber(teamA3, 3)));
+        when(teamRepository.findById(teamA4)).thenReturn(Optional.of(teamWithNumber(teamA4, 4)));
+        when(teamRepository.findById(teamB1)).thenReturn(Optional.of(teamWithNumber(teamB1, 5)));
+        when(teamRepository.findById(teamB2)).thenReturn(Optional.of(teamWithNumber(teamB2, 6)));
+        when(teamRepository.findById(teamB3)).thenReturn(Optional.of(teamWithNumber(teamB3, 7)));
+        when(teamRepository.findById(teamB4)).thenReturn(Optional.of(teamWithNumber(teamB4, 8)));
+
         // Ratings sorted by group; within each group, descending points = ascending rank
         when(teamAvatarRatingRepository.findByAvatarId(avatarA1))
                 .thenReturn(Optional.of(rating(avatarA1, 8)));
@@ -408,6 +432,13 @@ class PhaseTransitionServiceTest {
                         avatar(avrB1, FROM_PHASE_ID, tmB1, 2, 1),
                         avatar(avrB2, FROM_PHASE_ID, tmB2, 2, 2));
         when(teamAvatarRepository.findByPhaseId(FROM_PHASE_ID)).thenReturn(fromAvatars);
+
+        // E48S20: teamRepository.findById stubs needed for buildTeamLookup (Phase 2+ path)
+        when(teamRepository.findById(tmA1)).thenReturn(Optional.of(teamWithNumber(tmA1, 1)));
+        when(teamRepository.findById(tmA2)).thenReturn(Optional.of(teamWithNumber(tmA2, 2)));
+        when(teamRepository.findById(tmA3)).thenReturn(Optional.of(teamWithNumber(tmA3, 3)));
+        when(teamRepository.findById(tmB1)).thenReturn(Optional.of(teamWithNumber(tmB1, 4)));
+        when(teamRepository.findById(tmB2)).thenReturn(Optional.of(teamWithNumber(tmB2, 5)));
 
         when(teamAvatarRatingRepository.findByAvatarId(avrA1))
                 .thenReturn(Optional.of(rating(avrA1, 6)));
@@ -595,7 +626,13 @@ class PhaseTransitionServiceTest {
         List<TeamAvatar> fromAvatars = avatars8Teams(FROM_PHASE_ID);
         when(teamAvatarRepository.findByPhaseId(FROM_PHASE_ID)).thenReturn(fromAvatars);
 
-        // Act — Phase 2 must still use the avatar-based path (TeamRepository NOT called)
+        // E48S20: teamRepository.findById stubs needed for buildTeamLookup (Phase 2+ path)
+        for (int i = 1; i <= 8; i++) {
+            UUID tid = teamIdForNumber(i);
+            when(teamRepository.findById(tid)).thenReturn(Optional.of(teamWithNumber(tid, i)));
+        }
+
+        // Act — Phase 2 must still use the avatar-based path
         List<TeamAvatarProposal> proposals = service.proposeTransition(TO_PHASE_ID);
 
         // Assert: 8 proposals from fromAvatars, round-robin distribution
@@ -636,6 +673,226 @@ class PhaseTransitionServiceTest {
         assertThatThrownBy(() -> service.proposeTransition(phase1Id))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("team_number");
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-TEST-DTO-FIELDS-PHASE1-RED (E48S20)
+    // -------------------------------------------------------------------------
+
+    /**
+     * AC-TEST-DTO-FIELDS-PHASE1-RED: Phase-1 proposal includes teamNumber, teamDescription, and
+     * null source fields.
+     *
+     * <p>Given: 2 participating teams. Expected: proposals contain teamNumber and teamDescription
+     * from the Team entity; sourceGroupNumber and sourceGroupPosition are null.
+     */
+    @Test
+    @DisplayName(
+            "proposeTransition — Phase 1 — proposal contains teamNumber, teamDescription, null"
+                    + " source fields (AC-TEST-DTO-FIELDS-PHASE1-RED)")
+    void proposeTransition_phase1_proposalContainsDisplayAndNullSourceFields() throws Exception {
+        UUID phase1Id = UUID.randomUUID();
+        Phase toPhase = phase(phase1Id, 1);
+        Tournament tournament =
+                tournamentWithDraftJson(TOURNAMENT_ID, buildDraftJsonPhase1(2, "team_number"));
+
+        when(phaseRepository.findById(phase1Id)).thenReturn(Optional.of(toPhase));
+        when(tournamentRepository.findById(TOURNAMENT_ID)).thenReturn(Optional.of(tournament));
+
+        UUID teamId1 = UUID.randomUUID();
+        UUID teamId2 = UUID.randomUUID();
+        Team t1 = new Team();
+        t1.setId(teamId1);
+        t1.setTournamentId(TOURNAMENT_ID);
+        t1.setTeamNumber(5);
+        t1.setDescription("TSV Erbach");
+        t1.setParticipate(true);
+        Team t2 = new Team();
+        t2.setId(teamId2);
+        t2.setTournamentId(TOURNAMENT_ID);
+        t2.setTeamNumber(7);
+        t2.setDescription("SV Blau-Weiß");
+        t2.setParticipate(true);
+        when(teamRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(t1, t2));
+
+        List<TeamAvatarProposal> proposals = service.proposeTransition(phase1Id);
+
+        assertThat(proposals).hasSize(2);
+        TeamAvatarProposal p1 =
+                proposals.stream()
+                        .filter(p -> p.teamId().equals(teamId1))
+                        .findFirst()
+                        .orElseThrow();
+        assertThat(p1.teamNumber()).isEqualTo(5);
+        assertThat(p1.teamDescription()).isEqualTo("TSV Erbach");
+        assertThat(p1.sourceGroupNumber()).isNull();
+        assertThat(p1.sourceGroupPosition()).isNull();
+
+        TeamAvatarProposal p2 =
+                proposals.stream()
+                        .filter(p -> p.teamId().equals(teamId2))
+                        .findFirst()
+                        .orElseThrow();
+        assertThat(p2.teamNumber()).isEqualTo(7);
+        assertThat(p2.teamDescription()).isEqualTo("SV Blau-Weiß");
+        assertThat(p2.sourceGroupNumber()).isNull();
+        assertThat(p2.sourceGroupPosition()).isNull();
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-TEST-DTO-FIELDS-PHASE2PLUS-RED (E48S20)
+    // -------------------------------------------------------------------------
+
+    /**
+     * AC-TEST-DTO-FIELDS-PHASE2PLUS-RED: Phase-2+ proposal includes teamNumber, teamDescription,
+     * and non-null sourceGroupNumber, sourceGroupPosition from the fromPhase avatar.
+     *
+     * <p>Given: 2 fromPhase avatars (group=1 pos=1, group=2 pos=1); sortType=team_number. Expected:
+     * proposals contain teamNumber/teamDescription from Team; sourceGroupNumber and
+     * sourceGroupPosition match the fromPhase avatar's structural identity.
+     */
+    @Test
+    @DisplayName(
+            "proposeTransition — Phase 2+ — proposal contains display fields and source slot"
+                    + " (AC-TEST-DTO-FIELDS-PHASE2PLUS-RED)")
+    void proposeTransition_phase2Plus_proposalContainsDisplayAndSourceFields() throws Exception {
+        Phase toPhase = phaseWithSortType(TO_PHASE_ID, 2, "team_number", 2);
+        Phase fromPhase = phase(FROM_PHASE_ID, 1);
+        Tournament tournament =
+                tournamentWithDraftJson(TOURNAMENT_ID, buildDraftJson(2, "team_number"));
+
+        when(phaseRepository.findById(TO_PHASE_ID)).thenReturn(Optional.of(toPhase));
+        when(phaseRepository.findByTournamentIdAndSequenceNumber(TOURNAMENT_ID, 1))
+                .thenReturn(Optional.of(fromPhase));
+        when(tournamentRepository.findById(TOURNAMENT_ID)).thenReturn(Optional.of(tournament));
+
+        UUID avId1 = UUID.randomUUID();
+        UUID avId2 = UUID.randomUUID();
+        UUID teamId1 = UUID.randomUUID();
+        UUID teamId2 = UUID.randomUUID();
+
+        List<TeamAvatar> fromAvatars =
+                List.of(
+                        avatar(avId1, FROM_PHASE_ID, teamId1, 1, 1),
+                        avatar(avId2, FROM_PHASE_ID, teamId2, 2, 1));
+        when(teamAvatarRepository.findByPhaseId(FROM_PHASE_ID)).thenReturn(fromAvatars);
+
+        Team team1 = new Team();
+        team1.setId(teamId1);
+        team1.setTournamentId(TOURNAMENT_ID);
+        team1.setTeamNumber(3);
+        team1.setDescription("TSV Erbach");
+        team1.setParticipate(true);
+        Team team2 = new Team();
+        team2.setId(teamId2);
+        team2.setTournamentId(TOURNAMENT_ID);
+        team2.setTeamNumber(7);
+        team2.setDescription("SV Rot-Weiß");
+        team2.setParticipate(true);
+        when(teamRepository.findById(teamId1)).thenReturn(Optional.of(team1));
+        when(teamRepository.findById(teamId2)).thenReturn(Optional.of(team2));
+
+        List<TeamAvatarProposal> proposals = service.proposeTransition(TO_PHASE_ID);
+
+        assertThat(proposals).hasSize(2);
+        TeamAvatarProposal p1 =
+                proposals.stream()
+                        .filter(p -> p.teamId().equals(teamId1))
+                        .findFirst()
+                        .orElseThrow();
+        assertThat(p1.teamNumber()).isEqualTo(3);
+        assertThat(p1.teamDescription()).isEqualTo("TSV Erbach");
+        assertThat(p1.sourceGroupNumber()).isEqualTo(1);
+        assertThat(p1.sourceGroupPosition()).isEqualTo(1);
+
+        TeamAvatarProposal p2 =
+                proposals.stream()
+                        .filter(p -> p.teamId().equals(teamId2))
+                        .findFirst()
+                        .orElseThrow();
+        assertThat(p2.teamNumber()).isEqualTo(7);
+        assertThat(p2.teamDescription()).isEqualTo("SV Rot-Weiß");
+        assertThat(p2.sourceGroupNumber()).isEqualTo(2);
+        assertThat(p2.sourceGroupPosition()).isEqualTo(1);
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-TEST-DTO-NO-UUID-LEAKAGE-RED (E48S20)
+    // -------------------------------------------------------------------------
+
+    /**
+     * AC-TEST-DTO-NO-UUID-LEAKAGE-RED: teamId UUID must NOT appear in teamDescription.
+     *
+     * <p>Guard: teamDescription must be a human-readable label (team name/club), not a UUID string
+     * representation. This test verifies that the service populates teamDescription from
+     * Team.description, not from Team.id.
+     */
+    @Test
+    @DisplayName(
+            "proposeTransition — Phase 1 — teamDescription must not contain teamId UUID"
+                    + " (AC-TEST-DTO-NO-UUID-LEAKAGE-RED)")
+    void proposeTransition_phase1_teamDescriptionIsNotUuid() throws Exception {
+        UUID phase1Id = UUID.randomUUID();
+        Phase toPhase = phase(phase1Id, 1);
+        Tournament tournament =
+                tournamentWithDraftJson(TOURNAMENT_ID, buildDraftJsonPhase1(1, "team_number"));
+
+        when(phaseRepository.findById(phase1Id)).thenReturn(Optional.of(toPhase));
+        when(tournamentRepository.findById(TOURNAMENT_ID)).thenReturn(Optional.of(tournament));
+
+        UUID teamId = UUID.randomUUID();
+        Team team = new Team();
+        team.setId(teamId);
+        team.setTournamentId(TOURNAMENT_ID);
+        team.setTeamNumber(1);
+        team.setDescription("TSV Erbach");
+        team.setParticipate(true);
+        when(teamRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(team));
+
+        List<TeamAvatarProposal> proposals = service.proposeTransition(phase1Id);
+
+        assertThat(proposals).hasSize(1);
+        TeamAvatarProposal p = proposals.get(0);
+        // teamDescription must be the human-readable label, not the UUID string
+        assertThat(p.teamDescription()).isEqualTo("TSV Erbach");
+        assertThat(p.teamDescription()).doesNotContain(teamId.toString());
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-ERROR-MISSING-TEAM-DEFENSE (E48S20)
+    // -------------------------------------------------------------------------
+
+    /**
+     * AC-ERROR-MISSING-TEAM-DEFENSE: Phase-1 team with null description → IllegalStateException.
+     *
+     * <p>Defense against corrupt data: if a participating Team has null description, the service
+     * throws IllegalStateException with the offending teamId.
+     */
+    @Test
+    @DisplayName(
+            "proposeTransition — Phase 1 — Team.description is null → IllegalStateException"
+                    + " (AC-ERROR-MISSING-TEAM-DEFENSE)")
+    void proposeTransition_phase1_nullDescription_throwsIllegalStateException() throws Exception {
+        UUID phase1Id = UUID.randomUUID();
+        Phase toPhase = phase(phase1Id, 1);
+        Tournament tournament =
+                tournamentWithDraftJson(TOURNAMENT_ID, buildDraftJsonPhase1(1, "team_number"));
+
+        when(phaseRepository.findById(phase1Id)).thenReturn(Optional.of(toPhase));
+        when(tournamentRepository.findById(TOURNAMENT_ID)).thenReturn(Optional.of(tournament));
+
+        UUID teamId = UUID.randomUUID();
+        Team team = new Team();
+        team.setId(teamId);
+        team.setTournamentId(TOURNAMENT_ID);
+        team.setTeamNumber(1);
+        team.setDescription(null); // deliberately corrupt
+        team.setParticipate(true);
+        when(teamRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(team));
+
+        assertThatThrownBy(() -> service.proposeTransition(phase1Id))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("description");
     }
 
     // -------------------------------------------------------------------------
@@ -846,6 +1103,20 @@ class PhaseTransitionServiceTest {
             teams.add(t);
         }
         return teams;
+    }
+
+    /**
+     * Creates a minimal Team entity with the given id, teamNumber, and a non-null description. Used
+     * for E48S20 teamRepository.findById stubs in Phase-2+ tests.
+     */
+    private Team teamWithNumber(UUID id, int teamNumber) {
+        Team t = new Team();
+        t.setId(id);
+        t.setTournamentId(TOURNAMENT_ID);
+        t.setTeamNumber(teamNumber);
+        t.setDescription("Team " + teamNumber);
+        t.setParticipate(true);
+        return t;
     }
 
     /** Returns the UUID of the team with the given teamNumber from a list. */

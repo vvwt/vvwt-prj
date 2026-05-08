@@ -419,6 +419,80 @@ class PhaseTransitionControllerIT {
         }
     }
 
+    // =========================================================================
+    // AC-TEST-CONTROLLER-IT-PAYLOAD-SHAPE-RED (E48S20)
+    // Widened proposal shape: teamNumber, teamDescription, sourceGroupNumber, sourceGroupPosition
+    // =========================================================================
+
+    /**
+     * AC-TEST-CONTROLLER-IT-PAYLOAD-SHAPE-RED: The GET transition-proposal response must contain
+     * teamNumber, teamDescription, sourceGroupNumber, and sourceGroupPosition in addition to the
+     * existing structural identity fields (teamId, groupNumber, groupPosition).
+     *
+     * <p>Fixture: fromPhase has 2 avatars (team1 at g=1 p=1, team2 at g=1 p=2). Teams have
+     * descriptions "E48S07 Team 1" / "E48S07 Team 2". The proposal must carry source-slot
+     * references (sourceGroupNumber=1, sourceGroupPosition=1 for team1; =1, =2 for team2).
+     */
+    @Test
+    @DisplayName(
+            "GET transition-proposal — widened payload: teamNumber, teamDescription, source slot"
+                    + " (AC-TEST-CONTROLLER-IT-PAYLOAD-SHAPE-RED)")
+    void getTransitionProposal_widened_payloadContainsDisplayAndSourceFields() throws Exception {
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(
+                                baseUrl
+                                        + "/api/phases/"
+                                        + toPhaseRoundRobinId
+                                        + "/transition-proposal"),
+                        String.class);
+
+        assertThat(response.getStatusCode())
+                .as("GET transition-proposal must return 200 OK")
+                .isEqualTo(HttpStatus.OK);
+
+        List<TeamAvatarProposal> proposals =
+                objectMapper.readValue(
+                        response.getBody(), new TypeReference<List<TeamAvatarProposal>>() {});
+        assertThat(proposals).hasSize(2);
+
+        // Find proposal for team 1 (teamNumber=1, description="E48S07 Team 1")
+        TeamAvatarProposal p1 =
+                proposals.stream()
+                        .filter(p -> p.teamId().equals(teamId1))
+                        .findFirst()
+                        .orElseThrow(() -> new AssertionError("No proposal for teamId1"));
+        assertThat(p1.teamNumber())
+                .as("teamNumber must be populated (E48S20 AC-TEST-CONTROLLER-IT-PAYLOAD-SHAPE-RED)")
+                .isEqualTo(1);
+        assertThat(p1.teamDescription())
+                .as("teamDescription must be populated")
+                .isEqualTo("E48S07 Team 1");
+        assertThat(p1.sourceGroupNumber())
+                .as("sourceGroupNumber must reflect fromPhase avatar g=1")
+                .isEqualTo(1);
+        assertThat(p1.sourceGroupPosition())
+                .as("sourceGroupPosition must reflect fromPhase avatar p=1")
+                .isEqualTo(1);
+
+        // Find proposal for team 2 (teamNumber=2, description="E48S07 Team 2")
+        TeamAvatarProposal p2 =
+                proposals.stream()
+                        .filter(p -> p.teamId().equals(teamId2))
+                        .findFirst()
+                        .orElseThrow(() -> new AssertionError("No proposal for teamId2"));
+        assertThat(p2.teamNumber()).as("teamNumber must be populated for team 2").isEqualTo(2);
+        assertThat(p2.teamDescription())
+                .as("teamDescription must be populated for team 2")
+                .isEqualTo("E48S07 Team 2");
+        assertThat(p2.sourceGroupNumber())
+                .as("sourceGroupNumber must reflect fromPhase avatar g=1")
+                .isEqualTo(1);
+        assertThat(p2.sourceGroupPosition())
+                .as("sourceGroupPosition must reflect fromPhase avatar p=2")
+                .isEqualTo(2);
+    }
+
     @Test
     @DisplayName("POST transition-commit — unauthenticated → 401")
     void postTransitionCommit_unauthenticated_returns401() throws Exception {

@@ -29,8 +29,24 @@ export function swapSlots(
     tgtIdx: number
 ): TeamAvatarSlot[] {
     const updated = slots.map(s => ({ ...s }));
-    const srcTeam = updated[srcIdx].teamId;
+    // Swap all team-bound fields (teamId + E48S20 display fields).
+    // Structural identity (groupNumber, groupPosition) stays fixed — it belongs to the cell.
+    const {
+        teamId: srcTeamId,
+        teamNumber: srcTeamNumber,
+        teamDescription: srcTeamDescription,
+        sourceGroupNumber: srcSourceGroupNumber,
+        sourceGroupPosition: srcSourceGroupPosition,
+    } = updated[srcIdx];
     updated[srcIdx].teamId = updated[tgtIdx].teamId;
-    updated[tgtIdx].teamId = srcTeam;
+    updated[srcIdx].teamNumber = updated[tgtIdx].teamNumber;
+    updated[srcIdx].teamDescription = updated[tgtIdx].teamDescription;
+    updated[srcIdx].sourceGroupNumber = updated[tgtIdx].sourceGroupNumber;
+    updated[srcIdx].sourceGroupPosition = updated[tgtIdx].sourceGroupPosition;
+    updated[tgtIdx].teamId = srcTeamId;
+    updated[tgtIdx].teamNumber = srcTeamNumber;
+    updated[tgtIdx].teamDescription = srcTeamDescription;
+    updated[tgtIdx].sourceGroupNumber = srcSourceGroupNumber;
+    updated[tgtIdx].sourceGroupPosition = srcSourceGroupPosition;
     return updated;
 }
