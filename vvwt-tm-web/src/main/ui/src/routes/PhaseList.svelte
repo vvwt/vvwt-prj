@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * Phase overview list for a tournament — Story E48S05 + E48S06 + E48S17 + E48S19.
+   * Phase overview list for a tournament — Story E48S05 + E48S06 + E48S17 + E48S19 + E48S23.
    *
    * Displays all phases of a tournament with their:
    *   - sequenceNumber, description, status badge, gameMode, currentLapNumber, match counts
@@ -9,6 +9,8 @@
    *       PREPARED:  "Phase starten" (→ ACTIVE, E48S17 refactor)
    *       ACTIVE:    "Phase abschließen" (disabled when unfinished matches > 0, with tooltip)
    *                  "Notabschluss" (with confirmation, visible only in ACTIVE)
+   *   - Reset-Plan affordance (E48S23): "Phasenplan zurücksetzen" button, visible only when
+   *     tournamentStatus === 'PLANNED'. Reuses E48S13 backend endpoint + tournamentStore client.
    *
    * Navigation entry point: Tournaments.svelte "Phasen" button (AC-FRONTEND-NAV-FROM-TOURNAMENTS).
    * E47 shell mechanism (AC-FRONTEND-E47-HEADER-INTEGRATION): registers title + back-button via
@@ -25,6 +27,7 @@
     forceCompletePhase,
     type PhaseOverview,
   } from '../stores/phaseStore.js';
+  import { getTournament, resetPlan } from '../stores/tournamentStore.js';
   import { pageHeader, resetPageHeader } from '../stores/pageHeaderStore.js';
   import { resolveParent } from '../lib/parentRouteMap.js';
 
@@ -42,6 +45,11 @@
   let actionError = $state<string | null>(null);
   let actionInProgress = $state<string | null>(null); // phaseId of in-flight action
 
+  // E48S23: tournament-level status for Reset-Plan affordance (AC-IMPL-PHASELIST-FETCHES-TOURNAMENT-STATUS)
+  let tournamentStatus = $state<string | null>(null);
+  let resettingPlan = $state(false);
+  let resetPlanError = $state<string | null>(null);
+
   // ── Lifecycle ─────────────────────────────────────────────────
   onMount(async () => {
     // AC-FRONTEND-E47-HEADER-INTEGRATION: register title + back-button via E47 shell
@@ -51,7 +59,14 @@
       tournamentId: tournamentId || null,
       actions: [],
     });
-    await loadPhases();
+    // Run phase load and tournament status fetch concurrently (E48S23 AC-IMPL-PHASELIST-FETCHES-TOURNAMENT-STATUS).
+    // Tournament fetch failure must NOT block phase rendering — degraded mode: button hidden if status unknown.
+    await Promise.all([
+      loadPhases(),
+      getTournament(tournamentId)
+        .then(t => { tournamentStatus = t.status; })
+        .catch(() => { /* degraded mode: tournamentStatus stays null → button hidden */ }),
+    ]);
   });
 
   onDestroy(() => {
@@ -208,6 +223,39 @@
       push(`/tournaments/${tournamentId}/phases`);
     }
   }
+
+  // ── Reset-Plan (E48S23 AC-IMPL-RESET-PLAN-HANDLER-MIRRORS-DRAFTCONFIG) ───────
+
+  /**
+   * Resets the Phasenplan back to DRAFT for a PLANNED tournament.
+   * Mirrors DraftConfig.svelte:354-376 handler pattern line-for-line.
+   * On 409: extracts typed apiError.messageKey, renders i18n-resolved error.
+   * On success: reloads phases + refetches tournament status (button hides automatically).
+   * Degraded: on generic Error → renders error.message as-is.
+   */
+  async function handleResetPlan(): Promise<void> {
+    if (!confirm($_('draft.resetPlanConfirm'))) return;
+    resetPlanError = null;
+    resettingPlan = true;
+    try {
+      await resetPlan(tournamentId);
+      // Reload phases + refetch tournament status so button hides (status is now DRAFT)
+      await loadPhases();
+      const t = await getTournament(tournamentId);
+      tournamentStatus = t.status;
+    } catch (e: unknown) {
+      // AC-ERROR-HANDLING-TYPED-CONFLICT-MESSAGEKEY: extract apiError.messageKey (mirrors DraftConfig.svelte:366-372)
+      const apiErr = e && typeof e === 'object' && 'apiError' in e
+        ? (e as { apiError: { messageKey?: string } }).apiError
+        : null;
+      const msgKey = apiErr?.messageKey;
+      resetPlanError = msgKey
+        ? $_(`${msgKey}`, { default: e instanceof Error ? e.message : $_('draft.error.resetPlanFailed') })
+        : (e instanceof Error ? e.message : $_('draft.error.resetPlanFailed'));
+    } finally {
+      resettingPlan = false;
+    }
+  }
 </script>
 
 <main class="phases">
@@ -296,6 +344,20 @@
       </tbody>
     </table>
   {/if}
+
+  <!-- E48S23 AC-IMPL-RESET-PLAN-BUTTON-CONDITIONAL-RENDER: visible only when PLANNED -->
+  <!-- AC-IMPL-RESET-PLAN-BUTTON-CONDITIONAL-RENDER: btn--danger per DraftConfig.svelte:556 pattern -->
+  {#if tournamentStatus === 'PLANNED'}
+    <div class="phases__reset-plan-action">
+      <button class="btn btn--danger" onclick={handleResetPlan} disabled={resettingPlan}>
+        {$_('draft.resetPlanButton')}
+      </button>
+      {#if resetPlanError}
+        <p class="phases__action-error">{resetPlanError}</p>
+      {/if}
+    </div>
+  {/if}
+
 </main>
 
 <style>
@@ -373,6 +435,11 @@
   .badge--completed {
     background: #d6eaf8;
     color: #1a5276;
+  }
+
+  /* E48S23: Reset-Plan action row (below phase table) */
+  .phases__reset-plan-action {
+    margin-top: 1.5rem;
   }
 
   /* Lifecycle buttons */
