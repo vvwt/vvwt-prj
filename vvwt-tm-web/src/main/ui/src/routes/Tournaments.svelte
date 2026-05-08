@@ -215,10 +215,10 @@
                       onclick={() => push(`/tournaments/${t.id}/photos`)}>
                 {$_('tournaments.teamPhotosButton')}
               </button>
-              <!-- E12S05: navigate to certificate template management -->
+              <!-- E12S05: navigate to certificate template management; E52S02: label renamed Urkunden-Vorlage → Urkunden (i18n key rename) -->
               <button class="btn btn--secondary btn--sm"
                       onclick={() => push(`/tournaments/${t.id}/certificate-template`)}>
-                {$_('tournaments.certificateTemplateButton')}
+                {$_('tournaments.certificatesButton')}
               </button>
               <!-- E11S06: navigate to timer audio management -->
               <button class="btn btn--secondary btn--sm"

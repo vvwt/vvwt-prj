@@ -77,9 +77,10 @@ describe('de.json — certificateTemplate translations (AC8 — E12S05)', () => 
     expect(errorNs).toHaveProperty('noTournament');
   });
 
-  it('should contain the certificateTemplateButton key in tournaments namespace (AC8 — nav)', () => {
+  it('should contain the certificatesButton key in tournaments namespace (AC8 — nav, E52S02 rename)', () => {
+    // E52S02 AC-TEST-CERTIFICATE-TEMPLATE-STORE-TEST-UPDATED-RED: key renamed certificateTemplateButton → certificatesButton
     const tournaments = msgs.tournaments as CertMessages;
-    expect(tournaments).toHaveProperty('certificateTemplateButton');
+    expect(tournaments).toHaveProperty('certificatesButton');
   });
 });
 

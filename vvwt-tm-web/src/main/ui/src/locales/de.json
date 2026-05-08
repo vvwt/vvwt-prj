@@ -24,7 +24,7 @@
     "deleteButton": "Löschen",
     "teamsButton": "Teams",
     "teamPhotosButton": "Fotos",
-    "certificateTemplateButton": "Urkunden-Vorlage",
+    "certificatesButton": "Urkunden",
     "deleteConfirm": "Turnier wirklich löschen?",
     "deleteError": "Fehler beim Löschen.",
     "columns": {
@@ -404,8 +404,22 @@
     "metaFileSize": "Größe",
     "sizeLabel": "{size} KB",
     "replaceConfirm": "Bestehende Vorlage ersetzen?",
+    "createCertificatesButton": "Urkunden erstellen",
     "error": {
       "noTournament": "Kein Turnier ausgewählt."
+    }
+  },
+  "certificates": {
+    "title": "Urkunden erstellen",
+    "allTeamsButton": "Alle Urkunden erstellen (ZIP)",
+    "singleTeamLabel": "Einzelne Urkunde:",
+    "generateButton": "Öffnen",
+    "missingPhotosWarning": "{count} von {total} Teams ohne Foto — Urkunden werden mit Platzhalter erstellt.",
+    "missingPlacementWarning": "Platzierungsdaten nicht vollständig — bitte Ergebnisse prüfen.",
+    "error": {
+      "noTournament": "Kein Turnier ausgewählt.",
+      "loadTeams": "Fehler beim Laden der Teams.",
+      "notCompleted": "Urkunden können nur für abgeschlossene Turniere erstellt werden."
     }
   },
   "infoPortal": {

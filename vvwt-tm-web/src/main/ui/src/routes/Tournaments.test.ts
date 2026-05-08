@@ -253,3 +253,51 @@ describe('de.json — E52S01: schedulesButton i18n key (AC-TEST-I18N-DE-KEY-PRES
     expect(t.schedulesButton).toBe('Zeitpläne');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E52S02 — Button rename: certificateTemplateButton → certificatesButton
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Tournaments.svelte — E52S02: renamed Urkunden button (AC-TEST-ROW-BUTTON-RENAMED-RED)', () => {
+  it('Tournaments.svelte source contains tournaments.certificatesButton i18n key (new key)', async () => {
+    // AC-TEST-ROW-BUTTON-RENAMED-RED: button must use new key
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './Tournaments.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain("tournaments.certificatesButton");
+  });
+
+  it('Tournaments.svelte source does NOT contain old key tournaments.certificateTemplateButton', async () => {
+    // AC-TEST-ROW-BUTTON-RENAMED-RED: old key must be gone
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './Tournaments.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).not.toContain("tournaments.certificateTemplateButton");
+  });
+
+  it('Tournaments.svelte source still navigates to /certificate-template route (URL unchanged)', async () => {
+    // AC-GOV-FE-ROUTE-URL-UNCHANGED + AC-URL-FE-ROUTE-CERTIFICATE-TEMPLATE-UNCHANGED
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './Tournaments.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain('/certificate-template');
+  });
+});
+
+describe('de.json — E52S02: certificatesButton rename (AC-TEST-RENAME-KEY-IN-DE-JSON-RED)', () => {
+  it('de.json tournaments.certificatesButton key is present with value "Urkunden"', () => {
+    // AC-TEST-RENAME-KEY-IN-DE-JSON-RED + AC-I18N-DE-RENAME-KEY
+    const t = (deMessages as unknown as Record<string, Record<string, string>>).tournaments;
+    expect(t).toHaveProperty('certificatesButton');
+    expect(t.certificatesButton).toBe('Urkunden');
+  });
+
+  it('de.json does NOT contain old key tournaments.certificateTemplateButton', () => {
+    // AC-TEST-RENAME-KEY-IN-DE-JSON-RED: old key must be absent
+    const t = (deMessages as unknown as Record<string, Record<string, string>>).tournaments;
+    expect(t).not.toHaveProperty('certificateTemplateButton');
+  });
+});
