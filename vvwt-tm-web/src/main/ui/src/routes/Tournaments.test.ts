@@ -301,3 +301,65 @@ describe('de.json — E52S02: certificatesButton rename (AC-TEST-RENAME-KEY-IN-D
     expect(t).not.toHaveProperty('certificateTemplateButton');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E52S03 — Remove redundant Timer-Link tournament-row button
+// RED-first per DEC-22: these tests assert the NEW state (button absent, key absent).
+// They FAIL against the current source (button still present, key still present).
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('E52S03 — Tournaments.svelte: Timer-Link button REMOVED (AC-TEST-TIMER-LINK-BUTTON-REMOVED-RED)', () => {
+  it('Tournaments.svelte source does NOT contain tournaments.timerLinkButton i18n call', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './Tournaments.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).not.toContain("tournaments.timerLinkButton");
+  });
+
+  it('Tournaments.svelte source does NOT contain Timer-Link {#if} block (E11S07 AC1 block gone)', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './Tournaments.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // The E11S07 AC1/AC3 timer link block was: {#if t.status === 'PLANNED' || t.status === 'ACTIVE'}
+    // followed by the timer-link button. After E52S03 removal, this specific combination is gone.
+    expect(source).not.toMatch(/E11S07 AC1\/AC3: timer link/);
+  });
+});
+
+describe('E52S03 — de.json: tournaments.timerLinkButton KEY REMOVED (AC-TEST-TOURNAMENTS-TIMERLINKBUTTON-KEY-REMOVED-RED)', () => {
+  it('de.json does NOT contain tournaments.timerLinkButton key after removal', () => {
+    const t = (deMessages as unknown as Record<string, Record<string, string>>).tournaments;
+    expect(t).not.toHaveProperty('timerLinkButton');
+  });
+});
+
+describe('E52S03 — de.json: audio.timerLinkButton KEY PRESERVED (AC-TEST-AUDIO-TIMERLINKBUTTON-KEY-PRESERVED-RED)', () => {
+  it('de.json STILL contains audio.timerLinkButton key with non-empty value', () => {
+    const a = (deMessages as unknown as Record<string, Record<string, string>>).audio;
+    expect(a).toHaveProperty('timerLinkButton');
+    expect(typeof a.timerLinkButton).toBe('string');
+    expect(a.timerLinkButton.length).toBeGreaterThan(0);
+  });
+});
+
+describe('E52S03 — TimerAudio.svelte: push-handler PRESERVED (AC-TEST-TIMERAUDIO-PUSH-HANDLER-PRESERVED-RED)', () => {
+  it('TimerAudio.svelte source contains push handler navigating to timer-link route', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './TimerAudio.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain('/timer-link`');
+  });
+});
+
+describe('E52S03 — App.svelte: /timer-link route REGISTERED (AC-TEST-TIMERLINK-PAGE-REACHABLE-FROM-AUDIO-RED)', () => {
+  it('App.svelte source still registers the /timer-link route (reachable via TimerAudio)', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const appPath = path.resolve(__dirname, '../App.svelte');
+    const source = fs.readFileSync(appPath, 'utf8');
+    expect(source).toContain('timer-link');
+  });
+});
