@@ -54,7 +54,8 @@
     "completeConfirm": "Turnier abschließen?",
     "cancelConfirm": "Turnier wirklich abbrechen?",
     "lifecycleError": "Fehler beim Statuswechsel.",
-    "phasesButton": "Phasen"
+    "phasesButton": "Phasen",
+    "schedulesButton": "Zeitpläne"
   },
   "phases": {
     "pageTitle": "Phasenübersicht",
