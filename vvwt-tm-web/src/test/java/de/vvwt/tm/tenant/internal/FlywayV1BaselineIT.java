@@ -68,8 +68,8 @@ class FlywayV1BaselineIT {
      * {@code 1}) in {@code flyway_schema_history_tenant} and rows [1, 2, 3] in {@code
      * flyway_schema_history_tournament}.
      *
-     * <p>Tenant history: FAILs before E46S06 consolidation (V2 rows present → [1, 2]). PASSes
-     * after E46S06 consolidation (V2 files deleted → [1]).
+     * <p>Tenant history: FAILs before E46S06 consolidation (V2 rows present → [1, 2]). PASSes after
+     * E46S06 consolidation (V2 files deleted → [1]).
      *
      * <p>Tournament history: [1, 2] after E49S01 (V2__device_pin_fail_count). [1, 2, 3] after
      * E51S01 (V3__phase_preparation_background_job_pipeline — DEC-55 schema deltas).
@@ -108,8 +108,8 @@ class FlywayV1BaselineIT {
         // Tournament history now contains ["1", "2", "3"].
         assertThat(tournamentVersions)
                 .as(
-                        "flyway_schema_history_tournament must contain migration rows"
-                                + " [1, 2, 3] after E51S01 (V3__phase_preparation_background_job_pipeline)")
+                        "flyway_schema_history_tournament must contain migration rows [1, 2, 3]"
+                                + " after E51S01 (V3__phase_preparation_background_job_pipeline)")
                 .containsExactly("1", "2", "3");
     }
 

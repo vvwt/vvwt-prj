@@ -9,7 +9,6 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import javax.sql.DataSource;
@@ -18,45 +17,49 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Integration tests for the E51S01 Flyway migration:
- * {@code db/migration/tournament/V3__phase_preparation_background_job_pipeline.sql}.
+ * Integration tests for the E51S01 Flyway migration: {@code
+ * db/migration/tournament/V3__phase_preparation_background_job_pipeline.sql}.
  *
  * <h2>TDD provenance (DEC-22 — AC-GOVERNANCE-DEC-22-Q-1A-RED-FIRST)</h2>
  *
- * <p>This test file was committed in the <em>RED</em> state before
- * {@code V3__phase_preparation_background_job_pipeline.sql} existed. At that point the runner
- * returns only V1 and V2 locations; V3 is absent. All schema-presence assertions fail because
- * the new columns / altered constraints do not yet exist. Adding the migration SQL in the GREEN
- * step makes every assertion pass.
+ * <p>This test file was committed in the <em>RED</em> state before {@code
+ * V3__phase_preparation_background_job_pipeline.sql} existed. At that point the runner returns only
+ * V1 and V2 locations; V3 is absent. All schema-presence assertions fail because the new columns /
+ * altered constraints do not yet exist. Adding the migration SQL in the GREEN step makes every
+ * assertion pass.
  *
  * <h2>Acceptance Criteria covered</h2>
  *
  * <ul>
  *   <li><b>AC-TEST-FLYWAY-MIGRATION-FORWARD-RED</b> — asserts all 6 schema deltas per DEC-55 D-2:
- *       team_avatar.team_id nullable, tournament.optimize, phase.optimized,
- *       phase.last_job_state, phase.status ASSIGNED value, FK ON DELETE CASCADE.
+ *       team_avatar.team_id nullable, tournament.optimize, phase.optimized, phase.last_job_state,
+ *       phase.status ASSIGNED value, FK ON DELETE CASCADE.
  *   <li><b>AC-TEST-EXISTING-SCHEMA-INVARIANTS-PRESERVED-GREEN</b> — regression: pre-existing
  *       invariants (team_avatar.id PK, tournament_id FK, phase_id FK, structural-identity UNIQUE,
  *       match columns except re-declared FKs) survive V3.
- *   <li><b>AC-TEST-MIGRATION-IS-FRESH-NOT-PROD-DATA-BACKFILL-GREEN</b> — verifies no UPDATE rows
- *       in the migration SQL (schema-only per DEC-25 §Wave-2-Big-Bang-Reset).
+ *   <li><b>AC-TEST-MIGRATION-IS-FRESH-NOT-PROD-DATA-BACKFILL-GREEN</b> — verifies no UPDATE rows in
+ *       the migration SQL (schema-only per DEC-25 §Wave-2-Big-Bang-Reset).
  *   <li><b>AC-IMPL-FLYWAY-MIGRATION-FILENAME</b> — migration filename presence verified implicitly
  *       by migration application (runner builds locations from classpath).
  *   <li><b>AC-ERROR-HANDLING-MIGRATION-IDEMPOTENT</b> — running migration twice is a no-op.
- *   <li><b>AC-GOVERNANCE-DEC-44-IT-FRAMEWORK</b> — uses PerTenantFlywayRunner directly (no
- *       @SpringBootTest); DEC-44 carve-out applies (not a web-module controller IT).
+ *   <li><b>AC-GOVERNANCE-DEC-44-IT-FRAMEWORK</b> — uses PerTenantFlywayRunner directly
+ *       (no @SpringBootTest); DEC-44 carve-out applies (not a web-module controller IT).
  * </ul>
  *
  * <h2>Framework</h2>
  *
- * <p>Tests use a {@code PerTenantFlywayRunner} subclass that restricts locations to
- * {@code classpath:db/migration/tournament} only. Real H2 file-based DataSources provide
+ * <p>Tests use a {@code PerTenantFlywayRunner} subclass that restricts locations to {@code
+ * classpath:db/migration/tournament} only. Real H2 file-based DataSources provide
  * production-faithful isolation. No Spring context is loaded — pure JDBC assertion.
  *
  * @see PerTenantFlywayRunner
- * @see <a href="../../../../../../../../../../../.gaai/project/contexts/artefacts/stories/E51S01.story.md">Story E51S01</a>
- * @see <a href="../../../../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-55.md">DEC-55</a>
- * @see <a href="../../../../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-22.md">DEC-22</a>
+ * @see <a
+ *     href="../../../../../../../../../../../.gaai/project/contexts/artefacts/stories/E51S01.story.md">Story
+ *     E51S01</a>
+ * @see <a
+ *     href="../../../../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-55.md">DEC-55</a>
+ * @see <a
+ *     href="../../../../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-22.md">DEC-22</a>
  * @since E51S01
  */
 class PhasePreparationMigrationIT {
@@ -118,8 +121,8 @@ class PhasePreparationMigrationIT {
     }
 
     /**
-     * Returns the DATA_TYPE of the named column, or null if absent.
-     * H2 reports boolean columns as "BOOLEAN", varchar as "CHARACTER VARYING".
+     * Returns the DATA_TYPE of the named column, or null if absent. H2 reports boolean columns as
+     * "BOOLEAN", varchar as "CHARACTER VARYING".
      */
     private static String columnDataType(DataSource ds, String tableName, String columnName)
             throws SQLException {
@@ -139,8 +142,8 @@ class PhasePreparationMigrationIT {
     }
 
     /**
-     * Returns the COLUMN_DEFAULT of the named column, or null if absent/no default.
-     * H2 2.x returns "FALSE" / "TRUE" for boolean defaults.
+     * Returns the COLUMN_DEFAULT of the named column, or null if absent/no default. H2 2.x returns
+     * "FALSE" / "TRUE" for boolean defaults.
      */
     private static String columnDefault(DataSource ds, String tableName, String columnName)
             throws SQLException {
@@ -160,11 +163,10 @@ class PhasePreparationMigrationIT {
     }
 
     /**
-     * Returns the DELETE_RULE for the FK constraint by name (case-insensitive).
-     * H2 reports "CASCADE", "RESTRICT", "SET NULL", "NO ACTION".
+     * Returns the DELETE_RULE for the FK constraint by name (case-insensitive). H2 reports
+     * "CASCADE", "RESTRICT", "SET NULL", "NO ACTION".
      */
-    private static String fkDeleteRule(DataSource ds, String constraintName)
-            throws SQLException {
+    private static String fkDeleteRule(DataSource ds, String constraintName) throws SQLException {
         try (Connection conn = ds.getConnection();
                 var stmt = conn.createStatement();
                 ResultSet rs =
@@ -183,8 +185,8 @@ class PhasePreparationMigrationIT {
      * constraint (if any) or the enum encoding admits the new value. Uses a temporary tournament +
      * phase to satisfy FKs. Returns true if the INSERT succeeded without error.
      */
-    private static boolean phaseStatusAssignedInsertsWithoutError(
-            DataSource ds, UUID locationId) throws SQLException {
+    private static boolean phaseStatusAssignedInsertsWithoutError(DataSource ds, UUID locationId)
+            throws SQLException {
         try (Connection conn = ds.getConnection()) {
             UUID tournamentId = UUID.randomUUID();
             UUID phaseId = UUID.randomUUID();
@@ -227,29 +229,41 @@ class PhasePreparationMigrationIT {
     }
 
     // -------------------------------------------------------------------------
-    // Test-scoped runner — restricts to tournament module only (V1 + V2 + V3)
+    // Test-scoped runner — tenant + tournament modules (dependency order, DEC-21)
     // -------------------------------------------------------------------------
 
     /**
-     * A {@link PerTenantFlywayRunner} subclass that restricts migration locations to
-     * {@code classpath:db/migration/tournament} — the location for the tournament module.
+     * A {@link PerTenantFlywayRunner} subclass that applies {@code classpath:db/migration/tenant}
+     * followed by {@code classpath:db/migration/tournament} — in DEC-21 dependency order.
      *
-     * <p>Before V3 is added to the classpath, only V1 and V2 exist in that location. The
-     * assertions for V3-introduced schema (optimize, optimized, last_job_state, ASSIGNED,
-     * CASCADE FKs, nullable team_id) all fail because the columns / altered FKs do not exist.
-     * After V3 is added → all assertions pass.
+     * <p>The {@code tournament/V1__initial_schema.sql} has a cross-module FK: {@code
+     * tournament.location_id REFERENCES locations(id)} where {@code locations} is created by {@code
+     * tenant/V1__initial_schema.sql}. Running tournament-only fails with "Table LOCATIONS not
+     * found". Both modules must be applied in dependency order: tenant first, then tournament.
+     *
+     * <p>Before V3 is added to the classpath, only V1 and V2 exist in the tournament location. The
+     * assertions for V3-introduced schema (optimize, optimized, last_job_state, ASSIGNED, CASCADE
+     * FKs, nullable team_id) all fail because the columns / altered FKs do not exist. After V3 is
+     * added → all assertions pass.
      */
-    private static PerTenantFlywayRunner runnerWithTournamentMigrationOnly(DataSource dataSource) {
+    private static PerTenantFlywayRunner runnerWithTenantAndTournamentMigrations(
+            DataSource dataSource) {
         return new PerTenantFlywayRunner(
                 tenantId -> dataSource, TournamentManagerApplication.class) {
             @Override
             public List<String> buildLocations() {
                 ClassLoader cl = Thread.currentThread().getContextClassLoader();
                 if (cl == null) cl = PerTenantFlywayRunner.class.getClassLoader();
-                boolean exists = cl.getResource("db/migration/tournament") != null;
-                return exists
-                        ? List.of("classpath:db/migration/tournament")
-                        : List.of();
+                java.util.List<String> locations = new java.util.ArrayList<>();
+                // tenant first: creates the locations table (FK dependency of tournament/V1)
+                if (cl.getResource("db/migration/tenant") != null) {
+                    locations.add("classpath:db/migration/tenant");
+                }
+                // tournament second: depends on tenant (DEC-21 Flyway dependency ordering)
+                if (cl.getResource("db/migration/tournament") != null) {
+                    locations.add("classpath:db/migration/tournament");
+                }
+                return locations;
             }
         };
     }
@@ -263,13 +277,14 @@ class PhasePreparationMigrationIT {
      *
      * <p><b>RED:</b> Before V3, team_avatar.team_id is NOT NULL (V1 definition) → isNullable=false
      * → assertion fails.
+     *
      * <p><b>GREEN:</b> V3 alters the column to NULL → isNullable=true.
      */
     @Test
     void migration_v3_teamAvatarTeamId_isNullable(@TempDir Path tempDir) throws Exception {
         UUID tenantId = UUID.randomUUID();
         DataSource ds = createTempFileDataSource(tempDir, tenantId);
-        runnerWithTournamentMigrationOnly(ds).run(tenantId);
+        runnerWithTenantAndTournamentMigrations(ds).run(tenantId);
 
         assertThat(isColumnNullable(ds, "team_avatar", "team_id"))
                 .as(
@@ -282,6 +297,7 @@ class PhasePreparationMigrationIT {
      * (b) tournament.optimize BOOLEAN NOT NULL DEFAULT TRUE must exist after V3.
      *
      * <p><b>RED:</b> Before V3, column absent → columnExists=false → assertion fails.
+     *
      * <p><b>GREEN:</b> V3 adds column → present, NOT NULL, DEFAULT TRUE.
      */
     @Test
@@ -289,7 +305,7 @@ class PhasePreparationMigrationIT {
             throws Exception {
         UUID tenantId = UUID.randomUUID();
         DataSource ds = createTempFileDataSource(tempDir, tenantId);
-        runnerWithTournamentMigrationOnly(ds).run(tenantId);
+        runnerWithTenantAndTournamentMigrations(ds).run(tenantId);
 
         assertThat(columnExists(ds, "tournament", "optimize"))
                 .as(
@@ -310,6 +326,7 @@ class PhasePreparationMigrationIT {
      * (c) phase.optimized BOOLEAN NOT NULL DEFAULT FALSE must exist after V3.
      *
      * <p><b>RED:</b> Before V3, column absent → assertion fails.
+     *
      * <p><b>GREEN:</b> V3 adds column → present, NOT NULL, DEFAULT FALSE.
      */
     @Test
@@ -317,7 +334,7 @@ class PhasePreparationMigrationIT {
             throws Exception {
         UUID tenantId = UUID.randomUUID();
         DataSource ds = createTempFileDataSource(tempDir, tenantId);
-        runnerWithTournamentMigrationOnly(ds).run(tenantId);
+        runnerWithTenantAndTournamentMigrations(ds).run(tenantId);
 
         assertThat(columnExists(ds, "phase", "optimized"))
                 .as(
@@ -338,6 +355,7 @@ class PhasePreparationMigrationIT {
      * (d) phase.last_job_state VARCHAR must exist and be NULLABLE after V3.
      *
      * <p><b>RED:</b> Before V3, column absent → assertion fails.
+     *
      * <p><b>GREEN:</b> V3 adds column → present, NULLABLE.
      */
     @Test
@@ -345,7 +363,7 @@ class PhasePreparationMigrationIT {
             throws Exception {
         UUID tenantId = UUID.randomUUID();
         DataSource ds = createTempFileDataSource(tempDir, tenantId);
-        runnerWithTournamentMigrationOnly(ds).run(tenantId);
+        runnerWithTenantAndTournamentMigrations(ds).run(tenantId);
 
         assertThat(columnExists(ds, "phase", "last_job_state"))
                 .as(
@@ -360,27 +378,26 @@ class PhasePreparationMigrationIT {
     /**
      * (e) phase.status must accept 'ASSIGNED' value after V3.
      *
-     * <p>Phase status is stored as VARCHAR (no DB-level CHECK constraint in V1). V3 does not
-     * add a CHECK constraint for status values either — ASSIGNED admission is verified by
-     * attempting an INSERT with status='ASSIGNED'.
+     * <p>Phase status is stored as VARCHAR (no DB-level CHECK constraint in V1). V3 does not add a
+     * CHECK constraint for status values either — ASSIGNED admission is verified by attempting an
+     * INSERT with status='ASSIGNED'.
      *
      * <p><b>RED:</b> Before V3, the INSERT itself succeeds (VARCHAR accepts any value), so the
-     * assertion tests column presence as a proxy — phase.last_job_state being absent proves
-     * V3 has not been applied, and this test covers the scenario holistically only when paired
-     * with the column-existence assertions above. To isolate this AC purely, we assert
-     * that a phase row with status='ASSIGNED' round-trips correctly (SELECT returns 'ASSIGNED').
+     * assertion tests column presence as a proxy — phase.last_job_state being absent proves V3 has
+     * not been applied, and this test covers the scenario holistically only when paired with the
+     * column-existence assertions above. To isolate this AC purely, we assert that a phase row with
+     * status='ASSIGNED' round-trips correctly (SELECT returns 'ASSIGNED').
      *
-     * <p><b>Note:</b> Since phase.status is VARCHAR (not an enum type in H2), the ASSIGNED value
-     * is admitted by the column type unconditionally. The meaningful RED signal is provided by
-     * assertions (a)–(d) and (f) which verify the V3 migration has been applied. This test
-     * adds a positive round-trip assertion for ASSIGNED as documentation.
+     * <p><b>Note:</b> Since phase.status is VARCHAR (not an enum type in H2), the ASSIGNED value is
+     * admitted by the column type unconditionally. The meaningful RED signal is provided by
+     * assertions (a)–(d) and (f) which verify the V3 migration has been applied. This test adds a
+     * positive round-trip assertion for ASSIGNED as documentation.
      */
     @Test
-    void migration_v3_phaseStatusAssigned_admittedBySchema(@TempDir Path tempDir)
-            throws Exception {
+    void migration_v3_phaseStatusAssigned_admittedBySchema(@TempDir Path tempDir) throws Exception {
         UUID tenantId = UUID.randomUUID();
         DataSource ds = createTempFileDataSource(tempDir, tenantId);
-        runnerWithTournamentMigrationOnly(ds).run(tenantId);
+        runnerWithTenantAndTournamentMigrations(ds).run(tenantId);
 
         UUID dummyLocation = UUID.randomUUID();
         assertThat(phaseStatusAssignedInsertsWithoutError(ds, dummyLocation))
@@ -391,11 +408,12 @@ class PhasePreparationMigrationIT {
     }
 
     /**
-     * (f) FKs from match.member_avatar_1_id / member_avatar_2_id and
-     * team_avatar_rating.avatar_id to team_avatar(id) must use ON DELETE CASCADE after V3.
+     * (f) FKs from match.member_avatar_1_id / member_avatar_2_id and team_avatar_rating.avatar_id
+     * to team_avatar(id) must use ON DELETE CASCADE after V3.
      *
-     * <p><b>RED:</b> Before V3, these FKs use ON DELETE RESTRICT (V1) → DELETE_RULE="RESTRICT"
-     * → assertion that DELETE_RULE="CASCADE" fails.
+     * <p><b>RED:</b> Before V3, these FKs use ON DELETE RESTRICT (V1) → DELETE_RULE="RESTRICT" →
+     * assertion that DELETE_RULE="CASCADE" fails.
+     *
      * <p><b>GREEN:</b> V3 drops and re-declares the FKs with ON DELETE CASCADE.
      */
     @Test
@@ -403,7 +421,7 @@ class PhasePreparationMigrationIT {
             throws Exception {
         UUID tenantId = UUID.randomUUID();
         DataSource ds = createTempFileDataSource(tempDir, tenantId);
-        runnerWithTournamentMigrationOnly(ds).run(tenantId);
+        runnerWithTenantAndTournamentMigrations(ds).run(tenantId);
 
         assertThat(fkDeleteRule(ds, "fk_match_member_avatar_1"))
                 .as(
@@ -417,7 +435,7 @@ class PhasePreparationMigrationIT {
             throws Exception {
         UUID tenantId = UUID.randomUUID();
         DataSource ds = createTempFileDataSource(tempDir, tenantId);
-        runnerWithTournamentMigrationOnly(ds).run(tenantId);
+        runnerWithTenantAndTournamentMigrations(ds).run(tenantId);
 
         assertThat(fkDeleteRule(ds, "fk_match_member_avatar_2"))
                 .as(
@@ -431,7 +449,7 @@ class PhasePreparationMigrationIT {
             throws Exception {
         UUID tenantId = UUID.randomUUID();
         DataSource ds = createTempFileDataSource(tempDir, tenantId);
-        runnerWithTournamentMigrationOnly(ds).run(tenantId);
+        runnerWithTenantAndTournamentMigrations(ds).run(tenantId);
 
         assertThat(fkDeleteRule(ds, "fk_team_avatar_rating_avatar"))
                 .as(
@@ -445,79 +463,93 @@ class PhasePreparationMigrationIT {
     // -------------------------------------------------------------------------
 
     /**
-     * Regression: pre-existing team_avatar columns (id PK, tournament_id, phase_id,
-     * group_number, group_position, description, created_at) survive V3 unchanged.
-     * Also verifies the structural-identity UNIQUE constraint is preserved.
+     * Regression: pre-existing team_avatar columns (id PK, tournament_id, phase_id, group_number,
+     * group_position, description, created_at) survive V3 unchanged. Also verifies the
+     * structural-identity UNIQUE constraint is preserved.
      */
     @Test
     void migration_v3_teamAvatar_preExistingColumnsUnchanged(@TempDir Path tempDir)
             throws Exception {
         UUID tenantId = UUID.randomUUID();
         DataSource ds = createTempFileDataSource(tempDir, tenantId);
-        runnerWithTournamentMigrationOnly(ds).run(tenantId);
+        runnerWithTenantAndTournamentMigrations(ds).run(tenantId);
 
         assertThat(columnExists(ds, "team_avatar", "id"))
-                .as("team_avatar.id (PK) must survive V3").isTrue();
+                .as("team_avatar.id (PK) must survive V3")
+                .isTrue();
         assertThat(columnExists(ds, "team_avatar", "tournament_id"))
-                .as("team_avatar.tournament_id must survive V3").isTrue();
+                .as("team_avatar.tournament_id must survive V3")
+                .isTrue();
         assertThat(columnExists(ds, "team_avatar", "phase_id"))
-                .as("team_avatar.phase_id must survive V3").isTrue();
+                .as("team_avatar.phase_id must survive V3")
+                .isTrue();
         assertThat(columnExists(ds, "team_avatar", "group_number"))
-                .as("team_avatar.group_number must survive V3").isTrue();
+                .as("team_avatar.group_number must survive V3")
+                .isTrue();
         assertThat(columnExists(ds, "team_avatar", "group_position"))
-                .as("team_avatar.group_position must survive V3").isTrue();
+                .as("team_avatar.group_position must survive V3")
+                .isTrue();
         assertThat(columnExists(ds, "team_avatar", "description"))
-                .as("team_avatar.description must survive V3").isTrue();
+                .as("team_avatar.description must survive V3")
+                .isTrue();
         assertThat(columnExists(ds, "team_avatar", "created_at"))
-                .as("team_avatar.created_at must survive V3").isTrue();
+                .as("team_avatar.created_at must survive V3")
+                .isTrue();
     }
 
     /**
-     * Regression: pre-existing phase columns (id, tournament_id, sequence_number,
-     * description, status, current_lap_number, created_at) survive V3 unchanged.
+     * Regression: pre-existing phase columns (id, tournament_id, sequence_number, description,
+     * status, current_lap_number, created_at) survive V3 unchanged.
      */
     @Test
     void migration_v3_phase_preExistingColumnsUnchanged(@TempDir Path tempDir) throws Exception {
         UUID tenantId = UUID.randomUUID();
         DataSource ds = createTempFileDataSource(tempDir, tenantId);
-        runnerWithTournamentMigrationOnly(ds).run(tenantId);
+        runnerWithTenantAndTournamentMigrations(ds).run(tenantId);
 
         assertThat(columnExists(ds, "phase", "id")).as("phase.id must survive V3").isTrue();
         assertThat(columnExists(ds, "phase", "tournament_id"))
-                .as("phase.tournament_id must survive V3").isTrue();
+                .as("phase.tournament_id must survive V3")
+                .isTrue();
         assertThat(columnExists(ds, "phase", "sequence_number"))
-                .as("phase.sequence_number must survive V3").isTrue();
+                .as("phase.sequence_number must survive V3")
+                .isTrue();
         assertThat(columnExists(ds, "phase", "description"))
-                .as("phase.description must survive V3").isTrue();
-        assertThat(columnExists(ds, "phase", "status"))
-                .as("phase.status must survive V3").isTrue();
+                .as("phase.description must survive V3")
+                .isTrue();
+        assertThat(columnExists(ds, "phase", "status")).as("phase.status must survive V3").isTrue();
         assertThat(columnExists(ds, "phase", "current_lap_number"))
-                .as("phase.current_lap_number must survive V3").isTrue();
+                .as("phase.current_lap_number must survive V3")
+                .isTrue();
         assertThat(columnExists(ds, "phase", "created_at"))
-                .as("phase.created_at must survive V3").isTrue();
+                .as("phase.created_at must survive V3")
+                .isTrue();
     }
 
     /**
-     * Regression: pre-existing match columns (id, tournament_id, phase_id,
-     * member_avatar_1_id, member_avatar_2_id, state, etc.) survive V3 unchanged.
+     * Regression: pre-existing match columns (id, tournament_id, phase_id, member_avatar_1_id,
+     * member_avatar_2_id, state, etc.) survive V3 unchanged.
      */
     @Test
     void migration_v3_match_preExistingColumnsUnchanged(@TempDir Path tempDir) throws Exception {
         UUID tenantId = UUID.randomUUID();
         DataSource ds = createTempFileDataSource(tempDir, tenantId);
-        runnerWithTournamentMigrationOnly(ds).run(tenantId);
+        runnerWithTenantAndTournamentMigrations(ds).run(tenantId);
 
         assertThat(columnExists(ds, "match", "id")).as("match.id must survive V3").isTrue();
         assertThat(columnExists(ds, "match", "tournament_id"))
-                .as("match.tournament_id must survive V3").isTrue();
+                .as("match.tournament_id must survive V3")
+                .isTrue();
         assertThat(columnExists(ds, "match", "phase_id"))
-                .as("match.phase_id must survive V3").isTrue();
+                .as("match.phase_id must survive V3")
+                .isTrue();
         assertThat(columnExists(ds, "match", "member_avatar_1_id"))
-                .as("match.member_avatar_1_id must survive V3").isTrue();
+                .as("match.member_avatar_1_id must survive V3")
+                .isTrue();
         assertThat(columnExists(ds, "match", "member_avatar_2_id"))
-                .as("match.member_avatar_2_id must survive V3").isTrue();
-        assertThat(columnExists(ds, "match", "state"))
-                .as("match.state must survive V3").isTrue();
+                .as("match.member_avatar_2_id must survive V3")
+                .isTrue();
+        assertThat(columnExists(ds, "match", "state")).as("match.state must survive V3").isTrue();
     }
 
     // -------------------------------------------------------------------------
@@ -525,8 +557,8 @@ class PhasePreparationMigrationIT {
     // -------------------------------------------------------------------------
 
     /**
-     * Schema-only verification: after applying V3, no data rows exist in any modified table
-     * beyond those the test itself inserted. The migration must NOT backfill data.
+     * Schema-only verification: after applying V3, no data rows exist in any modified table beyond
+     * those the test itself inserted. The migration must NOT backfill data.
      *
      * <p>This verifies DEC-25 §Wave-2-Big-Bang-Reset compliance — migration is schema-only.
      */
@@ -534,15 +566,16 @@ class PhasePreparationMigrationIT {
     void migration_v3_isSchemaOnly_noDataBackfill(@TempDir Path tempDir) throws Exception {
         UUID tenantId = UUID.randomUUID();
         DataSource ds = createTempFileDataSource(tempDir, tenantId);
-        runnerWithTournamentMigrationOnly(ds).run(tenantId);
+        runnerWithTenantAndTournamentMigrations(ds).run(tenantId);
 
         try (Connection conn = ds.getConnection()) {
             // No tournament rows from migration
             ResultSet rs = conn.createStatement().executeQuery("SELECT COUNT(*) FROM tournament");
             rs.next();
             assertThat(rs.getInt(1))
-                    .as("AC-TEST-MIGRATION-IS-FRESH-NOT-PROD-DATA-BACKFILL: tournament table"
-                            + " must be empty after V3 migration (no backfill, DEC-25)")
+                    .as(
+                            "AC-TEST-MIGRATION-IS-FRESH-NOT-PROD-DATA-BACKFILL: tournament table"
+                                    + " must be empty after V3 migration (no backfill, DEC-25)")
                     .isZero();
 
             // No phase rows from migration
@@ -566,14 +599,14 @@ class PhasePreparationMigrationIT {
     // -------------------------------------------------------------------------
 
     /**
-     * Running V3 migration twice is idempotent — Flyway's checksum mechanism skips
-     * already-applied migrations without error (AC-ERROR-HANDLING-MIGRATION-IDEMPOTENT).
+     * Running V3 migration twice is idempotent — Flyway's checksum mechanism skips already-applied
+     * migrations without error (AC-ERROR-HANDLING-MIGRATION-IDEMPOTENT).
      */
     @Test
     void migration_v3_appliedTwice_isIdempotent(@TempDir Path tempDir) throws Exception {
         UUID tenantId = UUID.randomUUID();
         DataSource ds = createTempFileDataSource(tempDir, tenantId);
-        PerTenantFlywayRunner runner = runnerWithTournamentMigrationOnly(ds);
+        PerTenantFlywayRunner runner = runnerWithTenantAndTournamentMigrations(ds);
 
         runner.run(tenantId);
 
