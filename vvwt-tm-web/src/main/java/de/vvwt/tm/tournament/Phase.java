@@ -96,6 +96,24 @@ public class Phase {
     /** Row creation timestamp — set by the database via DEFAULT CURRENT_TIMESTAMP. */
     private LocalDateTime createdAt;
 
+    /**
+     * Slot-optimization completion flag (DEC-55 D-6, E51S01 schema). {@code false} initially.
+     * Flipped to {@code true} by {@code SlotOptJobCompletedEvent} listener (E51S04) or by
+     * operator-cancel Best-So-Far path (DEC-49 D-11a). Activation-guard: {@code ASSIGNED → ACTIVE}
+     * requires {@code !tournament.optimize OR phase.optimized} (E51S05).
+     */
+    private boolean optimized;
+
+    /**
+     * Background-job state audit + restart-recovery column (DEC-55 D-2 + D-8, E51S01 schema).
+     * Nullable: {@code null} means no background job has run for this phase yet. Permitted values
+     * (enforced at the application layer): {@code "match_gen_running"}, {@code "slot_opt_running"},
+     * {@code "idle"}, {@code "cancelled"}, {@code "failed"}. Written by {@code MatchGenJobListener}
+     * (E51S03) and {@code SlotOptInvocationListener} (E51S04). Read by {@code
+     * JobQueueRecoveryService} (E51S07) to reconcile in-flight jobs on JVM restart.
+     */
+    private String lastJobState;
+
     // -------------------------------------------------------------------------
     // Constructors
     // -------------------------------------------------------------------------
@@ -189,5 +207,45 @@ public class Phase {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    /**
+     * Returns whether slot-optimization has completed for this phase (DEC-55 D-6, E51S03).
+     *
+     * @return {@code true} if slot-opt has completed; {@code false} otherwise
+     */
+    public boolean isOptimized() {
+        return optimized;
+    }
+
+    /**
+     * Sets the slot-optimization completion flag (DEC-55 D-6).
+     *
+     * @param optimized {@code true} when slot-opt completes or is cancelled with Best-So-Far
+     */
+    public void setOptimized(boolean optimized) {
+        this.optimized = optimized;
+    }
+
+    /**
+     * Returns the current background-job state for this phase (DEC-55 D-2, E51S03).
+     *
+     * <p>Nullable — {@code null} means no background job has run yet. Non-null values: {@code
+     * "match_gen_running"}, {@code "slot_opt_running"}, {@code "idle"}, {@code "cancelled"}, {@code
+     * "failed"}.
+     *
+     * @return the job state string or {@code null}
+     */
+    public String getLastJobState() {
+        return lastJobState;
+    }
+
+    /**
+     * Sets the background-job state for this phase (DEC-55 D-2).
+     *
+     * @param lastJobState the job state string; {@code null} resets to "no job run yet"
+     */
+    public void setLastJobState(String lastJobState) {
+        this.lastJobState = lastJobState;
     }
 }

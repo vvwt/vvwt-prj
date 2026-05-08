@@ -22,6 +22,7 @@ import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftPreviewResult;
 import de.vvwt.tm.tournament.draft.DraftPreviewSection;
 import de.vvwt.tm.tournament.draft.DraftSection;
+import de.vvwt.tm.tournament.events.MatchGenJobScheduledEvent;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import de.vvwt.tm.tournament.exceptions.TournamentNotFoundException;
 import de.vvwt.tm.tournament.exceptions.TournamentNotInDraftException;
@@ -36,6 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -113,6 +115,7 @@ public class DefaultDraftService implements DraftService {
     private final TournamentLifecycleService lifecycleService;
     private final TeamAvatarRepository teamAvatarRepository;
     private final TeamRepository teamRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Constructs the service with Phase-aggregate collaborators from E21S03, tournament repository
@@ -135,6 +138,8 @@ public class DefaultDraftService implements DraftService {
      *     at apply-time (E51S02)
      * @param teamRepository team persistence for Phase 1 teamId population from {@code
      *     participate=true} teams (E51S02)
+     * @param eventPublisher Spring event publisher for {@link MatchGenJobScheduledEvent}
+     *     publication per phase after avatar-persistence (E51S03, DEC-55 D-3)
      */
     public DefaultDraftService(
             @Qualifier("tmPhaseRepository") PhaseRepository phaseRepository,
@@ -146,7 +151,8 @@ public class DefaultDraftService implements DraftService {
             JdbcTemplate jdbcTemplate,
             TournamentLifecycleService lifecycleService,
             @Qualifier("tmTeamAvatarRepository") TeamAvatarRepository teamAvatarRepository,
-            @Qualifier("tmTeamRepository") TeamRepository teamRepository) {
+            @Qualifier("tmTeamRepository") TeamRepository teamRepository,
+            ApplicationEventPublisher eventPublisher) {
         this.phaseRepository = phaseRepository;
         this.phaseBreakRepository = phaseBreakRepository;
         this.tournamentRepository = tournamentRepository;
@@ -156,6 +162,7 @@ public class DefaultDraftService implements DraftService {
         this.lifecycleService = lifecycleService;
         this.teamAvatarRepository = teamAvatarRepository;
         this.teamRepository = teamRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     // -------------------------------------------------------------------------
@@ -311,6 +318,18 @@ public class DefaultDraftService implements DraftService {
                 UUID phaseId = createdPhaseIds.get(i);
                 persistStructuralAvatars(
                         tournamentId, phaseId, sections.get(i), i, participatingTeams);
+            }
+        }
+
+        // Step (d3): E51S03 — publish MatchGenJobScheduledEvent per non-siegerehrung phase
+        // (DEC-55 D-3, AC-IMPL-EVENT-CLASSES-IN-TOURNAMENT-CONTEXT).
+        // Events are published inside the @Transactional TX so that @TransactionalEventListener
+        // (phase = AFTER_COMMIT) fires AFTER this TX commits — avatars are fully visible.
+        // Siegerehrung phases are skipped (no competitive matches to generate).
+        for (int i = 0; i < sections.size(); i++) {
+            if (!"siegerehrung".equals(sections.get(i).getGameMode())) {
+                UUID phaseId = createdPhaseIds.get(i);
+                eventPublisher.publishEvent(new MatchGenJobScheduledEvent(tournamentId, phaseId));
             }
         }
 
