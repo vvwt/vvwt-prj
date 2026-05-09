@@ -41,9 +41,9 @@ import org.springframework.stereotype.Service;
  *
  * <h2>L2 baseline on cancel-before-permutation (E51S11)</h2>
  *
- * <p>Previously, cancel-before-permutation applied "trivial coordinates" (lap 0, sequential
- * fields) directly. As of E51S11, rank=0 (identity lap permutation = L2 output unchanged) is used
- * instead, consistent with {@link SlotResultApplicator#applyResult}.
+ * <p>Previously, cancel-before-permutation applied "trivial coordinates" (lap 0, sequential fields)
+ * directly. As of E51S11, rank=0 (identity lap permutation = L2 output unchanged) is used instead,
+ * consistent with {@link SlotResultApplicator#applyResult}.
  *
  * <h2>Per DEC-35</h2>
  *

@@ -378,16 +378,6 @@ public class PrintController {
                 msg("print.laufzettel.title.all", "VVWT Turniermanager — Alle Laufzettel", locale));
         model.addAttribute("heading", msg("print.laufzettel.title.all", "Alle Laufzettel", locale));
         model.addAttribute("schedules", schedules);
-        // laufzettel-all.mustache comment block references {{teamNumber}}, {{teamName}},
-        // {{heading}}, {{hasTime}}, {{showPageBreak}}, {{rows}} at the top-level template context
-        // (lines 16–17). jmustache in strict mode evaluates {{...}} tags even inside {{! }}
-        // comments — expose stub top-level values so strict-mode doesn't throw.
-        // heading is already added above.
-        model.addAttribute("hasTime", hasTime);
-        model.addAttribute("teamNumber", 0);
-        model.addAttribute("teamName", "");
-        model.addAttribute("showPageBreak", false);
-        model.addAttribute("rows", List.of());
         populateLaufzettelI18n(model, locale);
 
         return "print/laufzettel-all";

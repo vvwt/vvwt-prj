@@ -1,25 +1,25 @@
-{{!
+<!--
   print/index.mustache — Tournament print index page (E08S07 AC1).
 
   Rendered by PrintController.printIndex() when a tournament exists and has phases.
   Provides navigation links to E08S08 (Laufzettel) and E08S09 (Mannschaftsfoto-Übersicht).
 
   Required model attributes (see PrintController):
-    {{locale}}                — HTML lang attribute
-    {{title}}                 — page title (i18n)
-    {{cssPath}}               — path to print CSS
-    {{tournamentName}}        — tournament description
-    {{tournamentDate}}        — formatted date (dd.MM.yyyy) or empty
-    {{msgTournamentLabel}}    — i18n label "Tournament"
-    {{msgDateLabel}}          — i18n label "Date"
-    {{heading}}               — page heading (i18n)
-    {{tournamentId}}          — UUID string of the tournament
-    {{laufzettelUrl}}         — URL to /print/{id}/laufzettel (E08S08)
-    {{fotosUrl}}              — URL to /print/{id}/fotos (E08S09)
-    {{msgLaufzettelLink}}     — link label (i18n)
-    {{msgFotosLink}}          — link label (i18n)
-    {{appVersion}}            — application version string
-}}
+    locale                — HTML lang attribute
+    title                 — page title (i18n)
+    cssPath               — path to print CSS
+    tournamentName        — tournament description
+    tournamentDate        — formatted date (dd.MM.yyyy) or empty
+    msgTournamentLabel    — i18n label "Tournament"
+    msgDateLabel          — i18n label "Date"
+    heading               — page heading (i18n)
+    tournamentId          — UUID string of the tournament
+    laufzettelUrl         — URL to /print/{id}/laufzettel (E08S08)
+    fotosUrl              — URL to /print/{id}/fotos (E08S09)
+    msgLaufzettelLink     — link label (i18n)
+    msgFotosLink          — link label (i18n)
+    appVersion            — application version string
+-->
 <!DOCTYPE html>
 <html lang="{{locale}}">
 <head>
