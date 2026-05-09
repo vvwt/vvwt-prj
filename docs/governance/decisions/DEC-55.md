@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-55.md at 89ec6cdd0ca76ce8d45dc05d5511cd937c3e7d94 2026-05-08 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-55.md at 7e9d48e4f620718f52c8159620261d7a6c967f60 2026-05-09 -->
 ---
 id: DEC-55
 domain: architecture
@@ -19,8 +19,9 @@ tags:
   - dec-49-amendment
 created_at: 2026-05-08
 created_by: discovery
-last_updated_at: 2026-05-08
-last_updated_by: discovery
+last_updated_at: 2026-05-09
+last_updated_by: delivery
+amended_by: [DEC-56]
 session_brief_ref: discovery-2026-05-08-phase-preparation-background-job-pipeline
 ---
 
@@ -203,3 +204,5 @@ DEC-49's D-3 (3-leg routing rule), D-11 (admin-cancel scope), D-11a (Best-So-Far
 - **DEC-22 §refactor-clause does NOT apply** to E48S21 prepare-flow-rollback OR `preparePhase()` removal OR line-160/177 removal — these are dead-code or design-rolled-back code, not TDD-authored code being refactored. Q-1a TDD RED-first applies to all new code paths (job pipeline, FIFO queue, transition-table, activation-guard, restart-recovery) per memory `feedback_dec22_refactor_phase_first.md`.
 - **DEC-31 propagation deferred to E51S07** (last story; Cutover-pattern per E25S03/E26S04/E27S04 precedent).
 - **E48S21 design** is rolled back by E51S06. The Phase-1-match-grid-empty bug E48S21 fixed is permanently fixed by E51 because match-gen runs in the background before any operator click. E51S06 removes the prepare-endpoint-consume-slot-payload + inline-generateMatches code introduced by E48S21.
+
+> **2026-05-09 Amendment:** DEC-56 amends DEC-55 by pointer (delta-amendment pattern per DEC-46/48/50/51/53 precedent). DEC-56 introduces the Layered Decomposition Architecture (L1/L2/L3/L4) as a formal governance contract and supersedes DEC-55 D-3 step 2 text ("matches persisted with lapNumber=null, fieldNumber=null"), DEC-55 D-4 PREPARED-Definition ("matches persisted with lap=null, field=null"), and DEC-55 D-5 optimize=false semantics ("Background-Job-Pipeline ends at Match-Gen") — all three texts are replaced by DEC-56's amendment clauses. All other DEC-55 decisions (D-1 through D-11 excluding the three superseded clauses) are textually unchanged. See `decisions/DEC-56.md` for the full Layered Decomposition Architecture and amendment texts.
