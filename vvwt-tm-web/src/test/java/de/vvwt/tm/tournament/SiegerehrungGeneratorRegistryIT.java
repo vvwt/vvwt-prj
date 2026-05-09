@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 
 import de.vvwt.tm.tenant.TenantContextTestSupport;
-import de.vvwt.tm.tournament.internal.PhasePreparationService;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,13 +43,13 @@ import org.springframework.test.context.ActiveProfiles;
  *
  * <p>This test class is in {@code de.vvwt.tm.tournament} (the public API package). The {@link
  * MatchGeneratorRegistry} is also in the public package — no cross-package concern. {@link
- * PhasePreparationService} is in {@code tournament.internal}; this test injects it as a Spring bean
- * (it has no public interface — it is internal-use only per E21S08). Cross-package typing per
- * DEC-36 does not require an interface where none was authored for the service.
+ * PhasePreparationService} is now a public interface in {@code de.vvwt.tm.tournament} per DEC-58;
+ * this test injects it via the interface type (DEC-36 cross-package typing rule).
  *
  * @see MatchGeneratorRegistry
  * @see de.vvwt.tm.tournament.internal.SiegerehrungMatchGenerator
- * @see de.vvwt.tm.tournament.internal.PhasePreparationService
+ * @see PhasePreparationService
+ * @see de.vvwt.tm.tournament.internal.DefaultPhasePreparationService
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law (RED-first before bean registration)</a>
  * @see <a href="DEC-38">DEC-38 Clause C analogy — full @SpringBootTest for tenant-routing DB
  *     ITs</a>

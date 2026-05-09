@@ -22,7 +22,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * <p>Tests at least one CRUD command path with a mocked repository: successful creation and
  * duplicate detection.
  *
- * @see PhaseBreakService
+ * @see DefaultPhaseBreakService
  * @see <a href="E21S03">E21S03 — Phase cluster reconstruction (inventory line 179)</a>
  */
 @ExtendWith(MockitoExtension.class)
@@ -30,7 +30,7 @@ class PhaseBreakServiceTest {
 
     @Mock private PhaseBreakRepository phaseBreakRepository;
 
-    @InjectMocks private PhaseBreakService service;
+    @InjectMocks private DefaultPhaseBreakService service;
 
     /** AC-TDD-PhaseBreakService: createPhaseBreak delegates to repository save. */
     @Test

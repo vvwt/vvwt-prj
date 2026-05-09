@@ -24,15 +24,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Unit tests for {@link PhasePreparationService#generateMatches} (E21S08 / E51S06).
+ * Unit tests for {@link DefaultPhasePreparationService#generateMatches} (E21S08 / E51S06).
  *
  * <p>E51S06 refactor: {@code preparePhase()} removed (dead code per DEC-55 D-10). This test file
- * now covers only {@link PhasePreparationService#generateMatches}, which is retained for the E51S03
- * match-gen background job.
+ * now covers only {@link DefaultPhasePreparationService#generateMatches}, which is retained for the
+ * E51S03 match-gen background job.
  *
  * <p>The {@code RefereeAssigner} dependency was also removed from the constructor (E51S06).
  *
- * @see PhasePreparationService
+ * @see DefaultPhasePreparationService
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
  * @see <a href="E21S08">E21S08 — inventory row 180</a>
  * @see <a href="E51S06">E51S06 — preparePhase dead-code removal + constructor update</a>
@@ -43,7 +43,7 @@ class PhasePreparationServiceTest {
     private MatchRepository matchRepository;
     private TeamAvatarRepository teamAvatarRepository;
     private MatchGeneratorRegistry matchGeneratorRegistry;
-    private PhasePreparationService service;
+    private DefaultPhasePreparationService service;
 
     private UUID tournamentId;
     private UUID phaseId;
@@ -57,7 +57,7 @@ class PhasePreparationServiceTest {
 
         // E51S06: 4-arg constructor (refereeAssigner removed)
         service =
-                new PhasePreparationService(
+                new DefaultPhasePreparationService(
                         phaseRepository,
                         matchRepository,
                         teamAvatarRepository,

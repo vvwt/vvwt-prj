@@ -1,7 +1,9 @@
 package de.vvwt.tm.tournament.internal;
 
+import de.vvwt.tm.tournament.MatchGenJobExecutor;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseLifecycleService;
+import de.vvwt.tm.tournament.PhasePreparationService;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.RoundAssignmentService;
 import de.vvwt.tm.tournament.Tournament;
@@ -53,20 +55,21 @@ import org.springframework.transaction.annotation.Transactional;
  * {@code @Value("${tm.slotopt.fallback.field-count:3}")}. Spring's PropertyResolver resolves the
  * same configured value as before; the module boundary is no longer violated.
  *
- * @see MatchGenJobListener
- * @see MatchGenFailureWriter
+ * @see DefaultMatchGenJobListener
+ * @see DefaultMatchGenFailureWriter
  * @see RoundAssignmentService
  * @see <a href="DEC-21">DEC-21 — Spring Modulith; tournament allowedDependencies = tenant only</a>
  * @see <a href="DEC-37">DEC-37 Clause B — per-tournament row-lock as first read</a>
  * @see <a href="DEC-55">DEC-55 D-3 — Background-Job-Pipeline (events-only)</a>
+ * @see <a href="DEC-58">DEC-58 — Universal interface mandate for self-created Spring components</a>
  * @see <a href="E51S03">E51S03 — Background-Job-Pipeline foundation</a>
  * @see <a href="E51S10">E51S10 — L2 Round-Assignment Service + fieldCount wiring</a>
  * @see <a href="E51S16">E51S16 — B-b1 Modulith-cycle elimination</a>
  */
 @Component
-class MatchGenJobExecutor {
+public class DefaultMatchGenJobExecutor implements MatchGenJobExecutor {
 
-    private static final Logger LOG = LoggerFactory.getLogger(MatchGenJobExecutor.class);
+    private static final Logger LOG = LoggerFactory.getLogger(DefaultMatchGenJobExecutor.class);
 
     private final PhasePreparationService phasePreparationService;
     private final TournamentRepository tournamentRepository;
@@ -93,7 +96,7 @@ class MatchGenJobExecutor {
      */
     private final PhaseLifecycleService phaseLifecycleService;
 
-    MatchGenJobExecutor(
+    DefaultMatchGenJobExecutor(
             PhasePreparationService phasePreparationService,
             TournamentRepository tournamentRepository,
             PhaseRepository phaseRepository,
@@ -135,6 +138,7 @@ class MatchGenJobExecutor {
      * @throws RuntimeException if match-generation or round-assignment fails; propagates to
      *     listener for failure write
      */
+    @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void execute(UUID tournamentId, UUID phaseId) {
         // Step 1: DEC-37 Clause B — acquire per-tournament row-lock as the FIRST read

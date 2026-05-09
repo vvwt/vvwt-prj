@@ -20,9 +20,9 @@ import org.springframework.transaction.event.TransactionalEventListener;
  *
  * <ol>
  *   <li>{@link SlotOptJobScheduledEvent} — published by {@link
- *       de.vvwt.tm.tournament.internal.MatchGenJobExecutor} after match-generation succeeds when
- *       {@code tournament.optimize=true}. Enqueues the phaseId into the per-tournament FIFO. If the
- *       queue was empty before this enqueue (i.e., no other phase is currently optimizing),
+ *       de.vvwt.tm.tournament.internal.DefaultMatchGenJobExecutor} after match-generation succeeds
+ *       when {@code tournament.optimize=true}. Enqueues the phaseId into the per-tournament FIFO.
+ *       If the queue was empty before this enqueue (i.e., no other phase is currently optimizing),
  *       immediately publishes an {@link OptimizePhaseRequestedEvent} to drain the head.
  *   <li>{@link SlotOptJobCompletedEvent} — published by {@link SlotOptInvocationListener} after
  *       slot-opt finishes (success, cancel, or error). Dequeues the completed phaseId from the FIFO

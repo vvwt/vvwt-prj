@@ -8,10 +8,11 @@ import java.util.UUID;
  *
  * <p>Published by {@link de.vvwt.tm.tournament.internal.DefaultDraftService#apply} immediately
  * after structural {@link de.vvwt.tm.tournament.TeamAvatar} placeholders have been persisted for
- * the phase (E51S02). Consumed by {@link de.vvwt.tm.tournament.internal.MatchGenJobListener} via
- * {@code @TransactionalEventListener(phase = AFTER_COMMIT)} + {@code @Async}: the listener invokes
- * {@link de.vvwt.tm.tournament.internal.PhasePreparationService#generateMatches} after the
- * apply-transaction commits (so avatars are fully visible to the listener's new transaction).
+ * the phase (E51S02). Consumed by {@link de.vvwt.tm.tournament.internal.DefaultMatchGenJobListener}
+ * via {@code @TransactionalEventListener(phase = AFTER_COMMIT)} + {@code @Async}: the listener
+ * invokes {@link de.vvwt.tm.tournament.internal.DefaultPhasePreparationService#generateMatches}
+ * after the apply-transaction commits (so avatars are fully visible to the listener's new
+ * transaction).
  *
  * <h2>Tenant propagation</h2>
  *
@@ -35,7 +36,7 @@ import java.util.UUID;
  *
  * @param tournamentId the UUID of the tournament whose apply() published this event
  * @param phaseId the UUID of the phase for which match-generation should run
- * @see de.vvwt.tm.tournament.internal.MatchGenJobListener
+ * @see de.vvwt.tm.tournament.internal.DefaultMatchGenJobListener
  * @see <a href="DEC-55">DEC-55 D-3 — Background-Job-Pipeline (events-only)</a>
  * @see <a href="DEC-21">DEC-21 — Spring Modulith package layout + events cross-context pattern</a>
  * @see <a href="E51S03">E51S03 — Background-Job-Pipeline foundation</a>

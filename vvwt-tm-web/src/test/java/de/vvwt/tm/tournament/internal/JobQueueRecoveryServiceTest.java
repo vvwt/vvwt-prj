@@ -41,7 +41,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
  *   <li>AC-ERROR-HANDLING-RECOVERY-SERVICE-NO-INFINITE-LOOP
  * </ul>
  *
- * @see JobQueueRecoveryService
+ * @see DefaultJobQueueRecoveryService
  * @see <a href="DEC-55">DEC-55 D-8 — Restart-Recovery</a>
  * @see <a href="E51S07">E51S07 — AC-TEST-RESTART-RECOVERY-*-RED</a>
  */
@@ -59,7 +59,7 @@ class JobQueueRecoveryServiceTest {
     private static final TenantRegistryPort.TenantRecord DEFAULT_TENANT =
             new TenantRegistryPort.TenantRecord(DEFAULT_TENANT_ID, "Default (LAN)", "de");
 
-    private JobQueueRecoveryService service;
+    private DefaultJobQueueRecoveryService service;
 
     @BeforeEach
     void setUp() {
@@ -68,7 +68,7 @@ class JobQueueRecoveryServiceTest {
         // tenantContext.bind() returns a no-op scope
         when(tenantContext.bind(any())).thenReturn(() -> {});
         service =
-                new JobQueueRecoveryService(
+                new DefaultJobQueueRecoveryService(
                         jdbcTemplate, eventPublisher, tenantRegistryPort, tenantContext);
     }
 

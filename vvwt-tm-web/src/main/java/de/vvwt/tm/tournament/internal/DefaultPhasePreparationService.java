@@ -5,6 +5,7 @@ import de.vvwt.tm.tournament.MatchGenerator;
 import de.vvwt.tm.tournament.MatchGeneratorRegistry;
 import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.Phase;
+import de.vvwt.tm.tournament.PhasePreparationService;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
@@ -62,12 +63,13 @@ import org.springframework.transaction.annotation.Transactional;
  * @see RefereeAssigner
  * @see <a href="DEC-21">DEC-21 — Spring Modulith, internal package</a>
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law (reconstruction-in-place)</a>
+ * @see <a href="DEC-58">DEC-58 — Universal interface mandate for self-created Spring components</a>
  * @see <a href="E21S08">E21S08 — inventory row 180</a>
  */
 @Service("tmPhasePreparationService")
-public class PhasePreparationService {
+public class DefaultPhasePreparationService implements PhasePreparationService {
 
-    private static final Logger LOG = LoggerFactory.getLogger(PhasePreparationService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(DefaultPhasePreparationService.class);
 
     private final PhaseRepository phaseRepository;
     private final MatchRepository matchRepository;
@@ -91,7 +93,7 @@ public class PhasePreparationService {
      * de.vvwt.tm.tournament.internal.DefaultPhaseTransitionService} (DEC-55 D-10). {@link
      * #generateMatches} remains for the E51S03 match-gen background job.
      */
-    public PhasePreparationService(
+    public DefaultPhasePreparationService(
             PhaseRepository phaseRepository,
             MatchRepository matchRepository,
             TeamAvatarRepository teamAvatarRepository,
@@ -116,6 +118,7 @@ public class PhasePreparationService {
      * @param generatorKey the match generator bean id; must not be {@code null}
      * @throws IllegalArgumentException if either argument is null or the phase does not exist
      */
+    @Override
     @Transactional
     public void generateMatches(UUID phaseId, String generatorKey) {
         if (phaseId == null) {
