@@ -399,6 +399,7 @@ class PrintControllerSliceTest {
         p.setId(UUID.randomUUID());
         p.setTournamentId(tournamentId);
         p.setSequenceNumber(1);
+        p.setStatus(Phase.PhaseStatus.ACTIVE.name()); // E53S02: filter requires ACTIVE status
         return p;
     }
 

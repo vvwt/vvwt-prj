@@ -104,6 +104,47 @@ class LaufzettelRowTest {
         assertThat(row.timeWindow()).isEqualTo("09:30–09:45");
         assertThat(row.fieldNumber()).isEqualTo("3");
         assertThat(row.isPlaying()).isFalse();
+        // Legacy 3-arg factory: referee match team fields must be empty (E53S02
+        // AC-TEST-LAUFZETTELROW-VO-EXTENDED-RED)
+        assertThat(row.refereeMatchTeamA())
+                .as("legacy refereeing() sets empty refereeMatchTeamA")
+                .isEmpty();
+        assertThat(row.refereeMatchTeamB())
+                .as("legacy refereeing() sets empty refereeMatchTeamB")
+                .isEmpty();
+    }
+
+    // =========================================================================
+    // AC-TEST-LAUFZETTELROW-VO-EXTENDED-RED (E53S02): extended 4-arg refereeing factory
+    // =========================================================================
+
+    @Test
+    @DisplayName(
+            "AC-TEST-LAUFZETTELROW-VO-EXTENDED-RED: refereeing with team-pair sets"
+                    + " refereeMatchTeamA and refereeMatchTeamB — E53S02")
+    void refereeing_withTeamPair_setsRefereeMatchFields() {
+        LaufzettelRow row =
+                LaufzettelRow.refereeing(3, "10:00–10:15", "2", "Mannschaft 03", "Mannschaft 05");
+        assertThat(row.isRefereeing()).isTrue();
+        assertThat(row.roundNumber()).isEqualTo(3);
+        assertThat(row.fieldNumber()).isEqualTo("2");
+        assertThat(row.refereeMatchTeamA())
+                .as("refereeMatchTeamA must be Mannschaft 03")
+                .isEqualTo("Mannschaft 03");
+        assertThat(row.refereeMatchTeamB())
+                .as("refereeMatchTeamB must be Mannschaft 05")
+                .isEqualTo("Mannschaft 05");
+        assertThat(row.isPlaying()).isFalse();
+    }
+
+    @Test
+    @DisplayName(
+            "AC-TEST-LAUFZETTELROW-VO-EXTENDED-RED: refereeing with null team-pair falls back to"
+                    + " empty string — E53S02")
+    void refereeing_withNullTeamPair_fallsBackToEmpty() {
+        LaufzettelRow row = LaufzettelRow.refereeing(1, "", "1", null, null);
+        assertThat(row.refereeMatchTeamA()).isEmpty();
+        assertThat(row.refereeMatchTeamB()).isEmpty();
     }
 
     // =========================================================================

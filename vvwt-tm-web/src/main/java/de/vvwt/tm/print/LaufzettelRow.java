@@ -41,6 +41,10 @@ package de.vvwt.tm.print;
  * @param opponentName name of the opposing team; non-empty only when {@code isPlaying}
  * @param fieldNumber field number as a display string; non-empty for PLAYING or REFEREEING
  * @param isRefereeing {@code true} if the team is refereeing in this round
+ * @param refereeMatchTeamA name of the first team in the refereed match (E53S02); empty when not
+ *     refereeing or when avatar mapping is absent
+ * @param refereeMatchTeamB name of the second team in the refereed match (E53S02); empty when not
+ *     refereeing or when avatar mapping is absent
  * @param isActivity {@code true} if the team has an assigned activity in this round
  * @param activityName name of the assigned activity; non-empty only when {@code isActivity}
  * @param isFree {@code true} if the team is free (no play, referee, or activity)
@@ -58,6 +62,8 @@ public record LaufzettelRow(
         String opponentName,
         String fieldNumber,
         boolean isRefereeing,
+        String refereeMatchTeamA,
+        String refereeMatchTeamB,
         boolean isActivity,
         String activityName,
         boolean isFree) {
@@ -86,6 +92,8 @@ public record LaufzettelRow(
                 "",
                 "",
                 false,
+                "",
+                "",
                 false,
                 "",
                 false);
@@ -112,6 +120,8 @@ public record LaufzettelRow(
                 "",
                 "",
                 false,
+                "",
+                "",
                 false,
                 "",
                 false);
@@ -140,20 +150,51 @@ public record LaufzettelRow(
                 opponentName != null ? opponentName : "",
                 fieldNumber != null ? fieldNumber : "",
                 false,
+                "",
+                "",
                 false,
                 "",
                 false);
     }
 
     /**
-     * Creates a REFEREEING round row.
+     * Creates a REFEREEING round row without referee match team context (legacy 3-arg form).
+     *
+     * <p>The {@code refereeMatchTeamA} and {@code refereeMatchTeamB} fields are set to {@code ""}
+     * when using this factory. Prefer the 5-arg form (E53S02) when the match team pair is known.
      *
      * @param roundNumber round number (1-based)
      * @param timeWindow formatted time window, or {@code ""}; null treated as {@code ""}
      * @param fieldNumber field number as a display string; null treated as {@code ""}
-     * @return an immutable refereeing row
+     * @return an immutable refereeing row with empty referee match team names
      */
     public static LaufzettelRow refereeing(int roundNumber, String timeWindow, String fieldNumber) {
+        return refereeing(roundNumber, timeWindow, fieldNumber, "", "");
+    }
+
+    /**
+     * Creates a REFEREEING round row with the referee match team pair (E53S02).
+     *
+     * <p>The {@code refereeMatchTeamA} and {@code refereeMatchTeamB} fields carry the names of the
+     * two teams in the match being refereed, enabling the Laufzettel template to render
+     * "Schiedsrichter: Team A vs Team B" instead of just "Schiedsrichter" (AC-TEST-REFEREEING-ROW-
+     * TEAM-PAIR-CONTEXT-RED).
+     *
+     * @param roundNumber round number (1-based)
+     * @param timeWindow formatted time window, or {@code ""}; null treated as {@code ""}
+     * @param fieldNumber field number as a display string; null treated as {@code ""}
+     * @param refereeMatchTeamA name of the first team in the refereed match; null treated as {@code
+     *     ""} (fallback per AC-ERROR-VO-DATA-GAP-FALLBACK)
+     * @param refereeMatchTeamB name of the second team in the refereed match; null treated as
+     *     {@code ""} (fallback per AC-ERROR-VO-DATA-GAP-FALLBACK)
+     * @return an immutable refereeing row with referee match team context
+     */
+    public static LaufzettelRow refereeing(
+            int roundNumber,
+            String timeWindow,
+            String fieldNumber,
+            String refereeMatchTeamA,
+            String refereeMatchTeamB) {
         return new LaufzettelRow(
                 false,
                 "",
@@ -166,6 +207,8 @@ public record LaufzettelRow(
                 "",
                 fieldNumber != null ? fieldNumber : "",
                 true,
+                refereeMatchTeamA != null ? refereeMatchTeamA : "",
+                refereeMatchTeamB != null ? refereeMatchTeamB : "",
                 false,
                 "",
                 false);
@@ -192,6 +235,8 @@ public record LaufzettelRow(
                 "",
                 "",
                 false,
+                "",
+                "",
                 true,
                 activityName != null ? activityName : "",
                 false);
@@ -217,6 +262,8 @@ public record LaufzettelRow(
                 "",
                 "",
                 false,
+                "",
+                "",
                 false,
                 "",
                 true);
