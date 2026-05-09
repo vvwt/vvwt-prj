@@ -196,11 +196,7 @@ public class PrintController {
         // AC-TEST-INDEX-GATE-NO-ACTIVE-PHASE-RED (E53S03): check for at least one ACTIVE phase
         boolean hasActivePhase =
                 phases.stream()
-                        .anyMatch(
-                                p ->
-                                        Phase.PhaseStatus.ACTIVE
-                                                .name()
-                                                .equals(p.getStatus()));
+                        .anyMatch(p -> Phase.PhaseStatus.ACTIVE.name().equals(p.getStatus()));
 
         if (!hasActivePhase) {
             // AC-ERROR-INDEX-GATE-EMPTY-STATE: operator-actionable message, links hidden
@@ -470,10 +466,7 @@ public class PrintController {
         // Non-photo activity-types use all phases (AC-TEST-PHOTO-SCHEDULE-NON-PHOTO-UNCHANGED-RED).
         List<Phase> phases;
         if (isPhotoActivityType(targetType)) {
-            phases =
-                    allPhases.stream()
-                            .filter(p -> p.getSequenceNumber() == 1)
-                            .toList();
+            phases = allPhases.stream().filter(p -> p.getSequenceNumber() == 1).toList();
             if (phases.isEmpty()) {
                 // Fallback: use first phase by sequence if none has seq=1 (edge case)
                 phases =

@@ -940,8 +940,7 @@ class PrintControllerIT {
      * @since E53S03
      */
     @Test
-    @DisplayName(
-            "AC-TEST-FOTOS-LINK-NOT-404-RED: foto link resolves to HTTP 200 — E53S03")
+    @DisplayName("AC-TEST-FOTOS-LINK-NOT-404-RED: foto link resolves to HTTP 200 — E53S03")
     void printIndex_withPhotoActivityType_fotosLinkResolvesTo200() throws Exception {
         UUID tid = seedTournamentWithActivePhaseAndPhotoActivityType();
         ResponseEntity<String> indexResponse =
@@ -980,8 +979,8 @@ class PrintControllerIT {
     }
 
     /**
-     * AC-TEST-PHOTO-SCHEDULE-FIRST-PHASE-ONLY-RED: given a tournament with two ACTIVE phases and
-     * a photo activity-type, the photo-schedule page shows content from ONLY the first phase
+     * AC-TEST-PHOTO-SCHEDULE-FIRST-PHASE-ONLY-RED: given a tournament with two ACTIVE phases and a
+     * photo activity-type, the photo-schedule page shows content from ONLY the first phase
      * (sequence_number=1). Asserted via phase-name presence in the body.
      *
      * @since E53S03
@@ -1065,8 +1064,8 @@ class PrintControllerIT {
     }
 
     /**
-     * AC-TEST-PHOTO-EDGE-ZERO-CANDIDATES-RED: when no photo activity-type is configured,
-     * the print-index MUST NOT show a dead link to /fotos. The fotosUrl link should be absent.
+     * AC-TEST-PHOTO-EDGE-ZERO-CANDIDATES-RED: when no photo activity-type is configured, the
+     * print-index MUST NOT show a dead link to /fotos. The fotosUrl link should be absent.
      *
      * @since E53S03
      */

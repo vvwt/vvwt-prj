@@ -467,7 +467,8 @@ class PrintControllerSliceTest {
     /**
      * AC-TEST-PHOTO-RESOLVER-HELPER-SHARED-RED (slice): when printIndex resolves fotosUrl and
      * activitySchedule is invoked for a photo type, both invoke the same FIRST_FREE_ROUND resolver
-     * logic — slice-layer verification: fotosUrl in printIndex contains the photo activity-type UUID.
+     * logic — slice-layer verification: fotosUrl in printIndex contains the photo activity-type
+     * UUID.
      *
      * @since E53S03
      */
@@ -504,8 +505,8 @@ class PrintControllerSliceTest {
 
     /**
      * AC-TEST-PHOTO-EDGE-ZERO-CANDIDATES-RED (slice): when no photo activity-type is configured,
-     * printIndex must still render successfully with linksAvailable=false for fotosUrl (no link
-     * to 404), or render a fallback with operator-actionable content.
+     * printIndex must still render successfully with linksAvailable=false for fotosUrl (no link to
+     * 404), or render a fallback with operator-actionable content.
      *
      * @since E53S03
      */
@@ -540,8 +541,9 @@ class PrintControllerSliceTest {
 
     /**
      * AC-TEST-PHOTO-SCHEDULE-FIRST-PHASE-ONLY-RED (slice): when activitySchedule is invoked for a
-     * photo activity-type (FIRST_FREE_ROUND rule), the controller filters phases to sequence_number=1
-     * only. Verified by checking the assembler is called with a single-phase list.
+     * photo activity-type (FIRST_FREE_ROUND rule), the controller filters phases to
+     * sequence_number=1 only. Verified by checking the assembler is called with a single-phase
+     * list.
      *
      * @since E53S03
      */
@@ -608,8 +610,10 @@ class PrintControllerSliceTest {
         Mockito.verify(activityScheduleAssembler)
                 .assemble(
                         Mockito.any(),
-                        Mockito.argThat(phases -> phases.size() == 1
-                                && phases.get(0).getSequenceNumber() == 1),
+                        Mockito.argThat(
+                                phases ->
+                                        phases.size() == 1
+                                                && phases.get(0).getSequenceNumber() == 1),
                         Mockito.any(),
                         Mockito.any(),
                         Mockito.any(),
@@ -749,8 +753,7 @@ class PrintControllerSliceTest {
                 new de.vvwt.tm.tournament.activity.ActivityType();
         at.setId(id);
         at.setName(name);
-        at.setAssignmentRule(
-                de.vvwt.tm.tournament.activity.AssignmentRule.FIRST_FREE_ROUND.name());
+        at.setAssignmentRule(de.vvwt.tm.tournament.activity.AssignmentRule.FIRST_FREE_ROUND.name());
         at.setSortOrder(sortOrder);
         return at;
     }
