@@ -243,17 +243,20 @@ class DefaultDraftServiceApplyAvatarsIT {
     // =========================================================================
 
     /**
-     * RED-first: given a tournament with 6 participating teams and a 2-group Phase 1, when {@code
-     * apply()} is called, exactly 6 TeamAvatar records are persisted for Phase 1 with structural
-     * identity {@code (phaseId, groupNumber, groupPosition)} populated AND {@code teamId} populated
-     * from the participating team's UUID.
+     * Verifies that {@code apply()} creates exactly 6 TeamAvatar records for Phase 1 with
+     * structural identity {@code (phaseId, groupNumber, groupPosition)} populated AND {@code
+     * teamId=NULL} per DEC-59 Clause B.
      *
-     * <p>Test fails BEFORE the fix (0 avatars currently created by apply()).
+     * <p>E51S18 update (AC-TEST-AVATAR-TEAMID-NULL-RED / AC-TEST-AVATAR-TEAMID-NULL-GREEN): The
+     * teamId assertion is now inverted from the original E51S02 intent. Previously {@code teamId}
+     * was populated at apply-time for Phase 1 per DEC-55 D-1 "MAY be populated immediately"
+     * carve-out. DEC-59 Clause B removes this carve-out — teamId=NULL universally at apply-time;
+     * operator-confirmation via {@code commitTransition()} is the sole teamId-write trigger.
      */
     @Test
     @DisplayName(
-            "apply() persists exactly 6 avatars for Phase 1 with teamId populated"
-                    + " (AC-TEST-DRAFT-APPLY-PERSISTS-PHASE-1-AVATARS-RED)")
+            "apply() persists exactly 6 avatars for Phase 1 with teamId=NULL (DEC-59 Clause B;"
+                    + " E51S18 AC-TEST-AVATAR-TEAMID-NULL)")
     void apply_withSixParticipatingTeams_persistsSixPhase1AvatarsWithTeamId() {
         DraftConfig config = twoPhaseConfig(2);
 
@@ -276,23 +279,21 @@ class DefaultDraftServiceApplyAvatarsIT {
                 .as("Phase 1 must have exactly 6 TeamAvatar records (one per participating team)")
                 .isEqualTo(6);
 
-        // Verify all Phase 1 avatars have teamId populated (not null)
+        // Verify all Phase 1 avatars have teamId=NULL at apply-time (DEC-59 Clause B — universal).
+        // E51S18 (AC-TEST-AVATAR-TEAMID-NULL-RED): pre-fix, Phase 1 avatars HAD teamId populated
+        // at apply-time per E51S02 / DEC-55 D-1 "MAY be populated immediately" carve-out.
+        // Post-fix (DEC-59 Clause B): teamId=NULL universally — operator-confirmation via
+        // commitTransition() is the SOLE trigger for teamId population (DEC-59 Clause C).
         Integer phase1AvatarsWithNullTeamId =
                 jdbcTemplate.queryForObject(
                         "SELECT COUNT(*) FROM team_avatar WHERE phase_id = ? AND team_id IS NULL",
                         Integer.class,
                         phase1Id);
         assertThat(phase1AvatarsWithNullTeamId)
-                .as("Phase 1 avatars must have teamId populated (not null)")
-                .isEqualTo(0);
-
-        // Verify all Phase 1 avatar teamIds are from the participating team set
-        List<UUID> avatarTeamIds =
-                jdbcTemplate.queryForList(
-                        "SELECT team_id FROM team_avatar WHERE phase_id = ?", UUID.class, phase1Id);
-        assertThat(avatarTeamIds)
-                .as("Phase 1 avatar teamIds must match the participating teams")
-                .containsExactlyInAnyOrderElementsOf(participatingTeamIdsA);
+                .as(
+                        "All 6 Phase 1 avatars must have teamId=NULL at apply-time (DEC-59"
+                                + " Clause B — operator-confirmation is sole teamId-write trigger)")
+                .isEqualTo(6);
 
         // Verify structural identity fields are populated (DEC-9)
         Integer missingStructuralIdentity =
