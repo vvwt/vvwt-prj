@@ -1,8 +1,8 @@
 <!--
-  print/index.mustache — Tournament print index page (E08S07 AC1).
+  print/index.mustache — Tournament print index page (E08S07 AC1; E53S03 gate + fotos fix).
 
   Rendered by PrintController.printIndex() when a tournament exists and has phases.
-  Provides navigation links to E08S08 (Laufzettel) and E08S09 (Mannschaftsfoto-Übersicht).
+  Provides navigation links to E08S08 (Laufzettel) and E08S09 (Mannschaftsfoto-Uebersicht).
 
   Required model attributes (see PrintController):
     locale                — HTML lang attribute
@@ -14,8 +14,12 @@
     msgDateLabel          — i18n label "Date"
     heading               — page heading (i18n)
     tournamentId          — UUID string of the tournament
-    laufzettelUrl         — URL to /print/{id}/laufzettel (E08S08)
-    fotosUrl              — URL to /print/{id}/fotos (E08S09)
+    linksAvailable        — boolean: true when at least one ACTIVE phase exists (E53S03)
+    laufzettelUrl         — URL to /team-schedules (E08S08); present only when linksAvailable
+    fotosUrl              — URL to /activity-schedule/{photoTypeId} (E53S03 fix); present only
+                             when linksAvailable AND a photo activity-type is configured
+    noActivePhaseMessage  — operator-actionable empty-state message (E53S03);
+                             present only when linksAvailable=false
     msgLaufzettelLink     — link label (i18n)
     msgFotosLink          — link label (i18n)
     appVersion            — application version string
@@ -25,7 +29,7 @@
 <head>
     <meta charset="UTF-8">
     <title>{{title}}</title>
-    <!-- E08S07 AC3, AC6: print stylesheet — bundled, no CDN (DEC-15) -->
+    <!-- E08S07 AC3, AC6: print stylesheet -- bundled, no CDN (DEC-15) -->
     <link rel="stylesheet" href="{{cssPath}}">
 </head>
 <body>
@@ -35,13 +39,16 @@
 
     <h2>{{heading}}</h2>
 
+    {{! E53S03 AC-TEST-INDEX-GATE-NO-ACTIVE-PHASE-RED: conditional rendering based on linksAvailable }}
+    {{#linksAvailable}}
     <ul>
         <li><a href="{{laufzettelUrl}}">{{msgLaufzettelLink}}</a></li>
-        <li><a href="{{fotosUrl}}">{{msgFotosLink}}</a></li>
+        {{#fotosUrl}}<li><a href="{{fotosUrl}}">{{msgFotosLink}}</a></li>{{/fotosUrl}}
     </ul>
-
-    {{! E08S07 AC5: page-break partial example (not used on index but available) }}
-    {{! {{> print-page-break}} }}
+    {{/linksAvailable}}
+    {{^linksAvailable}}
+    <p class="print-empty-state">{{noActivePhaseMessage}}</p>
+    {{/linksAvailable}}
 
     <div class="print-footer">
         <small>v{{appVersion}}</small>

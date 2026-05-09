@@ -21,15 +21,18 @@ import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.activity.ActivityType;
 import de.vvwt.tm.tournament.activity.ActivityTypeRepository;
+import de.vvwt.tm.tournament.activity.AssignmentRule;
 import de.vvwt.tm.tournament.exceptions.TournamentNotFoundException;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.info.BuildProperties;
@@ -185,15 +188,48 @@ public class PrintController {
         model.addAttribute("title", msg("print.index.title", "Tournament Schedule", locale));
         model.addAttribute("heading", msg("print.index.heading", "Print Documents", locale));
 
-        // AC-URL-INDEX: laufzettelUrl uses new URL scheme
-        model.addAttribute("laufzettelUrl", "/print/tournaments/" + tid + "/team-schedules");
-        // AC-URL-INDEX: fotosUrl — legacy behaviour preserved (dead link per legacy)
-        model.addAttribute("fotosUrl", "/print/tournaments/" + tid + "/fotos");
-
         model.addAttribute(
                 "msgLaufzettelLink",
                 msg("print.index.laufzettel.link", "Team Schedule (Laufzettel)", locale));
         model.addAttribute("msgFotosLink", msg("print.index.fotos.link", "Photo Schedule", locale));
+
+        // AC-TEST-INDEX-GATE-NO-ACTIVE-PHASE-RED (E53S03): check for at least one ACTIVE phase
+        boolean hasActivePhase =
+                phases.stream()
+                        .anyMatch(
+                                p ->
+                                        Phase.PhaseStatus.ACTIVE
+                                                .name()
+                                                .equals(p.getStatus()));
+
+        if (!hasActivePhase) {
+            // AC-ERROR-INDEX-GATE-EMPTY-STATE: operator-actionable message, links hidden
+            model.addAttribute("linksAvailable", false);
+            model.addAttribute(
+                    "noActivePhaseMessage",
+                    msg(
+                            "print.index.noActivePhase",
+                            "Keine aktive Phase — Druckdokumente sind aktuell nicht"
+                                    + " verfügbar.",
+                            locale));
+            return "print/index";
+        }
+
+        // ACTIVE phase exists — render links
+        model.addAttribute("linksAvailable", true);
+        // AC-URL-INDEX: laufzettelUrl uses new URL scheme
+        model.addAttribute("laufzettelUrl", "/print/tournaments/" + tid + "/team-schedules");
+
+        // AC-URL-FOTOS-LINK-RESOLVES-TO-200 (E53S03, shape α): resolve photo activity-type
+        // and set fotosUrl to /activity-schedule/{photoActivityTypeId}
+        List<ActivityType> activityTypes = activityTypeRepository.findByTournamentId(tid);
+        Optional<ActivityType> photoType = resolvePhotoActivityType(activityTypes);
+        if (photoType.isPresent()) {
+            model.addAttribute(
+                    "fotosUrl",
+                    "/print/tournaments/" + tid + "/activity-schedule/" + photoType.get().getId());
+        }
+        // AC-TEST-PHOTO-EDGE-ZERO-CANDIDATES-RED: if no photo type, fotosUrl absent (link hidden)
 
         return "print/index";
     }
@@ -423,10 +459,31 @@ public class PrintController {
                         .findFirst()
                         .orElseThrow(() -> new TournamentNotFoundException(activityTypeId)); // 404
 
-        List<Phase> phases = phaseRepository.findByTournamentId(tid);
-        if (phases.isEmpty()) {
+        List<Phase> allPhases = phaseRepository.findByTournamentId(tid);
+        if (allPhases.isEmpty()) {
             populateErrorModel(model, tournament, locale);
             return "print/error";
+        }
+
+        // AC-TEST-PHOTO-SCHEDULE-FIRST-PHASE-ONLY-RED (E53S03): for photo activity-type
+        // (FIRST_FREE_ROUND rule), filter phases to sequence_number=1 only.
+        // Non-photo activity-types use all phases (AC-TEST-PHOTO-SCHEDULE-NON-PHOTO-UNCHANGED-RED).
+        List<Phase> phases;
+        if (isPhotoActivityType(targetType)) {
+            phases =
+                    allPhases.stream()
+                            .filter(p -> p.getSequenceNumber() == 1)
+                            .toList();
+            if (phases.isEmpty()) {
+                // Fallback: use first phase by sequence if none has seq=1 (edge case)
+                phases =
+                        allPhases.stream()
+                                .min(Comparator.comparingInt(Phase::getSequenceNumber))
+                                .map(List::of)
+                                .orElse(allPhases);
+            }
+        } else {
+            phases = allPhases;
         }
 
         if (!hasAnyMatches(phases)) {
@@ -488,6 +545,43 @@ public class PrintController {
     // =========================================================================
     // Private helpers
     // =========================================================================
+
+    /**
+     * Resolves the photo activity-type for a tournament (E53S03, AC-IMPL-PHOTO-RESOLVER-SHARED).
+     *
+     * <p>Photo activity-type identification mechanism: lookup by {@code AssignmentRule =
+     * FIRST_FREE_ROUND} (per Brief D-10 narrowed cycle-4; no schema change per
+     * AC-GOV-NO-SCHEMA-CHANGE). If multiple candidates exist (AC-ERROR-PHOTO-MULTIPLE-CANDIDATES),
+     * the resolver returns the one with the lowest {@code sortOrder} (deterministic; consistent
+     * across both {@code printIndex()} and {@code activitySchedule()} call sites).
+     *
+     * <p>This is the SINGLE implementation shared by {@code printIndex()} (for fotosUrl resolution)
+     * and tested by the photo-type filter in {@code activitySchedule()} (via {@link
+     * #isPhotoActivityType(ActivityType)}).
+     *
+     * @param activityTypes all activity types for the tournament
+     * @return first photo activity-type by sortOrder, or empty if none configured
+     * @since E53S03
+     */
+    private Optional<ActivityType> resolvePhotoActivityType(List<ActivityType> activityTypes) {
+        return activityTypes.stream()
+                .filter(at -> AssignmentRule.FIRST_FREE_ROUND.name().equals(at.getAssignmentRule()))
+                .min(Comparator.comparingInt(ActivityType::getSortOrder));
+    }
+
+    /**
+     * Returns {@code true} if the given activity-type is a photo type (FIRST_FREE_ROUND rule).
+     *
+     * <p>Used by {@code activitySchedule()} to decide whether to apply the first-phase filter
+     * (AC-TEST-PHOTO-SCHEDULE-FIRST-PHASE-ONLY-RED, E53S03).
+     *
+     * @param activityType the target activity type
+     * @return {@code true} if the rule is FIRST_FREE_ROUND
+     * @since E53S03
+     */
+    private boolean isPhotoActivityType(ActivityType activityType) {
+        return AssignmentRule.FIRST_FREE_ROUND.name().equals(activityType.getAssignmentRule());
+    }
 
     /** Returns {@code true} if any phase has at least one match with an assigned lap number. */
     private boolean hasAnyMatches(List<Phase> phases) {
