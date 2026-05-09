@@ -290,12 +290,16 @@ public class PrintController {
         Map<UUID, List<PhaseBreak>> breaksByPhase = loadBreaksByPhase(phases);
         List<ActivityType> activityTypes = activityTypeRepository.findByTournamentId(tid);
 
-        List<Team> singleTeam = Collections.singletonList(requestedTeam);
+        // AC-CONTENT-REFEREEING-ROW-TEAM-PAIR-RED (E53S04 Bug 3 fix): pass ALL teams to the
+        // assembler so that teamById in DefaultLaufzettelAssembler contains every team for referee
+        // match team name resolution. The previous singleTeam approach only included the requested
+        // team, so teamById.get(matchPlayer1Id) returned null → refereeMatchTeamA/B = "".
+        // After assembly, only the requested team's rows are extracted from the result map.
         Map<UUID, List<LaufzettelRow>> rowsByTeam =
                 laufzettelAssembler.assemble(
                         tournament,
                         phases,
-                        singleTeam,
+                        teams,
                         avatarsByPhase,
                         matchesByPhase,
                         breaksByPhase,
