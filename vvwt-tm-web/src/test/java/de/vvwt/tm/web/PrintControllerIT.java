@@ -1094,6 +1094,174 @@ class PrintControllerIT {
     }
 
     // =========================================================================
+    // E53S04 — RED-first tests for Bug 1 (tearDown FK), Bug 2 (comment-leak), Bug 3 (refereeing)
+    // =========================================================================
+
+    /**
+     * AC-TEST-TEARDOWN-FK-ORDERING-RED (E53S04, Bug 1): when a test inserts into {@code
+     * activity_types} (which has FK_ACTIVITY_TYPES_TOURNAMENT referencing {@code tournament(id)}),
+     * tearDown MUST clean up without DataIntegrityViolation.
+     *
+     * <p>RED on staging HEAD 36bf620: tearDown does not delete activity_types → FK blocks
+     * {@code DELETE FROM tournament} → DataIntegrityViolationException thrown in @AfterEach.
+     * GREEN after Bug 1 fix: tearDown deletes activity_types BEFORE tournament.
+     *
+     * @since E53S04
+     */
+    @Test
+    @DisplayName(
+            "AC-TEST-TEARDOWN-FK-ORDERING-RED: activity_types seeded → tearDown must succeed — E53S04")
+    void tearDown_withActivityTypesInserted_tearDownSucceeds() throws Exception {
+        // Seed a tournament with a photo activity type (inserts into activity_types)
+        UUID tid = seedTournamentWithActivePhaseAndPhotoActivityType();
+        // Verify the tournament is reachable (sanity check — this is not the assertion under test)
+        ResponseEntity<String> response =
+                authed.getForEntity(new URI(baseUrl + "/print/tournaments/" + tid), String.class);
+        assertThat(response.getStatusCode())
+                .as(
+                        "AC-TEST-TEARDOWN-FK-ORDERING-RED: print-index with photo activity must"
+                                + " return 200")
+                .isEqualTo(HttpStatus.OK);
+        // tearDown runs after this test; if activity_types is not deleted before tournament,
+        // DataIntegrityViolationException is thrown there → JUnit marks this test as FAIL
+        // (proving RED on staging HEAD). After the Bug 1 fix the tearDown succeeds.
+    }
+
+    /**
+     * AC-TEST-ASSERTION-COMMENT-LEAK-RESILIENT-RED (E53S04, Bug 2a): the photo-link absence test
+     * must assert the absence of an actual {@code href} to {@code /activity-schedule/} — NOT the
+     * mere absence of the substring anywhere in the body (which now matches the HTML comment header
+     * introduced by E53S01).
+     *
+     * <p>RED on staging HEAD: {@code doesNotContain("/activity-schedule/")} in E53S03's
+     * {@code printIndex_noPhotoActivityType_fotosLinkAbsent} matches the HTML comment text at
+     * line 19 of index.mustache, causing the assertion to fail even when no actual link is rendered.
+     * GREEN after Bug 2 fix: assertion checks for absence of {@code href="/...activity-schedule/}.
+     *
+     * @since E53S04
+     */
+    @Test
+    @DisplayName(
+            "AC-TEST-ASSERTION-COMMENT-LEAK-RESILIENT-RED: no photo type → no href to"
+                    + " /activity-schedule/ — E53S04")
+    void printIndex_noPhotoActivityType_noActivityScheduleHref() throws Exception {
+        UUID tid = seedTournamentWithActivePhaseAndMatches(); // no activity types seeded
+        ResponseEntity<String> response =
+                authed.getForEntity(new URI(baseUrl + "/print/tournaments/" + tid), String.class);
+
+        assertThat(response.getStatusCode())
+                .as("AC-TEST-ASSERTION-COMMENT-LEAK-RESILIENT-RED: must return 200")
+                .isEqualTo(HttpStatus.OK);
+        // Anchor-at-href assertion: must NOT contain an actual href pointing to /activity-schedule/
+        // This is RED on staging HEAD because: the body DOES NOT contain such an href
+        // (no photo type was seeded) but the E53S03 test uses raw substring → hits comment text.
+        // This new test uses href-anchored detection and will PASS on current code,
+        // confirming the CORRECT approach for AC-TEST-ASSERTION-FOTOS-LINK-ABSENCE.
+        assertThat(response.getBody())
+                .as(
+                        "AC-TEST-ASSERTION-COMMENT-LEAK-RESILIENT-RED: body must not contain"
+                                + " href to /activity-schedule/ (anchor check, not raw substring)")
+                .doesNotContain("href=\"/print/tournaments/");
+        // NOTE: The FAILING assertion is in E53S03's printIndex_noPhotoActivityType_fotosLinkAbsent
+        // which uses doesNotContain("/activity-schedule/") → matches comment text → FAIL.
+        // This E53S04 test uses the correct href-anchored check.
+    }
+
+    /**
+     * AC-TEST-ASSERTION-COMMENT-LEAK-RESILIENT-RED (E53S04, Bug 2b): the photo-link extraction test
+     * must extract the href from an actual {@code <a href>} element, not from a body substring that
+     * may first match the HTML comment header.
+     *
+     * <p>RED on staging HEAD: {@code body.indexOf("/activity-schedule/")} in E53S03's
+     * {@code printIndex_withPhotoActivityType_fotosLinkResolvesTo200} matches the comment text
+     * before the actual link → lastIndexOf("href=\"") returns -1 → garbage href → URISyntaxException.
+     *
+     * @since E53S04
+     */
+    @Test
+    @DisplayName(
+            "AC-TEST-ASSERTION-COMMENT-LEAK-RESILIENT-RED: photo type present → href-anchored"
+                    + " extraction resolves to 200 — E53S04")
+    void printIndex_withPhotoActivityType_fotosHrefResolvesTo200_anchored() throws Exception {
+        UUID tid = seedTournamentWithActivePhaseAndPhotoActivityType();
+        ResponseEntity<String> indexResponse =
+                authed.getForEntity(new URI(baseUrl + "/print/tournaments/" + tid), String.class);
+
+        assertThat(indexResponse.getStatusCode())
+                .as(
+                        "AC-TEST-ASSERTION-COMMENT-LEAK-RESILIENT-RED: index must return 200")
+                .isEqualTo(HttpStatus.OK);
+
+        // Href-anchored extraction: search for href="/print/tournaments/{tid}/activity-schedule/
+        // in the rendered body. This skips the HTML comment header which contains the URL fragment
+        // without an href attribute.
+        String body = indexResponse.getBody();
+        String hrefPrefix = "href=\"/print/tournaments/" + tid + "/activity-schedule/";
+        int hrefAttrStart = body.indexOf(hrefPrefix);
+        assertThat(hrefAttrStart)
+                .as(
+                        "AC-TEST-ASSERTION-COMMENT-LEAK-RESILIENT-RED: href-anchored"
+                                + " /activity-schedule/ link must be present in rendered body")
+                .isGreaterThan(0);
+
+        int valueStart = hrefAttrStart + 6; // skip 'href="'
+        int valueEnd = body.indexOf("\"", valueStart);
+        String fotosHref = body.substring(valueStart, valueEnd);
+
+        ResponseEntity<String> fotosResponse =
+                authed.getForEntity(new URI(baseUrl + fotosHref), String.class);
+        assertThat(fotosResponse.getStatusCode())
+                .as(
+                        "AC-TEST-ASSERTION-COMMENT-LEAK-RESILIENT-RED: resolved fotosUrl must"
+                                + " return 200. href: "
+                                + fotosHref)
+                .isEqualTo(HttpStatus.OK);
+    }
+
+    /**
+     * AC-CONTENT-REFEREEING-ROW-TEAM-PAIR-RED (E53S04, Bug 3): trivial-pass guard using distinct
+     * deterministic team names TestTeamReferee-A and TestTeamReferee-B. On staging HEAD 36bf620,
+     * singleTeamSchedule passes only singleTeam to laufzettelAssembler → teamById lookup for
+     * match players is empty → refereeMatchTeamA/B = "" → test FAILS.
+     *
+     * <p>GREEN after Bug 3 fix: controller passes ALL teams to assembler → teamById includes match
+     * players → refereeMatchTeamA/B rendered correctly.
+     *
+     * @since E53S04
+     */
+    @Test
+    @DisplayName(
+            "AC-CONTENT-REFEREEING-ROW-TEAM-PAIR-RED: refereeing row contains both match teams"
+                    + " (trivial-pass guard) — E53S04")
+    void singleTeamSchedule_refereeingRow_containsBothMatchTeams_trivialPassGuard() throws Exception {
+        UUID tid = seedTournamentForRefereeingPairTest();
+        UUID refereeTeamId = getRefereeTeamIdForRefereeingTest(tid);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(
+                                baseUrl
+                                        + "/print/tournaments/"
+                                        + tid
+                                        + "/team-schedules/"
+                                        + refereeTeamId),
+                        String.class);
+        assertThat(response.getStatusCode())
+                .as("AC-CONTENT-REFEREEING-ROW-TEAM-PAIR-RED: must return 200")
+                .isEqualTo(HttpStatus.OK);
+        // Trivial-pass guard: distinct deterministic names must BOTH appear in the rendered body
+        assertThat(response.getBody())
+                .as(
+                        "AC-CONTENT-REFEREEING-ROW-TEAM-PAIR-RED: rendered body must contain"
+                                + " TestTeamReferee-A (first team in refereed match)")
+                .contains("TestTeamReferee-A");
+        assertThat(response.getBody())
+                .as(
+                        "AC-CONTENT-REFEREEING-ROW-TEAM-PAIR-RED: rendered body must contain"
+                                + " TestTeamReferee-B (second team in refereed match)")
+                .contains("TestTeamReferee-B");
+    }
+
+    // =========================================================================
     // E53S03 — private seed helpers
     // =========================================================================
 
@@ -1527,6 +1695,140 @@ class PrintControllerIT {
                     1);
 
             return new UUID[] {tid, customActivityTypeId};
+        } finally {
+            tenantBinder.unbind();
+        }
+    }
+
+    // =========================================================================
+    // E53S04 — private seed helpers for refereeing trivial-pass guard test
+    // =========================================================================
+
+    /**
+     * Seeds a tournament with one ACTIVE phase, two playing teams with distinct deterministic names
+     * (TestTeamReferee-A and TestTeamReferee-B) and one referee team (TestTeamReferee-REF).
+     *
+     * <p>AC-CONTENT-REFEREEING-ROW-TEAM-PAIR-RED trivial-pass guard: the two playing team names are
+     * distinct and predictable so that any passing renderer must actually propagate them through the
+     * data path — a permissive "non-empty" check would not be sufficient.
+     *
+     * @return tournament UUID
+     * @since E53S04
+     */
+    private UUID seedTournamentForRefereeingPairTest() {
+        tenantBinder.bindDefaultTenant();
+        try {
+            UUID tid = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO tournament (id, location_id, description, match_format,"
+                            + " scoring_rule_id, set_validation_rule_id, match_generator_id,"
+                            + " status, created_at, field_count, team_count)"
+                            + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    tid,
+                    locationId,
+                    "PrintControllerIT E53S04 RefereeingPairTest",
+                    "BEST_OF_3",
+                    "setPoints",
+                    "standardVolleyball",
+                    "roundRobin",
+                    "ACTIVE",
+                    LocalDateTime.now(),
+                    2,
+                    3);
+
+            UUID phaseId = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO phase (id, tournament_id, sequence_number, description, status,"
+                            + " current_lap_number, optimized) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    phaseId,
+                    tid,
+                    1,
+                    "Phase ACTIVE",
+                    "ACTIVE",
+                    0,
+                    true);
+
+            // Two playing teams: distinct deterministic names as trivial-pass guard
+            UUID teamAId = UUID.randomUUID();
+            UUID teamBId = UUID.randomUUID();
+            UUID teamRefId = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO team (id, tournament_id, team_number, description, participate)"
+                            + " VALUES (?, ?, ?, ?, ?)",
+                    teamAId,
+                    tid,
+                    1,
+                    "TestTeamReferee-A",
+                    true);
+            jdbcTemplate.update(
+                    "INSERT INTO team (id, tournament_id, team_number, description, participate)"
+                            + " VALUES (?, ?, ?, ?, ?)",
+                    teamBId,
+                    tid,
+                    2,
+                    "TestTeamReferee-B",
+                    true);
+            jdbcTemplate.update(
+                    "INSERT INTO team (id, tournament_id, team_number, description, participate)"
+                            + " VALUES (?, ?, ?, ?, ?)",
+                    teamRefId,
+                    tid,
+                    3,
+                    "TestTeamReferee-REF",
+                    true);
+
+            UUID avatarAId = UUID.randomUUID();
+            UUID avatarBId = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO team_avatar (id, tournament_id, phase_id, group_number,"
+                            + " group_position, team_id) VALUES (?, ?, ?, ?, ?, ?)",
+                    avatarAId,
+                    tid,
+                    phaseId,
+                    1,
+                    1,
+                    teamAId);
+            jdbcTemplate.update(
+                    "INSERT INTO team_avatar (id, tournament_id, phase_id, group_number,"
+                            + " group_position, team_id) VALUES (?, ?, ?, ?, ?, ?)",
+                    avatarBId,
+                    tid,
+                    phaseId,
+                    1,
+                    2,
+                    teamBId);
+
+            UUID matchId = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO match (id, tournament_id, phase_id, member_avatar_1_id,"
+                            + " member_avatar_2_id, state, set_limit, lap_number, field_number,"
+                            + " referee_team_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    matchId,
+                    tid,
+                    phaseId,
+                    avatarAId,
+                    avatarBId,
+                    0,
+                    1,
+                    1,
+                    1,
+                    teamRefId);
+
+            return tid;
+        } finally {
+            tenantBinder.unbind();
+        }
+    }
+
+    /** Returns the UUID of the referee team (TestTeamReferee-REF, team_number=3) for the given tournament. */
+    private UUID getRefereeTeamIdForRefereeingTest(UUID tid) {
+        tenantBinder.bindDefaultTenant();
+        try {
+            return jdbcTemplate.queryForObject(
+                    "SELECT id FROM team WHERE tournament_id = ? AND team_number = ?",
+                    UUID.class,
+                    tid,
+                    3);
         } finally {
             tenantBinder.unbind();
         }
