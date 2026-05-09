@@ -264,6 +264,7 @@ public class DraftController {
                 req.breaks() == null
                         ? List.of()
                         : req.breaks().stream().map(DraftController::toDraftBreak).toList();
+        // E51S15: pass distributionMode (optional — null defaults to "sequential" in DraftSection)
         return new DraftSection(
                 req.sectionNumber(),
                 req.sortType(),
@@ -273,7 +274,8 @@ public class DraftController {
                 req.sectionBreakTimeMinutes(),
                 req.lapTimeMinutes(),
                 req.setQuantity(),
-                breaks);
+                breaks,
+                req.distributionMode());
     }
 
     private static DraftBreak toDraftBreak(DraftBreakRequest req) {

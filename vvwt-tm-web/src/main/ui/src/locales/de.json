@@ -196,6 +196,11 @@
       "roundRobin": "RoundRobin",
       "siegerehrung": "Siegerehrung"
     },
+    "distributionMode": {
+      "label": "Verteilungsmodus",
+      "sequential": "Sequenziell (Standard)",
+      "round_robin": "Reihum (Legacy)"
+    },
     "errors": {
       "lastPhaseMustBeSiegerehrung": "Die letzte Phase muss den Spielmodus Siegerehrung haben.",
       "firstPhaseMustBeTeamNumber": "Die erste Phase muss die Sortiermethode Teamnummer haben."

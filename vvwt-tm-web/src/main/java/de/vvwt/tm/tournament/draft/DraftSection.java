@@ -16,11 +16,32 @@ import java.util.Set;
  * <p>Inventory: E21S01 line 241. Named-interface sub-package placement by E33S04 (DEC-35 retrofit).
  * Legacy {@code de.vvwt.tm.domain.draft.DraftSection} remains active until E21S13.
  *
+ * <h2>E51S15 — distributionMode (distribution_mode in draft_json)</h2>
+ *
+ * <p>{@link #distributionMode} controls how teams are distributed across groups in Phase-1 and how
+ * Phase-1 proposals are computed in {@code DefaultPhaseTransitionService.computePhase1Proposals}:
+ *
+ * <ul>
+ *   <li>{@code "sequential"} (default) — fill Group 1 fully before Group 2 (group = i /
+ *       positionsPerGroup + 1, position = i % positionsPerGroup + 1).
+ *   <li>{@code "round_robin"} (legacy) — distribute teams one-per-group before advancing to the
+ *       next position (group = i % groupCount + 1, position = i / groupCount + 1).
+ * </ul>
+ *
+ * <p>Persistence: stored in {@code tournament.draft_json} (existing JSON column per DEC-14 H2
+ * schema). No Flyway migration needed — additive JSON field. Absent field defaults to {@code
+ * "sequential"} via constructor null-guard.
+ *
  * @see DraftConfig
  * @see DraftBreak
+ * @see <a href="DEC-14">DEC-14 — H2 persistence, draft_json column (no migration)</a>
  * @see <a href="DEC-21">DEC-21 — Spring Modulith package layout</a>
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
+ * @see <a href="DEC-9">DEC-9 — TeamAvatar structural identity (phaseId, groupNumber,
+ *     groupPosition)</a>
  * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
+ * @see <a href="E51S15">E51S15 — distributionMode feature (sequential default + round-robin
+ *     toggle)</a>
  */
 public final class DraftSection {
 
@@ -62,6 +83,18 @@ public final class DraftSection {
     private final List<DraftBreak> breaks;
 
     /**
+     * Team distribution algorithm for Phase-1 avatar assignment.
+     *
+     * <p>Valid values: {@code "sequential"} (default) or {@code "round_robin"} (legacy). Absent or
+     * null in draft_json → defaults to {@code "sequential"} (AC-TEST-DEFAULT-IS-SEQUENTIAL-RED).
+     *
+     * @see <a href="E51S15">E51S15 — distributionMode feature</a>
+     * @see <a href="DEC-14">DEC-14 — persistence in draft_json JSON column (no Flyway
+     *     migration)</a>
+     */
+    private final String distributionMode;
+
+    /**
      * Jackson-compatible constructor.
      *
      * @param sectionNumber ordering within the draft (≥ 1)
@@ -73,6 +106,8 @@ public final class DraftSection {
      * @param lapTimeMinutes lap duration in minutes (> 0)
      * @param setQuantity sets per match (≥ 1)
      * @param breaks optional intra-phase breaks; {@code null} treated as empty
+     * @param distributionMode team distribution algorithm; {@code null} defaults to {@code
+     *     "sequential"} (AC-TEST-DEFAULT-IS-SEQUENTIAL-RED, E51S15)
      */
     @JsonCreator
     public DraftSection(
@@ -84,7 +119,8 @@ public final class DraftSection {
             @JsonProperty("sectionBreakTimeMinutes") int sectionBreakTimeMinutes,
             @JsonProperty("lapTimeMinutes") int lapTimeMinutes,
             @JsonProperty("setQuantity") int setQuantity,
-            @JsonProperty("breaks") List<DraftBreak> breaks) {
+            @JsonProperty("breaks") List<DraftBreak> breaks,
+            @JsonProperty("distributionMode") String distributionMode) {
         this.sectionNumber = sectionNumber;
         this.sortType = sortType;
         this.groupCount = groupCount;
@@ -94,6 +130,45 @@ public final class DraftSection {
         this.lapTimeMinutes = lapTimeMinutes;
         this.setQuantity = setQuantity;
         this.breaks = breaks == null ? List.of() : List.copyOf(breaks);
+        // AC-TEST-DEFAULT-IS-SEQUENTIAL-RED: absent/null distributionMode → "sequential"
+        this.distributionMode = (distributionMode == null) ? "sequential" : distributionMode;
+    }
+
+    /**
+     * Legacy 9-parameter constructor (backward compatibility for existing test fixtures and callers
+     * that do not specify distributionMode). Defaults distributionMode to {@code "sequential"}.
+     *
+     * @param sectionNumber ordering within the draft (≥ 1)
+     * @param sortType team-entry sort strategy
+     * @param groupCount number of groups (≥ 1)
+     * @param gameMode game mode ({@code roundRobin} or {@code siegerehrung})
+     * @param lapBreakTimeMinutes pause between laps (≥ 0)
+     * @param sectionBreakTimeMinutes pause after section (≥ 0)
+     * @param lapTimeMinutes lap duration in minutes (> 0)
+     * @param setQuantity sets per match (≥ 1)
+     * @param breaks optional intra-phase breaks; {@code null} treated as empty
+     */
+    public DraftSection(
+            int sectionNumber,
+            String sortType,
+            int groupCount,
+            String gameMode,
+            int lapBreakTimeMinutes,
+            int sectionBreakTimeMinutes,
+            int lapTimeMinutes,
+            int setQuantity,
+            List<DraftBreak> breaks) {
+        this(
+                sectionNumber,
+                sortType,
+                groupCount,
+                gameMode,
+                lapBreakTimeMinutes,
+                sectionBreakTimeMinutes,
+                lapTimeMinutes,
+                setQuantity,
+                breaks,
+                null); // null → "sequential" default
     }
 
     // -------------------------------------------------------------------------
@@ -141,6 +216,17 @@ public final class DraftSection {
         }
         if (setQuantity < 1) {
             throw new IllegalArgumentException("setQuantity must be ≥ 1, got: " + setQuantity);
+        }
+        // AC-ERROR-HANDLING-INVALID-DISTRIBUTION-MODE (E51S15):
+        // Only "sequential" and "round_robin" are valid values.
+        // An unrecognized value (e.g., from a future schema version) throws IAE with an
+        // operator-actionable message so the operator can correct the draft_json field.
+        if (!distributionMode.equals("sequential") && !distributionMode.equals("round_robin")) {
+            throw new IllegalArgumentException(
+                    "distributionMode must be one of: sequential, round_robin. Got: "
+                            + distributionMode
+                            + " — operator: correct the distributionMode field in draft_json"
+                            + " (AC-ERROR-HANDLING-INVALID-DISTRIBUTION-MODE, E51S15)");
         }
     }
 
@@ -225,5 +311,15 @@ public final class DraftSection {
 
     public List<DraftBreak> getBreaks() {
         return breaks;
+    }
+
+    /**
+     * Returns the team distribution algorithm for Phase-1 avatar assignment.
+     *
+     * @return {@code "sequential"} (default) or {@code "round_robin"} (legacy)
+     * @see <a href="E51S15">E51S15 — distributionMode feature</a>
+     */
+    public String getDistributionMode() {
+        return distributionMode;
     }
 }

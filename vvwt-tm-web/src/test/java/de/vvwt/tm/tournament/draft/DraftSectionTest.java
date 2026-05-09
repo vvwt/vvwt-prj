@@ -162,4 +162,133 @@ class DraftSectionTest {
         assertThat(restored.getGroupCount()).isEqualTo(original.getGroupCount());
         assertThat(restored.getLapTimeMinutes()).isEqualTo(original.getLapTimeMinutes());
     }
+
+    // -------------------------------------------------------------------------
+    // AC-TEST-DRAFTSECTION-DISTRIBUTION-MODE-FIELD-EXISTS-RED (E51S15)
+    // -------------------------------------------------------------------------
+
+    /**
+     * AC-TEST-DRAFTSECTION-DISTRIBUTION-MODE-FIELD-EXISTS-RED: {@link DraftSection} exposes a
+     * {@code getDistributionMode()} accessor returning a non-null String.
+     *
+     * <p>RED-first per DEC-22 Iron Law. Fails before the field is added to {@link DraftSection}.
+     *
+     * @see <a href="E51S15">E51S15 — distribution_mode feature</a>
+     * @see <a href="DEC-14">DEC-14 — persistence in draft_json (no Flyway migration)</a>
+     */
+    @Test
+    void distributionMode_defaultsToSequential_whenNotInJson() throws Exception {
+        // JSON without distributionMode field → should default to "sequential"
+        String jsonWithoutField =
+                "{\"sectionNumber\":1,\"sortType\":\"team_number\",\"groupCount\":2,"
+                        + "\"gameMode\":\"roundRobin\",\"lapBreakTimeMinutes\":0,"
+                        + "\"sectionBreakTimeMinutes\":0,\"lapTimeMinutes\":15,\"setQuantity\":1,"
+                        + "\"breaks\":[]}";
+        DraftSection section = objectMapper.readValue(jsonWithoutField, DraftSection.class);
+
+        assertThat(section.getDistributionMode())
+                .as(
+                        "distributionMode must default to 'sequential' when absent from draft_json"
+                                + " (AC-TEST-DRAFTSECTION-DISTRIBUTION-MODE-FIELD-EXISTS-RED,"
+                                + " DEC-14 H2 JSON column)")
+                .isEqualTo("sequential");
+    }
+
+    /**
+     * AC-TEST-DRAFTSECTION-DISTRIBUTION-MODE-FIELD-EXISTS-RED: Jackson correctly deserializes
+     * {@code distributionMode} from JSON.
+     *
+     * <p>RED-first per DEC-22 Iron Law.
+     */
+    @Test
+    void distributionMode_deserializesFromJson_whenPresent() throws Exception {
+        String jsonWithRoundRobin =
+                "{\"sectionNumber\":1,\"sortType\":\"team_number\",\"groupCount\":2,"
+                        + "\"gameMode\":\"roundRobin\",\"lapBreakTimeMinutes\":0,"
+                        + "\"sectionBreakTimeMinutes\":0,\"lapTimeMinutes\":15,\"setQuantity\":1,"
+                        + "\"breaks\":[],\"distributionMode\":\"round_robin\"}";
+        DraftSection section = objectMapper.readValue(jsonWithRoundRobin, DraftSection.class);
+
+        assertThat(section.getDistributionMode())
+                .as("distributionMode must deserialize from JSON as 'round_robin'")
+                .isEqualTo("round_robin");
+    }
+
+    /**
+     * AC-TEST-DRAFTSECTION-DISTRIBUTION-MODE-FIELD-EXISTS-RED: JSON round-trip preserves {@code
+     * distributionMode}.
+     *
+     * <p>RED-first per DEC-22 Iron Law.
+     */
+    @Test
+    void distributionMode_roundTripPreservesValue() throws Exception {
+        DraftSection original = validSection(); // defaults to "sequential"
+        String json = objectMapper.writeValueAsString(original);
+        DraftSection restored = objectMapper.readValue(json, DraftSection.class);
+
+        assertThat(restored.getDistributionMode())
+                .as("distributionMode must survive JSON round-trip")
+                .isEqualTo(original.getDistributionMode());
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-ERROR-HANDLING-INVALID-DISTRIBUTION-MODE (E51S15)
+    // -------------------------------------------------------------------------
+
+    /**
+     * AC-ERROR-HANDLING-INVALID-DISTRIBUTION-MODE: {@code validate()} throws {@link
+     * IllegalArgumentException} with operator-actionable message for an unrecognized {@code
+     * distributionMode} value.
+     *
+     * <p>RED-first per DEC-22 Iron Law. Fails before the validation is added.
+     *
+     * @see <a href="E51S15">E51S15 — error-handling AC</a>
+     */
+    @Test
+    void validate_withUnknownDistributionMode_throwsWithOperatorMessage() throws Exception {
+        String jsonWithUnknownMode =
+                "{\"sectionNumber\":1,\"sortType\":\"team_number\",\"groupCount\":2,"
+                        + "\"gameMode\":\"roundRobin\",\"lapBreakTimeMinutes\":0,"
+                        + "\"sectionBreakTimeMinutes\":0,\"lapTimeMinutes\":15,\"setQuantity\":1,"
+                        + "\"breaks\":[],\"distributionMode\":\"future_unknown\"}";
+        DraftSection section = objectMapper.readValue(jsonWithUnknownMode, DraftSection.class);
+
+        assertThatThrownBy(section::validate)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("distributionMode")
+                .hasMessageContaining("future_unknown");
+    }
+
+    /**
+     * AC-ERROR-HANDLING-INVALID-DISTRIBUTION-MODE: {@code validate()} accepts {@code "sequential"}.
+     *
+     * <p>GREEN companion to the FAIL test above.
+     */
+    @Test
+    void validate_withSequentialDistributionMode_passes() throws Exception {
+        String json =
+                "{\"sectionNumber\":1,\"sortType\":\"team_number\",\"groupCount\":2,"
+                        + "\"gameMode\":\"roundRobin\",\"lapBreakTimeMinutes\":0,"
+                        + "\"sectionBreakTimeMinutes\":0,\"lapTimeMinutes\":15,\"setQuantity\":1,"
+                        + "\"breaks\":[],\"distributionMode\":\"sequential\"}";
+        DraftSection section = objectMapper.readValue(json, DraftSection.class);
+
+        section.validate(); // must not throw
+    }
+
+    /**
+     * AC-ERROR-HANDLING-INVALID-DISTRIBUTION-MODE: {@code validate()} accepts {@code
+     * "round_robin"}.
+     */
+    @Test
+    void validate_withRoundRobinDistributionMode_passes() throws Exception {
+        String json =
+                "{\"sectionNumber\":1,\"sortType\":\"team_number\",\"groupCount\":2,"
+                        + "\"gameMode\":\"roundRobin\",\"lapBreakTimeMinutes\":0,"
+                        + "\"sectionBreakTimeMinutes\":0,\"lapTimeMinutes\":15,\"setQuantity\":1,"
+                        + "\"breaks\":[],\"distributionMode\":\"round_robin\"}";
+        DraftSection section = objectMapper.readValue(json, DraftSection.class);
+
+        section.validate(); // must not throw
+    }
 }
