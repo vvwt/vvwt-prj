@@ -16,6 +16,7 @@ import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftSection;
+import de.vvwt.tm.tournament.exceptions.ConflictException;
 import de.vvwt.tm.tournament.internal.referee.RefereeAssigner;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -172,6 +173,22 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
      * E51S03 background pipeline before this call). After all teamId-UPDATEs, referee assignment is
      * performed and the phase is transitioned from PREPARED to ASSIGNED.
      *
+     * <p>E51S18 DEC-59 Clause C preconditions: the operator-confirmation workflow (teamId-write +
+     * PREPARED→ASSIGNED) is only valid when:
+     *
+     * <ol>
+     *   <li>The target phase is currently in {@code PREPARED} status. Attempting confirmation on a
+     *       non-PREPARED phase (e.g. PENDING, ASSIGNED) throws {@link ConflictException} → HTTP 409
+     *       (AC-ERROR-OPERATOR-CONFIRMATION-PRECONDITION-PHASE-NOT-PREPARED).
+     *   <li>For phases with sequenceNumber &gt; 1, the predecessor phase (sequenceNumber - 1) must
+     *       be {@code COMPLETED}. Attempting confirmation when the predecessor is not COMPLETED
+     *       throws {@link ConflictException} → HTTP 409
+     *       (AC-ERROR-OPERATOR-CONFIRMATION-PRECONDITION-PREVIOUS-PHASE-NOT-COMPLETED).
+     * </ol>
+     *
+     * @throws ConflictException if phase status ≠ PREPARED (precondition 1 — HTTP 409)
+     * @throws ConflictException if predecessor phase is not COMPLETED for phases N &gt; 1
+     *     (precondition 2 — HTTP 409)
      * @throws IllegalStateException if no structural placeholder avatar exists for a slot (DEC-9
      *     identity must be pre-created by E51S02 before calling commitTransition)
      */
@@ -187,6 +204,46 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
         // Re-read phase under lock for fresh state
         toPhase = requirePhase(toPhaseId);
         Tournament tournament = requireTournament(toPhase.getTournamentId());
+
+        // DEC-59 Clause C precondition 1: phase must be PREPARED for operator-confirmation
+        // (AC-ERROR-OPERATOR-CONFIRMATION-PRECONDITION-PHASE-NOT-PREPARED, E51S18)
+        if (!"PREPARED".equals(toPhase.getStatus())) {
+            throw new ConflictException(
+                    "commitTransition rejected: phase "
+                            + toPhaseId
+                            + " is in status '"
+                            + toPhase.getStatus()
+                            + "' but must be PREPARED before operator-confirmation"
+                            + " (DEC-59 Clause C, AC-ERROR-OPERATOR-CONFIRMATION-PRECONDITION-PHASE-NOT-PREPARED,"
+                            + " E51S18)");
+        }
+
+        // DEC-59 Clause C precondition 2: predecessor phase must be COMPLETED (for N > 1)
+        // (AC-ERROR-OPERATOR-CONFIRMATION-PRECONDITION-PREVIOUS-PHASE-NOT-COMPLETED, E51S18)
+        int sequenceNumber = toPhase.getSequenceNumber();
+        if (sequenceNumber > 1) {
+            Optional<Phase> predecessorOpt =
+                    phaseRepository.findByTournamentIdAndSequenceNumber(
+                            toPhase.getTournamentId(), sequenceNumber - 1);
+            if (predecessorOpt.isPresent()) {
+                Phase predecessor = predecessorOpt.get();
+                if (!"COMPLETED".equals(predecessor.getStatus())) {
+                    throw new ConflictException(
+                            "commitTransition rejected: predecessor phase "
+                                    + predecessor.getSequenceNumber()
+                                    + " (id="
+                                    + predecessor.getId()
+                                    + ") is in status '"
+                                    + predecessor.getStatus()
+                                    + "' but must be COMPLETED before confirming phase "
+                                    + sequenceNumber
+                                    + " (DEC-59 Clause C,"
+                                    + " AC-ERROR-OPERATOR-CONFIRMATION-PRECONDITION-PREVIOUS-PHASE-NOT-COMPLETED,"
+                                    + " E51S18)");
+                }
+            }
+        }
+
         DraftSection toSection = resolveDraftSection(tournament, toPhase.getSequenceNumber());
 
         validateAssignments(assignments, toSection);
