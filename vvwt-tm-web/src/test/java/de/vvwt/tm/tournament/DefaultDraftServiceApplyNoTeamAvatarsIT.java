@@ -59,11 +59,14 @@ import org.springframework.test.context.ActiveProfiles;
  * @see <a href="E51S02">E51S02 — Avatar persistence at apply-time (DEC-55 D-1 update)</a>
  * @see <a href="E51S08">E51S08 — Symmetric waitForPipelineQuiescent quiescence barrier
  *     (RED-first)</a>
+ * @see <a href="E51S17">E51S17 — Equilibrium contract alignment (DEC-55 D-3 + DEC-56 D-3)</a>
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law (RED-first)</a>
  * @see <a href="DEC-26">DEC-26 — DAO test governance (three rules)</a>
  * @see <a href="DEC-46">DEC-46 — DEC-26 scope extension to all vvwt-prj modules</a>
- * @see <a href="DEC-55">DEC-55 D-1 — Avatar-Erzeugung-Zeitpunkt verschoben auf
- *     DraftConfig-Apply</a>
+ * @see <a href="DEC-55">DEC-55 D-1 — Avatar-Erzeugung-Zeitpunkt verschoben auf DraftConfig-Apply;
+ *     D-3 step 1 siegerehrung-skip mechanism</a>
+ * @see <a href="DEC-56">DEC-56 D-3 — L1+L2 always mandatory; matches reference avatar.id not
+ *     teamId</a>
  */
 @SpringBootTest(
         classes = de.vvwt.tm.TournamentManagerApplication.class,
@@ -260,11 +263,18 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
     // =========================================================================
 
     /**
-     * apply() for a tournament with 3 participating teams creates 3 Phase records (PENDING status)
-     * and structural TeamAvatars per DEC-55 D-1 (E51S02).
+     * apply() for a tournament with 3 participating teams creates 3 Phase records and structural
+     * TeamAvatars per DEC-55 D-1 (E51S02). After the async background pipeline quiesces (DEC-55 D-3
+     * + DEC-56 D-3), the equilibrium status shape is:
      *
-     * <p>Original E48S17 assertion (0 TeamAvatars) is superseded by E51S02 (DEC-55 D-1): apply()
-     * now creates avatars at apply-time. The test is updated to verify the new contract.
+     * <ul>
+     *   <li>Phase 1 (roundRobin) → MatchGen (L1) + RoundAssignment (L2) run → PREPARED
+     *   <li>Phase 2 (roundRobin) → MatchGen (L1) + RoundAssignment (L2) run → PREPARED
+     *   <li>Phase 3 (siegerehrung) → skipped per DEC-55 D-3 step 1 → PENDING
+     * </ul>
+     *
+     * <p>Post-quiescence equilibrium (DEC-55 D-3 + DEC-56 D-3): {@code preparedCount=2,
+     * pendingCount=1, totalPhases=3}.
      *
      * <p>Fixture: 3 participating teams (team_number 1-3), 2-group Phase 1 (roundRobin), 2-group
      * Phase 2 (roundRobin), 1-group siegerehrung Phase 3. Expected avatars:
@@ -275,12 +285,21 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
      *   <li>Phase 3: 0 avatars (siegerehrung → skipped)
      * </ul>
      *
-     * Total: 7 avatars.
+     * <p>Total: 7 avatars. Avatar-count assertions are acknowledged-not-endorsed (K-6 deferred per
+     * E51S17 out-of-scope); future Discovery handles production+test together.
+     *
+     * @see <a href="E51S14">E51S14 — PhaseLifecycleService wired into MatchGenJobExecutor
+     *     (regression source for prior PENDING==3 assertion)</a>
+     * @see <a href="E51S17">E51S17 — Equilibrium contract alignment (this fix)</a>
+     * @see <a href="DEC-55">DEC-55 D-3 step 1 — siegerehrung phases skip MatchGenJobScheduledEvent
+     *     (Phase 3 stays PENDING in equilibrium)</a>
+     * @see <a href="DEC-56">DEC-56 D-3 — L1+L2 always mandatory; matches reference avatar.getId()
+     *     not teamId (Phases 1+2 reach PREPARED despite teamId=null avatars)</a>
      */
     @Test
     @DisplayName(
-            "apply() with 3 participating teams creates 3 PENDING phases and structural avatars"
-                    + " (E48S17/E51S02 updated)")
+            "apply() with 3 participating teams creates 3 phases and structural avatars;"
+                    + " post-quiescence equilibrium: preparedCount=2, pendingCount=1 (E51S17)")
     void apply_withParticipatingTeams_creates3PhasesAndStructuralAvatars() {
         // Arrange: 3-phase config (section 3 is siegerehrung per E48S01 last-phase invariant)
         DraftConfig config =
@@ -313,14 +332,47 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
         Table phaseTable = assertDb.table("phase").build();
         Assertions.assertThat(phaseTable).hasNumberOfRows(3);
 
-        // Verify all 3 phases are PENDING
+        // E51S17 RED: equilibrium-contract assertions WITHOUT waitForPipelineQuiescent.
+        // AC-TEST-EQUILIBRIUM-CONTRACT-RED (DEC-22 Pattern B Q-1a fresh-RED-first):
+        // The new assertion shape (preparedCount==2, pendingCount==1, totalPhases==3) must fail
+        // on staging HEAD when the quiescence helper is NOT yet inserted before the status query.
+        // This RED demonstrates the new equilibrium contract is DIFFERENT from the old
+        // (pendingCount==3) assertion — RED-2 is observably distinct from the old-assertion RED.
+        //
+        // GREEN commit (immediately following) inserts waitForPipelineQuiescent(tournamentId)
+        // here to eliminate the race.
+        int preparedCount =
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM phase WHERE tournament_id = ? AND status ="
+                                + " 'PREPARED'",
+                        Integer.class,
+                        tournamentId);
         int pendingCount =
                 jdbcTemplate.queryForObject(
                         "SELECT COUNT(*) FROM phase WHERE tournament_id = ? AND status = 'PENDING'",
                         Integer.class,
                         tournamentId);
+        int totalPhases =
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM phase WHERE tournament_id = ?",
+                        Integer.class,
+                        tournamentId);
+
+        // AC-TEST-EQUILIBRIUM-PHASE-STATUS-SHAPE: all THREE counts verified independently
+        // to guard against silent regressions (e.g., a phase entering FAILED or ASSIGNED
+        // without the binary pendingCount==1 projection mismatching).
+        assertThat(preparedCount)
+                .as(
+                        "Post-quiescence equilibrium: Phase 1 + Phase 2 (roundRobin) must be"
+                                + " PREPARED after MatchGen (L1+L2) completes per DEC-56 D-3")
+                .isEqualTo(2);
         assertThat(pendingCount)
-                .as("All 3 phases must have status PENDING after apply()")
+                .as(
+                        "Post-quiescence equilibrium: Phase 3 (siegerehrung) must stay PENDING"
+                                + " — skipped per DEC-55 D-3 step 1 (no MatchGenJobScheduledEvent)")
+                .isEqualTo(1);
+        assertThat(totalPhases)
+                .as("Total phase count must be exactly 3 (one per DraftSection)")
                 .isEqualTo(3);
 
         // E51S02 / DEC-55 D-1: verify structural avatars are created for non-siegerehrung phases
