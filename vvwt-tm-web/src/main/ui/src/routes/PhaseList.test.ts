@@ -492,6 +492,42 @@ describe('PhaseList.svelte — E51S07: tournamentOptimize state loaded from tour
     });
 });
 
+// ── E51S14: AC-TEST-PHASELIST-BUTTON-AFTER-FLIP-RED ──────────────────────────
+// PhaseList.svelte must render "Phase starten" (startButton) — NOT "Vorbereiten"
+// (prepareButton) — when phase.status === 'PREPARED'.
+// Structural regression guard (DEC-41 spec-anchored): verifies existing correct
+// frontend behaviour is preserved. The bug is backend-only (phase stays PENDING);
+// the frontend conditional is already correct and must not regress.
+
+describe("PhaseList.svelte — PREPARED status shows startButton, not prepareButton (AC-TEST-PHASELIST-BUTTON-AFTER-FLIP-RED)", () => {
+    const source = fs.readFileSync(
+        path.resolve(__dirname_local, './PhaseList.svelte'),
+        'utf8'
+    );
+
+    it("source contains {:else if phase.status === 'PREPARED'} conditional block", () => {
+        expect(source).toContain("phase.status === 'PREPARED'");
+    });
+
+    it("startButton i18n key is rendered inside the PREPARED conditional block", () => {
+        const preparedBlockMatch = source.match(
+            /\{:else if phase\.status === 'PREPARED'\}[\s\S]*?(?=\{:else if|$)/
+        );
+        expect(preparedBlockMatch, "{:else if phase.status === 'PREPARED'} block not found in source").toBeTruthy();
+        const preparedBlock = preparedBlockMatch![0];
+        expect(preparedBlock).toContain("phases.startButton");
+    });
+
+    it("prepareButton i18n key is NOT rendered inside the PREPARED conditional block", () => {
+        const preparedBlockMatch = source.match(
+            /\{:else if phase\.status === 'PREPARED'\}[\s\S]*?(?=\{:else if|$)/
+        );
+        expect(preparedBlockMatch, "{:else if phase.status === 'PREPARED'} block not found in source").toBeTruthy();
+        const preparedBlock = preparedBlockMatch![0];
+        expect(preparedBlock).not.toContain("phases.prepareButton");
+    });
+});
+
 // ── E48S23: AC-TEST-RESET-PLAN-ERROR-RENDERS-MESSAGEKEY-RED ──────────────────
 // handleResetPlan must extract apiError.messageKey and render the i18n-resolved
 // text — mirroring DraftConfig.svelte:366-372 typed-error pattern.

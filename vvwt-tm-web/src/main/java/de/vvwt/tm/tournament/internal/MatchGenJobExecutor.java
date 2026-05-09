@@ -2,6 +2,7 @@ package de.vvwt.tm.tournament.internal;
 
 import de.vvwt.tm.slotopt.PhaseToRawPhaseDefMapper;
 import de.vvwt.tm.tournament.Phase;
+import de.vvwt.tm.tournament.PhaseLifecycleService;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.RoundAssignmentService;
 import de.vvwt.tm.tournament.Tournament;
@@ -10,6 +11,7 @@ import de.vvwt.tm.tournament.events.SlotOptJobScheduledEvent;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -69,19 +71,30 @@ class MatchGenJobExecutor {
      */
     private final PhaseToRawPhaseDefMapper phaseToRawPhaseDefMapper;
 
+    /**
+     * Advances the phase lifecycle to {@code PREPARED} after successful match-gen (DEC-55 D-4).
+     *
+     * <p>Wired via E51S14: closes the PENDING→PREPARED gap by invoking {@code transition(phaseId,
+     * PREPARED, "match-gen-done")} on the success path within the same {@code REQUIRES_NEW}
+     * transaction as match-generation and round-assignment.
+     */
+    private final PhaseLifecycleService phaseLifecycleService;
+
     MatchGenJobExecutor(
             PhasePreparationService phasePreparationService,
             TournamentRepository tournamentRepository,
             PhaseRepository phaseRepository,
             ApplicationEventPublisher eventPublisher,
             RoundAssignmentService roundAssignmentService,
-            PhaseToRawPhaseDefMapper phaseToRawPhaseDefMapper) {
+            PhaseToRawPhaseDefMapper phaseToRawPhaseDefMapper,
+            @Qualifier("tmPhaseLifecycleService") PhaseLifecycleService phaseLifecycleService) {
         this.phasePreparationService = phasePreparationService;
         this.tournamentRepository = tournamentRepository;
         this.phaseRepository = phaseRepository;
         this.eventPublisher = eventPublisher;
         this.roundAssignmentService = roundAssignmentService;
         this.phaseToRawPhaseDefMapper = phaseToRawPhaseDefMapper;
+        this.phaseLifecycleService = phaseLifecycleService;
     }
 
     /**
@@ -96,6 +109,8 @@ class MatchGenJobExecutor {
      *   <li>Resolve {@code fieldCount} from {@link Tournament#getFieldCount()} with D-13 fallback.
      *   <li>Invoke {@link RoundAssignmentService#assignRoundsAndFields(UUID, int)} (L2).
      *   <li>Set {@code phase.last_job_state='idle'}.
+     *   <li>Advance phase lifecycle: {@code PENDING → PREPARED} via {@code "match-gen-done"}
+     *       (DEC-55 D-4, E51S14).
      *   <li>If {@code tournament.optimize=true}: publish {@link SlotOptJobScheduledEvent}.
      * </ol>
      *
@@ -150,6 +165,9 @@ class MatchGenJobExecutor {
         // Step 7: Set last_job_state = 'idle' on success (after L1+L2 complete)
         phase.setLastJobState("idle");
         phaseRepository.save(phase);
+
+        // Step 7b: Advance phase lifecycle PENDING → PREPARED (DEC-55 D-4, E51S14)
+        phaseLifecycleService.transition(phaseId, Phase.PhaseStatus.PREPARED, "match-gen-done");
 
         LOG.info(
                 "MatchGenJobExecutor: SUCCESS tournamentId={}, phaseId={},"
