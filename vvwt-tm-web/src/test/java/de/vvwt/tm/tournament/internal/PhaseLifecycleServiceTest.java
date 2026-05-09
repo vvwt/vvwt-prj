@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.tournament.MatchLockdownService;
 import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.Phase;
@@ -72,13 +73,16 @@ class PhaseLifecycleServiceTest {
 
     @BeforeEach
     void setUp() {
+        // E51S18 GREEN: ObjectMapper injected for isSiegerehrungPhase() Clause F guard
+        ObjectMapper objectMapper = new ObjectMapper();
         service =
                 new DefaultPhaseLifecycleService(
                         tournamentRepository,
                         phaseRepository,
                         matchRepository,
                         matchLockdownService,
-                        eventPublisher);
+                        eventPublisher,
+                        objectMapper);
 
         tournamentId = UUID.randomUUID();
         phaseId = UUID.randomUUID();
