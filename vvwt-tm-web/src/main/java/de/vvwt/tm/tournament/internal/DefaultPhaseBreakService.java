@@ -2,6 +2,7 @@ package de.vvwt.tm.tournament.internal;
 
 import de.vvwt.tm.tournament.PhaseBreak;
 import de.vvwt.tm.tournament.PhaseBreakRepository;
+import de.vvwt.tm.tournament.PhaseBreakService;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -26,14 +27,15 @@ import org.springframework.stereotype.Service;
  * @see PhaseBreakRepository
  * @see <a href="DEC-21">DEC-21 — Spring Modulith internal-package discipline</a>
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
+ * @see <a href="DEC-58">DEC-58 — Universal interface mandate for self-created Spring components</a>
  * @see <a href="E21S03">E21S03 — Phase cluster reconstruction (inventory line 179)</a>
  */
 @Service("tmPhaseBreakService")
-public class PhaseBreakService {
+public class DefaultPhaseBreakService implements PhaseBreakService {
 
     private final PhaseBreakRepository phaseBreakRepository;
 
-    public PhaseBreakService(PhaseBreakRepository phaseBreakRepository) {
+    public DefaultPhaseBreakService(PhaseBreakRepository phaseBreakRepository) {
         this.phaseBreakRepository = phaseBreakRepository;
     }
 
@@ -55,6 +57,7 @@ public class PhaseBreakService {
      * @throws IllegalArgumentException if a break already exists at {@code afterLapNumber} in the
      *     phase (duplicate detection)
      */
+    @Override
     public PhaseBreak createPhaseBreak(
             UUID phaseId, int afterLapNumber, int durationMinutes, String label) {
         // Duplicate detection — at most one break per lap boundary per phase
@@ -81,6 +84,7 @@ public class PhaseBreakService {
      * @param phaseId the phase to query
      * @return list of phase breaks for the phase; never null
      */
+    @Override
     public List<PhaseBreak> findByPhaseId(UUID phaseId) {
         return phaseBreakRepository.findByPhaseId(phaseId);
     }

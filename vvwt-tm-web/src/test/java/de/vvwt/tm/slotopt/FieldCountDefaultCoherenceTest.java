@@ -22,7 +22,8 @@ import org.junit.jupiter.api.Test;
  * <ol>
  *   <li>{@code de.vvwt.tm.slotopt.PhaseToRawPhaseDefMapper} — pre-existing, {@code :3}
  *   <li>{@code de.vvwt.tm.slotopt.FallbackSlotOptimizationClient} — pre-existing, {@code :3}
- *   <li>{@code de.vvwt.tm.tournament.internal.MatchGenJobExecutor} — NEW (E51S16 B-b1), {@code :3}
+ *   <li>{@code de.vvwt.tm.tournament.internal.DefaultMatchGenJobExecutor} — NEW (E51S16 B-b1),
+ *       {@code :3}
  *   <li>{@code de.vvwt.tm.tournament.internal.DefaultRoundAssignmentService} — NEW (E51S16 B-b1),
  *       {@code :3} (coherence anchor field)
  *   <li>{@code src/main/resources/application.yml} — value: {@code ${TM_SLOTOPT_FIELDCOUNT:3}} (the
@@ -31,7 +32,7 @@ import org.junit.jupiter.api.Test;
  *
  * <h2>DEC-22 RED-first</h2>
  *
- * <p>Before E51S16 adds the {@code @Value} sites in {@code MatchGenJobExecutor} and {@code
+ * <p>Before E51S16 adds the {@code @Value} sites in {@code DefaultMatchGenJobExecutor} and {@code
  * DefaultRoundAssignmentService}, those files do not contain the literal
  * {@code @Value("${tm.slotopt.fallback.field-count:3}")} — causing this test to fail (RED). After
  * E51S16's B-b1 refactor, all 4 Java sites contain the literal and the test goes GREEN.
@@ -73,9 +74,9 @@ class FieldCountDefaultCoherenceTest {
     private static final String SITE_FALLBACK_CLIENT =
             MODULE_ROOT + "/slotopt/FallbackSlotOptimizationClient.java";
 
-    /** Site 3: MatchGenJobExecutor — NEW B-b1 tournament site */
+    /** Site 3: DefaultMatchGenJobExecutor — NEW B-b1 tournament site (renamed E51S19) */
     private static final String SITE_MATCH_GEN_EXECUTOR =
-            MODULE_ROOT + "/tournament/internal/MatchGenJobExecutor.java";
+            MODULE_ROOT + "/tournament/internal/DefaultMatchGenJobExecutor.java";
 
     /** Site 4: DefaultRoundAssignmentService — NEW B-b1 tournament coherence-anchor site */
     private static final String SITE_ROUND_ASSIGNMENT =
@@ -108,7 +109,7 @@ class FieldCountDefaultCoherenceTest {
         String[] siteLabels = {
             "PhaseToRawPhaseDefMapper (site 1)",
             "FallbackSlotOptimizationClient (site 2)",
-            "MatchGenJobExecutor (site 3)",
+            "DefaultMatchGenJobExecutor (site 3)",
             "DefaultRoundAssignmentService (site 4)"
         };
 

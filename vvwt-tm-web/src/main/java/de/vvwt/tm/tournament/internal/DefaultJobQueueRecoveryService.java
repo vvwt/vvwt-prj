@@ -2,6 +2,7 @@ package de.vvwt.tm.tournament.internal;
 
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantRegistryPort;
+import de.vvwt.tm.tournament.JobQueueRecoveryService;
 import de.vvwt.tm.tournament.events.MatchGenJobScheduledEvent;
 import de.vvwt.tm.tournament.events.SlotOptJobScheduledEvent;
 import java.util.List;
@@ -47,12 +48,13 @@ import org.springframework.stereotype.Service;
  * @see MatchGenJobScheduledEvent
  * @see SlotOptJobScheduledEvent
  * @see <a href="DEC-55">DEC-55 D-8 — Restart-Recovery</a>
+ * @see <a href="DEC-58">DEC-58 — Universal interface mandate for self-created Spring components</a>
  * @see <a href="E51S07">E51S07 — AC-IMPL-JOB-QUEUE-RECOVERY-SERVICE</a>
  */
 @Service
-public class JobQueueRecoveryService {
+public class DefaultJobQueueRecoveryService implements JobQueueRecoveryService {
 
-    private static final Logger log = LoggerFactory.getLogger(JobQueueRecoveryService.class);
+    private static final Logger log = LoggerFactory.getLogger(DefaultJobQueueRecoveryService.class);
 
     /**
      * Finds phases in PENDING status where avatars have been persisted but no matches yet exist.
@@ -87,7 +89,7 @@ public class JobQueueRecoveryService {
     private final TenantRegistryPort tenantRegistryPort;
     private final TenantContext tenantContext;
 
-    public JobQueueRecoveryService(
+    public DefaultJobQueueRecoveryService(
             JdbcTemplate jdbcTemplate,
             ApplicationEventPublisher eventPublisher,
             TenantRegistryPort tenantRegistryPort,
@@ -106,9 +108,12 @@ public class JobQueueRecoveryService {
      * registered tenants, binding the tenant context for each before querying the per-tenant
      * database.
      */
+    @Override
     @EventListener(ApplicationReadyEvent.class)
     public void recover() {
-        log.info("JobQueueRecoveryService: scanning for in-flight background jobs to recover");
+        log.info(
+                "DefaultJobQueueRecoveryService: scanning for in-flight background jobs to"
+                        + " recover");
 
         for (TenantRegistryPort.TenantRecord tenant : tenantRegistryPort.findAll()) {
             try (var scope = tenantContext.bind(tenant.tenantId())) {
@@ -117,13 +122,13 @@ public class JobQueueRecoveryService {
                 recoverPreparedPhases();
             } catch (Exception ex) {
                 log.error(
-                        "JobQueueRecoveryService: failed to scan tenant {}: {}",
+                        "DefaultJobQueueRecoveryService: failed to scan tenant {}: {}",
                         tenant.tenantId(),
                         ex.getMessage());
             }
         }
 
-        log.info("JobQueueRecoveryService: recovery scan complete");
+        log.info("DefaultJobQueueRecoveryService: recovery scan complete");
     }
 
     // -------------------------------------------------------------------------
@@ -149,8 +154,8 @@ public class JobQueueRecoveryService {
                         && avatarCount > 0
                         && (matchCount == null || matchCount == 0)) {
                     log.warn(
-                            "JobQueueRecoveryService: recovering match-gen for phase {} (tournament"
-                                    + " {}) — avatars={}, matches={}",
+                            "DefaultJobQueueRecoveryService: recovering match-gen for phase {}"
+                                    + " (tournament {}) — avatars={}, matches={}",
                             phaseId,
                             tournamentId,
                             avatarCount,
@@ -160,8 +165,8 @@ public class JobQueueRecoveryService {
                 }
             } catch (Exception ex) {
                 log.error(
-                        "JobQueueRecoveryService: failed to evaluate PENDING recovery for phase {}:"
-                                + " {}",
+                        "DefaultJobQueueRecoveryService: failed to evaluate PENDING recovery for"
+                                + " phase {}: {}",
                         phaseId,
                         ex.getMessage());
             }
@@ -178,14 +183,15 @@ public class JobQueueRecoveryService {
 
             try {
                 log.warn(
-                        "JobQueueRecoveryService: recovering slot-opt for phase {} (tournament {})",
+                        "DefaultJobQueueRecoveryService: recovering slot-opt for phase {}"
+                                + " (tournament {})",
                         phaseId,
                         tournamentId);
                 eventPublisher.publishEvent(new SlotOptJobScheduledEvent(tournamentId, phaseId));
             } catch (Exception ex) {
                 log.error(
-                        "JobQueueRecoveryService: failed to evaluate PREPARED recovery for phase"
-                                + " {}: {}",
+                        "DefaultJobQueueRecoveryService: failed to evaluate PREPARED recovery for"
+                                + " phase {}: {}",
                         phaseId,
                         ex.getMessage());
             }

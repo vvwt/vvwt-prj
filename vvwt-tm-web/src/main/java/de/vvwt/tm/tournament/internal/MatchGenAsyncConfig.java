@@ -21,8 +21,8 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
  *
  * <p>Spring's {@code @Async} infrastructure silently discards unchecked exceptions thrown by void
  * async methods — they are wrapped in a {@link java.util.concurrent.CompletableFuture} that is
- * never observed. The {@link de.vvwt.tm.tournament.internal.MatchGenJobListener} handles its own
- * exceptions via an internal {@code try/catch} and writes {@code phase.last_job_state='failed'}
+ * never observed. The {@link de.vvwt.tm.tournament.internal.DefaultMatchGenJobListener} handles its
+ * own exceptions via an internal {@code try/catch} and writes {@code phase.last_job_state='failed'}
  * before re-throwing. This handler serves as the last-resort safety net for any uncaught exception
  * that escapes the listener's try/catch (e.g., a runtime error in error-handling itself), ensuring
  * the failure is always observable in the application log at ERROR level per
@@ -44,7 +44,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
  * from the submitting thread and re-binds it on the worker thread before the task executes. This
  * ensures repository calls inside the async listener route to the correct tenant DataSource.
  *
- * @see MatchGenJobListener
+ * @see DefaultMatchGenJobListener
  * @see <a href="DEC-55">DEC-55 D-3 — Background-Job-Pipeline (events-only)</a>
  * @see <a href="E51S03">E51S03 — Background-Job-Pipeline foundation</a>
  */

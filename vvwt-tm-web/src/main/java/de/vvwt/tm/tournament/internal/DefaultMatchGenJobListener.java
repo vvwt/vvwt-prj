@@ -1,5 +1,8 @@
 package de.vvwt.tm.tournament.internal;
 
+import de.vvwt.tm.tournament.MatchGenFailureWriter;
+import de.vvwt.tm.tournament.MatchGenJobExecutor;
+import de.vvwt.tm.tournament.MatchGenJobListener;
 import de.vvwt.tm.tournament.events.MatchGenJobScheduledEvent;
 import de.vvwt.tm.tournament.events.SlotOptJobScheduledEvent;
 import java.util.UUID;
@@ -57,15 +60,16 @@ import org.springframework.transaction.event.TransactionalEventListener;
  * @see MatchGenJobScheduledEvent
  * @see SlotOptJobScheduledEvent
  * @see MatchGenJobExecutor
- * @see MatchGenFailureWriter
+ * @see DefaultMatchGenFailureWriter
  * @see <a href="DEC-55">DEC-55 D-3 — Background-Job-Pipeline (events-only)</a>
  * @see <a href="DEC-37">DEC-37 Clause B — pessimistic row-lock as first read</a>
+ * @see <a href="DEC-58">DEC-58 — Universal interface mandate for self-created Spring components</a>
  * @see <a href="E51S03">E51S03 — Background-Job-Pipeline foundation</a>
  */
 @Component
-class MatchGenJobListener {
+public class DefaultMatchGenJobListener implements MatchGenJobListener {
 
-    private static final Logger LOG = LoggerFactory.getLogger(MatchGenJobListener.class);
+    private static final Logger LOG = LoggerFactory.getLogger(DefaultMatchGenJobListener.class);
 
     private final MatchGenJobExecutor executor;
     private final MatchGenFailureWriter failureWriter;
@@ -76,7 +80,7 @@ class MatchGenJobListener {
      * @param executor executes match-generation in a REQUIRES_NEW TX (DEC-37 Clause B)
      * @param failureWriter writes {@code last_job_state='failed'} in a REQUIRES_NEW TX on error
      */
-    MatchGenJobListener(MatchGenJobExecutor executor, MatchGenFailureWriter failureWriter) {
+    DefaultMatchGenJobListener(MatchGenJobExecutor executor, MatchGenFailureWriter failureWriter) {
         this.executor = executor;
         this.failureWriter = failureWriter;
     }
@@ -87,6 +91,7 @@ class MatchGenJobListener {
      *
      * @param event the match-gen job event; carries {@code tournamentId} and {@code phaseId}
      */
+    @Override
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async
     public void onMatchGenJobScheduled(MatchGenJobScheduledEvent event) {
@@ -94,7 +99,7 @@ class MatchGenJobListener {
         UUID phaseId = event.phaseId();
 
         LOG.info(
-                "MatchGenJobListener: received event tournamentId={}, phaseId={}",
+                "DefaultMatchGenJobListener: received event tournamentId={}, phaseId={}",
                 tournamentId,
                 phaseId);
 
@@ -103,7 +108,7 @@ class MatchGenJobListener {
         } catch (Exception ex) {
             // AC-ERROR-HANDLING-LISTENER-EXCEPTION-NO-SILENT-LOSS: log at ERROR with full context
             LOG.error(
-                    "MatchGenJobListener: FAILED tournamentId={}, phaseId={} — setting"
+                    "DefaultMatchGenJobListener: FAILED tournamentId={}, phaseId={} — setting"
                             + " last_job_state='failed'",
                     tournamentId,
                     phaseId,

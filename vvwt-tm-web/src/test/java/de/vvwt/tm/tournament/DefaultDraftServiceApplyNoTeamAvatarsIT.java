@@ -211,15 +211,16 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
      *
      * <h2>Why totalPhases-based rather than last_job_state-based?</h2>
      *
-     * <p>{@link de.vvwt.tm.tournament.internal.MatchGenJobExecutor} does NOT set an intermediate
-     * {@code 'match_gen_running'} state — phases go directly {@code NULL → 'idle'} atomically with
-     * PENDING→PREPARED in a single {@code REQUIRES_NEW} TX (E51S14 wiring). Any approach that
-     * compares {@code last_job_state IS NOT NULL} (entered) with {@code last_job_state = 'idle'}
-     * races when Phase 1 is {@code 'idle'} but Phase 2's {@code @Async} thread has not yet been
-     * scheduled — Phase 2 is still {@code PENDING + NULL}, indistinguishable from a siegerehrung
-     * phase by {@code last_job_state} alone. The {@code totalPhases - 1} condition is immune
-     * because it checks the FINAL STATE ({@code PREPARED}), not the in-progress state. The
-     * condition is false while Phase 2 is still {@code PENDING}, regardless of Phase 1's state.
+     * <p>{@link de.vvwt.tm.tournament.internal.DefaultMatchGenJobExecutor} does NOT set an
+     * intermediate {@code 'match_gen_running'} state — phases go directly {@code NULL → 'idle'}
+     * atomically with PENDING→PREPARED in a single {@code REQUIRES_NEW} TX (E51S14 wiring). Any
+     * approach that compares {@code last_job_state IS NOT NULL} (entered) with {@code
+     * last_job_state = 'idle'} races when Phase 1 is {@code 'idle'} but Phase 2's {@code @Async}
+     * thread has not yet been scheduled — Phase 2 is still {@code PENDING + NULL},
+     * indistinguishable from a siegerehrung phase by {@code last_job_state} alone. The {@code
+     * totalPhases - 1} condition is immune because it checks the FINAL STATE ({@code PREPARED}),
+     * not the in-progress state. The condition is false while Phase 2 is still {@code PENDING},
+     * regardless of Phase 1's state.
      *
      * <p>Times out after 5 seconds total. On budget exhaustion throws {@link AssertionError} with
      * diagnostic phase rows — satisfying AC-ERROR-HANDLING-QUIESCENCE-BUDGET-OBSERVABLE.

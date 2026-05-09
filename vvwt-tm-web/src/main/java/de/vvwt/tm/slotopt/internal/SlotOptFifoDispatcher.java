@@ -24,8 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
  * <h2>Pattern rationale</h2>
  *
  * <p>This follows the same pattern used by {@link
- * de.vvwt.tm.tournament.internal.MatchGenJobListener} → {@link
- * de.vvwt.tm.tournament.internal.MatchGenJobExecutor}: the event listener itself is not
+ * de.vvwt.tm.tournament.internal.DefaultMatchGenJobListener} → {@link
+ * de.vvwt.tm.tournament.internal.DefaultMatchGenJobExecutor}: the event listener itself is not
  * {@code @Transactional}; instead it delegates to a separate {@code @Transactional(REQUIRES_NEW)}
  * component. The delegated method runs inside a Spring-managed TX, so any
  * {@code @TransactionalEventListener(AFTER_COMMIT)} subscriber fires after that TX commits.

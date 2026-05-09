@@ -668,7 +668,7 @@ class MatchGenJobListenerIT {
      * {@code ApplicationModulesTest} from passing — the test would pass on the refactored code path
      * only after the cycle is eliminated.
      *
-     * @see de.vvwt.tm.tournament.internal.MatchGenJobExecutor
+     * @see de.vvwt.tm.tournament.internal.DefaultMatchGenJobExecutor
      * @see SlotOptJobScheduledEvent
      * @see <a href="E51S11">E51S11 — PASS_WITH_NOTES: this AC flagged as missing</a>
      * @see <a href="E51S16">E51S16 — authors this missing AC</a>
@@ -895,7 +895,7 @@ class MatchGenJobListenerIT {
      * {@code phaseLifecycleService.transition(phaseId, PREPARED, "match-gen-done")} — the
      * PENDING→PREPARED edge (DEC-55 D-4) is wired but never called.
      *
-     * @see de.vvwt.tm.tournament.internal.MatchGenJobExecutor
+     * @see de.vvwt.tm.tournament.internal.DefaultMatchGenJobExecutor
      * @see de.vvwt.tm.tournament.PhaseLifecycleService
      * @see <a href="DEC-55">DEC-55 D-4 — transition-table PENDING→PREPARED via "match-gen-done"</a>
      * @see <a href="E51S14">E51S14 — wire-add story</a>
@@ -944,7 +944,7 @@ class MatchGenJobListenerIT {
      *
      * <p>This test acts as a regression guard that the idempotency path is preserved.
      *
-     * @see de.vvwt.tm.tournament.internal.MatchGenJobExecutor
+     * @see de.vvwt.tm.tournament.internal.DefaultMatchGenJobExecutor
      * @see <a href="DEC-37">DEC-37 Clause B — per-tournament row-lock preserved</a>
      * @see <a href="E51S14">E51S14 —
      *     AC-TEST-IDEMPOTENT-MATCH-GEN-DOES-NOT-DOUBLE-TRANSITION-RED</a>
@@ -1007,8 +1007,8 @@ class MatchGenJobListenerIT {
      * rollback would prevent it — but the status would NOT become FAILED either if the transition
      * was erroneously placed before generateMatches).
      *
-     * @see de.vvwt.tm.tournament.internal.MatchGenJobExecutor
-     * @see de.vvwt.tm.tournament.internal.MatchGenFailureWriter
+     * @see de.vvwt.tm.tournament.internal.DefaultMatchGenJobExecutor
+     * @see de.vvwt.tm.tournament.internal.DefaultMatchGenFailureWriter
      * @see <a href="E51S14">E51S14 — AC-TEST-MATCH-GEN-FAILURE-DOES-NOT-FLIP-PREPARED-RED</a>
      */
     @Test
@@ -1091,7 +1091,7 @@ class MatchGenJobListenerIT {
      *
      * <p>Test fails BEFORE the fix because all phases stay PENDING (no transition call).
      *
-     * @see de.vvwt.tm.tournament.internal.MatchGenJobExecutor
+     * @see de.vvwt.tm.tournament.internal.DefaultMatchGenJobExecutor
      * @see <a href="DEC-55">DEC-55 D-3 — Background-Job-Pipeline events-only</a>
      * @see <a href="E51S14">E51S14 — AC-TEST-MULTI-PHASE-FLIP-INDEPENDENT-RED</a>
      */
