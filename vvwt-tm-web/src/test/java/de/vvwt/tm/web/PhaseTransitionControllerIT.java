@@ -592,6 +592,57 @@ class PhaseTransitionControllerIT {
     }
 
     // =========================================================================
+    // E51S13 — sortType in JSON response (RED-first per DEC-22 Iron Law)
+    // =========================================================================
+
+    /**
+     * AC-TEST-JSON-RESPONSE-INCLUDES-SORTTYPE-RED (E51S13): The {@code GET
+     * /api/phases/{phaseId}/transition-proposal} JSON response body must include a {@code sortType}
+     * field per proposal entry.
+     *
+     * <p>DEC-22: written before {@code sortType} is added to {@link TeamAvatarProposal} → fails
+     * (RED) until the field exists and is serialized.
+     *
+     * <p>H-5 empirical verification: if {@code sortType} is included in the JSON, the frontend
+     * receives a defined string (not {@code undefined}), preventing the "Gruppe undefined, Platz
+     * undefined" bug.
+     *
+     * @see <a href="E51S13">E51S13 — Bug 2a sortType-driven source-pane label (H-5
+     *     verification)</a>
+     */
+    @Test
+    @DisplayName(
+            "GET transition-proposal — JSON response includes sortType per proposal"
+                    + " (AC-TEST-JSON-RESPONSE-INCLUDES-SORTTYPE-RED)")
+    void getTransitionProposal_jsonResponseIncludesSortType() throws Exception {
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(
+                                baseUrl
+                                        + "/api/phases/"
+                                        + toPhaseRoundRobinId
+                                        + "/transition-proposal"),
+                        String.class);
+
+        assertThat(response.getStatusCode())
+                .as("GET transition-proposal must return 200 OK")
+                .isEqualTo(HttpStatus.OK);
+
+        String responseBody = response.getBody();
+        assertThat(responseBody)
+                .as(
+                        "JSON response must include 'sortType' field per proposal entry"
+                                + " (AC-TEST-JSON-RESPONSE-INCLUDES-SORTTYPE-RED, E51S13 H-5)")
+                .contains("sortType");
+
+        // Also verify the value is not null — "team_number" for Phase-2 → Phase-2 transition
+        // (fixture uses sortType=team_number in section 2 of DRAFT_JSON)
+        assertThat(responseBody)
+                .as("sortType value must be 'team_number' for the fixture's section 2")
+                .contains("team_number");
+    }
+
+    // =========================================================================
     // Inner TestConfiguration — per DEC-44 D2 auth substitute pattern
     // =========================================================================
 
