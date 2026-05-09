@@ -467,17 +467,26 @@ class DefaultDraftServiceApplyAvatarsIT {
                 .as("Second apply must produce same avatar count as first apply (idempotent)")
                 .isEqualTo(avatarsAfterFirstApply);
 
-        // Verify no orphan avatars from previous apply remain
+        // Verify no orphan avatars from previous apply remain.
+        // E51S18 DEC-59 Clause A: twoPhaseConfig creates 2 phases × 6 teams = 12 total avatars
+        // (Phase 1 + siegerehrung Phase 2 each get N=6 avatars). The previous 12 avatars from the
+        // first apply were deleted by resetPlan() + FK CASCADE; the 12 new avatars from the second
+        // apply are the only ones for this tournament.
         Integer totalAvatarsForTournament =
                 jdbcTemplate.queryForObject(
                         "SELECT COUNT(*) FROM team_avatar WHERE tournament_id = ?",
                         Integer.class,
                         tournamentA);
+        // 2 phases × 6 teams = 12 total avatars (DEC-59 Clause A: N per phase incl. siegerehrung)
+        int expectedTotalAvatars = secondPhaseIds.size() * avatarsAfterSecondApply;
         assertThat(totalAvatarsForTournament)
                 .as(
                         "Re-apply must not leave orphan avatars from the previous apply"
-                                + " (delete-and-recreate semantics)")
-                .isEqualTo(avatarsAfterSecondApply);
+                                + " (delete-and-recreate semantics); total should be"
+                                + " N_phases × N_teams = "
+                                + expectedTotalAvatars
+                                + " (E51S18 DEC-59 Clause A)")
+                .isEqualTo(expectedTotalAvatars);
     }
 
     // =========================================================================
