@@ -1,5 +1,6 @@
 package de.vvwt.tm.tournament.internal;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.tournament.MatchGenJobExecutor;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseLifecycleService;
@@ -8,7 +9,10 @@ import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.RoundAssignmentService;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.draft.DraftConfig;
+import de.vvwt.tm.tournament.draft.DraftSection;
 import de.vvwt.tm.tournament.events.SlotOptJobScheduledEvent;
+import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,6 +80,7 @@ public class DefaultMatchGenJobExecutor implements MatchGenJobExecutor {
     private final PhaseRepository phaseRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final RoundAssignmentService roundAssignmentService;
+    private final ObjectMapper objectMapper;
 
     /**
      * Fallback field-count when {@link Tournament#getFieldCount()} is 0 or negative (D-13 fallback
@@ -103,7 +108,8 @@ public class DefaultMatchGenJobExecutor implements MatchGenJobExecutor {
             ApplicationEventPublisher eventPublisher,
             RoundAssignmentService roundAssignmentService,
             @Value("${tm.slotopt.fallback.field-count:3}") int fallbackFieldCount,
-            @Qualifier("tmPhaseLifecycleService") PhaseLifecycleService phaseLifecycleService) {
+            @Qualifier("tmPhaseLifecycleService") PhaseLifecycleService phaseLifecycleService,
+            ObjectMapper objectMapper) {
         this.phasePreparationService = phasePreparationService;
         this.tournamentRepository = tournamentRepository;
         this.phaseRepository = phaseRepository;
@@ -111,6 +117,7 @@ public class DefaultMatchGenJobExecutor implements MatchGenJobExecutor {
         this.roundAssignmentService = roundAssignmentService;
         this.fallbackFieldCount = fallbackFieldCount;
         this.phaseLifecycleService = phaseLifecycleService;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -159,8 +166,10 @@ public class DefaultMatchGenJobExecutor implements MatchGenJobExecutor {
             return;
         }
 
-        // Step 4: Invoke L1 match-generation
-        String generatorKey = tournament.getMatchGeneratorId();
+        // Step 4: Resolve per-phase generator key (DEC-59 Clause E: siegerehrung uses
+        // "siegerehrung" key; non-siegerehrung phases use tournament.matchGeneratorId).
+        // Uses draftJson section at (phase.sequenceNumber - 1) to determine gameMode.
+        String generatorKey = resolveGeneratorKey(tournament, phase);
         phasePreparationService.generateMatches(phaseId, generatorKey);
 
         // Step 5: Resolve fieldCount with D-13 fallback (tournament.fieldCount → @Value default)
@@ -195,7 +204,10 @@ public class DefaultMatchGenJobExecutor implements MatchGenJobExecutor {
                 resolvedFieldCount);
 
         // Step 8: Publish SlotOptJobScheduledEvent if tournament.optimize=true (DEC-55 D-3)
-        if (tournament.isOptimize()) {
+        // DEC-59 Clause E: siegerehrung phases are excluded from slot-optimization — they have no
+        // matches to optimize. The siegerehrung generator returns an empty match list, so
+        // SlotOpt would have nothing to do. Guard: !isSiegerehrungPhase(tournament, phase).
+        if (tournament.isOptimize() && !isSiegerehrungPhase(tournament, phase)) {
             SlotOptJobScheduledEvent slotOptEvent =
                     new SlotOptJobScheduledEvent(tournamentId, phaseId);
             eventPublisher.publishEvent(slotOptEvent);
@@ -204,6 +216,66 @@ public class DefaultMatchGenJobExecutor implements MatchGenJobExecutor {
                             + " tournamentId={}, phaseId={}",
                     tournamentId,
                     phaseId);
+        }
+    }
+
+    /**
+     * Resolves the match generator key for the given phase.
+     *
+     * <p>For siegerehrung phases (determined by parsing {@code tournament.draftJson}), returns
+     * {@code "siegerehrung"} to dispatch to {@link SiegerehrungMatchGenerator} (which returns an
+     * empty match list). For all other phases, returns {@code tournament.getMatchGeneratorId()}
+     * (the tournament-level generator key, e.g., {@code "roundRobin"}).
+     *
+     * <p>DEC-59 Clause E: siegerehrung phases go through the full match-gen pipeline with a vacuous
+     * L1 (empty match list) and vacuous L2 (no matches to assign), then transition PENDING→PREPARED
+     * via the standard "match-gen-done" verb (DEC-55 D-4).
+     *
+     * @param tournament the tournament (provides draftJson and fallback matchGeneratorId)
+     * @param phase the phase to resolve the generator key for
+     * @return the generator key; never {@code null}
+     */
+    private String resolveGeneratorKey(Tournament tournament, Phase phase) {
+        if (isSiegerehrungPhase(tournament, phase)) {
+            return "siegerehrung";
+        }
+        return tournament.getMatchGeneratorId();
+    }
+
+    /**
+     * Returns {@code true} if the given phase corresponds to a siegerehrung section in the
+     * tournament's {@code draftJson}.
+     *
+     * <p>Parses {@code tournament.draftJson} to find the section at index {@code
+     * phase.sequenceNumber - 1} (0-based) and checks if its {@code gameMode} equals {@code
+     * "siegerehrung"}. Returns {@code false} on any parsing error (fail-safe: non-siegerehrung
+     * behavior preserved).
+     *
+     * @param tournament the tournament (provides draftJson)
+     * @param phase the phase to check
+     * @return {@code true} if the phase is a siegerehrung phase; {@code false} otherwise
+     */
+    private boolean isSiegerehrungPhase(Tournament tournament, Phase phase) {
+        try {
+            String draftJson = tournament.getDraftJson();
+            if (draftJson == null || draftJson.isBlank()) {
+                return false;
+            }
+            DraftConfig draftConfig = objectMapper.readValue(draftJson, DraftConfig.class);
+            List<DraftSection> sections = draftConfig.getSections();
+            int sectionIndex = phase.getSequenceNumber() - 1;
+            if (sectionIndex < 0 || sectionIndex >= sections.size()) {
+                return false;
+            }
+            return "siegerehrung".equals(sections.get(sectionIndex).getGameMode());
+        } catch (Exception e) {
+            LOG.warn(
+                    "MatchGenJobExecutor: failed to parse draftJson for tournament={}"
+                            + " phaseId={} — defaulting to non-siegerehrung (fail-safe)",
+                    tournament.getId(),
+                    phase.getId(),
+                    e);
+            return false;
         }
     }
 }

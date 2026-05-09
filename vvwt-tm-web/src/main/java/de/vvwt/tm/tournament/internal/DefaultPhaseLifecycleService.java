@@ -63,7 +63,8 @@ import org.springframework.transaction.annotation.Transactional;
  * @see <a href="DEC-35">DEC-35 — package layout: impl in .internal</a>
  * @see <a href="DEC-37">DEC-37 Clause B — per-tournament pessimistic DB row-lock</a>
  * @see <a href="DEC-55">DEC-55 D-4 + D-6 — ASSIGNED status, transition-table, activation-guard</a>
- * @see <a href="DEC-59">DEC-59 Clause F — activation-guard gameMode OR-term (siegerehrung exempt)</a>
+ * @see <a href="DEC-59">DEC-59 Clause F — activation-guard gameMode OR-term (siegerehrung
+ *     exempt)</a>
  * @see <a href="E48S06">E48S06 — Phase-Lifecycle Service</a>
  * @see <a href="E48S17">E48S17 — PREPARED enum + prepare() + start() refactor</a>
  * @see <a href="E51S05">E51S05 — transition-table + activation-guard implementation</a>
@@ -128,9 +129,10 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
     private final MatchRepository matchRepository;
     private final MatchLockdownService matchLockdownService;
     private final ApplicationEventPublisher eventPublisher;
+
     /**
-     * Jackson ObjectMapper for parsing {@code tournament.draftJson} in the Clause F guard
-     * (DEC-59 Clause F, E51S18). Spring auto-wires the single {@code ObjectMapper} primary bean.
+     * Jackson ObjectMapper for parsing {@code tournament.draftJson} in the Clause F guard (DEC-59
+     * Clause F, E51S18). Spring auto-wires the single {@code ObjectMapper} primary bean.
      */
     private final ObjectMapper objectMapper;
 
@@ -522,7 +524,8 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
             return false;
         }
         try {
-            DraftConfig config = objectMapper.readValue(tournament.getDraftJson(), DraftConfig.class);
+            DraftConfig config =
+                    objectMapper.readValue(tournament.getDraftJson(), DraftConfig.class);
             List<DraftSection> sections = config.getSections();
             int index = phase.getSequenceNumber() - 1; // sequenceNumber is 1-based
             if (index < 0 || index >= sections.size()) {

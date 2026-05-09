@@ -379,8 +379,16 @@ class DraftServiceTest {
         UUID teamId = UUID.randomUUID();
         when(teamRepository.findByTournamentId(tournamentId))
                 .thenReturn(
-                        List.of(new Team(teamId, tournamentId, 1, "Team 1", true, false, false,
-                                null)));
+                        List.of(
+                                new Team(
+                                        teamId,
+                                        tournamentId,
+                                        1,
+                                        "Team 1",
+                                        true,
+                                        false,
+                                        false,
+                                        null)));
 
         List<UUID> result = draftService.apply(tournamentId, config);
 
@@ -473,8 +481,16 @@ class DraftServiceTest {
         UUID teamId = UUID.randomUUID();
         when(teamRepository.findByTournamentId(tournamentId))
                 .thenReturn(
-                        List.of(new Team(teamId, tournamentId, 1, "Team 1", true, false, false,
-                                null)));
+                        List.of(
+                                new Team(
+                                        teamId,
+                                        tournamentId,
+                                        1,
+                                        "Team 1",
+                                        true,
+                                        false,
+                                        false,
+                                        null)));
 
         draftService.apply(tournamentId, config);
 

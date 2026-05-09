@@ -67,15 +67,14 @@ import org.springframework.transaction.annotation.Transactional;
  * <h2>E51S18 — DEC-59 operationalization: uniform avatar persistence (Clauses A + B + D + E)</h2>
  *
  * <p>Step (d2) persists structural {@link TeamAvatar} placeholders for EVERY phase at apply-time,
- * including siegerehrung (DEC-59 Clause A: N avatars per phase uniformly). ALL avatars have
- * {@code teamId = null} regardless of phase (DEC-59 Clause B: universal NULL — Phase 1 carve-out
- * removed). {@code DraftSection.distributionMode} determines the {@code (groupNumber,
- * groupPosition)} layout (DEC-59 Clause D). Delete-and-recreate idempotency: existing avatars for
- * each phase are deleted before insertion (FK CASCADE per E51S01 schema absorbs downstream rows
- * safely). No event publication, no match generation in this step (E51S03 scope).
- * Step (d3) publishes {@link de.vvwt.tm.tournament.events.MatchGenJobScheduledEvent} for ALL
- * phases including siegerehrung (DEC-59 Clause E — uniform lifecycle via vacuous L1+L2 via
- * {@link SiegerehrungMatchGenerator}).
+ * including siegerehrung (DEC-59 Clause A: N avatars per phase uniformly). ALL avatars have {@code
+ * teamId = null} regardless of phase (DEC-59 Clause B: universal NULL — Phase 1 carve-out removed).
+ * {@code DraftSection.distributionMode} determines the {@code (groupNumber, groupPosition)} layout
+ * (DEC-59 Clause D). Delete-and-recreate idempotency: existing avatars for each phase are deleted
+ * before insertion (FK CASCADE per E51S01 schema absorbs downstream rows safely). No event
+ * publication, no match generation in this step (E51S03 scope). Step (d3) publishes {@link
+ * de.vvwt.tm.tournament.events.MatchGenJobScheduledEvent} for ALL phases including siegerehrung
+ * (DEC-59 Clause E — uniform lifecycle via vacuous L1+L2 via {@link SiegerehrungMatchGenerator}).
  *
  * <h2>DRAFT-precondition (E48S22, AC-IMPL-PHASES-EXIST-GUARD-REMOVED)</h2>
  *
@@ -320,8 +319,7 @@ public class DefaultDraftService implements DraftService {
         }
         for (int i = 0; i < sections.size(); i++) {
             UUID phaseId = createdPhaseIds.get(i);
-            persistStructuralAvatars(
-                    tournamentId, phaseId, sections.get(i), i, participatingTeams);
+            persistStructuralAvatars(tournamentId, phaseId, sections.get(i), i, participatingTeams);
         }
 
         // Step (d3): E51S03 + E51S18 — publish MatchGenJobScheduledEvent per phase including
@@ -594,15 +592,15 @@ public class DefaultDraftService implements DraftService {
      * <p><b>Siegerehrung (DEC-59 Clause A):</b> siegerehrung phases receive {@code N} rank-slot
      * avatars ({@code groupNumber=1, groupPosition=1..N}). The lifecycle (PENDING → PREPARED) runs
      * via vacuous L1+L2 execution — {@link SiegerehrungMatchGenerator} returns an empty match list;
-     * L2 processes empty input as a no-op; {@code PhaseLifecycleService.transition("match-gen-done")}
-     * advances to PREPARED (DEC-59 Clause E).
+     * L2 processes empty input as a no-op; {@code
+     * PhaseLifecycleService.transition("match-gen-done")} advances to PREPARED (DEC-59 Clause E).
      *
      * <p><b>distributionMode (DEC-59 Clause D):</b> {@code DraftSection.distributionMode} (E51S15)
      * determines the structural {@code (groupNumber, groupPosition)} layout for non-siegerehrung
      * phases. Does NOT affect teamId (which is always NULL per Clause B). The same branching logic
      * is used in {@link DefaultPhaseTransitionService#computePhase1Proposals} for proposal
-     * computation — layout and proposal must use the same algorithm so that
-     * {@code commitTransition()}'s UPDATE-by-identity (DEC-9) can locate the correct avatar slot.
+     * computation — layout and proposal must use the same algorithm so that {@code
+     * commitTransition()}'s UPDATE-by-identity (DEC-9) can locate the correct avatar slot.
      *
      * <p><b>AC-ERROR-DISTRIBUTIONMODE-UNKNOWN-VALUE:</b> Unknown distributionMode values fall
      * through to the "sequential" branch (default behavior). A warning is logged to alert operators

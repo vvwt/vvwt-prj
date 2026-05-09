@@ -213,8 +213,8 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
                             + toPhaseId
                             + " is in status '"
                             + toPhase.getStatus()
-                            + "' but must be PREPARED before operator-confirmation"
-                            + " (DEC-59 Clause C, AC-ERROR-OPERATOR-CONFIRMATION-PRECONDITION-PHASE-NOT-PREPARED,"
+                            + "' but must be PREPARED before operator-confirmation (DEC-59 Clause"
+                            + " C, AC-ERROR-OPERATOR-CONFIRMATION-PRECONDITION-PHASE-NOT-PREPARED,"
                             + " E51S18)");
         }
 

@@ -435,6 +435,18 @@ class PhaseTransitionControllerIT {
                     + " (AC-TEST-COMMIT-TRANSITION-SIEGEREHRUNG-RED)")
     void postTransitionCommit_siegerehrung_returns200AndPersistsAvatarsButNoMatches()
             throws Exception {
+        // DEC-59 Clause C precondition: commitTransition on Phase 3 (siegerehrung) requires
+        // Phase 2 (predecessor, sequenceNumber=2) to be in COMPLETED status.
+        // The shared setUp() fixture creates Phase 2 as PREPARED (needed for the roundRobin test).
+        // Update Phase 2 to COMPLETED here so the siegerehrung precondition check passes.
+        tenantBinder.bindDefaultTenant();
+        try {
+            jdbcTemplate.update(
+                    "UPDATE phase SET status = 'COMPLETED' WHERE id = ?", toPhaseRoundRobinId);
+        } finally {
+            tenantBinder.unbind();
+        }
+
         // Given: assignment for toSiegerehrungPhaseId (groupCount=1, 2 teams)
         String body =
                 "["

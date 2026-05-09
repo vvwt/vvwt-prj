@@ -298,9 +298,9 @@ class PhaseLifecycleServiceTest {
      * IN ISOLATION via {@link DefaultPhaseLifecycleService#transition(UUID, PhaseStatus, String)}.
      *
      * <p><b>Pre-fix (RED):</b> {@code transition(phaseId, ACTIVE, "start")} throws {@link
-     * ConflictException} — original DEC-55 D-6 guard {@code !tournament.optimize OR phase.optimized}
-     * evaluates to {@code false} for this synthetic input (optimize=true, optimized=false, no
-     * siegerehrung OR-term).
+     * ConflictException} — original DEC-55 D-6 guard {@code !tournament.optimize OR
+     * phase.optimized} evaluates to {@code false} for this synthetic input (optimize=true,
+     * optimized=false, no siegerehrung OR-term).
      *
      * <p><b>Post-fix (GREEN):</b> Clause F OR-term {@code OR section.gameMode == "siegerehrung"}
      * exempts the phase → {@code transition()} succeeds.
@@ -334,10 +334,7 @@ class PhaseLifecycleServiceTest {
         // AC-TEST-ACTIVATION-GUARD-SIEGEREHRUNG-PREDICATE-ISOLATED-RED:
         // Pre-fix: throws ConflictException (no siegerehrung OR-term in guard).
         // Post-fix: does NOT throw (Clause F OR-term exempts siegerehrung from optimize guard).
-        assertThatCode(
-                        () ->
-                                service.transition(
-                                        phaseId, PhaseStatus.ACTIVE, "start"))
+        assertThatCode(() -> service.transition(phaseId, PhaseStatus.ACTIVE, "start"))
                 .doesNotThrowAnyException();
     }
 

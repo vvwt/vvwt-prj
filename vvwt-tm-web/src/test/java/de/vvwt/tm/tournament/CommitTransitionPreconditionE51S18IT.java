@@ -31,9 +31,10 @@ import org.springframework.test.context.ActiveProfiles;
  *   <li>AC-ERROR-OPERATOR-CONFIRMATION-PRECONDITION-PHASE-NOT-PREPARED: commitTransition() on a
  *       PENDING phase → ConflictException (HTTP 409). Pre-fix: {@code IllegalStateException} (500)
  *       via transition-table. Post-fix: explicit {@code ConflictException} precondition check.
- *   <li>AC-ERROR-OPERATOR-CONFIRMATION-PRECONDITION-PREVIOUS-PHASE-NOT-COMPLETED: commitTransition()
- *       on Phase 2 when Phase 1 is ACTIVE (not COMPLETED) → ConflictException (HTTP 409). Pre-fix:
- *       no check, succeeds or throws from another path. Post-fix: explicit {@code ConflictException}.
+ *   <li>AC-ERROR-OPERATOR-CONFIRMATION-PRECONDITION-PREVIOUS-PHASE-NOT-COMPLETED:
+ *       commitTransition() on Phase 2 when Phase 1 is ACTIVE (not COMPLETED) → ConflictException
+ *       (HTTP 409). Pre-fix: no check, succeeds or throws from another path. Post-fix: explicit
+ *       {@code ConflictException}.
  * </ul>
  *
  * <h2>DEC compliance</h2>
@@ -262,10 +263,10 @@ class CommitTransitionPreconditionE51S18IT {
      * (HTTP 409). The operator-confirmation workflow is only valid when the phase has been through
      * the match-gen pipeline and reached PREPARED status.
      *
-     * <p><b>Pre-fix (RED):</b> the implicit check via {@code phaseLifecycleService.transition(ASSIGNED,
-     * "assign")} throws {@code IllegalStateException} (not {@code ConflictException}) — wrong HTTP
-     * status code for the operator. Post-fix: explicit precondition check throws {@link
-     * ConflictException} before any teamId-UPDATE is attempted.
+     * <p><b>Pre-fix (RED):</b> the implicit check via {@code
+     * phaseLifecycleService.transition(ASSIGNED, "assign")} throws {@code IllegalStateException}
+     * (not {@code ConflictException}) — wrong HTTP status code for the operator. Post-fix: explicit
+     * precondition check throws {@link ConflictException} before any teamId-UPDATE is attempted.
      *
      * @see <a href="DEC-59">DEC-59 Clause C</a>
      * @see <a href="E51S18">E51S18</a>
@@ -273,7 +274,8 @@ class CommitTransitionPreconditionE51S18IT {
     @Test
     @DisplayName(
             "commitTransition() on PENDING phase → ConflictException (409)"
-                    + " [AC-ERROR-OPERATOR-CONFIRMATION-PRECONDITION-PHASE-NOT-PREPARED, DEC-59 Clause C]")
+                + " [AC-ERROR-OPERATOR-CONFIRMATION-PRECONDITION-PHASE-NOT-PREPARED, DEC-59 Clause"
+                + " C]")
     void commitTransition_pendingPhase_throwsConflictException() {
         // Override phase2 to PENDING status (simulates phase that hasn't completed match-gen)
         jdbcTemplate.update("UPDATE phase SET status = 'PENDING' WHERE id = ?", phase2Id);
@@ -307,8 +309,9 @@ class CommitTransitionPreconditionE51S18IT {
      * predecessor being COMPLETED.
      *
      * <p><b>Pre-fix (RED):</b> no predecessor-check exists in {@code commitTransition()} — the call
-     * proceeds and updates teamIds, then the PREPARED→ASSIGNED transition succeeds (wrong behavior).
-     * Post-fix: explicit check throws {@code ConflictException} before any teamId-UPDATE.
+     * proceeds and updates teamIds, then the PREPARED→ASSIGNED transition succeeds (wrong
+     * behavior). Post-fix: explicit check throws {@code ConflictException} before any
+     * teamId-UPDATE.
      *
      * @see <a href="DEC-59">DEC-59 Clause C</a>
      * @see <a href="E51S18">E51S18</a>
@@ -316,7 +319,8 @@ class CommitTransitionPreconditionE51S18IT {
     @Test
     @DisplayName(
             "commitTransition() when predecessor phase not COMPLETED → ConflictException (409)"
-                    + " [AC-ERROR-OPERATOR-CONFIRMATION-PRECONDITION-PREVIOUS-PHASE-NOT-COMPLETED, DEC-59 Clause C]")
+                    + " [AC-ERROR-OPERATOR-CONFIRMATION-PRECONDITION-PREVIOUS-PHASE-NOT-COMPLETED,"
+                    + " DEC-59 Clause C]")
     void commitTransition_predecessorNotCompleted_throwsConflictException() {
         // Override Phase 1 to ACTIVE status (not COMPLETED — simulates ongoing predecessor)
         jdbcTemplate.update("UPDATE phase SET status = 'ACTIVE' WHERE id = ?", phase1Id);
@@ -332,7 +336,8 @@ class CommitTransitionPreconditionE51S18IT {
         assertThatThrownBy(() -> phaseTransitionService.commitTransition(phase2Id, assignments))
                 .as(
                         "AC-ERROR-OPERATOR-CONFIRMATION-PRECONDITION-PREVIOUS-PHASE-NOT-COMPLETED:"
-                                + " commitTransition when predecessor is ACTIVE must throw ConflictException")
+                                + " commitTransition when predecessor is ACTIVE must throw"
+                                + " ConflictException")
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("COMPLETED");
     }

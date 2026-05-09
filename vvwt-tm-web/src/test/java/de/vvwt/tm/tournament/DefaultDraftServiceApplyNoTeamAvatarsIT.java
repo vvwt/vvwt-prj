@@ -207,17 +207,17 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
      * (per-gameMode {@link de.vvwt.tm.tournament.internal.SiegerehrungMatchGenerator} returns an
      * empty match list; L2 is invoked as a no-op; {@code PhaseLifecycleService.transition(PENDING →
      * PREPARED "match-gen-done")} fires per DEC-55 D-4). ALL phases (including siegerehrung) must
-     * eventually reach {@code PREPARED}. Quiescence is declared when {@code totalPhases} are
-     * {@code PREPARED}.
+     * eventually reach {@code PREPARED}. Quiescence is declared when {@code totalPhases} are {@code
+     * PREPARED}.
      *
      * <h2>E51S17 → E51S18 change</h2>
      *
      * <p>E51S17 used {@code expectedPrepared = totalPhases - 1} because siegerehrung was guaranteed
      * to stay {@code PENDING} (no {@code MatchGenJobScheduledEvent} published for it). After DEC-59
      * Clause E operationalization (E51S18), {@code MatchGenJobScheduledEvent} IS published for all
-     * phases including siegerehrung. The siegerehrung-specific no-op-generator returns an empty match
-     * list, but the lifecycle transitions the same as for non-siegerehrung phases:
-     * {@code PENDING → PREPARED "match-gen-done"}.
+     * phases including siegerehrung. The siegerehrung-specific no-op-generator returns an empty
+     * match list, but the lifecycle transitions the same as for non-siegerehrung phases: {@code
+     * PENDING → PREPARED "match-gen-done"}.
      *
      * <h2>Why totalPhases-based rather than last_job_state-based?</h2>
      *
@@ -307,8 +307,8 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
      * DEC-59 Clause E.
      *
      * <p>Fixture: 3 participating teams (team_number 1-3), 2-group Phase 1 (roundRobin), 2-group
-     * Phase 2 (roundRobin), 1-group siegerehrung Phase 3. Expected avatars per DEC-59 Clause A
-     * (N avatars per phase including siegerehrung) + Clause B (teamId=NULL universally):
+     * Phase 2 (roundRobin), 1-group siegerehrung Phase 3. Expected avatars per DEC-59 Clause A (N
+     * avatars per phase including siegerehrung) + Clause B (teamId=NULL universally):
      *
      * <ul>
      *   <li>Phase 1: 3 avatars (N=3 participating teams, groupCount=2, teamId=NULL per Clause B)
@@ -317,11 +317,12 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
      *       teamId=NULL per Clauses A + B)
      * </ul>
      *
-     * <p>Total: 9 avatars (3+3+3=9 per DEC-59 Clause A). Replaces the previous 3+4+0=7 shape
-     * which was acknowledged-not-endorsed by E51S17.
+     * <p>Total: 9 avatars (3+3+3=9 per DEC-59 Clause A). Replaces the previous 3+4+0=7 shape which
+     * was acknowledged-not-endorsed by E51S17.
      *
      * @see <a href="E51S18">E51S18 — DEC-59 operationalization (K-1+K-3+K-4+K-6)</a>
-     * @see <a href="E51S17">E51S17 — Equilibrium contract alignment (superseded for siegerehrung)</a>
+     * @see <a href="E51S17">E51S17 — Equilibrium contract alignment (superseded for
+     *     siegerehrung)</a>
      * @see <a href="DEC-55">DEC-55 D-3 step 1 — MatchGenJobScheduledEvent per phase (now includes
      *     siegerehrung via DEC-59 Clause E)</a>
      * @see <a href="DEC-56">DEC-56 D-3 — L1+L2 always mandatory; matches reference avatar.getId()
@@ -442,8 +443,8 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
                         phase1Id);
         assertThat(phase1WithNullTeamId)
                 .as(
-                        "All Phase 1 avatars must have teamId=NULL at apply-time"
-                                + " (DEC-59 Clause B — operator-confirmation is sole teamId trigger)")
+                        "All Phase 1 avatars must have teamId=NULL at apply-time (DEC-59 Clause B —"
+                                + " operator-confirmation is sole teamId trigger)")
                 .isEqualTo(3);
 
         // Phase 2: 3 participating teams, groupCount=2, distributionMode=roundRobin

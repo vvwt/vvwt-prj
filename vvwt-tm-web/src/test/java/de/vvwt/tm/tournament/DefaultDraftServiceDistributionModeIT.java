@@ -196,10 +196,10 @@ class DefaultDraftServiceDistributionModeIT {
 
         UUID phase1Id = phaseIds.get(0);
 
-        // Verify sequential layout: G1 gets teams 1-6, G2 gets teams 7-12
-        // teams are sorted by teamNumber ascending: participatingTeamIds12[0] = team-1, etc.
+        // DEC-59 Clause B: teamId=NULL universally at apply-time. Verify structural layout by
+        // checking that the correct (group_number, group_position) slots exist, not by team_id.
+        // Sequential: G1 gets positions 1-6, G2 gets positions 1-6 (ceil(12/2)=6 per group).
         for (int i = 0; i < 12; i++) {
-            UUID expectedTeamId = participatingTeamIds12.get(i);
             // positionsPerGroup = ceil(12/2) = 6
             int expectedGroup = (i / 6) + 1; // 0-5 → G1, 6-11 → G2
             int expectedPosition = (i % 6) + 1; // within-group position
@@ -207,19 +207,37 @@ class DefaultDraftServiceDistributionModeIT {
             Integer count =
                     jdbcTemplate.queryForObject(
                             "SELECT COUNT(*) FROM team_avatar"
-                                    + " WHERE phase_id = ? AND team_id = ?"
+                                    + " WHERE phase_id = ?"
                                     + " AND group_number = ? AND group_position = ?",
                             Integer.class,
                             phase1Id,
-                            expectedTeamId,
                             expectedGroup,
                             expectedPosition);
             assertThat(count)
                     .as(
-                            "Team %d (index %d) must be at G%dP%d in sequential mode"
-                                    .formatted(i + 1, i, expectedGroup, expectedPosition))
+                            "Slot G%dP%d must exist exactly once in sequential mode"
+                                    + " (teamId=NULL per DEC-59 Clause B)"
+                                            .formatted(expectedGroup, expectedPosition))
                     .isEqualTo(1);
         }
+
+        // Verify total Phase 1 avatar count = 12 and all have teamId=NULL
+        Integer totalAvatars =
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM team_avatar WHERE phase_id = ?",
+                        Integer.class,
+                        phase1Id);
+        assertThat(totalAvatars).as("Phase 1 must have 12 avatars").isEqualTo(12);
+
+        Integer nonNullTeamIds =
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM team_avatar WHERE phase_id = ? AND team_id IS NOT"
+                                + " NULL",
+                        Integer.class,
+                        phase1Id);
+        assertThat(nonNullTeamIds)
+                .as("All Phase 1 avatars must have teamId=NULL (DEC-59 Clause B)")
+                .isEqualTo(0);
     }
 
     // =========================================================================
@@ -250,28 +268,49 @@ class DefaultDraftServiceDistributionModeIT {
 
         UUID phase1Id = phaseIds.get(0);
 
-        // Verify round-robin layout: team-1 → G1P1, team-2 → G2P1, team-3 → G1P2, ...
+        // DEC-59 Clause B: teamId=NULL universally at apply-time. Verify structural layout by
+        // checking that the correct (group_number, group_position) slots exist, not by team_id.
+        // Round-robin: team at index i → group (i%2)+1, position (i/2)+1
+        // Same 12 slots as sequential (G1P1..G1P6, G2P1..G2P6) but with different team ordering.
+        // Since teamId=NULL, we verify slot existence only.
         for (int i = 0; i < 12; i++) {
-            UUID expectedTeamId = participatingTeamIds12.get(i);
             int expectedGroup = (i % 2) + 1; // alternates G1, G2
             int expectedPosition = (i / 2) + 1; // fills positions incrementally
 
             Integer count =
                     jdbcTemplate.queryForObject(
                             "SELECT COUNT(*) FROM team_avatar"
-                                    + " WHERE phase_id = ? AND team_id = ?"
+                                    + " WHERE phase_id = ?"
                                     + " AND group_number = ? AND group_position = ?",
                             Integer.class,
                             phase1Id,
-                            expectedTeamId,
                             expectedGroup,
                             expectedPosition);
             assertThat(count)
                     .as(
-                            "Team %d (index %d) must be at G%dP%d in round-robin mode"
-                                    .formatted(i + 1, i, expectedGroup, expectedPosition))
+                            "Slot G%dP%d must exist exactly once in round-robin mode"
+                                    + " (teamId=NULL per DEC-59 Clause B)"
+                                            .formatted(expectedGroup, expectedPosition))
                     .isEqualTo(1);
         }
+
+        // Verify total Phase 1 avatar count = 12 and all have teamId=NULL
+        Integer totalAvatars =
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM team_avatar WHERE phase_id = ?",
+                        Integer.class,
+                        phase1Id);
+        assertThat(totalAvatars).as("Phase 1 must have 12 avatars").isEqualTo(12);
+
+        Integer nonNullTeamIds =
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM team_avatar WHERE phase_id = ? AND team_id IS NOT"
+                                + " NULL",
+                        Integer.class,
+                        phase1Id);
+        assertThat(nonNullTeamIds)
+                .as("All Phase 1 avatars must have teamId=NULL (DEC-59 Clause B)")
+                .isEqualTo(0);
     }
 
     // =========================================================================
@@ -310,28 +349,46 @@ class DefaultDraftServiceDistributionModeIT {
 
         UUID phase1Id = phaseIds.get(0);
 
-        // Verify sequential layout (same as explicit sequential test)
+        // DEC-59 Clause B: teamId=NULL universally at apply-time. Verify structural layout.
+        // Default (sequential): same slots as explicit sequential test.
         for (int i = 0; i < 12; i++) {
-            UUID expectedTeamId = participatingTeamIds12.get(i);
             int expectedGroup = (i / 6) + 1;
             int expectedPosition = (i % 6) + 1;
 
             Integer count =
                     jdbcTemplate.queryForObject(
                             "SELECT COUNT(*) FROM team_avatar"
-                                    + " WHERE phase_id = ? AND team_id = ?"
+                                    + " WHERE phase_id = ?"
                                     + " AND group_number = ? AND group_position = ?",
                             Integer.class,
                             phase1Id,
-                            expectedTeamId,
                             expectedGroup,
                             expectedPosition);
             assertThat(count)
                     .as(
-                            "Team %d must be at G%dP%d with default (sequential) distributionMode"
-                                    .formatted(i + 1, expectedGroup, expectedPosition))
+                            "Slot G%dP%d must exist exactly once with default (sequential)"
+                                    + " distributionMode (teamId=NULL per DEC-59 Clause B)"
+                                            .formatted(expectedGroup, expectedPosition))
                     .isEqualTo(1);
         }
+
+        // Verify total Phase 1 avatar count = 12 and all have teamId=NULL
+        Integer totalAvatars =
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM team_avatar WHERE phase_id = ?",
+                        Integer.class,
+                        phase1Id);
+        assertThat(totalAvatars).as("Phase 1 must have 12 avatars").isEqualTo(12);
+
+        Integer nonNullTeamIds =
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM team_avatar WHERE phase_id = ? AND team_id IS NOT"
+                                + " NULL",
+                        Integer.class,
+                        phase1Id);
+        assertThat(nonNullTeamIds)
+                .as("All Phase 1 avatars must have teamId=NULL (DEC-59 Clause B)")
+                .isEqualTo(0);
     }
 
     // =========================================================================
