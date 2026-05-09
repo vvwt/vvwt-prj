@@ -26,15 +26,17 @@ import org.springframework.test.context.ActiveProfiles;
 
 /**
  * Regression-guard integration tests for E51S12 — Bug 3 resolution + RefereeAssigner precondition
- * verification (DEC-56 D-1, AC-TEST-COMMITMENT-TRANSITION-*, AC-TEST-REFEREEASSIGNER-PRECONDITION-PASSES-AFTER-L2-RED).
+ * verification (DEC-56 D-1, AC-TEST-COMMITMENT-TRANSITION-*,
+ * AC-TEST-REFEREEASSIGNER-PRECONDITION-PASSES-AFTER-L2-RED).
  *
  * <h2>What these tests guard against (Bug 3)</h2>
  *
- * <p>The original HTTP 500 stacktrace (2026-05-08T23:45:40):
- * {@code RefereeAssigner.assignReferees:131 → DefaultPhaseTransitionService.commitTransition:227}.
- * Root cause: before E51S10 (L2 RoundAssignmentService), matches were persisted with
- * {@code lapNumber=null}, {@code fieldNumber=null}. The {@code RefereeAssigner.assignReferees}
- * precondition check at line 124-134 detected null lap/field and threw {@code IllegalStateException}.
+ * <p>The original HTTP 500 stacktrace (2026-05-08T23:45:40): {@code
+ * RefereeAssigner.assignReferees:131 → DefaultPhaseTransitionService.commitTransition:227}. Root
+ * cause: before E51S10 (L2 RoundAssignmentService), matches were persisted with {@code
+ * lapNumber=null}, {@code fieldNumber=null}. The {@code RefereeAssigner.assignReferees}
+ * precondition check at line 124-134 detected null lap/field and threw {@code
+ * IllegalStateException}.
  *
  * <p>After E51S10 (L2) lands, every match has non-null {@code lapNumber} and {@code fieldNumber}
  * set by {@code DefaultRoundAssignmentService.assignRoundsAndFields}. These tests confirm that
@@ -45,16 +47,16 @@ import org.springframework.test.context.ActiveProfiles;
  *
  * <p>Tests simulate the post-L1+L2 pipeline state: matches are pre-inserted with non-null
  * lap_number and field_number (as L2 would set them). Structural avatar placeholders are
- * pre-inserted (teamId NULL) as L1/E51S02 would create them. The test then calls
- * {@link PhaseTransitionService#commitTransition(UUID, List)} and verifies no exception.
+ * pre-inserted (teamId NULL) as L1/E51S02 would create them. The test then calls {@link
+ * PhaseTransitionService#commitTransition(UUID, List)} and verifies no exception.
  *
  * <h2>DEC compliance</h2>
  *
  * <ul>
- *   <li>DEC-22 — Regression-guard tests for structural invariants delivered post-story-10+11;
- *       these tests confirm the GREEN state after L2 lands (authored for the post-L2 world).
- *   <li>DEC-36 — Cross-package: test in {@code de.vvwt.tm.tournament}, injects
- *       {@link PhaseTransitionService} (public interface), never the impl.
+ *   <li>DEC-22 — Regression-guard tests for structural invariants delivered post-story-10+11; these
+ *       tests confirm the GREEN state after L2 lands (authored for the post-L2 world).
+ *   <li>DEC-36 — Cross-package: test in {@code de.vvwt.tm.tournament}, injects {@link
+ *       PhaseTransitionService} (public interface), never the impl.
  *   <li>DEC-44 — Bounded-context IT: uses {@code @SpringBootTest(webEnvironment = NONE)}.
  *   <li>DEC-56 D-1 — L1+L2 always mandatory; lap+field non-null after L1+L2.
  *   <li>DEC-56 amended D-3 — matches have lap+field set after L1+L2, not null.
@@ -81,7 +83,8 @@ import org.springframework.test.context.ActiveProfiles;
         })
 @ActiveProfiles("test")
 @Import({TenantContextTestSupport.class, CommitTransitionE51S12IT.TestConfig.class})
-@DisplayName("CommitTransitionE51S12IT — E51S12 Bug-3 regression guard (DEC-56 D-1 + amended D-3/D-4)")
+@DisplayName(
+        "CommitTransitionE51S12IT — E51S12 Bug-3 regression guard (DEC-56 D-1 + amended D-3/D-4)")
 class CommitTransitionE51S12IT {
 
     /** Suppresses slot-opt and WebSocket beans to prevent background-job interference in ITs. */
@@ -212,7 +215,8 @@ class CommitTransitionE51S12IT {
                 true,
                 LocalDateTime.now());
 
-        // Structural avatar placeholders (teamId=NULL = post-L1/E51S02 state before commitTransition)
+        // Structural avatar placeholders (teamId=NULL = post-L1/E51S02 state before
+        // commitTransition)
         // DEC-9: identity is (phaseId, groupNumber, groupPosition)
         avatar1Id = UUID.randomUUID();
         jdbcTemplate.update(
@@ -286,10 +290,10 @@ class CommitTransitionE51S12IT {
      * de.vvwt.tm.tournament.internal.referee.RefereeAssigner#assignReferees(UUID)} precondition
      * (line 124-134: check for lap/field null) does NOT throw {@link IllegalStateException}.
      *
-     * <p>This is the structural fix for Bug 3 (HTTP 500 stacktrace 2026-05-08T23:45:40):
-     * {@code RefereeAssigner.assignReferees:131 → DefaultPhaseTransitionService.commitTransition:227}.
-     * The root cause was matches having lapNumber=null at commitTransition time (pre-L2 state).
-     * After L2 (E51S10), matches have non-null lap+field, so the precondition passes.
+     * <p>This is the structural fix for Bug 3 (HTTP 500 stacktrace 2026-05-08T23:45:40): {@code
+     * RefereeAssigner.assignReferees:131 → DefaultPhaseTransitionService.commitTransition:227}. The
+     * root cause was matches having lapNumber=null at commitTransition time (pre-L2 state). After
+     * L2 (E51S10), matches have non-null lap+field, so the precondition passes.
      *
      * <p>DEC-56 D-1 + amended D-3 codify this invariant: L1+L2 always run, matches have non-null
      * lap+field after L1+L2.
@@ -381,18 +385,19 @@ class CommitTransitionE51S12IT {
      * <p>This test uses a minimal 2-team fixture (not a full 12-team setup) because the Bug 3
      * structural fix is about lap/field non-null, not about team count. The 12-team/3-field
      * scenario is representatively tested by verifying that optimize=true does not change the
-     * precondition-pass structural invariant. The optimize=true flag simply enables L3 to run
-     * AFTER commitTransition — it does not affect whether matches have lap+field at commitTransition
-     * time (which is guaranteed by L2 per DEC-56 D-1).
+     * precondition-pass structural invariant. The optimize=true flag simply enables L3 to run AFTER
+     * commitTransition — it does not affect whether matches have lap+field at commitTransition time
+     * (which is guaranteed by L2 per DEC-56 D-1).
      *
-     * <p>Was RED before L2 (E51S10) existed (lap+field were null → RefereeAssigner threw);
-     * expected GREEN after E51S10 lands.
+     * <p>Was RED before L2 (E51S10) existed (lap+field were null → RefereeAssigner threw); expected
+     * GREEN after E51S10 lands.
      */
     @Test
     @DisplayName(
             "optimize=true: commitTransition succeeds; phase reaches ASSIGNED; RefereeAssigner"
-                    + " precondition passes (AC-TEST-COMMITMENT-TRANSITION-12-TEAMS-3-FIELDS-OPTIMIZE-TRUE-RED;"
-                    + " DEC-56 D-1 + amended D-3/D-4)")
+                + " precondition passes"
+                + " (AC-TEST-COMMITMENT-TRANSITION-12-TEAMS-3-FIELDS-OPTIMIZE-TRUE-RED; DEC-56 D-1"
+                + " + amended D-3/D-4)")
     void commitTransition_optimizeTrue_succeeds_phaseReachesAssigned() {
         // Arrange: optimize=true; matches have lap+field from L2 (L3 runs after commitTransition
         // — separate background job per DEC-55 D-3; does not affect commitTransition precondition)

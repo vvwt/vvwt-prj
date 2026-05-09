@@ -1,6 +1,5 @@
 package de.vvwt.tm.tournament.internal;
 
-import de.vvwt.tm.slotopt.PhaseToRawPhaseDefMapper;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseLifecycleService;
 import de.vvwt.tm.tournament.PhaseRepository;
@@ -12,6 +11,7 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -42,16 +42,26 @@ import org.springframework.transaction.annotation.Transactional;
  * {@code lapNumber} and {@code fieldNumber} to every generated match. The {@code fieldCount} is
  * resolved from {@link Tournament#getFieldCount()} (operator-set). If {@code fieldCount} is {@code
  * 0} or negative (e.g., DB NULL maps to {@code 0} on the primitive {@code int} field), the fallback
- * value from {@link PhaseToRawPhaseDefMapper#getFieldCount()} (configured via {@code
- * tm.slotopt.fallback.field-count}, default 3) is used (DEC-55 D-13 fallback rule).
+ * value from {@code tm.slotopt.fallback.field-count} (default 3) is used — the same property
+ * previously read via {@code PhaseToRawPhaseDefMapper.getFieldCount()} (DEC-55 D-13 fallback rule).
+ *
+ * <h2>B-b1 cycle-break (E51S16)</h2>
+ *
+ * <p>The previous injection of {@code PhaseToRawPhaseDefMapper} created a {@code tournament →
+ * slotopt} compile-time edge, causing the Modulith cycle {@code slotopt → tournament → slotopt}.
+ * E51S16 removes this edge by injecting the config property directly via
+ * {@code @Value("${tm.slotopt.fallback.field-count:3}")}. Spring's PropertyResolver resolves the
+ * same configured value as before; the module boundary is no longer violated.
  *
  * @see MatchGenJobListener
  * @see MatchGenFailureWriter
  * @see RoundAssignmentService
+ * @see <a href="DEC-21">DEC-21 — Spring Modulith; tournament allowedDependencies = tenant only</a>
  * @see <a href="DEC-37">DEC-37 Clause B — per-tournament row-lock as first read</a>
  * @see <a href="DEC-55">DEC-55 D-3 — Background-Job-Pipeline (events-only)</a>
  * @see <a href="E51S03">E51S03 — Background-Job-Pipeline foundation</a>
  * @see <a href="E51S10">E51S10 — L2 Round-Assignment Service + fieldCount wiring</a>
+ * @see <a href="E51S16">E51S16 — B-b1 Modulith-cycle elimination</a>
  */
 @Component
 class MatchGenJobExecutor {
@@ -65,11 +75,14 @@ class MatchGenJobExecutor {
     private final RoundAssignmentService roundAssignmentService;
 
     /**
-     * Provides the fallback field-count when {@link Tournament#getFieldCount()} is 0 or negative
-     * (D-13 fallback rule). This also activates {@link PhaseToRawPhaseDefMapper#getFieldCount()} as
-     * the canonical fallback source per AC-TEST-MAPPER-FIELDCOUNT-NOT-DEAD-RED.
+     * Fallback field-count when {@link Tournament#getFieldCount()} is 0 or negative (D-13 fallback
+     * rule). Configured via {@code tm.slotopt.fallback.field-count} (default 3). This value must be
+     * EXACTLY {@code ${tm.slotopt.fallback.field-count:3}} — character-identical to the literal in
+     * {@code PhaseToRawPhaseDefMapper} and {@code FallbackSlotOptimizationClient} — to ensure
+     * Spring PropertyResolver provides the same resolved value at all declaration sites
+     * (AC-IMPL-FALLBACK- RESOLUTION-PRESERVED, DEC-55 D-13).
      */
-    private final PhaseToRawPhaseDefMapper phaseToRawPhaseDefMapper;
+    private final int fallbackFieldCount;
 
     /**
      * Advances the phase lifecycle to {@code PREPARED} after successful match-gen (DEC-55 D-4).
@@ -86,14 +99,14 @@ class MatchGenJobExecutor {
             PhaseRepository phaseRepository,
             ApplicationEventPublisher eventPublisher,
             RoundAssignmentService roundAssignmentService,
-            PhaseToRawPhaseDefMapper phaseToRawPhaseDefMapper,
+            @Value("${tm.slotopt.fallback.field-count:3}") int fallbackFieldCount,
             @Qualifier("tmPhaseLifecycleService") PhaseLifecycleService phaseLifecycleService) {
         this.phasePreparationService = phasePreparationService;
         this.tournamentRepository = tournamentRepository;
         this.phaseRepository = phaseRepository;
         this.eventPublisher = eventPublisher;
         this.roundAssignmentService = roundAssignmentService;
-        this.phaseToRawPhaseDefMapper = phaseToRawPhaseDefMapper;
+        this.fallbackFieldCount = fallbackFieldCount;
         this.phaseLifecycleService = phaseLifecycleService;
     }
 
@@ -146,15 +159,15 @@ class MatchGenJobExecutor {
         String generatorKey = tournament.getMatchGeneratorId();
         phasePreparationService.generateMatches(phaseId, generatorKey);
 
-        // Step 5: Resolve fieldCount with D-13 fallback (tournament.fieldCount → mapper default)
+        // Step 5: Resolve fieldCount with D-13 fallback (tournament.fieldCount → @Value default)
         // tournament.fieldCount is an int primitive; DB NULL maps to 0.
         int resolvedFieldCount = tournament.getFieldCount();
         if (resolvedFieldCount < 1) {
-            // D-13 fallback: use tm.slotopt.fallback.field-count config (mapper's configured value)
-            resolvedFieldCount = phaseToRawPhaseDefMapper.getFieldCount();
+            // D-13 fallback: use tm.slotopt.fallback.field-count config (injected via @Value)
+            resolvedFieldCount = fallbackFieldCount;
             LOG.info(
                     "MatchGenJobExecutor: tournament.fieldCount={} → applying D-13 fallback,"
-                            + " using mapper config fieldCount={}",
+                            + " using @Value fallbackFieldCount={}",
                     tournament.getFieldCount(),
                     resolvedFieldCount);
         }

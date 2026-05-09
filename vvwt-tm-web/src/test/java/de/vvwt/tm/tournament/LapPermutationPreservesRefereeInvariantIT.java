@@ -160,15 +160,13 @@ class LapPermutationPreservesRefereeInvariantIT {
         // With fieldCount=1: each match gets its own lap (0,1,2,3,4,5) — 6 laps total
         phaseId = UUID.randomUUID();
         jdbcTemplate.update(
-                "INSERT INTO phase (id, tournament_id, sequence_number, game_mode,"
-                        + " group_count, positions_per_group, status, optimized, last_job_state)"
-                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO phase (id, tournament_id, sequence_number, description, status,"
+                        + " optimized, last_job_state)"
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
                 phaseId,
                 tournamentId,
                 1,
-                "roundRobin",
-                1,
-                4,
+                "NF-MED-2 IT Phase",
                 "PREPARED",
                 false,
                 null);
@@ -257,8 +255,8 @@ class LapPermutationPreservesRefereeInvariantIT {
     // =========================================================================
 
     /**
-     * Structural-assumption regression guard (NF-MED-2): after L3 lap-permutation (via
-     * {@link SlotResultApplicator#applyResult(long, int, MappingResult)}), every match's {@code
+     * Structural-assumption regression guard (NF-MED-2): after L3 lap-permutation (via {@link
+     * SlotResultApplicator#applyResult(long, int, MappingResult)}), every match's {@code
      * refereeTeamId} is unchanged.
      *
      * <p>Test uses a non-identity permutation rank (non-zero) for 6 laps, which produces a
@@ -271,8 +269,8 @@ class LapPermutationPreservesRefereeInvariantIT {
      * NF-MED-2 regression guard: if a future L3 implementation incorrectly re-assigns referees
      * based on post-permutation lap numbers, this test will fail.
      *
-     * <p>Structural assumption name (per AC wording):
-     * "structural assumption: lap-permutation preserves per-lap team-membership"
+     * <p>Structural assumption name (per AC wording): "structural assumption: lap-permutation
+     * preserves per-lap team-membership"
      *
      * <p>Was RED before E51S11 (SlotResultApplicator didn't implement the flat-index algorithm);
      * expected GREEN after E51S11 lands.
