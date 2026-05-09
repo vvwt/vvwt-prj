@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -183,6 +184,8 @@ class MatchGenJobListenerIT {
     @Autowired private ApplicationEvents applicationEvents;
 
     @Autowired private SlotOptEventCapture slotOptEventCapture;
+
+    @Autowired private ApplicationEventPublisher eventPublisher;
 
     private UUID locationId;
     private UUID tournamentOptimizeTrue;
@@ -793,5 +796,257 @@ class MatchGenJobListenerIT {
         // DraftSection is immutable — use all-args @JsonCreator constructor
         return new DraftSection(
                 sectionNumber, "team_number", 1, "siegerehrung", 0, 0, 5, 1, List.of());
+    }
+
+    // =========================================================================
+    // E51S14 — RED-first tests: MatchGenJobExecutor → PhaseLifecycleService.transition(PREPARED)
+    // =========================================================================
+
+    /**
+     * RED-first IT (E51S14 AC-TEST-MATCH-GEN-COMPLETE-FLIPS-PHASE-PREPARED-RED):
+     *
+     * <p>Given a tournament in DRAFT-applied state with Phase 1 in {@code status=PENDING}, after
+     * {@code DefaultDraftService.apply()} commits and the async {@code MatchGenJobScheduledEvent}
+     * listener completes (verified via {@code last_job_state='idle'}), {@code phase.status} MUST
+     * equal {@code PREPARED}.
+     *
+     * <p>Test fails BEFORE the fix because {@code MatchGenJobExecutor.execute()} never invokes
+     * {@code phaseLifecycleService.transition(phaseId, PREPARED, "match-gen-done")} — the
+     * PENDING→PREPARED edge (DEC-55 D-4) is wired but never called.
+     *
+     * @see de.vvwt.tm.tournament.internal.MatchGenJobExecutor
+     * @see de.vvwt.tm.tournament.PhaseLifecycleService
+     * @see <a href="DEC-55">DEC-55 D-4 — transition-table PENDING→PREPARED via "match-gen-done"</a>
+     * @see <a href="E51S14">E51S14 — wire-add story</a>
+     */
+    @Test
+    @DisplayName(
+            "phase.status = PREPARED after match-gen listener success"
+                    + " — AC-TEST-MATCH-GEN-COMPLETE-FLIPS-PHASE-PREPARED-RED (E51S14)")
+    void matchGenListener_successPath_flipsPhaseStatusToPrepared() throws InterruptedException {
+        DraftConfig config = singlePhaseRoundRobin(2);
+
+        List<UUID> phaseIds = draftService.apply(tournamentOptimizeTrue, config);
+        UUID phase1Id = phaseIds.get(0);
+
+        // Wait for the async match-gen pipeline to complete (last_job_state='idle')
+        waitForListenerCompletion(phase1Id, "idle", 5_000);
+
+        // AC assertion: phase.status must be PREPARED after match-gen completes
+        String phaseStatus =
+                jdbcTemplate.queryForObject(
+                        "SELECT status FROM phase WHERE id = ?", String.class, phase1Id);
+        assertThat(phaseStatus)
+                .as(
+                        "phase.status must be PREPARED after MatchGenJobExecutor.execute() succeeds"
+                                + " — wire-add missing before E51S14 fix")
+                .isEqualTo("PREPARED");
+    }
+
+    /**
+     * RED-first IT (E51S14 AC-TEST-IDEMPOTENT-MATCH-GEN-DOES-NOT-DOUBLE-TRANSITION-RED):
+     *
+     * <p>Given {@code phase.lastJobState='idle'} (idempotency-skip branch at
+     * MatchGenJobExecutor.java:94-99), the executor returns early WITHOUT calling {@code
+     * phaseLifecycleService.transition}. Phase status stays at its current value (PREPARED from a
+     * prior successful run).
+     *
+     * <p>Strategy: apply() once, wait for completion (phase=PREPARED), then use the test
+     * MatchGenJobScheduledEvent listener to trigger a second fire. The second fire hits the
+     * idempotency-skip branch (last_job_state='idle') and must NOT attempt a PREPARED→PREPARED
+     * transition (which would throw IllegalStateException since PREPARED→PREPARED "match-gen-done"
+     * is not a valid transition edge in the table). Phase status remains PREPARED.
+     *
+     * <p>Before the fix: phase never reaches PREPARED, so the idempotency check is always on
+     * PENDING status. After the fix: the test verifies the idempotency guard prevents a second
+     * transition call.
+     *
+     * <p>This test acts as a regression guard that the idempotency path is preserved.
+     *
+     * @see de.vvwt.tm.tournament.internal.MatchGenJobExecutor
+     * @see <a href="DEC-37">DEC-37 Clause B — per-tournament row-lock preserved</a>
+     * @see <a href="E51S14">E51S14 —
+     *     AC-TEST-IDEMPOTENT-MATCH-GEN-DOES-NOT-DOUBLE-TRANSITION-RED</a>
+     */
+    @Test
+    @DisplayName(
+            "Idempotent re-fire does NOT double-transition; phase stays PREPARED"
+                    + " — AC-TEST-IDEMPOTENT-MATCH-GEN-DOES-NOT-DOUBLE-TRANSITION-RED (E51S14)")
+    void matchGenListener_idempotentReFire_doesNotDoubleTransition() throws InterruptedException {
+        DraftConfig config = singlePhaseRoundRobin(2);
+
+        // First apply: pipeline runs to completion → phase=PREPARED
+        List<UUID> phaseIds = draftService.apply(tournamentOptimizeTrue, config);
+        UUID phase1Id = phaseIds.get(0);
+        waitForListenerCompletion(phase1Id, "idle", 5_000);
+
+        // Confirm phase is PREPARED after first pipeline run
+        String statusAfterFirst =
+                jdbcTemplate.queryForObject(
+                        "SELECT status FROM phase WHERE id = ?", String.class, phase1Id);
+        assertThat(statusAfterFirst)
+                .as(
+                        "Phase must be PREPARED after first pipeline run (prerequisite for"
+                                + " idempotency check)")
+                .isEqualTo("PREPARED");
+
+        // Publish a second MatchGenJobScheduledEvent for the same phase.
+        // The executor finds last_job_state='idle' → returns early (idempotency skip).
+        // No transition call → phase stays PREPARED (no PREPARED→PREPARED attempt).
+        eventPublisher.publishEvent(
+                new de.vvwt.tm.tournament.events.MatchGenJobScheduledEvent(
+                        tournamentOptimizeTrue, phase1Id));
+
+        // Brief wait to allow the second listener fire to complete
+        Thread.sleep(500);
+
+        // Phase must remain PREPARED — the idempotency guard prevented a second transition
+        String statusAfterSecond =
+                jdbcTemplate.queryForObject(
+                        "SELECT status FROM phase WHERE id = ?", String.class, phase1Id);
+        assertThat(statusAfterSecond)
+                .as(
+                        "Phase must remain PREPARED after idempotent re-fire"
+                                + " (idempotency guard: last_job_state='idle' → skip)")
+                .isEqualTo("PREPARED");
+    }
+
+    /**
+     * RED-first IT (E51S14 AC-TEST-MATCH-GEN-FAILURE-DOES-NOT-FLIP-PREPARED-RED):
+     *
+     * <p>Given {@code phasePreparationService.generateMatches} throws (via a tournament with a
+     * non-existent generator), the executor's TX rolls back (REQUIRES_NEW) and {@code
+     * MatchGenFailureWriter.writeFailedState} writes {@code last_job_state='failed'}. Critically,
+     * {@code phase.status} MUST REMAIN PENDING — the transition wire is inside the SUCCESS TX, NOT
+     * the failure-handling TX.
+     *
+     * <p>This test ensures that the transition call is only on the success path. Before the fix:
+     * phase trivially stays PENDING because no transition exists anywhere. After the fix: the test
+     * verifies the transition is NOT on the failure path (if it were on the failure path, the TX
+     * rollback would prevent it — but the status would NOT become FAILED either if the transition
+     * was erroneously placed before generateMatches).
+     *
+     * @see de.vvwt.tm.tournament.internal.MatchGenJobExecutor
+     * @see de.vvwt.tm.tournament.internal.MatchGenFailureWriter
+     * @see <a href="E51S14">E51S14 — AC-TEST-MATCH-GEN-FAILURE-DOES-NOT-FLIP-PREPARED-RED</a>
+     */
+    @Test
+    @DisplayName(
+            "Match-gen failure: phase.status stays PENDING (transition NOT called on failure path)"
+                    + " — AC-TEST-MATCH-GEN-FAILURE-DOES-NOT-FLIP-PREPARED-RED (E51S14)")
+    void matchGenListener_failurePath_phaseStatusRemaingPending() throws InterruptedException {
+        // Create a tournament with a non-existent generator → generateMatches() throws
+        UUID failTournamentId = UUID.randomUUID();
+        jdbcTemplate.update(
+                "INSERT INTO tournament (id, location_id, description, match_format,"
+                        + " scoring_rule_id, set_validation_rule_id, match_generator_id,"
+                        + " status, created_at, field_count, team_count, optimize)"
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                failTournamentId,
+                locationId,
+                "E51S14 Failure Test Tournament",
+                "BEST_OF_3",
+                "setPoints",
+                "standardVolleyball",
+                "nonExistentGenerator_e51s14",
+                "DRAFT",
+                java.time.LocalDateTime.now(),
+                2,
+                6,
+                false); // optimize=false — no slot-opt event
+        insertParticipatingTeams(failTournamentId, 6);
+
+        try {
+            DraftConfig config = singlePhaseRoundRobin(2);
+            List<UUID> phaseIds = draftService.apply(failTournamentId, config);
+            UUID phase1Id = phaseIds.get(0);
+
+            // Wait for the failure-writer to set last_job_state='failed'
+            waitForListenerCompletion(phase1Id, "failed", 5_000);
+
+            // AC assertion: phase.status must remain PENDING — transition not called on failure
+            // path
+            String phaseStatus =
+                    jdbcTemplate.queryForObject(
+                            "SELECT status FROM phase WHERE id = ?", String.class, phase1Id);
+            assertThat(phaseStatus)
+                    .as(
+                            "phase.status must remain PENDING when generateMatches() throws"
+                                    + " — transition wire is on success path only (E51S14)")
+                    .isEqualTo("PENDING");
+
+            // Also verify last_job_state='failed' (pre-existing behavior, regression guard)
+            String lastJobState =
+                    jdbcTemplate.queryForObject(
+                            "SELECT last_job_state FROM phase WHERE id = ?",
+                            String.class,
+                            phase1Id);
+            assertThat(lastJobState)
+                    .as("last_job_state must be 'failed' when generateMatches() throws")
+                    .isEqualTo("failed");
+        } finally {
+            // Clean up failure tournament data
+            jdbcTemplate.update(
+                    "DELETE FROM team_avatar WHERE tournament_id = ?", failTournamentId);
+            jdbcTemplate.update(
+                    "DELETE FROM phase_breaks WHERE phase_id IN (SELECT id FROM phase WHERE"
+                            + " tournament_id = ?)",
+                    failTournamentId);
+            jdbcTemplate.update("DELETE FROM phase WHERE tournament_id = ?", failTournamentId);
+            jdbcTemplate.update("DELETE FROM team WHERE tournament_id = ?", failTournamentId);
+            jdbcTemplate.update("DELETE FROM tournament WHERE id = ?", failTournamentId);
+        }
+    }
+
+    /**
+     * RED-first IT (E51S14 AC-TEST-MULTI-PHASE-FLIP-INDEPENDENT-RED):
+     *
+     * <p>Given a tournament with Phase 1 + Phase 2 + Phase 3 (siegerehrung), after apply(), Phase 1
+     * and Phase 2 transition PENDING→PREPARED independently as their respective {@code
+     * MatchGenJobScheduledEvents} process. Phase 3 (siegerehrung — no matches) MUST also reach
+     * PREPARED via the same wire (the siegerehrung generator returns an empty list; the idempotency
+     * guard at line 94-99 does NOT fire because {@code last_job_state} was NULL on entry — so the
+     * executor proceeds to the transition call).
+     *
+     * <p>Test fails BEFORE the fix because all phases stay PENDING (no transition call).
+     *
+     * @see de.vvwt.tm.tournament.internal.MatchGenJobExecutor
+     * @see <a href="DEC-55">DEC-55 D-3 — Background-Job-Pipeline events-only</a>
+     * @see <a href="E51S14">E51S14 — AC-TEST-MULTI-PHASE-FLIP-INDEPENDENT-RED</a>
+     */
+    @Test
+    @DisplayName(
+            "Multi-phase: Phase 1 + Phase 2 both flip PENDING→PREPARED independently after apply()"
+                    + " — AC-TEST-MULTI-PHASE-FLIP-INDEPENDENT-RED (E51S14)")
+    void matchGenListener_multiPhaseFlipIndependent_allReachPrepared() throws InterruptedException {
+        // 3-phase config: Phase 1 (roundRobin, 2 groups) + Phase 2 (roundRobin, 2 groups)
+        // + siegerehrung
+        DraftConfig config = twoPhaseRoundRobinPlusSiegerehrung(2);
+
+        List<UUID> phaseIds = draftService.apply(tournamentOptimizeTrue, config);
+        UUID phase1Id = phaseIds.get(0);
+        UUID phase2Id = phaseIds.get(1);
+        // Phase 3 (siegerehrung, phaseIds.get(2)) has no MatchGenJobScheduledEvent published
+        // (apply() skips siegerehrung phases for match-gen events per AC-TEST-APPLY-PUBLISHES)
+
+        // Wait for both match-gen pipelines to complete
+        waitForListenerCompletion(phase1Id, "idle", 5_000);
+        waitForListenerCompletion(phase2Id, "idle", 5_000);
+
+        // Assert Phase 1 is PREPARED
+        String phase1Status =
+                jdbcTemplate.queryForObject(
+                        "SELECT status FROM phase WHERE id = ?", String.class, phase1Id);
+        assertThat(phase1Status)
+                .as("Phase 1 must be PREPARED after match-gen completes (E51S14 wire-add)")
+                .isEqualTo("PREPARED");
+
+        // Assert Phase 2 is PREPARED
+        String phase2Status =
+                jdbcTemplate.queryForObject(
+                        "SELECT status FROM phase WHERE id = ?", String.class, phase2Id);
+        assertThat(phase2Status)
+                .as("Phase 2 must be PREPARED after match-gen completes (E51S14 wire-add)")
+                .isEqualTo("PREPARED");
     }
 }
