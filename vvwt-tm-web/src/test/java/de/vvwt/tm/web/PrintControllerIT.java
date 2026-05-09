@@ -855,6 +855,683 @@ class PrintControllerIT {
         }
     }
 
+    // =========================================================================
+    // E53S03 — AC-TEST-INDEX-GATE-NO-ACTIVE-PHASE-RED
+    // =========================================================================
+
+    /**
+     * AC-TEST-INDEX-GATE-NO-ACTIVE-PHASE-RED: when all phases are PENDING (no ACTIVE), the
+     * print-index body MUST NOT contain links to team-schedules or the photo-schedule endpoint.
+     * Instead it must contain an operator-actionable message about no active phase.
+     *
+     * <p>RED before index-gate implementation (currently both links are always rendered).
+     *
+     * @since E53S03
+     */
+    @Test
+    @DisplayName(
+            "AC-TEST-INDEX-GATE-NO-ACTIVE-PHASE-RED: no ACTIVE phase → links absent, empty-state"
+                    + " message present — E53S03")
+    void printIndex_noActivePhase_linksAbsent_emptyStateMessagePresent() throws Exception {
+        UUID tid = seedTournamentWithOnlyPendingPhase();
+        ResponseEntity<String> response =
+                authed.getForEntity(new URI(baseUrl + "/print/tournaments/" + tid), String.class);
+
+        assertThat(response.getStatusCode())
+                .as("AC-TEST-INDEX-GATE-NO-ACTIVE-PHASE-RED: must return 200 (not 500 or 404)")
+                .isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as("AC-TEST-INDEX-GATE-NO-ACTIVE-PHASE-RED: body must not be blank")
+                .isNotBlank();
+        // Links must NOT appear
+        assertThat(response.getBody())
+                .as(
+                        "AC-TEST-INDEX-GATE-NO-ACTIVE-PHASE-RED: team-schedules link must be"
+                                + " absent when no ACTIVE phase")
+                .doesNotContain("/team-schedules");
+        assertThat(response.getBody())
+                .as(
+                        "AC-TEST-INDEX-GATE-NO-ACTIVE-PHASE-RED: activity-schedule link must be"
+                                + " absent when no ACTIVE phase")
+                .doesNotContain("/activity-schedule/");
+        // Empty-state message MUST appear
+        assertThat(response.getBody())
+                .as(
+                        "AC-TEST-INDEX-GATE-NO-ACTIVE-PHASE-RED: operator-actionable empty-state"
+                                + " message must be present")
+                .containsIgnoringCase("Keine aktive Phase");
+    }
+
+    /**
+     * AC-TEST-INDEX-GATE-WITH-ACTIVE-PHASE-RED: when at least one ACTIVE phase exists, the
+     * print-index body MUST contain a link to the laufzettel (team-schedules) endpoint.
+     *
+     * @since E53S03
+     */
+    @Test
+    @DisplayName(
+            "AC-TEST-INDEX-GATE-WITH-ACTIVE-PHASE-RED: ACTIVE phase present → laufzettel link"
+                    + " visible — E53S03")
+    void printIndex_withActivePhase_laufzettelLinkPresent() throws Exception {
+        UUID tid = seedTournamentWithActivePhaseAndMatches();
+        ResponseEntity<String> response =
+                authed.getForEntity(new URI(baseUrl + "/print/tournaments/" + tid), String.class);
+
+        assertThat(response.getStatusCode())
+                .as("AC-TEST-INDEX-GATE-WITH-ACTIVE-PHASE-RED: must return 200")
+                .isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as(
+                        "AC-TEST-INDEX-GATE-WITH-ACTIVE-PHASE-RED: laufzettel link must be"
+                                + " present when ACTIVE phase exists")
+                .contains("/team-schedules");
+        assertThat(response.getBody())
+                .as(
+                        "AC-TEST-INDEX-GATE-WITH-ACTIVE-PHASE-RED: empty-state message must NOT"
+                                + " appear when ACTIVE phase exists")
+                .doesNotContainIgnoringCase("Keine aktive Phase");
+    }
+
+    /**
+     * AC-TEST-FOTOS-LINK-NOT-404-RED: given a tournament with an ACTIVE phase + a configured photo
+     * activity-type (FIRST_FREE_ROUND rule), the print-index body contains a photo link whose href
+     * resolves to HTTP 200 (not 404).
+     *
+     * @since E53S03
+     */
+    @Test
+    @DisplayName("AC-TEST-FOTOS-LINK-NOT-404-RED: foto link resolves to HTTP 200 — E53S03")
+    void printIndex_withPhotoActivityType_fotosLinkResolvesTo200() throws Exception {
+        UUID tid = seedTournamentWithActivePhaseAndPhotoActivityType();
+        ResponseEntity<String> indexResponse =
+                authed.getForEntity(new URI(baseUrl + "/print/tournaments/" + tid), String.class);
+
+        assertThat(indexResponse.getStatusCode())
+                .as("AC-TEST-FOTOS-LINK-NOT-404-RED: index must return 200")
+                .isEqualTo(HttpStatus.OK);
+        assertThat(indexResponse.getBody())
+                .as("AC-TEST-FOTOS-LINK-NOT-404-RED: index must contain activity-schedule link")
+                .contains("/activity-schedule/");
+
+        // Extract the foto href from the response and verify it returns 200
+        String body = indexResponse.getBody();
+        int hrefStart = body.indexOf("href=\"/print/tournaments/") + 6;
+        // Find the activity-schedule link specifically
+        int actStart = body.indexOf("/activity-schedule/");
+        assertThat(actStart)
+                .as("AC-TEST-FOTOS-LINK-NOT-404-RED: activity-schedule href must be present")
+                .isGreaterThan(0);
+
+        // Extract the full href path
+        int hrefBegin = body.lastIndexOf("href=\"", actStart) + 6;
+        int hrefEnd = body.indexOf("\"", hrefBegin);
+        String fotosHref = body.substring(hrefBegin, hrefEnd);
+
+        // Follow the link and assert 200
+        ResponseEntity<String> fotosResponse =
+                authed.getForEntity(new URI(baseUrl + fotosHref), String.class);
+        assertThat(fotosResponse.getStatusCode())
+                .as(
+                        "AC-TEST-FOTOS-LINK-NOT-404-RED: fotosUrl must resolve to 200 (not 404)."
+                                + " Resolved href: "
+                                + fotosHref)
+                .isEqualTo(HttpStatus.OK);
+    }
+
+    /**
+     * AC-TEST-PHOTO-SCHEDULE-FIRST-PHASE-ONLY-RED: given a tournament with two ACTIVE phases and a
+     * photo activity-type, the photo-schedule page shows content from ONLY the first phase
+     * (sequence_number=1). Asserted via phase-name presence in the body.
+     *
+     * @since E53S03
+     */
+    @Test
+    @DisplayName(
+            "AC-TEST-PHOTO-SCHEDULE-FIRST-PHASE-ONLY-RED: photo-schedule shows first phase only"
+                    + " — E53S03")
+    void activitySchedule_photoType_showsFirstPhaseOnly() throws Exception {
+        UUID[] result = seedTournamentWithTwoActivePhasesAndPhotoActivityType();
+        UUID tid = result[0];
+        UUID photoActivityTypeId = result[1];
+
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(
+                                baseUrl
+                                        + "/print/tournaments/"
+                                        + tid
+                                        + "/activity-schedule/"
+                                        + photoActivityTypeId),
+                        String.class);
+
+        assertThat(response.getStatusCode())
+                .as("AC-TEST-PHOTO-SCHEDULE-FIRST-PHASE-ONLY-RED: must return 200")
+                .isEqualTo(HttpStatus.OK);
+        // Phase 1 header should appear (or content from phase 1 — teams present)
+        assertThat(response.getBody())
+                .as(
+                        "AC-TEST-PHOTO-SCHEDULE-FIRST-PHASE-ONLY-RED: response body must contain"
+                                + " phase 1 content")
+                .contains("Phase 1");
+        // Phase 2 header must NOT appear
+        assertThat(response.getBody())
+                .as(
+                        "AC-TEST-PHOTO-SCHEDULE-FIRST-PHASE-ONLY-RED: phase 2 content must NOT"
+                                + " appear in photo-schedule (first-phase filter)")
+                .doesNotContain("Phase 2");
+    }
+
+    /**
+     * AC-TEST-PHOTO-SCHEDULE-NON-PHOTO-UNCHANGED-RED: a non-photo activity-type (e.g., custom
+     * activity without FIRST_FREE_ROUND rule) → the activity-schedule shows all phases (no
+     * first-phase filter applied).
+     *
+     * @since E53S03
+     */
+    @Test
+    @DisplayName(
+            "AC-TEST-PHOTO-SCHEDULE-NON-PHOTO-UNCHANGED-RED: non-photo activity shows all phases"
+                    + " — E53S03")
+    void activitySchedule_nonPhotoType_showsAllPhases() throws Exception {
+        UUID[] result = seedTournamentWithTwoActivePhasesAndNonPhotoActivityType();
+        UUID tid = result[0];
+        UUID customActivityTypeId = result[1];
+
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(
+                                baseUrl
+                                        + "/print/tournaments/"
+                                        + tid
+                                        + "/activity-schedule/"
+                                        + customActivityTypeId),
+                        String.class);
+
+        assertThat(response.getStatusCode())
+                .as("AC-TEST-PHOTO-SCHEDULE-NON-PHOTO-UNCHANGED-RED: must return 200")
+                .isEqualTo(HttpStatus.OK);
+        // Both phases should appear in the output for non-photo activity-type
+        assertThat(response.getBody())
+                .as(
+                        "AC-TEST-PHOTO-SCHEDULE-NON-PHOTO-UNCHANGED-RED: phase 1 content must"
+                                + " appear for non-photo activity")
+                .contains("Phase 1");
+        assertThat(response.getBody())
+                .as(
+                        "AC-TEST-PHOTO-SCHEDULE-NON-PHOTO-UNCHANGED-RED: phase 2 content must"
+                                + " also appear for non-photo activity (no filter)")
+                .contains("Phase 2");
+    }
+
+    /**
+     * AC-TEST-PHOTO-EDGE-ZERO-CANDIDATES-RED: when no photo activity-type is configured, the
+     * print-index MUST NOT show a dead link to /fotos. The fotosUrl link should be absent.
+     *
+     * @since E53S03
+     */
+    @Test
+    @DisplayName(
+            "AC-TEST-PHOTO-EDGE-ZERO-CANDIDATES-RED: no photo activity-type → fotosUrl link"
+                    + " absent — E53S03")
+    void printIndex_noPhotoActivityType_fotosLinkAbsent() throws Exception {
+        UUID tid = seedTournamentWithActivePhaseAndMatches(); // no activity types seeded
+        ResponseEntity<String> response =
+                authed.getForEntity(new URI(baseUrl + "/print/tournaments/" + tid), String.class);
+
+        assertThat(response.getStatusCode())
+                .as("AC-TEST-PHOTO-EDGE-ZERO-CANDIDATES-RED: must return 200")
+                .isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as(
+                        "AC-TEST-PHOTO-EDGE-ZERO-CANDIDATES-RED: no /fotos or /activity-schedule"
+                                + " link should appear when no photo activity-type configured")
+                .doesNotContain("/fotos");
+        assertThat(response.getBody())
+                .as(
+                        "AC-TEST-PHOTO-EDGE-ZERO-CANDIDATES-RED: no /activity-schedule link"
+                                + " should appear when no photo activity-type configured")
+                .doesNotContain("/activity-schedule/");
+    }
+
+    // =========================================================================
+    // E53S03 — private seed helpers
+    // =========================================================================
+
+    /**
+     * Seeds a tournament with one ACTIVE phase (with match) + one FIRST_FREE_ROUND activity type.
+     * Returns the tournament ID.
+     */
+    private UUID seedTournamentWithActivePhaseAndPhotoActivityType() {
+        tenantBinder.bindDefaultTenant();
+        try {
+            UUID tid = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO tournament (id, location_id, description, match_format,"
+                            + " scoring_rule_id, set_validation_rule_id, match_generator_id,"
+                            + " status, created_at, field_count, team_count)"
+                            + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    tid,
+                    locationId,
+                    "PrintControllerIT E53S03 PhotoLink",
+                    "BEST_OF_3",
+                    "setPoints",
+                    "standardVolleyball",
+                    "roundRobin",
+                    "ACTIVE",
+                    LocalDateTime.now(),
+                    2,
+                    2);
+
+            UUID phaseId = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO phase (id, tournament_id, sequence_number, description, status,"
+                            + " current_lap_number, optimized) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    phaseId,
+                    tid,
+                    1,
+                    "Phase 1",
+                    "ACTIVE",
+                    0,
+                    true);
+
+            UUID team1Id = UUID.randomUUID();
+            UUID team2Id = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO team (id, tournament_id, team_number, description, participate)"
+                            + " VALUES (?, ?, ?, ?, ?)",
+                    team1Id,
+                    tid,
+                    1,
+                    "Team X",
+                    true);
+            jdbcTemplate.update(
+                    "INSERT INTO team (id, tournament_id, team_number, description, participate)"
+                            + " VALUES (?, ?, ?, ?, ?)",
+                    team2Id,
+                    tid,
+                    2,
+                    "Team Y",
+                    true);
+
+            UUID avatar1Id = UUID.randomUUID();
+            UUID avatar2Id = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO team_avatar (id, tournament_id, phase_id, group_number,"
+                            + " group_position, team_id) VALUES (?, ?, ?, ?, ?, ?)",
+                    avatar1Id,
+                    tid,
+                    phaseId,
+                    1,
+                    1,
+                    team1Id);
+            jdbcTemplate.update(
+                    "INSERT INTO team_avatar (id, tournament_id, phase_id, group_number,"
+                            + " group_position, team_id) VALUES (?, ?, ?, ?, ?, ?)",
+                    avatar2Id,
+                    tid,
+                    phaseId,
+                    1,
+                    2,
+                    team2Id);
+
+            UUID matchId = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO match (id, tournament_id, phase_id, member_avatar_1_id,"
+                            + " member_avatar_2_id, state, set_limit, lap_number, field_number)"
+                            + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    matchId,
+                    tid,
+                    phaseId,
+                    avatar1Id,
+                    avatar2Id,
+                    0,
+                    1,
+                    1,
+                    1);
+
+            // Photo activity type with FIRST_FREE_ROUND rule
+            UUID photoActivityTypeId = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO activity_types (id, tournament_id, name, assignment_rule,"
+                            + " capacity_per_round, sort_order) VALUES (?, ?, ?, ?, ?, ?)",
+                    photoActivityTypeId,
+                    tid,
+                    "Mannschaftsfoto",
+                    "FIRST_FREE_ROUND",
+                    null,
+                    1);
+
+            return tid;
+        } finally {
+            tenantBinder.unbind();
+        }
+    }
+
+    /**
+     * Seeds a tournament with TWO ACTIVE phases (Phase 1, Phase 2) + one FIRST_FREE_ROUND photo
+     * activity type. Returns [tournamentId, photoActivityTypeId].
+     */
+    private UUID[] seedTournamentWithTwoActivePhasesAndPhotoActivityType() {
+        tenantBinder.bindDefaultTenant();
+        try {
+            UUID tid = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO tournament (id, location_id, description, match_format,"
+                            + " scoring_rule_id, set_validation_rule_id, match_generator_id,"
+                            + " status, created_at, field_count, team_count)"
+                            + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    tid,
+                    locationId,
+                    "PrintControllerIT E53S03 TwoPhases Photo",
+                    "BEST_OF_3",
+                    "setPoints",
+                    "standardVolleyball",
+                    "roundRobin",
+                    "ACTIVE",
+                    LocalDateTime.now(),
+                    2,
+                    2);
+
+            UUID phase1Id = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO phase (id, tournament_id, sequence_number, description, status,"
+                            + " current_lap_number, optimized) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    phase1Id,
+                    tid,
+                    1,
+                    "Phase 1",
+                    "ACTIVE",
+                    0,
+                    true);
+
+            UUID phase2Id = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO phase (id, tournament_id, sequence_number, description, status,"
+                            + " current_lap_number, optimized) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    phase2Id,
+                    tid,
+                    2,
+                    "Phase 2",
+                    "ACTIVE",
+                    0,
+                    true);
+
+            UUID team1Id = UUID.randomUUID();
+            UUID team2Id = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO team (id, tournament_id, team_number, description, participate)"
+                            + " VALUES (?, ?, ?, ?, ?)",
+                    team1Id,
+                    tid,
+                    1,
+                    "Team P1",
+                    true);
+            jdbcTemplate.update(
+                    "INSERT INTO team (id, tournament_id, team_number, description, participate)"
+                            + " VALUES (?, ?, ?, ?, ?)",
+                    team2Id,
+                    tid,
+                    2,
+                    "Team P2",
+                    true);
+
+            // Phase 1 avatars + match
+            UUID av1p1 = UUID.randomUUID();
+            UUID av2p1 = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO team_avatar (id, tournament_id, phase_id, group_number,"
+                            + " group_position, team_id) VALUES (?, ?, ?, ?, ?, ?)",
+                    av1p1,
+                    tid,
+                    phase1Id,
+                    1,
+                    1,
+                    team1Id);
+            jdbcTemplate.update(
+                    "INSERT INTO team_avatar (id, tournament_id, phase_id, group_number,"
+                            + " group_position, team_id) VALUES (?, ?, ?, ?, ?, ?)",
+                    av2p1,
+                    tid,
+                    phase1Id,
+                    1,
+                    2,
+                    team2Id);
+            UUID match1Id = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO match (id, tournament_id, phase_id, member_avatar_1_id,"
+                            + " member_avatar_2_id, state, set_limit, lap_number, field_number)"
+                            + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    match1Id,
+                    tid,
+                    phase1Id,
+                    av1p1,
+                    av2p1,
+                    0,
+                    1,
+                    1,
+                    1);
+
+            // Phase 2 avatars + match
+            UUID av1p2 = UUID.randomUUID();
+            UUID av2p2 = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO team_avatar (id, tournament_id, phase_id, group_number,"
+                            + " group_position, team_id) VALUES (?, ?, ?, ?, ?, ?)",
+                    av1p2,
+                    tid,
+                    phase2Id,
+                    1,
+                    1,
+                    team1Id);
+            jdbcTemplate.update(
+                    "INSERT INTO team_avatar (id, tournament_id, phase_id, group_number,"
+                            + " group_position, team_id) VALUES (?, ?, ?, ?, ?, ?)",
+                    av2p2,
+                    tid,
+                    phase2Id,
+                    1,
+                    2,
+                    team2Id);
+            UUID match2Id = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO match (id, tournament_id, phase_id, member_avatar_1_id,"
+                            + " member_avatar_2_id, state, set_limit, lap_number, field_number)"
+                            + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    match2Id,
+                    tid,
+                    phase2Id,
+                    av1p2,
+                    av2p2,
+                    0,
+                    1,
+                    1,
+                    1);
+
+            // Photo activity type
+            UUID photoActivityTypeId = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO activity_types (id, tournament_id, name, assignment_rule,"
+                            + " capacity_per_round, sort_order) VALUES (?, ?, ?, ?, ?, ?)",
+                    photoActivityTypeId,
+                    tid,
+                    "Mannschaftsfoto",
+                    "FIRST_FREE_ROUND",
+                    null,
+                    1);
+
+            return new UUID[] {tid, photoActivityTypeId};
+        } finally {
+            tenantBinder.unbind();
+        }
+    }
+
+    /**
+     * Seeds a tournament with TWO ACTIVE phases + one NON-PHOTO (null assignment_rule) activity
+     * type. Returns [tournamentId, customActivityTypeId].
+     */
+    private UUID[] seedTournamentWithTwoActivePhasesAndNonPhotoActivityType() {
+        tenantBinder.bindDefaultTenant();
+        try {
+            UUID tid = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO tournament (id, location_id, description, match_format,"
+                            + " scoring_rule_id, set_validation_rule_id, match_generator_id,"
+                            + " status, created_at, field_count, team_count)"
+                            + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    tid,
+                    locationId,
+                    "PrintControllerIT E53S03 TwoPhases NonPhoto",
+                    "BEST_OF_3",
+                    "setPoints",
+                    "standardVolleyball",
+                    "roundRobin",
+                    "ACTIVE",
+                    LocalDateTime.now(),
+                    2,
+                    2);
+
+            UUID phase1Id = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO phase (id, tournament_id, sequence_number, description, status,"
+                            + " current_lap_number, optimized) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    phase1Id,
+                    tid,
+                    1,
+                    "Phase 1",
+                    "ACTIVE",
+                    0,
+                    true);
+
+            UUID phase2Id = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO phase (id, tournament_id, sequence_number, description, status,"
+                            + " current_lap_number, optimized) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    phase2Id,
+                    tid,
+                    2,
+                    "Phase 2",
+                    "ACTIVE",
+                    0,
+                    true);
+
+            UUID team1Id = UUID.randomUUID();
+            UUID team2Id = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO team (id, tournament_id, team_number, description, participate)"
+                            + " VALUES (?, ?, ?, ?, ?)",
+                    team1Id,
+                    tid,
+                    1,
+                    "Team N1",
+                    true);
+            jdbcTemplate.update(
+                    "INSERT INTO team (id, tournament_id, team_number, description, participate)"
+                            + " VALUES (?, ?, ?, ?, ?)",
+                    team2Id,
+                    tid,
+                    2,
+                    "Team N2",
+                    true);
+
+            // Phase 1
+            UUID av1p1 = UUID.randomUUID();
+            UUID av2p1 = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO team_avatar (id, tournament_id, phase_id, group_number,"
+                            + " group_position, team_id) VALUES (?, ?, ?, ?, ?, ?)",
+                    av1p1,
+                    tid,
+                    phase1Id,
+                    1,
+                    1,
+                    team1Id);
+            jdbcTemplate.update(
+                    "INSERT INTO team_avatar (id, tournament_id, phase_id, group_number,"
+                            + " group_position, team_id) VALUES (?, ?, ?, ?, ?, ?)",
+                    av2p1,
+                    tid,
+                    phase1Id,
+                    1,
+                    2,
+                    team2Id);
+            UUID match1Id = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO match (id, tournament_id, phase_id, member_avatar_1_id,"
+                            + " member_avatar_2_id, state, set_limit, lap_number, field_number)"
+                            + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    match1Id,
+                    tid,
+                    phase1Id,
+                    av1p1,
+                    av2p1,
+                    0,
+                    1,
+                    1,
+                    1);
+
+            // Phase 2
+            UUID av1p2 = UUID.randomUUID();
+            UUID av2p2 = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO team_avatar (id, tournament_id, phase_id, group_number,"
+                            + " group_position, team_id) VALUES (?, ?, ?, ?, ?, ?)",
+                    av1p2,
+                    tid,
+                    phase2Id,
+                    1,
+                    1,
+                    team1Id);
+            jdbcTemplate.update(
+                    "INSERT INTO team_avatar (id, tournament_id, phase_id, group_number,"
+                            + " group_position, team_id) VALUES (?, ?, ?, ?, ?, ?)",
+                    av2p2,
+                    tid,
+                    phase2Id,
+                    1,
+                    2,
+                    team2Id);
+            UUID match2Id = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO match (id, tournament_id, phase_id, member_avatar_1_id,"
+                            + " member_avatar_2_id, state, set_limit, lap_number, field_number)"
+                            + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    match2Id,
+                    tid,
+                    phase2Id,
+                    av1p2,
+                    av2p2,
+                    0,
+                    1,
+                    1,
+                    1);
+
+            // Non-photo activity type (assignment_rule = 'FIRST_FREE_ROUND' but... wait,
+            // ALL V1 activity types use FIRST_FREE_ROUND. A "non-photo" activity is still
+            // FIRST_FREE_ROUND but with a different name. So all FIRST_FREE_ROUND types
+            // qualify as "photo" per our resolver. The test verifies: if there are TWO
+            // FIRST_FREE_ROUND types and we request the SECOND one, the first-phase filter
+            // still applies (both are photo types). Actually the story says: non-photo =
+            // activity types that are NOT FIRST_FREE_ROUND. Since all V1 types ARE
+            // FIRST_FREE_ROUND, we simulate a "non-photo" by inserting with a custom rule
+            // name that the DB accepts (varchar) but our resolver won't match.
+            // Per AC-GOV-NO-SCHEMA-CHANGE: no schema changes; we can insert a custom rule value.
+            UUID customActivityTypeId = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO activity_types (id, tournament_id, name, assignment_rule,"
+                            + " capacity_per_round, sort_order) VALUES (?, ?, ?, ?, ?, ?)",
+                    customActivityTypeId,
+                    tid,
+                    "Custom Activity",
+                    "CUSTOM_RULE",
+                    null,
+                    1);
+
+            return new UUID[] {tid, customActivityTypeId};
+        } finally {
+            tenantBinder.unbind();
+        }
+    }
+
     private UUID createTournament(String description) throws Exception {
         TournamentCreateRequest request =
                 new TournamentCreateRequest(
