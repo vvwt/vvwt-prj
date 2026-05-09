@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-35.md at 478f43a4441deb513240dcefdc41b8f1da4c0e4f 2026-04-22 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-35.md at c73f60f9344c1aaa51a39e0ab056ecedc812d195 2026-05-09 -->
 ---
 id: DEC-35
 domain: architecture
@@ -8,10 +8,10 @@ status: active
 created_by: discovery
 created_at: 2026-04-22
 last_updated_by: discovery
-last_updated_at: 2026-04-22
+last_updated_at: 2026-05-10
 supersedes: null
 superseded_by: null
-amended_by: [DEC-40]
+amended_by: [DEC-40, DEC-58]
 amends: null
 tags:
   - spring-modulith
