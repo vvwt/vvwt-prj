@@ -19,7 +19,6 @@ import de.vvwt.tm.slotopt.SlotOptimizationJobRegistry;
 import de.vvwt.tm.slotopt.SlotResultApplicator;
 import de.vvwt.tm.tournament.Match;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -45,8 +44,8 @@ import org.springframework.stereotype.Service;
  *
  * <ul>
  *   <li><strong>Leg 1 (E27S01):</strong> lapCount &le; {@code tm.slotopt.exhaustive-max-n} (default
- *       10) → exhaustive in-process lap-permutation search; {@link SlotResultApplicator#applyResult}
- *       called per group.
+ *       10) → exhaustive in-process lap-permutation search; {@link
+ *       SlotResultApplicator#applyResult} called per group.
  *   <li><strong>Leg 2 (E27S03):</strong> lapCount &gt; threshold AND dispatcher reachable → HTTP
  *       submit to vvwt-slotopt-dispatcher. On any wire error, falls through to Leg 3.
  *   <li><strong>Leg 3 (E27S02):</strong> lapCount &gt; threshold AND dispatcher NOT reachable (or
@@ -55,11 +54,11 @@ import org.springframework.stereotype.Service;
  *
  * <h2>Per-group L3 iteration (NF-MED-1, E51S11)</h2>
  *
- * <p>{@link #optimize(UUID)} iterates over distinct group numbers in the phase mapping (derived from
- * {@link PositionTuple#group()} of each raw row). For each group, a per-group {@link MappingResult}
- * is obtained via {@link PhaseToRawPhaseDefMapper#mapGroup(UUID, int)} and routed independently.
- * Leg 1 applies results via {@link SlotResultApplicator} per group inline. Legs 2/3 delegate to
- * the phase-level cancelable service.
+ * <p>{@link #optimize(UUID)} iterates over distinct group numbers in the phase mapping (derived
+ * from {@link PositionTuple#group()} of each raw row). For each group, a per-group {@link
+ * MappingResult} is obtained via {@link PhaseToRawPhaseDefMapper#mapGroup(UUID, int)} and routed
+ * independently. Leg 1 applies results via {@link SlotResultApplicator} per group inline. Legs 2/3
+ * delegate to the phase-level cancelable service.
  *
  * <h2>Bean wiring</h2>
  *
@@ -101,7 +100,8 @@ public class RoutingSlotOptimizationClient implements SlotOptimizationClient {
      *     since E51S11 — lap-permutation loop is inlined)
      * @param cancelableService the Leg 3 cancelable in-process service
      * @param jobRegistry the per-tournament job handle registry
-     * @param mapper the phase-to-raw-phase-def mapper (used to derive groups and per-group lapCount)
+     * @param mapper the phase-to-raw-phase-def mapper (used to derive groups and per-group
+     *     lapCount)
      * @param reachabilityService checks if the dispatcher is reachable before attempting Leg 2
      * @param dispatcherClient the HTTP client for Leg 2 dispatcher submission (E27S03)
      * @param applicator the result applicator for Leg 1 per-group result application (E51S11)
@@ -276,8 +276,8 @@ public class RoutingSlotOptimizationClient implements SlotOptimizationClient {
         if (lapCount < 2) {
             // Trivial phase: apply identity (L2 baseline)
             LOG.debug(
-                    "RoutingSlotOptimizationClient.executeLeg1Inline: phase={} group={}, lapCount={}"
-                            + " < 2 → identity rank=0 (L2 baseline)",
+                    "RoutingSlotOptimizationClient.executeLeg1Inline: phase={} group={},"
+                            + " lapCount={} < 2 → identity rank=0 (L2 baseline)",
                     phaseId,
                     groupNumber,
                     lapCount);

@@ -17,16 +17,16 @@ import org.springframework.stereotype.Service;
  * In-process exhaustive slot-optimization client (E04S03).
  *
  * <p>Implements {@link SlotOptimizationClient} using an exhaustive lap-permutation search (E51S11).
- * For phases with lapCount &le; {@code tm.slotopt.exhaustive-max-n} rows, it searches all
- * lapCount! lap permutations and applies the globally optimal result via {@link
+ * For phases with lapCount &le; {@code tm.slotopt.exhaustive-max-n} rows, it searches all lapCount!
+ * lap permutations and applies the globally optimal result via {@link
  * SlotResultApplicator#applyResult}.
  *
  * <h2>N = lapCount (E51S11 N-redefinition, DEC-49 D-3)</h2>
  *
  * <p>As of E51S11, N = {@code lapCount = rowCount / fieldCount}. The threshold check, the search
  * space, and {@link SlotResultApplicator#applyResult} all use lapCount as the permutation
- * dimension. The row sequence for scoring is expanded from the lap permutation π via:
- * {@code rowSeq[i] = π[i/fc]*fc + i%fc}.
+ * dimension. The row sequence for scoring is expanded from the lap permutation π via: {@code
+ * rowSeq[i] = π[i/fc]*fc + i%fc}.
  *
  * <h2>Slot assignment</h2>
  *
@@ -174,7 +174,8 @@ public class DirectSlotOptimizationClient implements SlotOptimizationClient {
             return;
         }
 
-        // lapCount > exhaustiveMaxN — not handled here; routing client should have routed to Leg 2/3
+        // lapCount > exhaustiveMaxN — not handled here; routing client should have routed to Leg
+        // 2/3
         if (lapCount > exhaustiveMaxN) {
             throw new UnsupportedOperationException(
                     "Exhaustive optimization not feasible for lapCount="
@@ -223,7 +224,8 @@ public class DirectSlotOptimizationClient implements SlotOptimizationClient {
                 bestRank,
                 bestScore);
 
-        // Apply the best lap-permutation rank via SlotResultApplicator (AC-IMPL-OPTION-3-FLAT-INDEX)
+        // Apply the best lap-permutation rank via SlotResultApplicator
+        // (AC-IMPL-OPTION-3-FLAT-INDEX)
         applicator.applyResult(bestRank, fieldCount, mapping);
     }
 

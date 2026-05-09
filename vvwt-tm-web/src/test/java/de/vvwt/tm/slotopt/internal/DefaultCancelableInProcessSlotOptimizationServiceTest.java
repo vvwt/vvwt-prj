@@ -113,11 +113,11 @@ class DefaultCancelableInProcessSlotOptimizationServiceTest {
      * lap/field values set by L2. This is semantically correct: rank=0 is the identity permutation
      * over laps, so L3 leaves L2's assignment unchanged.
      *
-     * <p>FAILS before fix if applyResult is NOT called with rank=0 on cancel-before-permutation (e.g.
-     * if "trivial coordinates" path directly sets lap=0/field=sequential bypassing SlotResultApplicator).
-     * Current implementation calls applyResult(0L, ...) which is correct — test verifies this
-     * explicitly and is already GREEN (no code change needed for this specific AC). Added here for
-     * traceability.
+     * <p>FAILS before fix if applyResult is NOT called with rank=0 on cancel-before-permutation
+     * (e.g. if "trivial coordinates" path directly sets lap=0/field=sequential bypassing
+     * SlotResultApplicator). Current implementation calls applyResult(0L, ...) which is correct —
+     * test verifies this explicitly and is already GREEN (no code change needed for this specific
+     * AC). Added here for traceability.
      */
     @Test
     void optimize_cancelledBeforeStart_appliesRank0_l2BaselinePreserved() {

@@ -1,23 +1,23 @@
-{{!
+<!--
   laufzettel-all.mustache — all-teams Laufzettel print template.
 
   E08S08 AC2, AC12, AC14:
   - Renders all teams' Laufzettel in team-number order.
-  - CSS page breaks are inserted between teams (AC12) via {{#showPageBreak}}.
+  - CSS page breaks are inserted between teams (AC12) via the showPageBreak flag.
   - Organizer prints this single page to get all schedules at once (AC2).
-  - Time column controlled by {{hasTime}} per team schedule.
+  - Time column controlled by hasTime per team schedule.
 
   Required model attributes (all set by PrintController):
-    {{tournamentName}}, {{tournamentDate}}, {{phaseName}}, {{msgTournamentLabel}},
-    {{msgDateLabel}}, {{msgPhaseLabel}}, {{cssPath}}  — shared header model
-    {{title}}     — page title
-    {{heading}}   — page heading
-    {{schedules}} — list of per-team schedule maps:
-      each: {{teamNumber}}, {{teamName}}, {{heading}}, {{hasTime}},
-            {{showPageBreak}}, {{rows}} (same format as laufzettel.mustache)
-    {{msgColRound}}, {{msgColTime}}, {{msgColActivity}}, {{msgColField}}
-    {{msgReferee}}, {{msgFree}}, {{msgBreak}}
-}}
+    tournamentName, tournamentDate, phaseName, msgTournamentLabel,
+    msgDateLabel, msgPhaseLabel, cssPath  — shared header model
+    title     — page title
+    heading   — page heading
+    schedules — list of per-team schedule maps:
+      each: teamNumber, teamName, heading, hasTime,
+            showPageBreak, rows (same format as laufzettel.mustache)
+    msgColRound, msgColTime, msgColActivity, msgColField
+    msgReferee, msgFree, msgBreak
+-->
 <!DOCTYPE html>
 <html lang="{{locale}}">
 <head>

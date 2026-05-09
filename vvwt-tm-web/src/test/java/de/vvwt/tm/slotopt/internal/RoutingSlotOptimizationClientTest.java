@@ -95,16 +95,21 @@ class RoutingSlotOptimizationClientTest {
     // AC-LEG-1-DELEGATION-CONTRACT-TESTED (E27S01 — preserved)
     // =========================================================================
 
-    /** AC-LEG-1-DELEGATION-CONTRACT-TESTED (a): lapCount at threshold → Leg 1 (direct or inline). */
+    /**
+     * AC-LEG-1-DELEGATION-CONTRACT-TESTED (a): lapCount at threshold → Leg 1 (direct or inline).
+     */
     @Test
     void optimize_lapCountAtThreshold_delegatesToLeg1() {
         UUID phaseId = UUID.randomUUID();
         UUID tournamentId = UUID.randomUUID();
         // lapCount = EXHAUSTIVE_MAX_N (=2), rowCount = lapCount * FIELD_COUNT = 6
-        MappingResult mapping = buildMappingWithLapCount(phaseId, EXHAUSTIVE_MAX_N, FIELD_COUNT, tournamentId);
+        MappingResult mapping =
+                buildMappingWithLapCount(phaseId, EXHAUSTIVE_MAX_N, FIELD_COUNT, tournamentId);
         when(mapperMock.map(phaseId)).thenReturn(mapping);
-        when(mapperMock.mapGroup(eq(phaseId), anyInt())).thenReturn(
-                buildMappingWithLapCount(phaseId, EXHAUSTIVE_MAX_N, FIELD_COUNT, tournamentId));
+        when(mapperMock.mapGroup(eq(phaseId), anyInt()))
+                .thenReturn(
+                        buildMappingWithLapCount(
+                                phaseId, EXHAUSTIVE_MAX_N, FIELD_COUNT, tournamentId));
 
         subject.optimize(phaseId);
 
@@ -120,8 +125,8 @@ class RoutingSlotOptimizationClientTest {
         // lapCount = 1 < EXHAUSTIVE_MAX_N (=2), rowCount = 1 * FIELD_COUNT = 3
         MappingResult mapping = buildMappingWithLapCount(phaseId, 1, FIELD_COUNT, tournamentId);
         when(mapperMock.map(phaseId)).thenReturn(mapping);
-        when(mapperMock.mapGroup(eq(phaseId), anyInt())).thenReturn(
-                buildMappingWithLapCount(phaseId, 1, FIELD_COUNT, tournamentId));
+        when(mapperMock.mapGroup(eq(phaseId), anyInt()))
+                .thenReturn(buildMappingWithLapCount(phaseId, 1, FIELD_COUNT, tournamentId));
 
         subject.optimize(phaseId);
 
@@ -143,8 +148,10 @@ class RoutingSlotOptimizationClientTest {
         UUID tournamentId = UUID.randomUUID();
         // lapCount = EXHAUSTIVE_MAX_N + 1 = 3, rowCount = 3 * FIELD_COUNT = 9
         int lapCount = EXHAUSTIVE_MAX_N + 1;
-        MappingResult mapping = buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
-        MappingResult groupMapping = buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
+        MappingResult mapping =
+                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
+        MappingResult groupMapping =
+                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
         when(mapperMock.map(phaseId)).thenReturn(mapping);
         when(mapperMock.mapGroup(eq(phaseId), anyInt())).thenReturn(groupMapping);
         when(reachabilityMock.isReachable()).thenReturn(true);
@@ -163,16 +170,16 @@ class RoutingSlotOptimizationClientTest {
     // AC-ROUTING-EXTENDED-LEG-3 (E27S02 preserved): unreachable → Leg 3
     // =========================================================================
 
-    /**
-     * AC-ROUTING-EXTENDED-LEG-3: lapCount > threshold + dispatcher NOT reachable → Leg 3.
-     */
+    /** AC-ROUTING-EXTENDED-LEG-3: lapCount > threshold + dispatcher NOT reachable → Leg 3. */
     @Test
     void optimize_lapCountAboveThreshold_dispatcherUnreachable_callsLeg3() {
         UUID phaseId = UUID.randomUUID();
         UUID tournamentId = UUID.randomUUID();
         int lapCount = EXHAUSTIVE_MAX_N + 1;
-        MappingResult mapping = buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
-        MappingResult groupMapping = buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
+        MappingResult mapping =
+                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
+        MappingResult groupMapping =
+                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
         when(mapperMock.map(phaseId)).thenReturn(mapping);
         when(mapperMock.mapGroup(eq(phaseId), anyInt())).thenReturn(groupMapping);
         when(reachabilityMock.isReachable()).thenReturn(false);
@@ -199,8 +206,10 @@ class RoutingSlotOptimizationClientTest {
         UUID phaseId = UUID.randomUUID();
         UUID tournamentId = UUID.randomUUID();
         int lapCount = EXHAUSTIVE_MAX_N + 1;
-        MappingResult mapping = buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
-        MappingResult groupMapping = buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
+        MappingResult mapping =
+                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
+        MappingResult groupMapping =
+                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
         when(mapperMock.map(phaseId)).thenReturn(mapping);
         when(mapperMock.mapGroup(eq(phaseId), anyInt())).thenReturn(groupMapping);
         when(reachabilityMock.isReachable()).thenReturn(false);
@@ -226,8 +235,10 @@ class RoutingSlotOptimizationClientTest {
         UUID phaseId = UUID.randomUUID();
         UUID tournamentId = UUID.randomUUID();
         int lapCount = EXHAUSTIVE_MAX_N + 1;
-        MappingResult mapping = buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
-        MappingResult groupMapping = buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
+        MappingResult mapping =
+                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
+        MappingResult groupMapping =
+                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
         when(mapperMock.map(phaseId)).thenReturn(mapping);
         when(mapperMock.mapGroup(eq(phaseId), anyInt())).thenReturn(groupMapping);
         when(reachabilityMock.isReachable()).thenReturn(true);
@@ -254,8 +265,10 @@ class RoutingSlotOptimizationClientTest {
         UUID phaseId = UUID.randomUUID();
         UUID tournamentId = UUID.randomUUID();
         int lapCount = EXHAUSTIVE_MAX_N + 1;
-        MappingResult mapping = buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
-        MappingResult groupMapping = buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
+        MappingResult mapping =
+                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
+        MappingResult groupMapping =
+                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
         when(mapperMock.map(phaseId)).thenReturn(mapping);
         when(mapperMock.mapGroup(eq(phaseId), anyInt())).thenReturn(groupMapping);
         when(reachabilityMock.isReachable()).thenReturn(true);
@@ -281,8 +294,10 @@ class RoutingSlotOptimizationClientTest {
         UUID phaseId = UUID.randomUUID();
         UUID tournamentId = UUID.randomUUID();
         int lapCount = EXHAUSTIVE_MAX_N + 1;
-        MappingResult mapping = buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
-        MappingResult groupMapping = buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
+        MappingResult mapping =
+                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
+        MappingResult groupMapping =
+                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
         when(mapperMock.map(phaseId)).thenReturn(mapping);
         when(mapperMock.mapGroup(eq(phaseId), anyInt())).thenReturn(groupMapping);
         when(reachabilityMock.isReachable()).thenReturn(true);
@@ -304,8 +319,8 @@ class RoutingSlotOptimizationClientTest {
     // =========================================================================
 
     /**
-     * AC-TEST-DEC-49-N-EQUALS-LAPCOUNT-RED (E51S11): routing uses lapCount (= rowCount / fieldCount)
-     * as N, NOT rowCount.
+     * AC-TEST-DEC-49-N-EQUALS-LAPCOUNT-RED (E51S11): routing uses lapCount (= rowCount /
+     * fieldCount) as N, NOT rowCount.
      *
      * <p>With lapCount = EXHAUSTIVE_MAX_N (2) and fieldCount = 3, rowCount = 6. Old code uses N =
      * rowCount = 6 > threshold=2, routing to Leg 2/3. New code uses N = lapCount = 2 = threshold,
@@ -320,15 +335,18 @@ class RoutingSlotOptimizationClientTest {
         UUID tournamentId = UUID.randomUUID();
         // lapCount = EXHAUSTIVE_MAX_N (=2), rowCount = 2 * 3 = 6
         // Old code: N = 6 > threshold=2 → Leg 2/3. New code: N = lapCount = 2 ≤ threshold → Leg 1.
-        MappingResult mapping = buildMappingWithLapCount(phaseId, EXHAUSTIVE_MAX_N, FIELD_COUNT, tournamentId);
-        MappingResult groupMapping = buildMappingWithLapCount(phaseId, EXHAUSTIVE_MAX_N, FIELD_COUNT, tournamentId);
+        MappingResult mapping =
+                buildMappingWithLapCount(phaseId, EXHAUSTIVE_MAX_N, FIELD_COUNT, tournamentId);
+        MappingResult groupMapping =
+                buildMappingWithLapCount(phaseId, EXHAUSTIVE_MAX_N, FIELD_COUNT, tournamentId);
         when(mapperMock.map(phaseId)).thenReturn(mapping);
         when(mapperMock.mapGroup(eq(phaseId), anyInt())).thenReturn(groupMapping);
 
         subject.optimize(phaseId);
 
         // Leg 1: applicator called, NOT Leg 2/3
-        verify(applicatorMock, atLeastOnce()).applyResult(anyLong(), eq(FIELD_COUNT), any(MappingResult.class));
+        verify(applicatorMock, atLeastOnce())
+                .applyResult(anyLong(), eq(FIELD_COUNT), any(MappingResult.class));
         verify(reachabilityMock, never()).isReachable();
         verify(cancelableServiceMock, never()).optimize(any(), any(), any());
         verify(dispatcherClientMock, never()).submitJob(any());
@@ -349,21 +367,23 @@ class RoutingSlotOptimizationClientTest {
         UUID tournamentId = UUID.randomUUID();
         // lapCount=1, fieldCount=3, rowCount=3
         MappingResult mapping = buildMappingWithLapCount(phaseId, 1, FIELD_COUNT, tournamentId);
-        MappingResult groupMapping = buildMappingWithLapCount(phaseId, 1, FIELD_COUNT, tournamentId);
+        MappingResult groupMapping =
+                buildMappingWithLapCount(phaseId, 1, FIELD_COUNT, tournamentId);
         when(mapperMock.map(phaseId)).thenReturn(mapping);
         when(mapperMock.mapGroup(eq(phaseId), anyInt())).thenReturn(groupMapping);
 
         subject.optimize(phaseId);
 
-        verify(applicatorMock, atLeastOnce()).applyResult(anyLong(), eq(FIELD_COUNT), any(MappingResult.class));
+        verify(applicatorMock, atLeastOnce())
+                .applyResult(anyLong(), eq(FIELD_COUNT), any(MappingResult.class));
         verify(reachabilityMock, never()).isReachable();
         verify(cancelableServiceMock, never()).optimize(any(), any(), any());
     }
 
     /**
-     * AC-TEST-PER-GROUP-INVOKE-RED (E51S11, NF-MED-1): given a phase with 2 groups (2 distinct group
-     * IDs in mapping rows), RoutingSlotOptimizationClient invokes the applicator separately per group
-     * (2 applicator invocations).
+     * AC-TEST-PER-GROUP-INVOKE-RED (E51S11, NF-MED-1): given a phase with 2 groups (2 distinct
+     * group IDs in mapping rows), RoutingSlotOptimizationClient invokes the applicator separately
+     * per group (2 applicator invocations).
      *
      * <p>FAILS before fix because current code maps the whole phase and calls applicator once (or
      * delegates to directClient without per-group awareness).
@@ -372,11 +392,14 @@ class RoutingSlotOptimizationClientTest {
     void optimize_twoGroups_applicatorCalledTwice_perGroupInvocation() {
         UUID phaseId = UUID.randomUUID();
         UUID tournamentId = UUID.randomUUID();
-        // Build a 2-group mapping: group 1 has lapCount=1, group 2 has lapCount=1 (both ≤ threshold)
+        // Build a 2-group mapping: group 1 has lapCount=1, group 2 has lapCount=1 (both ≤
+        // threshold)
         // Full mapping has 2 rows (1 per group), but for routing we use per-group mappings
         MappingResult fullMapping = buildTwoGroupMapping(phaseId, 1, FIELD_COUNT, tournamentId);
-        MappingResult group1Mapping = buildMappingWithLapCount(phaseId, 1, FIELD_COUNT, tournamentId);
-        MappingResult group2Mapping = buildMappingWithLapCount(phaseId, 1, FIELD_COUNT, tournamentId);
+        MappingResult group1Mapping =
+                buildMappingWithLapCount(phaseId, 1, FIELD_COUNT, tournamentId);
+        MappingResult group2Mapping =
+                buildMappingWithLapCount(phaseId, 1, FIELD_COUNT, tournamentId);
         when(mapperMock.map(phaseId)).thenReturn(fullMapping);
         // Group numbers from buildTwoGroupMapping: groups 1 and 2
         when(mapperMock.mapGroup(eq(phaseId), eq(1))).thenReturn(group1Mapping);
@@ -385,7 +408,8 @@ class RoutingSlotOptimizationClientTest {
         subject.optimize(phaseId);
 
         // Applicator must be invoked once per group = 2 times total
-        verify(applicatorMock, times(2)).applyResult(anyLong(), eq(FIELD_COUNT), any(MappingResult.class));
+        verify(applicatorMock, times(2))
+                .applyResult(anyLong(), eq(FIELD_COUNT), any(MappingResult.class));
     }
 
     // =========================================================================
@@ -426,7 +450,8 @@ class RoutingSlotOptimizationClientTest {
             var pt2 = new de.vvwt.slotopt.worker.types.PositionTuple(0, r * 2 + 1);
             denseIdsByRawRow[r] = new int[] {denseMap.get(pt1), denseMap.get(pt2)};
         }
-        return new MappingResult(raw, canonical, canonical.avatarCount(), matches, denseIdsByRawRow);
+        return new MappingResult(
+                raw, canonical, canonical.avatarCount(), matches, denseIdsByRawRow);
     }
 
     /**
@@ -467,6 +492,7 @@ class RoutingSlotOptimizationClientTest {
             var pt2 = new de.vvwt.slotopt.worker.types.PositionTuple(g, rInGroup * 2 + 1);
             denseIdsByRawRow[r] = new int[] {denseMap.get(pt1), denseMap.get(pt2)};
         }
-        return new MappingResult(raw, canonical, canonical.avatarCount(), matches, denseIdsByRawRow);
+        return new MappingResult(
+                raw, canonical, canonical.avatarCount(), matches, denseIdsByRawRow);
     }
 }

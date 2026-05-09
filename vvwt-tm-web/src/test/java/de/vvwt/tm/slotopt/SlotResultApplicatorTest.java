@@ -98,11 +98,14 @@ class SlotResultApplicatorTest {
             int[] l2 = l2Slots.get(m.getId());
             if (l2 != null) {
                 assertThat(m.getLapNumber())
-                        .as("rank=0 identity: lap must be unchanged for match %s (l2Lap=%d)",
+                        .as(
+                                "rank=0 identity: lap must be unchanged for match %s (l2Lap=%d)",
                                 m.getId(), l2[0])
                         .isEqualTo(l2[0]);
                 assertThat(m.getFieldNumber())
-                        .as("rank=0 identity: field must be unchanged for match %s (l2Field=%d)",
+                        .as(
+                                "rank=0 identity: field must be unchanged for match %s"
+                                        + " (l2Field=%d)",
                                 m.getId(), l2[1])
                         .isEqualTo(l2[1]);
             }
@@ -160,11 +163,13 @@ class SlotResultApplicatorTest {
                 int expectedLap = pi[l2[0]];
                 int expectedField = l2[1]; // field invariant
                 assertThat(m.getLapNumber())
-                        .as("match %s: l2Lap=%d → expected new lap=%d (π=[0,1,3,2])",
+                        .as(
+                                "match %s: l2Lap=%d → expected new lap=%d (π=[0,1,3,2])",
                                 m.getId(), l2[0], expectedLap)
                         .isEqualTo(expectedLap);
                 assertThat(m.getFieldNumber())
-                        .as("match %s: fieldNumber must equal l2Field=%d (field invariant)",
+                        .as(
+                                "match %s: fieldNumber must equal l2Field=%d (field invariant)",
                                 m.getId(), l2[1])
                         .isEqualTo(expectedField);
             }
@@ -204,8 +209,9 @@ class SlotResultApplicatorTest {
                 int[] l2 = l2Slots.get(m.getId());
                 if (l2 != null) {
                     assertThat(m.getFieldNumber())
-                            .as("rank=%d, match %s: fieldNumber=%d must equal l2Field=%d "
-                                    + "(AC-TEST-FIELD-INVARIANT-UNDER-LAP-PERMUTATION-RED)",
+                            .as(
+                                    "rank=%d, match %s: fieldNumber=%d must equal l2Field=%d "
+                                            + "(AC-TEST-FIELD-INVARIANT-UNDER-LAP-PERMUTATION-RED)",
                                     rank, m.getId(), m.getFieldNumber(), l2[1])
                             .isEqualTo(l2[1]);
                 }
@@ -234,36 +240,67 @@ class SlotResultApplicatorTest {
         // 3 matches with 6 mutually-distinct avatars → no conflict possible for any rank.
         List<TeamAvatar> cfAvatars = new ArrayList<>();
         for (int i = 0; i < 24; i++) {
-            cfAvatars.add(new TeamAvatar(
-                    UUID.randomUUID(), TOURNAMENT_ID, phaseId, 1, i + 1,
-                    UUID.randomUUID(), null, null));
+            cfAvatars.add(
+                    new TeamAvatar(
+                            UUID.randomUUID(),
+                            TOURNAMENT_ID,
+                            phaseId,
+                            1,
+                            i + 1,
+                            UUID.randomUUID(),
+                            null,
+                            null));
         }
         // Build matches: lap=k, field=f → cfAvatars[k*6 + f*2] vs cfAvatars[k*6 + f*2 + 1]
         List<Match> baseMatches = new ArrayList<>();
         for (int lap = 0; lap < 4; lap++) {
             for (int field = 0; field < 3; field++) {
                 int base = lap * 6 + field * 2;
-                baseMatches.add(new Match(UUID.randomUUID(), TOURNAMENT_ID, phaseId,
-                        cfAvatars.get(base).getId(), cfAvatars.get(base + 1).getId(),
-                        MatchState.OPEN.getLegacyCode(), 1,
-                        lap, field, null, null, null, null));
+                baseMatches.add(
+                        new Match(
+                                UUID.randomUUID(),
+                                TOURNAMENT_ID,
+                                phaseId,
+                                cfAvatars.get(base).getId(),
+                                cfAvatars.get(base + 1).getId(),
+                                MatchState.OPEN.getLegacyCode(),
+                                1,
+                                lap,
+                                field,
+                                null,
+                                null,
+                                null,
+                                null));
             }
         }
 
         for (long rank = 0L; rank <= 23L; rank++) {
             org.mockito.Mockito.clearInvocations(matchRepository);
-            // Rebuild fresh Match objects (Match is mutable — applyResult mutates lap/field in place)
+            // Rebuild fresh Match objects (Match is mutable — applyResult mutates lap/field in
+            // place)
             List<Match> freshMatches = new ArrayList<>();
             for (Match m : baseMatches) {
-                freshMatches.add(new Match(m.getId(), m.getTournamentId(), m.getPhaseId(),
-                        m.getMemberAvatar1Id(), m.getMemberAvatar2Id(),
-                        m.getState(), m.getSetLimit(), m.getLapNumber(), m.getFieldNumber(),
-                        null, null, null, null));
+                freshMatches.add(
+                        new Match(
+                                m.getId(),
+                                m.getTournamentId(),
+                                m.getPhaseId(),
+                                m.getMemberAvatar1Id(),
+                                m.getMemberAvatar2Id(),
+                                m.getState(),
+                                m.getSetLimit(),
+                                m.getLapNumber(),
+                                m.getFieldNumber(),
+                                null,
+                                null,
+                                null,
+                                null));
             }
             when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(cfAvatars);
             when(matchRepository.findByPhaseId(phaseId)).thenReturn(freshMatches);
             MappingResult freshMapping =
-                    new PhaseToRawPhaseDefMapper(teamAvatarRepository, matchRepository).map(phaseId);
+                    new PhaseToRawPhaseDefMapper(teamAvatarRepository, matchRepository)
+                            .map(phaseId);
             when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
 
             applicator.applyResult(rank, FIELD_COUNT, freshMapping);
@@ -278,11 +315,13 @@ class SlotResultApplicatorTest {
                 int lap = m.getLapNumber();
                 Set<UUID> inLap = avatarsByLap.computeIfAbsent(lap, k -> new HashSet<>());
                 assertThat(inLap.add(m.getMemberAvatar1Id()))
-                        .as("rank=%d: avatar1 %s plays twice in lap %d",
+                        .as(
+                                "rank=%d: avatar1 %s plays twice in lap %d",
                                 rank, m.getMemberAvatar1Id(), lap)
                         .isTrue();
                 assertThat(inLap.add(m.getMemberAvatar2Id()))
-                        .as("rank=%d: avatar2 %s plays twice in lap %d",
+                        .as(
+                                "rank=%d: avatar2 %s plays twice in lap %d",
                                 rank, m.getMemberAvatar2Id(), lap)
                         .isTrue();
             }
@@ -327,8 +366,7 @@ class SlotResultApplicatorTest {
     @Test
     void applyResult_throwsIAE_onInvalidFieldCount() {
         UUID phaseId = UUID.randomUUID();
-        List<TeamAvatar> avatars =
-                buildAvatars(phaseId, new int[][] {{1, 1}, {1, 2}});
+        List<TeamAvatar> avatars = buildAvatars(phaseId, new int[][] {{1, 1}, {1, 2}});
         List<Match> l2Matches = buildAllPairMatchesWithL2Slots(phaseId, avatars, 1);
         MappingResult mapping = buildMapping(phaseId, avatars, l2Matches);
 
@@ -386,15 +424,23 @@ class SlotResultApplicatorTest {
     private record Fixture(List<TeamAvatar> avatars, List<Match> matches) {}
 
     /**
-     * Builds a multi-group fixture with groupCount groups × avatarsPerGroup avatars.
-     * Matches: intra-group all-pair matches, sorted by UUID, assigned L2 lap/field.
+     * Builds a multi-group fixture with groupCount groups × avatarsPerGroup avatars. Matches:
+     * intra-group all-pair matches, sorted by UUID, assigned L2 lap/field.
      */
     private Fixture buildMultiGroupFixture(UUID phaseId, int groupCount, int avatarsPerGroup) {
         List<TeamAvatar> avatars = new ArrayList<>();
         for (int g = 1; g <= groupCount; g++) {
             for (int pos = 1; pos <= avatarsPerGroup; pos++) {
-                avatars.add(new TeamAvatar(
-                        UUID.randomUUID(), TOURNAMENT_ID, phaseId, g, pos, UUID.randomUUID(), null, null));
+                avatars.add(
+                        new TeamAvatar(
+                                UUID.randomUUID(),
+                                TOURNAMENT_ID,
+                                phaseId,
+                                g,
+                                pos,
+                                UUID.randomUUID(),
+                                null,
+                                null));
             }
         }
         return buildMultiGroupFixture(phaseId, avatars);
@@ -414,10 +460,21 @@ class SlotResultApplicatorTest {
         for (List<TeamAvatar> groupAvatars : byGroup.values()) {
             for (int i = 0; i < groupAvatars.size(); i++) {
                 for (int j = i + 1; j < groupAvatars.size(); j++) {
-                    matches.add(new Match(
-                            UUID.randomUUID(), TOURNAMENT_ID, phaseId,
-                            groupAvatars.get(i).getId(), groupAvatars.get(j).getId(),
-                            MatchState.OPEN.getLegacyCode(), 1, null, null, null, null, null, null));
+                    matches.add(
+                            new Match(
+                                    UUID.randomUUID(),
+                                    TOURNAMENT_ID,
+                                    phaseId,
+                                    groupAvatars.get(i).getId(),
+                                    groupAvatars.get(j).getId(),
+                                    MatchState.OPEN.getLegacyCode(),
+                                    1,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null));
                 }
             }
         }
@@ -432,10 +489,11 @@ class SlotResultApplicatorTest {
     }
 
     /**
-     * Builds a MappingResult backed by mock repositories.
-     * Matches must have L2 lapNumber/fieldNumber already set (PhaseToRawPhaseDefMapper preserves them).
+     * Builds a MappingResult backed by mock repositories. Matches must have L2
+     * lapNumber/fieldNumber already set (PhaseToRawPhaseDefMapper preserves them).
      */
-    private MappingResult buildMapping(UUID phaseId, List<TeamAvatar> avatars, List<Match> matches) {
+    private MappingResult buildMapping(
+            UUID phaseId, List<TeamAvatar> avatars, List<Match> matches) {
         when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(avatars);
         when(matchRepository.findByPhaseId(phaseId)).thenReturn(matches);
         return new PhaseToRawPhaseDefMapper(teamAvatarRepository, matchRepository).map(phaseId);
@@ -456,9 +514,16 @@ class SlotResultApplicatorTest {
     private List<TeamAvatar> buildAvatars(UUID phaseId, int[][] groupPos) {
         List<TeamAvatar> result = new ArrayList<>();
         for (int[] gp : groupPos) {
-            result.add(new TeamAvatar(
-                    UUID.randomUUID(), UUID.randomUUID(), phaseId, gp[0], gp[1],
-                    UUID.randomUUID(), null, null));
+            result.add(
+                    new TeamAvatar(
+                            UUID.randomUUID(),
+                            UUID.randomUUID(),
+                            phaseId,
+                            gp[0],
+                            gp[1],
+                            UUID.randomUUID(),
+                            null,
+                            null));
         }
         return result;
     }
@@ -469,10 +534,21 @@ class SlotResultApplicatorTest {
         List<Match> matches = new ArrayList<>();
         for (int i = 0; i < avatars.size(); i++) {
             for (int j = i + 1; j < avatars.size(); j++) {
-                matches.add(new Match(
-                        UUID.randomUUID(), TOURNAMENT_ID, phaseId,
-                        avatars.get(i).getId(), avatars.get(j).getId(),
-                        MatchState.OPEN.getLegacyCode(), 1, null, null, null, null, null, null));
+                matches.add(
+                        new Match(
+                                UUID.randomUUID(),
+                                TOURNAMENT_ID,
+                                phaseId,
+                                avatars.get(i).getId(),
+                                avatars.get(j).getId(),
+                                MatchState.OPEN.getLegacyCode(),
+                                1,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null));
             }
         }
         matches.sort((a, b) -> a.getId().toString().compareTo(b.getId().toString()));
