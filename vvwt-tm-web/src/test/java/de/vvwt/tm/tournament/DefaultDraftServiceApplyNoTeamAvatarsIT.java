@@ -198,26 +198,31 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
     }
 
     /**
-     * Polls until all phase rows for {@code tournamentId} have a terminal {@code last_job_state}
-     * (not {@code 'match_gen_running'} or {@code 'slot_opt_running'}). Uses a two-phase approach:
+     * Polls until the background pipeline for {@code tournamentId} has fully quiesced.
      *
-     * <ol>
-     *   <li>Wait a short initial period to allow the async pipeline to START (so that {@code
-     *       last_job_state} transitions from {@code NULL} to {@code 'match_gen_running'}).
-     *   <li>Poll until no phases are in an in-flight state.
-     * </ol>
+     * <h2>Quiescence definition (E51S17)</h2>
      *
-     * <p>Times out after 5 seconds total. On budget exhaustion, throws {@link AssertionError} with
-     * the in-flight phase IDs and {@code last_job_state} values — satisfying
-     * AC-ERROR-HANDLING-QUIESCENCE-BUDGET-OBSERVABLE: the diagnostic is retrievable from Failsafe
-     * report XML ({@code target/failsafe-reports/}) so it surfaces in {@code mvn verify} console
-     * output.
+     * <p>The pipeline is quiescent when {@code COUNT(PREPARED phases) == totalPhases - 1}. Per
+     * {@code AC-IMPL-LAST-PHASE-INVARIANT} (DEC-55 D-10), the last phase of every valid DraftConfig
+     * is always siegerehrung — enforced by {@code DraftConfig.validateLastPhaseSiegerehrung()} and
+     * guaranteed to stay {@code PENDING} (DEC-55 D-3 step 1: no {@code MatchGenJobScheduledEvent}
+     * for siegerehrung). Therefore {@code totalPhases - 1} non-siegerehrung phases must eventually
+     * reach {@code PREPARED}. Quiescence is declared when exactly that many are {@code PREPARED}.
      *
-     * <p>E51S08: ported from {@link
-     * DefaultDraftServiceApplyAvatarsIT#waitForPipelineQuiescent(UUID)} (added there at {@code
-     * e25b917} / E51S04). Enhanced with budget-exhaustion AssertionError per
-     * AC-ERROR-HANDLING-QUIESCENCE-BUDGET-OBSERVABLE (the AvatarsIT helper predates this AC and
-     * uses a silent return on timeout — this version provides the observable diagnostic).
+     * <h2>Why totalPhases-based rather than last_job_state-based?</h2>
+     *
+     * <p>{@link de.vvwt.tm.tournament.internal.MatchGenJobExecutor} does NOT set an intermediate
+     * {@code 'match_gen_running'} state — phases go directly {@code NULL → 'idle'} atomically with
+     * PENDING→PREPARED in a single {@code REQUIRES_NEW} TX (E51S14 wiring). Any approach that
+     * compares {@code last_job_state IS NOT NULL} (entered) with {@code last_job_state = 'idle'}
+     * races when Phase 1 is {@code 'idle'} but Phase 2's {@code @Async} thread has not yet been
+     * scheduled — Phase 2 is still {@code PENDING + NULL}, indistinguishable from a siegerehrung
+     * phase by {@code last_job_state} alone. The {@code totalPhases - 1} condition is immune
+     * because it checks the FINAL STATE ({@code PREPARED}), not the in-progress state. The
+     * condition is false while Phase 2 is still {@code PENDING}, regardless of Phase 1's state.
+     *
+     * <p>Times out after 5 seconds total. On budget exhaustion throws {@link AssertionError} with
+     * diagnostic phase rows — satisfying AC-ERROR-HANDLING-QUIESCENCE-BUDGET-OBSERVABLE.
      *
      * @param tournamentId the tournament whose background pipeline to wait for
      * @throws InterruptedException if the waiting thread is interrupted
@@ -225,37 +230,47 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
      */
     @SuppressWarnings("java:S2925") // Thread.sleep is intentional here — deterministic poll wait
     private void waitForPipelineQuiescent(UUID tournamentId) throws InterruptedException {
-        // Short initial sleep to allow async TX to start and set
-        // last_job_state='match_gen_running'.
-        // Without this, we might poll before any async work begins (all phases are NULL) and
-        // return immediately, racing with an async TX that then commits phase rows after tearDown.
-        Thread.sleep(100);
+        // Resolve expectedPrepared = totalPhases - 1.
+        // Per AC-IMPL-LAST-PHASE-INVARIANT, the last phase is always siegerehrung → stays PENDING.
+        // totalPhases is stable after apply() commits (phases created synchronously in apply() TX).
+        // If no phases exist (apply() failed or this is a defensive tearDown call with empty DB),
+        // expectedPrepared = 0 → condition "prepared == 0" immediately true → safe return.
+        Integer totalPhasesRaw =
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM phase WHERE tournament_id = ?",
+                        Integer.class,
+                        tournamentId);
+        int totalPhases = (totalPhasesRaw == null) ? 0 : totalPhasesRaw;
+        int expectedPrepared = totalPhases > 0 ? totalPhases - 1 : 0;
+
         long deadline = System.currentTimeMillis() + 5_000;
         while (System.currentTimeMillis() < deadline) {
-            Integer inFlightCount =
+            Integer preparedCount =
                     jdbcTemplate.queryForObject(
                             "SELECT COUNT(*) FROM phase WHERE tournament_id = ?"
-                                    + " AND last_job_state IN ('match_gen_running',"
-                                    + " 'slot_opt_running')",
+                                    + " AND status = 'PREPARED'",
                             Integer.class,
                             tournamentId);
-            if (inFlightCount == null || inFlightCount == 0) {
+            int prepared = (preparedCount == null) ? 0 : preparedCount;
+
+            if (prepared == expectedPrepared) {
                 return;
             }
             Thread.sleep(50);
         }
         // Budget exhausted — fail with observable diagnostic
         // (AC-ERROR-HANDLING-QUIESCENCE-BUDGET-OBSERVABLE)
-        var inFlightRows =
+        var phaseRows =
                 jdbcTemplate.queryForList(
-                        "SELECT id, last_job_state FROM phase WHERE tournament_id = ? AND"
-                                + " last_job_state IN ('match_gen_running', 'slot_opt_running')",
+                        "SELECT id, last_job_state, status FROM phase WHERE tournament_id = ?",
                         tournamentId);
         throw new AssertionError(
                 "waitForPipelineQuiescent: pipeline did not quiesce within 5s for tournament "
                         + tournamentId
-                        + ". In-flight phase rows (id, last_job_state): "
-                        + inFlightRows);
+                        + " (expectedPrepared="
+                        + expectedPrepared
+                        + "). Phase rows (id, last_job_state, status): "
+                        + phaseRows);
     }
 
     // =========================================================================
@@ -300,7 +315,8 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
     @DisplayName(
             "apply() with 3 participating teams creates 3 phases and structural avatars;"
                     + " post-quiescence equilibrium: preparedCount=2, pendingCount=1 (E51S17)")
-    void apply_withParticipatingTeams_creates3PhasesAndStructuralAvatars() {
+    void apply_withParticipatingTeams_creates3PhasesAndStructuralAvatars()
+            throws InterruptedException {
         // Arrange: 3-phase config (section 3 is siegerehrung per E48S01 last-phase invariant)
         DraftConfig config =
                 new DraftConfig(
@@ -332,15 +348,16 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
         Table phaseTable = assertDb.table("phase").build();
         Assertions.assertThat(phaseTable).hasNumberOfRows(3);
 
-        // E51S17 RED: equilibrium-contract assertions WITHOUT waitForPipelineQuiescent.
-        // AC-TEST-EQUILIBRIUM-CONTRACT-RED (DEC-22 Pattern B Q-1a fresh-RED-first):
-        // The new assertion shape (preparedCount==2, pendingCount==1, totalPhases==3) must fail
-        // on staging HEAD when the quiescence helper is NOT yet inserted before the status query.
-        // This RED demonstrates the new equilibrium contract is DIFFERENT from the old
-        // (pendingCount==3) assertion — RED-2 is observably distinct from the old-assertion RED.
-        //
-        // GREEN commit (immediately following) inserts waitForPipelineQuiescent(tournamentId)
-        // here to eliminate the race.
+        // E51S17 GREEN: wait for pipeline quiescence BEFORE status queries.
+        // AC-TEST-HELPER-SYMMETRY-WITH-SISTER: same call signature + ordering as
+        // DefaultDraftServiceApplyAvatarsIT:176-177 (helper called between apply() and assertions).
+        // AC-TEST-EQUILIBRIUM-CONTRACT-GREEN: ensures deterministic preparedCount=2, pendingCount=1
+        // across 5 sequential runs (DEC-22 Q-1a Pattern B; DEC-55 D-3 + DEC-56 D-3).
+        waitForPipelineQuiescent(tournamentId);
+
+        // AC-TEST-EQUILIBRIUM-PHASE-STATUS-SHAPE: THREE independent counts — guards against
+        // silent regressions where one phase enters FAILED/ASSIGNED without the binary
+        // pendingCount==1 projection mismatching (E51S17 equilibrium contract).
         int preparedCount =
                 jdbcTemplate.queryForObject(
                         "SELECT COUNT(*) FROM phase WHERE tournament_id = ? AND status ="
