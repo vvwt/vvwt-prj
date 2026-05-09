@@ -9,10 +9,17 @@ import java.util.List;
  * <p>Inventory: E21S01 line 439. Reconstructed under {@code
  * de.vvwt.tm.tournament.internal.dto.draft} per DEC-21.
  *
+ * <h2>E51S15 — distributionMode field</h2>
+ *
+ * <p>{@code distributionMode} is always present in the response (never null — domain defaults
+ * absent/null to {@code "sequential"}). The frontend reads this value to preserve the user's
+ * selection on round-trip save/load.
+ *
  * @see DraftResponse
  * @see DraftBreakResponse
  * @see <a href="DEC-21">DEC-21 — Spring Modulith package layout</a>
  * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
+ * @see <a href="E51S15">E51S15 — distributionMode feature</a>
  */
 public record DraftSectionResponse(
         int sectionNumber,
@@ -23,7 +30,15 @@ public record DraftSectionResponse(
         int sectionBreakTimeMinutes,
         int lapTimeMinutes,
         int setQuantity,
-        List<DraftBreakResponse> breaks) {
+        List<DraftBreakResponse> breaks,
+        /**
+         * Team distribution algorithm for Phase-1 avatar assignment. Always non-null in the
+         * response — domain defaults absent/null to {@code "sequential"}.
+         *
+         * @see de.vvwt.tm.tournament.draft.DraftSection#getDistributionMode()
+         * @see <a href="E51S15">E51S15 — distributionMode feature</a>
+         */
+        String distributionMode) {
 
     /**
      * Maps a {@link DraftSection} domain object to this response DTO.
@@ -41,6 +56,7 @@ public record DraftSectionResponse(
                 section.getSectionBreakTimeMinutes(),
                 section.getLapTimeMinutes(),
                 section.getSetQuantity(),
-                section.getBreaks().stream().map(DraftBreakResponse::from).toList());
+                section.getBreaks().stream().map(DraftBreakResponse::from).toList(),
+                section.getDistributionMode());
     }
 }

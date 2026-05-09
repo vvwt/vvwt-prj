@@ -208,9 +208,11 @@ class TournamentCrossContextSmokeIT {
             // Two-section config: section 1 = roundrobin, section 2 = siegerehrung (last phase,
             // satisfies D-10 invariant per AC-IMPL-LAST-PHASE-INVARIANT, E48S01).
             var section1 =
-                    new DraftSectionRequest(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, null);
+                    new DraftSectionRequest(
+                            1, "team_number", 1, "roundRobin", 0, 0, 15, 1, null, null);
             var section2 =
-                    new DraftSectionRequest(2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, null);
+                    new DraftSectionRequest(
+                            2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, null, null);
             ResponseEntity<DraftApplyResponse> draftResp =
                     authed.postForEntity(
                             new URI(baseUrl + "/api/tournaments/" + tournamentId + "/draft/apply"),

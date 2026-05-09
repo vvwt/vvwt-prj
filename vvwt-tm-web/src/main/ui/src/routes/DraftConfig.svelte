@@ -127,6 +127,8 @@
         sectionBreakTimeMinutes: 15,
         lapTimeMinutes: 15,
         setQuantity: 1,
+        // E51S15 (AC-TEST-UI-DROPDOWN-DEFAULT-SEQUENTIAL-RED): new sections default to 'sequential'
+        distributionMode: 'sequential',
         breaks: [],
       },
     ];
@@ -434,6 +436,15 @@
             >
               <option value="roundRobin">{$_('draftConfig.gameMode.roundRobin')}</option>
               <option value="siegerehrung">{$_('draftConfig.gameMode.siegerehrung')}</option>
+            </select>
+          </div>
+
+          <!-- Distribution mode (E51S15 AC-TEST-UI-DROPDOWN-PER-SECTION-RED) -->
+          <div class="form__field">
+            <label>{$_('draftConfig.distributionMode.label')}</label>
+            <select bind:value={section.distributionMode}>
+              <option value="sequential">{$_('draftConfig.distributionMode.sequential')}</option>
+              <option value="round_robin">{$_('draftConfig.distributionMode.round_robin')}</option>
             </select>
           </div>
 

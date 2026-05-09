@@ -294,11 +294,42 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
         }
 
         int groupCount = toSection.getGroupCount();
-        List<TeamAvatarProposal> proposals = new ArrayList<>(participating.size());
-        for (int i = 0; i < participating.size(); i++) {
+        int teamCount = participating.size();
+
+        // E51S15: branch on distributionMode to compute (targetGroup, targetPosition).
+        // Mirrors the same algorithm used in DefaultDraftService.persistStructuralAvatars()
+        // for Phase 1 (DEC-9 structural identity — group+position must match avatar slots).
+        //
+        // sequential (default): fill Group 1 fully before Group 2
+        //   positionsPerGroup = ceil(teamCount / groupCount)
+        //   targetGroup = (i / positionsPerGroup) + 1
+        //   targetPosition = (i % positionsPerGroup) + 1
+        //
+        // round_robin (legacy): distribute one-per-group before advancing position
+        //   targetGroup = (i % groupCount) + 1
+        //   targetPosition = (i / groupCount) + 1
+        //
+        // AC-TEST-COMPUTE-PHASE-1-PROPOSALS-SEQUENTIAL-RED,
+        // AC-TEST-COMPUTE-PHASE-1-PROPOSALS-ROUND-ROBIN-RED
+        String distributionMode = toSection.getDistributionMode();
+        int positionsPerGroup =
+                "round_robin".equals(distributionMode)
+                        ? 0 // unused for round_robin
+                        : (teamCount + groupCount - 1) / groupCount;
+
+        List<TeamAvatarProposal> proposals = new ArrayList<>(teamCount);
+        for (int i = 0; i < teamCount; i++) {
             Team team = participating.get(i);
-            int targetGroup = (i % groupCount) + 1;
-            int targetPosition = (i / groupCount) + 1;
+            int targetGroup;
+            int targetPosition;
+            if ("round_robin".equals(distributionMode)) {
+                targetGroup = (i % groupCount) + 1;
+                targetPosition = (i / groupCount) + 1;
+            } else {
+                // "sequential" (default)
+                targetGroup = (i / positionsPerGroup) + 1;
+                targetPosition = (i % positionsPerGroup) + 1;
+            }
 
             // E48S20 (AC-ERROR-MISSING-TEAM-DEFENSE): defense against corrupt data
             validateTeamDisplayFields(team);

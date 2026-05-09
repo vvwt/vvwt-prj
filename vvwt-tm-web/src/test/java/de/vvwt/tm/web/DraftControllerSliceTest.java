@@ -194,7 +194,7 @@ class DraftControllerSliceTest {
                 .thenReturn(savedConfig);
 
         DraftSectionRequest sectionRequest =
-                new DraftSectionRequest(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, null);
+                new DraftSectionRequest(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, null, null);
         DraftRequest requestBody = new DraftRequest(List.of(sectionRequest));
 
         mockMvc.perform(
@@ -257,7 +257,8 @@ class DraftControllerSliceTest {
                 .thenReturn(serviceResult);
 
         DraftSectionRequest sectionRequest =
-                new DraftSectionRequest(1, "team_number", 4, "roundRobin", 5, 10, 15, 1, null);
+                new DraftSectionRequest(
+                        1, "team_number", 4, "roundRobin", 5, 10, 15, 1, null, null);
         DraftRequest requestBody = new DraftRequest(List.of(sectionRequest));
 
         mockMvc.perform(
@@ -292,7 +293,8 @@ class DraftControllerSliceTest {
                 .thenReturn(serviceResult);
 
         DraftSectionRequest sectionRequest =
-                new DraftSectionRequest(1, "team_number", 4, "roundRobin", 5, 10, 15, 1, null);
+                new DraftSectionRequest(
+                        1, "team_number", 4, "roundRobin", 5, 10, 15, 1, null, null);
         DraftRequest requestBody = new DraftRequest(List.of(sectionRequest));
 
         mockMvc.perform(
@@ -320,7 +322,8 @@ class DraftControllerSliceTest {
         when(tournamentRepository.findById(eq(TOURNAMENT_ID))).thenReturn(Optional.empty());
 
         DraftSectionRequest sectionRequest =
-                new DraftSectionRequest(1, "team_number", 4, "roundRobin", 5, 10, 15, 1, null);
+                new DraftSectionRequest(
+                        1, "team_number", 4, "roundRobin", 5, 10, 15, 1, null, null);
         DraftRequest requestBody = new DraftRequest(List.of(sectionRequest));
 
         mockMvc.perform(
@@ -356,7 +359,8 @@ class DraftControllerSliceTest {
                 .thenReturn(serviceResult);
 
         DraftSectionRequest sectionRequest =
-                new DraftSectionRequest(1, "team_number", 2, "roundRobin", 5, 10, 15, 1, null);
+                new DraftSectionRequest(
+                        1, "team_number", 2, "roundRobin", 5, 10, 15, 1, null, null);
         DraftRequest requestBody = new DraftRequest(List.of(sectionRequest));
 
         mockMvc.perform(
@@ -383,7 +387,8 @@ class DraftControllerSliceTest {
                 .thenReturn(List.of(phaseId));
 
         DraftSectionRequest sectionRequest =
-                new DraftSectionRequest(1, "team_number", 2, "roundRobin", 5, 10, 15, 1, null);
+                new DraftSectionRequest(
+                        1, "team_number", 2, "roundRobin", 5, 10, 15, 1, null, null);
         DraftRequest requestBody = new DraftRequest(List.of(sectionRequest));
 
         mockMvc.perform(

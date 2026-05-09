@@ -23,7 +23,8 @@ class DraftRequestTest {
     @Test
     void record_withSections_storesList() {
         DraftSectionRequest sectionRequest =
-                new DraftSectionRequest(1, "team_number", 2, "roundrobin", 5, 10, 15, 1, null);
+                new DraftSectionRequest(
+                        1, "team_number", 2, "roundrobin", 5, 10, 15, 1, null, null);
         DraftRequest request = new DraftRequest(List.of(sectionRequest));
 
         assertThat(request.sections()).hasSize(1);

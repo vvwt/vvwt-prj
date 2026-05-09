@@ -621,15 +621,42 @@ public class DefaultDraftService implements DraftService {
         jdbcTemplate.update("DELETE FROM team_avatar WHERE phase_id = ?", phaseId);
 
         if (sectionIndex == 0) {
-            // Phase 1: populate teamId from participating teams via Round-Robin
-            // (same algorithm as computePhase1Proposals() in DefaultPhaseTransitionService,
-            // without going through the proposal layer — DEC-9 structural identity)
-            for (int i = 0; i < teamCount; i++) {
-                int groupNumber = (i % groupCount) + 1;
-                int groupPosition = (i / groupCount) + 1;
-                TeamAvatar avatar = buildAvatar(tournamentId, phaseId, groupNumber, groupPosition);
-                avatar.setTeamId(participatingTeams.get(i).getId());
-                teamAvatarRepository.save(avatar);
+            // Phase 1: populate teamId from participating teams using the configured
+            // distributionMode (E51S15). Same algorithm as computePhase1Proposals() in
+            // DefaultPhaseTransitionService, without going through the proposal layer —
+            // DEC-9 structural identity.
+            //
+            // sequential (default): fill Group 1 fully before Group 2
+            //   positionsPerGroup = ceil(teamCount / groupCount)
+            //   groupNumber = (i / positionsPerGroup) + 1
+            //   groupPosition = (i % positionsPerGroup) + 1
+            //
+            // round_robin (legacy): distribute one-per-group before advancing position
+            //   groupNumber = (i % groupCount) + 1
+            //   groupPosition = (i / groupCount) + 1
+            //
+            // AC-TEST-AVATAR-ASSIGNMENT-SEQUENTIAL-RED, AC-TEST-AVATAR-ASSIGNMENT-ROUND-ROBIN-RED
+            String distributionMode = section.getDistributionMode();
+            if ("round_robin".equals(distributionMode)) {
+                for (int i = 0; i < teamCount; i++) {
+                    int groupNumber = (i % groupCount) + 1;
+                    int groupPosition = (i / groupCount) + 1;
+                    TeamAvatar avatar =
+                            buildAvatar(tournamentId, phaseId, groupNumber, groupPosition);
+                    avatar.setTeamId(participatingTeams.get(i).getId());
+                    teamAvatarRepository.save(avatar);
+                }
+            } else {
+                // "sequential" (default)
+                int positionsPerGroup = (teamCount + groupCount - 1) / groupCount;
+                for (int i = 0; i < teamCount; i++) {
+                    int groupNumber = (i / positionsPerGroup) + 1;
+                    int groupPosition = (i % positionsPerGroup) + 1;
+                    TeamAvatar avatar =
+                            buildAvatar(tournamentId, phaseId, groupNumber, groupPosition);
+                    avatar.setTeamId(participatingTeams.get(i).getId());
+                    teamAvatarRepository.save(avatar);
+                }
             }
         } else {
             // Phase 2+: structural placeholders, teamId = null

@@ -496,27 +496,30 @@ class PhaseTransitionServiceTest {
 
     /**
      * AC-TEST-PROPOSE-TRANSITION-PHASE-1-RED: Phase 1 (sequenceNumber=1), sortType=team_number, 8
-     * participating Teams → Round-Robin proposal.
+     * participating Teams → Sequential proposal (default distributionMode, E51S15).
      *
-     * <p>Fixture: 8 teams with teamNumber 1-8 (all participate=true), groupCount=2. Expected:
+     * <p>Fixture: 8 teams with teamNumber 1-8 (all participate=true), groupCount=2. Draft_json has
+     * no {@code distributionMode} field → defaults to {@code "sequential"} (E51S15). Expected:
      *
      * <ul>
+     *   <li>positionsPerGroup = ceil(8/2) = 4
      *   <li>Team 1 → group 1, pos 1
-     *   <li>Team 2 → group 2, pos 1
-     *   <li>Team 3 → group 1, pos 2
-     *   <li>Team 4 → group 2, pos 2
-     *   <li>Team 5 → group 1, pos 3
-     *   <li>Team 6 → group 2, pos 3
-     *   <li>Team 7 → group 1, pos 4
+     *   <li>Team 2 → group 1, pos 2
+     *   <li>Team 3 → group 1, pos 3
+     *   <li>Team 4 → group 1, pos 4
+     *   <li>Team 5 → group 2, pos 1
+     *   <li>Team 6 → group 2, pos 2
+     *   <li>Team 7 → group 2, pos 3
      *   <li>Team 8 → group 2, pos 4
      * </ul>
      *
-     * <p>DEC-22 Iron Law: test written RED-first before production code change.
+     * <p>DEC-22 Iron Law: test written RED-first before production code change. Updated E51S15 to
+     * reflect sequential-default (absent distributionMode → "sequential").
      */
     @Test
     @DisplayName(
-            "proposeTransition — Phase 1 (sequenceNumber=1) — 8 Teams → Round-Robin 2 Gruppen"
-                    + " (AC-TEST-PROPOSE-TRANSITION-PHASE-1-RED)")
+            "proposeTransition — Phase 1 (sequenceNumber=1) — 8 Teams → Sequential 2 Gruppen"
+                    + " (AC-TEST-PROPOSE-TRANSITION-PHASE-1-RED, E51S15)")
     void proposeTransition_phase1_roundRobin_8teams2groups() throws Exception {
         // Given
         UUID phase1Id = UUID.randomUUID();
@@ -534,23 +537,26 @@ class PhaseTransitionServiceTest {
         // Act
         List<TeamAvatarProposal> proposals = service.proposeTransition(phase1Id);
 
-        // Assert: 8 proposals (all participating teams), Round-Robin
+        // Assert: 8 proposals (all participating teams)
+        // Default distributionMode="sequential" (absent in draft_json → null → "sequential",
+        // E51S15)
+        // positionsPerGroup = ceil(8/2) = 4 → G1 gets teams 1-4, G2 gets teams 5-8
         assertThat(proposals).hasSize(8);
 
         // Team with teamNumber=1 (first in sorted list) → group 1, pos 1
         assertProposal(proposals, teamUuidForNumber(teams, 1), 1, 1);
-        // Team with teamNumber=2 → group 2, pos 1
-        assertProposal(proposals, teamUuidForNumber(teams, 2), 2, 1);
-        // Team with teamNumber=3 → group 1, pos 2
-        assertProposal(proposals, teamUuidForNumber(teams, 3), 1, 2);
-        // Team with teamNumber=4 → group 2, pos 2
-        assertProposal(proposals, teamUuidForNumber(teams, 4), 2, 2);
-        // Team with teamNumber=5 → group 1, pos 3
-        assertProposal(proposals, teamUuidForNumber(teams, 5), 1, 3);
-        // Team with teamNumber=6 → group 2, pos 3
-        assertProposal(proposals, teamUuidForNumber(teams, 6), 2, 3);
-        // Team with teamNumber=7 → group 1, pos 4
-        assertProposal(proposals, teamUuidForNumber(teams, 7), 1, 4);
+        // Team with teamNumber=2 → group 1, pos 2
+        assertProposal(proposals, teamUuidForNumber(teams, 2), 1, 2);
+        // Team with teamNumber=3 → group 1, pos 3
+        assertProposal(proposals, teamUuidForNumber(teams, 3), 1, 3);
+        // Team with teamNumber=4 → group 1, pos 4
+        assertProposal(proposals, teamUuidForNumber(teams, 4), 1, 4);
+        // Team with teamNumber=5 → group 2, pos 1
+        assertProposal(proposals, teamUuidForNumber(teams, 5), 2, 1);
+        // Team with teamNumber=6 → group 2, pos 2
+        assertProposal(proposals, teamUuidForNumber(teams, 6), 2, 2);
+        // Team with teamNumber=7 → group 2, pos 3
+        assertProposal(proposals, teamUuidForNumber(teams, 7), 2, 3);
         // Team with teamNumber=8 → group 2, pos 4
         assertProposal(proposals, teamUuidForNumber(teams, 8), 2, 4);
     }

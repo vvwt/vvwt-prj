@@ -34,6 +34,13 @@ export interface DraftSection {
     lapTimeMinutes: number;
     setQuantity: number;
     breaks: DraftBreak[];  // E08S05 AC2 — may be empty
+    /**
+     * Team distribution algorithm for Phase-1 avatar assignment.
+     * Optional (absent on legacy draft_json) — defaults to 'sequential' in addSection().
+     * Valid values: 'sequential' (default) | 'round_robin' (legacy).
+     * E51S15 — AC-TEST-UI-DROPDOWN-DEFAULT-SEQUENTIAL-RED.
+     */
+    distributionMode?: string;
 }
 
 /** The full draft configuration (ordered sections). */

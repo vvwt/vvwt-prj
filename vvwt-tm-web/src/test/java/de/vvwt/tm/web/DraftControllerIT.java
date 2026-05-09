@@ -157,7 +157,8 @@ class DraftControllerIT {
     private static DraftSectionRequest sampleSection() {
         // gameMode=siegerehrung: single-section draft must use siegerehrung as last phase
         // per D-10 invariant (AC-IMPL-LAST-PHASE-INVARIANT, E48S01).
-        return new DraftSectionRequest(1, "team_number", 1, "siegerehrung", 0, 0, 15, 1, null);
+        return new DraftSectionRequest(
+                1, "team_number", 1, "siegerehrung", 0, 0, 15, 1, null, null);
     }
 
     private static DraftRequest sampleRequest() {
@@ -174,8 +175,11 @@ class DraftControllerIT {
      * dependency on SiegerehrungMatchGenerator (delivered in E48S02).
      */
     private static DraftRequest applyRequest() {
-        var s1 = new DraftSectionRequest(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, null);
-        var s2 = new DraftSectionRequest(2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, null);
+        var s1 =
+                new DraftSectionRequest(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, null, null);
+        var s2 =
+                new DraftSectionRequest(
+                        2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, null, null);
         return new DraftRequest(List.of(s1, s2));
     }
 
@@ -575,7 +579,8 @@ class DraftControllerIT {
         }
 
         // Config: 1 phase, groupCount=2 (2 groups of 6 teams each), roundRobin
-        var section = new DraftSectionRequest(1, "team_number", 2, "roundRobin", 0, 0, 15, 1, null);
+        var section =
+                new DraftSectionRequest(1, "team_number", 2, "roundRobin", 0, 0, 15, 1, null, null);
         DraftRequest request = new DraftRequest(List.of(section));
 
         ResponseEntity<DraftPreviewResponse> response =
@@ -653,9 +658,11 @@ class DraftControllerIT {
         }
 
         // Phase 1: roundRobin, groupCount=2; Phase 2: siegerehrung, sectionBreakTimeMinutes=20
-        var phase1 = new DraftSectionRequest(1, "team_number", 2, "roundRobin", 0, 0, 15, 1, null);
+        var phase1 =
+                new DraftSectionRequest(1, "team_number", 2, "roundRobin", 0, 0, 15, 1, null, null);
         var phase2 =
-                new DraftSectionRequest(2, "team_number", 1, "siegerehrung", 0, 20, 15, 1, null);
+                new DraftSectionRequest(
+                        2, "team_number", 1, "siegerehrung", 0, 20, 15, 1, null, null);
         DraftRequest request = new DraftRequest(List.of(phase1, phase2));
 
         ResponseEntity<DraftPreviewResponse> response =
@@ -753,9 +760,12 @@ class DraftControllerIT {
 
         // Phase 1: roundRobin, 2 groups, lapTime=15min, lapBreak=2min, sectionBreak=10min
         // Phase 2: siegerehrung (lapCount=0 → zero-duration marker)
-        var phase1 = new DraftSectionRequest(1, "team_number", 2, "roundRobin", 2, 10, 15, 1, null);
+        var phase1 =
+                new DraftSectionRequest(
+                        1, "team_number", 2, "roundRobin", 2, 10, 15, 1, null, null);
         var phase2 =
-                new DraftSectionRequest(2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, null);
+                new DraftSectionRequest(
+                        2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, null, null);
         DraftRequest request = new DraftRequest(List.of(phase1, phase2));
 
         ResponseEntity<DraftPreviewResponse> response =
@@ -1020,11 +1030,14 @@ class DraftControllerIT {
 
         // Three different payloads — each with a distinct lapTimeMinutes to distinguish them
         var section1st =
-                new DraftSectionRequest(1, "team_number", 1, "siegerehrung", 0, 0, 10, 1, null);
+                new DraftSectionRequest(
+                        1, "team_number", 1, "siegerehrung", 0, 0, 10, 1, null, null);
         var section2nd =
-                new DraftSectionRequest(1, "team_number", 1, "siegerehrung", 0, 0, 20, 1, null);
+                new DraftSectionRequest(
+                        1, "team_number", 1, "siegerehrung", 0, 0, 20, 1, null, null);
         var section3rd =
-                new DraftSectionRequest(1, "team_number", 1, "siegerehrung", 0, 0, 30, 1, null);
+                new DraftSectionRequest(
+                        1, "team_number", 1, "siegerehrung", 0, 0, 30, 1, null, null);
 
         ResponseEntity<DraftResponse> r1 =
                 authed.exchange(

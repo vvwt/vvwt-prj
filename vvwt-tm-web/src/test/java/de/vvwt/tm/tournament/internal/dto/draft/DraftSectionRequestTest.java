@@ -23,7 +23,8 @@ class DraftSectionRequestTest {
     @Test
     void record_withAllFields_storesAll() {
         DraftSectionRequest request =
-                new DraftSectionRequest(1, "team_number", 2, "roundrobin", 5, 10, 15, 1, null);
+                new DraftSectionRequest(
+                        1, "team_number", 2, "roundrobin", 5, 10, 15, 1, null, null);
 
         assertThat(request.sectionNumber()).isEqualTo(1);
         assertThat(request.sortType()).isEqualTo("team_number");
@@ -42,7 +43,16 @@ class DraftSectionRequestTest {
         DraftBreakRequest breakRequest = new DraftBreakRequest(2, 15, "Pause");
         DraftSectionRequest request =
                 new DraftSectionRequest(
-                        1, "team_number", 2, "roundrobin", 5, 10, 15, 1, List.of(breakRequest));
+                        1,
+                        "team_number",
+                        2,
+                        "roundrobin",
+                        5,
+                        10,
+                        15,
+                        1,
+                        List.of(breakRequest),
+                        null);
 
         assertThat(request.breaks()).hasSize(1);
         assertThat(request.breaks().get(0).afterLapNumber()).isEqualTo(2);
@@ -52,7 +62,8 @@ class DraftSectionRequestTest {
     @Test
     void jsonRoundTrip_allFields_preserved() throws Exception {
         DraftSectionRequest original =
-                new DraftSectionRequest(1, "placement_group", 3, "roundrobin", 0, 15, 20, 2, null);
+                new DraftSectionRequest(
+                        1, "placement_group", 3, "roundrobin", 0, 15, 20, 2, null, null);
         String json = objectMapper.writeValueAsString(original);
         DraftSectionRequest restored = objectMapper.readValue(json, DraftSectionRequest.class);
 

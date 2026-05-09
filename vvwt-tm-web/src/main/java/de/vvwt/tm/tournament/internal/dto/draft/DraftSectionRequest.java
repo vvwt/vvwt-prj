@@ -17,10 +17,17 @@ import java.util.List;
  * <p>Inventory: E21S01 line 438. Reconstructed under {@code
  * de.vvwt.tm.tournament.internal.dto.draft} per DEC-21.
  *
+ * <h2>E51S15 — distributionMode field</h2>
+ *
+ * <p>{@code distributionMode} is optional in the request (may be absent/null). The domain class
+ * {@link de.vvwt.tm.tournament.draft.DraftSection} defaults null to {@code "sequential"}. When
+ * present, the value is forwarded as-is; domain validation rejects unrecognized values.
+ *
  * @see DraftRequest
  * @see DraftBreakRequest
  * @see <a href="DEC-21">DEC-21 — Spring Modulith package layout</a>
  * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
+ * @see <a href="E51S15">E51S15 — distributionMode feature</a>
  */
 public record DraftSectionRequest(
         @NotNull @Min(value = 1, message = "sectionNumber must be ≥ 1") Integer sectionNumber,
@@ -47,4 +54,14 @@ public record DraftSectionRequest(
          * Optional intra-phase breaks. May be {@code null} (treated as empty list). Each break is
          * independently validated.
          */
-        @Valid List<DraftBreakRequest> breaks) {}
+        @Valid List<DraftBreakRequest> breaks,
+        /**
+         * Team distribution algorithm for Phase-1 avatar assignment. Optional — absent/null
+         * defaults to {@code "sequential"} in the domain class. When present, must be one of {@code
+         * "sequential"} or {@code "round_robin"} (validated at domain layer).
+         *
+         * @see de.vvwt.tm.tournament.draft.DraftSection#getDistributionMode()
+         * @see <a href="E51S15">E51S15 — distributionMode feature (sequential default + round-robin
+         *     toggle)</a>
+         */
+        String distributionMode) {}

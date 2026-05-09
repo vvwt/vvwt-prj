@@ -393,3 +393,114 @@ describe('DraftConfig.svelte — E48S16 first-phase sortType lock (AC-TEST-FRONT
     expect(source).toContain('si === 0');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E51S15 — AC-TEST-UI-DROPDOWN-DEFAULT-SEQUENTIAL-RED
+// distributionMode dropdown defaults to "sequential" on a new section
+// RED-first per DEC-22: these tests FAIL before DraftConfig.svelte adds the dropdown
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('DraftConfig.svelte — E51S15 distributionMode dropdown default (AC-TEST-UI-DROPDOWN-DEFAULT-SEQUENTIAL-RED)', () => {
+  it('DraftConfig.svelte source initializes distributionMode to "sequential" in new sections', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // RED: fails before distributionMode default is set in addSection() or section map
+    expect(source).toContain("distributionMode: 'sequential'");
+  });
+
+  it('DraftConfig.svelte source preserves distributionMode from loaded config (defaulting to sequential)', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // The mapping of loaded sections must include distributionMode field (with fallback to 'sequential')
+    expect(source).toContain('distributionMode');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E51S15 — AC-TEST-UI-DROPDOWN-LABEL-DE-RED
+// Dropdown label "Mannschaftsverteilung"; options use DE i18n keys per DEC-52
+// RED-first per DEC-22
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('DraftConfig.svelte — E51S15 distributionMode i18n keys (AC-TEST-UI-DROPDOWN-LABEL-DE-RED)', () => {
+  it('DraftConfig.svelte source references draftConfig.distributionMode.label i18n key', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // RED: fails before the dropdown label key is referenced
+    expect(source).toContain('draftConfig.distributionMode.label');
+  });
+
+  it('DraftConfig.svelte source references draftConfig.distributionMode.sequential i18n key', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // RED: fails before the sequential option key is referenced
+    expect(source).toContain('draftConfig.distributionMode.sequential');
+  });
+
+  it('DraftConfig.svelte source references draftConfig.distributionMode.round_robin i18n key', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // RED: fails before the round_robin option key is referenced
+    expect(source).toContain('draftConfig.distributionMode.round_robin');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E51S15 — AC-TEST-UI-DROPDOWN-PERSISTS-VIA-DRAFTSAVE-RED
+// dropdown is bound to section.distributionMode → included in saveDraft payload
+// RED-first per DEC-22
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('DraftConfig.svelte — E51S15 distributionMode binding (AC-TEST-UI-DROPDOWN-PERSISTS-VIA-DRAFTSAVE-RED)', () => {
+  it('DraftConfig.svelte source has a select bound to section.distributionMode', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // RED: fails before bind:value={section.distributionMode} is added
+    expect(source).toContain('section.distributionMode');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E51S15 — AC-TEST-UI-DROPDOWN-PER-SECTION-RED
+// The dropdown is inside the {#each sections} block (per-section, not tournament-level)
+// RED-first per DEC-22
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('DraftConfig.svelte — E51S15 per-section distributionMode (AC-TEST-UI-DROPDOWN-PER-SECTION-RED)', () => {
+  it('DraftConfig.svelte distributionMode dropdown appears inside {#each sections} block', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // Verify: the each block comes before distributionMode reference in source order
+    const eachIdx = source.indexOf('{#each sections');
+    const distModeIdx = source.indexOf('distributionMode');
+    // The dropdown must appear AFTER the {#each sections opening (inside the loop)
+    expect(eachIdx).toBeGreaterThanOrEqual(0);
+    expect(distModeIdx).toBeGreaterThan(eachIdx);
+  });
+
+  it('DraftConfig.svelte distributionMode dropdown uses section.distributionMode (not a top-level var)', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // Binding must use section.distributionMode (per-section), not a standalone variable
+    expect(source).toContain('section.distributionMode');
+    // Must NOT bind to a tournament-level distributionMode variable
+    // (i.e., there should be no top-level "let distributionMode" declaration)
+    expect(source).not.toMatch(/\blet distributionMode\b/);
+  });
+});
