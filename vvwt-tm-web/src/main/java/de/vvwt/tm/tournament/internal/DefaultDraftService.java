@@ -36,6 +36,8 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -62,16 +64,18 @@ import org.springframework.transaction.annotation.Transactional;
  *       (E21S19)
  * </ul>
  *
- * <h2>E51S02 — Structural TeamAvatar persistence at apply-time (DEC-55 D-1)</h2>
+ * <h2>E51S18 — DEC-59 operationalization: uniform avatar persistence (Clauses A + B + D + E)</h2>
  *
- * <p>Step (d2) persists structural {@link TeamAvatar} placeholders for every phase at apply-time.
- * Phase 1 avatars have {@code teamId} populated (from {@code participate=true} Tournament.Teams
- * sorted by {@code teamNumber}). Phase 2+ avatars have {@code teamId = null} — they are structural
- * placeholders that enable Match-Gen and Slot-Opt to run upfront before the operator's
- * drag&amp;drop assignment. Siegerehrung phases are skipped (no competitive slots).
- * Delete-and-recreate idempotency: existing avatars for each phase are deleted before insertion (FK
- * CASCADE per E51S01 schema absorbs downstream rows safely). No event publication, no match
- * generation in this step (E51S03 scope).
+ * <p>Step (d2) persists structural {@link TeamAvatar} placeholders for EVERY phase at apply-time,
+ * including siegerehrung (DEC-59 Clause A: N avatars per phase uniformly). ALL avatars have
+ * {@code teamId = null} regardless of phase (DEC-59 Clause B: universal NULL — Phase 1 carve-out
+ * removed). {@code DraftSection.distributionMode} determines the {@code (groupNumber,
+ * groupPosition)} layout (DEC-59 Clause D). Delete-and-recreate idempotency: existing avatars for
+ * each phase are deleted before insertion (FK CASCADE per E51S01 schema absorbs downstream rows
+ * safely). No event publication, no match generation in this step (E51S03 scope).
+ * Step (d3) publishes {@link de.vvwt.tm.tournament.events.MatchGenJobScheduledEvent} for ALL
+ * phases including siegerehrung (DEC-59 Clause E — uniform lifecycle via vacuous L1+L2 via
+ * {@link SiegerehrungMatchGenerator}).
  *
  * <h2>DRAFT-precondition (E48S22, AC-IMPL-PHASES-EXIST-GUARD-REMOVED)</h2>
  *
@@ -105,6 +109,8 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service("tmDraftService")
 public class DefaultDraftService implements DraftService {
+
+    private static final Logger log = LoggerFactory.getLogger(DefaultDraftService.class);
 
     private final PhaseRepository phaseRepository;
     private final PhaseBreakRepository phaseBreakRepository;
@@ -294,43 +300,42 @@ public class DefaultDraftService implements DraftService {
             persistPhaseBreaks(savedPhase.getId(), section.getBreaks());
         }
 
-        // Step (d2): E51S02 — persist structural TeamAvatars for every phase (DEC-55 D-1)
+        // Step (d2): E51S02 + E51S18 — persist structural TeamAvatars for every phase (DEC-59
+        // Clauses A + B operationalize DEC-55 D-1 amendment).
         // Runs inside the same @Transactional TX; DEC-37 Clause B row-lock already held.
         // AC-IMPL-NO-EVENT-PUBLICATION-IN-S02: no ApplicationEvent published here.
         // AC-IMPL-NO-MATCH-GEN-IN-APPLY: no phasePreparationService.generateMatches() call.
         //
-        // Participating teams are loaded only when at least one non-siegerehrung section exists
-        // (siegerehrung phases have no competitive slots and produce no avatars). This avoids
-        // the empty-participating-teams check firing on siegerehrung-only draft configs.
-        boolean hasNonSiegerehrung =
-                sections.stream().anyMatch(s -> !"siegerehrung".equals(s.getGameMode()));
-        if (hasNonSiegerehrung) {
-            List<Team> participatingTeams = loadParticipatingTeams(tournamentId);
-            if (participatingTeams.isEmpty()) {
-                throw new IllegalArgumentException(
-                        "Tournament '"
-                                + tournamentId
-                                + "' has no participating teams — cannot apply draft."
-                                + " Register at least one participating team first."
-                                + " (AC-ERROR-HANDLING-EMPTY-PARTICIPATING-TEAMS, E51S02)");
-            }
-            for (int i = 0; i < sections.size(); i++) {
-                UUID phaseId = createdPhaseIds.get(i);
-                persistStructuralAvatars(
-                        tournamentId, phaseId, sections.get(i), i, participatingTeams);
-            }
+        // DEC-59 Clause A: N avatars per phase INCLUDING siegerehrung (no skip for siegerehrung).
+        // DEC-59 Clause B: teamId=NULL universally for all phases including Phase 1.
+        // Participating teams always loaded (siegerehrung phases also need N avatars per Clause A).
+        List<Team> participatingTeams = loadParticipatingTeams(tournamentId);
+        if (participatingTeams.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Tournament '"
+                            + tournamentId
+                            + "' has no participating teams — cannot apply draft."
+                            + " Register at least one participating team first."
+                            + " (AC-ERROR-HANDLING-EMPTY-PARTICIPATING-TEAMS, E51S02)");
+        }
+        for (int i = 0; i < sections.size(); i++) {
+            UUID phaseId = createdPhaseIds.get(i);
+            persistStructuralAvatars(
+                    tournamentId, phaseId, sections.get(i), i, participatingTeams);
         }
 
-        // Step (d3): E51S03 — publish MatchGenJobScheduledEvent per non-siegerehrung phase
-        // (DEC-55 D-3, AC-IMPL-EVENT-CLASSES-IN-TOURNAMENT-CONTEXT).
+        // Step (d3): E51S03 + E51S18 — publish MatchGenJobScheduledEvent per phase including
+        // siegerehrung (DEC-55 D-3 step 1 + DEC-59 Clause E).
         // Events are published inside the @Transactional TX so that @TransactionalEventListener
         // (phase = AFTER_COMMIT) fires AFTER this TX commits — avatars are fully visible.
-        // Siegerehrung phases are skipped (no competitive matches to generate).
+        // DEC-59 Clause E: siegerehrung phases now receive the event; the per-gameMode
+        // SiegerehrungMatchGenerator returns an empty match list → vacuous L1+L2 execution →
+        // siegerehrung transitions PENDING → PREPARED via the standard "match-gen-done" verb
+        // (DEC-55 D-4 transition table textually unchanged; DEC-56 D-1 "L1 and L2 MUST always
+        // run" satisfied vacuously). DEC-55 D-3 step 1 text "per phase" preserved literally.
         for (int i = 0; i < sections.size(); i++) {
-            if (!"siegerehrung".equals(sections.get(i).getGameMode())) {
-                UUID phaseId = createdPhaseIds.get(i);
-                eventPublisher.publishEvent(new MatchGenJobScheduledEvent(tournamentId, phaseId));
-            }
+            UUID phaseId = createdPhaseIds.get(i);
+            eventPublisher.publishEvent(new MatchGenJobScheduledEvent(tournamentId, phaseId));
         }
 
         // Step (e): Persist draft_json (makes loadDraft() return the applied config post-Apply)
@@ -573,33 +578,51 @@ public class DefaultDraftService implements DraftService {
     }
 
     /**
-     * Persists structural {@link TeamAvatar} records for one phase at apply-time (DEC-55 D-1,
-     * E51S02).
+     * Persists structural {@link TeamAvatar} records for one phase at apply-time (DEC-59 Clauses A
+     * + B, E51S18; amends DEC-55 D-1, E51S02).
      *
-     * <p>Siegerehrung phases are skipped — they have no competitive slots and therefore no
-     * structural avatars.
+     * <p><b>DEC-59 Clause A:</b> Exactly {@code N} avatars are persisted per phase, where {@code N
+     * = participatingTeams.size()}. This applies uniformly to Phase 1, Phase 2+, and siegerehrung.
+     * The previous formula {@code groupCount × ceil(N/groupCount)} for Phase 2+ and {@code 0
+     * avatars for siegerehrung} are superseded.
+     *
+     * <p><b>DEC-59 Clause B:</b> {@code teamId = NULL} universally at apply-time for ALL phases
+     * including Phase 1. The previous DEC-55 D-1 carve-out "Phase 1 MAY be populated immediately"
+     * is removed. teamId population happens exclusively via the operator-confirmation workflow
+     * ({@link DefaultPhaseTransitionService#commitTransition(UUID, List)}, DEC-59 Clause C).
+     *
+     * <p><b>Siegerehrung (DEC-59 Clause A):</b> siegerehrung phases receive {@code N} rank-slot
+     * avatars ({@code groupNumber=1, groupPosition=1..N}). The lifecycle (PENDING → PREPARED) runs
+     * via vacuous L1+L2 execution — {@link SiegerehrungMatchGenerator} returns an empty match list;
+     * L2 processes empty input as a no-op; {@code PhaseLifecycleService.transition("match-gen-done")}
+     * advances to PREPARED (DEC-59 Clause E).
+     *
+     * <p><b>distributionMode (DEC-59 Clause D):</b> {@code DraftSection.distributionMode} (E51S15)
+     * determines the structural {@code (groupNumber, groupPosition)} layout for non-siegerehrung
+     * phases. Does NOT affect teamId (which is always NULL per Clause B). The same branching logic
+     * is used in {@link DefaultPhaseTransitionService#computePhase1Proposals} for proposal
+     * computation — layout and proposal must use the same algorithm so that
+     * {@code commitTransition()}'s UPDATE-by-identity (DEC-9) can locate the correct avatar slot.
+     *
+     * <p><b>AC-ERROR-DISTRIBUTIONMODE-UNKNOWN-VALUE:</b> Unknown distributionMode values fall
+     * through to the "sequential" branch (default behavior). A warning is logged to alert operators
+     * of unexpected values — silent fallback to hardcoded Round-Robin is NOT acceptable per DEC-59
+     * Clause D.
      *
      * <p>Idempotency: existing avatars for this phase are deleted (via direct JDBC to avoid N+1)
      * before new avatars are inserted. FK CASCADE (E51S01 schema: {@code match.member_avatar_1_id}
      * + {@code match.member_avatar_2_id} + {@code team_avatar_rating.avatar_id} all ON DELETE
      * CASCADE) ensures no orphan downstream rows on delete.
      *
-     * <p>Phase 1 ({@code sectionIndex == 0}): {@code teamId} is populated from the corresponding
-     * participating team (Round-Robin: team at index {@code i} → group {@code (i % groupCount) +
-     * 1}, position {@code (i / groupCount) + 1}).
-     *
-     * <p>Phase 2+ ({@code sectionIndex > 0}): {@code teamId = null} (structural placeholder). Slot
-     * count = {@code groupCount × positionsPerGroup} where {@code positionsPerGroup =
-     * ceil(participatingTeams.size() / groupCount)}.
-     *
      * @param tournamentId the tournament UUID (stored on each avatar)
      * @param phaseId the UUID of the newly created Phase (structural identity field per DEC-9)
-     * @param section the DraftSection for this phase (provides groupCount and gameMode)
+     * @param section the DraftSection for this phase (provides groupCount, gameMode,
+     *     distributionMode)
      * @param sectionIndex 0-based index of this section within the draft (0 = Phase 1)
-     * @param participatingTeams ordered list of participating teams (teamNumber ascending)
+     * @param participatingTeams ordered list of participating teams (teamNumber ascending); size N
      * @see <a href="DEC-9">DEC-9 — TeamAvatar structural identity</a>
-     * @see <a href="DEC-55">DEC-55 D-1 — Avatar-Erzeugung-Zeitpunkt verschoben auf
-     *     DraftConfig-Apply</a>
+     * @see <a href="DEC-59">DEC-59 Clauses A + B + D — uniform avatar count; teamId=NULL; dMode</a>
+     * @see <a href="E51S18">E51S18 — DEC-59 operationalization (K-1 + K-4 + K-6)</a>
      */
     private void persistStructuralAvatars(
             UUID tournamentId,
@@ -608,64 +631,69 @@ public class DefaultDraftService implements DraftService {
             int sectionIndex,
             List<Team> participatingTeams) {
 
-        // Siegerehrung phases have no competitive slots — skip avatar creation
-        if ("siegerehrung".equals(section.getGameMode())) {
-            return;
-        }
-
-        int groupCount = section.getGroupCount();
         int teamCount = participatingTeams.size();
 
         // Delete-and-recreate idempotency (AC-TEST-DRAFT-APPLY-IDEMPOTENT-GREEN):
         // FK CASCADE on match + team_avatar_rating means this is safe inside the TX.
         jdbcTemplate.update("DELETE FROM team_avatar WHERE phase_id = ?", phaseId);
 
-        if (sectionIndex == 0) {
-            // Phase 1: populate teamId from participating teams using the configured
-            // distributionMode (E51S15). Same algorithm as computePhase1Proposals() in
-            // DefaultPhaseTransitionService, without going through the proposal layer —
-            // DEC-9 structural identity.
-            //
-            // sequential (default): fill Group 1 fully before Group 2
-            //   positionsPerGroup = ceil(teamCount / groupCount)
-            //   groupNumber = (i / positionsPerGroup) + 1
-            //   groupPosition = (i % positionsPerGroup) + 1
-            //
-            // round_robin (legacy): distribute one-per-group before advancing position
-            //   groupNumber = (i % groupCount) + 1
-            //   groupPosition = (i / groupCount) + 1
-            //
-            // AC-TEST-AVATAR-ASSIGNMENT-SEQUENTIAL-RED, AC-TEST-AVATAR-ASSIGNMENT-ROUND-ROBIN-RED
+        if ("siegerehrung".equals(section.getGameMode())) {
+            // DEC-59 Clause A: siegerehrung receives N rank-slot avatars (one per participating
+            // team). Structural identity: groupNumber=1, groupPosition=1..N (rank slot).
+            // DEC-59 Clause B: teamId=NULL (populated via Clause C operator-confirmation only).
+            // DEC-59 Clause E: MatchGenJobScheduledEvent is now published for siegerehrung (Step
+            // d3 in apply()); SiegerehrungMatchGenerator returns empty list → L2 no-op →
+            // PENDING→PREPARED "match-gen-done" via standard verb (DEC-55 D-4).
+            for (int i = 0; i < teamCount; i++) {
+                TeamAvatar avatar = buildAvatar(tournamentId, phaseId, 1, i + 1);
+                // teamId = null (Clause B — universally NULL at apply-time)
+                teamAvatarRepository.save(avatar);
+            }
+        } else {
+            // Non-siegerehrung phases (Phase 1 and Phase 2+):
+            // DEC-59 Clause A: exactly N avatars (N = participatingTeams.size()).
+            //   Previous formula: Phase 2+ used groupCount × ceil(N/groupCount) — superseded.
+            // DEC-59 Clause B: teamId=NULL for ALL phases including Phase 1.
+            //   Previous carve-out: Phase 1 "MAY be populated immediately" — removed.
+            // DEC-59 Clause D: DraftSection.distributionMode determines groupNumber+groupPosition.
+            //   The same algorithm is used by computePhase1Proposals() in
+            //   DefaultPhaseTransitionService so that the proposal's (group, position) matches
+            //   the slot created here (DEC-9 structural identity for UPDATE-by-identity in
+            //   commitTransition).
+            int groupCount = section.getGroupCount();
             String distributionMode = section.getDistributionMode();
+
             if ("round_robin".equals(distributionMode)) {
+                // Round-Robin: team at index i → group (i % groupCount)+1, pos (i / groupCount)+1
                 for (int i = 0; i < teamCount; i++) {
                     int groupNumber = (i % groupCount) + 1;
                     int groupPosition = (i / groupCount) + 1;
                     TeamAvatar avatar =
                             buildAvatar(tournamentId, phaseId, groupNumber, groupPosition);
-                    avatar.setTeamId(participatingTeams.get(i).getId());
+                    // teamId = null (DEC-59 Clause B — universal; was: populated for Phase 1)
                     teamAvatarRepository.save(avatar);
                 }
             } else {
-                // "sequential" (default)
+                // "sequential" (default) or unrecognized value (AC-ERROR-DISTRIBUTIONMODE-UNKNOWN):
+                // Unrecognized distributionMode falls through to sequential with a warning log
+                // (silent hardcoded Round-Robin fallback is NOT acceptable per DEC-59 Clause D).
+                if (!"sequential".equals(distributionMode) && distributionMode != null) {
+                    log.warn(
+                            "[E51S18] persistStructuralAvatars: unrecognized distributionMode '{}'"
+                                    + " for phaseId={} — defaulting to sequential"
+                                    + " (AC-ERROR-DISTRIBUTIONMODE-UNKNOWN-VALUE, DEC-59 Clause D)",
+                            distributionMode,
+                            phaseId);
+                }
+                // Sequential: fill Group 1 fully before Group 2.
+                // positionsPerGroup = ceil(N / groupCount)
                 int positionsPerGroup = (teamCount + groupCount - 1) / groupCount;
                 for (int i = 0; i < teamCount; i++) {
                     int groupNumber = (i / positionsPerGroup) + 1;
                     int groupPosition = (i % positionsPerGroup) + 1;
                     TeamAvatar avatar =
                             buildAvatar(tournamentId, phaseId, groupNumber, groupPosition);
-                    avatar.setTeamId(participatingTeams.get(i).getId());
-                    teamAvatarRepository.save(avatar);
-                }
-            }
-        } else {
-            // Phase 2+: structural placeholders, teamId = null
-            // Position count per group = ceil(participatingTeams.size() / groupCount)
-            int positionsPerGroup = (teamCount + groupCount - 1) / groupCount;
-            for (int group = 1; group <= groupCount; group++) {
-                for (int position = 1; position <= positionsPerGroup; position++) {
-                    TeamAvatar avatar = buildAvatar(tournamentId, phaseId, group, position);
-                    // teamId stays null — structural placeholder per DEC-55 D-1
+                    // teamId = null (DEC-59 Clause B — universal; was: populated for Phase 1)
                     teamAvatarRepository.save(avatar);
                 }
             }
