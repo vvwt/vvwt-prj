@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-55.md at 7e9d48e4f620718f52c8159620261d7a6c967f60 2026-05-09 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-55.md at ab727af1fcf7b6d334ad25e83a8bb6fd04a559cd 2026-05-09 -->
 ---
 id: DEC-55
 domain: architecture
@@ -21,7 +21,7 @@ created_at: 2026-05-08
 created_by: discovery
 last_updated_at: 2026-05-09
 last_updated_by: delivery
-amended_by: [DEC-56]
+amended_by: [DEC-56, DEC-59]
 session_brief_ref: discovery-2026-05-08-phase-preparation-background-job-pipeline
 ---
 
