@@ -1,14 +1,16 @@
 /**
- * Phase-Transition API functions for the Tournament Manager Admin SPA (E48S08).
+ * Phase-Transition API functions for the Tournament Manager Admin SPA (E48S08 + E51S13).
  *
  * Provides types and API calls for the Drag&Drop Phase-Transition frontend:
  *   - fetchProposal: GET /api/phases/{phaseId}/transition-proposal
  *   - commitTransition: POST /api/phases/{phaseId}/transition-commit
+ *   - sourceLabelBySortType: source-pane label resolver (E51S13 — replaces hasSourceSlot)
  *
- * Backend DTO shape (E48S20 TeamAvatarProposal Java record — widened):
+ * Backend DTO shape (E51S13 TeamAvatarProposal Java record — extended with sortType):
  *   teamId: UUID (string on wire), teamNumber: int, teamDescription: string,
  *   groupNumber: int, groupPosition: int,
- *   sourceGroupNumber: int|null, sourceGroupPosition: int|null
+ *   sourceGroupNumber: int|null, sourceGroupPosition: int|null,
+ *   sortType: string|null
  *
  * DEC-9: structural identity (teamId, groupNumber, groupPosition). UUID must NOT be rendered in DOM.
  * Note: phaseId is always implicit from the URL path, NOT in the body.
@@ -20,15 +22,19 @@ import { apiFetch } from '../lib/api.js';
 /**
  * A single team-to-(group, position) slot as returned by the proposal endpoint.
  *
- * Matches the shape of E48S20 TeamAvatarProposal Java record (widened):
+ * Matches the shape of E51S13 TeamAvatarProposal Java record (8 fields):
  *   record TeamAvatarProposal(UUID teamId, int teamNumber, String teamDescription,
  *                             int groupNumber, int groupPosition,
- *                             Integer sourceGroupNumber, Integer sourceGroupPosition)
+ *                             Integer sourceGroupNumber, Integer sourceGroupPosition,
+ *                             String sortType)
  *
  * DEC-9: structural identity is (groupNumber, groupPosition); teamId is the internal swap-key
  * (must NEVER be rendered in DOM per DEC-9).
  * E48S20: teamNumber and teamDescription are the organizer-facing display labels.
  * sourceGroupNumber/sourceGroupPosition are the team's slot in the previous phase (null for Phase 1).
+ * E51S13: sortType is the canonical domain trigger for source-pane label rendering. Nullable for
+ *   backward-compat (e.g., legacy proposals without sortType). Value is a domain String
+ *   (e.g., "team_number"), NOT a UUID — DEC-9 invariant preserved (AC-IMPL-DEC-9-NO-UUID-IN-DOM).
  */
 export interface TeamAvatarSlot {
     /** Team UUID (string on the JSON wire). Internal swap-key — NEVER render in DOM (DEC-9). */
@@ -45,17 +51,65 @@ export interface TeamAvatarSlot {
     sourceGroupNumber: number | null;
     /** Team's position in the previous phase (null for Phase 1). */
     sourceGroupPosition: number | null;
+    /**
+     * Domain sortType from the target DraftSection (e.g. "team_number", "placement_group",
+     * "group_placement"). Nullable for backward-compat (legacy proposals without field).
+     * Used by sourceLabelBySortType to drive source-pane label without data-presence heuristics.
+     * Value is a domain String, NOT a UUID (DEC-9, AC-IMPL-DEC-9-NO-UUID-IN-DOM, E51S13).
+     */
+    sortType: string | null;
 }
 
 /**
- * Type guard: returns true if slot has Phase-2+ source fields (non-null sourceGroupNumber).
- * Use to determine whether to render the "Gruppe {g}, Platz {p}" source label.
+ * Returns the human-readable source-slot label for a slot, driven by {@code sortType}.
+ *
+ * This is the E51S13 replacement for the deleted {@code hasSourceSlot} type-guard (Brief D-8,
+ * Brief D-9): instead of inferring the phase from data-presence, we switch on the canonical domain
+ * trigger {@code sortType} from the backend.
+ *
+ * Label semantics:
+ * - {@code sortType = "team_number"} → "Nr. {n}" using existing i18n key
+ *   {@code phaseTransition.sourceLabelPhase1} (Phase 1 case)
+ * - {@code sortType = "placement_group"} or {@code "group_placement"} → "Gruppe {g}, Platz {p}"
+ *   using existing i18n key {@code phaseTransition.sourceLabelPhase2plus} (Phase 2+ case)
+ * - {@code sortType = null/undefined} or unknown value → empty string (defensive fallback;
+ *   never renders "undefined" — AC-ERROR-HANDLING-NULL-SORTTYPE,
+ *   AC-ERROR-HANDLING-UNKNOWN-SORTTYPE)
+ *
+ * AC-IMPL-NO-NEW-I18N-KEYS (DEC-52): reuses existing keys
+ * {@code phaseTransition.sourceLabelPhase1} and {@code phaseTransition.sourceLabelPhase2plus}.
+ * No new keys added to de.json.
+ *
+ * @param slot the TeamAvatarSlot whose source label should be computed
+ * @param t the svelte-i18n translation function (accepts key + optional {values} opts)
+ * @returns human-readable source-pane label string; never contains "undefined"
+ * @see <a href="E51S13">E51S13 — Bug 2a sortType-driven source-pane label</a>
+ * @see <a href="DEC-9">DEC-9 — no UUID in DOM; sortType is a domain String</a>
+ * @see <a href="DEC-52">DEC-52 — V1-DE-only i18n; no new keys</a>
  */
-export function hasSourceSlot(slot: TeamAvatarSlot): slot is TeamAvatarSlot & {
-    sourceGroupNumber: number;
-    sourceGroupPosition: number;
-} {
-    return slot.sourceGroupNumber !== null && slot.sourceGroupPosition !== null;
+export function sourceLabelBySortType(
+    slot: TeamAvatarSlot,
+    t: (key: string, opts?: { values?: Record<string, unknown> }) => string
+): string {
+    const sortType = slot.sortType;
+    if (sortType === 'team_number') {
+        // Phase 1: label = "Nr. {n}" — uses existing phaseTransition.sourceLabelPhase1
+        return t('phaseTransition.sourceLabelPhase1', {
+            values: { n: String(slot.teamNumber) },
+        });
+    }
+    if (sortType === 'placement_group' || sortType === 'group_placement') {
+        // Phase 2+: label = "Gruppe {g}, Platz {p}" — uses existing phaseTransition.sourceLabelPhase2plus
+        const g = slot.sourceGroupNumber ?? '';
+        const p = slot.sourceGroupPosition ?? '';
+        return t('phaseTransition.sourceLabelPhase2plus', {
+            values: { g: String(g), p: String(p) },
+        });
+    }
+    // Defensive fallback for null, undefined, or unknown sortType values.
+    // Returns empty string — never renders "undefined" (AC-ERROR-HANDLING-NULL-SORTTYPE,
+    // AC-ERROR-HANDLING-UNKNOWN-SORTTYPE).
+    return '';
 }
 
 /**

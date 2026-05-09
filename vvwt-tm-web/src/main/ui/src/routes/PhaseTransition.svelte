@@ -1,16 +1,20 @@
 <script lang="ts">
   /**
-   * Drag-and-Drop Phase-Transition page — Story E48S08 + E48S20.
+   * Drag-and-Drop Phase-Transition page — Story E48S08 + E48S20 + E51S13.
    *
    * Route: /tournaments/:tournamentId/phases/:phaseId/transition
    *
    * E48S20: Two-pane layout:
    *   - Source pane (left, read-only): shows each team's current (fromPhase) slot with
-   *     a human-readable slot label ("Nr.5" for Phase 1; "Gruppe 1, Platz 2" for Phase 2+)
+   *     a human-readable slot label ("Nr. 5" for Phase 1; "Gruppe 1, Platz 2" for Phase 2+)
    *     and the team name/description. Source pane is read-only — NOT a drag source.
    *   - Target pane (right, interactive): shows the proposed assignment for the next phase.
    *     All (group, position) cells are rendered explicitly, including empty ones ("— leer —").
    *     Admin can drag teams between target cells to correct the proposal.
+   *
+   * E51S13 (Bug 2a): source-pane label now driven by {@code slot.sortType} via
+   *   {@code sourceLabelBySortType}. This fixes "Gruppe undefined, Platz undefined"
+   *   for Phase-1 teams.
    *
    * DEC-9: teamId UUID must NOT appear in DOM. Organizer-facing labels: teamNumber + teamDescription.
    * teamId is retained in slots array as the internal swap-key for the commit payload.
@@ -28,7 +32,7 @@
   import {
     fetchProposal,
     commitTransition,
-    hasSourceSlot,
+    sourceLabelBySortType,
     type TeamAvatarSlot,
     type TeamAvatarAssignment,
   } from '../stores/phaseTransitionStore.js';
@@ -145,21 +149,30 @@
     push(`/tournaments/${tournamentId}/phases`);
   }
 
-  // ── Source-pane label derivation (E48S20) ────────────────────────────────
+  // ── Source-pane label derivation (E51S13 — sortType-driven) ─────────────
 
   /**
-   * Returns the human-readable source-slot label for a slot:
-   * - Phase 1 (no source slot): "Nr.{teamNumber}"
-   * - Phase 2+ (has source slot): "Gruppe {g}, Platz {p}"
-   * (AC-IMPL-FRONTEND-SOURCE-PANE-LABEL)
+   * Returns the human-readable source-slot label for a slot.
+   *
+   * E51S13: delegates to {@code sourceLabelBySortType} which switches on {@code slot.sortType}
+   * (Brief D-9 root-cause-fix; E51S13 Bug 2a).
+   *
+   * - sortType="team_number" → "Nr. {n}" (Phase 1 case; existing i18n key)
+   * - sortType="placement_group" / "group_placement" → "Gruppe {g}, Platz {p}" (Phase 2+ case)
+   * - null/unknown → "" (defensive fallback — never renders "undefined")
+   *
+   * AC-IMPL-FRONTEND-SOURCE-PANE-LABEL, AC-TEST-FRONTEND-NO-UNDEFINED-RENDER-RED
    */
   function sourceLabel(slot: TeamAvatarSlot): string {
-    if (hasSourceSlot(slot)) {
-      return get(_)('phaseTransition.sourceLabelPhase2plus')
-        .replace('{g}', String(slot.sourceGroupNumber))
-        .replace('{p}', String(slot.sourceGroupPosition));
-    }
-    return get(_)('phaseTransition.sourceLabelPhase1').replace('{n}', String(slot.teamNumber));
+    return sourceLabelBySortType(slot, (key, opts) => {
+      const translated = get(_)(key);
+      if (!opts?.values) return translated;
+      // Replace {placeholder} tokens from the values record
+      return Object.entries(opts.values).reduce(
+        (s, [k, v]) => s.replace(`{${k}}`, String(v)),
+        translated
+      );
+    });
   }
 
   // ── Target-pane grid layout derivation ──────────────────────────────────

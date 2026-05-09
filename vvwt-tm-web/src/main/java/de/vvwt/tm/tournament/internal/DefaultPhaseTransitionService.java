@@ -305,6 +305,8 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
 
             // E48S20 (AC-IMPL-SERVICE-POPULATES-FIELDS): populate display fields
             // Phase 1 has no source phase → sourceGroupNumber and sourceGroupPosition are null
+            // E51S13 (AC-IMPL-DTO-SORTTYPE-NULLABLE): populate sortType from toSection (always
+            // "team_number" for Phase 1 per the defense-in-depth check above)
             proposals.add(
                     new TeamAvatarProposal(
                             team.getId(),
@@ -313,7 +315,8 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
                             targetGroup,
                             targetPosition,
                             null,
-                            null));
+                            null,
+                            toSection.getSortType()));
         }
 
         log.debug(
@@ -332,14 +335,14 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
 
     private List<TeamAvatarProposal> computeProposals(
             List<TeamAvatar> fromAvatars, DraftSection toSection, Map<UUID, Team> teamById) {
-        return switch (toSection.getSortType()) {
+        // E51S13: pass sortType down to sub-methods so every proposal carries it
+        String sortType = toSection.getSortType();
+        return switch (sortType) {
             case "team_number" ->
-                    computeTeamNumber(fromAvatars, toSection.getGroupCount(), teamById);
-            case "placement_group" -> computePlacementGroup(fromAvatars, teamById);
-            case "group_placement" -> computeGroupPlacement(fromAvatars, teamById);
-            default ->
-                    throw new IllegalArgumentException(
-                            "Unknown sortType: " + toSection.getSortType());
+                    computeTeamNumber(fromAvatars, toSection.getGroupCount(), teamById, sortType);
+            case "placement_group" -> computePlacementGroup(fromAvatars, teamById, sortType);
+            case "group_placement" -> computeGroupPlacement(fromAvatars, teamById, sortType);
+            default -> throw new IllegalArgumentException("Unknown sortType: " + sortType);
         };
     }
 
@@ -355,7 +358,10 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
      * fromPhase avatar's structural identity.
      */
     private List<TeamAvatarProposal> computeTeamNumber(
-            List<TeamAvatar> fromAvatars, int groupCount, Map<UUID, Team> teamById) {
+            List<TeamAvatar> fromAvatars,
+            int groupCount,
+            Map<UUID, Team> teamById,
+            String sortType) {
         // fromAvatars is already ordered by group_number, group_position (repository contract)
         List<TeamAvatarProposal> proposals = new ArrayList<>(fromAvatars.size());
         for (int i = 0; i < fromAvatars.size(); i++) {
@@ -363,6 +369,7 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
             Team team = requireTeamForDisplay(av, teamById);
             int targetGroup = (i % groupCount) + 1;
             int targetPosition = (i / groupCount) + 1;
+            // E51S13 (AC-IMPL-DTO-SORTTYPE-NULLABLE): populate sortType from toSection
             proposals.add(
                     new TeamAvatarProposal(
                             av.getTeamId(),
@@ -371,7 +378,8 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
                             targetGroup,
                             targetPosition,
                             av.getGroupNumber(),
-                            av.getGroupPosition()));
+                            av.getGroupPosition(),
+                            sortType));
         }
         return proposals;
     }
@@ -385,7 +393,7 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
      * <p>E48S20: source fields populated from fromPhase avatar structural identity.
      */
     private List<TeamAvatarProposal> computePlacementGroup(
-            List<TeamAvatar> fromAvatars, Map<UUID, Team> teamById) {
+            List<TeamAvatar> fromAvatars, Map<UUID, Team> teamById, String sortType) {
         // Group avatars by their fromPhase groupNumber, preserving encounter order within each
         // group
         Map<Integer, List<TeamAvatar>> byGroup = new LinkedHashMap<>();
@@ -411,6 +419,7 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
             for (int pos = 0; pos < groupAvatars.size(); pos++) {
                 TeamAvatar av = groupAvatars.get(pos);
                 Team team = requireTeamForDisplay(av, teamById);
+                // E51S13 (AC-IMPL-DTO-SORTTYPE-NULLABLE): populate sortType from toSection
                 proposals.add(
                         new TeamAvatarProposal(
                                 av.getTeamId(),
@@ -419,7 +428,8 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
                                 groupNumber,
                                 pos + 1,
                                 av.getGroupNumber(),
-                                av.getGroupPosition()));
+                                av.getGroupPosition(),
+                                sortType));
             }
         }
         return proposals;
@@ -437,7 +447,7 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
      * <p>E48S20: source fields populated from fromPhase avatar structural identity.
      */
     private List<TeamAvatarProposal> computeGroupPlacement(
-            List<TeamAvatar> fromAvatars, Map<UUID, Team> teamById) {
+            List<TeamAvatar> fromAvatars, Map<UUID, Team> teamById, String sortType) {
         // Group avatars by their fromPhase groupNumber
         Map<Integer, List<TeamAvatar>> byGroup = new LinkedHashMap<>();
         for (TeamAvatar av : fromAvatars) {
@@ -467,6 +477,7 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
             for (List<TeamAvatar> sourceGroup : byGroup.values()) {
                 TeamAvatar av = sourceGroup.get(rankSlot);
                 Team team = requireTeamForDisplay(av, teamById);
+                // E51S13 (AC-IMPL-DTO-SORTTYPE-NULLABLE): populate sortType from toSection
                 proposals.add(
                         new TeamAvatarProposal(
                                 av.getTeamId(),
@@ -475,7 +486,8 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
                                 targetGroup,
                                 posWithinGroup,
                                 av.getGroupNumber(),
-                                av.getGroupPosition()));
+                                av.getGroupPosition(),
+                                sortType));
                 posWithinGroup++;
             }
         }

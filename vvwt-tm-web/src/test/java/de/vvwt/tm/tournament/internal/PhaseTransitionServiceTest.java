@@ -1131,4 +1131,177 @@ class PhaseTransitionServiceTest {
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("No team with teamNumber=" + teamNumber));
     }
+
+    // =========================================================================
+    // E51S13 — sortType population (RED-first per DEC-22 Iron Law)
+    // =========================================================================
+
+    /**
+     * AC-TEST-PHASE-1-PROPOSAL-SORTTYPE-TEAM-NUMBER-RED: every Phase-1 proposal has {@code sortType
+     * = "team_number"}.
+     *
+     * <p>DEC-22: test written before {@code sortType} field exists — fails (RED) until the field is
+     * added and populated in {@link
+     * de.vvwt.tm.tournament.internal.DefaultPhaseTransitionService#computePhase1Proposals}.
+     *
+     * @see <a href="E51S13">E51S13 — Bug 2a sortType-driven source-pane label</a>
+     */
+    @Test
+    @DisplayName(
+            "proposeTransition Phase-1: every proposal has sortType='team_number'"
+                    + " (AC-TEST-PHASE-1-PROPOSAL-SORTTYPE-TEAM-NUMBER-RED)")
+    void proposeTransition_phase1_allProposals_haveSortTypeTeamNumber() throws Exception {
+        UUID phase1Id = UUID.randomUUID();
+        Phase toPhase = phase(phase1Id, 1);
+        Tournament tournament =
+                tournamentWithDraftJson(TOURNAMENT_ID, buildDraftJsonPhase1(2, "team_number"));
+
+        when(phaseRepository.findById(phase1Id)).thenReturn(Optional.of(toPhase));
+        when(tournamentRepository.findById(TOURNAMENT_ID)).thenReturn(Optional.of(tournament));
+
+        // 4 participating teams
+        List<Team> teams = participatingTeams8(TOURNAMENT_ID).subList(0, 4);
+        when(teamRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(teams);
+
+        List<TeamAvatarProposal> proposals = service.proposeTransition(phase1Id);
+
+        assertThat(proposals).isNotEmpty();
+        for (TeamAvatarProposal p : proposals) {
+            assertThat(p.sortType())
+                    .as("Phase-1 proposal for team=%s must have sortType='team_number'", p.teamId())
+                    .isEqualTo("team_number");
+        }
+    }
+
+    /**
+     * AC-TEST-PHASE-2-PROPOSAL-SORTTYPE-PLACEMENT-GROUP-RED: every Phase-2+ proposal computed via
+     * the placement_group branch has {@code sortType = "placement_group"}.
+     *
+     * <p>DEC-22: RED-first — fails until {@link
+     * de.vvwt.tm.tournament.internal.DefaultPhaseTransitionService#computeProposals} populates
+     * sortType from {@code toSection.getSortType()}.
+     *
+     * @see <a href="E51S13">E51S13 — AC-TEST-PHASE-2-PROPOSAL-SORTTYPE-PLACEMENT-GROUP-RED</a>
+     */
+    @Test
+    @DisplayName(
+            "proposeTransition Phase-2+ sortType=placement_group: proposals carry sortType"
+                    + " (AC-TEST-PHASE-2-PROPOSAL-SORTTYPE-PLACEMENT-GROUP-RED)")
+    void proposeTransition_phase2_placementGroup_allProposals_haveSortTypePlacementGroup()
+            throws Exception {
+        Phase toPhase = phaseWithSortType(TO_PHASE_ID, 2, "placement_group", 2);
+        Phase fromPhase = phase(FROM_PHASE_ID, 1);
+        Tournament tournament =
+                tournamentWithDraftJson(TOURNAMENT_ID, buildDraftJson(2, "placement_group"));
+
+        when(phaseRepository.findById(TO_PHASE_ID)).thenReturn(Optional.of(toPhase));
+        when(phaseRepository.findByTournamentIdAndSequenceNumber(TOURNAMENT_ID, 1))
+                .thenReturn(Optional.of(fromPhase));
+        when(tournamentRepository.findById(TOURNAMENT_ID)).thenReturn(Optional.of(tournament));
+
+        // 4 avatars in 2 groups
+        UUID t1 = UUID.randomUUID();
+        UUID t2 = UUID.randomUUID();
+        UUID t3 = UUID.randomUUID();
+        UUID t4 = UUID.randomUUID();
+        UUID av1 = UUID.randomUUID();
+        UUID av2 = UUID.randomUUID();
+        UUID av3 = UUID.randomUUID();
+        UUID av4 = UUID.randomUUID();
+        List<TeamAvatar> fromAvatars =
+                List.of(
+                        avatar(av1, FROM_PHASE_ID, t1, 1, 1),
+                        avatar(av2, FROM_PHASE_ID, t2, 1, 2),
+                        avatar(av3, FROM_PHASE_ID, t3, 2, 1),
+                        avatar(av4, FROM_PHASE_ID, t4, 2, 2));
+        when(teamAvatarRepository.findByPhaseId(FROM_PHASE_ID)).thenReturn(fromAvatars);
+
+        when(teamRepository.findById(t1)).thenReturn(Optional.of(teamWithNumber(t1, 1)));
+        when(teamRepository.findById(t2)).thenReturn(Optional.of(teamWithNumber(t2, 2)));
+        when(teamRepository.findById(t3)).thenReturn(Optional.of(teamWithNumber(t3, 3)));
+        when(teamRepository.findById(t4)).thenReturn(Optional.of(teamWithNumber(t4, 4)));
+
+        when(teamAvatarRatingRepository.findByAvatarId(av1))
+                .thenReturn(Optional.of(rating(av1, 6)));
+        when(teamAvatarRatingRepository.findByAvatarId(av2))
+                .thenReturn(Optional.of(rating(av2, 4)));
+        when(teamAvatarRatingRepository.findByAvatarId(av3))
+                .thenReturn(Optional.of(rating(av3, 6)));
+        when(teamAvatarRatingRepository.findByAvatarId(av4))
+                .thenReturn(Optional.of(rating(av4, 4)));
+
+        List<TeamAvatarProposal> proposals = service.proposeTransition(TO_PHASE_ID);
+
+        assertThat(proposals).isNotEmpty();
+        for (TeamAvatarProposal p : proposals) {
+            assertThat(p.sortType())
+                    .as("placement_group proposal must carry sortType='placement_group'")
+                    .isEqualTo("placement_group");
+        }
+    }
+
+    /**
+     * AC-TEST-PHASE-2-PROPOSAL-SORTTYPE-GROUP-PLACEMENT-RED: every Phase-2+ proposal computed via
+     * the group_placement branch has {@code sortType = "group_placement"}.
+     *
+     * <p>DEC-22: RED-first.
+     *
+     * @see <a href="E51S13">E51S13 — AC-TEST-PHASE-2-PROPOSAL-SORTTYPE-GROUP-PLACEMENT-RED</a>
+     */
+    @Test
+    @DisplayName(
+            "proposeTransition Phase-2+ sortType=group_placement: proposals carry sortType"
+                    + " (AC-TEST-PHASE-2-PROPOSAL-SORTTYPE-GROUP-PLACEMENT-RED)")
+    void proposeTransition_phase2_groupPlacement_allProposals_haveSortTypeGroupPlacement()
+            throws Exception {
+        Phase toPhase = phaseWithSortType(TO_PHASE_ID, 2, "group_placement", 2);
+        Phase fromPhase = phase(FROM_PHASE_ID, 1);
+        Tournament tournament =
+                tournamentWithDraftJson(TOURNAMENT_ID, buildDraftJson(2, "group_placement"));
+
+        when(phaseRepository.findById(TO_PHASE_ID)).thenReturn(Optional.of(toPhase));
+        when(phaseRepository.findByTournamentIdAndSequenceNumber(TOURNAMENT_ID, 1))
+                .thenReturn(Optional.of(fromPhase));
+        when(tournamentRepository.findById(TOURNAMENT_ID)).thenReturn(Optional.of(tournament));
+
+        // 4 avatars in 2 groups (2 per group — equal size needed for group_placement)
+        UUID t1 = UUID.randomUUID();
+        UUID t2 = UUID.randomUUID();
+        UUID t3 = UUID.randomUUID();
+        UUID t4 = UUID.randomUUID();
+        UUID av1 = UUID.randomUUID();
+        UUID av2 = UUID.randomUUID();
+        UUID av3 = UUID.randomUUID();
+        UUID av4 = UUID.randomUUID();
+        List<TeamAvatar> fromAvatars =
+                List.of(
+                        avatar(av1, FROM_PHASE_ID, t1, 1, 1),
+                        avatar(av2, FROM_PHASE_ID, t2, 1, 2),
+                        avatar(av3, FROM_PHASE_ID, t3, 2, 1),
+                        avatar(av4, FROM_PHASE_ID, t4, 2, 2));
+        when(teamAvatarRepository.findByPhaseId(FROM_PHASE_ID)).thenReturn(fromAvatars);
+
+        when(teamRepository.findById(t1)).thenReturn(Optional.of(teamWithNumber(t1, 1)));
+        when(teamRepository.findById(t2)).thenReturn(Optional.of(teamWithNumber(t2, 2)));
+        when(teamRepository.findById(t3)).thenReturn(Optional.of(teamWithNumber(t3, 3)));
+        when(teamRepository.findById(t4)).thenReturn(Optional.of(teamWithNumber(t4, 4)));
+
+        when(teamAvatarRatingRepository.findByAvatarId(av1))
+                .thenReturn(Optional.of(rating(av1, 6)));
+        when(teamAvatarRatingRepository.findByAvatarId(av2))
+                .thenReturn(Optional.of(rating(av2, 4)));
+        when(teamAvatarRatingRepository.findByAvatarId(av3))
+                .thenReturn(Optional.of(rating(av3, 6)));
+        when(teamAvatarRatingRepository.findByAvatarId(av4))
+                .thenReturn(Optional.of(rating(av4, 4)));
+
+        List<TeamAvatarProposal> proposals = service.proposeTransition(TO_PHASE_ID);
+
+        assertThat(proposals).isNotEmpty();
+        for (TeamAvatarProposal p : proposals) {
+            assertThat(p.sortType())
+                    .as("group_placement proposal must carry sortType='group_placement'")
+                    .isEqualTo("group_placement");
+        }
+    }
 }

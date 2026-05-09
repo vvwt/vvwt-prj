@@ -246,3 +246,108 @@ describe('phaseTransitionStore — commitEndpoint override (E48S18, AC-FRONTEND-
         );
     });
 });
+
+// ── E51S13 RED-first tests ────────────────────────────────────────────────────
+
+/**
+ * AC-TEST-FRONTEND-LABEL-PHASE-1-RED (E51S13):
+ * sourceLabelBySortType with sortType="team_number" and teamNumber=5 returns "Nr. 5".
+ *
+ * DEC-22 Iron Law: written before sourceLabelBySortType exists → RED.
+ */
+describe('phaseTransitionStore — sourceLabelBySortType Phase-1 label (AC-TEST-FRONTEND-LABEL-PHASE-1-RED)', () => {
+    it('returns "Nr. 5" for sortType=team_number, teamNumber=5 (AC-TEST-FRONTEND-LABEL-PHASE-1-RED)', async () => {
+        const store = await import('./phaseTransitionStore.js');
+        // sourceLabelBySortType must exist as an exported function
+        expect(typeof (store as Record<string, unknown>)['sourceLabelBySortType']).toBe('function');
+        const sourceLabelBySortType = (store as Record<string, unknown>)['sourceLabelBySortType'] as
+            (slot: Record<string, unknown>, t: (key: string, opts?: Record<string, unknown>) => string) => string;
+        // Minimal i18n translator: returns "Nr. {n}" pattern
+        const t = (key: string, opts?: Record<string, unknown>) => {
+            if (key === 'phaseTransition.sourceLabelPhase1') return opts?.values ? `Nr. ${(opts.values as Record<string, unknown>)['n']}` : 'Nr. {n}';
+            if (key === 'phaseTransition.sourceLabelPhase2plus') return opts?.values ? `Gruppe ${(opts.values as Record<string, unknown>)['g']}, Platz ${(opts.values as Record<string, unknown>)['p']}` : 'Gruppe {g}, Platz {p}';
+            return key;
+        };
+        const slot = { teamId: 'uuid-1', teamNumber: 5, teamDescription: 'TSV A', groupNumber: 1, groupPosition: 1, sourceGroupNumber: null, sourceGroupPosition: null, sortType: 'team_number' };
+        const label = sourceLabelBySortType(slot, t);
+        expect(label).toContain('5');
+        expect(label).not.toContain('undefined');
+    });
+
+    it('returns "Gruppe 2, Platz 3" for sortType=placement_group, group=2, pos=3 (AC-TEST-FRONTEND-LABEL-PHASE-2-RED)', async () => {
+        const store = await import('./phaseTransitionStore.js');
+        const sourceLabelBySortType = (store as Record<string, unknown>)['sourceLabelBySortType'] as
+            (slot: Record<string, unknown>, t: (key: string, opts?: Record<string, unknown>) => string) => string;
+        const t = (key: string, opts?: Record<string, unknown>) => {
+            if (key === 'phaseTransition.sourceLabelPhase1') return opts?.values ? `Nr. ${(opts.values as Record<string, unknown>)['n']}` : 'Nr. {n}';
+            if (key === 'phaseTransition.sourceLabelPhase2plus') return opts?.values ? `Gruppe ${(opts.values as Record<string, unknown>)['g']}, Platz ${(opts.values as Record<string, unknown>)['p']}` : 'Gruppe {g}, Platz {p}';
+            return key;
+        };
+        const slot = { teamId: 'uuid-1', teamNumber: 5, teamDescription: 'TSV A', groupNumber: 1, groupPosition: 1, sourceGroupNumber: 2, sourceGroupPosition: 3, sortType: 'placement_group' };
+        const label = sourceLabelBySortType(slot, t);
+        expect(label).toContain('2');
+        expect(label).toContain('3');
+        expect(label).not.toContain('undefined');
+    });
+
+    it('returns non-undefined string for null sortType (AC-ERROR-HANDLING-NULL-SORTTYPE)', async () => {
+        const store = await import('./phaseTransitionStore.js');
+        const sourceLabelBySortType = (store as Record<string, unknown>)['sourceLabelBySortType'] as
+            (slot: Record<string, unknown>, t: (key: string, opts?: Record<string, unknown>) => string) => string;
+        const t = (_key: string, _opts?: Record<string, unknown>) => '';
+        const slot = { teamId: 'uuid-1', teamNumber: 5, teamDescription: 'TSV A', groupNumber: 1, groupPosition: 1, sourceGroupNumber: null, sourceGroupPosition: null, sortType: null };
+        const label = sourceLabelBySortType(slot, t);
+        expect(label).not.toContain('undefined');
+    });
+
+    it('returns non-undefined string for unknown sortType (AC-ERROR-HANDLING-UNKNOWN-SORTTYPE)', async () => {
+        const store = await import('./phaseTransitionStore.js');
+        const sourceLabelBySortType = (store as Record<string, unknown>)['sourceLabelBySortType'] as
+            (slot: Record<string, unknown>, t: (key: string, opts?: Record<string, unknown>) => string) => string;
+        const t = (_key: string, _opts?: Record<string, unknown>) => '';
+        const slot = { teamId: 'uuid-1', teamNumber: 5, teamDescription: 'TSV A', groupNumber: 1, groupPosition: 1, sourceGroupNumber: null, sourceGroupPosition: null, sortType: 'future_unknown_mode' };
+        const label = sourceLabelBySortType(slot, t);
+        expect(label).not.toContain('undefined');
+    });
+});
+
+/**
+ * AC-TEST-FRONTEND-NO-UNDEFINED-RENDER-RED (E51S13):
+ * For ANY slot input combination, the label never contains "undefined".
+ */
+describe('phaseTransitionStore — no "undefined" rendering for any slot (AC-TEST-FRONTEND-NO-UNDEFINED-RENDER-RED)', () => {
+    it('never produces "undefined" label for Phase-1 slot with null source fields', async () => {
+        const store = await import('./phaseTransitionStore.js');
+        const sourceLabelBySortType = (store as Record<string, unknown>)['sourceLabelBySortType'] as
+            (slot: Record<string, unknown>, t: (key: string, opts?: Record<string, unknown>) => string) => string;
+        const t = (key: string, opts?: Record<string, unknown>) => {
+            if (key === 'phaseTransition.sourceLabelPhase1') return opts?.values ? `Nr. ${(opts.values as Record<string, unknown>)['n']}` : 'Nr. {n}';
+            if (key === 'phaseTransition.sourceLabelPhase2plus') return opts?.values ? `Gruppe ${(opts.values as Record<string, unknown>)['g']}, Platz ${(opts.values as Record<string, unknown>)['p']}` : 'Gruppe {g}, Platz {p}';
+            return key;
+        };
+        const variants = [
+            { teamId: 'u1', teamNumber: 1, teamDescription: 'T1', groupNumber: 1, groupPosition: 1, sourceGroupNumber: null, sourceGroupPosition: null, sortType: 'team_number' },
+            { teamId: 'u2', teamNumber: 2, teamDescription: 'T2', groupNumber: 1, groupPosition: 2, sourceGroupNumber: 1, sourceGroupPosition: 1, sortType: 'placement_group' },
+            { teamId: 'u3', teamNumber: 3, teamDescription: 'T3', groupNumber: 2, groupPosition: 1, sourceGroupNumber: 2, sourceGroupPosition: 1, sortType: 'group_placement' },
+            { teamId: 'u4', teamNumber: 4, teamDescription: 'T4', groupNumber: 1, groupPosition: 1, sourceGroupNumber: undefined, sourceGroupPosition: undefined, sortType: null },
+        ];
+        for (const slot of variants) {
+            const label = sourceLabelBySortType(slot as Record<string, unknown>, t);
+            expect(label).not.toContain('undefined');
+        }
+    });
+});
+
+/**
+ * AC-TEST-HASSOURCESLOT-DELETED-RED (E51S13):
+ * hasSourceSlot must NOT be exported from phaseTransitionStore after this story.
+ *
+ * DEC-22: test written before hasSourceSlot is deleted — passes AFTER deletion.
+ * At test-write time (pre-fix), hasSourceSlot exists → test FAILS (RED).
+ */
+describe('phaseTransitionStore — hasSourceSlot deleted after E51S13 (AC-TEST-HASSOURCESLOT-DELETED-RED)', () => {
+    it('phaseTransitionStore does NOT export hasSourceSlot (AC-TEST-HASSOURCESLOT-DELETED-RED)', async () => {
+        const store = await import('./phaseTransitionStore.js');
+        expect((store as Record<string, unknown>)['hasSourceSlot']).toBeUndefined();
+    });
+});

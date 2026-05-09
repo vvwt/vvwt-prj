@@ -297,12 +297,16 @@ describe('PhaseTransition.svelte — source pane rendered (AC-TEST-FRONTEND-SOUR
         expect(svelteSource).toContain('phaseTransition.targetPaneHeading');
     });
 
-    it('component source references sourceLabelPhase1 i18n key', () => {
-        expect(svelteSource).toContain('phaseTransition.sourceLabelPhase1');
+    it('component source references sourceLabelPhase1 i18n key (via store)', () => {
+        // E51S13: key is used inside sourceLabelBySortType in phaseTransitionStore.ts,
+        // not directly in the Svelte template — check storeSource.
+        expect(storeSource).toContain('phaseTransition.sourceLabelPhase1');
     });
 
-    it('component source references sourceLabelPhase2plus i18n key', () => {
-        expect(svelteSource).toContain('phaseTransition.sourceLabelPhase2plus');
+    it('component source references sourceLabelPhase2plus i18n key (via store)', () => {
+        // E51S13: key is used inside sourceLabelBySortType in phaseTransitionStore.ts,
+        // not directly in the Svelte template — check storeSource.
+        expect(storeSource).toContain('phaseTransition.sourceLabelPhase2plus');
     });
 });
 
@@ -370,8 +374,51 @@ describe('swapSlots — E48S20 regression: display fields swapped with teamId (A
     });
 
     it('phaseTransitionStore exports hasSourceSlot type guard', () => {
-        expect(storeSource).toContain('hasSourceSlot');
-        expect(storeSource).toContain('sourceGroupNumber');
-        expect(storeSource).toContain('sourceGroupPosition');
+        // NOTE: This test is intentionally LEFT GREEN until E51S13 is fully implemented —
+        // then the E51S13-specific AC-TEST-HASSOURCESLOT-DELETED-RED test in
+        // phaseTransitionStore.test.ts governs the deletion.
+        // After E51S13, hasSourceSlot is removed and this test becomes a regression check:
+        // the store MUST NOT export it anymore (covered by the dedicated test above).
+        // This legacy check verifies the store once contained it — it's kept as documentation.
+        // After E51S13 lands, this test will correctly FAIL (hasSourceSlot removed),
+        // so we update it here to reflect the post-E51S13 state:
+        expect(storeSource).not.toContain('export function hasSourceSlot');
+    });
+});
+
+// ── E51S13 RED-first structural checks ────────────────────────────────────────
+
+/**
+ * AC-TEST-HASSOURCESLOT-DELETED-RED (E51S13, structural):
+ * PhaseTransition.svelte must NOT import hasSourceSlot after deletion.
+ *
+ * DEC-22 Iron Law: before E51S13 fix, import is present → assertion fails (RED).
+ */
+describe('PhaseTransition.svelte — hasSourceSlot import deleted (AC-TEST-HASSOURCESLOT-DELETED-RED)', () => {
+    it('PhaseTransition.svelte does not import hasSourceSlot (AC-TEST-HASSOURCESLOT-DELETED-RED)', () => {
+        expect(svelteSource).not.toContain('hasSourceSlot');
+    });
+});
+
+/**
+ * AC-TEST-FRONTEND-LABEL-PHASE-1-RED (E51S13, structural):
+ * PhaseTransition.svelte must call sourceLabelBySortType (not hasSourceSlot).
+ *
+ * After E51S13: the component replaces hasSourceSlot-based branching with
+ * a single sourceLabelBySortType resolver call.
+ */
+describe('PhaseTransition.svelte — uses sourceLabelBySortType resolver (AC-TEST-FRONTEND-LABEL-PHASE-1-RED)', () => {
+    it('PhaseTransition.svelte imports sourceLabelBySortType from phaseTransitionStore', () => {
+        expect(svelteSource).toContain('sourceLabelBySortType');
+    });
+});
+
+/**
+ * AC-IMPL-DTO-SORTTYPE-NULLABLE (E51S13, structural check for TeamAvatarSlot type):
+ * phaseTransitionStore.ts must declare sortType field in TeamAvatarSlot.
+ */
+describe('phaseTransitionStore.ts — TeamAvatarSlot has sortType field (AC-IMPL-DTO-SORTTYPE-NULLABLE)', () => {
+    it('phaseTransitionStore.ts declares sortType in TeamAvatarSlot type', () => {
+        expect(storeSource).toContain('sortType');
     });
 });
