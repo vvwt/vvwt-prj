@@ -201,6 +201,128 @@ public class PhaseToRawPhaseDefMapper {
     }
 
     /**
+     * Maps domain objects for a single group within the given phase to a {@link MappingResult}.
+     *
+     * <p>Filters avatars to those with {@link TeamAvatar#getGroupNumber()} equal to {@code
+     * groupNumber}, and matches to those where both {@code memberAvatar1Id} and {@code
+     * memberAvatar2Id} belong to that group's avatar set. Delegates to {@link #map(UUID)} internals
+     * for the actual forward mapping on the filtered subset.
+     *
+     * <p>Used by {@code RoutingSlotOptimizationClient} for per-group L3 invocation (NF-MED-1,
+     * E51S11).
+     *
+     * @param phaseId the UUID of the phase
+     * @param groupNumber the group number to filter by (1-indexed, matching {@link
+     *     TeamAvatar#getGroupNumber()})
+     * @return the mapping result for the specified group only
+     * @throws IllegalArgumentException if {@code phaseId} is {@code null}
+     * @throws IllegalStateException if no avatars or no matches exist for the group (inherited from
+     *     the full {@code map} contract)
+     */
+    public MappingResult mapGroup(UUID phaseId, int groupNumber) {
+        if (phaseId == null) {
+            throw new IllegalArgumentException("phaseId must not be null");
+        }
+
+        List<TeamAvatar> allAvatars = teamAvatarRepository.findByPhaseId(phaseId);
+        List<Match> allMatches = matchRepository.findByPhaseId(phaseId);
+
+        // Filter avatars to this group
+        java.util.Set<UUID> groupAvatarIds = new java.util.HashSet<>();
+        for (TeamAvatar avatar : allAvatars) {
+            if (avatar.getGroupNumber() == groupNumber) {
+                groupAvatarIds.add(avatar.getId());
+            }
+        }
+
+        // Filter matches to those where both avatars belong to this group
+        List<Match> groupMatches = new ArrayList<>();
+        for (Match match : allMatches) {
+            if (groupAvatarIds.contains(match.getMemberAvatar1Id())
+                    && groupAvatarIds.contains(match.getMemberAvatar2Id())) {
+                groupMatches.add(match);
+            }
+        }
+
+        List<TeamAvatar> groupAvatars = new ArrayList<>();
+        for (TeamAvatar avatar : allAvatars) {
+            if (groupAvatarIds.contains(avatar.getId())) {
+                groupAvatars.add(avatar);
+            }
+        }
+
+        // Delegate to the shared mapping logic via mock-compatible approach:
+        // Temporarily rebind to the group-filtered data by using the internal mapping logic.
+        // Since map() calls the repositories directly, we build the MappingResult inline
+        // using the same algorithm as map() but over the filtered subset.
+
+        if (groupAvatars.isEmpty()) {
+            throw new IllegalStateException(
+                    "No TeamAvatars found for phase " + phaseId + " group " + groupNumber);
+        }
+        if (groupMatches.isEmpty()) {
+            throw new IllegalStateException(
+                    "No matches found for phase " + phaseId + " group " + groupNumber);
+        }
+
+        // Build avatar position index for this group
+        Map<UUID, de.vvwt.slotopt.worker.types.PositionTuple> positionByAvatarId =
+                new HashMap<>(groupAvatars.size() * 2);
+        for (TeamAvatar avatar : groupAvatars) {
+            positionByAvatarId.put(
+                    avatar.getId(),
+                    new de.vvwt.slotopt.worker.types.PositionTuple(
+                            avatar.getGroupNumber(), avatar.getGroupPosition()));
+        }
+
+        // Sort matches by UUID ascending
+        List<Match> sortedMatches = new ArrayList<>(groupMatches);
+        sortedMatches.sort(Comparator.comparing(m -> m.getId().toString()));
+
+        List<de.vvwt.slotopt.worker.types.RawRow> rows = new ArrayList<>(sortedMatches.size());
+        List<de.vvwt.slotopt.worker.types.PositionTuple[]> rawTuplesByRow =
+                new ArrayList<>(sortedMatches.size());
+
+        for (Match match : sortedMatches) {
+            de.vvwt.slotopt.worker.types.PositionTuple pt1 =
+                    positionByAvatarId.get(match.getMemberAvatar1Id());
+            de.vvwt.slotopt.worker.types.PositionTuple pt2 =
+                    positionByAvatarId.get(match.getMemberAvatar2Id());
+            rows.add(new de.vvwt.slotopt.worker.types.RawRow(List.of(pt1, pt2)));
+            rawTuplesByRow.add(new de.vvwt.slotopt.worker.types.PositionTuple[] {pt1, pt2});
+        }
+
+        int auditPhaseId = Math.abs(phaseId.hashCode());
+        de.vvwt.slotopt.worker.types.RawPhaseDef raw =
+                new de.vvwt.slotopt.worker.types.RawPhaseDef(auditPhaseId, rows.size(), rows);
+        de.vvwt.slotopt.worker.types.TransformResult transformResult =
+                de.vvwt.slotopt.worker.types.StructuralFingerprint.transform(raw);
+        de.vvwt.slotopt.worker.types.CanonicalPhaseDef canonical = transformResult.canonical();
+
+        Map<de.vvwt.slotopt.worker.types.PositionTuple, Integer> denseIdByTuple =
+                buildDenseIdMapping(raw);
+
+        int[][] denseIdsByRawRow = new int[sortedMatches.size()][];
+        for (int rowIdx = 0; rowIdx < sortedMatches.size(); rowIdx++) {
+            de.vvwt.slotopt.worker.types.PositionTuple[] tuples = rawTuplesByRow.get(rowIdx);
+            denseIdsByRawRow[rowIdx] =
+                    new int[] {denseIdByTuple.get(tuples[0]), denseIdByTuple.get(tuples[1])};
+        }
+
+        int n = canonical.avatarCount();
+
+        LOG.info(
+                "PhaseToRawPhaseDefMapper: phase={} group={}, avatars={}, matches={}, N={}",
+                phaseId,
+                groupNumber,
+                groupAvatars.size(),
+                sortedMatches.size(),
+                n);
+
+        return new MappingResult(raw, canonical, n, sortedMatches, denseIdsByRawRow);
+    }
+
+    /**
      * Returns the configured field count for slot assignment (AC6).
      *
      * @return the number of courts (fields)

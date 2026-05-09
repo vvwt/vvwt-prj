@@ -54,11 +54,17 @@ class DefaultCancelableInProcessSlotOptimizationServiceTest {
     private SlotOptimizationJobRegistry registryMock;
     private DefaultCancelableInProcessSlotOptimizationService subject;
 
+    /** fieldCount = 1 for unit tests: lapCount = rowCount / 1 = rowCount (simplest case). */
+    private static final int TEST_FIELD_COUNT = 1;
+
     @BeforeEach
     void setUp() {
         mapperMock = mock(PhaseToRawPhaseDefMapper.class);
         applicatorMock = mock(SlotResultApplicator.class);
         registryMock = mock(SlotOptimizationJobRegistry.class);
+        // fieldCount=1: lapCount = rowCount / 1 = rowCount (each match is its own "lap").
+        // This preserves the original test semantics (2 rows = 2 laps = 2! perms).
+        when(mapperMock.getFieldCount()).thenReturn(TEST_FIELD_COUNT);
         subject =
                 new DefaultCancelableInProcessSlotOptimizationService(
                         mapperMock, applicatorMock, registryMock);
@@ -92,6 +98,48 @@ class DefaultCancelableInProcessSlotOptimizationServiceTest {
         assertThat(result.cancelled()).isTrue();
         // SlotResultApplicator must have been called (result applied to matches)
         verify(applicatorMock).applyResult(anyLong(), anyInt(), eq(mapping));
+    }
+
+    // =========================================================================
+    // AC-TEST-CANCELABLE-BEST-SO-FAR-ON-L2-DEFAULT-RED (E51S11)
+    // =========================================================================
+
+    /**
+     * AC-TEST-CANCELABLE-BEST-SO-FAR-ON-L2-DEFAULT-RED (E51S11): when cancelled before any rank is
+     * evaluated, the service applies rank=0 (L2 baseline / identity lap permutation), NOT "trivial
+     * coordinates" from FallbackSlotOptimizationClient.
+     *
+     * <p>The L2 baseline (rank=0 = identity permutation) must be applied, which preserves the
+     * lap/field values set by L2. This is semantically correct: rank=0 is the identity permutation
+     * over laps, so L3 leaves L2's assignment unchanged.
+     *
+     * <p>FAILS before fix if applyResult is NOT called with rank=0 on cancel-before-permutation (e.g.
+     * if "trivial coordinates" path directly sets lap=0/field=sequential bypassing SlotResultApplicator).
+     * Current implementation calls applyResult(0L, ...) which is correct — test verifies this
+     * explicitly and is already GREEN (no code change needed for this specific AC). Added here for
+     * traceability.
+     */
+    @Test
+    void optimize_cancelledBeforeStart_appliesRank0_l2BaselinePreserved() {
+        UUID phaseId = UUID.randomUUID();
+        UUID tournamentId = UUID.randomUUID();
+        // With fieldCount=1 (from TEST_FIELD_COUNT stub), rowCount=2 → lapCount=2.
+        // Cancelled before any rank evaluated → must apply rank=0 (L2 baseline).
+        MappingResult mapping = buildMinimalMapping(phaseId, 2);
+        when(mapperMock.map(phaseId)).thenReturn(mapping);
+
+        CancellationToken token = CancellationToken.create();
+        token.cancel(); // cancelled before any rank is evaluated
+
+        JobHandle handle = new JobHandle(token, Instant.now());
+        when(registryMock.getHandle(tournamentId)).thenReturn(Optional.of(handle));
+
+        OptimizationResult result = subject.optimize(phaseId, tournamentId, token);
+
+        assertThat(result).isNotNull();
+        assertThat(result.cancelled()).isTrue();
+        // Must apply rank=0 (L2 baseline = identity permutation) via SlotResultApplicator
+        verify(applicatorMock).applyResult(eq(0L), anyInt(), eq(mapping));
     }
 
     // =========================================================================

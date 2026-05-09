@@ -3,6 +3,7 @@ package de.vvwt.tm.slotopt;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -26,17 +27,38 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-/** Unit tests for {@link SlotResultApplicator} — covers AC12 of story E04S02. */
+/**
+ * Unit tests for {@link SlotResultApplicator}.
+ *
+ * <p>Covers AC12 of story E04S02 (original) and the E51S11 refactor: flat-index
+ * rank-as-lap-permutation model.
+ *
+ * <p>E51S11 RED-first tests (per DEC-22 Iron Law):
+ *
+ * <ul>
+ *   <li>AC-TEST-RANK-AS-LAP-PERMUTATION-RED
+ *   <li>AC-TEST-NON-IDENTITY-RANK-PERMUTES-LAPS-RED
+ *   <li>AC-TEST-FIELD-INVARIANT-UNDER-LAP-PERMUTATION-RED
+ *   <li>AC-TEST-ROUND-CONFLICT-FREEDOM-AFTER-L3-RED
+ *   <li>AC-ERROR-HANDLING-EMPTY-PHASE
+ * </ul>
+ *
+ * <p>These tests are RED against the current avatar-permutation + circle-method implementation.
+ * They will go GREEN after {@link SlotResultApplicator} is refactored.
+ *
+ * @see SlotResultApplicator
+ * @see <a
+ *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E51S11.story.md">Story
+ *     E51S11</a>
+ */
 @ExtendWith(MockitoExtension.class)
 class SlotResultApplicatorTest {
 
     @Mock private MatchRepository matchRepository;
-
     @Mock private TeamAvatarRepository teamAvatarRepository;
 
     private SlotResultApplicator applicator;
 
-    private static final UUID TENANT_ID = UUID.randomUUID();
     private static final UUID TOURNAMENT_ID = UUID.randomUUID();
     private static final int FIELD_COUNT = 3;
 
@@ -45,37 +67,298 @@ class SlotResultApplicatorTest {
         applicator = new SlotResultApplicator(matchRepository);
     }
 
-    // -------------------------------------------------------------------------
-    // AC12 — result application: N=6, fieldCount=3, rank=0
-    //   All 15 matches receive non-null (lapNumber, fieldNumber)
-    //   No avatar plays twice in the same lap
-    //   5 laps × 3 fields = 15 match slots
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // AC-TEST-RANK-AS-LAP-PERMUTATION-RED (E51S11)
+    //
+    // Given: lapCount=4, fieldCount=3, rank=0 (identity permutation).
+    // L2 has pre-set matches with lap 0-3, field 0-2 (12 total).
+    // After applyResult(0L, 3, mapping): identity π=[0,1,2,3] → each match's
+    // new lapNumber = π[l2Lap] = l2Lap (unchanged), fieldNumber = l2Field (unchanged).
+    //
+    // FAILS before fix: current code uses LehmerCodec(rank=0, n=avatarCount) and
+    // circle-method → produces different (lap, field) values for each match.
+    // =========================================================================
 
     @Test
-    void applyResult_sixAvatars_threeFields_allMatchesGetSlots() {
+    void applyResult_identityRank_preservesL2LapFieldAssignment_lapPermutationModel() {
         UUID phaseId = UUID.randomUUID();
-        List<TeamAvatar> avatars =
-                buildAvatars(phaseId, new int[][] {{1, 1}, {1, 2}, {1, 3}, {2, 1}, {2, 2}, {2, 3}});
+        // 4 groups × 3 avatars = 12 matches, lapCount=4, fieldCount=3
+        Fixture f = buildMultiGroupFixture(phaseId, 4, 3);
+        // Snapshot L2 slots BEFORE applyResult modifies the match objects
+        Map<UUID, int[]> l2Slots = l2SlotsByUuid(f.matches);
+        MappingResult mapping = buildMapping(phaseId, f.avatars, f.matches);
 
-        // Build mapper (no Spring context needed — use production code directly)
-        PhaseToRawPhaseDefMapper mapperInstance = buildTestMapper(phaseId, avatars);
-
-        MappingResult mapping = mapperInstance.map(phaseId);
-        int n = mapping.avatarCount();
-        assertThat(n).isEqualTo(6);
-
-        // Apply with rank=0 (identity permutation)
         when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
         applicator.applyResult(0L, FIELD_COUNT, mapping);
 
-        // Verify all 15 matches were saved
         ArgumentCaptor<Match> captor = ArgumentCaptor.forClass(Match.class);
-        verify(matchRepository, times(15)).save(captor.capture());
+        verify(matchRepository, times(12)).save(captor.capture());
+        List<Match> saved = captor.getAllValues();
+        for (Match m : saved) {
+            int[] l2 = l2Slots.get(m.getId());
+            if (l2 != null) {
+                assertThat(m.getLapNumber())
+                        .as("rank=0 identity: lap must be unchanged for match %s (l2Lap=%d)",
+                                m.getId(), l2[0])
+                        .isEqualTo(l2[0]);
+                assertThat(m.getFieldNumber())
+                        .as("rank=0 identity: field must be unchanged for match %s (l2Field=%d)",
+                                m.getId(), l2[1])
+                        .isEqualTo(l2[1]);
+            }
+        }
 
+        // All 12 expected slots (lap 0-3, field 0-2) present exactly once
+        Set<String> observedSlots = new HashSet<>();
+        for (Match m : saved) {
+            observedSlots.add(m.getLapNumber() + ":" + m.getFieldNumber());
+        }
+        for (int lap = 0; lap < 4; lap++) {
+            for (int field = 0; field < 3; field++) {
+                assertThat(observedSlots)
+                        .as("Slot %d:%d must be present after identity permutation", lap, field)
+                        .contains(lap + ":" + field);
+            }
+        }
+    }
+
+    // =========================================================================
+    // AC-TEST-NON-IDENTITY-RANK-PERMUTES-LAPS-RED (E51S11)
+    //
+    // Given: lapCount=4, fieldCount=3.
+    // Rank=1 → π=[0,1,3,2] (swaps laps 2 and 3).
+    // Lehmer code for [0,1,3,2]: [0,0,1,0] → 0×6 + 0×2 + 1×1 + 0 = 1.
+    // After applyResult(1L, 3, mapping):
+    //   - Match at L2 (lap=2, field=f) → new (lap=3, field=f)
+    //   - Match at L2 (lap=3, field=f) → new (lap=2, field=f)
+    //   - Matches at lap=0, lap=1 unchanged.
+    //
+    // FAILS before fix: current code uses circle-method, not lap-permutation.
+    // =========================================================================
+
+    @Test
+    void applyResult_rank1_swapsLaps2And3_accordingToLapPermutation() {
+        UUID phaseId = UUID.randomUUID();
+        Fixture f = buildMultiGroupFixture(phaseId, 4, 3);
+        // Snapshot L2 slots BEFORE applyResult modifies the match objects
+        Map<UUID, int[]> l2Slots = l2SlotsByUuid(f.matches);
+        MappingResult mapping = buildMapping(phaseId, f.avatars, f.matches);
+
+        // Rank=1 → π=[0,1,3,2]
+        when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
+        applicator.applyResult(1L, FIELD_COUNT, mapping);
+
+        ArgumentCaptor<Match> captor = ArgumentCaptor.forClass(Match.class);
+        verify(matchRepository, times(12)).save(captor.capture());
         List<Match> saved = captor.getAllValues();
 
-        // AC12: all matches have non-null (lapNumber, fieldNumber)
+        // Expected: π=[0,1,3,2]
+        int[] pi = {0, 1, 3, 2};
+        for (Match m : saved) {
+            int[] l2 = l2Slots.get(m.getId());
+            if (l2 != null) {
+                int expectedLap = pi[l2[0]];
+                int expectedField = l2[1]; // field invariant
+                assertThat(m.getLapNumber())
+                        .as("match %s: l2Lap=%d → expected new lap=%d (π=[0,1,3,2])",
+                                m.getId(), l2[0], expectedLap)
+                        .isEqualTo(expectedLap);
+                assertThat(m.getFieldNumber())
+                        .as("match %s: fieldNumber must equal l2Field=%d (field invariant)",
+                                m.getId(), l2[1])
+                        .isEqualTo(expectedField);
+            }
+        }
+    }
+
+    // =========================================================================
+    // AC-TEST-FIELD-INVARIANT-UNDER-LAP-PERMUTATION-RED (E51S11)
+    //
+    // For any rank, every match's fieldNumber after L3 equals its fieldNumber from L2.
+    // The lap-permutation only re-orders whole laps; intra-lap field positions are preserved.
+    //
+    // FAILS before fix: old code assigns fieldNumber = position-within-round ignoring fieldCount.
+    // =========================================================================
+
+    @Test
+    void applyResult_fieldNumberInvariantUnderLapPermutation_forAllRanks() {
+        UUID phaseId = UUID.randomUUID();
+        Fixture f = buildMultiGroupFixture(phaseId, 4, 3);
+
+        // lapCount=4 → lapCount! = 24 permutations
+        for (long rank = 0L; rank <= 23L; rank++) {
+            org.mockito.Mockito.clearInvocations(matchRepository);
+            // Rebuild matches with fresh L2 lap/field (Match objects are mutable)
+            Fixture fresh = buildMultiGroupFixture(phaseId, f.avatars);
+            // Snapshot L2 slots BEFORE applyResult modifies the match objects
+            Map<UUID, int[]> l2Slots = l2SlotsByUuid(fresh.matches);
+            MappingResult freshMapping = buildMapping(phaseId, fresh.avatars, fresh.matches);
+            when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            applicator.applyResult(rank, FIELD_COUNT, freshMapping);
+
+            ArgumentCaptor<Match> captor = ArgumentCaptor.forClass(Match.class);
+            verify(matchRepository, times(12)).save(captor.capture());
+            List<Match> saved = captor.getAllValues();
+            for (Match m : saved) {
+                int[] l2 = l2Slots.get(m.getId());
+                if (l2 != null) {
+                    assertThat(m.getFieldNumber())
+                            .as("rank=%d, match %s: fieldNumber=%d must equal l2Field=%d "
+                                    + "(AC-TEST-FIELD-INVARIANT-UNDER-LAP-PERMUTATION-RED)",
+                                    rank, m.getId(), m.getFieldNumber(), l2[1])
+                            .isEqualTo(l2[1]);
+                }
+            }
+        }
+    }
+
+    // =========================================================================
+    // AC-TEST-ROUND-CONFLICT-FREEDOM-AFTER-L3-RED (E51S11)
+    //
+    // For any rank, no avatar appears in >1 match per lap after L3.
+    // Lap-permutation preserves round structure (L2 guaranteed one match per avatar per lap;
+    // reordering laps preserves this invariant).
+    //
+    // Uses a "conflict-free L2 schedule" fixture: 4 laps × 3 fields × 6 avatars.
+    // Each avatar appears exactly once per lap (valid tournament schedule).
+    // fieldCount=3, lapCount=4, 12 avatars in 12 distinct matches.
+    // =========================================================================
+
+    @Test
+    void applyResult_roundConflictFreedom_forAllRanks() {
+        UUID phaseId = UUID.randomUUID();
+        // Build conflict-free fixture: 24 distinct avatars, 12 matches, 4 laps × 3 fields.
+        // Each lap uses 6 unique avatars (2 per match × 3 matches) — disjoint from other laps.
+        // Since lap-permutation only reorders whole laps, each output lap will still have
+        // 3 matches with 6 mutually-distinct avatars → no conflict possible for any rank.
+        List<TeamAvatar> cfAvatars = new ArrayList<>();
+        for (int i = 0; i < 24; i++) {
+            cfAvatars.add(new TeamAvatar(
+                    UUID.randomUUID(), TOURNAMENT_ID, phaseId, 1, i + 1,
+                    UUID.randomUUID(), null, null));
+        }
+        // Build matches: lap=k, field=f → cfAvatars[k*6 + f*2] vs cfAvatars[k*6 + f*2 + 1]
+        List<Match> baseMatches = new ArrayList<>();
+        for (int lap = 0; lap < 4; lap++) {
+            for (int field = 0; field < 3; field++) {
+                int base = lap * 6 + field * 2;
+                baseMatches.add(new Match(UUID.randomUUID(), TOURNAMENT_ID, phaseId,
+                        cfAvatars.get(base).getId(), cfAvatars.get(base + 1).getId(),
+                        MatchState.OPEN.getLegacyCode(), 1,
+                        lap, field, null, null, null, null));
+            }
+        }
+
+        for (long rank = 0L; rank <= 23L; rank++) {
+            org.mockito.Mockito.clearInvocations(matchRepository);
+            // Rebuild fresh Match objects (Match is mutable — applyResult mutates lap/field in place)
+            List<Match> freshMatches = new ArrayList<>();
+            for (Match m : baseMatches) {
+                freshMatches.add(new Match(m.getId(), m.getTournamentId(), m.getPhaseId(),
+                        m.getMemberAvatar1Id(), m.getMemberAvatar2Id(),
+                        m.getState(), m.getSetLimit(), m.getLapNumber(), m.getFieldNumber(),
+                        null, null, null, null));
+            }
+            when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(cfAvatars);
+            when(matchRepository.findByPhaseId(phaseId)).thenReturn(freshMatches);
+            MappingResult freshMapping =
+                    new PhaseToRawPhaseDefMapper(teamAvatarRepository, matchRepository).map(phaseId);
+            when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            applicator.applyResult(rank, FIELD_COUNT, freshMapping);
+
+            ArgumentCaptor<Match> captor = ArgumentCaptor.forClass(Match.class);
+            verify(matchRepository, times(12)).save(captor.capture());
+            List<Match> saved = captor.getAllValues();
+
+            // No avatar appears in >1 match per lap
+            Map<Integer, Set<UUID>> avatarsByLap = new HashMap<>();
+            for (Match m : saved) {
+                int lap = m.getLapNumber();
+                Set<UUID> inLap = avatarsByLap.computeIfAbsent(lap, k -> new HashSet<>());
+                assertThat(inLap.add(m.getMemberAvatar1Id()))
+                        .as("rank=%d: avatar1 %s plays twice in lap %d",
+                                rank, m.getMemberAvatar1Id(), lap)
+                        .isTrue();
+                assertThat(inLap.add(m.getMemberAvatar2Id()))
+                        .as("rank=%d: avatar2 %s plays twice in lap %d",
+                                rank, m.getMemberAvatar2Id(), lap)
+                        .isTrue();
+            }
+        }
+    }
+
+    // =========================================================================
+    // AC-ERROR-HANDLING-EMPTY-PHASE (E51S11)
+    //
+    // Given: 0 matches → applyResult is a no-op (no exception, no save calls).
+    //
+    // FAILS before fix: current code calls LehmerCodec.rankToPermutation(0L, 0) which throws
+    // IAE "n must be at least 1, got: 0".
+    // =========================================================================
+
+    @Test
+    void applyResult_emptyPhase_isNoOp() {
+        // Build a zero-match mapping
+        de.vvwt.slotopt.worker.types.RawPhaseDef emptyRaw =
+                new de.vvwt.slotopt.worker.types.RawPhaseDef(0, 0, List.of());
+        de.vvwt.slotopt.worker.types.CanonicalPhaseDef emptyCanonical =
+                new de.vvwt.slotopt.worker.types.CanonicalPhaseDef(0, 0, List.of());
+        MappingResult emptyMapping =
+                new MappingResult(emptyRaw, emptyCanonical, 0, List.of(), new int[0][]);
+
+        // Must not throw, must not call save
+        applicator.applyResult(0L, FIELD_COUNT, emptyMapping);
+        verify(matchRepository, never()).save(any(Match.class));
+    }
+
+    // =========================================================================
+    // Original error-path tests (unchanged — must remain GREEN)
+    // =========================================================================
+
+    @Test
+    void applyResult_throwsIAE_onNullMapping() {
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> applicator.applyResult(0L, 3, null))
+                .withMessageContaining("mapping must not be null");
+    }
+
+    @Test
+    void applyResult_throwsIAE_onInvalidFieldCount() {
+        UUID phaseId = UUID.randomUUID();
+        List<TeamAvatar> avatars =
+                buildAvatars(phaseId, new int[][] {{1, 1}, {1, 2}});
+        List<Match> l2Matches = buildAllPairMatchesWithL2Slots(phaseId, avatars, 1);
+        MappingResult mapping = buildMapping(phaseId, avatars, l2Matches);
+
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> applicator.applyResult(0L, 0, mapping))
+                .withMessageContaining("fieldCount must be >= 1");
+    }
+
+    // =========================================================================
+    // Updated AC12 tests from E04S02 — adapted for lap-permutation model (E51S11)
+    //
+    // Properties that must hold under the new implementation:
+    //   - All matches receive non-null (lapNumber, fieldNumber)
+    //   - No duplicate slots (each (lap, field) pair appears at most once)
+    // =========================================================================
+
+    @Test
+    void applyResult_allMatchesGetSlots_lapPermutationModel() {
+        UUID phaseId = UUID.randomUUID();
+        // 4 groups × 3 avatars = 12 matches, lapCount=4, fieldCount=3
+        Fixture f = buildMultiGroupFixture(phaseId, 4, 3);
+        MappingResult mapping = buildMapping(phaseId, f.avatars, f.matches);
+
+        when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
+        applicator.applyResult(0L, FIELD_COUNT, mapping);
+
+        ArgumentCaptor<Match> captor = ArgumentCaptor.forClass(Match.class);
+        verify(matchRepository, times(12)).save(captor.capture());
+        List<Match> saved = captor.getAllValues();
+
         for (Match m : saved) {
             assertThat(m.getLapNumber())
                     .as("lapNumber must be non-null for match %s", m.getId())
@@ -85,256 +368,118 @@ class SlotResultApplicatorTest {
                     .isNotNull();
         }
 
-        // AC12: no avatar plays twice in the same lap
-        // Build avatar-ID-to-denseId mapping for the assertion
-        Map<UUID, Integer> avatarIdToDenseId = buildAvatarDenseIdMap(avatars, mapping);
-        assertNoAvatarPlaysTwiceInSameLap(saved, avatarIdToDenseId, n);
-
-        // AC12: 5 laps × 3 fields = 15 match slots
         Set<String> usedSlots = new HashSet<>();
         for (Match m : saved) {
             String slot = m.getLapNumber() + ":" + m.getFieldNumber();
             assertThat(usedSlots.add(slot))
-                    .as(
-                            "Slot (%d, %d) must be unique — assigned to two matches",
-                            m.getLapNumber(), m.getFieldNumber())
+                    .as("Slot (%d, %d) must be unique", m.getLapNumber(), m.getFieldNumber())
                     .isTrue();
         }
-        assertThat(usedSlots).hasSize(15);
-
-        // Verify lap count ≤ (N-1)
-        int maxLap = saved.stream().mapToInt(Match::getLapNumber).max().getAsInt();
-        assertThat(maxLap).isLessThanOrEqualTo(n - 1);
+        assertThat(usedSlots).hasSize(12);
     }
 
-    // -------------------------------------------------------------------------
-    // AC12 — determinism: same rank → same assignment
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // Helpers and inner types
+    // =========================================================================
 
-    @Test
-    void applyResult_determinism_sameRankProducesSameAssignment() {
-        UUID phaseId = UUID.randomUUID();
-        List<TeamAvatar> avatars =
-                buildAvatars(phaseId, new int[][] {{1, 1}, {1, 2}, {1, 3}, {2, 1}, {2, 2}, {2, 3}});
-
-        PhaseToRawPhaseDefMapper mapperInstance = buildTestMapper(phaseId, avatars);
-        MappingResult mapping = mapperInstance.map(phaseId);
-
-        // Capture first run
-        when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
-        applicator.applyResult(0L, FIELD_COUNT, mapping);
-
-        ArgumentCaptor<Match> captor1 = ArgumentCaptor.forClass(Match.class);
-        verify(matchRepository, times(15)).save(captor1.capture());
-
-        // Reset and re-build mapping with same data
-        org.mockito.Mockito.clearInvocations(matchRepository);
-        when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
-        MappingResult mapping2 = mapperInstance.map(phaseId);
-        applicator.applyResult(0L, FIELD_COUNT, mapping2);
-        ArgumentCaptor<Match> captor2 = ArgumentCaptor.forClass(Match.class);
-        verify(matchRepository, times(15)).save(captor2.capture());
-
-        // Build UUID → (lap, field) maps for both runs
-        Map<UUID, String> slots1 = buildSlotMap(captor1.getAllValues());
-        Map<UUID, String> slots2 = buildSlotMap(captor2.getAllValues());
-
-        assertThat(slots1).isEqualTo(slots2);
-    }
-
-    // -------------------------------------------------------------------------
-    // Error handling: null mapping throws IAE
-    // -------------------------------------------------------------------------
-
-    @Test
-    void applyResult_throwsIAE_onNullMapping() {
-        assertThatIllegalArgumentException()
-                .isThrownBy(() -> applicator.applyResult(0L, 3, null))
-                .withMessageContaining("mapping must not be null");
-    }
-
-    // -------------------------------------------------------------------------
-    // Error handling: fieldCount < 1 throws IAE
-    // -------------------------------------------------------------------------
-
-    @Test
-    void applyResult_throwsIAE_onInvalidFieldCount() {
-        UUID phaseId = UUID.randomUUID();
-        List<TeamAvatar> avatars = buildAvatars(phaseId, new int[][] {{1, 1}, {1, 2}});
-        PhaseToRawPhaseDefMapper mapperInstance = buildTestMapper(phaseId, avatars);
-        MappingResult mapping = mapperInstance.map(phaseId);
-
-        assertThatIllegalArgumentException()
-                .isThrownBy(() -> applicator.applyResult(0L, 0, mapping))
-                .withMessageContaining("fieldCount must be >= 1");
-    }
-
-    // -------------------------------------------------------------------------
-    // Multiple permutations: all produce valid (lap, field) assignments
-    // -------------------------------------------------------------------------
-
-    @Test
-    void applyResult_multipleRanks_allProduceValidAssignments() {
-        UUID phaseId = UUID.randomUUID();
-        List<TeamAvatar> avatars =
-                buildAvatars(phaseId, new int[][] {{1, 1}, {1, 2}, {1, 3}, {2, 1}, {2, 2}, {2, 3}});
-        PhaseToRawPhaseDefMapper mapperInstance = buildTestMapper(phaseId, avatars);
-
-        // Test rank 0, a middle rank, and the last rank for N=6 (6! - 1 = 719)
-        long[] testRanks = {0L, 360L, 719L};
-
-        for (long rank : testRanks) {
-            org.mockito.Mockito.clearInvocations(matchRepository);
-            when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
-
-            MappingResult mapping = mapperInstance.map(phaseId);
-            applicator.applyResult(rank, FIELD_COUNT, mapping);
-
-            ArgumentCaptor<Match> captor = ArgumentCaptor.forClass(Match.class);
-            verify(matchRepository, times(15)).save(captor.capture());
-
-            List<Match> saved = captor.getAllValues();
-
-            // All slots non-null
-            for (Match m : saved) {
-                assertThat(m.getLapNumber())
-                        .as("rank=%d, match=%s lapNumber null", rank, m.getId())
-                        .isNotNull();
-                assertThat(m.getFieldNumber())
-                        .as("rank=%d, match=%s fieldNumber null", rank, m.getId())
-                        .isNotNull();
-            }
-
-            // No duplicate slots
-            Set<String> usedSlots = new HashSet<>();
-            for (Match m : saved) {
-                String slot = m.getLapNumber() + ":" + m.getFieldNumber();
-                assertThat(usedSlots.add(slot))
-                        .as(
-                                "rank=%d: duplicate slot (%d,%d)",
-                                rank, m.getLapNumber(), m.getFieldNumber())
-                        .isTrue();
-            }
-
-            // Round constraint: build avatar-ID-to-denseId mapping
-            Map<UUID, Integer> avatarIdToDenseId = buildAvatarDenseIdMap(avatars, mapping);
-            assertNoAvatarPlaysTwiceInSameLap(saved, avatarIdToDenseId, 6);
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
+    /** Holds avatars + L2-slot-assigned matches for a multi-group fixture. */
+    private record Fixture(List<TeamAvatar> avatars, List<Match> matches) {}
 
     /**
-     * Builds a {@link PhaseToRawPhaseDefMapper} backed by mocked repositories that return the given
-     * avatars and the C(n,2) all-pair matches.
+     * Builds a multi-group fixture with groupCount groups × avatarsPerGroup avatars.
+     * Matches: intra-group all-pair matches, sorted by UUID, assigned L2 lap/field.
      */
-    private PhaseToRawPhaseDefMapper buildTestMapper(UUID phaseId, List<TeamAvatar> avatars) {
-        List<Match> matches = buildAllPairMatches(phaseId, avatars);
-        when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(avatars);
-        when(matchRepository.findByPhaseId(phaseId)).thenReturn(matches);
-        return new PhaseToRawPhaseDefMapper(teamAvatarRepository, matchRepository);
+    private Fixture buildMultiGroupFixture(UUID phaseId, int groupCount, int avatarsPerGroup) {
+        List<TeamAvatar> avatars = new ArrayList<>();
+        for (int g = 1; g <= groupCount; g++) {
+            for (int pos = 1; pos <= avatarsPerGroup; pos++) {
+                avatars.add(new TeamAvatar(
+                        UUID.randomUUID(), TOURNAMENT_ID, phaseId, g, pos, UUID.randomUUID(), null, null));
+            }
+        }
+        return buildMultiGroupFixture(phaseId, avatars);
     }
 
-    /** Builds 6 TeamAvatars with the given (groupNumber, groupPosition) pairs. */
-    private List<TeamAvatar> buildAvatars(UUID phaseId, int[][] groupPos) {
-        List<TeamAvatar> result = new ArrayList<>();
-        UUID tournamentId = UUID.randomUUID();
-        for (int[] gp : groupPos) {
-            TeamAvatar avatar =
-                    new TeamAvatar(
-                            UUID.randomUUID(),
-                            tournamentId,
-                            phaseId,
-                            gp[0],
-                            gp[1],
-                            UUID.randomUUID(),
-                            null,
-                            null);
-            result.add(avatar);
+    /**
+     * Builds matches with L2 slots for the given avatars (multi-group: intra-group all-pair).
+     * fieldCount = FIELD_COUNT (3).
+     */
+    private Fixture buildMultiGroupFixture(UUID phaseId, List<TeamAvatar> avatars) {
+        // Group avatars by groupNumber
+        Map<Integer, List<TeamAvatar>> byGroup = new HashMap<>();
+        for (TeamAvatar a : avatars) {
+            byGroup.computeIfAbsent(a.getGroupNumber(), k -> new ArrayList<>()).add(a);
+        }
+        List<Match> matches = new ArrayList<>();
+        for (List<TeamAvatar> groupAvatars : byGroup.values()) {
+            for (int i = 0; i < groupAvatars.size(); i++) {
+                for (int j = i + 1; j < groupAvatars.size(); j++) {
+                    matches.add(new Match(
+                            UUID.randomUUID(), TOURNAMENT_ID, phaseId,
+                            groupAvatars.get(i).getId(), groupAvatars.get(j).getId(),
+                            MatchState.OPEN.getLegacyCode(), 1, null, null, null, null, null, null));
+                }
+            }
+        }
+        // Sort by UUID (mirrors PhaseToRawPhaseDefMapper deterministic ordering)
+        matches.sort((a, b) -> a.getId().toString().compareTo(b.getId().toString()));
+        // Assign L2 lap/field in sorted order
+        for (int i = 0; i < matches.size(); i++) {
+            matches.get(i).setLapNumber(i / FIELD_COUNT);
+            matches.get(i).setFieldNumber(i % FIELD_COUNT);
+        }
+        return new Fixture(avatars, matches);
+    }
+
+    /**
+     * Builds a MappingResult backed by mock repositories.
+     * Matches must have L2 lapNumber/fieldNumber already set (PhaseToRawPhaseDefMapper preserves them).
+     */
+    private MappingResult buildMapping(UUID phaseId, List<TeamAvatar> avatars, List<Match> matches) {
+        when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(avatars);
+        when(matchRepository.findByPhaseId(phaseId)).thenReturn(matches);
+        return new PhaseToRawPhaseDefMapper(teamAvatarRepository, matchRepository).map(phaseId);
+    }
+
+    /** Builds a map from match UUID → L2 (lapNumber, fieldNumber) array. */
+    private Map<UUID, int[]> l2SlotsByUuid(List<Match> matches) {
+        Map<UUID, int[]> result = new HashMap<>();
+        for (Match m : matches) {
+            if (m.getLapNumber() != null && m.getFieldNumber() != null) {
+                result.put(m.getId(), new int[] {m.getLapNumber(), m.getFieldNumber()});
+            }
         }
         return result;
     }
 
-    private List<Match> buildAllPairMatches(UUID phaseId, List<TeamAvatar> avatars) {
+    /** Builds TeamAvatars with given (groupNumber, groupPosition) pairs. */
+    private List<TeamAvatar> buildAvatars(UUID phaseId, int[][] groupPos) {
+        List<TeamAvatar> result = new ArrayList<>();
+        for (int[] gp : groupPos) {
+            result.add(new TeamAvatar(
+                    UUID.randomUUID(), UUID.randomUUID(), phaseId, gp[0], gp[1],
+                    UUID.randomUUID(), null, null));
+        }
+        return result;
+    }
+
+    /** Builds all-pair matches from the given avatars, with L2 lap/field set. */
+    private List<Match> buildAllPairMatchesWithL2Slots(
+            UUID phaseId, List<TeamAvatar> avatars, int fieldCount) {
         List<Match> matches = new ArrayList<>();
         for (int i = 0; i < avatars.size(); i++) {
             for (int j = i + 1; j < avatars.size(); j++) {
-                matches.add(
-                        new Match(
-                                UUID.randomUUID(),
-                                TOURNAMENT_ID,
-                                phaseId,
-                                avatars.get(i).getId(),
-                                avatars.get(j).getId(),
-                                MatchState.OPEN.getLegacyCode(),
-                                1,
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
-                                null));
+                matches.add(new Match(
+                        UUID.randomUUID(), TOURNAMENT_ID, phaseId,
+                        avatars.get(i).getId(), avatars.get(j).getId(),
+                        MatchState.OPEN.getLegacyCode(), 1, null, null, null, null, null, null));
             }
+        }
+        matches.sort((a, b) -> a.getId().toString().compareTo(b.getId().toString()));
+        for (int i = 0; i < matches.size(); i++) {
+            matches.get(i).setLapNumber(i / fieldCount);
+            matches.get(i).setFieldNumber(i % fieldCount);
         }
         return matches;
-    }
-
-    /**
-     * Builds a map from avatar UUID to dense ID using the mapping result's denseIdsByRawRow and
-     * matchOrder list.
-     */
-    private Map<UUID, Integer> buildAvatarDenseIdMap(
-            List<TeamAvatar> avatars, MappingResult mapping) {
-        // We need to reconstruct: avatarId → denseId
-        // The matchOrder and denseIdsByRawRow give us: match[i] → denseIds[i][0,1]
-        // and match[i].memberAvatar1Id → denseIds[i][0], match[i].memberAvatar2Id → denseIds[i][1]
-        Map<UUID, Integer> result = new HashMap<>();
-        List<Match> matchOrder = mapping.matchOrder();
-        int[][] denseIdsByRawRow = mapping.denseIdsByRawRow();
-        for (int i = 0; i < matchOrder.size(); i++) {
-            Match m = matchOrder.get(i);
-            result.put(m.getMemberAvatar1Id(), denseIdsByRawRow[i][0]);
-            result.put(m.getMemberAvatar2Id(), denseIdsByRawRow[i][1]);
-        }
-        return result;
-    }
-
-    /** Asserts that no avatar (by dense ID) appears in two matches within the same lap. */
-    private void assertNoAvatarPlaysTwiceInSameLap(
-            List<Match> saved, Map<UUID, Integer> avatarIdToDenseId, int n) {
-        // lap → Set of dense IDs appearing in that lap
-        Map<Integer, Set<Integer>> lapAvatarIds = new HashMap<>();
-        for (Match m : saved) {
-            int lap = m.getLapNumber();
-            Set<Integer> usedIds = lapAvatarIds.computeIfAbsent(lap, k -> new HashSet<>());
-            Integer d1 = avatarIdToDenseId.get(m.getMemberAvatar1Id());
-            Integer d2 = avatarIdToDenseId.get(m.getMemberAvatar2Id());
-            if (d1 != null) {
-                assertThat(usedIds.add(d1))
-                        .as(
-                                "Avatar (denseId=%d) appears twice in lap %d — round constraint"
-                                        + " violated",
-                                d1, lap)
-                        .isTrue();
-            }
-            if (d2 != null) {
-                assertThat(usedIds.add(d2))
-                        .as(
-                                "Avatar (denseId=%d) appears twice in lap %d — round constraint"
-                                        + " violated",
-                                d2, lap)
-                        .isTrue();
-            }
-        }
-    }
-
-    private Map<UUID, String> buildSlotMap(List<Match> saved) {
-        Map<UUID, String> result = new HashMap<>();
-        for (Match m : saved) {
-            result.put(m.getId(), m.getLapNumber() + ":" + m.getFieldNumber());
-        }
-        return result;
     }
 }

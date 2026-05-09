@@ -4,10 +4,7 @@ import de.vvwt.slotopt.worker.codec.LehmerCodec;
 import de.vvwt.tm.tournament.Match;
 import de.vvwt.tm.tournament.MatchRepository;
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -16,51 +13,56 @@ import org.springframework.stereotype.Service;
  * Result applicator: maps a permutation rank from the slot-optimization compute kernel back to
  * {@code (lapNumber, fieldNumber)} coordinates on each {@link Match} entity.
  *
- * <h2>Algorithm (Delivery design choice — AC4)</h2>
+ * <h2>Algorithm — Option 3 (flat-index + rank-as-lap-permutation, AC-IMPL-OPTION-3-FLAT-INDEX)</h2>
+ *
+ * <p>L3's optimizer produces a {@code rank} in {@code [0, lapCount!)} interpreted as a
+ * <em>lap-permutation</em> via {@link LehmerCodec#rankToPermutation(long, int)} with {@code n =
+ * lapCount}. The permutation π over {@code [0, lapCount-1]} re-orders whole laps; intra-lap
+ * field-positions are preserved.
  *
  * <ol>
- *   <li>Unrank via {@link LehmerCodec#rankToPermutation(long, int)} with {@code N = avatarCount} to
- *       get permutation {@code pi} over canonical dense avatar IDs {@code [0, N-1]}. {@code pi[i] =
- *       s} means: avatar {@code i} occupies "seat" {@code s} in the slot-assignment schedule.
- *   <li>Build a canonical round-robin schedule for {@code N} seats using the standard circle method
- *       (fix seat {@code N-1}, rotate seats {@code 0..N-2} through {@code N-1} rounds). Produces a
- *       lookup table {@code roundBySeat[sA][sB]} → which round seats {@code sA} and {@code sB} play
- *       each other.
- *   <li>For each match with dense avatar IDs {@code [d1, d2]}, determine its round as {@code
- *       roundBySeat[pi[d1]][pi[d2]]}.
- *   <li>Within each round, sort matches by UUID (ascending) for determinism (AC7) and assign field
- *       numbers sequentially (0, 1, ...).
- *   <li>Validate the round constraint: assert that no avatar appears in two matches in the same
- *       round (AC5). Since the circle method guarantees this by construction, a violation indicates
- *       an algorithm bug.
+ *   <li>Sort the phase matches by their L2-assigned position {@code lapNumber * fieldCount +
+ *       fieldNumber} ascending to obtain the L2 canonical order. L2 guarantees every slot {@code
+ *       (lap, field)} is occupied exactly once for a full phase ({@code rowCount = lapCount *
+ *       fieldCount}).
+ *   <li>Unrank via {@link LehmerCodec#rankToPermutation(long, int)} with {@code n = lapCount} to
+ *       get permutation π over {@code [0, lapCount-1]}.
+ *   <li>The output row sequence is {@code [π(0)*fc, π(0)*fc+1, ..., π(lapCount-1)*fc+fc-1]} where
+ *       {@code fc = fieldCount}. Each output position {@code i} is filled from the L2-sorted match
+ *       at source flat-index {@code π[i/fc]*fc + i%fc}.
+ *   <li>Write for output position {@code i}: {@code match.setLapNumber(i / fc)}, {@code
+ *       match.setFieldNumber(i % fc)}.
  * </ol>
  *
- * <h2>Capacity requirement</h2>
+ * <h2>Key invariant (D-7, AC-TEST-FIELD-INVARIANT-UNDER-LAP-PERMUTATION-RED)</h2>
  *
- * <p>This algorithm requires {@code N} to be even, which is always true for round-robin tournaments
- * (each group has an even number of teams by DEC-9 structural convention). For odd {@code N}, the
- * algorithm inserts a "bye" seat at {@code N-1} so that {@code N} becomes even — identical to the
- * standard circle-method extension.
+ * <p>Because the lap-permutation reorders whole laps without changing intra-lap positions, {@code
+ * fieldNumber} is invariant under L3. A match at L2 field=k always gets field=k from L3.
  *
- * <h2>Round constraint (AC5)</h2>
+ * <h2>Identity rank (AC-TEST-RANK-AS-LAP-PERMUTATION-RED)</h2>
  *
- * <p>No TeamAvatar appears more than once in the same lap (= round). The circle method guarantees
- * this by construction. If a violation is detected, {@link IllegalStateException} is thrown before
- * any writes occur.
+ * <p>Rank 0 is the identity permutation π(i)=i, producing the same (lapNumber, fieldNumber) as L2
+ * assigned — the L2 baseline is preserved.
  *
- * <h2>Postcondition (AC4)</h2>
+ * <h2>Empty phase (AC-ERROR-HANDLING-EMPTY-PHASE)</h2>
  *
- * <p>After successful return, every match in the phase has non-null {@code lapNumber} and {@code
- * fieldNumber}.
+ * <p>If {@code mapping.matchOrder()} is empty, returns immediately without any writes.
  *
- * <h2>Tenant scoping (AC14)</h2>
+ * <h2>Invalid rank (AC-ERROR-HANDLING-INVALID-RANK)</h2>
+ *
+ * <p>If {@code rank >= lapCount!}, {@link LehmerCodec#rankToPermutation} throws {@link
+ * IllegalArgumentException} — surfaces naturally.
+ *
+ * <h2>Tenant scoping</h2>
  *
  * <p>All writes use the tenant-scoped {@link MatchRepository#save(Object)}.
  *
  * @see PhaseToRawPhaseDefMapper
- * @see <a
- *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E04S02.story.md">Story
- *     E04S02</a>
+ * @see LehmerCodec
+ * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
+ * @see <a href="DEC-49">DEC-49 D-3 — N redefined as lapCount</a>
+ * @see <a href="DEC-55">DEC-55 D-7 — lap-permutation model</a>
+ * @see <a href="E51S11">E51S11 — L3 Refactor</a>
  */
 @Service
 public class SlotResultApplicator {
@@ -72,22 +74,25 @@ public class SlotResultApplicator {
     /**
      * Constructs the applicator with the required repository.
      *
-     * @param matchRepository tenant-scoped repository for Match persistence (AC14)
+     * @param matchRepository tenant-scoped repository for Match persistence
      */
     public SlotResultApplicator(MatchRepository matchRepository) {
         this.matchRepository = matchRepository;
     }
 
     /**
-     * Applies a permutation rank to the matches in the given mapping result, writing {@code
+     * Applies a lap-permutation rank to the matches in the given mapping result, writing {@code
      * lapNumber} and {@code fieldNumber} to every match.
      *
-     * @param rank the best permutation rank from the optimizer (AC4)
-     * @param fieldCount the number of courts/fields per lap (AC6); must be {@code >= 1}
-     * @param mapping the forward-mapping result from {@link PhaseToRawPhaseDefMapper} (AC3)
+     * <p>The rank is interpreted as a permutation over {@code [0, lapCount-1]} via {@link
+     * LehmerCodec#rankToPermutation(long, int)} with {@code n = lapCount}. The permutation π
+     * reorders whole laps; intra-lap field-positions stay invariant (D-7).
+     *
+     * @param rank the lap-permutation rank from the optimizer; {@code 0} = identity (L2 baseline)
+     * @param fieldCount the number of courts/fields per lap; must be {@code >= 1}
+     * @param mapping the forward-mapping result from {@link PhaseToRawPhaseDefMapper}
      * @throws IllegalArgumentException if {@code mapping} is {@code null} or {@code fieldCount < 1}
-     * @throws IllegalStateException if the computed assignment violates the round constraint (AC5)
-     * @throws IllegalStateException if no tenant context is active (E03S05 guard)
+     * @throws IllegalArgumentException if {@code rank >= lapCount!} (from {@link LehmerCodec})
      */
     public void applyResult(long rank, int fieldCount, MappingResult mapping) {
         if (mapping == null) {
@@ -97,162 +102,64 @@ public class SlotResultApplicator {
             throw new IllegalArgumentException("fieldCount must be >= 1 but was: " + fieldCount);
         }
 
-        int n = mapping.avatarCount();
         List<Match> matchOrder = mapping.matchOrder();
-        int[][] denseIdsByRawRow = mapping.denseIdsByRawRow();
         int rowCount = matchOrder.size();
 
-        // AC4 step 1: unrank permutation pi over avatar IDs [0, N-1]
-        // pi[i] = seat assigned to avatar i in the schedule
-        int[] pi = LehmerCodec.rankToPermutation(rank, n);
-
-        // AC4 step 2: build canonical round-robin schedule for N seats
-        // roundBySeat[seatA][seatB] = which round seats seatA and seatB play each other
-        // Uses standard circle method (fix seat N-1, rotate 0..N-2)
-        int[][] roundBySeat = buildCanonicalRoundSchedule(n);
-
-        // AC4 step 3: assign each match to a round using the permutation
-        // Collect matches by round for deterministic field assignment
-        Map<Integer, List<Integer>> matchIndicesByRound = new HashMap<>();
-        for (int rowIdx = 0; rowIdx < rowCount; rowIdx++) {
-            int d1 = denseIdsByRawRow[rowIdx][0];
-            int d2 = denseIdsByRawRow[rowIdx][1];
-            int seatD1 = pi[d1];
-            int seatD2 = pi[d2];
-            int round = roundBySeat[seatD1][seatD2];
-            matchIndicesByRound.computeIfAbsent(round, k -> new ArrayList<>()).add(rowIdx);
+        // AC-ERROR-HANDLING-EMPTY-PHASE: empty mapping → no-op
+        if (rowCount == 0) {
+            LOG.debug("SlotResultApplicator: empty mapping (0 matches) — no-op");
+            return;
         }
 
-        // AC4 step 4: within each round, sort by match UUID for determinism (AC7),
-        // then assign field numbers 0..fieldCount-1
-        int[] assignedLap = new int[rowCount];
-        int[] assignedField = new int[rowCount];
+        int lapCount = rowCount / fieldCount;
 
-        for (Map.Entry<Integer, List<Integer>> entry : matchIndicesByRound.entrySet()) {
-            int round = entry.getKey();
-            List<Integer> indices = entry.getValue();
-            // Sort by match UUID for determinism
-            indices.sort(Comparator.comparing(idx -> matchOrder.get(idx).getId().toString()));
-            // Assign lap = round, field = position within round
-            for (int fieldIdx = 0; fieldIdx < indices.size(); fieldIdx++) {
-                int rowIdx = indices.get(fieldIdx);
-                assignedLap[rowIdx] = round;
-                assignedField[rowIdx] = fieldIdx;
-            }
-        }
+        // Step 1: sort matches by L2 position (lapNumber * fieldCount + fieldNumber) ascending
+        List<Match> sortedByL2 = sortByL2Position(matchOrder, fieldCount);
 
-        // AC5: validate round constraint before writing
-        validateRoundConstraint(rowCount, denseIdsByRawRow, assignedLap, matchOrder, n);
+        // Step 2: unrank → lap permutation π over [0, lapCount-1]
+        // Throws IAE if rank >= lapCount! (AC-ERROR-HANDLING-INVALID-RANK surfaces naturally)
+        int[] pi = LehmerCodec.rankToPermutation(rank, lapCount);
 
-        // Postcondition (AC4): write lap/field to all matches
-        for (int rowIdx = 0; rowIdx < rowCount; rowIdx++) {
-            Match match = matchOrder.get(rowIdx);
-            match.setLapNumber(assignedLap[rowIdx]);
-            match.setFieldNumber(assignedField[rowIdx]);
-            matchRepository.save(match); // AC14: tenant-scoped
+        // Step 3 + 4: apply permutation — for output position i, source = π[i/fc]*fc + i%fc
+        for (int i = 0; i < rowCount; i++) {
+            int outputLap = i / fieldCount;
+            int outputField = i % fieldCount;
+            int sourceFlatIdx = pi[outputLap] * fieldCount + outputField;
+            Match match = sortedByL2.get(sourceFlatIdx);
+            match.setLapNumber(outputLap);
+            match.setFieldNumber(outputField);
+            matchRepository.save(match);
         }
 
         LOG.info(
-                "SlotResultApplicator: applied rank={}, N={}, fieldCount={}, matches={}, rounds={}",
+                "SlotResultApplicator: applied rank={}, lapCount={}, fieldCount={}, matches={}",
                 rank,
-                n,
+                lapCount,
                 fieldCount,
-                rowCount,
-                matchIndicesByRound.size());
+                rowCount);
     }
 
     /**
-     * Builds the canonical round-robin schedule for {@code N} seats using the circle method.
+     * Sorts matches by their L2-assigned flat position {@code lapNumber * fieldCount + fieldNumber}
+     * ascending. Matches with {@code null} lap/field (not yet assigned by L2) are treated as
+     * position 0.
      *
-     * <p>Fixes seat {@code N-1} and rotates seats {@code 0..N-2} through {@code N-1} rounds. If
-     * {@code N} is odd, a virtual "bye" seat is handled by treating all {@code N-1} rounds
-     * uniformly (the by-seat pair always includes the fixed seat, which is the bye).
-     *
-     * @param n number of avatar seats; must be {@code >= 2}
-     * @return {@code roundBySeat[a][b]} = round number in which seats {@code a} and {@code b} play
-     *     each other (0-indexed)
+     * @param matches the matches to sort (not modified in place — a copy is returned)
+     * @param fieldCount number of fields per lap
+     * @return a new list sorted by L2 flat position ascending
      */
-    static int[][] buildCanonicalRoundSchedule(int n) {
-        // For the circle method we need an even number of seats.
-        // If N is odd, we add a virtual bye-seat N (total becomes N+1).
-        // For our purposes (round-robin tournament), N is always even (AC12 uses N=6).
-        // We handle both cases for robustness.
-        int seats;
-        boolean hadOddN = (n % 2 != 0);
-        if (hadOddN) {
-            seats = n + 1;
-        } else {
-            seats = n;
-        }
-
-        int rounds = seats - 1;
-        int[][] roundBySeat = new int[seats][seats];
-
-        for (int round = 0; round < rounds; round++) {
-            // Build the rotated seat assignment for this round
-            // rotated[k] = seat at position k in this round (positions 0..seats-2)
-            int[] rotated = new int[seats - 1];
-            for (int k = 0; k < seats - 1; k++) {
-                rotated[k] = (k + round) % (seats - 1);
-            }
-
-            // Fixed seat (seats-1) plays rotated[0]
-            int fixedSeat = seats - 1;
-            roundBySeat[fixedSeat][rotated[0]] = round;
-            roundBySeat[rotated[0]][fixedSeat] = round;
-
-            // Remaining pairs: for k = 1 .. seats/2 - 1, pair rotated[k] vs rotated[seats-1-k]
-            for (int k = 1; k <= seats / 2 - 1; k++) {
-                int seatA = rotated[k];
-                int seatB = rotated[seats - 1 - k];
-                roundBySeat[seatA][seatB] = round;
-                roundBySeat[seatB][seatA] = round;
-            }
-        }
-
-        return roundBySeat;
+    private static List<Match> sortByL2Position(List<Match> matches, int fieldCount) {
+        List<Match> sorted = new ArrayList<>(matches);
+        sorted.sort(
+                (a, b) -> {
+                    int posA = safeInt(a.getLapNumber()) * fieldCount + safeInt(a.getFieldNumber());
+                    int posB = safeInt(b.getLapNumber()) * fieldCount + safeInt(b.getFieldNumber());
+                    return Integer.compare(posA, posB);
+                });
+        return sorted;
     }
 
-    /**
-     * Validates that no dense avatar ID appears in two matches within the same round (lap).
-     *
-     * @throws IllegalStateException if the round constraint is violated (AC5)
-     */
-    private static void validateRoundConstraint(
-            int rowCount,
-            int[][] denseIdsByRawRow,
-            int[] assignedLap,
-            List<Match> matchOrder,
-            int n) {
-        // lap → boolean[n] of which dense IDs have been seen
-        Map<Integer, boolean[]> lapCheck = new HashMap<>();
-        for (int rowIdx = 0; rowIdx < rowCount; rowIdx++) {
-            int lap = assignedLap[rowIdx];
-            boolean[] used = lapCheck.computeIfAbsent(lap, k -> new boolean[n]);
-            int d1 = denseIdsByRawRow[rowIdx][0];
-            int d2 = denseIdsByRawRow[rowIdx][1];
-            if (used[d1]) {
-                throw new IllegalStateException(
-                        "Round constraint violated (AC5): dense avatar ID "
-                                + d1
-                                + " appears more than once in lap "
-                                + lap
-                                + ". This indicates a bug in the slot assignment algorithm."
-                                + " Match: "
-                                + matchOrder.get(rowIdx).getId());
-            }
-            if (used[d2]) {
-                throw new IllegalStateException(
-                        "Round constraint violated (AC5): dense avatar ID "
-                                + d2
-                                + " appears more than once in lap "
-                                + lap
-                                + ". This indicates a bug in the slot assignment algorithm."
-                                + " Match: "
-                                + matchOrder.get(rowIdx).getId());
-            }
-            used[d1] = true;
-            used[d2] = true;
-        }
+    private static int safeInt(Integer value) {
+        return value != null ? value : 0;
     }
 }
