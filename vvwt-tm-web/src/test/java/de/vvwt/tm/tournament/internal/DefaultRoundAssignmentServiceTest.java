@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import de.vvwt.tm.slotopt.PhaseToRawPhaseDefMapper;
 import de.vvwt.tm.tournament.Match;
 import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.TeamAvatar;
@@ -22,17 +21,22 @@ import org.junit.jupiter.api.Test;
  * White-box unit tests for {@link DefaultRoundAssignmentService}.
  *
  * <p>Tests the greedy edge-coloring algorithm, multi-group concatenation (D-12), flat lap-major
- * ordering, D-13 advisory logging branch, and error-guard paths.
+ * ordering, and error-guard paths.
+ *
+ * <p>E51S16: removed obsolete {@code AC-TEST-MAPPER-FIELDCOUNT-NOT-DEAD-RED} fixture (previously
+ * injected {@code PhaseToRawPhaseDefMapper} mock to keep the dead-code path live). After B-b1 the
+ * mapper dependency is gone from {@link DefaultRoundAssignmentService}; this test file no longer
+ * references {@code PhaseToRawPhaseDefMapper} per AC-IMPL-OBSOLETE-MAPPER-FIELDCOUNT-TEST-DELETED.
  *
  * @see DefaultRoundAssignmentService
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
  * @see <a href="E51S10">E51S10 — L2 Round-Assignment Service story</a>
+ * @see <a href="E51S16">E51S16 — B-b1 cycle-break; mapper dependency removed</a>
  */
 class DefaultRoundAssignmentServiceTest {
 
     private MatchRepository matchRepository;
     private TeamAvatarRepository teamAvatarRepository;
-    private PhaseToRawPhaseDefMapper phaseToRawPhaseDefMapper;
     private DefaultRoundAssignmentService service;
 
     private UUID phaseId;
@@ -41,11 +45,7 @@ class DefaultRoundAssignmentServiceTest {
     void setUp() {
         matchRepository = mock(MatchRepository.class);
         teamAvatarRepository = mock(TeamAvatarRepository.class);
-        phaseToRawPhaseDefMapper = mock(PhaseToRawPhaseDefMapper.class);
-        when(phaseToRawPhaseDefMapper.getFieldCount()).thenReturn(3);
-        service =
-                new DefaultRoundAssignmentService(
-                        matchRepository, teamAvatarRepository, phaseToRawPhaseDefMapper);
+        service = new DefaultRoundAssignmentService(matchRepository, teamAvatarRepository);
         phaseId = UUID.randomUUID();
     }
 
@@ -335,32 +335,6 @@ class DefaultRoundAssignmentServiceTest {
                         "K4 with fieldCount=3 should need at most 3 laps (edge-chromatic-number of"
                                 + " K4 = 3)")
                 .isLessThanOrEqualTo(2); // laps are 0-indexed, so maxLap=2 means 3 laps
-    }
-
-    // ── Mapper advisory branch (AC-TEST-MAPPER-FIELDCOUNT-NOT-DEAD-RED) ───────────────────────
-
-    @Test
-    void mapper_getFieldCount_is_called_when_matches_exist() {
-        // Activating the dead-code path: mapper.getFieldCount() must be called even when
-        // fieldCount matches the mapper's configured value
-        UUID av1 = UUID.randomUUID();
-        UUID av2 = UUID.randomUUID();
-        UUID tid = UUID.randomUUID();
-
-        when(phaseToRawPhaseDefMapper.getFieldCount()).thenReturn(3);
-        when(matchRepository.findByPhaseId(phaseId))
-                .thenReturn(
-                        new ArrayList<>(
-                                List.of(makeMatch(makeUUID("01"), phaseId, tid, av1, av2))));
-        when(teamAvatarRepository.findByPhaseId(phaseId))
-                .thenReturn(List.of(makeAvatar(av1, phaseId, 1), makeAvatar(av2, phaseId, 1)));
-        when(matchRepository.save(org.mockito.ArgumentMatchers.any(Match.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
-
-        service.assignRoundsAndFields(phaseId, 3);
-
-        // Just verify service ran without exception; mapper activation is structural (injected)
-        // The AC is: mapper.getFieldCount() method is NOT dead code (it is called via service)
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────────────────────

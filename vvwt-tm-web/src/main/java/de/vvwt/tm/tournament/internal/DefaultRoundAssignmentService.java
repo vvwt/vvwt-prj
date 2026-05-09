@@ -1,6 +1,5 @@
 package de.vvwt.tm.tournament.internal;
 
-import de.vvwt.tm.slotopt.PhaseToRawPhaseDefMapper;
 import de.vvwt.tm.tournament.Match;
 import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.RoundAssignmentService;
@@ -17,6 +16,7 @@ import java.util.TreeMap;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
@@ -59,19 +59,24 @@ import org.springframework.stereotype.Service;
  * SiegerehrungMatchGenerator}, or any {@code Spielart} / {@code gameMode} string. It operates
  * exclusively on {@link Match} objects (avatar-pair tuples) and repositories.
  *
- * <h2>PhaseToRawPhaseDefMapper activation (AC-TEST-MAPPER-FIELDCOUNT-NOT-DEAD-RED)</h2>
+ * <h2>B-b1 cycle-break (E51S16)</h2>
  *
- * <p>{@link PhaseToRawPhaseDefMapper} is injected to activate its {@code getFieldCount()} method as
- * an advisory logging / validation point. If the resolved {@code fieldCount} argument differs from
- * the mapper's configured value, a debug-level log entry is emitted.
+ * <p>The previous injection of {@code PhaseToRawPhaseDefMapper} (from the {@code slotopt} module)
+ * created a {@code tournament → slotopt} compile-time edge, causing the Modulith cycle {@code
+ * slotopt → tournament → slotopt}. E51S16 removes this edge by replacing the mapper dependency with
+ * a direct {@code @Value("${tm.slotopt.fallback.field-count:3}")} injection, which supplies the
+ * same default value via Spring's PropertyResolver without crossing the module boundary. Per DEC-55
+ * D-3 and DEC-21 {@code tournament @ApplicationModule(allowedDependencies = {"tenant"})}.
  *
  * @see RoundAssignmentService
  * @see <a href="DEC-9">DEC-9 — TeamAvatar structural identity</a>
+ * @see <a href="DEC-21">DEC-21 — Spring Modulith; tournament allowedDependencies = tenant only</a>
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law (RED-first)</a>
  * @see <a href="DEC-35">DEC-35 — Spring Modulith: impl in .internal</a>
  * @see <a href="DEC-37">DEC-37 Clause B — runs within caller's TX (no own @Transactional)</a>
  * @see <a href="DEC-55">DEC-55 D-3 — L2 writes lap+field after L1</a>
  * @see <a href="E51S10">E51S10 — L2 Round-Assignment Service story</a>
+ * @see <a href="E51S16">E51S16 — B-b1 Modulith-cycle elimination</a>
  */
 @Service
 class DefaultRoundAssignmentService implements RoundAssignmentService {
@@ -82,19 +87,25 @@ class DefaultRoundAssignmentService implements RoundAssignmentService {
     private final TeamAvatarRepository teamAvatarRepository;
 
     /**
-     * Injected to activate {@link PhaseToRawPhaseDefMapper#getFieldCount()} (previously dead code
-     * per AC-TEST-MAPPER-FIELDCOUNT-NOT-DEAD-RED). The mapper's field-count config value is used
-     * for advisory debug logging.
+     * Coherence anchor: the configured fallback field-count default.
+     *
+     * <p>This field is NOT used at runtime for round-assignment logic — {@link
+     * #assignRoundsAndFields(UUID, int)} receives the already-resolved {@code fieldCount} from
+     * {@code MatchGenJobExecutor}. Its presence here serves as a drift guard: if this literal ever
+     * diverges from the literal in {@code MatchGenJobExecutor} or {@code PhaseToRawPhaseDefMapper},
+     * {@code FieldCountDefaultCoherenceTest} fails immediately
+     * (AC-IMPL-DEFAULT-FIELDCOUNT-COHERENCE, AC-TEST-DEFAULT-FIELDCOUNT-COHERENCE-RED).
+     *
+     * <p>The literal MUST be EXACTLY {@code ${tm.slotopt.fallback.field-count:3}} —
+     * character-identical to {@code MatchGenJobExecutor} and {@code PhaseToRawPhaseDefMapper}.
      */
-    private final PhaseToRawPhaseDefMapper phaseToRawPhaseDefMapper;
+    @Value("${tm.slotopt.fallback.field-count:3}")
+    private int fallbackFieldCountCoherenceAnchor;
 
     DefaultRoundAssignmentService(
-            MatchRepository matchRepository,
-            TeamAvatarRepository teamAvatarRepository,
-            PhaseToRawPhaseDefMapper phaseToRawPhaseDefMapper) {
+            MatchRepository matchRepository, TeamAvatarRepository teamAvatarRepository) {
         this.matchRepository = matchRepository;
         this.teamAvatarRepository = teamAvatarRepository;
-        this.phaseToRawPhaseDefMapper = phaseToRawPhaseDefMapper;
     }
 
     /**
@@ -134,17 +145,6 @@ class DefaultRoundAssignmentService implements RoundAssignmentService {
                             + fieldCount
                             + ". Set tournament.fieldCount ≥ 1 or"
                             + " tm.slotopt.fallback.field-count ≥ 1 in application config.");
-        }
-
-        // AC-TEST-MAPPER-FIELDCOUNT-NOT-DEAD-RED: activate mapper.getFieldCount()
-        int mapperFieldCount = phaseToRawPhaseDefMapper.getFieldCount();
-        if (mapperFieldCount != fieldCount) {
-            LOG.debug(
-                    "DefaultRoundAssignmentService: resolved fieldCount={} differs from"
-                            + " mapper config fieldCount={}"
-                            + " (tournament.fieldCount takes precedence after D-13 fallback)",
-                    fieldCount,
-                    mapperFieldCount);
         }
 
         List<Match> matches = matchRepository.findByPhaseId(phaseId);

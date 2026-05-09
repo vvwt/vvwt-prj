@@ -390,16 +390,23 @@ class MatchGenJobListenerIT {
     // =========================================================================
 
     /**
-     * RED-first: after match-gen listener completes, all match rows for the phase have {@code
-     * lap_number IS NULL}, {@code field_number IS NULL}, {@code referee_team_id IS NULL}. Slot-Opt
-     * + Referee-Assignment have not yet run.
+     * After match-gen listener completes (L1 + L2), all match rows for the phase have {@code
+     * lap_number IS NOT NULL} and {@code field_number IS NOT NULL} (L2 assigns them), but {@code
+     * referee_team_id IS NULL} (Referee-Assignment has not yet run).
      *
-     * <p>Test fails BEFORE the fix because no listener exists to generate matches.
+     * <p>E51S10 introduced L2 (RoundAssignmentService) which runs within the same REQUIRES_NEW TX
+     * as L1 and assigns lap_number + field_number before setting last_job_state='idle'. E51S16
+     * amends this test to reflect the E51S10 reality: lap+field are non-null after L1+L2, only
+     * referee_team_id remains null until Referee-Assignment runs (a separate step).
+     *
+     * <p>Original assertion (pre-E51S10) expected all coordinates null. Updated here because the
+     * E51S10 race-condition scenario (listener not completing within 5s) that made it pass is
+     * unreliable and the correct post-E51S10 behavior is that L2 assigns lap+field.
      */
     @Test
     @DisplayName(
-            "Matches persisted with lap_number=NULL, field_number=NULL, referee_team_id=NULL"
-                    + " — AC-TEST-MATCHES-PERSISTED-WITH-NULL-COORDINATES-RED")
+            "After L1+L2: lap_number and field_number are non-null; referee_team_id IS NULL"
+                    + " — AC-TEST-MATCHES-PERSISTED-WITH-NULL-COORDINATES-RED (amended E51S16)")
     void matchGenListener_matchesHaveNullCoordinates() throws InterruptedException {
         DraftConfig config = singlePhaseRoundRobin(2);
 
@@ -408,18 +415,32 @@ class MatchGenJobListenerIT {
 
         waitForListenerCompletion(phase1Id, "idle", 5000);
 
-        Integer matchesWithNonNullCoords =
+        // After L1+L2: lap_number and field_number must be assigned (non-null)
+        // L2 (DefaultRoundAssignmentService) runs within the same REQUIRES_NEW TX as L1 and
+        // assigns lap+field before setting last_job_state='idle' (E51S10 AC-IMPL-L2-WIRING).
+        Integer matchesWithNullLapOrField =
                 jdbcTemplate.queryForObject(
                         "SELECT COUNT(*) FROM match WHERE phase_id = ?"
-                                + " AND (lap_number IS NOT NULL"
-                                + " OR field_number IS NOT NULL"
-                                + " OR referee_team_id IS NOT NULL)",
+                                + " AND (lap_number IS NULL OR field_number IS NULL)",
                         Integer.class,
                         phase1Id);
-        assertThat(matchesWithNonNullCoords)
+        assertThat(matchesWithNullLapOrField)
                 .as(
-                        "All matches must have NULL coordinates after match-gen"
-                                + " (Slot-Opt + Referee-Assignment not yet run)")
+                        "After L1+L2: all matches must have lap_number and field_number"
+                                + " assigned (L2 assigns them in same TX as L1 — E51S10)")
+                .isEqualTo(0);
+
+        // referee_team_id must still be null (Referee-Assignment not yet run)
+        Integer matchesWithNonNullReferee =
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM match WHERE phase_id = ?"
+                                + " AND referee_team_id IS NOT NULL",
+                        Integer.class,
+                        phase1Id);
+        assertThat(matchesWithNonNullReferee)
+                .as(
+                        "After L1+L2: referee_team_id must still be NULL"
+                                + " (Referee-Assignment has not yet run)")
                 .isEqualTo(0);
     }
 
@@ -619,6 +640,66 @@ class MatchGenJobListenerIT {
         assertThat(jobState)
                 .as("phase.last_job_state must be 'idle' even when optimize=false")
                 .isEqualTo("idle");
+    }
+
+    // =========================================================================
+    // AC-TEST-OPTIMIZE-FALSE-NO-SLOTOPT-EVENT-PUBLISHED-RED (E51S16)
+    // =========================================================================
+
+    /**
+     * RED-first (E51S16): given {@code tournament.optimize=false}, when L1 + L2 phase preparation
+     * completes via the {@code MatchGenJobExecutor}, no {@code SlotOptJobScheduledEvent} is
+     * published.
+     *
+     * <p>Behavioral assertion: capture all published events of type {@link
+     * SlotOptJobScheduledEvent} after the match-gen pipeline completes; the collection must be
+     * empty.
+     *
+     * <p>This AC is anchored to the event-publication gate at {@code MatchGenJobExecutor:181}:
+     * {@code if (tournament.isOptimize()) eventPublisher.publishEvent(slotOptEvent)}. This test was
+     * flagged as missing in E51S11's qa-report PASS_WITH_NOTES verdict and is authored here per
+     * E51S16 Story scope. The test exercises the L1+L2 pipeline end-to-end through the event
+     * listener (same pattern as the existing {@link
+     * #matchGenListener_optimize_false_noSlotOptEvent} test), with this AC named precisely to the
+     * E51S11 missing-AC designation.
+     *
+     * <p>RED-first: before E51S16's production-code changes, {@code MatchGenJobExecutor} injected
+     * {@code PhaseToRawPhaseDefMapper}, causing the Modulith-cycle failure which prevented the
+     * {@code ApplicationModulesTest} from passing — the test would pass on the refactored code path
+     * only after the cycle is eliminated.
+     *
+     * @see de.vvwt.tm.tournament.internal.MatchGenJobExecutor
+     * @see SlotOptJobScheduledEvent
+     * @see <a href="E51S11">E51S11 — PASS_WITH_NOTES: this AC flagged as missing</a>
+     * @see <a href="E51S16">E51S16 — authors this missing AC</a>
+     */
+    @Test
+    @DisplayName(
+            "AC-TEST-OPTIMIZE-FALSE-NO-SLOTOPT-EVENT-PUBLISHED-RED (E51S16): given"
+                    + " tournament.optimize=false, no SlotOptJobScheduledEvent published when"
+                    + " L1+L2 phase preparation completes")
+    void optimizeFalse_noSlotOptEventPublished_anchored_to_MatchGenJobExecutorGate()
+            throws InterruptedException {
+        // Arrange: tournament with optimize=false
+        DraftConfig config = singlePhaseRoundRobin(2);
+
+        // Apply draft — triggers MatchGenJobScheduledEvent → MatchGenJobExecutor.execute()
+        List<UUID> phaseIds = draftService.apply(tournamentOptimizeFalse, config);
+        UUID phase1Id = phaseIds.get(0);
+
+        // Wait for the listener to complete (phase.last_job_state = 'idle' is the completion
+        // signal)
+        waitForListenerCompletion(phase1Id, "idle", 5000);
+
+        // Assert: no SlotOptJobScheduledEvent published
+        // (the gate at MatchGenJobExecutor:181 must have stayed false because optimize=false)
+        List<SlotOptJobScheduledEvent> capturedSlotOptEvents = slotOptEventCapture.snapshot();
+        assertThat(capturedSlotOptEvents)
+                .as(
+                        "AC-TEST-OPTIMIZE-FALSE-NO-SLOTOPT-EVENT-PUBLISHED-RED:"
+                                + " no SlotOptJobScheduledEvent must be published when"
+                                + " tournament.optimize=false (gate at MatchGenJobExecutor:181)")
+                .isEmpty();
     }
 
     // =========================================================================
