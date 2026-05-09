@@ -18,6 +18,8 @@
     {{rows}}          — list of row attribute maps (from LaufzettelAssembler)
     {{msgColRound}}, {{msgColTime}}, {{msgColActivity}}, {{msgColField}} — column headers
     {{msgReferee}}, {{msgFree}}, {{msgBreak}} — row labels
+    {{msgPlayingVs}} — "vs" separator for playing rows (E53S02)
+    {{msgVs}} — "vs" separator for refereeing rows (E53S02)
 }}
 <!DOCTYPE html>
 <html lang="{{locale}}">
@@ -62,7 +64,7 @@
                 <td class="laufzettel-col-round">{{roundNumber}}</td>
                 {{#timeWindow}}<td class="laufzettel-col-time">{{timeWindow}}</td>{{/timeWindow}}
                 {{^timeWindow}}<td class="laufzettel-col-time"></td>{{/timeWindow}}
-                <td class="laufzettel-col-activity">{{opponentName}}</td>
+                <td class="laufzettel-col-activity">{{msgPlayingVs}} {{opponentName}}</td>
                 <td class="laufzettel-col-field">{{fieldNumber}}</td>
             </tr>
             {{/isPlaying}}
@@ -71,7 +73,7 @@
                 <td class="laufzettel-col-round">{{roundNumber}}</td>
                 {{#timeWindow}}<td class="laufzettel-col-time">{{timeWindow}}</td>{{/timeWindow}}
                 {{^timeWindow}}<td class="laufzettel-col-time"></td>{{/timeWindow}}
-                <td class="laufzettel-col-activity">{{msgReferee}}</td>
+                <td class="laufzettel-col-activity">{{msgReferee}}: {{refereeMatchTeamA}} {{msgVs}} {{refereeMatchTeamB}}</td>
                 <td class="laufzettel-col-field">{{fieldNumber}}</td>
             </tr>
             {{/isRefereeing}}

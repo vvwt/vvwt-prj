@@ -261,6 +261,57 @@ class DefaultLaufzettelAssemblerTest {
     }
 
     // =========================================================================
+    // AC-TEST-DEFAULT-ASSEMBLER-POPULATES-REFEREE-FIELDS-RED (E53S02)
+    // =========================================================================
+
+    @Test
+    @DisplayName(
+            "AC-TEST-DEFAULT-ASSEMBLER-POPULATES-REFEREE-FIELDS-RED: assembler populates"
+                    + " refereeMatchTeamA and refereeMatchTeamB from match avatars — E53S02")
+    void assemble_refereeingRow_populatesRefereeMatchTeamFields() {
+        Tournament tournament = noTimeT();
+        // team3 referees a match between team1 (avatar1) and team2 (avatar2) on field 3
+        Match matchWithRef =
+                new Match(
+                        MATCH_ID,
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        0,
+                        1,
+                        1,
+                        3 /* field 3 */,
+                        TEAM3_ID /* referee */,
+                        null,
+                        null,
+                        null);
+
+        var result =
+                assembler.assemble(
+                        tournament,
+                        phases(phase1),
+                        teams(team1, team2, team3),
+                        avatars(PHASE_ID, avatar1, avatar2, avatar3),
+                        matches(PHASE_ID, matchWithRef),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        0);
+
+        List<LaufzettelRow> rows = result.get(TEAM3_ID);
+        assertThat(rows).hasSize(1);
+        LaufzettelRow row = rows.get(0);
+        assertThat(row.isRefereeing()).isTrue();
+        // team1 = "Rote Wölfe" (avatar1), team2 = "Blaue Haie" (avatar2)
+        assertThat(row.refereeMatchTeamA())
+                .as("refereeMatchTeamA must be the description of the team mapped to avatar1")
+                .isEqualTo("Rote Wölfe");
+        assertThat(row.refereeMatchTeamB())
+                .as("refereeMatchTeamB must be the description of the team mapped to avatar2")
+                .isEqualTo("Blaue Haie");
+    }
+
+    // =========================================================================
     // Legacy scenario 4 — AC7: ACTIVITY row
     // =========================================================================
 

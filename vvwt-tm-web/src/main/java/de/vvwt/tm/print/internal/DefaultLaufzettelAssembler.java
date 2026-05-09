@@ -157,6 +157,8 @@ public class DefaultLaufzettelAssembler implements LaufzettelAssembler {
         Map<UUID, Map<Integer, Map<UUID, Integer>>> refereeFieldByPhase = new HashMap<>();
         // phaseId → maxLapNumber derived from match data
         Map<UUID, Integer> maxLapByPhase = new HashMap<>();
+        // phaseId → lapNumber → refereeTeamId → {teamAName, teamBName} (E53S02 AC5)
+        Map<UUID, Map<Integer, Map<UUID, String[]>>> refereeMatchTeamsByPhase = new HashMap<>();
 
         for (Phase phase : phases) {
             UUID phaseId = phase.getId();
@@ -170,6 +172,7 @@ public class DefaultLaufzettelAssembler implements LaufzettelAssembler {
             Map<Integer, Map<UUID, UUID>> opponentByLap = new HashMap<>();
             Map<Integer, Set<UUID>> refereeByLap = new HashMap<>();
             Map<Integer, Map<UUID, Integer>> refereeFieldByLap = new HashMap<>();
+            Map<Integer, Map<UUID, String[]>> refereeMatchTeamsByLap = new HashMap<>();
             int maxLap = 0;
 
             for (Match match : matches) {
@@ -201,6 +204,14 @@ public class DefaultLaufzettelAssembler implements LaufzettelAssembler {
                                 .computeIfAbsent(lap, k -> new HashMap<>())
                                 .putIfAbsent(refId, match.getFieldNumber());
                     }
+                    // Resolve match team names for refereeing row context (E53S02 AC5)
+                    Team matchTeam1 = t1 != null ? teamById.get(t1) : null;
+                    Team matchTeam2 = t2 != null ? teamById.get(t2) : null;
+                    String teamAName = matchTeam1 != null ? teamDisplayName(matchTeam1) : "";
+                    String teamBName = matchTeam2 != null ? teamDisplayName(matchTeam2) : "";
+                    refereeMatchTeamsByLap
+                            .computeIfAbsent(lap, k -> new HashMap<>())
+                            .putIfAbsent(refId, new String[] {teamAName, teamBName});
                 }
             }
 
@@ -209,6 +220,7 @@ public class DefaultLaufzettelAssembler implements LaufzettelAssembler {
             opponentByPhase.put(phaseId, opponentByLap);
             refereeByPhase.put(phaseId, refereeByLap);
             refereeFieldByPhase.put(phaseId, refereeFieldByLap);
+            refereeMatchTeamsByPhase.put(phaseId, refereeMatchTeamsByLap);
             maxLapByPhase.put(phaseId, maxLap);
         }
 
@@ -280,6 +292,7 @@ public class DefaultLaufzettelAssembler implements LaufzettelAssembler {
                     opponentByPhase,
                     refereeByPhase,
                     refereeFieldByPhase,
+                    refereeMatchTeamsByPhase,
                     activityByPhase,
                     maxLapByPhase,
                     teamById,
@@ -295,6 +308,7 @@ public class DefaultLaufzettelAssembler implements LaufzettelAssembler {
                     opponentByPhase,
                     refereeByPhase,
                     refereeFieldByPhase,
+                    refereeMatchTeamsByPhase,
                     activityByPhase,
                     teamById,
                     result,
@@ -323,6 +337,7 @@ public class DefaultLaufzettelAssembler implements LaufzettelAssembler {
             Map<UUID, Map<Integer, Map<UUID, UUID>>> opponentByPhase,
             Map<UUID, Map<Integer, Set<UUID>>> refereeByPhase,
             Map<UUID, Map<Integer, Map<UUID, Integer>>> refereeFieldByPhase,
+            Map<UUID, Map<Integer, Map<UUID, String[]>>> refereeMatchTeamsByPhase,
             Map<UUID, Map<UUID, Map<Integer, String>>> activityByPhase,
             Map<UUID, Team> teamById,
             Map<UUID, List<LaufzettelRow>> result,
@@ -386,6 +401,7 @@ public class DefaultLaufzettelAssembler implements LaufzettelAssembler {
                     opponentByPhase,
                     refereeByPhase,
                     refereeFieldByPhase,
+                    refereeMatchTeamsByPhase,
                     activityByPhase,
                     teamById,
                     result);
@@ -401,6 +417,7 @@ public class DefaultLaufzettelAssembler implements LaufzettelAssembler {
             Map<UUID, Map<Integer, Map<UUID, UUID>>> opponentByPhase,
             Map<UUID, Map<Integer, Set<UUID>>> refereeByPhase,
             Map<UUID, Map<Integer, Map<UUID, Integer>>> refereeFieldByPhase,
+            Map<UUID, Map<Integer, Map<UUID, String[]>>> refereeMatchTeamsByPhase,
             Map<UUID, Map<UUID, Map<Integer, String>>> activityByPhase,
             Map<UUID, Integer> maxLapByPhase,
             Map<UUID, Team> teamById,
@@ -430,6 +447,7 @@ public class DefaultLaufzettelAssembler implements LaufzettelAssembler {
                         opponentByPhase,
                         refereeByPhase,
                         refereeFieldByPhase,
+                        refereeMatchTeamsByPhase,
                         activityByPhase,
                         teamById,
                         result);
@@ -451,6 +469,7 @@ public class DefaultLaufzettelAssembler implements LaufzettelAssembler {
             Map<UUID, Map<Integer, Map<UUID, UUID>>> opponentByPhase,
             Map<UUID, Map<Integer, Set<UUID>>> refereeByPhase,
             Map<UUID, Map<Integer, Map<UUID, Integer>>> refereeFieldByPhase,
+            Map<UUID, Map<Integer, Map<UUID, String[]>>> refereeMatchTeamsByPhase,
             Map<UUID, Map<UUID, Map<Integer, String>>> activityByPhase,
             Map<UUID, Team> teamById,
             Map<UUID, List<LaufzettelRow>> result) {
@@ -475,6 +494,10 @@ public class DefaultLaufzettelAssembler implements LaufzettelAssembler {
                 refereeFieldByPhase
                         .getOrDefault(phaseId, Collections.emptyMap())
                         .getOrDefault(lapNumber, Collections.emptyMap());
+        Map<UUID, String[]> refereeMatchTeamsByTeam =
+                refereeMatchTeamsByPhase
+                        .getOrDefault(phaseId, Collections.emptyMap())
+                        .getOrDefault(lapNumber, Collections.emptyMap());
         Map<UUID, Map<Integer, String>> teamActivityMap =
                 activityByPhase.getOrDefault(phaseId, Collections.emptyMap());
 
@@ -496,10 +519,17 @@ public class DefaultLaufzettelAssembler implements LaufzettelAssembler {
                 rows.add(LaufzettelRow.playing(lapNumber, timeWindow, opponentName, fieldStr));
 
             } else if (refereeTeams.contains(teamId)) {
-                // REFEREEING — AC5
+                // REFEREEING — AC5 (E53S02: include match team pair context)
                 Integer field = refereeFieldByTeam.get(teamId);
                 String fieldStr = field != null ? String.valueOf(field) : "";
-                rows.add(LaufzettelRow.refereeing(lapNumber, timeWindow, fieldStr));
+                String[] matchTeams = refereeMatchTeamsByTeam.get(teamId);
+                String teamAName =
+                        (matchTeams != null && matchTeams.length > 0) ? matchTeams[0] : "";
+                String teamBName =
+                        (matchTeams != null && matchTeams.length > 1) ? matchTeams[1] : "";
+                rows.add(
+                        LaufzettelRow.refereeing(
+                                lapNumber, timeWindow, fieldStr, teamAName, teamBName));
 
             } else {
                 // ACTIVITY or FREE — AC7, AC8

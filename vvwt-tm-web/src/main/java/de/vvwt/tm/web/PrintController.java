@@ -239,7 +239,10 @@ public class PrintController {
                         .findFirst()
                         .orElseThrow(() -> new TournamentNotFoundException(teamId)); // 404 for team
 
-        List<Phase> phases = phaseRepository.findByTournamentId(tid);
+        List<Phase> phases =
+                phaseRepository.findByTournamentId(tid).stream()
+                        .filter(p -> Phase.PhaseStatus.ACTIVE.name().equals(p.getStatus()))
+                        .toList();
         if (phases.isEmpty()) {
             populateErrorModel(model, tournament, locale);
             return "print/error";
@@ -318,7 +321,10 @@ public class PrintController {
                         .findById(tid)
                         .orElseThrow(() -> new TournamentNotFoundException(tid));
 
-        List<Phase> phases = phaseRepository.findByTournamentId(tid);
+        List<Phase> phases =
+                phaseRepository.findByTournamentId(tid).stream()
+                        .filter(p -> Phase.PhaseStatus.ACTIVE.name().equals(p.getStatus()))
+                        .toList();
         if (phases.isEmpty()) {
             populateErrorModel(model, tournament, locale);
             return "print/error";
@@ -551,6 +557,8 @@ public class PrintController {
             map.put("opponentName", row.opponentName());
             map.put("fieldNumber", row.fieldNumber());
             map.put("isRefereeing", row.isRefereeing());
+            map.put("refereeMatchTeamA", row.refereeMatchTeamA());
+            map.put("refereeMatchTeamB", row.refereeMatchTeamB());
             map.put("isActivity", row.isActivity());
             map.put("activityName", row.activityName());
             map.put("isFree", row.isFree());
@@ -657,6 +665,8 @@ public class PrintController {
                 "msgReferee", msg("print.laufzettel.label.referee", "Schiedsrichter", locale));
         model.addAttribute("msgFree", msg("print.laufzettel.label.free", "Frei", locale));
         model.addAttribute("msgBreak", msg("print.laufzettel.label.break", "Pause", locale));
+        model.addAttribute("msgPlayingVs", msg("print.laufzettel.playing.vs", "vs", locale));
+        model.addAttribute("msgVs", msg("print.laufzettel.vs", "vs", locale));
     }
 
     private void populateActivityScheduleI18n(Model model, Locale locale) {
