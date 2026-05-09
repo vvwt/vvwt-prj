@@ -1,5 +1,6 @@
 package de.vvwt.tm.tournament.internal;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.tournament.MatchLockdownService;
 import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.Phase;
@@ -8,8 +9,11 @@ import de.vvwt.tm.tournament.PhaseLifecycleService;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.draft.DraftConfig;
+import de.vvwt.tm.tournament.draft.DraftSection;
 import de.vvwt.tm.tournament.events.PhaseStatusChangedEvent;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -31,7 +35,9 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>{@link #transition(UUID, PhaseStatus, String)} (E51S05) is the single-source-of-truth method
  * for all status mutations; it validates every call against the {@link #ALLOWED} transition table
  * (DEC-55 D-4). The {@code ASSIGNED → ACTIVE "start"} transition additionally enforces the
- * activation-guard {@code !tournament.optimize OR phase.optimized} (DEC-55 D-6).
+ * activation-guard {@code !tournament.optimize OR phase.optimized OR section.gameMode ==
+ * "siegerehrung"} (DEC-55 D-6 amended by DEC-59 Clause F, E51S18). The {@code ObjectMapper} is
+ * injected to parse {@code tournament.draftJson} for the gameMode lookup.
  *
  * <p>{@link #prepare(UUID)} transitions PENDING → PREPARED (E48S17 / E51S06 rollback of E48S21).
  * Pure status flip only — avatar persistence (E51S02) and match generation (E51S03) are separate
@@ -57,9 +63,12 @@ import org.springframework.transaction.annotation.Transactional;
  * @see <a href="DEC-35">DEC-35 — package layout: impl in .internal</a>
  * @see <a href="DEC-37">DEC-37 Clause B — per-tournament pessimistic DB row-lock</a>
  * @see <a href="DEC-55">DEC-55 D-4 + D-6 — ASSIGNED status, transition-table, activation-guard</a>
+ * @see <a href="DEC-59">DEC-59 Clause F — activation-guard gameMode OR-term (siegerehrung
+ *     exempt)</a>
  * @see <a href="E48S06">E48S06 — Phase-Lifecycle Service</a>
  * @see <a href="E48S17">E48S17 — PREPARED enum + prepare() + start() refactor</a>
  * @see <a href="E51S05">E51S05 — transition-table + activation-guard implementation</a>
+ * @see <a href="E51S18">E51S18 — operationalize DEC-59 (Clause F injection)</a>
  */
 @Service("tmPhaseLifecycleService")
 public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
@@ -121,17 +130,25 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
     private final MatchLockdownService matchLockdownService;
     private final ApplicationEventPublisher eventPublisher;
 
+    /**
+     * Jackson ObjectMapper for parsing {@code tournament.draftJson} in the Clause F guard (DEC-59
+     * Clause F, E51S18). Spring auto-wires the single {@code ObjectMapper} primary bean.
+     */
+    private final ObjectMapper objectMapper;
+
     public DefaultPhaseLifecycleService(
             TournamentRepository tournamentRepository,
             PhaseRepository phaseRepository,
             MatchRepository matchRepository,
             MatchLockdownService matchLockdownService,
-            ApplicationEventPublisher eventPublisher) {
+            ApplicationEventPublisher eventPublisher,
+            ObjectMapper objectMapper) {
         this.tournamentRepository = tournamentRepository;
         this.phaseRepository = phaseRepository;
         this.matchRepository = matchRepository;
         this.matchLockdownService = matchLockdownService;
         this.eventPublisher = eventPublisher;
+        this.objectMapper = objectMapper;
     }
 
     // =========================================================================
@@ -201,12 +218,15 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
                             + " AC-TEST-TRANSITION-TABLE-DISALLOWED-REJECTED-RED)");
         }
 
-        // AC-IMPL-ACTIVATION-GUARD-INSIDE-START (E51S05): guard for ASSIGNED → ACTIVE "start"
-        // Guard: !tournament.optimize OR phase.optimized
+        // AC-IMPL-ACTIVATION-GUARD-INSIDE-START (E51S05 + E51S18 DEC-59 Clause F):
+        // Guard: !tournament.optimize OR phase.optimized OR section.gameMode == "siegerehrung"
+        // DEC-59 Clause F amends DEC-55 D-6: siegerehrung phases are exempt from the optimize-guard
+        // because slot-optimization is N/A for ceremony-ordering (no slot structure to optimize).
         if (target == PhaseStatus.ACTIVE && "start".equals(verb)) {
             boolean optimizeEnabled = tournament != null && tournament.isOptimize();
             boolean phaseOptimized = phase.isOptimized();
-            if (optimizeEnabled && !phaseOptimized) {
+            boolean isSiegerehrung = isSiegerehrungPhase(tournament, phase);
+            if (optimizeEnabled && !phaseOptimized && !isSiegerehrung) {
                 throw new ConflictException(
                         "Phase "
                                 + phaseId
@@ -215,7 +235,8 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
                                 + " has optimize=true and this phase has optimized=false;"
                                 + " wait for slot-opt completion or cancel the slot-opt"
                                 + " to apply Best-So-Far"
-                                + " (DEC-55 D-6, E51S05, AC-IMPL-ACTIVATION-GUARD-INSIDE-START)");
+                                + " (DEC-55 D-6 + DEC-59 Clause F, E51S05,"
+                                + " AC-IMPL-ACTIVATION-GUARD-INSIDE-START)");
             }
         }
 
@@ -473,5 +494,51 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
         return phaseRepository
                 .findById(phaseId)
                 .orElseThrow(() -> new IllegalArgumentException("Phase not found: " + phaseId));
+    }
+
+    /**
+     * Determines whether the given phase corresponds to a {@code siegerehrung} section in the
+     * tournament's draft configuration (DEC-59 Clause F, E51S18).
+     *
+     * <p>Parses {@code tournament.draftJson} via Jackson to find the {@link DraftSection} at index
+     * {@code phase.sequenceNumber - 1} (sequenceNumber is 1-based; sections list is 0-based).
+     * Returns {@code true} if the matching section has {@code gameMode == "siegerehrung"}.
+     *
+     * <p>Fail-safe: returns {@code false} (guard fires normally) if:
+     *
+     * <ul>
+     *   <li>tournament is null or has no draftJson
+     *   <li>draftJson cannot be parsed (malformed JSON — operator data error)
+     *   <li>sequenceNumber is out of range for the sections list
+     * </ul>
+     *
+     * @param tournament the locked tournament aggregate (may be null if not found)
+     * @param phase the phase being evaluated
+     * @return {@code true} if the phase's section has gameMode "siegerehrung"; {@code false}
+     *     otherwise
+     * @see <a href="DEC-59">DEC-59 Clause F — activation-guard gameMode OR-term</a>
+     * @see <a href="E51S18">E51S18 — operationalize DEC-59 Clause F</a>
+     */
+    private boolean isSiegerehrungPhase(Tournament tournament, Phase phase) {
+        if (tournament == null || tournament.getDraftJson() == null) {
+            return false;
+        }
+        try {
+            DraftConfig config =
+                    objectMapper.readValue(tournament.getDraftJson(), DraftConfig.class);
+            List<DraftSection> sections = config.getSections();
+            int index = phase.getSequenceNumber() - 1; // sequenceNumber is 1-based
+            if (index < 0 || index >= sections.size()) {
+                return false;
+            }
+            return "siegerehrung".equals(sections.get(index).getGameMode());
+        } catch (Exception e) {
+            log.warn(
+                    "[E51S18] isSiegerehrungPhase: failed to parse draftJson for tournament {}"
+                            + " — defaulting to false (guard fires normally). Error: {}",
+                    tournament.getId(),
+                    e.getMessage());
+            return false;
+        }
     }
 }

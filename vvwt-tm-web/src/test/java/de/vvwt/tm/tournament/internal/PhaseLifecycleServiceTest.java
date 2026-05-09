@@ -1,15 +1,18 @@
 package de.vvwt.tm.tournament.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.tournament.MatchLockdownService;
 import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.Phase;
+import de.vvwt.tm.tournament.Phase.PhaseStatus;
 import de.vvwt.tm.tournament.PhaseLifecycleService;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.Tournament;
@@ -40,6 +43,9 @@ import org.springframework.context.ApplicationEventPublisher;
  *       finished; exception otherwise
  *   <li>AC-TEST-PHASE-FORCE-COMPLETE-RED: forceComplete() ACTIVE → COMPLETED + void unfinished
  *       matches; event published
+ *   <li>AC-TEST-ACTIVATION-GUARD-SIEGEREHRUNG-PREDICATE-ISOLATED-RED (E51S18): transition() with
+ *       siegerehrung gameMode, optimize=true, optimized=false → guard ACCEPTS via Clause F OR-term
+ *       (DEC-59 Clause F); pre-fix: ConflictException; post-fix: succeeds
  * </ul>
  *
  * @see DefaultPhaseLifecycleService
@@ -47,6 +53,7 @@ import org.springframework.context.ApplicationEventPublisher;
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
  * @see <a href="DEC-36">DEC-36 — same-package test typing rule</a>
  * @see <a href="E48S06">E48S06 — Phase-Lifecycle service</a>
+ * @see <a href="E51S18">E51S18 — Clause F activation-guard amendment (DEC-59 Clause F)</a>
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("DefaultPhaseLifecycleService unit tests — E48S06")
@@ -66,13 +73,16 @@ class PhaseLifecycleServiceTest {
 
     @BeforeEach
     void setUp() {
+        // E51S18 GREEN: ObjectMapper injected for isSiegerehrungPhase() Clause F guard
+        ObjectMapper objectMapper = new ObjectMapper();
         service =
                 new DefaultPhaseLifecycleService(
                         tournamentRepository,
                         phaseRepository,
                         matchRepository,
                         matchLockdownService,
-                        eventPublisher);
+                        eventPublisher,
+                        objectMapper);
 
         tournamentId = UUID.randomUUID();
         phaseId = UUID.randomUUID();
@@ -274,6 +284,59 @@ class PhaseLifecycleServiceTest {
     // (non-DefaultPhaseLifecycleService behavior — verified via MatchRepository)
     // This story's service is phase-status-agnostic from the scoring side (D-12).
     // =========================================================================
+
+    // =========================================================================
+    // AC-TEST-ACTIVATION-GUARD-SIEGEREHRUNG-PREDICATE-ISOLATED-RED (E51S18 DEC-59 Clause F)
+    // Guard predicate tested in isolation via transition() — synthetic input state.
+    // =========================================================================
+
+    /**
+     * AC-TEST-ACTIVATION-GUARD-SIEGEREHRUNG-PREDICATE-ISOLATED-RED (E51S18, DEC-59 Clause F).
+     *
+     * <p>Verifies the Clause F OR-term: a siegerehrung phase with {@code optimize=true} and {@code
+     * optimized=false} must NOT be rejected by the activation-guard. The guard predicate is tested
+     * IN ISOLATION via {@link DefaultPhaseLifecycleService#transition(UUID, PhaseStatus, String)}.
+     *
+     * <p><b>Pre-fix (RED):</b> {@code transition(phaseId, ACTIVE, "start")} throws {@link
+     * ConflictException} — original DEC-55 D-6 guard {@code !tournament.optimize OR
+     * phase.optimized} evaluates to {@code false} for this synthetic input (optimize=true,
+     * optimized=false, no siegerehrung OR-term).
+     *
+     * <p><b>Post-fix (GREEN):</b> Clause F OR-term {@code OR section.gameMode == "siegerehrung"}
+     * exempts the phase → {@code transition()} succeeds.
+     *
+     * <p><b>Note on full operational reachability:</b> This AC verifies the guard predicate in
+     * isolation only. Full reachability of siegerehrung → ASSIGNED via real operator-confirmation
+     * depends on the siegerehrung proposal algorithm (out-of-scope per Clause C deferral; follow-up
+     * Story closes the operational round-trip).
+     *
+     * @see DefaultPhaseLifecycleService#transition(UUID, PhaseStatus, String)
+     * @see <a href="DEC-59">DEC-59 Clause F — activation-guard gameMode OR-term</a>
+     * @see <a href="E51S18">E51S18 — operationalize DEC-59</a>
+     */
+    @Test
+    @DisplayName(
+            "transition() — siegerehrung ASSIGNED + optimize=true + optimized=false"
+                    + " → guard ACCEPTS via Clause F OR-term (E51S18 DEC-59 Clause F RED)")
+    void transition_siegerehrungPhase_optimizeEnabled_notOptimized_guardAcceptsClauseF() {
+        // Synthetic input: siegerehrung phase, optimize=true, optimized=false, status=ASSIGNED
+        // draft_json with one siegerehrung section (sequenceNumber=1 → section index 0)
+        tournament.setOptimize(true);
+        tournament.setDraftJson(
+                "{\"sections\":[{\"gameMode\":\"siegerehrung\",\"groupCount\":1}]}");
+
+        Phase phase = assignedPhase(); // sequenceNumber=1, status=ASSIGNED
+        phase.setOptimized(false);
+
+        when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
+        when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // AC-TEST-ACTIVATION-GUARD-SIEGEREHRUNG-PREDICATE-ISOLATED-RED:
+        // Pre-fix: throws ConflictException (no siegerehrung OR-term in guard).
+        // Post-fix: does NOT throw (Clause F OR-term exempts siegerehrung from optimize guard).
+        assertThatCode(() -> service.transition(phaseId, PhaseStatus.ACTIVE, "start"))
+                .doesNotThrowAnyException();
+    }
 
     // =========================================================================
     // Helpers

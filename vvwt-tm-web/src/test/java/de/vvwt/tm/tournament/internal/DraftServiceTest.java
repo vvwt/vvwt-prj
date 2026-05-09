@@ -374,6 +374,22 @@ class DraftServiceTest {
                         LocalDateTime.now());
         when(phaseRepository.save(any(Phase.class))).thenReturn(savedPhase);
 
+        // E51S18 DEC-59 Clause A: siegerehrung now also requires participating teams (N avatars
+        // per phase uniformly). Stub one participating team so loadParticipatingTeams() succeeds.
+        UUID teamId = UUID.randomUUID();
+        when(teamRepository.findByTournamentId(tournamentId))
+                .thenReturn(
+                        List.of(
+                                new Team(
+                                        teamId,
+                                        tournamentId,
+                                        1,
+                                        "Team 1",
+                                        true,
+                                        false,
+                                        false,
+                                        null)));
+
         List<UUID> result = draftService.apply(tournamentId, config);
 
         assertThat(result).hasSize(1);
@@ -459,6 +475,22 @@ class DraftServiceTest {
                         0,
                         LocalDateTime.now());
         when(phaseRepository.save(any(Phase.class))).thenReturn(savedPhase);
+
+        // E51S18 DEC-59 Clause A: siegerehrung now also requires participating teams (N avatars
+        // per phase uniformly). Stub one participating team so loadParticipatingTeams() succeeds.
+        UUID teamId = UUID.randomUUID();
+        when(teamRepository.findByTournamentId(tournamentId))
+                .thenReturn(
+                        List.of(
+                                new Team(
+                                        teamId,
+                                        tournamentId,
+                                        1,
+                                        "Team 1",
+                                        true,
+                                        false,
+                                        false,
+                                        null)));
 
         draftService.apply(tournamentId, config);
 

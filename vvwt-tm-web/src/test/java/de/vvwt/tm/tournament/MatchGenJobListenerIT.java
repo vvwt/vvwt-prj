@@ -272,16 +272,22 @@ class MatchGenJobListenerIT {
     // =========================================================================
 
     /**
-     * RED-first: given a 2-phase draft (Phase 1 roundRobin + Phase 2 roundRobin + siegerehrung = 3
-     * phases, 2 non-siegerehrung), when {@code apply()} is called, exactly 2 {@code
-     * MatchGenJobScheduledEvent} events are published — one per non-siegerehrung phase.
+     * E51S18 DEC-59 Clause E: given a 2-phase draft (Phase 1 roundRobin + Phase 2 roundRobin +
+     * siegerehrung = 3 phases), when {@code apply()} is called, exactly 3 {@code
+     * MatchGenJobScheduledEvent} events are published — one per phase INCLUDING siegerehrung.
      *
-     * <p>Test fails BEFORE the fix because {@code apply()} does not publish any events.
+     * <p>Original (pre-E51S18): 2 events (siegerehrung skipped). Post-E51S18 Clause E: 3 events
+     * (siegerehrung uniform lifecycle via vacuous L1+L2 → SiegerehrungMatchGenerator returns empty
+     * list → PENDING→PREPARED without match rows).
+     *
+     * <p>Test updated in E51S18 to reflect DEC-59 Clause E (uniform lifecycle). The
+     * {@code @DisplayName} is updated accordingly.
      */
     @Test
     @DisplayName(
-            "apply() publishes exactly N MatchGenJobScheduledEvents (one per non-siegerehrung"
-                    + " phase) — AC-TEST-APPLY-PUBLISHES-MATCH-GEN-EVENT-RED")
+            "apply() publishes exactly N MatchGenJobScheduledEvents (one per phase incl."
+                    + " siegerehrung per DEC-59 Clause E) —"
+                    + " AC-TEST-APPLY-PUBLISHES-MATCH-GEN-EVENT-RED")
     void apply_publishesMatchGenJobScheduledEventPerNonSiegerehrungPhase()
             throws InterruptedException {
         DraftConfig config = twoPhaseRoundRobinPlusSiegerehrung(2);
@@ -290,20 +296,23 @@ class MatchGenJobListenerIT {
 
         assertThat(phaseIds).as("apply() must create 3 phase records").hasSize(3);
 
-        // Verify 2 MatchGenJobScheduledEvent published (siegerehrung phase skipped)
+        // E51S18 DEC-59 Clause E: 3 MatchGenJobScheduledEvents (all phases incl. siegerehrung)
+        // SiegerehrungMatchGenerator returns empty list → L2 no-op → PENDING→PREPARED vacuously
         List<MatchGenJobScheduledEvent> events =
                 applicationEvents.stream(MatchGenJobScheduledEvent.class).toList();
         assertThat(events)
                 .as(
-                        "apply() must publish exactly 2 MatchGenJobScheduledEvents"
-                                + " (one per non-siegerehrung phase)")
-                .hasSize(2);
+                        "apply() must publish exactly 3 MatchGenJobScheduledEvents"
+                                + " (one per phase incl. siegerehrung, DEC-59 Clause E, E51S18)")
+                .hasSize(3);
 
         // Verify payload: each event carries the correct phaseId
         List<UUID> eventPhaseIds = events.stream().map(MatchGenJobScheduledEvent::phaseId).toList();
         assertThat(eventPhaseIds)
-                .as("MatchGenJobScheduledEvent phaseIds must match the two roundRobin phase IDs")
-                .containsExactlyInAnyOrder(phaseIds.get(0), phaseIds.get(1));
+                .as(
+                        "MatchGenJobScheduledEvent phaseIds must match all 3 phase IDs"
+                                + " (DEC-59 Clause E: siegerehrung now included)")
+                .containsExactlyInAnyOrder(phaseIds.get(0), phaseIds.get(1), phaseIds.get(2));
 
         // Verify tournamentId in events
         events.forEach(
@@ -317,6 +326,9 @@ class MatchGenJobListenerIT {
         // while tearDown deletes, causing FK violation on DELETE FROM tournament (E51S04 pipeline).
         waitForListenerCompletion(phaseIds.get(0), "idle", 5_000);
         waitForListenerCompletion(phaseIds.get(1), "idle", 5_000);
+        // Also wait for siegerehrung phase (DEC-59 Clause E: siegerehrung goes through vacuous
+        // L1+L2)
+        waitForListenerCompletion(phaseIds.get(2), "idle", 5_000);
     }
 
     // =========================================================================
@@ -1107,12 +1119,13 @@ class MatchGenJobListenerIT {
         List<UUID> phaseIds = draftService.apply(tournamentOptimizeTrue, config);
         UUID phase1Id = phaseIds.get(0);
         UUID phase2Id = phaseIds.get(1);
-        // Phase 3 (siegerehrung, phaseIds.get(2)) has no MatchGenJobScheduledEvent published
-        // (apply() skips siegerehrung phases for match-gen events per AC-TEST-APPLY-PUBLISHES)
+        UUID phase3Id =
+                phaseIds.get(2); // siegerehrung — DEC-59 Clause E: also gets event + pipeline
 
-        // Wait for both match-gen pipelines to complete
+        // Wait for all 3 match-gen pipelines to complete (DEC-59 Clause E: siegerehrung included)
         waitForListenerCompletion(phase1Id, "idle", 5_000);
         waitForListenerCompletion(phase2Id, "idle", 5_000);
+        waitForListenerCompletion(phase3Id, "idle", 5_000);
 
         // Assert Phase 1 is PREPARED
         String phase1Status =
