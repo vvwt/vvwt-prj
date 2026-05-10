@@ -353,6 +353,47 @@ class SlotResultApplicatorTest {
     }
 
     // =========================================================================
+    // E53S06: AC2 RED-first — L3 must produce 1-based lap numbers
+    //
+    // Given: 6 matches with 0-based L2 laps (laps 0,0,0,1,1,1 for fieldCount=3).
+    // After applyResult(0L, 3, mapping) (identity rank):
+    // MIN(lapNumber) must be 1 (1-based output).
+    //
+    // RED before fix: current code writes outputLap = i/fc (0-based) → MIN=0 → FAIL.
+    // =========================================================================
+
+    @Test
+    void applyResult_identityRank_producesOneBased_lapNumbers() {
+        // AC2 / E53S06: L3 output lap numbers must be 1-based after fix.
+        UUID phaseId = UUID.randomUUID();
+        // 2 groups × 3 avatars → 6 matches (fieldCount=3, lapCount=2)
+        // L2 laps assigned as 0-based: 0,0,0,1,1,1
+        List<TeamAvatar> avatars = buildAvatars(phaseId, new int[][] {
+            {1, 1}, {1, 2}, {1, 3}, {2, 1}, {2, 2}, {2, 3}
+        });
+        // K3 per group = 3 matches; 2 groups → 6 matches total; fieldCount=3 → lapCount=2
+        List<Match> l2Matches = buildAllPairMatchesWithL2Slots(phaseId, avatars.subList(0, 3), 3);
+        // Add group2 matches with laps offset by 1
+        List<Match> group2Matches = buildAllPairMatchesWithL2Slots(phaseId, avatars.subList(3, 6), 3);
+        for (Match m : group2Matches) {
+            m.setLapNumber(m.getLapNumber() + 1); // offset group 2 to lap 1
+        }
+        List<Match> allMatches = new ArrayList<>();
+        allMatches.addAll(l2Matches);
+        allMatches.addAll(group2Matches);
+
+        MappingResult mapping = buildMapping(phaseId, avatars, allMatches);
+        when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
+        applicator.applyResult(0L, 3, mapping);
+
+        // After fix: MIN(lapNumber) must be 1 (1-based)
+        int minLap = allMatches.stream().mapToInt(Match::getLapNumber).min().orElse(-1);
+        assertThat(minLap)
+                .as("MIN(lapNumber) must be 1 after E53S06 L3 fix (1-based; lap 0 is forbidden)")
+                .isGreaterThanOrEqualTo(1);
+    }
+
+    // =========================================================================
     // Original error-path tests (unchanged — must remain GREEN)
     // =========================================================================
 

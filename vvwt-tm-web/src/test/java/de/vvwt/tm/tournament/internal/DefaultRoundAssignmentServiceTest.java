@@ -337,6 +337,65 @@ class DefaultRoundAssignmentServiceTest {
                 .isLessThanOrEqualTo(2); // laps are 0-indexed, so maxLap=2 means 3 laps
     }
 
+    // ── E53S06: 1-based lap numbers RED test ───────────────────────────────────────────────────
+
+    @Test
+    void two_groups_6_each_fieldCount3_produces_10_distinct_laps_and_minLap_is_1() {
+        // AC1 / AC5 (DEC-22 RED-first): 12 avatars in 2 groups of 6 → 30 matches, 10 laps.
+        // MIN(lapNumber) must be ≥ 1 (1-based; lap 0 is forbidden after E53S06 fix).
+        // RED before production change: cumulativeLapOffset=0 → first lap=0 → MIN=0 → FAIL.
+        UUID tid = UUID.randomUUID();
+
+        // Group 1: avatars a1..a6
+        UUID a1 = UUID.randomUUID(), a2 = UUID.randomUUID(), a3 = UUID.randomUUID();
+        UUID a4 = UUID.randomUUID(), a5 = UUID.randomUUID(), a6 = UUID.randomUUID();
+        // Group 2: avatars b1..b6
+        UUID b1 = UUID.randomUUID(), b2 = UUID.randomUUID(), b3 = UUID.randomUUID();
+        UUID b4 = UUID.randomUUID(), b5 = UUID.randomUUID(), b6 = UUID.randomUUID();
+
+        List<UUID> group1 = List.of(a1, a2, a3, a4, a5, a6);
+        List<UUID> group2 = List.of(b1, b2, b3, b4, b5, b6);
+
+        List<Match> matches = new ArrayList<>();
+        int idx = 0;
+        for (int i = 0; i < group1.size(); i++) {
+            for (int j = i + 1; j < group1.size(); j++) {
+                matches.add(makeMatch(makeUUID(String.format("%02d", idx++)), phaseId, tid,
+                        group1.get(i), group1.get(j)));
+            }
+        }
+        for (int i = 0; i < group2.size(); i++) {
+            for (int j = i + 1; j < group2.size(); j++) {
+                matches.add(makeMatch(makeUUID(String.format("%02d", idx++)), phaseId, tid,
+                        group2.get(i), group2.get(j)));
+            }
+        }
+
+        List<TeamAvatar> avatars = new ArrayList<>();
+        for (UUID av : group1) avatars.add(makeAvatar(av, phaseId, 1));
+        for (UUID av : group2) avatars.add(makeAvatar(av, phaseId, 2));
+
+        when(matchRepository.findByPhaseId(phaseId)).thenReturn(matches);
+        when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(avatars);
+        when(matchRepository.save(org.mockito.ArgumentMatchers.any(Match.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        service.assignRoundsAndFields(phaseId, 3);
+
+        long distinctLaps = matches.stream()
+                .map(Match::getLapNumber)
+                .distinct()
+                .count();
+        assertThat(distinctLaps)
+                .as("12 teams / 2 groups / 3 fields must produce ≥10 distinct lap numbers")
+                .isGreaterThanOrEqualTo(10);
+
+        int minLap = matches.stream().mapToInt(Match::getLapNumber).min().orElse(-1);
+        assertThat(minLap)
+                .as("MIN(lapNumber) must be ≥ 1 (1-based; lap 0 is forbidden after E53S06 fix)")
+                .isGreaterThanOrEqualTo(1);
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────────────────────────
 
     private static UUID makeUUID(String suffix) {

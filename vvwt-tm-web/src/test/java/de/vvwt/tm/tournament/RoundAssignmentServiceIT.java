@@ -588,6 +588,36 @@ class RoundAssignmentServiceIT {
         assertThat(((Number) nullFields.get(0).get("cnt")).intValue()).isZero();
     }
 
+    // ── E53S06: 1-based lap numbers RED IT test ──────────────────────────────
+
+    @Test
+    @DisplayName(
+            "E53S06-AC1: assignRoundsAndFields 2 groups 12 teams 3 fields → MIN(lap_number) = 1"
+                    + " (1-based; lap 0 is forbidden)")
+    void assignRoundsAndFields_2groups_lapNumbers_are_1based() {
+        // AC1 / AC5 (DEC-22 RED-first): after E53S06 fix, MIN(lap_number) must be 1.
+        // RED before fix: cumulativeLapOffset=0 → first lap=0 → MIN=0 → FAIL.
+        createTournament(3);
+        UUID phaseId = createPhase(1);
+        Map<Integer, Integer> groupSizes = new HashMap<>();
+        groupSizes.put(1, 6);
+        groupSizes.put(2, 6);
+        List<UUID> allAvatars = insertAvatarsByGroups(phaseId, groupSizes);
+        insertRoundRobinMatches(phaseId, allAvatars.subList(0, 6));
+        insertRoundRobinMatches(phaseId, allAvatars.subList(6, 12));
+
+        roundAssignmentService.assignRoundsAndFields(phaseId, 3);
+
+        Integer minLap =
+                jdbcTemplate.queryForObject(
+                        "SELECT MIN(lap_number) FROM match WHERE phase_id = ?",
+                        Integer.class,
+                        phaseId);
+        assertThat(minLap)
+                .as("MIN(lap_number) must be 1 (1-based — lap 0 is forbidden after E53S06 fix)")
+                .isEqualTo(1);
+    }
+
     // ── AC-ERROR-HANDLING-FIELDCOUNT-INVALID ─────────────────────────────────
 
     @Test
