@@ -10,10 +10,16 @@
    * but matches are already generated for preview), a prominent "Vorschau" banner is shown
    * spanning the full width above the grid and standings.
    *
+   * E50S03 AC-GOVERNANCE-OVERVIEWLAYOUT-ADDITIVE-ONLY:
+   *   Only additive change — new `sidebarHeader?: Snippet` prop.
+   *   Rendered via {@render sidebarHeader?.()} at the top of overview-layout__sidebar.
+   *   No structural changes to the two-column grid, CourtGrid, GroupStandingsPanel, MatchRow.
+   *
    * Proportions approximate the legacy Gesamtübersicht layout as described in the
    * story and referenced from vvw-tournaments-info-ui/controls/main/view.stache.
    */
   import { _ } from 'svelte-i18n';
+  import type { Snippet } from 'svelte';
   import type { DisplayMatchesData, DisplayGroupStandings, DisplayPhaseOverview } from '../lib/displayApi.js';
   import CourtGrid from './CourtGrid.svelte';
   import GroupStandingsPanel from './GroupStandingsPanel.svelte';
@@ -22,9 +28,15 @@
     phaseData: DisplayPhaseOverview;
     matchesData: DisplayMatchesData;
     standingsData: DisplayGroupStandings;
+    /**
+     * E50S03: Optional snippet rendered at the top of the sidebar.
+     * Used to inject SidebarHeader (brand logo + connection indicator) via
+     * App.svelte's snippet prop — keeps OverviewLayout free of branding concerns.
+     */
+    sidebarHeader?: Snippet;
   }
 
-  const { phaseData, matchesData, standingsData }: Props = $props();
+  const { phaseData, matchesData, standingsData, sidebarHeader }: Props = $props();
 </script>
 
 <!--
@@ -50,8 +62,14 @@
     />
   </div>
 
-  <!-- Right sidebar: group standings (AC4) -->
+  <!-- Right sidebar: sidebar-header (E50S03) + group standings (AC4) -->
   <div class="overview-layout__sidebar">
+    <!--
+      E50S03: Render SidebarHeader snippet at the top of the sidebar.
+      Optional — gracefully absent if caller does not provide it.
+      Positioned ABOVE GroupStandingsPanel per AC-TEST-LAYOUT-SIDEBAR-HEADER-RENDERED-RED.
+    -->
+    {@render sidebarHeader?.()}
     <GroupStandingsPanel standingsData={standingsData} />
   </div>
 </div>
@@ -88,6 +106,8 @@
   .overview-layout__sidebar {
     width: 28em;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
   /* Narrow viewport fallback: stack vertically */
