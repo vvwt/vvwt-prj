@@ -59,19 +59,19 @@ public interface RoundAssignmentService {
      *
      * <p>Multi-group phases (L1 producing matches for multiple {@code groupNumber} values): groups
      * are processed independently, each receiving its own lap sequence. Group sequences are
-     * concatenated in ascending {@code groupNumber} order — Group A occupies laps {@code 0..k1-1},
-     * Group B occupies laps {@code k1..k1+k2-1} (Brief D-12 concatenation convention).
+     * concatenated in ascending {@code groupNumber} order — Group A occupies laps {@code 1..k1},
+     * Group B occupies laps {@code k1+1..k1+k2} (Brief D-12 concatenation convention; 1-based).
      *
      * <p>Worked example (from javadoc contract):
      *
      * <pre>
-     * fieldCount = 3, 6 matches in a single group:
-     *   i=0 → lap=0, field=0
-     *   i=1 → lap=0, field=1
-     *   i=2 → lap=0, field=2
-     *   i=3 → lap=1, field=0
-     *   i=4 → lap=1, field=1
-     *   i=5 → lap=1, field=2
+     * fieldCount = 3, 6 matches in a single group (1-based lap numbers, E53S06):
+     *   i=0 → lap=1, field=0
+     *   i=1 → lap=1, field=1
+     *   i=2 → lap=1, field=2
+     *   i=3 → lap=2, field=0
+     *   i=4 → lap=2, field=1
+     *   i=5 → lap=2, field=2
      * (each pair of avatars appears at most once per lap — round-conflict-freedom met)
      * </pre>
      *

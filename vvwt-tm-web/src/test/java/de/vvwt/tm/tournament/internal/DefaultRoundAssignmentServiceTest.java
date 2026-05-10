@@ -250,9 +250,10 @@ class DefaultRoundAssignmentServiceTest {
 
     @Test
     void multi_group_laps_are_concatenated_ascending_group_order() {
-        // AC-IMPL-L2-MULTI-GROUP: Group 1 occupies laps 0..k1-1; Group 2 starts at lap k1.
+        // AC-IMPL-L2-MULTI-GROUP: Group 1 occupies laps 1..k1; Group 2 starts at lap k1+1.
         // Use 2 disjoint groups of 2 avatars each → 1 match per group → 1 lap per group.
-        // Expected: Group 1 match → lap 0; Group 2 match → lap 1.
+        // Expected: Group 1 match → lap 1; Group 2 match → lap 2.
+        // (E53S06 fix: 1-based laps; cumulativeLapOffset starts at 1, not 0)
         UUID av1 = UUID.randomUUID(); // group 1
         UUID av2 = UUID.randomUUID(); // group 1
         UUID av3 = UUID.randomUUID(); // group 2
@@ -280,14 +281,14 @@ class DefaultRoundAssignmentServiceTest {
 
         service.assignRoundsAndFields(phaseId, 3);
 
-        // Group 1: 1 match → 1 lap starting at offset 0 → lap 0
-        assertThat(m1.getLapNumber()).as("Group 1 match gets lap 0").isEqualTo(0);
+        // Group 1: 1 match → 1 lap starting at offset 1 → lap 1 (1-based, E53S06)
+        assertThat(m1.getLapNumber()).as("Group 1 match gets lap 1 (1-based, E53S06)").isEqualTo(1);
         assertThat(m1.getFieldNumber()).as("Group 1 match gets field 0").isEqualTo(0);
 
-        // Group 2: 1 match → 1 lap starting at offset 1 (Group 1 had 1 lap) → lap 1
+        // Group 2: 1 match → 1 lap starting at offset 2 (Group 1 had 1 lap, starting at 1) → lap 2
         assertThat(m2.getLapNumber())
-                .as("Group 2 match gets lap 1 (after Group 1's lap)")
-                .isEqualTo(1);
+                .as("Group 2 match gets lap 2 (after Group 1's lap, 1-based, E53S06)")
+                .isEqualTo(2);
         assertThat(m2.getFieldNumber()).as("Group 2 match gets field 0").isEqualTo(0);
     }
 
@@ -329,12 +330,79 @@ class DefaultRoundAssignmentServiceTest {
         service.assignRoundsAndFields(phaseId, 3);
 
         int maxLap = matches.stream().mapToInt(Match::getLapNumber).max().orElse(0);
-        // K4 chromatic index = 3 rounds; with fieldCount=3 capacity, greedy assigns ≤ 3 laps
+        // K4 chromatic index = 3 rounds; with fieldCount=3 capacity, greedy assigns ≤ 3 laps.
+        // 1-based (E53S06 fix): laps are 1-indexed, so maxLap=3 means 3 laps.
         assertThat(maxLap)
                 .as(
                         "K4 with fieldCount=3 should need at most 3 laps (edge-chromatic-number of"
-                                + " K4 = 3)")
-                .isLessThanOrEqualTo(2); // laps are 0-indexed, so maxLap=2 means 3 laps
+                                + " K4 = 3); 1-based so maxLap=3 means 3 laps (E53S06)")
+                .isLessThanOrEqualTo(3); // laps are 1-indexed, so maxLap=3 means 3 laps
+    }
+
+    // ── E53S06: 1-based lap numbers RED test ───────────────────────────────────────────────────
+
+    @Test
+    void two_groups_6_each_fieldCount3_produces_10_distinct_laps_and_minLap_is_1() {
+        // AC1 / AC5 (DEC-22 RED-first): 12 avatars in 2 groups of 6 → 30 matches, 10 laps.
+        // MIN(lapNumber) must be ≥ 1 (1-based; lap 0 is forbidden after E53S06 fix).
+        // RED before production change: cumulativeLapOffset=0 → first lap=0 → MIN=0 → FAIL.
+        UUID tid = UUID.randomUUID();
+
+        // Group 1: avatars a1..a6
+        UUID a1 = UUID.randomUUID(), a2 = UUID.randomUUID(), a3 = UUID.randomUUID();
+        UUID a4 = UUID.randomUUID(), a5 = UUID.randomUUID(), a6 = UUID.randomUUID();
+        // Group 2: avatars b1..b6
+        UUID b1 = UUID.randomUUID(), b2 = UUID.randomUUID(), b3 = UUID.randomUUID();
+        UUID b4 = UUID.randomUUID(), b5 = UUID.randomUUID(), b6 = UUID.randomUUID();
+
+        List<UUID> group1 = List.of(a1, a2, a3, a4, a5, a6);
+        List<UUID> group2 = List.of(b1, b2, b3, b4, b5, b6);
+
+        List<Match> matches = new ArrayList<>();
+        int idx = 0;
+        for (int i = 0; i < group1.size(); i++) {
+            for (int j = i + 1; j < group1.size(); j++) {
+                matches.add(
+                        makeMatch(
+                                makeUUID(String.format("%02d", idx++)),
+                                phaseId,
+                                tid,
+                                group1.get(i),
+                                group1.get(j)));
+            }
+        }
+        for (int i = 0; i < group2.size(); i++) {
+            for (int j = i + 1; j < group2.size(); j++) {
+                matches.add(
+                        makeMatch(
+                                makeUUID(String.format("%02d", idx++)),
+                                phaseId,
+                                tid,
+                                group2.get(i),
+                                group2.get(j)));
+            }
+        }
+
+        List<TeamAvatar> avatars = new ArrayList<>();
+        for (UUID av : group1) avatars.add(makeAvatar(av, phaseId, 1));
+        for (UUID av : group2) avatars.add(makeAvatar(av, phaseId, 2));
+
+        when(matchRepository.findByPhaseId(phaseId)).thenReturn(matches);
+        when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(avatars);
+        when(matchRepository.save(org.mockito.ArgumentMatchers.any(Match.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        service.assignRoundsAndFields(phaseId, 3);
+
+        long distinctLaps = matches.stream().map(Match::getLapNumber).distinct().count();
+        assertThat(distinctLaps)
+                .as("12 teams / 2 groups / 3 fields must produce ≥10 distinct lap numbers")
+                .isGreaterThanOrEqualTo(10);
+
+        int minLap = matches.stream().mapToInt(Match::getLapNumber).min().orElse(-1);
+        assertThat(minLap)
+                .as("MIN(lapNumber) must be ≥ 1 (1-based; lap 0 is forbidden after E53S06 fix)")
+                .isGreaterThanOrEqualTo(1);
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────────────────────

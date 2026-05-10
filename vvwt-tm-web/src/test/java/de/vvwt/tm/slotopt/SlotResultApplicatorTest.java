@@ -111,15 +111,18 @@ class SlotResultApplicatorTest {
             }
         }
 
-        // All 12 expected slots (lap 0-3, field 0-2) present exactly once
+        // All 12 expected slots (lap 1-4, field 0-2) present exactly once (1-based, E53S06)
         Set<String> observedSlots = new HashSet<>();
         for (Match m : saved) {
             observedSlots.add(m.getLapNumber() + ":" + m.getFieldNumber());
         }
-        for (int lap = 0; lap < 4; lap++) {
+        for (int lap = 1; lap <= 4; lap++) {
             for (int field = 0; field < 3; field++) {
                 assertThat(observedSlots)
-                        .as("Slot %d:%d must be present after identity permutation", lap, field)
+                        .as(
+                                "Slot %d:%d must be present after identity permutation (1-based,"
+                                        + " E53S06)",
+                                lap, field)
                         .contains(lap + ":" + field);
             }
         }
@@ -155,17 +158,21 @@ class SlotResultApplicatorTest {
         verify(matchRepository, times(12)).save(captor.capture());
         List<Match> saved = captor.getAllValues();
 
-        // Expected: π=[0,1,3,2]
+        // Expected: π=[0,1,3,2] (0-based lap indices)
+        // L2 laps are 1-based (E53S06). L3 output: pi maps 0-based index to 0-based index,
+        // then output lap = pi[l2LapIndex] + 1 where l2LapIndex = l2Lap - 1.
         int[] pi = {0, 1, 3, 2};
         for (Match m : saved) {
             int[] l2 = l2Slots.get(m.getId());
             if (l2 != null) {
-                int expectedLap = pi[l2[0]];
+                int l2LapIndex = l2[0] - 1; // convert 1-based L2 lap to 0-based index
+                int expectedLap = pi[l2LapIndex] + 1; // apply pi, then back to 1-based (E53S06)
                 int expectedField = l2[1]; // field invariant
                 assertThat(m.getLapNumber())
                         .as(
-                                "match %s: l2Lap=%d → expected new lap=%d (π=[0,1,3,2])",
-                                m.getId(), l2[0], expectedLap)
+                                "match %s: l2Lap=%d (index=%d) → expected new lap=%d (π=[0,1,3,2],"
+                                        + " 1-based E53S06)",
+                                m.getId(), l2[0], l2LapIndex, expectedLap)
                         .isEqualTo(expectedLap);
                 assertThat(m.getFieldNumber())
                         .as(
@@ -353,6 +360,47 @@ class SlotResultApplicatorTest {
     }
 
     // =========================================================================
+    // E53S06: AC2 RED-first — L3 must produce 1-based lap numbers
+    //
+    // Given: 6 matches with 0-based L2 laps (laps 0,0,0,1,1,1 for fieldCount=3).
+    // After applyResult(0L, 3, mapping) (identity rank):
+    // MIN(lapNumber) must be 1 (1-based output).
+    //
+    // RED before fix: current code writes outputLap = i/fc (0-based) → MIN=0 → FAIL.
+    // =========================================================================
+
+    @Test
+    void applyResult_identityRank_producesOneBased_lapNumbers() {
+        // AC2 / E53S06: L3 output lap numbers must be 1-based after fix.
+        UUID phaseId = UUID.randomUUID();
+        // 2 groups × 3 avatars → 6 matches (fieldCount=3, lapCount=2)
+        // L2 laps assigned as 0-based: 0,0,0,1,1,1
+        List<TeamAvatar> avatars =
+                buildAvatars(phaseId, new int[][] {{1, 1}, {1, 2}, {1, 3}, {2, 1}, {2, 2}, {2, 3}});
+        // K3 per group = 3 matches; 2 groups → 6 matches total; fieldCount=3 → lapCount=2
+        List<Match> l2Matches = buildAllPairMatchesWithL2Slots(phaseId, avatars.subList(0, 3), 3);
+        // Add group2 matches with laps offset by 1
+        List<Match> group2Matches =
+                buildAllPairMatchesWithL2Slots(phaseId, avatars.subList(3, 6), 3);
+        for (Match m : group2Matches) {
+            m.setLapNumber(m.getLapNumber() + 1); // offset group 2 to lap 1
+        }
+        List<Match> allMatches = new ArrayList<>();
+        allMatches.addAll(l2Matches);
+        allMatches.addAll(group2Matches);
+
+        MappingResult mapping = buildMapping(phaseId, avatars, allMatches);
+        when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
+        applicator.applyResult(0L, 3, mapping);
+
+        // After fix: MIN(lapNumber) must be 1 (1-based)
+        int minLap = allMatches.stream().mapToInt(Match::getLapNumber).min().orElse(-1);
+        assertThat(minLap)
+                .as("MIN(lapNumber) must be 1 after E53S06 L3 fix (1-based; lap 0 is forbidden)")
+                .isGreaterThanOrEqualTo(1);
+    }
+
+    // =========================================================================
     // Original error-path tests (unchanged — must remain GREEN)
     // =========================================================================
 
@@ -480,9 +528,9 @@ class SlotResultApplicatorTest {
         }
         // Sort by UUID (mirrors PhaseToRawPhaseDefMapper deterministic ordering)
         matches.sort((a, b) -> a.getId().toString().compareTo(b.getId().toString()));
-        // Assign L2 lap/field in sorted order
+        // Assign L2 lap/field in sorted order — 1-based laps (E53S06 fix: L2 produces 1..lapCount)
         for (int i = 0; i < matches.size(); i++) {
-            matches.get(i).setLapNumber(i / FIELD_COUNT);
+            matches.get(i).setLapNumber(i / FIELD_COUNT + 1); // 1-based: lap 1..lapCount
             matches.get(i).setFieldNumber(i % FIELD_COUNT);
         }
         return new Fixture(avatars, matches);

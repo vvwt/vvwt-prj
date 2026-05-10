@@ -45,8 +45,8 @@ import org.springframework.stereotype.Service;
  *
  * <p>Groups are processed in ascending {@code groupNumber} order. The cumulative lap offset is
  * advanced by each group's lap count so that Group B's laps begin where Group A's end. Example:
- * Group A (6 teams, fieldCount=3) → 15 matches, 5 laps (0..4); Group B (6 teams, fieldCount=3) → 15
- * matches, laps start at offset 5 → laps 5..9.
+ * Group A (6 teams, fieldCount=3) → 15 matches, 5 laps (1..5); Group B (6 teams, fieldCount=3) → 15
+ * matches, laps start at offset 6 → laps 6..10. Lap numbers are 1-based (E53S06).
  *
  * <h2>Complexity</h2>
  *
@@ -124,11 +124,12 @@ class DefaultRoundAssignmentService implements RoundAssignmentService {
      *   B-D → lap 0 (B in lap 0) → lap 1 (empty for B,D at cap 1/3) → lap 1
      *   C-D → lap 0 (cap 1/3; C,D free) → lap 0
      * lapBuckets: [0:[A-B,C-D], 1:[A-C,B-D], 2:[A-D,B-C]]
-     * Final assignment (lapNumber=bucket-index, fieldNumber=pos-in-bucket):
-     *   A-B: lap=0, f=0; C-D: lap=0, f=1
-     *   A-C: lap=1, f=0; B-D: lap=1, f=1
-     *   A-D: lap=2, f=0; B-C: lap=2, f=1
+     * Final assignment (lapNumber=cumulativeLapOffset+bucket-index, fieldNumber=pos-in-bucket):
+     *   A-B: lap=1, f=0; C-D: lap=1, f=1
+     *   A-C: lap=2, f=0; B-D: lap=2, f=1
+     *   A-D: lap=3, f=0; B-C: lap=3, f=1
      * (partial laps OK: fieldCount=3 capacity but only 2 matches per lap for K4)
+     * Lap numbers are 1-based: first group starts at lap 1 (E53S06 fix).
      * </pre>
      *
      * @param phaseId must not be {@code null}
@@ -176,7 +177,10 @@ class DefaultRoundAssignmentService implements RoundAssignmentService {
         // ── Step 3: Greedy edge-coloring per group with cumulative lap offset (D-12) ─────────────
         // cumulativeLapOffset advances by the number of laps produced per group so that Group B
         // begins where Group A ended (Brief D-12 concatenation convention).
-        int cumulativeLapOffset = 0;
+        // 1-based: first group starts at lap 1, not lap 0, so that downstream consumers
+        // (DefaultLaufzettelAssembler iterates lap=1..maxLap, DefaultTimelineCalculationService
+        // generates lapNumber=1..lapCount) see all laps and no round is skipped (E53S06 fix).
+        int cumulativeLapOffset = 1; // 1-based: first group starts at lap 1
 
         for (Map.Entry<Integer, List<Match>> entry : matchesByGroup.entrySet()) {
             int groupNumber = entry.getKey();

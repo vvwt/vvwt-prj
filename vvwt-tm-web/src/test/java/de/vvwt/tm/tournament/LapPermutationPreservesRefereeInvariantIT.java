@@ -322,11 +322,12 @@ class LapPermutationPreservesRefereeInvariantIT {
                                         .as("refereeTeamId must be unchanged by lap-permutation")
                                         .isEqualTo(refereeTeamId));
 
-        // Assert structural: lap numbers are still a permutation of [0..5] — permutation ran
+        // Assert structural: lap numbers are a permutation of [1..6] (1-based, E53S06 fix)
+        // L3 output lap = outputLapIndex + 1 where outputLapIndex in [0..5] → laps in [1..6].
         assertThat(afterRows.stream().map(r -> ((Number) r.get("lap_number")).intValue()).toList())
                 .as(
-                        "Lap numbers after permutation must still be [0..5] (same values,"
-                                + " different order — permutation is valid)")
-                .containsExactlyInAnyOrder(0, 1, 2, 3, 4, 5);
+                        "Lap numbers after permutation must be [1..6] (1-based, E53S06 fix),"
+                                + " same count, different order — permutation is valid")
+                .containsExactlyInAnyOrder(1, 2, 3, 4, 5, 6);
     }
 }

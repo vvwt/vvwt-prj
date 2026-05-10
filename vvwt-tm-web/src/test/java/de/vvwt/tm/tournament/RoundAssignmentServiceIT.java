@@ -290,15 +290,16 @@ class RoundAssignmentServiceIT {
                             assertThat(row.get("field_number")).isNotNull();
                         });
 
-        // Assert: lapNumbers in [0, 21] (22 laps minimum for 66 matches / 3 fields);
-        // greedy edge-coloring may produce 1 extra lap above the theoretical minimum of
-        // ceil(66/3)=22 laps. We assert ≤ 22 (maxLap ≤ 22) to allow for greedy sub-optimality.
+        // Assert: lapNumbers in [1, 22] minimum for 66 matches / 3 fields (1-based, E53S06 fix).
+        // Greedy edge-coloring may produce 1 extra lap above the theoretical minimum of
+        // ceil(66/3)=22 laps. We assert maxLap ≤ 23 (1-based: laps 1..23) to allow for greedy
+        // sub-optimality. Previously 0-based assertion was maxLap ≤ 22 (laps 0..22).
         int maxLap =
                 rows.stream()
                         .mapToInt(r -> ((Number) r.get("lap_number")).intValue())
                         .max()
                         .orElse(-1);
-        assertThat(maxLap).isLessThanOrEqualTo(22); // at most 23 laps (0..22); greedy may add 1
+        assertThat(maxLap).isLessThanOrEqualTo(23); // 1-based: at most 23 laps (1..23); greedy
 
         // Assert: fieldNumbers in [0, 2]
         assertThat(rows)
@@ -586,6 +587,36 @@ class RoundAssignmentServiceIT {
                                 + " AND field_number IS NULL",
                         phaseId);
         assertThat(((Number) nullFields.get(0).get("cnt")).intValue()).isZero();
+    }
+
+    // ── E53S06: 1-based lap numbers RED IT test ──────────────────────────────
+
+    @Test
+    @DisplayName(
+            "E53S06-AC1: assignRoundsAndFields 2 groups 12 teams 3 fields → MIN(lap_number) = 1"
+                    + " (1-based; lap 0 is forbidden)")
+    void assignRoundsAndFields_2groups_lapNumbers_are_1based() {
+        // AC1 / AC5 (DEC-22 RED-first): after E53S06 fix, MIN(lap_number) must be 1.
+        // RED before fix: cumulativeLapOffset=0 → first lap=0 → MIN=0 → FAIL.
+        createTournament(3);
+        UUID phaseId = createPhase(1);
+        Map<Integer, Integer> groupSizes = new HashMap<>();
+        groupSizes.put(1, 6);
+        groupSizes.put(2, 6);
+        List<UUID> allAvatars = insertAvatarsByGroups(phaseId, groupSizes);
+        insertRoundRobinMatches(phaseId, allAvatars.subList(0, 6));
+        insertRoundRobinMatches(phaseId, allAvatars.subList(6, 12));
+
+        roundAssignmentService.assignRoundsAndFields(phaseId, 3);
+
+        Integer minLap =
+                jdbcTemplate.queryForObject(
+                        "SELECT MIN(lap_number) FROM match WHERE phase_id = ?",
+                        Integer.class,
+                        phaseId);
+        assertThat(minLap)
+                .as("MIN(lap_number) must be 1 (1-based — lap 0 is forbidden after E53S06 fix)")
+                .isEqualTo(1);
     }
 
     // ── AC-ERROR-HANDLING-FIELDCOUNT-INVALID ─────────────────────────────────
