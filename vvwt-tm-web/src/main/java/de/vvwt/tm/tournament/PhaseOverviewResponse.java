@@ -33,8 +33,8 @@ import java.util.UUID;
  * @param optimized {@code true} when slot-optimization has completed successfully for this phase
  *     ({@code phase.optimized = TRUE} in DB); {@code false} when slot-opt has not completed or has
  *     not run; never {@code null} (H2 BOOLEAN column with DB default FALSE maps to Java {@code
- *     boolean} via JDBC {@code getBoolean}) — additive field, forward-compatible with the TypeScript
- *     {@code PhaseOverview.optimized?: boolean | undefined} declaration (E51S21
+ *     boolean} via JDBC {@code getBoolean}) — additive field, forward-compatible with the
+ *     TypeScript {@code PhaseOverview.optimized?: boolean | undefined} declaration (E51S21
  *     AC-GOV-WIRE-FORMAT-ADDITIVE-ONLY, DEC-40 Pattern A, DEC-55 D-9, DEC-59 Clause F)
  * @see PhaseQueryService
  * @see <a href="DEC-40">DEC-40 — Pattern A bounded-context-owned query-shape DTO</a>
