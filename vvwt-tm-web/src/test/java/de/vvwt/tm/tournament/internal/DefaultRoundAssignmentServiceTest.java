@@ -255,14 +255,18 @@ class DefaultRoundAssignmentServiceTest {
         }
     }
 
-    // ── Multi-group concatenation (Brief D-12) ─────────────────────────────────────────────────
+    // ── Multi-group phase-global assignment (E54S01 — DEC-61 Clause A replaces D-12 concatenation)
 
     @Test
-    void multi_group_laps_are_concatenated_ascending_group_order() {
-        // AC-IMPL-L2-MULTI-GROUP: Group 1 occupies laps 1..k1; Group 2 starts at lap k1+1.
-        // Use 2 disjoint groups of 2 avatars each → 1 match per group → 1 lap per group.
-        // Expected: Group 1 match → lap 1; Group 2 match → lap 2.
-        // (E53S06 fix: 1-based laps; cumulativeLapOffset starts at 1, not 0)
+    void multi_group_phase_global_both_matches_assigned_conflict_free_1based() {
+        // AC-IMPL-L2-MULTI-GROUP (updated for DEC-61 Clause A — E54S01):
+        // Previously (edge-coloring): Group 1 match → lap 1; Group 2 match → lap 2 (concatenation).
+        // Now (voting-driven phase-global, DEC-61 Clause A): groups are NOT processed separately.
+        // Both matches compete for the same (lap, field) slots. Since av1-av2 and av3-av4 are
+        // DISJOINT avatar sets, BOTH can be placed in lap 1 (fields 1 and 2) without conflict.
+        // The old per-group concatenation (Brief D-12) is superseded by DEC-61 Clause A.
+        //
+        // Assertions: both matches assigned, 1-based, round-conflict-freedom preserved.
         UUID av1 = UUID.randomUUID(); // group 1
         UUID av2 = UUID.randomUUID(); // group 1
         UUID av3 = UUID.randomUUID(); // group 2
@@ -290,20 +294,40 @@ class DefaultRoundAssignmentServiceTest {
 
         service.assignRoundsAndFields(phaseId, 3);
 
-        // Group 1: 1 match → 1 lap starting at offset 1 → lap 1 (1-based, E53S06)
-        assertThat(m1.getLapNumber()).as("Group 1 match gets lap 1 (1-based, E53S06)").isEqualTo(1);
-        // fieldIdx=0 → fieldNumber = 0 + 1 = 1 (1-based per DEC-60 D-1, E53S09)
-        assertThat(m1.getFieldNumber())
-                .as("Group 1 match gets field 1 (1-based per DEC-60 D-1)")
-                .isEqualTo(1);
+        // Both matches assigned
+        assertThat(m1.getLapNumber()).as("Group 1 match assigned a lap").isNotNull();
+        assertThat(m2.getLapNumber()).as("Group 2 match assigned a lap").isNotNull();
 
-        // Group 2: 1 match → 1 lap starting at offset 2 (Group 1 had 1 lap, starting at 1) → lap 2
+        // 1-based: both lapNumbers ≥ 1, both fieldNumbers ≥ 1 (DEC-60 D-1, E53S06)
+        assertThat(m1.getLapNumber())
+                .as("Group 1 match lap is 1-based (≥1)")
+                .isGreaterThanOrEqualTo(1);
+        assertThat(m1.getFieldNumber())
+                .as("Group 1 match field is 1-based (≥1)")
+                .isGreaterThanOrEqualTo(1);
         assertThat(m2.getLapNumber())
-                .as("Group 2 match gets lap 2 (after Group 1's lap, 1-based, E53S06)")
-                .isEqualTo(2);
-        // fieldIdx=0 → fieldNumber = 0 + 1 = 1 (1-based per DEC-60 D-1, E53S09)
+                .as("Group 2 match lap is 1-based (≥1)")
+                .isGreaterThanOrEqualTo(1);
         assertThat(m2.getFieldNumber())
-                .as("Group 2 match gets field 1 (1-based per DEC-60 D-1)")
+                .as("Group 2 match field is 1-based (≥1)")
+                .isGreaterThanOrEqualTo(1);
+
+        // No (lap, field) coordinate duplicates — both matches have distinct positions
+        String pos1 = m1.getLapNumber() + ":" + m1.getFieldNumber();
+        String pos2 = m2.getLapNumber() + ":" + m2.getFieldNumber();
+        assertThat(pos1).as("matches have distinct (lap, field) positions").isNotEqualTo(pos2);
+
+        // Phase-global: since av1-av2 and av3-av4 are disjoint, they CAN coexist in lap 1
+        // The voting algorithm places both in lap 1 (fields 1 and 2).
+        assertThat(m1.getLapNumber())
+                .as(
+                        "phase-global: Group 1 match coexists with Group 2 match in lap 1"
+                                + " (DEC-61 Clause A — no per-group concatenation)")
+                .isEqualTo(1);
+        assertThat(m2.getLapNumber())
+                .as(
+                        "phase-global: Group 2 match coexists with Group 1 match in lap 1"
+                                + " (DEC-61 Clause A — no per-group concatenation)")
                 .isEqualTo(1);
     }
 
@@ -493,10 +517,12 @@ class DefaultRoundAssignmentServiceTest {
         // and another is a fresh (low vote) candidate. The algorithm MUST pick lowest vote first.
         //
         // Setup: 4 avatars A,B,C,D in group 1; 6 matches (K4). fieldCount=1 so we can observe
-        // one match per lap. The FIRST lap's field-1 slot must go to the match with lowest vote sum.
+        // one match per lap. The FIRST lap's field-1 slot must go to the match with lowest vote
+        // sum.
         // Initially all votes=0 so the first match assigned is effectively the one sorted first.
         // After 1 assignment, those avatars' voting counters increment to 1.
-        // On lap 2, the next selected match must prefer avatars with vote 0 over avatars with vote 1.
+        // On lap 2, the next selected match must prefer avatars with vote 0 over avatars with vote
+        // 1.
         UUID avA = makeUUID("aa");
         UUID avB = makeUUID("bb");
         UUID avC = makeUUID("cc");
@@ -581,7 +607,12 @@ class DefaultRoundAssignmentServiceTest {
                         List.of(
                                 makeMatch(makeUUID("01"), phaseId, tid, avA, avB), // A-B: vote 0
                                 makeMatch(makeUUID("02"), phaseId, tid, avC, avD), // C-D: vote 0
-                                makeMatch(makeUUID("03"), phaseId, tid, avA, avC), // A-C: after A-B assigned → A.vote=1
+                                makeMatch(
+                                        makeUUID("03"),
+                                        phaseId,
+                                        tid,
+                                        avA,
+                                        avC), // A-C: after A-B assigned → A.vote=1
                                 makeMatch(makeUUID("04"), phaseId, tid, avA, avD),
                                 makeMatch(makeUUID("05"), phaseId, tid, avB, avC),
                                 makeMatch(makeUUID("06"), phaseId, tid, avB, avD)));
@@ -633,7 +664,8 @@ class DefaultRoundAssignmentServiceTest {
         //   Actually let's use 6 avatars, fieldCount=2, and verify conflict detection directly.
         //
         // Simpler setup: 4 avatars; K4=6 matches; fieldCount=2.
-        // Lap 1: field 1 assigns lowest-vote match. Field 2 MUST skip any match sharing those avatars.
+        // Lap 1: field 1 assigns lowest-vote match. Field 2 MUST skip any match sharing those
+        // avatars.
         UUID avA = makeUUID("aa");
         UUID avB = makeUUID("bb");
         UUID avC = makeUUID("cc");
@@ -709,12 +741,24 @@ class DefaultRoundAssignmentServiceTest {
         int idx = 0;
         for (int i = 0; i < g1.size(); i++) {
             for (int j = i + 1; j < g1.size(); j++) {
-                matches.add(makeMatch(makeUUID(String.format("%02d", idx++)), phaseId, tid, g1.get(i), g1.get(j)));
+                matches.add(
+                        makeMatch(
+                                makeUUID(String.format("%02d", idx++)),
+                                phaseId,
+                                tid,
+                                g1.get(i),
+                                g1.get(j)));
             }
         }
         for (int i = 0; i < g2.size(); i++) {
             for (int j = i + 1; j < g2.size(); j++) {
-                matches.add(makeMatch(makeUUID(String.format("%02d", idx++)), phaseId, tid, g2.get(i), g2.get(j)));
+                matches.add(
+                        makeMatch(
+                                makeUUID(String.format("%02d", idx++)),
+                                phaseId,
+                                tid,
+                                g2.get(i),
+                                g2.get(j)));
             }
         }
 
@@ -736,20 +780,24 @@ class DefaultRoundAssignmentServiceTest {
         // Exactly 10 distinct laps
         long distinctLaps = matches.stream().mapToInt(Match::getLapNumber).distinct().count();
         assertThat(distinctLaps)
-                .as("30 matches / 3 fields = exactly 10 laps (phase-global voting; no concatenation)")
+                .as(
+                        "30 matches / 3 fields = exactly 10 laps (phase-global voting; no"
+                                + " concatenation)")
                 .isEqualTo(10);
 
         // Each lap has exactly 3 matches
         Map<Integer, Long> matchesPerLap =
-                matches.stream().collect(Collectors.groupingBy(Match::getLapNumber, Collectors.counting()));
+                matches.stream()
+                        .collect(Collectors.groupingBy(Match::getLapNumber, Collectors.counting()));
         assertThat(matchesPerLap.values())
                 .as("every lap must have exactly 3 matches (no Bye-Slots for 12T/2G/3F)")
                 .allSatisfy(count -> assertThat(count).isEqualTo(3L));
 
         // No (lap, field) duplicates
-        Set<String> pairs = matches.stream()
-                .map(m -> m.getLapNumber() + ":" + m.getFieldNumber())
-                .collect(Collectors.toSet());
+        Set<String> pairs =
+                matches.stream()
+                        .map(m -> m.getLapNumber() + ":" + m.getFieldNumber())
+                        .collect(Collectors.toSet());
         assertThat(pairs).as("no (lap, field) duplicates").hasSize(30);
 
         // Round-conflict-freedom
@@ -792,12 +840,24 @@ class DefaultRoundAssignmentServiceTest {
         int idx = 0;
         for (int i = 0; i < g1.size(); i++) {
             for (int j = i + 1; j < g1.size(); j++) {
-                matches.add(makeMatch(makeUUID(String.format("%02d", idx++)), phaseId, tid, g1.get(i), g1.get(j)));
+                matches.add(
+                        makeMatch(
+                                makeUUID(String.format("%02d", idx++)),
+                                phaseId,
+                                tid,
+                                g1.get(i),
+                                g1.get(j)));
             }
         }
         for (int i = 0; i < g2.size(); i++) {
             for (int j = i + 1; j < g2.size(); j++) {
-                matches.add(makeMatch(makeUUID(String.format("%02d", idx++)), phaseId, tid, g2.get(i), g2.get(j)));
+                matches.add(
+                        makeMatch(
+                                makeUUID(String.format("%02d", idx++)),
+                                phaseId,
+                                tid,
+                                g2.get(i),
+                                g2.get(j)));
             }
         }
 
@@ -812,15 +872,21 @@ class DefaultRoundAssignmentServiceTest {
 
         service.assignRoundsAndFields(phaseId, 3);
 
-        // All 25 matches assigned (Bye-Slots do NOT produce Match-Rows, but every Match gets a slot)
+        // All 25 matches assigned (Bye-Slots do NOT produce Match-Rows, but every Match gets a
+        // slot)
         assertThat(matches).hasSize(25);
-        assertThat(matches).allSatisfy(m ->
-                assertThat(m.getLapNumber()).as("all matches assigned a lap").isNotNull());
+        assertThat(matches)
+                .allSatisfy(
+                        m ->
+                                assertThat(m.getLapNumber())
+                                        .as("all matches assigned a lap")
+                                        .isNotNull());
 
         // No (lap, field) duplicates
-        Set<String> pairs = matches.stream()
-                .map(m -> m.getLapNumber() + ":" + m.getFieldNumber())
-                .collect(Collectors.toSet());
+        Set<String> pairs =
+                matches.stream()
+                        .map(m -> m.getLapNumber() + ":" + m.getFieldNumber())
+                        .collect(Collectors.toSet());
         assertThat(pairs).as("no (lap, field) coordinate duplicates").hasSize(25);
 
         // Round-conflict-freedom
@@ -851,7 +917,8 @@ class DefaultRoundAssignmentServiceTest {
         // For 12 teams in 2 groups of 6 + fieldCount=3 (10 laps), the maximum consecutive
         // idle laps per avatar under the voting algorithm must be < 5.
         //
-        // Baseline (edge-coloring per-group + offset): Group 1 plays laps 1..5, idle 6..10 (5 idle).
+        // Baseline (edge-coloring per-group + offset): Group 1 plays laps 1..5, idle 6..10 (5
+        // idle).
         // Group 2 plays laps 6..10, idle 1..5 (5 idle).
         // Maximum consecutive idle laps per avatar = 5.
         //
@@ -870,12 +937,24 @@ class DefaultRoundAssignmentServiceTest {
         int idx = 0;
         for (int i = 0; i < g1.size(); i++) {
             for (int j = i + 1; j < g1.size(); j++) {
-                matches.add(makeMatch(makeUUID(String.format("%02d", idx++)), phaseId, tid, g1.get(i), g1.get(j)));
+                matches.add(
+                        makeMatch(
+                                makeUUID(String.format("%02d", idx++)),
+                                phaseId,
+                                tid,
+                                g1.get(i),
+                                g1.get(j)));
             }
         }
         for (int i = 0; i < g2.size(); i++) {
             for (int j = i + 1; j < g2.size(); j++) {
-                matches.add(makeMatch(makeUUID(String.format("%02d", idx++)), phaseId, tid, g2.get(i), g2.get(j)));
+                matches.add(
+                        makeMatch(
+                                makeUUID(String.format("%02d", idx++)),
+                                phaseId,
+                                tid,
+                                g2.get(i),
+                                g2.get(j)));
             }
         }
 
@@ -895,8 +974,12 @@ class DefaultRoundAssignmentServiceTest {
         // Compute per-avatar active laps
         Map<UUID, Set<Integer>> activeLaps = new HashMap<>();
         for (Match m : matches) {
-            activeLaps.computeIfAbsent(m.getMemberAvatar1Id(), k -> new HashSet<>()).add(m.getLapNumber());
-            activeLaps.computeIfAbsent(m.getMemberAvatar2Id(), k -> new HashSet<>()).add(m.getLapNumber());
+            activeLaps
+                    .computeIfAbsent(m.getMemberAvatar1Id(), k -> new HashSet<>())
+                    .add(m.getLapNumber());
+            activeLaps
+                    .computeIfAbsent(m.getMemberAvatar2Id(), k -> new HashSet<>())
+                    .add(m.getLapNumber());
         }
 
         // Compute max consecutive idle laps per avatar
@@ -968,7 +1051,9 @@ class DefaultRoundAssignmentServiceTest {
 
         int minField = matches.stream().mapToInt(Match::getFieldNumber).min().orElse(-1);
         assertThat(minField)
-                .as("MIN(fieldNumber) must be 1 (DEC-60 D-1 preservation; voting field loop starts at 1)")
+                .as(
+                        "MIN(fieldNumber) must be 1 (DEC-60 D-1 preservation; voting field loop"
+                                + " starts at 1)")
                 .isEqualTo(1);
     }
 
@@ -981,15 +1066,18 @@ class DefaultRoundAssignmentServiceTest {
         // The algorithm must NOT loop infinitely — it must terminate when all matches are assigned.
         //
         // Setup: 2 avatars A, B in group 1 → 1 match: A-B; fieldCount=3 (capacity > match supply).
-        // After lap 1 assigns A-B to field 1, fields 2 and 3 produce Bye-Slots (no conflict-free match).
+        // After lap 1 assigns A-B to field 1, fields 2 and 3 produce Bye-Slots (no conflict-free
+        // match).
         // The outer loop exits after all matches are assigned → 1 lap, 1 match, 2 Bye-Slots.
         UUID avA = makeUUID("aa");
         UUID avB = makeUUID("bb");
         UUID tid = UUID.randomUUID();
 
-        List<Match> matches = new ArrayList<>(List.of(makeMatch(makeUUID("01"), phaseId, tid, avA, avB)));
+        List<Match> matches =
+                new ArrayList<>(List.of(makeMatch(makeUUID("01"), phaseId, tid, avA, avB)));
 
-        List<TeamAvatar> avatars = List.of(makeAvatar(avA, phaseId, 1), makeAvatar(avB, phaseId, 1));
+        List<TeamAvatar> avatars =
+                List.of(makeAvatar(avA, phaseId, 1), makeAvatar(avB, phaseId, 1));
 
         when(matchRepository.findByPhaseId(phaseId)).thenReturn(matches);
         when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(avatars);
