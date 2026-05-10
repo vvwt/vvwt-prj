@@ -84,6 +84,8 @@
     "forceCompleteButton": "Notabschluss",
     "completeDisabledTooltip": "Phase kann erst abgeschlossen werden, wenn alle Matches finished sind",
     "forceCompleteConfirm": "Notabschluss: {count} unfinished Matches werden als abgebrochen markiert. Wirklich fortfahren?",
+    "assignButton": "Mannschaften zuordnen",
+    "assignWaitingPredecessor": "Vorherige Phase muss abgeschlossen sein",
     "lifecycleError": "Fehler beim Ändern des Phasenstatus."
   },
   "tournamentForm": {

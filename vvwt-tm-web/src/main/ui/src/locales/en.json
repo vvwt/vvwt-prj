@@ -30,7 +30,9 @@
     "status": {
       "PREPARED": "Prepared"
     },
-    "prepareButton": "Prepare"
+    "prepareButton": "Prepare",
+    "assignButton": "Assign teams",
+    "assignWaitingPredecessor": "Previous phase must be completed first"
   },
   "devices": {
     "columns": {
