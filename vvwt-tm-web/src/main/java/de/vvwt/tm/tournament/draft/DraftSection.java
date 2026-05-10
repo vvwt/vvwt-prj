@@ -22,18 +22,28 @@ import java.util.Set;
  * Phase-1 proposals are computed in {@code DefaultPhaseTransitionService.computePhase1Proposals}:
  *
  * <ul>
- *   <li>{@code "sequential"} (default) — fill Group 1 fully before Group 2 (group = i /
- *       positionsPerGroup + 1, position = i % positionsPerGroup + 1).
- *   <li>{@code "round_robin"} (legacy) — distribute teams one-per-group before advancing to the
- *       next position (group = i % groupCount + 1, position = i / groupCount + 1).
+ *   <li>{@link DistributionMode#SEQUENTIAL} (default) — fill Group 1 fully before Group 2 (group =
+ *       i / positionsPerGroup + 1, position = i % positionsPerGroup + 1).
+ *   <li>{@link DistributionMode#ROUND_ROBIN} (legacy) — distribute teams one-per-group before
+ *       advancing to the next position (group = i % groupCount + 1, position = i / groupCount + 1).
  * </ul>
  *
  * <p>Persistence: stored in {@code tournament.draft_json} (existing JSON column per DEC-14 H2
- * schema). No Flyway migration needed — additive JSON field. Absent field defaults to {@code
- * "sequential"} via constructor null-guard.
+ * schema). No Flyway migration needed — additive JSON field. Absent field defaults to {@link
+ * DistributionMode#SEQUENTIAL} via constructor null-guard.
+ *
+ * <h2>E51S20 — gameMode and distributionMode as type-safe enums</h2>
+ *
+ * <p>Both {@link #gameMode} and {@link #distributionMode} are now {@link GameMode} / {@link
+ * DistributionMode} enums instead of raw {@code String}. Call-site comparisons migrate from {@code
+ * "siegerehrung".equals(gameMode)} to {@code gameMode == GameMode.SIEGEREHRUNG} (DEC-22 Q-1b
+ * mechanical refactor). JSON wire-format is preserved via {@link GameMode#getWireFormat()} + {@link
+ * GameMode#fromWireFormat(String)} ({@link DistributionMode} analogous).
  *
  * @see DraftConfig
  * @see DraftBreak
+ * @see GameMode
+ * @see DistributionMode
  * @see <a href="DEC-14">DEC-14 — H2 persistence, draft_json column (no migration)</a>
  * @see <a href="DEC-21">DEC-21 — Spring Modulith package layout</a>
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
@@ -42,6 +52,7 @@ import java.util.Set;
  * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
  * @see <a href="E51S15">E51S15 — distributionMode feature (sequential default + round-robin
  *     toggle)</a>
+ * @see <a href="E51S20">E51S20 — String→Enum hygiene sweep (gameMode + distributionMode)</a>
  */
 public final class DraftSection {
 
@@ -58,14 +69,15 @@ public final class DraftSection {
     private final int groupCount;
 
     /**
-     * Game mode for this phase. Valid values: {@code roundRobin}, {@code siegerehrung}.
+     * Game mode for this phase.
      *
-     * <p>The last phase in a draft MUST use {@code siegerehrung} (enforced at apply time via {@link
-     * de.vvwt.tm.tournament.internal.DefaultDraftService#apply}).
+     * <p>The last phase in a draft MUST use {@link GameMode#SIEGEREHRUNG} (enforced at apply time
+     * via {@link de.vvwt.tm.tournament.internal.DefaultDraftService#apply}).
      *
      * @see <a href="E48S01">E48S01 — gameMode whitelist + last-phase invariant</a>
+     * @see <a href="E51S20">E51S20 — migrated from String to GameMode enum</a>
      */
-    private final String gameMode;
+    private final GameMode gameMode;
 
     /** Pause between rounds within the section, in minutes. Must be ≥ 0. */
     private final int lapBreakTimeMinutes;
@@ -85,14 +97,15 @@ public final class DraftSection {
     /**
      * Team distribution algorithm for Phase-1 avatar assignment.
      *
-     * <p>Valid values: {@code "sequential"} (default) or {@code "round_robin"} (legacy). Absent or
-     * null in draft_json → defaults to {@code "sequential"} (AC-TEST-DEFAULT-IS-SEQUENTIAL-RED).
+     * <p>Defaults to {@link DistributionMode#SEQUENTIAL} when absent/null in draft_json
+     * (AC-TEST-DEFAULT-IS-SEQUENTIAL-RED, E51S15).
      *
      * @see <a href="E51S15">E51S15 — distributionMode feature</a>
      * @see <a href="DEC-14">DEC-14 — persistence in draft_json JSON column (no Flyway
      *     migration)</a>
+     * @see <a href="E51S20">E51S20 — migrated from String to DistributionMode enum</a>
      */
-    private final String distributionMode;
+    private final DistributionMode distributionMode;
 
     /**
      * Jackson-compatible constructor.
@@ -100,27 +113,28 @@ public final class DraftSection {
      * @param sectionNumber ordering within the draft (≥ 1)
      * @param sortType team-entry sort strategy
      * @param groupCount number of groups (≥ 1)
-     * @param gameMode game mode ({@code roundRobin} or {@code siegerehrung})
+     * @param gameMode game mode; must not be {@code null} (Jackson deserializes via {@link
+     *     GameMode#fromWireFormat(String)})
      * @param lapBreakTimeMinutes pause between laps (≥ 0)
      * @param sectionBreakTimeMinutes pause after section (≥ 0)
      * @param lapTimeMinutes lap duration in minutes (> 0)
      * @param setQuantity sets per match (≥ 1)
      * @param breaks optional intra-phase breaks; {@code null} treated as empty
-     * @param distributionMode team distribution algorithm; {@code null} defaults to {@code
-     *     "sequential"} (AC-TEST-DEFAULT-IS-SEQUENTIAL-RED, E51S15)
+     * @param distributionMode team distribution algorithm; {@code null} defaults to {@link
+     *     DistributionMode#SEQUENTIAL} (AC-TEST-DEFAULT-IS-SEQUENTIAL-RED, E51S15)
      */
     @JsonCreator
     public DraftSection(
             @JsonProperty("sectionNumber") int sectionNumber,
             @JsonProperty("sortType") String sortType,
             @JsonProperty("groupCount") int groupCount,
-            @JsonProperty("gameMode") String gameMode,
+            @JsonProperty("gameMode") GameMode gameMode,
             @JsonProperty("lapBreakTimeMinutes") int lapBreakTimeMinutes,
             @JsonProperty("sectionBreakTimeMinutes") int sectionBreakTimeMinutes,
             @JsonProperty("lapTimeMinutes") int lapTimeMinutes,
             @JsonProperty("setQuantity") int setQuantity,
             @JsonProperty("breaks") List<DraftBreak> breaks,
-            @JsonProperty("distributionMode") String distributionMode) {
+            @JsonProperty("distributionMode") DistributionMode distributionMode) {
         this.sectionNumber = sectionNumber;
         this.sortType = sortType;
         this.groupCount = groupCount;
@@ -130,18 +144,20 @@ public final class DraftSection {
         this.lapTimeMinutes = lapTimeMinutes;
         this.setQuantity = setQuantity;
         this.breaks = breaks == null ? List.of() : List.copyOf(breaks);
-        // AC-TEST-DEFAULT-IS-SEQUENTIAL-RED: absent/null distributionMode → "sequential"
-        this.distributionMode = (distributionMode == null) ? "sequential" : distributionMode;
+        // AC-TEST-DEFAULT-IS-SEQUENTIAL-RED: absent/null distributionMode → SEQUENTIAL
+        this.distributionMode =
+                (distributionMode == null) ? DistributionMode.SEQUENTIAL : distributionMode;
     }
 
     /**
      * Legacy 9-parameter constructor (backward compatibility for existing test fixtures and callers
-     * that do not specify distributionMode). Defaults distributionMode to {@code "sequential"}.
+     * that do not specify distributionMode). Defaults distributionMode to {@link
+     * DistributionMode#SEQUENTIAL}.
      *
      * @param sectionNumber ordering within the draft (≥ 1)
      * @param sortType team-entry sort strategy
      * @param groupCount number of groups (≥ 1)
-     * @param gameMode game mode ({@code roundRobin} or {@code siegerehrung})
+     * @param gameMode game mode ({@link GameMode#ROUND_ROBIN} or {@link GameMode#SIEGEREHRUNG})
      * @param lapBreakTimeMinutes pause between laps (≥ 0)
      * @param sectionBreakTimeMinutes pause after section (≥ 0)
      * @param lapTimeMinutes lap duration in minutes (> 0)
@@ -152,7 +168,7 @@ public final class DraftSection {
             int sectionNumber,
             String sortType,
             int groupCount,
-            String gameMode,
+            GameMode gameMode,
             int lapBreakTimeMinutes,
             int sectionBreakTimeMinutes,
             int lapTimeMinutes,
@@ -168,7 +184,7 @@ public final class DraftSection {
                 lapTimeMinutes,
                 setQuantity,
                 breaks,
-                null); // null → "sequential" default
+                null); // null → SEQUENTIAL default
     }
 
     // -------------------------------------------------------------------------
@@ -197,10 +213,9 @@ public final class DraftSection {
         if (groupCount < 1) {
             throw new IllegalArgumentException("groupCount must be ≥ 1, got: " + groupCount);
         }
-        if (gameMode == null
-                || (!gameMode.equals("roundRobin") && !gameMode.equals("siegerehrung"))) {
-            throw new IllegalArgumentException(
-                    "gameMode must be one of: roundRobin, siegerehrung. Got: " + gameMode);
+        // gameMode is now a typed enum — null check replaces whitelist check (E51S20)
+        if (gameMode == null) {
+            throw new IllegalArgumentException("gameMode must not be null");
         }
         if (lapBreakTimeMinutes < 0) {
             throw new IllegalArgumentException(
@@ -217,16 +232,11 @@ public final class DraftSection {
         if (setQuantity < 1) {
             throw new IllegalArgumentException("setQuantity must be ≥ 1, got: " + setQuantity);
         }
-        // AC-ERROR-HANDLING-INVALID-DISTRIBUTION-MODE (E51S15):
-        // Only "sequential" and "round_robin" are valid values.
-        // An unrecognized value (e.g., from a future schema version) throws IAE with an
-        // operator-actionable message so the operator can correct the draft_json field.
-        if (!distributionMode.equals("sequential") && !distributionMode.equals("round_robin")) {
-            throw new IllegalArgumentException(
-                    "distributionMode must be one of: sequential, round_robin. Got: "
-                            + distributionMode
-                            + " — operator: correct the distributionMode field in draft_json"
-                            + " (AC-ERROR-HANDLING-INVALID-DISTRIBUTION-MODE, E51S15)");
+        // distributionMode is now a typed enum — null check only (E51S20).
+        // Constructor null-guard enforces SEQUENTIAL default; explicit null is impossible
+        // after construction via @JsonCreator (DistributionMode.fromWireFormat handles unknowns).
+        if (distributionMode == null) {
+            throw new IllegalArgumentException("distributionMode must not be null");
         }
     }
 
@@ -289,7 +299,13 @@ public final class DraftSection {
         return groupCount;
     }
 
-    public String getGameMode() {
+    /**
+     * Returns the game mode for this phase.
+     *
+     * @return the {@link GameMode} enum constant; never {@code null}
+     * @see <a href="E51S20">E51S20 — migrated from String to GameMode enum</a>
+     */
+    public GameMode getGameMode() {
         return gameMode;
     }
 
@@ -316,10 +332,12 @@ public final class DraftSection {
     /**
      * Returns the team distribution algorithm for Phase-1 avatar assignment.
      *
-     * @return {@code "sequential"} (default) or {@code "round_robin"} (legacy)
+     * @return the {@link DistributionMode} enum constant; never {@code null} (defaults to {@link
+     *     DistributionMode#SEQUENTIAL} when absent/null in draft_json)
      * @see <a href="E51S15">E51S15 — distributionMode feature</a>
+     * @see <a href="E51S20">E51S20 — migrated from String to DistributionMode enum</a>
      */
-    public String getDistributionMode() {
+    public DistributionMode getDistributionMode() {
         return distributionMode;
     }
 }

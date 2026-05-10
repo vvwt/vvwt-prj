@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.slotopt.SlotOptimizationClient;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import de.vvwt.tm.tournament.draft.DistributionMode;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftSection;
+import de.vvwt.tm.tournament.draft.GameMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -189,7 +191,8 @@ class DefaultDraftServiceDistributionModeIT {
             "apply() with distributionMode=sequential assigns teams to groups in sequential order"
                     + " (AC-TEST-PERSIST-AVATARS-SEQUENTIAL-RED)")
     void apply_withSequentialMode_assignsTeamsSequentially() {
-        DraftConfig config = singlePhaseConfig("sequential", 2, "roundRobin");
+        DraftConfig config =
+                singlePhaseConfig(DistributionMode.SEQUENTIAL, 2, GameMode.ROUND_ROBIN);
 
         List<UUID> phaseIds = draftService.apply(tournament12, config);
         assertThat(phaseIds).hasSize(2);
@@ -261,7 +264,8 @@ class DefaultDraftServiceDistributionModeIT {
             "apply() with distributionMode=round_robin assigns teams in round-robin order"
                     + " (AC-TEST-PERSIST-AVATARS-ROUND-ROBIN-RED)")
     void apply_withRoundRobinMode_assignsTeamsRoundRobin() {
-        DraftConfig config = singlePhaseConfig("round_robin", 2, "roundRobin");
+        DraftConfig config =
+                singlePhaseConfig(DistributionMode.ROUND_ROBIN, 2, GameMode.ROUND_ROBIN);
 
         List<UUID> phaseIds = draftService.apply(tournament12, config);
         assertThat(phaseIds).hasSize(2);
@@ -334,15 +338,16 @@ class DefaultDraftServiceDistributionModeIT {
     void apply_withDefaultMode_assignsTeamsSequentially() {
         // DraftSection constructed without distributionMode → defaults to "sequential"
         DraftSection phase1 =
-                new DraftSection(1, "team_number", 2, "roundRobin", 0, 0, 15, 1, List.of());
+                new DraftSection(1, "team_number", 2, GameMode.ROUND_ROBIN, 0, 0, 15, 1, List.of());
         DraftSection phase2 =
-                new DraftSection(2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, List.of());
+                new DraftSection(
+                        2, "team_number", 1, GameMode.SIEGEREHRUNG, 0, 0, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(phase1, phase2));
 
         // Verify the constructed section's default distributionMode
         assertThat(phase1.getDistributionMode())
-                .as("DraftSection default distributionMode must be 'sequential'")
-                .isEqualTo("sequential");
+                .as("DraftSection default distributionMode must be SEQUENTIAL")
+                .isEqualTo(DistributionMode.SEQUENTIAL);
 
         List<UUID> phaseIds = draftService.apply(tournament12, config);
         assertThat(phaseIds).hasSize(2);
@@ -400,7 +405,7 @@ class DefaultDraftServiceDistributionModeIT {
      * distributionMode}) + Phase 2 (siegerehrung, 1 group).
      */
     private static DraftConfig singlePhaseConfig(
-            String distributionMode, int groupCount, String gameMode) {
+            DistributionMode distributionMode, int groupCount, GameMode gameMode) {
         DraftSection phase1 =
                 new DraftSection(
                         1,
@@ -415,7 +420,16 @@ class DefaultDraftServiceDistributionModeIT {
                         distributionMode);
         DraftSection phase2 =
                 new DraftSection(
-                        2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, List.of(), "sequential");
+                        2,
+                        "team_number",
+                        1,
+                        GameMode.SIEGEREHRUNG,
+                        0,
+                        0,
+                        15,
+                        1,
+                        List.of(),
+                        DistributionMode.SEQUENTIAL);
         return new DraftConfig(List.of(phase1, phase2));
     }
 

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftSection;
+import de.vvwt.tm.tournament.draft.GameMode;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -33,7 +34,8 @@ class DraftResponseTest {
     @Test
     void from_withOneSection_mapsToResponseSection() {
         DraftSection section =
-                new DraftSection(1, "team_number", 2, "roundrobin", 5, 10, 15, 1, List.of());
+                new DraftSection(
+                        1, "team_number", 2, GameMode.ROUND_ROBIN, 5, 10, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(section));
         DraftResponse response = DraftResponse.from(config);
 

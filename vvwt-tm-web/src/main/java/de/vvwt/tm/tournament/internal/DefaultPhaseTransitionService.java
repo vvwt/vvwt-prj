@@ -14,6 +14,7 @@ import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.draft.DistributionMode;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftSection;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
@@ -368,9 +369,9 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
         //
         // AC-TEST-COMPUTE-PHASE-1-PROPOSALS-SEQUENTIAL-RED,
         // AC-TEST-COMPUTE-PHASE-1-PROPOSALS-ROUND-ROBIN-RED
-        String distributionMode = toSection.getDistributionMode();
+        DistributionMode distributionMode = toSection.getDistributionMode();
         int positionsPerGroup =
-                "round_robin".equals(distributionMode)
+                distributionMode == DistributionMode.ROUND_ROBIN
                         ? 0 // unused for round_robin
                         : (teamCount + groupCount - 1) / groupCount;
 
@@ -379,11 +380,11 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
             Team team = participating.get(i);
             int targetGroup;
             int targetPosition;
-            if ("round_robin".equals(distributionMode)) {
+            if (distributionMode == DistributionMode.ROUND_ROBIN) {
                 targetGroup = (i % groupCount) + 1;
                 targetPosition = (i / groupCount) + 1;
             } else {
-                // "sequential" (default)
+                // SEQUENTIAL (default) — E51S20: enum type enforces valid values
                 targetGroup = (i / positionsPerGroup) + 1;
                 targetPosition = (i % positionsPerGroup) + 1;
             }

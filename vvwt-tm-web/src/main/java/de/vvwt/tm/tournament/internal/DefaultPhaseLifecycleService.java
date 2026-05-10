@@ -11,6 +11,7 @@ import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftSection;
+import de.vvwt.tm.tournament.draft.GameMode;
 import de.vvwt.tm.tournament.events.PhaseStatusChangedEvent;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import java.util.List;
@@ -531,7 +532,7 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
             if (index < 0 || index >= sections.size()) {
                 return false;
             }
-            return "siegerehrung".equals(sections.get(index).getGameMode());
+            return sections.get(index).getGameMode() == GameMode.SIEGEREHRUNG;
         } catch (Exception e) {
             log.warn(
                     "[E51S18] isSiegerehrungPhase: failed to parse draftJson for tournament {}"

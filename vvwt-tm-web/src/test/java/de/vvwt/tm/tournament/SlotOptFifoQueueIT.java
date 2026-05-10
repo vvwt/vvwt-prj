@@ -7,6 +7,7 @@ import de.vvwt.tm.slotopt.SlotOptimizationClient;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftSection;
+import de.vvwt.tm.tournament.draft.GameMode;
 import de.vvwt.tm.tournament.events.OptimizePhaseRequestedEvent;
 import de.vvwt.tm.tournament.events.SlotOptJobCompletedEvent;
 import de.vvwt.tm.tournament.events.SlotOptJobScheduledEvent;
@@ -585,11 +586,19 @@ class SlotOptFifoQueueIT {
 
     private static DraftSection buildRoundRobinSection(int sectionNumber, int groupCount) {
         return new DraftSection(
-                sectionNumber, "team_number", groupCount, "roundRobin", 3, 0, 12, 1, List.of());
+                sectionNumber,
+                "team_number",
+                groupCount,
+                GameMode.ROUND_ROBIN,
+                3,
+                0,
+                12,
+                1,
+                List.of());
     }
 
     private static DraftSection buildSiegerehrungSection(int sectionNumber) {
         return new DraftSection(
-                sectionNumber, "team_number", 1, "siegerehrung", 0, 0, 5, 1, List.of());
+                sectionNumber, "team_number", 1, GameMode.SIEGEREHRUNG, 0, 0, 5, 1, List.of());
     }
 }

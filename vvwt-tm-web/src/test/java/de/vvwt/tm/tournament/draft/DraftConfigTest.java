@@ -73,7 +73,8 @@ class DraftConfigTest {
     @Test
     void constructor_withSections_storesCopy() {
         DraftSection section =
-                new DraftSection(1, "team_number", 2, "roundRobin", 5, 10, 15, 1, List.of());
+                new DraftSection(
+                        1, "team_number", 2, GameMode.ROUND_ROBIN, 5, 10, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(section));
 
         assertThat(config.getSections()).hasSize(1);
@@ -96,11 +97,14 @@ class DraftConfigTest {
     @Test
     void validateLastPhaseSiegerehrung_withLastPhaseRoundrobin_throwsIdentifyingSection() {
         DraftSection phase1 =
-                new DraftSection(1, "team_number", 2, "roundRobin", 5, 10, 15, 1, List.of());
+                new DraftSection(
+                        1, "team_number", 2, GameMode.ROUND_ROBIN, 5, 10, 15, 1, List.of());
         DraftSection phase2 =
-                new DraftSection(2, "team_number", 1, "siegerehrung", 5, 10, 15, 1, List.of());
+                new DraftSection(
+                        2, "team_number", 1, GameMode.SIEGEREHRUNG, 5, 10, 15, 1, List.of());
         DraftSection phase3 =
-                new DraftSection(3, "team_number", 1, "roundRobin", 5, 10, 15, 1, List.of());
+                new DraftSection(
+                        3, "team_number", 1, GameMode.ROUND_ROBIN, 5, 10, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(phase1, phase2, phase3));
 
         assertThatThrownBy(config::validateLastPhaseSiegerehrung)
@@ -118,9 +122,11 @@ class DraftConfigTest {
     @Test
     void validateLastPhaseSiegerehrung_withLastPhaseSiegerehrung_passes() {
         DraftSection phase1 =
-                new DraftSection(1, "team_number", 2, "roundRobin", 5, 10, 15, 1, List.of());
+                new DraftSection(
+                        1, "team_number", 2, GameMode.ROUND_ROBIN, 5, 10, 15, 1, List.of());
         DraftSection phase2 =
-                new DraftSection(2, "team_number", 1, "siegerehrung", 5, 10, 15, 1, List.of());
+                new DraftSection(
+                        2, "team_number", 1, GameMode.SIEGEREHRUNG, 5, 10, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(phase1, phase2));
 
         config.validateLastPhaseSiegerehrung(); // must not throw
@@ -157,9 +163,11 @@ class DraftConfigTest {
     @Test
     void validateFirstPhaseTeamNumber_withFirstPhasePlacementGroup_throwsIdentifyingSection() {
         DraftSection phase1 =
-                new DraftSection(1, "placement_group", 2, "roundRobin", 5, 10, 15, 1, List.of());
+                new DraftSection(
+                        1, "placement_group", 2, GameMode.ROUND_ROBIN, 5, 10, 15, 1, List.of());
         DraftSection phase2 =
-                new DraftSection(2, "team_number", 1, "siegerehrung", 5, 10, 15, 1, List.of());
+                new DraftSection(
+                        2, "team_number", 1, GameMode.SIEGEREHRUNG, 5, 10, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(phase1, phase2));
 
         assertThatThrownBy(config::validateFirstPhaseTeamNumber)
@@ -179,9 +187,11 @@ class DraftConfigTest {
     @Test
     void validateFirstPhaseTeamNumber_withFirstPhaseGroupPlacement_throwsIdentifyingSection() {
         DraftSection phase1 =
-                new DraftSection(1, "group_placement", 2, "roundRobin", 5, 10, 15, 1, List.of());
+                new DraftSection(
+                        1, "group_placement", 2, GameMode.ROUND_ROBIN, 5, 10, 15, 1, List.of());
         DraftSection phase2 =
-                new DraftSection(2, "team_number", 1, "siegerehrung", 5, 10, 15, 1, List.of());
+                new DraftSection(
+                        2, "team_number", 1, GameMode.SIEGEREHRUNG, 5, 10, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(phase1, phase2));
 
         assertThatThrownBy(config::validateFirstPhaseTeamNumber)
@@ -203,11 +213,14 @@ class DraftConfigTest {
     @Test
     void validateFirstPhaseTeamNumber_withFirstPhaseTeamNumber_passes() {
         DraftSection phase1 =
-                new DraftSection(1, "team_number", 2, "roundRobin", 5, 10, 15, 1, List.of());
+                new DraftSection(
+                        1, "team_number", 2, GameMode.ROUND_ROBIN, 5, 10, 15, 1, List.of());
         DraftSection phase2 =
-                new DraftSection(2, "placement_group", 1, "roundRobin", 5, 10, 15, 1, List.of());
+                new DraftSection(
+                        2, "placement_group", 1, GameMode.ROUND_ROBIN, 5, 10, 15, 1, List.of());
         DraftSection phase3 =
-                new DraftSection(3, "group_placement", 1, "siegerehrung", 5, 10, 15, 1, List.of());
+                new DraftSection(
+                        3, "group_placement", 1, GameMode.SIEGEREHRUNG, 5, 10, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(phase1, phase2, phase3));
 
         config.validateFirstPhaseTeamNumber(); // must not throw

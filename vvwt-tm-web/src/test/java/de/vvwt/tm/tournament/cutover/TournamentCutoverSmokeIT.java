@@ -8,6 +8,7 @@ import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.draft.GameMode;
 import de.vvwt.tm.tournament.internal.dto.TeamBulkCreateRequest;
 import de.vvwt.tm.tournament.internal.dto.TeamBulkCreateResponse;
 import de.vvwt.tm.tournament.internal.dto.TeamCreateRequest;
@@ -187,10 +188,10 @@ class TournamentCutoverSmokeIT {
             // is required here.
             var section1 =
                     new DraftSectionRequest(
-                            1, "team_number", 1, "roundRobin", 0, 0, 15, 1, null, null);
+                            1, "team_number", 1, GameMode.ROUND_ROBIN, 0, 0, 15, 1, null, null);
             var section2 =
                     new DraftSectionRequest(
-                            2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, null, null);
+                            2, "team_number", 1, GameMode.SIEGEREHRUNG, 0, 0, 15, 1, null, null);
             var draftRequest = new DraftRequest(List.of(section1, section2));
             ResponseEntity<DraftApplyResponse> draftResp =
                     authed.postForEntity(

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tournament.draft.DraftConfig;
+import de.vvwt.tm.tournament.draft.GameMode;
 import de.vvwt.tm.tournament.exceptions.TournamentResetPlanActiveException;
 import de.vvwt.tm.tournament.exceptions.TournamentResetPlanCancelledException;
 import de.vvwt.tm.tournament.exceptions.TournamentResetPlanCompletedException;
@@ -218,7 +219,7 @@ class DefaultDraftServiceResetPlanIT {
                                         1,
                                         "team_number",
                                         2,
-                                        "roundRobin",
+                                        GameMode.ROUND_ROBIN,
                                         0,
                                         0,
                                         15,
