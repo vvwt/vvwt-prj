@@ -515,18 +515,18 @@ public class DefaultLaufzettelAssembler implements LaufzettelAssembler {
                     opponentName = opp != null ? teamDisplayName(opp) : "";
                 }
                 Integer field = fieldByTeam.get(teamId);
-                // E53S07: Match.fieldNumber is 0-based (slot-opt assigns 0..N-1); display is
-                // 1-based (venue signage starts at 1). Apply +1 at the read side only — storage
-                // and all other consumers (scoring device-field comparison, slot-opt position
-                // arithmetic) are unaffected. Null guard preserved for unassigned matches.
-                String fieldStr = field != null ? String.valueOf(field + 1) : "";
+                // DEC-60 D-1 / E53S09: Match.fieldNumber is now 1-based at storage level
+                // (L2 DefaultRoundAssignmentService and L3 SlotResultApplicator both emit
+                // fieldNumber ∈ [1..K]). The E53S07 read-side +1 is reverted — no adjustment
+                // needed here. Null guard preserved for unassigned matches.
+                String fieldStr = field != null ? String.valueOf(field) : "";
                 rows.add(LaufzettelRow.playing(lapNumber, timeWindow, opponentName, fieldStr));
 
             } else if (refereeTeams.contains(teamId)) {
                 // REFEREEING — AC5 (E53S02: include match team pair context)
                 Integer field = refereeFieldByTeam.get(teamId);
-                // E53S07: same +1 conversion for REFEREEING row (see PLAYING comment above).
-                String fieldStr = field != null ? String.valueOf(field + 1) : "";
+                // DEC-60 D-1 / E53S09: same revert of E53S07 read-side +1 (see PLAYING comment).
+                String fieldStr = field != null ? String.valueOf(field) : "";
                 String[] matchTeams = refereeMatchTeamsByTeam.get(teamId);
                 String teamAName =
                         (matchTeams != null && matchTeams.length > 0) ? matchTeams[0] : "";

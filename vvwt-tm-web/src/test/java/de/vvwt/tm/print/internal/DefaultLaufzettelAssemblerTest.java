@@ -187,10 +187,10 @@ class DefaultLaufzettelAssemblerTest {
         assertThat(row.isPlaying()).as("team1 must be PLAYING").isTrue();
         assertThat(row.roundNumber()).as("round 1").isEqualTo(1);
         assertThat(row.opponentName()).as("opponent is team2 — Blaue Haie").isEqualTo("Blaue Haie");
-        // matchLap1 uses fieldNumber=2 (0-based stored); E53S07 fix: displays as "3" (1-based)
+        // matchLap1 uses fieldNumber=2 (1-based stored per DEC-60 D-1 / E53S09); displays as "2"
         assertThat(row.fieldNumber())
-                .as("field 2 (0-based) displays as \"3\" (1-based)")
-                .isEqualTo("3");
+                .as("field 2 (1-based per DEC-60 D-1) displays as \"2\"")
+                .isEqualTo("2");
         assertThat(row.isRefereeing()).isFalse();
         assertThat(row.isActivity()).isFalse();
         assertThat(row.isFree()).isFalse();
@@ -261,10 +261,10 @@ class DefaultLaufzettelAssemblerTest {
         LaufzettelRow row = rows.get(0);
         assertThat(row.isRefereeing()).as("team3 must be REFEREEING").isTrue();
         assertThat(row.roundNumber()).isEqualTo(1);
-        // matchWithRef uses fieldNumber=3 (0-based stored); E53S07 fix: displays as "4" (1-based)
+        // matchWithRef uses fieldNumber=3 (1-based stored per DEC-60 D-1 / E53S09); displays as "3"
         assertThat(row.fieldNumber())
-                .as("field 3 (0-based) displays as \"4\" (1-based)")
-                .isEqualTo("4");
+                .as("field 3 (1-based per DEC-60 D-1) displays as \"3\"")
+                .isEqualTo("3");
         assertThat(row.isPlaying()).isFalse();
         assertThat(row.isActivity()).isFalse();
         assertThat(row.isFree()).isFalse();
@@ -972,16 +972,18 @@ class DefaultLaufzettelAssemblerTest {
     // =========================================================================
 
     /**
-     * AC1 (testing — RED-first reproduction, PLAYING row): field=0 (0-based stored) must render as
-     * "1" in the PLAYING row Feld column — never "0". RED before fix: currently renders "0".
+     * AC1 (testing — PLAYING row): field=1 (1-based stored per DEC-60 D-1) must render as "1" in
+     * the PLAYING row Feld column. After E53S09 revert of E53S07 read-side +1, the stored value is
+     * passed through directly — no conversion.
      *
-     * <p>Per DEC-22 Iron Law RED-first. Commit hash of RED state documented in impl-report.
+     * <p>History: E53S07 stored field=0 (0-based) and applied +1 at read side. E53S09 moves the fix
+     * to write side (DEC-60 D-1): L2/L3/Fallback emit 1-based; read side passes through unchanged.
      */
     @Test
-    @DisplayName("AC1-E53S07-RED: PLAYING row field=0 (0-based) renders as \"1\" (1-based display)")
-    void fieldNumber_playingRow_isOneBased_field0() {
+    @DisplayName("AC1-E53S09: PLAYING row field=1 (1-based stored) renders as \"1\"")
+    void fieldNumber_playingRow_isOneBased_field1() {
         Tournament tournament = noTimeT();
-        Match matchField0 =
+        Match matchField1 =
                 new Match(
                         UUID.randomUUID(),
                         TOURNAMENT_ID,
@@ -991,7 +993,7 @@ class DefaultLaufzettelAssemblerTest {
                         0,
                         1,
                         1 /* lapNumber */,
-                        0 /* fieldNumber — 0-based stored */,
+                        1 /* fieldNumber — 1-based stored per DEC-60 D-1 */,
                         null,
                         null,
                         null,
@@ -1003,7 +1005,7 @@ class DefaultLaufzettelAssemblerTest {
                         phases(phase1),
                         teams(team1, team2),
                         avatars(PHASE_ID, avatar1, avatar2),
-                        matches(PHASE_ID, matchField0),
+                        matches(PHASE_ID, matchField1),
                         Collections.emptyMap(),
                         Collections.emptyList(),
                         0);
@@ -1011,20 +1013,18 @@ class DefaultLaufzettelAssemblerTest {
         LaufzettelRow row = result.get(TEAM1_ID).get(0);
         assertThat(row.isPlaying()).as("must be PLAYING row").isTrue();
         assertThat(row.fieldNumber())
-                .as("field=0 (0-based) must display as \"1\" (1-based) — never \"0\"")
+                .as("field=1 (1-based stored per DEC-60 D-1) must display as \"1\"")
                 .isEqualTo("1");
     }
 
     /**
-     * AC2 (testing — RED-first reproduction, REFEREEING row): field=0 (0-based stored) must render
-     * as "1" in the REFEREEING row Feld column — never "0". RED before fix.
-     *
-     * <p>Per DEC-22 Iron Law RED-first.
+     * AC2 (testing — REFEREEING row): field=1 (1-based stored per DEC-60 D-1) must render as "1" in
+     * the REFEREEING row Feld column. E53S09 revert of E53S07 read-side +1 — stored value passed
+     * through unchanged.
      */
     @Test
-    @DisplayName(
-            "AC2-E53S07-RED: REFEREEING row field=0 (0-based) renders as \"1\" (1-based display)")
-    void fieldNumber_refereeingRow_isOneBased_field0() {
+    @DisplayName("AC2-E53S09: REFEREEING row field=1 (1-based stored) renders as \"1\"")
+    void fieldNumber_refereeingRow_isOneBased_field1() {
         Tournament tournament = noTimeT();
         Match matchWithRef =
                 new Match(
@@ -1036,7 +1036,7 @@ class DefaultLaufzettelAssemblerTest {
                         0,
                         1,
                         1 /* lapNumber */,
-                        0 /* fieldNumber — 0-based stored */,
+                        1 /* fieldNumber — 1-based stored per DEC-60 D-1 */,
                         TEAM3_ID /* referee */,
                         null,
                         null,
@@ -1056,21 +1056,20 @@ class DefaultLaufzettelAssemblerTest {
         LaufzettelRow row = result.get(TEAM3_ID).get(0);
         assertThat(row.isRefereeing()).as("must be REFEREEING row").isTrue();
         assertThat(row.fieldNumber())
-                .as("field=0 (0-based) must display as \"1\" (1-based) — never \"0\"")
+                .as("field=1 (1-based stored per DEC-60 D-1) must display as \"1\"")
                 .isEqualTo("1");
     }
 
     /**
-     * AC3 (testing — boundary): For a fixture using all three fields (fieldNumber=0,1,2 stored),
-     * the rendered field column must contain exactly {"1","2","3"} across all assembled PLAYING
-     * rows — never contains "0". RED before fix: currently contains "0".
-     *
-     * <p>Per DEC-22 Iron Law RED-first.
+     * AC3 (testing — boundary): For a fixture using all three fields (fieldNumber=1,2,3 stored
+     * 1-based per DEC-60 D-1), the rendered field column must contain exactly {"1","2","3"} across
+     * all assembled PLAYING rows — never contains "0". E53S09 revert of E53S07 read-side +1: stored
+     * values pass through unchanged.
      */
     @Test
     @DisplayName(
-            "AC3-E53S07-RED: 3-field fixture — PLAYING rows contain {\"1\",\"2\",\"3\"} never"
-                    + " \"0\"")
+            "AC3-E53S09: 3-field fixture — PLAYING rows contain {\"1\",\"2\",\"3\"} never \"0\""
+                    + " (1-based stored per DEC-60 D-1)")
     void fieldNumber_threeFields_neverZero_exactlyOneTwoThree() {
         Tournament tournament = noTimeT();
         UUID av1b = UUID.fromString("00000000-0000-0000-0053-000000000001");
@@ -1086,8 +1085,8 @@ class DefaultLaufzettelAssemblerTest {
         TeamAvatar avT2c =
                 new TeamAvatar(av2c, TOURNAMENT_ID, PHASE_ID, 1, 2, TEAM2_ID, null, null);
 
-        // 3 matches on 3 different 0-based fields
-        Match matchField0 =
+        // 3 matches on 3 different 1-based fields (DEC-60 D-1 / E53S09)
+        Match matchField1 =
                 new Match(
                         UUID.randomUUID(),
                         TOURNAMENT_ID,
@@ -1097,22 +1096,7 @@ class DefaultLaufzettelAssemblerTest {
                         0,
                         1,
                         1,
-                        0 /* field 0 */,
-                        null,
-                        null,
-                        null,
-                        null);
-        Match matchField1 =
-                new Match(
-                        UUID.randomUUID(),
-                        TOURNAMENT_ID,
-                        PHASE_ID,
-                        av1b,
-                        av2b,
-                        0,
-                        1,
-                        2,
-                        1 /* field 1 */,
+                        1 /* field 1 — 1-based per DEC-60 D-1 */,
                         null,
                         null,
                         null,
@@ -1122,12 +1106,27 @@ class DefaultLaufzettelAssemblerTest {
                         UUID.randomUUID(),
                         TOURNAMENT_ID,
                         PHASE_ID,
+                        av1b,
+                        av2b,
+                        0,
+                        1,
+                        2,
+                        2 /* field 2 — 1-based per DEC-60 D-1 */,
+                        null,
+                        null,
+                        null,
+                        null);
+        Match matchField3 =
+                new Match(
+                        UUID.randomUUID(),
+                        TOURNAMENT_ID,
+                        PHASE_ID,
                         av1c,
                         av2c,
                         0,
                         1,
                         3,
-                        2 /* field 2 */,
+                        3 /* field 3 — 1-based per DEC-60 D-1 */,
                         null,
                         null,
                         null,
@@ -1140,7 +1139,7 @@ class DefaultLaufzettelAssemblerTest {
                         phases(phase1),
                         teams(team1, team2),
                         Map.of(PHASE_ID, List.of(avatar1, avatar2, avT1b, avT2b, avT1c, avT2c)),
-                        Map.of(PHASE_ID, List.of(matchField0, matchField1, matchField2)),
+                        Map.of(PHASE_ID, List.of(matchField1, matchField2, matchField3)),
                         Collections.emptyMap(),
                         Collections.emptyList(),
                         0);
@@ -1161,13 +1160,18 @@ class DefaultLaufzettelAssemblerTest {
 
     /**
      * AC8 (error-handling — null/edge case): fieldNumber == null must render as empty string "".
-     * This is a REGRESSION GUARD — must pass before AND after the fix. Existing behavior preserved:
-     * null field → empty display cell.
+     *
+     * <p>AC-ERROR-HANDLING-NULL-FIELDNUMBER-PRESERVED (E53S09 / DEC-60 D-1): after the E53S07
+     * read-side +1 revert, the existing {@code field != null} guard at lines 522/529 of {@link
+     * DefaultLaufzettelAssembler} is preserved unchanged. Null fieldNumber (e.g., during the brief
+     * window between L1 match-creation and L2 round-assignment) renders as empty string "".
+     * Regression guard — must pass before AND after E53S09 migration.
      */
     @Test
     @DisplayName(
-            "AC8-E53S07: fieldNumber == null renders as empty string for both PLAYING and"
-                    + " REFEREEING rows (regression guard)")
+            "AC-ERROR-HANDLING-NULL-FIELDNUMBER-PRESERVED / AC8-E53S09: fieldNumber == null"
+                    + " renders as empty string for PLAYING and REFEREEING rows (E53S09 regression"
+                    + " guard)")
     void fieldNumber_null_rendersEmptyString() {
         Tournament tournament = noTimeT();
 

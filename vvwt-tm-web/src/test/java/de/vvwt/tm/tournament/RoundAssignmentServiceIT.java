@@ -266,8 +266,9 @@ class RoundAssignmentServiceIT {
 
     @Test
     @DisplayName(
-            "AC-TEST-L2-WRITES-LAP-FIELD-12T-3F-22-LAPS-RED: 12 teams 1 group fieldCount=3"
-                    + " → 22 laps, all lapNumbers in [0,21], all fieldNumbers in [0,2]")
+            "AC-TEST-L2-WRITES-LAP-FIELD-12T-3F-22-LAPS-RED: 12 teams 1 group fieldCount=3 → 22"
+                + " laps, all lapNumbers in [1,23], all fieldNumbers in [1,3] (1-based per DEC-60"
+                + " D-1)")
     void assignRoundsAndFields_12teams_1group_3fields_produces22Laps() {
         // Arrange: 12 teams, 1 group → 12*11/2 = 66 matches
         createTournament(3);
@@ -301,12 +302,12 @@ class RoundAssignmentServiceIT {
                         .orElse(-1);
         assertThat(maxLap).isLessThanOrEqualTo(23); // 1-based: at most 23 laps (1..23); greedy
 
-        // Assert: fieldNumbers in [0, 2]
+        // Assert: fieldNumbers in [1, 3] (1-based per DEC-60 D-1 — E53S09: field 0 is forbidden)
         assertThat(rows)
                 .allSatisfy(
                         row ->
                                 assertThat(((Number) row.get("field_number")).intValue())
-                                        .isBetween(0, 2));
+                                        .isBetween(1, 3));
 
         // Assert: at most fieldCount=3 matches per lap
         Map<Integer, Long> matchesPerLap = new HashMap<>();
@@ -415,12 +416,12 @@ class RoundAssignmentServiceIT {
 
     @Test
     @DisplayName(
-            "AC-TEST-FIELD-COUNT-CLAMP-RED: partial last lap occupies only fieldNumber 0..k-1,"
-                    + " no virtual field beyond actual matches")
+            "AC-TEST-FIELD-COUNT-CLAMP-RED: partial last lap occupies only fieldNumber 1..k,"
+                    + " no virtual field beyond actual matches (1-based per DEC-60 D-1)")
     void assignRoundsAndFields_fieldCountClamp_noVirtualFields() {
         // Arrange: 4 teams, 1 group, fieldCount=4 → 6 matches
-        // With fieldCount=4: lap0=[0..3]=4, lap1=[4..5]=2 → last lap has 2 matches
-        // fieldNumbers in last lap should be 0,1 (NOT 0,1,2,3)
+        // With fieldCount=4: lap1=[1..4]=4, lap2=[5..6]=2 (1-based laps) → last lap has 2 matches
+        // fieldNumbers in last lap should be 1,2 (NOT 1,2,3,4) — 1-based per DEC-60 D-1
         createTournament(4);
         UUID phaseId = createPhase(1);
         List<UUID> avatars = insertAvatars(phaseId, 4);
@@ -429,11 +430,19 @@ class RoundAssignmentServiceIT {
         // Act
         roundAssignmentService.assignRoundsAndFields(phaseId, 4);
 
-        // Assert: all fieldNumbers ≤ (actual matches in that lap - 1)
+        // Assert: all fieldNumbers ≥ 1 (1-based per DEC-60 D-1 — E53S09)
         List<Map<String, Object>> rows =
                 jdbcTemplate.queryForList(
                         "SELECT lap_number, field_number FROM match WHERE phase_id = ?", phaseId);
         assertThat(rows).hasSize(6);
+
+        // All field numbers are 1-based
+        assertThat(rows)
+                .allSatisfy(
+                        row ->
+                                assertThat(((Number) row.get("field_number")).intValue())
+                                        .as("fieldNumber must be ≥ 1 (1-based per DEC-60 D-1)")
+                                        .isGreaterThanOrEqualTo(1));
 
         // Count matches per lap
         Map<Integer, List<Integer>> fieldsByLap = new HashMap<>();
@@ -443,12 +452,15 @@ class RoundAssignmentServiceIT {
             fieldsByLap.computeIfAbsent(lap, k -> new java.util.ArrayList<>()).add(field);
         }
 
-        // Each lap: fieldNumbers should be exactly {0, 1, ..., matchCount-1}
+        // Each lap: fieldNumbers should be exactly {1, 2, ..., matchCount} (1-based)
         for (Map.Entry<Integer, List<Integer>> entry : fieldsByLap.entrySet()) {
             List<Integer> fields = entry.getValue();
-            int expectedMax = fields.size() - 1;
+            int expectedMax = fields.size(); // 1-based: max = matchCount (NOT matchCount-1)
             assertThat(fields.stream().mapToInt(i -> i).max().orElse(-1))
-                    .as("lap %d: max fieldNumber should equal matchCount-1", entry.getKey())
+                    .as(
+                            "lap %d: max fieldNumber should equal matchCount=%d (1-based per"
+                                    + " DEC-60 D-1)",
+                            entry.getKey(), expectedMax)
                     .isEqualTo(expectedMax);
         }
     }
@@ -458,7 +470,7 @@ class RoundAssignmentServiceIT {
     @Test
     @DisplayName(
             "AC-TEST-TOURNAMENT-FIELDCOUNT-WIRED-RED: tournament.fieldCount=5 → L2 assigns"
-                    + " fieldNumbers in [0,4]")
+                    + " fieldNumbers in [1,5] (1-based per DEC-60 D-1)")
     void assignRoundsAndFields_tournamentFieldCount5_usedCorrectly() {
         // Arrange: tournament with fieldCount=5; 6 teams → 15 matches
         createTournament(5);
@@ -469,7 +481,8 @@ class RoundAssignmentServiceIT {
         // Act: pass fieldCount=5 explicitly (simulating what MatchGenJobExecutor will pass)
         roundAssignmentService.assignRoundsAndFields(phaseId, 5);
 
-        // Assert: all fieldNumbers in [0, 4]
+        // Assert: all fieldNumbers in [1, 5] (1-based per DEC-60 D-1 — E53S09: field 0 is
+        // forbidden)
         List<Map<String, Object>> rows =
                 jdbcTemplate.queryForList(
                         "SELECT field_number FROM match WHERE phase_id = ?", phaseId);
@@ -478,7 +491,7 @@ class RoundAssignmentServiceIT {
                 .allSatisfy(
                         row ->
                                 assertThat(((Number) row.get("field_number")).intValue())
-                                        .isBetween(0, 4));
+                                        .isBetween(1, 5));
 
         // Assert: at most 5 matches per lap
         List<Map<String, Object>> laps =
@@ -617,6 +630,48 @@ class RoundAssignmentServiceIT {
         assertThat(minLap)
                 .as("MIN(lap_number) must be 1 (1-based — lap 0 is forbidden after E53S06 fix)")
                 .isEqualTo(1);
+    }
+
+    // ── E53S09: AC-TEST-L2-WRITES-1-BASED-FIELDNUMBER-DB-LEVEL-RED ─────────────────────────────
+
+    @Test
+    @DisplayName(
+            "E53S09-AC-TEST-L2-WRITES-1-BASED-FIELDNUMBER-DB-LEVEL-RED: after"
+                    + " assignRoundsAndFields, MIN(field_number)=1 AND MAX(field_number)=K"
+                    + " (1-based per DEC-60 D-1); 0 is forbidden")
+    void assignRoundsAndFields_2groups_fieldNumbers_are_1based() {
+        // DEC-60 D-1: L2 emits fieldNumber ∈ [1..K]; 0 is forbidden.
+        // RED before production change: line 203 writes fieldIdx (0-based) → MIN=0 → FAIL.
+        createTournament(3);
+        UUID phaseId = createPhase(1);
+        java.util.Map<Integer, Integer> groupSizes = new java.util.HashMap<>();
+        groupSizes.put(1, 6);
+        groupSizes.put(2, 6);
+        List<UUID> allAvatars = insertAvatarsByGroups(phaseId, groupSizes);
+        insertRoundRobinMatches(phaseId, allAvatars.subList(0, 6));
+        insertRoundRobinMatches(phaseId, allAvatars.subList(6, 12));
+
+        roundAssignmentService.assignRoundsAndFields(phaseId, 3);
+
+        Integer minField =
+                jdbcTemplate.queryForObject(
+                        "SELECT MIN(field_number) FROM match WHERE phase_id = ?",
+                        Integer.class,
+                        phaseId);
+        assertThat(minField)
+                .as(
+                        "MIN(field_number) must be 1 (1-based per DEC-60 D-1;"
+                                + " field 0 is forbidden after E53S09)")
+                .isEqualTo(1);
+
+        Integer maxField =
+                jdbcTemplate.queryForObject(
+                        "SELECT MAX(field_number) FROM match WHERE phase_id = ?",
+                        Integer.class,
+                        phaseId);
+        assertThat(maxField)
+                .as("MAX(field_number) must be ≤ K=3 (1-based: fields 1..3)")
+                .isLessThanOrEqualTo(3);
     }
 
     // ── AC-ERROR-HANDLING-FIELDCOUNT-INVALID ─────────────────────────────────

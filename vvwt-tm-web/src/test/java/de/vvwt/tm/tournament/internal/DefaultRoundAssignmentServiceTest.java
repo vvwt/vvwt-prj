@@ -283,13 +283,19 @@ class DefaultRoundAssignmentServiceTest {
 
         // Group 1: 1 match → 1 lap starting at offset 1 → lap 1 (1-based, E53S06)
         assertThat(m1.getLapNumber()).as("Group 1 match gets lap 1 (1-based, E53S06)").isEqualTo(1);
-        assertThat(m1.getFieldNumber()).as("Group 1 match gets field 0").isEqualTo(0);
+        // fieldIdx=0 → fieldNumber = 0 + 1 = 1 (1-based per DEC-60 D-1, E53S09)
+        assertThat(m1.getFieldNumber())
+                .as("Group 1 match gets field 1 (1-based per DEC-60 D-1)")
+                .isEqualTo(1);
 
         // Group 2: 1 match → 1 lap starting at offset 2 (Group 1 had 1 lap, starting at 1) → lap 2
         assertThat(m2.getLapNumber())
                 .as("Group 2 match gets lap 2 (after Group 1's lap, 1-based, E53S06)")
                 .isEqualTo(2);
-        assertThat(m2.getFieldNumber()).as("Group 2 match gets field 0").isEqualTo(0);
+        // fieldIdx=0 → fieldNumber = 0 + 1 = 1 (1-based per DEC-60 D-1, E53S09)
+        assertThat(m2.getFieldNumber())
+                .as("Group 2 match gets field 1 (1-based per DEC-60 D-1)")
+                .isEqualTo(1);
     }
 
     // ── Minimal lap count ──────────────────────────────────────────────────────────────────────
@@ -403,6 +409,70 @@ class DefaultRoundAssignmentServiceTest {
         assertThat(minLap)
                 .as("MIN(lapNumber) must be ≥ 1 (1-based; lap 0 is forbidden after E53S06 fix)")
                 .isGreaterThanOrEqualTo(1);
+    }
+
+    // ── E53S09: AC-TEST-L2-WRITES-1-BASED-FIELDNUMBER-UNIT-RED ────────────────────────────────
+
+    @Test
+    void k_field_assignment_produces_1_based_fieldNumbers_not_0_based() {
+        // AC-TEST-L2-WRITES-1-BASED-FIELDNUMBER-UNIT-RED (DEC-60 D-1, DEC-22 RED-first)
+        // For K=3 fields, the assigned fieldNumbers must be exactly {1, 2, 3} (NOT {0, 1, 2}).
+        // RED before production change: line 203 writes `fieldIdx` (0-based) → MIN=0 → FAIL.
+        UUID av1 = UUID.randomUUID();
+        UUID av2 = UUID.randomUUID();
+        UUID av3 = UUID.randomUUID();
+        UUID av4 = UUID.randomUUID();
+        UUID av5 = UUID.randomUUID();
+        UUID av6 = UUID.randomUUID();
+        UUID tid = UUID.randomUUID();
+
+        // K6 = 15 matches, fieldCount=3 → 5 laps × 3 fields
+        List<UUID> avs = List.of(av1, av2, av3, av4, av5, av6);
+        List<Match> matches = new ArrayList<>();
+        int idx = 0;
+        for (int a = 0; a < avs.size(); a++) {
+            for (int b = a + 1; b < avs.size(); b++) {
+                matches.add(
+                        makeMatch(
+                                makeUUID(String.format("%02d", idx++)),
+                                phaseId,
+                                tid,
+                                avs.get(a),
+                                avs.get(b)));
+            }
+        }
+
+        List<TeamAvatar> avatars = new ArrayList<>();
+        for (UUID av : avs) avatars.add(makeAvatar(av, phaseId, 1));
+
+        when(matchRepository.findByPhaseId(phaseId)).thenReturn(matches);
+        when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(avatars);
+        when(matchRepository.save(org.mockito.ArgumentMatchers.any(Match.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        service.assignRoundsAndFields(phaseId, 3);
+
+        // All fieldNumbers must be in [1, 3] (1-based per DEC-60 D-1); 0 is forbidden
+        int minField = matches.stream().mapToInt(Match::getFieldNumber).min().orElse(-1);
+        assertThat(minField)
+                .as(
+                        "MIN(fieldNumber) must be 1 (1-based per DEC-60 D-1); 0 is forbidden"
+                                + " (E53S09 RED-first)")
+                .isGreaterThanOrEqualTo(1);
+
+        int maxField = matches.stream().mapToInt(Match::getFieldNumber).max().orElse(-1);
+        assertThat(maxField)
+                .as("MAX(fieldNumber) must be ≤ K=3 (1-based: fields 1..3)")
+                .isLessThanOrEqualTo(3);
+
+        // The distinct field values must be exactly {1, 2, 3}
+        java.util.Set<Integer> distinctFields =
+                matches.stream()
+                        .map(Match::getFieldNumber)
+                        .collect(java.util.stream.Collectors.toSet());
+        assertThat(distinctFields)
+                .as("fieldNumbers must be exactly {1, 2, 3} for K=3 (1-based per DEC-60 D-1)")
+                .containsExactlyInAnyOrder(1, 2, 3);
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────────────────────
