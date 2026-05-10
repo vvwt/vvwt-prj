@@ -619,6 +619,48 @@ class RoundAssignmentServiceIT {
                 .isEqualTo(1);
     }
 
+    // ── E53S09: AC-TEST-L2-WRITES-1-BASED-FIELDNUMBER-DB-LEVEL-RED ─────────────────────────────
+
+    @Test
+    @DisplayName(
+            "E53S09-AC-TEST-L2-WRITES-1-BASED-FIELDNUMBER-DB-LEVEL-RED: after"
+                    + " assignRoundsAndFields, MIN(field_number)=1 AND MAX(field_number)=K"
+                    + " (1-based per DEC-60 D-1); 0 is forbidden")
+    void assignRoundsAndFields_2groups_fieldNumbers_are_1based() {
+        // DEC-60 D-1: L2 emits fieldNumber ∈ [1..K]; 0 is forbidden.
+        // RED before production change: line 203 writes fieldIdx (0-based) → MIN=0 → FAIL.
+        createTournament(3);
+        UUID phaseId = createPhase(1);
+        java.util.Map<Integer, Integer> groupSizes = new java.util.HashMap<>();
+        groupSizes.put(1, 6);
+        groupSizes.put(2, 6);
+        List<UUID> allAvatars = insertAvatarsByGroups(phaseId, groupSizes);
+        insertRoundRobinMatches(phaseId, allAvatars.subList(0, 6));
+        insertRoundRobinMatches(phaseId, allAvatars.subList(6, 12));
+
+        roundAssignmentService.assignRoundsAndFields(phaseId, 3);
+
+        Integer minField =
+                jdbcTemplate.queryForObject(
+                        "SELECT MIN(field_number) FROM match WHERE phase_id = ?",
+                        Integer.class,
+                        phaseId);
+        assertThat(minField)
+                .as(
+                        "MIN(field_number) must be 1 (1-based per DEC-60 D-1;"
+                                + " field 0 is forbidden after E53S09)")
+                .isEqualTo(1);
+
+        Integer maxField =
+                jdbcTemplate.queryForObject(
+                        "SELECT MAX(field_number) FROM match WHERE phase_id = ?",
+                        Integer.class,
+                        phaseId);
+        assertThat(maxField)
+                .as("MAX(field_number) must be ≤ K=3 (1-based: fields 1..3)")
+                .isLessThanOrEqualTo(3);
+    }
+
     // ── AC-ERROR-HANDLING-FIELDCOUNT-INVALID ─────────────────────────────────
 
     @Test

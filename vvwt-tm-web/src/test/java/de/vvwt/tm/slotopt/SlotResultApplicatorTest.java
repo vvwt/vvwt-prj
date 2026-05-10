@@ -401,6 +401,46 @@ class SlotResultApplicatorTest {
     }
 
     // =========================================================================
+    // E53S09: AC-TEST-L3-PRESERVES-1-BASED-FIELDNUMBER-RED (DEC-60 D-1, DEC-22 RED-first)
+    //
+    // Given: L2 fixture with 1-based lap and 1-based field (lap ∈ [1..lapCount], field ∈ [1..K]).
+    // After applyResult (any rank), MIN(fieldNumber) >= 1 (0 is forbidden per DEC-60 D-1).
+    //
+    // RED before production change: line 135 writes `outputField` (0-based 0..K-1) →
+    // MIN(fieldNumber) = 0 → FAIL.
+    // =========================================================================
+
+    @Test
+    void applyResult_identityRank_producesOneBased_fieldNumbers() {
+        // AC-TEST-L3-PRESERVES-1-BASED-FIELDNUMBER-RED: L3 output fieldNumbers must be 1-based.
+        UUID phaseId = UUID.randomUUID();
+        // 4 groups × 3 avatars = 12 matches (lapCount=4, fieldCount=3)
+        // Build fixture with 1-based L2 fields
+        Fixture f = buildMultiGroupFixtureOneBased(phaseId, 4, 3);
+        Map<UUID, int[]> l2Slots = l2SlotsByUuid(f.matches);
+        MappingResult mapping = buildMappingFromMatches(phaseId, f.avatars, f.matches);
+
+        when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
+        applicator.applyResult(0L, FIELD_COUNT, mapping);
+
+        ArgumentCaptor<Match> captor = ArgumentCaptor.forClass(Match.class);
+        verify(matchRepository, times(12)).save(captor.capture());
+        List<Match> saved = captor.getAllValues();
+
+        int minField = saved.stream().mapToInt(Match::getFieldNumber).min().orElse(-1);
+        assertThat(minField)
+                .as(
+                        "AC-TEST-L3-PRESERVES-1-BASED-FIELDNUMBER-RED: MIN(fieldNumber) must be"
+                                + " ≥ 1 after L3 (1-based per DEC-60 D-1; 0 is forbidden)")
+                .isGreaterThanOrEqualTo(1);
+
+        int maxField = saved.stream().mapToInt(Match::getFieldNumber).max().orElse(-1);
+        assertThat(maxField)
+                .as("MAX(fieldNumber) must be ≤ K=3 (1-based: fields 1..3)")
+                .isLessThanOrEqualTo(FIELD_COUNT);
+    }
+
+    // =========================================================================
     // Original error-path tests (unchanged — must remain GREEN)
     // =========================================================================
 
@@ -556,6 +596,74 @@ class SlotResultApplicatorTest {
             }
         }
         return result;
+    }
+
+    /**
+     * Builds a multi-group fixture with 1-based L2 fields (field ∈ [1..fieldCount]).
+     * Used for E53S09 RED-first tests that verify DEC-60 D-1 1-based convention is preserved.
+     */
+    private Fixture buildMultiGroupFixtureOneBased(
+            UUID phaseId, int groupCount, int avatarsPerGroup) {
+        List<TeamAvatar> avatars = new ArrayList<>();
+        for (int g = 1; g <= groupCount; g++) {
+            for (int pos = 1; pos <= avatarsPerGroup; pos++) {
+                avatars.add(
+                        new TeamAvatar(
+                                UUID.randomUUID(),
+                                TOURNAMENT_ID,
+                                phaseId,
+                                g,
+                                pos,
+                                UUID.randomUUID(),
+                                null,
+                                null));
+            }
+        }
+        // Build matches intra-group all-pair
+        Map<Integer, List<TeamAvatar>> byGroup = new HashMap<>();
+        for (TeamAvatar a : avatars) {
+            byGroup.computeIfAbsent(a.getGroupNumber(), k -> new ArrayList<>()).add(a);
+        }
+        List<Match> matches = new ArrayList<>();
+        for (List<TeamAvatar> groupAvatars : byGroup.values()) {
+            for (int i = 0; i < groupAvatars.size(); i++) {
+                for (int j = i + 1; j < groupAvatars.size(); j++) {
+                    matches.add(
+                            new Match(
+                                    UUID.randomUUID(),
+                                    TOURNAMENT_ID,
+                                    phaseId,
+                                    groupAvatars.get(i).getId(),
+                                    groupAvatars.get(j).getId(),
+                                    MatchState.OPEN.getLegacyCode(),
+                                    1,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null));
+                }
+            }
+        }
+        matches.sort((a, b) -> a.getId().toString().compareTo(b.getId().toString()));
+        // Assign 1-based L2 lap/field: lap ∈ [1..lapCount], field ∈ [1..FIELD_COUNT]
+        for (int i = 0; i < matches.size(); i++) {
+            matches.get(i).setLapNumber(i / FIELD_COUNT + 1); // 1-based lap
+            matches.get(i).setFieldNumber(i % FIELD_COUNT + 1); // 1-based field (DEC-60 D-1)
+        }
+        return new Fixture(avatars, matches);
+    }
+
+    /**
+     * Builds a MappingResult from pre-assigned matches (bypasses mapper's sort logic).
+     * Avatars are stubbed into teamAvatarRepository, matches into matchRepository.
+     */
+    private MappingResult buildMappingFromMatches(
+            UUID phaseId, List<TeamAvatar> avatars, List<Match> matches) {
+        when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(avatars);
+        when(matchRepository.findByPhaseId(phaseId)).thenReturn(matches);
+        return new PhaseToRawPhaseDefMapper(teamAvatarRepository, matchRepository).map(phaseId);
     }
 
     /** Builds TeamAvatars with given (groupNumber, groupPosition) pairs. */
