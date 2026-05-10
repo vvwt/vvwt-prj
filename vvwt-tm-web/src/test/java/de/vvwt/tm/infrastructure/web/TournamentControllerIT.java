@@ -134,7 +134,8 @@ class TournamentControllerIT {
                         "standardVolleyball",
                         "roundRobin",
                         null,
-                        null);
+                        null,
+                        null); // E53S05: seedMannschaftsfoto = null
 
         ResponseEntity<TournamentResponse> response =
                 authed.postForEntity(
@@ -173,7 +174,8 @@ class TournamentControllerIT {
                         "standardVolleyball",
                         "roundRobin",
                         null,
-                        null);
+                        null,
+                        null); // E53S05: seedMannschaftsfoto = null
         ResponseEntity<TournamentResponse> created =
                 authed.postForEntity(
                         new URI(baseUrl + "/api/tournaments"), create, TournamentResponse.class);
@@ -221,7 +223,8 @@ class TournamentControllerIT {
                         "standardVolleyball",
                         "roundRobin",
                         null,
-                        null);
+                        null,
+                        null); // E53S05: seedMannschaftsfoto = null
         TournamentResponse created =
                 authed.postForEntity(
                                 new URI(baseUrl + "/api/tournaments"),
@@ -264,7 +267,8 @@ class TournamentControllerIT {
                         "standardVolleyball",
                         "roundRobin",
                         null,
-                        null);
+                        null,
+                        null); // E53S05: seedMannschaftsfoto = null
         TournamentResponse created =
                 authed.postForEntity(
                                 new URI(baseUrl + "/api/tournaments"),

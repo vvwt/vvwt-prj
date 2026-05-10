@@ -274,7 +274,8 @@ class CertificateRenderControllerIT {
                         "standardVolleyball",
                         "roundRobin",
                         null,
-                        null);
+                        null,
+                        null); // E53S05: seedMannschaftsfoto = null
 
         ResponseEntity<TournamentResponse> created =
                 authed.postForEntity(

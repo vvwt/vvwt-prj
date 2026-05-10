@@ -97,7 +97,8 @@ class TournamentControllerOptimizeIT {
                         "defaultSetValidationRule",
                         "roundRobin",
                         null,
-                        false); // optimize = false
+                        false, // optimize = false
+                        null); // seedMannschaftsfoto = null → server default (E53S05)
 
         ResponseEntity<TournamentResponse> response =
                 authed.postForEntity(baseUrl + "/api/tournaments", req, TournamentResponse.class);
@@ -152,7 +153,8 @@ class TournamentControllerOptimizeIT {
                         "defaultSetValidationRule",
                         "roundRobin",
                         null,
-                        null); // optimize = null → default true
+                        null, // optimize = null → default true
+                        null); // seedMannschaftsfoto = null → server default (E53S05)
 
         ResponseEntity<TournamentResponse> response =
                 authed.postForEntity(baseUrl + "/api/tournaments", req, TournamentResponse.class);

@@ -312,3 +312,80 @@ describe('TournamentForm.svelte — AC-TEST-FRONTEND-CREATE-PAYLOAD-RED: CREATE 
     expect(ifaceBlock).toContain('plannedStartTime');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E53S05: seedMannschaftsfoto Vorbelegung checkbox
+// AC3: admin-UI form has seedMannschaftsfoto checkbox pre-selected (default true)
+// AC4: opt-out path — form transmits seedMannschaftsfoto in CREATE payload
+// AC12: i18n-resolved label key (mannschaftsfoto.checkbox.label)
+// DEC-22 Iron Law: these tests are RED before the production changes are applied.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('TournamentForm.svelte — E53S05 AC3: seedMannschaftsfoto checkbox present with default checked', () => {
+  it('TournamentForm.svelte source contains id="seedMannschaftsfoto" checkbox input', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './TournamentForm.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // RED before E53S05: checkbox not present → fails
+    // GREEN after E53S05: checkbox added with id="seedMannschaftsfoto"
+    expect(source).toContain('id="seedMannschaftsfoto"');
+    expect(source).toContain('type="checkbox"');
+  });
+
+  it('TournamentForm.svelte source binds checkbox to seedMannschaftsfoto state variable defaulting to true', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './TournamentForm.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // $state(true) default for the checkbox (analogous to optimize checkbox, DEC-55 D-5 pattern)
+    expect(source).toMatch(/let seedMannschaftsfoto.*=.*\$state\s*\(\s*true\s*\)/);
+    // bind:checked wires the checkbox to the state variable
+    expect(source).toContain('bind:checked={seedMannschaftsfoto}');
+  });
+
+  it('TournamentForm.svelte source uses mannschaftsfoto.checkbox.label i18n key as checkbox label', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './TournamentForm.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // AC12: i18n-resolved label, not hard-coded German string
+    expect(source).toContain('mannschaftsfoto.checkbox.label');
+  });
+
+  it('de.json mannschaftsfoto.checkbox.label is a non-empty string (AC12)', async () => {
+    const d = (await import('../locales/de.json')).default as unknown as Record<string, Record<string, Record<string, string>>>;
+    expect(d.mannschaftsfoto).toBeDefined();
+    expect(d.mannschaftsfoto.checkbox).toHaveProperty('label');
+    expect(d.mannschaftsfoto.checkbox.label.length).toBeGreaterThan(0);
+  });
+});
+
+describe('TournamentForm.svelte — E53S05 AC4: seedMannschaftsfoto field in CREATE payload', () => {
+  it('TournamentForm.svelte CREATE payload object literal includes seedMannschaftsfoto field', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './TournamentForm.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // The CREATE payload is the const req: TournamentCreateRequest = { ... } block.
+    // RED before E53S05: payload does not include seedMannschaftsfoto.
+    // GREEN after E53S05: payload includes seedMannschaftsfoto.
+    const createBranchMatch = source.match(/const req: TournamentCreateRequest = \{([^}]+)\}/s);
+    expect(createBranchMatch).not.toBeNull();
+    const createBlock = createBranchMatch![1];
+    expect(createBlock).toContain('seedMannschaftsfoto');
+  });
+
+  it('TournamentCreateRequest TS interface in tournamentStore.ts includes optional seedMannschaftsfoto field', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const storeSrc = path.resolve(__dirname, '../stores/tournamentStore.ts');
+    const source = fs.readFileSync(storeSrc, 'utf8');
+    const ifaceMatch = source.match(/export interface TournamentCreateRequest \{([^}]+)\}/s);
+    expect(ifaceMatch).not.toBeNull();
+    const ifaceBlock = ifaceMatch![1];
+    // RED before E53S05: interface does not declare seedMannschaftsfoto.
+    // GREEN after E53S05: declares seedMannschaftsfoto?: boolean | null.
+    expect(ifaceBlock).toContain('seedMannschaftsfoto');
+  });
+});

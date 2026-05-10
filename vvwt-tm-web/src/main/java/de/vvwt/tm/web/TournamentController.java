@@ -115,7 +115,9 @@ public class TournamentController {
                         // omitted, causing the field to be silently dropped on CREATE).
                         request.plannedStartTime(),
                         // E51S07 AC-IMPL-TOURNAMENT-FORM-CHECKBOX: pass optimize flag.
-                        request.optimize());
+                        request.optimize(),
+                        // E53S05 AC1: pass seedMannschaftsfoto flag; null → server default true.
+                        request.seedMannschaftsfoto());
 
         URI location =
                 ServletUriComponentsBuilder.fromCurrentRequest()

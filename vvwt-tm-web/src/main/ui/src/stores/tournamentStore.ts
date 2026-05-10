@@ -59,6 +59,7 @@ export interface TournamentCreateRequest {
     matchGeneratorId: string;
     plannedStartTime?: string | null;  // HH:mm or null (E48S14)
     optimize?: boolean | null;  // E51S07: slot-optimization flag; null → server default (true)
+    seedMannschaftsfoto?: boolean | null;  // E53S05: Vorbelegung flag; null → server default (true)
 }
 
 /** Request body for PUT /api/tournaments/{id}. Null means "do not change". */

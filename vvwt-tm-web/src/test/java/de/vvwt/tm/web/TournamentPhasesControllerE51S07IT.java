@@ -88,7 +88,8 @@ class TournamentPhasesControllerE51S07IT {
                                     "defaultSetValidationRule",
                                     "roundRobin",
                                     null,
-                                    null)
+                                    null,
+                                    null) // E53S05: seedMannschaftsfoto = null
                             .getId();
         } finally {
             tenantContextBinder.unbind();
@@ -103,6 +104,10 @@ class TournamentPhasesControllerE51S07IT {
                 jdbcTemplate.update("DELETE FROM phase WHERE id = ?", phaseId);
             }
             if (tournamentId != null) {
+                // E53S05: delete seeded ActivityType rows before deleting tournament (FK
+                // constraint)
+                jdbcTemplate.update(
+                        "DELETE FROM activity_types WHERE tournament_id = ?", tournamentId);
                 jdbcTemplate.update("DELETE FROM team WHERE tournament_id = ?", tournamentId);
                 jdbcTemplate.update("DELETE FROM tournament WHERE id = ?", tournamentId);
             }

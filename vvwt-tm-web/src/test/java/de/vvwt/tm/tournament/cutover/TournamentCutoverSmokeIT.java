@@ -133,7 +133,8 @@ class TournamentCutoverSmokeIT {
                             "standardVolleyball",
                             "roundRobin",
                             null,
-                            null);
+                            null,
+                            null); // E53S05: seedMannschaftsfoto = null
             ResponseEntity<TournamentResponse> tournamentResp =
                     authed.postForEntity(
                             new URI(baseUrl + "/api/tournaments"),
@@ -234,7 +235,8 @@ class TournamentCutoverSmokeIT {
                         "standardVolleyball",
                         "roundRobin",
                         null,
-                        null);
+                        null,
+                        null); // E53S05: seedMannschaftsfoto = null
         ResponseEntity<String> response =
                 restTemplate.postForEntity(
                         new URI(baseUrl + "/api/tournaments"), request, String.class);

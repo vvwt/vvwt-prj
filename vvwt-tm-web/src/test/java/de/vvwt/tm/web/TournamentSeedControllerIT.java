@@ -128,7 +128,8 @@ class TournamentSeedControllerIT {
                         "standardVolleyball",
                         "roundRobin",
                         null,
-                        null);
+                        null,
+                        null); // E53S05: seedMannschaftsfoto = null
 
         ResponseEntity<TournamentResponse> response =
                 authed.postForEntity(
@@ -251,7 +252,8 @@ class TournamentSeedControllerIT {
                         "standardVolleyball",
                         "roundRobin",
                         null,
-                        null);
+                        null,
+                        null); // E53S05: seedMannschaftsfoto = null
 
         ResponseEntity<String> response =
                 restTemplate.postForEntity(

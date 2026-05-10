@@ -107,7 +107,8 @@ class TeamControllerIT {
                         "standardVolleyball",
                         "roundRobin",
                         null,
-                        null);
+                        null,
+                        null); // E53S05: seedMannschaftsfoto = null
 
         ResponseEntity<de.vvwt.tm.tournament.internal.dto.TournamentResponse> tournamentResponse =
                 authed.postForEntity(

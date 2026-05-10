@@ -46,6 +46,7 @@
   let setValidationRuleId = $state('');
   let matchGeneratorId = $state('');
   let optimize = $state(true); // E51S07: default true per DEC-55 D-5
+  let seedMannschaftsfoto = $state(true); // E53S05: default true — Vorbelegung checked by default
 
   let rules = $state<TournamentRules | null>(null);
   let loading = $state(true);
@@ -137,6 +138,7 @@
           matchGeneratorId,
           plannedStartTime: plannedStartTime.trim() ? plannedStartTime.trim() : null,  // E48S14
           optimize,  // E51S07: pass optimize field
+          seedMannschaftsfoto,  // E53S05: pass Vorbelegung flag
         };
         await createTournament(req);
       }
@@ -277,6 +279,14 @@
         <label for="optimize" title={$_('slotopt.checkbox.tooltip')}>
           <input id="optimize" type="checkbox" bind:checked={optimize} />
           {$_('slotopt.checkbox.label')}
+        </label>
+      </div>
+
+      <!-- Mannschaftsfoto Vorbelegung checkbox (E53S05 AC3, analogous to optimize/E51S07) -->
+      <div class="form__field form__field--checkbox">
+        <label for="seedMannschaftsfoto" title={$_('mannschaftsfoto.checkbox.tooltip')}>
+          <input id="seedMannschaftsfoto" type="checkbox" bind:checked={seedMannschaftsfoto} />
+          {$_('mannschaftsfoto.checkbox.label')}
         </label>
       </div>
 

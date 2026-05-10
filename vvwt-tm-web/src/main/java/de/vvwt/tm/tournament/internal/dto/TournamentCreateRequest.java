@@ -24,6 +24,7 @@ import java.time.LocalTime;
  * @see <a href="E21S02">E21S02 — Tournament aggregate reconstruction</a>
  * @see <a href="E48S14">E48S14 — Bug-fix: plannedStartTime missing in CREATE path</a>
  * @see <a href="E51S07">E51S07 — AC-IMPL-TOURNAMENT-FORM-CHECKBOX (optimize field)</a>
+ * @see <a href="E53S05">E53S05 — Mannschaftsfoto Vorbelegung (seedMannschaftsfoto field)</a>
  */
 public record TournamentCreateRequest(
 
@@ -79,4 +80,21 @@ public record TournamentCreateRequest(
          * @see <a href="../../../../../../../../../docs/governance/decisions/DEC-55.md">DEC-55
          *     D-5</a>
          */
-        Boolean optimize) {}
+        Boolean optimize,
+
+        /**
+         * Whether to seed a {@code Mannschaftsfoto} {@link
+         * de.vvwt.tm.tournament.activity.ActivityType} with {@code assignment_rule =
+         * FIRST_FREE_ROUND} when the tournament is created. {@code true} (or {@code null} → server
+         * default {@code true}) pre-selects the Mannschaftsfoto activity type so that the
+         * Mannschaftsfoto-Zeitplan link renders on the print-index immediately after tournament
+         * creation. {@code false} opts out — no {@code ActivityType} is seeded, and the print-index
+         * link remains hidden until manual configuration.
+         *
+         * <p>This is the {@code Vorbelegung} analog to the {@code optimize} checkbox (E51S07,
+         * DEC-55 D-5). Default {@code null} resolves to {@code true} server-side.
+         *
+         * @see de.vvwt.tm.tournament.activity.ActivityTypeService
+         * @see <a href="E53S05">E53S05 — AC1: Mannschaftsfoto Vorbelegung</a>
+         */
+        Boolean seedMannschaftsfoto) {}

@@ -119,7 +119,8 @@ class TournamentControllerIT {
                         "standardVolleyball",
                         "roundRobin",
                         null,
-                        null);
+                        null,
+                        null); // E53S05: seedMannschaftsfoto = null
 
         ResponseEntity<TournamentResponse> response =
                 authed.postForEntity(
@@ -169,7 +170,8 @@ class TournamentControllerIT {
                         "standardVolleyball",
                         "roundRobin",
                         null,
-                        null);
+                        null,
+                        null); // E53S05: seedMannschaftsfoto = null
 
         ResponseEntity<String> response =
                 restTemplate.postForEntity(
@@ -259,7 +261,8 @@ class TournamentControllerIT {
                         "standardVolleyball",
                         "roundRobin",
                         null,
-                        null);
+                        null,
+                        null); // E53S05: seedMannschaftsfoto = null
 
         ResponseEntity<TournamentResponse> createResponse =
                 authed.postForEntity(
@@ -279,6 +282,151 @@ class TournamentControllerIT {
         assertThat(getResponse.getBody().plannedStartTime())
                 .as("plannedStartTime must be null when not provided")
                 .isNull();
+    }
+
+    // =========================================================================
+    // AC1 — E53S05: POST with seedMannschaftsfoto=true seeds ActivityType (RED-first)
+    // AC9 — tenant isolation: seeded row lives in default tenant only
+    // =========================================================================
+
+    /**
+     * E53S05 AC1 + AC9 — RED-first: when {@code seedMannschaftsfoto=true} is passed in the
+     * tournament-creation request, a {@code Mannschaftsfoto} {@code ActivityType} with {@code
+     * assignment_rule = FIRST_FREE_ROUND} is created for the tournament in the current tenant.
+     *
+     * <p>RED before E53S05: {@code TournamentCreateRequest} lacks the field → {@code
+     * seedMannschaftsfoto} is silently ignored → no row in {@code activity_types} → assertj-db
+     * assertion fails.
+     *
+     * <p>GREEN after E53S05: all four layers wire the field → service seeds the row → assertion
+     * passes.
+     *
+     * <p>DEC-26 Rule 2: DB state verified via assertj-db, not via a subsequent GET.
+     *
+     * <p>AC9 (tenant isolation): the seeded row lives in the default-tenant DB only.
+     *
+     * @see de.vvwt.tm.tournament.activity.ActivityTypeService
+     * @see <a href="E53S05">E53S05 — Mannschaftsfoto Vorbelegung</a>
+     */
+    @Test
+    @DisplayName(
+            "E53S05 AC1+AC9: POST with seedMannschaftsfoto=true seeds FIRST_FREE_ROUND ActivityType"
+                    + " via assertj-db")
+    void createWithSeedMannschaftsfoto_true_seedsActivityType() throws Exception {
+        // Use raw Map so the JSON field is sent regardless of DTO state.
+        // Before fix: TournamentCreateRequest lacks seedMannschaftsfoto → ignored.
+        // After fix: field wired through all layers → service seeds ActivityType.
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("description", "E53S05 IT Mannschaftsfoto seed test");
+        body.put("appointment", null);
+        body.put("teamCount", 4);
+        body.put("fieldCount", 2);
+        body.put("matchFormat", "BEST_OF_3");
+        body.put("scoringRuleId", "setPoints");
+        body.put("setValidationRuleId", "standardVolleyball");
+        body.put("matchGeneratorId", "roundRobin");
+        body.put("plannedStartTime", null);
+        body.put("optimize", null);
+        body.put("seedMannschaftsfoto", true); // the new field (E53S05 AC1)
+
+        ResponseEntity<TournamentResponse> createResponse =
+                authed.postForEntity(
+                        new URI(baseUrl + "/api/tournaments"), body, TournamentResponse.class);
+
+        assertThat(createResponse.getStatusCode())
+                .as("POST must return 201 Created")
+                .isEqualTo(HttpStatus.CREATED);
+        assertThat(createResponse.getBody()).isNotNull();
+        UUID newId = createResponse.getBody().id();
+
+        // DEC-26 Rule 2 — assertj-db independent verifier (not via service or GET)
+        tenantBinder.bindDefaultTenant();
+        try {
+            AssertDbConnection assertDb = AssertDbConnectionFactory.of(dataSource).create();
+            Table activityTypesTable = assertDb.table("activity_types").build();
+
+            // Collect assignment_rule values for this tournament
+            List<Object> assignmentRules =
+                    activityTypesTable.getRowsList().stream()
+                            .filter(
+                                    row ->
+                                            newId.equals(
+                                                    row.getColumnValue("TOURNAMENT_ID").getValue()))
+                            .map(row -> row.getColumnValue("ASSIGNMENT_RULE").getValue())
+                            .toList();
+
+            assertThat(assignmentRules)
+                    .as(
+                            "E53S05 AC1: activity_types must contain exactly one FIRST_FREE_ROUND"
+                                    + " row for the new tournament")
+                    .hasSize(1);
+            assertThat(assignmentRules.get(0))
+                    .as("E53S05 AC1: assignment_rule must be FIRST_FREE_ROUND")
+                    .isEqualTo("FIRST_FREE_ROUND");
+        } finally {
+            tenantBinder.unbind();
+        }
+    }
+
+    /**
+     * E53S05 AC4 / AC10 — RED-first: when {@code seedMannschaftsfoto=false} is passed, NO {@code
+     * ActivityType} is seeded, and the print-index later renders without the
+     * Mannschaftsfoto-Zeitplan link (E53S03 empty-state UX preserved).
+     *
+     * <p>RED before E53S05: field is unknown → ignored by server → by coincidence no seed happens
+     * (no pre-existing seed mechanism) → assertion PASSES trivially (GREEN for wrong reason). After
+     * E53S05: field is respected → opt-out path verified: no row in {@code activity_types}.
+     *
+     * @see <a href="E53S05">E53S05 — AC4 opt-out path</a>
+     */
+    @Test
+    @DisplayName("E53S05 AC4: POST with seedMannschaftsfoto=false → no ActivityType row in DB")
+    void createWithSeedMannschaftsfoto_false_noActivityTypeSeeded() throws Exception {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("description", "E53S05 IT opt-out test");
+        body.put("appointment", null);
+        body.put("teamCount", 4);
+        body.put("fieldCount", 2);
+        body.put("matchFormat", "BEST_OF_3");
+        body.put("scoringRuleId", "setPoints");
+        body.put("setValidationRuleId", "standardVolleyball");
+        body.put("matchGeneratorId", "roundRobin");
+        body.put("plannedStartTime", null);
+        body.put("optimize", null);
+        body.put("seedMannschaftsfoto", false); // opt-out: no seeding
+
+        ResponseEntity<TournamentResponse> createResponse =
+                authed.postForEntity(
+                        new URI(baseUrl + "/api/tournaments"), body, TournamentResponse.class);
+
+        assertThat(createResponse.getStatusCode())
+                .as("POST must return 201 Created even when seedMannschaftsfoto=false")
+                .isEqualTo(HttpStatus.CREATED);
+        assertThat(createResponse.getBody()).isNotNull();
+        UUID newId = createResponse.getBody().id();
+
+        // DEC-26 Rule 2 — assertj-db verifier: NO activity_types row for this tournament
+        tenantBinder.bindDefaultTenant();
+        try {
+            AssertDbConnection assertDb = AssertDbConnectionFactory.of(dataSource).create();
+            Table activityTypesTable = assertDb.table("activity_types").build();
+
+            long rowCount =
+                    activityTypesTable.getRowsList().stream()
+                            .filter(
+                                    row ->
+                                            newId.equals(
+                                                    row.getColumnValue("TOURNAMENT_ID").getValue()))
+                            .count();
+
+            assertThat(rowCount)
+                    .as(
+                            "E53S05 AC4: no activity_types row must exist for tournament when"
+                                    + " seedMannschaftsfoto=false")
+                    .isZero();
+        } finally {
+            tenantBinder.unbind();
+        }
     }
 
     // =========================================================================

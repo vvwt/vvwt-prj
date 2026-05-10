@@ -54,6 +54,12 @@
       "renameError": "Error renaming device."
     }
   },
+  "mannschaftsfoto": {
+    "checkbox": {
+      "label": "Pre-configure team photo schedule",
+      "tooltip": "Automatically creates a team photo schedule when the tournament is created. When off, the print link only appears after manual configuration."
+    }
+  },
   "error": {
     "tournament": {
       "cascadeDelete": {
