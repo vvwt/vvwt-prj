@@ -6,6 +6,8 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import de.vvwt.tm.print.ActivityScheduleAssembler;
+import de.vvwt.tm.print.ActivityScheduleModel;
 import de.vvwt.tm.print.LaufzettelAssembler;
 import de.vvwt.tm.print.LaufzettelRow;
 import de.vvwt.tm.tournament.Match;
@@ -21,11 +23,13 @@ import de.vvwt.tm.tournament.activity.ActivityAssignment;
 import de.vvwt.tm.tournament.activity.ActivityAssignmentResult;
 import de.vvwt.tm.tournament.activity.ActivityAssignmentService;
 import de.vvwt.tm.tournament.activity.ActivityType;
+import de.vvwt.tm.tournament.activity.internal.DefaultActivityAssignmentService;
 import java.time.LocalTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -1295,5 +1299,562 @@ class DefaultLaufzettelAssemblerTest {
         at.setName(name);
         at.setAssignmentRule("firstFreeRound");
         return at;
+    }
+
+    /**
+     * Builds a {@link ActivityType} with assignment rule {@code FIRST_FREE_ROUND} (correct enum
+     * name) for use with the real {@link DefaultActivityAssignmentService} (E53S08).
+     */
+    private ActivityType buildFirstFreeRoundActivityType(UUID id, String name) {
+        ActivityType at = new ActivityType();
+        at.setId(id);
+        at.setTournamentId(TOURNAMENT_ID);
+        at.setName(name);
+        at.setAssignmentRule("FIRST_FREE_ROUND");
+        return at;
+    }
+
+    // =========================================================================
+    // E53S08 — AC1, AC2, AC3, AC7, AC8, AC9: Mannschaftsfoto first-bye-round
+    // wiring via real DefaultActivityAssignmentService (no mock)
+    // =========================================================================
+
+    /**
+     * AC1 (testing — RED-first reproduction with explicit preconditions): Given (1) a
+     * FIRST_FREE_ROUND ActivityType configured, (2) team3 has a bye-lap (lap 1: team1 vs team2,
+     * team3 is free), when the assembler runs with the REAL DefaultActivityAssignmentService, then
+     * team3's first bye-lap row must be an ACTIVITY row carrying "Mannschaftsfoto" — NOT a FREE
+     * row.
+     *
+     * <p>Per DEC-22 Iron Law RED-first: this test is committed before any production change.
+     *
+     * @see DefaultActivityAssignmentService
+     * @see DefaultLaufzettelAssembler
+     */
+    @Test
+    @DisplayName(
+            "AC1-E53S08-RED: real DefaultActivityAssignmentService — team's first bye-lap renders"
+                    + " as ACTIVITY row with Mannschaftsfoto label (end-to-end wiring)")
+    void e53s08_ac1_firstByeLap_rendersAsActivityRow_realService() {
+        // Fixture: 2 laps, 3 teams. Lap 1: team1 vs team2 (team3 free). Lap 2: team1 vs team3
+        // (team2 free). team3's first bye-lap = lap 1.
+        Tournament tournament = noTimeT();
+        UUID actTypeId = UUID.fromString("00000000-0000-0000-0002-000000000001");
+        ActivityType mannschaftsfoto =
+                buildFirstFreeRoundActivityType(actTypeId, "Mannschaftsfoto");
+
+        // Lap 1: team1 (av1) vs team2 (av2), field 1
+        Match matchLap1T1vsT2 =
+                new Match(
+                        UUID.fromString("00000000-0000-0000-0002-000000000010"),
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        0,
+                        1,
+                        1 /* lapNumber */,
+                        0 /* fieldNumber */,
+                        null,
+                        null,
+                        null,
+                        null);
+
+        // Use real DefaultActivityAssignmentService — no mock
+        ActivityAssignmentService realService = new DefaultActivityAssignmentService();
+        TimelineCalculationService tls = mock(TimelineCalculationService.class);
+        when(tls.calculate(any(), any(), anyInt())).thenReturn(Collections.emptyList());
+        LaufzettelAssembler realAssembler = new DefaultLaufzettelAssembler(tls, realService);
+
+        var result =
+                realAssembler.assemble(
+                        tournament,
+                        phases(phase1),
+                        teams(team1, team2, team3),
+                        avatars(PHASE_ID, avatar1, avatar2, avatar3),
+                        matches(PHASE_ID, matchLap1T1vsT2),
+                        Collections.emptyMap(),
+                        List.of(mannschaftsfoto),
+                        0);
+
+        List<LaufzettelRow> team3Rows = result.get(TEAM3_ID);
+        assertThat(team3Rows).as("team3 must have exactly 1 row (lap 1)").hasSize(1);
+        LaufzettelRow row = team3Rows.get(0);
+        assertThat(row.isActivity())
+                .as(
+                        "team3's first bye-lap must render as ACTIVITY row (not FREE) when"
+                                + " FIRST_FREE_ROUND ActivityType is configured")
+                .isTrue();
+        assertThat(row.activityName())
+                .as("activity name must be the configured ActivityType name")
+                .isEqualTo("Mannschaftsfoto");
+        assertThat(row.isFree())
+                .as("team3's first bye-lap must NOT be FREE when activity is configured")
+                .isFalse();
+    }
+
+    /**
+     * AC2 (testing — first bye-round only): When team3 has 2 bye-laps, only lap 1 (the first)
+     * renders as ACTIVITY; lap 2 continues as FREE.
+     *
+     * <p>Fixture: 3 laps, 3 teams. Lap 1: team1 vs team2 (team3 free → first bye). Lap 2: team1 vs
+     * team2 again (team3 free → second bye). Lap 3: team1 vs team3 (team3 playing).
+     */
+    @Test
+    @DisplayName(
+            "AC2-E53S08-RED: only first bye-lap renders as ACTIVITY; subsequent bye-laps remain"
+                    + " FREE (real service)")
+    void e53s08_ac2_onlyFirstByeLap_isActivity_remainderFree_realService() {
+        Tournament tournament = noTimeT();
+        UUID actTypeId = UUID.fromString("00000000-0000-0000-0002-000000000002");
+        ActivityType mannschaftsfoto =
+                buildFirstFreeRoundActivityType(actTypeId, "Mannschaftsfoto");
+
+        // Lap 1: team1 vs team2 (team3 free — first bye)
+        Match m1 =
+                new Match(
+                        UUID.fromString("00000000-0000-0000-0002-000000000020"),
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        0,
+                        1,
+                        1,
+                        0,
+                        null,
+                        null,
+                        null,
+                        null);
+        // Lap 2: team1 vs team2 again (team3 free — second bye)
+        Match m2 =
+                new Match(
+                        UUID.fromString("00000000-0000-0000-0002-000000000021"),
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        0,
+                        1,
+                        2,
+                        0,
+                        null,
+                        null,
+                        null,
+                        null);
+        // Lap 3: team1 vs team3 (team3 playing)
+        UUID avT3_e53 = UUID.fromString("00000000-0000-0000-0002-000000000030");
+        UUID avT1_e53 = UUID.fromString("00000000-0000-0000-0002-000000000031");
+        TeamAvatar avT3 =
+                new TeamAvatar(avT3_e53, TOURNAMENT_ID, PHASE_ID, 1, 3, TEAM3_ID, null, null);
+        TeamAvatar avT1lap3 =
+                new TeamAvatar(avT1_e53, TOURNAMENT_ID, PHASE_ID, 2, 1, TEAM1_ID, null, null);
+        Match m3 =
+                new Match(
+                        UUID.fromString("00000000-0000-0000-0002-000000000022"),
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        avT3_e53,
+                        avT1_e53,
+                        0,
+                        1,
+                        3,
+                        0,
+                        null,
+                        null,
+                        null,
+                        null);
+
+        ActivityAssignmentService realService = new DefaultActivityAssignmentService();
+        TimelineCalculationService tls = mock(TimelineCalculationService.class);
+        when(tls.calculate(any(), any(), anyInt())).thenReturn(Collections.emptyList());
+        LaufzettelAssembler realAssembler = new DefaultLaufzettelAssembler(tls, realService);
+
+        var result =
+                realAssembler.assemble(
+                        tournament,
+                        phases(phase1),
+                        teams(team1, team2, team3),
+                        Map.of(PHASE_ID, List.of(avatar1, avatar2, avatar3, avT3, avT1lap3)),
+                        matches(PHASE_ID, m1, m2, m3),
+                        Collections.emptyMap(),
+                        List.of(mannschaftsfoto),
+                        0);
+
+        List<LaufzettelRow> team3Rows = result.get(TEAM3_ID);
+        // Rows: lap1 (first bye → ACTIVITY), lap2 (second bye → FREE), lap3 (playing → PLAYING)
+        assertThat(team3Rows).as("team3 has 3 laps").hasSize(3);
+        LaufzettelRow lap1Row = team3Rows.get(0);
+        LaufzettelRow lap2Row = team3Rows.get(1);
+        LaufzettelRow lap3Row = team3Rows.get(2);
+
+        assertThat(lap1Row.isActivity())
+                .as("lap1 (first bye) must be ACTIVITY row for team3")
+                .isTrue();
+        assertThat(lap1Row.activityName()).isEqualTo("Mannschaftsfoto");
+        assertThat(lap1Row.roundNumber()).isEqualTo(1);
+
+        assertThat(lap2Row.isFree())
+                .as("lap2 (second bye) must remain FREE — only FIRST bye gets photo")
+                .isTrue();
+        assertThat(lap2Row.roundNumber()).isEqualTo(2);
+
+        assertThat(lap3Row.isPlaying())
+                .as("lap3 (playing round) must be PLAYING row for team3")
+                .isTrue();
+        assertThat(lap3Row.roundNumber()).isEqualTo(3);
+    }
+
+    /**
+     * AC3 (testing — multi-team coverage): When 3 teams each have at least one bye-lap, EACH team's
+     * first bye-lap renders as ACTIVITY row. Fixture: 3 teams, 3 laps: lap1 team1 vs team2; lap2
+     * team1 vs team3; lap3 team2 vs team3. Each team has exactly one bye-lap: team1=lap3,
+     * team2=lap2, team3=lap1.
+     */
+    @Test
+    @DisplayName(
+            "AC3-E53S08-RED: all three teams' first bye-laps render as ACTIVITY rows (multi-team"
+                    + " coverage, real service)")
+    void e53s08_ac3_allThreeTeams_firstByeLap_isActivity_realService() {
+        Tournament tournament = noTimeT();
+        UUID actTypeId = UUID.fromString("00000000-0000-0000-0002-000000000003");
+        ActivityType mannschaftsfoto =
+                buildFirstFreeRoundActivityType(actTypeId, "Mannschaftsfoto");
+
+        // Each team gets a unique avatar per phase (no reuse of AVATAR1_ID etc.)
+        UUID av1a = UUID.fromString("00000000-0000-0000-0003-000000000010");
+        UUID av1b = UUID.fromString("00000000-0000-0000-0003-000000000011");
+        UUID av2a = UUID.fromString("00000000-0000-0000-0003-000000000012");
+        UUID av2b = UUID.fromString("00000000-0000-0000-0003-000000000013");
+        UUID av3a = UUID.fromString("00000000-0000-0000-0003-000000000014");
+        UUID av3b = UUID.fromString("00000000-0000-0000-0003-000000000015");
+        TeamAvatar t1av1 =
+                new TeamAvatar(av1a, TOURNAMENT_ID, PHASE_ID, 1, 1, TEAM1_ID, null, null);
+        TeamAvatar t1av2 =
+                new TeamAvatar(av1b, TOURNAMENT_ID, PHASE_ID, 2, 1, TEAM1_ID, null, null);
+        TeamAvatar t2av1 =
+                new TeamAvatar(av2a, TOURNAMENT_ID, PHASE_ID, 1, 2, TEAM2_ID, null, null);
+        TeamAvatar t2av2 =
+                new TeamAvatar(av2b, TOURNAMENT_ID, PHASE_ID, 3, 1, TEAM2_ID, null, null);
+        TeamAvatar t3av1 =
+                new TeamAvatar(av3a, TOURNAMENT_ID, PHASE_ID, 1, 3, TEAM3_ID, null, null);
+        TeamAvatar t3av2 =
+                new TeamAvatar(av3b, TOURNAMENT_ID, PHASE_ID, 2, 2, TEAM3_ID, null, null);
+
+        // Lap 1: team1 (av1a) vs team2 (av2a) — team3 free (first bye for team3)
+        Match m1 =
+                new Match(
+                        UUID.fromString("00000000-0000-0000-0003-000000000020"),
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        av1a,
+                        av2a,
+                        0,
+                        1,
+                        1,
+                        0,
+                        null,
+                        null,
+                        null,
+                        null);
+        // Lap 2: team1 (av1b) vs team3 (av3a) — team2 free (first bye for team2)
+        Match m2 =
+                new Match(
+                        UUID.fromString("00000000-0000-0000-0003-000000000021"),
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        av1b,
+                        av3a,
+                        0,
+                        1,
+                        2,
+                        0,
+                        null,
+                        null,
+                        null,
+                        null);
+        // Lap 3: team2 (av2b) vs team3 (av3b) — team1 free (first bye for team1)
+        Match m3 =
+                new Match(
+                        UUID.fromString("00000000-0000-0000-0003-000000000022"),
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        av2b,
+                        av3b,
+                        0,
+                        1,
+                        3,
+                        0,
+                        null,
+                        null,
+                        null,
+                        null);
+
+        ActivityAssignmentService realService = new DefaultActivityAssignmentService();
+        TimelineCalculationService tls = mock(TimelineCalculationService.class);
+        when(tls.calculate(any(), any(), anyInt())).thenReturn(Collections.emptyList());
+        LaufzettelAssembler realAssembler = new DefaultLaufzettelAssembler(tls, realService);
+
+        var result =
+                realAssembler.assemble(
+                        tournament,
+                        phases(phase1),
+                        teams(team1, team2, team3),
+                        Map.of(PHASE_ID, List.of(t1av1, t1av2, t2av1, t2av2, t3av1, t3av2)),
+                        matches(PHASE_ID, m1, m2, m3),
+                        Collections.emptyMap(),
+                        List.of(mannschaftsfoto),
+                        0);
+
+        // team3 — first bye is lap 1
+        List<LaufzettelRow> t3Rows = result.get(TEAM3_ID);
+        assertThat(t3Rows).as("team3 has 3 rows").hasSize(3);
+        assertThat(t3Rows.get(0).isActivity())
+                .as("team3's first bye is lap1 → ACTIVITY row")
+                .isTrue();
+        assertThat(t3Rows.get(0).activityName()).isEqualTo("Mannschaftsfoto");
+
+        // team2 — first bye is lap 2
+        List<LaufzettelRow> t2Rows = result.get(TEAM2_ID);
+        assertThat(t2Rows).as("team2 has 3 rows").hasSize(3);
+        assertThat(t2Rows.get(1).isActivity())
+                .as("team2's first bye is lap2 → ACTIVITY row")
+                .isTrue();
+        assertThat(t2Rows.get(1).activityName()).isEqualTo("Mannschaftsfoto");
+
+        // team1 — first bye is lap 3
+        List<LaufzettelRow> t1Rows = result.get(TEAM1_ID);
+        assertThat(t1Rows).as("team1 has 3 rows").hasSize(3);
+        assertThat(t1Rows.get(2).isActivity())
+                .as("team1's first bye is lap3 → ACTIVITY row")
+                .isTrue();
+        assertThat(t1Rows.get(2).activityName()).isEqualTo("Mannschaftsfoto");
+    }
+
+    /**
+     * AC7 (testing — Mannschaftsfoto-Zeitplan ↔ Laufzettel consistency): Given AC1's fixture, both
+     * the ActivityScheduleAssembler (photo-schedule) and the LaufzettelAssembler must agree on
+     * which lap is the photo round for each team. For team3 (the only team with a bye-lap), both
+     * assemblers must report lap 1 as the photo round.
+     */
+    @Test
+    @DisplayName(
+            "AC7-E53S08-RED: ActivityScheduleAssembler and LaufzettelAssembler agree on photo-round"
+                    + " lap for each team (cross-template consistency, real service)")
+    void e53s08_ac7_crossTemplate_consistency_realService() {
+        Tournament tournament = noTimeT();
+        UUID actTypeId = UUID.fromString("00000000-0000-0000-0002-000000000007");
+        ActivityType mannschaftsfoto =
+                buildFirstFreeRoundActivityType(actTypeId, "Mannschaftsfoto");
+
+        // Lap 1: team1 (av1) vs team2 (av2) — team3 free (first bye for team3)
+        Match matchLap1 =
+                new Match(
+                        UUID.fromString("00000000-0000-0000-0002-000000000070"),
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        0,
+                        1,
+                        1,
+                        0,
+                        null,
+                        null,
+                        null,
+                        null);
+
+        ActivityAssignmentService realService = new DefaultActivityAssignmentService();
+        TimelineCalculationService tls = mock(TimelineCalculationService.class);
+        when(tls.calculate(any(), any(), anyInt())).thenReturn(Collections.emptyList());
+
+        LaufzettelAssembler laufzettelAssembler = new DefaultLaufzettelAssembler(tls, realService);
+        ActivityScheduleAssembler scheduleAssembler =
+                new DefaultActivityScheduleAssembler(tls, realService);
+
+        // --- Laufzettel result for team3 ---
+        var laufzettelResult =
+                laufzettelAssembler.assemble(
+                        tournament,
+                        phases(phase1),
+                        teams(team1, team2, team3),
+                        avatars(PHASE_ID, avatar1, avatar2, avatar3),
+                        matches(PHASE_ID, matchLap1),
+                        Collections.emptyMap(),
+                        List.of(mannschaftsfoto),
+                        0);
+
+        List<LaufzettelRow> team3Rows = laufzettelResult.get(TEAM3_ID);
+        assertThat(team3Rows).hasSize(1);
+        LaufzettelRow laufzettelPhotoRow = team3Rows.get(0);
+        assertThat(laufzettelPhotoRow.isActivity())
+                .as("Laufzettel: team3's lap1 must be ACTIVITY row")
+                .isTrue();
+        int laufzettelPhotoLap = laufzettelPhotoRow.roundNumber();
+
+        // --- Activity Schedule (photo schedule) result ---
+        ActivityScheduleModel scheduleModel =
+                scheduleAssembler.assemble(
+                        tournament,
+                        phases(phase1),
+                        teams(team1, team2, team3),
+                        avatars(PHASE_ID, avatar1, avatar2, avatar3),
+                        matches(PHASE_ID, matchLap1),
+                        Collections.emptyMap(),
+                        List.of(mannschaftsfoto),
+                        mannschaftsfoto);
+
+        // Find the data row for team3 in the schedule (team3's name appears in teamNames)
+        List<de.vvwt.tm.print.ActivityScheduleRow> dataRows =
+                scheduleModel.rows().stream()
+                        .filter(de.vvwt.tm.print.ActivityScheduleRow::isDataRow)
+                        .collect(Collectors.toList());
+        assertThat(dataRows)
+                .as("photo-schedule must have at least 1 data row (team3 is assigned)")
+                .isNotEmpty();
+
+        // The schedule should list team3's name in one of the data rows
+        String team3DisplayName = "Team 3"; // null description → "Team 3"
+        de.vvwt.tm.print.ActivityScheduleRow team3ScheduleRow =
+                dataRows.stream()
+                        .filter(r -> r.getTeamNames().contains(team3DisplayName))
+                        .findFirst()
+                        .orElseThrow(
+                                () ->
+                                        new AssertionError(
+                                                "Photo schedule must contain team3 ("
+                                                        + team3DisplayName
+                                                        + ") in a data row"));
+
+        int schedulePhotoLap = team3ScheduleRow.getRoundNumber();
+        assertThat(schedulePhotoLap)
+                .as(
+                        "Mannschaftsfoto-Zeitplan and Laufzettel must agree: both report lap "
+                                + laufzettelPhotoLap
+                                + " as team3's photo round")
+                .isEqualTo(laufzettelPhotoLap);
+    }
+
+    /**
+     * AC8 (error-handling — no FIRST_FREE_ROUND configured): When NO ActivityType is configured,
+     * all bye-laps must continue to render as FREE rows — the fix must not affect this path.
+     */
+    @Test
+    @DisplayName(
+            "AC8-E53S08-RED: without FIRST_FREE_ROUND ActivityType, bye-laps remain FREE rows"
+                    + " (regression guard, real service)")
+    void e53s08_ac8_noActivityTypeConfigured_byeLapsRemainFree_realService() {
+        Tournament tournament = noTimeT();
+        // Lap 1: team1 vs team2 (team3 free)
+        Match matchLap1 =
+                new Match(
+                        UUID.fromString("00000000-0000-0000-0002-000000000080"),
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        0,
+                        1,
+                        1,
+                        0,
+                        null,
+                        null,
+                        null,
+                        null);
+
+        ActivityAssignmentService realService = new DefaultActivityAssignmentService();
+        TimelineCalculationService tls = mock(TimelineCalculationService.class);
+        when(tls.calculate(any(), any(), anyInt())).thenReturn(Collections.emptyList());
+        LaufzettelAssembler realAssembler = new DefaultLaufzettelAssembler(tls, realService);
+
+        // Pass EMPTY activity type list — no FIRST_FREE_ROUND configured
+        var result =
+                realAssembler.assemble(
+                        tournament,
+                        phases(phase1),
+                        teams(team1, team2, team3),
+                        avatars(PHASE_ID, avatar1, avatar2, avatar3),
+                        matches(PHASE_ID, matchLap1),
+                        Collections.emptyMap(),
+                        Collections.emptyList() /* NO activity types */,
+                        0);
+
+        List<LaufzettelRow> team3Rows = result.get(TEAM3_ID);
+        assertThat(team3Rows).as("team3 has 1 row").hasSize(1);
+        assertThat(team3Rows.get(0).isFree())
+                .as("without FIRST_FREE_ROUND config, team3's bye-lap must remain FREE")
+                .isTrue();
+        assertThat(team3Rows.get(0).isActivity())
+                .as("bye-lap must NOT become ACTIVITY when no ActivityType configured")
+                .isFalse();
+    }
+
+    /**
+     * AC9 (error-handling — team has no bye-lap): When a team plays in every lap, no rows must be
+     * erroneously converted to ACTIVITY rows.
+     *
+     * <p>Fixture: 2 teams, 1 lap, team1 vs team2. Both teams play every lap — no bye-laps.
+     */
+    @Test
+    @DisplayName(
+            "AC9-E53S08-RED: team with no bye-lap gets no ACTIVITY rows (no false-positive, real"
+                    + " service)")
+    void e53s08_ac9_teamWithNoByeLap_noActivityRows_realService() {
+        Tournament tournament = noTimeT();
+        UUID actTypeId = UUID.fromString("00000000-0000-0000-0002-000000000009");
+        ActivityType mannschaftsfoto =
+                buildFirstFreeRoundActivityType(actTypeId, "Mannschaftsfoto");
+
+        // Lap 1: team1 vs team2 — both playing, neither has a bye-lap
+        Match matchLap1 =
+                new Match(
+                        UUID.fromString("00000000-0000-0000-0002-000000000090"),
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        0,
+                        1,
+                        1,
+                        0,
+                        null,
+                        null,
+                        null,
+                        null);
+
+        ActivityAssignmentService realService = new DefaultActivityAssignmentService();
+        TimelineCalculationService tls = mock(TimelineCalculationService.class);
+        when(tls.calculate(any(), any(), anyInt())).thenReturn(Collections.emptyList());
+        LaufzettelAssembler realAssembler = new DefaultLaufzettelAssembler(tls, realService);
+
+        var result =
+                realAssembler.assemble(
+                        tournament,
+                        phases(phase1),
+                        List.of(team1, team2) /* only 2 teams, no team3 */,
+                        avatars(PHASE_ID, avatar1, avatar2),
+                        matches(PHASE_ID, matchLap1),
+                        Collections.emptyMap(),
+                        List.of(mannschaftsfoto),
+                        0);
+
+        List<LaufzettelRow> team1Rows = result.get(TEAM1_ID);
+        List<LaufzettelRow> team2Rows = result.get(TEAM2_ID);
+
+        assertThat(team1Rows).as("team1 has 1 row (playing)").hasSize(1);
+        assertThat(team1Rows.get(0).isPlaying())
+                .as("team1 plays in every lap — must be PLAYING, not ACTIVITY")
+                .isTrue();
+        assertThat(team1Rows.get(0).isActivity())
+                .as("team1 has no bye-lap — must NOT have ACTIVITY row")
+                .isFalse();
+
+        assertThat(team2Rows).as("team2 has 1 row (playing)").hasSize(1);
+        assertThat(team2Rows.get(0).isPlaying())
+                .as("team2 plays in every lap — must be PLAYING, not ACTIVITY")
+                .isTrue();
+        assertThat(team2Rows.get(0).isActivity())
+                .as("team2 has no bye-lap — must NOT have ACTIVITY row")
+                .isFalse();
     }
 }
