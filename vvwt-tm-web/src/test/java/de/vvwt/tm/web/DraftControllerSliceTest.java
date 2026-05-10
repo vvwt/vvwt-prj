@@ -22,6 +22,7 @@ import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftPreviewResult;
 import de.vvwt.tm.tournament.draft.DraftPreviewSection;
 import de.vvwt.tm.tournament.draft.DraftSection;
+import de.vvwt.tm.tournament.draft.GameMode;
 import de.vvwt.tm.tournament.exceptions.TournamentNotFoundException;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftRequest;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftSectionRequest;
@@ -150,7 +151,8 @@ class DraftControllerSliceTest {
     @DisplayName("GET /draft when service returns DraftConfig with sections → 200 + sections")
     void getDraft_whenServiceReturnsSections_returns200WithSections() throws Exception {
         DraftSection section =
-                new DraftSection(1, "team_number", 2, "roundRobin", 5, 10, 15, 1, List.of());
+                new DraftSection(
+                        1, "team_number", 2, GameMode.ROUND_ROBIN, 5, 10, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(section));
         when(draftService.loadDraft(eq(TOURNAMENT_ID))).thenReturn(config);
 
@@ -188,13 +190,14 @@ class DraftControllerSliceTest {
     @DisplayName("PUT /draft with valid body → 200 + DraftResponse echoing sections")
     void saveDraft_withValidBody_returns200WithSavedData() throws Exception {
         DraftSection savedSection =
-                new DraftSection(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, List.of());
+                new DraftSection(1, "team_number", 1, GameMode.ROUND_ROBIN, 0, 0, 15, 1, List.of());
         DraftConfig savedConfig = new DraftConfig(List.of(savedSection));
         when(draftService.saveDraft(eq(TOURNAMENT_ID), any(DraftConfig.class)))
                 .thenReturn(savedConfig);
 
         DraftSectionRequest sectionRequest =
-                new DraftSectionRequest(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, null, null);
+                new DraftSectionRequest(
+                        1, "team_number", 1, GameMode.ROUND_ROBIN, 0, 0, 15, 1, null, null);
         DraftRequest requestBody = new DraftRequest(List.of(sectionRequest));
 
         mockMvc.perform(
@@ -258,7 +261,7 @@ class DraftControllerSliceTest {
 
         DraftSectionRequest sectionRequest =
                 new DraftSectionRequest(
-                        1, "team_number", 4, "roundRobin", 5, 10, 15, 1, null, null);
+                        1, "team_number", 4, GameMode.ROUND_ROBIN, 5, 10, 15, 1, null, null);
         DraftRequest requestBody = new DraftRequest(List.of(sectionRequest));
 
         mockMvc.perform(
@@ -294,7 +297,7 @@ class DraftControllerSliceTest {
 
         DraftSectionRequest sectionRequest =
                 new DraftSectionRequest(
-                        1, "team_number", 4, "roundRobin", 5, 10, 15, 1, null, null);
+                        1, "team_number", 4, GameMode.ROUND_ROBIN, 5, 10, 15, 1, null, null);
         DraftRequest requestBody = new DraftRequest(List.of(sectionRequest));
 
         mockMvc.perform(
@@ -323,7 +326,7 @@ class DraftControllerSliceTest {
 
         DraftSectionRequest sectionRequest =
                 new DraftSectionRequest(
-                        1, "team_number", 4, "roundRobin", 5, 10, 15, 1, null, null);
+                        1, "team_number", 4, GameMode.ROUND_ROBIN, 5, 10, 15, 1, null, null);
         DraftRequest requestBody = new DraftRequest(List.of(sectionRequest));
 
         mockMvc.perform(
@@ -360,7 +363,7 @@ class DraftControllerSliceTest {
 
         DraftSectionRequest sectionRequest =
                 new DraftSectionRequest(
-                        1, "team_number", 2, "roundRobin", 5, 10, 15, 1, null, null);
+                        1, "team_number", 2, GameMode.ROUND_ROBIN, 5, 10, 15, 1, null, null);
         DraftRequest requestBody = new DraftRequest(List.of(sectionRequest));
 
         mockMvc.perform(
@@ -388,7 +391,7 @@ class DraftControllerSliceTest {
 
         DraftSectionRequest sectionRequest =
                 new DraftSectionRequest(
-                        1, "team_number", 2, "roundRobin", 5, 10, 15, 1, null, null);
+                        1, "team_number", 2, GameMode.ROUND_ROBIN, 5, 10, 15, 1, null, null);
         DraftRequest requestBody = new DraftRequest(List.of(sectionRequest));
 
         mockMvc.perform(

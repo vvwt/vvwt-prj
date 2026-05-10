@@ -11,6 +11,7 @@ import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftSection;
+import de.vvwt.tm.tournament.draft.GameMode;
 import de.vvwt.tm.tournament.events.SlotOptJobScheduledEvent;
 import java.util.List;
 import java.util.UUID;
@@ -237,7 +238,7 @@ public class DefaultMatchGenJobExecutor implements MatchGenJobExecutor {
      */
     private String resolveGeneratorKey(Tournament tournament, Phase phase) {
         if (isSiegerehrungPhase(tournament, phase)) {
-            return "siegerehrung";
+            return GameMode.SIEGEREHRUNG.getWireFormat();
         }
         return tournament.getMatchGeneratorId();
     }
@@ -267,7 +268,7 @@ public class DefaultMatchGenJobExecutor implements MatchGenJobExecutor {
             if (sectionIndex < 0 || sectionIndex >= sections.size()) {
                 return false;
             }
-            return "siegerehrung".equals(sections.get(sectionIndex).getGameMode());
+            return sections.get(sectionIndex).getGameMode() == GameMode.SIEGEREHRUNG;
         } catch (Exception e) {
             LOG.warn(
                     "MatchGenJobExecutor: failed to parse draftJson for tournament={}"

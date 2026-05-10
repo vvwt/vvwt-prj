@@ -17,11 +17,13 @@ import de.vvwt.tm.tournament.TimelineEntry;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentLifecycleService;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.draft.DistributionMode;
 import de.vvwt.tm.tournament.draft.DraftBreak;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftPreviewResult;
 import de.vvwt.tm.tournament.draft.DraftPreviewSection;
 import de.vvwt.tm.tournament.draft.DraftSection;
+import de.vvwt.tm.tournament.draft.GameMode;
 import de.vvwt.tm.tournament.events.MatchGenJobScheduledEvent;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import de.vvwt.tm.tournament.exceptions.TournamentNotFoundException;
@@ -635,7 +637,7 @@ public class DefaultDraftService implements DraftService {
         // FK CASCADE on match + team_avatar_rating means this is safe inside the TX.
         jdbcTemplate.update("DELETE FROM team_avatar WHERE phase_id = ?", phaseId);
 
-        if ("siegerehrung".equals(section.getGameMode())) {
+        if (section.getGameMode() == GameMode.SIEGEREHRUNG) {
             // DEC-59 Clause A: siegerehrung receives N rank-slot avatars (one per participating
             // team). Structural identity: groupNumber=1, groupPosition=1..N (rank slot).
             // DEC-59 Clause B: teamId=NULL (populated via Clause C operator-confirmation only).
@@ -659,9 +661,9 @@ public class DefaultDraftService implements DraftService {
             //   the slot created here (DEC-9 structural identity for UPDATE-by-identity in
             //   commitTransition).
             int groupCount = section.getGroupCount();
-            String distributionMode = section.getDistributionMode();
+            DistributionMode distributionMode = section.getDistributionMode();
 
-            if ("round_robin".equals(distributionMode)) {
+            if (distributionMode == DistributionMode.ROUND_ROBIN) {
                 // Round-Robin: team at index i → group (i % groupCount)+1, pos (i / groupCount)+1
                 for (int i = 0; i < teamCount; i++) {
                     int groupNumber = (i % groupCount) + 1;
@@ -672,17 +674,9 @@ public class DefaultDraftService implements DraftService {
                     teamAvatarRepository.save(avatar);
                 }
             } else {
-                // "sequential" (default) or unrecognized value (AC-ERROR-DISTRIBUTIONMODE-UNKNOWN):
-                // Unrecognized distributionMode falls through to sequential with a warning log
-                // (silent hardcoded Round-Robin fallback is NOT acceptable per DEC-59 Clause D).
-                if (!"sequential".equals(distributionMode) && distributionMode != null) {
-                    log.warn(
-                            "[E51S18] persistStructuralAvatars: unrecognized distributionMode '{}'"
-                                    + " for phaseId={} — defaulting to sequential"
-                                    + " (AC-ERROR-DISTRIBUTIONMODE-UNKNOWN-VALUE, DEC-59 Clause D)",
-                            distributionMode,
-                            phaseId);
-                }
+                // SEQUENTIAL (default) — enum type enforces valid values; no unrecognized fallback
+                // needed (E51S20: AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE now rejects at
+                // deserialization)
                 // Sequential: fill Group 1 fully before Group 2.
                 // positionsPerGroup = ceil(N / groupCount)
                 int positionsPerGroup = (teamCount + groupCount - 1) / groupCount;
@@ -758,7 +752,7 @@ public class DefaultDraftService implements DraftService {
         // Siegerehrung branch (E48S09, AC-IMPL-COMPUTE-PREVIEW-SIEGEREHRUNG-BRANCH):
         // SiegerehrungMatchGenerator.generate() returns emptyList() at runtime (E48S02) →
         // preview returns 0 matches/laps. Breaks and sectionBreak preserved for ceremony pause.
-        if ("siegerehrung".equals(section.getGameMode())) {
+        if (section.getGameMode() == GameMode.SIEGEREHRUNG) {
             int intraPhaseBreakTime =
                     section.getBreaks().stream().mapToInt(DraftBreak::getDurationMinutes).sum();
             int estimatedTimeMinutes = intraPhaseBreakTime + section.getSectionBreakTimeMinutes();

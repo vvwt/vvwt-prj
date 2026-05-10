@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.slotopt.SlotOptimizationClient;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
+import de.vvwt.tm.tournament.draft.DistributionMode;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftSection;
+import de.vvwt.tm.tournament.draft.GameMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -182,24 +184,24 @@ class PhaseTransitionDistributionModeIT {
                                         1,
                                         "team_number",
                                         2,
-                                        "roundRobin",
+                                        GameMode.ROUND_ROBIN,
                                         0,
                                         0,
                                         15,
                                         1,
                                         List.of(),
-                                        "sequential"),
+                                        DistributionMode.SEQUENTIAL),
                                 new DraftSection(
                                         2,
                                         "team_number",
                                         1,
-                                        "siegerehrung",
+                                        GameMode.SIEGEREHRUNG,
                                         0,
                                         0,
                                         15,
                                         1,
                                         List.of(),
-                                        "sequential")));
+                                        DistributionMode.SEQUENTIAL)));
 
         List<UUID> phaseIds = draftService.apply(tournament, config);
         UUID phase1Id = phaseIds.get(0);
@@ -281,24 +283,24 @@ class PhaseTransitionDistributionModeIT {
                                         1,
                                         "team_number",
                                         2,
-                                        "roundRobin",
+                                        GameMode.ROUND_ROBIN,
                                         0,
                                         0,
                                         15,
                                         1,
                                         List.of(),
-                                        "round_robin"),
+                                        DistributionMode.ROUND_ROBIN),
                                 new DraftSection(
                                         2,
                                         "team_number",
                                         1,
-                                        "siegerehrung",
+                                        GameMode.SIEGEREHRUNG,
                                         0,
                                         0,
                                         15,
                                         1,
                                         List.of(),
-                                        "sequential")));
+                                        DistributionMode.SEQUENTIAL)));
 
         List<UUID> phaseIds = draftService.apply(tournament, config);
         UUID phase1Id = phaseIds.get(0);

@@ -8,6 +8,7 @@ import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.TournamentService;
+import de.vvwt.tm.tournament.draft.GameMode;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftApplyResponse;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftPreviewResponse;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftRequest;
@@ -158,7 +159,7 @@ class DraftControllerIT {
         // gameMode=siegerehrung: single-section draft must use siegerehrung as last phase
         // per D-10 invariant (AC-IMPL-LAST-PHASE-INVARIANT, E48S01).
         return new DraftSectionRequest(
-                1, "team_number", 1, "siegerehrung", 0, 0, 15, 1, null, null);
+                1, "team_number", 1, GameMode.SIEGEREHRUNG, 0, 0, 15, 1, null, null);
     }
 
     private static DraftRequest sampleRequest() {
@@ -168,7 +169,7 @@ class DraftControllerIT {
     /**
      * Two-section apply request used by the apply test.
      *
-     * <p>Section 1 = roundrobin: match generation runs via RoundRobinMatchGenerator (already
+     * <p>Section 1 = roundRobin: match generation runs via RoundRobinMatchGenerator (already
      * registered). Section 2 = siegerehrung: last phase per D-10 invariant
      * (AC-IMPL-LAST-PHASE-INVARIANT, E48S01); match generation is NOT triggered for phase 2
      * (DefaultDraftService.apply() only generates matches for the first phase). This avoids a
@@ -176,10 +177,11 @@ class DraftControllerIT {
      */
     private static DraftRequest applyRequest() {
         var s1 =
-                new DraftSectionRequest(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, null, null);
+                new DraftSectionRequest(
+                        1, "team_number", 1, GameMode.ROUND_ROBIN, 0, 0, 15, 1, null, null);
         var s2 =
                 new DraftSectionRequest(
-                        2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, null, null);
+                        2, "team_number", 1, GameMode.SIEGEREHRUNG, 0, 0, 15, 1, null, null);
         return new DraftRequest(List.of(s1, s2));
     }
 
@@ -259,7 +261,7 @@ class DraftControllerIT {
         assertThat(section.sectionNumber()).isEqualTo(1);
         assertThat(section.sortType()).isEqualTo("team_number");
         assertThat(section.groupCount()).isEqualTo(1);
-        assertThat(section.gameMode()).isEqualTo("siegerehrung");
+        assertThat(section.gameMode()).isEqualTo(GameMode.SIEGEREHRUNG);
         assertThat(section.lapTimeMinutes()).isEqualTo(15);
         assertThat(section.setQuantity()).isEqualTo(1);
     }
@@ -580,7 +582,8 @@ class DraftControllerIT {
 
         // Config: 1 phase, groupCount=2 (2 groups of 6 teams each), roundRobin
         var section =
-                new DraftSectionRequest(1, "team_number", 2, "roundRobin", 0, 0, 15, 1, null, null);
+                new DraftSectionRequest(
+                        1, "team_number", 2, GameMode.ROUND_ROBIN, 0, 0, 15, 1, null, null);
         DraftRequest request = new DraftRequest(List.of(section));
 
         ResponseEntity<DraftPreviewResponse> response =
@@ -659,10 +662,11 @@ class DraftControllerIT {
 
         // Phase 1: roundRobin, groupCount=2; Phase 2: siegerehrung, sectionBreakTimeMinutes=20
         var phase1 =
-                new DraftSectionRequest(1, "team_number", 2, "roundRobin", 0, 0, 15, 1, null, null);
+                new DraftSectionRequest(
+                        1, "team_number", 2, GameMode.ROUND_ROBIN, 0, 0, 15, 1, null, null);
         var phase2 =
                 new DraftSectionRequest(
-                        2, "team_number", 1, "siegerehrung", 0, 20, 15, 1, null, null);
+                        2, "team_number", 1, GameMode.SIEGEREHRUNG, 0, 20, 15, 1, null, null);
         DraftRequest request = new DraftRequest(List.of(phase1, phase2));
 
         ResponseEntity<DraftPreviewResponse> response =
@@ -762,10 +766,10 @@ class DraftControllerIT {
         // Phase 2: siegerehrung (lapCount=0 → zero-duration marker)
         var phase1 =
                 new DraftSectionRequest(
-                        1, "team_number", 2, "roundRobin", 2, 10, 15, 1, null, null);
+                        1, "team_number", 2, GameMode.ROUND_ROBIN, 2, 10, 15, 1, null, null);
         var phase2 =
                 new DraftSectionRequest(
-                        2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, null, null);
+                        2, "team_number", 1, GameMode.SIEGEREHRUNG, 0, 0, 15, 1, null, null);
         DraftRequest request = new DraftRequest(List.of(phase1, phase2));
 
         ResponseEntity<DraftPreviewResponse> response =
@@ -893,10 +897,10 @@ class DraftControllerIT {
                 .isEqualTo(1);
         assertThat(getResponse.getBody().sections().get(0).gameMode())
                 .as("first section gameMode must be roundRobin")
-                .isEqualTo("roundRobin");
+                .isEqualTo(GameMode.ROUND_ROBIN);
         assertThat(getResponse.getBody().sections().get(1).gameMode())
                 .as("second section gameMode must be siegerehrung")
-                .isEqualTo("siegerehrung");
+                .isEqualTo(GameMode.SIEGEREHRUNG);
     }
 
     // =========================================================================
@@ -1031,13 +1035,13 @@ class DraftControllerIT {
         // Three different payloads — each with a distinct lapTimeMinutes to distinguish them
         var section1st =
                 new DraftSectionRequest(
-                        1, "team_number", 1, "siegerehrung", 0, 0, 10, 1, null, null);
+                        1, "team_number", 1, GameMode.SIEGEREHRUNG, 0, 0, 10, 1, null, null);
         var section2nd =
                 new DraftSectionRequest(
-                        1, "team_number", 1, "siegerehrung", 0, 0, 20, 1, null, null);
+                        1, "team_number", 1, GameMode.SIEGEREHRUNG, 0, 0, 20, 1, null, null);
         var section3rd =
                 new DraftSectionRequest(
-                        1, "team_number", 1, "siegerehrung", 0, 0, 30, 1, null, null);
+                        1, "team_number", 1, GameMode.SIEGEREHRUNG, 0, 0, 30, 1, null, null);
 
         ResponseEntity<DraftResponse> r1 =
                 authed.exchange(
@@ -1075,6 +1079,116 @@ class DraftControllerIT {
         assertThat(getResponse.getBody().sections().get(0).lapTimeMinutes())
                 .as("GET must return the third PUT payload (lapTimeMinutes=30)")
                 .isEqualTo(30);
+    }
+
+    // =========================================================================
+    // E51S20 — AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE (Q-1a RED-first)
+    // =========================================================================
+
+    /**
+     * AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE (E51S20): PUT /draft with an unknown {@code gameMode}
+     * wire-format value must be rejected with HTTP 400.
+     *
+     * <p>RED before enum migration: currently {@code "unknown_mode"} is accepted silently as a
+     * {@code String} value (no fail-fast validation at deserialization boundary).
+     *
+     * <p>GREEN after enum migration: {@code GameMode.fromWireFormat("unknown_mode")} throws {@link
+     * com.fasterxml.jackson.databind.exc.InvalidFormatException}, which Spring MVC translates to
+     * HTTP 400 (HttpMessageNotReadableException).
+     *
+     * <p>Per AC-SECURITY-INPUT-VALIDATION-NO-WEAKENING: the migration strengthens input validation
+     * — unknown values fail-fast at the deserialization boundary instead of producing silent
+     * runtime mismatches deeper in the call stack.
+     */
+    @Test
+    @DisplayName(
+            "PUT /draft with unknown gameMode wire-format value → 400 Bad Request"
+                    + " (E51S20 AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE)")
+    void putDraft_unknownGameModeWireFormat_returns400() throws Exception {
+        UUID tournamentId = createDraftTournament("IT unknown-gameMode E51S20");
+
+        // Send raw JSON with unknown gameMode — bypasses Java type system to test wire-format gate
+        String rawJson =
+                """
+                {"sections":[{
+                    "sectionNumber":1,
+                    "sortType":"team_number",
+                    "groupCount":1,
+                    "gameMode":"unknown_mode",
+                    "lapBreakTimeMinutes":0,
+                    "sectionBreakTimeMinutes":0,
+                    "lapTimeMinutes":15,
+                    "setQuantity":1
+                }]}""";
+
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+
+        ResponseEntity<String> response =
+                authed.exchange(
+                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/draft"),
+                        HttpMethod.PUT,
+                        new HttpEntity<>(rawJson, headers),
+                        String.class);
+
+        // RED: currently returns 200 (unknown string silently accepted)
+        // GREEN: must return 400 after GameMode enum enforces wire-format validation
+        assertThat(response.getStatusCode())
+                .as(
+                        "Unknown gameMode wire-format must be rejected with 400 Bad Request"
+                                + " (AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE, E51S20)")
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE (E51S20): PUT /draft with an unknown {@code
+     * distributionMode} wire-format value must be rejected with HTTP 400.
+     *
+     * <p>RED before enum migration: currently {@code "turbo_mode"} is accepted silently as a String
+     * value (no fail-fast validation at deserialization boundary).
+     *
+     * <p>GREEN after enum migration: {@code DistributionMode.fromWireFormat("turbo_mode")} throws
+     * {@link com.fasterxml.jackson.databind.exc.InvalidFormatException} → HTTP 400.
+     */
+    @Test
+    @DisplayName(
+            "PUT /draft with unknown distributionMode wire-format value → 400 Bad Request"
+                    + " (E51S20 AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE)")
+    void putDraft_unknownDistributionModeWireFormat_returns400() throws Exception {
+        UUID tournamentId = createDraftTournament("IT unknown-distributionMode E51S20");
+
+        String rawJson =
+                """
+                {"sections":[{
+                    "sectionNumber":1,
+                    "sortType":"team_number",
+                    "groupCount":1,
+                    "gameMode":"siegerehrung",
+                    "lapBreakTimeMinutes":0,
+                    "sectionBreakTimeMinutes":0,
+                    "lapTimeMinutes":15,
+                    "setQuantity":1,
+                    "distributionMode":"turbo_mode"
+                }]}""";
+
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+
+        ResponseEntity<String> response =
+                authed.exchange(
+                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/draft"),
+                        HttpMethod.PUT,
+                        new HttpEntity<>(rawJson, headers),
+                        String.class);
+
+        // RED: currently returns 200 (unknown string silently accepted by domain defaulting
+        // fallback)
+        // GREEN: must return 400 after DistributionMode enum enforces wire-format validation
+        assertThat(response.getStatusCode())
+                .as(
+                        "Unknown distributionMode wire-format must be rejected with 400 Bad Request"
+                                + " (AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE, E51S20)")
+                .isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     // =========================================================================

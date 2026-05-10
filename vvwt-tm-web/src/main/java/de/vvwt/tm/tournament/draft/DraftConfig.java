@@ -108,7 +108,7 @@ public final class DraftConfig {
                 sections.stream()
                         .max(Comparator.comparingInt(DraftSection::getSectionNumber))
                         .orElseThrow();
-        if (!"siegerehrung".equals(lastSection.getGameMode())) {
+        if (lastSection.getGameMode() != GameMode.SIEGEREHRUNG) {
             throw new IllegalArgumentException(
                     "Last phase (sectionNumber "
                             + lastSection.getSectionNumber()

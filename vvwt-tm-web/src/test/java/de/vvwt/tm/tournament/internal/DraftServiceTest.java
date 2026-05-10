@@ -28,6 +28,7 @@ import de.vvwt.tm.tournament.draft.DraftBreak;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftPreviewResult;
 import de.vvwt.tm.tournament.draft.DraftSection;
+import de.vvwt.tm.tournament.draft.GameMode;
 import de.vvwt.tm.tournament.exceptions.TournamentNotInDraftException;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -117,7 +118,7 @@ class DraftServiceTest {
      */
     private static DraftSection simpleSection(int sectionNumber) {
         return new DraftSection(
-                sectionNumber, "team_number", 1, "roundRobin", 0, 0, 15, 1, List.of());
+                sectionNumber, "team_number", 1, GameMode.ROUND_ROBIN, 0, 0, 15, 1, List.of());
     }
 
     /**
@@ -126,13 +127,21 @@ class DraftServiceTest {
      */
     private static DraftSection lastSection(int sectionNumber) {
         return new DraftSection(
-                sectionNumber, "team_number", 1, "siegerehrung", 0, 0, 15, 1, List.of());
+                sectionNumber, "team_number", 1, GameMode.SIEGEREHRUNG, 0, 0, 15, 1, List.of());
     }
 
     private static DraftSection sectionWithBreak(int sectionNumber) {
         DraftBreak breakItem = new DraftBreak(1, 10, "Pause");
         return new DraftSection(
-                sectionNumber, "team_number", 1, "siegerehrung", 0, 0, 15, 1, List.of(breakItem));
+                sectionNumber,
+                "team_number",
+                1,
+                GameMode.SIEGEREHRUNG,
+                0,
+                0,
+                15,
+                1,
+                List.of(breakItem));
     }
 
     // -------------------------------------------------------------------------
@@ -152,7 +161,7 @@ class DraftServiceTest {
     void preview_scenarioA_6teams1group_field3_returns5Laps() {
         // 6 teams / 1 group: section with groupCount=1
         DraftSection section =
-                new DraftSection(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, List.of());
+                new DraftSection(1, "team_number", 1, GameMode.ROUND_ROBIN, 0, 0, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(section));
 
         DraftPreviewResult result = draftService.preview(config, 6, 3, null);
@@ -172,7 +181,7 @@ class DraftServiceTest {
     @Test
     void preview_scenarioB_12teams2groups_field3_returns10Laps() {
         DraftSection section =
-                new DraftSection(1, "team_number", 2, "roundRobin", 0, 0, 15, 1, List.of());
+                new DraftSection(1, "team_number", 2, GameMode.ROUND_ROBIN, 0, 0, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(section));
 
         DraftPreviewResult result = draftService.preview(config, 12, 3, null);
@@ -192,7 +201,7 @@ class DraftServiceTest {
     @Test
     void preview_scenarioC_12teams3groups_field3_returns6Laps() {
         DraftSection section =
-                new DraftSection(1, "team_number", 3, "roundRobin", 0, 0, 15, 1, List.of());
+                new DraftSection(1, "team_number", 3, GameMode.ROUND_ROBIN, 0, 0, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(section));
 
         DraftPreviewResult result = draftService.preview(config, 12, 3, null);
@@ -210,7 +219,7 @@ class DraftServiceTest {
     @Test
     void preview_scenarioD_12teams4groups_field3_returns4Laps() {
         DraftSection section =
-                new DraftSection(1, "team_number", 4, "roundRobin", 0, 0, 15, 1, List.of());
+                new DraftSection(1, "team_number", 4, GameMode.ROUND_ROBIN, 0, 0, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(section));
 
         DraftPreviewResult result = draftService.preview(config, 12, 3, null);
@@ -228,7 +237,7 @@ class DraftServiceTest {
     @Test
     void preview_scenarioE_12teams4groups_field6_returns3Laps() {
         DraftSection section =
-                new DraftSection(1, "team_number", 4, "roundRobin", 0, 0, 15, 1, List.of());
+                new DraftSection(1, "team_number", 4, GameMode.ROUND_ROBIN, 0, 0, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(section));
 
         DraftPreviewResult result = draftService.preview(config, 12, 6, null);
@@ -245,7 +254,7 @@ class DraftServiceTest {
     @Test
     void preview_scenarioF_6teams1group_field10_returns5Laps() {
         DraftSection section =
-                new DraftSection(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, List.of());
+                new DraftSection(1, "team_number", 1, GameMode.ROUND_ROBIN, 0, 0, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(section));
 
         DraftPreviewResult result = draftService.preview(config, 6, 10, null);
@@ -262,7 +271,7 @@ class DraftServiceTest {
     @Test
     void preview_scenarioG_8teams2groups_field1_returns12Laps() {
         DraftSection section =
-                new DraftSection(1, "team_number", 2, "roundRobin", 0, 0, 15, 1, List.of());
+                new DraftSection(1, "team_number", 2, GameMode.ROUND_ROBIN, 0, 0, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(section));
 
         DraftPreviewResult result = draftService.preview(config, 8, 1, null);
@@ -283,7 +292,7 @@ class DraftServiceTest {
     void preview_scenarioH_totalMatchesZero_returns0Laps() {
         // 1 team per group → matchesPerGroup=0 → totalMatches=0 → totalLaps=0
         DraftSection section =
-                new DraftSection(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, List.of());
+                new DraftSection(1, "team_number", 1, GameMode.ROUND_ROBIN, 0, 0, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(section));
 
         // 1 participating team total, 1 group → teamsPerGroup=1 → 0 matches
@@ -300,7 +309,7 @@ class DraftServiceTest {
     @Test
     void preview_fieldCountZero_clampedTo1() {
         DraftSection section =
-                new DraftSection(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, List.of());
+                new DraftSection(1, "team_number", 1, GameMode.ROUND_ROBIN, 0, 0, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(section));
 
         DraftPreviewResult result = draftService.preview(config, 4, 0, null);
@@ -549,7 +558,7 @@ class DraftServiceTest {
                         1,
                         "team_number",
                         1,
-                        "siegerehrung",
+                        GameMode.SIEGEREHRUNG,
                         2, // lapBreakTimeMinutes
                         30, // sectionBreakTimeMinutes
                         15, // lapTimeMinutes
@@ -635,7 +644,7 @@ class DraftServiceTest {
     @Test
     void preview_withNullPlannedStartTime_returnsEmptyTimeline() {
         DraftSection section =
-                new DraftSection(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, List.of());
+                new DraftSection(1, "team_number", 1, GameMode.ROUND_ROBIN, 0, 0, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(section));
 
         DraftPreviewResult result = draftService.preview(config, 4, 3, null);
@@ -669,9 +678,11 @@ class DraftServiceTest {
     void preview_withPlannedStartTime_returnsPopulatedTimeline() {
         LocalTime startTime = LocalTime.of(9, 0);
         DraftSection rrSection =
-                new DraftSection(1, "team_number", 1, "roundRobin", 2, 10, 15, 1, List.of());
+                new DraftSection(
+                        1, "team_number", 1, GameMode.ROUND_ROBIN, 2, 10, 15, 1, List.of());
         DraftSection sieg =
-                new DraftSection(2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, List.of());
+                new DraftSection(
+                        2, "team_number", 1, GameMode.SIEGEREHRUNG, 0, 0, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(rrSection, sieg));
 
         // Stub: when the service is called for any phase list at the given start time,
