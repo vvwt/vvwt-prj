@@ -720,6 +720,81 @@ class DefaultDisplayOverviewServiceTest {
         return sr;
     }
 
+    // =========================================================================
+    // AC-TEST-DISPLAY-OVERVIEW-FIELDNUMBER-IS-1-BASED-RED (E53S09 / DEC-60 D-1)
+    //
+    // After E53S09: L2 emits 1-based fieldNumber; DefaultDisplayOverviewService passes through
+    // m.getFieldNumber() unchanged (no arithmetic at line 251). This test verifies that the
+    // returned MatchEntry.fieldNumber() is 1-based (>= 1) for a fixture with 1-based storage.
+    //
+    // Previously (pre-E53S09): L2 emitted 0-based fields; service passed 0 through → Bug 1.
+    // Now (post-E53S09): L2 emits 1-based; service passes 1 through → correct venue signage.
+    // =========================================================================
+
+    /**
+     * AC-TEST-DISPLAY-OVERVIEW-FIELDNUMBER-IS-1-BASED-RED (DEC-60 D-1 / E53S09):
+     *
+     * <p>For a tournament with matches stored with 1-based fieldNumber (as emitted by L2 after
+     * E53S09), getMatchesByLap must return MatchEntries with fieldNumber >= 1 (no "Feld 0").
+     *
+     * <p>Regression guard: DefaultDisplayOverviewService.java:251 passes {@code m.getFieldNumber()}
+     * through without arithmetic. With 1-based storage this is correct. With 0-based storage
+     * (before E53S09 migration) this would produce "Feld 0" Bug 1.
+     */
+    @Test
+    void getMatchesByLap_withOneBasedStoredFieldNumber_entryFieldNumberIsNotZero() {
+        UUID tenantId = UUID.randomUUID();
+        UUID phaseId = UUID.randomUUID();
+        UUID tournamentId = UUID.randomUUID();
+        UUID avatarId1 = UUID.randomUUID();
+        UUID avatarId2 = UUID.randomUUID();
+        UUID teamId1 = UUID.randomUUID();
+        UUID teamId2 = UUID.randomUUID();
+        UUID matchId = UUID.randomUUID();
+
+        Device device = buildDisplayDevice(tenantId);
+        Tournament tournament = buildTournament(tournamentId, "ACTIVE", 3);
+        Phase phase = buildPhase(phaseId, tenantId, tournamentId, "Vorrunde", "ACTIVE", 1, 1);
+
+        // Match with 1-based fieldNumber=2 (as L2 emits post-E53S09)
+        Match match = new Match();
+        match.setId(matchId);
+        match.setPhaseId(phaseId);
+        match.setLapNumber(1);
+        match.setMatchState(MatchState.OPEN);
+        match.setMemberAvatar1Id(avatarId1);
+        match.setMemberAvatar2Id(avatarId2);
+        match.setFieldNumber(2); // 1-based: field 2 per DEC-60 D-1 / E53S09
+
+        TeamAvatar ta1 = buildAvatarWithTeam(avatarId1, phaseId, tenantId, 1, teamId1);
+        TeamAvatar ta2 = buildAvatarWithTeam(avatarId2, phaseId, tenantId, 1, teamId2);
+        Team team1 = buildTeam(teamId1, tournamentId, "Rote Haie");
+        Team team2 = buildTeam(teamId2, tournamentId, "Blaue Wölfe");
+
+        when(deviceRepository.findByDeviceToken("valid-token")).thenReturn(Optional.of(device));
+        when(tournamentRepository.findAll()).thenReturn(List.of(tournament));
+        when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(phase));
+        when(matchRepository.findByPhaseId(phaseId)).thenReturn(List.of(match));
+        when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(List.of(ta1, ta2));
+        when(teamRepository.findByTournamentId(tournamentId)).thenReturn(List.of(team1, team2));
+        when(setResultRepository.findByMatchId(matchId)).thenReturn(List.of());
+
+        DisplayMatchesResponse response = service.getMatchesByLap("valid-token", 1);
+
+        assertThat(response.matches()).hasSize(1);
+        DisplayMatchesResponse.MatchEntry entry = response.matches().get(0);
+        assertThat(entry.fieldNumber())
+                .as(
+                        "AC-TEST-DISPLAY-OVERVIEW-FIELDNUMBER-IS-1-BASED-RED:"
+                            + " MatchEntry.fieldNumber must be 1-based (>=1) after E53S09; stored"
+                            + " fieldNumber=2 must pass through as 2 (DEC-60 D-1 / E53S09"
+                            + " regression guard)")
+                .isGreaterThanOrEqualTo(1);
+        assertThat(entry.fieldNumber())
+                .as("fieldNumber must equal stored value (no arithmetic shift in service)")
+                .isEqualTo(2);
+    }
+
     @SuppressWarnings("checkstyle:ParameterNumber")
     private TeamAvatarRating buildRating(
             UUID avatarId,

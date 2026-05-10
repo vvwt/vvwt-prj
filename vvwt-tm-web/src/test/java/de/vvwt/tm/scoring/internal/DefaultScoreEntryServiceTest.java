@@ -372,6 +372,116 @@ class DefaultScoreEntryServiceTest {
         verify(scoringService, never()).registerMatchResult(any());
     }
 
+    // =======================================================================
+    // AC-TEST-SCORE-TABLET-MATCH-RESOLUTION-WORKS-AFTER-1-BASED-RED (E53S09 / DEC-60 D-1)
+    //
+    // After E53S09: L2 emits 1-based fieldNumber; getMatchForField(1, token) queries
+    // findByFieldNumberAndLapNumber(1, lap). The match.fieldNumber=1 (1-based per DEC-60 D-1)
+    // is now consistent with the URL parameter fieldNumber=1 → match found, non-empty result.
+    //
+    // Previously (pre-E53S09): L2 stored fieldNumber=0; URL parameter fieldNumber=1 did not
+    // match → empty list → Bug 2 (silent scoring failure).
+    // =======================================================================
+
+    /**
+     * AC-TEST-SCORE-TABLET-MATCH-RESOLUTION-WORKS-AFTER-1-BASED-RED (DEC-60 D-1 / E53S09):
+     *
+     * <p>getMatchForField(fieldNumber=1, token) with a 1-based match (fieldNumber=1 in DB after L2)
+     * returns a non-empty result. The URL parameter and DB storage are now consistent.
+     *
+     * <p>Regression guard: resolveActiveMatch queries {@code
+     * findByFieldNumberAndLapNumber(fieldNumber=1, lap)}. With 1-based storage, the match is found.
+     * With 0-based storage (pre-E53S09), the query returns empty → silent scoring failure.
+     */
+    @Test
+    void getMatchForField_oneBased_fieldNumber1_matchFound() {
+        // AC-TEST-SCORE-TABLET-MATCH-RESOLUTION-WORKS-AFTER-1-BASED-RED
+        // Match stored with fieldNumber=1 (1-based per DEC-60 D-1 / E53S09)
+        // URL requests fieldNumber=1 → match returned
+        when(deviceRepository.findByDeviceToken(DEVICE_TOKEN))
+                .thenReturn(Optional.of(assignedDevice)); // assignedDevice.assignedField=1
+        when(tournamentRepository.findAll()).thenReturn(List.of(activeTournament));
+        when(phaseRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(activePhase));
+        when(matchRepository.findByFieldNumberAndLapNumber(1, LAP_NUMBER))
+                .thenReturn(List.of(activeMatch)); // activeMatch.fieldNumber=1 (1-based)
+
+        TeamAvatar avatar1 = new TeamAvatar();
+        avatar1.setId(AVATAR1_ID);
+        avatar1.setTeamId(TEAM1_ID);
+        TeamAvatar avatar2 = new TeamAvatar();
+        avatar2.setId(AVATAR2_ID);
+        avatar2.setTeamId(TEAM2_ID);
+        Team team1 = new Team();
+        team1.setId(TEAM1_ID);
+        team1.setDescription("Rote Haie");
+        Team team2 = new Team();
+        team2.setId(TEAM2_ID);
+        team2.setDescription("Blaue Wölfe");
+        when(teamAvatarRepository.findById(AVATAR1_ID)).thenReturn(Optional.of(avatar1));
+        when(teamAvatarRepository.findById(AVATAR2_ID)).thenReturn(Optional.of(avatar2));
+        when(teamRepository.findById(TEAM1_ID)).thenReturn(Optional.of(team1));
+        when(teamRepository.findById(TEAM2_ID)).thenReturn(Optional.of(team2));
+
+        Optional<ScoreEntryResult> result = service.getMatchForField(1, DEVICE_TOKEN);
+
+        assertThat(result)
+                .as(
+                        "AC-TEST-SCORE-TABLET-MATCH-RESOLUTION-WORKS-AFTER-1-BASED-RED: URL"
+                                + " fieldNumber=1 must find a match with DB fieldNumber=1 (1-based"
+                                + " per DEC-60 D-1 / E53S09)")
+                .isPresent();
+        assertThat(result.get().fieldNumber())
+                .as("result fieldNumber must be 1-based (=1)")
+                .isEqualTo(1);
+    }
+
+    // =======================================================================
+    // AC-TEST-SCORE-TABLET-EQUALITY-WORKS-AFTER-1-BASED-RED (E53S09 / DEC-60 D-1)
+    //
+    // After E53S09: device.assignedField=1 (1-based, unchanged) and match.fieldNumber=1
+    // (now 1-based from L2 per DEC-60 D-1). The equality check at line 285 holds → no
+    // ForbiddenException on legitimate scoring.
+    //
+    // Previously (pre-E53S09): device.assignedField=1 vs match.fieldNumber=0 → inequality
+    // → ForbiddenException on every legitimate scoring attempt (Bug 3).
+    // =======================================================================
+
+    /**
+     * AC-TEST-SCORE-TABLET-EQUALITY-WORKS-AFTER-1-BASED-RED (DEC-60 D-1 / E53S09):
+     *
+     * <p>submitSetResult with device.assignedField=1 and match.fieldNumber=1 (both 1-based after
+     * E53S09 migration) must NOT throw ForbiddenException. The field equality check at line 285
+     * passes (1 == 1).
+     *
+     * <p>Regression guard: device.assignedField has always been 1-based (operator input
+     * "Feldnummer" min=1). Before E53S09, match.fieldNumber was 0-based → equality failed. After
+     * E53S09, both are 1-based → equality holds.
+     */
+    @Test
+    void submitSetResult_oneBasedDeviceAndMatchFieldEqual_noForbiddenException() {
+        // AC-TEST-SCORE-TABLET-EQUALITY-WORKS-AFTER-1-BASED-RED
+        // device.assignedField=1 (1-based, operator-input convention)
+        // activeMatch.fieldNumber=1 (1-based per DEC-60 D-1 / E53S09)
+        // Both are 1-based → equality holds → no ForbiddenException
+        activeMatch.setFieldNumber(1); // 1-based per DEC-60 D-1
+        when(deviceRepository.findByDeviceToken(DEVICE_TOKEN))
+                .thenReturn(
+                        Optional.of(assignedDevice)); // assignedDevice.assignedField=FIELD_NUMBER=1
+        when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(activeMatch));
+        // registerMatchResult is void — use lenient stubbing (strict mode ignores unused stubs)
+        org.mockito.Mockito.doNothing().when(scoringService).registerMatchResult(any());
+
+        SetSubmitInput input = new SetSubmitInput(MATCH_ID, 0, 21, 15, DEVICE_TOKEN);
+
+        // Should NOT throw ForbiddenException — device.assignedField=1 == match.fieldNumber=1
+        org.assertj.core.api.Assertions.assertThatCode(() -> service.submitSetResult(input))
+                .as(
+                        "AC-TEST-SCORE-TABLET-EQUALITY-WORKS-AFTER-1-BASED-RED:"
+                            + " device.assignedField=1 and match.fieldNumber=1 must be equal (both"
+                            + " 1-based per DEC-60 D-1 / E53S09) → no ForbiddenException")
+                .doesNotThrowAnyException();
+    }
+
     /**
      * T12 — AC-SECURITY-TENANT-ISOLATION: cross-tenant device token → UnauthorizedException.
      *

@@ -283,13 +283,19 @@ class DefaultRoundAssignmentServiceTest {
 
         // Group 1: 1 match → 1 lap starting at offset 1 → lap 1 (1-based, E53S06)
         assertThat(m1.getLapNumber()).as("Group 1 match gets lap 1 (1-based, E53S06)").isEqualTo(1);
-        assertThat(m1.getFieldNumber()).as("Group 1 match gets field 0").isEqualTo(0);
+        // fieldIdx=0 → fieldNumber = 0 + 1 = 1 (1-based per DEC-60 D-1, E53S09)
+        assertThat(m1.getFieldNumber())
+                .as("Group 1 match gets field 1 (1-based per DEC-60 D-1)")
+                .isEqualTo(1);
 
         // Group 2: 1 match → 1 lap starting at offset 2 (Group 1 had 1 lap, starting at 1) → lap 2
         assertThat(m2.getLapNumber())
                 .as("Group 2 match gets lap 2 (after Group 1's lap, 1-based, E53S06)")
                 .isEqualTo(2);
-        assertThat(m2.getFieldNumber()).as("Group 2 match gets field 0").isEqualTo(0);
+        // fieldIdx=0 → fieldNumber = 0 + 1 = 1 (1-based per DEC-60 D-1, E53S09)
+        assertThat(m2.getFieldNumber())
+                .as("Group 2 match gets field 1 (1-based per DEC-60 D-1)")
+                .isEqualTo(1);
     }
 
     // ── Minimal lap count ──────────────────────────────────────────────────────────────────────

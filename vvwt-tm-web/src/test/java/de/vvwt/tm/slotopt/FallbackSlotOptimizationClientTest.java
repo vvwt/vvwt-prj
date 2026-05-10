@@ -71,7 +71,8 @@ class FallbackSlotOptimizationClientTest {
         fallback.optimize(phaseId);
 
         ArgumentCaptor<Match> captor = ArgumentCaptor.forClass(Match.class);
-        org.mockito.Mockito.verify(matchRepository, org.mockito.Mockito.times(9)).save(captor.capture());
+        org.mockito.Mockito.verify(matchRepository, org.mockito.Mockito.times(9))
+                .save(captor.capture());
         List<Match> saved = captor.getAllValues();
 
         int minField = saved.stream().mapToInt(Match::getFieldNumber).min().orElse(-1);
@@ -99,7 +100,8 @@ class FallbackSlotOptimizationClientTest {
         fallback.optimize(phaseId);
 
         ArgumentCaptor<Match> captor = ArgumentCaptor.forClass(Match.class);
-        org.mockito.Mockito.verify(matchRepository, org.mockito.Mockito.times(6)).save(captor.capture());
+        org.mockito.Mockito.verify(matchRepository, org.mockito.Mockito.times(6))
+                .save(captor.capture());
         List<Match> saved = captor.getAllValues();
 
         int minLap = saved.stream().mapToInt(Match::getLapNumber).min().orElse(-1);

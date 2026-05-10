@@ -36,8 +36,9 @@ import org.springframework.stereotype.Service;
  *       lap {@code l} such that: (a) no existing match in lap {@code l} shares an avatar with the
  *       current match, AND (b) lap {@code l} has fewer than {@code fieldCount} matches.
  *   <li>Direct lap+field assignment from greedy buckets: {@code lapNumber = cumulativeLapOffset +
- *       greedy-bucket-index}, {@code fieldNumber = position-within-bucket}. This guarantees
- *       round-conflict-freedom and the field-count capacity constraint by construction.
+ *       greedy-bucket-index} (1-based), {@code fieldNumber = position-within-bucket + 1} (1-based
+ *       per DEC-60 D-1 — E53S09). This guarantees round-conflict-freedom and the field-count
+ *       capacity constraint by construction.
  *   <li>Write all lap+field values back via {@link MatchRepository#save(Match)}.
  * </ol>
  *
@@ -124,7 +125,7 @@ class DefaultRoundAssignmentService implements RoundAssignmentService {
      *   B-D → lap 0 (B in lap 0) → lap 1 (empty for B,D at cap 1/3) → lap 1
      *   C-D → lap 0 (cap 1/3; C,D free) → lap 0
      * lapBuckets: [0:[A-B,C-D], 1:[A-C,B-D], 2:[A-D,B-C]]
-     * Final assignment (lapNumber=cumulativeLapOffset+bucket-index, fieldNumber=pos-in-bucket):
+     * Final assignment (lapNumber=cumulativeLapOffset+bucket-index (1-based), fieldNumber=pos-in-bucket+1 (1-based per DEC-60 D-1)):
      *   A-B: lap=1, f=0; C-D: lap=1, f=1
      *   A-C: lap=2, f=0; B-D: lap=2, f=1
      *   A-D: lap=3, f=0; B-C: lap=3, f=1
@@ -193,14 +194,14 @@ class DefaultRoundAssignmentService implements RoundAssignmentService {
             List<List<Match>> lapBuckets = greedyAssignLaps(groupMatches, fieldCount);
 
             // Assign lapNumber = cumulativeLapOffset + greedy-bucket-index,
-            // fieldNumber = position within that bucket.
+            // fieldNumber = position within that bucket + 1 (1-based per DEC-60 D-1, E53S09).
             // This guarantees round-conflict-freedom and field-count constraint by construction.
             for (int lapIdx = 0; lapIdx < lapBuckets.size(); lapIdx++) {
                 List<Match> lapMatches = lapBuckets.get(lapIdx);
                 for (int fieldIdx = 0; fieldIdx < lapMatches.size(); fieldIdx++) {
                     Match match = lapMatches.get(fieldIdx);
                     match.setLapNumber(cumulativeLapOffset + lapIdx);
-                    match.setFieldNumber(fieldIdx);
+                    match.setFieldNumber(fieldIdx + 1); // 1-based per DEC-60 D-1 (E53S09)
                 }
             }
 

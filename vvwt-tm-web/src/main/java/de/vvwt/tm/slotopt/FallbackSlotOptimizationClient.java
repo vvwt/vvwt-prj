@@ -15,9 +15,10 @@ import org.springframework.stereotype.Component;
  * Development-time fallback implementation of {@link SlotOptimizationClient} (AC3, AC8).
  *
  * <p>When E04 is not yet delivered, this bean provides a sequential lap/field assignment: matches
- * are sorted deterministically by ID, then assigned indices {@code (idx / fieldCount, idx %
- * fieldCount)} where {@code fieldCount} is configurable via {@code tm.slotopt.fallback.field-count}
- * (default: 3).
+ * are sorted deterministically by ID, then assigned 1-based coordinates {@code (idx / fieldCount +
+ * 1, idx % fieldCount + 1)} where {@code fieldCount} is configurable via {@code
+ * tm.slotopt.fallback.field-count} (default: 3). Both lap and field numbers are 1-based per E53S06
+ * and DEC-60 D-1 / E53S09.
  *
  * <p>This is not an optimal schedule — it makes no attempt to avoid pairs playing on adjacent
  * courts or minimize wait time. It is sufficient to unblock E03 development and allow integration
@@ -68,8 +69,10 @@ public class FallbackSlotOptimizationClient implements SlotOptimizationClient {
     /**
      * {@inheritDoc}
      *
-     * <p>Assigns {@code (lap, field)} = {@code (idx / fieldCount, idx % fieldCount)} to each match.
-     * Matches are sorted by UUID for a deterministic assignment order.
+     * <p>Assigns {@code (lap, field)} = {@code (idx / fieldCount + 1, idx % fieldCount + 1)} to
+     * each match. Both lap and field numbers are 1-based: lap ∈ [1..lapCount], field ∈
+     * [1..fieldCount] per E53S06 (lapNumber) and DEC-60 D-1 / E53S09 (fieldNumber). Matches are
+     * sorted by UUID for a deterministic assignment order.
      *
      * @param phaseId the phase whose matches receive sequential slot coordinates
      */
@@ -91,8 +94,8 @@ public class FallbackSlotOptimizationClient implements SlotOptimizationClient {
 
         for (int idx = 0; idx < matches.size(); idx++) {
             Match match = matches.get(idx);
-            match.setLapNumber(idx / fieldCount);
-            match.setFieldNumber(idx % fieldCount);
+            match.setLapNumber(idx / fieldCount + 1); // 1-based per E53S06
+            match.setFieldNumber(idx % fieldCount + 1); // 1-based per DEC-60 D-1 (E53S09)
             matchRepository.save(match);
         }
 

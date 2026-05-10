@@ -111,17 +111,18 @@ class SlotResultApplicatorTest {
             }
         }
 
-        // All 12 expected slots (lap 1-4, field 0-2) present exactly once (1-based, E53S06)
+        // All 12 expected slots (lap 1-4, field 1-3) present exactly once (1-based: E53S06+DEC-60
+        // D-1)
         Set<String> observedSlots = new HashSet<>();
         for (Match m : saved) {
             observedSlots.add(m.getLapNumber() + ":" + m.getFieldNumber());
         }
         for (int lap = 1; lap <= 4; lap++) {
-            for (int field = 0; field < 3; field++) {
+            for (int field = 1; field <= 3; field++) {
                 assertThat(observedSlots)
                         .as(
                                 "Slot %d:%d must be present after identity permutation (1-based,"
-                                        + " E53S06)",
+                                        + " E53S06 + DEC-60 D-1)",
                                 lap, field)
                         .contains(lap + ":" + field);
             }
@@ -568,10 +569,10 @@ class SlotResultApplicatorTest {
         }
         // Sort by UUID (mirrors PhaseToRawPhaseDefMapper deterministic ordering)
         matches.sort((a, b) -> a.getId().toString().compareTo(b.getId().toString()));
-        // Assign L2 lap/field in sorted order — 1-based laps (E53S06 fix: L2 produces 1..lapCount)
+        // Assign L2 lap/field in sorted order — 1-based per E53S06 (lap) and DEC-60 D-1 (field)
         for (int i = 0; i < matches.size(); i++) {
-            matches.get(i).setLapNumber(i / FIELD_COUNT + 1); // 1-based: lap 1..lapCount
-            matches.get(i).setFieldNumber(i % FIELD_COUNT);
+            matches.get(i).setLapNumber(i / FIELD_COUNT + 1); // 1-based: lap 1..lapCount (E53S06)
+            matches.get(i).setFieldNumber(i % FIELD_COUNT + 1); // 1-based: field 1..K (DEC-60 D-1)
         }
         return new Fixture(avatars, matches);
     }
@@ -599,8 +600,8 @@ class SlotResultApplicatorTest {
     }
 
     /**
-     * Builds a multi-group fixture with 1-based L2 fields (field ∈ [1..fieldCount]).
-     * Used for E53S09 RED-first tests that verify DEC-60 D-1 1-based convention is preserved.
+     * Builds a multi-group fixture with 1-based L2 fields (field ∈ [1..fieldCount]). Used for
+     * E53S09 RED-first tests that verify DEC-60 D-1 1-based convention is preserved.
      */
     private Fixture buildMultiGroupFixtureOneBased(
             UUID phaseId, int groupCount, int avatarsPerGroup) {
@@ -656,8 +657,8 @@ class SlotResultApplicatorTest {
     }
 
     /**
-     * Builds a MappingResult from pre-assigned matches (bypasses mapper's sort logic).
-     * Avatars are stubbed into teamAvatarRepository, matches into matchRepository.
+     * Builds a MappingResult from pre-assigned matches (bypasses mapper's sort logic). Avatars are
+     * stubbed into teamAvatarRepository, matches into matchRepository.
      */
     private MappingResult buildMappingFromMatches(
             UUID phaseId, List<TeamAvatar> avatars, List<Match> matches) {

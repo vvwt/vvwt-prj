@@ -3,6 +3,7 @@ package de.vvwt.tm.tournament.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -433,6 +434,45 @@ class DeviceServiceTest {
         assertThat(name)
                 .as("Device name must match Tablet-XXXX format")
                 .matches("Tablet-[A-Z2-9]{4}");
+    }
+
+    // =========================================================================
+    // AC-TEST-DEVICE-FIELD-IS-1-BASED-IT-RED (E53S09 / DEC-60 D-7)
+    //
+    // Device.assignedField is 1-based by operator-input convention (Devices.svelte min="1").
+    // This regression guard verifies assignDevice(deviceId, N, null) stores assignedField=N
+    // unchanged — no offset/conversion. D-7 of DEC-60 preserves this invariant.
+    // =========================================================================
+
+    /**
+     * AC-TEST-DEVICE-FIELD-IS-1-BASED-IT-RED (DEC-60 D-7 / E53S09):
+     *
+     * <p>Operator assigns device to fieldNumber=1 (1-based, from "Feldnummer" min=1). assignDevice
+     * must store assignedField=1 unchanged — no decrement to 0-based. Regression guard for DEC-60
+     * D-7: Device.assignedField stays 1-based independent of the L2/L3 fieldNumber migration.
+     */
+    @Test
+    @DisplayName(
+            "AC-TEST-DEVICE-FIELD-IS-1-BASED-IT-RED: assignDevice stores 1-based fieldNumber"
+                    + " unchanged (DEC-60 D-7 / E53S09)")
+    void assignDevice_fieldNumber1_storesAsOneBased_noDecrement() {
+        UUID deviceId = UUID.randomUUID();
+        Device device = new Device();
+        device.setId(deviceId);
+        device.setDeviceType(Device.TYPE_DISPLAY);
+        device.setStatus(Device.STATUS_REGISTERED);
+        when(deviceRepository.findById(deviceId)).thenReturn(Optional.of(device));
+        when(deviceRepository.findByLocationAndField(any(), anyInt())).thenReturn(Optional.empty());
+        when(deviceRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Device result = service.assignDevice(deviceId, 1 /* fieldNumber 1-based */, null);
+
+        assertThat(result.getAssignedField())
+                .as(
+                        "AC-TEST-DEVICE-FIELD-IS-1-BASED-IT-RED: assignedField must store the"
+                                + " operator-input value unchanged (1-based per DEC-60 D-7 /"
+                                + " E53S09) — no decrement to 0-based")
+                .isEqualTo(1);
     }
 
     // =========================================================================

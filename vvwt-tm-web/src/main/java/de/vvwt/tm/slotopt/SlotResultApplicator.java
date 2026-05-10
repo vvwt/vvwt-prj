@@ -31,13 +31,15 @@ import org.springframework.stereotype.Service;
  *       {@code fc = fieldCount}. Each output position {@code i} is filled from the L2-sorted match
  *       at source flat-index {@code π[i/fc]*fc + i%fc}.
  *   <li>Write for output position {@code i}: {@code match.setLapNumber(i / fc + 1)} (1-based;
- *       E53S06 fix — lap numbers start at 1), {@code match.setFieldNumber(i % fc)}.
+ *       E53S06 fix — lap numbers start at 1), {@code match.setFieldNumber(i % fc + 1)} (1-based;
+ *       DEC-60 D-1 / E53S09 fix — field numbers start at 1).
  * </ol>
  *
  * <h2>Key invariant (D-7, AC-TEST-FIELD-INVARIANT-UNDER-LAP-PERMUTATION-RED)</h2>
  *
  * <p>Because the lap-permutation reorders whole laps without changing intra-lap positions, {@code
- * fieldNumber} is invariant under L3. A match at L2 field=k always gets field=k from L3.
+ * fieldNumber} is invariant under L3. A match at L2 field=k (1-based per DEC-60 D-1) always gets
+ * field=k from L3 (same 1-based value preserved).
  *
  * <h2>Identity rank (AC-TEST-RANK-AS-LAP-PERMUTATION-RED)</h2>
  *
@@ -126,13 +128,16 @@ public class SlotResultApplicator {
         // outputLap is 1-based (E53S06 fix): lap numbers written to Match are 1..lapCount so that
         // downstream consumers (DefaultLaufzettelAssembler, DefaultTimelineCalculationService)
         // see all rounds and no round is skipped.
+        // outputFieldIndex is the 0-based index used for arithmetic; setFieldNumber adds +1 to
+        // produce 1-based field numbers per DEC-60 D-1 (E53S09 fix).
         for (int i = 0; i < rowCount; i++) {
             int outputLapIndex = i / fieldCount; // 0-based index for pi[] lookup
-            int outputField = i % fieldCount;
-            int sourceFlatIdx = pi[outputLapIndex] * fieldCount + outputField;
+            int outputFieldIndex = i % fieldCount; // 0-based for arithmetic
+            int sourceFlatIdx = pi[outputLapIndex] * fieldCount + outputFieldIndex;
             Match match = sortedByL2.get(sourceFlatIdx);
             match.setLapNumber(outputLapIndex + 1); // 1-based: lap 1..lapCount (E53S06)
-            match.setFieldNumber(outputField);
+            match.setFieldNumber(
+                    outputFieldIndex + 1); // 1-based: field 1..fieldCount (DEC-60 D-1, E53S09)
             matchRepository.save(match);
         }
 
