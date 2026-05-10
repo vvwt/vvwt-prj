@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -16,6 +17,7 @@ import de.vvwt.tm.tournament.Phase.PhaseStatus;
 import de.vvwt.tm.tournament.PhaseLifecycleService;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.Tournament;
+import de.vvwt.tm.tournament.TournamentLifecycleSupport;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import java.util.Optional;
@@ -64,6 +66,7 @@ class PhaseLifecycleServiceTest {
     @Mock private MatchRepository matchRepository;
     @Mock private MatchLockdownService matchLockdownService;
     @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private TournamentLifecycleSupport tournamentLifecycleSupport;
 
     private DefaultPhaseLifecycleService service;
 
@@ -74,6 +77,7 @@ class PhaseLifecycleServiceTest {
     @BeforeEach
     void setUp() {
         // E51S18 GREEN: ObjectMapper injected for isSiegerehrungPhase() Clause F guard
+        // E48S24 GREEN: TournamentLifecycleSupport injected for D-1b isLastPhase predicate
         ObjectMapper objectMapper = new ObjectMapper();
         service =
                 new DefaultPhaseLifecycleService(
@@ -82,7 +86,8 @@ class PhaseLifecycleServiceTest {
                         matchRepository,
                         matchLockdownService,
                         eventPublisher,
-                        objectMapper);
+                        objectMapper,
+                        tournamentLifecycleSupport);
 
         tournamentId = UUID.randomUUID();
         phaseId = UUID.randomUUID();
@@ -93,6 +98,11 @@ class PhaseLifecycleServiceTest {
 
         // Default: findByIdForUpdate returns a locked tournament
         when(tournamentRepository.findByIdForUpdate(tournamentId)).thenReturn(tournament);
+        // Default: isLastPhase returns false — most tests do not exercise auto-complete.
+        // Lenient stub because tests that don't invoke complete() never reach isLastPhase
+        // (E48S24 D-1b — default prevents unexpected tournament-status side-effects in
+        // existing tests that set tournament.status="ACTIVE" for other purposes).
+        lenient().when(tournamentLifecycleSupport.isLastPhase(any())).thenReturn(false);
     }
 
     // =========================================================================

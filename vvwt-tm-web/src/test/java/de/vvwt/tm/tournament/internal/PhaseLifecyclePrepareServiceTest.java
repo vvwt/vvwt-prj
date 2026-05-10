@@ -15,6 +15,7 @@ import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseLifecycleService;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.Tournament;
+import de.vvwt.tm.tournament.TournamentLifecycleSupport;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.events.PhaseStatusChangedEvent;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
@@ -61,6 +62,7 @@ class PhaseLifecyclePrepareServiceTest {
     @Mock private MatchRepository matchRepository;
     @Mock private MatchLockdownService matchLockdownService;
     @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private TournamentLifecycleSupport tournamentLifecycleSupport;
 
     private DefaultPhaseLifecycleService service;
 
@@ -71,6 +73,7 @@ class PhaseLifecyclePrepareServiceTest {
     @BeforeEach
     void setUp() {
         // E51S18 GREEN: ObjectMapper injected for isSiegerehrungPhase() Clause F guard
+        // E48S24 GREEN: TournamentLifecycleSupport injected for D-1b isLastPhase predicate
         ObjectMapper objectMapper = new ObjectMapper();
         service =
                 new DefaultPhaseLifecycleService(
@@ -79,7 +82,8 @@ class PhaseLifecyclePrepareServiceTest {
                         matchRepository,
                         matchLockdownService,
                         eventPublisher,
-                        objectMapper);
+                        objectMapper,
+                        tournamentLifecycleSupport);
 
         tournamentId = UUID.randomUUID();
         phaseId = UUID.randomUUID();

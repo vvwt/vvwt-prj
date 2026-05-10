@@ -8,6 +8,7 @@ import de.vvwt.tm.tournament.Phase.PhaseStatus;
 import de.vvwt.tm.tournament.PhaseLifecycleService;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.Tournament;
+import de.vvwt.tm.tournament.TournamentLifecycleSupport;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftSection;
@@ -50,8 +51,28 @@ import org.springframework.transaction.annotation.Transactional;
  * predecessor completion: if sequenceNumber &gt; 1, the predecessor phase (sequenceNumber - 1) must
  * be {@code COMPLETED}.
  *
+ * <p>{@link #start(UUID)} atomically promotes the tournament from {@code PLANNED} to {@code ACTIVE}
+ * as a side effect of the FIRST phase ASSIGNED→ACTIVE transition (D-1a, E48S24). The auto-promote
+ * is conditional on {@code tournament.status == "PLANNED"}; if the tournament is already {@code
+ * ACTIVE} / {@code COMPLETED} / {@code CANCELLED}, the phase transition succeeds but the tournament
+ * status is left unchanged (idempotent, AC-TEST-IDEMPOTENT-AUTO-ACTIVATE-RED). This reuses the
+ * existing DEC-37 Clause B row-lock (no new {@code findByIdForUpdate} call) — atomic side-effect
+ * precedent: E48S22 (DRAFT→PLANNED coupling on apply()).
+ *
  * <p>{@link #complete(UUID)} verifies that all matches are in terminal states before allowing the
  * ACTIVE → COMPLETED transition (AC-TEST-PHASE-COMPLETE-ALL-FINISHED-RED).
+ *
+ * <p>{@link #complete(UUID)} atomically promotes the tournament from {@code ACTIVE} to {@code
+ * COMPLETED} as a side effect of the LAST phase's ACTIVE→COMPLETED transition (D-1b, E48S24). The
+ * auto-promote is conditional on {@code tournament.status == "ACTIVE"} AND {@link
+ * TournamentLifecycleSupport#isLastPhase(UUID)} returning {@code true}. {@link
+ * #forceComplete(UUID)} is INTENTIONALLY NOT MODIFIED (Notabschluss exclusion, T-8 user decision):
+ * operator chose forceComplete deliberately and may need to correct data before reaching the
+ * certificate workflow; tournament-completion via the Notabschluss path remains explicit (manual
+ * POST /complete). Rationale: under D-10 invariant (E48S01) the last phase always has {@code
+ * gameMode=siegerehrung}; per DEC-59 D-3 + Clause E Siegerehrung has no matches → {@code
+ * complete()} always succeeds vacuously → {@code complete()} of Siegerehrung IS the ceremonial
+ * tournament-completion gesture.
  *
  * <p>{@link #forceComplete(UUID)} delegates to {@link MatchLockdownService} for match bulk-cancel —
  * reusing E48S04 logic without duplication (AC-IMPL-FORCE-COMPLETE-REUSES-LOCKDOWN).
@@ -61,13 +82,16 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * @see PhaseLifecycleService
  * @see MatchLockdownService
+ * @see TournamentLifecycleSupport
  * @see <a href="DEC-35">DEC-35 — package layout: impl in .internal</a>
  * @see <a href="DEC-37">DEC-37 Clause B — per-tournament pessimistic DB row-lock</a>
  * @see <a href="DEC-55">DEC-55 D-4 + D-6 — ASSIGNED status, transition-table, activation-guard</a>
- * @see <a href="DEC-59">DEC-59 Clause F — activation-guard gameMode OR-term (siegerehrung
- *     exempt)</a>
+ * @see <a href="DEC-59">DEC-59 Clause F — activation-guard gameMode OR-term (siegerehrung exempt);
+ *     Clause E — Siegerehrung as ceremonial tournament-completion gesture</a>
  * @see <a href="E48S06">E48S06 — Phase-Lifecycle Service</a>
  * @see <a href="E48S17">E48S17 — PREPARED enum + prepare() + start() refactor</a>
+ * @see <a href="E48S22">E48S22 — atomic-side-effect precedent (DRAFT→PLANNED on apply())</a>
+ * @see <a href="E48S24">E48S24 — atomic tournament-status auto-promote (D-1a + D-1b)</a>
  * @see <a href="E51S05">E51S05 — transition-table + activation-guard implementation</a>
  * @see <a href="E51S18">E51S18 — operationalize DEC-59 (Clause F injection)</a>
  */
@@ -137,19 +161,32 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
      */
     private final ObjectMapper objectMapper;
 
+    /**
+     * Provides {@link TournamentLifecycleSupport#isLastPhase(UUID)} for the D-1b auto-complete
+     * predicate (E48S24). DI-injected; existing public interface, no new interface method
+     * introduced (DEC-58 Clause A does not fire).
+     *
+     * @see TournamentLifecycleSupport
+     * @see <a href="DEC-58">DEC-58 — internal mutation only; no public interface method added</a>
+     * @see <a href="E48S24">E48S24 — AC-DEC-58-INTERNAL-ONLY</a>
+     */
+    private final TournamentLifecycleSupport tournamentLifecycleSupport;
+
     public DefaultPhaseLifecycleService(
             TournamentRepository tournamentRepository,
             PhaseRepository phaseRepository,
             MatchRepository matchRepository,
             MatchLockdownService matchLockdownService,
             ApplicationEventPublisher eventPublisher,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            TournamentLifecycleSupport tournamentLifecycleSupport) {
         this.tournamentRepository = tournamentRepository;
         this.phaseRepository = phaseRepository;
         this.matchRepository = matchRepository;
         this.matchLockdownService = matchLockdownService;
         this.eventPublisher = eventPublisher;
         this.objectMapper = objectMapper;
+        this.tournamentLifecycleSupport = tournamentLifecycleSupport;
     }
 
     // =========================================================================
@@ -344,7 +381,9 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
         // DEC-37 Clause B: acquire per-tournament row-lock BEFORE reading mutable state.
         // Re-read the phase AFTER acquiring the lock so concurrent threads see the current
         // committed status — this is the serialisation point.
-        tournamentRepository.findByIdForUpdate(phase.getTournamentId());
+        // [E48S24 D-1a] Capture the locked Tournament for the PLANNED→ACTIVE auto-promote below.
+        // Reuses the existing lock call — no new findByIdForUpdate (AC-DEC-37-LOCK-REUSE, E48S24).
+        Tournament tournament = tournamentRepository.findByIdForUpdate(phase.getTournamentId());
         phase = requirePhase(phaseId); // fresh read under the lock
 
         // E51S06: start() now requires ASSIGNED (commitTransition flips PREPARED → ASSIGNED)
@@ -382,6 +421,20 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
         phase.setStatus("ACTIVE");
         Phase saved = phaseRepository.save(phase);
 
+        // [E48S24 D-1a] Auto-promote tournament PLANNED→ACTIVE as atomic side effect of first
+        // phase ASSIGNED→ACTIVE. Precedent: E48S22 (DRAFT→PLANNED on apply()).
+        // Idempotent: NO-OP if tournament is already ACTIVE / COMPLETED / CANCELLED (D-5).
+        // Runs BEFORE eventPublisher.publishEvent — auto-promote is committed in same TX.
+        if (tournament != null && "PLANNED".equals(tournament.getStatus())) {
+            tournament.setStatus("ACTIVE");
+            tournamentRepository.save(tournament);
+            log.info(
+                    "[E48S24] Auto-promoted tournament {} from PLANNED to ACTIVE"
+                            + " due to first phase ASSIGNED→ACTIVE (phaseId={})",
+                    tournament.getId(),
+                    phaseId);
+        }
+
         eventPublisher.publishEvent(
                 new PhaseStatusChangedEvent(
                         this,
@@ -408,8 +461,10 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
     public Phase complete(UUID phaseId) {
         Phase phase = requirePhase(phaseId);
 
-        // DEC-37 Clause B: acquire per-tournament row-lock, then re-read phase for fresh status
-        tournamentRepository.findByIdForUpdate(phase.getTournamentId());
+        // DEC-37 Clause B: acquire per-tournament row-lock, then re-read phase for fresh status.
+        // [E48S24 D-1b] Capture the locked Tournament for the ACTIVE→COMPLETED auto-promote below.
+        // Reuses the existing lock call — no new findByIdForUpdate (AC-DEC-37-LOCK-REUSE, E48S24).
+        Tournament tournament = tournamentRepository.findByIdForUpdate(phase.getTournamentId());
         phase = requirePhase(phaseId);
 
         if (!"ACTIVE".equals(phase.getStatus())) {
@@ -433,6 +488,27 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
         String previous = phase.getStatus();
         phase.setStatus("COMPLETED");
         Phase saved = phaseRepository.save(phase);
+
+        // [E48S24 D-1b] Auto-promote tournament ACTIVE→COMPLETED as atomic side effect of the
+        // LAST phase's ACTIVE→COMPLETED transition via complete() (forceComplete EXCLUDED, T-8).
+        // Precedent: E48S22 (DRAFT→PLANNED on apply()). Rationale: under D-10 invariant (E48S01)
+        // the last phase is always Siegerehrung; per DEC-59 D-3 + Clause E Siegerehrung has no
+        // matches → complete() always succeeds vacuously → complete() IS the ceremonial
+        // tournament-completion gesture [E48S24].
+        // isLastPhase() is invoked INSIDE the @Transactional boundary AFTER the per-tournament
+        // row-lock is held → concurrent phase mutations are serialized (AC-ERROR-ISLASTPHASE-RACE).
+        // Idempotent: NO-OP if tournament.status is already COMPLETED / CANCELLED (D-5).
+        if (tournament != null
+                && "ACTIVE".equals(tournament.getStatus())
+                && tournamentLifecycleSupport.isLastPhase(phaseId)) {
+            tournament.setStatus("COMPLETED");
+            tournamentRepository.save(tournament);
+            log.info(
+                    "[E48S24] Auto-promoted tournament {} from ACTIVE to COMPLETED"
+                            + " due to last phase complete (phaseId={})",
+                    tournament.getId(),
+                    phaseId);
+        }
 
         eventPublisher.publishEvent(
                 new PhaseStatusChangedEvent(
