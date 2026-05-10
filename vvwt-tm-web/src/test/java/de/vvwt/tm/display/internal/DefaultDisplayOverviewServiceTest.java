@@ -446,8 +446,7 @@ class DefaultDisplayOverviewServiceTest {
 
         Device device = buildDisplayDevice(tenantId);
         Tournament tournament = buildTournament(tournamentId, "ACTIVE", 2);
-        Phase phase =
-                buildPhase(phaseId, tenantId, tournamentId, "Phase", "ACTIVE", 3, 2);
+        Phase phase = buildPhase(phaseId, tenantId, tournamentId, "Phase", "ACTIVE", 3, 2);
         Match matchLap1 = buildMatch(phaseId, 1);
         Match matchLap2 = buildMatch(phaseId, 2);
 

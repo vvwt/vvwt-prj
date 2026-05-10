@@ -14,9 +14,9 @@ import java.util.UUID;
  * canon.
  *
  * @param phaseId UUID of the phase these matches belong to
- * @param lap currentLapNumber of the phase (active round marker for the FE active-highlight;
- *     E50S04 — when lap param is null the response includes all laps, this field marks which lap
- *     is currently active)
+ * @param lap currentLapNumber of the phase (active round marker for the FE active-highlight; E50S04
+ *     — when lap param is null the response includes all laps, this field marks which lap is
+ *     currently active)
  * @param matches ordered list of match entries (all laps when no lap filter requested)
  * @see DisplayOverviewService
  * @see E25S01

@@ -123,6 +123,12 @@ export interface DisplayMatchesData {
 /** Mirrors DisplayMatchesResponse.MatchEntry. */
 export interface MatchEntry {
   matchId: string;
+  /**
+   * Lap (round) number this match belongs to. Used by CourtGrid to group matches per round
+   * and highlight the active round (E50S04 AC-TEST-MULTI-ROUND-ALL-LAPS-VISIBLE-RED).
+   * Mirrors DisplayMatchesResponse.MatchEntry.lapNumber (added by E50S04 BE fix).
+   */
+  lapNumber: number | null;
   fieldNumber: number | null;
   teamAName: string;
   teamBName: string;

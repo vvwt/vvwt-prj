@@ -206,10 +206,7 @@ public class DefaultDisplayOverviewService implements DisplayOverviewService {
             int requestedLap = lap;
             lapMatches =
                     allMatches.stream()
-                            .filter(
-                                    m ->
-                                            Integer.valueOf(requestedLap)
-                                                    .equals(m.getLapNumber()))
+                            .filter(m -> Integer.valueOf(requestedLap).equals(m.getLapNumber()))
                             .collect(Collectors.toList());
         } else {
             // All laps: include every match that has an assigned lapNumber
