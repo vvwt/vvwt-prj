@@ -367,6 +367,7 @@ class DefaultDisplayOverviewServiceTest {
         assertThat(response.matches()).hasSize(1);
         DisplayMatchesResponse.MatchEntry entry = response.matches().get(0);
         assertThat(entry.matchId()).isEqualTo(matchId);
+        assertThat(entry.lapNumber()).isEqualTo(1); // E50S04: lapNumber carried on MatchEntry
         assertThat(entry.teamAName()).isEqualTo("Team Alpha");
         assertThat(entry.teamBName()).isEqualTo("Team Beta");
         assertThat(entry.matchStatus()).isEqualTo("IN_PROGRESS");
@@ -377,15 +378,21 @@ class DefaultDisplayOverviewServiceTest {
     }
 
     // =========================================================================
-    // AC-MATCHES-BY-LAP-CURRENT-LAP-DEFAULT
+    // AC-MATCHES-BY-LAP-CURRENT-LAP-DEFAULT / E50S04 ALL-LAPS
     // =========================================================================
 
     /**
-     * RED-first test: getMatchesByLap(token, null) → uses phase.currentLapNumber as effective lap.
-     * (AC-MATCHES-BY-LAP-CURRENT-LAP-DEFAULT)
+     * RED-first test: getMatchesByLap(token, null) → returns ALL laps (filter-removal per E50S04
+     * AC-TEST-MULTI-ROUND-ALL-LAPS-VISIBLE-RED). lap field in response = currentLapNumber (marker
+     * for active round in FE).
+     *
+     * <p>RED: current implementation filters to effectiveLap only → returns 1 match. GREEN: filter
+     * removed → returns all 3 matches; lap = currentLapNumber.
+     *
+     * @see DEC-22
      */
     @Test
-    void getMatchesByLap_nullLap_usesCurrentLapNumber() {
+    void getMatchesByLap_nullLap_returnsAllLaps_multiRound() {
         UUID tenantId = UUID.randomUUID();
         UUID phaseId = UUID.randomUUID();
         UUID tournamentId = UUID.randomUUID();
@@ -401,21 +408,97 @@ class DefaultDisplayOverviewServiceTest {
                         "ACTIVE",
                         3,
                         2); // currentLapNumber=2
+        Match matchLap1 = buildMatch(phaseId, 1);
         Match matchLap2 = buildMatch(phaseId, 2);
         Match matchLap3 = buildMatch(phaseId, 3);
 
         when(deviceRepository.findByDeviceToken("valid-token")).thenReturn(Optional.of(device));
         when(tournamentRepository.findAll()).thenReturn(List.of(tournament));
         when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(phase));
-        when(matchRepository.findByPhaseId(phaseId)).thenReturn(List.of(matchLap2, matchLap3));
+        when(matchRepository.findByPhaseId(phaseId))
+                .thenReturn(List.of(matchLap1, matchLap2, matchLap3));
         when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(List.of());
         when(teamRepository.findByTournamentId(tournamentId)).thenReturn(List.of());
+        when(setResultRepository.findByMatchId(matchLap1.getId())).thenReturn(List.of());
+        when(setResultRepository.findByMatchId(matchLap2.getId())).thenReturn(List.of());
+        when(setResultRepository.findByMatchId(matchLap3.getId())).thenReturn(List.of());
+
+        DisplayMatchesResponse response = service.getMatchesByLap("valid-token", null);
+
+        // All 3 laps returned (filter removed)
+        assertThat(response.matches()).hasSize(3);
+        // lap field = currentLapNumber (active round marker for FE active-highlight)
+        assertThat(response.lap()).isEqualTo(2);
+    }
+
+    /**
+     * RED-first test: each MatchEntry returned by getMatchesByLap (all-laps mode) carries its
+     * lapNumber (E50S04 AC-TEST-MULTI-ROUND-ALL-LAPS-VISIBLE-RED). Required for FE grouping.
+     *
+     * <p>RED: current MatchEntry has no lapNumber field → compile/runtime failure. GREEN: lapNumber
+     * added to MatchEntry + populated in service.
+     */
+    @Test
+    void getMatchesByLap_nullLap_matchEntriesCarryLapNumber() {
+        UUID tenantId = UUID.randomUUID();
+        UUID phaseId = UUID.randomUUID();
+        UUID tournamentId = UUID.randomUUID();
+
+        Device device = buildDisplayDevice(tenantId);
+        Tournament tournament = buildTournament(tournamentId, "ACTIVE", 2);
+        Phase phase = buildPhase(phaseId, tenantId, tournamentId, "Phase", "ACTIVE", 3, 2);
+        Match matchLap1 = buildMatch(phaseId, 1);
+        Match matchLap2 = buildMatch(phaseId, 2);
+
+        when(deviceRepository.findByDeviceToken("valid-token")).thenReturn(Optional.of(device));
+        when(tournamentRepository.findAll()).thenReturn(List.of(tournament));
+        when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(phase));
+        when(matchRepository.findByPhaseId(phaseId)).thenReturn(List.of(matchLap1, matchLap2));
+        when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(List.of());
+        when(teamRepository.findByTournamentId(tournamentId)).thenReturn(List.of());
+        when(setResultRepository.findByMatchId(matchLap1.getId())).thenReturn(List.of());
         when(setResultRepository.findByMatchId(matchLap2.getId())).thenReturn(List.of());
 
         DisplayMatchesResponse response = service.getMatchesByLap("valid-token", null);
 
-        assertThat(response.lap()).isEqualTo(2); // phase.currentLapNumber
-        assertThat(response.matches()).hasSize(1); // only lap=2 match
+        assertThat(response.matches()).hasSize(2);
+        // Each MatchEntry must carry its lapNumber for FE grouping
+        assertThat(response.matches())
+                .extracting(DisplayMatchesResponse.MatchEntry::lapNumber)
+                .containsExactlyInAnyOrder(1, 2);
+    }
+
+    /**
+     * Regression: getMatchesByLap with explicit lap still filters to that lap (E50S04 regression
+     * guard). MatchEntry still carries lapNumber.
+     */
+    @Test
+    void getMatchesByLap_explicitLap_stillFiltersToThatLap() {
+        UUID tenantId = UUID.randomUUID();
+        UUID phaseId = UUID.randomUUID();
+        UUID tournamentId = UUID.randomUUID();
+
+        Device device = buildDisplayDevice(tenantId);
+        Tournament tournament = buildTournament(tournamentId, "ACTIVE", 2);
+        Phase phase = buildPhase(phaseId, tenantId, tournamentId, "Phase", "ACTIVE", 3, 2);
+        Match matchLap1 = buildMatch(phaseId, 1);
+        Match matchLap2 = buildMatch(phaseId, 2);
+        Match matchLap3 = buildMatch(phaseId, 3);
+
+        when(deviceRepository.findByDeviceToken("valid-token")).thenReturn(Optional.of(device));
+        when(tournamentRepository.findAll()).thenReturn(List.of(tournament));
+        when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(phase));
+        when(matchRepository.findByPhaseId(phaseId))
+                .thenReturn(List.of(matchLap1, matchLap2, matchLap3));
+        when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(List.of());
+        when(teamRepository.findByTournamentId(tournamentId)).thenReturn(List.of());
+        when(setResultRepository.findByMatchId(matchLap2.getId())).thenReturn(List.of());
+
+        DisplayMatchesResponse response = service.getMatchesByLap("valid-token", 2);
+
+        assertThat(response.matches()).hasSize(1);
+        assertThat(response.lap()).isEqualTo(2);
+        assertThat(response.matches().get(0).lapNumber()).isEqualTo(2);
     }
 
     // =========================================================================
