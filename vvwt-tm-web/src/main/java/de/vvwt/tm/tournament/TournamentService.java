@@ -78,6 +78,11 @@ public interface TournamentService {
      * @param matchGeneratorId Spring bean ID of the match generator
      * @param plannedStartTime optional planned start time for timeline calculation; {@code null}
      *     means no start time set (E08S05 AC4; E48S14 bug-fix: was missing from CREATE path)
+     * @param optimize {@code true} enables slot-opt pipeline; {@code null} → server default {@code
+     *     true} per DEC-55 D-5; {@code false} disables
+     * @param seedMannschaftsfoto {@code true} (or {@code null} → default {@code true}) seeds a
+     *     Mannschaftsfoto {@link de.vvwt.tm.tournament.activity.ActivityType} with {@code
+     *     FIRST_FREE_ROUND} assignment rule; {@code false} skips seeding (E53S05 AC1)
      * @return the persisted tournament (never {@code null})
      * @throws IllegalArgumentException if any bean ID is not registered or matchFormat is invalid
      */
@@ -91,7 +96,8 @@ public interface TournamentService {
             String setValidationRuleId,
             String matchGeneratorId,
             LocalTime plannedStartTime,
-            Boolean optimize);
+            Boolean optimize,
+            Boolean seedMannschaftsfoto);
 
     // -------------------------------------------------------------------------
     // AC4 — Update tournament

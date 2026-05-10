@@ -11,6 +11,7 @@ import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.activity.ActivityTypeService;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import de.vvwt.tm.tournament.exceptions.TournamentCascadeDeleteActiveException;
 import de.vvwt.tm.tournament.exceptions.TournamentCascadeDeleteCompletedException;
@@ -78,6 +79,8 @@ class TournamentServiceTest {
 
     @Mock private TeamRepository teamRepository;
 
+    @Mock private ActivityTypeService activityTypeService;
+
     private DefaultTournamentService service;
 
     private static final UUID TENANT_ID = UUID.randomUUID();
@@ -115,13 +118,32 @@ class TournamentServiceTest {
         org.mockito.Mockito.lenient()
                 .when(teamRepository.save(ArgumentMatchers.any(Team.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
+        // Stub MessageSource for tom.label.team_photo → "Mannschaftsfoto" (E53S05 seeding)
+        org.mockito.Mockito.lenient()
+                .when(
+                        messageSource.getMessage(
+                                ArgumentMatchers.eq("tom.label.team_photo"),
+                                ArgumentMatchers.isNull(),
+                                ArgumentMatchers.any(Locale.class)))
+                .thenReturn("Mannschaftsfoto");
+        // Stub activityTypeService.create() — returns null (return value not used)
+        org.mockito.Mockito.lenient()
+                .when(
+                        activityTypeService.create(
+                                ArgumentMatchers.any(),
+                                ArgumentMatchers.anyString(),
+                                ArgumentMatchers.anyString(),
+                                ArgumentMatchers.any(),
+                                ArgumentMatchers.eq(1)))
+                .thenReturn(null);
         service =
                 new DefaultTournamentService(
                         tournamentRepository,
                         matchGeneratorRegistry,
                         jdbcTemplate,
                         messageSource,
-                        teamRepository);
+                        teamRepository,
+                        activityTypeService);
     }
 
     // =========================================================================
@@ -203,7 +225,8 @@ class TournamentServiceTest {
                         VALID_VALIDATION,
                         VALID_GENERATOR,
                         null,
-                        null);
+                        null,
+                        null); // E53S05: seedMannschaftsfoto = null
 
         assertThat(result.getId()).as("UUID must be generated").isNotNull();
         assertThat(result.getStatus()).isEqualTo("DRAFT");
@@ -226,7 +249,8 @@ class TournamentServiceTest {
                                         VALID_VALIDATION,
                                         VALID_GENERATOR,
                                         null,
-                                        null))
+                                        null,
+                                        null)) // E53S05: seedMannschaftsfoto = null
                 .isInstanceOf(IllegalArgumentException.class);
     }
 

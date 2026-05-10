@@ -16,6 +16,7 @@ import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.activity.ActivityTypeService;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -81,6 +82,8 @@ class DefaultTournamentServiceSeedTest {
 
     @Mock private TeamRepository teamRepository;
 
+    @Mock private ActivityTypeService activityTypeService;
+
     private DefaultTournamentService service;
 
     private static final UUID DEFAULT_LOCATION_ID = UUID.randomUUID();
@@ -110,13 +113,27 @@ class DefaultTournamentServiceSeedTest {
                                 any(Locale.class)))
                 .thenReturn("Mannschaft");
 
+        // Stub MessageSource.getMessage for tom.label.team_photo → "Mannschaftsfoto"
+        // (E53S05: seeding call — seedMannschaftsfoto=null tests pass null → seeding is triggered)
+        org.mockito.Mockito.lenient()
+                .when(
+                        messageSource.getMessage(
+                                eq("tom.label.team_photo"), isNull(), any(Locale.class)))
+                .thenReturn("Mannschaftsfoto");
+
+        // Stub activityTypeService.create() — returns null (return value not used in unit tests)
+        org.mockito.Mockito.lenient()
+                .when(activityTypeService.create(any(), anyString(), anyString(), any(), eq(1)))
+                .thenReturn(null);
+
         service =
                 new DefaultTournamentService(
                         tournamentRepository,
                         matchGeneratorRegistry,
                         jdbcTemplate,
                         messageSource,
-                        teamRepository);
+                        teamRepository,
+                        activityTypeService);
     }
 
     // =========================================================================
@@ -141,7 +158,8 @@ class DefaultTournamentServiceSeedTest {
                 "standardVolleyball",
                 "roundRobin",
                 null,
-                null);
+                null,
+                null); // E53S05: seedMannschaftsfoto = null → seeding (lenient stub)
 
         ArgumentCaptor<Team> teamCaptor = ArgumentCaptor.forClass(Team.class);
         verify(teamRepository, org.mockito.Mockito.times(teamCount)).save(teamCaptor.capture());
@@ -172,7 +190,8 @@ class DefaultTournamentServiceSeedTest {
                 "standardVolleyball",
                 "roundRobin",
                 null,
-                null);
+                null,
+                null); // E53S05: seedMannschaftsfoto = null
 
         ArgumentCaptor<Team> captor = ArgumentCaptor.forClass(Team.class);
         verify(teamRepository, org.mockito.Mockito.times(teamCount)).save(captor.capture());
@@ -203,7 +222,8 @@ class DefaultTournamentServiceSeedTest {
                 "standardVolleyball",
                 "roundRobin",
                 null,
-                null);
+                null,
+                null); // E53S05: seedMannschaftsfoto = null
 
         ArgumentCaptor<Team> captor = ArgumentCaptor.forClass(Team.class);
         verify(teamRepository, org.mockito.Mockito.times(teamCount)).save(captor.capture());
@@ -232,7 +252,8 @@ class DefaultTournamentServiceSeedTest {
                 "standardVolleyball",
                 "roundRobin",
                 null,
-                null);
+                null,
+                null); // E53S05: seedMannschaftsfoto = null
 
         ArgumentCaptor<Team> captor = ArgumentCaptor.forClass(Team.class);
         verify(teamRepository, org.mockito.Mockito.times(100)).save(captor.capture());
@@ -267,7 +288,8 @@ class DefaultTournamentServiceSeedTest {
                 "standardVolleyball",
                 "roundRobin",
                 null,
-                null);
+                null,
+                null); // E53S05: seedMannschaftsfoto = null
 
         ArgumentCaptor<Team> captor = ArgumentCaptor.forClass(Team.class);
         verify(teamRepository, org.mockito.Mockito.times(2)).save(captor.capture());
@@ -299,7 +321,8 @@ class DefaultTournamentServiceSeedTest {
                 "standardVolleyball",
                 "roundRobin",
                 null,
-                null);
+                null,
+                null); // E53S05: seedMannschaftsfoto = null
 
         verify(messageSource, atLeastOnce())
                 .getMessage(eq("team.defaultLabel"), isNull(), eq("Mannschaft"), any(Locale.class));
@@ -328,7 +351,8 @@ class DefaultTournamentServiceSeedTest {
                 "standardVolleyball",
                 "roundRobin",
                 null,
-                null);
+                null,
+                null); // E53S05: seedMannschaftsfoto = null
 
         // Verify MessageSource was called with a German locale
         ArgumentCaptor<Locale> localeCaptor = ArgumentCaptor.forClass(Locale.class);
@@ -364,7 +388,8 @@ class DefaultTournamentServiceSeedTest {
                 "standardVolleyball",
                 "roundRobin",
                 null,
-                null);
+                null,
+                null); // E53S05: seedMannschaftsfoto = null
 
         ArgumentCaptor<Locale> localeCaptor = ArgumentCaptor.forClass(Locale.class);
         verify(messageSource, atLeastOnce())
@@ -404,7 +429,8 @@ class DefaultTournamentServiceSeedTest {
                                         "standardVolleyball",
                                         "roundRobin",
                                         null,
-                                        null))
+                                        null,
+                                        null)) // E53S05: seedMannschaftsfoto = null
                 .isInstanceOf(DataAccessException.class);
     }
 
@@ -428,7 +454,8 @@ class DefaultTournamentServiceSeedTest {
                 "standardVolleyball",
                 "roundRobin",
                 null,
-                null);
+                null,
+                null); // E53S05: seedMannschaftsfoto = null
 
         ArgumentCaptor<Tournament> tCaptor = ArgumentCaptor.forClass(Tournament.class);
         verify(tournamentRepository).save(tCaptor.capture());

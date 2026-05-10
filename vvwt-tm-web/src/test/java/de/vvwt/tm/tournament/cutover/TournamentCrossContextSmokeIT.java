@@ -181,7 +181,8 @@ class TournamentCrossContextSmokeIT {
                             "standardVolleyball",
                             "roundRobin",
                             null,
-                            null);
+                            null,
+                            null); // E53S05: seedMannschaftsfoto = null
             ResponseEntity<TournamentResponse> tournamentResp =
                     authed.postForEntity(
                             new URI(baseUrl + "/api/tournaments"),

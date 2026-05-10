@@ -148,7 +148,8 @@ class DraftControllerIT {
                             "standardVolleyball",
                             "roundRobin",
                             null,
-                            null)
+                            null,
+                            null) // E53S05: seedMannschaftsfoto = null
                     .getId();
         } finally {
             tenantBinder.unbind();
@@ -574,7 +575,8 @@ class DraftControllerIT {
                                     "standardVolleyball",
                                     "roundRobin",
                                     null,
-                                    null)
+                                    null,
+                                    null) // E53S05: seedMannschaftsfoto = null
                             .getId();
         } finally {
             tenantBinder.unbind();
@@ -654,7 +656,8 @@ class DraftControllerIT {
                                     "standardVolleyball",
                                     "roundRobin",
                                     null,
-                                    null)
+                                    null,
+                                    null) // E53S05: seedMannschaftsfoto = null
                             .getId();
         } finally {
             tenantBinder.unbind();
@@ -751,7 +754,8 @@ class DraftControllerIT {
                                     "standardVolleyball",
                                     "roundRobin",
                                     null, // plannedStartTime set below via repository (E48S14)
-                                    null)
+                                    null,
+                                    null) // E53S05: seedMannschaftsfoto = null
                             .getId();
             // Set plannedStartTime directly on the tournament entity (createTournament does not
             // accept plannedStartTime; use repository to set it for the fixture)

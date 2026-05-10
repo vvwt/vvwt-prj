@@ -476,6 +476,12 @@
       "tooltip": "Langsamer für große Phasen, bessere Spielzeitausnutzung. Bei 'aus' startet die Phase ohne berechnete Spielreihenfolge."
     }
   },
+  "mannschaftsfoto": {
+    "checkbox": {
+      "label": "Mannschaftsfoto-Zeitplan vorbelegen",
+      "tooltip": "Legt beim Erstellen des Turniers automatisch einen Mannschaftsfoto-Zeitplan an. Bei 'aus' erscheint der Drucklink erst nach manueller Konfiguration."
+    }
+  },
   "phaseTransition": {
     "pageTitle": "Phasenwechsel",
     "commitButton": "Übernehmen",

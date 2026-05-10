@@ -7,6 +7,8 @@ import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.TournamentService;
+import de.vvwt.tm.tournament.activity.ActivityTypeService;
+import de.vvwt.tm.tournament.activity.AssignmentRule;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import de.vvwt.tm.tournament.exceptions.TournamentCascadeDeleteActiveException;
 import de.vvwt.tm.tournament.exceptions.TournamentCascadeDeleteCompletedException;
@@ -66,6 +68,14 @@ import org.springframework.transaction.annotation.Transactional;
 public class DefaultTournamentService implements TournamentService {
 
     /**
+     * MessageSource key for the Mannschaftsfoto ActivityType label (E53S05 AC1).
+     *
+     * <p>Resolved from {@code messages.properties} (key {@code tom.label.team_photo}) to obtain the
+     * German label "Mannschaftsfoto" used when seeding the ActivityType at tournament creation.
+     */
+    private static final String MANNSCHAFTSFOTO_LABEL_KEY = "tom.label.team_photo";
+
+    /**
      * MessageSource key for the seeded team placeholder label (E05S12
      * AC-I18N-LABEL-FROM-MESSAGE-BUNDLE).
      *
@@ -92,6 +102,7 @@ public class DefaultTournamentService implements TournamentService {
     private final JdbcTemplate jdbcTemplate;
     private final MessageSource messageSource;
     private final TeamRepository teamRepository;
+    private final ActivityTypeService activityTypeService;
 
     /**
      * Constructs the service with its required collaborators.
@@ -104,18 +115,22 @@ public class DefaultTournamentService implements TournamentService {
      *     AC-I18N-LABEL-FROM-MESSAGE-BUNDLE)
      * @param teamRepository team persistence (tenant-scoped) — for seed loop (E05S12
      *     AC-IMPL-AUTO-SEED-AT-CREATE) and cascade-delete (E48S13 AC-IMPL-CASCADE-DELETE-OP)
+     * @param activityTypeService activity-type management — used to seed Mannschaftsfoto
+     *     ActivityType at tournament creation (E53S05 AC1)
      */
     public DefaultTournamentService(
             TournamentRepository tournamentRepository,
             MatchGeneratorRegistry matchGeneratorRegistry,
             JdbcTemplate jdbcTemplate,
             MessageSource messageSource,
-            TeamRepository teamRepository) {
+            TeamRepository teamRepository,
+            ActivityTypeService activityTypeService) {
         this.tournamentRepository = tournamentRepository;
         this.matchGeneratorRegistry = matchGeneratorRegistry;
         this.jdbcTemplate = jdbcTemplate;
         this.messageSource = messageSource;
         this.teamRepository = teamRepository;
+        this.activityTypeService = activityTypeService;
     }
 
     // -------------------------------------------------------------------------
@@ -202,6 +217,11 @@ public class DefaultTournamentService implements TournamentService {
      * @param matchGeneratorId Spring bean ID of the match generator
      * @param plannedStartTime optional planned start time for timeline calculation; {@code null}
      *     means no start time — mirrors UPDATE method at line ~341 (E08S05 AC4; E48S14 bug-fix)
+     * @param optimize {@code true} enables slot-opt pipeline; {@code null} → entity default ({@code
+     *     true} per DEC-55 D-5); {@code false} disables (E51S07)
+     * @param seedMannschaftsfoto {@code true} (or {@code null} → default {@code true}) seeds a
+     *     Mannschaftsfoto ActivityType with {@code FIRST_FREE_ROUND} assignment rule; {@code false}
+     *     skips seeding (E53S05 AC1)
      * @return the persisted tournament (never {@code null}); team rows are persisted as a side
      *     effect within the same transaction — they are NOT embedded in the returned object
      * @throws IllegalArgumentException if matchFormat is invalid or matchGeneratorId is not
@@ -209,6 +229,7 @@ public class DefaultTournamentService implements TournamentService {
      * @see <a href="E05S12">E05S12 — AC-IMPL-AUTO-SEED-AT-CREATE, AC-ERR-ATOMIC-ROLLBACK,
      *     AC-I18N-LOCALE-CHAIN</a>
      * @see <a href="E48S14">E48S14 — Bug-fix: plannedStartTime was not wired in CREATE path</a>
+     * @see <a href="E53S05">E53S05 — Mannschaftsfoto Vorbelegung: seedMannschaftsfoto seeding</a>
      */
     @Transactional
     @Override
@@ -222,7 +243,8 @@ public class DefaultTournamentService implements TournamentService {
             String setValidationRuleId,
             String matchGeneratorId,
             LocalTime plannedStartTime,
-            Boolean optimize) {
+            Boolean optimize,
+            Boolean seedMannschaftsfoto) {
         validateBeanIds(matchFormat, matchGeneratorId);
 
         Tournament tournament = new Tournament();
@@ -267,6 +289,23 @@ public class DefaultTournamentService implements TournamentService {
             team.setWithoutAssessment(false);
             // created_at: left null — DB DEFAULT CURRENT_TIMESTAMP applies on INSERT.
             teamRepository.save(team);
+        }
+
+        // E53S05 AC1: seed Mannschaftsfoto ActivityType with FIRST_FREE_ROUND assignment rule.
+        // null → default true (Vorbelegung: checked by default, analogous to optimize/DEC-55 D-5).
+        boolean doSeed = seedMannschaftsfoto == null || seedMannschaftsfoto;
+        if (doSeed) {
+            String mannschaftsfotoLabel =
+                    messageSource.getMessage(
+                            MANNSCHAFTSFOTO_LABEL_KEY,
+                            null,
+                            Locale.forLanguageTag(DEFAULT_LANGUAGE));
+            activityTypeService.create(
+                    saved.getId(),
+                    mannschaftsfotoLabel,
+                    AssignmentRule.FIRST_FREE_ROUND.name(),
+                    null,
+                    1);
         }
 
         return saved;

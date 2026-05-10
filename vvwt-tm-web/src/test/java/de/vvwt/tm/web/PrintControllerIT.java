@@ -8,6 +8,8 @@ import de.vvwt.tm.tournament.internal.dto.TournamentCreateRequest;
 import de.vvwt.tm.tournament.internal.dto.TournamentResponse;
 import java.net.URI;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -2203,6 +2205,94 @@ class PrintControllerIT {
         }
     }
 
+    // =========================================================================
+    // E53S05 AC2 + AC13 — print-index shows Mannschaftsfoto-Zeitplan link
+    // when tournament is created with seedMannschaftsfoto=true (RED-first)
+    // =========================================================================
+
+    /**
+     * E53S05 AC2 + AC13 — RED-first: when a tournament is created with {@code
+     * seedMannschaftsfoto=true} and an ACTIVE phase exists, the print-index page must contain an
+     * {@code href} to the Mannschaftsfoto-Zeitplan (activity-schedule endpoint).
+     *
+     * <p>RED before E53S05: server ignores {@code seedMannschaftsfoto} → no {@code ActivityType}
+     * seeded → {@code resolvePhotoActivityType()} returns empty → {@code fotosUrl} absent → link
+     * not rendered → assertion FAILS.
+     *
+     * <p>GREEN after E53S05: service seeds the {@code ActivityType} → {@code fotosUrl} resolved →
+     * link rendered → assertion PASSES.
+     *
+     * <p>AC13: the link targets {@code /print/tournaments/{tid}/activity-schedule/{activityTypeId}}
+     * (no new route introduced).
+     *
+     * @see PrintController#printIndex
+     * @see <a href="E53S05">E53S05 — AC2 print-index visibility</a>
+     */
+    @Test
+    @DisplayName(
+            "E53S05 AC2+AC13: tournament created with seedMannschaftsfoto=true → print-index"
+                    + " renders Mannschaftsfoto-Zeitplan href (RED-first)")
+    void printIndex_tournamentCreatedWithSeedMannschaftsfoto_fotosLinkPresent() throws Exception {
+        // Create tournament via API with seedMannschaftsfoto=true (new field, E53S05)
+        Map<String, Object> createBody = new LinkedHashMap<>();
+        createBody.put("description", "E53S05 PrintIndex fotos link test");
+        createBody.put("appointment", null);
+        createBody.put("teamCount", 4);
+        createBody.put("fieldCount", 2);
+        createBody.put("matchFormat", "BEST_OF_3");
+        createBody.put("scoringRuleId", "setPoints");
+        createBody.put("setValidationRuleId", "standardVolleyball");
+        createBody.put("matchGeneratorId", "roundRobin");
+        createBody.put("plannedStartTime", null);
+        createBody.put("optimize", null);
+        createBody.put("seedMannschaftsfoto", true); // E53S05: triggers ActivityType seeding
+
+        ResponseEntity<TournamentResponse> createResponse =
+                authed.postForEntity(
+                        new URI(baseUrl + "/api/tournaments"),
+                        createBody,
+                        TournamentResponse.class);
+        assertThat(createResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(createResponse.getBody()).isNotNull();
+        UUID tid = createResponse.getBody().id();
+
+        // Seed an ACTIVE phase directly (we need at least one ACTIVE phase for the link to render)
+        tenantBinder.bindDefaultTenant();
+        try {
+            UUID phaseId = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO phase (id, tournament_id, sequence_number, description, status,"
+                            + " current_lap_number, optimized) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    phaseId,
+                    tid,
+                    1,
+                    "Phase 1 E53S05",
+                    "ACTIVE",
+                    0,
+                    true);
+        } finally {
+            tenantBinder.unbind();
+        }
+
+        // Fetch the print-index
+        ResponseEntity<String> indexResponse =
+                authed.getForEntity(new URI(baseUrl + "/print/tournaments/" + tid), String.class);
+
+        assertThat(indexResponse.getStatusCode())
+                .as("E53S05 AC2: print-index must return 200")
+                .isEqualTo(HttpStatus.OK);
+
+        // AC2 + AC13: fotosUrl must be rendered as an href to the activity-schedule endpoint
+        String body = indexResponse.getBody();
+        String hrefPrefix = "href=\"/print/tournaments/" + tid + "/activity-schedule/";
+        assertThat(body)
+                .as(
+                        "E53S05 AC2+AC13: print-index must contain href to activity-schedule"
+                                + " endpoint when FIRST_FREE_ROUND ActivityType was seeded via"
+                                + " seedMannschaftsfoto=true")
+                .contains(hrefPrefix);
+    }
+
     private UUID createTournament(String description) throws Exception {
         TournamentCreateRequest request =
                 new TournamentCreateRequest(
@@ -2215,7 +2305,8 @@ class PrintControllerIT {
                         "standardVolleyball",
                         "roundRobin",
                         null,
-                        null);
+                        null,
+                        null); // E53S05: seedMannschaftsfoto = null
         ResponseEntity<TournamentResponse> created =
                 authed.postForEntity(
                         new URI(baseUrl + "/api/tournaments"), request, TournamentResponse.class);

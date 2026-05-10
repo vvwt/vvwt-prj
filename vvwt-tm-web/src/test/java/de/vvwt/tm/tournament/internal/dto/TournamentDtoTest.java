@@ -65,7 +65,8 @@ class TournamentDtoTest {
                         "standardVolleyball",
                         "roundRobin",
                         null,
-                        null);
+                        null,
+                        null); // E53S05: seedMannschaftsfoto = null
 
         Set<ConstraintViolation<TournamentCreateRequest>> violations = validator.validate(req);
         assertThat(violations).as("Valid request must produce no constraint violations").isEmpty();
@@ -85,7 +86,8 @@ class TournamentDtoTest {
                         "standardVolleyball",
                         "roundRobin",
                         null,
-                        null);
+                        null,
+                        null); // E53S05: seedMannschaftsfoto = null
 
         Set<ConstraintViolation<TournamentCreateRequest>> violations = validator.validate(req);
         assertThat(violations)
@@ -109,7 +111,8 @@ class TournamentDtoTest {
                         "standardVolleyball",
                         "roundRobin",
                         null,
-                        null);
+                        null,
+                        null); // E53S05: seedMannschaftsfoto = null
 
         Set<ConstraintViolation<TournamentCreateRequest>> violations = validator.validate(req);
         assertThat(violations).as("teamCount=1 must produce a @Min violation").isNotEmpty();
@@ -131,7 +134,8 @@ class TournamentDtoTest {
                         "standardVolleyball",
                         "roundRobin",
                         null,
-                        null);
+                        null,
+                        null); // E53S05: seedMannschaftsfoto = null
 
         Set<ConstraintViolation<TournamentCreateRequest>> violations = validator.validate(req);
         assertThat(violations).as("fieldCount=0 must produce a @Min violation").isNotEmpty();
