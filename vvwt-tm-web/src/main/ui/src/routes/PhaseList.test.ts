@@ -567,3 +567,223 @@ describe("PhaseList.svelte — Reset-Plan error renders typed messageKey (AC-TES
         expect(handlerBody).toContain("resetPlanError");
     });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// E51S21 — Befund 1: PREPARED phase "Mannschaften zuordnen" action button
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── AC-TEST-PHASELIST-PREPARED-PHASE-1-RENDERS-ASSIGN-ACTION-RED ─────────
+// PREPARED block must render phases.assignButton (not phases.startButton)
+// for Phase 1 or Phase N where predecessor is COMPLETED.
+// RED-first: FAILS on staging HEAD (PREPARED block only shows phases.startButton).
+
+describe('PhaseList.svelte — PREPARED phase renders assignButton (AC-TEST-PHASELIST-PREPARED-PHASE-1-RENDERS-ASSIGN-ACTION-RED)', () => {
+    const source = fs.readFileSync(
+        path.resolve(__dirname_local, './PhaseList.svelte'),
+        'utf8'
+    );
+
+    it("source contains phases.assignButton i18n key reference", () => {
+        // RED: FAILS on baseline — only phases.startButton in PREPARED block
+        expect(source).toContain('phases.assignButton');
+    });
+
+    it("phases.assignButton is inside the PREPARED conditional block", () => {
+        const preparedBlockMatch = source.match(
+            /\{:else if phase\.status === 'PREPARED'\}[\s\S]*?(?=\{:else if phase\.status|$)/
+        );
+        expect(preparedBlockMatch, "{:else if phase.status === 'PREPARED'} block not found").toBeTruthy();
+        const preparedBlock = preparedBlockMatch![0];
+        // RED: FAILS on baseline — no assignButton in PREPARED block
+        expect(preparedBlock).toContain('phases.assignButton');
+    });
+
+    it("source contains a handleAssign function for team assignment navigation", () => {
+        // RED: FAILS on baseline — no handleAssign function exists
+        expect(source).toMatch(/function handleAssign/);
+    });
+
+    it("handleAssign navigates to /prepare for Phase 1", () => {
+        const fnMatch = source.match(/function handleAssign[\s\S]*?\n  \}/);
+        expect(fnMatch, 'handleAssign function not found').toBeTruthy();
+        const fnBody = fnMatch![0];
+        expect(fnBody).toContain('/prepare');
+    });
+
+    it("handleAssign navigates to /transition for Phase N+1", () => {
+        const fnMatch = source.match(/function handleAssign[\s\S]*?\n  \}/);
+        expect(fnMatch, 'handleAssign function not found').toBeTruthy();
+        const fnBody = fnMatch![0];
+        expect(fnBody).toContain('/transition');
+    });
+});
+
+// ── AC-TEST-PHASELIST-PREPARED-PHASE-N-PREDECESSOR-NOT-COMPLETED-NO-ACTION
+// When predecessor is not COMPLETED, no actionable button (or disabled with tooltip).
+// Structural check: assignWaitingPredecessor key used.
+
+describe('PhaseList.svelte — PREPARED predecessor-not-COMPLETED shows disabled/no-action (AC-TEST-PHASELIST-PREPARED-PHASE-N-PREDECESSOR-NOT-COMPLETED-NO-ACTION)', () => {
+    const source = fs.readFileSync(
+        path.resolve(__dirname_local, './PhaseList.svelte'),
+        'utf8'
+    );
+
+    it("source references phases.assignWaitingPredecessor i18n key", () => {
+        // Used as disabled tooltip when predecessor not COMPLETED
+        expect(source).toContain('phases.assignWaitingPredecessor');
+    });
+
+    it("de.json phases.assignWaitingPredecessor is defined and non-empty", () => {
+        type PhasesSection = { assignWaitingPredecessor: string };
+        const phases = (deMessages as unknown as Record<string, PhasesSection>).phases;
+        expect(phases).toHaveProperty('assignWaitingPredecessor');
+        expect(phases.assignWaitingPredecessor.length).toBeGreaterThan(0);
+    });
+
+    it("de.json phases.assignButton is defined and non-empty", () => {
+        type PhasesSection = { assignButton: string };
+        const phases = (deMessages as unknown as Record<string, PhasesSection>).phases;
+        expect(phases).toHaveProperty('assignButton');
+        expect(phases.assignButton.length).toBeGreaterThan(0);
+    });
+});
+
+// ── AC-TEST-PHASELIST-ASSIGNED-RENDERS-START-ACTION (regression guard)
+// ASSIGNED block must still contain phases.startButton.
+
+describe('PhaseList.svelte — ASSIGNED status still shows startButton regression guard (AC-TEST-PHASELIST-ASSIGNED-RENDERS-START-ACTION)', () => {
+    const source = fs.readFileSync(
+        path.resolve(__dirname_local, './PhaseList.svelte'),
+        'utf8'
+    );
+
+    it("ASSIGNED conditional block still contains phases.startButton", () => {
+        const assignedBlockMatch = source.match(
+            /\{:else if phase\.status === 'ASSIGNED'\}[\s\S]*?(?=\{:else if phase\.status|$)/
+        );
+        expect(assignedBlockMatch, "{:else if phase.status === 'ASSIGNED'} block not found").toBeTruthy();
+        const assignedBlock = assignedBlockMatch![0];
+        expect(assignedBlock).toContain('phases.startButton');
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// E51S21 — Befund 2: activateGuardFails siegerehrung carve-out (DEC-59 Clause F)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── AC-TEST-PHASELIST-SIEGEREHRUNG-START-ENABLED-WITH-OPTIMIZE-TRUE-RED ──
+// activateGuardFails must NOT return true for siegerehrung phases.
+// RED-first: FAILS on staging HEAD — no siegerehrung carve-out in the function.
+
+describe('PhaseList.svelte — activateGuardFails siegerehrung carve-out RED (AC-TEST-PHASELIST-SIEGEREHRUNG-START-ENABLED-WITH-OPTIMIZE-TRUE-RED)', () => {
+    const source = fs.readFileSync(
+        path.resolve(__dirname_local, './PhaseList.svelte'),
+        'utf8'
+    );
+
+    it("activateGuardFails function contains siegerehrung carve-out (DEC-59 Clause F)", () => {
+        const fnMatch = source.match(/function activateGuardFails[\s\S]*?\n  \}/);
+        expect(fnMatch, 'activateGuardFails function not found').toBeTruthy();
+        const fnBody = fnMatch![0];
+        // RED: FAILS on baseline — no gameMode or siegerehrung check
+        expect(fnBody).toMatch(/siegerehrung|gameMode/);
+    });
+
+    it("activateGuardFails uses !== true for optimized (defensive null handling)", () => {
+        const fnMatch = source.match(/function activateGuardFails[\s\S]*?\n  \}/);
+        expect(fnMatch, 'activateGuardFails function not found').toBeTruthy();
+        const fnBody = fnMatch![0];
+        // RED: FAILS on baseline — uses === false not !== true
+        expect(fnBody).toContain('!== true');
+    });
+});
+
+// ── AC-TEST-PHASELIST-NON-SIEGEREHRUNG-START-DISABLED-WITH-OPTIMIZE-TRUE-OPTIMIZED-FALSE
+// Regression guard: roundRobin phase with optimized=false still gets disabled.
+
+describe('PhaseList.svelte — activateGuardFails still blocks non-siegerehrung unoptimized (regression guard)', () => {
+    const source = fs.readFileSync(
+        path.resolve(__dirname_local, './PhaseList.svelte'),
+        'utf8'
+    );
+
+    it("activateGuardFails still checks tournamentOptimize and optimized", () => {
+        const fnMatch = source.match(/function activateGuardFails[\s\S]*?\n  \}/);
+        expect(fnMatch, 'activateGuardFails function not found').toBeTruthy();
+        const fnBody = fnMatch![0];
+        expect(fnBody).toContain('tournamentOptimize');
+        expect(fnBody).toContain('optimized');
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// E51S21 — Befund 3: JOB column rendering (once optimized field arrives from backend)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── AC-TEST-PHASELIST-JOB-COLUMN-OPTIMIZED-COMPLETED-RENDERS-CHECK ────────
+// jobStatusIcon with jobStatus='idle' and phase.optimized=true should return '✅'.
+// Source check: existing function body already has idle+phase.optimized branch.
+
+describe('PhaseList.svelte — jobStatusIcon returns ✅ for idle+optimized=true (AC-TEST-PHASELIST-JOB-COLUMN-OPTIMIZED-COMPLETED-RENDERS-CHECK)', () => {
+    const source = fs.readFileSync(
+        path.resolve(__dirname_local, './PhaseList.svelte'),
+        'utf8'
+    );
+
+    it("jobStatusIcon function has idle + phase.optimized === true branch returning ✅", () => {
+        const fnMatch = source.match(/function jobStatusIcon[\s\S]*?\n  \}/);
+        expect(fnMatch, 'jobStatusIcon function not found').toBeTruthy();
+        const fnBody = fnMatch![0];
+        expect(fnBody).toContain('idle');
+        expect(fnBody).toContain('phase.optimized');
+        expect(fnBody).toContain('✅');
+    });
+});
+
+// ── AC-TEST-PHASELIST-JOB-COLUMN-NOT-OPTIMIZED-RENDERS-DASH ──────────────
+// jobStatusIcon returns null (renders "—") for idle+optimized=false.
+
+describe('PhaseList.svelte — jobStatusIcon returns null for idle+optimized=false (AC-TEST-PHASELIST-JOB-COLUMN-NOT-OPTIMIZED-RENDERS-DASH)', () => {
+    const source = fs.readFileSync(
+        path.resolve(__dirname_local, './PhaseList.svelte'),
+        'utf8'
+    );
+
+    it("jobStatusIcon function returns null for null/undefined jobStatus (shows —)", () => {
+        const fnMatch = source.match(/function jobStatusIcon[\s\S]*?\n  \}/);
+        expect(fnMatch, 'jobStatusIcon function not found').toBeTruthy();
+        const fnBody = fnMatch![0];
+        // The null-return path is the "—" path — must be present
+        expect(fnBody).toContain('null');
+    });
+});
+
+// ── AC-ERROR-OPTIMIZED-FIELD-NULL-IS-FALSE-DEFENSIVE ─────────────────────
+// If backend returns optimized=null, frontend treats it as false.
+// activateGuardFails uses !== true (null !== true === true → guard fires for null → button disabled).
+// But story says "no ✅ rendered, guard does NOT pass on phase.optimized term alone" for null.
+// Actual: with !== true, null IS treated as unoptimized (guard fires) — correct.
+
+describe('PhaseList.svelte — optimized=null treated as false defensive (AC-ERROR-OPTIMIZED-FIELD-NULL-IS-FALSE-DEFENSIVE)', () => {
+    const source = fs.readFileSync(
+        path.resolve(__dirname_local, './PhaseList.svelte'),
+        'utf8'
+    );
+
+    it("activateGuardFails uses !== true so null is treated as unoptimized", () => {
+        const fnMatch = source.match(/function activateGuardFails[\s\S]*?\n  \}/);
+        expect(fnMatch, 'activateGuardFails function not found').toBeTruthy();
+        const fnBody = fnMatch![0];
+        // !== true: null !== true === true → guard fires → button disabled → correct
+        expect(fnBody).toContain('!== true');
+    });
+
+    it("jobStatusIcon does NOT return ✅ without phase.optimized being truthy", () => {
+        const fnMatch = source.match(/function jobStatusIcon[\s\S]*?\n  \}/);
+        expect(fnMatch, 'jobStatusIcon function not found').toBeTruthy();
+        const fnBody = fnMatch![0];
+        // The ✅ branch requires phase.optimized (truthy) — null is falsy so ✅ never shown for null
+        // Structural check: optimized is referenced in the condition alongside 'idle'
+        expect(fnBody).toMatch(/idle.*optimized|optimized.*idle/s);
+    });
+});

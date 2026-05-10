@@ -125,11 +125,60 @@
   }
 
   /**
-   * Returns whether the activate guard blocks the "Phase starten" button (E51S07, DEC-55 D-6).
-   * Client mirror of server-side guard: tournament.optimize=true && phase.optimized=false.
+   * Returns whether the activate guard blocks the "Phase starten" button (E51S07, DEC-55 D-6,
+   * DEC-59 Clause F).
+   *
+   * Client mirror of server-side guard (DEC-59 Clause F):
+   *   ALLOWED iff: !tournament.optimize OR phase.optimized OR section.gameMode == 'siegerehrung'
+   *
+   * Guard FAILS (button disabled) when:
+   *   tournament.optimize=true AND phase.optimized !== true AND gameMode !== 'siegerehrung'
+   *
+   * Using `!== true` instead of `=== false` handles null/undefined defensively:
+   *   - null !== true → guard fires → button disabled (AC-ERROR-OPTIMIZED-FIELD-NULL-IS-FALSE-DEFENSIVE)
+   *   - false !== true → guard fires → button disabled (normal unoptimized case)
+   *   - true !== true → false → guard passes → button enabled (optimized case)
+   *
+   * The `'siegerehrung'` literal is authorized per DEC-59 Clause F text.
+   * E51S20 GameMode enum may substitute the literal in a follow-up story.
    */
   function activateGuardFails(phase: PhaseOverview): boolean {
-    return tournamentOptimize && phase.optimized === false;
+    return tournamentOptimize && phase.optimized !== true && phase.gameMode !== 'siegerehrung';
+  }
+
+  /**
+   * Returns whether a PREPARED phase is eligible for team assignment (Operator-Confirmation
+   * Workflow, DEC-59 Clause C):
+   *   Eligible iff: phase is PREPARED AND (sequenceNumber == 1 OR predecessor is COMPLETED).
+   *
+   * AC-ERROR-PREDECESSOR-NOT-COMPLETED-NO-CLIENT-ACTION: ineligible phases show a disabled
+   * button with tooltip instead of an actionable button — no proposeTransition roundtrip.
+   */
+  function isAssignEligible(phase: PhaseOverview): boolean {
+    if (phase.sequenceNumber === 1) return true;
+    const predecessor = phases.find(p => p.sequenceNumber === phase.sequenceNumber - 1);
+    return predecessor?.status === 'COMPLETED';
+  }
+
+  /**
+   * Navigates to the team-assignment UI for a PREPARED phase (DEC-59 Clause C).
+   *
+   * Phase 1: navigates to /prepare (PhasePreparation.svelte drag&drop).
+   * Phase N+1: navigates to /transition (PhaseTransition.svelte drag&drop).
+   *
+   * AC-ERROR-NO-INFINITE-LOOP-ON-NAVIGATION: after cancel in drag&drop, user returns to
+   * PhaseList — handleAssign sets actionError on invalid context (guard).
+   */
+  function handleAssign(phaseId: string, isFirstPhase: boolean): void {
+    if (!tournamentId || !phaseId) {
+      actionError = $_('phases.lifecycleError');
+      return;
+    }
+    if (isFirstPhase) {
+      push(`/tournaments/${tournamentId}/phases/${phaseId}/prepare`);
+    } else {
+      push(`/tournaments/${tournamentId}/phases/${phaseId}/transition`);
+    }
   }
 
   /** Formats a gameMode string for display. Returns "—" when null/absent (AC-PHASE-LIST-DEFENSIVE). */
@@ -356,16 +405,26 @@
                   {$_('phases.prepareButton')}
                 </button>
               {:else if phase.status === 'PREPARED'}
-                <!-- E48S17: PREPARED → "Phase starten" (calls start endpoint) -->
-                <!-- E51S07: activate guard: disabled when tournament.optimize=true && phase.optimized=false (DEC-55 D-6) -->
-                <button
-                  class="btn btn--primary"
-                  disabled={actionInProgress === phase.id || activateGuardFails(phase)}
-                  title={activateGuardFails(phase) ? $_('phases.activateGuardTooltip') : undefined}
-                  onclick={() => handleStart(phase.id)}
-                >
-                  {$_('phases.startButton')}
-                </button>
+                <!-- E51S21: PREPARED → "Mannschaften zuordnen" (DEC-59 Clause C operator-confirmation workflow) -->
+                <!-- Eligible: Phase 1 OR predecessor COMPLETED → actionable assignButton -->
+                <!-- Ineligible: predecessor not COMPLETED → disabled with assignWaitingPredecessor tooltip -->
+                {#if isAssignEligible(phase)}
+                  <button
+                    class="btn btn--primary"
+                    disabled={actionInProgress === phase.id}
+                    onclick={() => handleAssign(phase.id, phase.sequenceNumber === 1)}
+                  >
+                    {$_('phases.assignButton')}
+                  </button>
+                {:else}
+                  <button
+                    class="btn btn--primary"
+                    disabled
+                    title={$_('phases.assignWaitingPredecessor')}
+                  >
+                    {$_('phases.assignButton')}
+                  </button>
+                {/if}
               {:else if phase.status === 'ASSIGNED'}
                 <!-- E51S07/E51S05: ASSIGNED → "Phase starten" button with same activate guard -->
                 <button
