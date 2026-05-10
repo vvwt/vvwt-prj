@@ -183,7 +183,10 @@ class DefaultLaufzettelAssemblerTest {
         assertThat(row.isPlaying()).as("team1 must be PLAYING").isTrue();
         assertThat(row.roundNumber()).as("round 1").isEqualTo(1);
         assertThat(row.opponentName()).as("opponent is team2 — Blaue Haie").isEqualTo("Blaue Haie");
-        assertThat(row.fieldNumber()).as("field 2").isEqualTo("2");
+        // matchLap1 uses fieldNumber=2 (0-based stored); E53S07 fix: displays as "3" (1-based)
+        assertThat(row.fieldNumber())
+                .as("field 2 (0-based) displays as \"3\" (1-based)")
+                .isEqualTo("3");
         assertThat(row.isRefereeing()).isFalse();
         assertThat(row.isActivity()).isFalse();
         assertThat(row.isFree()).isFalse();
@@ -254,7 +257,10 @@ class DefaultLaufzettelAssemblerTest {
         LaufzettelRow row = rows.get(0);
         assertThat(row.isRefereeing()).as("team3 must be REFEREEING").isTrue();
         assertThat(row.roundNumber()).isEqualTo(1);
-        assertThat(row.fieldNumber()).as("referee field 3").isEqualTo("3");
+        // matchWithRef uses fieldNumber=3 (0-based stored); E53S07 fix: displays as "4" (1-based)
+        assertThat(row.fieldNumber())
+                .as("field 3 (0-based) displays as \"4\" (1-based)")
+                .isEqualTo("4");
         assertThat(row.isPlaying()).isFalse();
         assertThat(row.isActivity()).isFalse();
         assertThat(row.isFree()).isFalse();
@@ -962,14 +968,13 @@ class DefaultLaufzettelAssemblerTest {
     // =========================================================================
 
     /**
-     * AC1 (testing — RED-first reproduction, PLAYING row): field=0 (0-based stored) must render
-     * as "1" in the PLAYING row Feld column — never "0". RED before fix: currently renders "0".
+     * AC1 (testing — RED-first reproduction, PLAYING row): field=0 (0-based stored) must render as
+     * "1" in the PLAYING row Feld column — never "0". RED before fix: currently renders "0".
      *
      * <p>Per DEC-22 Iron Law RED-first. Commit hash of RED state documented in impl-report.
      */
     @Test
-    @DisplayName(
-            "AC1-E53S07-RED: PLAYING row field=0 (0-based) renders as \"1\" (1-based display)")
+    @DisplayName("AC1-E53S07-RED: PLAYING row field=0 (0-based) renders as \"1\" (1-based display)")
     void fieldNumber_playingRow_isOneBased_field0() {
         Tournament tournament = noTimeT();
         Match matchField0 =
@@ -1007,8 +1012,8 @@ class DefaultLaufzettelAssemblerTest {
     }
 
     /**
-     * AC2 (testing — RED-first reproduction, REFEREEING row): field=0 (0-based stored) must
-     * render as "1" in the REFEREEING row Feld column — never "0". RED before fix.
+     * AC2 (testing — RED-first reproduction, REFEREEING row): field=0 (0-based stored) must render
+     * as "1" in the REFEREEING row Feld column — never "0". RED before fix.
      *
      * <p>Per DEC-22 Iron Law RED-first.
      */
@@ -1060,34 +1065,69 @@ class DefaultLaufzettelAssemblerTest {
      */
     @Test
     @DisplayName(
-            "AC3-E53S07-RED: 3-field fixture — PLAYING rows contain {\"1\",\"2\",\"3\"} never \"0\"")
+            "AC3-E53S07-RED: 3-field fixture — PLAYING rows contain {\"1\",\"2\",\"3\"} never"
+                    + " \"0\"")
     void fieldNumber_threeFields_neverZero_exactlyOneTwoThree() {
         Tournament tournament = noTimeT();
         UUID av1b = UUID.fromString("00000000-0000-0000-0053-000000000001");
         UUID av2b = UUID.fromString("00000000-0000-0000-0053-000000000002");
         UUID av1c = UUID.fromString("00000000-0000-0000-0053-000000000003");
         UUID av2c = UUID.fromString("00000000-0000-0000-0053-000000000004");
-        TeamAvatar avT1b = new TeamAvatar(av1b, TOURNAMENT_ID, PHASE_ID, 1, 1, TEAM1_ID, null, null);
-        TeamAvatar avT2b = new TeamAvatar(av2b, TOURNAMENT_ID, PHASE_ID, 1, 2, TEAM2_ID, null, null);
-        TeamAvatar avT1c = new TeamAvatar(av1c, TOURNAMENT_ID, PHASE_ID, 1, 1, TEAM1_ID, null, null);
-        TeamAvatar avT2c = new TeamAvatar(av2c, TOURNAMENT_ID, PHASE_ID, 1, 2, TEAM2_ID, null, null);
+        TeamAvatar avT1b =
+                new TeamAvatar(av1b, TOURNAMENT_ID, PHASE_ID, 1, 1, TEAM1_ID, null, null);
+        TeamAvatar avT2b =
+                new TeamAvatar(av2b, TOURNAMENT_ID, PHASE_ID, 1, 2, TEAM2_ID, null, null);
+        TeamAvatar avT1c =
+                new TeamAvatar(av1c, TOURNAMENT_ID, PHASE_ID, 1, 1, TEAM1_ID, null, null);
+        TeamAvatar avT2c =
+                new TeamAvatar(av2c, TOURNAMENT_ID, PHASE_ID, 1, 2, TEAM2_ID, null, null);
 
         // 3 matches on 3 different 0-based fields
         Match matchField0 =
                 new Match(
-                        UUID.randomUUID(), TOURNAMENT_ID, PHASE_ID,
-                        AVATAR1_ID, AVATAR2_ID, 0, 1, 1, 0 /* field 0 */,
-                        null, null, null, null);
+                        UUID.randomUUID(),
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        0,
+                        1,
+                        1,
+                        0 /* field 0 */,
+                        null,
+                        null,
+                        null,
+                        null);
         Match matchField1 =
                 new Match(
-                        UUID.randomUUID(), TOURNAMENT_ID, PHASE_ID,
-                        av1b, av2b, 0, 1, 2, 1 /* field 1 */,
-                        null, null, null, null);
+                        UUID.randomUUID(),
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        av1b,
+                        av2b,
+                        0,
+                        1,
+                        2,
+                        1 /* field 1 */,
+                        null,
+                        null,
+                        null,
+                        null);
         Match matchField2 =
                 new Match(
-                        UUID.randomUUID(), TOURNAMENT_ID, PHASE_ID,
-                        av1c, av2c, 0, 1, 3, 2 /* field 2 */,
-                        null, null, null, null);
+                        UUID.randomUUID(),
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        av1c,
+                        av2c,
+                        0,
+                        1,
+                        3,
+                        2 /* field 2 */,
+                        null,
+                        null,
+                        null,
+                        null);
 
         // We use phase1 with all six team-avatar mappings; team1 and team2 alternate across laps
         var result =
@@ -1095,9 +1135,7 @@ class DefaultLaufzettelAssemblerTest {
                         tournament,
                         phases(phase1),
                         teams(team1, team2),
-                        Map.of(
-                                PHASE_ID,
-                                List.of(avatar1, avatar2, avT1b, avT2b, avT1c, avT2c)),
+                        Map.of(PHASE_ID, List.of(avatar1, avatar2, avT1b, avT2b, avT1c, avT2c)),
                         Map.of(PHASE_ID, List.of(matchField0, matchField1, matchField2)),
                         Collections.emptyMap(),
                         Collections.emptyList(),
@@ -1110,21 +1148,17 @@ class DefaultLaufzettelAssemblerTest {
                         .map(LaufzettelRow::fieldNumber)
                         .toList();
 
-        assertThat(fieldNumbers)
-                .as("3 PLAYING rows for team1 across 3 laps")
-                .hasSize(3);
+        assertThat(fieldNumbers).as("3 PLAYING rows for team1 across 3 laps").hasSize(3);
         assertThat(fieldNumbers)
                 .as("field numbers must be exactly {\"1\",\"2\",\"3\"} — never \"0\"")
                 .containsExactlyInAnyOrder("1", "2", "3");
-        assertThat(fieldNumbers)
-                .as("field number \"0\" must never appear")
-                .doesNotContain("0");
+        assertThat(fieldNumbers).as("field number \"0\" must never appear").doesNotContain("0");
     }
 
     /**
      * AC8 (error-handling — null/edge case): fieldNumber == null must render as empty string "".
-     * This is a REGRESSION GUARD — must pass before AND after the fix. Existing behavior
-     * preserved: null field → empty display cell.
+     * This is a REGRESSION GUARD — must pass before AND after the fix. Existing behavior preserved:
+     * null field → empty display cell.
      */
     @Test
     @DisplayName(

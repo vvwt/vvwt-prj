@@ -515,13 +515,18 @@ public class DefaultLaufzettelAssembler implements LaufzettelAssembler {
                     opponentName = opp != null ? teamDisplayName(opp) : "";
                 }
                 Integer field = fieldByTeam.get(teamId);
-                String fieldStr = field != null ? String.valueOf(field) : "";
+                // E53S07: Match.fieldNumber is 0-based (slot-opt assigns 0..N-1); display is
+                // 1-based (venue signage starts at 1). Apply +1 at the read side only — storage
+                // and all other consumers (scoring device-field comparison, slot-opt position
+                // arithmetic) are unaffected. Null guard preserved for unassigned matches.
+                String fieldStr = field != null ? String.valueOf(field + 1) : "";
                 rows.add(LaufzettelRow.playing(lapNumber, timeWindow, opponentName, fieldStr));
 
             } else if (refereeTeams.contains(teamId)) {
                 // REFEREEING — AC5 (E53S02: include match team pair context)
                 Integer field = refereeFieldByTeam.get(teamId);
-                String fieldStr = field != null ? String.valueOf(field) : "";
+                // E53S07: same +1 conversion for REFEREEING row (see PLAYING comment above).
+                String fieldStr = field != null ? String.valueOf(field + 1) : "";
                 String[] matchTeams = refereeMatchTeamsByTeam.get(teamId);
                 String teamAName =
                         (matchTeams != null && matchTeams.length > 0) ? matchTeams[0] : "";
