@@ -44,7 +44,8 @@ public class DefaultPhaseQueryService implements PhaseQueryService {
 
     /** SQL: list all phases for a tournament, ordered by sequenceNumber asc. */
     private static final String SELECT_PHASES =
-            "SELECT id, sequence_number, description, status, current_lap_number, last_job_state"
+            "SELECT id, sequence_number, description, status, current_lap_number, last_job_state,"
+                    + " optimized"
                     + " FROM phase WHERE tournament_id = ? ORDER BY sequence_number";
 
     /** SQL: aggregate match counts by state for all phases of a tournament — single query. */
@@ -87,6 +88,9 @@ public class DefaultPhaseQueryService implements PhaseQueryService {
                     int currentLap = rs.getInt("current_lap_number");
                     // E51S07 AC-IMPL-PHASELIST-ENDPOINT-EXTENSION: jobStatus from last_job_state
                     String jobStatus = rs.getString("last_job_state");
+                    // E51S21 AC-TEST-PHASE-OVERVIEW-RESPONSE-OPTIMIZED-FIELD-RED: optimized from
+                    // phase.optimized column (DEC-55 D-9, DEC-59 Clause F)
+                    boolean optimized = rs.getBoolean("optimized");
 
                     // AC-IMPL-GAMEMODE-FROM-DRAFT-JSON: look up by sequenceNumber
                     String gameMode = gameModeBySection.get(seq);
@@ -107,7 +111,8 @@ public class DefaultPhaseQueryService implements PhaseQueryService {
                                     gameMode,
                                     currentLap,
                                     counts,
-                                    jobStatus));
+                                    jobStatus,
+                                    optimized));
                 },
                 tournamentId);
 
