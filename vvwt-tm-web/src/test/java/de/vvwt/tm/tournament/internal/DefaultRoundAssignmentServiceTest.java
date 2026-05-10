@@ -250,9 +250,10 @@ class DefaultRoundAssignmentServiceTest {
 
     @Test
     void multi_group_laps_are_concatenated_ascending_group_order() {
-        // AC-IMPL-L2-MULTI-GROUP: Group 1 occupies laps 0..k1-1; Group 2 starts at lap k1.
+        // AC-IMPL-L2-MULTI-GROUP: Group 1 occupies laps 1..k1; Group 2 starts at lap k1+1.
         // Use 2 disjoint groups of 2 avatars each → 1 match per group → 1 lap per group.
-        // Expected: Group 1 match → lap 0; Group 2 match → lap 1.
+        // Expected: Group 1 match → lap 1; Group 2 match → lap 2.
+        // (E53S06 fix: 1-based laps; cumulativeLapOffset starts at 1, not 0)
         UUID av1 = UUID.randomUUID(); // group 1
         UUID av2 = UUID.randomUUID(); // group 1
         UUID av3 = UUID.randomUUID(); // group 2
@@ -280,14 +281,14 @@ class DefaultRoundAssignmentServiceTest {
 
         service.assignRoundsAndFields(phaseId, 3);
 
-        // Group 1: 1 match → 1 lap starting at offset 0 → lap 0
-        assertThat(m1.getLapNumber()).as("Group 1 match gets lap 0").isEqualTo(0);
+        // Group 1: 1 match → 1 lap starting at offset 1 → lap 1 (1-based, E53S06)
+        assertThat(m1.getLapNumber()).as("Group 1 match gets lap 1 (1-based, E53S06)").isEqualTo(1);
         assertThat(m1.getFieldNumber()).as("Group 1 match gets field 0").isEqualTo(0);
 
-        // Group 2: 1 match → 1 lap starting at offset 1 (Group 1 had 1 lap) → lap 1
+        // Group 2: 1 match → 1 lap starting at offset 2 (Group 1 had 1 lap, starting at 1) → lap 2
         assertThat(m2.getLapNumber())
-                .as("Group 2 match gets lap 1 (after Group 1's lap)")
-                .isEqualTo(1);
+                .as("Group 2 match gets lap 2 (after Group 1's lap, 1-based, E53S06)")
+                .isEqualTo(2);
         assertThat(m2.getFieldNumber()).as("Group 2 match gets field 0").isEqualTo(0);
     }
 
@@ -329,12 +330,13 @@ class DefaultRoundAssignmentServiceTest {
         service.assignRoundsAndFields(phaseId, 3);
 
         int maxLap = matches.stream().mapToInt(Match::getLapNumber).max().orElse(0);
-        // K4 chromatic index = 3 rounds; with fieldCount=3 capacity, greedy assigns ≤ 3 laps
+        // K4 chromatic index = 3 rounds; with fieldCount=3 capacity, greedy assigns ≤ 3 laps.
+        // 1-based (E53S06 fix): laps are 1-indexed, so maxLap=3 means 3 laps.
         assertThat(maxLap)
                 .as(
                         "K4 with fieldCount=3 should need at most 3 laps (edge-chromatic-number of"
-                                + " K4 = 3)")
-                .isLessThanOrEqualTo(2); // laps are 0-indexed, so maxLap=2 means 3 laps
+                                + " K4 = 3); 1-based so maxLap=3 means 3 laps (E53S06)")
+                .isLessThanOrEqualTo(3); // laps are 1-indexed, so maxLap=3 means 3 laps
     }
 
     // ── E53S06: 1-based lap numbers RED test ───────────────────────────────────────────────────
@@ -360,14 +362,24 @@ class DefaultRoundAssignmentServiceTest {
         int idx = 0;
         for (int i = 0; i < group1.size(); i++) {
             for (int j = i + 1; j < group1.size(); j++) {
-                matches.add(makeMatch(makeUUID(String.format("%02d", idx++)), phaseId, tid,
-                        group1.get(i), group1.get(j)));
+                matches.add(
+                        makeMatch(
+                                makeUUID(String.format("%02d", idx++)),
+                                phaseId,
+                                tid,
+                                group1.get(i),
+                                group1.get(j)));
             }
         }
         for (int i = 0; i < group2.size(); i++) {
             for (int j = i + 1; j < group2.size(); j++) {
-                matches.add(makeMatch(makeUUID(String.format("%02d", idx++)), phaseId, tid,
-                        group2.get(i), group2.get(j)));
+                matches.add(
+                        makeMatch(
+                                makeUUID(String.format("%02d", idx++)),
+                                phaseId,
+                                tid,
+                                group2.get(i),
+                                group2.get(j)));
             }
         }
 
@@ -382,10 +394,7 @@ class DefaultRoundAssignmentServiceTest {
 
         service.assignRoundsAndFields(phaseId, 3);
 
-        long distinctLaps = matches.stream()
-                .map(Match::getLapNumber)
-                .distinct()
-                .count();
+        long distinctLaps = matches.stream().map(Match::getLapNumber).distinct().count();
         assertThat(distinctLaps)
                 .as("12 teams / 2 groups / 3 fields must produce ≥10 distinct lap numbers")
                 .isGreaterThanOrEqualTo(10);

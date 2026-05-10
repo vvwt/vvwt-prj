@@ -290,15 +290,16 @@ class RoundAssignmentServiceIT {
                             assertThat(row.get("field_number")).isNotNull();
                         });
 
-        // Assert: lapNumbers in [0, 21] (22 laps minimum for 66 matches / 3 fields);
-        // greedy edge-coloring may produce 1 extra lap above the theoretical minimum of
-        // ceil(66/3)=22 laps. We assert ≤ 22 (maxLap ≤ 22) to allow for greedy sub-optimality.
+        // Assert: lapNumbers in [1, 22] minimum for 66 matches / 3 fields (1-based, E53S06 fix).
+        // Greedy edge-coloring may produce 1 extra lap above the theoretical minimum of
+        // ceil(66/3)=22 laps. We assert maxLap ≤ 23 (1-based: laps 1..23) to allow for greedy
+        // sub-optimality. Previously 0-based assertion was maxLap ≤ 22 (laps 0..22).
         int maxLap =
                 rows.stream()
                         .mapToInt(r -> ((Number) r.get("lap_number")).intValue())
                         .max()
                         .orElse(-1);
-        assertThat(maxLap).isLessThanOrEqualTo(22); // at most 23 laps (0..22); greedy may add 1
+        assertThat(maxLap).isLessThanOrEqualTo(23); // 1-based: at most 23 laps (1..23); greedy
 
         // Assert: fieldNumbers in [0, 2]
         assertThat(rows)

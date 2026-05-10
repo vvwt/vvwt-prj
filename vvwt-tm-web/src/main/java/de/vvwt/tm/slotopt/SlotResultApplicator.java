@@ -30,8 +30,8 @@ import org.springframework.stereotype.Service;
  *   <li>The output row sequence is {@code [π(0)*fc, π(0)*fc+1, ..., π(lapCount-1)*fc+fc-1]} where
  *       {@code fc = fieldCount}. Each output position {@code i} is filled from the L2-sorted match
  *       at source flat-index {@code π[i/fc]*fc + i%fc}.
- *   <li>Write for output position {@code i}: {@code match.setLapNumber(i / fc)}, {@code
- *       match.setFieldNumber(i % fc)}.
+ *   <li>Write for output position {@code i}: {@code match.setLapNumber(i / fc + 1)} (1-based;
+ *       E53S06 fix — lap numbers start at 1), {@code match.setFieldNumber(i % fc)}.
  * </ol>
  *
  * <h2>Key invariant (D-7, AC-TEST-FIELD-INVARIANT-UNDER-LAP-PERMUTATION-RED)</h2>
@@ -41,8 +41,9 @@ import org.springframework.stereotype.Service;
  *
  * <h2>Identity rank (AC-TEST-RANK-AS-LAP-PERMUTATION-RED)</h2>
  *
- * <p>Rank 0 is the identity permutation π(i)=i, producing the same (lapNumber, fieldNumber) as L2
- * assigned — the L2 baseline is preserved.
+ * <p>Rank 0 is the identity permutation π(i)=i, producing the same relative (lapNumber,
+ * fieldNumber) ordering as L2 assigned — the L2 baseline is preserved. Lap numbers are 1-based in
+ * both L2 output and L3 output after E53S06.
  *
  * <h2>Empty phase (AC-ERROR-HANDLING-EMPTY-PHASE)</h2>
  *
@@ -121,12 +122,16 @@ public class SlotResultApplicator {
         int[] pi = LehmerCodec.rankToPermutation(rank, lapCount);
 
         // Step 3 + 4: apply permutation — for output position i, source = π[i/fc]*fc + i%fc
+        // outputLapIndex is the 0-based index used for the pi[] lookup and as the flat-list index.
+        // outputLap is 1-based (E53S06 fix): lap numbers written to Match are 1..lapCount so that
+        // downstream consumers (DefaultLaufzettelAssembler, DefaultTimelineCalculationService)
+        // see all rounds and no round is skipped.
         for (int i = 0; i < rowCount; i++) {
-            int outputLap = i / fieldCount;
+            int outputLapIndex = i / fieldCount; // 0-based index for pi[] lookup
             int outputField = i % fieldCount;
-            int sourceFlatIdx = pi[outputLap] * fieldCount + outputField;
+            int sourceFlatIdx = pi[outputLapIndex] * fieldCount + outputField;
             Match match = sortedByL2.get(sourceFlatIdx);
-            match.setLapNumber(outputLap);
+            match.setLapNumber(outputLapIndex + 1); // 1-based: lap 1..lapCount (E53S06)
             match.setFieldNumber(outputField);
             matchRepository.save(match);
         }
