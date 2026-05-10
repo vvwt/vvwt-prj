@@ -192,13 +192,32 @@ public class DefaultDisplayOverviewService implements DisplayOverviewService {
         Phase phase = resolveActiveOrPreviewPhase();
         resolveTournamentForPhase(phase); // validates tournament exists
 
-        int effectiveLap = (lap != null) ? lap : phase.getCurrentLapNumber();
+        // E50S04 T3 fix (AC-TEST-MULTI-ROUND-ALL-LAPS-VISIBLE-RED):
+        // When lap is null, return ALL matches across all laps so the FE can render every
+        // round simultaneously. When an explicit lap is requested, still filter to that lap.
+        // lap field in the response always carries currentLapNumber — FE uses it for the
+        // active-round highlight (T5, AC-TEST-ACTIVE-ROUND-HIGHLIGHT-RED).
+        int currentLap = phase.getCurrentLapNumber();
 
         List<Match> allMatches = matchRepository.findByPhaseId(phase.getId());
-        List<Match> lapMatches =
-                allMatches.stream()
-                        .filter(m -> Integer.valueOf(effectiveLap).equals(m.getLapNumber()))
-                        .collect(Collectors.toList());
+        List<Match> lapMatches;
+        if (lap != null) {
+            // Explicit lap requested — preserve original filter behaviour
+            int requestedLap = lap;
+            lapMatches =
+                    allMatches.stream()
+                            .filter(
+                                    m ->
+                                            Integer.valueOf(requestedLap)
+                                                    .equals(m.getLapNumber()))
+                            .collect(Collectors.toList());
+        } else {
+            // All laps: include every match that has an assigned lapNumber
+            lapMatches =
+                    allMatches.stream()
+                            .filter(m -> m.getLapNumber() != null)
+                            .collect(Collectors.toList());
+        }
 
         List<TeamAvatar> avatars = teamAvatarRepository.findByPhaseId(phase.getId());
         Map<UUID, TeamAvatar> avatarById =
@@ -231,6 +250,7 @@ public class DefaultDisplayOverviewService implements DisplayOverviewService {
             entries.add(
                     new DisplayMatchesResponse.MatchEntry(
                             m.getId(),
+                            m.getLapNumber(), // E50S04: lapNumber on entry for FE grouping
                             m.getFieldNumber(),
                             teamAName,
                             teamBName,
@@ -239,7 +259,10 @@ public class DefaultDisplayOverviewService implements DisplayOverviewService {
                             null)); // referee team not tracked in this service scope
         }
 
-        return new DisplayMatchesResponse(phase.getId(), effectiveLap, entries);
+        // Response lap = currentLap (active-round marker); explicit-lap calls also return
+        // currentLap because the FE needs the currentLap context regardless.
+        int responseLap = (lap != null) ? lap : currentLap;
+        return new DisplayMatchesResponse(phase.getId(), responseLap, entries);
     }
 
     /**

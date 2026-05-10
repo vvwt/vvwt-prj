@@ -97,7 +97,7 @@ class DisplayRecordSmokeTest {
                 new DisplayMatchesResponse.SetResultEntry(0, 21, 15);
         DisplayMatchesResponse.MatchEntry match =
                 new DisplayMatchesResponse.MatchEntry(
-                        matchId, 1, "Team A", "Team B", List.of(set), "IN_PROGRESS", null);
+                        matchId, 2, 1, "Team A", "Team B", List.of(set), "IN_PROGRESS", null); // lapNumber=2, fieldNumber=1
 
         DisplayMatchesResponse response = new DisplayMatchesResponse(phaseId, 2, List.of(match));
 

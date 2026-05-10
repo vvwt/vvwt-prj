@@ -367,6 +367,7 @@ class DefaultDisplayOverviewServiceTest {
         assertThat(response.matches()).hasSize(1);
         DisplayMatchesResponse.MatchEntry entry = response.matches().get(0);
         assertThat(entry.matchId()).isEqualTo(matchId);
+        assertThat(entry.lapNumber()).isEqualTo(1); // E50S04: lapNumber carried on MatchEntry
         assertThat(entry.teamAName()).isEqualTo("Team Alpha");
         assertThat(entry.teamBName()).isEqualTo("Team Beta");
         assertThat(entry.matchStatus()).isEqualTo("IN_PROGRESS");

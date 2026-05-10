@@ -14,8 +14,10 @@ import java.util.UUID;
  * canon.
  *
  * @param phaseId UUID of the phase these matches belong to
- * @param lap lap number for the returned matches
- * @param matches ordered list of match entries for this lap
+ * @param lap currentLapNumber of the phase (active round marker for the FE active-highlight;
+ *     E50S04 — when lap param is null the response includes all laps, this field marks which lap
+ *     is currently active)
+ * @param matches ordered list of match entries (all laps when no lap filter requested)
  * @see DisplayOverviewService
  * @see E25S01
  */
@@ -25,6 +27,9 @@ public record DisplayMatchesResponse(UUID phaseId, int lap, List<MatchEntry> mat
      * A single match in the display matches list.
      *
      * @param matchId UUID of the match
+     * @param lapNumber lap (round) number this match belongs to; used by the FE to group matches
+     *     per round column and highlight the active round (E50S04
+     *     AC-TEST-MULTI-ROUND-ALL-LAPS-VISIBLE-RED)
      * @param fieldNumber playing field number (nullable if not yet assigned)
      * @param teamAName display name for team A (resolved via TeamAvatar → Team)
      * @param teamBName display name for team B (resolved via TeamAvatar → Team)
@@ -35,6 +40,7 @@ public record DisplayMatchesResponse(UUID phaseId, int lap, List<MatchEntry> mat
      */
     public record MatchEntry(
             UUID matchId,
+            Integer lapNumber,
             Integer fieldNumber,
             String teamAName,
             String teamBName,
