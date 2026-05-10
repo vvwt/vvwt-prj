@@ -1078,6 +1078,113 @@ class DraftControllerIT {
     }
 
     // =========================================================================
+    // E51S20 — AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE (Q-1a RED-first)
+    // =========================================================================
+
+    /**
+     * AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE (E51S20): PUT /draft with an unknown {@code gameMode}
+     * wire-format value must be rejected with HTTP 400.
+     *
+     * <p>RED before enum migration: currently {@code "unknown_mode"} is accepted silently as a
+     * {@code String} value (no fail-fast validation at deserialization boundary).
+     *
+     * <p>GREEN after enum migration: {@code GameMode.fromWireFormat("unknown_mode")} throws {@link
+     * com.fasterxml.jackson.databind.exc.InvalidFormatException}, which Spring MVC translates to
+     * HTTP 400 (HttpMessageNotReadableException).
+     *
+     * <p>Per AC-SECURITY-INPUT-VALIDATION-NO-WEAKENING: the migration strengthens input validation —
+     * unknown values fail-fast at the deserialization boundary instead of producing silent runtime
+     * mismatches deeper in the call stack.
+     */
+    @Test
+    @DisplayName(
+            "PUT /draft with unknown gameMode wire-format value → 400 Bad Request"
+                    + " (E51S20 AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE)")
+    void putDraft_unknownGameModeWireFormat_returns400() throws Exception {
+        UUID tournamentId = createDraftTournament("IT unknown-gameMode E51S20");
+
+        // Send raw JSON with unknown gameMode — bypasses Java type system to test wire-format gate
+        String rawJson =
+                """
+                {"sections":[{
+                    "sectionNumber":1,
+                    "sortType":"team_number",
+                    "groupCount":1,
+                    "gameMode":"unknown_mode",
+                    "lapBreakTimeMinutes":0,
+                    "sectionBreakTimeMinutes":0,
+                    "lapTimeMinutes":15,
+                    "setQuantity":1
+                }]}""";
+
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+
+        ResponseEntity<String> response =
+                authed.exchange(
+                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/draft"),
+                        HttpMethod.PUT,
+                        new HttpEntity<>(rawJson, headers),
+                        String.class);
+
+        // RED: currently returns 200 (unknown string silently accepted)
+        // GREEN: must return 400 after GameMode enum enforces wire-format validation
+        assertThat(response.getStatusCode())
+                .as("Unknown gameMode wire-format must be rejected with 400 Bad Request"
+                        + " (AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE, E51S20)")
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE (E51S20): PUT /draft with an unknown {@code
+     * distributionMode} wire-format value must be rejected with HTTP 400.
+     *
+     * <p>RED before enum migration: currently {@code "turbo_mode"} is accepted silently as a String
+     * value (no fail-fast validation at deserialization boundary).
+     *
+     * <p>GREEN after enum migration: {@code DistributionMode.fromWireFormat("turbo_mode")} throws
+     * {@link com.fasterxml.jackson.databind.exc.InvalidFormatException} → HTTP 400.
+     */
+    @Test
+    @DisplayName(
+            "PUT /draft with unknown distributionMode wire-format value → 400 Bad Request"
+                    + " (E51S20 AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE)")
+    void putDraft_unknownDistributionModeWireFormat_returns400() throws Exception {
+        UUID tournamentId = createDraftTournament("IT unknown-distributionMode E51S20");
+
+        String rawJson =
+                """
+                {"sections":[{
+                    "sectionNumber":1,
+                    "sortType":"team_number",
+                    "groupCount":1,
+                    "gameMode":"siegerehrung",
+                    "lapBreakTimeMinutes":0,
+                    "sectionBreakTimeMinutes":0,
+                    "lapTimeMinutes":15,
+                    "setQuantity":1,
+                    "distributionMode":"turbo_mode"
+                }]}""";
+
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+
+        ResponseEntity<String> response =
+                authed.exchange(
+                        new URI(baseUrl + "/api/tournaments/" + tournamentId + "/draft"),
+                        HttpMethod.PUT,
+                        new HttpEntity<>(rawJson, headers),
+                        String.class);
+
+        // RED: currently returns 200 (unknown string silently accepted by domain defaulting fallback)
+        // GREEN: must return 400 after DistributionMode enum enforces wire-format validation
+        assertThat(response.getStatusCode())
+                .as("Unknown distributionMode wire-format must be rejected with 400 Bad Request"
+                        + " (AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE, E51S20)")
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    // =========================================================================
     // Test-local AdminCredentials
     // =========================================================================
 
