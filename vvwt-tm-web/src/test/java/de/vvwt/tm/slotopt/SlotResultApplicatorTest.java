@@ -13,7 +13,6 @@ import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.MatchState;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
-import de.vvwt.slotopt.worker.types.StructuralFingerprint;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -450,22 +449,24 @@ class SlotResultApplicatorTest {
      * AC-TEST-SLOTRESULTAPPLICATOR-LAPCOUNT-DIRECT-RED (E54S02):
      *
      * <p>After Mapper refactor (E54S02 DEC-61 Clause B), {@code SlotResultApplicator.applyResult}
-     * derives {@code lapCount} from {@code mapping.canonical().rowCount()} directly (NOT from {@code
-     * rowCount / fieldCount}).
+     * derives {@code lapCount} from {@code mapping.canonical().rowCount()} directly (NOT from
+     * {@code rowCount / fieldCount}).
      *
      * <p>Post-Mapper-refactor, {@code mapping.canonical().rowCount() = lapCount} (rows are
-     * lap-rows). The old formula {@code int lapCount = rowCount / fieldCount} where {@code rowCount =
-     * matchOrder.size()} is incorrect post-refactor.
+     * lap-rows). The old formula {@code int lapCount = rowCount / fieldCount} where {@code rowCount
+     * = matchOrder.size()} is incorrect post-refactor.
      *
-     * <p>Observable test: with a lap-row mapping (canonical.rowCount = 2) and 6 matches, applyResult
-     * must produce exactly 2 distinct lap values (1 and 2), confirming lapCount=2 is used.
+     * <p>Observable test: with a lap-row mapping (canonical.rowCount = 2) and 6 matches,
+     * applyResult must produce exactly 2 distinct lap values (1 and 2), confirming lapCount=2 is
+     * used.
      *
      * <p>RED against current code: current code uses {@code int lapCount = rowCount / fieldCount}
-     * where rowCount=matchOrder.size(). For post-refactor MappingResult with matchOrder.size()=6 and
-     * canonical.rowCount()=2, the old formula gives lapCount=6/3=2 (happens to agree for symmetric
-     * setup). The structural RED is: source line must change. The test verifies that the applicator
-     * correctly handles a post-Mapper-refactor MappingResult where canonical.rowCount() drives
-     * lapCount, and that applying identity rank to a 6-match/2-lap mapping produces lap ∈ {1,2}.
+     * where rowCount=matchOrder.size(). For post-refactor MappingResult with matchOrder.size()=6
+     * and canonical.rowCount()=2, the old formula gives lapCount=6/3=2 (happens to agree for
+     * symmetric setup). The structural RED is: source line must change. The test verifies that the
+     * applicator correctly handles a post-Mapper-refactor MappingResult where canonical.rowCount()
+     * drives lapCount, and that applying identity rank to a 6-match/2-lap mapping produces lap ∈
+     * {1,2}.
      */
     @Test
     void applyResult_lapCountFromCanonicalRowCount_notMatchOrderDivFieldCount_E54S02() {
@@ -778,7 +779,8 @@ class SlotResultApplicatorTest {
 
     /**
      * Builds a post-refactor (E54S02) {@link MappingResult} where {@code raw.rows()} are lap-rows
-     * (one row per lap) instead of match-rows. Used by AC-TEST-SLOTRESULTAPPLICATOR-LAPCOUNT-DIRECT-RED.
+     * (one row per lap) instead of match-rows. Used by
+     * AC-TEST-SLOTRESULTAPPLICATOR-LAPCOUNT-DIRECT-RED.
      *
      * <p>Constructs {@code RawPhaseDef} with {@code lapCount} rows (each row = union of avatars in
      * that lap). {@code matchOrder} carries all matches (lapCount * fieldCount). {@code
@@ -846,6 +848,7 @@ class SlotResultApplicatorTest {
             }
         }
 
-        return new MappingResult(raw, canonical, canonical.avatarCount(), orderedMatches, denseIdsByRawRow);
+        return new MappingResult(
+                raw, canonical, canonical.avatarCount(), orderedMatches, denseIdsByRawRow);
     }
 }

@@ -14,7 +14,6 @@ import static org.mockito.Mockito.when;
 
 import de.vvwt.slotopt.worker.types.CanonicalPhaseDef;
 import de.vvwt.slotopt.worker.types.RawPhaseDef;
-import de.vvwt.slotopt.worker.types.StructuralFingerprint;
 import de.vvwt.tm.slotopt.CancelableInProcessSlotOptimizationService;
 import de.vvwt.tm.slotopt.CancellationToken;
 import de.vvwt.tm.slotopt.DirectSlotOptimizationClient;
@@ -382,21 +381,22 @@ class RoutingSlotOptimizationClientTest {
     }
 
     // =========================================================================
-    // E54S02 RED-first test — DEC-61 Clause D: expansion block removed (AC-TEST-ROUTING-EXPANSION-REMOVED-RED)
+    // E54S02 RED-first test — DEC-61 Clause D: expansion block removed
+    // (AC-TEST-ROUTING-EXPANSION-REMOVED-RED)
     // =========================================================================
 
     /**
      * AC-TEST-ROUTING-EXPANSION-REMOVED-RED (E54S02):
      *
-     * <p>After Mapper refactor (E54S02 DEC-61 Clause B+D), the
-     * {@code RoutingSlotOptimizationClient.executeLeg1Inline} method MUST NOT expand the lap
-     * permutation to a row sequence via {@code pi[i/fieldCount]*fieldCount + i%fieldCount}. Instead,
-     * {@code π} directly is the row permutation of length {@code lapCount} passed to
-     * {@code VarietyScorer.scoreWithMatrix}.
+     * <p>After Mapper refactor (E54S02 DEC-61 Clause B+D), the {@code
+     * RoutingSlotOptimizationClient.executeLeg1Inline} method MUST NOT expand the lap permutation
+     * to a row sequence via {@code pi[i/fieldCount]*fieldCount + i%fieldCount}. Instead, {@code π}
+     * directly is the row permutation of length {@code lapCount} passed to {@code
+     * VarietyScorer.scoreWithMatrix}.
      *
-     * <p>Observable contract: with a post-refactor {@link MappingResult} where
-     * {@code canonical.rowCount() = lapCount} (e.g., lapCount=2, fieldCount=3, matchCount=6),
-     * the applicator must be called exactly once with the correct {@code MappingResult} (Leg 1 path).
+     * <p>Observable contract: with a post-refactor {@link MappingResult} where {@code
+     * canonical.rowCount() = lapCount} (e.g., lapCount=2, fieldCount=3, matchCount=6), the
+     * applicator must be called exactly once with the correct {@code MappingResult} (Leg 1 path).
      * The expansion is removed; {@code rowSeq} is now {@code π} of length {@code lapCount}, not
      * {@code matchCount}.
      *
@@ -404,7 +404,8 @@ class RoutingSlotOptimizationClientTest {
      * Under the OLD code, {@code lapCount = rowCount / fieldCount = 6/3 = 2} still happens to
      * produce a valid π (same lapCount). The structural guarantee is that the EXPANSION block
      * {@code pi[i/fieldCount]*fieldCount + i%fieldCount} is absent from the source. This test
-     * verifies the observable contract: applicator is called once for Leg 1 with lapCount=2≤threshold.
+     * verifies the observable contract: applicator is called once for Leg 1 with
+     * lapCount=2≤threshold.
      */
     @Test
     void optimize_lapRowMapping_noExpansionBlock_applicatorCalledOnce_E54S02() {
@@ -413,7 +414,8 @@ class RoutingSlotOptimizationClientTest {
         // Post-refactor: lapCount=2, canonical.rowCount()=2, matchCount=6 (lap-rows)
         // EXHAUSTIVE_MAX_N=2 so lapCount=2 ≤ threshold → Leg 1
         MappingResult lapRowMapping =
-                buildLapRowMappingWithLapCount(phaseId, EXHAUSTIVE_MAX_N, FIELD_COUNT, tournamentId);
+                buildLapRowMappingWithLapCount(
+                        phaseId, EXHAUSTIVE_MAX_N, FIELD_COUNT, tournamentId);
         when(mapperMock.map(phaseId)).thenReturn(lapRowMapping);
         when(mapperMock.mapGroup(eq(phaseId), anyInt()))
                 .thenReturn(
@@ -470,80 +472,101 @@ class RoutingSlotOptimizationClientTest {
     // =========================================================================
 
     /**
-     * Builds a minimal {@link MappingResult} with {@code lapCount * fieldCount} rows, all in group
-     * 0. N = lapCount (after N-redefinition). Matches carry the given tournamentId.
+     * Builds a post-refactor (E54S02/DEC-61 Clause B) {@link MappingResult} with {@code lapCount}
+     * lap-rows (raw.rowCount()=lapCount) and {@code lapCount * fieldCount} matches
+     * (matchOrder.size()=lapCount*fieldCount). All rows in group 0. Matches carry the given
+     * tournamentId.
      */
     private static MappingResult buildMappingWithLapCount(
             UUID phaseId, int lapCount, int fieldCount, UUID tournamentId) {
-        int rowCount = lapCount * fieldCount;
+        int matchCount = lapCount * fieldCount;
         List<de.vvwt.slotopt.worker.types.RawRow> rows = new java.util.ArrayList<>();
         List<Match> matches = new java.util.ArrayList<>();
-        for (int r = 0; r < rowCount; r++) {
-            // All rows in group 0 (single-group mapping)
-            var pt1 = new de.vvwt.slotopt.worker.types.PositionTuple(0, r * 2);
-            var pt2 = new de.vvwt.slotopt.worker.types.PositionTuple(0, r * 2 + 1);
-            rows.add(new de.vvwt.slotopt.worker.types.RawRow(List.of(pt1, pt2)));
-            Match m = new Match();
-            m.setId(UUID.randomUUID());
-            m.setPhaseId(phaseId);
-            m.setTournamentId(tournamentId);
-            m.setLapNumber(r / fieldCount);
-            m.setFieldNumber(r % fieldCount);
-            matches.add(m);
+        // Build lapCount lap-rows; each lap has fieldCount matches (2 avatars each)
+        for (int lap = 0; lap < lapCount; lap++) {
+            java.util.List<de.vvwt.slotopt.worker.types.PositionTuple> lapTuples =
+                    new java.util.ArrayList<>();
+            for (int f = 0; f < fieldCount; f++) {
+                int matchIdx = lap * fieldCount + f;
+                var pt1 = new de.vvwt.slotopt.worker.types.PositionTuple(0, matchIdx * 2);
+                var pt2 = new de.vvwt.slotopt.worker.types.PositionTuple(0, matchIdx * 2 + 1);
+                lapTuples.add(pt1);
+                lapTuples.add(pt2);
+                Match m = new Match();
+                m.setId(UUID.randomUUID());
+                m.setPhaseId(phaseId);
+                m.setTournamentId(tournamentId);
+                m.setLapNumber(lap + 1); // 1-based
+                m.setFieldNumber(f + 1); // 1-based
+                matches.add(m);
+            }
+            rows.add(new de.vvwt.slotopt.worker.types.RawRow(lapTuples));
         }
         int auditId = Math.abs(phaseId.hashCode());
-        RawPhaseDef raw = new RawPhaseDef(auditId, rowCount, rows);
+        RawPhaseDef raw = new RawPhaseDef(auditId, lapCount, rows);
         de.vvwt.slotopt.worker.types.TransformResult tr =
                 de.vvwt.slotopt.worker.types.StructuralFingerprint.transform(raw);
         CanonicalPhaseDef canonical = tr.canonical();
         var denseMap = PhaseToRawPhaseDefMapper.buildDenseIdMapping(raw);
-        int[][] denseIdsByRawRow = new int[rowCount][];
-        for (int r = 0; r < rowCount; r++) {
-            var pt1 = new de.vvwt.slotopt.worker.types.PositionTuple(0, r * 2);
-            var pt2 = new de.vvwt.slotopt.worker.types.PositionTuple(0, r * 2 + 1);
-            denseIdsByRawRow[r] = new int[] {denseMap.get(pt1), denseMap.get(pt2)};
+        int[][] denseIdsByRawRow = new int[lapCount][];
+        for (int lap = 0; lap < lapCount; lap++) {
+            de.vvwt.slotopt.worker.types.RawRow row = rows.get(lap);
+            int[] ids = new int[row.positions().size()];
+            for (int j = 0; j < ids.length; j++) {
+                ids[j] = denseMap.get(row.positions().get(j));
+            }
+            denseIdsByRawRow[lap] = ids;
         }
         return new MappingResult(
                 raw, canonical, canonical.avatarCount(), matches, denseIdsByRawRow);
     }
 
     /**
-     * Builds a 2-group {@link MappingResult} with {@code lapCount * fieldCount} rows per group.
-     * Rows in group 1 use PositionTuples with group=1; rows in group 2 use group=2.
+     * Builds a 2-group post-refactor (E54S02/DEC-61 Clause B) {@link MappingResult} with {@code
+     * lapCountPerGroup} lap-rows per group (2*lapCountPerGroup total lap-rows). Rows in group 1 use
+     * PositionTuples with group=1; rows in group 2 use group=2. matchOrder.size() = 2 *
+     * lapCountPerGroup * fieldCount (all matches across both groups).
      */
     private static MappingResult buildTwoGroupMapping(
             UUID phaseId, int lapCountPerGroup, int fieldCount, UUID tournamentId) {
-        int rowsPerGroup = lapCountPerGroup * fieldCount;
-        int rowCount = rowsPerGroup * 2;
+        int lapCount = lapCountPerGroup * 2; // total lap-rows across both groups
         List<de.vvwt.slotopt.worker.types.RawRow> rows = new java.util.ArrayList<>();
         List<Match> matches = new java.util.ArrayList<>();
         for (int g = 1; g <= 2; g++) {
-            for (int r = 0; r < rowsPerGroup; r++) {
-                var pt1 = new de.vvwt.slotopt.worker.types.PositionTuple(g, r * 2);
-                var pt2 = new de.vvwt.slotopt.worker.types.PositionTuple(g, r * 2 + 1);
-                rows.add(new de.vvwt.slotopt.worker.types.RawRow(List.of(pt1, pt2)));
-                Match m = new Match();
-                m.setId(UUID.randomUUID());
-                m.setPhaseId(phaseId);
-                m.setTournamentId(tournamentId);
-                m.setLapNumber(r / fieldCount);
-                m.setFieldNumber(r % fieldCount);
-                matches.add(m);
+            for (int lap = 0; lap < lapCountPerGroup; lap++) {
+                java.util.List<de.vvwt.slotopt.worker.types.PositionTuple> lapTuples =
+                        new java.util.ArrayList<>();
+                for (int f = 0; f < fieldCount; f++) {
+                    int matchIdx = (g - 1) * lapCountPerGroup * fieldCount + lap * fieldCount + f;
+                    var pt1 = new de.vvwt.slotopt.worker.types.PositionTuple(g, matchIdx * 2);
+                    var pt2 = new de.vvwt.slotopt.worker.types.PositionTuple(g, matchIdx * 2 + 1);
+                    lapTuples.add(pt1);
+                    lapTuples.add(pt2);
+                    Match m = new Match();
+                    m.setId(UUID.randomUUID());
+                    m.setPhaseId(phaseId);
+                    m.setTournamentId(tournamentId);
+                    m.setLapNumber(lap + 1); // 1-based
+                    m.setFieldNumber(f + 1); // 1-based
+                    matches.add(m);
+                }
+                rows.add(new de.vvwt.slotopt.worker.types.RawRow(lapTuples));
             }
         }
         int auditId = Math.abs(phaseId.hashCode());
-        RawPhaseDef raw = new RawPhaseDef(auditId, rowCount, rows);
+        RawPhaseDef raw = new RawPhaseDef(auditId, lapCount, rows);
         de.vvwt.slotopt.worker.types.TransformResult tr =
                 de.vvwt.slotopt.worker.types.StructuralFingerprint.transform(raw);
         CanonicalPhaseDef canonical = tr.canonical();
         var denseMap = PhaseToRawPhaseDefMapper.buildDenseIdMapping(raw);
-        int[][] denseIdsByRawRow = new int[rowCount][];
-        for (int r = 0; r < rowCount; r++) {
-            int g = r < rowsPerGroup ? 1 : 2;
-            int rInGroup = r < rowsPerGroup ? r : r - rowsPerGroup;
-            var pt1 = new de.vvwt.slotopt.worker.types.PositionTuple(g, rInGroup * 2);
-            var pt2 = new de.vvwt.slotopt.worker.types.PositionTuple(g, rInGroup * 2 + 1);
-            denseIdsByRawRow[r] = new int[] {denseMap.get(pt1), denseMap.get(pt2)};
+        int[][] denseIdsByRawRow = new int[lapCount][];
+        for (int i = 0; i < lapCount; i++) {
+            de.vvwt.slotopt.worker.types.RawRow row = rows.get(i);
+            int[] ids = new int[row.positions().size()];
+            for (int j = 0; j < ids.length; j++) {
+                ids[j] = denseMap.get(row.positions().get(j));
+            }
+            denseIdsByRawRow[i] = ids;
         }
         return new MappingResult(
                 raw, canonical, canonical.avatarCount(), matches, denseIdsByRawRow);
@@ -571,7 +594,8 @@ class RoutingSlotOptimizationClientTest {
         List<Match> matches = new java.util.ArrayList<>();
         for (int lap = 0; lap < lapCount; lap++) {
             // Each lap has fieldCount matches, each with 2 distinct avatars
-            List<de.vvwt.slotopt.worker.types.PositionTuple> positions = new java.util.ArrayList<>();
+            List<de.vvwt.slotopt.worker.types.PositionTuple> positions =
+                    new java.util.ArrayList<>();
             for (int f = 0; f < fieldCount; f++) {
                 int base = lap * fieldCount * 2 + f * 2;
                 var pt1 = new de.vvwt.slotopt.worker.types.PositionTuple(1, base);
@@ -603,6 +627,7 @@ class RoutingSlotOptimizationClientTest {
                 denseIdsByRawRow[i][j] = id != null ? id : 0;
             }
         }
-        return new MappingResult(raw, canonical, canonical.avatarCount(), matches, denseIdsByRawRow);
+        return new MappingResult(
+                raw, canonical, canonical.avatarCount(), matches, denseIdsByRawRow);
     }
 }

@@ -114,7 +114,9 @@ public class SlotResultApplicator {
             return;
         }
 
-        int lapCount = rowCount / fieldCount;
+        // DEC-61 Clause B: post-E54S02 raw.rowCount() = lapCount (not matchCount).
+        // Derive lapCount from the canonical form's row count (= number of lap-rows).
+        int lapCount = mapping.canonical().rowCount();
 
         // Step 1: sort matches by L2 position (lapNumber * fieldCount + fieldNumber) ascending
         List<Match> sortedByL2 = sortByL2Position(matchOrder, fieldCount);

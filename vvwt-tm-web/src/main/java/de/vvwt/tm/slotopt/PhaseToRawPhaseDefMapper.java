@@ -13,8 +13,12 @@ import de.vvwt.tm.tournament.TeamAvatarRepository;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -124,23 +128,24 @@ public class PhaseToRawPhaseDefMapper {
                     new PositionTuple(avatar.getGroupNumber(), avatar.getGroupPosition()));
         }
 
-        // AC7: sort matches by UUID ascending for deterministic row order
-        List<Match> sortedMatches = new ArrayList<>(matches);
-        sortedMatches.sort(Comparator.comparing(m -> m.getId().toString()));
+        // DEC-61 Clause B: aggregate matches into laps — one RawRow per lap (union of avatars)
+        // AC7: within each lap, matches are sorted by UUID ascending for deterministic ordering;
+        //      laps themselves are ordered ascending by lapNumber.
 
-        // Build RawPhaseDef rows — each Match becomes one RawRow with exactly 2 PositionTuples
-        // (AC1)
-        List<RawRow> rows = new ArrayList<>(sortedMatches.size());
-        int[][] denseIdsByRawRow = new int[sortedMatches.size()][];
-
-        // We build RawPhaseDef first, then canonicalize to get dense IDs.
-        // Store PositionTuples per row so we can look up dense IDs after canonicalization.
-        List<PositionTuple[]> rawTuplesByRow = new ArrayList<>(sortedMatches.size());
-
-        for (int rowIdx = 0; rowIdx < sortedMatches.size(); rowIdx++) {
-            Match match = sortedMatches.get(rowIdx);
-
-            // AC10: validate that both avatars exist
+        // Step 1: validate null lapNumber and group matches by lapNumber
+        TreeMap<Integer, List<Match>> matchesByLap = new TreeMap<>();
+        for (Match match : matches) {
+            Integer lapNum = match.getLapNumber();
+            if (lapNum == null) {
+                throw new IllegalStateException(
+                        "Match "
+                                + match.getId()
+                                + " in phase "
+                                + phaseId
+                                + " has null lapNumber. All matches must have a lap assigned"
+                                + " before slot-optimization mapping.");
+            }
+            // AC10: validate that both avatars exist before grouping
             PositionTuple pt1 = positionByAvatarId.get(match.getMemberAvatar1Id());
             if (pt1 == null) {
                 throw new IllegalStateException(
@@ -161,9 +166,30 @@ public class PhaseToRawPhaseDefMapper {
                                 + " which is not present in the loaded avatar set for phase "
                                 + phaseId);
             }
+            matchesByLap.computeIfAbsent(lapNum, k -> new ArrayList<>()).add(match);
+        }
 
-            rows.add(new RawRow(List.of(pt1, pt2)));
-            rawTuplesByRow.add(new PositionTuple[] {pt1, pt2});
+        // Step 2: build one RawRow per lap (union of all PositionTuples in that lap),
+        //         and a flat sorted matchOrder for the applicator.
+        List<RawRow> rows = new ArrayList<>(matchesByLap.size());
+        List<PositionTuple[]> rawTuplesByRow = new ArrayList<>(matchesByLap.size());
+        List<Match> sortedMatches = new ArrayList<>(matches.size());
+
+        for (Map.Entry<Integer, List<Match>> entry : matchesByLap.entrySet()) {
+            List<Match> lapMatches = entry.getValue();
+            // AC7: sort matches within lap by UUID ascending
+            lapMatches.sort(Comparator.comparing(m -> m.getId().toString()));
+            sortedMatches.addAll(lapMatches);
+
+            // Collect the union of PositionTuples for this lap (all avatars active in lap)
+            LinkedHashMap<PositionTuple, Boolean> seen = new LinkedHashMap<>();
+            for (Match match : lapMatches) {
+                seen.put(positionByAvatarId.get(match.getMemberAvatar1Id()), Boolean.TRUE);
+                seen.put(positionByAvatarId.get(match.getMemberAvatar2Id()), Boolean.TRUE);
+            }
+            List<PositionTuple> lapTuples = new ArrayList<>(seen.keySet());
+            rows.add(new RawRow(lapTuples));
+            rawTuplesByRow.add(lapTuples.toArray(new PositionTuple[0]));
         }
 
         // AC1: phaseId field uses deterministic derivation from UUID (audit-only, not in
@@ -180,21 +206,26 @@ public class PhaseToRawPhaseDefMapper {
         // PositionTuple → denseId for the applicator (mirrors StructuralFingerprint.canonicalize())
         Map<PositionTuple, Integer> denseIdByTuple = buildDenseIdMapping(raw);
 
-        // Populate denseIdsByRawRow: for each raw row, the two dense IDs (AC3 bridge data)
-        for (int rowIdx = 0; rowIdx < sortedMatches.size(); rowIdx++) {
+        // Populate denseIdsByRawRow: for each lap-row, the dense IDs of all avatars in that lap
+        int[][] denseIdsByRawRow = new int[rows.size()][];
+        for (int rowIdx = 0; rowIdx < rows.size(); rowIdx++) {
             PositionTuple[] tuples = rawTuplesByRow.get(rowIdx);
-            denseIdsByRawRow[rowIdx] =
-                    new int[] {denseIdByTuple.get(tuples[0]), denseIdByTuple.get(tuples[1])};
+            int[] ids = new int[tuples.length];
+            for (int j = 0; j < tuples.length; j++) {
+                ids[j] = denseIdByTuple.get(tuples[j]);
+            }
+            denseIdsByRawRow[rowIdx] = ids;
         }
 
         // AC2: N = number of distinct avatars
         int n = canonical.avatarCount();
 
         LOG.info(
-                "PhaseToRawPhaseDefMapper: phase={}, avatars={}, matches={}, N={}",
+                "PhaseToRawPhaseDefMapper: phase={}, avatars={}, matches={}, laps={}, N={}",
                 phaseId,
                 avatars.size(),
                 sortedMatches.size(),
+                rows.size(),
                 n);
 
         return new MappingResult(raw, canonical, n, sortedMatches, denseIdsByRawRow);
@@ -228,7 +259,7 @@ public class PhaseToRawPhaseDefMapper {
         List<Match> allMatches = matchRepository.findByPhaseId(phaseId);
 
         // Filter avatars to this group
-        java.util.Set<UUID> groupAvatarIds = new java.util.HashSet<>();
+        Set<UUID> groupAvatarIds = new HashSet<>();
         for (TeamAvatar avatar : allAvatars) {
             if (avatar.getGroupNumber() == groupNumber) {
                 groupAvatarIds.add(avatar.getId());
@@ -266,57 +297,77 @@ public class PhaseToRawPhaseDefMapper {
         }
 
         // Build avatar position index for this group
-        Map<UUID, de.vvwt.slotopt.worker.types.PositionTuple> positionByAvatarId =
-                new HashMap<>(groupAvatars.size() * 2);
+        Map<UUID, PositionTuple> positionByAvatarId = new HashMap<>(groupAvatars.size() * 2);
         for (TeamAvatar avatar : groupAvatars) {
             positionByAvatarId.put(
                     avatar.getId(),
-                    new de.vvwt.slotopt.worker.types.PositionTuple(
-                            avatar.getGroupNumber(), avatar.getGroupPosition()));
+                    new PositionTuple(avatar.getGroupNumber(), avatar.getGroupPosition()));
         }
 
-        // Sort matches by UUID ascending
-        List<Match> sortedMatches = new ArrayList<>(groupMatches);
-        sortedMatches.sort(Comparator.comparing(m -> m.getId().toString()));
+        // DEC-61 Clause B: aggregate matches into lap-rows — one RawRow per lap.
+        // Validate null lapNumber, then group by lapNumber (ascending via TreeMap).
+        TreeMap<Integer, List<Match>> matchesByLap = new TreeMap<>();
+        for (Match match : groupMatches) {
+            Integer lapNum = match.getLapNumber();
+            if (lapNum == null) {
+                throw new IllegalStateException(
+                        "Match "
+                                + match.getId()
+                                + " in phase "
+                                + phaseId
+                                + " group "
+                                + groupNumber
+                                + " has null lapNumber.");
+            }
+            matchesByLap.computeIfAbsent(lapNum, k -> new ArrayList<>()).add(match);
+        }
 
-        List<de.vvwt.slotopt.worker.types.RawRow> rows = new ArrayList<>(sortedMatches.size());
-        List<de.vvwt.slotopt.worker.types.PositionTuple[]> rawTuplesByRow =
-                new ArrayList<>(sortedMatches.size());
+        List<RawRow> rows = new ArrayList<>(matchesByLap.size());
+        List<PositionTuple[]> rawTuplesByRow = new ArrayList<>(matchesByLap.size());
+        List<Match> sortedMatches = new ArrayList<>(groupMatches.size());
 
-        for (Match match : sortedMatches) {
-            de.vvwt.slotopt.worker.types.PositionTuple pt1 =
-                    positionByAvatarId.get(match.getMemberAvatar1Id());
-            de.vvwt.slotopt.worker.types.PositionTuple pt2 =
-                    positionByAvatarId.get(match.getMemberAvatar2Id());
-            rows.add(new de.vvwt.slotopt.worker.types.RawRow(List.of(pt1, pt2)));
-            rawTuplesByRow.add(new de.vvwt.slotopt.worker.types.PositionTuple[] {pt1, pt2});
+        for (Map.Entry<Integer, List<Match>> entry : matchesByLap.entrySet()) {
+            List<Match> lapMatches = entry.getValue();
+            lapMatches.sort(Comparator.comparing(m -> m.getId().toString()));
+            sortedMatches.addAll(lapMatches);
+
+            LinkedHashMap<PositionTuple, Boolean> seen = new LinkedHashMap<>();
+            for (Match match : lapMatches) {
+                seen.put(positionByAvatarId.get(match.getMemberAvatar1Id()), Boolean.TRUE);
+                seen.put(positionByAvatarId.get(match.getMemberAvatar2Id()), Boolean.TRUE);
+            }
+            List<PositionTuple> lapTuples = new ArrayList<>(seen.keySet());
+            rows.add(new RawRow(lapTuples));
+            rawTuplesByRow.add(lapTuples.toArray(new PositionTuple[0]));
         }
 
         int auditPhaseId = Math.abs(phaseId.hashCode());
-        de.vvwt.slotopt.worker.types.RawPhaseDef raw =
-                new de.vvwt.slotopt.worker.types.RawPhaseDef(auditPhaseId, rows.size(), rows);
-        de.vvwt.slotopt.worker.types.TransformResult transformResult =
-                de.vvwt.slotopt.worker.types.StructuralFingerprint.transform(raw);
-        de.vvwt.slotopt.worker.types.CanonicalPhaseDef canonical = transformResult.canonical();
+        RawPhaseDef raw = new RawPhaseDef(auditPhaseId, rows.size(), rows);
+        TransformResult transformResult = StructuralFingerprint.transform(raw);
+        CanonicalPhaseDef canonical = transformResult.canonical();
 
-        Map<de.vvwt.slotopt.worker.types.PositionTuple, Integer> denseIdByTuple =
-                buildDenseIdMapping(raw);
+        Map<PositionTuple, Integer> denseIdByTuple = buildDenseIdMapping(raw);
 
-        int[][] denseIdsByRawRow = new int[sortedMatches.size()][];
-        for (int rowIdx = 0; rowIdx < sortedMatches.size(); rowIdx++) {
-            de.vvwt.slotopt.worker.types.PositionTuple[] tuples = rawTuplesByRow.get(rowIdx);
-            denseIdsByRawRow[rowIdx] =
-                    new int[] {denseIdByTuple.get(tuples[0]), denseIdByTuple.get(tuples[1])};
+        int[][] denseIdsByRawRow = new int[rows.size()][];
+        for (int rowIdx = 0; rowIdx < rows.size(); rowIdx++) {
+            PositionTuple[] tuples = rawTuplesByRow.get(rowIdx);
+            int[] ids = new int[tuples.length];
+            for (int j = 0; j < tuples.length; j++) {
+                ids[j] = denseIdByTuple.get(tuples[j]);
+            }
+            denseIdsByRawRow[rowIdx] = ids;
         }
 
         int n = canonical.avatarCount();
 
         LOG.info(
-                "PhaseToRawPhaseDefMapper: phase={} group={}, avatars={}, matches={}, N={}",
+                "PhaseToRawPhaseDefMapper: phase={} group={}, avatars={}, matches={}, laps={},"
+                        + " N={}",
                 phaseId,
                 groupNumber,
                 groupAvatars.size(),
                 sortedMatches.size(),
+                rows.size(),
                 n);
 
         return new MappingResult(raw, canonical, n, sortedMatches, denseIdsByRawRow);

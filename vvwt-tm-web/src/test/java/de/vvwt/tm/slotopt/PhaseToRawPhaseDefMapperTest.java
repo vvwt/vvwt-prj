@@ -14,9 +14,7 @@ import de.vvwt.tm.tournament.MatchState;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,8 +23,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * Unit tests for {@link PhaseToRawPhaseDefMapper} — covers AC8–AC11 and AC13 of story E04S02,
- * and E54S02 RED-first tests for RawRow=Lap refactor per DEC-61 Clause B.
+ * Unit tests for {@link PhaseToRawPhaseDefMapper} — covers AC8–AC11 and AC13 of story E04S02, and
+ * E54S02 RED-first tests for RawRow=Lap refactor per DEC-61 Clause B.
  */
 @ExtendWith(MockitoExtension.class)
 class PhaseToRawPhaseDefMapperTest {
@@ -174,9 +172,11 @@ class PhaseToRawPhaseDefMapperTest {
         List<TeamAvatar> avatars = buildAvatars(phaseId, new int[][] {{1, 1}, {1, 2}});
 
         // Build a match referencing an avatar NOT in the loaded set
+        // Post-E54S02: must have lapNumber set so the validator reaches the avatar check (DEC-61
+        // Clause B)
         UUID unknownAvatarId = UUID.randomUUID();
         UUID knownAvatarId = avatars.get(0).getId();
-        Match badMatch = buildMatch(phaseId, knownAvatarId, unknownAvatarId);
+        Match badMatch = buildMatchWithLap(phaseId, knownAvatarId, unknownAvatarId, 1);
 
         when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(avatars);
         when(matchRepository.findByPhaseId(phaseId)).thenReturn(List.of(badMatch));
@@ -195,8 +195,11 @@ class PhaseToRawPhaseDefMapperTest {
     void map_phaseIdField_isDeterministicFromUUID() {
         UUID phaseId = UUID.randomUUID();
         List<TeamAvatar> avatars = buildAvatars(phaseId, new int[][] {{1, 1}, {1, 2}});
+        // Post-E54S02: matches must have lapNumber set (DEC-61 Clause B)
         List<Match> matches =
-                List.of(buildMatch(phaseId, avatars.get(0).getId(), avatars.get(1).getId()));
+                List.of(
+                        buildMatchWithLap(
+                                phaseId, avatars.get(0).getId(), avatars.get(1).getId(), 1));
 
         when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(avatars);
         when(matchRepository.findByPhaseId(phaseId)).thenReturn(matches);
@@ -235,7 +238,8 @@ class PhaseToRawPhaseDefMapperTest {
 
         MappingResult result = mapper.map(phaseId);
 
-        // AC-TEST-MAPPER-ROWS-EQUALS-LAPCOUNT-RED: rows.size() == lapCount (10), NOT matchCount (30)
+        // AC-TEST-MAPPER-ROWS-EQUALS-LAPCOUNT-RED: rows.size() == lapCount (10), NOT matchCount
+        // (30)
         assertThat(result.raw().rows())
                 .as(
                         "AC-TEST-MAPPER-ROWS-EQUALS-LAPCOUNT-RED (E54S02 DEC-61 Clause B):"
@@ -260,9 +264,7 @@ class PhaseToRawPhaseDefMapperTest {
         UUID phaseId = UUID.randomUUID();
         // 6 avatars, all in group 1, 3 fields → 3 matches per lap
         List<TeamAvatar> avatars =
-                buildAvatars(
-                        phaseId,
-                        new int[][] {{1, 1}, {1, 2}, {1, 3}, {1, 4}, {1, 5}, {1, 6}});
+                buildAvatars(phaseId, new int[][] {{1, 1}, {1, 2}, {1, 3}, {1, 4}, {1, 5}, {1, 6}});
         // 3 matches in lap 1: (a0,a1), (a2,a3), (a4,a5) — 6 distinct avatars in the lap
         UUID a0 = avatars.get(0).getId();
         UUID a1 = avatars.get(1).getId();
@@ -287,8 +289,8 @@ class PhaseToRawPhaseDefMapperTest {
         RawRow lapRow = result.raw().rows().get(0);
         assertThat(lapRow.positions())
                 .as(
-                        "AC-TEST-MAPPER-ROW-POSITIONS-UNION-RED: positions must be union of all"
-                                + " 6 avatars in the lap (3 matches × 2 avatars each, non-overlapping)")
+                        "AC-TEST-MAPPER-ROW-POSITIONS-UNION-RED: positions must be union of all 6"
+                            + " avatars in the lap (3 matches × 2 avatars each, non-overlapping)")
                 .hasSize(6);
     }
 
@@ -304,8 +306,7 @@ class PhaseToRawPhaseDefMapperTest {
     void map_rowsOrderedAscendingByLapNumber_E54S02() {
         UUID phaseId = UUID.randomUUID();
         // 2 avatars, 3 laps (each lap has 1 match), supplied in lap order 3, 1, 2
-        List<TeamAvatar> avatars =
-                buildAvatars(phaseId, new int[][] {{1, 1}, {1, 2}});
+        List<TeamAvatar> avatars = buildAvatars(phaseId, new int[][] {{1, 1}, {1, 2}});
         UUID a0 = avatars.get(0).getId();
         UUID a1 = avatars.get(1).getId();
         // Create matches with laps in shuffled order: 3, 1, 2
@@ -355,8 +356,7 @@ class PhaseToRawPhaseDefMapperTest {
     @Test
     void map_throwsISE_whenMatchHasNullLapNumber_E54S02() {
         UUID phaseId = UUID.randomUUID();
-        List<TeamAvatar> avatars =
-                buildAvatars(phaseId, new int[][] {{1, 1}, {1, 2}});
+        List<TeamAvatar> avatars = buildAvatars(phaseId, new int[][] {{1, 1}, {1, 2}});
         UUID a0 = avatars.get(0).getId();
         UUID a1 = avatars.get(1).getId();
         // Match with null lap_number (pre-L2 state — Mapper must reject it)
@@ -418,18 +418,31 @@ class PhaseToRawPhaseDefMapperTest {
         return result;
     }
 
-    /** Builds all C(n, 2) match pairs for a list of avatars. */
+    /**
+     * Builds all C(n, 2) match pairs for a list of avatars, each in a distinct 1-based lap
+     * (post-E54S02: matches must have lapNumber set before Mapper invocation).
+     */
     private List<Match> buildAllPairMatches(UUID phaseId, List<TeamAvatar> avatars) {
         List<Match> matches = new ArrayList<>();
+        int lap = 1;
         for (int i = 0; i < avatars.size(); i++) {
             for (int j = i + 1; j < avatars.size(); j++) {
-                matches.add(buildMatch(phaseId, avatars.get(i).getId(), avatars.get(j).getId()));
+                matches.add(
+                        buildMatchWithLap(
+                                phaseId, avatars.get(i).getId(), avatars.get(j).getId(), lap++));
             }
         }
         return matches;
     }
 
-    /** Builds a single {@link Match} between two avatar IDs. */
+    /**
+     * Builds a single {@link Match} between two avatar IDs with {@code lapNumber = null}.
+     *
+     * <p>Only used in tests that specifically test null-lapNumber rejection
+     * (AC-TEST-MAPPER-NULL-LAP-NUMBER). Do NOT use this for tests that call {@link
+     * PhaseToRawPhaseDefMapper#map(UUID)} — those must use {@link #buildMatchWithLap} post-E54S02
+     * (DEC-61 Clause B).
+     */
     private Match buildMatch(UUID phaseId, UUID avatar1Id, UUID avatar2Id) {
         return new Match(
                 UUID.randomUUID(),
@@ -478,9 +491,9 @@ class PhaseToRawPhaseDefMapperTest {
      * Builds {@code lapCount * matchesPerLap} matches with 1-based lap_numbers in [1..lapCount].
      *
      * <p>Pairs avatars round-robin across the given lapCount laps. Uses distinct avatar-pair
-     * rotations per lap so positions union can be verified. If avatars.size() * (avatars.size()-1)/2
-     * is less than lapCount * matchesPerLap, avatars are reused (positional tuples remain distinct
-     * because PositionTuple is structural, not identity-based).
+     * rotations per lap so positions union can be verified. If avatars.size() *
+     * (avatars.size()-1)/2 is less than lapCount * matchesPerLap, avatars are reused (positional
+     * tuples remain distinct because PositionTuple is structural, not identity-based).
      *
      * @param phaseId the phase UUID
      * @param avatars the avatar list to draw pairs from
