@@ -104,6 +104,13 @@
     background: #2c3e50;
     color: #ecf0f1;
     flex-shrink: 0;
+    /*
+     * E50S03: height matches SidebarHeader (.sidebar-header) via shared CSS custom property.
+     * --field-header-height is declared on :global(#app) in App.svelte.
+     * This produces visual alignment: sidebar-header and court-grid__headers form
+     * a single visual line across the full screen width.
+     */
+    height: var(--field-header-height);
   }
 
   .court-grid__field-header {

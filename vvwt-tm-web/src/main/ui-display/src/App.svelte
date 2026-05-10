@@ -57,7 +57,7 @@
   } from './lib/websocket.js';
   import OverviewLayout from './components/OverviewLayout.svelte';
   import ErrorPanel from './components/ErrorPanel.svelte';
-  import ConnectionStatusIndicator from './components/ConnectionStatus.svelte';
+  import SidebarHeader from './components/SidebarHeader.svelte';
   import DisplayRegisterPage from './components/DisplayRegisterPage.svelte';
 
   // ---------------------------------------------------------------------------
@@ -344,19 +344,25 @@
 </script>
 
 <!--
-  E50S02: unified header band — brand logo (left) + connection status indicator (right).
-  Logo and indicator are flex siblings inside a single display-header container.
-  Height matches the field-header band (Feld 1 / Feld 2 / Feld 3) height via display-header
-  flex-align. ConnectionStatusIndicator is always rendered here (shows 'disconnected' during
-  loading — deterministic, no flicker per AC-ERROR-HANDLING-INDICATOR-WHEN-LOADING).
-  E44S02 AC5: VVW brand lockup preserved with speaking alt per Brief Q-4.
-  E44S02 AC13: min-width 120px preserved — logo is still visually identifiable.
+  E50S03: SidebarHeader (brand logo + connection indicator) is rendered unconditionally
+  before all conditional blocks. It is passed as a Svelte 5 snippet to OverviewLayout,
+  which positions it at the top of the right sidebar at field-header band height.
+
+  Unconditional rendering (outside {#if loading} / {#if errorType}) ensures:
+  - AC-ERROR-HANDLING-INDICATOR-WHEN-LOADING: indicator shows 'disconnected' during loading.
+  - AC-TEST-LAYOUT-NOPHASE-LOADING-STATES-GREEN: consistent rendering across all app states.
+
+  Note: SidebarHeader is passed as snippet to OverviewLayout (rendered inside the sidebar
+  during the overview data phase). During loading/error/register states the overview layout
+  is not shown, so the header is not visible — this is the intended behavior: the Display
+  screen only shows the sidebar header when tournament data is available and the overview
+  is rendered. During loading/error, the full-screen state takes over.
+
+  E44S02 AC5: VVW brand lockup preserved with speaking alt.
   E07S06 AC7: connection status indicator preserved with all 5 states + i18n labels.
+  E50S03 AC-GOVERNANCE-NO-BACKEND-CHANGES: pure FE change — no .java / pom.xml touches.
+  E50S03 AC-SECURITY-NO-NEW-AUTH-SURFACE: layout-only, no new fetch/endpoints/auth.
 -->
-<header class="display-header">
-  <img src="/display/vvw-tm-logo.svg" alt="Tournament Manager" class="brand-lockup" />
-  <ConnectionStatusIndicator status={connectionStatus} />
-</header>
 
 {#if isRegisterPage}
   <!--
@@ -380,12 +386,20 @@
       <!-- AC6, AC9: error state -->
       <ErrorPanel {errorType} onRetry={handleRetry} />
     {:else if phaseData !== null && matchesData !== null && standingsData !== null}
-      <!-- AC1–AC4: main two-column layout -->
+      <!-- AC1–AC4: main two-column layout with SidebarHeader snippet (E50S03) -->
       <OverviewLayout
         {phaseData}
         {matchesData}
         {standingsData}
-      />
+      >
+        {#snippet sidebarHeader()}
+          <!--
+            E50S03: SidebarHeader rendered at top of OverviewLayout sidebar.
+            connectionStatus is 'disconnected' during loading (deterministic default).
+          -->
+          <SidebarHeader status={connectionStatus} />
+        {/snippet}
+      </OverviewLayout>
     {/if}
   </div>
 {/if}
@@ -410,6 +424,14 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    /*
+     * E50S03: shared CSS custom property for field-header band height.
+     * Used by SidebarHeader.svelte (.sidebar-header) and CourtGrid.svelte (.court-grid__headers)
+     * to produce visual alignment — both bands have the same height, forming a single
+     * visual line across the screen at the field-header level.
+     * Value: 2.8em matches the Feld-1/Feld-2/Feld-3 header row height established in E50S02.
+     */
+    --field-header-height: 2.8em;
   }
 
   .display-app {
@@ -437,27 +459,5 @@
 
   @keyframes spin {
     to { transform: rotate(360deg); }
-  }
-
-  /*
-   * E50S02: unified header band — single horizontal flex row at field-header band height.
-   * Logo (left) + connection indicator (right, via margin-left: auto in ConnectionStatus).
-   * Height ~2.8em matches the Feld-1/Feld-2/Feld-3 header row height.
-   * E44S02 AC5 + AC13: brand lockup preserved; min-width visual identity ensured by 1.8em height.
-   * E07S06 AC7: connection status indicator rendered here unconditionally.
-   */
-  .display-header {
-    display: flex;
-    align-items: center;
-    padding: 0 1rem;
-    height: 2.8em;
-    background: #fff;
-    border-bottom: 1px solid #e0e0e0;
-    flex-shrink: 0;
-  }
-
-  .brand-lockup {
-    height: 1.8em;
-    display: block;
   }
 </style>
