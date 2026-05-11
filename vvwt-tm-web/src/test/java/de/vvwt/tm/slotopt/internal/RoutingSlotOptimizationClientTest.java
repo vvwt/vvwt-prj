@@ -93,7 +93,8 @@ class RoutingSlotOptimizationClientTest {
                         reachabilityMock,
                         dispatcherClientMock,
                         applicatorMock,
-                        EXHAUSTIVE_MAX_N);
+                        EXHAUSTIVE_MAX_N,
+                        "mean"); // E54S07: default scorer (DEC-63 Clause C)
     }
 
     /** Creates a {@link RoutingSlotOptimizationClient} with production-default threshold (10). */
@@ -106,7 +107,8 @@ class RoutingSlotOptimizationClientTest {
                 reachabilityMock,
                 dispatcherClientMock,
                 applicatorMock,
-                EXHAUSTIVE_MAX_N_PROD);
+                EXHAUSTIVE_MAX_N_PROD,
+                "mean"); // E54S07: default scorer (DEC-63 Clause C)
     }
 
     // =========================================================================
