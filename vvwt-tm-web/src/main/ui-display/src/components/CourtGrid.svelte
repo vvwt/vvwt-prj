@@ -189,6 +189,18 @@
   .court-grid__body {
     display: grid;
     grid-template-columns: repeat(var(--field-count), 1fr);
+    /*
+     * E50S05 T4 fix — body row-distribution mechanism (AC-TEST-COURT-GRID-BODY-ROW-DISTRIBUTION-RED):
+     * grid-template-rows: 1fr gives the single implicit grid row a definite height equal to
+     * the full body height. Without this, the implicit row defaults to 'auto' (content-sized),
+     * and .court-grid__field-column children receive no definite parent height — their internal
+     * grid-template-rows:repeat(var(--lap-count,1),1fr) distribution collapses to content-height.
+     * Adding 1fr here closes the CSS height-chain: flex:1 on body → body gets definite height →
+     * grid-template-rows:1fr on body → field-column rows get 1fr of body height → field-column's
+     * internal repeat(N,1fr) distributes that height equally among N lap rows.
+     * Root cause documented in CourtGrid.svelte:189-195 audit (Brief O-5 / E50S04 false-PASS class).
+     */
+    grid-template-rows: 1fr;
     gap: 0;
     flex: 1;
     overflow: hidden;
