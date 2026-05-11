@@ -56,7 +56,9 @@ import org.springframework.jdbc.core.RowMapper;
  *   <li>AC-IMPL-AUTO-SEED-AT-CREATE — N team rows persisted per createTournament call
  *   <li>AC-IMPL-TEAMNUMBER-PLACEHOLDER — team numbers 1..N, each unique
  *   <li>AC-IMPL-DESC-FORMAT — description = String.format("%s %02d", label, n)
- *   <li>AC-IMPL-DEFAULT-FLAGS — participate=true, refereeAssignment=false, withoutAssessment=false
+ *   <li>AC-IMPL-DEFAULT-FLAGS — participate=true, refereeAssignment=true, withoutAssessment=false
+ *       (E05S13: refereeAssignment flipped false→true for auto-seeded teams; participate and
+ *       withoutAssessment remain unchanged per E05S12 AC-IMPL-DEFAULT-FLAGS other clauses)
  *   <li>AC-I18N-LABEL-FROM-MESSAGE-BUNDLE — label sourced from team.defaultLabel key
  *   <li>AC-I18N-LOCALE-CHAIN — tenant.language ?? "de" fallback chain (today's state)
  *   <li>AC-ERR-ATOMIC-ROLLBACK — team-insert failure rolls back tournament row too
@@ -272,8 +274,8 @@ class DefaultTournamentServiceSeedTest {
 
     @Test
     @DisplayName(
-            "createTournament() seeds teams with participate=true, refereeAssignment=false,"
-                    + " withoutAssessment=false")
+            "createTournament() seeds teams with participate=true, refereeAssignment=true,"
+                    + " withoutAssessment=false (E05S13: refereeAssignment flipped false→true)")
     void createTournament_defaultFlags_participateTrue_refFalse_assessFalse() {
         when(tournamentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(teamRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -296,7 +298,11 @@ class DefaultTournamentServiceSeedTest {
 
         for (Team team : captor.getAllValues()) {
             assertThat(team.isParticipate()).as("participate must be true").isTrue();
-            assertThat(team.isRefereeAssignment()).as("refereeAssignment must be false").isFalse();
+            assertThat(team.isRefereeAssignment())
+                    .as(
+                            "refereeAssignment must be true (E05S13: Mannschaft=Schiedsgericht"
+                                    + " default)")
+                    .isTrue();
             assertThat(team.isWithoutAssessment()).as("withoutAssessment must be false").isFalse();
         }
     }
