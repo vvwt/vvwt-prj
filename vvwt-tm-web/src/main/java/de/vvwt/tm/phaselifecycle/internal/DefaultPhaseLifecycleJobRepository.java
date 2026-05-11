@@ -1,6 +1,7 @@
 package de.vvwt.tm.phaselifecycle.internal;
 
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJob;
+import de.vvwt.tm.phaselifecycle.PhaseLifecycleJobDetails;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJobRepository;
 import java.util.List;
 import java.util.Optional;
@@ -78,6 +79,10 @@ public class DefaultPhaseLifecycleJobRepository implements PhaseLifecycleJobRepo
     /** Cooperative cancel: set cancelled=TRUE without changing status. */
     private static final String SQL_MARK_CANCELLED =
             "UPDATE phase_lifecycle_job SET cancelled = TRUE WHERE id = ?";
+
+    /** Load the execution-time projection (jobId, phaseId, gameMode, tournamentId) for a job. */
+    private static final String SQL_FIND_JOB_DETAILS =
+            "SELECT id, phase_id, game_mode, tournament_id FROM phase_lifecycle_job WHERE id = ?";
 
     /** Enqueue a new PENDING job row. */
     private static final String SQL_ENQUEUE =
@@ -170,6 +175,27 @@ public class DefaultPhaseLifecycleJobRepository implements PhaseLifecycleJobRepo
     @Override
     public void markCancelled(UUID jobId) {
         jdbcTemplate.update(SQL_MARK_CANCELLED, jobId);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Loads {@code (id, phase_id, game_mode, tournament_id)} from a single row. Returns empty
+     * {@code Optional} if the row does not exist.
+     */
+    @Override
+    public Optional<PhaseLifecycleJobDetails> findJobDetailsById(UUID jobId) {
+        List<PhaseLifecycleJobDetails> results =
+                jdbcTemplate.query(
+                        SQL_FIND_JOB_DETAILS,
+                        (rs, rowNum) ->
+                                new PhaseLifecycleJobDetails(
+                                        rs.getObject(1, UUID.class),
+                                        rs.getObject(2, UUID.class),
+                                        rs.getString(3),
+                                        rs.getObject(4, UUID.class)),
+                        jobId);
+        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
     /**
