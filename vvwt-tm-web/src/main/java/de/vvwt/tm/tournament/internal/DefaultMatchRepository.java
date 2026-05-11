@@ -47,7 +47,11 @@ public class DefaultMatchRepository implements MatchRepository {
 
     private static final String SELECT_ALL = "SELECT * FROM match";
 
-    private static final String SELECT_BY_PHASE = "SELECT * FROM match WHERE phase_id=?";
+    // E54S13: ORDER BY for determinism (DEC-49 D-3). lap_number/field_number are nullable →
+    // NULLS LAST ensures unassigned matches appear after assigned ones. id ASC as tiebreaker.
+    private static final String SELECT_BY_PHASE =
+            "SELECT * FROM match WHERE phase_id=?"
+                    + " ORDER BY lap_number ASC NULLS LAST, field_number ASC NULLS LAST, id ASC";
 
     private static final String SELECT_BY_FIELD_LAP =
             "SELECT * FROM match WHERE field_number=? AND lap_number=?";

@@ -67,7 +67,7 @@ class DefaultCancelableInProcessSlotOptimizationServiceTest {
         when(mapperMock.getFieldCount()).thenReturn(TEST_FIELD_COUNT);
         subject =
                 new DefaultCancelableInProcessSlotOptimizationService(
-                        mapperMock, applicatorMock, registryMock);
+                        mapperMock, applicatorMock, registryMock, "mean");
     }
 
     // =========================================================================

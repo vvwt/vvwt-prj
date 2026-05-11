@@ -1,8 +1,5 @@
 package de.vvwt.tm.slotopt.internal;
 
-import de.vvwt.slotopt.worker.codec.LehmerCodec;
-import de.vvwt.slotopt.worker.score.VarietyScorer;
-import de.vvwt.slotopt.worker.types.CanonicalPhaseDef;
 import de.vvwt.tm.slotopt.CancelableInProcessSlotOptimizationService;
 import de.vvwt.tm.slotopt.CancellationToken;
 import de.vvwt.tm.slotopt.JobHandle;
@@ -16,34 +13,44 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
  * Leg 3 implementation: cancelable in-process slot optimization using cooperative cancellation via
- * a {@link CancellationToken} checked between lap permutations (E27S02, E51S11, DEC-49 D-3).
+ * a {@link CancellationToken} checked between lap permutations (E27S02, DEC-49 D-3).
  *
- * <h2>Algorithm (E51S11 N-redefinition)</h2>
+ * <p>Delegates to {@link LapPermutationOptimizer} for the correct DEC-61-B + DEC-63-C + E54S12
+ * algorithm (E54S13 extract-and-delegate refactor).
+ *
+ * <h2>Why delegation (E54S13)</h2>
+ *
+ * <p>Prior to E54S13, this class had an inline brute-force loop with 4 correctness bugs:
  *
  * <ol>
- *   <li>Map the phase to {@link MappingResult} via {@link PhaseToRawPhaseDefMapper}.
- *   <li>Compute {@code lapCount = rowCount / fieldCount}.
- *   <li>Iterate all lapCount! lap permutations using {@link LehmerCodec#rankToPermutation}, expand
- *       each to a row sequence ({@code rowSeq[i] = π[i/fc]*fc + i%fc}), and score via {@link
- *       VarietyScorer#scoreWithMatrix}. Check {@link CancellationToken#isCancelled()} between each
- *       permutation (cooperative cancellation).
- *   <li>Update the active {@link JobHandle}'s best-so-far after each improvement.
- *   <li>On cancellation or natural completion, apply the best result via {@link
- *       SlotResultApplicator#applyResult(long, int, MappingResult)} (DEC-49 D-11a).
- *   <li>On cancellation BEFORE any permutation evaluated: apply rank=0 (L2 baseline = identity lap
- *       permutation). This preserves L2's deterministic slot assignment (E51S11
- *       AC-TEST-CANCELABLE-BEST-SO-FAR-ON-L2-DEFAULT-RED).
+ *   <li>{@code lapCount = rowCount / fieldCount} — stale pre-DEC-61 formula (bug-class 1)
+ *   <li>Hardcoded {@code new VarietyScorer()} — ignores DEC-63 Clause C scorer config (bug-class 2)
+ *   <li>{@code activeMatrix} from {@code canonical.rows()} — index-space mismatch (bug-class 3)
+ *   <li>{@code rowSeq[i] = pi[i/fc]*fc + i%fc} — stale expansion (bug-class 4)
  * </ol>
  *
- * <h2>L2 baseline on cancel-before-permutation (E51S11)</h2>
+ * <p>Bug-classes 1 + 4 mutually compensate for SYMMETRIC inputs but cause {@link
+ * ArrayIndexOutOfBoundsException} for asymmetric inputs (e.g., 12T/2G/3F where stale
+ * lapCount=10/3=3, then pi[3] is accessed out of bounds). E54S13 eliminates all 4 bugs structurally
+ * via delegation to {@link LapPermutationOptimizer}.
  *
- * <p>Previously, cancel-before-permutation applied "trivial coordinates" (lap 0, sequential fields)
- * directly. As of E51S11, rank=0 (identity lap permutation = L2 output unchanged) is used instead,
- * consistent with {@link SlotResultApplicator#applyResult}.
+ * <h2>Client-side pre-loop cancellation check (retained per
+ * AC-ERROR-CANCELABLE-EARLY-CANCEL-PRESERVED)</h2>
+ *
+ * <p>If the token is pre-cancelled BEFORE optimize() begins the main loop, this client handles it
+ * directly (apply rank=0 L2 baseline + return cancelled). This is a client-side concern that does
+ * NOT belong in {@link LapPermutationOptimizer} (which receives control after the pre-check). Per
+ * AC-TEST-CANCELABLE-BEST-SO-FAR-ON-L2-DEFAULT-RED (E51S11).
+ *
+ * <h2>Scorer config (DEC-63 Clause C)</h2>
+ *
+ * <p>Injects {@code @Value("${tm.slotopt.scorer:mean}")} and threads it through to {@link
+ * LapPermutationOptimizer#optimize} (non-Spring utility receives scorerConfig from caller).
  *
  * <h2>Per DEC-35</h2>
  *
@@ -51,13 +58,14 @@ import org.springframework.stereotype.Service;
  * CancelableInProcessSlotOptimizationService} in module root.
  *
  * @see CancelableInProcessSlotOptimizationService
+ * @see LapPermutationOptimizer
  * @see SlotOptimizationJobRegistry
  * @see JobHandle
  * @see <a href="../../../../../../../../../docs/governance/decisions/DEC-49.md">DEC-49 D-3,
  *     D-11a</a>
  * @see <a href="../../../../../../../../../docs/governance/stories/E27S02.story.md">Story
  *     E27S02</a>
- * @see <a href="E51S11">E51S11 — lapCount loop + L2 baseline on cancel</a>
+ * @see <a href="E54S13">E54S13 — extract-and-delegate refactor</a>
  */
 @Service
 public class DefaultCancelableInProcessSlotOptimizationService
@@ -69,6 +77,7 @@ public class DefaultCancelableInProcessSlotOptimizationService
     private final PhaseToRawPhaseDefMapper mapper;
     private final SlotResultApplicator applicator;
     private final SlotOptimizationJobRegistry registry;
+    private final String scorerConfig;
 
     /**
      * Constructs the service with its required collaborators.
@@ -76,12 +85,17 @@ public class DefaultCancelableInProcessSlotOptimizationService
      * @param mapper the phase-to-raw-phase-def mapper
      * @param applicator the result applicator (applies lap-permutation rank to match entities)
      * @param registry the job registry for best-so-far tracking
+     * @param scorerConfig scorer selection; sourced from {@code tm.slotopt.scorer} (default {@code
+     *     "mean"}); valid values: {@code "mean"} (VarietyScorer) or {@code "balanced"}
+     *     (BalancedVarietyScorer); invalid values fall back to {@code "mean"} with WARN log (DEC-63
+     *     Clause C)
      */
     @Autowired
     public DefaultCancelableInProcessSlotOptimizationService(
             PhaseToRawPhaseDefMapper mapper,
             SlotResultApplicator applicator,
-            SlotOptimizationJobRegistry registry) {
+            SlotOptimizationJobRegistry registry,
+            @Value("${tm.slotopt.scorer:mean}") String scorerConfig) {
         if (mapper == null) {
             throw new IllegalArgumentException("mapper must not be null");
         }
@@ -94,6 +108,7 @@ public class DefaultCancelableInProcessSlotOptimizationService
         this.mapper = mapper;
         this.applicator = applicator;
         this.registry = registry;
+        this.scorerConfig = scorerConfig;
     }
 
     /** {@inheritDoc} */
@@ -110,14 +125,14 @@ public class DefaultCancelableInProcessSlotOptimizationService
         }
 
         MappingResult mapping = mapper.map(phaseId);
-        CanonicalPhaseDef canonical = mapping.canonical();
-        int rowCount = canonical.rowCount();
         int fieldCount = mapper.getFieldCount();
-        int lapCount = rowCount / fieldCount;
         Optional<JobHandle> handleOpt = registry.getHandle(tournamentId);
 
-        // Case: cancelled before any computation begins — apply rank=0 (L2 baseline)
-        // AC-TEST-CANCELABLE-BEST-SO-FAR-ON-L2-DEFAULT-RED (E51S11)
+        // AC-ERROR-CANCELABLE-EARLY-CANCEL-PRESERVED: pre-loop cancellation check stays in client.
+        // If the token is pre-cancelled BEFORE any computation begins, apply rank=0 (L2 baseline)
+        // and return immediately. This is a client-side routing concern; LapPermutationOptimizer
+        // begins iteration after this check passes.
+        // AC-TEST-CANCELABLE-BEST-SO-FAR-ON-L2-DEFAULT-RED (E51S11).
         if (token.isCancelled()) {
             LOG.info(
                     "CancelableInProcessSlotOptimizationService: phase={} cancelled before"
@@ -127,81 +142,12 @@ public class DefaultCancelableInProcessSlotOptimizationService
             return OptimizationResult.cancelled(0L, Double.MAX_VALUE);
         }
 
-        // Build scoring infrastructure
-        VarietyScorer scorer = new VarietyScorer();
-        boolean[][] activeMatrix =
-                scorer.buildActiveMatrix(canonical.rows(), rowCount, canonical.avatarCount());
-
-        long totalPermutations = factorial(lapCount);
-        long bestRank = 0L;
-        double bestScore = Double.MAX_VALUE;
-        boolean wasCancelled = false;
-
-        long startMs = System.currentTimeMillis();
-
-        // Iterate over lapCount! lap permutations (E51S11 N-redefinition)
-        for (long rank = 0L; rank < totalPermutations; rank++) {
-            // Cooperative cancellation check
-            if (token.isCancelled()) {
-                wasCancelled = true;
-                break;
-            }
-
-            // Expand lap permutation π to row sequence: rowSeq[i] = π[i/fc]*fc + i%fc
-            int[] pi = LehmerCodec.rankToPermutation(rank, lapCount);
-            int[] rowSeq = new int[rowCount];
-            for (int i = 0; i < rowCount; i++) {
-                rowSeq[i] = pi[i / fieldCount] * fieldCount + i % fieldCount;
-            }
-
-            double score =
-                    scorer.scoreWithMatrix(rowSeq, rowCount, canonical.avatarCount(), activeMatrix);
-
-            // Strict improvement (lowest rank wins on tie)
-            if (score < bestScore) {
-                bestScore = score;
-                bestRank = rank;
-                final long capturedRank = bestRank;
-                final double capturedScore = bestScore;
-                handleOpt.ifPresent(
-                        h ->
-                                h.updateBestSoFar(
-                                        OptimizationResult.cancelled(capturedRank, capturedScore)));
-            }
-        }
-
-        long wallClockMs = System.currentTimeMillis() - startMs;
-        LOG.info(
-                "CancelableInProcessSlotOptimizationService: phase={}, lapCount={}, fieldCount={},"
-                        + " perms={}, wallClockMs={}, bestScore={}, cancelled={}",
-                phaseId,
-                lapCount,
-                fieldCount,
-                totalPermutations,
-                wallClockMs,
-                bestScore,
-                wasCancelled);
-
-        // Apply the best result (natural completion or best-so-far on cancel)
-        applicator.applyResult(bestRank, fieldCount, mapping);
-
-        return wasCancelled
-                ? OptimizationResult.cancelled(bestRank, bestScore)
-                : OptimizationResult.completed(bestRank, bestScore);
-    }
-
-    // -------------------------------------------------------------------------
-    // Private helpers
-    // -------------------------------------------------------------------------
-
-    private static long factorial(int n) {
-        if (n < 1) {
-            return 1L; // 0! = 1, handles empty/trivial phases gracefully
-        }
-        long result = 1L;
-        for (int i = 2; i <= n; i++) {
-            result *= i;
-        }
-        return result;
+        // Delegate to LapPermutationOptimizer — correct DEC-61-B + DEC-63-C + E54S12 algorithm.
+        // All 4 bug-classes eliminated by delegation (E54S13).
+        // The optimizer handles: cooperative cancellation (token), best-so-far (handleOpt),
+        // lapCount derivation (canonical.rowCount()), activeMatrix (denseIdsByRawRow),
+        // scorer selection (ScorerFactory.createScorerUnified(scorerConfig)).
+        return LapPermutationOptimizer.optimize(
+                phaseId, mapping, fieldCount, scorerConfig, applicator, token, handleOpt);
     }
 }
