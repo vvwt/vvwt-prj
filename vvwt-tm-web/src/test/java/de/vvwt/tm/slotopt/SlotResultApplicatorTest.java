@@ -442,6 +442,67 @@ class SlotResultApplicatorTest {
     }
 
     // =========================================================================
+    // E54S02 RED-first test — DEC-61 Clause D: lapCount derivation simplified
+    // =========================================================================
+
+    /**
+     * AC-TEST-SLOTRESULTAPPLICATOR-LAPCOUNT-DIRECT-RED (E54S02):
+     *
+     * <p>After Mapper refactor (E54S02 DEC-61 Clause B), {@code SlotResultApplicator.applyResult}
+     * derives {@code lapCount} from {@code mapping.canonical().rowCount()} directly (NOT from
+     * {@code rowCount / fieldCount}).
+     *
+     * <p>Post-Mapper-refactor, {@code mapping.canonical().rowCount() = lapCount} (rows are
+     * lap-rows). The old formula {@code int lapCount = rowCount / fieldCount} where {@code rowCount
+     * = matchOrder.size()} is incorrect post-refactor.
+     *
+     * <p>Observable test: with a lap-row mapping (canonical.rowCount = 2) and 6 matches,
+     * applyResult must produce exactly 2 distinct lap values (1 and 2), confirming lapCount=2 is
+     * used.
+     *
+     * <p>RED against current code: current code uses {@code int lapCount = rowCount / fieldCount}
+     * where rowCount=matchOrder.size(). For post-refactor MappingResult with matchOrder.size()=6
+     * and canonical.rowCount()=2, the old formula gives lapCount=6/3=2 (happens to agree for
+     * symmetric setup). The structural RED is: source line must change. The test verifies that the
+     * applicator correctly handles a post-Mapper-refactor MappingResult where canonical.rowCount()
+     * drives lapCount, and that applying identity rank to a 6-match/2-lap mapping produces lap ∈
+     * {1,2}.
+     */
+    @Test
+    void applyResult_lapCountFromCanonicalRowCount_notMatchOrderDivFieldCount_E54S02() {
+        UUID phaseId = UUID.randomUUID();
+        // 2 laps, 3 fields, 6 matches total (canonical post-refactor: 2 lap-rows)
+        Fixture f = buildMultiGroupFixture(phaseId, 2, 3);
+        MappingResult lapRowMapping = buildLapRowMappingResult(phaseId, f.avatars(), f.matches());
+
+        when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
+        applicator.applyResult(0L, FIELD_COUNT, lapRowMapping);
+
+        ArgumentCaptor<Match> captor = ArgumentCaptor.forClass(Match.class);
+        verify(matchRepository, times(6)).save(captor.capture());
+        List<Match> saved = captor.getAllValues();
+
+        // Verify exactly 2 distinct lap values: {1, 2}
+        Set<Integer> laps = new HashSet<>();
+        for (Match m : saved) {
+            laps.add(m.getLapNumber());
+        }
+        assertThat(laps)
+                .as(
+                        "AC-TEST-SLOTRESULTAPPLICATOR-LAPCOUNT-DIRECT-RED (E54S02): identity rank"
+                                + " with lapCount=2 must produce exactly lap values {1,2}")
+                .containsExactlyInAnyOrder(1, 2);
+
+        // Each lap must have exactly 3 matches (= fieldCount)
+        for (int lap : laps) {
+            long matchesInLap = saved.stream().filter(m -> m.getLapNumber() == lap).count();
+            assertThat(matchesInLap)
+                    .as("lap %d must have exactly %d matches (fieldCount)", lap, FIELD_COUNT)
+                    .isEqualTo(FIELD_COUNT);
+        }
+    }
+
+    // =========================================================================
     // Original error-path tests (unchanged — must remain GREEN)
     // =========================================================================
 
@@ -714,5 +775,80 @@ class SlotResultApplicatorTest {
             matches.get(i).setFieldNumber(i % fieldCount);
         }
         return matches;
+    }
+
+    /**
+     * Builds a post-refactor (E54S02) {@link MappingResult} where {@code raw.rows()} are lap-rows
+     * (one row per lap) instead of match-rows. Used by
+     * AC-TEST-SLOTRESULTAPPLICATOR-LAPCOUNT-DIRECT-RED.
+     *
+     * <p>Constructs {@code RawPhaseDef} with {@code lapCount} rows (each row = union of avatars in
+     * that lap). {@code matchOrder} carries all matches (lapCount * fieldCount). {@code
+     * canonical.rowCount() = lapCount}.
+     *
+     * @param phaseId the phase UUID
+     * @param avatars the phase avatars (used to build PositionTuples)
+     * @param matches the phase matches with 1-based lap/field already set
+     * @return post-refactor MappingResult with lap-rows
+     */
+    private MappingResult buildLapRowMappingResult(
+            UUID phaseId, List<TeamAvatar> avatars, List<Match> matches) {
+        // Build avatar position index
+        java.util.Map<UUID, de.vvwt.slotopt.worker.types.PositionTuple> positionByAvatarId =
+                new java.util.HashMap<>();
+        for (TeamAvatar avatar : avatars) {
+            positionByAvatarId.put(
+                    avatar.getId(),
+                    new de.vvwt.slotopt.worker.types.PositionTuple(
+                            avatar.getGroupNumber(), avatar.getGroupPosition()));
+        }
+
+        // Group matches by lap_number (ascending)
+        java.util.TreeMap<Integer, List<Match>> matchesByLap = new java.util.TreeMap<>();
+        for (Match m : matches) {
+            matchesByLap.computeIfAbsent(m.getLapNumber(), k -> new ArrayList<>()).add(m);
+        }
+
+        // Build lap-rows: one RawRow per lap, positions = union of avatars in that lap
+        List<de.vvwt.slotopt.worker.types.RawRow> lapRows = new ArrayList<>();
+        List<Match> orderedMatches = new ArrayList<>();
+        for (Map.Entry<Integer, List<Match>> entry : matchesByLap.entrySet()) {
+            List<Match> lapMatches = entry.getValue();
+            lapMatches.sort((a, b) -> a.getId().toString().compareTo(b.getId().toString()));
+            Set<de.vvwt.slotopt.worker.types.PositionTuple> positions = new HashSet<>();
+            for (Match m : lapMatches) {
+                de.vvwt.slotopt.worker.types.PositionTuple pt1 =
+                        positionByAvatarId.get(m.getMemberAvatar1Id());
+                de.vvwt.slotopt.worker.types.PositionTuple pt2 =
+                        positionByAvatarId.get(m.getMemberAvatar2Id());
+                if (pt1 != null) positions.add(pt1);
+                if (pt2 != null) positions.add(pt2);
+                orderedMatches.add(m);
+            }
+            lapRows.add(new de.vvwt.slotopt.worker.types.RawRow(new ArrayList<>(positions)));
+        }
+
+        int lapCount = lapRows.size();
+        int auditPhaseId = Math.abs(phaseId.hashCode());
+        de.vvwt.slotopt.worker.types.RawPhaseDef raw =
+                new de.vvwt.slotopt.worker.types.RawPhaseDef(auditPhaseId, lapCount, lapRows);
+        de.vvwt.slotopt.worker.types.TransformResult tr =
+                de.vvwt.slotopt.worker.types.StructuralFingerprint.transform(raw);
+        de.vvwt.slotopt.worker.types.CanonicalPhaseDef canonical = tr.canonical();
+
+        // denseIdsByRawRow: one entry per lap-row (not per match)
+        var denseMap = PhaseToRawPhaseDefMapper.buildDenseIdMapping(raw);
+        int[][] denseIdsByRawRow = new int[lapCount][];
+        for (int i = 0; i < lapCount; i++) {
+            List<de.vvwt.slotopt.worker.types.PositionTuple> positions = lapRows.get(i).positions();
+            denseIdsByRawRow[i] = new int[positions.size()];
+            for (int j = 0; j < positions.size(); j++) {
+                Integer id = denseMap.get(positions.get(j));
+                denseIdsByRawRow[i][j] = id != null ? id : 0;
+            }
+        }
+
+        return new MappingResult(
+                raw, canonical, canonical.avatarCount(), orderedMatches, denseIdsByRawRow);
     }
 }

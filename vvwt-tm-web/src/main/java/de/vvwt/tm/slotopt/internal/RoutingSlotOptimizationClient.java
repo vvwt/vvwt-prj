@@ -173,15 +173,14 @@ public class RoutingSlotOptimizationClient implements SlotOptimizationClient {
         // Per-group routing (NF-MED-1, E51S11)
         for (int groupNumber : groupNumbers) {
             MappingResult groupMapping = mapper.mapGroup(phaseId, groupNumber);
-            int groupRowCount = groupMapping.canonical().rowCount();
-            int lapCount = groupRowCount / fieldCount;
+            // DEC-61 Clause B: post-E54S02 canonical.rowCount() = lapCount directly.
+            int lapCount = groupMapping.canonical().rowCount();
 
             LOG.debug(
-                    "RoutingSlotOptimizationClient: phase={} group={}, rowCount={}, lapCount={},"
+                    "RoutingSlotOptimizationClient: phase={} group={}, lapCount={},"
                             + " threshold={}",
                     phaseId,
                     groupNumber,
-                    groupRowCount,
                     lapCount,
                     exhaustiveMaxN);
 
@@ -285,8 +284,10 @@ public class RoutingSlotOptimizationClient implements SlotOptimizationClient {
             return;
         }
 
+        // DEC-61 Clause B: post-E54S02 rows are lap-rows, rowCount = lapCount.
+        // π IS the row sequence directly — no expansion needed.
         CanonicalPhaseDef canonical = groupMapping.canonical();
-        int rowCount = canonical.rowCount();
+        int rowCount = canonical.rowCount(); // = lapCount post-E54S02
 
         VarietyScorer scorer = new VarietyScorer();
         boolean[][] activeMatrix =
@@ -297,12 +298,8 @@ public class RoutingSlotOptimizationClient implements SlotOptimizationClient {
         double bestScore = Double.MAX_VALUE;
 
         for (long rank = 0L; rank < totalPermutations; rank++) {
-            // Expand lap permutation π to row sequence: rowSeq[i] = π[i/fc]*fc + i%fc
-            int[] pi = LehmerCodec.rankToPermutation(rank, lapCount);
-            int[] rowSeq = new int[rowCount];
-            for (int i = 0; i < rowCount; i++) {
-                rowSeq[i] = pi[i / fieldCount] * fieldCount + i % fieldCount;
-            }
+            // Post-E54S02: π directly indexes lap-rows (rowCount = lapCount); no expansion.
+            int[] rowSeq = LehmerCodec.rankToPermutation(rank, lapCount);
 
             double score =
                     scorer.scoreWithMatrix(rowSeq, rowCount, canonical.avatarCount(), activeMatrix);
