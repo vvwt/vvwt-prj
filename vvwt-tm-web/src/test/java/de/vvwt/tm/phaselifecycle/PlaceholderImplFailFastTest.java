@@ -42,7 +42,10 @@ class PlaceholderImplFailFastTest {
 
     @Test
     void defaultPhaseLifecycleJobRepositoryThrowsUnsupported() {
-        var impl = new DefaultPhaseLifecycleJobRepository();
+        // E55S02 adds DataSource constructor (required by DAO IT RED-first pattern).
+        // Passing null DataSource is safe at this stage: placeholder methods throw
+        // UnsupportedOperationException without ever accessing the DataSource field.
+        var impl = new DefaultPhaseLifecycleJobRepository(null);
         assertThatThrownBy(() -> impl.findNextPendingJobIdForTournament(ANY_ID))
                 .isInstanceOf(UnsupportedOperationException.class)
                 .hasMessageContaining("E55S02");

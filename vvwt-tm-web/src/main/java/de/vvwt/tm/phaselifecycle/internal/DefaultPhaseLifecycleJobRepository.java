@@ -4,6 +4,8 @@ import de.vvwt.tm.phaselifecycle.PhaseLifecycleJob;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJobRepository;
 import java.util.Optional;
 import java.util.UUID;
+import javax.sql.DataSource;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -25,6 +27,19 @@ import org.springframework.stereotype.Repository;
  */
 @Repository("phaseLifecycleJobRepository")
 public class DefaultPhaseLifecycleJobRepository implements PhaseLifecycleJobRepository {
+
+    /**
+     * Spring-injection constructor. Receives the per-tenant routing DataSource (DEC-20).
+     *
+     * <p>This constructor is required by the E55S02 DAO IT (RED-first per DEC-22 Iron Law Pattern
+     * B). The real implementation replaces the placeholder in the E55S02 GREEN commit.
+     *
+     * @param dataSource the per-tenant routing DataSource (injected by Spring DI)
+     */
+    @Autowired
+    public DefaultPhaseLifecycleJobRepository(DataSource dataSource) {
+        // Placeholder: constructor arg accepted but not used until GREEN (E55S02)
+    }
 
     /** {@inheritDoc} */
     @Override
