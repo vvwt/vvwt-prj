@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -499,6 +500,254 @@ class SlotResultApplicatorTest {
             assertThat(matchesInLap)
                     .as("lap %d must have exactly %d matches (fieldCount)", lap, FIELD_COUNT)
                     .isEqualTo(FIELD_COUNT);
+        }
+    }
+
+    // =========================================================================
+    // E54S03 RED-first test — AC-TEST-SLOTRESULTAPPLICATOR-PHASE-GLOBAL-INPUT-RED
+    // (DEC-61 Clause D: applicator accepts phase-global mapping with lapCount=10)
+    // =========================================================================
+
+    /**
+     * AC-TEST-SLOTRESULTAPPLICATOR-PHASE-GLOBAL-INPUT-RED (E54S03 / DEC-61 Clause D):
+     *
+     * <p>Post-E54S03, {@link SlotResultApplicator#applyResult} receives a phase-global {@link
+     * MappingResult} with {@code lapCount=10} (30 matches, 3 fields). For rank=0 (identity), all 30
+     * matches must receive lap values in [1..10], each lap containing exactly 3 matches (1-based,
+     * per DEC-60 D-1).
+     *
+     * <p>This test verifies that the applicator correctly handles a large phase-global mapping (not
+     * split per group). The applicator itself does NOT change for E54S03 — this is a regression
+     * guard asserting the existing algorithm handles phase-global input correctly.
+     */
+    @Test
+    void applyResult_phaseGlobal_lapCount10_identityRank_produces10DistinctLaps_E54S03() {
+        UUID phaseId = UUID.randomUUID();
+        // Phase-global mapping: 10 laps, 3 fields, 30 matches
+        // 60 distinct avatars (2 per match × 30 matches), assigned across groups 1 and 2
+        List<TeamAvatar> avatars = new ArrayList<>();
+        for (int i = 0; i < 60; i++) {
+            avatars.add(
+                    new TeamAvatar(
+                            UUID.randomUUID(),
+                            TOURNAMENT_ID,
+                            phaseId,
+                            (i < 30) ? 1 : 2,
+                            (i % 30) + 1,
+                            UUID.randomUUID(),
+                            null,
+                            null));
+        }
+        List<Match> matches = new ArrayList<>();
+        for (int i = 0; i < 30; i++) {
+            int lap = i / 3 + 1; // 1-based: laps 1..10
+            int field = i % 3 + 1; // 1-based: fields 1..3
+            matches.add(
+                    new Match(
+                            UUID.randomUUID(),
+                            TOURNAMENT_ID,
+                            phaseId,
+                            avatars.get(i * 2).getId(),
+                            avatars.get(i * 2 + 1).getId(),
+                            MatchState.OPEN.getLegacyCode(),
+                            1,
+                            lap,
+                            field,
+                            null,
+                            null,
+                            null,
+                            null));
+        }
+
+        MappingResult mapping = buildMapping(phaseId, avatars, matches);
+        when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
+        applicator.applyResult(0L, FIELD_COUNT, mapping);
+
+        ArgumentCaptor<Match> captor = ArgumentCaptor.forClass(Match.class);
+        verify(matchRepository, times(30)).save(captor.capture());
+        List<Match> saved = captor.getAllValues();
+
+        // Exactly 10 distinct lap values in [1..10]
+        Set<Integer> laps = new HashSet<>();
+        for (Match m : saved) {
+            laps.add(m.getLapNumber());
+        }
+        assertThat(laps)
+                .as(
+                        "AC-TEST-SLOTRESULTAPPLICATOR-PHASE-GLOBAL-INPUT-RED (E54S03):"
+                                + " identity rank with lapCount=10 must produce exactly"
+                                + " 10 distinct laps in [1..10]")
+                .hasSize(10)
+                .allMatch(l -> l >= 1 && l <= 10, "all lap values must be 1-based in [1..10]");
+
+        // Each lap must contain exactly 3 matches
+        for (int lap = 1; lap <= 10; lap++) {
+            final int finalLap = lap;
+            long count = saved.stream().filter(m -> m.getLapNumber() == finalLap).count();
+            assertThat(count)
+                    .as("lap %d must contain exactly 3 matches (fieldCount=3)", lap)
+                    .isEqualTo(3L);
+        }
+    }
+
+    // =========================================================================
+    // E54S04 RED-first test — AC-TEST-UNIT-LAPCOUNT-VS-MATCHCOUNT-DECOUPLED-RED
+    // Structural decoupling: lapCount ≠ matchCount (asymmetric bye-slot phases)
+    // =========================================================================
+
+    /**
+     * AC-TEST-UNIT-LAPCOUNT-VS-MATCHCOUNT-DECOUPLED-RED (E54S04 / DEC-61 Clauses B+D):
+     *
+     * <p>Constructs a {@link MappingResult} where {@code lapCount = canonical.rowCount() = 9} but
+     * {@code matchOrder.size() = 25} (simulates an asymmetric 11T/2G/3F phase with bye-slots: 5
+     * laps × 2 matches + 5 laps × 3 matches = 25 total matches, 10 laps... reduced here to {@code
+     * lapCount=9, matchCount=25} as a structural stress-test).
+     *
+     * <p>Asserts that {@link SlotResultApplicator#applyResult} with {@code rank=0} (identity) and
+     * {@code rank=1} (first non-trivial permutation) both complete WITHOUT throwing {@link
+     * IndexOutOfBoundsException}. Prior to the E54S04 fix, the flat-index scheme ({@code π[i/fc]*fc
+     * + i%fc}) would compute indices ≥ 25 for certain permutations, causing the OOB crash.
+     *
+     * <p>RED against the pre-E54S04 flat-index code; GREEN after the lap-group permutation fix.
+     *
+     * @see <a href="E54S04">E54S04 — Fix: IndexOutOfBoundsException for asymmetric phases</a>
+     */
+    @Test
+    void applyResult_lapCountNotEqualMatchCount_noIndexOutOfBounds_E54S04() {
+        UUID phaseId = UUID.randomUUID();
+
+        // Simulate asymmetric 11T/2G/3F: 10 laps, 25 matches
+        // Group 1 (5 teams): 5 laps × 2 matches = 10 matches (lapNumbers 1..5, fieldNumbers 1..2)
+        // Group 2 (6 teams): 5 laps × 3 matches = 15 matches (lapNumbers 6..10, fieldNumbers 1..3)
+        // 11 avatars: group 1 positions 1..5, group 2 positions 1..6
+        List<TeamAvatar> avatars = new ArrayList<>();
+        for (int pos = 1; pos <= 5; pos++) {
+            avatars.add(
+                    new TeamAvatar(
+                            UUID.randomUUID(),
+                            TOURNAMENT_ID,
+                            phaseId,
+                            1,
+                            pos,
+                            UUID.randomUUID(),
+                            null,
+                            null));
+        }
+        for (int pos = 1; pos <= 6; pos++) {
+            avatars.add(
+                    new TeamAvatar(
+                            UUID.randomUUID(),
+                            TOURNAMENT_ID,
+                            phaseId,
+                            2,
+                            pos,
+                            UUID.randomUUID(),
+                            null,
+                            null));
+        }
+
+        // Build 10 matches for group 1 (5 laps × 2 matches, laps 1..5, fields 1..2)
+        List<Match> matches = new ArrayList<>();
+        // All-pair for group 1 (5 teams): C(5,2) = 10 matches
+        // Assign L2: 5 laps of 2 matches each
+        List<UUID> g1Ids =
+                avatars.subList(0, 5).stream().map(TeamAvatar::getId).collect(Collectors.toList());
+        int matchIdx = 0;
+        for (int i = 0; i < 5; i++) {
+            for (int j = i + 1; j < 5; j++) {
+                // Assign lap and field
+                int lap = matchIdx / 2 + 1; // laps 1..5 (2 matches each)
+                int field = matchIdx % 2 + 1; // fields 1..2
+                matches.add(
+                        new Match(
+                                UUID.randomUUID(),
+                                TOURNAMENT_ID,
+                                phaseId,
+                                g1Ids.get(i),
+                                g1Ids.get(j),
+                                MatchState.OPEN.getLegacyCode(),
+                                1,
+                                lap,
+                                field,
+                                null,
+                                null,
+                                null,
+                                null));
+                matchIdx++;
+            }
+        }
+
+        // All-pair for group 2 (6 teams): C(6,2) = 15 matches
+        // Assign L2: 5 laps of 3 matches each (laps 6..10)
+        List<UUID> g2Ids =
+                avatars.subList(5, 11).stream().map(TeamAvatar::getId).collect(Collectors.toList());
+        matchIdx = 0;
+        for (int i = 0; i < 6; i++) {
+            for (int j = i + 1; j < 6; j++) {
+                int lap = matchIdx / 3 + 6; // laps 6..10 (3 matches each)
+                int field = matchIdx % 3 + 1; // fields 1..3
+                matches.add(
+                        new Match(
+                                UUID.randomUUID(),
+                                TOURNAMENT_ID,
+                                phaseId,
+                                g2Ids.get(i),
+                                g2Ids.get(j),
+                                MatchState.OPEN.getLegacyCode(),
+                                1,
+                                lap,
+                                field,
+                                null,
+                                null,
+                                null,
+                                null));
+                matchIdx++;
+            }
+        }
+
+        assertThat(matches).as("fixture must have exactly 25 matches").hasSize(25);
+
+        MappingResult mapping = buildMapping(phaseId, avatars, matches);
+
+        // canonical.rowCount() = lapCount = 10 (10 lap-rows from the Mapper)
+        // matchOrder.size() = 25 — the lapCount ≠ matchCount / fieldCount invariant
+        assertThat(mapping.canonical().rowCount())
+                .as("canonical.rowCount() must equal lapCount=10")
+                .isEqualTo(10);
+        assertThat(mapping.matchOrder()).as("matchOrder must contain all 25 matches").hasSize(25);
+
+        when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // rank=0 (identity permutation): must NOT throw IndexOutOfBoundsException
+        // RED before fix: π[i/3]*3 + i%3 computes source index up to 9*3+2=29 >> 24 → OOB
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(
+                () -> applicator.applyResult(0L, FIELD_COUNT, mapping),
+                "AC-TEST-UNIT-LAPCOUNT-VS-MATCHCOUNT-DECOUPLED-RED: rank=0 must not throw"
+                        + " IndexOutOfBoundsException for asymmetric 11T/2G/3F (lapCount=10,"
+                        + " matchCount=25)");
+
+        // rank=1 (first non-trivial permutation): must also NOT throw
+        // Re-build mapping with fresh Match objects (applyResult mutates them in-place)
+        MappingResult mapping2 = buildMapping(phaseId, avatars, matches);
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(
+                () -> applicator.applyResult(1L, FIELD_COUNT, mapping2),
+                "AC-TEST-UNIT-LAPCOUNT-VS-MATCHCOUNT-DECOUPLED-RED: rank=1 must not throw"
+                        + " IndexOutOfBoundsException for asymmetric 11T/2G/3F");
+
+        // Additional assertion: after identity rank, all 25 matches have non-null lap+field
+        // (captured by save invocations)
+        ArgumentCaptor<Match> captor = ArgumentCaptor.forClass(Match.class);
+        verify(matchRepository, times(50)).save(captor.capture()); // 25 per call × 2 calls
+        List<Match> saved = captor.getAllValues();
+        for (Match m : saved) {
+            assertThat(m.getLapNumber())
+                    .as("lapNumber must be non-null for match %s", m.getId())
+                    .isNotNull()
+                    .isGreaterThanOrEqualTo(1);
+            assertThat(m.getFieldNumber())
+                    .as("fieldNumber must be non-null for match %s", m.getId())
+                    .isNotNull()
+                    .isGreaterThanOrEqualTo(1);
         }
     }
 

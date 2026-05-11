@@ -39,7 +39,9 @@ import org.junit.jupiter.api.Test;
  * AC-LEG-2-FALLS-THROUGH-ON-WIRE-ERROR).
  *
  * <p>TDD RED-first per DEC-22 Iron Law. E27S01 + E27S02 tests are preserved. E27S03 adds Leg-2
- * routing tests (reachable→Leg2; unreachable→Leg3; wire-error→fallthrough-Leg3).
+ * routing tests (reachable→Leg2; unreachable→Leg3; wire-error→fallthrough-Leg3). E54S03 adds
+ * phase-global invocation tests (DEC-61 Clause D — single {@code map(phaseId)} call, no {@code
+ * mapGroup} calls, single applicator invocation).
  *
  * <p>Per DEC-36: this test class is in the {@code slotopt.internal} package (same as the subject),
  * so white-box reference to {@link RoutingSlotOptimizationClient} is permitted.
@@ -69,6 +71,9 @@ class RoutingSlotOptimizationClientTest {
     /** fieldCount = 3 (matches tm.slotopt.fallback.field-count default). */
     private static final int FIELD_COUNT = 3;
 
+    /** Production-default exhaustiveMaxN = 10 for phase-global E54S03 tests. */
+    private static final int EXHAUSTIVE_MAX_N_PROD = 10;
+
     @BeforeEach
     void setUp() {
         directMock = mock(DirectSlotOptimizationClient.class);
@@ -91,6 +96,19 @@ class RoutingSlotOptimizationClientTest {
                         EXHAUSTIVE_MAX_N);
     }
 
+    /** Creates a {@link RoutingSlotOptimizationClient} with production-default threshold (10). */
+    private RoutingSlotOptimizationClient subjectWithProdThreshold() {
+        return new RoutingSlotOptimizationClient(
+                directMock,
+                cancelableServiceMock,
+                registryMock,
+                mapperMock,
+                reachabilityMock,
+                dispatcherClientMock,
+                applicatorMock,
+                EXHAUSTIVE_MAX_N_PROD);
+    }
+
     // =========================================================================
     // AC-LEG-1-DELEGATION-CONTRACT-TESTED (E27S01 — preserved)
     // =========================================================================
@@ -106,10 +124,6 @@ class RoutingSlotOptimizationClientTest {
         MappingResult mapping =
                 buildMappingWithLapCount(phaseId, EXHAUSTIVE_MAX_N, FIELD_COUNT, tournamentId);
         when(mapperMock.map(phaseId)).thenReturn(mapping);
-        when(mapperMock.mapGroup(eq(phaseId), anyInt()))
-                .thenReturn(
-                        buildMappingWithLapCount(
-                                phaseId, EXHAUSTIVE_MAX_N, FIELD_COUNT, tournamentId));
 
         subject.optimize(phaseId);
 
@@ -125,8 +139,6 @@ class RoutingSlotOptimizationClientTest {
         // lapCount = 1 < EXHAUSTIVE_MAX_N (=2), rowCount = 1 * FIELD_COUNT = 3
         MappingResult mapping = buildMappingWithLapCount(phaseId, 1, FIELD_COUNT, tournamentId);
         when(mapperMock.map(phaseId)).thenReturn(mapping);
-        when(mapperMock.mapGroup(eq(phaseId), anyInt()))
-                .thenReturn(buildMappingWithLapCount(phaseId, 1, FIELD_COUNT, tournamentId));
 
         subject.optimize(phaseId);
 
@@ -150,10 +162,7 @@ class RoutingSlotOptimizationClientTest {
         int lapCount = EXHAUSTIVE_MAX_N + 1;
         MappingResult mapping =
                 buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
-        MappingResult groupMapping =
-                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
         when(mapperMock.map(phaseId)).thenReturn(mapping);
-        when(mapperMock.mapGroup(eq(phaseId), anyInt())).thenReturn(groupMapping);
         when(reachabilityMock.isReachable()).thenReturn(true);
         UUID jobId = UUID.randomUUID();
         when(dispatcherClientMock.submitJob(any())).thenReturn(jobId);
@@ -178,10 +187,7 @@ class RoutingSlotOptimizationClientTest {
         int lapCount = EXHAUSTIVE_MAX_N + 1;
         MappingResult mapping =
                 buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
-        MappingResult groupMapping =
-                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
         when(mapperMock.map(phaseId)).thenReturn(mapping);
-        when(mapperMock.mapGroup(eq(phaseId), anyInt())).thenReturn(groupMapping);
         when(reachabilityMock.isReachable()).thenReturn(false);
         when(cancelableServiceMock.optimize(
                         eq(phaseId), eq(tournamentId), any(CancellationToken.class)))
@@ -208,10 +214,7 @@ class RoutingSlotOptimizationClientTest {
         int lapCount = EXHAUSTIVE_MAX_N + 1;
         MappingResult mapping =
                 buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
-        MappingResult groupMapping =
-                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
         when(mapperMock.map(phaseId)).thenReturn(mapping);
-        when(mapperMock.mapGroup(eq(phaseId), anyInt())).thenReturn(groupMapping);
         when(reachabilityMock.isReachable()).thenReturn(false);
         when(cancelableServiceMock.optimize(eq(phaseId), eq(tournamentId), any()))
                 .thenThrow(new IllegalStateException("simulated compute error"));
@@ -237,10 +240,7 @@ class RoutingSlotOptimizationClientTest {
         int lapCount = EXHAUSTIVE_MAX_N + 1;
         MappingResult mapping =
                 buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
-        MappingResult groupMapping =
-                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
         when(mapperMock.map(phaseId)).thenReturn(mapping);
-        when(mapperMock.mapGroup(eq(phaseId), anyInt())).thenReturn(groupMapping);
         when(reachabilityMock.isReachable()).thenReturn(true);
         when(dispatcherClientMock.submitJob(any()))
                 .thenThrow(new DispatcherAlgorithmMismatchException("Ed25519", 400));
@@ -267,10 +267,7 @@ class RoutingSlotOptimizationClientTest {
         int lapCount = EXHAUSTIVE_MAX_N + 1;
         MappingResult mapping =
                 buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
-        MappingResult groupMapping =
-                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
         when(mapperMock.map(phaseId)).thenReturn(mapping);
-        when(mapperMock.mapGroup(eq(phaseId), anyInt())).thenReturn(groupMapping);
         when(reachabilityMock.isReachable()).thenReturn(true);
         when(dispatcherClientMock.submitJob(any()))
                 .thenThrow(new RuntimeException("HTTP 500 from dispatcher"));
@@ -296,10 +293,7 @@ class RoutingSlotOptimizationClientTest {
         int lapCount = EXHAUSTIVE_MAX_N + 1;
         MappingResult mapping =
                 buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
-        MappingResult groupMapping =
-                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
         when(mapperMock.map(phaseId)).thenReturn(mapping);
-        when(mapperMock.mapGroup(eq(phaseId), anyInt())).thenReturn(groupMapping);
         when(reachabilityMock.isReachable()).thenReturn(true);
         UUID jobId = UUID.randomUUID();
         when(dispatcherClientMock.submitJob(any())).thenReturn(jobId);
@@ -337,10 +331,7 @@ class RoutingSlotOptimizationClientTest {
         // Old code: N = 6 > threshold=2 → Leg 2/3. New code: N = lapCount = 2 ≤ threshold → Leg 1.
         MappingResult mapping =
                 buildMappingWithLapCount(phaseId, EXHAUSTIVE_MAX_N, FIELD_COUNT, tournamentId);
-        MappingResult groupMapping =
-                buildMappingWithLapCount(phaseId, EXHAUSTIVE_MAX_N, FIELD_COUNT, tournamentId);
         when(mapperMock.map(phaseId)).thenReturn(mapping);
-        when(mapperMock.mapGroup(eq(phaseId), anyInt())).thenReturn(groupMapping);
 
         subject.optimize(phaseId);
 
@@ -367,10 +358,7 @@ class RoutingSlotOptimizationClientTest {
         UUID tournamentId = UUID.randomUUID();
         // lapCount=1, fieldCount=3, rowCount=3
         MappingResult mapping = buildMappingWithLapCount(phaseId, 1, FIELD_COUNT, tournamentId);
-        MappingResult groupMapping =
-                buildMappingWithLapCount(phaseId, 1, FIELD_COUNT, tournamentId);
         when(mapperMock.map(phaseId)).thenReturn(mapping);
-        when(mapperMock.mapGroup(eq(phaseId), anyInt())).thenReturn(groupMapping);
 
         subject.optimize(phaseId);
 
@@ -417,10 +405,6 @@ class RoutingSlotOptimizationClientTest {
                 buildLapRowMappingWithLapCount(
                         phaseId, EXHAUSTIVE_MAX_N, FIELD_COUNT, tournamentId);
         when(mapperMock.map(phaseId)).thenReturn(lapRowMapping);
-        when(mapperMock.mapGroup(eq(phaseId), anyInt()))
-                .thenReturn(
-                        buildLapRowMappingWithLapCount(
-                                phaseId, EXHAUSTIVE_MAX_N, FIELD_COUNT, tournamentId));
 
         subject.optimize(phaseId);
 
@@ -436,35 +420,101 @@ class RoutingSlotOptimizationClientTest {
     // =========================================================================
 
     /**
-     * AC-TEST-PER-GROUP-INVOKE-RED (E51S11, NF-MED-1): given a phase with 2 groups (2 distinct
-     * group IDs in mapping rows), RoutingSlotOptimizationClient invokes the applicator separately
-     * per group (2 applicator invocations).
+     * AC-TEST-PHASE-GLOBAL-TWO-GROUP (E54S03): given a phase with 2 groups (2 distinct group IDs in
+     * mapping rows), RoutingSlotOptimizationClient invokes the applicator exactly once with the
+     * full phase-global mapping (DEC-61 Clause D).
      *
-     * <p>FAILS before fix because current code maps the whole phase and calls applicator once (or
-     * delegates to directClient without per-group awareness).
+     * <p>Prior to E54S03 (per-group model from E51S11), the applicator was invoked twice (once per
+     * group). E54S03 eliminates per-group invocation: a single {@code mapper.map(phaseId)} + single
+     * {@code applicator.applyResult} call preserves Group 2 lap offsets (eliminates Defect 3 from
+     * DEC-61).
      */
     @Test
-    void optimize_twoGroups_applicatorCalledTwice_perGroupInvocation() {
+    void optimize_twoGroups_applicatorCalledOnce_phaseGlobalInvocation_E54S03() {
         UUID phaseId = UUID.randomUUID();
         UUID tournamentId = UUID.randomUUID();
-        // Build a 2-group mapping: group 1 has lapCount=1, group 2 has lapCount=1 (both ≤
-        // threshold)
-        // Full mapping has 2 rows (1 per group), but for routing we use per-group mappings
+        // Full 2-group mapping: 2 lap-rows (1 per group), total 2*FIELD_COUNT matches
         MappingResult fullMapping = buildTwoGroupMapping(phaseId, 1, FIELD_COUNT, tournamentId);
-        MappingResult group1Mapping =
-                buildMappingWithLapCount(phaseId, 1, FIELD_COUNT, tournamentId);
-        MappingResult group2Mapping =
-                buildMappingWithLapCount(phaseId, 1, FIELD_COUNT, tournamentId);
         when(mapperMock.map(phaseId)).thenReturn(fullMapping);
-        // Group numbers from buildTwoGroupMapping: groups 1 and 2
-        when(mapperMock.mapGroup(eq(phaseId), eq(1))).thenReturn(group1Mapping);
-        when(mapperMock.mapGroup(eq(phaseId), eq(2))).thenReturn(group2Mapping);
 
         subject.optimize(phaseId);
 
-        // Applicator must be invoked once per group = 2 times total
-        verify(applicatorMock, times(2))
+        // Phase-global: applicator called once with the full 2-group mapping
+        verify(applicatorMock, times(1))
                 .applyResult(anyLong(), eq(FIELD_COUNT), any(MappingResult.class));
+        // mapGroup does not exist (deleted per DEC-61 Clause D) — enforced by compilation.
+    }
+
+    // =========================================================================
+    // E54S03 RED-first tests — DEC-61 Clause D: L3 phase-global invocation
+    // AC-TEST-L3-PHASE-GLOBAL-INVOCATION-RED
+    // =========================================================================
+
+    /**
+     * AC-TEST-L3-PHASE-GLOBAL-INVOCATION-RED (E54S03 / DEC-61 Clause D):
+     *
+     * <p>Post-E54S03, {@link RoutingSlotOptimizationClient#optimize(UUID)} MUST call {@link
+     * PhaseToRawPhaseDefMapper#map(UUID)} exactly once (phase-global) and MUST NOT call {@link
+     * PhaseToRawPhaseDefMapper#mapGroup(UUID, int)} at all. The {@link SlotResultApplicator} MUST
+     * be invoked exactly once with the phase-global mapping.
+     *
+     * <p>Fixture: 12T/2G/3F symmetric phase → lapCount=10, fieldCount=3. With exhaustiveMaxN=10
+     * (production default), lapCount=10 ≤ threshold → Leg 1 inline.
+     *
+     * <p>RED against current code: current {@code optimize()} calls {@code map(phaseId)} for group
+     * extraction then {@code mapGroup(phaseId, groupNumber)} per group → 2 {@code mapGroup} calls
+     * and 2 applicator calls for a 2-group phase.
+     */
+    @Test
+    void optimize_phaseGlobal_singleMapCall_noMapGroupCall_singleApplicatorCall_E54S03() {
+        UUID phaseId = UUID.randomUUID();
+        UUID tournamentId = UUID.randomUUID();
+        // 12T/2G/3F: lapCount=10, fieldCount=3. exhaustiveMaxN=10 → Leg 1
+        MappingResult phaseMapping =
+                buildMappingWithLapCount(phaseId, EXHAUSTIVE_MAX_N_PROD, FIELD_COUNT, tournamentId);
+        when(mapperMock.map(phaseId)).thenReturn(phaseMapping);
+
+        RoutingSlotOptimizationClient prodSubject = subjectWithProdThreshold();
+        prodSubject.optimize(phaseId);
+
+        // Phase-global: mapper.map() called once
+        verify(mapperMock, times(1)).map(phaseId);
+        // mapGroup() does not exist (deleted per DEC-61 Clause D — enforced by compilation)
+        // Applicator called exactly once with the phase-global mapping (Leg 1)
+        verify(applicatorMock, times(1))
+                .applyResult(anyLong(), eq(FIELD_COUNT), any(MappingResult.class));
+        // Leg 2/3 not invoked (lapCount=10 ≤ threshold=10 → Leg 1)
+        verify(reachabilityMock, never()).isReachable();
+        verify(cancelableServiceMock, never()).optimize(any(), any(), any());
+    }
+
+    /**
+     * AC-TEST-L3-PHASE-GLOBAL-INVOCATION-RED (E54S03): empty phase (0 matches) → no-op, no
+     * exception.
+     *
+     * <p>Post-E54S03, an empty phase mapping (0 matches, lapCount=0) must produce no calls to
+     * applicator or legs 2/3.
+     */
+    @Test
+    void optimize_emptyPhaseMapping_noOp_E54S03() {
+        UUID phaseId = UUID.randomUUID();
+        // Empty mapping: 0 laps, 0 matches
+        de.vvwt.slotopt.worker.types.RawPhaseDef emptyRaw =
+                new de.vvwt.slotopt.worker.types.RawPhaseDef(0, 0, List.of());
+        de.vvwt.slotopt.worker.types.CanonicalPhaseDef emptyCanonical =
+                new de.vvwt.slotopt.worker.types.CanonicalPhaseDef(0, 0, List.of());
+        MappingResult emptyMapping =
+                new MappingResult(emptyRaw, emptyCanonical, 0, List.of(), new int[0][]);
+        when(mapperMock.map(phaseId)).thenReturn(emptyMapping);
+
+        RoutingSlotOptimizationClient prodSubject = subjectWithProdThreshold();
+        // Must not throw
+        prodSubject.optimize(phaseId);
+
+        verify(mapperMock, times(1)).map(phaseId);
+        // mapGroup() does not exist (deleted per DEC-61 Clause D — enforced by compilation)
+        verify(applicatorMock, never()).applyResult(anyLong(), anyInt(), any());
+        verify(reachabilityMock, never()).isReachable();
     }
 
     // =========================================================================

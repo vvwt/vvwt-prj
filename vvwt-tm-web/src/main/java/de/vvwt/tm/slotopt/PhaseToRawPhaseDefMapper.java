@@ -13,11 +13,9 @@ import de.vvwt.tm.tournament.TeamAvatarRepository;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -224,148 +222,6 @@ public class PhaseToRawPhaseDefMapper {
                 "PhaseToRawPhaseDefMapper: phase={}, avatars={}, matches={}, laps={}, N={}",
                 phaseId,
                 avatars.size(),
-                sortedMatches.size(),
-                rows.size(),
-                n);
-
-        return new MappingResult(raw, canonical, n, sortedMatches, denseIdsByRawRow);
-    }
-
-    /**
-     * Maps domain objects for a single group within the given phase to a {@link MappingResult}.
-     *
-     * <p>Filters avatars to those with {@link TeamAvatar#getGroupNumber()} equal to {@code
-     * groupNumber}, and matches to those where both {@code memberAvatar1Id} and {@code
-     * memberAvatar2Id} belong to that group's avatar set. Delegates to {@link #map(UUID)} internals
-     * for the actual forward mapping on the filtered subset.
-     *
-     * <p>Used by {@code RoutingSlotOptimizationClient} for per-group L3 invocation (NF-MED-1,
-     * E51S11).
-     *
-     * @param phaseId the UUID of the phase
-     * @param groupNumber the group number to filter by (1-indexed, matching {@link
-     *     TeamAvatar#getGroupNumber()})
-     * @return the mapping result for the specified group only
-     * @throws IllegalArgumentException if {@code phaseId} is {@code null}
-     * @throws IllegalStateException if no avatars or no matches exist for the group (inherited from
-     *     the full {@code map} contract)
-     */
-    public MappingResult mapGroup(UUID phaseId, int groupNumber) {
-        if (phaseId == null) {
-            throw new IllegalArgumentException("phaseId must not be null");
-        }
-
-        List<TeamAvatar> allAvatars = teamAvatarRepository.findByPhaseId(phaseId);
-        List<Match> allMatches = matchRepository.findByPhaseId(phaseId);
-
-        // Filter avatars to this group
-        Set<UUID> groupAvatarIds = new HashSet<>();
-        for (TeamAvatar avatar : allAvatars) {
-            if (avatar.getGroupNumber() == groupNumber) {
-                groupAvatarIds.add(avatar.getId());
-            }
-        }
-
-        // Filter matches to those where both avatars belong to this group
-        List<Match> groupMatches = new ArrayList<>();
-        for (Match match : allMatches) {
-            if (groupAvatarIds.contains(match.getMemberAvatar1Id())
-                    && groupAvatarIds.contains(match.getMemberAvatar2Id())) {
-                groupMatches.add(match);
-            }
-        }
-
-        List<TeamAvatar> groupAvatars = new ArrayList<>();
-        for (TeamAvatar avatar : allAvatars) {
-            if (groupAvatarIds.contains(avatar.getId())) {
-                groupAvatars.add(avatar);
-            }
-        }
-
-        // Delegate to the shared mapping logic via mock-compatible approach:
-        // Temporarily rebind to the group-filtered data by using the internal mapping logic.
-        // Since map() calls the repositories directly, we build the MappingResult inline
-        // using the same algorithm as map() but over the filtered subset.
-
-        if (groupAvatars.isEmpty()) {
-            throw new IllegalStateException(
-                    "No TeamAvatars found for phase " + phaseId + " group " + groupNumber);
-        }
-        if (groupMatches.isEmpty()) {
-            throw new IllegalStateException(
-                    "No matches found for phase " + phaseId + " group " + groupNumber);
-        }
-
-        // Build avatar position index for this group
-        Map<UUID, PositionTuple> positionByAvatarId = new HashMap<>(groupAvatars.size() * 2);
-        for (TeamAvatar avatar : groupAvatars) {
-            positionByAvatarId.put(
-                    avatar.getId(),
-                    new PositionTuple(avatar.getGroupNumber(), avatar.getGroupPosition()));
-        }
-
-        // DEC-61 Clause B: aggregate matches into lap-rows — one RawRow per lap.
-        // Validate null lapNumber, then group by lapNumber (ascending via TreeMap).
-        TreeMap<Integer, List<Match>> matchesByLap = new TreeMap<>();
-        for (Match match : groupMatches) {
-            Integer lapNum = match.getLapNumber();
-            if (lapNum == null) {
-                throw new IllegalStateException(
-                        "Match "
-                                + match.getId()
-                                + " in phase "
-                                + phaseId
-                                + " group "
-                                + groupNumber
-                                + " has null lapNumber.");
-            }
-            matchesByLap.computeIfAbsent(lapNum, k -> new ArrayList<>()).add(match);
-        }
-
-        List<RawRow> rows = new ArrayList<>(matchesByLap.size());
-        List<PositionTuple[]> rawTuplesByRow = new ArrayList<>(matchesByLap.size());
-        List<Match> sortedMatches = new ArrayList<>(groupMatches.size());
-
-        for (Map.Entry<Integer, List<Match>> entry : matchesByLap.entrySet()) {
-            List<Match> lapMatches = entry.getValue();
-            lapMatches.sort(Comparator.comparing(m -> m.getId().toString()));
-            sortedMatches.addAll(lapMatches);
-
-            LinkedHashMap<PositionTuple, Boolean> seen = new LinkedHashMap<>();
-            for (Match match : lapMatches) {
-                seen.put(positionByAvatarId.get(match.getMemberAvatar1Id()), Boolean.TRUE);
-                seen.put(positionByAvatarId.get(match.getMemberAvatar2Id()), Boolean.TRUE);
-            }
-            List<PositionTuple> lapTuples = new ArrayList<>(seen.keySet());
-            rows.add(new RawRow(lapTuples));
-            rawTuplesByRow.add(lapTuples.toArray(new PositionTuple[0]));
-        }
-
-        int auditPhaseId = Math.abs(phaseId.hashCode());
-        RawPhaseDef raw = new RawPhaseDef(auditPhaseId, rows.size(), rows);
-        TransformResult transformResult = StructuralFingerprint.transform(raw);
-        CanonicalPhaseDef canonical = transformResult.canonical();
-
-        Map<PositionTuple, Integer> denseIdByTuple = buildDenseIdMapping(raw);
-
-        int[][] denseIdsByRawRow = new int[rows.size()][];
-        for (int rowIdx = 0; rowIdx < rows.size(); rowIdx++) {
-            PositionTuple[] tuples = rawTuplesByRow.get(rowIdx);
-            int[] ids = new int[tuples.length];
-            for (int j = 0; j < tuples.length; j++) {
-                ids[j] = denseIdByTuple.get(tuples[j]);
-            }
-            denseIdsByRawRow[rowIdx] = ids;
-        }
-
-        int n = canonical.avatarCount();
-
-        LOG.info(
-                "PhaseToRawPhaseDefMapper: phase={} group={}, avatars={}, matches={}, laps={},"
-                        + " N={}",
-                phaseId,
-                groupNumber,
-                groupAvatars.size(),
                 sortedMatches.size(),
                 rows.size(),
                 n);
