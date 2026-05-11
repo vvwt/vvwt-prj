@@ -17,8 +17,8 @@ import org.assertj.db.type.AssertDbConnection;
  * <p>DEC-26 three rules:
  *
  * <ol>
- *   <li>Rule 1 — schema from production migration (loads V1 tournament chain + V4 phase_lifecycle_job
- *       migration)
+ *   <li>Rule 1 — schema from production migration (loads V1 tournament chain + V4
+ *       phase_lifecycle_job migration)
  *   <li>Rule 2 — assertj-db independent verifier via {@link TenantDaoTestSupport#assertDbOf}
  *   <li>Rule 3 — read/write decoupling via {@link TenantDaoTestSupport#insertDirectly}
  * </ol>
@@ -68,7 +68,8 @@ public final class PhaseLifecycleDaoTestSupport {
         // Load the full tournament schema chain (V1 through V3 + other modules)
         TenantDaoTestSupport.applyTournamentSchema(ds);
         // Load V4 — the migration under test (E55S02)
-        TenantDaoTestSupport.applyMigration(ds, "db/migration/tournament/V4__phase_lifecycle_job.sql");
+        TenantDaoTestSupport.applyMigration(
+                ds, "db/migration/tournament/V4__phase_lifecycle_job.sql");
         return ds;
     }
 
@@ -135,7 +136,8 @@ public final class PhaseLifecycleDaoTestSupport {
     }
 
     /**
-     * Inserts a minimal {@code tournament} row required as FK target for {@code phase.tournament_id}.
+     * Inserts a minimal {@code tournament} row required as FK target for {@code
+     * phase.tournament_id}.
      *
      * <p>Required NOT NULL columns per {@code tournament/V1__initial_schema.sql}: {@code id,
      * location_id, description, match_format, scoring_rule_id, set_validation_rule_id,
@@ -171,10 +173,6 @@ public final class PhaseLifecycleDaoTestSupport {
      */
     public static void insertLocationFixture(DataSource ds, UUID locationId) {
         TenantDaoTestSupport.insertDirectly(
-                ds,
-                "locations",
-                Map.of(
-                        "id", locationId,
-                        "display_name", "Test Location"));
+                ds, "locations", Map.of("id", locationId, "display_name", "Test Location"));
     }
 }

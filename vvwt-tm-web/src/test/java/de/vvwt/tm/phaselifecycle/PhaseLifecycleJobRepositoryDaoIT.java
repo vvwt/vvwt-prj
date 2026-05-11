@@ -24,9 +24,11 @@ import org.junit.jupiter.api.Test;
  *
  * <p>DEC-22 Iron Law: RED-first — these tests are committed RED before the V4 migration and the
  * real implementation exist. Tests fail at RED time because:
+ *
  * <ul>
- *   <li>AC-TEST-FLYWAY-MIGRATION-FORWARD-RED: {@code PhaseLifecycleDaoTestSupport.freshDataSourceWithSchema()}
- *       cannot find {@code tournament/V4__phase_lifecycle_job.sql} on the classpath.
+ *   <li>AC-TEST-FLYWAY-MIGRATION-FORWARD-RED: {@code
+ *       PhaseLifecycleDaoTestSupport.freshDataSourceWithSchema()} cannot find {@code
+ *       tournament/V4__phase_lifecycle_job.sql} on the classpath.
  *   <li>All CAS / FIFO / cascade tests fail because {@link DefaultPhaseLifecycleJobRepository}
  *       methods throw {@link UnsupportedOperationException}.
  * </ul>
@@ -34,6 +36,7 @@ import org.junit.jupiter.api.Test;
  * <p>GREEN state: after V4 migration + real impl land, all tests pass.
  *
  * <p>DEC-26 three rules:
+ *
  * <ol>
  *   <li>Rule 1 — schema from {@code tournament/V4__phase_lifecycle_job.sql} (loaded by helper)
  *   <li>Rule 2 — assertj-db independent verifier for all write-path assertions
@@ -41,8 +44,8 @@ import org.junit.jupiter.api.Test;
  * </ol>
  *
  * <p>DEC-44 note: DAO ITs are standalone (no Spring context) — they wire {@link
- * DefaultPhaseLifecycleJobRepository} directly via a fresh H2 {@link DataSource}. No {@code
- * @SpringBootTest} annotation required. This is consistent with the existing {@code
+ * DefaultPhaseLifecycleJobRepository} directly via a fresh H2 {@link DataSource}. No
+ * {@code @SpringBootTest} annotation required. This is consistent with the existing {@code
  * InfoPortalStateDaoIT} precedent.
  *
  * <p>AC-GOVERNANCE-DEC-54-MVN-VERIFY — verified by full {@code mvn verify} run at QA gate.
@@ -60,8 +63,10 @@ class PhaseLifecycleJobRepositoryDaoIT {
     private DefaultPhaseLifecycleJobRepository repository;
 
     // Reusable test UUIDs
-    private static final UUID TOURNAMENT_A = UUID.fromString("aaa00000-0000-0000-0000-000000000001");
-    private static final UUID TOURNAMENT_B = UUID.fromString("bbb00000-0000-0000-0000-000000000001");
+    private static final UUID TOURNAMENT_A =
+            UUID.fromString("aaa00000-0000-0000-0000-000000000001");
+    private static final UUID TOURNAMENT_B =
+            UUID.fromString("bbb00000-0000-0000-0000-000000000001");
     private static final UUID LOCATION_ID = UUID.fromString("11100000-0000-0000-0000-000000000001");
 
     @BeforeEach
@@ -86,11 +91,33 @@ class PhaseLifecycleJobRepositoryDaoIT {
     @Test
     void migrationCreatesTableWithExpectedColumns() {
         // GIVEN: migration applied in setUp() via freshDataSourceWithSchema()
-        // THEN: table exists and has the expected structure — assertj-db structural check
+        // THEN: table exists (migration applied successfully) — assertj-db structural check.
+        // If V4 migration was not applied, this fails with table-not-found.
+        //
+        // NOTE on partial index (AC-TEST-FLYWAY-MIGRATION-FORWARD-RED §h): DEC-64 D-4 specifies
+        // a partial index WHERE status='PENDING'. H2 2.3.232 does NOT support the WHERE clause
+        // on CREATE INDEX (syntax error 42000). The migration uses a regular index on the same
+        // columns (same name: idx_phase_lifecycle_job_tournament_pending) — the index existence
+        // itself is verified via a metadata query below.
         Table table = assertDb.table("phase_lifecycle_job").build();
-        // If migration was not applied, this assertion fails with table-not-found
-        // Column presence check: assertj-db verifies 0 rows (empty table after setUp)
         assertThat(table).hasNumberOfRows(0);
+
+        // Verify index exists via H2 INFORMATION_SCHEMA
+        try (var conn = dataSource.getConnection();
+                var ps =
+                        conn.prepareStatement(
+                                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.INDEXES"
+                                        + " WHERE TABLE_NAME = 'PHASE_LIFECYCLE_JOB'"
+                                        + " AND INDEX_NAME ="
+                                        + " 'IDX_PHASE_LIFECYCLE_JOB_TOURNAMENT_PENDING'")) {
+            var rs = ps.executeQuery();
+            rs.next();
+            assertThat(rs.getInt(1))
+                    .as("idx_phase_lifecycle_job_tournament_pending must exist")
+                    .isGreaterThan(0);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to verify index existence", e);
+        }
     }
 
     @Test
@@ -106,13 +133,20 @@ class PhaseLifecycleJobRepositoryDaoIT {
                 dataSource,
                 "phase_lifecycle_job",
                 java.util.Map.of(
-                        "id", jobId,
-                        "tournament_id", TOURNAMENT_A,
-                        "phase_id", phaseId,
-                        "game_mode", "standard",
-                        "sequence", 1,
-                        "status", "PENDING",
-                        "cancelled", false));
+                        "id",
+                        jobId,
+                        "tournament_id",
+                        TOURNAMENT_A,
+                        "phase_id",
+                        phaseId,
+                        "game_mode",
+                        "standard",
+                        "sequence",
+                        1,
+                        "status",
+                        "PENDING",
+                        "cancelled",
+                        false));
 
         Table table = assertDb.table("phase_lifecycle_job").build();
         assertThat(table).hasNumberOfRows(1);
@@ -130,20 +164,24 @@ class PhaseLifecycleJobRepositoryDaoIT {
                 dataSource,
                 "phase_lifecycle_job",
                 java.util.Map.of(
-                        "id", jobId,
-                        "tournament_id", TOURNAMENT_A,
-                        "phase_id", phaseId,
-                        "game_mode", "standard",
-                        "sequence", 1,
-                        "status", "PENDING",
-                        "cancelled", false));
+                        "id",
+                        jobId,
+                        "tournament_id",
+                        TOURNAMENT_A,
+                        "phase_id",
+                        phaseId,
+                        "game_mode",
+                        "standard",
+                        "sequence",
+                        1,
+                        "status",
+                        "PENDING",
+                        "cancelled",
+                        false));
 
         // Verify status value via assertj-db (Rule 2)
         Table table = assertDb.table("phase_lifecycle_job").build();
-        assertThat(table)
-                .row(0)
-                .value("status")
-                .isEqualTo("PENDING");
+        assertThat(table).row(0).value("status").isEqualTo("PENDING");
     }
 
     @Test
@@ -158,18 +196,21 @@ class PhaseLifecycleJobRepositoryDaoIT {
                 dataSource,
                 "phase_lifecycle_job",
                 java.util.Map.of(
-                        "id", jobId,
-                        "tournament_id", TOURNAMENT_A,
-                        "phase_id", phaseId,
-                        "game_mode", "standard",
-                        "sequence", 1,
-                        "status", "PENDING"));
+                        "id",
+                        jobId,
+                        "tournament_id",
+                        TOURNAMENT_A,
+                        "phase_id",
+                        phaseId,
+                        "game_mode",
+                        "standard",
+                        "sequence",
+                        1,
+                        "status",
+                        "PENDING"));
 
         Table table = assertDb.table("phase_lifecycle_job").build();
-        assertThat(table)
-                .row(0)
-                .value("cancelled")
-                .isEqualTo(false);
+        assertThat(table).row(0).value("cancelled").isEqualTo(false);
     }
 
     @Test
@@ -183,13 +224,20 @@ class PhaseLifecycleJobRepositoryDaoIT {
                 dataSource,
                 "phase_lifecycle_job",
                 java.util.Map.of(
-                        "id", jobId,
-                        "tournament_id", TOURNAMENT_A,
-                        "phase_id", phaseId,
-                        "game_mode", "standard",
-                        "sequence", 1,
-                        "status", "PENDING",
-                        "cancelled", false));
+                        "id",
+                        jobId,
+                        "tournament_id",
+                        TOURNAMENT_A,
+                        "phase_id",
+                        phaseId,
+                        "game_mode",
+                        "standard",
+                        "sequence",
+                        1,
+                        "status",
+                        "PENDING",
+                        "cancelled",
+                        false));
 
         Table table = assertDb.table("phase_lifecycle_job").build();
         assertThat(table).row(0).value("claimed_by").isNull();
@@ -206,13 +254,20 @@ class PhaseLifecycleJobRepositoryDaoIT {
                 dataSource,
                 "phase_lifecycle_job",
                 java.util.Map.of(
-                        "id", jobId,
-                        "tournament_id", TOURNAMENT_A,
-                        "phase_id", phaseId,
-                        "game_mode", "standard",
-                        "sequence", 1,
-                        "status", "PENDING",
-                        "cancelled", false));
+                        "id",
+                        jobId,
+                        "tournament_id",
+                        TOURNAMENT_A,
+                        "phase_id",
+                        phaseId,
+                        "game_mode",
+                        "standard",
+                        "sequence",
+                        1,
+                        "status",
+                        "PENDING",
+                        "cancelled",
+                        false));
 
         Table table = assertDb.table("phase_lifecycle_job").build();
         assertThat(table).row(0).value("enqueued_at").isNotNull();
@@ -229,13 +284,20 @@ class PhaseLifecycleJobRepositoryDaoIT {
                 dataSource,
                 "phase_lifecycle_job",
                 java.util.Map.of(
-                        "id", jobId,
-                        "tournament_id", TOURNAMENT_A,
-                        "phase_id", phaseId,
-                        "game_mode", "standard",
-                        "sequence", 1,
-                        "status", "PENDING",
-                        "cancelled", false));
+                        "id",
+                        jobId,
+                        "tournament_id",
+                        TOURNAMENT_A,
+                        "phase_id",
+                        phaseId,
+                        "game_mode",
+                        "standard",
+                        "sequence",
+                        1,
+                        "status",
+                        "PENDING",
+                        "cancelled",
+                        false));
         // Verify the job row exists
         Table before = assertDb.table("phase_lifecycle_job").build();
         assertThat(before).hasNumberOfRows(1);
@@ -263,8 +325,7 @@ class PhaseLifecycleJobRepositoryDaoIT {
         // GIVEN: a PENDING row
         UUID phaseId = UUID.randomUUID();
         PhaseLifecycleDaoTestSupport.insertPhaseFixture(dataSource, phaseId, TOURNAMENT_A, 1);
-        PhaseLifecycleJob job =
-                new PhaseLifecycleJob(TOURNAMENT_A, phaseId, "standard", 1);
+        PhaseLifecycleJob job = new PhaseLifecycleJob(TOURNAMENT_A, phaseId, "standard", 1);
         repository.enqueueJob(job);
 
         Optional<UUID> nextId = repository.findNextPendingJobIdForTournament(TOURNAMENT_A);
@@ -281,11 +342,14 @@ class PhaseLifecycleJobRepositoryDaoIT {
         Table table = assertDb.table("phase_lifecycle_job").build();
         assertThat(table)
                 .row(0)
-                .value("status").isEqualTo("RUNNING")
+                .value("status")
+                .isEqualTo("RUNNING")
                 .row(0)
-                .value("claimed_by").isEqualTo("worker-1")
+                .value("claimed_by")
+                .isEqualTo("worker-1")
                 .row(0)
-                .value("claimed_at").isNotNull();
+                .value("claimed_at")
+                .isNotNull();
     }
 
     // ========================================================================
@@ -302,14 +366,22 @@ class PhaseLifecycleJobRepositoryDaoIT {
                 dataSource,
                 "phase_lifecycle_job",
                 java.util.Map.of(
-                        "id", jobId,
-                        "tournament_id", TOURNAMENT_A,
-                        "phase_id", phaseId,
-                        "game_mode", "standard",
-                        "sequence", 1,
-                        "status", "RUNNING",
-                        "claimed_by", "worker-original",
-                        "cancelled", false));
+                        "id",
+                        jobId,
+                        "tournament_id",
+                        TOURNAMENT_A,
+                        "phase_id",
+                        phaseId,
+                        "game_mode",
+                        "standard",
+                        "sequence",
+                        1,
+                        "status",
+                        "RUNNING",
+                        "claimed_by",
+                        "worker-original",
+                        "cancelled",
+                        false));
 
         // WHEN: another worker tries to claim
         boolean claimed = repository.tryClaim(jobId, "worker-2");
@@ -321,9 +393,11 @@ class PhaseLifecycleJobRepositoryDaoIT {
         Table table = assertDb.table("phase_lifecycle_job").build();
         assertThat(table)
                 .row(0)
-                .value("status").isEqualTo("RUNNING")
+                .value("status")
+                .isEqualTo("RUNNING")
                 .row(0)
-                .value("claimed_by").isEqualTo("worker-original");
+                .value("claimed_by")
+                .isEqualTo("worker-original");
     }
 
     // ========================================================================
@@ -372,9 +446,11 @@ class PhaseLifecycleJobRepositoryDaoIT {
         String winner = resultA ? "worker-A" : "worker-B";
         assertThat(table)
                 .row(0)
-                .value("status").isEqualTo("RUNNING")
+                .value("status")
+                .isEqualTo("RUNNING")
                 .row(0)
-                .value("claimed_by").isEqualTo(winner);
+                .value("claimed_by")
+                .isEqualTo(winner);
     }
 
     // ========================================================================
@@ -449,24 +525,38 @@ class PhaseLifecycleJobRepositoryDaoIT {
                 dataSource,
                 "phase_lifecycle_job",
                 java.util.Map.of(
-                        "id", jobAId,
-                        "tournament_id", TOURNAMENT_A,
-                        "phase_id", phaseA,
-                        "game_mode", "standard",
-                        "sequence", 5,
-                        "status", "PENDING",
-                        "cancelled", false));
+                        "id",
+                        jobAId,
+                        "tournament_id",
+                        TOURNAMENT_A,
+                        "phase_id",
+                        phaseA,
+                        "game_mode",
+                        "standard",
+                        "sequence",
+                        5,
+                        "status",
+                        "PENDING",
+                        "cancelled",
+                        false));
         PhaseLifecycleDaoTestSupport.insertDirectly(
                 dataSource,
                 "phase_lifecycle_job",
                 java.util.Map.of(
-                        "id", jobBId,
-                        "tournament_id", TOURNAMENT_B,
-                        "phase_id", phaseB,
-                        "game_mode", "standard",
-                        "sequence", 1,
-                        "status", "PENDING",
-                        "cancelled", false));
+                        "id",
+                        jobBId,
+                        "tournament_id",
+                        TOURNAMENT_B,
+                        "phase_id",
+                        phaseB,
+                        "game_mode",
+                        "standard",
+                        "sequence",
+                        1,
+                        "status",
+                        "PENDING",
+                        "cancelled",
+                        false));
 
         // WHEN: query for tournament A
         Optional<UUID> nextForA = repository.findNextPendingJobIdForTournament(TOURNAMENT_A);
@@ -483,10 +573,12 @@ class PhaseLifecycleJobRepositoryDaoIT {
     void tryClaim_nonExistentJobId_returnsFalse_noException() {
         UUID nonExistent = UUID.randomUUID();
         // WHEN / THEN: no exception; returns false
-        assertThatCode(() -> {
-            boolean result = repository.tryClaim(nonExistent, "worker-1");
-            assertThat(result).isFalse();
-        }).doesNotThrowAnyException();
+        assertThatCode(
+                        () -> {
+                            boolean result = repository.tryClaim(nonExistent, "worker-1");
+                            assertThat(result).isFalse();
+                        })
+                .doesNotThrowAnyException();
     }
 
     // ========================================================================
@@ -503,13 +595,20 @@ class PhaseLifecycleJobRepositoryDaoIT {
                 dataSource,
                 "phase_lifecycle_job",
                 java.util.Map.of(
-                        "id", jobId,
-                        "tournament_id", TOURNAMENT_A,
-                        "phase_id", phaseId,
-                        "game_mode", "standard",
-                        "sequence", 1,
-                        "status", "PENDING",
-                        "cancelled", false));
+                        "id",
+                        jobId,
+                        "tournament_id",
+                        TOURNAMENT_A,
+                        "phase_id",
+                        phaseId,
+                        "game_mode",
+                        "standard",
+                        "sequence",
+                        1,
+                        "status",
+                        "PENDING",
+                        "cancelled",
+                        false));
 
         // WHEN: markCompleted on a non-RUNNING row
         // THEN: no exception (no-op + WARN contract per E55S02)
@@ -539,13 +638,17 @@ class PhaseLifecycleJobRepositoryDaoIT {
         assertThat(table)
                 .hasNumberOfRows(1)
                 .row(0)
-                .value("tournament_id").isEqualTo(TOURNAMENT_A)
+                .value("tournament_id")
+                .isEqualTo(TOURNAMENT_A)
                 .row(0)
-                .value("phase_id").isEqualTo(phaseId)
+                .value("phase_id")
+                .isEqualTo(phaseId)
                 .row(0)
-                .value("status").isEqualTo("PENDING")
+                .value("status")
+                .isEqualTo("PENDING")
                 .row(0)
-                .value("cancelled").isEqualTo(false);
+                .value("cancelled")
+                .isEqualTo(false);
     }
 
     @Test
@@ -559,14 +662,22 @@ class PhaseLifecycleJobRepositoryDaoIT {
                 dataSource,
                 "phase_lifecycle_job",
                 java.util.Map.of(
-                        "id", jobId,
-                        "tournament_id", TOURNAMENT_A,
-                        "phase_id", phaseId,
-                        "game_mode", "standard",
-                        "sequence", 1,
-                        "status", "RUNNING",
-                        "claimed_by", "worker-1",
-                        "cancelled", false));
+                        "id",
+                        jobId,
+                        "tournament_id",
+                        TOURNAMENT_A,
+                        "phase_id",
+                        phaseId,
+                        "game_mode",
+                        "standard",
+                        "sequence",
+                        1,
+                        "status",
+                        "RUNNING",
+                        "claimed_by",
+                        "worker-1",
+                        "cancelled",
+                        false));
 
         // WHEN
         repository.markCompleted(jobId);
@@ -575,9 +686,11 @@ class PhaseLifecycleJobRepositoryDaoIT {
         Table table = assertDb.table("phase_lifecycle_job").build();
         assertThat(table)
                 .row(0)
-                .value("status").isEqualTo("COMPLETED")
+                .value("status")
+                .isEqualTo("COMPLETED")
                 .row(0)
-                .value("completed_at").isNotNull();
+                .value("completed_at")
+                .isNotNull();
     }
 
     @Test
@@ -590,14 +703,22 @@ class PhaseLifecycleJobRepositoryDaoIT {
                 dataSource,
                 "phase_lifecycle_job",
                 java.util.Map.of(
-                        "id", jobId,
-                        "tournament_id", TOURNAMENT_A,
-                        "phase_id", phaseId,
-                        "game_mode", "standard",
-                        "sequence", 1,
-                        "status", "RUNNING",
-                        "claimed_by", "worker-1",
-                        "cancelled", false));
+                        "id",
+                        jobId,
+                        "tournament_id",
+                        TOURNAMENT_A,
+                        "phase_id",
+                        phaseId,
+                        "game_mode",
+                        "standard",
+                        "sequence",
+                        1,
+                        "status",
+                        "RUNNING",
+                        "claimed_by",
+                        "worker-1",
+                        "cancelled",
+                        false));
 
         // WHEN
         repository.markCancelled(jobId);
@@ -606,9 +727,11 @@ class PhaseLifecycleJobRepositoryDaoIT {
         Table table = assertDb.table("phase_lifecycle_job").build();
         assertThat(table)
                 .row(0)
-                .value("cancelled").isEqualTo(true)
+                .value("cancelled")
+                .isEqualTo(true)
                 .row(0)
-                .value("status").isEqualTo("RUNNING");
+                .value("status")
+                .isEqualTo("RUNNING");
     }
 
     @Test
@@ -633,25 +756,40 @@ class PhaseLifecycleJobRepositoryDaoIT {
                 dataSource,
                 "phase_lifecycle_job",
                 java.util.Map.of(
-                        "id", runningJobId,
-                        "tournament_id", TOURNAMENT_A,
-                        "phase_id", phase1,
-                        "game_mode", "standard",
-                        "sequence", 1,
-                        "status", "RUNNING",
-                        "claimed_by", "worker-1",
-                        "cancelled", false));
+                        "id",
+                        runningJobId,
+                        "tournament_id",
+                        TOURNAMENT_A,
+                        "phase_id",
+                        phase1,
+                        "game_mode",
+                        "standard",
+                        "sequence",
+                        1,
+                        "status",
+                        "RUNNING",
+                        "claimed_by",
+                        "worker-1",
+                        "cancelled",
+                        false));
         PhaseLifecycleDaoTestSupport.insertDirectly(
                 dataSource,
                 "phase_lifecycle_job",
                 java.util.Map.of(
-                        "id", pendingJobId,
-                        "tournament_id", TOURNAMENT_A,
-                        "phase_id", phase2,
-                        "game_mode", "standard",
-                        "sequence", 2,
-                        "status", "PENDING",
-                        "cancelled", false));
+                        "id",
+                        pendingJobId,
+                        "tournament_id",
+                        TOURNAMENT_A,
+                        "phase_id",
+                        phase2,
+                        "game_mode",
+                        "standard",
+                        "sequence",
+                        2,
+                        "status",
+                        "PENDING",
+                        "cancelled",
+                        false));
 
         // WHEN
         Optional<UUID> result = repository.findNextPendingJobIdForTournament(TOURNAMENT_A);

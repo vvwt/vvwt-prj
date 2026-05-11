@@ -64,15 +64,16 @@ import org.junit.jupiter.api.io.TempDir;
 class FlywayV1BaselineIT {
 
     /**
-     * AC12 (updated E51S01): Fresh tenant bootstrap produces exactly one migration row (version
-     * {@code 1}) in {@code flyway_schema_history_tenant} and rows [1, 2, 3] in {@code
+     * AC12 (updated E55S02): Fresh tenant bootstrap produces exactly one migration row (version
+     * {@code 1}) in {@code flyway_schema_history_tenant} and rows [1, 2, 3, 4] in {@code
      * flyway_schema_history_tournament}.
      *
      * <p>Tenant history: FAILs before E46S06 consolidation (V2 rows present → [1, 2]). PASSes after
      * E46S06 consolidation (V2 files deleted → [1]).
      *
      * <p>Tournament history: [1, 2] after E49S01 (V2__device_pin_fail_count). [1, 2, 3] after
-     * E51S01 (V3__phase_preparation_background_job_pipeline — DEC-55 schema deltas).
+     * E51S01 (V3__phase_preparation_background_job_pipeline — DEC-55 schema deltas). [1, 2, 3, 4]
+     * after E55S02 (V4__phase_lifecycle_job — DEC-64 D-4 job queue).
      */
     @Test
     void freshTenantBootstrap_tenantAndTournamentModules_haveExactlyOneSchemaHistoryRowEach(
@@ -105,12 +106,13 @@ class FlywayV1BaselineIT {
         // E51S01: V3__phase_preparation_background_job_pipeline.sql adds DEC-55 schema deltas
         //         (team_avatar.team_id nullable, tournament.optimize, phase.optimized,
         //          phase.last_job_state, FK ON DELETE CASCADE).
-        // Tournament history now contains ["1", "2", "3"].
+        // E55S02: V4__phase_lifecycle_job.sql adds phase_lifecycle_job queue table (DEC-64 D-4).
+        // Tournament history now contains ["1", "2", "3", "4"].
         assertThat(tournamentVersions)
                 .as(
-                        "flyway_schema_history_tournament must contain migration rows [1, 2, 3]"
-                                + " after E51S01 (V3__phase_preparation_background_job_pipeline)")
-                .containsExactly("1", "2", "3");
+                        "flyway_schema_history_tournament must contain migration rows [1, 2, 3, 4]"
+                                + " after E55S02 (V4__phase_lifecycle_job)")
+                .containsExactly("1", "2", "3", "4");
     }
 
     /**

@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import de.vvwt.tm.phaselifecycle.internal.DefaultCancelFlagRegistry;
 import de.vvwt.tm.phaselifecycle.internal.DefaultJobDrainService;
-import de.vvwt.tm.phaselifecycle.internal.DefaultPhaseLifecycleJobRepository;
 import de.vvwt.tm.phaselifecycle.internal.DefaultPhaseLifecycleOrchestrator;
 import de.vvwt.tm.phaselifecycle.internal.DefaultWorkerRegistry;
 import java.util.UUID;
@@ -40,16 +39,9 @@ class PlaceholderImplFailFastTest {
                 .hasMessageContaining("E55S04");
     }
 
-    @Test
-    void defaultPhaseLifecycleJobRepositoryThrowsUnsupported() {
-        // E55S02 adds DataSource constructor (required by DAO IT RED-first pattern).
-        // Passing null DataSource is safe at this stage: placeholder methods throw
-        // UnsupportedOperationException without ever accessing the DataSource field.
-        var impl = new DefaultPhaseLifecycleJobRepository(null);
-        assertThatThrownBy(() -> impl.findNextPendingJobIdForTournament(ANY_ID))
-                .isInstanceOf(UnsupportedOperationException.class)
-                .hasMessageContaining("E55S02");
-    }
+    // NOTE (E55S02): defaultPhaseLifecycleJobRepositoryThrowsUnsupported was removed.
+    // DefaultPhaseLifecycleJobRepository is now fully implemented (E55S02 GREEN).
+    // Its DAO integration tests live in PhaseLifecycleJobRepositoryDaoIT.
 
     @Test
     void defaultWorkerRegistryThrowsUnsupported() {
