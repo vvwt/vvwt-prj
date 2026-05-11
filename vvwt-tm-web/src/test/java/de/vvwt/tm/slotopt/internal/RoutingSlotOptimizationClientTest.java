@@ -107,7 +107,8 @@ class RoutingSlotOptimizationClientTest {
                 reachabilityMock,
                 dispatcherClientMock,
                 applicatorMock,
-                EXHAUSTIVE_MAX_N_PROD);
+                EXHAUSTIVE_MAX_N_PROD,
+                "mean"); // E54S07: default scorer (DEC-63 Clause C)
     }
 
     // =========================================================================
