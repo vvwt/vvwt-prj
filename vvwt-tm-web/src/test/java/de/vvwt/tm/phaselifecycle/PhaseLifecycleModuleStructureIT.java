@@ -9,7 +9,8 @@ import org.springframework.modulith.core.ApplicationModules;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * Module-structure IT for the {@code phaselifecycle} bounded context — AC-TEST-APPLICATION-MODULES-VERIFY-GREEN-RED.
+ * Module-structure IT for the {@code phaselifecycle} bounded context —
+ * AC-TEST-APPLICATION-MODULES-VERIFY-GREEN-RED.
  *
  * <p>RED-first per DEC-22 Iron Law Pattern B (new code). The RED commit is authored before the
  * {@code de.vvwt.tm.phaselifecycle} package-info.java exists. At RED time, {@code
@@ -32,21 +33,22 @@ import org.springframework.test.context.ActiveProfiles;
  * @since E55S01
  */
 @SpringBootTest(
-    classes = TournamentManagerApplication.class,
-    webEnvironment = SpringBootTest.WebEnvironment.NONE)
+        classes = TournamentManagerApplication.class,
+        webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles("test")
 class PhaseLifecycleModuleStructureIT {
 
-  @Test
-  void verifiesApplicationModulesIncludingPhaseLifecycle() {
-    ApplicationModules modules = ApplicationModules.of(TournamentManagerApplication.class);
-    modules.verify();
-    assertThat(modules.getModuleByName("phaselifecycle"))
-        .as(
-            "The phaselifecycle module must be discovered by ApplicationModules.verify(). "
-                + "RED state: package-info.java missing → module not found. "
-                + "GREEN state: package-info.java with @ApplicationModule(allowedDependencies = "
-                + "{\"tournament\", \"slotopt\", \"tenant\"}) exists.")
-        .isPresent();
-  }
+    @Test
+    void verifiesApplicationModulesIncludingPhaseLifecycle() {
+        ApplicationModules modules = ApplicationModules.of(TournamentManagerApplication.class);
+        modules.verify();
+        assertThat(modules.getModuleByName("phaselifecycle"))
+                .as(
+                        "The phaselifecycle module must be discovered by"
+                            + " ApplicationModules.verify(). RED state: package-info.java missing →"
+                            + " module not found. GREEN state: package-info.java with"
+                            + " @ApplicationModule(allowedDependencies = {\"tournament\","
+                            + " \"slotopt\", \"tenant\"}) exists.")
+                .isPresent();
+    }
 }

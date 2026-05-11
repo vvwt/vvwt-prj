@@ -29,47 +29,47 @@ import org.springframework.test.context.ActiveProfiles;
  *
  * <h2>DEC-58 compliance</h2>
  *
- * <p>This IT acts as the machine-checkable DEC-58 interface-mandate compliance smoke test for all
- * 5 beans in the {@code phaselifecycle} module: each interface ({@code Default*} impl) must be
+ * <p>This IT acts as the machine-checkable DEC-58 interface-mandate compliance smoke test for all 5
+ * beans in the {@code phaselifecycle} module: each interface ({@code Default*} impl) must be
  * discoverable as a Spring bean and auto-wirable by interface type.
  *
- * <p>Authorizing decisions: DEC-35 (interface-in-module-root), DEC-44 (IT annotation — NONE), DEC-58
- * (universal interface mandate), DEC-64 D-14 (five bean enumeration).
+ * <p>Authorizing decisions: DEC-35 (interface-in-module-root), DEC-44 (IT annotation — NONE),
+ * DEC-58 (universal interface mandate), DEC-64 D-14 (five bean enumeration).
  *
  * @since E55S01
  */
 @SpringBootTest(
-    classes = TournamentManagerApplication.class,
-    webEnvironment = SpringBootTest.WebEnvironment.NONE)
+        classes = TournamentManagerApplication.class,
+        webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles("test")
 class PhaseLifecycleInterfacesIT {
 
-  @Autowired PhaseLifecycleOrchestrator phaseLifecycleOrchestrator;
+    @Autowired PhaseLifecycleOrchestrator phaseLifecycleOrchestrator;
 
-  @Autowired PhaseLifecycleJobRepository phaseLifecycleJobRepository;
+    @Autowired PhaseLifecycleJobRepository phaseLifecycleJobRepository;
 
-  @Autowired WorkerRegistry workerRegistry;
+    @Autowired WorkerRegistry workerRegistry;
 
-  @Autowired JobDrainService jobDrainService;
+    @Autowired JobDrainService jobDrainService;
 
-  @Autowired CancelFlagRegistry cancelFlagRegistry;
+    @Autowired CancelFlagRegistry cancelFlagRegistry;
 
-  @Test
-  void allFiveInterfacesAreSpringDiscoverable() {
-    assertThat(phaseLifecycleOrchestrator)
-        .as("PhaseLifecycleOrchestrator must be auto-wirable (DEC-58, DEC-64 D-14)")
-        .isNotNull();
-    assertThat(phaseLifecycleJobRepository)
-        .as("PhaseLifecycleJobRepository must be auto-wirable (DEC-58, DEC-64 D-14)")
-        .isNotNull();
-    assertThat(workerRegistry)
-        .as("WorkerRegistry must be auto-wirable (DEC-58, DEC-64 D-14)")
-        .isNotNull();
-    assertThat(jobDrainService)
-        .as("JobDrainService must be auto-wirable (DEC-58, DEC-64 D-14)")
-        .isNotNull();
-    assertThat(cancelFlagRegistry)
-        .as("CancelFlagRegistry must be auto-wirable (DEC-58, DEC-64 D-14)")
-        .isNotNull();
-  }
+    @Test
+    void allFiveInterfacesAreSpringDiscoverable() {
+        assertThat(phaseLifecycleOrchestrator)
+                .as("PhaseLifecycleOrchestrator must be auto-wirable (DEC-58, DEC-64 D-14)")
+                .isNotNull();
+        assertThat(phaseLifecycleJobRepository)
+                .as("PhaseLifecycleJobRepository must be auto-wirable (DEC-58, DEC-64 D-14)")
+                .isNotNull();
+        assertThat(workerRegistry)
+                .as("WorkerRegistry must be auto-wirable (DEC-58, DEC-64 D-14)")
+                .isNotNull();
+        assertThat(jobDrainService)
+                .as("JobDrainService must be auto-wirable (DEC-58, DEC-64 D-14)")
+                .isNotNull();
+        assertThat(cancelFlagRegistry)
+                .as("CancelFlagRegistry must be auto-wirable (DEC-58, DEC-64 D-14)")
+                .isNotNull();
+    }
 }

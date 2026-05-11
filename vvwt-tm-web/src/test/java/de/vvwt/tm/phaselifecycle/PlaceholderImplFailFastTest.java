@@ -30,45 +30,45 @@ import org.junit.jupiter.api.Test;
  */
 class PlaceholderImplFailFastTest {
 
-  private static final UUID ANY_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+    private static final UUID ANY_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
-  @Test
-  void defaultPhaseLifecycleOrchestratorThrowsUnsupported() {
-    var impl = new DefaultPhaseLifecycleOrchestrator();
-    assertThatThrownBy(() -> impl.tick(ANY_ID))
-        .isInstanceOf(UnsupportedOperationException.class)
-        .hasMessageContaining("E55S04");
-  }
+    @Test
+    void defaultPhaseLifecycleOrchestratorThrowsUnsupported() {
+        var impl = new DefaultPhaseLifecycleOrchestrator();
+        assertThatThrownBy(() -> impl.tick(ANY_ID))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessageContaining("E55S04");
+    }
 
-  @Test
-  void defaultPhaseLifecycleJobRepositoryThrowsUnsupported() {
-    var impl = new DefaultPhaseLifecycleJobRepository();
-    assertThatThrownBy(() -> impl.findNextPendingJobIdForTournament(ANY_ID))
-        .isInstanceOf(UnsupportedOperationException.class)
-        .hasMessageContaining("E55S02");
-  }
+    @Test
+    void defaultPhaseLifecycleJobRepositoryThrowsUnsupported() {
+        var impl = new DefaultPhaseLifecycleJobRepository();
+        assertThatThrownBy(() -> impl.findNextPendingJobIdForTournament(ANY_ID))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessageContaining("E55S02");
+    }
 
-  @Test
-  void defaultWorkerRegistryThrowsUnsupported() {
-    var impl = new DefaultWorkerRegistry();
-    assertThatThrownBy(() -> impl.getOrCreate(ANY_ID))
-        .isInstanceOf(UnsupportedOperationException.class)
-        .hasMessageContaining("E55S03");
-  }
+    @Test
+    void defaultWorkerRegistryThrowsUnsupported() {
+        var impl = new DefaultWorkerRegistry();
+        assertThatThrownBy(() -> impl.getOrCreate(ANY_ID))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessageContaining("E55S03");
+    }
 
-  @Test
-  void defaultJobDrainServiceThrowsUnsupported() {
-    var impl = new DefaultJobDrainService();
-    assertThatThrownBy(() -> impl.drainNext(ANY_ID))
-        .isInstanceOf(UnsupportedOperationException.class)
-        .hasMessageContaining("E55S04");
-  }
+    @Test
+    void defaultJobDrainServiceThrowsUnsupported() {
+        var impl = new DefaultJobDrainService();
+        assertThatThrownBy(() -> impl.drainNext(ANY_ID))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessageContaining("E55S04");
+    }
 
-  @Test
-  void defaultCancelFlagRegistryThrowsUnsupported() {
-    var impl = new DefaultCancelFlagRegistry();
-    assertThatThrownBy(() -> impl.requestCancel(ANY_ID))
-        .isInstanceOf(UnsupportedOperationException.class)
-        .hasMessageContaining("E55S05");
-  }
+    @Test
+    void defaultCancelFlagRegistryThrowsUnsupported() {
+        var impl = new DefaultCancelFlagRegistry();
+        assertThatThrownBy(() -> impl.requestCancel(ANY_ID))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessageContaining("E55S05");
+    }
 }
