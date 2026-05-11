@@ -53,6 +53,12 @@ public interface PhaseLifecycleJobRepository {
      * Marks the job as successfully completed ({@code status='COMPLETED'}, sets {@code
      * completed_at}).
      *
+     * <p><b>Contract when job is not {@code RUNNING} (chosen contract per E55S02
+     * AC-ERROR-HANDLING-MARK-COMPLETED-NOT-RUNNING, option b):</b> if the row's status is not
+     * {@code 'RUNNING'}, this method is a no-op and logs a WARN. No exception is thrown. Rationale:
+     * restart-recovery scenarios may cause duplicate {@code markCompleted} calls on an already
+     * {@code COMPLETED} row; a no-op is safer than an exception that would interrupt recovery.
+     *
      * @param jobId the claimed row id
      */
     void markCompleted(UUID jobId);
