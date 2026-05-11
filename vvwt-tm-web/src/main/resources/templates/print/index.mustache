@@ -23,6 +23,9 @@
     msgLaufzettelLink     — link label (i18n)
     msgFotosLink          — link label (i18n)
     appVersion            — application version string
+    hasTeamLinks          — boolean: true when at least one per-team laufzettel link is available (E08S10)
+    msgTeamLinksHeading   — section heading for per-team laufzettel links (E08S10)
+    teamLinks             — list of {teamNumber, teamName, url} maps (E08S10); present only when hasTeamLinks
 -->
 <!DOCTYPE html>
 <html lang="{{locale}}">
@@ -45,6 +48,13 @@
         <li><a href="{{laufzettelUrl}}">{{msgLaufzettelLink}}</a></li>
         {{#fotosUrl}}<li><a href="{{fotosUrl}}">{{msgFotosLink}}</a></li>{{/fotosUrl}}
     </ul>
+    {{! E08S10 AC-INDEX-TEAM-LINKS: per-team laufzettel section }}
+    {{#hasTeamLinks}}
+    <h3>{{msgTeamLinksHeading}}</h3>
+    <ul>
+        {{#teamLinks}}<li><a href="{{url}}">{{teamNumber}} — {{teamName}}</a></li>{{/teamLinks}}
+    </ul>
+    {{/hasTeamLinks}}
     {{/linksAvailable}}
     {{^linksAvailable}}
     <p class="print-empty-state">{{noActivePhaseMessage}}</p>

@@ -3,9 +3,18 @@
 
   E08S08 AC2, AC12, AC14:
   - Renders all teams' Laufzettel in team-number order.
-  - CSS page breaks are inserted between teams (AC12) via the showPageBreak flag.
   - Organizer prints this single page to get all schedules at once (AC2).
   - Time column controlled by hasTime per team schedule.
+
+  E08S10 changes:
+  - Removed forced page-break partial between team-sections (AC-NO-FORCED-PAGE-BREAK-SOURCE).
+    Multi-team-per-page packing now relies on CSS: page-break-inside:avoid on each team-section
+    combined with the :not(:first-of-type) border-top separator rule in print.css.
+  - PLAYING row: aligned with laufzettel.mustache (AC-PLAYING-COPY-ALL-TEAMS):
+    msgPlayingVs + space + opponentName — resolved from parent model context (jmustache fallback).
+  - REFEREEING row: aligned with laufzettel.mustache (AC-REFEREEING-COPY-ALL-TEAMS):
+    msgReferee + colon (literal) + refereeMatchTeamA + msgVs + refereeMatchTeamB.
+    Colon is template-literal (not in msgReferee i18n value).
 
   Required model attributes (all set by PrintController):
     tournamentName, tournamentDate, phaseName, msgTournamentLabel,
@@ -14,9 +23,11 @@
     heading   — page heading
     schedules — list of per-team schedule maps:
       each: teamNumber, teamName, heading, hasTime,
-            showPageBreak, rows (same format as laufzettel.mustache)
+            showPageBreak (dead field — page-break partial removed; kept for back-compat),
+            rows (same format as laufzettel.mustache)
     msgColRound, msgColTime, msgColActivity, msgColField
     msgReferee, msgFree, msgBreak
+    msgPlayingVs, msgVs  — resolved from parent model context (populateLaufzettelI18n)
 -->
 <!DOCTYPE html>
 <html lang="{{locale}}">
@@ -31,7 +42,6 @@
 {{> print-header}}
 
 {{#schedules}}
-{{#showPageBreak}}{{> print-page-break}}{{/showPageBreak}}
 
 <section class="laufzettel-team-section">
     <h2 class="laufzettel-team-heading">{{heading}}{{#teamName}} — {{teamName}}{{/teamName}}</h2>
@@ -64,7 +74,7 @@
                 <td class="laufzettel-col-round">{{roundNumber}}</td>
                 {{#timeWindow}}<td class="laufzettel-col-time">{{timeWindow}}</td>{{/timeWindow}}
                 {{^timeWindow}}<td class="laufzettel-col-time"></td>{{/timeWindow}}
-                <td class="laufzettel-col-activity">{{opponentName}}</td>
+                <td class="laufzettel-col-activity">{{msgPlayingVs}} {{opponentName}}</td>
                 <td class="laufzettel-col-field">{{fieldNumber}}</td>
             </tr>
             {{/isPlaying}}
@@ -73,7 +83,7 @@
                 <td class="laufzettel-col-round">{{roundNumber}}</td>
                 {{#timeWindow}}<td class="laufzettel-col-time">{{timeWindow}}</td>{{/timeWindow}}
                 {{^timeWindow}}<td class="laufzettel-col-time"></td>{{/timeWindow}}
-                <td class="laufzettel-col-activity">{{msgReferee}}</td>
+                <td class="laufzettel-col-activity">{{msgReferee}}: {{refereeMatchTeamA}} {{msgVs}} {{refereeMatchTeamB}}</td>
                 <td class="laufzettel-col-field">{{fieldNumber}}</td>
             </tr>
             {{/isRefereeing}}

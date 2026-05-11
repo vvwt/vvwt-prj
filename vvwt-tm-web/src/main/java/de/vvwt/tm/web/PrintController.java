@@ -227,6 +227,30 @@ public class PrintController {
         }
         // AC-TEST-PHOTO-EDGE-ZERO-CANDIDATES-RED: if no photo type, fotosUrl absent (link hidden)
 
+        // E08S10 AC-INDEX-TEAM-LINKS: per-team laufzettel links section
+        List<Team> teams = new ArrayList<>(teamRepository.findByTournamentId(tid));
+        teams.sort(Comparator.comparingInt(Team::getTeamNumber));
+        if (!teams.isEmpty()) {
+            List<Map<String, Object>> teamLinks = new ArrayList<>();
+            for (Team team : teams) {
+                Map<String, Object> linkMap = new LinkedHashMap<>();
+                linkMap.put("teamNumber", team.getTeamNumber());
+                linkMap.put("teamName", team.getDescription() != null ? team.getDescription() : "");
+                linkMap.put("url", "/print/tournaments/" + tid + "/team-schedules/" + team.getId());
+                teamLinks.add(linkMap);
+            }
+            model.addAttribute("hasTeamLinks", true);
+            model.addAttribute("teamLinks", teamLinks);
+            model.addAttribute(
+                    "msgTeamLinksHeading",
+                    msg(
+                            "print.index.label.individual-team-schedules",
+                            "Laufzettel pro Mannschaft",
+                            locale));
+        } else {
+            model.addAttribute("hasTeamLinks", false);
+        }
+
         return "print/index";
     }
 
