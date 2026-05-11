@@ -224,21 +224,22 @@ class LapOffsetCollapseRegressionIT {
      *
      * <h3>Empirical threshold derivation (AC-METHODOLOGY-EMPIRICAL-THRESHOLD)</h3>
      *
-     * <p>Threshold {@code X = 7.0} was empirically grounded via 5 fresh runs of the L1+L2+L3
-     * pipeline on 12T/2G/3F (H2 in-memory, exhaustive-max-n=10, random UUID avatar ordering):
+     * <p>Threshold {@code X = 1.5} was empirically grounded via 3 fresh runs of the L1+L2+L3
+     * pipeline on 12T/2G/3F (H2 in-memory, exhaustive-max-n=10) after the E54S12 fix (activeMatrix
+     * built from denseIdsByRawRow, original lap order):
      *
      * <ul>
-     *   <li>Run 1: STDDEV = 5.8452 — multiset {8,9,12,12,16,16,16,18,24,24,24,25}
-     *   <li>Run 2: STDDEV = 5.8452 — same multiset, different avatar-to-UUID assignment
-     *   <li>Run 3: STDDEV = 5.8452 — same multiset
-     *   <li>Run 4: STDDEV = 5.8452 — same multiset
-     *   <li>Run 5: STDDEV = 5.8452 — same multiset
+     *   <li>Run 1: STDDEV = 1.2472 — products=[6,6,4,4,6,4,6,4,4,4,2,6] (MEAN=4.6667)
+     *   <li>Run 2: STDDEV = 1.2472 — same multiset
+     *   <li>Run 3: STDDEV = 1.2472 — same multiset
      * </ul>
      *
-     * <p>All 5/5 runs produced STDDEV = 5.8452. The algorithm is structurally deterministic: the
-     * exhaustive permutation search always finds the same optimal lap-assignment structure
-     * (independent of avatar UUID ordering). Threshold 7.0 provides ~20% safety margin above the
-     * observed value (5.8452 → 7.0).
+     * <p>All 3/3 runs produced STDDEV = 1.2472. Algorithm is structurally deterministic per DEC-49
+     * D-3. Threshold 1.5 provides ~20% safety margin (1.2472 * 1.20 ≈ 1.497 → 1.5).
+     *
+     * <p>Pre-E54S12 (canonical-row-order bug): empirical STDDEV was 5.8452 (threshold 7.0). The
+     * E54S12 fix reduces STDDEV from 5.8452 to 1.2472, confirming the sub-optimal permutation bug
+     * is resolved.
      *
      * <h3>DEC-22 RED-first note</h3>
      *
@@ -278,16 +279,17 @@ class LapOffsetCollapseRegressionIT {
         variance /= runProducts.length;
         double stddev = Math.sqrt(variance);
 
-        // Empirical threshold: observed STDDEV = 5.8452 across 5 runs; X = 7.0 (~20% safety margin)
-        // Threshold: STDDEV(per-avatar run-length-products) ≤ 7.0
+        // Empirical threshold (post-E54S12): observed STDDEV = 1.2472 across 3 runs; X = 1.5
+        // (~20% safety margin). Pre-E54S12 bug produced STDDEV = 5.8452 (threshold 7.0).
+        // Threshold: STDDEV(per-avatar run-length-products) <= 1.5
         assertThat(stddev)
                 .as(
-                        "AC-TEST-BALANCE-METRIC-IT-RED (E54S09): STDDEV of per-avatar"
-                                + " run-length-products must be ≤ 7.0 (empirical: 5.8452 across 5"
-                                + " fresh runs; 20% safety margin). Actual STDDEV=%.4f, MEAN=%.4f,"
-                                + " products=%s",
-                        stddev, mean, java.util.Arrays.toString(runProducts))
-                .isLessThanOrEqualTo(7.0);
+                        "AC-TEST-BALANCE-METRIC-IT-RED (E54S09, recalibrated E54S12): STDDEV of"
+                                + " per-avatar run-length-products must be <= 1.5 (empirical:"
+                                + " 1.2472 across 3 fresh runs post-E54S12 fix; 20%% safety"
+                                + " margin). Actual STDDEV=%.4f MEAN=%.4f",
+                        stddev, mean)
+                .isLessThanOrEqualTo(1.5);
     }
 
     /**
