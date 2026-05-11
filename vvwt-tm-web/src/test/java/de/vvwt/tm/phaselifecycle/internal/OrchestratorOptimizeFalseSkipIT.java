@@ -6,12 +6,11 @@ import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.phaselifecycle.JobDrainService;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJob;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJobRepository;
+import de.vvwt.tm.slotopt.SlotOptimizationClient;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import javax.sql.DataSource;
-import org.assertj.db.type.AssertDbConnection;
-import org.assertj.db.type.AssertDbConnectionFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -24,21 +23,20 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import de.vvwt.tm.slotopt.SlotOptimizationClient;
 
 /**
  * RED-first IT for optimize=false L3-skip — AC-TEST-OPTIMIZE-FALSE-SKIP-SLOTOPT-RED.
  *
- * <p>DEC-22 Iron Law: RED before GREEN. At RED time, {@code drainNext()} throws
- * {@code UnsupportedOperationException}. GREEN state: roundRobin phase with optimize=FALSE has
- * matches with non-null lap+field (L1+L2 ran), phase.optimized=FALSE, SlotOpt NOT invoked.
+ * <p>DEC-22 Iron Law: RED before GREEN. At RED time, {@code drainNext()} throws {@code
+ * UnsupportedOperationException}. GREEN state: roundRobin phase with optimize=FALSE has matches
+ * with non-null lap+field (L1+L2 ran), phase.optimized=FALSE, SlotOpt NOT invoked.
  *
- * <p>Per DEC-56 D-1 amendment: L1+L2 always run regardless of {@code tournament.optimize}.
- * Only L3 is skipped when {@code optimize=false}. Matches therefore have {@code lapNumber}
- * and {@code fieldNumber} set from L2's deterministic baseline assignment.
+ * <p>Per DEC-56 D-1 amendment: L1+L2 always run regardless of {@code tournament.optimize}. Only L3
+ * is skipped when {@code optimize=false}. Matches therefore have {@code lapNumber} and {@code
+ * fieldNumber} set from L2's deterministic baseline assignment.
  *
- * <p>Authorizing decisions: DEC-22 (RED-first), DEC-44, DEC-55 D-5 (amended by DEC-56),
- * DEC-56 D-1, DEC-64 D-12.
+ * <p>Authorizing decisions: DEC-22 (RED-first), DEC-44, DEC-55 D-5 (amended by DEC-56), DEC-56 D-1,
+ * DEC-64 D-12.
  *
  * @since E55S04
  */
@@ -54,7 +52,9 @@ import de.vvwt.tm.slotopt.SlotOptimizationClient;
 @DisplayName("OrchestratorOptimizeFalseSkipIT — AC-TEST-OPTIMIZE-FALSE-SKIP-SLOTOPT-RED (E55S04)")
 class OrchestratorOptimizeFalseSkipIT {
 
-    /** Spy that throws AssertionError if called — SlotOpt must NOT be invoked when optimize=false. */
+    /**
+     * Spy that throws AssertionError if called — SlotOpt must NOT be invoked when optimize=false.
+     */
     @TestConfiguration
     static class SlotOptConfig {
         @Bean("routingSlotOptimizationClient")
@@ -74,14 +74,12 @@ class OrchestratorOptimizeFalseSkipIT {
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private DataSource dataSource;
 
-    private AssertDbConnection assertDb;
     private UUID locationId;
     private UUID tournamentId;
     private UUID phaseId;
 
     @BeforeEach
     void setUp() {
-        assertDb = AssertDbConnectionFactory.of(dataSource).create();
         tenantBinder.bindDefaultTenant();
 
         locationId = UUID.randomUUID();
@@ -107,7 +105,7 @@ class OrchestratorOptimizeFalseSkipIT {
                 LocalDateTime.now(),
                 2,
                 4,
-                false);  // optimize=FALSE → skip L3
+                false); // optimize=FALSE → skip L3
 
         phaseId = UUID.randomUUID();
         jdbcTemplate.update(
@@ -157,7 +155,8 @@ class OrchestratorOptimizeFalseSkipIT {
                     "DELETE FROM match WHERE phase_id IN"
                             + " (SELECT id FROM phase WHERE tournament_id = ?)",
                     tournamentId);
-            jdbcTemplate.update("DELETE FROM phase_lifecycle_job WHERE tournament_id = ?", tournamentId);
+            jdbcTemplate.update(
+                    "DELETE FROM phase_lifecycle_job WHERE tournament_id = ?", tournamentId);
             jdbcTemplate.update("DELETE FROM team_avatar WHERE tournament_id = ?", tournamentId);
             jdbcTemplate.update("DELETE FROM team WHERE tournament_id = ?", tournamentId);
             jdbcTemplate.update("DELETE FROM phase WHERE tournament_id = ?", tournamentId);
@@ -180,19 +179,31 @@ class OrchestratorOptimizeFalseSkipIT {
         jobDrainService.drainNext(tournamentId);
 
         // Then: job COMPLETED
-        assertDb.table("phase_lifecycle_job").column("status").value(0).isEqualTo("COMPLETED");
+        String jobStatus =
+                jdbcTemplate.queryForObject(
+                        "SELECT status FROM phase_lifecycle_job WHERE tournament_id = ?",
+                        String.class,
+                        tournamentId);
+        assertThat(jobStatus).as("job must be COMPLETED").isEqualTo("COMPLETED");
 
         // Then: phase is PREPARED, optimized=FALSE (L3 was skipped)
-        assertDb.table("phase").row().column("status").isEqualTo("PREPARED");
-        assertDb.table("phase").row().column("optimized").isEqualTo(false);
+        String phaseStatus =
+                jdbcTemplate.queryForObject(
+                        "SELECT status FROM phase WHERE id = ?", String.class, phaseId);
+        assertThat(phaseStatus).as("phase must be PREPARED").isEqualTo("PREPARED");
+
+        Boolean optimized =
+                jdbcTemplate.queryForObject(
+                        "SELECT optimized FROM phase WHERE id = ?", Boolean.class, phaseId);
+        assertThat(optimized).as("phase optimized must be false (L3 skipped)").isFalse();
 
         // Then: matches PRESENT with non-null lap+field (L1+L2 always run per DEC-56 D-1)
         Integer matchCount =
                 jdbcTemplate.queryForObject(
-                        "SELECT COUNT(*) FROM match WHERE phase_id = ?",
-                        Integer.class,
-                        phaseId);
-        assertThat(matchCount).as("L1+L2 must run even when optimize=false (DEC-56 D-1)").isGreaterThan(0);
+                        "SELECT COUNT(*) FROM match WHERE phase_id = ?", Integer.class, phaseId);
+        assertThat(matchCount)
+                .as("L1+L2 must run even when optimize=false (DEC-56 D-1)")
+                .isGreaterThan(0);
 
         Integer nullLapCount =
                 jdbcTemplate.queryForObject(

@@ -82,9 +82,9 @@ public interface PhaseLifecycleJobRepository {
     void enqueueJob(PhaseLifecycleJob job);
 
     /**
-     * Loads the execution-time projection of a job row (jobId + phaseId + gameMode +
-     * tournamentId). Called by the orchestrator immediately after a successful {@link
-     * #tryClaim(UUID, String)} to retrieve the fields needed to drive the pipeline.
+     * Loads the execution-time projection of a job row (jobId + phaseId + gameMode + tournamentId).
+     * Called by the orchestrator immediately after a successful {@link #tryClaim(UUID, String)} to
+     * retrieve the fields needed to drive the pipeline.
      *
      * <p>Returns an empty {@code Optional} if the row does not exist (defensive path; in normal
      * operation the row was just claimed and will always exist).

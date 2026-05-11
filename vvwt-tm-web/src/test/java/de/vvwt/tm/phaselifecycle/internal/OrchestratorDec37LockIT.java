@@ -6,6 +6,7 @@ import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.phaselifecycle.JobDrainService;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJob;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJobRepository;
+import de.vvwt.tm.slotopt.SlotOptimizationClient;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import java.sql.Connection;
@@ -31,28 +32,28 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import de.vvwt.tm.slotopt.SlotOptimizationClient;
 
 /**
  * RED-first IT for DEC-37 Clause B lock-honoring in the orchestrator —
  * AC-TEST-DEC-37-LOCK-HONORED-RED.
  *
- * <p>DEC-22 Iron Law: RED before GREEN. At RED time, {@code drainNext()} throws
- * {@code UnsupportedOperationException}. GREEN state: an external TX that holds the tournament
- * row-lock ({@code SELECT … FOR UPDATE}) blocks the orchestrator's T-job-step-A from acquiring
- * its own lock; the orchestrator tick eventually completes after the external TX releases, with
- * no deadlock observed within 5 seconds.
+ * <p>DEC-22 Iron Law: RED before GREEN. At RED time, {@code drainNext()} throws {@code
+ * UnsupportedOperationException}. GREEN state: an external TX that holds the tournament row-lock
+ * ({@code SELECT … FOR UPDATE}) blocks the orchestrator's T-job-step-A from acquiring its own lock;
+ * the orchestrator tick eventually completes after the external TX releases, with no deadlock
+ * observed within 5 seconds.
  *
  * <p>Test scenario:
+ *
  * <ol>
- *   <li>Thread A (lock-holder): opens a JDBC connection, starts a manual TX, issues
- *       {@code SELECT id FROM tournament WHERE id = ? FOR UPDATE} to acquire the row-lock,
- *       then signals "lock acquired" via a {@link CountDownLatch}.
- *   <li>Thread B (orchestrator): waits for "lock acquired", then calls
- *       {@code jobDrainService.drainNext(tournamentId)}.
+ *   <li>Thread A (lock-holder): opens a JDBC connection, starts a manual TX, issues {@code SELECT
+ *       id FROM tournament WHERE id = ? FOR UPDATE} to acquire the row-lock, then signals "lock
+ *       acquired" via a {@link CountDownLatch}.
+ *   <li>Thread B (orchestrator): waits for "lock acquired", then calls {@code
+ *       jobDrainService.drainNext(tournamentId)}.
  *   <li>Thread A holds the lock for ~500 ms, then commits (releases lock).
- *   <li>Assertion: the orchestrator tick completes successfully (job COMPLETED) within 5 seconds
- *       of Thread A releasing the lock. No deadlock.
+ *   <li>Assertion: the orchestrator tick completes successfully (job COMPLETED) within 5 seconds of
+ *       Thread A releasing the lock. No deadlock.
  * </ol>
  *
  * <p>Authorizing decisions: DEC-22 (RED-first), DEC-37 Clause B, DEC-44, DEC-64 D-9, DEC-64 D-12.
@@ -172,7 +173,8 @@ class OrchestratorDec37LockIT {
                     "DELETE FROM match WHERE phase_id IN"
                             + " (SELECT id FROM phase WHERE tournament_id = ?)",
                     tournamentId);
-            jdbcTemplate.update("DELETE FROM phase_lifecycle_job WHERE tournament_id = ?", tournamentId);
+            jdbcTemplate.update(
+                    "DELETE FROM phase_lifecycle_job WHERE tournament_id = ?", tournamentId);
             jdbcTemplate.update("DELETE FROM team_avatar WHERE tournament_id = ?", tournamentId);
             jdbcTemplate.update("DELETE FROM team WHERE tournament_id = ?", tournamentId);
             jdbcTemplate.update("DELETE FROM phase WHERE tournament_id = ?", tournamentId);
@@ -186,11 +188,13 @@ class OrchestratorDec37LockIT {
 
     /**
      * AC-TEST-DEC-37-LOCK-HONORED-RED: orchestrator tick blocks while an external TX holds the
-     * tournament row-lock, then completes successfully after the lock is released.
-     * No deadlock within 5 seconds.
+     * tournament row-lock, then completes successfully after the lock is released. No deadlock
+     * within 5 seconds.
      */
     @Test
-    @DisplayName("orchestrator step-A blocks on tournament row-lock; completes after lock release (no deadlock)")
+    @DisplayName(
+            "orchestrator step-A blocks on tournament row-lock; completes after lock release (no"
+                    + " deadlock)")
     void orchestratorBlocksOnTournamentLockThenCompletes() throws Exception {
         // Latches to coordinate the two threads
         CountDownLatch lockAcquiredLatch = new CountDownLatch(1);
@@ -238,7 +242,8 @@ class OrchestratorDec37LockIT {
                             return null;
                         });
 
-        // Thread B: wait for lock to be held, then run orchestrator tick — must block until A releases
+        // Thread B: wait for lock to be held, then run orchestrator tick — must block until A
+        // releases
         Future<Void> orchestratorFuture =
                 executor.submit(
                         () -> {
@@ -260,17 +265,13 @@ class OrchestratorDec37LockIT {
 
         executor.shutdown();
         boolean terminated = executor.awaitTermination(15, TimeUnit.SECONDS);
-        assertThat(terminated)
-                .as("executor must terminate within 15s — no deadlock")
-                .isTrue();
+        assertThat(terminated).as("executor must terminate within 15s — no deadlock").isTrue();
 
         // Propagate any exceptions from both threads
         lockHolderFuture.get();
         orchestratorFuture.get();
 
-        assertThat(lockHolderFailed.get())
-                .as("lock-holder thread must not have failed")
-                .isFalse();
+        assertThat(lockHolderFailed.get()).as("lock-holder thread must not have failed").isFalse();
 
         // Assert: lock released signal must have been sent (no deadlock)
         boolean lockReleased = lockReleaseLatch.await(0, TimeUnit.SECONDS);

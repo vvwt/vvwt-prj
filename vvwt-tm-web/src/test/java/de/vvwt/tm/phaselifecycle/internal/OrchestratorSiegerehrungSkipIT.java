@@ -6,17 +6,15 @@ import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.phaselifecycle.JobDrainService;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJob;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJobRepository;
+import de.vvwt.tm.slotopt.SlotOptimizationClient;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import javax.sql.DataSource;
-import org.assertj.db.type.AssertDbConnection;
-import org.assertj.db.type.AssertDbConnectionFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -25,16 +23,13 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import de.vvwt.tm.slotopt.SlotOptimizationClient;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * RED-first IT for siegerehrung-phase siegerehrung L3-skip —
- * AC-TEST-SIEGEREHRUNG-SKIP-SLOTOPT-RED.
+ * RED-first IT for siegerehrung-phase siegerehrung L3-skip — AC-TEST-SIEGEREHRUNG-SKIP-SLOTOPT-RED.
  *
- * <p>DEC-22 Iron Law: RED before GREEN. At RED time, {@code drainNext()} throws
- * {@code UnsupportedOperationException}. GREEN state: siegerehrung phase is PREPARED,
- * optimized=FALSE, no matches, and {@code SlotOptimizationClient.optimize()} is NOT invoked.
+ * <p>DEC-22 Iron Law: RED before GREEN. At RED time, {@code drainNext()} throws {@code
+ * UnsupportedOperationException}. GREEN state: siegerehrung phase is PREPARED, optimized=FALSE, no
+ * matches, and {@code SlotOptimizationClient.optimize()} is NOT invoked.
  *
  * <p>The tournament's {@code draftJson} contains one section with {@code gameMode="siegerehrung"}.
  * Per DEC-59 Clause F, the orchestrator skips L3 for siegerehrung phases.
@@ -55,23 +50,22 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @DisplayName("OrchestratorSiegerehrungSkipIT — AC-TEST-SIEGEREHRUNG-SKIP-SLOTOPT-RED (E55S04)")
 class OrchestratorSiegerehrungSkipIT {
 
-    /** Spy SlotOptimizationClient to verify it is NOT called for siegerehrung. */
+    /**
+     * SlotOptimizationClient that throws AssertionError if called — SlotOpt must NOT be invoked for
+     * siegerehrung phases (DEC-59 Clause F). If the test reaches its assertions without this bean
+     * throwing, the contract is satisfied.
+     */
     @TestConfiguration
     static class SlotOptConfig {
-
-        static final SlotOptimizationClient SPY =
-                Mockito.spy(
-                        (SlotOptimizationClient)
-                                phaseId -> {
-                                    throw new AssertionError(
-                                            "SlotOptimizationClient.optimize() must NOT be called"
-                                                    + " for siegerehrung phase (DEC-59 Clause F)");
-                                });
 
         @Bean("routingSlotOptimizationClient")
         @Primary
         SlotOptimizationClient testSlotOptimizationClient() {
-            return SPY;
+            return phaseId -> {
+                throw new AssertionError(
+                        "SlotOptimizationClient.optimize() must NOT be called"
+                                + " for siegerehrung phase (DEC-59 Clause F)");
+            };
         }
     }
 
@@ -80,16 +74,13 @@ class OrchestratorSiegerehrungSkipIT {
     @Autowired private TenantContextTestSupport.Binder tenantBinder;
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private DataSource dataSource;
-    @Autowired private ObjectMapper objectMapper;
 
-    private AssertDbConnection assertDb;
     private UUID locationId;
     private UUID tournamentId;
     private UUID phaseId;
 
     @BeforeEach
     void setUp() throws Exception {
-        assertDb = AssertDbConnectionFactory.of(dataSource).create();
         tenantBinder.bindDefaultTenant();
 
         locationId = UUID.randomUUID();
@@ -120,7 +111,7 @@ class OrchestratorSiegerehrungSkipIT {
                 LocalDateTime.now(),
                 2,
                 4,
-                true,   // optimize=true, but siegerehrung bypasses L3
+                true, // optimize=true, but siegerehrung bypasses L3
                 draftJson);
 
         phaseId = UUID.randomUUID();
@@ -130,7 +121,7 @@ class OrchestratorSiegerehrungSkipIT {
                         + " VALUES (?, ?, ?, ?, ?, ?, ?)",
                 phaseId,
                 tournamentId,
-                1,  // sequenceNumber=1 → index 0 in draftJson.sections → "siegerehrung"
+                1, // sequenceNumber=1 → index 0 in draftJson.sections → "siegerehrung"
                 "Siegerehrung Phase",
                 "PENDING",
                 0,
@@ -161,8 +152,7 @@ class OrchestratorSiegerehrungSkipIT {
                     teamId);
         }
 
-        jobRepository.enqueueJob(
-                new PhaseLifecycleJob(tournamentId, phaseId, "siegerehrung", 1));
+        jobRepository.enqueueJob(new PhaseLifecycleJob(tournamentId, phaseId, "siegerehrung", 1));
     }
 
     @AfterEach
@@ -173,7 +163,8 @@ class OrchestratorSiegerehrungSkipIT {
                     "DELETE FROM match WHERE phase_id IN"
                             + " (SELECT id FROM phase WHERE tournament_id = ?)",
                     tournamentId);
-            jdbcTemplate.update("DELETE FROM phase_lifecycle_job WHERE tournament_id = ?", tournamentId);
+            jdbcTemplate.update(
+                    "DELETE FROM phase_lifecycle_job WHERE tournament_id = ?", tournamentId);
             jdbcTemplate.update("DELETE FROM team_avatar WHERE tournament_id = ?", tournamentId);
             jdbcTemplate.update("DELETE FROM team WHERE tournament_id = ?", tournamentId);
             jdbcTemplate.update("DELETE FROM phase WHERE tournament_id = ?", tournamentId);
@@ -196,19 +187,31 @@ class OrchestratorSiegerehrungSkipIT {
         jobDrainService.drainNext(tournamentId);
 
         // Then: job is COMPLETED
-        assertDb.table("phase_lifecycle_job").column("status").value(0).isEqualTo("COMPLETED");
+        String jobStatus =
+                jdbcTemplate.queryForObject(
+                        "SELECT status FROM phase_lifecycle_job WHERE tournament_id = ?",
+                        String.class,
+                        tournamentId);
+        assertThat(jobStatus).as("job must be COMPLETED").isEqualTo("COMPLETED");
 
         // Then: phase is PREPARED, optimized=FALSE (DEC-59 Clause F + DEC-55 D-6)
-        assertDb.table("phase").row().column("status").isEqualTo("PREPARED");
-        assertDb.table("phase").row().column("optimized").isEqualTo(false);
+        String phaseStatus =
+                jdbcTemplate.queryForObject(
+                        "SELECT status FROM phase WHERE id = ?", String.class, phaseId);
+        assertThat(phaseStatus).as("phase must be PREPARED").isEqualTo("PREPARED");
+
+        Boolean optimized =
+                jdbcTemplate.queryForObject(
+                        "SELECT optimized FROM phase WHERE id = ?", Boolean.class, phaseId);
+        assertThat(optimized).as("phase optimized must be false for siegerehrung").isFalse();
 
         // Then: no matches (siegerehrung L1 returns empty list, L2 is vacuous)
         Integer matchCount =
                 jdbcTemplate.queryForObject(
-                        "SELECT COUNT(*) FROM match WHERE phase_id = ?",
-                        Integer.class,
-                        phaseId);
-        assertThat(matchCount).as("siegerehrung phase must have 0 matches (DEC-59 Clause E)").isEqualTo(0);
+                        "SELECT COUNT(*) FROM match WHERE phase_id = ?", Integer.class, phaseId);
+        assertThat(matchCount)
+                .as("siegerehrung phase must have 0 matches (DEC-59 Clause E)")
+                .isEqualTo(0);
 
         // Then: SlotOptimizationClient.optimize() was NOT invoked (verify via AssertionError spy)
         // The spy throws AssertionError on any call — if we reach here, it was not called.

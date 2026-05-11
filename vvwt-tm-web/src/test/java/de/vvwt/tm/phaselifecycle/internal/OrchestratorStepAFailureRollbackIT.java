@@ -1,12 +1,12 @@
 package de.vvwt.tm.phaselifecycle.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 
 import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.phaselifecycle.JobDrainService;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJob;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJobRepository;
+import de.vvwt.tm.slotopt.SlotOptimizationClient;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -25,15 +25,14 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import de.vvwt.tm.slotopt.SlotOptimizationClient;
 
 /**
  * RED-first IT for T-step-A failure rollback — AC-TEST-STEP-A-FAILURE-ROLLBACK-RED.
  *
- * <p>DEC-22 Iron Law: RED before GREEN. At RED time, {@code drainNext()} throws
- * {@code UnsupportedOperationException}. GREEN state: when MatchGen throws (zero teams,
- * so the generator has no avatars to work with), step-A TX rolls back.
- * The job status stays 'RUNNING' (claimed in T-claim) but phase.status is unchanged (PENDING).
+ * <p>DEC-22 Iron Law: RED before GREEN. At RED time, {@code drainNext()} throws {@code
+ * UnsupportedOperationException}. GREEN state: when MatchGen throws (zero teams, so the generator
+ * has no avatars to work with), step-A TX rolls back. The job status stays 'RUNNING' (claimed in
+ * T-claim) but phase.status is unchanged (PENDING).
  *
  * <p>Authorizing decisions: DEC-22 (RED-first), DEC-44, DEC-64 D-12 (T-claim separate from
  * T-step-A; step-A failure leaves job RUNNING).
@@ -48,10 +47,7 @@ import de.vvwt.tm.slotopt.SlotOptimizationClient;
                     + ";DB_CLOSE_ON_EXIT=FALSE;CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
-@Import({
-    TenantContextTestSupport.class,
-    OrchestratorStepAFailureRollbackIT.SlotOptConfig.class
-})
+@Import({TenantContextTestSupport.class, OrchestratorStepAFailureRollbackIT.SlotOptConfig.class})
 @DisplayName("OrchestratorStepAFailureRollbackIT — AC-TEST-STEP-A-FAILURE-ROLLBACK-RED (E55S04)")
 class OrchestratorStepAFailureRollbackIT {
 
@@ -102,7 +98,7 @@ class OrchestratorStepAFailureRollbackIT {
                 "DRAFT",
                 LocalDateTime.now(),
                 2,
-                0,  // team_count=0
+                4,
                 true);
 
         phaseId = UUID.randomUUID();
@@ -118,12 +114,12 @@ class OrchestratorStepAFailureRollbackIT {
                 0,
                 false);
 
-        // NOTE: intentionally NO teams and NO team_avatars inserted.
-        // This causes MatchGenerator (L1) to generate 0 matches, and
-        // PhasePreparationService.generateMatches() may throw or return empty.
-        // The test verifies step-A TX rolls back.
+        // NOTE: intentionally use an unknown gameMode ("unknownGenerator") to cause
+        // MatchGeneratorRegistry.get() to throw IllegalArgumentException in step-A (L1).
+        // This simulates the step-A failure path; the step-A TX rolls back, job stays RUNNING.
 
-        jobRepository.enqueueJob(new PhaseLifecycleJob(tournamentId, phaseId, "roundRobin", 1));
+        jobRepository.enqueueJob(
+                new PhaseLifecycleJob(tournamentId, phaseId, "unknownGenerator", 1));
     }
 
     @AfterEach
@@ -134,7 +130,8 @@ class OrchestratorStepAFailureRollbackIT {
                     "DELETE FROM match WHERE phase_id IN"
                             + " (SELECT id FROM phase WHERE tournament_id = ?)",
                     tournamentId);
-            jdbcTemplate.update("DELETE FROM phase_lifecycle_job WHERE tournament_id = ?", tournamentId);
+            jdbcTemplate.update(
+                    "DELETE FROM phase_lifecycle_job WHERE tournament_id = ?", tournamentId);
             jdbcTemplate.update("DELETE FROM team_avatar WHERE tournament_id = ?", tournamentId);
             jdbcTemplate.update("DELETE FROM team WHERE tournament_id = ?", tournamentId);
             jdbcTemplate.update("DELETE FROM phase WHERE tournament_id = ?", tournamentId);
@@ -147,16 +144,17 @@ class OrchestratorStepAFailureRollbackIT {
     }
 
     /**
-     * AC-TEST-STEP-A-FAILURE-ROLLBACK-RED: when MatchGen fails (no participating teams),
-     * step-A TX rolls back. Job stays RUNNING (claim was committed in T-claim).
-     * Phase status stays PENDING (step-A did not complete PENDING→PREPARED transition).
+     * AC-TEST-STEP-A-FAILURE-ROLLBACK-RED: when MatchGen fails (no participating teams), step-A TX
+     * rolls back. Job stays RUNNING (claim was committed in T-claim). Phase status stays PENDING
+     * (step-A did not complete PENDING→PREPARED transition).
      */
     @Test
     @DisplayName("step-A failure: job stays RUNNING, phase stays PENDING, step-A TX rolled back")
     void stepAFailureRollsBack() {
-        // When: drainNext() — step-A will encounter no teams/avatars
-        // The orchestrator must propagate the exception (or handle it gracefully) and
-        // leave job status as RUNNING (T-claim committed separately).
+        // When: drainNext() — step-A encounters unknown generator key "unknownGenerator".
+        // MatchGeneratorRegistry.get("unknownGenerator") throws IllegalArgumentException.
+        // The orchestrator must propagate the exception and leave job status as RUNNING
+        // (T-claim committed separately, step-A TX rolled back).
         // The exact exception type is an implementation detail; we just verify the DB state.
         try {
             jobDrainService.drainNext(tournamentId);
@@ -171,15 +169,15 @@ class OrchestratorStepAFailureRollbackIT {
                         String.class,
                         tournamentId);
         assertThat(jobStatus)
-                .as("job must stay RUNNING after step-A failure (T-claim committed, step-A rolled back)")
+                .as(
+                        "job must stay RUNNING after step-A failure (T-claim committed, step-A"
+                                + " rolled back)")
                 .isEqualTo("RUNNING");
 
         // Then: phase stays PENDING (step-A transition PENDING→PREPARED did not commit)
         String phaseStatus =
                 jdbcTemplate.queryForObject(
-                        "SELECT status FROM phase WHERE id = ?",
-                        String.class,
-                        phaseId);
+                        "SELECT status FROM phase WHERE id = ?", String.class, phaseId);
         assertThat(phaseStatus)
                 .as("phase must stay PENDING when step-A rolls back")
                 .isEqualTo("PENDING");
@@ -187,11 +185,7 @@ class OrchestratorStepAFailureRollbackIT {
         // Then: no matches (step-A rolled back any partial match inserts)
         Integer matchCount =
                 jdbcTemplate.queryForObject(
-                        "SELECT COUNT(*) FROM match WHERE phase_id = ?",
-                        Integer.class,
-                        phaseId);
-        assertThat(matchCount)
-                .as("no matches must be present after step-A rollback")
-                .isEqualTo(0);
+                        "SELECT COUNT(*) FROM match WHERE phase_id = ?", Integer.class, phaseId);
+        assertThat(matchCount).as("no matches must be present after step-A rollback").isEqualTo(0);
     }
 }

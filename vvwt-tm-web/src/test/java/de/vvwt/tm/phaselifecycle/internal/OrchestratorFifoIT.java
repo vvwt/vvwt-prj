@@ -6,6 +6,7 @@ import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.phaselifecycle.JobDrainService;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJob;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJobRepository;
+import de.vvwt.tm.slotopt.SlotOptimizationClient;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,16 +24,15 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import de.vvwt.tm.slotopt.SlotOptimizationClient;
 
 /**
  * RED-first IT for FIFO job ordering within a tournament —
  * AC-TEST-FIFO-WITHIN-TOURNAMENT-VIA-ORCHESTRATOR-RED.
  *
- * <p>DEC-22 Iron Law: RED before GREEN. At RED time, {@code drainNext()} throws
- * {@code UnsupportedOperationException}. GREEN state: 3 jobs for the same tournament in
- * sequence {1, 2, 3} are processed in FIFO order — {@code completed_at} is monotonically
- * increasing with {@code sequence}.
+ * <p>DEC-22 Iron Law: RED before GREEN. At RED time, {@code drainNext()} throws {@code
+ * UnsupportedOperationException}. GREEN state: 3 jobs for the same tournament in sequence {1, 2, 3}
+ * are processed in FIFO order — {@code completed_at} is monotonically increasing with {@code
+ * sequence}.
  *
  * <p>The per-tournament single-thread worker (DEC-64 D-3) guarantees structural FIFO serialization
  * within a tournament. This test verifies the DB-visible ordering via {@code completed_at}.
@@ -167,7 +167,8 @@ class OrchestratorFifoIT {
                     "DELETE FROM match WHERE phase_id IN"
                             + " (SELECT id FROM phase WHERE tournament_id = ?)",
                     tournamentId);
-            jdbcTemplate.update("DELETE FROM phase_lifecycle_job WHERE tournament_id = ?", tournamentId);
+            jdbcTemplate.update(
+                    "DELETE FROM phase_lifecycle_job WHERE tournament_id = ?", tournamentId);
             jdbcTemplate.update("DELETE FROM team_avatar WHERE tournament_id = ?", tournamentId);
             jdbcTemplate.update("DELETE FROM team WHERE tournament_id = ?", tournamentId);
             jdbcTemplate.update("DELETE FROM phase WHERE tournament_id = ?", tournamentId);
@@ -180,8 +181,8 @@ class OrchestratorFifoIT {
     }
 
     /**
-     * AC-TEST-FIFO-WITHIN-TOURNAMENT-VIA-ORCHESTRATOR-RED: 3 jobs for same tournament with
-     * sequence {1, 2, 3} complete in FIFO order — completed_at is monotonically increasing.
+     * AC-TEST-FIFO-WITHIN-TOURNAMENT-VIA-ORCHESTRATOR-RED: 3 jobs for same tournament with sequence
+     * {1, 2, 3} complete in FIFO order — completed_at is monotonically increasing.
      */
     @Test
     @DisplayName("3 jobs drain in FIFO sequence order (completed_at monotonically increasing)")

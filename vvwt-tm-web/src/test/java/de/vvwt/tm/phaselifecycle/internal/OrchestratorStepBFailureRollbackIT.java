@@ -6,13 +6,12 @@ import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.phaselifecycle.JobDrainService;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJob;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJobRepository;
+import de.vvwt.tm.slotopt.SlotOptimizationClient;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.sql.DataSource;
-import org.assertj.db.type.AssertDbConnection;
-import org.assertj.db.type.AssertDbConnectionFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -25,18 +24,17 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import de.vvwt.tm.slotopt.SlotOptimizationClient;
 
 /**
  * RED-first IT for T-step-B failure rollback — AC-TEST-STEP-B-FAILURE-ROLLBACK-RED.
  *
- * <p>DEC-22 Iron Law: RED before GREEN. At RED time, {@code drainNext()} throws
- * {@code UnsupportedOperationException}. GREEN state: when SlotOpt throws during step-B,
- * step-B TX rolls back. Matches retain their L2 lap+field assignments (step-A committed).
- * Job status stays RUNNING. Phase.optimized stays FALSE.
+ * <p>DEC-22 Iron Law: RED before GREEN. At RED time, {@code drainNext()} throws {@code
+ * UnsupportedOperationException}. GREEN state: when SlotOpt throws during step-B, step-B TX rolls
+ * back. Matches retain their L2 lap+field assignments (step-A committed). Job status stays RUNNING.
+ * Phase.optimized stays FALSE.
  *
- * <p>Authorizing decisions: DEC-22 (RED-first), DEC-44, DEC-64 D-12 (step-A separate TX
- * from step-B; step-B failure leaves job RUNNING, matches present from step-A).
+ * <p>Authorizing decisions: DEC-22 (RED-first), DEC-44, DEC-64 D-12 (step-A separate TX from
+ * step-B; step-B failure leaves job RUNNING, matches present from step-A).
  *
  * @since E55S04
  */
@@ -48,10 +46,7 @@ import de.vvwt.tm.slotopt.SlotOptimizationClient;
                     + ";DB_CLOSE_ON_EXIT=FALSE;CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
-@Import({
-    TenantContextTestSupport.class,
-    OrchestratorStepBFailureRollbackIT.SlotOptConfig.class
-})
+@Import({TenantContextTestSupport.class, OrchestratorStepBFailureRollbackIT.SlotOptConfig.class})
 @DisplayName("OrchestratorStepBFailureRollbackIT — AC-TEST-STEP-B-FAILURE-ROLLBACK-RED (E55S04)")
 class OrchestratorStepBFailureRollbackIT {
 
@@ -65,7 +60,8 @@ class OrchestratorStepBFailureRollbackIT {
         SlotOptimizationClient testSlotOptimizationClient() {
             return phaseId -> {
                 if (SLOT_OPT_SHOULD_FAIL.get()) {
-                    throw new RuntimeException("Simulated SlotOpt failure for step-B rollback test");
+                    throw new RuntimeException(
+                            "Simulated SlotOpt failure for step-B rollback test");
                 }
             };
         }
@@ -77,7 +73,6 @@ class OrchestratorStepBFailureRollbackIT {
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private DataSource dataSource;
 
-    private AssertDbConnection assertDb;
     private UUID locationId;
     private UUID tournamentId;
     private UUID phaseId;
@@ -85,7 +80,6 @@ class OrchestratorStepBFailureRollbackIT {
     @BeforeEach
     void setUp() {
         SLOT_OPT_SHOULD_FAIL.set(true);
-        assertDb = AssertDbConnectionFactory.of(dataSource).create();
         tenantBinder.bindDefaultTenant();
 
         locationId = UUID.randomUUID();
@@ -161,7 +155,8 @@ class OrchestratorStepBFailureRollbackIT {
                     "DELETE FROM match WHERE phase_id IN"
                             + " (SELECT id FROM phase WHERE tournament_id = ?)",
                     tournamentId);
-            jdbcTemplate.update("DELETE FROM phase_lifecycle_job WHERE tournament_id = ?", tournamentId);
+            jdbcTemplate.update(
+                    "DELETE FROM phase_lifecycle_job WHERE tournament_id = ?", tournamentId);
             jdbcTemplate.update("DELETE FROM team_avatar WHERE tournament_id = ?", tournamentId);
             jdbcTemplate.update("DELETE FROM team WHERE tournament_id = ?", tournamentId);
             jdbcTemplate.update("DELETE FROM phase WHERE tournament_id = ?", tournamentId);
@@ -174,12 +169,14 @@ class OrchestratorStepBFailureRollbackIT {
     }
 
     /**
-     * AC-TEST-STEP-B-FAILURE-ROLLBACK-RED: SlotOpt throws → step-B rolls back.
-     * Matches still have lap+field from step-A. Job stays RUNNING. Phase.optimized=FALSE.
-     * Next tick (with SlotOpt fixed) completes successfully.
+     * AC-TEST-STEP-B-FAILURE-ROLLBACK-RED: SlotOpt throws → step-B rolls back. Matches still have
+     * lap+field from step-A. Job stays RUNNING. Phase.optimized=FALSE. Next tick (with SlotOpt
+     * fixed) completes successfully.
      */
     @Test
-    @DisplayName("step-B SlotOpt failure: matches retain lap+field, job RUNNING, optimized=FALSE; next tick succeeds")
+    @DisplayName(
+            "step-B SlotOpt failure: matches retain lap+field, job RUNNING, optimized=FALSE; next"
+                    + " tick succeeds")
     void stepBFailureRollsBackAndSecondTickSucceeds() {
         // Step 1: First tick — SlotOpt fails, step-B rolls back
         try {
@@ -195,15 +192,15 @@ class OrchestratorStepBFailureRollbackIT {
                         String.class,
                         tournamentId);
         assertThat(jobStatus)
-                .as("job must stay RUNNING after step-B failure (T-claim committed, step-B rolled back)")
+                .as(
+                        "job must stay RUNNING after step-B failure (T-claim committed, step-B"
+                                + " rolled back)")
                 .isEqualTo("RUNNING");
 
         // Then: matches present with lap+field from step-A (step-A committed before step-B started)
         Integer matchCount =
                 jdbcTemplate.queryForObject(
-                        "SELECT COUNT(*) FROM match WHERE phase_id = ?",
-                        Integer.class,
-                        phaseId);
+                        "SELECT COUNT(*) FROM match WHERE phase_id = ?", Integer.class, phaseId);
         assertThat(matchCount).as("step-A matches must survive step-B rollback").isGreaterThan(0);
 
         Integer nullLapCount =
@@ -218,9 +215,7 @@ class OrchestratorStepBFailureRollbackIT {
         // Then: optimized=FALSE (step-B rolled back before setting it)
         Boolean optimized =
                 jdbcTemplate.queryForObject(
-                        "SELECT optimized FROM phase WHERE id = ?",
-                        Boolean.class,
-                        phaseId);
+                        "SELECT optimized FROM phase WHERE id = ?", Boolean.class, phaseId);
         assertThat(optimized).as("optimized must stay FALSE after step-B rollback").isFalse();
 
         // Step 2: Second tick — SlotOpt now succeeds
@@ -239,7 +234,18 @@ class OrchestratorStepBFailureRollbackIT {
         jobDrainService.drainNext(tournamentId);
 
         // Then: second tick completes the job
-        assertDb.table("phase_lifecycle_job").column("status").value(0).isEqualTo("COMPLETED");
-        assertDb.table("phase").row().column("optimized").isEqualTo(true);
+        String jobStatus2 =
+                jdbcTemplate.queryForObject(
+                        "SELECT status FROM phase_lifecycle_job WHERE tournament_id = ?",
+                        String.class,
+                        tournamentId);
+        assertThat(jobStatus2)
+                .as("job must be COMPLETED after successful second tick")
+                .isEqualTo("COMPLETED");
+
+        Boolean optimized2 =
+                jdbcTemplate.queryForObject(
+                        "SELECT optimized FROM phase WHERE id = ?", Boolean.class, phaseId);
+        assertThat(optimized2).as("phase optimized must be true after successful L3").isTrue();
     }
 }

@@ -3,8 +3,6 @@ package de.vvwt.tm.phaselifecycle;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import de.vvwt.tm.phaselifecycle.internal.DefaultCancelFlagRegistry;
-import de.vvwt.tm.phaselifecycle.internal.DefaultJobDrainService;
-import de.vvwt.tm.phaselifecycle.internal.DefaultPhaseLifecycleOrchestrator;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -22,38 +20,31 @@ import org.junit.jupiter.api.Test;
  * fast with an operator-actionable error message.
  *
  * <p>Note: {@link de.vvwt.tm.phaselifecycle.internal.DefaultWorkerRegistry} is fully implemented in
- * E55S03 — its placeholder test is removed here. The remaining 4 tests cover the still-pending
- * placeholder implementations for E55S02 and E55S04/S05.
+ * E55S03 — its placeholder test was removed there. {@link
+ * de.vvwt.tm.phaselifecycle.internal.DefaultPhaseLifecycleOrchestrator} and {@link
+ * de.vvwt.tm.phaselifecycle.internal.DefaultJobDrainService} are fully implemented in E55S04 —
+ * their placeholder tests are removed here. The remaining test covers the still-pending placeholder
+ * implementation for E55S05.
  *
  * <p>Authorizing decisions: DEC-58 (universal interface mandate — placeholder impls in .internal),
  * DEC-64 D-14 (five beans enumerated), Story AC-ERROR-HANDLING-PLACEHOLDER-IMPL-FAIL-FAST.
  *
  * @since E55S01
  * @updated E55S03 (removed DefaultWorkerRegistry placeholder test — implemented)
+ * @updated E55S04 (removed DefaultPhaseLifecycleOrchestrator + DefaultJobDrainService placeholder
+ *     tests — implemented)
  */
 class PlaceholderImplFailFastTest {
 
     private static final UUID ANY_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
-    @Test
-    void defaultPhaseLifecycleOrchestratorThrowsUnsupported() {
-        var impl = new DefaultPhaseLifecycleOrchestrator();
-        assertThatThrownBy(() -> impl.tick(ANY_ID))
-                .isInstanceOf(UnsupportedOperationException.class)
-                .hasMessageContaining("E55S04");
-    }
-
     // NOTE (E55S02): defaultPhaseLifecycleJobRepositoryThrowsUnsupported was removed.
     // DefaultPhaseLifecycleJobRepository is now fully implemented (E55S02 GREEN).
     // Its DAO integration tests live in PhaseLifecycleJobRepositoryDaoIT.
 
-    @Test
-    void defaultJobDrainServiceThrowsUnsupported() {
-        var impl = new DefaultJobDrainService();
-        assertThatThrownBy(() -> impl.drainNext(ANY_ID))
-                .isInstanceOf(UnsupportedOperationException.class)
-                .hasMessageContaining("E55S04");
-    }
+    // NOTE (E55S04): defaultPhaseLifecycleOrchestratorThrowsUnsupported was removed.
+    // NOTE (E55S04): defaultJobDrainServiceThrowsUnsupported was removed.
+    // Both DefaultPhaseLifecycleOrchestrator and DefaultJobDrainService are now fully implemented.
 
     @Test
     void defaultCancelFlagRegistryThrowsUnsupported() {
