@@ -6,7 +6,6 @@ import de.vvwt.tm.phaselifecycle.internal.DefaultCancelFlagRegistry;
 import de.vvwt.tm.phaselifecycle.internal.DefaultJobDrainService;
 import de.vvwt.tm.phaselifecycle.internal.DefaultPhaseLifecycleJobRepository;
 import de.vvwt.tm.phaselifecycle.internal.DefaultPhaseLifecycleOrchestrator;
-import de.vvwt.tm.phaselifecycle.internal.DefaultWorkerRegistry;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -23,10 +22,15 @@ import org.junit.jupiter.api.Test;
  * reference (e.g., "E55S04"). This ensures that any accidental production-time invocation fails
  * fast with an operator-actionable error message.
  *
+ * <p>Note: {@link de.vvwt.tm.phaselifecycle.internal.DefaultWorkerRegistry} is fully implemented in
+ * E55S03 — its placeholder test is removed here. The remaining 4 tests cover the still-pending
+ * placeholder implementations for E55S02 and E55S04/S05.
+ *
  * <p>Authorizing decisions: DEC-58 (universal interface mandate — placeholder impls in .internal),
  * DEC-64 D-14 (five beans enumerated), Story AC-ERROR-HANDLING-PLACEHOLDER-IMPL-FAIL-FAST.
  *
  * @since E55S01
+ * @updated E55S03 (removed DefaultWorkerRegistry placeholder test — implemented)
  */
 class PlaceholderImplFailFastTest {
 
@@ -46,14 +50,6 @@ class PlaceholderImplFailFastTest {
         assertThatThrownBy(() -> impl.findNextPendingJobIdForTournament(ANY_ID))
                 .isInstanceOf(UnsupportedOperationException.class)
                 .hasMessageContaining("E55S02");
-    }
-
-    @Test
-    void defaultWorkerRegistryThrowsUnsupported() {
-        var impl = new DefaultWorkerRegistry();
-        assertThatThrownBy(() -> impl.getOrCreate(ANY_ID))
-                .isInstanceOf(UnsupportedOperationException.class)
-                .hasMessageContaining("E55S03");
     }
 
     @Test

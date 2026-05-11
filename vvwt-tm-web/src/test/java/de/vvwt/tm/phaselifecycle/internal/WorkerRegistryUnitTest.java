@@ -1,9 +1,9 @@
-package de.vvwt.tm.phaselifecycle;
+package de.vvwt.tm.phaselifecycle.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
-import de.vvwt.tm.phaselifecycle.internal.DefaultWorkerRegistry;
+import de.vvwt.tm.phaselifecycle.WorkerRegistry;
 import de.vvwt.tm.tenant.TenantContext;
 import java.util.Collections;
 import java.util.Set;
@@ -13,7 +13,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -55,6 +54,7 @@ class WorkerRegistryUnitTest {
                         /* idleTimeoutSeconds= */ 300L,
                         /* shutdownTimeoutSeconds= */ 30L,
                         /* idlePollSeconds= */ 3600L); // very long poll — don't fire in tests
+        registry.startIdlePoller(); // must be called manually in unit tests (no Spring context)
     }
 
     @AfterEach
@@ -63,8 +63,8 @@ class WorkerRegistryUnitTest {
     }
 
     /**
-     * AC-TEST-LAZY-CREATE-IDENTITY-RED: two getOrCreate(tournamentA) calls return the SAME instance;
-     * getOrCreate(tournamentB) returns a DIFFERENT instance.
+     * AC-TEST-LAZY-CREATE-IDENTITY-RED: two getOrCreate(tournamentA) calls return the SAME
+     * instance; getOrCreate(tournamentB) returns a DIFFERENT instance.
      */
     @Test
     void lazyCreateReturnsSameInstanceForSameTournament() {
@@ -132,6 +132,7 @@ class WorkerRegistryUnitTest {
                         /* idleTimeoutSeconds= */ 1L,
                         /* shutdownTimeoutSeconds= */ 5L,
                         /* idlePollSeconds= */ 1L);
+        fastRegistry.startIdlePoller(); // must be called manually in unit tests (no Spring context)
         try {
             UUID tournamentId = UUID.randomUUID();
 

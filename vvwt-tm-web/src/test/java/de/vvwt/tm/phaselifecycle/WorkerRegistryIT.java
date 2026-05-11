@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.ActiveProfiles;
 
 /**
  * RED-first integration tests for {@link WorkerRegistry} per DEC-22 Pattern B.
@@ -29,13 +29,9 @@ import org.springframework.test.context.TestPropertySource;
  * @since E55S03
  */
 @SpringBootTest(
-        webEnvironment = SpringBootTest.WebEnvironment.NONE,
-        classes = TournamentManagerApplication.class)
-@TestPropertySource(
-        properties = {
-            "spring.datasource.url=jdbc:h2:mem:workerit-${random.uuid};DB_CLOSE_DELAY=-1",
-            "spring.flyway.enabled=true"
-        })
+        classes = TournamentManagerApplication.class,
+        webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@ActiveProfiles("test")
 class WorkerRegistryIT {
 
     @Autowired private WorkerRegistry workerRegistry;
@@ -44,8 +40,8 @@ class WorkerRegistryIT {
 
     /**
      * AC-TEST-PARALLEL-TOURNAMENT-EXECUTION-RED: two distinct tournaments each submit a 200ms
-     * blocking task. Total elapsed time must be < 350ms (proving parallel execution). If serialized,
-     * total would be ≥ 400ms.
+     * blocking task. Total elapsed time must be < 350ms (proving parallel execution). If
+     * serialized, total would be ≥ 400ms.
      */
     @Test
     void differentTournamentWorkerExecuteInParallel() throws Exception {
@@ -125,7 +121,8 @@ class WorkerRegistryIT {
 
     /**
      * AC-TEST-TENANT-CONTEXT-PROPAGATION-RED: submit a task that reads {@link
-     * TenantContext#current()}; assert the returned tenantId matches the submitting thread's tenant.
+     * TenantContext#current()}; assert the returned tenantId matches the submitting thread's
+     * tenant.
      */
     @Test
     @SuppressWarnings("try") // scope variable used only for AutoCloseable.close() side-effect
