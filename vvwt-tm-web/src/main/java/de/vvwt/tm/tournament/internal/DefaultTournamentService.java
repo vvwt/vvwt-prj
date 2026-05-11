@@ -195,8 +195,10 @@ public class DefaultTournamentService implements TournamentService {
      *       is resolved via Spring {@link MessageSource} key {@code team.defaultLabel} against the
      *       effective locale ({@code tenant.language} ?? {@code "de"} — today's state per
      *       AC-I18N-LOCALE-CHAIN).
-     *   <li>Default flags: {@code participate=true}, {@code refereeAssignment=false}, {@code
-     *       withoutAssessment=false}.
+     *   <li>Default flags: {@code participate=true}, {@code refereeAssignment=true}, {@code
+     *       withoutAssessment=false}. (E05S13: refereeAssignment flipped false→true — "Mannschaft =
+     *       Schiedsgericht" domain rule; P3/P4/P5 paths remain false per user-explicit out-of-scope
+     *       decision)
      *   <li>If any team insertion fails (e.g., {@link
      *       org.springframework.dao.DataAccessException}), the {@code @Transactional} boundary
      *       rolls back both the Tournament row and all previously-inserted Team rows
@@ -285,7 +287,8 @@ public class DefaultTournamentService implements TournamentService {
             team.setTeamNumber(n);
             team.setDescription(String.format("%s %02d", label, n));
             team.setParticipate(true);
-            team.setRefereeAssignment(false);
+            team.setRefereeAssignment(
+                    true); // E05S13: Mannschaft=Schiedsgericht default (was false in E05S12)
             team.setWithoutAssessment(false);
             // created_at: left null — DB DEFAULT CURRENT_TIMESTAMP applies on INSERT.
             teamRepository.save(team);

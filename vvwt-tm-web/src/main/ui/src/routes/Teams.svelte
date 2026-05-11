@@ -161,7 +161,7 @@
       description: '',
       teamNumber: String(maxNumber + 1),
       participate: true,
-      refereeAssignment: false,
+      refereeAssignment: true, // E05S13: Mannschaft=Schiedsgericht default (was false in E05S12)
       withoutAssessment: false,
       saving: false,
       error: null,

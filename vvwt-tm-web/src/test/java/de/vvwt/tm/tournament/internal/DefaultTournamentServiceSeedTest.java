@@ -57,8 +57,8 @@ import org.springframework.jdbc.core.RowMapper;
  *   <li>AC-IMPL-TEAMNUMBER-PLACEHOLDER — team numbers 1..N, each unique
  *   <li>AC-IMPL-DESC-FORMAT — description = String.format("%s %02d", label, n)
  *   <li>AC-IMPL-DEFAULT-FLAGS — participate=true, refereeAssignment=true, withoutAssessment=false
-      (E05S13: refereeAssignment flipped false→true for auto-seeded teams; participate and
-      withoutAssessment remain unchanged per E05S12 AC-IMPL-DEFAULT-FLAGS other clauses)
+ *       (E05S13: refereeAssignment flipped false→true for auto-seeded teams; participate and
+ *       withoutAssessment remain unchanged per E05S12 AC-IMPL-DEFAULT-FLAGS other clauses)
  *   <li>AC-I18N-LABEL-FROM-MESSAGE-BUNDLE — label sourced from team.defaultLabel key
  *   <li>AC-I18N-LOCALE-CHAIN — tenant.language ?? "de" fallback chain (today's state)
  *   <li>AC-ERR-ATOMIC-ROLLBACK — team-insert failure rolls back tournament row too
@@ -299,7 +299,9 @@ class DefaultTournamentServiceSeedTest {
         for (Team team : captor.getAllValues()) {
             assertThat(team.isParticipate()).as("participate must be true").isTrue();
             assertThat(team.isRefereeAssignment())
-                    .as("refereeAssignment must be true (E05S13: Mannschaft=Schiedsgericht default)")
+                    .as(
+                            "refereeAssignment must be true (E05S13: Mannschaft=Schiedsgericht"
+                                    + " default)")
                     .isTrue();
             assertThat(team.isWithoutAssessment()).as("withoutAssessment must be false").isFalse();
         }
