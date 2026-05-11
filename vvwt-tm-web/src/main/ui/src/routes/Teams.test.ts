@@ -254,3 +254,32 @@ describe('App.svelte — AC14: graceful undefined tournament name (E47S01)', () 
     expect(source).toContain('backTo');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E05S13 — AC-IMPL-UI-ADDROW-DEFAULT-TRUE + AC-TEST-UI-ADDROW-DEFAULT-RED-FIRST
+// RED-first per DEC-22 Iron Law: this test was committed while Teams.svelte:164
+// still had refereeAssignment: false — assertion fails before the GREEN flip.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Teams.svelte — E05S13: openAddRow refereeAssignment default', () => {
+  it('Teams.svelte source initialises addRow with refereeAssignment: true (E05S13)', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './Teams.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // openAddRow() addRow literal must contain refereeAssignment: true
+    // Matches the object literal inside openAddRow() at Teams.svelte:164
+    expect(source).toContain('refereeAssignment: true');
+  });
+
+  it('Teams.svelte source openAddRow does NOT initialise refereeAssignment: false (E05S13)', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './Teams.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // After the flip the addRow literal must not contain refereeAssignment: false
+    // (the only place refereeAssignment appears in openAddRow is line 164)
+    const openAddRowBlock = source.match(/function openAddRow\(\)[\s\S]*?^\s*\}/m)?.[0] ?? '';
+    expect(openAddRowBlock).not.toContain('refereeAssignment: false');
+  });
+});
