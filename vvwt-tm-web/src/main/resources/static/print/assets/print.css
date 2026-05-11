@@ -241,12 +241,13 @@ tr.break-row {
     border-bottom: 1px solid #aaa;
 }
 
-/* Laufzettel table */
+/* Laufzettel table — E08S10 AC-TABLE-LAYOUT-FIXED */
 .laufzettel-table {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 12px;
     font-size: 13px;
+    table-layout: fixed;
 }
 
 .laufzettel-table th,
@@ -263,11 +264,16 @@ tr.break-row {
     font-size: 0.9em;
 }
 
-/* Column widths */
-.laufzettel-col-round  { width: 10%; text-align: center; }
-.laufzettel-col-time   { width: 18%; white-space: nowrap; }
-.laufzettel-col-activity { width: 54%; }
-.laufzettel-col-field  { width: 18%; text-align: center; }
+/* Column widths — E08S10 AC-COL-*-WIDTH */
+.laufzettel-col-round  { width: 7%; text-align: center; }
+.laufzettel-col-time   { width: 13%; white-space: nowrap; }
+.laufzettel-col-activity {
+    width: 72%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.laufzettel-col-field  { width: 8%; text-align: center; }
 
 /* AC4: PLAYING row — team has a match (active) */
 .laufzettel-row-playing {
@@ -418,6 +424,13 @@ tr.break-row {
     .laufzettel-team-section {
         page-break-inside: avoid;
         break-inside: avoid;
+    }
+
+    /* E08S10 AC-TEAM-SECTION-SEPARATOR: visual separator between packed team sections */
+    .laufzettel-team-section:not(:first-of-type) {
+        border-top: 1.5pt solid black;
+        padding-top: 6pt;
+        margin-top: 8pt;
     }
 
     /* Error pages: suppress background/border in print */

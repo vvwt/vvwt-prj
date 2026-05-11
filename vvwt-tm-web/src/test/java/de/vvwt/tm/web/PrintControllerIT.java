@@ -2316,6 +2316,634 @@ class PrintControllerIT {
     }
 
     // =========================================================================
+    // E08S10 — Group A: Activity-cell copy (both templates)
+    // =========================================================================
+
+    /**
+     * AC-PLAYING-COPY-ALL-TEAMS + AC-TDD-RED-FIRST-COPY-ALL-TEAMS-TEMPLATE: All-teams laufzettel
+     * PLAYING row must contain "Spiel gegen Mannschaft".
+     *
+     * <p>RED against unmodified {@code laufzettel-all.mustache} (renders bare {@code
+     * {{opponentName}}} = "Mannschaft 03" without "Spiel gegen" prefix) and unmodified {@code
+     * messages.properties} ({@code print.laufzettel.playing.vs=vs}).
+     *
+     * @since E08S10
+     */
+    @Test
+    @DisplayName(
+            "AC-PLAYING-COPY-ALL-TEAMS: all-teams laufzettel playing row contains"
+                    + " 'Spiel gegen Mannschaft' — E08S10")
+    void allTeamsLaufzettel_playingRow_hasSpielGegenCopy() throws Exception {
+        UUID tid = seedTournamentWithActivePhaseAndMatches();
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(baseUrl + "/print/tournaments/" + tid + "/team-schedules"),
+                        String.class);
+
+        assertThat(response.getStatusCode())
+                .as("AC-PLAYING-COPY-ALL-TEAMS: all-teams must return 200")
+                .isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as(
+                        "AC-PLAYING-COPY-ALL-TEAMS: playing row laufzettel-col-activity must"
+                                + " contain 'Spiel gegen'")
+                .containsPattern("Spiel gegen\\s+Mannschaft");
+    }
+
+    /**
+     * AC-REFEREEING-COPY-ALL-TEAMS + AC-TDD-RED-FIRST-COPY-ALL-TEAMS-TEMPLATE: All-teams laufzettel
+     * REFEREEING row must match "Schiedsgericht: Mannschaft N vs Mannschaft M".
+     *
+     * <p>RED against unmodified template (renders bare {@code {{msgReferee}}} = "Schiedsrichter"
+     * without colon or team names) and unmodified messages.properties.
+     *
+     * @since E08S10
+     */
+    @Test
+    @DisplayName(
+            "AC-REFEREEING-COPY-ALL-TEAMS: all-teams laufzettel refereeing row contains"
+                    + " 'Schiedsgericht:' with team names — E08S10")
+    void allTeamsLaufzettel_refereeingRow_hasSchiedsgerichtCopy() throws Exception {
+        UUID tid = seedTournamentWithActivePhaseAndMatches();
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(baseUrl + "/print/tournaments/" + tid + "/team-schedules"),
+                        String.class);
+
+        assertThat(response.getStatusCode())
+                .as("AC-REFEREEING-COPY-ALL-TEAMS: all-teams must return 200")
+                .isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as(
+                        "AC-REFEREEING-COPY-ALL-TEAMS: refereeing row must contain 'Schiedsgericht'"
+                                + " followed by team names")
+                .containsPattern("Schiedsgericht:\\s+Mannschaft\\s+\\d+\\s+vs\\s+Mannschaft");
+    }
+
+    /**
+     * AC-PLAYING-COPY-SINGLE-TEAM + AC-TDD-RED-FIRST-COPY-I18N-VALUES: Single-team laufzettel
+     * PLAYING row must contain "Spiel gegen Mannschaft 03".
+     *
+     * <p>RED against unmodified {@code messages.properties} ({@code print.laufzettel.playing.vs=vs}
+     * renders "vs Mannschaft 03" not "Spiel gegen Mannschaft 03").
+     *
+     * @since E08S10
+     */
+    @Test
+    @DisplayName(
+            "AC-PLAYING-COPY-SINGLE-TEAM: single-team laufzettel playing row contains"
+                    + " 'Spiel gegen Mannschaft' — E08S10")
+    void singleTeamLaufzettel_playingRow_hasSpielGegenCopy() throws Exception {
+        UUID tid = seedTournamentWithActivePhaseAndMatches();
+        UUID team1Id = getTeamId(tid, 2);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(
+                                baseUrl
+                                        + "/print/tournaments/"
+                                        + tid
+                                        + "/team-schedules/"
+                                        + team1Id),
+                        String.class);
+
+        assertThat(response.getStatusCode())
+                .as("AC-PLAYING-COPY-SINGLE-TEAM: single-team must return 200")
+                .isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as(
+                        "AC-PLAYING-COPY-SINGLE-TEAM: playing row must contain 'Spiel gegen'"
+                                + " prefix (not just bare 'vs')")
+                .containsPattern("Spiel gegen\\s+Mannschaft");
+    }
+
+    /**
+     * AC-REFEREEING-COPY-SINGLE-TEAM + AC-TDD-RED-FIRST-COPY-I18N-VALUES: Single-team laufzettel
+     * REFEREEING row must contain "Schiedsgericht: ...".
+     *
+     * <p>RED: {@code messages.properties} has {@code print.laufzettel.label.referee=Schiedsrichter}
+     * → renders "Schiedsrichter: Mannschaft 02 vs Mannschaft 03" — not "Schiedsgericht".
+     *
+     * @since E08S10
+     */
+    @Test
+    @DisplayName(
+            "AC-REFEREEING-COPY-SINGLE-TEAM: single-team laufzettel refereeing row contains"
+                    + " 'Schiedsgericht:' — E08S10")
+    void singleTeamLaufzettel_refereeingRow_hasSchiedsgerichtCopy() throws Exception {
+        UUID tid = seedTournamentWithActivePhaseAndMatches();
+        UUID team5Id = getTeamId(tid, 5);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(
+                                baseUrl
+                                        + "/print/tournaments/"
+                                        + tid
+                                        + "/team-schedules/"
+                                        + team5Id),
+                        String.class);
+
+        assertThat(response.getStatusCode())
+                .as("AC-REFEREEING-COPY-SINGLE-TEAM: single-team must return 200")
+                .isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as("AC-REFEREEING-COPY-SINGLE-TEAM: refereeing row must contain 'Schiedsgericht'")
+                .contains("Schiedsgericht");
+        assertThat(response.getBody())
+                .as("AC-REFEREEING-COPY-SINGLE-TEAM: must NOT contain legacy 'Schiedsrichter'")
+                .doesNotContain("Schiedsrichter");
+    }
+
+    // =========================================================================
+    // E08S10 — Group C: Multi-team-per-page packing
+    // =========================================================================
+
+    /**
+     * AC-NO-FORCED-PAGE-BREAK-RENDERED + AC-TDD-RED-FIRST-HTML-PAGE-BREAK-ABSENCE: All-teams
+     * laufzettel HTML must NOT contain class="page-break" between team sections.
+     *
+     * <p>RED against unmodified {@code laufzettel-all.mustache}: renders {@code
+     * {{#showPageBreak}}{{> print-page-break}}{{/showPageBreak}}} → inserts {@code <hr
+     * class="page-break">} between sections.
+     *
+     * @since E08S10
+     */
+    @Test
+    @DisplayName(
+            "AC-NO-FORCED-PAGE-BREAK-RENDERED: all-teams HTML has no class=\"page-break\""
+                    + " between sections — E08S10")
+    void allTeamsLaufzettel_noPageBreakElementBetweenSections() throws Exception {
+        UUID tid = seedTournamentWithTwoTeamsActivePhase();
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(baseUrl + "/print/tournaments/" + tid + "/team-schedules"),
+                        String.class);
+
+        assertThat(response.getStatusCode())
+                .as("AC-NO-FORCED-PAGE-BREAK-RENDERED: all-teams with 2 teams must return 200")
+                .isEqualTo(HttpStatus.OK);
+        String body = response.getBody();
+        long sectionCount =
+                body.lines()
+                        .filter(line -> line.contains("class=\"laufzettel-team-section\""))
+                        .count();
+        assertThat(sectionCount)
+                .as("AC-NO-FORCED-PAGE-BREAK-RENDERED: must have ≥2 team sections")
+                .isGreaterThanOrEqualTo(2);
+        assertThat(body)
+                .as(
+                        "AC-NO-FORCED-PAGE-BREAK-RENDERED: rendered HTML must not contain"
+                                + " class=\"page-break\"")
+                .doesNotContain("class=\"page-break\"");
+    }
+
+    // =========================================================================
+    // E08S10 — Group D: No title attribute on activity cells
+    // =========================================================================
+
+    /**
+     * AC-COL-ACTIVITY-NO-TITLE-ATTRIBUTE: All-teams laufzettel activity cells must not carry a
+     * title= attribute. GREEN (regression guard).
+     *
+     * @since E08S10
+     */
+    @Test
+    @DisplayName(
+            "AC-COL-ACTIVITY-NO-TITLE-ATTRIBUTE: all-teams activity cells have no title attribute"
+                    + " — E08S10")
+    void allTeamsLaufzettel_activityCells_noTitleAttribute() throws Exception {
+        UUID tid = seedTournamentWithActivePhaseAndMatches();
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(baseUrl + "/print/tournaments/" + tid + "/team-schedules"),
+                        String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as(
+                        "AC-COL-ACTIVITY-NO-TITLE-ATTRIBUTE: laufzettel-col-activity td must not"
+                                + " carry title= attribute in all-teams template")
+                .doesNotContainPattern("<td class=\"laufzettel-col-activity\"[^>]*title=");
+    }
+
+    /**
+     * AC-COL-ACTIVITY-NO-TITLE-ATTRIBUTE: Single-team laufzettel activity cells must not carry a
+     * title= attribute. GREEN (regression guard).
+     *
+     * @since E08S10
+     */
+    @Test
+    @DisplayName(
+            "AC-COL-ACTIVITY-NO-TITLE-ATTRIBUTE: single-team activity cells have no title"
+                    + " attribute — E08S10")
+    void singleTeamLaufzettel_activityCells_noTitleAttribute() throws Exception {
+        UUID tid = seedTournamentWithActivePhaseAndMatches();
+        UUID team1Id = getTeamId(tid, 2);
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(
+                                baseUrl
+                                        + "/print/tournaments/"
+                                        + tid
+                                        + "/team-schedules/"
+                                        + team1Id),
+                        String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as(
+                        "AC-COL-ACTIVITY-NO-TITLE-ATTRIBUTE: laufzettel-col-activity td must not"
+                                + " carry title= attribute in single-team template")
+                .doesNotContainPattern("<td class=\"laufzettel-col-activity\"[^>]*title=");
+    }
+
+    // =========================================================================
+    // E08S10 — Group E: Print-index per-team links
+    // =========================================================================
+
+    /**
+     * AC-INDEX-PER-TEAM-LIST + AC-INDEX-PER-TEAM-SECTION-LABEL + AC-TDD-RED-FIRST-INDEX-LINKS:
+     * Print-index must show per-team links section when linksAvailable=true.
+     *
+     * <p>RED against unmodified PrintController.printIndex().
+     *
+     * @since E08S10
+     */
+    @Test
+    @DisplayName(
+            "AC-INDEX-PER-TEAM-LIST: print-index shows per-team laufzettel links when"
+                    + " linksAvailable=true — E08S10")
+    void printIndex_perTeamLinks_presentWhenLinksAvailable() throws Exception {
+        UUID tid = seedTournamentWithActivePhaseAndMatches();
+        UUID team2Id = getTeamId(tid, 2);
+        UUID team3Id = getTeamId(tid, 3);
+        UUID team5Id = getTeamId(tid, 5);
+
+        ResponseEntity<String> response =
+                authed.getForEntity(new URI(baseUrl + "/print/tournaments/" + tid), String.class);
+
+        assertThat(response.getStatusCode())
+                .as("AC-INDEX-PER-TEAM-LIST: index must return 200")
+                .isEqualTo(HttpStatus.OK);
+        String body = response.getBody();
+        assertThat(body)
+                .as("AC-INDEX-PER-TEAM-SECTION-LABEL: heading 'Laufzettel pro Mannschaft' present")
+                .contains("Laufzettel pro Mannschaft");
+        assertThat(body)
+                .as("AC-INDEX-PER-TEAM-LIST: link to team 2 present")
+                .contains("href=\"/print/tournaments/" + tid + "/team-schedules/" + team2Id + "\"");
+        assertThat(body)
+                .as("AC-INDEX-PER-TEAM-LIST: link to team 3 present")
+                .contains("href=\"/print/tournaments/" + tid + "/team-schedules/" + team3Id + "\"");
+        assertThat(body)
+                .as("AC-INDEX-PER-TEAM-LIST: link to team 5 present")
+                .contains("href=\"/print/tournaments/" + tid + "/team-schedules/" + team5Id + "\"");
+    }
+
+    /**
+     * AC-INDEX-ALL-TEAMS-LINK-PRESERVED: The existing all-teams link must still be present. GREEN
+     * (regression guard).
+     *
+     * @since E08S10
+     */
+    @Test
+    @DisplayName(
+            "AC-INDEX-ALL-TEAMS-LINK-PRESERVED: existing all-teams link preserved on index"
+                    + " — E08S10")
+    void printIndex_allTeamsLink_preserved() throws Exception {
+        UUID tid = seedTournamentWithActivePhaseAndMatches();
+        ResponseEntity<String> response =
+                authed.getForEntity(new URI(baseUrl + "/print/tournaments/" + tid), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as("AC-INDEX-ALL-TEAMS-LINK-PRESERVED: all-teams href must still be present")
+                .contains("href=\"/print/tournaments/" + tid + "/team-schedules\"");
+    }
+
+    /**
+     * AC-ERROR-INDEX-NO-TEAMS-EMPTY-LIST: Per-team section suppressed when no teams.
+     *
+     * @since E08S10
+     */
+    @Test
+    @DisplayName(
+            "AC-ERROR-INDEX-NO-TEAMS-EMPTY-LIST: per-team section suppressed when no teams"
+                    + " — E08S10")
+    void printIndex_perTeamLinks_emptyWhenNoTeams() throws Exception {
+        UUID tid = seedTournamentWithActivePhaseNoTeams();
+        ResponseEntity<String> response =
+                authed.getForEntity(new URI(baseUrl + "/print/tournaments/" + tid), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as("AC-ERROR-INDEX-NO-TEAMS-EMPTY-LIST: heading must NOT appear when no teams")
+                .doesNotContain("Laufzettel pro Mannschaft");
+        assertThat(response.getBody()).isNotBlank();
+    }
+
+    /**
+     * AC-ERROR-INDEX-LINKSAVAILABLE-FALSE: Per-team section absent when linksAvailable=false.
+     *
+     * @since E08S10
+     */
+    @Test
+    @DisplayName(
+            "AC-ERROR-INDEX-LINKSAVAILABLE-FALSE: per-team section absent when"
+                    + " linksAvailable=false — E08S10")
+    void printIndex_perTeamLinks_absentWhenLinksNotAvailable() throws Exception {
+        UUID tid = seedTournamentWithOnlyPendingPhase();
+        ResponseEntity<String> response =
+                authed.getForEntity(new URI(baseUrl + "/print/tournaments/" + tid), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as("AC-ERROR-INDEX-LINKSAVAILABLE-FALSE: heading must NOT appear")
+                .doesNotContain("Laufzettel pro Mannschaft");
+        assertThat(response.getBody())
+                .as("AC-ERROR-INDEX-LINKSAVAILABLE-FALSE: /team-schedules/ href must NOT appear")
+                .doesNotContain("href=\"/print/tournaments/" + tid + "/team-schedules/");
+    }
+
+    // =========================================================================
+    // E08S10 — Group G: Security re-assertion
+    // =========================================================================
+
+    /**
+     * AC-SECURITY-PER-TEAM-LINK-TENANT-SCOPE: unknown teamId in known tournament returns 404.
+     *
+     * @since E08S10
+     */
+    @Test
+    @DisplayName("AC-SECURITY-PER-TEAM-LINK-TENANT-SCOPE: unknown teamId → 404 — E08S10")
+    void perTeamLink_unknownTeamId_returns404() throws Exception {
+        UUID tid = seedTournamentWithActivePhaseAndMatches();
+        UUID unknownTeamId = UUID.randomUUID();
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(
+                                baseUrl
+                                        + "/print/tournaments/"
+                                        + tid
+                                        + "/team-schedules/"
+                                        + unknownTeamId),
+                        String.class);
+        assertThat(response.getStatusCode())
+                .as("AC-SECURITY-PER-TEAM-LINK-TENANT-SCOPE: unknown teamId → 404")
+                .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    // =========================================================================
+    // E08S10 — Group F: Error handling
+    // =========================================================================
+
+    /**
+     * AC-ERROR-EMPTY-REFEREE-TEAM-NAME-FALLBACK: match with null referee_team_id renders gracefully
+     * — no 500.
+     *
+     * @since E08S10
+     */
+    @Test
+    @DisplayName(
+            "AC-ERROR-EMPTY-REFEREE-TEAM-NAME-FALLBACK: null referee_team_id renders gracefully"
+                    + " — E08S10")
+    void allTeamsLaufzettel_noRefereeTeam_rendersGracefully() throws Exception {
+        UUID tid = seedTournamentWithActivePhaseNoRefereeTeam();
+        ResponseEntity<String> response =
+                authed.getForEntity(
+                        new URI(baseUrl + "/print/tournaments/" + tid + "/team-schedules"),
+                        String.class);
+
+        assertThat(response.getStatusCode())
+                .as("AC-ERROR-EMPTY-REFEREE-TEAM-NAME-FALLBACK: must not return 500")
+                .isNotEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+        assertThat(response.getBody()).isNotBlank();
+    }
+
+    // =========================================================================
+    // E08S10 — Additional seed helpers
+    // =========================================================================
+
+    /** Seeds a tournament with 2 teams, 1 ACTIVE phase, 1 match. */
+    private UUID seedTournamentWithTwoTeamsActivePhase() {
+        tenantBinder.bindDefaultTenant();
+        try {
+            UUID tid = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO tournament (id, location_id, description, match_format,"
+                            + " scoring_rule_id, set_validation_rule_id, match_generator_id,"
+                            + " status, created_at, field_count, team_count)"
+                            + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    tid,
+                    locationId,
+                    "PrintControllerIT E08S10 TwoTeams",
+                    "BEST_OF_3",
+                    "setPoints",
+                    "standardVolleyball",
+                    "roundRobin",
+                    "ACTIVE",
+                    LocalDateTime.now(),
+                    2,
+                    2);
+            UUID phaseId = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO phase (id, tournament_id, sequence_number, description, status,"
+                            + " current_lap_number, optimized) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    phaseId,
+                    tid,
+                    1,
+                    "Phase ACTIVE",
+                    "ACTIVE",
+                    0,
+                    true);
+            UUID teamAId = UUID.randomUUID();
+            UUID teamBId = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO team (id, tournament_id, team_number, description, participate)"
+                            + " VALUES (?, ?, ?, ?, ?)",
+                    teamAId,
+                    tid,
+                    1,
+                    "Team A",
+                    true);
+            jdbcTemplate.update(
+                    "INSERT INTO team (id, tournament_id, team_number, description, participate)"
+                            + " VALUES (?, ?, ?, ?, ?)",
+                    teamBId,
+                    tid,
+                    2,
+                    "Team B",
+                    true);
+            UUID avatarAId = UUID.randomUUID();
+            UUID avatarBId = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO team_avatar (id, tournament_id, phase_id, group_number,"
+                            + " group_position, team_id) VALUES (?, ?, ?, ?, ?, ?)",
+                    avatarAId,
+                    tid,
+                    phaseId,
+                    1,
+                    1,
+                    teamAId);
+            jdbcTemplate.update(
+                    "INSERT INTO team_avatar (id, tournament_id, phase_id, group_number,"
+                            + " group_position, team_id) VALUES (?, ?, ?, ?, ?, ?)",
+                    avatarBId,
+                    tid,
+                    phaseId,
+                    1,
+                    2,
+                    teamBId);
+            UUID matchId = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO match (id, tournament_id, phase_id, member_avatar_1_id,"
+                            + " member_avatar_2_id, state, set_limit, lap_number, field_number)"
+                            + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    matchId,
+                    tid,
+                    phaseId,
+                    avatarAId,
+                    avatarBId,
+                    0,
+                    1,
+                    1,
+                    1);
+            return tid;
+        } finally {
+            tenantBinder.unbind();
+        }
+    }
+
+    /** Seeds a tournament with 1 ACTIVE phase and zero teams (no team rows). */
+    private UUID seedTournamentWithActivePhaseNoTeams() {
+        tenantBinder.bindDefaultTenant();
+        try {
+            UUID tid = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO tournament (id, location_id, description, match_format,"
+                            + " scoring_rule_id, set_validation_rule_id, match_generator_id,"
+                            + " status, created_at, field_count, team_count)"
+                            + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    tid,
+                    locationId,
+                    "PrintControllerIT E08S10 NoTeams",
+                    "BEST_OF_3",
+                    "setPoints",
+                    "standardVolleyball",
+                    "roundRobin",
+                    "ACTIVE",
+                    LocalDateTime.now(),
+                    2,
+                    0);
+            UUID phaseId = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO phase (id, tournament_id, sequence_number, description, status,"
+                            + " current_lap_number, optimized) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    phaseId,
+                    tid,
+                    1,
+                    "Phase ACTIVE",
+                    "ACTIVE",
+                    0,
+                    true);
+            // No team rows — teamLinks will be empty → hasTeamLinks=false → section suppressed
+            return tid;
+        } finally {
+            tenantBinder.unbind();
+        }
+    }
+
+    /** Seeds a tournament with 1 ACTIVE phase and a match with null referee_team_id. */
+    private UUID seedTournamentWithActivePhaseNoRefereeTeam() {
+        tenantBinder.bindDefaultTenant();
+        try {
+            UUID tid = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO tournament (id, location_id, description, match_format,"
+                            + " scoring_rule_id, set_validation_rule_id, match_generator_id,"
+                            + " status, created_at, field_count, team_count)"
+                            + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    tid,
+                    locationId,
+                    "PrintControllerIT E08S10 NoReferee",
+                    "BEST_OF_3",
+                    "setPoints",
+                    "standardVolleyball",
+                    "roundRobin",
+                    "ACTIVE",
+                    LocalDateTime.now(),
+                    2,
+                    2);
+            UUID phaseId = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO phase (id, tournament_id, sequence_number, description, status,"
+                            + " current_lap_number, optimized) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    phaseId,
+                    tid,
+                    1,
+                    "Phase ACTIVE",
+                    "ACTIVE",
+                    0,
+                    true);
+            UUID teamAId = UUID.randomUUID();
+            UUID teamBId = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO team (id, tournament_id, team_number, description, participate)"
+                            + " VALUES (?, ?, ?, ?, ?)",
+                    teamAId,
+                    tid,
+                    1,
+                    "NoRefTeam A",
+                    true);
+            jdbcTemplate.update(
+                    "INSERT INTO team (id, tournament_id, team_number, description, participate)"
+                            + " VALUES (?, ?, ?, ?, ?)",
+                    teamBId,
+                    tid,
+                    2,
+                    "NoRefTeam B",
+                    true);
+            UUID avatarAId = UUID.randomUUID();
+            UUID avatarBId = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO team_avatar (id, tournament_id, phase_id, group_number,"
+                            + " group_position, team_id) VALUES (?, ?, ?, ?, ?, ?)",
+                    avatarAId,
+                    tid,
+                    phaseId,
+                    1,
+                    1,
+                    teamAId);
+            jdbcTemplate.update(
+                    "INSERT INTO team_avatar (id, tournament_id, phase_id, group_number,"
+                            + " group_position, team_id) VALUES (?, ?, ?, ?, ?, ?)",
+                    avatarBId,
+                    tid,
+                    phaseId,
+                    1,
+                    2,
+                    teamBId);
+            // Match with NULL referee_team_id
+            UUID matchId = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO match (id, tournament_id, phase_id, member_avatar_1_id,"
+                            + " member_avatar_2_id, state, set_limit, lap_number, field_number)"
+                            + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    matchId,
+                    tid,
+                    phaseId,
+                    avatarAId,
+                    avatarBId,
+                    0,
+                    1,
+                    1,
+                    1);
+            return tid;
+        } finally {
+            tenantBinder.unbind();
+        }
+    }
+
+    // =========================================================================
     // Test configuration — known test admin password
     // =========================================================================
 
