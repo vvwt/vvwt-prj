@@ -9,14 +9,12 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * RED-first TDD tests for {@link BalancedVarietyScorer} (E54S07 / DEC-63 Clauses A+B+C).
  *
- * <p>Formulation chosen: pure variance — {@code SUM((rating_i - mean)^2) / avatarCount}.
- * Lower score = better balance (variance=0 ↔ all avatars have identical idle-run product).
+ * <p>Formulation chosen: pure variance — {@code SUM((rating_i - mean)^2) / avatarCount}. Lower
+ * score = better balance (variance=0 ↔ all avatars have identical idle-run product).
  *
  * <p>All tests in this class were authored before the production class existed (RED-first, DEC-22
  * Iron Law). The RED commit precedes the GREEN commit in git log per
@@ -94,7 +92,8 @@ class BalancedVarietyScorerTest {
     //                 row-0: active (run 1), row-1: active (run 2), row-2: active (run 3) — no,
     //                 same state all through → single run of 3 → rating=3. Can't get 5 with 3 rows
     //                 and a single permutation of 3 distinct states.
-    //                 Alternative: active rows 0,1 then idle row 2 → runs [2, 1] → 2×1=2. Still not 5.
+    //                 Alternative: active rows 0,1 then idle row 2 → runs [2, 1] → 2×1=2. Still not
+    // 5.
     //                 With 5 rows: active all 5 → rating=5. Use rowCount=5:
     //
     //   Revised Fixture C: rowCount=5, avatarCount=3, perm=[0,1,2,3,4]
@@ -244,8 +243,10 @@ class BalancedVarietyScorerTest {
                 .isLessThanOrEqualTo(scoreA);
 
         // Also verify VarietyScorer (MEAN-of-products) prefers A over B (reference check)
-        double meanScoreA = referenceScorer.scoreWithMatrix(permA, rowCountA, avatarCountA, matrixA);
-        double meanScoreB = referenceScorer.scoreWithMatrix(permB, rowCountB, avatarCountA, matrixB);
+        double meanScoreA =
+                referenceScorer.scoreWithMatrix(permA, rowCountA, avatarCountA, matrixA);
+        double meanScoreB =
+                referenceScorer.scoreWithMatrix(permB, rowCountB, avatarCountA, matrixB);
         // VarietyScorer: score(A) = (25 + 11*1)/12 = 3.0; score(B) = 4.0 → A < B (prefers A)
         assertThat(meanScoreA)
                 .as(
@@ -281,7 +282,8 @@ class BalancedVarietyScorerTest {
         for (int r = 0; r < rowCount; r++) activeMatrix[r][0] = true;
 
         // Get per-avatar ratings from shared utility
-        double[] ratings = AvatarRunRatings.computeRatings(perm, rowCount, avatarCount, activeMatrix);
+        double[] ratings =
+                AvatarRunRatings.computeRatings(perm, rowCount, avatarCount, activeMatrix);
         assertThat(ratings).hasSize(2);
 
         // avatar-0: single run of 3 active → product=3
@@ -290,7 +292,8 @@ class BalancedVarietyScorerTest {
         assertThat(ratings[1]).as("avatar-1 rating (idle all 3 rows)").isEqualTo(3.0);
 
         // VarietyScorer score = (3+3)/2 = 3.0
-        double varietyScore = referenceScorer.scoreWithMatrix(perm, rowCount, avatarCount, activeMatrix);
+        double varietyScore =
+                referenceScorer.scoreWithMatrix(perm, rowCount, avatarCount, activeMatrix);
         assertThat(varietyScore).as("VarietyScorer score = mean = 3.0").isEqualTo(3.0);
 
         // BalancedVarietyScorer score = variance = ((3-3)^2 + (3-3)^2)/2 = 0.0
@@ -319,7 +322,8 @@ class BalancedVarietyScorerTest {
         activeMatrix[2][2] = true;
         activeMatrix[3][2] = true;
 
-        double[] ratings = AvatarRunRatings.computeRatings(perm, rowCount, avatarCount, activeMatrix);
+        double[] ratings =
+                AvatarRunRatings.computeRatings(perm, rowCount, avatarCount, activeMatrix);
         assertThat(ratings[0]).as("avatar-0 rating (alternating, 5 runs of 1)").isEqualTo(1.0);
         assertThat(ratings[1]).as("avatar-1 rating (always active, 1 run of 5)").isEqualTo(5.0);
         assertThat(ratings[2]).as("avatar-2 rating (idle-3active-idle → 1×3×1=3)").isEqualTo(3.0);
@@ -350,7 +354,9 @@ class BalancedVarietyScorerTest {
 
         double first = scorer.scoreWithMatrix(perm, rowCount, avatarCount, activeMatrix);
         for (int i = 0; i < 9; i++) {
-            double next = new BalancedVarietyScorer().scoreWithMatrix(perm, rowCount, avatarCount, activeMatrix);
+            double next =
+                    new BalancedVarietyScorer()
+                            .scoreWithMatrix(perm, rowCount, avatarCount, activeMatrix);
             assertThat(next)
                     .as("Invocation %d must be bit-identical to first result %.15f", i + 2, first)
                     .isEqualTo(first);
@@ -365,7 +371,8 @@ class BalancedVarietyScorerTest {
 
     @Test
     @DisplayName(
-            "AC-TEST-CONFIG-PROPERTY-RESOLUTION-RED: ScorerFactory 'mean' resolves to VarietyScorer")
+            "AC-TEST-CONFIG-PROPERTY-RESOLUTION-RED: ScorerFactory 'mean' resolves to"
+                    + " VarietyScorer")
     void configProperty_mean_resolvesToVarietyScorer() {
         Object result = ScorerFactory.createScorer("mean");
         assertThat(result).isInstanceOf(VarietyScorer.class);
@@ -387,8 +394,8 @@ class BalancedVarietyScorerTest {
 
     @Test
     @DisplayName(
-            "AC-TEST-CONFIG-INVALID-FALLS-BACK-RED: invalid scorer value falls back to VarietyScorer"
-                    + " without exception")
+            "AC-TEST-CONFIG-INVALID-FALLS-BACK-RED: invalid scorer value falls back to"
+                    + " VarietyScorer without exception")
     void configProperty_invalid_fallsBackToVarietyScorer_noException() {
         // Must not throw — falls back silently with WARN log
         Object result = ScorerFactory.createScorer("invalid_value");
@@ -401,8 +408,7 @@ class BalancedVarietyScorerTest {
     // =========================================================================
 
     @Test
-    @DisplayName(
-            "AC-ERROR-EMPTY-PHASE-NO-OP-PRESERVED: score with avatarCount=0 returns 0.0")
+    @DisplayName("AC-ERROR-EMPTY-PHASE-NO-OP-PRESERVED: score with avatarCount=0 returns 0.0")
     void emptyPhase_returnsZero() {
         CanonicalPhaseDef phase = new CanonicalPhaseDef(0, 0, List.of());
         double result = scorer.score(new int[0], phase);

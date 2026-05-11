@@ -1,7 +1,8 @@
 package de.vvwt.tm.slotopt.internal;
 
 import de.vvwt.slotopt.worker.codec.LehmerCodec;
-import de.vvwt.slotopt.worker.score.VarietyScorer;
+import de.vvwt.slotopt.worker.score.Scorer;
+import de.vvwt.slotopt.worker.score.ScorerFactory;
 import de.vvwt.slotopt.worker.types.CanonicalPhaseDef;
 import de.vvwt.tm.slotopt.CancelableInProcessSlotOptimizationService;
 import de.vvwt.tm.slotopt.CancellationToken;
@@ -93,6 +94,16 @@ public class RoutingSlotOptimizationClient implements SlotOptimizationClient {
     private final int exhaustiveMaxN;
 
     /**
+     * Scorer configuration value sourced from {@code tm.slotopt.scorer} (DEC-63 Clause C).
+     *
+     * <p>Valid values: {@code "mean"} (default, VarietyScorer) or {@code "balanced"}
+     * (BalancedVarietyScorer). Invalid values fall back to {@code "mean"} with a WARN log.
+     *
+     * @see ScorerFactory#createScorerUnified(String)
+     */
+    private final String scorerConfig;
+
+    /**
      * Constructs the routing client with all dependencies for Leg 1, Leg 2, and Leg 3 (E27S01,
      * E27S03, E27S02) plus phase-global lap-permutation optimization (E54S03 / DEC-61 Clause D).
      *
@@ -107,6 +118,9 @@ public class RoutingSlotOptimizationClient implements SlotOptimizationClient {
      * @param applicator the result applicator; invoked once with the phase-global mapping (E54S03)
      * @param exhaustiveMaxN maximum lapCount for Leg 1; sourced from {@code
      *     tm.slotopt.exhaustive-max-n} (default 10) per DEC-49 D-3
+     * @param scorerConfig scorer selection; sourced from {@code tm.slotopt.scorer} (default {@code
+     *     "mean"}); valid values: {@code "mean"} (VarietyScorer) or {@code "balanced"}
+     *     (BalancedVarietyScorer); invalid values fall back to {@code "mean"} with WARN log
      */
     public RoutingSlotOptimizationClient(
             DirectSlotOptimizationClient directClient,
@@ -116,7 +130,8 @@ public class RoutingSlotOptimizationClient implements SlotOptimizationClient {
             DispatcherReachabilityService reachabilityService,
             SlotOptimizationDispatcherClient dispatcherClient,
             SlotResultApplicator applicator,
-            @Value("${tm.slotopt.exhaustive-max-n:10}") int exhaustiveMaxN) {
+            @Value("${tm.slotopt.exhaustive-max-n:10}") int exhaustiveMaxN,
+            @Value("${tm.slotopt.scorer:mean}") String scorerConfig) {
         this.directClient = directClient;
         this.cancelableService = cancelableService;
         this.jobRegistry = jobRegistry;
@@ -125,6 +140,7 @@ public class RoutingSlotOptimizationClient implements SlotOptimizationClient {
         this.dispatcherClient = dispatcherClient;
         this.applicator = applicator;
         this.exhaustiveMaxN = exhaustiveMaxN;
+        this.scorerConfig = scorerConfig;
     }
 
     /**
@@ -214,8 +230,9 @@ public class RoutingSlotOptimizationClient implements SlotOptimizationClient {
     /**
      * Executes Leg 1 inline: exhaustive lap-permutation search over {@code [0, lapCount!)} ranks.
      *
-     * <p>For each rank, the lap permutation is scored via {@link VarietyScorer}. The best rank is
-     * applied via {@link SlotResultApplicator#applyResult} with the full phase mapping.
+     * <p>For each rank, the lap permutation is expanded to a row sequence and scored via the
+     * configured {@link Scorer} (VarietyScorer or BalancedVarietyScorer per {@code
+     * tm.slotopt.scorer}). The best rank is applied via {@link SlotResultApplicator#applyResult}.
      *
      * <p>For lapCount &lt; 2: applies identity rank (0) — L2 baseline preserved (AC9).
      *
@@ -242,7 +259,10 @@ public class RoutingSlotOptimizationClient implements SlotOptimizationClient {
         CanonicalPhaseDef canonical = phaseMapping.canonical();
         int rowCount = canonical.rowCount(); // = lapCount post-E54S02
 
-        VarietyScorer scorer = new VarietyScorer();
+        // DEC-63 Clause C: scorer selected via tm.slotopt.scorer config property.
+        // "mean" (default) → VarietyScorer adapter; "balanced" → BalancedVarietyScorer.
+        // Invalid values fall back to "mean" with WARN log (see ScorerFactory).
+        Scorer scorer = ScorerFactory.createScorerUnified(scorerConfig);
         boolean[][] activeMatrix =
                 scorer.buildActiveMatrix(canonical.rows(), rowCount, canonical.avatarCount());
 
