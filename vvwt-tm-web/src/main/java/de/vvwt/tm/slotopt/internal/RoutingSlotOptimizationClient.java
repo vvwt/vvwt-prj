@@ -3,8 +3,6 @@ package de.vvwt.tm.slotopt.internal;
 import de.vvwt.slotopt.worker.codec.LehmerCodec;
 import de.vvwt.slotopt.worker.score.VarietyScorer;
 import de.vvwt.slotopt.worker.types.CanonicalPhaseDef;
-import de.vvwt.slotopt.worker.types.PositionTuple;
-import de.vvwt.slotopt.worker.types.RawRow;
 import de.vvwt.tm.slotopt.CancelableInProcessSlotOptimizationService;
 import de.vvwt.tm.slotopt.CancellationToken;
 import de.vvwt.tm.slotopt.DirectSlotOptimizationClient;
@@ -19,10 +17,8 @@ import de.vvwt.tm.slotopt.SlotOptimizationJobRegistry;
 import de.vvwt.tm.slotopt.SlotResultApplicator;
 import de.vvwt.tm.tournament.Match;
 import java.time.Instant;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,28 +33,30 @@ import org.springframework.stereotype.Service;
  * <p>This class is the {@code @Primary @Service} bean registered as the project-wide canonical
  * {@link SlotOptimizationClient} implementation from E27S01 forward.
  *
- * <h2>Three-leg routing (DEC-49 D-3, E51S11 N-redefinition)</h2>
+ * <h2>Three-leg routing — phase-global (DEC-49 D-3, DEC-61 Clause D)</h2>
  *
- * <p>As of E51S11, N = {@code lapCount = rowCount / fieldCount} per group (not rowCount). The
- * routing decision is made per-group:
+ * <p>As of E54S03 (DEC-61 Clause D), the routing decision is phase-global: a single {@link
+ * PhaseToRawPhaseDefMapper#map(UUID)} call produces the full phase mapping. N = {@code lapCount =
+ * canonical.rowCount()} (post-E54S02 Mapper-refactor, each RawRow is a lap-row). All three legs
+ * operate on the phase-global mapping:
  *
  * <ul>
  *   <li><strong>Leg 1 (E27S01):</strong> lapCount &le; {@code tm.slotopt.exhaustive-max-n} (default
  *       10) → exhaustive in-process lap-permutation search; {@link
- *       SlotResultApplicator#applyResult} called per group.
+ *       SlotResultApplicator#applyResult} called once with the phase-global mapping.
  *   <li><strong>Leg 2 (E27S03):</strong> lapCount &gt; threshold AND dispatcher reachable → HTTP
  *       submit to vvwt-slotopt-dispatcher. On any wire error, falls through to Leg 3.
  *   <li><strong>Leg 3 (E27S02):</strong> lapCount &gt; threshold AND dispatcher NOT reachable (or
  *       Leg 2 fails) → register job + call {@link CancelableInProcessSlotOptimizationService}.
  * </ul>
  *
- * <h2>Per-group L3 iteration (NF-MED-1, E51S11)</h2>
+ * <h2>DEC-61 Clause D — elimination of per-group lap-offset collapse (E54S03)</h2>
  *
- * <p>{@link #optimize(UUID)} iterates over distinct group numbers in the phase mapping (derived
- * from {@link PositionTuple#group()} of each raw row). For each group, a per-group {@link
- * MappingResult} is obtained via {@link PhaseToRawPhaseDefMapper#mapGroup(UUID, int)} and routed
- * independently. Leg 1 applies results via {@link SlotResultApplicator} per group inline. Legs 2/3
- * delegate to the phase-level cancelable service.
+ * <p>Prior to E54S03, {@link #optimize(UUID)} iterated over distinct group numbers, obtaining
+ * per-group mappings via {@code mapGroup(phaseId, groupNumber)}. {@link
+ * SlotResultApplicator#applyResult} rewrote {@code lapNumber = outputLapIndex + 1} per per-group
+ * call — discarding Group 2's L2-assigned offsets (Defect 3 in DEC-61). E54S03 eliminates this by
+ * passing the phase-global mapping to a single {@code applyResult} call.
  *
  * <h2>Bean wiring</h2>
  *
@@ -75,7 +73,9 @@ import org.springframework.stereotype.Service;
  * @see DispatcherReachabilityService
  * @see SlotResultApplicator
  * @see <a href="../../../../../../../../../docs/governance/decisions/DEC-49.md">DEC-49 D-3</a>
- * @see <a href="E51S11">E51S11 — lapCount N-redefinition + per-group iteration</a>
+ * @see <a href="../../../../../../../../../docs/governance/decisions/DEC-61.md">DEC-61 Clause D —
+ *     L3 phase-global invocation</a>
+ * @see <a href="E54S03">E54S03 — L3 phase-global invocation + asymmetric regression-IT</a>
  */
 @Primary
 @Service
@@ -94,17 +94,17 @@ public class RoutingSlotOptimizationClient implements SlotOptimizationClient {
 
     /**
      * Constructs the routing client with all dependencies for Leg 1, Leg 2, and Leg 3 (E27S01,
-     * E27S03, E27S02) plus per-group lap-permutation optimization (E51S11).
+     * E27S03, E27S02) plus phase-global lap-permutation optimization (E54S03 / DEC-61 Clause D).
      *
      * @param directClient the exhaustive in-process client (backward compat; not used for Leg 1
      *     since E51S11 — lap-permutation loop is inlined)
      * @param cancelableService the Leg 3 cancelable in-process service
      * @param jobRegistry the per-tournament job handle registry
-     * @param mapper the phase-to-raw-phase-def mapper (used to derive groups and per-group
-     *     lapCount)
+     * @param mapper the phase-to-raw-phase-def mapper (phase-global {@code map(phaseId)} only
+     *     post-E54S03; {@code mapGroup} deleted as dead code per DEC-61 Clause D)
      * @param reachabilityService checks if the dispatcher is reachable before attempting Leg 2
      * @param dispatcherClient the HTTP client for Leg 2 dispatcher submission (E27S03)
-     * @param applicator the result applicator for Leg 1 per-group result application (E51S11)
+     * @param applicator the result applicator; invoked once with the phase-global mapping (E54S03)
      * @param exhaustiveMaxN maximum lapCount for Leg 1; sourced from {@code
      *     tm.slotopt.exhaustive-max-n} (default 10) per DEC-49 D-3
      */
@@ -130,19 +130,18 @@ public class RoutingSlotOptimizationClient implements SlotOptimizationClient {
     /**
      * {@inheritDoc}
      *
-     * <p><strong>Routing (DEC-49 D-3, E51S11):</strong>
+     * <p><strong>Routing — phase-global (DEC-49 D-3, DEC-61 Clause D, E54S03):</strong>
      *
      * <ol>
-     *   <li>Map the phase via {@link PhaseToRawPhaseDefMapper#map(UUID)} to get the full mapping.
-     *   <li>Extract distinct group numbers from the raw mapping's {@link PositionTuple#group()}
-     *       values.
-     *   <li>For each group: get per-group {@link MappingResult} via {@link
-     *       PhaseToRawPhaseDefMapper#mapGroup(UUID, int)}.
-     *   <li>Compute lapCount = {@code groupMapping.canonical().rowCount() / fieldCount}.
-     *   <li>Route per lapCount:
+     *   <li>Map the phase via {@link PhaseToRawPhaseDefMapper#map(UUID)} — single call
+     *       (phase-global).
+     *   <li>Derive {@code lapCount = phaseMapping.canonical().rowCount()} (post-E54S02: each RawRow
+     *       is a lap-row, so {@code canonical.rowCount() = lapCount} directly per DEC-61 Clause B).
+     *   <li>Empty phase (lapCount = 0) → no-op, return.
+     *   <li>Route on lapCount:
      *       <ul>
      *         <li>lapCount &le; threshold → Leg 1 inline exhaustive lap-permutation; apply via
-     *             {@link SlotResultApplicator#applyResult}.
+     *             {@link SlotResultApplicator#applyResult} with the phase-global mapping.
      *         <li>lapCount &gt; threshold + dispatcher reachable → Leg 2 (HTTP). On wire error →
      *             Leg 3.
      *         <li>lapCount &gt; threshold + dispatcher unreachable → Leg 3 (cancelable in-process).
@@ -153,140 +152,94 @@ public class RoutingSlotOptimizationClient implements SlotOptimizationClient {
      */
     @Override
     public void optimize(UUID phaseId) {
-        // Map the full phase to get group structure
-        MappingResult fullMapping = mapper.map(phaseId);
+        // DEC-61 Clause D: phase-global mapping — single map() call (E54S03)
+        MappingResult phaseMapping = mapper.map(phaseId);
         int fieldCount = mapper.getFieldCount();
 
-        // Extract distinct group numbers from the raw mapping rows (PositionTuple.group())
-        Set<Integer> groupNumbers = extractGroupNumbers(fullMapping);
+        // DEC-61 Clause B: post-E54S02 canonical.rowCount() = lapCount directly.
+        int lapCount = phaseMapping.canonical().rowCount();
 
         LOG.info(
-                "RoutingSlotOptimizationClient: phase={}, groups={}, fieldCount={}",
+                "RoutingSlotOptimizationClient: phase={}, lapCount={}, fieldCount={}",
                 phaseId,
-                groupNumbers,
+                lapCount,
                 fieldCount);
 
-        // Derive tournamentId for Leg 2/3 registry from first match in full mapping
-        List<Match> allMatches = fullMapping.matchOrder();
+        // Empty-phase guard: no matches → no-op (AC-ERROR-EMPTY-PHASE-NO-OP)
+        if (lapCount == 0) {
+            LOG.debug("RoutingSlotOptimizationClient: phase={} has lapCount=0 → no-op", phaseId);
+            return;
+        }
+
+        // Derive tournamentId for Leg 2/3 registry from first match in phase mapping
+        List<Match> allMatches = phaseMapping.matchOrder();
         UUID tournamentId = allMatches.isEmpty() ? null : allMatches.get(0).getTournamentId();
 
-        // Per-group routing (NF-MED-1, E51S11)
-        for (int groupNumber : groupNumbers) {
-            MappingResult groupMapping = mapper.mapGroup(phaseId, groupNumber);
-            // DEC-61 Clause B: post-E54S02 canonical.rowCount() = lapCount directly.
-            int lapCount = groupMapping.canonical().rowCount();
-
+        // Phase-global routing (DEC-61 Clause D, E54S03)
+        if (lapCount <= exhaustiveMaxN) {
+            // Leg 1: exhaustive in-process lap-permutation (lapCount ≤ threshold)
             LOG.debug(
-                    "RoutingSlotOptimizationClient: phase={} group={}, lapCount={},"
-                            + " threshold={}",
+                    "RoutingSlotOptimizationClient: phase={}, lapCount={} ≤ threshold={}"
+                            + " → Leg 1 inline (phase-global)",
                     phaseId,
-                    groupNumber,
                     lapCount,
                     exhaustiveMaxN);
-
-            if (lapCount <= exhaustiveMaxN) {
-                // Leg 1: exhaustive in-process lap-permutation (lapCount ≤ threshold)
-                LOG.debug(
-                        "RoutingSlotOptimizationClient: phase={} group={}, lapCount={} ≤"
-                                + " threshold={} → Leg 1 inline",
-                        phaseId,
-                        groupNumber,
-                        lapCount,
-                        exhaustiveMaxN);
-                executeLeg1Inline(phaseId, groupNumber, groupMapping, lapCount, fieldCount);
-            } else {
-                // lapCount > threshold: Leg 2 or Leg 3 (per-phase, not per-group, for Leg 2/3)
-                // Phase-level Legs 2/3 are invoked once for the first above-threshold group;
-                // subsequent above-threshold groups in the same phase are covered by the
-                // phase-level cancelable service.
-                if (reachabilityService.isReachable()) {
-                    LOG.info(
-                            "RoutingSlotOptimizationClient: phase={} group={}, lapCount={} >"
-                                    + " threshold={}, dispatcher reachable → attempting Leg 2",
-                            phaseId,
-                            groupNumber,
-                            lapCount,
-                            exhaustiveMaxN);
-                    boolean leg2Succeeded = tryLeg2(phaseId, groupMapping);
-                    if (leg2Succeeded) {
-                        continue;
-                    }
-                    LOG.info(
-                            "RoutingSlotOptimizationClient: Leg 2 failed for phase={} group={} →"
-                                    + " falling through to Leg 3",
-                            phaseId,
-                            groupNumber);
-                } else {
-                    LOG.info(
-                            "RoutingSlotOptimizationClient: phase={} group={}, lapCount={} >"
-                                    + " threshold={}, dispatcher NOT reachable → Leg 3",
-                            phaseId,
-                            groupNumber,
-                            lapCount,
-                            exhaustiveMaxN);
-                }
-                // Leg 3: cancelable in-process (phase-level)
+            executeLeg1Inline(phaseId, phaseMapping, lapCount, fieldCount);
+        } else if (reachabilityService.isReachable()) {
+            LOG.info(
+                    "RoutingSlotOptimizationClient: phase={}, lapCount={} > threshold={},"
+                            + " dispatcher reachable → attempting Leg 2 (phase-global)",
+                    phaseId,
+                    lapCount,
+                    exhaustiveMaxN);
+            boolean leg2Succeeded = tryLeg2(phaseId, phaseMapping);
+            if (!leg2Succeeded) {
+                LOG.info(
+                        "RoutingSlotOptimizationClient: Leg 2 failed for phase={} →"
+                                + " falling through to Leg 3",
+                        phaseId);
                 executeLeg3(phaseId, tournamentId);
-                // Once Leg 3 runs for the phase, stop iterating groups (Leg 3 is phase-level)
-                return;
             }
+        } else {
+            LOG.info(
+                    "RoutingSlotOptimizationClient: phase={}, lapCount={} > threshold={},"
+                            + " dispatcher NOT reachable → Leg 3 (phase-global)",
+                    phaseId,
+                    lapCount,
+                    exhaustiveMaxN);
+            executeLeg3(phaseId, tournamentId);
         }
-    }
-
-    /**
-     * Extracts distinct group numbers from the raw mapping's rows, in encounter order.
-     *
-     * <p>Each {@link RawRow} contains {@link PositionTuple}s whose {@link PositionTuple#group()}
-     * corresponds to {@link de.vvwt.tm.tournament.TeamAvatar#getGroupNumber()}.
-     *
-     * @param mapping the full phase mapping
-     * @return distinct group numbers in encounter order (LinkedHashSet)
-     */
-    private static Set<Integer> extractGroupNumbers(MappingResult mapping) {
-        Set<Integer> groups = new LinkedHashSet<>();
-        for (RawRow row : mapping.raw().rows()) {
-            for (PositionTuple pt : row.positions()) {
-                groups.add(pt.group());
-            }
-        }
-        return groups;
     }
 
     /**
      * Executes Leg 1 inline: exhaustive lap-permutation search over {@code [0, lapCount!)} ranks.
      *
-     * <p>For each rank, the lap permutation is expanded to a row sequence and scored via {@link
-     * VarietyScorer}. The best rank is applied via {@link SlotResultApplicator#applyResult}.
+     * <p>For each rank, the lap permutation is scored via {@link VarietyScorer}. The best rank is
+     * applied via {@link SlotResultApplicator#applyResult} with the full phase mapping.
      *
      * <p>For lapCount &lt; 2: applies identity rank (0) — L2 baseline preserved (AC9).
      *
      * @param phaseId the phase being optimized (for logging)
-     * @param groupNumber the group number (for logging)
-     * @param groupMapping the per-group mapping result
-     * @param lapCount the number of laps in this group
+     * @param phaseMapping the phase-global mapping result (DEC-61 Clause D, E54S03)
+     * @param lapCount the number of laps in the phase (= canonical.rowCount() post-E54S02)
      * @param fieldCount the number of fields per lap
      */
     private void executeLeg1Inline(
-            UUID phaseId,
-            int groupNumber,
-            MappingResult groupMapping,
-            int lapCount,
-            int fieldCount) {
+            UUID phaseId, MappingResult phaseMapping, int lapCount, int fieldCount) {
         if (lapCount < 2) {
             // Trivial phase: apply identity (L2 baseline)
             LOG.debug(
-                    "RoutingSlotOptimizationClient.executeLeg1Inline: phase={} group={},"
+                    "RoutingSlotOptimizationClient.executeLeg1Inline: phase={},"
                             + " lapCount={} < 2 → identity rank=0 (L2 baseline)",
                     phaseId,
-                    groupNumber,
                     lapCount);
-            applicator.applyResult(0L, fieldCount, groupMapping);
+            applicator.applyResult(0L, fieldCount, phaseMapping);
             return;
         }
 
         // DEC-61 Clause B: post-E54S02 rows are lap-rows, rowCount = lapCount.
         // π IS the row sequence directly — no expansion needed.
-        CanonicalPhaseDef canonical = groupMapping.canonical();
+        CanonicalPhaseDef canonical = phaseMapping.canonical();
         int rowCount = canonical.rowCount(); // = lapCount post-E54S02
 
         VarietyScorer scorer = new VarietyScorer();
@@ -310,16 +263,15 @@ public class RoutingSlotOptimizationClient implements SlotOptimizationClient {
         }
 
         LOG.info(
-                "RoutingSlotOptimizationClient.executeLeg1Inline: phase={} group={}, lapCount={},"
+                "RoutingSlotOptimizationClient.executeLeg1Inline: phase={}, lapCount={},"
                         + " perms={}, bestRank={}, bestScore={}",
                 phaseId,
-                groupNumber,
                 lapCount,
                 totalPermutations,
                 bestRank,
                 bestScore);
 
-        applicator.applyResult(bestRank, fieldCount, groupMapping);
+        applicator.applyResult(bestRank, fieldCount, phaseMapping);
     }
 
     /**
