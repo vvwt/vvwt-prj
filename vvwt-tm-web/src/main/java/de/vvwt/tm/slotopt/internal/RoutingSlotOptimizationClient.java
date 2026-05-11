@@ -258,13 +258,37 @@ public class RoutingSlotOptimizationClient implements SlotOptimizationClient {
         // π IS the row sequence directly — no expansion needed.
         CanonicalPhaseDef canonical = phaseMapping.canonical();
         int rowCount = canonical.rowCount(); // = lapCount post-E54S02
+        int avatarCount = canonical.avatarCount();
 
         // DEC-63 Clause C: scorer selected via tm.slotopt.scorer config property.
         // "mean" (default) → VarietyScorer adapter; "balanced" → BalancedVarietyScorer.
         // Invalid values fall back to "mean" with WARN log (see ScorerFactory).
         Scorer scorer = ScorerFactory.createScorerUnified(scorerConfig);
+
+        // E54S12 FIX: build activeMatrix from original lap-row order (denseIdsByRawRow),
+        // NOT from canonical.rows() (which is lex-sorted for fingerprinting,
+        // row-order-independent).
+        //
+        // Root cause: canonical.rows() is lex-sorted (StructuralFingerprint.canonicalize() Step 3).
+        // activeMatrix[i] = avatar-state for canonical row i (sorted position). But the permutation
+        // π from LehmerCodec.rankToPermutation(rank, lapCount) indexes into original lap order
+        // (0 = lap 1, 1 = lap 2, ...), and SlotResultApplicator.applyResult applies it to lapGroups
+        // built in original ascending lap-number order. Using canonical.rows() causes an
+        // index-space mismatch: the scorer evaluates permutations in canonical-row-index space, but
+        // the applicator applies them in original-lap-number-index space. The optimal rank in
+        // canonical space is NOT the optimal rank in original-lap space — producing sub-optimal
+        // output for setups where the canonical row order differs from the original lap order
+        // (e.g., 12T/2G/3F with pure-group laps: canonical = [G1×5, G2×5] vs original = alternating
+        // G1/G2).
+        //
+        // Fix: use denseIdsByRawRow (preserves original lap-row order from
+        // PhaseToRawPhaseDefMapper)
+        // so scorer and applicator operate in the same index space.
+        // DEC-63 Clause A preserved: VarietyScorer.java is textually unchanged; only the
+        // row-ordering source for activeMatrix construction changes here. (E54S12)
         boolean[][] activeMatrix =
-                scorer.buildActiveMatrix(canonical.rows(), rowCount, canonical.avatarCount());
+                buildActiveMatrixFromRawRows(
+                        phaseMapping.denseIdsByRawRow(), rowCount, avatarCount);
 
         long totalPermutations = factorial(lapCount);
         long bestRank = 0L;
@@ -274,8 +298,7 @@ public class RoutingSlotOptimizationClient implements SlotOptimizationClient {
             // Post-E54S02: π directly indexes lap-rows (rowCount = lapCount); no expansion.
             int[] rowSeq = LehmerCodec.rankToPermutation(rank, lapCount);
 
-            double score =
-                    scorer.scoreWithMatrix(rowSeq, rowCount, canonical.avatarCount(), activeMatrix);
+            double score = scorer.scoreWithMatrix(rowSeq, rowCount, avatarCount, activeMatrix);
             if (score < bestScore) {
                 bestScore = score;
                 bestRank = rank;
@@ -361,6 +384,35 @@ public class RoutingSlotOptimizationClient implements SlotOptimizationClient {
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
+
+    /**
+     * Builds the active-matrix from original lap-row order ({@code denseIdsByRawRow}).
+     *
+     * <p>This is the correct index space for the permutation-search: {@code activeMatrix[lapIdx]}
+     * corresponds to original lap {@code lapIdx}, matching the lap-bucket order used by {@link
+     * de.vvwt.tm.slotopt.SlotResultApplicator#applyResult} and the rank encoding from {@link
+     * de.vvwt.slotopt.worker.codec.LehmerCodec#rankToPermutation}.
+     *
+     * <p>Do NOT use {@link de.vvwt.slotopt.worker.types.CanonicalPhaseDef#rows()} here — that list
+     * is lex-sorted (row-order-independent for fingerprinting) and causes an index-space mismatch
+     * with the applicator's original-lap-number-index space. (E54S12 root-cause fix)
+     *
+     * @param denseIdsByRawRow {@code [lapIdx][k]} = dense avatar ID k active in lap {@code lapIdx};
+     *     from {@link de.vvwt.tm.slotopt.MappingResult#denseIdsByRawRow()}
+     * @param rowCount number of laps
+     * @param avatarCount total avatar count
+     * @return active-matrix[lapIndex][avatarId] == true iff avatar is active in that lap
+     */
+    private static boolean[][] buildActiveMatrixFromRawRows(
+            int[][] denseIdsByRawRow, int rowCount, int avatarCount) {
+        boolean[][] activeMatrix = new boolean[rowCount][avatarCount];
+        for (int lapIndex = 0; lapIndex < rowCount; lapIndex++) {
+            for (int avatarId : denseIdsByRawRow[lapIndex]) {
+                activeMatrix[lapIndex][avatarId] = true;
+            }
+        }
+        return activeMatrix;
+    }
 
     /** Computes n! for n in [0, 20]. Fits in {@code long}. */
     private static long factorial(int n) {
