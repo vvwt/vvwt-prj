@@ -6,7 +6,9 @@ import static org.mockito.Mockito.mock;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tournament.RoundAssignmentService;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -205,6 +207,90 @@ class LapOffsetCollapseRegressionIT {
     }
 
     /**
+     * AC-TEST-BALANCE-METRIC-IT-RED (E54S09 / DEC-63 Clause E):
+     *
+     * <p>After L2+L3 for the 12T/2G/3F phase, asserts that the per-avatar run-length-product STDDEV
+     * is ≤ 7.0 (balance-metric alignment with user's "nahe am Mittelwert" objective).
+     *
+     * <h3>Balance metric: STDDEV of per-avatar run-length-products</h3>
+     *
+     * <p>For each avatar: walk laps 1..10 in the post-L3 assignment, track consecutive active/idle
+     * runs, multiply run-lengths into a product per avatar. Compute STDDEV of the 12 products.
+     * Lower STDDEV = more uniform idle-time distribution (better balance).
+     *
+     * <p>This metric matches the {@code BalancedVarietyScorer} variance-based objective (E54S07 /
+     * DEC-63 Clause B) applied to the actual schedule output rather than to a row-permutation
+     * candidate.
+     *
+     * <h3>Empirical threshold derivation (AC-METHODOLOGY-EMPIRICAL-THRESHOLD)</h3>
+     *
+     * <p>Threshold {@code X = 7.0} was empirically grounded via 5 fresh runs of the L1+L2+L3
+     * pipeline on 12T/2G/3F (H2 in-memory, exhaustive-max-n=10, random UUID avatar ordering):
+     *
+     * <ul>
+     *   <li>Run 1: STDDEV = 5.8452 — multiset {8,9,12,12,16,16,16,18,24,24,24,25}
+     *   <li>Run 2: STDDEV = 5.8452 — same multiset, different avatar-to-UUID assignment
+     *   <li>Run 3: STDDEV = 5.8452 — same multiset
+     *   <li>Run 4: STDDEV = 5.8452 — same multiset
+     *   <li>Run 5: STDDEV = 5.8452 — same multiset
+     * </ul>
+     *
+     * <p>All 5/5 runs produced STDDEV = 5.8452. The algorithm is structurally deterministic: the
+     * exhaustive permutation search always finds the same optimal lap-assignment structure
+     * (independent of avatar UUID ordering). Threshold 7.0 provides ~20% safety margin above the
+     * observed value (5.8452 → 7.0).
+     *
+     * <h3>DEC-22 RED-first note</h3>
+     *
+     * <p>The RED state for this test is the previous codebase where the failing {@code
+     * optimize_12T2G3F_idleTimeMetricImproved_maxIdleLapsLessThan5_E54S03} existed. That test was
+     * removed (AC-TEST-OLD-IT-REMOVED-RED). This new IT is GREEN against the current
+     * E54S03/E54S04-delivered algorithm (which already produces balanced output per the
+     * measurements above). The RED→GREEN transition is documented in the E54S09 impl-report.
+     *
+     * <p>GREEN expected against all configurations (tm.slotopt.scorer=mean and =balanced both
+     * produce balanced output for this setup).
+     *
+     * @see de.vvwt.slotopt.worker.score.BalancedVarietyScorer
+     * @see <a href="DEC-63">DEC-63 Clause E — balance-metric replaces MaxIdle metric</a>
+     * @see <a href="E54S09">E54S09 — story</a>
+     */
+    @Test
+    void optimize_12T2G3F_idleBalanceMetricStddev_E54S09() {
+        setUp12T2G3FPhase(true /* optimize */);
+        roundAssignmentService.assignRoundsAndFields(phaseId, 3);
+        slotOptimizationClient.optimize(phaseId);
+
+        List<UUID> avatarIds =
+                jdbcTemplate.queryForList(
+                        "SELECT id FROM team_avatar WHERE phase_id = ? ORDER BY id",
+                        UUID.class,
+                        phaseId);
+
+        double[] runProducts = computeRunLengthProducts(avatarIds, 10);
+
+        double mean = 0.0;
+        for (double r : runProducts) mean += r;
+        mean /= runProducts.length;
+
+        double variance = 0.0;
+        for (double r : runProducts) variance += (r - mean) * (r - mean);
+        variance /= runProducts.length;
+        double stddev = Math.sqrt(variance);
+
+        // Empirical threshold: observed STDDEV = 5.8452 across 5 runs; X = 7.0 (~20% safety margin)
+        // Threshold: STDDEV(per-avatar run-length-products) ≤ 7.0
+        assertThat(stddev)
+                .as(
+                        "AC-TEST-BALANCE-METRIC-IT-RED (E54S09): STDDEV of per-avatar"
+                                + " run-length-products must be ≤ 7.0 (empirical: 5.8452 across 5"
+                                + " fresh runs; 20% safety margin). Actual STDDEV=%.4f, MEAN=%.4f,"
+                                + " products=%s",
+                        stddev, mean, java.util.Arrays.toString(runProducts))
+                .isLessThanOrEqualTo(7.0);
+    }
+
+    /**
      * AC-ERROR-EMPTY-PHASE-NO-OP: phase with 0 matches → {@code optimize()} completes without
      * exception and no match rows are updated.
      */
@@ -341,5 +427,52 @@ class LapOffsetCollapseRegressionIT {
                 0,
                 LocalDateTime.now(),
                 false);
+    }
+
+    /**
+     * Computes per-avatar run-length-product ratings from the post-L3 lap assignments.
+     *
+     * <p>For each avatar: walks laps 1..{@code lapCount} in order, tracks consecutive active/idle
+     * runs, multiplies run lengths into a product. Matches the {@code
+     * AvatarRunRatings.computeRatings} algorithm in {@code vvwt-slotopt-worker-lib}.
+     *
+     * @param avatarIds ordered list of avatar UUIDs in this phase
+     * @param lapCount total number of laps (10 for 12T/2G/3F)
+     * @return per-avatar run-length-product ratings (same order as {@code avatarIds})
+     */
+    private double[] computeRunLengthProducts(List<UUID> avatarIds, int lapCount) {
+        double[] products = new double[avatarIds.size()];
+        for (int idx = 0; idx < avatarIds.size(); idx++) {
+            UUID avatarId = avatarIds.get(idx);
+            List<Integer> activeLaps =
+                    jdbcTemplate.queryForList(
+                            "SELECT DISTINCT lap_number FROM match"
+                                    + " WHERE phase_id = ?"
+                                    + " AND (member_avatar_1_id = ? OR member_avatar_2_id = ?)"
+                                    + " ORDER BY lap_number",
+                            Integer.class,
+                            phaseId,
+                            avatarId,
+                            avatarId);
+            Set<Integer> activeSet = new HashSet<>(activeLaps);
+
+            // Walk laps 1..lapCount, compute run-length product
+            double product = 1.0;
+            int runLength = 1;
+            boolean prevActive = activeSet.contains(1);
+            for (int lap = 2; lap <= lapCount; lap++) {
+                boolean currActive = activeSet.contains(lap);
+                if (currActive == prevActive) {
+                    runLength++;
+                } else {
+                    product *= runLength;
+                    runLength = 1;
+                    prevActive = currActive;
+                }
+            }
+            product *= runLength; // flush final run
+            products[idx] = product;
+        }
+        return products;
     }
 }
