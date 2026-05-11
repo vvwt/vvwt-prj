@@ -6,9 +6,7 @@ import static org.mockito.Mockito.mock;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tournament.RoundAssignmentService;
 import java.time.LocalDateTime;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,25 +39,31 @@ import org.springframework.test.context.ActiveProfiles;
  * <h2>AC coverage</h2>
  *
  * <ul>
- *   <li>AC-TEST-NO-LAP-OFFSET-COLLAPSE-12T-2G-3F-RED
- *   <li>AC-TEST-IDLE-TIME-METRIC-IMPROVED-RED
+ *   <li>AC-TEST-NO-LAP-OFFSET-COLLAPSE-12T-2G-3F-RED (E54S03)
+ *   <li>AC-TEST-BALANCE-METRIC-IT-RED (E54S09) — STDDEV of per-avatar idle-run-products ≤ threshold
  *   <li>AC-TEST-DEC-60-1-BASED-PRESERVED-IN-L3-OUTPUT-GREEN (MIN lap ≥ 1, MIN field ≥ 1)
  *   <li>AC-ERROR-EMPTY-PHASE-NO-OP
  * </ul>
  *
+ * <p>Note: AC-TEST-IDLE-TIME-METRIC-IMPROVED-RED (E54S03) was removed by E54S09 (DEC-63 Clause E —
+ * MaxConsecutiveIdleLaps tests the wrong objective; replaced by balance-metric IT).
+ *
  * <h2>DEC compliance</h2>
  *
  * <ul>
- *   <li>DEC-22 — RED-first per Iron Law (this test is RED against pre-E54S03 per-group code)
+ *   <li>DEC-22 — RED-first per Iron Law
  *   <li>DEC-44 — {@code @SpringBootTest(RANDOM_PORT, classes = TournamentManagerApplication.class)}
  *   <li>DEC-60 — 1-based lap+field preservation
  *   <li>DEC-61 Clause D — phase-global L3 invocation
+ *   <li>DEC-63 Clause E — balance-metric replaces MaxIdle metric
  * </ul>
  *
  * @see RoutingSlotOptimizationClient
  * @see SlotResultApplicator
  * @see <a href="DEC-61">DEC-61 Clause D — L3 phase-global invocation</a>
+ * @see <a href="DEC-63">DEC-63 Clause E — balance-metric IT</a>
  * @see <a href="E54S03">E54S03 — story</a>
+ * @see <a href="E54S09">E54S09 — story</a>
  */
 @SpringBootTest(
         classes = de.vvwt.tm.TournamentManagerApplication.class,
@@ -198,75 +202,6 @@ class LapOffsetCollapseRegressionIT {
         assertThat(minField)
                 .as("AC-TEST-DEC-60-1-BASED-PRESERVED: MIN(field_number) must be ≥ 1")
                 .isGreaterThanOrEqualTo(1);
-    }
-
-    /**
-     * AC-TEST-IDLE-TIME-METRIC-IMPROVED-RED (E54S03):
-     *
-     * <p>After L2+L3 for the same 12T/2G/3F phase, computes the maximum consecutive idle laps per
-     * avatar and asserts the value is strictly less than 5 (the pre-E54 baseline where per-group L3
-     * produced 5 consecutive idle laps for all avatars in Group 1 during laps 6..10 and Group 2
-     * during laps 1..5).
-     *
-     * <p>RED against pre-E54S03 per-group code: every avatar has exactly 5 consecutive idle laps
-     * (their group is entirely absent from the other group's lap range).
-     */
-    @org.junit.jupiter.api.Disabled(
-            "AC-GOVERNANCE-PRESERVE-E54S03-IT-SCOPE (E54S04): idle-time AC temporarily disabled"
-                    + " pending E54S05 recalibration. The MaxConsecutiveIdleLaps metric tests the"
-                    + " wrong objective (DEC-63 Clause E). E54S05 will replace this with a"
-                    + " balance-variance AC.")
-    @Test
-    void optimize_12T2G3F_idleTimeMetricImproved_maxIdleLapsLessThan5_E54S03() {
-        setUp12T2G3FPhase(true /* optimize */);
-
-        roundAssignmentService.assignRoundsAndFields(phaseId, 3);
-        slotOptimizationClient.optimize(phaseId);
-
-        // For each avatar, compute the maximum consecutive idle laps
-        // An avatar is "active" in a lap if they appear in any match in that lap.
-        // Idle lap = a lap in [1..10] where the avatar has no match.
-        // Max consecutive idle = maximum run of consecutive idle laps.
-
-        List<UUID> avatarIds =
-                jdbcTemplate.queryForList(
-                        "SELECT id FROM team_avatar WHERE phase_id = ?", UUID.class, phaseId);
-
-        int overallMaxIdle = 0;
-        for (UUID avatarId : avatarIds) {
-            List<Integer> activeLaps =
-                    jdbcTemplate.queryForList(
-                            "SELECT DISTINCT lap_number FROM match"
-                                    + " WHERE phase_id = ?"
-                                    + " AND (member_avatar_1_id = ? OR member_avatar_2_id = ?)"
-                                    + " ORDER BY lap_number",
-                            Integer.class,
-                            phaseId,
-                            avatarId,
-                            avatarId);
-
-            if (activeLaps.isEmpty()) continue;
-
-            Set<Integer> activeSet = new HashSet<>(activeLaps);
-            int maxConsecutiveIdle = 0;
-            int currentIdle = 0;
-            for (int lap = 1; lap <= 10; lap++) {
-                if (!activeSet.contains(lap)) {
-                    currentIdle++;
-                    maxConsecutiveIdle = Math.max(maxConsecutiveIdle, currentIdle);
-                } else {
-                    currentIdle = 0;
-                }
-            }
-            overallMaxIdle = Math.max(overallMaxIdle, maxConsecutiveIdle);
-        }
-
-        assertThat(overallMaxIdle)
-                .as(
-                        "AC-TEST-IDLE-TIME-METRIC-IMPROVED-RED (E54S03): max consecutive idle"
-                                + " laps per avatar must be < 5 (pre-E54 baseline was 5 for"
-                                + " all avatars in the opposite group's laps)")
-                .isLessThan(5);
     }
 
     /**
