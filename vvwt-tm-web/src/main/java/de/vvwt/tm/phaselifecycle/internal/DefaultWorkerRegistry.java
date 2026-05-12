@@ -1,5 +1,7 @@
 package de.vvwt.tm.phaselifecycle.internal;
 
+import de.vvwt.tm.phaselifecycle.JobDrainService;
+import de.vvwt.tm.phaselifecycle.PhaseLifecycleJobRepository;
 import de.vvwt.tm.phaselifecycle.WorkerRegistry;
 import de.vvwt.tm.tenant.TenantContext;
 import jakarta.annotation.PostConstruct;
@@ -94,6 +96,8 @@ public class DefaultWorkerRegistry implements WorkerRegistry {
 
     // ── Dependencies ────────────────────────────────────────────────────────
     private final TenantContext tenantContext;
+    private final PhaseLifecycleJobRepository jobRepository;
+    private final JobDrainService jobDrainService;
     private final long idleTimeoutSeconds;
     private final long shutdownTimeoutSeconds;
     private final long idlePollSeconds;
@@ -107,12 +111,16 @@ public class DefaultWorkerRegistry implements WorkerRegistry {
      * Spring-wired constructor (DEC-58 — all new beans have constructor injection).
      *
      * @param tenantContext for tenant-context propagation to worker threads
+     * @param jobRepository for startup recovery queries (E55S07, DEC-64 D-7)
+     * @param jobDrainService for submitting drain hints during startup recovery (E55S07)
      * @param idleTimeoutSeconds configurable idle timeout (default 300 s)
      * @param shutdownTimeoutSeconds configurable JVM-shutdown await timeout (default 30 s)
      * @param idlePollSeconds configurable idle-poller interval (default 60 s)
      */
     public DefaultWorkerRegistry(
             TenantContext tenantContext,
+            PhaseLifecycleJobRepository jobRepository,
+            JobDrainService jobDrainService,
             @Value("${tm.phaselifecycle.worker-idle-timeout-seconds:300}") long idleTimeoutSeconds,
             @Value("${tm.phaselifecycle.worker-shutdown-timeout-seconds:30}")
                     long shutdownTimeoutSeconds,
@@ -120,7 +128,15 @@ public class DefaultWorkerRegistry implements WorkerRegistry {
         if (tenantContext == null) {
             throw new IllegalArgumentException("tenantContext must not be null");
         }
+        if (jobRepository == null) {
+            throw new IllegalArgumentException("jobRepository must not be null");
+        }
+        if (jobDrainService == null) {
+            throw new IllegalArgumentException("jobDrainService must not be null");
+        }
         this.tenantContext = tenantContext;
+        this.jobRepository = jobRepository;
+        this.jobDrainService = jobDrainService;
         this.idleTimeoutSeconds = idleTimeoutSeconds;
         this.shutdownTimeoutSeconds = shutdownTimeoutSeconds;
         this.idlePollSeconds = idlePollSeconds;
@@ -134,10 +150,15 @@ public class DefaultWorkerRegistry implements WorkerRegistry {
     }
 
     /**
-     * Starts the idle-poller after Spring has completed dependency injection.
+     * Starts the idle-poller and invokes startup recovery after Spring has completed dependency
+     * injection.
      *
      * <p>Using {@link PostConstruct} rather than inline-in-constructor ensures the poller fires
      * only once the full application context is ready, avoiding races during startup.
+     *
+     * <p>Startup recovery ({@link #initOnStartup(String)}) runs after the idle-poller is started.
+     * The {@code claimedBy} JVM-instance identifier is resolved the same way as in {@link
+     * DefaultJobDrainService} (hostname fallback "unknown-host").
      */
     @PostConstruct
     void startIdlePoller() {
@@ -148,6 +169,30 @@ public class DefaultWorkerRegistry implements WorkerRegistry {
                         + " (E55S03, DEC-64 D-3)",
                 idleTimeoutSeconds,
                 idlePollSeconds);
+        // Startup recovery (DEC-64 D-7, E55S07) — runs in the same @PostConstruct call after
+        // the idle-poller is initialized; Spring guarantees single-thread sequential execution.
+        // The try-catch handles test contexts where no tenant is bound at startup — the recovery
+        // is skipped gracefully (WARN) rather than failing bean initialization. In production, a
+        // tenant is always bound by the routing DataSource infrastructure before any DB call.
+        try {
+            String currentJvmId = resolveCurrentJvmId();
+            initOnStartup(currentJvmId);
+        } catch (Exception e) {
+            LOG.warn(
+                    "[phaselifecycle] initOnStartup skipped during @PostConstruct: {} — "
+                            + "recovery will not run (expected in test contexts without"
+                            + " a bound tenant; E55S07, DEC-64 D-7)",
+                    e.getMessage());
+        }
+    }
+
+    /** Resolves the JVM-instance identifier (hostname fallback "unknown-host"). */
+    private static String resolveCurrentJvmId() {
+        try {
+            return java.net.InetAddress.getLocalHost().getHostName();
+        } catch (Exception e) {
+            return "unknown-host";
+        }
     }
 
     // ─── WorkerRegistry ───────────────────────────────────────────────────────
@@ -258,6 +303,86 @@ public class DefaultWorkerRegistry implements WorkerRegistry {
                 });
         lastSubmittedNanos.clear();
         LOG.info("[phaselifecycle] shutdownAll() complete (E55S03, DEC-64 D-3)");
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Startup recovery hook per DEC-64 D-7 (E55S07):
+     *
+     * <ol>
+     *   <li>Handle corrupt RUNNING rows ({@code claimed_by = NULL}) → mark FAILED + WARN per
+     *       AC-ERROR-HANDLING-RECOVERY-STALE-CLAIM-CORRUPT-STATE.
+     *   <li>Reset stale RUNNING rows ({@code claimed_by != currentJvmId}) → PENDING.
+     *   <li>Find all tournaments with non-COMPLETED jobs and spawn a worker for each; submit a
+     *       drain hint.
+     * </ol>
+     *
+     * <p>Called by the {@code @PostConstruct} hook in this class, <em>after</em> the idle-poller is
+     * started (Spring guarantees single-thread {@code @PostConstruct} ordering within a bean).
+     *
+     * @since E55S07
+     */
+    @Override
+    public void initOnStartup(String currentJvmId) {
+        LOG.info(
+                "[phaselifecycle] initOnStartup: starting restart-recovery"
+                        + " (currentJvmId={}, E55S07, DEC-64 D-7)",
+                currentJvmId);
+
+        // Step 1: handle corrupt rows (RUNNING + claimed_by IS NULL) — mark FAILED + WARN
+        int corruptCount = jobRepository.handleCorruptRunningRows();
+        if (corruptCount > 0) {
+            LOG.warn(
+                    "[phaselifecycle] initOnStartup: {} corrupt RUNNING row(s) (claimed_by=NULL)"
+                            + " marked FAILED — operator action recommended"
+                            + " (AC-ERROR-HANDLING-RECOVERY-STALE-CLAIM-CORRUPT-STATE)",
+                    corruptCount);
+        }
+
+        // Step 2: reset stale RUNNING rows (from a dead JVM) to PENDING
+        int resetCount = jobRepository.resetStaleRunningJobs(currentJvmId);
+        if (resetCount > 0) {
+            LOG.info(
+                    "[phaselifecycle] initOnStartup: reset {} stale RUNNING row(s) to PENDING"
+                            + " (DEC-64 D-7 restart-recovery)",
+                    resetCount);
+        }
+
+        // Step 3: find tournaments with non-COMPLETED jobs and spawn workers
+        List<UUID> pendingTournaments = jobRepository.findTournamentsWithNonCompletedJobs();
+        if (pendingTournaments.isEmpty()) {
+            LOG.info(
+                    "[phaselifecycle] initOnStartup: no non-COMPLETED jobs found — nothing to"
+                            + " recover (E55S07)");
+            return;
+        }
+
+        LOG.info(
+                "[phaselifecycle] initOnStartup: spawning workers for {} tournament(s)"
+                        + " with non-COMPLETED jobs (E55S07)",
+                pendingTournaments.size());
+
+        for (UUID tournamentId : pendingTournaments) {
+            // Lazy-create the worker (same path as steady-state drain)
+            ExecutorService worker = getOrCreate(tournamentId);
+            // Submit a drain hint — worker picks up all PENDING jobs in FIFO order
+            UUID tid = tournamentId;
+            worker.submit(
+                    () -> {
+                        try {
+                            jobDrainService.drainNext(tid);
+                        } catch (Exception e) {
+                            LOG.error(
+                                    "[phaselifecycle] initOnStartup: drain hint for"
+                                            + " tournamentId={} failed with exception",
+                                    tid,
+                                    e);
+                        }
+                    });
+        }
+
+        LOG.info("[phaselifecycle] initOnStartup: recovery complete (E55S07, DEC-64 D-7)");
     }
 
     // ─── Private helpers ─────────────────────────────────────────────────────

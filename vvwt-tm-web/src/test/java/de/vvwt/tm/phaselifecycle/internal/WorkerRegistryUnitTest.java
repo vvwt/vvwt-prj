@@ -3,9 +3,12 @@ package de.vvwt.tm.phaselifecycle.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
+import de.vvwt.tm.phaselifecycle.JobDrainService;
+import de.vvwt.tm.phaselifecycle.PhaseLifecycleJobRepository;
 import de.vvwt.tm.phaselifecycle.WorkerRegistry;
 import de.vvwt.tm.tenant.TenantContext;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -40,6 +43,8 @@ import org.mockito.Mockito;
 class WorkerRegistryUnitTest {
 
     private TenantContext tenantContext;
+    private PhaseLifecycleJobRepository jobRepository;
+    private JobDrainService jobDrainService;
     private DefaultWorkerRegistry registry;
 
     @BeforeEach
@@ -48,9 +53,17 @@ class WorkerRegistryUnitTest {
         // No tenant bound → TenantContext.current() throws ISE (no-tenant path)
         Mockito.when(tenantContext.current())
                 .thenThrow(new IllegalStateException("no tenant bound in unit test"));
+        // Stub repository to return no non-completed jobs (initOnStartup no-op in unit tests)
+        jobRepository = Mockito.mock(PhaseLifecycleJobRepository.class);
+        Mockito.when(jobRepository.handleCorruptRunningRows()).thenReturn(0);
+        Mockito.when(jobRepository.resetStaleRunningJobs(Mockito.anyString())).thenReturn(0);
+        Mockito.when(jobRepository.findTournamentsWithNonCompletedJobs()).thenReturn(List.of());
+        jobDrainService = Mockito.mock(JobDrainService.class);
         registry =
                 new DefaultWorkerRegistry(
                         tenantContext,
+                        jobRepository,
+                        jobDrainService,
                         /* idleTimeoutSeconds= */ 300L,
                         /* shutdownTimeoutSeconds= */ 30L,
                         /* idlePollSeconds= */ 3600L); // very long poll — don't fire in tests
@@ -129,6 +142,8 @@ class WorkerRegistryUnitTest {
         DefaultWorkerRegistry fastRegistry =
                 new DefaultWorkerRegistry(
                         tenantContext,
+                        jobRepository,
+                        jobDrainService,
                         /* idleTimeoutSeconds= */ 1L,
                         /* shutdownTimeoutSeconds= */ 5L,
                         /* idlePollSeconds= */ 1L);

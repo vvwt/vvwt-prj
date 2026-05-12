@@ -3,6 +3,7 @@ package de.vvwt.tm.phaselifecycle.internal;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJob;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJobDetails;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJobRepository;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -92,6 +93,36 @@ public class DefaultPhaseLifecycleJobRepository implements PhaseLifecycleJobRepo
             "SELECT id FROM phase_lifecycle_job"
                     + " WHERE tournament_id = ? AND status = 'RUNNING'"
                     + " ORDER BY claimed_at ASC LIMIT 1";
+
+    /**
+     * Reset stale RUNNING rows (claimed_by != currentJvmId) to PENDING for restart-recovery (DEC-64
+     * D-7).
+     */
+    private static final String SQL_RESET_STALE_RUNNING =
+            "UPDATE phase_lifecycle_job"
+                    + " SET status = 'PENDING', claimed_by = NULL, claimed_at = NULL"
+                    + " WHERE status = 'RUNNING' AND claimed_by != ?";
+
+    /**
+     * Find all distinct tournament IDs with at least one non-COMPLETED job (PENDING or RUNNING).
+     * Used at startup to spawn per-tournament workers.
+     */
+    private static final String SQL_FIND_TOURNAMENTS_WITH_NON_COMPLETED =
+            "SELECT DISTINCT tournament_id FROM phase_lifecycle_job"
+                    + " WHERE status IN ('PENDING', 'RUNNING')";
+
+    /**
+     * Detect corrupt RUNNING rows: status=RUNNING AND claimed_by IS NULL. Returns id +
+     * tournament_id for WARN logging.
+     */
+    private static final String SQL_FIND_CORRUPT_RUNNING =
+            "SELECT id, tournament_id FROM phase_lifecycle_job"
+                    + " WHERE status = 'RUNNING' AND claimed_by IS NULL";
+
+    /** Mark a corrupt (status=RUNNING, claimed_by=NULL) row as FAILED. */
+    private static final String SQL_MARK_CORRUPT_FAILED =
+            "UPDATE phase_lifecycle_job SET status = 'FAILED'"
+                    + " WHERE id = ? AND status = 'RUNNING' AND claimed_by IS NULL";
 
     /** Enqueue a new PENDING job row. */
     private static final String SQL_ENQUEUE =
@@ -244,5 +275,77 @@ public class DefaultPhaseLifecycleJobRepository implements PhaseLifecycleJobRepo
                         (rs, rowNum) -> rs.getObject(1, UUID.class),
                         tournamentId);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Resets all RUNNING rows with {@code claimed_by != currentJvmId} back to PENDING (DEC-64
+     * D-7 restart-recovery). Single-statement UPDATE; returns affected-row count.
+     *
+     * @since E55S07
+     */
+    @Override
+    public int resetStaleRunningJobs(String currentJvmId) {
+        return jdbcTemplate.update(SQL_RESET_STALE_RUNNING, currentJvmId);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Returns all distinct tournament IDs with PENDING or RUNNING rows. Used at startup to
+     * determine which per-tournament workers must be (re-)spawned.
+     *
+     * @since E55S07
+     */
+    @Override
+    public List<UUID> findTournamentsWithNonCompletedJobs() {
+        return jdbcTemplate.query(
+                SQL_FIND_TOURNAMENTS_WITH_NON_COMPLETED,
+                (rs, rowNum) -> rs.getObject(1, UUID.class));
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Detects RUNNING rows with NULL {@code claimed_by} (corrupt state — not reachable through
+     * normal flow), marks them FAILED, and logs a WARN per
+     * AC-ERROR-HANDLING-RECOVERY-STALE-CLAIM-CORRUPT-STATE. No exception is thrown.
+     *
+     * @since E55S07
+     */
+    @Override
+    public int handleCorruptRunningRows() {
+        // Step 1: find all corrupt rows (RUNNING + claimed_by IS NULL) for WARN logging
+        List<UUID[]> corruptRows = new ArrayList<>();
+        jdbcTemplate.query(
+                SQL_FIND_CORRUPT_RUNNING,
+                rs -> {
+                    UUID id = rs.getObject(1, UUID.class);
+                    UUID tournamentId = rs.getObject(2, UUID.class);
+                    corruptRows.add(new UUID[] {id, tournamentId});
+                });
+
+        int count = 0;
+        for (UUID[] row : corruptRows) {
+            UUID id = row[0];
+            UUID tournamentId = row[1];
+            // Step 2: atomically mark FAILED (WHERE clause ensures idempotency)
+            int affected = jdbcTemplate.update(SQL_MARK_CORRUPT_FAILED, id);
+            if (affected > 0) {
+                count++;
+                log.warn(
+                        "handleCorruptRunningRows: jobId={} tournamentId={} — status=RUNNING"
+                                + " with claimed_by=NULL (corrupt state; marked FAILED)."
+                                + " Operator action required: inspect phase_lifecycle_job"
+                                + " row id={} for tournament {} and re-trigger if needed"
+                                + " (E55S07, AC-ERROR-HANDLING-RECOVERY-STALE-CLAIM-CORRUPT-STATE)",
+                        id,
+                        tournamentId,
+                        id,
+                        tournamentId);
+            }
+        }
+        return count;
     }
 }
