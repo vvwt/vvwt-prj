@@ -46,4 +46,25 @@ public interface WorkerRegistry {
      * termination up to the configured timeout per DEC-64 D-3.
      */
     void shutdownAll();
+
+    /**
+     * Startup recovery hook (DEC-64 D-7): called after Spring context is fully initialized to:
+     *
+     * <ol>
+     *   <li>Detect and handle corrupt RUNNING rows ({@code claimed_by = NULL}) → mark FAILED +
+     *       WARN.
+     *   <li>Reset stale RUNNING rows ({@code claimed_by != currentJvmId}) → PENDING.
+     *   <li>Spawn a per-tournament worker for every tournament with non-COMPLETED jobs and submit a
+     *       {@link de.vvwt.tm.phaselifecycle.JobDrainService#drainNext(java.util.UUID)} drain hint.
+     * </ol>
+     *
+     * <p>This method implements the same path as the steady-state drain loop — no separate recovery
+     * code-path exists (DEC-64 D-7 rationale: "recovery path is the SAME as the steady-state worker
+     * loop").
+     *
+     * @param currentJvmId the JVM-instance identifier used in {@code claimed_by} (same value as in
+     *     {@link de.vvwt.tm.phaselifecycle.internal.DefaultJobDrainService})
+     * @since E55S07
+     */
+    void initOnStartup(String currentJvmId);
 }

@@ -111,4 +111,51 @@ public interface PhaseLifecycleJobRepository {
      * @since E55S05
      */
     Optional<UUID> findRunningJobIdForTournament(UUID tournamentId);
+
+    /**
+     * Resets all RUNNING rows whose {@code claimed_by} value does NOT match {@code currentJvmId}
+     * back to {@code status='PENDING', claimed_by=NULL, claimed_at=NULL}.
+     *
+     * <p>Implements DEC-64 D-7 restart-recovery: rows claimed by a dead JVM (stale {@code
+     * claimed_by} that does not match the live instance) are eligible for reclaim. The current JVM
+     * re-enters these rows into the PENDING queue so its worker can claim and execute them.
+     *
+     * <p>Rows with {@code claimed_by = currentJvmId} are NOT reset — they belong to this JVM's
+     * still-running (or just-started) workers.
+     *
+     * @param currentJvmId the JVM-instance identifier of the calling JVM (matches the value written
+     *     by {@link #tryClaim(UUID, String)})
+     * @return the number of rows reset to PENDING
+     * @since E55S07
+     */
+    int resetStaleRunningJobs(String currentJvmId);
+
+    /**
+     * Finds all distinct tournament IDs that have at least one non-COMPLETED (i.e., {@code PENDING}
+     * or {@code RUNNING}) job row.
+     *
+     * <p>Used by startup recovery ({@link WorkerRegistry#initOnStartup(String)}) to determine which
+     * tournaments need a worker spawned after JVM restart.
+     *
+     * @return list of tournament IDs with pending or running jobs (may be empty; never null)
+     * @since E55S07
+     */
+    java.util.List<UUID> findTournamentsWithNonCompletedJobs();
+
+    /**
+     * Detects and handles corrupt RUNNING rows with {@code claimed_by = NULL}: marks them {@code
+     * status='FAILED'} and logs a WARN per AC-ERROR-HANDLING-RECOVERY-STALE-CLAIM-CORRUPT-STATE.
+     *
+     * <p>Chosen contract (option b): mark FAILED + operator-actionable WARN. No exception. No
+     * deadlock or spin-loop. The WARN message MUST include the row id and tournament id so the
+     * operator can identify the affected tournament.
+     *
+     * <p>Corrupt-state definition: {@code status='RUNNING' AND claimed_by IS NULL}. This state is
+     * not reachable through normal flow (claim always writes claimed_by) but must be handled
+     * defensively.
+     *
+     * @return the number of corrupt rows marked FAILED
+     * @since E55S07
+     */
+    int handleCorruptRunningRows();
 }
