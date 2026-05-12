@@ -17,25 +17,27 @@ import org.junit.jupiter.api.Test;
  * the {@code vvwt-tm-web} module use the SAME default value {@code N=3}. This test is a drift
  * guard: if any site declares a different default, the test fails loudly.
  *
- * <h2>Declaration sites (5 sites — AC-IMPL-DEFAULT-FIELDCOUNT-COHERENCE)</h2>
+ * <h2>Declaration sites (4 sites — AC-IMPL-DEFAULT-FIELDCOUNT-COHERENCE)</h2>
+ *
+ * <p>E55S06: {@code DefaultMatchGenJobExecutor} was deleted (DEC-64 D-5 dead-code removal). Site 3
+ * is removed from this test. Remaining sites:
  *
  * <ol>
  *   <li>{@code de.vvwt.tm.slotopt.PhaseToRawPhaseDefMapper} — pre-existing, {@code :3}
  *   <li>{@code de.vvwt.tm.slotopt.FallbackSlotOptimizationClient} — pre-existing, {@code :3}
- *   <li>{@code de.vvwt.tm.tournament.internal.DefaultMatchGenJobExecutor} — NEW (E51S16 B-b1),
- *       {@code :3}
- *   <li>{@code de.vvwt.tm.tournament.internal.DefaultRoundAssignmentService} — NEW (E51S16 B-b1),
- *       {@code :3} (coherence anchor field)
+ *   <li>{@code de.vvwt.tm.tournament.internal.DefaultRoundAssignmentService} — {@code :3}
+ *       (coherence anchor field)
  *   <li>{@code src/main/resources/application.yml} — value: {@code ${TM_SLOTOPT_FIELDCOUNT:3}} (the
  *       resolved value must be 3 when env-var is absent)
  * </ol>
  *
  * <h2>DEC-22 RED-first</h2>
  *
- * <p>Before E51S16 adds the {@code @Value} sites in {@code DefaultMatchGenJobExecutor} and {@code
- * DefaultRoundAssignmentService}, those files do not contain the literal
- * {@code @Value("${tm.slotopt.fallback.field-count:3}")} — causing this test to fail (RED). After
- * E51S16's B-b1 refactor, all 4 Java sites contain the literal and the test goes GREEN.
+ * <p>Before E51S16 added the {@code @Value} site in {@code DefaultRoundAssignmentService}, that
+ * file did not contain the literal {@code @Value("${tm.slotopt.fallback.field-count:3}")} — causing
+ * this test to fail (RED). After E51S16's B-b1 refactor, the site was added and the test went
+ * GREEN. E55S06: {@code DefaultMatchGenJobExecutor} was deleted (DEC-64 D-5); site 3 removed from
+ * this test.
  *
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law (RED-first)</a>
  * @see <a href="AC-IMPL-DEFAULT-FIELDCOUNT-COHERENCE">AC-IMPL-DEFAULT-FIELDCOUNT-COHERENCE</a>
@@ -74,11 +76,12 @@ class FieldCountDefaultCoherenceTest {
     private static final String SITE_FALLBACK_CLIENT =
             MODULE_ROOT + "/slotopt/FallbackSlotOptimizationClient.java";
 
-    /** Site 3: DefaultMatchGenJobExecutor — NEW B-b1 tournament site (renamed E51S19) */
-    private static final String SITE_MATCH_GEN_EXECUTOR =
-            MODULE_ROOT + "/tournament/internal/DefaultMatchGenJobExecutor.java";
-
-    /** Site 4: DefaultRoundAssignmentService — NEW B-b1 tournament coherence-anchor site */
+    /**
+     * Site 3: DefaultRoundAssignmentService — tournament coherence-anchor site.
+     *
+     * <p>E55S06: DefaultMatchGenJobExecutor (former site 3) was deleted (DEC-64 D-5).
+     * DefaultRoundAssignmentService remains as site 3.
+     */
     private static final String SITE_ROUND_ASSIGNMENT =
             MODULE_ROOT + "/tournament/internal/DefaultRoundAssignmentService.java";
 
@@ -91,8 +94,11 @@ class FieldCountDefaultCoherenceTest {
     // =========================================================================
 
     /**
-     * Verifies that all 4 Java {@code @Value} declaration sites for {@code
+     * Verifies that all 3 Java {@code @Value} declaration sites for {@code
      * ${tm.slotopt.fallback.field-count}} use the literal default {@code :3}.
+     *
+     * <p>E55S06: DefaultMatchGenJobExecutor (former site 3) was deleted (DEC-64 D-5); only 3 sites
+     * remain.
      *
      * <p>A site that uses {@code :5}, {@code :2}, or omits the default entirely will cause this
      * test to fail, alerting the developer of the drift.
@@ -103,14 +109,13 @@ class FieldCountDefaultCoherenceTest {
                     + " all @Value(\"${tm.slotopt.fallback.field-count:N}\")"
                     + " declaration sites use N=3 (drift guard)")
     void allJavaValueSites_containExpectedLiteral_withDefaultThree() throws IOException {
-        String[] javaSites = {
-            SITE_MAPPER, SITE_FALLBACK_CLIENT, SITE_MATCH_GEN_EXECUTOR, SITE_ROUND_ASSIGNMENT
-        };
+        // E55S06: DefaultMatchGenJobExecutor (former site 3) deleted (DEC-64 D-5).
+        // Remaining 3 Java sites:
+        String[] javaSites = {SITE_MAPPER, SITE_FALLBACK_CLIENT, SITE_ROUND_ASSIGNMENT};
         String[] siteLabels = {
             "PhaseToRawPhaseDefMapper (site 1)",
             "FallbackSlotOptimizationClient (site 2)",
-            "DefaultMatchGenJobExecutor (site 3)",
-            "DefaultRoundAssignmentService (site 4)"
+            "DefaultRoundAssignmentService (site 3)"
         };
 
         for (int i = 0; i < javaSites.length; i++) {

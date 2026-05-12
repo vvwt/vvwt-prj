@@ -4,17 +4,20 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Registry for active slot-optimization jobs and the per-tournament FIFO queue (E27S02 + E51S04,
- * AC-JOB-REGISTRY-AUTHORED, DEC-49 D-11 + T-6, DEC-55 D-3a).
+ * Registry for active slot-optimization jobs (E27S02, AC-JOB-REGISTRY-AUTHORED, DEC-49 D-11 + T-6).
  *
  * <p><strong>E27S02 (original):</strong> Enforces at-most-one-active-job-per-tournament invariant
  * (AC-PER-TOURNAMENT-ISOLATION). The registry is in-memory ({@code ConcurrentHashMap<UUID,
  * JobHandle>}); job state is lost on TM restart (DEC-49 T-6 accepted trade-off).
  *
- * <p><strong>E51S04 extension (DEC-55 D-3a):</strong> Adds a per-tournament FIFO queue of {@link
- * UUID} phase IDs. Multiple phases for the same tournament are serialized: only the head element is
- * actively optimizing at any time. {@link #getHandle(UUID)} remains backward-compatible — it
- * returns the head element's {@link JobHandle}.
+ * <p><strong>E55S06 (DEC-64 D-5/D-6):</strong> FIFO queue methods ({@code enqueue}, {@code
+ * getQueueDepth}, {@code peekQueue}, {@code dequeueHead}) removed — the phase lifecycle DB queue
+ * ({@code phase_lifecycle_job}) is now the authoritative FIFO (DEC-64 D-11). The FIFO-queue
+ * in-memory implementation ({@code fifoQueues} field) and dependent beans ({@code
+ * SlotOptJobScheduler}, {@code SlotOptFifoDispatcher}, {@code SlotOptInvocationListener}) are also
+ * deleted. {@link #getHandle(UUID)} is reimplemented to be DB-primary (DEC-64 D-6): queries the
+ * {@code phase_lifecycle_job} table for a RUNNING row; falls back to the in-memory {@code
+ * activeJobs} map for CancellationToken access.
  *
  * <p>Per DEC-35 naming canon: this interface lives at the {@code de.vvwt.tm.slotopt} module root;
  * the implementation {@link de.vvwt.tm.slotopt.internal.DefaultSlotOptimizationJobRegistry} lives
@@ -23,9 +26,9 @@ import java.util.UUID;
  * @see JobHandle
  * @see OptimizationAlreadyInProgressException
  * @see <a href="../../../../../../../../docs/governance/decisions/DEC-49.md">DEC-49 D-11</a>
- * @see <a href="../../../../../../../../docs/governance/decisions/DEC-55.md">DEC-55 D-3a</a>
+ * @see <a href="../../../../../../../../docs/governance/decisions/DEC-64.md">DEC-64 D-5 + D-6</a>
  * @see <a href="../../../../../../../../docs/governance/stories/E27S02.story.md">Story E27S02</a>
- * @see <a href="../../../../../../../../docs/governance/stories/E51S04.story.md">Story E51S04</a>
+ * @see <a href="../../../../../../../../docs/governance/stories/E55S06.story.md">Story E55S06</a>
  */
 public interface SlotOptimizationJobRegistry {
 
@@ -66,51 +69,4 @@ public interface SlotOptimizationJobRegistry {
      * @throws IllegalArgumentException if {@code tournamentId} is {@code null}
      */
     void complete(UUID tournamentId);
-
-    // =========================================================================
-    // E51S04 FIFO extension (DEC-55 D-3a)
-    // =========================================================================
-
-    /**
-     * Enqueues a phase ID into the per-tournament FIFO queue for slot-optimization (DEC-55 D-3a).
-     *
-     * <p>Thread-safe. Multiple enqueues for the same tournament accumulate in FIFO order.
-     *
-     * @param tournamentId the tournament UUID; must not be {@code null}
-     * @param phaseId the phase UUID to enqueue; must not be {@code null}
-     * @throws IllegalArgumentException if either argument is {@code null}
-     */
-    void enqueue(UUID tournamentId, UUID phaseId);
-
-    /**
-     * Returns the number of phase IDs currently in the FIFO queue for the given tournament.
-     *
-     * <p>Returns {@code 0} if no queue exists for the tournament.
-     *
-     * @param tournamentId the tournament UUID; must not be {@code null}
-     * @return the queue depth; {@code 0} if no phases are queued
-     * @throws IllegalArgumentException if {@code tournamentId} is {@code null}
-     */
-    int getQueueDepth(UUID tournamentId);
-
-    /**
-     * Returns the head phase ID from the FIFO queue without removing it.
-     *
-     * @param tournamentId the tournament UUID; must not be {@code null}
-     * @return the head phase ID, or {@link Optional#empty()} if the queue is empty
-     * @throws IllegalArgumentException if {@code tournamentId} is {@code null}
-     */
-    Optional<UUID> peekQueue(UUID tournamentId);
-
-    /**
-     * Removes and returns the head phase ID from the FIFO queue.
-     *
-     * <p>Returns {@code null} if the queue is empty (no exception — callers must handle {@code
-     * null} gracefully, e.g., {@code SlotOptJobScheduler.onJobCompleted}).
-     *
-     * @param tournamentId the tournament UUID; must not be {@code null}
-     * @return the dequeued phase ID, or {@code null} if the queue was empty
-     * @throws IllegalArgumentException if {@code tournamentId} is {@code null}
-     */
-    UUID dequeueHead(UUID tournamentId);
 }

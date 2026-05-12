@@ -2,6 +2,7 @@ package de.vvwt.tm.tournament;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import de.vvwt.tm.phaselifecycle.DraftApplicationOrchestrator;
 import de.vvwt.tm.slotopt.SlotOptimizationClient;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tournament.draft.DraftConfig;
@@ -106,7 +107,12 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
         }
     }
 
-    /** Subject: inject via public interface per DEC-36. */
+    /**
+     * E55S06 Option C: pipeline is now triggered via the orchestrator. draftService retained for
+     * resetPlan (not part of orchestrator contract) and other non-apply interactions.
+     */
+    @Autowired private DraftApplicationOrchestrator draftApplicationOrchestrator;
+
     @Autowired private DraftService draftService;
 
     @Autowired private TenantContextTestSupport.Binder tenantBinder;
@@ -373,8 +379,8 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
                                         1,
                                         List.of())));
 
-        // Act
-        List<UUID> createdPhaseIds = draftService.apply(tournamentId, config);
+        // Act — E55S06 Option C: use orchestrator (triggers pipeline via enqueueJob + drainNext)
+        List<UUID> createdPhaseIds = draftApplicationOrchestrator.applyDraft(tournamentId, config);
 
         // Assert: 3 phases created
         assertThat(createdPhaseIds)

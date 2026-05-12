@@ -59,6 +59,8 @@ class DefaultDraftServiceLapInvariantTest {
         // E51S02: TeamAvatarRepository + TeamRepository added to constructor (avatar persistence at
         // apply-time per DEC-55 D-1). Only the preview() pure-computation path is exercised here
         // — no apply() or repository calls occur.
+        // E55S06 Option C: ApplicationEventPublisher removed from DefaultDraftService constructor
+        // (step-d3 event publication replaced by DraftApplicationOrchestrator).
         return new DefaultDraftService(
                 Mockito.mock(PhaseRepository.class),
                 Mockito.mock(PhaseBreakRepository.class),
@@ -68,9 +70,7 @@ class DefaultDraftServiceLapInvariantTest {
                 Mockito.mock(JdbcTemplate.class), // E48S13
                 Mockito.mock(de.vvwt.tm.tournament.TournamentLifecycleService.class), // E48S22
                 Mockito.mock(TeamAvatarRepository.class), // E51S02
-                Mockito.mock(TeamRepository.class), // E51S02
-                Mockito.mock(
-                        org.springframework.context.ApplicationEventPublisher.class)); // E51S03
+                Mockito.mock(TeamRepository.class)); // E51S02
     }
 
     /**

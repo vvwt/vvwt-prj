@@ -24,7 +24,6 @@ import de.vvwt.tm.tournament.draft.DraftPreviewResult;
 import de.vvwt.tm.tournament.draft.DraftPreviewSection;
 import de.vvwt.tm.tournament.draft.DraftSection;
 import de.vvwt.tm.tournament.draft.GameMode;
-import de.vvwt.tm.tournament.events.MatchGenJobScheduledEvent;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import de.vvwt.tm.tournament.exceptions.TournamentNotFoundException;
 import de.vvwt.tm.tournament.exceptions.TournamentNotInDraftException;
@@ -41,7 +40,6 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,7 +58,10 @@ import org.springframework.transaction.annotation.Transactional;
  *       invariant validation, (d) Phase record creation (PENDING status), (d2) structural
  *       TeamAvatar persistence for every phase per DEC-55 D-1 (E51S02), (e) draft_json persist, (f)
  *       DRAFT→PLANNED delegation to {@link TournamentLifecycleService#markPlanned} — all in one
- *       {@code @Transactional} boundary (E48S22, AC-IMPL-APPLY-FOUR-OPS-ATOMIC)
+ *       {@code @Transactional} boundary (E48S22, AC-IMPL-APPLY-FOUR-OPS-ATOMIC). E55S06 (DEC-64
+ *       D-5/Option C): step (d3) MatchGenJobScheduledEvent publication REMOVED; phase_lifecycle_job
+ *       row-insertion is handled by {@code DraftApplicationOrchestrator} in the {@code
+ *       phaselifecycle} module which wraps this method.
  *   <li>{@link #loadDraft(UUID)} — loads current draft config from Tournament.draftJson (E21S19)
  *   <li>{@link #saveDraft(UUID, DraftConfig)} — persists draft config to Tournament.draftJson
  *       (E21S19)
@@ -74,9 +75,10 @@ import org.springframework.transaction.annotation.Transactional;
  * {@code DraftSection.distributionMode} determines the {@code (groupNumber, groupPosition)} layout
  * (DEC-59 Clause D). Delete-and-recreate idempotency: existing avatars for each phase are deleted
  * before insertion (FK CASCADE per E51S01 schema absorbs downstream rows safely). No event
- * publication, no match generation in this step (E51S03 scope). Step (d3) publishes {@link
- * de.vvwt.tm.tournament.events.MatchGenJobScheduledEvent} for ALL phases including siegerehrung
- * (DEC-59 Clause E — uniform lifecycle via vacuous L1+L2 via {@link SiegerehrungMatchGenerator}).
+ * publication, no match generation in this step (E51S03 scope). E55S06 (DEC-64 D-5/Option C): step
+ * (d3) MatchGenJobScheduledEvent publication removed; phase_lifecycle_job row-insertion and
+ * worker-drain are handled by {@code DraftApplicationOrchestrator} in the {@code phaselifecycle}
+ * module (OrchestratorStepB skips L3 for siegerehrung per DEC-59 Clause F).
  *
  * <h2>DRAFT-precondition (E48S22, AC-IMPL-PHASES-EXIST-GUARD-REMOVED)</h2>
  *
@@ -122,7 +124,6 @@ public class DefaultDraftService implements DraftService {
     private final TournamentLifecycleService lifecycleService;
     private final TeamAvatarRepository teamAvatarRepository;
     private final TeamRepository teamRepository;
-    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Constructs the service with Phase-aggregate collaborators from E21S03, tournament repository
@@ -132,6 +133,11 @@ public class DefaultDraftService implements DraftService {
      * delegation in {@link #apply} (E48S22, DEC-35 authority-locality), plus {@link
      * TeamAvatarRepository} and {@link TeamRepository} for structural avatar persistence at
      * apply-time per DEC-55 D-1 (E51S02).
+     *
+     * <p><strong>E55S06 (DEC-64 D-5):</strong> {@code ApplicationEventPublisher} removed. Step (d3)
+     * event publication ({@code MatchGenJobScheduledEvent}) removed. Job-row enqueue and
+     * worker-drain are handled by {@code DraftApplicationOrchestrator} in the {@code
+     * phaselifecycle} module (Option C — phaselifecycle → tournament allowed direction).
      *
      * @param phaseRepository phase persistence (tenant-scoped, E21S03)
      * @param phaseBreakRepository phase break persistence (tenant-scoped, E21S03)
@@ -145,8 +151,6 @@ public class DefaultDraftService implements DraftService {
      *     at apply-time (E51S02)
      * @param teamRepository team persistence for Phase 1 teamId population from {@code
      *     participate=true} teams (E51S02)
-     * @param eventPublisher Spring event publisher for {@link MatchGenJobScheduledEvent}
-     *     publication per phase after avatar-persistence (E51S03, DEC-55 D-3)
      */
     public DefaultDraftService(
             @Qualifier("tmPhaseRepository") PhaseRepository phaseRepository,
@@ -158,8 +162,7 @@ public class DefaultDraftService implements DraftService {
             JdbcTemplate jdbcTemplate,
             TournamentLifecycleService lifecycleService,
             @Qualifier("tmTeamAvatarRepository") TeamAvatarRepository teamAvatarRepository,
-            @Qualifier("tmTeamRepository") TeamRepository teamRepository,
-            ApplicationEventPublisher eventPublisher) {
+            @Qualifier("tmTeamRepository") TeamRepository teamRepository) {
         this.phaseRepository = phaseRepository;
         this.phaseBreakRepository = phaseBreakRepository;
         this.tournamentRepository = tournamentRepository;
@@ -169,7 +172,6 @@ public class DefaultDraftService implements DraftService {
         this.lifecycleService = lifecycleService;
         this.teamAvatarRepository = teamAvatarRepository;
         this.teamRepository = teamRepository;
-        this.eventPublisher = eventPublisher;
     }
 
     // -------------------------------------------------------------------------
@@ -324,19 +326,14 @@ public class DefaultDraftService implements DraftService {
             persistStructuralAvatars(tournamentId, phaseId, sections.get(i), i, participatingTeams);
         }
 
-        // Step (d3): E51S03 + E51S18 — publish MatchGenJobScheduledEvent per phase including
-        // siegerehrung (DEC-55 D-3 step 1 + DEC-59 Clause E).
-        // Events are published inside the @Transactional TX so that @TransactionalEventListener
-        // (phase = AFTER_COMMIT) fires AFTER this TX commits — avatars are fully visible.
-        // DEC-59 Clause E: siegerehrung phases now receive the event; the per-gameMode
-        // SiegerehrungMatchGenerator returns an empty match list → vacuous L1+L2 execution →
-        // siegerehrung transitions PENDING → PREPARED via the standard "match-gen-done" verb
-        // (DEC-55 D-4 transition table textually unchanged; DEC-56 D-1 "L1 and L2 MUST always
-        // run" satisfied vacuously). DEC-55 D-3 step 1 text "per phase" preserved literally.
-        for (int i = 0; i < sections.size(); i++) {
-            UUID phaseId = createdPhaseIds.get(i);
-            eventPublisher.publishEvent(new MatchGenJobScheduledEvent(tournamentId, phaseId));
-        }
+        // Step (d3): REMOVED by E55S06 (DEC-64 D-5 / Option C).
+        // MatchGenJobScheduledEvent publication REMOVED.
+        // Job-row enqueue (phase_lifecycle_job PENDING rows) and worker-drain are handled by
+        // DraftApplicationOrchestrator.applyDraft() in the phaselifecycle module, which wraps
+        // this method. The tournament module (allowedDependencies={"tenant"}) cannot import from
+        // phaselifecycle; Option C keeps the allowed direction: phaselifecycle → tournament.
+        // DEC-64 D-11 semantics preserved: the apply()-flow inserts rows, but via the orchestrator
+        // wrapping apply() (not via a direct call from within apply() itself).
 
         // Step (e): Persist draft_json (makes loadDraft() return the applied config post-Apply)
         try {
@@ -641,9 +638,10 @@ public class DefaultDraftService implements DraftService {
             // DEC-59 Clause A: siegerehrung receives N rank-slot avatars (one per participating
             // team). Structural identity: groupNumber=1, groupPosition=1..N (rank slot).
             // DEC-59 Clause B: teamId=NULL (populated via Clause C operator-confirmation only).
-            // DEC-59 Clause E: MatchGenJobScheduledEvent is now published for siegerehrung (Step
-            // d3 in apply()); SiegerehrungMatchGenerator returns empty list → L2 no-op →
-            // PENDING→PREPARED "match-gen-done" via standard verb (DEC-55 D-4).
+            // DEC-59 Clause E: siegerehrung phase also gets a phase_lifecycle_job row (enqueued
+            // by DraftApplicationOrchestrator.applyDraft() after apply() returns — E55S06 Option
+            // C);
+            // OrchestratorStepB skips L3 for siegerehrung (DEC-59 Clause F).
             for (int i = 0; i < teamCount; i++) {
                 TeamAvatar avatar = buildAvatar(tournamentId, phaseId, 1, i + 1);
                 // teamId = null (Clause B — universally NULL at apply-time)
