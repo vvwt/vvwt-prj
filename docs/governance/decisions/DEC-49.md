@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-49.md at 7e9d48e4f620718f52c8159620261d7a6c967f60 2026-05-09 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-49.md at f9e3fe5673ee595a0048f53ec837922954ac9110 2026-05-12 -->
 ---
 id: DEC-49
 domain: architecture
@@ -18,7 +18,7 @@ created_at: 2026-04-28
 created_by: discovery
 last_updated_at: 2026-05-09
 last_updated_by: delivery
-amended_by: [DEC-55, DEC-56]
+amended_by: [DEC-55, DEC-56, DEC-64]
 session_brief_ref: discovery-2026-04-28-e27-slotopt-integration-completion
 ---
 
