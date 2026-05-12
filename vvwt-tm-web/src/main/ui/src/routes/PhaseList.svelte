@@ -112,6 +112,7 @@
     const js = phase.jobStatus;
     if (!js) return null;
     if (js === 'match_gen_running' || js === 'slot_opt_running') return '⏳';
+    if (js === 'slot_opt_queued') return '🕐';
     if (js === 'idle' && phase.optimized) return '✅';
     if (js === 'cancelled' || js === 'failed') return '⚠️';
     return null;

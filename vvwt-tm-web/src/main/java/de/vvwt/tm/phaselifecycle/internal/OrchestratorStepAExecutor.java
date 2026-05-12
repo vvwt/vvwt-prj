@@ -3,6 +3,7 @@ package de.vvwt.tm.phaselifecycle.internal;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseLifecycleService;
 import de.vvwt.tm.tournament.PhasePreparationService;
+import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.RoundAssignmentService;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
@@ -37,19 +38,31 @@ import org.springframework.transaction.annotation.Transactional;
  * proceeds normally.
  *
  * <p>Authorizing decisions: DEC-37 Clause B, DEC-55 D-3, DEC-56 D-1 (L1+L2 always run), DEC-59
- * Clause E, DEC-64 D-12.
+ * Clause E, DEC-64 D-12, DEC-66 D-2, AC-IMPL-LAST-JOB-STATE-STEP-A-DONE-OPTIMIZE-TRUE-QUEUED,
+ * AC-IMPL-LAST-JOB-STATE-STEP-A-DONE-OPTIMIZE-FALSE-OR-SIEGEREHRUNG.
  *
  * @since E55S04
+ * @updated E55S08 (inject {@link PhaseRepository}; write {@code slot_opt_queued} or {@code idle} at
+ *     step-A-done per DEC-66 D-2)
  */
 @Service
 class OrchestratorStepAExecutor {
 
     private static final Logger LOG = LoggerFactory.getLogger(OrchestratorStepAExecutor.class);
 
+    /** Written when optimize=TRUE AND non-siegerehrung — per DEC-66 D-2 row 3. */
+    static final String SLOT_OPT_QUEUED = "slot_opt_queued";
+
+    /** Written at step-A terminal paths (optimize=FALSE or siegerehrung) — per DEC-66 D-2 row 2. */
+    static final String IDLE = "idle";
+
+    static final String SIEGEREHRUNG_GAME_MODE = "siegerehrung";
+
     private final TournamentRepository tournamentRepository;
     private final PhasePreparationService phasePreparationService;
     private final RoundAssignmentService roundAssignmentService;
     private final PhaseLifecycleService phaseLifecycleService;
+    private final PhaseRepository phaseRepository;
     private final int fallbackFieldCount;
 
     OrchestratorStepAExecutor(
@@ -57,11 +70,13 @@ class OrchestratorStepAExecutor {
             @Qualifier("tmPhasePreparationService") PhasePreparationService phasePreparationService,
             RoundAssignmentService roundAssignmentService,
             @Qualifier("tmPhaseLifecycleService") PhaseLifecycleService phaseLifecycleService,
+            @Qualifier("tmPhaseRepository") PhaseRepository phaseRepository,
             @Value("${tm.slotopt.fallback.field-count:3}") int fallbackFieldCount) {
         this.tournamentRepository = tournamentRepository;
         this.phasePreparationService = phasePreparationService;
         this.roundAssignmentService = roundAssignmentService;
         this.phaseLifecycleService = phaseLifecycleService;
+        this.phaseRepository = phaseRepository;
         this.fallbackFieldCount = fallbackFieldCount;
     }
 
@@ -118,9 +133,27 @@ class OrchestratorStepAExecutor {
         // Step 5: transition phase PENDING → PREPARED
         phaseLifecycleService.transition(phaseId, Phase.PhaseStatus.PREPARED, "match-gen-done");
 
+        // Step 6 (DEC-66 D-2, AC-IMPL-LAST-JOB-STATE-STEP-A-DONE): write lastJobState at step-A
+        // terminal.
+        // optimize=TRUE AND non-siegerehrung → slot_opt_queued (step-B will be enqueued by
+        // orchestrator)
+        // optimize=FALSE OR siegerehrung → idle (terminal: no step-B enqueued)
+        boolean isSiegerehrung = SIEGEREHRUNG_GAME_MODE.equalsIgnoreCase(gameMode);
+        boolean stepBWillBeEnqueued = tournament.isOptimize() && !isSiegerehrung;
+        String stepADoneState = stepBWillBeEnqueued ? SLOT_OPT_QUEUED : IDLE;
+        Phase phase =
+                phaseRepository
+                        .findById(phaseId)
+                        .orElseThrow(
+                                () -> new IllegalArgumentException("Phase not found: " + phaseId));
+        phase.setLastJobState(stepADoneState);
+        phaseRepository.save(phase);
+
         LOG.info(
-                "OrchestratorStepAExecutor: DONE tournamentId={}, phaseId={}",
+                "OrchestratorStepAExecutor: DONE tournamentId={}, phaseId={}"
+                        + " last_job_state='{}'",
                 tournamentId,
-                phaseId);
+                phaseId,
+                stepADoneState);
     }
 }

@@ -31,8 +31,11 @@ export interface PhaseOverview {
     gameMode: string | null;
     currentLapNumber: number;
     matchCountsByState: MatchCountsByState;
-    /** E51S07: phase.last_job_state from backend; null when no background job has run (DEC-55 D-2). */
-    jobStatus: string | null;
+    /**
+     * E51S07: phase.last_job_state from backend; null when no background job has run (DEC-55 D-2).
+     * E55S08 / DEC-66 D-2: extended with 'slot_opt_queued' for FIFO wait-period.
+     */
+    jobStatus: 'match_gen_running' | 'slot_opt_queued' | 'slot_opt_running' | 'idle' | 'cancelled' | 'failed' | null;
     /** E51S07: whether slot-optimization has completed for this phase (DEC-55 D-5). */
     optimized?: boolean;
 }
