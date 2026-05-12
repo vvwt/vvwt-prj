@@ -6,6 +6,7 @@ import de.vvwt.tm.slotopt.CancellationToken;
 import de.vvwt.tm.slotopt.JobHandle;
 import de.vvwt.tm.slotopt.OptimizationResult;
 import de.vvwt.tm.slotopt.SlotOptimizationJobRegistry;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -90,6 +91,17 @@ public class SlotOptimizationCancelController {
 
     private static final String SELECT_LAST_JOB_STATE =
             "SELECT last_job_state FROM phase WHERE id = ?";
+
+    /**
+     * E55S06: replaces peekQueue(tournamentId) (FIFO-queue removed, DEC-64 D-5). Reads the phase_id
+     * for the currently-RUNNING or oldest-PENDING job for the given tournament, which serves as the
+     * "FIFO head" for last_job_state reads.
+     */
+    private static final String SELECT_FIFO_HEAD_PHASE_ID =
+            "SELECT phase_id FROM phase_lifecycle_job"
+                    + " WHERE tournament_id = ? AND status IN ('RUNNING', 'PENDING')"
+                    + " ORDER BY CASE status WHEN 'RUNNING' THEN 0 ELSE 1 END ASC,"
+                    + " sequence ASC LIMIT 1";
 
     private final SlotOptimizationJobRegistry jobRegistry;
     private final JdbcTemplate jdbc;
@@ -234,29 +246,37 @@ public class SlotOptimizationCancelController {
     /**
      * Reads {@code phase.last_job_state} for the FIFO-head phase of the given tournament.
      *
-     * <p>Returns {@code null} if no phase is in the FIFO queue or if the column is null.
+     * <p>E55S06 (DEC-64 D-5): replaces {@code jobRegistry.peekQueue(tournamentId)} (FIFO-queue
+     * in-memory removed). Uses a direct DB query against {@code phase_lifecycle_job} to find the
+     * currently-RUNNING or oldest-PENDING phase (the "FIFO head"), then reads {@code
+     * phase.last_job_state} for that phaseId.
+     *
+     * <p>Returns {@code null} if no active phase exists in the queue or if the column is null.
      *
      * @param tournamentId the tournament UUID
      * @return the last_job_state string, or {@code null}
      */
     private String readLastJobState(UUID tournamentId) {
-        return jobRegistry
-                .peekQueue(tournamentId)
-                .map(
-                        phaseId -> {
-                            try {
-                                return jdbc.queryForObject(
-                                        SELECT_LAST_JOB_STATE, String.class, phaseId);
-                            } catch (Exception e) {
-                                LOG.warn(
-                                        "SlotOptimizationCancelController: could not read"
-                                                + " last_job_state for phaseId={}: {}",
-                                        phaseId,
-                                        e.getMessage());
-                                return null;
-                            }
-                        })
-                .orElse(null);
+        // E55S06: read FIFO head from DB (replaces jobRegistry.peekQueue())
+        List<UUID> phaseIds =
+                jdbc.query(
+                        SELECT_FIFO_HEAD_PHASE_ID,
+                        (rs, rowNum) -> rs.getObject(1, UUID.class),
+                        tournamentId);
+        if (phaseIds.isEmpty()) {
+            return null;
+        }
+        UUID phaseId = phaseIds.get(0);
+        try {
+            return jdbc.queryForObject(SELECT_LAST_JOB_STATE, String.class, phaseId);
+        } catch (Exception e) {
+            LOG.warn(
+                    "SlotOptimizationCancelController: could not read"
+                            + " last_job_state for phaseId={}: {}",
+                    phaseId,
+                    e.getMessage());
+            return null;
+        }
     }
 
     // -------------------------------------------------------------------------

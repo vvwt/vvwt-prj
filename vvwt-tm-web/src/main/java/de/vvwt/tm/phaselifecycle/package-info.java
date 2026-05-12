@@ -17,8 +17,8 @@
  *
  * <p>Per DEC-58 (universal interface mandate) and DEC-35 (naming canon), every self-created Spring
  * bean in this module has a public interface declared here in the module-root package and a {@code
- * Default*} implementation in {@link de.vvwt.tm.phaselifecycle.internal}. The five contracts
- * declared in this Story (E55S01) are:
+ * Default*} implementation in {@link de.vvwt.tm.phaselifecycle.internal}. The six contracts
+ * declared across E55S01–E55S06 are:
  *
  * <ol>
  *   <li>{@link de.vvwt.tm.phaselifecycle.PhaseLifecycleOrchestrator} — drain-step entry point;
@@ -35,11 +35,13 @@
  *   <li>{@link de.vvwt.tm.phaselifecycle.CancelFlagRegistry} — in-memory cancel flag mirror;
  *       implementation: {@link de.vvwt.tm.phaselifecycle.internal.DefaultCancelFlagRegistry}
  *       (E55S05)
+ *   <li>{@link de.vvwt.tm.phaselifecycle.DraftApplicationOrchestrator} — apply-and-orchestrate
+ *       entry-point: wraps {@link de.vvwt.tm.tournament.DraftService#apply} + enqueues job rows +
+ *       triggers drain (E55S06, Option C, DEC-64 D-11); implementation: {@link
+ *       de.vvwt.tm.phaselifecycle.internal.DefaultDraftApplicationOrchestrator}
  * </ol>
  *
- * <p>This Story (E55S01) declares the interface contracts only. All method bodies are placeholder
- * stubs that throw {@code UnsupportedOperationException} citing the implementing Story. No business
- * logic, no schema migration.
+ * <p>E55S01 declared contracts 1–5 only. E55S06 adds contract 6 (DraftApplicationOrchestrator).
  *
  * <h2>Allowed dependencies (DEC-21, DEC-64 D-2)</h2>
  *
@@ -47,6 +49,12 @@
  *   <li>{@code tournament} — {@link de.vvwt.tm.tournament.PhaseLifecycleService}, {@link
  *       de.vvwt.tm.tournament.Phase}, {@link de.vvwt.tm.tournament.TournamentRepository}, and other
  *       tournament-context public types consumed by the orchestrator (E55S04).
+ *   <li>{@code tournament::draft} — {@link de.vvwt.tm.tournament.draft.DraftConfig}, {@link
+ *       de.vvwt.tm.tournament.draft.DraftSection}, {@link de.vvwt.tm.tournament.draft.GameMode}
+ *       consumed by {@link de.vvwt.tm.phaselifecycle.DraftApplicationOrchestrator} (E55S06, Option
+ *       C, DEC-64 D-11). The {@code tournament.draft} named interface (DEC-35) is explicitly
+ *       declared here to satisfy Spring Modulith boundary enforcement — a plain {@code
+ *       "tournament"} dep covers the root package only, not its named-interface sub-packages.
  *   <li>{@code slotopt} — {@link de.vvwt.tm.slotopt.SlotOptimizationClient} invoked by the
  *       orchestrator for Leg-1/2/3 routing (E55S04).
  *   <li>{@code tenant} — {@link de.vvwt.tm.tenant.TenantContextResolver} for per-tenant DataSource
@@ -60,5 +68,5 @@
  * @since E55S01
  */
 @org.springframework.modulith.ApplicationModule(
-        allowedDependencies = {"tournament", "slotopt", "tenant"})
+        allowedDependencies = {"tournament", "tournament::draft", "slotopt", "tenant"})
 package de.vvwt.tm.phaselifecycle;

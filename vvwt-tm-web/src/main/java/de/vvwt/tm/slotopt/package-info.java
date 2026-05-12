@@ -9,7 +9,7 @@
  *
  * <h2>Allowed dependencies (DEC-21, DEC-49)</h2>
  *
- * <p>The {@code slotopt} context depends on {@code tournament} and {@code tournament::events}:
+ * <p>The {@code slotopt} context depends on {@code tournament}:
  *
  * <ul>
  *   <li>{@code tournament} — {@link de.vvwt.tm.tournament.Match}, {@link
@@ -17,19 +17,15 @@
  *       {@link de.vvwt.tm.tournament.TeamAvatar}, {@link
  *       de.vvwt.tm.tournament.TeamAvatarRepository}, {@link
  *       de.vvwt.tm.tournament.TournamentRepository}, {@link de.vvwt.tm.tournament.Phase} — used by
- *       pre-existing {@code slotopt} classes + new {@link
- *       de.vvwt.tm.slotopt.internal.SlotOptInvocationListener} (E51S04).
- *   <li>{@code tournament::events} — {@link
- *       de.vvwt.tm.tournament.events.OptimizePhaseRequestedEvent} consumed by {@link
- *       de.vvwt.tm.slotopt.internal.SlotOptInvocationListener} (E51S04, DEC-55 D-3a); {@link
- *       de.vvwt.tm.tournament.events.SlotOptJobCompletedEvent} published by same listener; {@link
- *       de.vvwt.tm.tournament.events.SlotOptJobScheduledEvent} consumed by {@link
- *       de.vvwt.tm.slotopt.internal.SlotOptJobScheduler} (E51S04) — placed in {@code
- *       slotopt.internal} to avoid a modulith cycle ({@code tournament} declares {@code
- *       allowedDependencies = {"tenant"}} and must not import from {@code slotopt}). No {@code
- *       tournament::exceptions} sub-package is referenced (verified empirically at E27S01 delivery
- *       — OMIT per DEC-40 per-entry-justification mandate).
+ *       pre-existing {@code slotopt} classes.
  * </ul>
+ *
+ * <p>E55S06 (DEC-64 D-5): {@code tournament::events} dependency removed. {@link
+ * de.vvwt.tm.slotopt.internal.SlotOptInvocationListener}, {@link
+ * de.vvwt.tm.slotopt.internal.SlotOptJobScheduler}, and {@link
+ * de.vvwt.tm.slotopt.internal.SlotOptFifoDispatcher} are deleted as part of the event-driven
+ * pipeline removal. The events {@code OptimizePhaseRequestedEvent}, {@code
+ * SlotOptJobScheduledEvent}, and {@code SlotOptJobCompletedEvent} are also deleted.
  *
  * <p>The canonical {@link SlotOptimizationClient} entry point from E27S01 forward is {@link
  * de.vvwt.tm.slotopt.internal.RoutingSlotOptimizationClient}. See DEC-49 for the routing rule
@@ -37,10 +33,10 @@
  *
  * <p>Authorizing decisions: DEC-21 (Spring Modulith layout), DEC-22 (TDD Iron Law), DEC-40
  * (allowedDependencies per-entry justification), DEC-49 (routing rule + canonical entry point),
- * DEC-55 D-3a (FIFO queue; E51S04 adds {@code tournament::events} dependency).
+ * DEC-64 D-5 (event pipeline deleted; {@code tournament::events} dependency removed, E55S06).
  *
  * @since E27S01
+ * @updated E55S06 (removed {@code tournament::events} from allowedDependencies — DEC-64 D-5)
  */
-@org.springframework.modulith.ApplicationModule(
-        allowedDependencies = {"tournament", "tournament::events"})
+@org.springframework.modulith.ApplicationModule(allowedDependencies = {"tournament"})
 package de.vvwt.tm.slotopt;

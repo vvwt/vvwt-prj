@@ -84,10 +84,11 @@ class DraftServiceTest {
             jdbcTemplate; // E51S02: needed for DELETE-and-recreate in persistStructuralAvatars
 
     @Mock
-    private org.springframework.context.ApplicationEventPublisher
-            eventPublisher; // E51S03: MatchGenJobScheduledEvent publication
+    // E55S06 Option C: ApplicationEventPublisher removed from DefaultDraftService
+    // (step-d3 event publication replaced by DraftApplicationOrchestrator)
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+
     private DefaultDraftService draftService;
 
     @BeforeEach
@@ -98,6 +99,8 @@ class DraftServiceTest {
         // before avatar saves — the mock silently accepts and returns 0 rows deleted.
         // E51S02: teamAvatarRepository + teamRepository added for structural avatar persistence.
         draftService =
+                // E55S06 Option C: ApplicationEventPublisher removed from DefaultDraftService
+                // constructor (step-d3 JDBC inserts + event moved to DraftApplicationOrchestrator)
                 new DefaultDraftService(
                         phaseRepository,
                         phaseBreakRepository,
@@ -108,8 +111,7 @@ class DraftServiceTest {
                         // persistStructuralAvatars
                         lifecycleService,
                         teamAvatarRepository,
-                        teamRepository,
-                        eventPublisher); // E51S03: MatchGenJobScheduledEvent publication
+                        teamRepository);
     }
 
     /**

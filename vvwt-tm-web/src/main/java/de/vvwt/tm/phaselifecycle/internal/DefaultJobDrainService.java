@@ -57,41 +57,56 @@ public class DefaultJobDrainService implements JobDrainService {
     /**
      * {@inheritDoc}
      *
-     * <p>Claims and executes the next pending job for the given tournament. No-op if no pending job
-     * exists or the CAS claim is lost to a concurrent worker (race condition in multi-node deploy).
+     * <p>Claims and executes all pending jobs for the given tournament in FIFO order (DEC-64 D-4).
+     * Loops until the queue is empty or a CAS claim is lost to a concurrent worker. No-op if no
+     * pending job exists.
+     *
+     * <p>Draining all pending jobs in a single call ensures that after {@link
+     * de.vvwt.tm.phaselifecycle.DraftApplicationOrchestrator#applyDraft} enqueues N job rows (one
+     * per phase), the single {@code afterCommit} drain hint processes all N phases sequentially
+     * without requiring an external scheduler to re-trigger the drain for each phase. The loop
+     * terminates when {@link de.vvwt.tm.phaselifecycle.PhaseLifecycleJobRepository
+     * #findNextPendingJobIdForTournament} returns empty (queue exhausted) or a CAS claim is lost
+     * (another node is draining concurrently — that node will continue the loop).
      */
     @Override
     public void drainNext(UUID tournamentId) {
-        // Step 1: find next candidate job id (SELECT — no lock)
-        Optional<UUID> jobIdOpt = jobRepository.findNextPendingJobIdForTournament(tournamentId);
-        if (jobIdOpt.isEmpty()) {
-            LOG.debug(
-                    "DefaultJobDrainService.drainNext: no pending job for tournamentId={}",
-                    tournamentId);
-            return;
-        }
-        UUID jobId = jobIdOpt.get();
+        // Loop: process all pending jobs for this tournament in FIFO sequence (DEC-64 D-4).
+        // Terminates when queue is empty or CAS claim is lost to a concurrent worker.
+        while (true) {
+            // Step 1: find next candidate job id (SELECT — no lock)
+            Optional<UUID> jobIdOpt = jobRepository.findNextPendingJobIdForTournament(tournamentId);
+            if (jobIdOpt.isEmpty()) {
+                LOG.debug(
+                        "DefaultJobDrainService.drainNext: no pending job for tournamentId={}"
+                                + " — queue exhausted",
+                        tournamentId);
+                return;
+            }
+            UUID jobId = jobIdOpt.get();
 
-        // Step 2: T-claim — CAS UPDATE WHERE status='PENDING'; proves ownership
-        boolean claimed = jobRepository.tryClaim(jobId, claimedBy);
-        if (!claimed) {
-            // Another worker claimed the row concurrently — no work to do
+            // Step 2: T-claim — CAS UPDATE WHERE status='PENDING'; proves ownership
+            boolean claimed = jobRepository.tryClaim(jobId, claimedBy);
+            if (!claimed) {
+                // Another worker claimed the row concurrently — that worker will continue draining
+                LOG.info(
+                        "DefaultJobDrainService.drainNext: CAS claim lost for jobId={}"
+                                + " tournamentId={} — concurrent worker is draining",
+                        jobId,
+                        tournamentId);
+                return;
+            }
+
             LOG.info(
-                    "DefaultJobDrainService.drainNext: CAS claim lost for jobId={}"
-                            + " tournamentId={} — skipping",
+                    "DefaultJobDrainService.drainNext: claimed jobId={} tournamentId={}",
                     jobId,
                     tournamentId);
-            return;
+
+            // Step 3: execute the claimed job via the Saga-Orchestrator pipeline
+            // (T-job-step-A + T-job-step-B — each in its own REQUIRES_NEW TX)
+            orchestrator.executeClaimed(jobId);
+            // Loop continues: pick up the next PENDING job for this tournament (FIFO order)
         }
-
-        LOG.info(
-                "DefaultJobDrainService.drainNext: claimed jobId={} tournamentId={}",
-                jobId,
-                tournamentId);
-
-        // Step 3: execute the claimed job via the Saga-Orchestrator pipeline
-        // (T-job-step-A + T-job-step-B — each in its own REQUIRES_NEW TX)
-        orchestrator.executeClaimed(jobId);
     }
 
     /**

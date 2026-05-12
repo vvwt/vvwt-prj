@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.infrastructure.testsupport.TenantContextSliceTestSupport;
+import de.vvwt.tm.phaselifecycle.DraftApplicationOrchestrator;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantRegistryPort;
 import de.vvwt.tm.tournament.DraftService;
@@ -99,6 +100,8 @@ class DraftControllerSliceTest {
 
     @MockitoBean(name = "tmTournamentRepository")
     private TournamentRepository tournamentRepository;
+
+    @MockitoBean private DraftApplicationOrchestrator draftApplicationOrchestrator;
 
     @MockitoBean private TenantContext tenantContext;
     @MockitoBean private TenantRegistryPort tenantRegistryPort;
@@ -380,13 +383,18 @@ class DraftControllerSliceTest {
     // Pre-existing: POST /apply → 200
     // =========================================================================
 
-    /** Pre-existing: POST /apply with valid body → 200 + DraftApplyResponse. */
+    /**
+     * Pre-existing: POST /apply with valid body → 200 + DraftApplyResponse.
+     *
+     * <p>E55S06 Option C: controller now delegates to {@link DraftApplicationOrchestrator} instead
+     * of {@link DraftService#apply}. Stub updated accordingly.
+     */
     @Test
     @WithMockUser
     @DisplayName("POST /draft/apply with valid body returns 200 + DraftApplyResponse")
     void applyDraft_withValidRequest_returns200WithApplyResponse() throws Exception {
         UUID phaseId = UUID.randomUUID();
-        when(draftService.apply(eq(TOURNAMENT_ID), any(DraftConfig.class)))
+        when(draftApplicationOrchestrator.applyDraft(eq(TOURNAMENT_ID), any(DraftConfig.class)))
                 .thenReturn(List.of(phaseId));
 
         DraftSectionRequest sectionRequest =

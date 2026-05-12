@@ -181,6 +181,21 @@ class SlotOptimizationCancelControllerE55S05IT {
     @Test
     @DisplayName("POST /cancel with active optimization → 200 with BSF result (contract unchanged)")
     void cancel_activeOptimization_returns200_contractUnchanged() {
+        // E55S06: DB-primary getHandle() requires a RUNNING row (DEC-64 D-6).
+        // Insert a RUNNING job row so getHandle() returns non-empty for this tournament.
+        UUID contractJobId = UUID.randomUUID();
+        jdbcTemplate.update(
+                "INSERT INTO phase_lifecycle_job"
+                        + " (id, tournament_id, phase_id, game_mode, sequence, status,"
+                        + " claimed_by, claimed_at, cancelled)"
+                        + " VALUES (?, ?, ?, ?, ?, 'RUNNING', ?, CURRENT_TIMESTAMP, FALSE)",
+                contractJobId,
+                tournamentId,
+                phaseId,
+                "roundRobin",
+                1,
+                "test-contract-worker");
+
         CancellationToken token = CancellationToken.create();
         JobHandle handle = new JobHandle(token, Instant.now());
         handle.updateBestSoFar(OptimizationResult.cancelled(2L, 0.3));
@@ -206,6 +221,7 @@ class SlotOptimizationCancelControllerE55S05IT {
             assertThat(token.isCancelled()).isTrue();
         } finally {
             jobRegistry.complete(tournamentId);
+            // contractJobId is cleaned up by tearDown's DELETE FROM phase_lifecycle_job
         }
     }
 

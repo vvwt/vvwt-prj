@@ -1,5 +1,6 @@
 package de.vvwt.tm.web;
 
+import de.vvwt.tm.phaselifecycle.DraftApplicationOrchestrator;
 import de.vvwt.tm.tournament.DraftService;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
@@ -70,13 +71,17 @@ import org.springframework.web.bind.annotation.RestController;
  * natural TenantContext + TournamentNotFoundException mechanic (AC-CROSS-TENANT-404).
  *
  * @see DraftService
+ * @see DraftApplicationOrchestrator
  * @see DraftResponse
  * @see GlobalExceptionHandler
  * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation: controller relocation to web</a>
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law: Q-1a fresh RED-first for GET/PUT</a>
  * @see <a href="DEC-20">DEC-20 — TenantContext enforcement at repository layer</a>
+ * @see <a href="DEC-21">DEC-21 — Spring Modulith: web → phaselifecycle → tournament topology</a>
+ * @see <a href="DEC-64">DEC-64 D-11 — Option C: DraftApplicationOrchestrator in phaselifecycle</a>
  * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction (original preview/apply)</a>
  * @see <a href="E21S19">E21S19 — Restore GET/PUT + DraftController relocation to de.vvwt.tm.web</a>
+ * @see <a href="E55S06">E55S06 — Migration: apply() rewired to DraftApplicationOrchestrator</a>
  */
 @RestController("tmDraftController")
 @RequestMapping("/api/tournaments/{tournamentId}/draft")
@@ -84,18 +89,26 @@ public class DraftController {
 
     private final DraftService draftService;
     private final TournamentRepository tournamentRepository;
+    private final DraftApplicationOrchestrator draftApplicationOrchestrator;
 
     /**
-     * @param draftService the draft service ({@code "tmDraftService"} qualifier)
+     * @param draftService the draft service ({@code "tmDraftService"} qualifier) — used for
+     *     preview, loadDraft, saveDraft, resetPlan operations (unchanged E55S06)
      * @param tournamentRepository the tournament repository ({@code "tmTournamentRepository"}
      *     qualifier) — used to load {@link Tournament#getTeamCount()} for the preview computation
      *     (E21S21 AC-IMPL-BE-CONTROLLER-LOAD-TEAMCOUNT)
+     * @param draftApplicationOrchestrator the apply-and-orchestrate entry-point in the {@code
+     *     phaselifecycle} module (E55S06, Option C, DEC-64 D-11). Used for the {@code POST /apply}
+     *     endpoint instead of {@link DraftService#apply} directly — the orchestrator additionally
+     *     enqueues job rows and triggers the per-tournament worker.
      */
     public DraftController(
             @Qualifier("tmDraftService") DraftService draftService,
-            @Qualifier("tmTournamentRepository") TournamentRepository tournamentRepository) {
+            @Qualifier("tmTournamentRepository") TournamentRepository tournamentRepository,
+            DraftApplicationOrchestrator draftApplicationOrchestrator) {
         this.draftService = draftService;
         this.tournamentRepository = tournamentRepository;
+        this.draftApplicationOrchestrator = draftApplicationOrchestrator;
     }
 
     // -------------------------------------------------------------------------
@@ -205,7 +218,13 @@ public class DraftController {
 
     /**
      * Atomically applies the draft configuration (E48S22): creates Phase entities, persists
-     * draft_json, and transitions tournament DRAFT→PLANNED via TournamentLifecycleService.
+     * draft_json, transitions tournament DRAFT→PLANNED via TournamentLifecycleService, and enqueues
+     * {@code phase_lifecycle_job} rows for the per-tournament worker (E55S06, Option C, DEC-64
+     * D-11).
+     *
+     * <p>Delegates to {@link DraftApplicationOrchestrator#applyDraft(UUID, DraftConfig)} instead of
+     * {@link DraftService#apply} directly (E55S06: the orchestrator lives in the {@code
+     * phaselifecycle} module which is accessible from {@code web} per DEC-40 + DEC-21).
      *
      * <p>Fails with 409 if the tournament is not in DRAFT status (→ {@link
      * de.vvwt.tm.tournament.exceptions.TournamentNotInDraftException} with messageKey {@code
@@ -221,7 +240,10 @@ public class DraftController {
             @RequestBody @Valid DraftRequest request) {
 
         DraftConfig config = toDraftConfig(request);
-        List<UUID> phaseIds = draftService.apply(tournamentId, config);
+        // E55S06 Option C: delegate to DraftApplicationOrchestrator (phaselifecycle module)
+        // which calls DraftService.apply() + enqueueJob() + drainNext() atomically.
+        // REST contract unchanged: same request shape, same DraftApplyResponse(phaseIds) response.
+        List<UUID> phaseIds = draftApplicationOrchestrator.applyDraft(tournamentId, config);
         return ResponseEntity.ok(new DraftApplyResponse(phaseIds));
     }
 
