@@ -1,30 +1,23 @@
 package de.vvwt.tm.phaselifecycle;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import de.vvwt.tm.phaselifecycle.internal.DefaultCancelFlagRegistry;
-import java.util.UUID;
-import org.junit.jupiter.api.Test;
-
 /**
  * Placeholder-implementation fail-fast unit tests — AC-ERROR-HANDLING-PLACEHOLDER-IMPL-FAIL-FAST.
  *
- * <p>RED-first per DEC-22 Iron Law Pattern B. The RED commit is authored before the {@code
- * Default*} classes exist; this test class fails to compile. GREEN state: all 5 classes exist with
- * {@code UnsupportedOperationException} methods whose message contains the expected implementing
- * Story number.
+ * <p>RED-first per DEC-22 Iron Law Pattern B. This class tracks the historical placeholder-test
+ * lifecycle across E55 stories.
  *
- * <p>Each test verifies that a placeholder method on the corresponding {@code Default*} class
- * throws {@code UnsupportedOperationException} with a message that includes the implementing Story
- * reference (e.g., "E55S04"). This ensures that any accidental production-time invocation fails
- * fast with an operator-actionable error message.
+ * <p>All placeholder tests have been removed as their corresponding implementations are complete:
  *
- * <p>Note: {@link de.vvwt.tm.phaselifecycle.internal.DefaultWorkerRegistry} is fully implemented in
- * E55S03 — its placeholder test was removed there. {@link
- * de.vvwt.tm.phaselifecycle.internal.DefaultPhaseLifecycleOrchestrator} and {@link
- * de.vvwt.tm.phaselifecycle.internal.DefaultJobDrainService} are fully implemented in E55S04 —
- * their placeholder tests are removed here. The remaining test covers the still-pending placeholder
- * implementation for E55S05.
+ * <ul>
+ *   <li>E55S02 — {@code DefaultPhaseLifecycleJobRepository} fully implemented; its test removed.
+ *   <li>E55S03 — {@code DefaultWorkerRegistry} fully implemented; its test removed.
+ *   <li>E55S04 — {@code DefaultPhaseLifecycleOrchestrator} + {@code DefaultJobDrainService} fully
+ *       implemented; their tests removed.
+ *   <li>E55S05 — {@code DefaultCancelFlagRegistry} fully implemented; its test removed here.
+ * </ul>
+ *
+ * <p>This class is intentionally left as an empty placeholder to preserve the class-file reference
+ * in the package and document the removal history.
  *
  * <p>Authorizing decisions: DEC-58 (universal interface mandate — placeholder impls in .internal),
  * DEC-64 D-14 (five beans enumerated), Story AC-ERROR-HANDLING-PLACEHOLDER-IMPL-FAIL-FAST.
@@ -33,24 +26,8 @@ import org.junit.jupiter.api.Test;
  * @updated E55S03 (removed DefaultWorkerRegistry placeholder test — implemented)
  * @updated E55S04 (removed DefaultPhaseLifecycleOrchestrator + DefaultJobDrainService placeholder
  *     tests — implemented)
+ * @updated E55S05 (removed DefaultCancelFlagRegistry placeholder test — implemented)
  */
 class PlaceholderImplFailFastTest {
-
-    private static final UUID ANY_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
-
-    // NOTE (E55S02): defaultPhaseLifecycleJobRepositoryThrowsUnsupported was removed.
-    // DefaultPhaseLifecycleJobRepository is now fully implemented (E55S02 GREEN).
-    // Its DAO integration tests live in PhaseLifecycleJobRepositoryDaoIT.
-
-    // NOTE (E55S04): defaultPhaseLifecycleOrchestratorThrowsUnsupported was removed.
-    // NOTE (E55S04): defaultJobDrainServiceThrowsUnsupported was removed.
-    // Both DefaultPhaseLifecycleOrchestrator and DefaultJobDrainService are now fully implemented.
-
-    @Test
-    void defaultCancelFlagRegistryThrowsUnsupported() {
-        var impl = new DefaultCancelFlagRegistry();
-        assertThatThrownBy(() -> impl.requestCancel(ANY_ID))
-                .isInstanceOf(UnsupportedOperationException.class)
-                .hasMessageContaining("E55S05");
-    }
+    // All placeholder tests removed. See class Javadoc for history.
 }

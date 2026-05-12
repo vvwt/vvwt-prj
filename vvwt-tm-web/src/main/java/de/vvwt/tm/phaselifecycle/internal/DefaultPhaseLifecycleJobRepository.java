@@ -84,6 +84,15 @@ public class DefaultPhaseLifecycleJobRepository implements PhaseLifecycleJobRepo
     private static final String SQL_FIND_JOB_DETAILS =
             "SELECT id, phase_id, game_mode, tournament_id FROM phase_lifecycle_job WHERE id = ?";
 
+    /**
+     * Find the RUNNING job for a given tournament (cancel-handler lookup, per-tournament FIFO
+     * invariant per DEC-64 D-3 ensures at most one RUNNING row per tournament).
+     */
+    private static final String SQL_FIND_RUNNING_FOR_TOURNAMENT =
+            "SELECT id FROM phase_lifecycle_job"
+                    + " WHERE tournament_id = ? AND status = 'RUNNING'"
+                    + " ORDER BY claimed_at ASC LIMIT 1";
+
     /** Enqueue a new PENDING job row. */
     private static final String SQL_ENQUEUE =
             "INSERT INTO phase_lifecycle_job"
@@ -210,5 +219,30 @@ public class DefaultPhaseLifecycleJobRepository implements PhaseLifecycleJobRepo
         UUID id = UUID.randomUUID();
         jdbcTemplate.update(
                 SQL_ENQUEUE, id, job.tournamentId(), job.phaseId(), job.gameMode(), job.sequence());
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Executes: {@code SELECT id FROM phase_lifecycle_job WHERE tournament_id=? AND
+     * status='RUNNING' ORDER BY claimed_at ASC LIMIT 1}.
+     *
+     * <p>Per DEC-64 D-3 (per-tournament single-thread worker), at most one row can be RUNNING per
+     * tournament at any time in steady state. The ORDER BY + LIMIT 1 is defensive (no-op for the
+     * common case; prevents returning multiple rows if a data anomaly exists).
+     *
+     * <p>Returns empty {@code Optional} if no RUNNING row exists (cancel arrived after completion,
+     * or no job was ever running).
+     *
+     * @since E55S05
+     */
+    @Override
+    public Optional<UUID> findRunningJobIdForTournament(UUID tournamentId) {
+        List<UUID> results =
+                jdbcTemplate.query(
+                        SQL_FIND_RUNNING_FOR_TOURNAMENT,
+                        (rs, rowNum) -> rs.getObject(1, UUID.class),
+                        tournamentId);
+        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 }

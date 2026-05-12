@@ -94,4 +94,21 @@ public interface PhaseLifecycleJobRepository {
      * @since E55S04
      */
     Optional<PhaseLifecycleJobDetails> findJobDetailsById(UUID jobId);
+
+    /**
+     * Finds the {@code id} of the currently-RUNNING job row for the given tournament (at most one
+     * per tournament per DEC-64 D-3 per-tournament-FIFO invariant).
+     *
+     * <p>Called by the cancel handler ({@link
+     * de.vvwt.tm.web.slotopt.SlotOptimizationCancelController}) to locate the row to mark cancelled
+     * via {@link #markCancelled(UUID)}.
+     *
+     * <p>Returns an empty {@code Optional} when no RUNNING row exists (e.g., cancel arrives after
+     * the job has already completed, or no job was ever running).
+     *
+     * @param tournamentId the tournament whose RUNNING job to locate
+     * @return the {@code id} of the RUNNING row, or empty
+     * @since E55S05
+     */
+    Optional<UUID> findRunningJobIdForTournament(UUID tournamentId);
 }
