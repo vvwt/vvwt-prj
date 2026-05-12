@@ -98,10 +98,8 @@ class CancelIsolationIT {
         insertTeamsAndAvatars(tournamentAId, phaseAId, 4);
         insertTeamsAndAvatars(tournamentBId, phaseBId, 4);
 
-        jobRepository.enqueueJob(
-                new PhaseLifecycleJob(tournamentAId, phaseAId, "roundRobin", 1));
-        jobRepository.enqueueJob(
-                new PhaseLifecycleJob(tournamentBId, phaseBId, "roundRobin", 1));
+        jobRepository.enqueueJob(new PhaseLifecycleJob(tournamentAId, phaseAId, "roundRobin", 1));
+        jobRepository.enqueueJob(new PhaseLifecycleJob(tournamentBId, phaseBId, "roundRobin", 1));
     }
 
     @AfterEach
@@ -115,8 +113,7 @@ class CancelIsolationIT {
                         "DELETE FROM match WHERE phase_id IN"
                                 + " (SELECT id FROM phase WHERE tournament_id = ?)",
                         tid);
-                jdbcTemplate.update(
-                        "DELETE FROM phase_lifecycle_job WHERE tournament_id = ?", tid);
+                jdbcTemplate.update("DELETE FROM phase_lifecycle_job WHERE tournament_id = ?", tid);
                 jdbcTemplate.update("DELETE FROM team_avatar WHERE tournament_id = ?", tid);
                 jdbcTemplate.update("DELETE FROM team WHERE tournament_id = ?", tid);
                 jdbcTemplate.update("DELETE FROM phase WHERE tournament_id = ?", tid);
@@ -132,8 +129,8 @@ class CancelIsolationIT {
     /**
      * AC-TEST-DEC-49-D-11-ISOLATION-RED: cancel A does NOT affect B.
      *
-     * <p>Cancel flag set for A only; B drains without cancel. B's job must have
-     * {@code cancelled=FALSE} and {@code optimized=TRUE}.
+     * <p>Cancel flag set for A only; B drains without cancel. B's job must have {@code
+     * cancelled=FALSE} and {@code optimized=TRUE}.
      */
     @Test
     @DisplayName("cancel tournament A — tournament B completes normally with cancelled=FALSE")

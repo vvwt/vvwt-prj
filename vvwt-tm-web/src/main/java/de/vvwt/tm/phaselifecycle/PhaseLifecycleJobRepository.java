@@ -100,8 +100,8 @@ public interface PhaseLifecycleJobRepository {
      * per tournament per DEC-64 D-3 per-tournament-FIFO invariant).
      *
      * <p>Called by the cancel handler ({@link
-     * de.vvwt.tm.web.slotopt.SlotOptimizationCancelController}) to locate the row to mark
-     * cancelled via {@link #markCancelled(UUID)}.
+     * de.vvwt.tm.web.slotopt.SlotOptimizationCancelController}) to locate the row to mark cancelled
+     * via {@link #markCancelled(UUID)}.
      *
      * <p>Returns an empty {@code Optional} when no RUNNING row exists (e.g., cancel arrives after
      * the job has already completed, or no job was ever running).

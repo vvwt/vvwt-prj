@@ -47,10 +47,9 @@ import org.springframework.test.context.ActiveProfiles;
  * 1). We verify the clear() is called by checking isCancelled() is false after job1.
  *
  * <p>Note: For this test, the cancel flag is set in-memory BEFORE drain. Since Leg 1 does NOT poll
- * {@link CancelFlagRegistry} (it has its own pre-cancel check via the CancellationToken path),
- * this test focuses purely on the orchestrator step-B calling clear() after completion. The
- * cancel flag is set pre-drain; the orchestrator should clear it after step-B regardless of
- * whether L3 ran.
+ * {@link CancelFlagRegistry} (it has its own pre-cancel check via the CancellationToken path), this
+ * test focuses purely on the orchestrator step-B calling clear() after completion. The cancel flag
+ * is set pre-drain; the orchestrator should clear it after step-B regardless of whether L3 ran.
  *
  * <p>Authorizing decisions: DEC-22 (TDD), DEC-64 D-10 (cooperative cancel flag), E55S05
  * AC-TEST-CANCEL-CLEAR-ON-COMPLETION.

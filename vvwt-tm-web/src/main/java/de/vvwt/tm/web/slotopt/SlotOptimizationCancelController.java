@@ -1,5 +1,7 @@
 package de.vvwt.tm.web.slotopt;
 
+import de.vvwt.tm.phaselifecycle.CancelFlagRegistry;
+import de.vvwt.tm.phaselifecycle.PhaseLifecycleJobRepository;
 import de.vvwt.tm.slotopt.CancellationToken;
 import de.vvwt.tm.slotopt.JobHandle;
 import de.vvwt.tm.slotopt.OptimizationResult;
@@ -56,13 +58,28 @@ import org.springframework.web.bind.annotation.RestController;
  * introducing a compile-time dependency from the {@code web.slotopt} sub-package on the tournament
  * context service (DEC-21 Modulith edge avoidance).
  *
+ * <h2>E55S05 cooperative cancel wiring (DEC-64 D-10)</h2>
+ *
+ * <p>E55S05 extends the cancel handler with two additional operations: (1) sets {@code
+ * phase_lifecycle_job.cancelled=TRUE} for the currently-RUNNING row of the tournament via {@link
+ * PhaseLifecycleJobRepository#markCancelled(UUID)} (DB persistence — survives JVM restart per
+ * DEC-64 D-10), and (2) signals the in-memory {@link CancelFlagRegistry#requestCancel(UUID)} so the
+ * orchestrator's step-B can check whether the job was cancelled (for the {@link
+ * de.vvwt.tm.phaselifecycle.internal.OrchestratorStepBExecutor} clear-on-completion path). The
+ * existing {@link CancellationToken#cancel()} signal on the active {@link JobHandle} continues to
+ * drive the L3 permutation loop directly.
+ *
  * @see SlotOptimizationJobRegistry
  * @see <a href="../../../../../../../../../docs/governance/decisions/DEC-49.md">DEC-49 D-11</a>
  * @see <a href="../../../../../../../../../docs/governance/decisions/DEC-55.md">DEC-55 D-9</a>
+ * @see <a href="../../../../../../../../../docs/governance/decisions/DEC-64.md">DEC-64 D-10 +
+ *     D-16</a>
  * @see <a href="../../../../../../../../../docs/governance/stories/E27S02.story.md">Story
  *     E27S02</a>
  * @see <a href="../../../../../../../../../docs/governance/stories/E51S07.story.md">Story
  *     E51S07</a>
+ * @see <a href="../../../../../../../../../docs/governance/stories/E55S05.story.md">Story
+ *     E55S05</a>
  */
 @RestController
 @RequestMapping("/api/slotopt/tournaments")
@@ -76,25 +93,52 @@ public class SlotOptimizationCancelController {
 
     private final SlotOptimizationJobRegistry jobRegistry;
     private final JdbcTemplate jdbc;
+    private final PhaseLifecycleJobRepository phaseLifecycleJobRepository;
+    private final CancelFlagRegistry cancelFlagRegistry;
 
     /**
-     * Constructs the controller with the required job registry and JDBC template.
+     * Constructs the controller with the required collaborators.
      *
-     * @param jobRegistry the per-tournament job handle registry
+     * @param jobRegistry the per-tournament job handle registry (E27S02 — Leg 3 CancellationToken
+     *     signal)
      * @param jdbc the JDBC template for reading {@code phase.last_job_state}
+     * @param phaseLifecycleJobRepository the phase-lifecycle job DAO for setting {@code
+     *     cancelled=TRUE} on the RUNNING row (E55S05 / DEC-64 D-10)
+     * @param cancelFlagRegistry the in-memory cancel flag registry for signalling the orchestrator
+     *     (E55S05 / DEC-64 D-10)
      */
     public SlotOptimizationCancelController(
-            SlotOptimizationJobRegistry jobRegistry, JdbcTemplate jdbc) {
+            SlotOptimizationJobRegistry jobRegistry,
+            JdbcTemplate jdbc,
+            PhaseLifecycleJobRepository phaseLifecycleJobRepository,
+            CancelFlagRegistry cancelFlagRegistry) {
         this.jobRegistry = jobRegistry;
         this.jdbc = jdbc;
+        this.phaseLifecycleJobRepository = phaseLifecycleJobRepository;
+        this.cancelFlagRegistry = cancelFlagRegistry;
     }
 
     /**
      * {@code POST /api/slotopt/tournaments/{tournamentId}/cancel}
      *
-     * <p>Cancels the active slot optimization for the given tournament. Sets the cancellation flag
-     * on the active {@link CancellationToken}; the compute thread observes the flag and applies the
-     * Best-So-Far result via {@link de.vvwt.tm.slotopt.SlotResultApplicator}.
+     * <p>Cancels the active slot optimization for the given tournament.
+     *
+     * <h3>Cancel actions (in order)</h3>
+     *
+     * <ol>
+     *   <li>Locate the active {@link JobHandle} from {@link SlotOptimizationJobRegistry} — returns
+     *       409 if none (existing E27S02 contract).
+     *   <li>Set {@code phase_lifecycle_job.cancelled=TRUE} for the currently-RUNNING row (DB
+     *       persistence — survives JVM restart per DEC-64 D-10). No-op if no RUNNING row exists
+     *       (cancel arrived after job completion — safe).
+     *   <li>Set in-memory cancel flag via {@link CancelFlagRegistry#requestCancel(UUID)} — signals
+     *       the orchestrator's step-B clear-on-completion path (E55S05 / DEC-64 D-10).
+     *   <li>Set {@link CancellationToken#cancel()} on the active handle — signals the L3
+     *       permutation loop directly (existing E27S02 mechanism, preserved verbatim).
+     * </ol>
+     *
+     * <p>The response shape (200 with {@link OptimizationResult} on success; 409 with {@link
+     * ErrorResponse}) is unchanged per DEC-64 D-13 (REST contract preservation).
      *
      * @param tournamentId the tournament whose optimization should be cancelled
      * @return HTTP 200 with the Best-So-Far result if successful; HTTP 409 if no optimization is
@@ -115,6 +159,25 @@ public class SlotOptimizationCancelController {
                                     "No active slot optimization for tournament " + tournamentId));
         }
 
+        // Step 2 (E55S05 / DEC-64 D-10): DB persistence — set cancelled=TRUE on the RUNNING row.
+        // No-op (Optional.empty()) if the row doesn't exist or isn't RUNNING (cancel arrived late).
+        phaseLifecycleJobRepository
+                .findRunningJobIdForTournament(tournamentId)
+                .ifPresent(
+                        jobId -> {
+                            phaseLifecycleJobRepository.markCancelled(jobId);
+                            LOG.debug(
+                                    "SlotOptimizationCancelController: marked jobId={} cancelled"
+                                            + " in DB (tournament={})",
+                                    jobId,
+                                    tournamentId);
+                        });
+
+        // Step 3 (E55S05 / DEC-64 D-10): in-memory flag — signals orchestrator's step-B
+        // clear-on-completion path.
+        cancelFlagRegistry.requestCancel(tournamentId);
+
+        // Step 4: signal the L3 permutation loop via existing CancellationToken (E27S02).
         JobHandle handle = handleOpt.get();
         handle.getCancellationToken().cancel();
 
@@ -122,8 +185,7 @@ public class SlotOptimizationCancelController {
                 "SlotOptimizationCancelController: cancel signal sent for tournament={}",
                 tournamentId);
 
-        // Return the best-so-far result (the compute thread will apply it to matches
-        // asynchronously)
+        // Return the best-so-far result (response shape unchanged per DEC-64 D-13).
         OptimizationResult bestSoFar = handle.getBestSoFar();
         if (bestSoFar == null) {
             // No permutation evaluated yet — compute thread will apply trivial coordinates

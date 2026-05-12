@@ -1,5 +1,6 @@
 package de.vvwt.tm.phaselifecycle.internal;
 
+import de.vvwt.tm.phaselifecycle.CancelFlagRegistry;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJobRepository;
 import de.vvwt.tm.slotopt.SlotOptimizationClient;
 import de.vvwt.tm.tournament.Phase;
@@ -41,9 +42,20 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>After the L3 decision and write-back, the job is marked COMPLETED within the same TX.
  *
- * <p>Authorizing decisions: DEC-37 Clause B, DEC-56 D-1, DEC-59 Clause F, DEC-64 D-12.
+ * <h2>Cancel-flag clear (E55S05 / DEC-64 D-10)</h2>
+ *
+ * <p>After the L3 decision and write-back, {@link CancelFlagRegistry#clear(UUID)} is called for the
+ * {@code tournamentId}. This ensures that a subsequent job enqueued under the same tournament is
+ * not falsely detected as cancelled (AC-TEST-CANCEL-CLEAR-ON-COMPLETION). The clear is called
+ * regardless of whether the job was actually cancelled — idempotent (clear on a non-set flag is a
+ * no-op per {@link ConcurrentHashMap#remove}).
+ *
+ * <p>Authorizing decisions: DEC-37 Clause B, DEC-49 D-11a, DEC-56 D-1, DEC-59 Clause F, DEC-64
+ * D-10, DEC-64 D-12, DEC-64 D-16.
  *
  * @since E55S04
+ * @updated E55S05 (inject {@link CancelFlagRegistry}, call {@link CancelFlagRegistry#clear} after
+ *     step-B)
  */
 @Service
 class OrchestratorStepBExecutor {
@@ -56,16 +68,19 @@ class OrchestratorStepBExecutor {
     private final PhaseRepository phaseRepository;
     private final SlotOptimizationClient slotOptimizationClient;
     private final PhaseLifecycleJobRepository jobRepository;
+    private final CancelFlagRegistry cancelFlagRegistry;
 
     OrchestratorStepBExecutor(
             @Qualifier("tmTournamentRepository") TournamentRepository tournamentRepository,
             @Qualifier("tmPhaseRepository") PhaseRepository phaseRepository,
             SlotOptimizationClient slotOptimizationClient,
-            PhaseLifecycleJobRepository jobRepository) {
+            PhaseLifecycleJobRepository jobRepository,
+            CancelFlagRegistry cancelFlagRegistry) {
         this.tournamentRepository = tournamentRepository;
         this.phaseRepository = phaseRepository;
         this.slotOptimizationClient = slotOptimizationClient;
         this.jobRepository = jobRepository;
+        this.cancelFlagRegistry = cancelFlagRegistry;
     }
 
     /**
@@ -136,6 +151,13 @@ class OrchestratorStepBExecutor {
 
         // Step 5: mark job COMPLETED (within same TX — atomic with write-back)
         jobRepository.markCompleted(jobId);
+
+        // Step 6 (DEC-64 D-10 / E55S05): clear in-memory cancel flag so a subsequent job under the
+        // same tournament is NOT falsely detected as cancelled
+        // (AC-TEST-CANCEL-CLEAR-ON-COMPLETION).
+        // Called regardless of whether cancel was signalled — idempotent (remove on absent key is
+        // a no-op per ConcurrentHashMap).
+        cancelFlagRegistry.clear(tournamentId);
 
         LOG.info(
                 "OrchestratorStepBExecutor: DONE tournamentId={}, phaseId={}, jobId={}",

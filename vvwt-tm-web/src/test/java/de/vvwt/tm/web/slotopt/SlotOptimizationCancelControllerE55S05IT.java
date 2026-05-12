@@ -34,7 +34,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * Integration tests for {@link SlotOptimizationCancelController} E55S05 additions (AC-IMPL-REST-CONTRACT-PRESERVED + AC-SEC-CANCEL-AUTH-PRESERVED).
+ * Integration tests for {@link SlotOptimizationCancelController} E55S05 additions
+ * (AC-IMPL-REST-CONTRACT-PRESERVED + AC-SEC-CANCEL-AUTH-PRESERVED).
  *
  * <h2>Test coverage</h2>
  *
@@ -42,9 +43,9 @@ import org.springframework.test.context.ActiveProfiles;
  *   <li>AC-IMPL-REST-CONTRACT-PRESERVED: POST /cancel — response shape unchanged (200 with
  *       OptimizationResult; 409 with ErrorResponse)
  *   <li>AC-SEC-CANCEL-AUTH-PRESERVED: unauthorized POST /cancel → 401
- *   <li>AC-IMPL-CANCEL-HANDLER-WIRING: controller calls markCancelled + requestCancel (verified
- *       by asserting DB cancelled=TRUE and CancelFlagRegistry.isCancelled()=true after a cancel
- *       with a RUNNING job in the phase_lifecycle_job table)
+ *   <li>AC-IMPL-CANCEL-HANDLER-WIRING: controller calls markCancelled + requestCancel (verified by
+ *       asserting DB cancelled=TRUE and CancelFlagRegistry.isCancelled()=true after a cancel with a
+ *       RUNNING job in the phase_lifecycle_job table)
  * </ul>
  *
  * <h2>DEC compliance</h2>
@@ -220,9 +221,9 @@ class SlotOptimizationCancelControllerE55S05IT {
         // Insert a RUNNING phase_lifecycle_job row (simulating an active orchestrator claim)
         UUID jobId = UUID.randomUUID();
         jdbcTemplate.update(
-                "INSERT INTO phase_lifecycle_job (id, tournament_id, phase_id, game_mode,"
-                        + " sequence, status, cancelled, claimed_by, claimed_at)"
-                        + " VALUES (?, ?, ?, ?, ?, 'RUNNING', FALSE, 'test-jvm', CURRENT_TIMESTAMP)",
+                "INSERT INTO phase_lifecycle_job (id, tournament_id, phase_id, game_mode, sequence,"
+                        + " status, cancelled, claimed_by, claimed_at) VALUES (?, ?, ?, ?, ?,"
+                        + " 'RUNNING', FALSE, 'test-jvm', CURRENT_TIMESTAMP)",
                 jobId,
                 tournamentId,
                 phaseId,

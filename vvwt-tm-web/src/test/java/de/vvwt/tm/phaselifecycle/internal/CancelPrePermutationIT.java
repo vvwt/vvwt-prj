@@ -27,9 +27,9 @@ import org.springframework.test.context.TestPropertySource;
  * <p>Verifies that cancelling BEFORE the L3 permutation loop evaluates any permutation still
  * applies Best-So-Far semantics (trivial rank-0 result per DEC-49 D-11a literal).
  *
- * <p>Strategy: set {@link CancelFlagRegistry#requestCancel(UUID)} and {@code cancelled=TRUE} on
- * the job row BEFORE calling {@link JobDrainService#drainNext(UUID)}. The L3 loop detects
- * pre-cancel and applies rank=0 (L2 baseline).
+ * <p>Strategy: set {@link CancelFlagRegistry#requestCancel(UUID)} and {@code cancelled=TRUE} on the
+ * job row BEFORE calling {@link JobDrainService#drainNext(UUID)}. The L3 loop detects pre-cancel
+ * and applies rank=0 (L2 baseline).
  *
  * <p>Post-state assertions:
  *
@@ -41,8 +41,8 @@ import org.springframework.test.context.TestPropertySource;
  *   <li>Matches have non-null lap+field (rank-0 / L2 baseline applied)
  * </ul>
  *
- * <p>Authorizing decisions: DEC-22 (RED-first), DEC-49 D-11a (trivial-rank-0 on pre-cancel),
- * DEC-64 D-16 (cancel-completion invariant).
+ * <p>Authorizing decisions: DEC-22 (RED-first), DEC-49 D-11a (trivial-rank-0 on pre-cancel), DEC-64
+ * D-16 (cancel-completion invariant).
  *
  * @since E55S05
  */
