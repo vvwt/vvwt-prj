@@ -372,6 +372,15 @@ describe('PhaseList.svelte — E51S07: job-status icon helper function (DEC-55 D
         // The null case must be handled (returns null so template shows "—")
         expect(fnBody).toMatch(/null/);
     });
+
+    // E55S08 / DEC-66 D-2: AC-TEST-FE-JOBSTATUSICON-CLOCK-FOR-QUEUED
+    it('jobStatusIcon returns clock emoji 🕐 for slot_opt_queued (DEC-66 D-2)', () => {
+        const fnMatch = source.match(/function jobStatusIcon[\s\S]*?\n  \}/);
+        expect(fnMatch, 'jobStatusIcon function not found').toBeTruthy();
+        const fnBody = fnMatch![0];
+        expect(fnBody).toContain('slot_opt_queued');
+        expect(fnBody).toContain('🕐');
+    });
 });
 
 // ── E51S07: AC-TEST-PHASELIST-ACTIVATE-GUARD-RED ─────────────────────────────

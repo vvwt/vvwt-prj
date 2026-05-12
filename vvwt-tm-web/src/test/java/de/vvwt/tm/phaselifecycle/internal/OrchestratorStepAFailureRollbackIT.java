@@ -187,5 +187,17 @@ class OrchestratorStepAFailureRollbackIT {
                 jdbcTemplate.queryForObject(
                         "SELECT COUNT(*) FROM match WHERE phase_id = ?", Integer.class, phaseId);
         assertThat(matchCount).as("no matches must be present after step-A rollback").isEqualTo(0);
+
+        // E55S08 / AC-TEST-LAST-JOB-STATE-STEP-A-FAILURE-FAILED-RED: last_job_state must be
+        // 'failed' (written by REQUIRES_NEW failure writer in DefaultPhaseLifecycleOrchestrator,
+        // DEC-66 D-2, AC-IMPL-LAST-JOB-STATE-STEP-FAILURE-FAILED).
+        String lastJobState =
+                jdbcTemplate.queryForObject(
+                        "SELECT last_job_state FROM phase WHERE id = ?", String.class, phaseId);
+        assertThat(lastJobState)
+                .as(
+                        "last_job_state must be 'failed' after step-A rollback (REQUIRES_NEW"
+                                + " failure writer, DEC-66 D-2)")
+                .isEqualTo("failed");
     }
 }

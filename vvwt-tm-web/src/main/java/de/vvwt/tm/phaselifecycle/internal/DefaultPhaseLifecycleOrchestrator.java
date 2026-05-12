@@ -1,6 +1,7 @@
 package de.vvwt.tm.phaselifecycle.internal;
 
 import de.vvwt.tm.phaselifecycle.JobDrainService;
+import de.vvwt.tm.phaselifecycle.PhaseLastJobStateWriter;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJobDetails;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJobRepository;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleOrchestrator;
@@ -41,10 +42,18 @@ import org.springframework.stereotype.Service;
  * <p>Both step-A and step-B call {@code tournamentRepository.findByIdForUpdate(tournamentId)} as
  * the first DB read of their respective transactions. See executor Javadocs.
  *
+ * <h2>DEC-66 D-2 failure writer (E55S08)</h2>
+ *
+ * <p>When step-A or step-B throws, {@link PhaseLastJobStateWriter#writeFailedState(UUID)} is called
+ * in a {@code REQUIRES_NEW} TX — commits independently of the rolled-back step TX — then the
+ * exception is re-thrown so the job stays {@code RUNNING} per DEC-64 D-12.
+ *
  * <p>Authorizing decisions: DEC-37 Clause B, DEC-44, DEC-56 D-1, DEC-59 Clause F, DEC-64 D-1,
- * DEC-64 D-9, DEC-64 D-12.
+ * DEC-64 D-9, DEC-64 D-12, DEC-66 D-2, AC-IMPL-LAST-JOB-STATE-STEP-FAILURE-FAILED.
  *
  * @since E55S04
+ * @updated E55S08 (inject {@link PhaseLastJobStateWriter}; write {@code failed} on step-A or step-B
+ *     exception per DEC-66 D-2)
  * @see OrchestratorStepAExecutor
  * @see OrchestratorStepBExecutor
  */
@@ -57,14 +66,17 @@ public class DefaultPhaseLifecycleOrchestrator implements PhaseLifecycleOrchestr
     private final PhaseLifecycleJobRepository jobRepository;
     private final OrchestratorStepAExecutor stepAExecutor;
     private final OrchestratorStepBExecutor stepBExecutor;
+    private final PhaseLastJobStateWriter failureWriter;
 
     public DefaultPhaseLifecycleOrchestrator(
             PhaseLifecycleJobRepository jobRepository,
             OrchestratorStepAExecutor stepAExecutor,
-            OrchestratorStepBExecutor stepBExecutor) {
+            OrchestratorStepBExecutor stepBExecutor,
+            PhaseLastJobStateWriter failureWriter) {
         this.jobRepository = jobRepository;
         this.stepAExecutor = stepAExecutor;
         this.stepBExecutor = stepBExecutor;
+        this.failureWriter = failureWriter;
     }
 
     /**
@@ -103,10 +115,38 @@ public class DefaultPhaseLifecycleOrchestrator implements PhaseLifecycleOrchestr
                 gameMode);
 
         // T-job-step-A: MatchGen (L1) + L2 + PENDING→PREPARED — REQUIRES_NEW TX
-        stepAExecutor.executeStepA(tournamentId, phaseId, gameMode);
+        try {
+            stepAExecutor.executeStepA(tournamentId, phaseId, gameMode);
+        } catch (RuntimeException e) {
+            // DEC-66 D-2 / AC-IMPL-LAST-JOB-STATE-STEP-FAILURE-FAILED: write failed in REQUIRES_NEW
+            // TX so it commits independently of the rolled-back step-A TX. Re-throw: job stays
+            // RUNNING.
+            LOG.warn(
+                    "DefaultPhaseLifecycleOrchestrator: step-A failure — writing"
+                            + " last_job_state='failed' for phaseId={}, jobId={}",
+                    phaseId,
+                    jobId,
+                    e);
+            failureWriter.writeFailedState(phaseId);
+            throw e;
+        }
 
         // T-job-step-B: SlotOpt (L3, conditional) + optimized write + COMPLETED — REQUIRES_NEW TX
-        stepBExecutor.executeStepB(tournamentId, phaseId, gameMode, jobId);
+        try {
+            stepBExecutor.executeStepB(tournamentId, phaseId, gameMode, jobId);
+        } catch (RuntimeException e) {
+            // DEC-66 D-2 / AC-IMPL-LAST-JOB-STATE-STEP-FAILURE-FAILED: write failed in REQUIRES_NEW
+            // TX so it commits independently of the rolled-back step-B TX. Re-throw: job stays
+            // RUNNING.
+            LOG.warn(
+                    "DefaultPhaseLifecycleOrchestrator: step-B failure — writing"
+                            + " last_job_state='failed' for phaseId={}, jobId={}",
+                    phaseId,
+                    jobId,
+                    e);
+            failureWriter.writeFailedState(phaseId);
+            throw e;
+        }
 
         LOG.info(
                 "DefaultPhaseLifecycleOrchestrator: DONE jobId={}, tournamentId={}, phaseId={}",

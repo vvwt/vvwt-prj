@@ -298,5 +298,17 @@ class CancelBsfInvariantIT {
         assertThat(nullFieldCount)
                 .as("all matches must have field_number (BSF applied)")
                 .isEqualTo(0);
+
+        // E55S08 / AC-TEST-LAST-JOB-STATE-CANCEL-CLASS-C-MID-L3-IDLE-RED: C-MID-L3 cancel
+        // applies BSF and completes successfully → last_job_state must be 'idle' (DEC-66 D-2
+        // step-B success terminal, regardless of whether cancel was applied mid-L3).
+        String lastJobState =
+                jdbcTemplate.queryForObject(
+                        "SELECT last_job_state FROM phase WHERE id = ?", String.class, phaseId);
+        assertThat(lastJobState)
+                .as(
+                        "last_job_state must be 'idle' after C-MID-L3 cancel (BSF applied"
+                                + " → step-B success terminal, DEC-66 D-2)")
+                .isEqualTo("idle");
     }
 }

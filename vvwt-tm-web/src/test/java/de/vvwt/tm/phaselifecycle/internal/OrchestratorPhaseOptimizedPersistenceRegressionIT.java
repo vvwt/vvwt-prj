@@ -206,6 +206,18 @@ class OrchestratorPhaseOptimizedPersistenceRegressionIT {
                             run)
                     .isTrue();
 
+            // E55S08 / AC-TEST-M-1-IT-EXTENDED-WITH-LAST-JOB-STATE: last_job_state must be 'idle'
+            // after full pipeline (DEC-66 D-2 terminal state for optimize=true roundRobin).
+            String lastJobState =
+                    jdbcTemplate.queryForObject(
+                            "SELECT last_job_state FROM phase WHERE id = ?", String.class, phaseId);
+            assertThat(lastJobState)
+                    .as(
+                            "run %d: phase.last_job_state must be 'idle' after full pipeline"
+                                    + " (DEC-66 D-2, AC-TEST-M-1-IT-EXTENDED-WITH-LAST-JOB-STATE)",
+                            run)
+                    .isEqualTo("idle");
+
             // Clean up this run's rows before the next iteration
             jdbcTemplate.execute("SET REFERENTIAL_INTEGRITY FALSE");
             jdbcTemplate.update("DELETE FROM match WHERE phase_id = ?", phaseId);
