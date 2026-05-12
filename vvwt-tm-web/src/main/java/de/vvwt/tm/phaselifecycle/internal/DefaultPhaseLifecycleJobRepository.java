@@ -211,4 +211,18 @@ public class DefaultPhaseLifecycleJobRepository implements PhaseLifecycleJobRepo
         jdbcTemplate.update(
                 SQL_ENQUEUE, id, job.tournamentId(), job.phaseId(), job.gameMode(), job.sequence());
     }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Placeholder implementation — full implementation lands in E55S05 (GREEN commit).
+     *
+     * @throws UnsupportedOperationException always — not yet implemented
+     * @since E55S05
+     */
+    @Override
+    public Optional<UUID> findRunningJobIdForTournament(UUID tournamentId) {
+        throw new UnsupportedOperationException(
+                "Not yet implemented — see E55S05 for the implementing Story");
+    }
 }

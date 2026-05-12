@@ -85,6 +85,11 @@
  *       certificate, print, display, timer, slotopt). DEC-45 D2 FIRM verdict: L2 stays (Trigger-α
  *       not newly satisfied by single addition). Added at E27S02 per DEC-40 Clause A + DEC-45 D2
  *       unconditional pre-approval.
+ *   <li>{@code phaselifecycle} — {@link de.vvwt.tm.web.slotopt.SlotOptimizationCancelController}
+ *       (E55S05) injects {@link de.vvwt.tm.phaselifecycle.PhaseLifecycleJobRepository} to set
+ *       {@code cancelled=TRUE} on the RUNNING job row and {@link
+ *       de.vvwt.tm.phaselifecycle.CancelFlagRegistry} to signal the in-memory cancel mirror (DEC-64
+ *       D-10 cooperative cancel). Added at E55S05 per DEC-40 Clause A.
  * </ul>
  *
  * <h2>Boundary rules (DEC-40 § Clause A)</h2>
@@ -117,6 +122,7 @@
             "display",
             "timer",
             "timer::audio",
-            "slotopt"
+            "slotopt",
+            "phaselifecycle"
         })
 package de.vvwt.tm.web;
