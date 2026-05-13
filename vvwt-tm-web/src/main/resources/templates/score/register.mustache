@@ -483,13 +483,17 @@
                     }
                 } else {
                     /*
-                     * REGISTERED or DISCONNECTED: the device exists but is not yet
-                     * assigned. Start polling; no new PIN needed.
-                     * NOTE: The server does not return the PIN on status checks.
-                     * We do not have the PIN to display here without re-registering.
-                     * Show the waiting message and start polling with the existing token.
+                     * REGISTERED (or DISCONNECTED dead-code): device exists but not yet assigned.
+                     * E49S02 M-A: /status now returns pin for SCORING_TABLET; display it.
+                     * If pin is absent (e.g., DISPLAY device), fall back to polling without PIN.
                      */
-                    startPolling(token);
+                    if (data.pin) {
+                        /* AC1 — E49S02: PIN available from status response; display it */
+                        showPinAndPoll(data.pin, token, data.deviceName || null);
+                    } else {
+                        /* Fallback: no PIN in response (DISPLAY device) — just poll */
+                        startPolling(token);
+                    }
                 }
             },
             function (err) {
