@@ -3,6 +3,7 @@ package de.vvwt.tm.phaselifecycle.internal;
 import de.vvwt.tm.phaselifecycle.CancelFlagRegistry;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJobRepository;
 import de.vvwt.tm.slotopt.SlotOptimizationClient;
+import de.vvwt.tm.tenant.DiagnosticProperties;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.TournamentRepository;
@@ -68,6 +69,8 @@ import org.springframework.transaction.annotation.Transactional;
  *     step-B)
  * @updated E55S08 (write {@code slot_opt_running} at entry; write {@code idle} at success / cancel
  *     per DEC-66 D-2)
+ * @updated E55S10 (inject {@link DiagnosticProperties}; register TX-boundary listener when {@code
+ *     tm.diagnostics.spring-tx-trace=true} per AC-DIAG-INSTRUMENT-SPRING-TX-BOUNDARY)
  */
 @Service
 class OrchestratorStepBExecutor {
@@ -87,18 +90,21 @@ class OrchestratorStepBExecutor {
     private final SlotOptimizationClient slotOptimizationClient;
     private final PhaseLifecycleJobRepository jobRepository;
     private final CancelFlagRegistry cancelFlagRegistry;
+    private final DiagnosticProperties diagnosticProperties;
 
     OrchestratorStepBExecutor(
             @Qualifier("tmTournamentRepository") TournamentRepository tournamentRepository,
             @Qualifier("tmPhaseRepository") PhaseRepository phaseRepository,
             SlotOptimizationClient slotOptimizationClient,
             PhaseLifecycleJobRepository jobRepository,
-            CancelFlagRegistry cancelFlagRegistry) {
+            CancelFlagRegistry cancelFlagRegistry,
+            DiagnosticProperties diagnosticProperties) {
         this.tournamentRepository = tournamentRepository;
         this.phaseRepository = phaseRepository;
         this.slotOptimizationClient = slotOptimizationClient;
         this.jobRepository = jobRepository;
         this.cancelFlagRegistry = cancelFlagRegistry;
+        this.diagnosticProperties = diagnosticProperties;
     }
 
     /**
@@ -125,6 +131,9 @@ class OrchestratorStepBExecutor {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     void executeStepB(UUID tournamentId, UUID phaseId, String gameMode, UUID jobId) {
+        // E55S10 AC-DIAG-INSTRUMENT-SPRING-TX-BOUNDARY: register TX-boundary listener when enabled
+        DiagnosticTransactionSupport.registerIfEnabled(diagnosticProperties);
+
         // Step 1 (DEC-37 Clause B): acquire per-tournament row-lock — MUST be first DB read
         var tournament = tournamentRepository.findByIdForUpdate(tournamentId);
 

@@ -153,6 +153,20 @@ tm:
       # Default: ~/.tournament-manager/slotopt-keys
       # Override via TM_SLOTOPT_WORKER_KEY_DIR env var or -Dtm.slotopt.dispatcher.worker-key-dir.
       worker-key-dir: ${TM_SLOTOPT_WORKER_KEY_DIR:${user.home}/.tournament-manager/slotopt-keys}
+  # ---------------------------------------------------------------------------
+  # E55S10 — Diagnostic instrumentation (default OFF per AC-SEC-NO-DEBUG-LEAK-IN-PROD)
+  # Enable for operator-driven bug reproduction (see .gaai/project/contexts/artefacts/diagnose/)
+  # ---------------------------------------------------------------------------
+  diagnostics:
+    hikari-trace: false    # Per-connection lifecycle logging (acquire/release, autoCommit, TX)
+    spring-tx-trace: false # Spring TX-boundary logging (thread, TX-name, COMMITTED/ROLLED_BACK)
+  # ---------------------------------------------------------------------------
+  # E55S10 — H-1 stopgap: single-writer-per-tenant (default OFF)
+  # Set to true to enable maximumPoolSize=1 per tenant DataSource (serializes H2 connections).
+  # May impact latency for concurrent operator workflows.
+  # ---------------------------------------------------------------------------
+  hikari:
+    single-writer-per-tenant: false
 
 # ---------------------------------------------------------------------------
 # Public Info Portal publisher (E38S09)

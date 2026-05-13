@@ -1,5 +1,6 @@
 package de.vvwt.tm.phaselifecycle.internal;
 
+import de.vvwt.tm.tenant.DiagnosticProperties;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseLifecycleService;
 import de.vvwt.tm.tournament.PhasePreparationService;
@@ -64,6 +65,7 @@ class OrchestratorStepAExecutor {
     private final PhaseLifecycleService phaseLifecycleService;
     private final PhaseRepository phaseRepository;
     private final int fallbackFieldCount;
+    private final DiagnosticProperties diagnosticProperties;
 
     OrchestratorStepAExecutor(
             @Qualifier("tmTournamentRepository") TournamentRepository tournamentRepository,
@@ -71,13 +73,15 @@ class OrchestratorStepAExecutor {
             RoundAssignmentService roundAssignmentService,
             @Qualifier("tmPhaseLifecycleService") PhaseLifecycleService phaseLifecycleService,
             @Qualifier("tmPhaseRepository") PhaseRepository phaseRepository,
-            @Value("${tm.slotopt.fallback.field-count:3}") int fallbackFieldCount) {
+            @Value("${tm.slotopt.fallback.field-count:3}") int fallbackFieldCount,
+            DiagnosticProperties diagnosticProperties) {
         this.tournamentRepository = tournamentRepository;
         this.phasePreparationService = phasePreparationService;
         this.roundAssignmentService = roundAssignmentService;
         this.phaseLifecycleService = phaseLifecycleService;
         this.phaseRepository = phaseRepository;
         this.fallbackFieldCount = fallbackFieldCount;
+        this.diagnosticProperties = diagnosticProperties;
     }
 
     /**
@@ -103,6 +107,9 @@ class OrchestratorStepAExecutor {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     void executeStepA(UUID tournamentId, UUID phaseId, String gameMode) {
+        // E55S10 AC-DIAG-INSTRUMENT-SPRING-TX-BOUNDARY: register TX-boundary listener when enabled
+        DiagnosticTransactionSupport.registerIfEnabled(diagnosticProperties);
+
         // Step 1 (DEC-37 Clause B): acquire per-tournament row-lock — MUST be first DB read
         Tournament tournament = tournamentRepository.findByIdForUpdate(tournamentId);
 
