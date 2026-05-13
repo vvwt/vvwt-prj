@@ -36,8 +36,8 @@ import org.springframework.test.context.ActiveProfiles;
  * <p>Verifies that {@code GET /api/devices/status?token=...} returns the {@code pin} field for a
  * SCORING_TABLET in REGISTERED status (M-A mechanism — DEC-24 §E PIN-stable).
  *
- * <p>RED tests: {@code AC-TEST-PIN-VISIBLE-ON-REVISIT-REGISTERED-RED} and
- * {@code AC-TEST-PIN-NOT-EXPOSED-WITHOUT-DEVICE-TOKEN-RED}.
+ * <p>RED tests: {@code AC-TEST-PIN-VISIBLE-ON-REVISIT-REGISTERED-RED} and {@code
+ * AC-TEST-PIN-NOT-EXPOSED-WITHOUT-DEVICE-TOKEN-RED}.
  *
  * <p>Web-module IT per DEC-44 D1: {@code @SpringBootTest(RANDOM_PORT, classes =
  * TournamentManagerApplication.class)}.
@@ -221,7 +221,9 @@ class DeviceStatusPinRevisitIT {
     void getStatus_invalidToken_returns404() throws Exception {
         ResponseEntity<String> response =
                 restTemplate.getForEntity(
-                        new URI(baseUrl + "/api/devices/status?token=invalid-token-xyz-does-not-exist"),
+                        new URI(
+                                baseUrl
+                                        + "/api/devices/status?token=invalid-token-xyz-does-not-exist"),
                         String.class);
 
         assertThat(response.getStatusCode())
