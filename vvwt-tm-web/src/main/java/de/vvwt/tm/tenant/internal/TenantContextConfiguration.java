@@ -1,6 +1,7 @@
 package de.vvwt.tm.tenant.internal;
 
 import de.vvwt.tm.TournamentManagerApplication;
+import de.vvwt.tm.tenant.DiagnosticProperties;
 import de.vvwt.tm.tenant.LocationContext;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantDataSourceResolver;
@@ -124,13 +125,20 @@ public class TenantContextConfiguration {
      * TenantRegistryPort} (tenant existence) with {@link TenantDirectoryHelper} (H2 file path
      * computation) to create and cache per-tenant DataSources.
      *
+     * <p>E55S10: accepts {@link DiagnosticProperties} + {@link TmHikariProperties} for feature-
+     * flagged diagnostic instrumentation and H-1 stopgap (single-writer-per-tenant).
+     *
      * <p>{@link ConditionalOnMissingBean} allows test configurations to override.
      */
     @Bean
     @ConditionalOnMissingBean(TenantDataSourceResolver.class)
     public TenantDataSourceResolver tenantDataSourceResolver(
-            TenantRegistryPort tenantRegistryPort, TmDataDirProperties dataDirProperties) {
-        return new TenantFileRegistryDataSourceResolver(tenantRegistryPort, dataDirProperties);
+            TenantRegistryPort tenantRegistryPort,
+            TmDataDirProperties dataDirProperties,
+            DiagnosticProperties diagnosticProperties,
+            TmHikariProperties hikariProperties) {
+        return new TenantFileRegistryDataSourceResolver(
+                tenantRegistryPort, dataDirProperties, diagnosticProperties, hikariProperties);
     }
 
     /**
