@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-55.md at f9e3fe5673ee595a0048f53ec837922954ac9110 2026-05-11 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-55.md at 3193e63ac7f577494c11fc33b451fcaa7fb68a0a 2026-05-13 -->
 ---
 id: DEC-55
 domain: architecture
@@ -21,7 +21,7 @@ created_at: 2026-05-08
 created_by: discovery
 last_updated_at: 2026-05-09
 last_updated_by: delivery
-amended_by: [DEC-56, DEC-59, DEC-64]
+amended_by: [DEC-56, DEC-59, DEC-64, DEC-66]
 session_brief_ref: discovery-2026-05-08-phase-preparation-background-job-pipeline
 ---
 
@@ -206,3 +206,5 @@ DEC-49's D-3 (3-leg routing rule), D-11 (admin-cancel scope), D-11a (Best-So-Far
 - **E48S21 design** is rolled back by E51S06. The Phase-1-match-grid-empty bug E48S21 fixed is permanently fixed by E51 because match-gen runs in the background before any operator click. E51S06 removes the prepare-endpoint-consume-slot-payload + inline-generateMatches code introduced by E48S21.
 
 > **2026-05-09 Amendment:** DEC-56 amends DEC-55 by pointer (delta-amendment pattern per DEC-46/48/50/51/53 precedent). DEC-56 introduces the Layered Decomposition Architecture (L1/L2/L3/L4) as a formal governance contract and supersedes DEC-55 D-3 step 2 text ("matches persisted with lapNumber=null, fieldNumber=null"), DEC-55 D-4 PREPARED-Definition ("matches persisted with lap=null, field=null"), and DEC-55 D-5 optimize=false semantics ("Background-Job-Pipeline ends at Match-Gen") — all three texts are replaced by DEC-56's amendment clauses. All other DEC-55 decisions (D-1 through D-11 excluding the three superseded clauses) are textually unchanged. See `decisions/DEC-56.md` for the full Layered Decomposition Architecture and amendment texts.
+
+> **2026-05-12 Amendment:** DEC-66 amends DEC-55 D-2 + D-9 additively (delta-amendment pattern per DEC-46/48/50/51/53/54/55/56/57/58/59/60/61/62/63/64/65 precedent). DEC-66 D-1 extends the `phase.last_job_state` enum from `{match_gen_running, slot_opt_running, idle, cancelled, failed}` to `{match_gen_running, slot_opt_queued (NEW), slot_opt_running, idle, cancelled (retained unreached), failed}` — the new value is inserted between `'match_gen_running'` and `'slot_opt_running'` per chronological orchestrator-progression ordering. DEC-66 D-4 extends DEC-55 D-9's `PhaseList.svelte jobStatusIcon()` with a Clock-face (🕐, U+1F550 CLOCK FACE ONE OCLOCK) icon branch inserted AFTER the running-spinner branch and BEFORE the idle-check branch. DEC-66 D-1 + D-2 codify the per-tournament FIFO wait-period semantic introduced by DEC-64 D-3 (single-thread worker per tournament): Phase K step-B waits for Phase K-1 step-B to release the worker thread while observable for seconds-to-minutes — `'slot_opt_queued'` truthfully encodes this wait-period that DEC-55 D-2's enum did not anticipate. All other DEC-55 clauses textually unchanged; DEC-55 D-3 / D-3a / D-8 supersession by DEC-64 unchanged. Operationalized by E55S08 Bug-Triage Story. See `decisions/DEC-66.md` for the full amendment text (D-1 enum extension + D-2 8-row transition table + D-3 FIFO-codification + D-4 UI branch + D-5 cancelled-retention + D-6 no-migration + D-7 E55S08 operationalization + D-8 supersession-unchanged + D-9 restart-recovery-transparent + D-10 cancel-during-queued behavior).
