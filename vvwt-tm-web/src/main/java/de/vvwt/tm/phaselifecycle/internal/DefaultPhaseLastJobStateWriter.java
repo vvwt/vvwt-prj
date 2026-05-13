@@ -1,7 +1,6 @@
 package de.vvwt.tm.phaselifecycle.internal;
 
 import de.vvwt.tm.phaselifecycle.PhaseLastJobStateWriter;
-import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -46,29 +45,23 @@ public class DefaultPhaseLastJobStateWriter implements PhaseLastJobStateWriter {
     /**
      * {@inheritDoc}
      *
-     * <p>Loads the phase by {@code phaseId}, sets {@code last_job_state='failed'}, and saves. The
-     * {@code REQUIRES_NEW} propagation ensures this TX commits independently of any outer TX that
-     * is rolling back due to a step-A or step-B failure.
+     * <p>Uses the column-scoped {@link PhaseRepository#updateLastJobState(java.util.UUID, String)}
+     * method (E55S09 H-B audit per AC-FIX-H-B-NO-OTHER-FULL-ENTITY-SAVE-SITES) to write only {@code
+     * last_job_state='failed'} without touching other phase fields. The {@code REQUIRES_NEW}
+     * propagation ensures this TX commits independently of any outer TX that is rolling back due to
+     * a step-A or step-B failure.
      *
-     * <p>If the phase is not found (defensive case), logs a WARN and returns without error — the
-     * failure record is irrelevant if the phase no longer exists.
+     * <p>If the phase does not exist (0 rows updated), the update is a graceful no-op per
+     * AC-ERROR-HANDLING-H-B-COLUMN-WRITE-ATOMIC.
      */
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void writeFailedState(UUID phaseId) {
-        Phase phase = phaseRepository.findById(phaseId).orElse(null);
-        if (phase == null) {
-            LOG.warn(
-                    "DefaultPhaseLastJobStateWriter.writeFailedState: phaseId={} not found"
-                            + " — no-op (phase may have been deleted concurrently)",
-                    phaseId);
-            return;
-        }
-        phase.setLastJobState(FAILED_STATE);
-        phaseRepository.save(phase);
+        // E55S09 H-B audit fix: column-scoped update (replaces findById+setLastJobState+save)
+        phaseRepository.updateLastJobState(phaseId, FAILED_STATE);
         LOG.info(
                 "DefaultPhaseLastJobStateWriter.writeFailedState: set last_job_state='failed'"
-                        + " for phaseId={}",
+                        + " for phaseId={} (column-scoped UPDATE, E55S09 H-B audit fix)",
                 phaseId);
     }
 }

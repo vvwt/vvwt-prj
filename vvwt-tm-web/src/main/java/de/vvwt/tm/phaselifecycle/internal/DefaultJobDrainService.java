@@ -3,7 +3,6 @@ package de.vvwt.tm.phaselifecycle.internal;
 import de.vvwt.tm.phaselifecycle.JobDrainService;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJobDetails;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJobRepository;
-import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
 import java.net.InetAddress;
 import java.util.Optional;
@@ -134,8 +133,15 @@ public class DefaultJobDrainService implements JobDrainService {
      * <p>Called immediately after a successful CAS claim. Only reached when the CAS claim succeeded
      * — no write on race-loss per AC-ERROR-HANDLING-CLAIM-WRITE-ATOMIC.
      *
-     * <p>If the job details or phase cannot be found (defensive path), logs a WARN and returns
-     * without error — the job execution will also fail for the same reason.
+     * <p>Uses the column-scoped {@link PhaseRepository#updateLastJobState(java.util.UUID, String)}
+     * method (E55S09 H-B structural fix) which executes: {@code UPDATE phase SET last_job_state=?
+     * WHERE id=?}. This avoids the H-B stale-entity-save pattern: no {@code findById +
+     * setLastJobState + save} sequence — only the target column is written, so concurrent
+     * operator-driven status transitions (e.g., ASSIGNED→ACTIVE) are preserved.
+     *
+     * <p>If the job details cannot be found (defensive path), logs a WARN and returns without error
+     * — the job execution will also fail for the same reason. If the phase does not exist (0 rows
+     * updated), the update is a no-op per AC-ERROR-HANDLING-H-B-COLUMN-WRITE-ATOMIC.
      *
      * @param jobId the already-claimed job row id
      */
@@ -149,18 +155,13 @@ public class DefaultJobDrainService implements JobDrainService {
             return;
         }
         UUID phaseId = details.phaseId();
-        Phase phase = phaseRepository.findById(phaseId).orElse(null);
-        if (phase == null) {
-            LOG.warn(
-                    "DefaultJobDrainService.writeMatchGenRunning: phaseId={} not found — no-op",
-                    phaseId);
-            return;
-        }
-        phase.setLastJobState(MATCH_GEN_RUNNING);
-        phaseRepository.save(phase);
+        // E55S09 H-B structural fix: column-scoped UPDATE writes only last_job_state.
+        // Replaces the former findById + setLastJobState + save(phase) sequence (full-entity
+        // overwrite) which could overwrite concurrent operator-driven status transitions.
+        phaseRepository.updateLastJobState(phaseId, MATCH_GEN_RUNNING);
         LOG.info(
                 "DefaultJobDrainService.writeMatchGenRunning: last_job_state='match_gen_running'"
-                        + " phaseId={} jobId={}",
+                        + " phaseId={} jobId={} (column-scoped UPDATE, E55S09 H-B fix)",
                 phaseId,
                 jobId);
     }
