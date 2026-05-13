@@ -138,20 +138,21 @@ class OrchestratorStepAExecutor {
         // optimize=TRUE AND non-siegerehrung → slot_opt_queued (step-B will be enqueued by
         // orchestrator)
         // optimize=FALSE OR siegerehrung → idle (terminal: no step-B enqueued)
+        // E55S09 H-B structural fix (DEFENSE-IN-DEPTH per AC-FIX-H-B-ORCHESTRATOR-STEP-A-COLUMN-
+        // SCOPED): use column-scoped updateLastJobState instead of findById+setLastJobState+save.
+        // This call-site is already structurally protected by the preceding transition() guard at
+        // step 5 (which throws IllegalStateException on a non-PENDING phase, rolling back the TX
+        // before this write executes). The fix is DEFENSE-IN-DEPTH: eliminates the latent producer
+        // surface if the transition-guard upstream is ever weakened.
         boolean isSiegerehrung = SIEGEREHRUNG_GAME_MODE.equalsIgnoreCase(gameMode);
         boolean stepBWillBeEnqueued = tournament.isOptimize() && !isSiegerehrung;
         String stepADoneState = stepBWillBeEnqueued ? SLOT_OPT_QUEUED : IDLE;
-        Phase phase =
-                phaseRepository
-                        .findById(phaseId)
-                        .orElseThrow(
-                                () -> new IllegalArgumentException("Phase not found: " + phaseId));
-        phase.setLastJobState(stepADoneState);
-        phaseRepository.save(phase);
+        // Column-scoped write: UPDATE phase SET last_job_state=? WHERE id=?
+        phaseRepository.updateLastJobState(phaseId, stepADoneState);
 
         LOG.info(
-                "OrchestratorStepAExecutor: DONE tournamentId={}, phaseId={}"
-                        + " last_job_state='{}'",
+                "OrchestratorStepAExecutor: DONE tournamentId={}, phaseId={} last_job_state='{}'"
+                        + " (column-scoped UPDATE, E55S09 H-B defense-in-depth)",
                 tournamentId,
                 phaseId,
                 stepADoneState);

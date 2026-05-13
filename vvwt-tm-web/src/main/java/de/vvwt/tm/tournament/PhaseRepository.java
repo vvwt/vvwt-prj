@@ -61,6 +61,29 @@ public interface PhaseRepository {
     Optional<Phase> findByTournamentIdAndSequenceNumber(UUID tournamentId, int sequenceNumber);
 
     /**
+     * Column-scoped update: writes {@code last_job_state} for the phase with the given id WITHOUT
+     * touching any other column (DEC-58 universal-interface-mandate, E55S09 H-B structural fix).
+     *
+     * <p>Executes: {@code UPDATE phase SET last_job_state = ? WHERE id = ?}
+     *
+     * <p>This is the sanctioned structural fix for the H-B stale-entity-save vulnerability
+     * identified in E55S09. Callers that previously used {@code findById + setLastJobState + save}
+     * MUST switch to this method to avoid overwriting concurrent operator-driven phase transitions
+     * (e.g., ASSIGNED→ACTIVE) with stale entity values.
+     *
+     * <p>If the UPDATE affects 0 rows (phase deleted concurrently), the method is a graceful no-op
+     * (consistent with the {@link
+     * de.vvwt.tm.phaselifecycle.internal.DefaultPhaseLastJobStateWriter} no-op-on-deleted-phase
+     * pattern per AC-ERROR-HANDLING-H-B-COLUMN-WRITE-ATOMIC).
+     *
+     * @param phaseId the phase UUID; must not be {@code null}
+     * @param lastJobState the new value for the {@code last_job_state} column; may be {@code null}
+     *     (to clear the column) but see DEC-66 D-2 for valid enum values
+     * @since E55S09
+     */
+    void updateLastJobState(UUID phaseId, String lastJobState);
+
+    /**
      * Deletes the phase with the given id, scoped to the current tenant.
      *
      * @param id the phase UUID

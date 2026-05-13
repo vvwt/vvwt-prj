@@ -54,6 +54,13 @@ public class DefaultPhaseRepository implements PhaseRepository {
 
     private static final String EXISTS_BY_ID = "SELECT COUNT(*) FROM phase WHERE id=?";
 
+    /**
+     * Column-scoped UPDATE: writes only {@code last_job_state} without touching any other column
+     * (E55S09 H-B structural fix per AC-FIX-H-B-PHASE-REPOSITORY-UPDATE-LAST-JOB-STATE-METHOD).
+     */
+    private static final String UPDATE_LAST_JOB_STATE_SQL =
+            "UPDATE phase SET last_job_state=? WHERE id=?";
+
     public DefaultPhaseRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
     }
@@ -113,6 +120,20 @@ public class DefaultPhaseRepository implements PhaseRepository {
         List<Phase> results =
                 jdbc.query(SELECT_BY_TOURNAMENT_AND_SEQ, ROW_MAPPER, tournamentId, sequenceNumber);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Executes {@code UPDATE phase SET last_job_state=? WHERE id=?}. If the UPDATE affects 0
+     * rows (phase deleted concurrently), this method is a graceful no-op per
+     * AC-ERROR-HANDLING-H-B-COLUMN-WRITE-ATOMIC (consistent with {@link
+     * de.vvwt.tm.phaselifecycle.internal.DefaultPhaseLastJobStateWriter}'s no-op-on-deleted
+     * pattern).
+     */
+    @Override
+    public void updateLastJobState(UUID phaseId, String lastJobState) {
+        jdbc.update(UPDATE_LAST_JOB_STATE_SQL, lastJobState, phaseId);
     }
 
     /** {@inheritDoc} */

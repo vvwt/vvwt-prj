@@ -7,6 +7,7 @@ import de.vvwt.tm.phaselifecycle.JobDrainService;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJobRepository;
 import de.vvwt.tm.phaselifecycle.WorkerRegistry;
 import de.vvwt.tm.tenant.TenantContext;
+import de.vvwt.tm.tenant.TenantRegistryPort;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -43,6 +44,7 @@ import org.mockito.Mockito;
 class WorkerRegistryUnitTest {
 
     private TenantContext tenantContext;
+    private TenantRegistryPort tenantRegistryPort;
     private PhaseLifecycleJobRepository jobRepository;
     private JobDrainService jobDrainService;
     private DefaultWorkerRegistry registry;
@@ -53,6 +55,10 @@ class WorkerRegistryUnitTest {
         // No tenant bound → TenantContext.current() throws ISE (no-tenant path)
         Mockito.when(tenantContext.current())
                 .thenThrow(new IllegalStateException("no tenant bound in unit test"));
+        // TenantRegistryPort: return empty list so startIdlePoller recovery is a no-op
+        // (no tenants registered in unit test context — E55S09 H-F fix parameter)
+        tenantRegistryPort = Mockito.mock(TenantRegistryPort.class);
+        Mockito.when(tenantRegistryPort.findAll()).thenReturn(List.of());
         // Stub repository to return no non-completed jobs (initOnStartup no-op in unit tests)
         jobRepository = Mockito.mock(PhaseLifecycleJobRepository.class);
         Mockito.when(jobRepository.handleCorruptRunningRows()).thenReturn(0);
@@ -62,6 +68,7 @@ class WorkerRegistryUnitTest {
         registry =
                 new DefaultWorkerRegistry(
                         tenantContext,
+                        tenantRegistryPort,
                         jobRepository,
                         jobDrainService,
                         /* idleTimeoutSeconds= */ 300L,
@@ -142,6 +149,7 @@ class WorkerRegistryUnitTest {
         DefaultWorkerRegistry fastRegistry =
                 new DefaultWorkerRegistry(
                         tenantContext,
+                        tenantRegistryPort,
                         jobRepository,
                         jobDrainService,
                         /* idleTimeoutSeconds= */ 1L,

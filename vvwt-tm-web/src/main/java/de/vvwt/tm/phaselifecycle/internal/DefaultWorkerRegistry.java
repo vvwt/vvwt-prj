@@ -4,6 +4,7 @@ import de.vvwt.tm.phaselifecycle.JobDrainService;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJobRepository;
 import de.vvwt.tm.phaselifecycle.WorkerRegistry;
 import de.vvwt.tm.tenant.TenantContext;
+import de.vvwt.tm.tenant.TenantRegistryPort;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.util.List;
@@ -96,6 +97,7 @@ public class DefaultWorkerRegistry implements WorkerRegistry {
 
     // ── Dependencies ────────────────────────────────────────────────────────
     private final TenantContext tenantContext;
+    private final TenantRegistryPort tenantRegistryPort;
     private final PhaseLifecycleJobRepository jobRepository;
     private final JobDrainService jobDrainService;
     private final long idleTimeoutSeconds;
@@ -111,6 +113,8 @@ public class DefaultWorkerRegistry implements WorkerRegistry {
      * Spring-wired constructor (DEC-58 — all new beans have constructor injection).
      *
      * @param tenantContext for tenant-context propagation to worker threads
+     * @param tenantRegistryPort for enumerating registered tenants during startup recovery (E55S09
+     *     H-F structural fix — per-tenant binding in initOnStartup)
      * @param jobRepository for startup recovery queries (E55S07, DEC-64 D-7)
      * @param jobDrainService for submitting drain hints during startup recovery (E55S07)
      * @param idleTimeoutSeconds configurable idle timeout (default 300 s)
@@ -119,6 +123,7 @@ public class DefaultWorkerRegistry implements WorkerRegistry {
      */
     public DefaultWorkerRegistry(
             TenantContext tenantContext,
+            TenantRegistryPort tenantRegistryPort,
             PhaseLifecycleJobRepository jobRepository,
             JobDrainService jobDrainService,
             @Value("${tm.phaselifecycle.worker-idle-timeout-seconds:300}") long idleTimeoutSeconds,
@@ -128,6 +133,9 @@ public class DefaultWorkerRegistry implements WorkerRegistry {
         if (tenantContext == null) {
             throw new IllegalArgumentException("tenantContext must not be null");
         }
+        if (tenantRegistryPort == null) {
+            throw new IllegalArgumentException("tenantRegistryPort must not be null");
+        }
         if (jobRepository == null) {
             throw new IllegalArgumentException("jobRepository must not be null");
         }
@@ -135,6 +143,7 @@ public class DefaultWorkerRegistry implements WorkerRegistry {
             throw new IllegalArgumentException("jobDrainService must not be null");
         }
         this.tenantContext = tenantContext;
+        this.tenantRegistryPort = tenantRegistryPort;
         this.jobRepository = jobRepository;
         this.jobDrainService = jobDrainService;
         this.idleTimeoutSeconds = idleTimeoutSeconds;
@@ -159,7 +168,25 @@ public class DefaultWorkerRegistry implements WorkerRegistry {
      * <p>Startup recovery ({@link #initOnStartup(String)}) runs after the idle-poller is started.
      * The {@code claimedBy} JVM-instance identifier is resolved the same way as in {@link
      * DefaultJobDrainService} (hostname fallback "unknown-host").
+     *
+     * <h2>E55S09 H-F structural fix (per-tenant binding)</h2>
+     *
+     * <p>The pre-fix implementation called {@code initOnStartup} directly in a broad {@code catch
+     * (Exception e)} block. Because no tenant context is bound at {@code @PostConstruct} time (the
+     * {@code TenantContextResolver} HandlerInterceptor only binds on per-request entry), {@code
+     * jobRepository} calls threw {@code IllegalStateException} from the routing DataSource, and
+     * recovery was silently skipped with a WARN for ALL tenants in production. DEC-64 D-7's
+     * restart-recovery guarantee was structurally void.
+     *
+     * <p>The fix: enumerate registered tenants via {@link TenantRegistryPort#findAll()}, bind
+     * tenant context per-tenant using {@link TenantContext#bind(UUID)}, invoke {@code
+     * initOnStartup} within each bound scope. If no tenants are registered at startup (edge case:
+     * first boot before bootstrap runner fires), recovery is a no-op with INFO log. Real failures
+     * (e.g., DataSource unreachable for one tenant) are caught per-tenant and logged at ERROR with
+     * the tenant context — they do NOT silently swallow (per
+     * AC-ERROR-HANDLING-H-F-RECOVERY-FAILURE-PROPAGATE).
      */
+    @SuppressWarnings("try") // TenantContext.Scope used only for AutoCloseable.close() side-effect
     @PostConstruct
     void startIdlePoller() {
         idlePoller.scheduleWithFixedDelay(
@@ -169,20 +196,40 @@ public class DefaultWorkerRegistry implements WorkerRegistry {
                         + " (E55S03, DEC-64 D-3)",
                 idleTimeoutSeconds,
                 idlePollSeconds);
-        // Startup recovery (DEC-64 D-7, E55S07) — runs in the same @PostConstruct call after
-        // the idle-poller is initialized; Spring guarantees single-thread sequential execution.
-        // The try-catch handles test contexts where no tenant is bound at startup — the recovery
-        // is skipped gracefully (WARN) rather than failing bean initialization. In production, a
-        // tenant is always bound by the routing DataSource infrastructure before any DB call.
-        try {
-            String currentJvmId = resolveCurrentJvmId();
-            initOnStartup(currentJvmId);
-        } catch (Exception e) {
-            LOG.warn(
-                    "[phaselifecycle] initOnStartup skipped during @PostConstruct: {} — "
-                            + "recovery will not run (expected in test contexts without"
-                            + " a bound tenant; E55S07, DEC-64 D-7)",
-                    e.getMessage());
+
+        // E55S09 H-F structural fix: enumerate registered tenants and bind per-tenant context
+        // before invoking initOnStartup. This replaces the former context-unbound @PostConstruct
+        // call that silently skipped recovery for all tenants (H-F stale-entity-save bug class).
+        String currentJvmId = resolveCurrentJvmId();
+        List<TenantRegistryPort.TenantRecord> registeredTenants = tenantRegistryPort.findAll();
+        if (registeredTenants.isEmpty()) {
+            LOG.info(
+                    "[phaselifecycle] startIdlePoller: no tenants registered yet — startup"
+                            + " recovery deferred (first-boot before bootstrap runner, E55S09"
+                            + " H-F fix)");
+            return;
+        }
+
+        LOG.info(
+                "[phaselifecycle] startIdlePoller: invoking startup recovery for {} tenant(s)"
+                        + " (E55S09 H-F fix — per-tenant binding, DEC-64 D-7)",
+                registeredTenants.size());
+
+        for (TenantRegistryPort.TenantRecord tenant : registeredTenants) {
+            UUID tenantId = tenant.tenantId();
+            try (TenantContext.Scope ignored = tenantContext.bind(tenantId)) {
+                initOnStartup(currentJvmId);
+            } catch (Exception e) {
+                // Per-tenant failure: log at ERROR (not WARN) + include tenantId context.
+                // AC-ERROR-HANDLING-H-F-RECOVERY-FAILURE-PROPAGATE: do NOT silently swallow.
+                // Startup continues for other tenants (per-tenant isolation).
+                LOG.error(
+                        "[phaselifecycle] startIdlePoller: recovery FAILED for tenantId={}"
+                                + " — operator action may be required (E55S09 H-F fix,"
+                                + " DEC-47 Clause F asymmetric-error)",
+                        tenantId,
+                        e);
+            }
         }
     }
 
