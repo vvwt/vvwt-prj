@@ -497,5 +497,33 @@
     "sourceLabelPhase2plus": "Gruppe {g}, Platz {p}",
     "targetLabelEmpty": "— leer —",
     "teamColumnHeading": "Mannschaft"
+  },
+  "correction": {
+    "pageTitle": "Match-Korrektur",
+    "matchIdLabel": "Match-ID",
+    "submitButton": "Korrektur einreichen",
+    "submittingButton": "Wird eingereicht…",
+    "submitError": "Fehler beim Einreichen der Korrektur.",
+    "setIndex": "Satz",
+    "team1Points": "Team 1 Punkte",
+    "team2Points": "Team 2 Punkte",
+    "addSetRow": "+ Satz hinzufügen",
+    "removeSetRow": "Letzten Satz entfernen",
+    "reasonLabel": "Begründung (optional)",
+    "reasonPlaceholder": "Begründung für die Korrektur…",
+    "successLabel": "Neuer Spielstatus",
+    "auditOnlyLabel": "(nur Protokoll, kein Einfluss auf Wertung)",
+    "backToPhaseList": "Zurück zur Phasenübersicht",
+    "correctButton": "Korrigieren",
+    "confirmTitle": "Korrektur bestätigen",
+    "confirmBody": "Bitte überprüfen Sie die eingegebenen Werte vor dem Absenden:",
+    "confirmSubmitButton": "Jetzt einreichen",
+    "confirmCancelButton": "Abbrechen",
+    "error": {
+      "phase-not-active": "Korrektur nicht möglich: Phase ist nicht aktiv.",
+      "match-live-scoring": "Korrektur nicht möglich: Match wird gerade live erfasst.",
+      "tournament-not-active": "Korrektur nicht möglich: Turnier ist nicht aktiv.",
+      "standoff-format-mismatch": "Unzulässiges Ergebnis: Unentschieden im gewählten Spielmodus nicht erlaubt."
+    }
   }
 }
