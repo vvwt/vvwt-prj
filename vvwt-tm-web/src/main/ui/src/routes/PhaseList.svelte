@@ -30,6 +30,7 @@
   import { getTournament, resetPlan } from '../stores/tournamentStore.js';
   import { pageHeader, resetPageHeader } from '../stores/pageHeaderStore.js';
   import { resolveParent } from '../lib/parentRouteMap.js';
+  import { listPhaseMatches, type MatchSummary } from '../stores/correctionStore.js';
 
   // ── Props ─────────────────────────────────────────────────────
   interface Props {
@@ -44,6 +45,12 @@
   let loadError = $state<string | null>(null);
   let actionError = $state<string | null>(null);
   let actionInProgress = $state<string | null>(null); // phaseId of in-flight action
+
+  // E48S25: match list per expanded ACTIVE phase (AC-FE-PHASELIST-CORRECTION-LINKS)
+  let expandedPhaseId = $state<string | null>(null);
+  let expandedMatches = $state<MatchSummary[]>([]);
+  let expandedMatchesLoading = $state(false);
+  let expandedMatchesError = $state<string | null>(null);
 
   // E48S23: tournament-level status for Reset-Plan affordance (AC-IMPL-PHASELIST-FETCHES-TOURNAMENT-STATUS)
   let tournamentStatus = $state<string | null>(null);
@@ -304,6 +311,40 @@
       // Last phase: navigate to phases overview (Tournament awaits manual ACTIVE→COMPLETED)
       push(`/tournaments/${tournamentId}/phases`);
     }
+  }
+
+  // ── E48S25: Phase match expansion for correction navigation ──────────────────
+
+  /**
+   * Toggles the match list for an ACTIVE phase (AC-FE-PHASELIST-CORRECTION-LINKS).
+   * Fetches matches from GET /api/phases/{phaseId}/matches on first expand.
+   */
+  async function toggleMatchList(phaseId: string): Promise<void> {
+    if (expandedPhaseId === phaseId) {
+      // Collapse
+      expandedPhaseId = null;
+      expandedMatches = [];
+      return;
+    }
+    expandedPhaseId = phaseId;
+    expandedMatchesLoading = true;
+    expandedMatchesError = null;
+    expandedMatches = [];
+    try {
+      expandedMatches = await listPhaseMatches(phaseId);
+    } catch (e: unknown) {
+      expandedMatchesError = e instanceof Error ? e.message : $_('phases.lifecycleError');
+    } finally {
+      expandedMatchesLoading = false;
+    }
+  }
+
+  /**
+   * Returns true if the match state is eligible for correction
+   * (not INPROGRESS or ONCHECK — client mirror of backend guard).
+   */
+  function isCorrectionEligible(state: string): boolean {
+    return state !== 'INPROGRESS' && state !== 'ONCHECK';
   }
 
   // ── Reset-Plan (E48S23 AC-IMPL-RESET-PLAN-HANDLER-MIRRORS-DRAFTCONFIG) ───────

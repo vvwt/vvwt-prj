@@ -16,6 +16,9 @@ import de.vvwt.tm.tournament.ApiErrorResponse;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import de.vvwt.tm.tournament.exceptions.ForbiddenException;
 import de.vvwt.tm.tournament.exceptions.MatchCanceledException;
+import de.vvwt.tm.tournament.exceptions.MatchStateGuardException;
+import de.vvwt.tm.tournament.exceptions.PhaseStateGuardException;
+import de.vvwt.tm.tournament.exceptions.StandoffFormatMismatchException;
 import de.vvwt.tm.tournament.exceptions.TooManyRequestsException;
 import de.vvwt.tm.tournament.exceptions.TournamentCascadeDeleteActiveException;
 import de.vvwt.tm.tournament.exceptions.TournamentCascadeDeleteCompletedException;
@@ -159,6 +162,62 @@ public class GlobalExceptionHandler {
             MatchCanceledException ex, HttpServletRequest request) {
         log.debug("[tm-web] MatchCanceledException: {}", ex.getMessage());
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), "error.match.canceled", request);
+    }
+
+    // =========================================================================
+    // E48S25 — Correction guard exceptions (AC-IMPL-CORRECTION-EXCEPTION-HANDLERS)
+    // =========================================================================
+
+    /**
+     * Maps {@link PhaseStateGuardException} to HTTP 409 Conflict (E48S25,
+     * AC-IMPL-CORRECTION-EXCEPTION-HANDLERS).
+     *
+     * <p>Correction was attempted on a match in a non-ACTIVE phase. The messageKey {@code
+     * error.correction.phase-not-active} enables localised error display in the Admin SPA.
+     */
+    @ExceptionHandler(PhaseStateGuardException.class)
+    public ResponseEntity<ApiErrorResponse> handlePhaseStateGuard(
+            PhaseStateGuardException ex, HttpServletRequest request) {
+        log.debug("[tm-web] PhaseStateGuardException: {}", ex.getMessage());
+        return buildResponse(
+                HttpStatus.CONFLICT, ex.getMessage(), "error.correction.phase-not-active", request);
+    }
+
+    /**
+     * Maps {@link MatchStateGuardException} to HTTP 409 Conflict (E48S25,
+     * AC-IMPL-CORRECTION-EXCEPTION-HANDLERS).
+     *
+     * <p>Correction was attempted on a match in INPROGRESS or ONCHECK state (live-scoring active).
+     * The messageKey {@code error.correction.match-live-scoring} enables localised error display.
+     */
+    @ExceptionHandler(MatchStateGuardException.class)
+    public ResponseEntity<ApiErrorResponse> handleMatchStateGuard(
+            MatchStateGuardException ex, HttpServletRequest request) {
+        log.debug("[tm-web] MatchStateGuardException: {}", ex.getMessage());
+        return buildResponse(
+                HttpStatus.CONFLICT,
+                ex.getMessage(),
+                "error.correction.match-live-scoring",
+                request);
+    }
+
+    /**
+     * Maps {@link StandoffFormatMismatchException} to HTTP 422 Unprocessable Entity (E48S25,
+     * AC-IMPL-CORRECTION-EXCEPTION-HANDLERS).
+     *
+     * <p>Submitted set scores produce a tied outcome on a match format that does not allow ties
+     * (i.e., BEST_OF_N). The messageKey {@code error.correction.standoff-format-mismatch} enables
+     * localised error display.
+     */
+    @ExceptionHandler(StandoffFormatMismatchException.class)
+    public ResponseEntity<ApiErrorResponse> handleStandoffFormatMismatch(
+            StandoffFormatMismatchException ex, HttpServletRequest request) {
+        log.debug("[tm-web] StandoffFormatMismatchException: {}", ex.getMessage());
+        return buildResponse(
+                HttpStatus.UNPROCESSABLE_CONTENT,
+                ex.getMessage(),
+                "error.correction.standoff-format-mismatch",
+                request);
     }
 
     // =========================================================================

@@ -72,6 +72,34 @@
         "completedRejected": "Completed tournament Phasenplan cannot be reset.",
         "draftIdempotent": "Tournament is already in DRAFT status — no Phasenplan reset is needed."
       }
+    },
+    "correction": {
+      "phase-not-active": "Correction not allowed: phase is not active.",
+      "match-live-scoring": "Correction not allowed: match is being live-scored.",
+      "tournament-not-active": "Correction not allowed: tournament is not active.",
+      "standoff-format-mismatch": "Invalid result: draws are not allowed for the selected match format."
     }
+  },
+  "correction": {
+    "pageTitle": "Match Correction",
+    "matchIdLabel": "Match ID",
+    "submitButton": "Submit Correction",
+    "submittingButton": "Submitting…",
+    "submitError": "Error submitting the correction.",
+    "setIndex": "Set",
+    "team1Points": "Team 1 Points",
+    "team2Points": "Team 2 Points",
+    "addSetRow": "+ Add set",
+    "removeSetRow": "Remove last set",
+    "reasonLabel": "Reason (optional)",
+    "reasonPlaceholder": "Reason for the correction…",
+    "successLabel": "New match state",
+    "auditOnlyLabel": "(audit only — no effect on standings)",
+    "backToPhaseList": "Back to phase list",
+    "correctButton": "Correct",
+    "confirmTitle": "Confirm Correction",
+    "confirmBody": "Please review the values before submitting:",
+    "confirmSubmitButton": "Submit now",
+    "confirmCancelButton": "Cancel"
   }
 }

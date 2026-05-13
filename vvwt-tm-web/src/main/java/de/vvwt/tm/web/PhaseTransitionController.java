@@ -1,7 +1,10 @@
 package de.vvwt.tm.web;
 
+import de.vvwt.tm.tournament.Match;
+import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.PhaseTransitionService;
 import de.vvwt.tm.tournament.TeamAvatarProposal;
+import de.vvwt.tm.web.internal.dto.MatchSummaryResponse;
 import de.vvwt.tm.web.internal.dto.TeamAvatarAssignment;
 import java.util.List;
 import java.util.UUID;
@@ -27,6 +30,8 @@ import org.springframework.web.bind.annotation.RestController;
  *   <li>GET /api/phases/{phaseId}/transition-proposal — proposes initial assignment for Phase N+1
  *   <li>POST /api/phases/{phaseId}/transition-commit — commits (admin-corrected) assignment as
  *       TeamAvatars
+ *   <li>GET /api/phases/{phaseId}/matches — returns match summary list for correction navigation
+ *       (E48S25, AC-FE-PHASELIST-CORRECTION-LINKS)
  * </ul>
  *
  * <h2>Modulith cycle prevention (DEC-40 Clause B 2026-04-27)</h2>
@@ -53,10 +58,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class PhaseTransitionController {
 
     private final PhaseTransitionService phaseTransitionService;
+    private final MatchRepository matchRepository;
 
     public PhaseTransitionController(
-            @Qualifier("tmPhaseTransitionService") PhaseTransitionService phaseTransitionService) {
+            @Qualifier("tmPhaseTransitionService") PhaseTransitionService phaseTransitionService,
+            MatchRepository matchRepository) {
         this.phaseTransitionService = phaseTransitionService;
+        this.matchRepository = matchRepository;
     }
 
     // -------------------------------------------------------------------------
@@ -118,5 +126,41 @@ public class PhaseTransitionController {
                         .collect(Collectors.toList());
         phaseTransitionService.commitTransition(phaseId, domainAssignments);
         return ResponseEntity.ok().build();
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /api/phases/{phaseId}/matches
+    // (E48S25, AC-FE-PHASELIST-CORRECTION-LINKS — match list for correction navigation)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns a summary list of all matches in the given phase for correction-route navigation.
+     *
+     * <p>The Admin SPA uses this endpoint to render "Korrigieren" links per match row in the Phase
+     * view (PhaseList.svelte). Each match summary includes the match state so the SPA can suppress
+     * correction links for INPROGRESS and ONCHECK matches (which the backend guards too).
+     *
+     * <p>Read-only — no lock, no persistence. Tenant-scoped via {@link MatchRepository}.
+     *
+     * @param phaseId the UUID of the phase whose matches to list
+     * @return 200 OK with the list of match summaries (empty list if no matches exist)
+     * @see de.vvwt.tm.web.internal.dto.MatchSummaryResponse
+     * @see <a href="E48S25">E48S25 — Operator Match Score Correction + Nacherfassung</a>
+     */
+    @GetMapping("/{phaseId}/matches")
+    public ResponseEntity<List<MatchSummaryResponse>> listPhaseMatches(
+            @PathVariable("phaseId") UUID phaseId) {
+        List<Match> matches = matchRepository.findByPhaseId(phaseId);
+        List<MatchSummaryResponse> response =
+                matches.stream()
+                        .map(
+                                m ->
+                                        new MatchSummaryResponse(
+                                                m.getId(),
+                                                m.getMatchState().name(),
+                                                m.getLapNumber(),
+                                                m.getFieldNumber()))
+                        .toList();
+        return ResponseEntity.ok(response);
     }
 }
