@@ -240,11 +240,6 @@ class CascadeLockIT {
     void tearDown() {
         // Clean up BEFORE unbinding the tenant — JDBC operations require tenant context
         jdbcTemplate.execute(
-                "DELETE FROM audit_log WHERE match_id IN (SELECT id FROM match WHERE"
-                        + " tournament_id = '"
-                        + tournamentId
-                        + "')");
-        jdbcTemplate.execute(
                 "DELETE FROM match_outcome WHERE match_id IN (SELECT id FROM match WHERE"
                         + " tournament_id = '"
                         + tournamentId

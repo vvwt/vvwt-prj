@@ -75,6 +75,16 @@ vvwt:
 # ---------------------------------------------------------------------------
 tm:
   # ---------------------------------------------------------------------------
+  # Audit log file storage (E55S13)
+  # DEC-15: files stored outside the jlink archive in a user-writable data directory.
+  # DEC-14 2026-05-14 amendment: audit_log moved from H2 to per-tournament JSONL files.
+  # Layout: <data-dir>/tenants/<tenant>/audit-log/<tournament-id>/audit.jsonl
+  # Default: ~/.vvwt-tm (aligned with existing H2 data-dir convention)
+  # Override: export TM_AUDIT_LOG_DATA_DIR=/your/path or -Dtm.audit-log.data-dir=/your/path
+  # ---------------------------------------------------------------------------
+  audit-log:
+    data-dir: ${TM_AUDIT_LOG_DATA_DIR:${user.home}/.vvwt-tm}
+  # ---------------------------------------------------------------------------
   # Audio file storage (E11S01)
   # DEC-15: files stored outside the jlink archive in a user-writable data directory.
   # Default: ~/.tournament-manager/audio/{tournamentId}/{category}.mp3

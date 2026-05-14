@@ -215,7 +215,6 @@ class ScoringCutoverIT {
     @AfterEach
     void tearDown() {
         // Clean up in FK dependency order — must run within tenant context
-        jdbcTemplate.execute("DELETE FROM audit_log WHERE match_id = '" + matchId + "'");
         jdbcTemplate.execute("DELETE FROM match_outcome WHERE match_id = '" + matchId + "'");
         jdbcTemplate.execute("DELETE FROM set_result WHERE match_id = '" + matchId + "'");
         jdbcTemplate.execute("DELETE FROM match WHERE id = '" + matchId + "'");

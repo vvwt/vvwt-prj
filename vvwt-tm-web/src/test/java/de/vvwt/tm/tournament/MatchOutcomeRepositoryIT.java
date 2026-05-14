@@ -162,7 +162,6 @@ class MatchOutcomeRepositoryIT {
     void tearDown() {
         // Best-effort cleanup of this test's rows (FK-ordered, child-before-parent)
         jdbcTemplate.update("DELETE FROM set_result");
-        jdbcTemplate.update("DELETE FROM audit_log");
         jdbcTemplate.update("DELETE FROM match_outcome");
         jdbcTemplate.update("DELETE FROM match");
         jdbcTemplate.update("DELETE FROM team_avatar");

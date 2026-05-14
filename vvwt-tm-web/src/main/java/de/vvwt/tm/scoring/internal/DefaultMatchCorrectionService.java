@@ -346,9 +346,10 @@ public class DefaultMatchCorrectionService implements MatchCorrectionService {
                 setResultRepository.insert(inserted);
             }
 
-            // Write audit_log row
+            // Write audit_log row; tournamentId first (E55S13 AC-IMPL-CALL-SITE-UPDATES)
             AuditLogEntry auditEntry =
                     new AuditLogEntry(
+                            input.tournamentId(),
                             UUID.randomUUID(),
                             input.matchId(),
                             setCorr.setIndex(),
@@ -494,8 +495,10 @@ public class DefaultMatchCorrectionService implements MatchCorrectionService {
                 newSetState = SetState.STANDOFF;
             }
 
+            // tournamentId first (E55S13 AC-IMPL-CALL-SITE-UPDATES)
             AuditLogEntry auditEntry =
                     new AuditLogEntry(
+                            input.tournamentId(),
                             UUID.randomUUID(),
                             input.matchId(),
                             setCorr.setIndex(),

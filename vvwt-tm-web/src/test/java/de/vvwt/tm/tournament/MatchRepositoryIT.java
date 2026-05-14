@@ -155,7 +155,6 @@ class MatchRepositoryIT {
         // E45S06: tenant_id removed — simple DELETE without WHERE (per-tenant DB isolation via
         // DEC-20)
         jdbcTemplate.update("DELETE FROM set_result");
-        jdbcTemplate.update("DELETE FROM audit_log");
         jdbcTemplate.update("DELETE FROM match_outcome");
         jdbcTemplate.update("DELETE FROM match");
         jdbcTemplate.update("DELETE FROM team_avatar_rating");

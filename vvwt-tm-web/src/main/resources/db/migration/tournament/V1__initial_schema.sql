@@ -316,35 +316,11 @@ CREATE TABLE team_avatar_rating (
         CHECK (balls_lost >= 0)
 );
 
-
 -- ============================================================
--- audit_log
--- Append-only set-level correction history (V5 + V9 source_type/source_device_id)
+-- audit_log — REMOVED (E55S13, 2026-05-14 DEC-14 amendment)
+-- audit_log was moved to per-tournament JSONL files (DefaultAuditLogRepository).
+-- No H2 table; no FK constraint fk_audit_log_match.
 -- ============================================================
-CREATE TABLE audit_log (
-    id                  UUID          NOT NULL,
-    match_id            UUID          NOT NULL,
-    set_index           INT           NOT NULL,
-    team1_points_old    INT           NULL,
-    team2_points_old    INT           NULL,
-    set_state_old       INT           NULL,
-    team1_points_new    INT           NOT NULL,
-    team2_points_new    INT           NOT NULL,
-    set_state_new       INT           NOT NULL,
-    actor_id            VARCHAR       NULL,
-    reason              VARCHAR       NULL,
-    changed_at          TIMESTAMP     NOT NULL  DEFAULT CURRENT_TIMESTAMP,
-    -- V9 (E06S06): source tracking
-    source_type         VARCHAR(32)   NULL,
-    source_device_id    VARCHAR(128)  NULL,
-    CONSTRAINT pk_audit_log PRIMARY KEY (id),
-    CONSTRAINT fk_audit_log_match
-        FOREIGN KEY (match_id) REFERENCES match (id)
-        ON DELETE RESTRICT
-);
-
-CREATE INDEX idx_audit_log_match_set_time ON audit_log (match_id, set_index, changed_at);
-CREATE INDEX idx_audit_log_match_source ON audit_log (match_id, source_type);
 
 
 -- ============================================================
