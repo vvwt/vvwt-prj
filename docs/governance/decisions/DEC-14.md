@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-14.md at cebf6691d8deae46b9760549ffe47f5904a71de0 2026-04-22 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-14.md at 357065479abc0daaa1846bbab3181b905f2551a4 2026-05-14 -->
 ---
 id: DEC-14
 domain: architecture
@@ -86,3 +86,23 @@ SQLite is retained as a **documented alternative** for future consideration — 
 - DEC-5's multi-tenant + multi-location schema enforcement applies at the H2 schema level from day 1 (see DEC-17 for the eager-materialization decision).
 - Backup strategy for self-hosted deployments = file copy of the `*.mv.db` file (or `BACKUP TO` SQL command for a consistent snapshot during operation). No backup service required.
 - If a future requirement reintroduces event sourcing, the repository abstraction makes it possible to add an event-sourced write model behind the same read interfaces — but this is explicitly a future concern, not a V1 scaffold.
+
+---
+
+## 2026-05-14 Amendment — audit_log carved out from H2 to file-based storage (E55S13)
+
+**Story**: E55S13 (Bug-Triage cycle-8)
+**Brief**: `discovery-2026-05-14-tm-audit-log-file-isolation`
+
+The `audit_log` table (DEC-14 §Decision point 3) is removed from the H2 V1 schema and replaced by a per-tournament JSONL append-only file managed by `de.vvwt.tm.tournament.internal.DefaultAuditLogRepository` (formerly `FileAuditLogRepository` during TDD development; renamed at atomic-cutover commit per DEC-35 §Naming canon).
+
+**Motivation**: DEC-14 §requirement (a) (correction-traceability) names the audit trail as the single-most-important durability obligation. E55S12 empirically established that H2 2.4.240 eliminates the MVStore-class data-loss bug-class that motivated Epic E55; E55S13 adds a belt-and-suspenders structural defense by moving audit rows outside H2 entirely, so future H2 engine regressions cannot affect the audit trail.
+
+**New storage model**:
+- File layout: `<data-dir>/tenants/<tenant>/audit-log/<tournament-id>/audit.jsonl`
+- Write path: Spring `TransactionSynchronization.afterCommit()` + single writer thread (D-9 contract); file IO only in writer — no inner Spring TX.
+- Durability: per-write `FileChannel.force(true)` (fsync) in writer thread.
+- Append-only: no delete path at the interface or implementation level (per Brief O-9 strict append-only architectural invariant).
+- Per-tournament physical separation: one file per tournament; audit directory orphan after tournament-delete (operator-driven cleanup acceptable, per Brief D-12).
+
+**All other DEC-14 clauses are preserved unchanged** (H2 is still the V1 engine for all other TM tables; repository abstraction; Flyway migrations; cascade recompute; backup strategy; etc.). The audit-log file-based swap is bounded to the `DefaultAuditLogRepository` module — no other DEC-14 clauses are affected.
