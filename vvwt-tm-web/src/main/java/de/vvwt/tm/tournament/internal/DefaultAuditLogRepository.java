@@ -1,135 +1,475 @@
 package de.vvwt.tm.tournament.internal;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import de.vvwt.tm.tenant.TenantContext;
+import de.vvwt.tm.tournament.AuditLogConfig;
 import de.vvwt.tm.tournament.AuditLogEntry;
 import de.vvwt.tm.tournament.AuditLogRepository;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import jakarta.annotation.PreDestroy;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Default implementation of {@link AuditLogRepository} (DEC-35, E31S01).
+ * File-based, JSONL append-only implementation of {@link AuditLogRepository} (E55S13).
  *
- * <p>Uses plain {@link JdbcTemplate} to avoid entity-mapping conflicts with the legacy {@code
- * de.vvwt.tm.domain.AuditLogEntry} during reconstruction-in-place (DEC-21/DEC-22). Both the new
- * {@code de.vvwt.tm.tournament.AuditLogEntry} and the legacy entity map to
- * {@code @Table("audit_log")} — JdbcTemplate avoids auto-registration collisions.
+ * <p>Replaces the former H2-backed {@code DefaultAuditLogRepository} (deleted at E55S13 atomic
+ * cutover). Belt-and-suspenders defense against H2 MVStore-class data-loss for the audit trail
+ * (DEC-14 §requirement (a) — correction-traceability is the single-most-important durability
+ * obligation).
  *
- * <p>Append-only guarantee: the only write method is {@link #save(AuditLogEntry)}. {@link
- * #deleteById(UUID)} throws {@link UnsupportedOperationException}.
+ * <h2>Write semantics</h2>
  *
- * <p>Bean qualifier {@code "tmAuditLogRepository"} avoids collision with the legacy {@code
- * de.vvwt.tm.domain.repo.AuditLogRepository}.
+ * <p>Writes are registered via {@link TransactionSynchronizationManager} {@code afterCommit()}
+ * hook. The actual file IO is performed asynchronously on a single writer thread (off the request
+ * path). If the surrounding Spring transaction rolls back, {@code afterCommit()} does NOT fire and
+ * no audit row is written (per Brief T-9 — D-9 contract). No inner Spring transaction is opened in
+ * the writer thread (FILE IO only, structurally distinct from the E55 silent-rollback bug-class).
+ *
+ * <h2>File layout</h2>
+ *
+ * <pre>
+ * {@code <data-dir>/tenants/<tenant>/audit-log/<tournament-id>/audit.jsonl}
+ * </pre>
+ *
+ * <h2>Persistence guarantee</h2>
+ *
+ * <p>Per-write {@code FileChannel.force(true)} (fsync) in the writer thread ensures durability.
+ * Writer-thread failure modes: queue overflow → WARN + DROP; IO error → WARN + DROP (writer
+ * continues); JVM shutdown → @PreDestroy drains up to 30 s then shuts down.
+ *
+ * <h2>File permissions (POSIX)</h2>
+ *
+ * <p>On POSIX filesystems: directories are created {@code 0700} (owner rwx only); files are created
+ * {@code 0600} (owner rw only). On Windows: default ACL inherited from parent directory.
+ *
+ * <h2>Thread safety</h2>
+ *
+ * <p>The single-thread writer executor serializes all appends through a bounded queue (capacity
+ * 1024). The {@link FileChannel} is accessed exclusively from the writer thread — no
+ * synchronization on the channel itself is needed. The channel cache ({@link ConcurrentHashMap}) is
+ * thread-safe for concurrent lookups from the writer thread and from {@link #findBy*} reads.
+ *
+ * <h2>DEC compliance</h2>
+ *
+ * <ul>
+ *   <li>DEC-14 — file-based carve-out (2026-05-14 amendment); persistence via FileChannel+Jackson
+ *   <li>DEC-21/DEC-22 — TDD RED-first; renamed from {@code FileAuditLogRepository} at atomic
+ *       cutover per AC-IMPL-LEGACY-REMOVAL
+ *   <li>DEC-35 — implements public interface {@link AuditLogRepository};
+ *       {@code @Repository("tmAuditLogRepository")} (Naming canon: Default{Foo}Repository)
+ *   <li>DEC-58 — universal interface mandate
+ * </ul>
  *
  * @see AuditLogRepository
- * @see AuditLogEntry
- * @see AuditLogCrudRepository
- * @see <a href="DEC-21">DEC-21 — internal package discipline</a>
- * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
- * @see <a href="DEC-26">DEC-26 — DAO test governance</a>
- * @see <a href="DEC-35">DEC-35 — impl in internal</a>
- * @see <a href="E21S05">E21S05 — inventory line 287</a>
- * @see <a href="E31S01">E31S01 — interface extraction (MANDATORY)</a>
+ * @see AuditLogConfig
+ * @see TenantTournamentKey
+ * @see <a href="E55S13">E55S13 — AC-IMPL-NEW-FILEAUDITLOGREPOSITORY</a>
  */
 @Repository("tmAuditLogRepository")
 public class DefaultAuditLogRepository implements AuditLogRepository {
 
-    private static final String INSERT_SQL =
-            "INSERT INTO audit_log (id, match_id, set_index,"
-                    + " team1_points_old, team2_points_old, set_state_old,"
-                    + " team1_points_new, team2_points_new, set_state_new,"
-                    + " actor_id, reason, source_type, source_device_id)"
-                    + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    private static final Logger log = LoggerFactory.getLogger(DefaultAuditLogRepository.class);
 
-    private static final String SELECT_BY_ID = "SELECT * FROM audit_log WHERE id = ?";
+    private static final String WRITER_THREAD_NAME = "audit-log-writer";
+    private static final int QUEUE_CAPACITY = 1024;
+    private static final String AUDIT_JSONL_FILENAME = "audit.jsonl";
 
-    private static final String SELECT_BY_MATCH_SET =
-            "SELECT * FROM audit_log WHERE match_id = ? AND set_index = ? ORDER BY changed_at ASC";
+    private static final boolean IS_POSIX =
+            FileSystems.getDefault().supportedFileAttributeViews().contains("posix");
+    private static final Set<PosixFilePermission> DIR_PERMISSIONS =
+            IS_POSIX ? PosixFilePermissions.fromString("rwx------") : Set.of();
+    private static final Set<PosixFilePermission> FILE_PERMISSIONS =
+            IS_POSIX ? PosixFilePermissions.fromString("rw-------") : Set.of();
 
-    private final JdbcTemplate jdbc;
+    private final AuditLogConfig auditLogConfig;
+    private final TenantContext tenantContext;
+    private final ObjectMapper objectMapper;
 
-    public DefaultAuditLogRepository(JdbcTemplate jdbc) {
-        this.jdbc = jdbc;
-    }
+    /** Single-thread writer executor with bounded queue (capacity 1024). */
+    private final ExecutorService writerExecutor;
 
-    /** {@inheritDoc} */
-    @Override
-    public AuditLogEntry save(AuditLogEntry entry) {
-        jdbc.update(
-                INSERT_SQL,
-                entry.getId(),
-                entry.getMatchId(),
-                entry.getSetIndex(),
-                entry.getTeam1PointsOld(),
-                entry.getTeam2PointsOld(),
-                entry.getSetStateOld(),
-                entry.getTeam1PointsNew(),
-                entry.getTeam2PointsNew(),
-                entry.getSetStateNew(),
-                entry.getActorId(),
-                entry.getReason(),
-                entry.getSourceType(),
-                entry.getSourceDeviceId());
-        return entry;
-    }
+    /** Cache of open FileChannels, keyed by (tenantId, tournamentId). Lazily populated. */
+    private final ConcurrentHashMap<TenantTournamentKey, FileChannel> channelCache =
+            new ConcurrentHashMap<>();
 
-    /** {@inheritDoc} */
-    @Override
-    public Optional<AuditLogEntry> findById(UUID id) {
-        List<AuditLogEntry> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, id);
-        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public List<AuditLogEntry> findByMatchIdAndSetIndexOrderByChangedAt(
-            UUID matchId, int setIndex) {
-        return jdbc.query(SELECT_BY_MATCH_SET, ROW_MAPPER, matchId, setIndex);
+    public DefaultAuditLogRepository(
+            AuditLogConfig auditLogConfig, TenantContext tenantContext, ObjectMapper objectMapper) {
+        this.auditLogConfig = auditLogConfig;
+        this.tenantContext = tenantContext;
+        this.objectMapper = objectMapper;
+        LinkedBlockingQueue<Runnable> queue = new LinkedBlockingQueue<>(QUEUE_CAPACITY);
+        this.writerExecutor =
+                new ThreadPoolExecutor(
+                        1,
+                        1,
+                        0L,
+                        TimeUnit.MILLISECONDS,
+                        queue,
+                        r -> {
+                            Thread t = new Thread(r, WRITER_THREAD_NAME);
+                            t.setDaemon(false);
+                            return t;
+                        });
     }
 
     /**
      * {@inheritDoc}
      *
-     * @throws UnsupportedOperationException always — audit log is append-only per DEC-22/E21S05
+     * <p>Registers an {@code afterCommit()} synchronization on the current Spring transaction. The
+     * actual file IO is enqueued to the writer thread after commit. On rollback: no write occurs.
+     *
+     * <p>Captures the tenant ID on the calling thread (the request thread) because the writer
+     * thread does not share the caller's {@code ThreadLocal} binding (per DEC-37 async-propagation
+     * surface documentation in {@link TenantContext}).
+     *
+     * @throws IllegalStateException if no Spring transaction is active
      */
     @Override
-    public void deleteById(UUID id) {
-        throw new UnsupportedOperationException(
-                "AuditLogRepository is append-only — deleteById is forbidden. E21S05.");
+    public AuditLogEntry save(AuditLogEntry entry) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            throw new IllegalStateException(
+                    "audit-log save requires an active @Transactional context; "
+                            + "tests must use TransactionTemplate or @Transactional test method "
+                            + "(AC-IMPL-TX-AFTERCOMMIT-WIRING, E55S13)");
+        }
+        // Capture tenant on the calling (request) thread before crossing to async boundary
+        final UUID capturedTenantId = tenantContext.current();
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        enqueueWrite(capturedTenantId, entry);
+                    }
+                });
+        return entry;
+    }
+
+    /**
+     * Enqueues a write task to the writer thread. On queue overflow: WARN log + DROP (no block).
+     *
+     * <p>Uses {@link ThreadPoolExecutor} with bounded queue — rejection is signalled by the thread
+     * pool's {@code RejectedExecutionException} when the queue is full. We use offer-based
+     * submission via a wrapper to avoid blocking on {@code put(...)}.
+     */
+    private void enqueueWrite(UUID tenantId, AuditLogEntry entry) {
+        // Submit to the bounded executor; if queue is full, the executor's
+        // CallerRunsPolicy or AbortPolicy fires — we wrap to detect queue overflow.
+        LinkedBlockingQueue<?> queue =
+                (LinkedBlockingQueue<?>) ((ThreadPoolExecutor) writerExecutor).getQueue();
+        if (queue.remainingCapacity() == 0) {
+            log.warn(
+                    "[audit-log] queue-full tournament={} match={} setIndex={} — audit row DROPPED",
+                    entry.getTournamentId(),
+                    entry.getMatchId(),
+                    entry.getSetIndex());
+            return;
+        }
+        writerExecutor.submit(() -> doWrite(tenantId, entry));
+    }
+
+    /**
+     * Performs the actual file IO (runs on the writer thread). Resolves the path, lazily opens the
+     * FileChannel, serializes the entry as JSON, writes + fsyncs.
+     *
+     * <p>No Spring transaction is opened in this method (FILE IO only — per Brief T-9).
+     */
+    private void doWrite(UUID tenantId, AuditLogEntry entry) {
+        try {
+            TenantTournamentKey key = new TenantTournamentKey(tenantId, entry.getTournamentId());
+            FileChannel channel = channelCache.computeIfAbsent(key, k -> openChannel(k));
+            if (channel == null) {
+                return; // openChannel already logged the error
+            }
+
+            byte[] jsonBytes = objectMapper.writeValueAsBytes(toMap(entry));
+            // Write JSON line + newline as a single buffer
+            ByteBuffer buffer = ByteBuffer.allocate(jsonBytes.length + 1);
+            buffer.put(jsonBytes);
+            buffer.put((byte) '\n');
+            buffer.flip();
+
+            while (buffer.hasRemaining()) {
+                channel.write(buffer);
+            }
+            channel.force(true);
+
+        } catch (IOException e) {
+            log.warn(
+                    "[audit-log] write-failed tournament={} match={} setIndex={} cause={}",
+                    entry.getTournamentId(),
+                    entry.getMatchId(),
+                    entry.getSetIndex(),
+                    e.toString());
+        } catch (Exception e) {
+            log.warn(
+                    "[audit-log] unexpected-error tournament={} match={} setIndex={} cause={}",
+                    entry.getTournamentId(),
+                    entry.getMatchId(),
+                    entry.getSetIndex(),
+                    e.toString());
+        }
+    }
+
+    /**
+     * Lazily opens (or creates) the FileChannel for the given key. Called from the writer thread.
+     *
+     * @return the FileChannel, or null if an IO error occurred (already logged)
+     */
+    private FileChannel openChannel(TenantTournamentKey key) {
+        try {
+            Path dir = resolveDir(key.tenantId(), key.tournamentId());
+            createDirectoryOwnerOnly(dir);
+            Path file = dir.resolve(AUDIT_JSONL_FILENAME);
+            if (!Files.exists(file)) {
+                createFileOwnerOnly(file);
+            }
+            return FileChannel.open(file, StandardOpenOption.APPEND, StandardOpenOption.CREATE);
+        } catch (IOException e) {
+            log.warn(
+                    "[audit-log] open-failed tenantId={} tournamentId={} cause={}",
+                    key.tenantId(),
+                    key.tournamentId(),
+                    e.toString());
+            return null;
+        }
+    }
+
+    private void createDirectoryOwnerOnly(Path dir) throws IOException {
+        if (IS_POSIX) {
+            FileAttribute<Set<PosixFilePermission>> attr =
+                    PosixFilePermissions.asFileAttribute(DIR_PERMISSIONS);
+            Files.createDirectories(dir, attr);
+        } else {
+            Files.createDirectories(dir);
+        }
+    }
+
+    private void createFileOwnerOnly(Path file) throws IOException {
+        if (IS_POSIX) {
+            FileAttribute<Set<PosixFilePermission>> attr =
+                    PosixFilePermissions.asFileAttribute(FILE_PERMISSIONS);
+            Files.createFile(file, attr);
+        } else {
+            Files.createFile(file);
+        }
+    }
+
+    /**
+     * Resolves the directory path for a given (tenantId, tournamentId) pair.
+     *
+     * <p>Layout: {@code <data-dir>/tenants/<tenant>/audit-log/<tournament-id>}. No user-input flows
+     * into the path — tenantId and tournamentId are server-side UUIDs (AC-SEC-NO-USER-INPUT-
+     * IN-FILE-PATH).
+     */
+    private Path resolveDir(UUID tenantId, UUID tournamentId) {
+        return Path.of(auditLogConfig.getDataDir())
+                .resolve("tenants")
+                .resolve(tenantId.toString())
+                .resolve("audit-log")
+                .resolve(tournamentId.toString());
+    }
+
+    private Path resolveFile(UUID tenantId, UUID tournamentId) {
+        return resolveDir(tenantId, tournamentId).resolve(AUDIT_JSONL_FILENAME);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Reads the per-tournament JSONL file and returns the entry matching {@code id}, or empty if
+     * not found or if no file exists yet.
+     */
+    @Override
+    public Optional<AuditLogEntry> findByTournamentIdAndId(UUID tournamentId, UUID id) {
+        UUID tenantId = tenantContext.current();
+        Path file = resolveFile(tenantId, tournamentId);
+        if (!Files.exists(file)) {
+            return Optional.empty();
+        }
+        try {
+            List<String> lines = Files.readAllLines(file);
+            for (String line : lines) {
+                if (line.isBlank()) continue;
+                AuditLogEntry entry =
+                        fromMap(
+                                objectMapper.readValue(
+                                        line, new TypeReference<Map<String, Object>>() {}));
+                if (id.equals(entry.getId())) {
+                    return Optional.of(entry);
+                }
+            }
+        } catch (IOException e) {
+            log.warn(
+                    "[audit-log] read-failed tournamentId={} cause={}", tournamentId, e.toString());
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Reads the per-tournament JSONL file and returns entries matching {@code matchId} and
+     * {@code setIndex} in file order (= chronological order = append order).
+     */
+    @Override
+    public List<AuditLogEntry> findByTournamentIdAndMatchIdAndSetIndexOrderByChangedAt(
+            UUID tournamentId, UUID matchId, int setIndex) {
+        UUID tenantId = tenantContext.current();
+        Path file = resolveFile(tenantId, tournamentId);
+        if (!Files.exists(file)) {
+            return List.of();
+        }
+        List<AuditLogEntry> result = new ArrayList<>();
+        try {
+            List<String> lines = Files.readAllLines(file);
+            for (String line : lines) {
+                if (line.isBlank()) continue;
+                AuditLogEntry entry =
+                        fromMap(
+                                objectMapper.readValue(
+                                        line, new TypeReference<Map<String, Object>>() {}));
+                if (matchId.equals(entry.getMatchId()) && setIndex == entry.getSetIndex()) {
+                    result.add(entry);
+                }
+            }
+        } catch (IOException e) {
+            log.warn(
+                    "[audit-log] read-failed tournamentId={} cause={}", tournamentId, e.toString());
+        }
+        return result;
+    }
+
+    /**
+     * Graceful shutdown: drain writer queue (up to 30 s), then close all cached FileChannels.
+     *
+     * <p>Invoked by Spring on application shutdown (AC-IMPL-WRITER-THREAD-LIFECYCLE,
+     * AC-ERROR-HANDLING-JVM-SHUTDOWN-FLUSH).
+     */
+    @PreDestroy
+    public void shutdown() {
+        writerExecutor.shutdown();
+        try {
+            if (!writerExecutor.awaitTermination(30, TimeUnit.SECONDS)) {
+                int remaining = ((ThreadPoolExecutor) writerExecutor).getQueue().size();
+                log.warn("[audit-log] shutdown-timeout queue-depth={}", remaining);
+                writerExecutor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            writerExecutor.shutdownNow();
+        }
+        channelCache.forEach(
+                (key, channel) -> {
+                    try {
+                        channel.force(true);
+                        channel.close();
+                    } catch (IOException e) {
+                        log.warn(
+                                "[audit-log] close-failed tenantId={} tournamentId={} cause={}",
+                                key.tenantId(),
+                                key.tournamentId(),
+                                e.toString());
+                    }
+                });
+        channelCache.clear();
     }
 
     // -------------------------------------------------------------------------
-    // Row mapper
+    // JSON serialization helpers
     // -------------------------------------------------------------------------
 
-    private static final RowMapper<AuditLogEntry> ROW_MAPPER = DefaultAuditLogRepository::mapRow;
+    /**
+     * Converts an {@link AuditLogEntry} to a Map for Jackson serialization. Uses explicit field
+     * mapping to ensure stable JSON field order (LinkedHashMap preserves insertion order).
+     *
+     * <p>POSIX-vs-Windows note: no user-input in field values that form file paths
+     * (AC-SEC-NO-USER-INPUT-IN-FILE-PATH). tournamentId and tenantId are server-generated UUIDs. On
+     * POSIX filesystems: files created 0600, dirs created 0700
+     * (AC-SEC-FILE-PERMISSIONS-RESTRICTIVE). On Windows: default ACL from parent directory.
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> toMap(AuditLogEntry e) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("tournamentId", e.getTournamentId() == null ? null : e.getTournamentId().toString());
+        m.put("id", e.getId() == null ? null : e.getId().toString());
+        m.put("matchId", e.getMatchId() == null ? null : e.getMatchId().toString());
+        m.put("setIndex", e.getSetIndex());
+        m.put("team1PointsOld", e.getTeam1PointsOld());
+        m.put("team2PointsOld", e.getTeam2PointsOld());
+        m.put("team1PointsNew", e.getTeam1PointsNew());
+        m.put("team2PointsNew", e.getTeam2PointsNew());
+        m.put("setStateOld", e.getSetStateOld());
+        m.put("setStateNew", e.getSetStateNew());
+        m.put("actorId", e.getActorId());
+        m.put("reason", e.getReason());
+        m.put("changedAt", e.getChangedAt() == null ? null : e.getChangedAt().toString());
+        m.put("sourceType", e.getSourceType());
+        m.put("sourceDeviceId", e.getSourceDeviceId());
+        return m;
+    }
 
-    private static AuditLogEntry mapRow(ResultSet rs, int rowNum) throws SQLException {
+    /**
+     * Converts a parsed JSON Map (from {@code objectMapper.readValue(line, new
+     * TypeReference<Map<String, Object>>() {})}) to an {@link AuditLogEntry}.
+     */
+    @SuppressWarnings("unchecked")
+    private AuditLogEntry fromMap(Map<String, Object> m) {
         AuditLogEntry e = new AuditLogEntry();
-        e.setId(rs.getObject("id", UUID.class));
-        e.setMatchId(rs.getObject("match_id", UUID.class));
-        e.setSetIndex(rs.getInt("set_index"));
-        e.setTeam1PointsOld(getBoxedInt(rs, "team1_points_old"));
-        e.setTeam2PointsOld(getBoxedInt(rs, "team2_points_old"));
-        e.setSetStateOld(getBoxedInt(rs, "set_state_old"));
-        e.setTeam1PointsNew(rs.getInt("team1_points_new"));
-        e.setTeam2PointsNew(rs.getInt("team2_points_new"));
-        e.setSetStateNew(rs.getInt("set_state_new"));
-        e.setActorId(rs.getString("actor_id"));
-        e.setReason(rs.getString("reason"));
-        e.setChangedAt(rs.getObject("changed_at", LocalDateTime.class));
-        e.setSourceType(rs.getString("source_type"));
-        e.setSourceDeviceId(rs.getString("source_device_id"));
+        e.setTournamentId(uuidOrNull(m.get("tournamentId")));
+        e.setId(uuidOrNull(m.get("id")));
+        e.setMatchId(uuidOrNull(m.get("matchId")));
+        Object setIndex = m.get("setIndex");
+        e.setSetIndex(setIndex == null ? 0 : ((Number) setIndex).intValue());
+        e.setTeam1PointsOld(intOrNull(m.get("team1PointsOld")));
+        e.setTeam2PointsOld(intOrNull(m.get("team2PointsOld")));
+        Object t1new = m.get("team1PointsNew");
+        e.setTeam1PointsNew(t1new == null ? 0 : ((Number) t1new).intValue());
+        Object t2new = m.get("team2PointsNew");
+        e.setTeam2PointsNew(t2new == null ? 0 : ((Number) t2new).intValue());
+        e.setSetStateOld(intOrNull(m.get("setStateOld")));
+        Object setStateNew = m.get("setStateNew");
+        e.setSetStateNew(setStateNew == null ? 0 : ((Number) setStateNew).intValue());
+        e.setActorId((String) m.get("actorId"));
+        e.setReason((String) m.get("reason"));
+        String changedAtStr = (String) m.get("changedAt");
+        e.setChangedAt(changedAtStr == null ? null : LocalDateTime.parse(changedAtStr));
+        e.setSourceType((String) m.get("sourceType"));
+        e.setSourceDeviceId((String) m.get("sourceDeviceId"));
         return e;
     }
 
-    private static Integer getBoxedInt(ResultSet rs, String col) throws SQLException {
-        int val = rs.getInt(col);
-        return rs.wasNull() ? null : val;
+    private static UUID uuidOrNull(Object o) {
+        return o == null ? null : UUID.fromString(o.toString());
+    }
+
+    private static Integer intOrNull(Object o) {
+        return o == null ? null : ((Number) o).intValue();
     }
 }

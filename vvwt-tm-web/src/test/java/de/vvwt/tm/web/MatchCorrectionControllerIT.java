@@ -194,7 +194,6 @@ class MatchCorrectionControllerIT {
     @AfterEach
     void tearDown() {
         tenantBinder.bindDefaultTenant();
-        jdbcTemplate.update("DELETE FROM audit_log WHERE match_id = ?", matchId);
         jdbcTemplate.update("DELETE FROM set_result WHERE match_id = ?", matchId);
         jdbcTemplate.update("DELETE FROM match_outcome WHERE match_id = ?", matchId);
         jdbcTemplate.update("DELETE FROM match WHERE id = ?", matchId);

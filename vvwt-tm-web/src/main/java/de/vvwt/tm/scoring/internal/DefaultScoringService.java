@@ -303,9 +303,10 @@ public class DefaultScoringService implements ScoringService {
                     correlationId);
         }
 
-        // Audit log row — include source distinction per DEC-14
+        // Audit log row — include source distinction per DEC-14; tournamentId first (E55S13)
         AuditLogEntry auditEntry =
                 new AuditLogEntry(
+                        input.tournamentId(),
                         UUID.randomUUID(),
                         input.matchId(),
                         input.setIndex(),

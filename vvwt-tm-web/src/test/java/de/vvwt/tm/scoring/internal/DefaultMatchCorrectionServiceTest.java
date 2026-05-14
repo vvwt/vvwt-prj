@@ -713,28 +713,29 @@ class DefaultMatchCorrectionServiceTest {
     }
 
     // -----------------------------------------------------------------------
-    // Fault injection: auditLogRepository.save() throws → rollback (no set written)
-    // (AC-ERR-AUDIT-LOG-WRITE-FAILURE-ATOMIC-ROLLBACK)
+    // D-9 contract: save() is async-after-commit; save() failure does NOT propagate into TX
+    // (AC-IMPL-OBSOLETE-CONTRACT-TEST-REFACTOR)
+    // Old contract (AC-ERR-AUDIT-LOG-WRITE-FAILURE-ATOMIC-ROLLBACK) deleted at E55S13 cutover.
+    // Post-cutover: audit-write failures produce WARN log + dropped row; SetResult committed OK.
     // -----------------------------------------------------------------------
 
     @Test
     @DisplayName(
-            "AC-ERR-AUDIT-LOG-WRITE-FAILURE: auditLog.save() throws → RuntimeException"
-                    + " propagated, no set_result written")
-    void auditLogSaveFailure_propagatesException_noSetResultWritten() {
-        when(auditLogRepository.save(any())).thenThrow(new RuntimeException("DB failure"));
-
+            "E55S13 D-9: correctMatchSets completes + returns result when save() is called;"
+                    + " save() does not throw (async-after-commit — file IO off request path)")
+    void d9_auditSaveCalledAndCorrectionCompletesNormally() {
+        // Arrange — save() returns entry (default stub in setUp)
         MatchCorrectionInput input = correctionInput(List.of(new SetScoreCorrection(0, 25, 10)));
 
-        assertThatThrownBy(() -> service.correctMatchSets(input))
-                .isInstanceOf(RuntimeException.class);
+        // Act — must not throw
+        MatchCorrectionResult result = service.correctMatchSets(input);
 
-        // If auditLog.save() is called first (before set_result upsert), set_result must not
-        // have been written.
-        // If the impl writes set_result first and auditLog second, this test verifies atomicity
-        // via @Transactional (the whole TX is rolled back). In unit test scope, we verify that
-        // the exception propagates and the outcome is not returned.
-        // No assertions on set_result mock needed — Mockito already tracks the calls.
+        // Assert — correction result is present; save() was invoked with correct tournamentId
+        assertThat(result).isNotNull();
+        verify(auditLogRepository)
+                .save(
+                        org.mockito.ArgumentMatchers.argThat(
+                                e -> TOURNAMENT_ID.equals(e.getTournamentId())));
     }
 
     // -----------------------------------------------------------------------

@@ -501,7 +501,6 @@ public class DefaultDraftService implements DraftService {
      * <p>Step order per Brief D-6a:
      *
      * <ol>
-     *   <li>DELETE audit_log WHERE match_id IN (SELECT id FROM match WHERE tournament_id = ?)
      *   <li>DELETE match_outcome WHERE match_id IN (SELECT id FROM match WHERE tournament_id = ?)
      *   <li>DELETE set_result WHERE phase_id IN (SELECT id FROM phase WHERE tournament_id = ?)
      *   <li>DELETE team_avatar_rating WHERE avatar_id IN (SELECT id FROM team_avatar WHERE
@@ -517,38 +516,36 @@ public class DefaultDraftService implements DraftService {
      * @see <a href="E48S13">E48S13 — AC-IMPL-CASCADE-DELETE-HELPER</a>
      */
     private void cascadeDeleteStructuralData(UUID tournamentId) {
-        // 1. audit_log rows referencing matches of this tournament
-        jdbcTemplate.update(
-                "DELETE FROM audit_log WHERE match_id IN"
-                        + " (SELECT id FROM match WHERE tournament_id = ?)",
-                tournamentId);
-        // 2. match_outcome rows referencing matches of this tournament
+        // 1. match_outcome rows referencing matches of this tournament
+        // Note: audit_log rows are NOT deleted here (E55S13 — audit_log moved to per-tournament
+        // JSONL files; per-tournament audit-log directory remains as orphan after deletion per
+        // Brief D-12; operator-driven cleanup acceptable).
         jdbcTemplate.update(
                 "DELETE FROM match_outcome WHERE match_id IN"
                         + " (SELECT id FROM match WHERE tournament_id = ?)",
                 tournamentId);
-        // 3. set_result rows referencing phases of this tournament
+        // 2. set_result rows referencing phases of this tournament
         jdbcTemplate.update(
                 "DELETE FROM set_result WHERE phase_id IN"
                         + " (SELECT id FROM phase WHERE tournament_id = ?)",
                 tournamentId);
-        // 4. team_avatar_rating rows referencing team_avatars of this tournament
+        // 3. team_avatar_rating rows referencing team_avatars of this tournament
         jdbcTemplate.update(
                 "DELETE FROM team_avatar_rating WHERE avatar_id IN"
                         + " (SELECT id FROM team_avatar WHERE tournament_id = ?)",
                 tournamentId);
-        // 5. round_snapshots for this tournament
+        // 4. round_snapshots for this tournament
         jdbcTemplate.update("DELETE FROM round_snapshots WHERE tournament_id = ?", tournamentId);
-        // 6. match rows for this tournament
+        // 5. match rows for this tournament
         jdbcTemplate.update("DELETE FROM match WHERE tournament_id = ?", tournamentId);
-        // 7. team_avatar rows for this tournament
+        // 6. team_avatar rows for this tournament
         jdbcTemplate.update("DELETE FROM team_avatar WHERE tournament_id = ?", tournamentId);
-        // 8. phase_breaks rows referencing phases of this tournament
+        // 7. phase_breaks rows referencing phases of this tournament
         jdbcTemplate.update(
                 "DELETE FROM phase_breaks WHERE phase_id IN"
                         + " (SELECT id FROM phase WHERE tournament_id = ?)",
                 tournamentId);
-        // 9. phase rows for this tournament
+        // 8. phase rows for this tournament
         jdbcTemplate.update("DELETE FROM phase WHERE tournament_id = ?", tournamentId);
     }
 
