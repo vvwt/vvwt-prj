@@ -498,6 +498,31 @@
     "targetLabelEmpty": "— leer —",
     "teamColumnHeading": "Mannschaft"
   },
+  "matchOverview": {
+    "pageTitle": "Spiele der Phase",
+    "showMatchesButton": "Spiele anzeigen",
+    "loadError": "Fehler beim Laden der Spiele.",
+    "empty": "Keine Spiele vorhanden.",
+    "columns": {
+      "lap": "Runde",
+      "field": "Feld",
+      "team1": "Team 1",
+      "team2": "Team 2",
+      "setScores": "Sätze",
+      "state": "Status",
+      "actions": "Aktionen"
+    },
+    "state": {
+      "OPEN": "Offen",
+      "ENABLED": "Freigegeben",
+      "INPROGRESS": "Läuft",
+      "ONCHECK": "Prüfung",
+      "FINISHED_WINNER1": "Beendet (Sieger: Team 1)",
+      "FINISHED_WINNER2": "Beendet (Sieger: Team 2)",
+      "FINISHED_STANDOFF": "Beendet (Unentschieden)",
+      "CANCELED": "Abgebrochen"
+    }
+  },
   "correction": {
     "pageTitle": "Match-Korrektur",
     "matchIdLabel": "Match-ID",
@@ -514,6 +539,8 @@
     "successLabel": "Neuer Spielstatus",
     "auditOnlyLabel": "(nur Protokoll, kein Einfluss auf Wertung)",
     "backToPhaseList": "Zurück zur Phasenübersicht",
+    "matchNotFound": "Spiel nicht gefunden. Bitte zur Spielübersicht zurückgehen.",
+    "preloadError": "Fehler beim Laden der Spielergebnisse.",
     "correctButton": "Korrigieren",
     "confirmTitle": "Korrektur bestätigen",
     "confirmBody": "Bitte überprüfen Sie die eingegebenen Werte vor dem Absenden:",

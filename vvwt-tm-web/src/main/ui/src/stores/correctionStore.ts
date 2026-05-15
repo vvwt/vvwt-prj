@@ -12,12 +12,22 @@ import { apiFetch } from '../lib/api.js';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+/** Per-set score from GET /api/phases/{phaseId}/matches (mirrors MatchSummaryResponse.SetScoreDto). */
+export interface SetScore {
+    setIndex: number;
+    team1Points: number;
+    team2Points: number;
+}
+
 /** A single match summary from GET /api/phases/{phaseId}/matches (mirrors MatchSummaryResponse). */
 export interface MatchSummary {
     matchId: string;
     state: string;
     lapNumber: number | null;
     fieldNumber: number | null;
+    team1Name: string;
+    team2Name: string;
+    setScores: SetScore[];
 }
 
 /** A single set-score correction entry (mirrors SetScoreEntry HTTP DTO). */
@@ -46,7 +56,7 @@ export interface MatchCorrectionResult {
 /**
  * Fetches the match summary list for a phase (for correction navigation).
  *
- * Maps to GET /api/phases/{phaseId}/matches (AC-FE-PHASELIST-CORRECTION-LINKS).
+ * Maps to GET /api/phases/{phaseId}/matches.
  *
  * Match states INPROGRESS and ONCHECK are excluded from correction eligibility
  * at the client (the backend also guards these states with HTTP 409).

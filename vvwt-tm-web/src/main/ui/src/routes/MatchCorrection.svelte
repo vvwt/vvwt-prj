@@ -19,7 +19,11 @@
   import { get } from 'svelte/store';
   import { _ } from 'svelte-i18n';
   import { push } from 'svelte-spa-router';
-  import { submitMatchCorrection, type SetScoreEntry } from '../stores/correctionStore.js';
+  import {
+    listPhaseMatches,
+    submitMatchCorrection,
+    type SetScoreEntry,
+  } from '../stores/correctionStore.js';
   import { pageHeader, resetPageHeader } from '../stores/pageHeaderStore.js';
   import { resolveParent } from '../lib/parentRouteMap.js';
 
@@ -36,13 +40,10 @@
 
   /**
    * The set-score rows the operator is editing.
-   * Default: 3 rows for BEST_OF_3 (index 0, 1, 2).
-   * The operator adjusts as needed (add/remove set rows per match format).
+   * Pre-loaded from the phase match list on mount (E48S26 AC-TEST-CORRECTION-FORM-PRELOAD-RED).
+   * Falls back to an empty array when the match has no recorded sets (Nacherfassung, OPEN/ENABLED).
    */
-  let sets = $state<SetScoreEntry[]>([
-    { setIndex: 0, team1Points: 0, team2Points: 0 },
-    { setIndex: 1, team1Points: 0, team2Points: 0 },
-  ]);
+  let sets = $state<SetScoreEntry[]>([]);
 
   let reason = $state<string>('');
   let submitting = $state(false);
@@ -50,26 +51,71 @@
   let resultState = $state<string | null>(null);
   let resultAuditOnly = $state<boolean | null>(null);
 
+  /** Whether the pre-load is in progress (suppresses form rendering until data is ready). */
+  let preloading = $state(true);
+  /** Set when the match-list pre-load fails (network error or match-not-found). */
+  let preloadError = $state<string | null>(null);
+
   /** Whether the confirmation dialog is visible (Brief Q-6 deliberate-action UX). */
   let showConfirm = $state(false);
 
   // ── Lifecycle ─────────────────────────────────────────────────
 
-  onMount(() => {
+  onMount(async () => {
     pageHeader.set({
       title: get(_)('correction.pageTitle'),
       backTo: resolveParent(
         '/tournaments/:tournamentId/phases/:phaseId/matches/:matchId/correction',
-        tournamentId
+        tournamentId,
+        phaseId
       ),
       tournamentId: tournamentId || null,
       actions: [],
     });
+    await preloadSets();
   });
 
   onDestroy(() => {
     resetPageHeader();
   });
+
+  // ── Pre-load ──────────────────────────────────────────────────
+
+  /**
+   * Pre-loads the match's existing set results from GET /api/phases/{phaseId}/matches.
+   *
+   * Uses listPhaseMatches(phaseId) (the canonical projection already consumed by
+   * MatchOverview.svelte) and selects the entry whose matchId matches the route param.
+   * No single-match endpoint is introduced (E48S26 Out-of-Scope).
+   *
+   * Outcomes:
+   *   - Match found + sets present: pre-fills the form with recorded scores (editable default).
+   *   - Match found + no sets: leaves form empty (fresh-entry / Nacherfassung path).
+   *   - Match not found: sets preloadError (distinguishable from empty-sets state per AC-ERR-...).
+   *   - Network error: sets preloadError.
+   */
+  async function preloadSets(): Promise<void> {
+    preloading = true;
+    preloadError = null;
+    try {
+      const allMatches = await listPhaseMatches(phaseId);
+      const found = allMatches.find(m => m.matchId === matchId);
+      if (!found) {
+        preloadError = get(_)('correction.matchNotFound');
+        return;
+      }
+      // Map SetScore → SetScoreEntry (field names are identical: setIndex, team1Points, team2Points)
+      sets = found.setScores.map(s => ({
+        setIndex: s.setIndex,
+        team1Points: s.team1Points,
+        team2Points: s.team2Points,
+      }));
+    } catch (e: unknown) {
+      preloadError = e instanceof Error ? e.message : get(_)('correction.preloadError');
+    } finally {
+      preloading = false;
+    }
+  }
 
   // ── Helpers ───────────────────────────────────────────────────
 
@@ -132,7 +178,11 @@
 <main class="correction">
   <h2 class="correction__subtitle">{$_('correction.matchIdLabel')}: {matchId}</h2>
 
-  {#if resultState !== null}
+  {#if preloading}
+    <p class="correction__loading">…</p>
+  {:else if preloadError !== null}
+    <p class="correction__error" role="alert" data-testid="match-not-found-error">{preloadError}</p>
+  {:else if resultState !== null}
     <!-- Success state -->
     <div class="correction__result">
       <p class="correction__result-state">
