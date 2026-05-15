@@ -3,7 +3,6 @@ package de.vvwt.tm.web;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.auth.AdminCredentialsProvider;
-import java.net.URI;
 import org.htmlunit.BrowserVersion;
 import org.htmlunit.NicelyResynchronizingAjaxController;
 import org.htmlunit.WebClient;
@@ -22,15 +21,13 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
  * Integration tests for E49S03 — verifies that scoring-tablet UI elements become actually visible
- * when {@code vvwtShow(el)} is called, i.e. the element is NOT hidden by a stylesheet
- * {@code display:none} rule that the helper cannot override.
+ * when {@code vvwtShow(el)} is called, i.e. the element is NOT hidden by a stylesheet {@code
+ * display:none} rule that the helper cannot override.
  *
  * <h2>Root cause (verified empirically — E49S03 context)</h2>
  *
@@ -48,10 +45,10 @@ import org.springframework.test.context.ActiveProfiles;
  * <h2>Test approach (DEC-22 RED-first)</h2>
  *
  * <p>Tests use HtmlUnit to load the rendered Mustache pages from the running Spring Boot server,
- * then evaluate the exact CSS cascade behavior by inspecting computed style via
- * {@code window.getComputedStyle}. HtmlUnit is a headless browser with full CSS-cascade support
- * including stylesheet rule resolution — structural assertions on HTML source text are
- * insufficient because they do not verify whether {@code vvwtShow} can actually reveal the element.
+ * then evaluate the exact CSS cascade behavior by inspecting computed style via {@code
+ * window.getComputedStyle}. HtmlUnit is a headless browser with full CSS-cascade support including
+ * stylesheet rule resolution — structural assertions on HTML source text are insufficient because
+ * they do not verify whether {@code vvwtShow} can actually reveal the element.
  *
  * <p>The tests assert the observable property directly:
  *
@@ -62,10 +59,10 @@ import org.springframework.test.context.ActiveProfiles;
  *       removes the inline style → computed {@code display} is not {@code none} → assertions pass.
  * </ul>
  *
- * <p>Note: the pages' startup JavaScript makes network calls (e.g. {@code POST /api/devices/register}).
- * HtmlUnit is configured to suppress network errors (JavaScript call errors) and the tests directly
- * call the helper function on individual elements rather than triggering the full page flow,
- * to isolate the CSS-cascade behavior under test.
+ * <p>Note: the pages' startup JavaScript makes network calls (e.g. {@code POST
+ * /api/devices/register}). HtmlUnit is configured to suppress network errors (JavaScript call
+ * errors) and the tests directly call the helper function on individual elements rather than
+ * triggering the full page flow, to isolate the CSS-cascade behavior under test.
  *
  * @see <a href="stories/E49S03.story.md">E49S03 story</a>
  * @see <a href="DEC-19">DEC-19 — Mustache + ES5 carve-out</a>
@@ -118,14 +115,11 @@ class VvwtShowVisibilityIT {
                     + " /score/register becomes visible after vvwtShow() — requires inline hiding"
                     + " (stylesheet display:none cannot be cleared by el.style.display='')")
     void pinBlock_becomesVisible_afterVvwtShowCall() throws Exception {
-        HtmlPage page =
-                webClient.getPage("http://localhost:" + port + "/score/register");
+        HtmlPage page = webClient.getPage("http://localhost:" + port + "/score/register");
         webClient.waitForBackgroundJavaScript(500);
 
         DomElement pinBlock = page.getElementById("pin-block");
-        assertThat(pinBlock)
-                .as("#pin-block element must exist in the rendered page")
-                .isNotNull();
+        assertThat(pinBlock).as("#pin-block element must exist in the rendered page").isNotNull();
 
         // Simulate vvwtShow(el): el.style.display = ''
         // After fix (M-C): element has inline style="display:none" → clearing inline style
@@ -157,8 +151,7 @@ class VvwtShowVisibilityIT {
             "AC-TEST-PIN-BLOCK-VISIBLE-ON-REVISIT-REGISTERED-RED: #pin-block and #device-name"
                     + " on /score/register become visible after vvwtShow() — revisit path")
     void pinBlockAndDeviceName_becomesVisible_afterVvwtShowCall() throws Exception {
-        HtmlPage page =
-                webClient.getPage("http://localhost:" + port + "/score/register");
+        HtmlPage page = webClient.getPage("http://localhost:" + port + "/score/register");
         webClient.waitForBackgroundJavaScript(500);
 
         // #pin-block
@@ -200,8 +193,7 @@ class VvwtShowVisibilityIT {
                     + " /score/field/1 become visible after vvwtShow() — #match-panel,"
                     + " #no-match-panel, #queue-status, #confirm-dialog, #error-banner")
     void allScoringPanels_becomeVisible_afterVvwtShowCall() throws Exception {
-        HtmlPage page =
-                webClient.getPage("http://localhost:" + port + "/score/field/1");
+        HtmlPage page = webClient.getPage("http://localhost:" + port + "/score/field/1");
         webClient.waitForBackgroundJavaScript(500);
 
         String[] panelIds = {
@@ -242,10 +234,9 @@ class VvwtShowVisibilityIT {
     @Test
     @DisplayName(
             "AC-TEST-INLINE-HIDDEN-ELEMENTS-NOT-REGRESSED-GREEN: #referee-row on /score/field/1"
-                    + " (already inline-hidden) becomes visible after vvwtShow() — must NOT regress")
+                + " (already inline-hidden) becomes visible after vvwtShow() — must NOT regress")
     void refereeRow_alreadyInlineHidden_becomesVisible() throws Exception {
-        HtmlPage page =
-                webClient.getPage("http://localhost:" + port + "/score/field/1");
+        HtmlPage page = webClient.getPage("http://localhost:" + port + "/score/field/1");
         webClient.waitForBackgroundJavaScript(500);
 
         DomElement refereeRow = page.getElementById("referee-row");
@@ -274,8 +265,7 @@ class VvwtShowVisibilityIT {
             "AC-TEST-HIDE-STILL-WORKS-GREEN: vvwtHide(el) still hides elements after fix —"
                     + " el.style.display='none' produces computed display:none")
     void vvwtHide_stillHides_afterFix() throws Exception {
-        HtmlPage page =
-                webClient.getPage("http://localhost:" + port + "/score/register");
+        HtmlPage page = webClient.getPage("http://localhost:" + port + "/score/register");
         webClient.waitForBackgroundJavaScript(500);
 
         // Use #status-msg (never hidden by stylesheet — natural display is block).
@@ -309,8 +299,7 @@ class VvwtShowVisibilityIT {
                     + " and #retry-btn reveal at correct display types (block or inline-block),"
                     + " not 'none' — fix must not force a single hard-coded display value")
     void revealedElements_haveCorrectDisplayType() throws Exception {
-        HtmlPage registerPage =
-                webClient.getPage("http://localhost:" + port + "/score/register");
+        HtmlPage registerPage = webClient.getPage("http://localhost:" + port + "/score/register");
         webClient.waitForBackgroundJavaScript(500);
 
         // #pin-block — block-level container
@@ -318,8 +307,7 @@ class VvwtShowVisibilityIT {
         // #retry-btn — button (inline-block in most browsers)
         page_assertRevealedDisplayIsNotNone(registerPage, "retry-btn");
 
-        HtmlPage fieldPage =
-                webClient.getPage("http://localhost:" + port + "/score/field/1");
+        HtmlPage fieldPage = webClient.getPage("http://localhost:" + port + "/score/field/1");
         webClient.waitForBackgroundJavaScript(500);
 
         // #confirm-dialog — fixed-position overlay
