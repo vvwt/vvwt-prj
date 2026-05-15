@@ -388,7 +388,9 @@ class PhaseLifecycleServiceTest {
         de.vvwt.tm.tournament.Match m2 = new de.vvwt.tm.tournament.Match();
         m2.setLapNumber(2);
         // lenient: production code not yet calling findByPhaseId at start() — RED test
-        lenient().when(matchRepository.findByPhaseId(phaseId)).thenReturn(java.util.List.of(m1, m2));
+        lenient()
+                .when(matchRepository.findByPhaseId(phaseId))
+                .thenReturn(java.util.List.of(m1, m2));
 
         // ACT
         Phase result = service.start(phaseId);
@@ -401,11 +403,10 @@ class PhaseLifecycleServiceTest {
     /**
      * AC-ERROR-SIEGEREHRUNG-PHASE (E56S01, DEC-65 D-10 HOW decision).
      *
-     * <p>A siegerehrung phase (vacuous L1+L2, no match rows, {@code lapCount==0} per DEC-59
-     * Clause F) transitions ASSIGNED→ACTIVE without error. Delivery chose {@code
-     * currentLapNumber=0} (sentinel) at ACTIVE-init because {@code lapCount==0} means no lap 1
-     * exists to run — the uniform "no lap running" signal of DEC-65 D-1 applies (see
-     * execution-plan).
+     * <p>A siegerehrung phase (vacuous L1+L2, no match rows, {@code lapCount==0} per DEC-59 Clause
+     * F) transitions ASSIGNED→ACTIVE without error. Delivery chose {@code currentLapNumber=0}
+     * (sentinel) at ACTIVE-init because {@code lapCount==0} means no lap 1 exists to run — the
+     * uniform "no lap running" signal of DEC-65 D-1 applies (see execution-plan).
      *
      * <p><b>GREEN-only test</b> (behaviour from scratch — verifies chosen HOW value).
      *

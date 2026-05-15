@@ -514,7 +514,8 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
         String previous = phase.getStatus();
         phase.setStatus("COMPLETED");
         // [E56S01 DEC-65 D-4] COMPLETED sentinel: reset currentLapNumber=0 (idempotent).
-        // No-op when already 0 (post-last-lap); explicit reset when non-zero (forceComplete mid-phase).
+        // No-op when already 0 (post-last-lap); explicit reset when non-zero (forceComplete
+        // mid-phase).
         phase.setCurrentLapNumber(0);
         Phase saved = phaseRepository.save(phase);
 

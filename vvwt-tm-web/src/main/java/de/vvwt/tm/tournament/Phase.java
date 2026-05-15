@@ -23,10 +23,10 @@ import org.springframework.data.relational.core.mapping.Table;
  *   <li>{@link PhaseStatus#COMPLETED} — all matches in this phase are finished
  * </ul>
  *
- * <p>{@code currentLapNumber} is a 1-based running-lap index (DEC-65): 0 = no lap running
- * (sentinel for PENDING, PREPARED, ASSIGNED, ACTIVE post-last-lap, COMPLETED); ACTIVE mid-phase lap
- * K has {@code currentLapNumber == K} where K ∈ [1, lapCount]. Updated by the scoring cascade Step
- * 10 and the ASSIGNED→ACTIVE init-hook.
+ * <p>{@code currentLapNumber} is a 1-based running-lap index (DEC-65): 0 = no lap running (sentinel
+ * for PENDING, PREPARED, ASSIGNED, ACTIVE post-last-lap, COMPLETED); ACTIVE mid-phase lap K has
+ * {@code currentLapNumber == K} where K ∈ [1, lapCount]. Updated by the scoring cascade Step 10 and
+ * the ASSIGNED→ACTIVE init-hook.
  *
  * <p>No {@code @Component} or {@code @Service} annotations — pure Spring Data JDBC entity per
  * AC-PKG-Phase.
@@ -99,8 +99,8 @@ public class Phase {
 
     /**
      * 1-based running-lap index (DEC-65). 0 = sentinel "no lap running" (PENDING, PREPARED,
-     * ASSIGNED, ACTIVE post-last-lap, COMPLETED). ACTIVE mid-phase lap K: {@code currentLapNumber ==
-     * K} where K ∈ [1, lapCount]. See {@link de.vvwt.tm.scoring.internal.DefaultScoringService}
+     * ASSIGNED, ACTIVE post-last-lap, COMPLETED). ACTIVE mid-phase lap K: {@code currentLapNumber
+     * == K} where K ∈ [1, lapCount]. See {@link de.vvwt.tm.scoring.internal.DefaultScoringService}
      * Step 10 and {@link
      * de.vvwt.tm.tournament.internal.DefaultPhaseLifecycleService#start(java.util.UUID)} init-hook.
      */

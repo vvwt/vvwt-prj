@@ -354,7 +354,8 @@ class DefaultScoringServiceTest {
         // Phase is ACTIVE in lap 1 (1-based, DEC-65); phase has 2 laps total.
         phase.setCurrentLapNumber(1);
         match.setMatchState(MatchState.INPROGRESS); // starts non-terminal
-        // Lap-1 terminal match + open lap-2 match → lapCount=2, currentMatchLap=1 < lapCount → advance
+        // Lap-1 terminal match + open lap-2 match → lapCount=2, currentMatchLap=1 < lapCount →
+        // advance
         Match terminalMatch = new Match();
         terminalMatch.setId(MATCH_ID);
         terminalMatch.setMatchState(MatchState.FINISHED_WINNER1);
@@ -501,8 +502,7 @@ class DefaultScoringServiceTest {
         service.registerMatchResult(input);
 
         // ASSERT — DEC-65 D-3: last-lap sentinel = 0
-        org.mockito.ArgumentCaptor<Phase> captor =
-                org.mockito.ArgumentCaptor.forClass(Phase.class);
+        org.mockito.ArgumentCaptor<Phase> captor = org.mockito.ArgumentCaptor.forClass(Phase.class);
         verify(phaseRepository).save(captor.capture());
         assertThat(captor.getValue().getCurrentLapNumber()).isEqualTo(0);
     }
@@ -541,8 +541,7 @@ class DefaultScoringServiceTest {
         service.registerMatchResult(input);
 
         // ASSERT — non-last lap K=1: advance to K+1=2 (NOT sentinel)
-        org.mockito.ArgumentCaptor<Phase> captor =
-                org.mockito.ArgumentCaptor.forClass(Phase.class);
+        org.mockito.ArgumentCaptor<Phase> captor = org.mockito.ArgumentCaptor.forClass(Phase.class);
         verify(phaseRepository).save(captor.capture());
         assertThat(captor.getValue().getCurrentLapNumber()).isEqualTo(2);
     }
@@ -579,8 +578,7 @@ class DefaultScoringServiceTest {
         service.registerMatchResult(input);
 
         // ASSERT — phase status NOT changed to COMPLETED by scoring cascade
-        org.mockito.ArgumentCaptor<Phase> captor =
-                org.mockito.ArgumentCaptor.forClass(Phase.class);
+        org.mockito.ArgumentCaptor<Phase> captor = org.mockito.ArgumentCaptor.forClass(Phase.class);
         verify(phaseRepository).save(captor.capture());
         assertThat(captor.getValue().getStatus()).isEqualTo("ACTIVE");
     }
@@ -590,9 +588,9 @@ class DefaultScoringServiceTest {
      *
      * <p>After last-lap finalization ({@code currentLapNumber=0}, sentinel), a score correction on
      * a last-lap match triggers the cascade again. The sentinel MUST NOT be advanced to 1 (a
-     * re-increment from 0 would be wrong). The correction MUST NOT call {@code
-     * setCurrentLapNumber} at all — only the last-lap match is terminal, and the sentinel logic
-     * must detect that this is still the last-lap scenario.
+     * re-increment from 0 would be wrong). The correction MUST NOT call {@code setCurrentLapNumber}
+     * at all — only the last-lap match is terminal, and the sentinel logic must detect that this is
+     * still the last-lap scenario.
      *
      * <p>Concretely: {@code currentMatchLap=2}, {@code lapCount=2} (still last lap) → sentinel-0
      * stays.
@@ -619,8 +617,7 @@ class DefaultScoringServiceTest {
         service.registerMatchResult(input);
 
         // ASSERT — currentLapNumber stays 0 (sentinel preserved)
-        org.mockito.ArgumentCaptor<Phase> captor =
-                org.mockito.ArgumentCaptor.forClass(Phase.class);
+        org.mockito.ArgumentCaptor<Phase> captor = org.mockito.ArgumentCaptor.forClass(Phase.class);
         verify(phaseRepository).save(captor.capture());
         assertThat(captor.getValue().getCurrentLapNumber()).isEqualTo(0);
     }
@@ -640,7 +637,13 @@ class DefaultScoringServiceTest {
 
         SetResult wonSet =
                 new SetResult(
-                        MATCH_ID, 0, PHASE_ID, 25, 15, SetState.WINNER1.getLegacyCode(), null,
+                        MATCH_ID,
+                        0,
+                        PHASE_ID,
+                        25,
+                        15,
+                        SetState.WINNER1.getLegacyCode(),
+                        null,
                         null);
         when(setResultRepository.findByMatchIdAndSetIndex(MATCH_ID, 0))
                 .thenReturn(Optional.empty());
@@ -665,7 +668,13 @@ class DefaultScoringServiceTest {
 
         SetResult wonSet =
                 new SetResult(
-                        MATCH_ID, 0, PHASE_ID, 25, 15, SetState.WINNER1.getLegacyCode(), null,
+                        MATCH_ID,
+                        0,
+                        PHASE_ID,
+                        25,
+                        15,
+                        SetState.WINNER1.getLegacyCode(),
+                        null,
                         null);
         when(setResultRepository.findByMatchIdAndSetIndex(MATCH_ID, 0))
                 .thenReturn(Optional.empty());

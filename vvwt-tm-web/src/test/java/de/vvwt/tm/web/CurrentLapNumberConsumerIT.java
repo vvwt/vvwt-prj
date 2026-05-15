@@ -60,8 +60,7 @@ import org.springframework.test.context.ActiveProfiles;
  *       {@code @Import({WebModuleTestConfig, TestAdminCredentials})}.
  *   <li>DEC-44 D2 — per-IT inner {@code TestAdminCredentials} provides {@code @Primary
  *       AdminCredentialsProvider}.
- *   <li>DEC-65 D-1 — ACTIVE mid-phase lap K: {@code currentLapNumber == K} where K ∈ [1,
- *       lapCount].
+ *   <li>DEC-65 D-1 — ACTIVE mid-phase lap K: {@code currentLapNumber == K} where K ∈ [1, lapCount].
  * </ul>
  *
  * @see de.vvwt.tm.web.DisplayOverviewControllerIT
@@ -142,8 +141,8 @@ class CurrentLapNumberConsumerIT {
     // -------------------------------------------------------------------------
 
     /**
-     * Removes all test data in FK-safe order (children before parents). Called both before and after
-     * each test to ensure isolation even after a prior run left data behind.
+     * Removes all test data in FK-safe order (children before parents). Called both before and
+     * after each test to ensure isolation even after a prior run left data behind.
      */
     private void cleanupTestData() {
         jdbcTemplate.update("DELETE FROM set_result");
@@ -189,21 +188,24 @@ class CurrentLapNumberConsumerIT {
 
         // ACTIVE phase, lap 1 running (DEC-65 D-2: currentLapNumber == 1)
         phaseId = UUID.randomUUID();
-        Phase phase =
-                new Phase(phaseId, tournamentId, 1, "Vorrunde E56S01", "ACTIVE", 1, now);
+        Phase phase = new Phase(phaseId, tournamentId, 1, "Vorrunde E56S01", "ACTIVE", 1, now);
         phaseRepository.save(phase);
 
         // Two teams (required by team_avatar FK chain)
         UUID teamAId = UUID.randomUUID();
         UUID teamBId = UUID.randomUUID();
-        teamRepository.save(new Team(teamAId, tournamentId, 1, "Team Alpha E56S01", true, false, false, now));
-        teamRepository.save(new Team(teamBId, tournamentId, 2, "Team Beta E56S01", true, false, false, now));
+        teamRepository.save(
+                new Team(teamAId, tournamentId, 1, "Team Alpha E56S01", true, false, false, now));
+        teamRepository.save(
+                new Team(teamBId, tournamentId, 2, "Team Beta E56S01", true, false, false, now));
 
         // Two avatars (required by match.member_avatar_* FK)
         UUID avatarAId = UUID.randomUUID();
         UUID avatarBId = UUID.randomUUID();
-        teamAvatarRepository.save(new TeamAvatar(avatarAId, tournamentId, phaseId, 1, 1, teamAId, null, now));
-        teamAvatarRepository.save(new TeamAvatar(avatarBId, tournamentId, phaseId, 1, 2, teamBId, null, now));
+        teamAvatarRepository.save(
+                new TeamAvatar(avatarAId, tournamentId, phaseId, 1, 1, teamAId, null, now));
+        teamAvatarRepository.save(
+                new TeamAvatar(avatarBId, tournamentId, phaseId, 1, 2, teamBId, null, now));
 
         // OPEN match at lap 1, field 1 — the match the Score-Tablet must find
         UUID matchId = UUID.randomUUID();
@@ -285,9 +287,7 @@ class CurrentLapNumberConsumerIT {
 
         DisplayPhaseOverviewResponse body = response.getBody();
         assertThat(body).isNotNull();
-        assertThat(body.phaseStatus())
-                .as("Phase status must be ACTIVE")
-                .isEqualTo("ACTIVE");
+        assertThat(body.phaseStatus()).as("Phase status must be ACTIVE").isEqualTo("ACTIVE");
         assertThat(body.currentLap())
                 .as(
                         "AC-TEST-DISPLAY-ACTIVE-ROUND-IT (DEC-65 D-1): currentLap must be 1"
@@ -300,14 +300,14 @@ class CurrentLapNumberConsumerIT {
     // =========================================================================
 
     /**
-     * AC-TEST-SCORE-TABLET-ACTIVE-MATCH-IT: Score-Tablet active-match lookup returns the in-progress
-     * match during lap 1 (HTTP 200 with match data, not 204 No Content).
+     * AC-TEST-SCORE-TABLET-ACTIVE-MATCH-IT: Score-Tablet active-match lookup returns the
+     * in-progress match during lap 1 (HTTP 200 with match data, not 204 No Content).
      *
      * <p>DEC-65 D-1 operationalization: {@code DefaultScoreEntryService.resolveActiveMatch()} calls
      * {@code findByFieldNumberAndLapNumber(field, phase.currentLapNumber)}. With the old 0-based
-     * counter, {@code currentLapNumber=0} while all matches carry {@code lapNumber=1} → query returns
-     * empty → 204. With the corrected 1-based init-hook, {@code currentLapNumber=1} → query finds
-     * the OPEN match on field 1 → 200.
+     * counter, {@code currentLapNumber=0} while all matches carry {@code lapNumber=1} → query
+     * returns empty → 204. With the corrected 1-based init-hook, {@code currentLapNumber=1} → query
+     * finds the OPEN match on field 1 → 200.
      */
     @Test
     void scoreTablet_activeLap1_findsMatchOnField1() {
@@ -325,12 +325,8 @@ class CurrentLapNumberConsumerIT {
 
         ScoreEntryResult body = response.getBody();
         assertThat(body).isNotNull();
-        assertThat(body.lapNumber())
-                .as("Match returned must be at lapNumber=1")
-                .isEqualTo(1);
-        assertThat(body.fieldNumber())
-                .as("Match returned must be at fieldNumber=1")
-                .isEqualTo(1);
+        assertThat(body.lapNumber()).as("Match returned must be at lapNumber=1").isEqualTo(1);
+        assertThat(body.fieldNumber()).as("Match returned must be at fieldNumber=1").isEqualTo(1);
     }
 
     // =========================================================================

@@ -54,8 +54,8 @@ public class TimerDataResponse {
 
     /**
      * 1-based running-lap index (DEC-65). {@code 0} = sentinel "no lap running" (no active phase,
-     * or ACTIVE post-last-lap). ACTIVE mid-phase lap K: {@code currentLapNumber == K} where K ∈
-     * [1, lapCount].
+     * or ACTIVE post-last-lap). ACTIVE mid-phase lap K: {@code currentLapNumber == K} where K ∈ [1,
+     * lapCount].
      */
     private int currentLapNumber;
 
