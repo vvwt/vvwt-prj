@@ -15,6 +15,12 @@ import { defineConfig } from 'vite';
  * DEC-16 / AC7: Vite produces no external CDN references; all assets are local.
  * The integration test DisplayViewControllerIT verifies that the served HTML contains
  * no 'https://' in <script> or <link> tags.
+ *
+ * E50S06 — test.projects: two vitest projects run via `npm test` → `vitest run`:
+ *   1. "jsdom": all existing source-inspection tests (App.layout, CourtGrid, etc.)
+ *   2. "browser": real-browser-layout-engine tests (OverviewLayout.layout-browser.test.ts)
+ *      Uses Playwright/Chromium (system Chromium at /usr/bin/chromium).
+ *      DEC-54: bound to Maven `test` phase via npm-test-display execution in pom.xml.
  */
 export default defineConfig({
   plugins: [svelte()],
@@ -33,8 +39,70 @@ export default defineConfig({
     emptyOutDir: true,
   },
   test: {
-    environment: 'jsdom',
-    globals: true,
-    setupFiles: [],
+    /**
+     * E50S06: vitest workspace configuration via test.projects (canonical vitest 3.x approach).
+     *
+     * Project 1 "jsdom": all existing source-inspection tests.
+     *   - No changes to test environment for existing tests.
+     *   - Excludes *.layout-browser.test.ts (real-browser tests go to project 2).
+     *
+     * Project 2 "browser": OverviewLayout.layout-browser.test.ts only.
+     *   - Runs in Playwright/Chromium to compute actual CSS layout geometry.
+     *   - Uses system Chromium at /usr/bin/chromium via PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+     *     env var (with /usr/bin/chromium as the default).
+     *   - PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 prevents playwright from downloading Chromium
+     *     during npm install (relies on system Chromium 148, confirmed headless-capable).
+     *   - No pom.xml changes needed: both projects run via the existing `npm test` command,
+     *     which is bound to the Maven `test` phase by npm-test-display (AC-GOVERNANCE-NO-BACKEND-CHANGES,
+     *     AC-GOVERNANCE-LAYOUT-TEST-IN-MVN-VERIFY).
+     */
+    projects: [
+      {
+        /**
+         * Project 1: jsdom environment — all existing source-inspection tests.
+         * Covers: App.layout.test.ts, CourtGrid.test.ts, displayApi.test.ts,
+         *         App.noPhasePolling.test.ts, AppBranding.test.ts, websocket.test.ts.
+         */
+        test: {
+          name: 'jsdom',
+          environment: 'jsdom',
+          globals: true,
+          setupFiles: [],
+          include: ['src/**/*.test.ts'],
+          exclude: ['src/**/*.layout-browser.test.ts'],
+        },
+      },
+      {
+        /**
+         * Project 2: Playwright browser environment — real-layout-engine tests.
+         * Covers: OverviewLayout.layout-browser.test.ts (E50S06 regression test).
+         *
+         * executablePath reads PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH env var with
+         * /usr/bin/chromium as the fallback (system Chromium 148).
+         * Launch args --no-sandbox and --disable-setuid-sandbox are required for
+         * running Chromium as root or in restricted environments.
+         */
+        plugins: [svelte()],
+        test: {
+          name: 'browser',
+          include: ['src/**/*.layout-browser.test.ts'],
+          browser: {
+            enabled: true,
+            provider: 'playwright',
+            headless: true,
+            instances: [
+              {
+                browser: 'chromium',
+                launch: {
+                  executablePath:
+                    process.env['PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH'] ?? '/usr/bin/chromium',
+                  args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+                },
+              },
+            ],
+          },
+        },
+      },
+    ],
   },
 });

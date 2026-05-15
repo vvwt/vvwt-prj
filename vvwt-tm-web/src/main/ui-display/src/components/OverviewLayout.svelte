@@ -99,11 +99,26 @@
   }
 
   .overview-layout__main {
+    /*
+     * E50S06: explicit grid-row: 2 places __main in the 1fr row regardless of
+     * whether the preview banner is rendered. Without this, CSS auto-placement
+     * assigns both __main and __sidebar to row 1 (auto = content-sized) when no
+     * banner element is present, leaving the 1fr row empty and both children
+     * collapsed to content height (height ≈ 0). The real-browser regression test
+     * (OverviewLayout.layout-browser.test.ts) was RED on HEAD without this fix.
+     * AC-TEST-VERTICAL-FILL-REAL-ENGINE-RED / AC-ERROR-FILL-ALL-BANNER-ABSENT-STATES.
+     */
+    grid-row: 2;
     overflow: hidden;
     border-right: 2px solid #ccc;
   }
 
   .overview-layout__sidebar {
+    /*
+     * E50S06: explicit grid-row: 2 (same rationale as __main above).
+     * Both content children are anchored to the 1fr row unconditionally.
+     */
+    grid-row: 2;
     width: 28em;
     overflow: hidden;
     display: flex;
@@ -118,11 +133,19 @@
     }
 
     .overview-layout__main {
+      /*
+       * E50S06: reset explicit grid-row so CSS auto-placement stacks
+       * __main and __sidebar vertically in the single-column narrow layout.
+       * Without this reset, both would overlap in row 2.
+       */
+      grid-row: auto;
       border-right: none;
       border-bottom: 2px solid #ccc;
     }
 
     .overview-layout__sidebar {
+      /* E50S06: reset explicit grid-row (same rationale as __main above) */
+      grid-row: auto;
       width: 100%;
     }
   }
