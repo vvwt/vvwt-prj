@@ -39,6 +39,8 @@ import org.springframework.security.web.SecurityFilterChain;
  *   <li>{@code /score/**} — public (DEC-19, scoring tablet)
  *   <li>{@code /api/devices/register} — public
  *   <li>{@code /api/devices/status} — public
+ *   <li>{@code /api/public-host} — public (E49S04: LAN host detection, consumed by QR-code
+ *       rendering)
  *   <li>{@code /api/score/**} — public
  *   <li>{@code /api/display/**} — public
  *   <li>{@code /display/**} — public
@@ -137,6 +139,8 @@ public final class SecurityConfig {
                                         .requestMatchers("/api/devices/register")
                                         .permitAll()
                                         .requestMatchers("/api/devices/status")
+                                        .permitAll()
+                                        .requestMatchers("/api/public-host")
                                         .permitAll()
                                         .requestMatchers("/api/score/**")
                                         .permitAll()

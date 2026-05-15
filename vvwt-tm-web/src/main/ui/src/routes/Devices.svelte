@@ -43,6 +43,7 @@
     renameDevice,
     type Device,
   } from '../stores/deviceStore.js';
+  import { getPublicOrigin } from '../stores/publicHostStore.js';
 
   // ──────────────────────────────────────────────────────────────────────
   // Constants
@@ -92,6 +93,13 @@
   /** QR code display (E06S05 AC5). */
   let showQr = $state(false);
   let qrSvg = $state('');
+
+  /**
+   * LAN-reachable public origin for the registration QR URL (E49S04).
+   * Fetched from /api/public-host on first QR dialog open; falls back to
+   * window.location.origin when the endpoint is unreachable (AC-ERROR-NO-LAN-INTERFACE-FALLBACK).
+   */
+  let publicOrigin = $state<string>(window.location.origin);
 
   /** Clear all error (E06S05 AC7, AC9). */
   let clearError = $state<string | null>(null);
@@ -336,7 +344,9 @@
   // ──────────────────────────────────────────────────────────────────────
 
   async function handleShowQr(): Promise<void> {
-    const registrationUrl = window.location.origin + '/score/register';
+    // E49S04: fetch the server-detected LAN host (not window.location.origin which may be loopback)
+    publicOrigin = await getPublicOrigin();
+    const registrationUrl = publicOrigin + '/score/register';
     qrSvg = buildQrSvg(registrationUrl);
     showQr = true;
   }
@@ -540,7 +550,7 @@
          aria-label={$_('devices.qrTitle')}>
       <div class="devices__modal">
         <h2>{$_('devices.qrTitle')}</h2>
-        <p class="devices__qr-url">{window.location.origin + '/score/register'}</p>
+        <p class="devices__qr-url">{publicOrigin + '/score/register'}</p>
         <!-- eslint-disable-next-line svelte/no-at-html-tags -->
         {@html qrSvg}
         <button class="btn btn--secondary" onclick={handleHideQr}>

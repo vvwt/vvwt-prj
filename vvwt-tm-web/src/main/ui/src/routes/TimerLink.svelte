@@ -26,6 +26,8 @@
   // AC5/AC7 (E11S08): import the pure URL-builder from its own module so Vitest
   // can test it via production import without Svelte component rendering.
   import { buildTimerUrl } from '../lib/timerLinkUrl.js';
+  // E49S04: import the server-detected LAN origin (not window.location.origin which may be loopback)
+  import { getPublicOrigin } from '../stores/publicHostStore.js';
 
   // ── Props ────────────────────────────────────────────────────────────────
   interface Props {
@@ -34,8 +36,16 @@
   let { params = {} }: Props = $props();
   const tournamentId = $derived(params.tournamentId ?? '');
 
+  /**
+   * LAN-reachable public origin for the timer URL (E49S04 AC-TIMER-URL-LAN-REACHABLE).
+   * Initialized to window.location.origin as a synchronous placeholder; updated to the
+   * server-detected LAN host on mount (AC-TEST-TIMER-URL-USES-LAN-HOST-RED).
+   */
+  let publicOrigin = $state<string>(window.location.origin);
+
   // ── Derived timer URL (AC5 — canonical Wave-2 path via timerLinkUrl module) ──
-  const timerUrl = $derived(buildTimerUrl(window.location.origin, tournamentId));
+  // E49S04: uses publicOrigin (server-detected LAN host) instead of window.location.origin
+  const timerUrl = $derived(buildTimerUrl(publicOrigin, tournamentId));
 
   // ── State ────────────────────────────────────────────────────────────────
 
@@ -50,7 +60,7 @@
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
-  onMount(() => {
+  onMount(async () => {
     // E47S01 AC3/AC5/AC6/AC12: register title, back-arrow, and tournament context in persistent header
     pageHeader.set({
       title: get(_)('timerLink.title'),
@@ -58,6 +68,9 @@
       tournamentId: tournamentId || null,
       actions: [],
     });
+    // E49S04: fetch the server-detected LAN host and update the reactive publicOrigin.
+    // The derived timerUrl re-evaluates automatically when publicOrigin changes.
+    publicOrigin = await getPublicOrigin();
     if (timerUrl) {
       qrSvg = buildQrSvg(timerUrl);
     }
