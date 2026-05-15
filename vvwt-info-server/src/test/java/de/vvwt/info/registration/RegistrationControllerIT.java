@@ -9,7 +9,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.info.dto.envelope.Envelope;
 import de.vvwt.info.dto.registration.RegistrationRequest;
-import de.vvwt.info.persistence.audit.AuditLogDao;
 import de.vvwt.info.persistence.audit.RejectionReason;
 import java.security.KeyPairGenerator;
 import java.util.Base64;
@@ -54,8 +53,6 @@ class RegistrationControllerIT {
     @Autowired private MockMvc mockMvc;
 
     @Autowired private ObjectMapper objectMapper;
-
-    @Autowired private AuditLogDao auditLogDao;
 
     @Autowired private DataSource dataSource;
 
@@ -263,11 +260,16 @@ class RegistrationControllerIT {
                                 .content(objectMapper.writeValueAsString(envelope)))
                 .andExpect(status().isOk());
 
-        // Verify audit row exists
-        var auditRow = auditLogDao.findByRequestId(requestId);
-        assertThat(auditRow).isPresent();
-        assertThat(auditRow.get().tenantId()).isEqualTo(tenantId);
-        assertThat(auditRow.get().rejectionReason()).isNull(); // accepted
+        // Alternative independent verifier (DEC-69 clause 2(d)): direct JDBC read of audit_log row
+        // — auditLogDao.findByRequestId removed per E18S04 (DEC-69 zero-production-callsite rule).
+        var jdbc = new JdbcTemplate(dataSource);
+        var rows =
+                jdbc.queryForList(
+                        "SELECT tenant_id, rejection_reason FROM audit_log WHERE request_id = ?",
+                        requestId);
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).get("tenant_id")).isEqualTo(tenantId);
+        assertThat(rows.get(0).get("rejection_reason")).isNull(); // accepted
     }
 
     @Test
@@ -289,8 +291,13 @@ class RegistrationControllerIT {
                                 .content(objectMapper.writeValueAsString(envelope)))
                 .andExpect(status().isBadRequest());
 
-        var auditRow = auditLogDao.findByRequestId(requestId);
-        assertThat(auditRow).isPresent();
-        assertThat(auditRow.get().rejectionReason()).isEqualTo(RejectionReason.ALGORITHM_UNKNOWN);
+        // Alternative independent verifier (DEC-69 clause 2(d)): direct JDBC read of audit_log row
+        var jdbc2 = new JdbcTemplate(dataSource);
+        var rows2 =
+                jdbc2.queryForList(
+                        "SELECT rejection_reason FROM audit_log WHERE request_id = ?", requestId);
+        assertThat(rows2).hasSize(1);
+        assertThat(rows2.get(0).get("rejection_reason"))
+                .isEqualTo(RejectionReason.ALGORITHM_UNKNOWN.name());
     }
 }

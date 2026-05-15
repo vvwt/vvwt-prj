@@ -1,6 +1,5 @@
 package de.vvwt.tm.tournament.internal;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.AuditLogConfig;
@@ -17,12 +16,8 @@ import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -296,76 +291,6 @@ public class DefaultAuditLogRepository implements AuditLogRepository {
                 .resolve(tournamentId.toString());
     }
 
-    private Path resolveFile(UUID tenantId, UUID tournamentId) {
-        return resolveDir(tenantId, tournamentId).resolve(AUDIT_JSONL_FILENAME);
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * <p>Reads the per-tournament JSONL file and returns the entry matching {@code id}, or empty if
-     * not found or if no file exists yet.
-     */
-    @Override
-    public Optional<AuditLogEntry> findByTournamentIdAndId(UUID tournamentId, UUID id) {
-        UUID tenantId = tenantContext.current();
-        Path file = resolveFile(tenantId, tournamentId);
-        if (!Files.exists(file)) {
-            return Optional.empty();
-        }
-        try {
-            List<String> lines = Files.readAllLines(file);
-            for (String line : lines) {
-                if (line.isBlank()) continue;
-                AuditLogEntry entry =
-                        fromMap(
-                                objectMapper.readValue(
-                                        line, new TypeReference<Map<String, Object>>() {}));
-                if (id.equals(entry.getId())) {
-                    return Optional.of(entry);
-                }
-            }
-        } catch (IOException e) {
-            log.warn(
-                    "[audit-log] read-failed tournamentId={} cause={}", tournamentId, e.toString());
-        }
-        return Optional.empty();
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * <p>Reads the per-tournament JSONL file and returns entries matching {@code matchId} and
-     * {@code setIndex} in file order (= chronological order = append order).
-     */
-    @Override
-    public List<AuditLogEntry> findByTournamentIdAndMatchIdAndSetIndexOrderByChangedAt(
-            UUID tournamentId, UUID matchId, int setIndex) {
-        UUID tenantId = tenantContext.current();
-        Path file = resolveFile(tenantId, tournamentId);
-        if (!Files.exists(file)) {
-            return List.of();
-        }
-        List<AuditLogEntry> result = new ArrayList<>();
-        try {
-            List<String> lines = Files.readAllLines(file);
-            for (String line : lines) {
-                if (line.isBlank()) continue;
-                AuditLogEntry entry =
-                        fromMap(
-                                objectMapper.readValue(
-                                        line, new TypeReference<Map<String, Object>>() {}));
-                if (matchId.equals(entry.getMatchId()) && setIndex == entry.getSetIndex()) {
-                    result.add(entry);
-                }
-            }
-        } catch (IOException e) {
-            log.warn(
-                    "[audit-log] read-failed tournamentId={} cause={}", tournamentId, e.toString());
-        }
-        return result;
-    }
-
     /**
      * Graceful shutdown: drain writer queue (up to 30 s), then close all cached FileChannels.
      *
@@ -433,43 +358,5 @@ public class DefaultAuditLogRepository implements AuditLogRepository {
         m.put("sourceType", e.getSourceType());
         m.put("sourceDeviceId", e.getSourceDeviceId());
         return m;
-    }
-
-    /**
-     * Converts a parsed JSON Map (from {@code objectMapper.readValue(line, new
-     * TypeReference<Map<String, Object>>() {})}) to an {@link AuditLogEntry}.
-     */
-    @SuppressWarnings("unchecked")
-    private AuditLogEntry fromMap(Map<String, Object> m) {
-        AuditLogEntry e = new AuditLogEntry();
-        e.setTournamentId(uuidOrNull(m.get("tournamentId")));
-        e.setId(uuidOrNull(m.get("id")));
-        e.setMatchId(uuidOrNull(m.get("matchId")));
-        Object setIndex = m.get("setIndex");
-        e.setSetIndex(setIndex == null ? 0 : ((Number) setIndex).intValue());
-        e.setTeam1PointsOld(intOrNull(m.get("team1PointsOld")));
-        e.setTeam2PointsOld(intOrNull(m.get("team2PointsOld")));
-        Object t1new = m.get("team1PointsNew");
-        e.setTeam1PointsNew(t1new == null ? 0 : ((Number) t1new).intValue());
-        Object t2new = m.get("team2PointsNew");
-        e.setTeam2PointsNew(t2new == null ? 0 : ((Number) t2new).intValue());
-        e.setSetStateOld(intOrNull(m.get("setStateOld")));
-        Object setStateNew = m.get("setStateNew");
-        e.setSetStateNew(setStateNew == null ? 0 : ((Number) setStateNew).intValue());
-        e.setActorId((String) m.get("actorId"));
-        e.setReason((String) m.get("reason"));
-        String changedAtStr = (String) m.get("changedAt");
-        e.setChangedAt(changedAtStr == null ? null : LocalDateTime.parse(changedAtStr));
-        e.setSourceType((String) m.get("sourceType"));
-        e.setSourceDeviceId((String) m.get("sourceDeviceId"));
-        return e;
-    }
-
-    private static UUID uuidOrNull(Object o) {
-        return o == null ? null : UUID.fromString(o.toString());
-    }
-
-    private static Integer intOrNull(Object o) {
-        return o == null ? null : ((Number) o).intValue();
     }
 }

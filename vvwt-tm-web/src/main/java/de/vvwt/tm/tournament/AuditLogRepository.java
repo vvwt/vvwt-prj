@@ -1,9 +1,5 @@
 package de.vvwt.tm.tournament;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
 /**
  * Public port for tenant-scoped, append-only {@link AuditLogEntry} persistence (DEC-35, E31S01).
  *
@@ -11,18 +7,17 @@ import java.util.UUID;
  * instead of any concrete implementation, eliminating forbidden {@code .internal} imports per
  * DEC-35.
  *
- * <p>Post-E55S13: the canonical implementation is {@link
+ * <p>Post-E55S13 / E18S04: the canonical implementation is {@link
  * de.vvwt.tm.tournament.internal.DefaultAuditLogRepository} — a file-based, JSONL append-only
  * implementation backed by {@code java.nio.channels.FileChannel} (per-tournament physical
  * separation, DEC-14 2026-05-14 amendment).
  *
- * <p>API note: all query methods accept {@code tournamentId} as the first parameter (DDD
- * aggregate-id-first). The implementation routes to the correct per-tournament JSONL file using
- * this parameter.
- *
  * <p>Append-only invariant: {@code deleteById} has been removed from this interface entirely (per
  * AC-IMPL-READ-API-EXTENDED Brief O-9 strict append-only). Any caller that previously held a
  * reference to {@code deleteById} MUST remove the call; there is no replacement.
+ *
+ * <p>DEC-69 (E18S04): every public read method MUST have a production consumer. All read methods
+ * removed from this interface had zero production callsites.
  *
  * @see de.vvwt.tm.tournament.internal.DefaultAuditLogRepository
  * @see AuditLogEntry
@@ -45,25 +40,4 @@ public interface AuditLogRepository {
      * @throws IllegalStateException if no active Spring transaction is present
      */
     AuditLogEntry save(AuditLogEntry entry);
-
-    /**
-     * Returns the audit log entry for the given tournament and entry id.
-     *
-     * @param tournamentId the tournament UUID (used to locate the per-tournament JSONL file)
-     * @param id the entry UUID
-     * @return Optional.of(entry) if found, Optional.empty() otherwise
-     */
-    Optional<AuditLogEntry> findByTournamentIdAndId(UUID tournamentId, UUID id);
-
-    /**
-     * Returns audit entries for a given tournament, match and set index in chronological order
-     * (JSONL line order = append order = chronological order).
-     *
-     * @param tournamentId the tournament UUID (routes to per-tournament JSONL file)
-     * @param matchId the match whose audit entries to retrieve
-     * @param setIndex the set index within the match
-     * @return list of audit entries in chronological order; never null; empty if none found
-     */
-    List<AuditLogEntry> findByTournamentIdAndMatchIdAndSetIndexOrderByChangedAt(
-            UUID tournamentId, UUID matchId, int setIndex);
 }

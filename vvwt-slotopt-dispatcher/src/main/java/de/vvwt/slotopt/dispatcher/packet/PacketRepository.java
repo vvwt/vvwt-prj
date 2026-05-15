@@ -19,7 +19,6 @@ import org.springframework.data.repository.query.Param;
  * <ul>
  *   <li>{@link #findByPacketId(UUID)} — lookup by external UUID
  *   <li>{@link #findByJobId(UUID)} — all packets for a job
- *   <li>{@link #findByStatus(String)} — all packets in a given status
  *   <li>{@link #findFirstByStatusOrderById(String)} — atomic unclaimed-packet selection for claim
  *       operations
  *   <li>{@link #findTimedOutPackets(Instant)} — sweep query for timeout sweeper
@@ -44,14 +43,6 @@ public interface PacketRepository extends CrudRepository<PacketRecord, Long> {
      * @return list of packets belonging to the job (may be empty)
      */
     List<PacketRecord> findByJobId(UUID jobId);
-
-    /**
-     * Finds all {@link PacketRecord}s with the given status.
-     *
-     * @param status the status string (e.g., {@code "UNCLAIMED"})
-     * @return list of matching packets (may be empty)
-     */
-    List<PacketRecord> findByStatus(String status);
 
     /**
      * Finds the first packet with the given status, ordered by ID ascending.

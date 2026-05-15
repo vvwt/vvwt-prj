@@ -6,8 +6,6 @@ import static org.assertj.db.api.Assertions.assertThat;
 import de.vvwt.slotopt.dispatcher.identity.testsupport.DispatcherDaoTestSupport;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import javax.sql.DataSource;
 import org.assertj.db.type.AssertDbConnection;
@@ -96,67 +94,6 @@ class AuditRepositoryIT {
 
         Table table = assertDb.table("audit_entry").build();
         assertThat(table).hasNumberOfRows(2);
-    }
-
-    // -------------------------------------------------------------------------
-    // Read-path tests (Rule 3: fixtures via insertDirectly, NOT repository.save)
-    // -------------------------------------------------------------------------
-
-    @Test
-    void findByWorkerIdReturnsEntriesWhenPresent() {
-        UUID workerId = UUID.randomUUID();
-        Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
-
-        // Rule 3: fixture via direct JDBC
-        DispatcherDaoTestSupport.insertDirectly(
-                dataSource,
-                "audit_entry",
-                Map.of(
-                        "occurred_at", now,
-                        "event_type", "KEY_REGISTERED",
-                        "worker_id", workerId.toString(),
-                        "source_ip", "192.168.1.1",
-                        "detail_json", "{}"));
-
-        List<AuditEntry> found = repository.findByWorkerIdOrderByOccurredAtDesc(workerId);
-
-        assertThat(found).hasSize(1);
-        assertThat(found.get(0).getEventType()).isEqualTo("KEY_REGISTERED");
-        assertThat(found.get(0).getWorkerId()).isEqualTo(workerId);
-    }
-
-    @Test
-    void findByWorkerIdReturnsEmptyWhenAbsent() {
-        List<AuditEntry> found = repository.findByWorkerIdOrderByOccurredAtDesc(UUID.randomUUID());
-        assertThat(found).isEmpty();
-    }
-
-    @Test
-    void findByEventTypeReturnsEntriesWhenPresent() {
-        UUID workerId = UUID.randomUUID();
-        Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
-
-        DispatcherDaoTestSupport.insertDirectly(
-                dataSource,
-                "audit_entry",
-                Map.of(
-                        "occurred_at", now,
-                        "event_type", "KEY_ROLE_CONFLICT",
-                        "worker_id", workerId.toString(),
-                        "source_ip", "10.1.2.3",
-                        "detail_json", "{\"conflict\":true}"));
-
-        List<AuditEntry> found =
-                repository.findByEventTypeOrderByOccurredAtDesc("KEY_ROLE_CONFLICT");
-
-        assertThat(found).hasSize(1);
-        assertThat(found.get(0).getEventType()).isEqualTo("KEY_ROLE_CONFLICT");
-    }
-
-    @Test
-    void findByEventTypeReturnsEmptyWhenAbsent() {
-        List<AuditEntry> found = repository.findByEventTypeOrderByOccurredAtDesc("KEY_REGISTERED");
-        assertThat(found).isEmpty();
     }
 
     // -------------------------------------------------------------------------

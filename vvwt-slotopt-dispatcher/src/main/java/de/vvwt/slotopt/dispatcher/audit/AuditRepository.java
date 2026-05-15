@@ -1,7 +1,5 @@
 package de.vvwt.slotopt.dispatcher.audit;
 
-import java.util.List;
-import java.util.UUID;
 import org.springframework.data.repository.CrudRepository;
 
 /**
@@ -16,21 +14,4 @@ import org.springframework.data.repository.CrudRepository;
  *
  * <p>Story: E37S06; AC-AUDIT-REPOSITORY
  */
-public interface AuditRepository extends CrudRepository<AuditEntry, Long> {
-
-    /**
-     * Finds all audit entries for a given worker ID, ordered by occurrence timestamp descending.
-     *
-     * @param workerId the worker UUID to query for; must not be {@code null}
-     * @return list of matching entries, empty if none found
-     */
-    List<AuditEntry> findByWorkerIdOrderByOccurredAtDesc(UUID workerId);
-
-    /**
-     * Finds all audit entries for a given event type, ordered by occurrence timestamp descending.
-     *
-     * @param eventType the event type string to query for (e.g., {@code "KEY_REGISTERED"})
-     * @return list of matching entries, empty if none found
-     */
-    List<AuditEntry> findByEventTypeOrderByOccurredAtDesc(String eventType);
-}
+public interface AuditRepository extends CrudRepository<AuditEntry, Long> {}

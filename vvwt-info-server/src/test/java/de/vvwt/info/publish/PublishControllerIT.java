@@ -9,7 +9,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.info.dto.envelope.Envelope;
 import de.vvwt.info.dto.publish.TournamentRegistrationRequest;
 import de.vvwt.info.dto.registration.RegistrationRequest;
-import de.vvwt.info.persistence.audit.AuditLogDao;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
@@ -53,8 +52,6 @@ class PublishControllerIT {
     @Autowired private MockMvc mockMvc;
 
     @Autowired private ObjectMapper objectMapper;
-
-    @Autowired private AuditLogDao auditLogDao;
 
     @Autowired private DataSource dataSource;
 
@@ -295,9 +292,14 @@ class PublishControllerIT {
                                 .content(rawBody))
                 .andExpect(status().isOk());
 
-        var auditRow = auditLogDao.findByRequestId(requestId);
-        assertThat(auditRow).isPresent();
-        assertThat(auditRow.get().httpStatus()).isEqualTo(200);
+        // Alternative independent verifier (DEC-69 clause 2(d)): direct JDBC read of audit_log row
+        // — auditLogDao.findByRequestId removed per E18S04 (DEC-69 zero-production-callsite rule).
+        var jdbc = new JdbcTemplate(dataSource);
+        var rows =
+                jdbc.queryForList(
+                        "SELECT http_status FROM audit_log WHERE request_id = ?", requestId);
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).get("http_status")).isEqualTo(200);
     }
 
     // -------------------------------------------------------------------------
