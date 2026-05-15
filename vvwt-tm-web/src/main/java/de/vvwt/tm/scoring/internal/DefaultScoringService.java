@@ -460,16 +460,41 @@ public class DefaultScoringService implements ScoringService {
                             .allMatch(m -> isTerminalState(m.getMatchState()));
 
             if (allTerminalInLap) {
-                phase.setCurrentLapNumber(previousLapNumber + 1);
+                // [E56S01 DEC-65 D-3] Derive lapCount as max(match.lapNumber) for this phase.
+                // Use currentMatchLap (not previousLapNumber) to detect the last-lap boundary —
+                // previousLapNumber may be 0 (sentinel) during a score correction after last-lap
+                // finalization, which would incorrectly advance the sentinel to 1 (DEC-65 D-7).
+                int lapCount =
+                        phaseMatches.stream()
+                                .mapToInt(m -> m.getLapNumber() != null ? m.getLapNumber() : 0)
+                                .max()
+                                .orElse(0);
+                boolean isLastLap = currentMatchLap >= lapCount;
+                if (isLastLap) {
+                    // Last-lap finalization: write sentinel-0 in-place (DEC-65 D-3).
+                    // Phase status stays ACTIVE — operator retains correction window (D-4/D-7).
+                    newLapNumber = 0;
+                    phase.setCurrentLapNumber(0);
+                    log.info(
+                            "[scoring-cascade] Step10 last-lap sentinel written"
+                                    + " (lap {}/{}) phaseId={} correlationId={}",
+                            currentMatchLap,
+                            lapCount,
+                            phase.getId(),
+                            correlationId);
+                } else {
+                    // Non-last lap: advance to next lap (DEC-65 D-3).
+                    newLapNumber = currentMatchLap + 1;
+                    phase.setCurrentLapNumber(newLapNumber);
+                    log.info(
+                            "[scoring-cascade] Step10 lap auto-advanced {} -> {} phaseId={}"
+                                    + " correlationId={}",
+                            previousLapNumber,
+                            newLapNumber,
+                            phase.getId(),
+                            correlationId);
+                }
                 phaseRepository.save(phase);
-                newLapNumber = previousLapNumber + 1;
-                log.info(
-                        "[scoring-cascade] Step10 lap auto-advanced {} -> {} phaseId={}"
-                                + " correlationId={}",
-                        previousLapNumber,
-                        newLapNumber,
-                        phase.getId(),
-                        correlationId);
             } else {
                 log.debug(
                         "[scoring-cascade] Step10 lap NOT advanced (not all matches terminal in"

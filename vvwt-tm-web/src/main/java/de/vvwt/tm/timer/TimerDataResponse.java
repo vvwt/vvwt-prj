@@ -52,7 +52,11 @@ public class TimerDataResponse {
     /** 1-based number of the currently active phase. {@code 0} if no phase is active. */
     private int currentPhaseNumber;
 
-    /** Current lap number within the active phase. {@code 0} if no phase is active. */
+    /**
+     * 1-based running-lap index (DEC-65). {@code 0} = sentinel "no lap running" (no active phase,
+     * or ACTIVE post-last-lap). ACTIVE mid-phase lap K: {@code currentLapNumber == K} where K ∈ [1,
+     * lapCount].
+     */
     private int currentLapNumber;
 
     // ── Schedule flags ────────────────────────────────────────────────────────

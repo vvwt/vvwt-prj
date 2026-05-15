@@ -280,6 +280,21 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
 
         String previous = phase.getStatus();
         phase.setStatus(target.name());
+
+        // [E56S01 DEC-65 D-2/D-4] currentLapNumber hooks at status transitions:
+        // ACTIVE init: set 1 (or 0 for siegerehrung with lapCount=0) per DEC-65 D-2.
+        // COMPLETED reset: set 0 (idempotent sentinel) per DEC-65 D-4.
+        if (target == PhaseStatus.ACTIVE) {
+            int lapCount =
+                    matchRepository.findByPhaseId(phaseId).stream()
+                            .mapToInt(m -> m.getLapNumber() != null ? m.getLapNumber() : 0)
+                            .max()
+                            .orElse(0);
+            phase.setCurrentLapNumber(lapCount > 0 ? 1 : 0);
+        } else if (target == PhaseStatus.COMPLETED) {
+            phase.setCurrentLapNumber(0);
+        }
+
         Phase saved = phaseRepository.save(phase);
 
         eventPublisher.publishEvent(
@@ -419,6 +434,17 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
 
         String previous = phase.getStatus();
         phase.setStatus("ACTIVE");
+
+        // [E56S01 DEC-65 D-2] Init-hook: set currentLapNumber=1 in the same TX as status=ACTIVE.
+        // For siegerehrung phases (lapCount==0, no match rows per DEC-59 Clause F), use sentinel-0
+        // because no lap 1 exists to run — HOW decision recorded in E56S01 execution-plan.
+        int lapCount =
+                matchRepository.findByPhaseId(phaseId).stream()
+                        .mapToInt(m -> m.getLapNumber() != null ? m.getLapNumber() : 0)
+                        .max()
+                        .orElse(0);
+        phase.setCurrentLapNumber(lapCount > 0 ? 1 : 0);
+
         Phase saved = phaseRepository.save(phase);
 
         // [E48S24 D-1a] Auto-promote tournament PLANNED→ACTIVE as atomic side effect of first
@@ -487,6 +513,10 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
 
         String previous = phase.getStatus();
         phase.setStatus("COMPLETED");
+        // [E56S01 DEC-65 D-4] COMPLETED sentinel: reset currentLapNumber=0 (idempotent).
+        // No-op when already 0 (post-last-lap); explicit reset when non-zero (forceComplete
+        // mid-phase).
+        phase.setCurrentLapNumber(0);
         Phase saved = phaseRepository.save(phase);
 
         // [E48S24 D-1b] Auto-promote tournament ACTIVE→COMPLETED as atomic side effect of the
@@ -546,6 +576,9 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
 
         String previous = phase.getStatus();
         phase.setStatus("COMPLETED");
+        // [E56S01 DEC-65 D-4] COMPLETED sentinel: reset currentLapNumber=0 (idempotent).
+        // forceComplete mid-phase: currentLapNumber may be non-zero → explicit reset.
+        phase.setCurrentLapNumber(0);
         Phase saved = phaseRepository.save(phase);
 
         // AC-IMPL-FORCE-COMPLETE-REUSES-LOCKDOWN: reuse E48S04 logic to cancel unfinished matches

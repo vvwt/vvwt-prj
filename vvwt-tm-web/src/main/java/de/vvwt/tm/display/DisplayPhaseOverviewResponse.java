@@ -24,7 +24,9 @@ import java.util.UUID;
  * @param phaseName human-readable phase description
  * @param phaseStatus lifecycle status string ({@code "ACTIVE"} or {@code "PENDING"})
  * @param lapCount total number of laps in this phase
- * @param currentLap current lap number (0 = not started)
+ * @param currentLap 1-based running-lap index (DEC-65): 0 = sentinel "no lap running" (PENDING,
+ *     PREPARED, ASSIGNED, ACTIVE post-last-lap, COMPLETED); ACTIVE mid-phase lap K → K ∈ [1,
+ *     lapCount]
  * @param fieldCount number of playing fields for this tournament
  * @param preparationPreview {@code true} when phase is PENDING but slot-optimization has run
  * @param groups ordered list of group summaries

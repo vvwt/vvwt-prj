@@ -11,8 +11,10 @@ import org.springframework.context.ApplicationEvent;
  * package discipline). It replaces the legacy {@code de.vvwt.tm.domain.event.LapAdvancedEvent} at
  * atomic cutover time. During the parallel-development phase, both coexist.
  *
- * <p>This event is published only when a real lap advance occurs ({@code previousLapNumber !=
- * newLapNumber}). No event is published when no advance occurs.
+ * <p>This event is published only when a real lap advance occurs ({@code newLapNumber > 0 &&
+ * previousLapNumber != newLapNumber}). No event is published on last-lap sentinel writes (DEC-65:
+ * {@code newLapNumber == 0}) or when no advance occurs. {@code previousLapNumber} and {@code
+ * newLapNumber} follow the 1-based running-lap index (DEC-65): 0 = sentinel "no lap running".
  *
  * <h2>MUST NOT carry sensitive payloads</h2>
  *

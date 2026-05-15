@@ -349,6 +349,206 @@ class PhaseLifecycleServiceTest {
     }
 
     // =========================================================================
+    // AC-TEST-INIT-ON-ACTIVE-RED (E56S01 DEC-65 D-2)
+    // ASSIGNED→ACTIVE must init currentLapNumber=1 (or 0 for siegerehrung)
+    // RED on current HEAD: no init-hook → currentLapNumber stays 0 after start()
+    // =========================================================================
+
+    /**
+     * AC-TEST-INIT-ON-ACTIVE-RED (E56S01, DEC-65 D-2).
+     *
+     * <p>When a phase transitions ASSIGNED→ACTIVE via {@link
+     * DefaultPhaseLifecycleService#start(UUID)}, {@code currentLapNumber} MUST be initialised to
+     * {@code 1} in the same transaction that writes {@code status=ACTIVE}. Partial state {@code
+     * status=ACTIVE, currentLapNumber=0} mid-phase is forbidden (DEC-65 D-2).
+     *
+     * <p><b>RED on current HEAD:</b> no init-hook exists → saved phase has {@code
+     * currentLapNumber=0}, not {@code 1} → assertion fails.
+     *
+     * <p><b>GREEN post-fix:</b> {@code start()} sets {@code phase.setCurrentLapNumber(1)} before
+     * {@code phaseRepository.save()}.
+     *
+     * @see DefaultPhaseLifecycleService#start(UUID)
+     * @see <a href="DEC-65">DEC-65 D-2 — init-hook at ASSIGNED→ACTIVE</a>
+     * @see <a href="E56S01">E56S01 — operationalize DEC-65</a>
+     */
+    @Test
+    @DisplayName(
+            "start() — ASSIGNED→ACTIVE sets currentLapNumber=1 (DEC-65 D-2 init-hook)"
+                    + " [AC-TEST-INIT-ON-ACTIVE-RED]")
+    void start_assignedToActive_setsCurrentLapNumberTo1() {
+        // ARRANGE: ASSIGNED phase with lapCount=2 (matches at lapNumbers 1 and 2)
+        Phase phase = assignedPhase();
+        phase.setCurrentLapNumber(0);
+        when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
+        when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        // Two matches in two laps → lapCount = 2 (non-siegerehrung)
+        de.vvwt.tm.tournament.Match m1 = new de.vvwt.tm.tournament.Match();
+        m1.setLapNumber(1);
+        de.vvwt.tm.tournament.Match m2 = new de.vvwt.tm.tournament.Match();
+        m2.setLapNumber(2);
+        // lenient: production code not yet calling findByPhaseId at start() — RED test
+        lenient()
+                .when(matchRepository.findByPhaseId(phaseId))
+                .thenReturn(java.util.List.of(m1, m2));
+
+        // ACT
+        Phase result = service.start(phaseId);
+
+        // ASSERT — DEC-65 D-2: currentLapNumber MUST be 1 post-transition
+        assertThat(result.getCurrentLapNumber()).isEqualTo(1);
+        verify(phaseRepository).save(argThat(p -> p.getCurrentLapNumber() == 1));
+    }
+
+    /**
+     * AC-ERROR-SIEGEREHRUNG-PHASE (E56S01, DEC-65 D-10 HOW decision).
+     *
+     * <p>A siegerehrung phase (vacuous L1+L2, no match rows, {@code lapCount==0} per DEC-59 Clause
+     * F) transitions ASSIGNED→ACTIVE without error. Delivery chose {@code currentLapNumber=0}
+     * (sentinel) at ACTIVE-init because {@code lapCount==0} means no lap 1 exists to run — the
+     * uniform "no lap running" signal of DEC-65 D-1 applies (see execution-plan).
+     *
+     * <p><b>GREEN-only test</b> (behaviour from scratch — verifies chosen HOW value).
+     *
+     * @see DefaultPhaseLifecycleService#start(UUID)
+     * @see <a href="DEC-65">DEC-65 D-10 — siegerehrung HOW decision deferred to operationalizing
+     *     story</a>
+     */
+    @Test
+    @DisplayName(
+            "start() — siegerehrung phase (lapCount=0) ASSIGNED→ACTIVE"
+                    + " sets currentLapNumber=0 (sentinel HOW decision)"
+                    + " [AC-ERROR-SIEGEREHRUNG-PHASE]")
+    void start_siegerehrungPhase_lapCountZero_setsCurrentLapNumberToSentinel() {
+        // ARRANGE: siegerehrung → no matches (lapCount=0)
+        Phase phase = assignedPhase();
+        phase.setCurrentLapNumber(0);
+        when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
+        when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        // lenient: production code not yet calling findByPhaseId at start() — RED test
+        lenient().when(matchRepository.findByPhaseId(phaseId)).thenReturn(java.util.List.of());
+
+        // ACT — must not throw (AC-ERROR-SIEGEREHRUNG-PHASE requires no error on ACTIVE-transition)
+        Phase result = service.start(phaseId);
+
+        // ASSERT — DEC-65 D-10 HOW: sentinel-0 for siegerehrung (lapCount=0)
+        assertThat(result.getCurrentLapNumber()).isEqualTo(0);
+        assertThat(result.getStatus()).isEqualTo("ACTIVE");
+    }
+
+    /**
+     * AC-TEST-INIT-ON-ACTIVE-RED via {@link DefaultPhaseLifecycleService#transition(UUID,
+     * PhaseStatus, String)} — Saga-Orchestrator call-site (DEC-64 D-17).
+     *
+     * <p>{@code transition(phaseId, ACTIVE, "start")} also MUST init {@code currentLapNumber=1} —
+     * this is the Saga-Orchestrator entry-point per DEC-64.
+     *
+     * <p><b>RED on current HEAD:</b> {@code transition()} does not init {@code currentLapNumber}.
+     */
+    @Test
+    @DisplayName(
+            "transition() — ASSIGNED→ACTIVE 'start' sets currentLapNumber=1"
+                    + " (DEC-64 D-17 Saga-Orchestrator call-site)"
+                    + " [AC-TEST-INIT-ON-ACTIVE-RED]")
+    void transition_assignedToActive_setsCurrentLapNumberTo1() {
+        // ARRANGE: ASSIGNED phase with lapCount>0; optimize=false (no activation guard)
+        tournament.setOptimize(false);
+        Phase phase = assignedPhase();
+        phase.setCurrentLapNumber(0);
+        when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
+        when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        de.vvwt.tm.tournament.Match m1 = new de.vvwt.tm.tournament.Match();
+        m1.setLapNumber(1);
+        // lenient: production code not yet calling findByPhaseId at transition() — RED test
+        lenient().when(matchRepository.findByPhaseId(phaseId)).thenReturn(java.util.List.of(m1));
+
+        // ACT
+        Phase result = service.transition(phaseId, Phase.PhaseStatus.ACTIVE, "start");
+
+        // ASSERT — same init-hook applies via transition() path
+        assertThat(result.getCurrentLapNumber()).isEqualTo(1);
+    }
+
+    // =========================================================================
+    // AC-TEST-NON-ACTIVE-AND-COMPLETED-ZERO — COMPLETED sentinel (E56S01 DEC-65 D-4)
+    // complete() and forceComplete() MUST write currentLapNumber=0 (idempotent)
+    // RED on current HEAD: no explicit reset → currentLapNumber stays at whatever value
+    // =========================================================================
+
+    /**
+     * AC-TEST-NON-ACTIVE-AND-COMPLETED-ZERO — {@code complete()} resets {@code currentLapNumber=0}
+     * (E56S01, DEC-65 D-4).
+     *
+     * <p>The {@code ACTIVE→COMPLETED} transition via {@code complete()} MUST write {@code
+     * currentLapNumber=0} as the sentinel. Idempotent: no-op if already 0; explicit reset if
+     * non-zero (e.g., {@code forceComplete} mid-phase).
+     *
+     * <p><b>RED on current HEAD:</b> no reset → {@code currentLapNumber=2} passes through.
+     */
+    @Test
+    @DisplayName(
+            "complete() — resets currentLapNumber to 0 at ACTIVE→COMPLETED (DEC-65 D-4)"
+                    + " [AC-TEST-NON-ACTIVE-AND-COMPLETED-ZERO]")
+    void complete_activeToCompleted_resetsCurrentLapNumberToZero() {
+        // ARRANGE: ACTIVE phase with currentLapNumber=2 (sentinel test — non-zero)
+        Phase phase = activePhase(); // activePhase() has currentLapNumber=2
+        when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
+        when(matchRepository.countUnfinishedByPhaseId(phaseId)).thenReturn(0L);
+        when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Phase result = service.complete(phaseId);
+
+        // ASSERT — DEC-65 D-4: COMPLETED sentinel is 0
+        assertThat(result.getStatus()).isEqualTo("COMPLETED");
+        assertThat(result.getCurrentLapNumber()).isEqualTo(0);
+        verify(phaseRepository).save(argThat(p -> p.getCurrentLapNumber() == 0));
+    }
+
+    /**
+     * AC-TEST-NON-ACTIVE-AND-COMPLETED-ZERO — {@code complete()} is idempotent when {@code
+     * currentLapNumber} is already 0.
+     */
+    @Test
+    @DisplayName(
+            "complete() — idempotent: currentLapNumber=0 stays 0 at ACTIVE→COMPLETED (DEC-65 D-4)"
+                    + " [AC-ERROR-COMPLETED-IDEMPOTENT]")
+    void complete_activeToCompleted_idempotentWhenAlreadyZero() {
+        Phase phase = activePhase();
+        phase.setCurrentLapNumber(0); // already sentinel (last-lap done)
+        when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
+        when(matchRepository.countUnfinishedByPhaseId(phaseId)).thenReturn(0L);
+        when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Phase result = service.complete(phaseId);
+
+        assertThat(result.getCurrentLapNumber()).isEqualTo(0);
+    }
+
+    /**
+     * AC-TEST-NON-ACTIVE-AND-COMPLETED-ZERO — {@code forceComplete()} resets {@code
+     * currentLapNumber=0} even mid-phase (E56S01, DEC-65 D-4).
+     *
+     * <p><b>RED on current HEAD:</b> no reset → {@code currentLapNumber=2} passes through.
+     */
+    @Test
+    @DisplayName(
+            "forceComplete() — resets currentLapNumber to 0 (DEC-65 D-4 forceComplete mid-phase)"
+                    + " [AC-TEST-NON-ACTIVE-AND-COMPLETED-ZERO]")
+    void forceComplete_activePhase_resetsCurrentLapNumberToZero() {
+        // ARRANGE: ACTIVE phase mid-phase (currentLapNumber=2)
+        Phase phase = activePhase(); // currentLapNumber=2
+        when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
+        when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Phase result = service.forceComplete(phaseId);
+
+        // ASSERT — DEC-65 D-4: forceComplete resets sentinel
+        assertThat(result.getStatus()).isEqualTo("COMPLETED");
+        assertThat(result.getCurrentLapNumber()).isEqualTo(0);
+        verify(phaseRepository).save(argThat(p -> p.getCurrentLapNumber() == 0));
+    }
+
+    // =========================================================================
     // Helpers
     // =========================================================================
 
