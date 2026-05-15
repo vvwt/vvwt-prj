@@ -67,7 +67,7 @@
 
         <!-- Database -->
         <postgresql.version>42.7.5</postgresql.version>
-        <h2.version>2.3.232</h2.version>
+        <h2.version>2.4.240</h2.version>
 
         <!-- Testcontainers 2.0.5 — BOM-aligned with Spring Boot 4.0.6 (spring-boot-dependencies-4.0.6.pom
              pins testcontainers 2.0.5). Used for PostgreSQL ITs in vvwt-info-server (DEC-3 OSS-compliant).
