@@ -133,11 +133,19 @@
     }
 
     .overview-layout__main {
+      /*
+       * E50S06: reset explicit grid-row so CSS auto-placement stacks
+       * __main and __sidebar vertically in the single-column narrow layout.
+       * Without this reset, both would overlap in row 2.
+       */
+      grid-row: auto;
       border-right: none;
       border-bottom: 2px solid #ccc;
     }
 
     .overview-layout__sidebar {
+      /* E50S06: reset explicit grid-row (same rationale as __main above) */
+      grid-row: auto;
       width: 100%;
     }
   }
