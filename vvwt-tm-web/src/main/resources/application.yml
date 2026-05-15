@@ -188,6 +188,18 @@ tm:
   # ---------------------------------------------------------------------------
   hikari:
     single-writer-per-tenant: false
+  # ---------------------------------------------------------------------------
+  # E49S04 — LAN-reachable host for registration and timer QR URLs
+  # Default: blank (auto-detection via DefaultLanHostDetector — enumerates local
+  #   network interfaces, selects first site-local non-loopback IPv4 address).
+  # Override: export TM_PUBLIC_HOST=192.168.1.42 or -Dtm.public-host=192.168.1.42
+  #   Required on multi-homed hosts (Ethernet + Wi-Fi + Docker/VPN bridges) where
+  #   interface-enumeration order is non-deterministic (AC-CONFIG-OVERRIDE-EFFECTIVE).
+  # Blank or whitespace-only value: treated as "not set" → auto-detection used + WARN logged
+  #   (AC-ERROR-INVALID-OVERRIDE-FALLBACK).
+  # DEC-15/DEC-16: detection uses local interfaces only — no external network call.
+  # ---------------------------------------------------------------------------
+  public-host: ${TM_PUBLIC_HOST:}
 
 # ---------------------------------------------------------------------------
 # Public Info Portal publisher (E38S09)
