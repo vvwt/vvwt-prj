@@ -200,72 +200,6 @@ class FileAuditLogRepositoryIT {
     }
 
     // -----------------------------------------------------------------------
-    // AC-TEST-RED-FIRST-READ-API
-    // -----------------------------------------------------------------------
-
-    @Test
-    @DisplayName(
-            "AC-TEST-RED-FIRST-READ-API: findBy...OrderByChangedAt returns entries in file order")
-    void readApi_returnsEntriesInChronologicalOrder() throws Exception {
-        UUID tournamentId = UUID.randomUUID();
-        UUID matchId = UUID.randomUUID();
-
-        // Fixture via direct Files.write (DEC-26 Rule 3 analogue — read/write decoupling)
-        AuditLogEntry e1 =
-                new AuditLogEntry(
-                        tournamentId,
-                        UUID.randomUUID(),
-                        matchId,
-                        0,
-                        null,
-                        null,
-                        25,
-                        10,
-                        null,
-                        SetState.WINNER1.getLegacyCode(),
-                        "admin",
-                        "first",
-                        LocalDateTime.of(2026, 5, 14, 10, 0, 0),
-                        "ADMIN",
-                        null);
-        AuditLogEntry e2 =
-                new AuditLogEntry(
-                        tournamentId,
-                        UUID.randomUUID(),
-                        matchId,
-                        0,
-                        25,
-                        10,
-                        20,
-                        15,
-                        SetState.WINNER1.getLegacyCode(),
-                        SetState.WINNER2.getLegacyCode(),
-                        "admin",
-                        "second",
-                        LocalDateTime.of(2026, 5, 14, 11, 0, 0),
-                        "ADMIN",
-                        null);
-
-        Path file = auditFile(tournamentId);
-        Files.createDirectories(file.getParent());
-        // Write fixture directly (not via DAO) per DEC-26 Rule 3 analogue
-        StringBuilder sb = new StringBuilder();
-        sb.append(objectMapper.writeValueAsString(toMap(e1))).append("\n");
-        sb.append(objectMapper.writeValueAsString(toMap(e2))).append("\n");
-        Files.writeString(file, sb.toString());
-
-        List<AuditLogEntry> result =
-                auditLogRepository.findByTournamentIdAndMatchIdAndSetIndexOrderByChangedAt(
-                        tournamentId, matchId, 0);
-
-        assertThat(result).hasSize(2);
-        assertThat(result.get(0).getId()).isEqualTo(e1.getId());
-        assertThat(result.get(1).getId()).isEqualTo(e2.getId());
-        assertThat(result.get(0).getReason()).isEqualTo("first");
-        assertThat(result.get(1).getReason()).isEqualTo("second");
-    }
-
-    // -----------------------------------------------------------------------
     // AC-TEST-PER-TOURNAMENT-SEPARATION
     // -----------------------------------------------------------------------
 
@@ -475,29 +409,5 @@ class FileAuditLogRepositoryIT {
         boolean found =
                 nonBlank.stream().skip(1).anyMatch(l -> l.contains(newEntry.getId().toString()));
         assertThat(found).isTrue();
-    }
-
-    // -----------------------------------------------------------------------
-    // Serialization helper (mirrors DefaultAuditLogRepository.toMap for fixture building)
-    // -----------------------------------------------------------------------
-
-    private Map<String, Object> toMap(AuditLogEntry e) {
-        java.util.LinkedHashMap<String, Object> m = new java.util.LinkedHashMap<>();
-        m.put("tournamentId", e.getTournamentId() == null ? null : e.getTournamentId().toString());
-        m.put("id", e.getId() == null ? null : e.getId().toString());
-        m.put("matchId", e.getMatchId() == null ? null : e.getMatchId().toString());
-        m.put("setIndex", e.getSetIndex());
-        m.put("team1PointsOld", e.getTeam1PointsOld());
-        m.put("team2PointsOld", e.getTeam2PointsOld());
-        m.put("team1PointsNew", e.getTeam1PointsNew());
-        m.put("team2PointsNew", e.getTeam2PointsNew());
-        m.put("setStateOld", e.getSetStateOld());
-        m.put("setStateNew", e.getSetStateNew());
-        m.put("actorId", e.getActorId());
-        m.put("reason", e.getReason());
-        m.put("changedAt", e.getChangedAt() == null ? null : e.getChangedAt().toString());
-        m.put("sourceType", e.getSourceType());
-        m.put("sourceDeviceId", e.getSourceDeviceId());
-        return m;
     }
 }

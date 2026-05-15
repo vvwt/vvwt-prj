@@ -1,16 +1,13 @@
 package de.vvwt.info.persistence.audit;
 
-import java.util.Optional;
-import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.repository.Repository;
-import org.springframework.data.repository.query.Param;
 
 /**
  * Append-only data access object for the {@code audit_log} table (AC10).
  *
- * <p>This interface exposes ONLY read and append operations — no {@code update*}, {@code delete*},
- * or {@code remove*} methods. This is a structural enforcement of the audit-log append-only
- * invariant, verified by {@code AuditLogDaoMethodNamesTest} via reflection.
+ * <p>This interface exposes ONLY append operations — no {@code update*}, {@code delete*}, {@code
+ * remove*}, or read methods (DEC-69 E18S04). This is a structural enforcement of the audit-log
+ * append-only invariant, verified by {@code AuditLogDaoMethodNamesTest} via reflection.
  *
  * <p>Extends {@link Repository} (NOT {@code CrudRepository}) to prevent Spring Data JDBC from
  * exposing {@code delete} and {@code update} methods automatically. Only the explicitly declared
@@ -38,21 +35,4 @@ public interface AuditLogDao extends Repository<AuditLogRecord, Long> {
     default AuditLogRecord append(AuditLogRecord record) {
         return save(record);
     }
-
-    /**
-     * Returns an audit log entry by its auto-generated primary key.
-     *
-     * @param id the auto-generated row identifier
-     * @return the audit log entry, or empty if not found
-     */
-    Optional<AuditLogRecord> findById(Long id);
-
-    /**
-     * Returns an audit log entry by the caller-provided request identifier.
-     *
-     * @param requestId the correlation / idempotency identifier
-     * @return the first matching audit log entry, or empty if not found
-     */
-    @Query("SELECT * FROM audit_log WHERE request_id = :requestId LIMIT 1")
-    Optional<AuditLogRecord> findByRequestId(@Param("requestId") String requestId);
 }

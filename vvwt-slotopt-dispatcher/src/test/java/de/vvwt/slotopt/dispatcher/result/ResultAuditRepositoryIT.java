@@ -5,8 +5,6 @@ import static org.assertj.db.api.Assertions.assertThat;
 
 import de.vvwt.slotopt.dispatcher.identity.testsupport.DispatcherDaoTestSupport;
 import java.time.Instant;
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import javax.sql.DataSource;
 import org.assertj.db.type.AssertDbConnection;
@@ -80,43 +78,6 @@ class ResultAuditRepositoryIT {
         Table table = assertDb.table("result_audit_entry").build();
         assertThat(table).hasNumberOfRows(1);
         assertThat(table).row(0).value("outcome").isEqualTo("ACCEPTED");
-    }
-
-    // -------------------------------------------------------------------------
-    // Read-path tests (Rule 3: fixtures via insertDirectly)
-    // -------------------------------------------------------------------------
-
-    @Test
-    void findByPacketIdReturnsEntryWhenPresent() {
-        UUID packetId = UUID.randomUUID();
-        UUID workerId = UUID.randomUUID();
-
-        DispatcherDaoTestSupport.insertDirectly(
-                dataSource,
-                "result_audit_entry",
-                Map.of(
-                        "packet_id",
-                        packetId.toString(),
-                        "worker_id",
-                        workerId.toString(),
-                        "algorithm",
-                        "Ed25519",
-                        "source_ip",
-                        "10.0.0.1",
-                        "received_at",
-                        Instant.now().toString(),
-                        "outcome",
-                        "SUPERSEDED"));
-
-        List<ResultAuditEntry> found = repository.findByPacketId(packetId);
-        assertThat(found).hasSize(1);
-        assertThat(found.get(0).getOutcome()).isEqualTo("SUPERSEDED");
-    }
-
-    @Test
-    void findByPacketIdReturnsEmptyWhenAbsent() {
-        List<ResultAuditEntry> found = repository.findByPacketId(UUID.randomUUID());
-        assertThat(found).isEmpty();
     }
 
     // -------------------------------------------------------------------------

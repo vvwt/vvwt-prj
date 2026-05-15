@@ -171,44 +171,6 @@ class PacketRepositoryIT {
         assertThat(found).allMatch(p -> p.getJobId().equals(jobId));
     }
 
-    @Test
-    void findByStatusReturnsMatchingPackets() {
-        UUID jobId = UUID.randomUUID();
-
-        DispatcherDaoTestSupport.insertDirectly(
-                dataSource,
-                "packet",
-                Map.of(
-                        "packet_id",
-                        UUID.randomUUID().toString(),
-                        "job_id",
-                        jobId.toString(),
-                        "packet_payload_json",
-                        "{}",
-                        "status",
-                        "UNCLAIMED"));
-        DispatcherDaoTestSupport.insertDirectly(
-                dataSource,
-                "packet",
-                Map.of(
-                        "packet_id",
-                        UUID.randomUUID().toString(),
-                        "job_id",
-                        jobId.toString(),
-                        "packet_payload_json",
-                        "{}",
-                        "status",
-                        "CLAIMED"));
-
-        List<PacketRecord> unclaimed = repository.findByStatus("UNCLAIMED");
-        List<PacketRecord> claimed = repository.findByStatus("CLAIMED");
-
-        assertThat(unclaimed).hasSize(1);
-        assertThat(claimed).hasSize(1);
-        assertThat(unclaimed.get(0).getStatus()).isEqualTo("UNCLAIMED");
-        assertThat(claimed.get(0).getStatus()).isEqualTo("CLAIMED");
-    }
-
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
