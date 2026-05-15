@@ -12,12 +12,19 @@
  *   Only a real browser layout engine can observe that the rendered page fails to fill the
  *   viewport. This test runs in Playwright/Chromium (system Chromium) via vitest browser mode.
  *
- * ROOT CAUSE (to be detected by this test):
+ * ROOT CAUSE (detected by this test on RED commit):
  *   .overview-layout { grid-template-rows: auto 1fr; height: 100%; }
  *   .overview-layout__main and .overview-layout__sidebar have no explicit grid-row.
  *   CSS auto-placement assigns both children to row 1 (auto = content-sized) when no
  *   banner element is present. The 1fr row stays empty. Both children collapse to content
- *   height. The viewport's lower portion is blank grey space.
+ *   height (height = 0 in Chromium). The viewport's lower portion is blank grey space.
+ *
+ * CSS SOURCE STRATEGY:
+ *   The test reads the CSS <style> block directly from OverviewLayout.svelte using
+ *   @vitest/browser's commands.readFile API. This ensures the test exercises the ACTUAL
+ *   component CSS (including any future edits), not a stale hardcoded copy.
+ *   When the fix adds `grid-row: 2` to OverviewLayout.svelte, this test immediately
+ *   picks it up and turns GREEN.
  *
  * This test runs ONLY in the "browser" vitest project (vitest.workspace.ts),
  * which uses Playwright/Chromium as the test environment. The jsdom project
@@ -28,14 +35,50 @@
  * AC: AC-TEST-VERTICAL-FILL-REAL-ENGINE-RED, AC-TEST-VERTICAL-FILL-BANNER-PRESENT-GREEN
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
+import { commands, page } from '@vitest/browser/context';
 
 /**
- * CSS extracted from OverviewLayout.svelte <style> block (authoritative source).
- * This fixture directly tests the component's own CSS, not a copy.
+ * Reads the <style> block from a Svelte component file via @vitest/browser commands.
+ * The readFile command runs on the vitest server (Node.js), not in the browser.
+ * This gives the test access to the live OverviewLayout.svelte CSS, not a copy.
  *
- * Note: In a vitest browser project, this file runs in the actual browser context.
- * `document`, `window`, `getComputedStyle`, and `getBoundingClientRect` are real.
+ * Path construction: use URL manipulation (browser-compatible, no node:path import).
+ */
+async function readOverviewLayoutCSS(): Promise<string> {
+  // Construct path: from this file's URL, go up one level to get the component dir
+  const thisFileUrl = new URL(import.meta.url);
+  // thisFileUrl.pathname: .../src/components/OverviewLayout.layout-browser.test.ts
+  // We want:             .../src/components/OverviewLayout.svelte
+  const svelteFilePath = thisFileUrl.pathname.replace(
+    /OverviewLayout\.layout-browser\.test\.ts$/,
+    'OverviewLayout.svelte'
+  );
+  const source = await commands.readFile(svelteFilePath, 'utf-8');
+  const styleMatch = source.match(/<style[^>]*>([\s\S]*?)<\/style>/);
+  if (!styleMatch) throw new Error('No <style> block found in OverviewLayout.svelte');
+  return styleMatch[1];
+}
+
+let overviewLayoutCSS: string;
+
+/** Viewport height used for layout assertions (matches page.viewport() call) */
+const VIEWPORT_HEIGHT = 896;
+const VIEWPORT_WIDTH = 1280;
+
+beforeAll(async () => {
+  overviewLayoutCSS = await readOverviewLayoutCSS();
+  // Set the iframe viewport to a known size so height assertions are deterministic.
+  // vitest browser runs tests in an iframe with a small default height; without this,
+  // window.innerHeight returns the outer browser window height but 100vh is the iframe
+  // height, causing a mismatch in layout assertions.
+  await page.viewport(VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
+});
+
+/**
+ * Creates a fixture DOM element with the real OverviewLayout CSS injected.
+ * On RED commit: no grid-row on __main/__sidebar → auto-placement in row 1 → height = 0.
+ * On GREEN commit: grid-row: 2 on both → placed in 1fr row → height ≈ viewport height.
  */
 function buildOverviewLayoutFixture(options: { includeBanner: boolean }): HTMLElement {
   const container = document.createElement('div');
@@ -46,39 +89,9 @@ function buildOverviewLayoutFixture(options: { includeBanner: boolean }): HTMLEl
   container.style.height = '100vh';
   container.style.overflow = 'hidden';
 
-  // Inject the OverviewLayout CSS (copied from OverviewLayout.svelte <style>)
-  // This is the exact CSS that governs the defect.
+  // Inject the ACTUAL CSS from OverviewLayout.svelte (read from disk via commands.readFile)
   const style = document.createElement('style');
-  style.textContent = `
-    .overview-layout {
-      display: grid;
-      grid-template-columns: 4fr 28em;
-      grid-template-rows: auto 1fr;
-      height: 100%;
-      overflow: hidden;
-    }
-    .overview-layout__preview-banner {
-      grid-column: 1 / -1;
-      background: #f39c12;
-      color: #fff;
-      font-size: 1.25rem;
-      font-weight: bold;
-      text-align: center;
-      padding: 0.4rem 1rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-    }
-    .overview-layout__main {
-      overflow: hidden;
-      border-right: 2px solid #ccc;
-    }
-    .overview-layout__sidebar {
-      width: 28em;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-  `;
+  style.textContent = overviewLayoutCSS;
   container.appendChild(style);
 
   const layout = document.createElement('div');
@@ -94,12 +107,10 @@ function buildOverviewLayoutFixture(options: { includeBanner: boolean }): HTMLEl
 
   const main = document.createElement('div');
   main.className = 'overview-layout__main';
-  main.setAttribute('data-testid', 'main');
   layout.appendChild(main);
 
   const sidebar = document.createElement('div');
   sidebar.className = 'overview-layout__sidebar';
-  sidebar.setAttribute('data-testid', 'sidebar');
   layout.appendChild(sidebar);
 
   container.appendChild(layout);
@@ -112,12 +123,14 @@ describe('E50S06 AC-TEST-VERTICAL-FILL-REAL-ENGINE-RED', () => {
    *
    * RED on current HEAD: .overview-layout__main has no grid-row assignment,
    * so CSS auto-placement puts it in row 1 (auto = 0 height since content is empty).
-   * The 1fr row stays empty. getBoundingClientRect().height ≈ 0 px.
+   * The 1fr row stays empty. getBoundingClientRect().height = 0.
    *
    * GREEN after fix: explicit grid-row: 2 places __main in the 1fr row.
-   * getBoundingClientRect().height ≈ viewport height (nearly all available space).
+   * getBoundingClientRect().height ≈ viewport height.
    *
-   * DEC-22 RED-first: this test was written before the production fix was applied.
+   * DEC-22 RED-first: this test was committed before the production fix was applied.
+   * The RED commit (chore(E50S06): RED) precedes the GREEN commit (feat(E50S06): fix)
+   * in git log — demonstrably verifiable via `git log --oneline`.
    */
   let fixture: HTMLElement;
 
@@ -131,26 +144,25 @@ describe('E50S06 AC-TEST-VERTICAL-FILL-REAL-ENGINE-RED', () => {
   });
 
   it('banner-absent (ACTIVE): .overview-layout__main fills ≥ 90% of the viewport height', () => {
-    const viewportHeight = window.innerHeight;
     const main = fixture.querySelector('.overview-layout__main') as HTMLElement;
     expect(main).not.toBeNull();
 
     const mainRect = main.getBoundingClientRect();
 
-    // DEFECT fingerprint: without grid-row:2, mainRect.height ≈ 0 (auto row, no content)
-    // PASS condition: mainRect.height must be ≥ 90% of the viewport (fills the 1fr row)
-    expect(mainRect.height).toBeGreaterThanOrEqual(viewportHeight * 0.9);
+    // DEFECT fingerprint: without grid-row:2, mainRect.height = 0 (auto row, no content)
+    // PASS condition: mainRect.height must be ≥ 90% of the viewport height (fills the 1fr row)
+    // viewport height is set to VIEWPORT_HEIGHT (896) via page.viewport() in beforeAll.
+    expect(mainRect.height).toBeGreaterThanOrEqual(VIEWPORT_HEIGHT * 0.9);
   });
 
   it('banner-absent (ACTIVE): .overview-layout__sidebar fills ≥ 90% of the viewport height', () => {
-    const viewportHeight = window.innerHeight;
     const sidebar = fixture.querySelector('.overview-layout__sidebar') as HTMLElement;
     expect(sidebar).not.toBeNull();
 
     const sidebarRect = sidebar.getBoundingClientRect();
 
     // Same defect: sidebar also auto-places in row 1, collapses to 0 height
-    expect(sidebarRect.height).toBeGreaterThanOrEqual(viewportHeight * 0.9);
+    expect(sidebarRect.height).toBeGreaterThanOrEqual(VIEWPORT_HEIGHT * 0.9);
   });
 
   it('banner-absent: both __main and __sidebar have the same top position (same grid row)', () => {
@@ -161,8 +173,7 @@ describe('E50S06 AC-TEST-VERTICAL-FILL-REAL-ENGINE-RED', () => {
     const sidebarRect = sidebar.getBoundingClientRect();
 
     // Both are in the same row (row 2 / 1fr after fix).
-    // With the defect: both are in row 1 (auto) → top ≈ 0 AND height ≈ 0.
-    // The height assertion above is the primary gate; this checks row alignment.
+    // Row alignment is confirmed when heights are also correct (complementary assertion).
     expect(Math.abs(mainRect.top - sidebarRect.top)).toBeLessThan(2); // same row ± 1px
   });
 });
@@ -174,14 +185,16 @@ describe('E50S06 AC-TEST-VERTICAL-FILL-BANNER-PRESENT-GREEN', () => {
    *
    * Per AC text: "its test mechanism is a Delivery HOW decision and need not use the
    * real-layout-engine harness (a structural assertion is acceptable here)".
-   * However, running this in the browser project provides a more thorough check.
+   * This test uses the same real-browser approach as the banner-absent test for
+   * consistency and to provide a more thorough check.
    *
-   * GREEN: passes before and after the fix (the banner case has always worked
-   * structurally because the banner occupies the auto row, pushing children to 1fr
-   * via auto-placement flow — BUT only when the banner IS rendered).
-   * The fix (explicit grid-row: 2) makes both cases work consistently.
+   * GREEN: passes after the fix. The explicit grid-row: 2 makes both banner-absent
+   * and banner-present cases consistent.
    *
-   * This test verifies the fix does not break the banner-present scenario.
+   * Note: Even on current HEAD (RED), the banner-present case MAY pass because
+   * the banner element occupies the auto row, and auto-placement may assign __main
+   * to row 2 implicitly. This test is a GUARD — it must remain GREEN after the fix
+   * to ensure the fix doesn't break the banner-present rendering.
    */
   let fixture: HTMLElement;
 
@@ -194,7 +207,7 @@ describe('E50S06 AC-TEST-VERTICAL-FILL-BANNER-PRESENT-GREEN', () => {
     document.body.style.height = '100%';
   });
 
-  it('banner-present (PENDING/PREPARATION): layout grid contains all three expected elements', () => {
+  it('banner-present (PENDING/PREPARATION): all three elements are rendered', () => {
     const banner = fixture.querySelector('.overview-layout__preview-banner');
     const main = fixture.querySelector('.overview-layout__main');
     const sidebar = fixture.querySelector('.overview-layout__sidebar');
@@ -204,18 +217,16 @@ describe('E50S06 AC-TEST-VERTICAL-FILL-BANNER-PRESENT-GREEN', () => {
     expect(sidebar).not.toBeNull();
   });
 
-  it('banner-present: .overview-layout__main fills a substantial portion of the viewport', () => {
-    const viewportHeight = window.innerHeight;
+  it('banner-present: .overview-layout__main fills a substantial portion below the banner', () => {
     const main = fixture.querySelector('.overview-layout__main') as HTMLElement;
+    const banner = fixture.querySelector('.overview-layout__preview-banner') as HTMLElement;
 
-    const bannerRect = fixture.querySelector('.overview-layout__preview-banner')!.getBoundingClientRect();
+    const bannerRect = banner.getBoundingClientRect();
     const mainRect = main.getBoundingClientRect();
 
-    // With the banner present, __main should fill the space BELOW the banner.
-    // Even before the E50S06 fix, the banner case was marginally better because the
-    // banner occupies the auto row and the children auto-flow to row 2 (the 1fr row).
-    // After the fix (explicit grid-row: 2), this is guaranteed regardless of banner.
-    const availableHeight = viewportHeight - bannerRect.height;
+    // __main should fill the space below the banner (the 1fr row).
+    // VIEWPORT_HEIGHT set via page.viewport() in beforeAll.
+    const availableHeight = VIEWPORT_HEIGHT - bannerRect.height;
     expect(mainRect.height).toBeGreaterThanOrEqual(availableHeight * 0.9);
   });
 });
