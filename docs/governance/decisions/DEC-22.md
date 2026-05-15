@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-22.md at 9c78478e3474589ce04d5709ec49aaa2fcd12b2b 2026-05-07 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-22.md at 17cae34b71e17cee9cc8da23c3d7bf8695f20675 2026-05-15 -->
 ---
 id: DEC-22
 domain: governance
@@ -8,10 +8,10 @@ status: active
 created_by: discovery
 created_at: 2026-04-18
 last_updated_by: discovery
-last_updated_at: 2026-05-07
+last_updated_at: 2026-05-15
 supersedes: null
 superseded_by: null
-amended_by: [DEC-34, DEC-36, DEC-41, DEC-54]
+amended_by: [DEC-34, DEC-36, DEC-41, DEC-54, DEC-67]
 tags:
   - tdd
   - testing
@@ -148,3 +148,7 @@ See **DEC-41** for the full amendment. In summary: new clauses are added to this
 ## 2026-05-07 Amendment — qa-review canonical-build gate
 
 See **DEC-54** for the full amendment. In summary: a new clause is added to this DEC's `## Decision` section requiring that the `qa-review` skill (`SKILL-QA-REVIEW-001` at `.gaai/core/skills/delivery/qa-review/SKILL.md`) verify the canonical full-Maven-lifecycle target (`mvn verify` invoked from the vvwt-prj root) succeeded with exit-zero before allowing the qa_report verdict to be PASS — closing the frontend-build-bypass class demonstrated by E48S11's `{@const}` Svelte compile error reaching `staging` 2026-05-06 (PR #203 had no CI gates, vitest source-inspection tests never invoked the Svelte compiler, and `mvn verify` was not run before close-story despite `vvwt-tm-web/pom.xml:341–349` binding `npm run build` to `generate-resources`). Partial Maven invocations (`mvn test`, `mvn package`) and partial frontend invocations (`npm run build` standalone, `npm test` standalone) are insufficient evidence — only `mvn verify`'s full phase traversal is. Asymmetric-error preference (false-FAIL preferred to false-PASS) applies: missing invocation, unparseable output, or non-zero exit all FAIL the gate; only verified exit-zero with parseable output produces verdict PASS contribution. Non-Maven projects (no `pom.xml` discoverable) emit verdict SKIPPED, not FAIL. Enforcement is a new Step in the qa-review skill (pre-PR-merge per `delivery-loop.workflow.md` § Step 7), inserted after Step 7 (DEC-41 Spec-Anchored Test Reuse Check); the actual Step text is delivered via the paired operationalization story E17S21. The Iron Law, JMH carve-out, reconstruction-in-place migration, characterization-test prohibition, Slot-Opt-tests-remain-valid, documentation duty, Wave-1 Epic-1/Epic-3 impact, characterization revisitation, CI implications conditional clause (§ Impact paragraph 4), and no-supersession statement all remain TEXTUALLY UNCHANGED in this DEC's `## Decision` and `## Impact` sections. DEC-54 introduces no new authority and no new state — it tightens the existing qa-review verdict scope from "tests pass + ACs met" to "tests pass + ACs met + canonical full-Maven-lifecycle target succeeds". All other clauses of this DEC remain UNCHANGED by DEC-54. `last_updated_at` advances to 2026-05-07; `status` remains `active`; no `supersedes`/`superseded_by` change.
+
+## 2026-05-15 Amendment — Dependency-version changes outside RED-first scope
+
+See **DEC-67** for the full amendment. In summary: a scope-clarification clause establishes that a change whose production-side footprint is limited to a dependency-version coordinate (a version property or `<version>` element in a `pom.xml`, or an equivalent build-descriptor coordinate) authors NO first-party code and falls OUTSIDE the RED-first Iron Law — the same non-authoring category as DEC-29's mechanical-fix carve-out (`patterns/conventions.md` § Compiler Hygiene). Verification of a dependency-version change is: existing test suite GREEN (`mvn verify` BUILD SUCCESS, DEC-54) — mandatory; documented defect-justification (vendor changelog citation + empirical evidence where feasible) when the upgrade targets a specific defect — mandatory; a GREEN-only regression-guard test — recommended. No fixed numeric evidence threshold is imposed. The clarification does NOT extend to first-party code: if a dependency upgrade forces source edits (a breaking API change), those edits remain full DEC-22 RED-first territory; the story author classifies pure-coordinate vs coordinate+forced-edits at authoring time, verified by the Independent Review gate. No `qa-review` skill change is required. The Iron Law, JMH carve-out, reconstruction-in-place migration strategy, characterization-test prohibition, Slot-Opt-tests-remain-valid clause, documentation duty, Wave-1 Epic-1/Epic-3 impact, and no-supersession statement all remain TEXTUALLY UNCHANGED in this DEC's `## Decision` and `## Impact` sections. DEC-67 is the first DEC-22 amendment authored from a delivery-time category-error post-mortem (E55S12) rather than from a forward-looking policy change. `last_updated_at` advances to 2026-05-15; `status` remains `active`; no `supersedes`/`superseded_by` change.
