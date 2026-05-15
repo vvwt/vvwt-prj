@@ -3,10 +3,17 @@ package de.vvwt.tm.web;
 import de.vvwt.tm.tournament.Match;
 import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.PhaseTransitionService;
+import de.vvwt.tm.tournament.SetResult;
+import de.vvwt.tm.tournament.SetResultRepository;
+import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarProposal;
+import de.vvwt.tm.tournament.TeamAvatarRepository;
+import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.web.internal.dto.MatchSummaryResponse;
+import de.vvwt.tm.web.internal.dto.MatchSummaryResponse.SetScoreDto;
 import de.vvwt.tm.web.internal.dto.TeamAvatarAssignment;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -31,7 +38,6 @@ import org.springframework.web.bind.annotation.RestController;
  *   <li>POST /api/phases/{phaseId}/transition-commit — commits (admin-corrected) assignment as
  *       TeamAvatars
  *   <li>GET /api/phases/{phaseId}/matches — returns match summary list for correction navigation
- *       (E48S25, AC-FE-PHASELIST-CORRECTION-LINKS)
  * </ul>
  *
  * <h2>Modulith cycle prevention (DEC-40 Clause B 2026-04-27)</h2>
@@ -57,14 +63,25 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/phases")
 public class PhaseTransitionController {
 
+    private static final String UNKNOWN_TEAM = "–";
+
     private final PhaseTransitionService phaseTransitionService;
     private final MatchRepository matchRepository;
+    private final TeamAvatarRepository teamAvatarRepository;
+    private final TeamRepository teamRepository;
+    private final SetResultRepository setResultRepository;
 
     public PhaseTransitionController(
             @Qualifier("tmPhaseTransitionService") PhaseTransitionService phaseTransitionService,
-            MatchRepository matchRepository) {
+            MatchRepository matchRepository,
+            TeamAvatarRepository teamAvatarRepository,
+            TeamRepository teamRepository,
+            SetResultRepository setResultRepository) {
         this.phaseTransitionService = phaseTransitionService;
         this.matchRepository = matchRepository;
+        this.teamAvatarRepository = teamAvatarRepository;
+        this.teamRepository = teamRepository;
+        this.setResultRepository = setResultRepository;
     }
 
     // -------------------------------------------------------------------------
@@ -130,37 +147,88 @@ public class PhaseTransitionController {
 
     // -------------------------------------------------------------------------
     // GET /api/phases/{phaseId}/matches
-    // (E48S25, AC-FE-PHASELIST-CORRECTION-LINKS — match list for correction navigation)
+    // (E48S26 — match-overview endpoint: team names + set scores)
     // -------------------------------------------------------------------------
 
     /**
      * Returns a summary list of all matches in the given phase for correction-route navigation.
      *
-     * <p>The Admin SPA uses this endpoint to render "Korrigieren" links per match row in the Phase
-     * view (PhaseList.svelte). Each match summary includes the match state so the SPA can suppress
-     * correction links for INPROGRESS and ONCHECK matches (which the backend guards too).
+     * <p>Each summary includes team display names (resolved via {@code TeamAvatar →
+     * Team.description} join) and an ordered list of per-set scores (from {@link
+     * SetResultRepository}). When a TeamAvatar's {@code teamId} is null or the Team record is
+     * missing, the name falls back to {@value #UNKNOWN_TEAM}.
      *
      * <p>Read-only — no lock, no persistence. Tenant-scoped via {@link MatchRepository}.
      *
      * @param phaseId the UUID of the phase whose matches to list
      * @return 200 OK with the list of match summaries (empty list if no matches exist)
      * @see de.vvwt.tm.web.internal.dto.MatchSummaryResponse
-     * @see <a href="E48S25">E48S25 — Operator Match Score Correction + Nacherfassung</a>
      */
     @GetMapping("/{phaseId}/matches")
     public ResponseEntity<List<MatchSummaryResponse>> listPhaseMatches(
             @PathVariable("phaseId") UUID phaseId) {
         List<Match> matches = matchRepository.findByPhaseId(phaseId);
         List<MatchSummaryResponse> response =
-                matches.stream()
-                        .map(
-                                m ->
-                                        new MatchSummaryResponse(
-                                                m.getId(),
-                                                m.getMatchState().name(),
-                                                m.getLapNumber(),
-                                                m.getFieldNumber()))
-                        .toList();
+                matches.stream().map(m -> toMatchSummaryResponse(m)).toList();
         return ResponseEntity.ok(response);
+    }
+
+    // -------------------------------------------------------------------------
+    // Private helpers
+    // -------------------------------------------------------------------------
+
+    private MatchSummaryResponse toMatchSummaryResponse(Match match) {
+        String team1Name = resolveTeamName(match.getMemberAvatar1Id());
+        String team2Name = resolveTeamName(match.getMemberAvatar2Id());
+        List<SetScoreDto> setScores = resolveSetScores(match.getId());
+        return new MatchSummaryResponse(
+                match.getId(),
+                match.getMatchState().name(),
+                match.getLapNumber(),
+                match.getFieldNumber(),
+                team1Name,
+                team2Name,
+                setScores);
+    }
+
+    /**
+     * Resolves a team display name via the two-hop join: TeamAvatar → Team.description.
+     *
+     * <p>Falls back to {@value #UNKNOWN_TEAM} when: the avatarId is null, the TeamAvatar record is
+     * absent, the avatar's teamId is null, the Team record is absent, or the description is blank.
+     */
+    private String resolveTeamName(UUID avatarId) {
+        if (avatarId == null) {
+            return UNKNOWN_TEAM;
+        }
+        Optional<TeamAvatar> avatarOpt = teamAvatarRepository.findById(avatarId);
+        if (avatarOpt.isEmpty()) {
+            return UNKNOWN_TEAM;
+        }
+        UUID teamId = avatarOpt.get().getTeamId();
+        if (teamId == null) {
+            return UNKNOWN_TEAM;
+        }
+        return teamRepository
+                .findById(teamId)
+                .map(t -> t.getDescription())
+                .filter(d -> d != null && !d.isBlank())
+                .orElse(UNKNOWN_TEAM);
+    }
+
+    /**
+     * Loads per-set scores for a match, sorted by {@code setIndex} ascending.
+     *
+     * @param matchId the match UUID
+     * @return ordered list of {@link SetScoreDto}; empty when no sets have been recorded
+     */
+    private List<SetScoreDto> resolveSetScores(UUID matchId) {
+        return setResultRepository.findByMatchId(matchId).stream()
+                .sorted(java.util.Comparator.comparingInt(SetResult::getSetIndex))
+                .map(
+                        sr ->
+                                new SetScoreDto(
+                                        sr.getSetIndex(), sr.getTeam1Points(), sr.getTeam2Points()))
+                .toList();
     }
 }

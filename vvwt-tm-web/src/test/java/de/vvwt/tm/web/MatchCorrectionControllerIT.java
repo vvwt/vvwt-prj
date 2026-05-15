@@ -433,12 +433,12 @@ class MatchCorrectionControllerIT {
 
     // =========================================================================
     // GET /api/phases/{phaseId}/matches → 200 with match list
-    // (AC-FE-PHASELIST-CORRECTION-LINKS: PhaseList correction navigation)
+    // (E48S25 regression: endpoint exists and returns match list)
     // =========================================================================
 
     @Test
     @DisplayName(
-            "AC-FE-PHASELIST-CORRECTION-LINKS: GET /api/phases/{phaseId}/matches returns 200"
+            "GET /api/phases/{phaseId}/matches returns 200"
                     + " with non-empty match list for seeded phase")
     void getPhaseMatches_returnsMatchList() throws Exception {
         tenantBinder.bindDefaultTenant();

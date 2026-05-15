@@ -56,6 +56,7 @@
   import PhaseTransition from './routes/PhaseTransition.svelte';
   import PhasePreparation from './routes/PhasePreparation.svelte';
   import MatchCorrection from './routes/MatchCorrection.svelte';
+  import MatchOverview from './routes/MatchOverview.svelte';
   import { pageHeader, type PageHeaderState } from './stores/pageHeaderStore.js';
   import { getTournament, type Tournament } from './stores/tournamentStore.js';
   import { _ } from 'svelte-i18n';
@@ -77,6 +78,7 @@
     ['/tournaments/:tournamentId/phases', PhaseList],
     ['/tournaments/:tournamentId/phases/:phaseId/transition', PhaseTransition],
     ['/tournaments/:tournamentId/phases/:phaseId/prepare', PhasePreparation],
+    ['/tournaments/:tournamentId/phases/:phaseId/matches', MatchOverview],
     ['/tournaments/:tournamentId/phases/:phaseId/matches/:matchId/correction', MatchCorrection],
     ['/devices', Devices],
   ]);

@@ -80,6 +80,31 @@
       "standoff-format-mismatch": "Invalid result: draws are not allowed for the selected match format."
     }
   },
+  "matchOverview": {
+    "pageTitle": "Phase Matches",
+    "showMatchesButton": "Show matches",
+    "loadError": "Error loading matches.",
+    "empty": "No matches found.",
+    "columns": {
+      "lap": "Round",
+      "field": "Field",
+      "team1": "Team 1",
+      "team2": "Team 2",
+      "setScores": "Sets",
+      "state": "State",
+      "actions": "Actions"
+    },
+    "state": {
+      "OPEN": "Open",
+      "ENABLED": "Enabled",
+      "INPROGRESS": "In Progress",
+      "ONCHECK": "On Check",
+      "FINISHED_WINNER1": "Finished (Team 1 wins)",
+      "FINISHED_WINNER2": "Finished (Team 2 wins)",
+      "FINISHED_STANDOFF": "Finished (Draw)",
+      "CANCELED": "Cancelled"
+    }
+  },
   "correction": {
     "pageTitle": "Match Correction",
     "matchIdLabel": "Match ID",
@@ -96,6 +121,8 @@
     "successLabel": "New match state",
     "auditOnlyLabel": "(audit only — no effect on standings)",
     "backToPhaseList": "Back to phase list",
+    "matchNotFound": "Match not found. Please return to the match overview.",
+    "preloadError": "Error loading match results.",
     "correctButton": "Correct",
     "confirmTitle": "Confirm Correction",
     "confirmBody": "Please review the values before submitting:",
