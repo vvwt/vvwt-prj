@@ -98,24 +98,34 @@ public class DatabaseDirectoryInitializer implements EnvironmentPostProcessor {
      *   <li>{@code spring.datasource.url} Spring property (handles Spring property placeholders
      *       already resolved by the time this processor runs)
      *   <li>{@code TM_DB_PATH} environment variable used to construct the URL
-     *   <li>Default path under {@code user.home}
+     *   <li>Fallback: derives the DB path from {@code TM_DATA_DIR} (the DEC-68 canonical root
+     *       override) as {@code <TM_DATA_DIR>/db/tm}; if {@code TM_DATA_DIR} is also absent,
+     *       defaults to {@code ${user.home}/.tournament-manager/db/tm} (DEC-68 clause 1).
      * </ol>
+     *
+     * <p>Package-private for testing (AC-TEST-RED-FIRST-DBINIT-REROOT, E55S15).
      */
-    private String resolveDatasourceUrl(ConfigurableEnvironment environment) {
+    String resolveDatasourceUrl(ConfigurableEnvironment environment) {
         // Check if a full datasource URL is already in the environment
         String configuredUrl = environment.getProperty("spring.datasource.url");
         if (configuredUrl != null) {
             return configuredUrl;
         }
 
-        // Construct URL from TM_DB_PATH or user.home fallback
+        // Construct URL from TM_DB_PATH (per-purpose override — DEC-68 clause 3)
         String tmDbPath = environment.getProperty("TM_DB_PATH");
         if (tmDbPath != null && !tmDbPath.isBlank()) {
             return "jdbc:h2:file:" + tmDbPath + ";AUTO_SERVER=FALSE";
         }
 
-        String userHome = System.getProperty("user.home");
-        return "jdbc:h2:file:" + userHome + "/.tournament-manager/db/tm;AUTO_SERVER=FALSE";
+        // Fallback: derive DB path from TM_DATA_DIR (the single-root override) or user.home
+        // default (DEC-68 clause 1 — default is ~/.tournament-manager).
+        String tmDataDir = environment.getProperty("TM_DATA_DIR");
+        String dataRoot =
+                (tmDataDir != null && !tmDataDir.isBlank())
+                        ? tmDataDir
+                        : System.getProperty("user.home") + "/.tournament-manager";
+        return "jdbc:h2:file:" + dataRoot + "/db/tm;AUTO_SERVER=FALSE";
     }
 
     /**

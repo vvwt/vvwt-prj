@@ -12,6 +12,10 @@ import org.junit.jupiter.api.Test;
  * directory) and an {@code application.yml} override key.
  *
  * <p>Story: E14S02 — DEC-10/DEC-20/DEC-22.
+ *
+ * <p>AC-TEST-RED-FIRST-JAVA-DEFAULTS (E55S15 / DEC-68): the Java field default must resolve to
+ * {@code ~/.tournament-manager} — the DEC-68 canonical root. Test was written RED against the
+ * pre-change {@code ~/.vvwt-tm} default.
  */
 class TmDataDirPropertiesTest {
 
@@ -51,5 +55,24 @@ class TmDataDirPropertiesTest {
         assertThat(props.getDir())
                 .as("tm.data.dir must be overridable (AC9)")
                 .isEqualTo("/custom/data/path");
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-TEST-RED-FIRST-JAVA-DEFAULTS (E55S15) — DEC-22 RED-first
+    // Written RED against the pre-change ~/.vvwt-tm default.
+    // Goes GREEN after AC-IMPL-TMDATADIRPROPERTIES-DEFAULT is applied.
+    // -------------------------------------------------------------------------
+
+    @Test
+    void defaultDataDirIsUnderTournamentManagerRoot() {
+        TmDataDirProperties props = new TmDataDirProperties();
+
+        String defaultDir = props.getDir();
+
+        assertThat(defaultDir)
+                .as(
+                        "Default tm.data.dir must resolve to ~/.tournament-manager per DEC-68"
+                                + " (AC-IMPL-TMDATADIRPROPERTIES-DEFAULT, E55S15)")
+                .endsWith("/.tournament-manager");
     }
 }

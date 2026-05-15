@@ -1,13 +1,18 @@
 #!/bin/bash
 # Tournament Manager V1 — Unix launcher script
 # Story E02S05 | DEC-15: jlink primary distribution format
+# DEC-68 (E55S15): TM_DATA_DIR is the single operator override for the data root.
 #
 # Usage:
 #   ./bin/tournament-manager [--verbose|-v] [spring-boot-args...]
 #
 # Environment variables:
+#   TM_DATA_DIR      Root directory for all Tournament Manager data.
+#                    Default: $HOME/.tournament-manager
+#                    All per-purpose subdirectories (db/, audio/, photos/, etc.) reside here.
 #   TM_DB_PATH       Path to H2 database file (without .mv.db extension).
-#                    Default: $HOME/.tournament-manager/db/tm
+#                    Default: ${TM_DATA_DIR:-$HOME/.tournament-manager}/db/tm
+#                    Overrides TM_DATA_DIR for the database location only.
 #   TM_SERVER_PORT   HTTP server port. Default: 8080
 #   TM_JVM_XMS       JVM initial heap size. Default: 64m
 #   TM_JVM_XMX       JVM maximum heap size. Default: 512m
@@ -56,11 +61,13 @@ done
 
 # --------------------------------------------------------------------------
 # Resolved configuration (not raw env — see AC11).
+# DEC-68 (E55S15): TM_DATA_DIR is the single root; TM_DB_PATH overrides DB only.
 # --------------------------------------------------------------------------
 JVM_HEAP_MIN="${TM_JVM_XMS:-64m}"
 JVM_HEAP_MAX="${TM_JVM_XMX:-512m}"
 SERVER_PORT="${TM_SERVER_PORT:-8080}"
-DB_PATH="${TM_DB_PATH:-$HOME/.tournament-manager/db/tm}"
+DATA_DIR="${TM_DATA_DIR:-$HOME/.tournament-manager}"
+DB_PATH="${TM_DB_PATH:-$DATA_DIR/db/tm}"
 
 # --------------------------------------------------------------------------
 # Output: verbose or single-line banner.
@@ -73,6 +80,7 @@ if [ "$VERBOSE" = true ]; then
     echo "  JRE path    : $RUNTIME_JAVA"
     echo "  JRE version : $("$RUNTIME_JAVA" -version 2>&1 | head -1)"
     echo "  Lib dir     : $LIB_DIR"
+    echo "  Data dir    : $DATA_DIR"
     echo "  DB path     : $DB_PATH"
     echo "  Server port : $SERVER_PORT"
     echo "  Heap min    : $JVM_HEAP_MIN"

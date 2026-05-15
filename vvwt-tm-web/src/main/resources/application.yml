@@ -2,6 +2,7 @@
 # Story: E02S02 — H2 + Spring Boot persistence wiring
 # DEC-14: H2 embedded + CRUD + Flyway
 # DEC-5:  no authentication required for default-tenant LAN mode
+# DEC-68 (E55S15): single tm.data.dir root — all per-purpose paths derive from ${tm.data.dir}
 
 # ---------------------------------------------------------------------------
 # HTTP Server
@@ -16,11 +17,11 @@ server:
 spring:
   datasource:
     # File-based H2 database. H2 automatically appends .mv.db to the path.
-    # Default: ~/.tournament-manager/db/tm.mv.db
-    # Override:  export TM_DB_PATH=/your/path/tm   (no extension — H2 adds it)
+    # Default: ${tm.data.dir}/db/tm.mv.db (DEC-68 clause 2)
+    # Override:  export TM_DB_PATH=/your/path/tm   (no extension — H2 adds it; DEC-68 clause 3)
     # Security:  AUTO_SERVER=FALSE — no embedded TCP listener; local file only.
     # AC4, AC7, AC10
-    url: "jdbc:h2:file:${TM_DB_PATH:${user.home}/.tournament-manager/db/tm};AUTO_SERVER=FALSE"
+    url: "jdbc:h2:file:${TM_DB_PATH:${tm.data.dir}/db/tm};AUTO_SERVER=FALSE"
     driver-class-name: org.h2.Driver
     # sa + empty password is the H2 file-mode convention (no server to expose).
     # AC11: no secrets beyond the local H2 file mode.
@@ -71,47 +72,57 @@ vvwt:
     max-display-count: 10
 
 # ---------------------------------------------------------------------------
-# Slot-optimization configuration (E04S02, AC6)
+# Tournament Manager configuration (DEC-68 / E55S15 — single tm.data.dir root)
 # ---------------------------------------------------------------------------
 tm:
+  # ---------------------------------------------------------------------------
+  # DEC-68 (E55S15) — Single filesystem root for all Tournament Manager data.
+  # All per-purpose path defaults below derive from this root via placeholder-nesting.
+  # Default: ~/.tournament-manager (self-descriptive, user-scoped, no admin privileges needed).
+  # Override: export TM_DATA_DIR=/your/data/root
+  # Per-purpose env-var overrides are retained as escape hatches (DEC-68 clause 3).
+  # ---------------------------------------------------------------------------
+  data:
+    dir: ${TM_DATA_DIR:${user.home}/.tournament-manager}
   # ---------------------------------------------------------------------------
   # Audit log file storage (E55S13)
   # DEC-15: files stored outside the jlink archive in a user-writable data directory.
   # DEC-14 2026-05-14 amendment: audit_log moved from H2 to per-tournament JSONL files.
   # Layout: <data-dir>/tenants/<tenant>/audit-log/<tournament-id>/audit.jsonl
-  # Default: ~/.vvwt-tm (aligned with existing H2 data-dir convention)
+  # Default: ${tm.data.dir} — the audit-log co-inhabits tenants/<uuid>/ alongside per-tenant DBs
+  #          (DEC-68 clause 2; re-rooted from ~/.vvwt-tm by E55S15).
   # Override: export TM_AUDIT_LOG_DATA_DIR=/your/path or -Dtm.audit-log.data-dir=/your/path
   # ---------------------------------------------------------------------------
   audit-log:
-    data-dir: ${TM_AUDIT_LOG_DATA_DIR:${user.home}/.vvwt-tm}
+    data-dir: ${TM_AUDIT_LOG_DATA_DIR:${tm.data.dir}}
   # ---------------------------------------------------------------------------
   # Audio file storage (E11S01)
   # DEC-15: files stored outside the jlink archive in a user-writable data directory.
-  # Default: ~/.tournament-manager/audio/{tournamentId}/{category}.mp3
+  # Default: ${tm.data.dir}/audio (DEC-68 clause 2)
   # Override: export TM_AUDIO_DATA_DIR=/your/path or -Dtm.audio.data-dir=/your/path
   # ---------------------------------------------------------------------------
   audio:
-    data-dir: ${TM_AUDIO_DATA_DIR:${user.home}/.tournament-manager/audio}
+    data-dir: ${TM_AUDIO_DATA_DIR:${tm.data.dir}/audio}
   # ---------------------------------------------------------------------------
   # Team photo storage (E12S02)
   # DEC-15: files stored outside the jlink archive in a user-writable data directory.
-  # Default: ~/.tournament-manager/photos/{tournamentId}/{teamId}.{ext}
+  # Default: ${tm.data.dir}/photos (DEC-68 clause 2)
   # Override: export TM_PHOTOS_DATA_DIR=/your/path or -Dtm.photos.data-dir=/your/path
   # Max upload size enforced at service layer (5 MB default per AC7).
   # ---------------------------------------------------------------------------
   photos:
-    data-dir: ${TM_PHOTOS_DATA_DIR:${user.home}/.tournament-manager/photos}
+    data-dir: ${TM_PHOTOS_DATA_DIR:${tm.data.dir}/photos}
     max-size-bytes: ${TM_PHOTOS_MAX_SIZE_BYTES:5242880}
   # ---------------------------------------------------------------------------
   # Certificate template storage (E12S04)
   # DEC-15: files stored outside the jlink archive in a user-writable data directory.
-  # Default: ~/.tournament-manager/certificate-templates/{tournamentId}/certificate-template.{ext}
+  # Default: ${tm.data.dir}/certificate-templates (DEC-68 clause 2)
   # Override: export TM_CERT_TEMPLATES_DATA_DIR=/your/path or
   #           -Dtm.certificate-templates.data-dir=/your/path
   # Max upload size: 2 MB per AC7. Override via -Dtm.certificate-templates.max-size-bytes.
   # ---------------------------------------------------------------------------
   certificate-templates:
-    data-dir: ${TM_CERT_TEMPLATES_DATA_DIR:${user.home}/.tournament-manager/certificate-templates}
+    data-dir: ${TM_CERT_TEMPLATES_DATA_DIR:${tm.data.dir}/certificate-templates}
     max-size-bytes: ${TM_CERT_TEMPLATES_MAX_SIZE_BYTES:2097152}
   # ---------------------------------------------------------------------------
   # First-boot default-tenant bootstrap parameters (E46S05)
@@ -160,9 +171,9 @@ tm:
       # Override via -Dtm.slotopt.dispatcher.poll-timeout-ms.
       poll-timeout-ms: ${TM_SLOTOPT_DISPATCHER_POLL_TIMEOUT_MS:300000}
       # Directory for TM worker keypair (Ed25519) used for dispatcher registration (E27S03, DEC-6).
-      # Default: ~/.tournament-manager/slotopt-keys
+      # Default: ${tm.data.dir}/slotopt-keys (DEC-68 clause 2)
       # Override via TM_SLOTOPT_WORKER_KEY_DIR env var or -Dtm.slotopt.dispatcher.worker-key-dir.
-      worker-key-dir: ${TM_SLOTOPT_WORKER_KEY_DIR:${user.home}/.tournament-manager/slotopt-keys}
+      worker-key-dir: ${TM_SLOTOPT_WORKER_KEY_DIR:${tm.data.dir}/slotopt-keys}
   # ---------------------------------------------------------------------------
   # E55S10 — Diagnostic instrumentation (default OFF per AC-SEC-NO-DEBUG-LEAK-IN-PROD)
   # Enable for operator-driven bug reproduction (see .gaai/project/contexts/artefacts/diagnose/)
@@ -189,7 +200,9 @@ info-portal:
   # tenant-id: my-tenant            # Required when url is set
   # location-id: my-venue           # Required per D-2 location-id
   deprecation-warning-threshold-days: 30
-  keypair-dir: ${INFO_PORTAL_KEYPAIR_DIR:${user.home}/.tournament-manager/info-portal-keys}
+  # Default: ${tm.data.dir}/info-portal-keys (DEC-68 clause 2)
+  # Override via INFO_PORTAL_KEYPAIR_DIR env var.
+  keypair-dir: ${INFO_PORTAL_KEYPAIR_DIR:${tm.data.dir}/info-portal-keys}
 
 # ---------------------------------------------------------------------------
 # Actuator — health endpoint (AC5)
