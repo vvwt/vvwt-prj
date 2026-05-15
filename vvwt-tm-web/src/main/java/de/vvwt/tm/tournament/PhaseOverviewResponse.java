@@ -23,7 +23,8 @@ import java.util.UUID;
  * @param gameMode game mode from {@code draft_json} section matching this phase's sequenceNumber;
  *     {@code null} when {@code draft_json} is absent, unparseable, or section not found
  *     (AC-PHASE-LIST-DEFENSIVE)
- * @param currentLapNumber active lap index (starts at 0)
+ * @param currentLapNumber 1-based running-lap index (DEC-65): 0 = sentinel "no lap running"; ACTIVE
+ *     mid-phase lap K → K ∈ [1, lapCount]
  * @param matchCountsByState match counts grouped by state name; key is the {@link
  *     de.vvwt.tm.tournament.MatchState} name; value is the count. Missing keys imply zero count
  * @param jobStatus the {@code phase.last_job_state} value — one of {@code "match_gen_running"},

@@ -23,8 +23,10 @@ import org.springframework.data.relational.core.mapping.Table;
  *   <li>{@link PhaseStatus#COMPLETED} — all matches in this phase are finished
  * </ul>
  *
- * <p>The {@code currentLapNumber} advances during cascade recompute per D-21 step 10. It starts at
- * 0 (no lap has completed yet) and increments as rounds are finalized.
+ * <p>{@code currentLapNumber} is a 1-based running-lap index (DEC-65): 0 = no lap running
+ * (sentinel for PENDING, PREPARED, ASSIGNED, ACTIVE post-last-lap, COMPLETED); ACTIVE mid-phase lap
+ * K has {@code currentLapNumber == K} where K ∈ [1, lapCount]. Updated by the scoring cascade Step
+ * 10 and the ASSIGNED→ACTIVE init-hook.
  *
  * <p>No {@code @Component} or {@code @Service} annotations — pure Spring Data JDBC entity per
  * AC-PKG-Phase.
@@ -96,8 +98,11 @@ public class Phase {
     private String status;
 
     /**
-     * Active lap index within this phase. Starts at 0 (no lap completed). Incremented automatically
-     * during cascade recompute at round finalization.
+     * 1-based running-lap index (DEC-65). 0 = sentinel "no lap running" (PENDING, PREPARED,
+     * ASSIGNED, ACTIVE post-last-lap, COMPLETED). ACTIVE mid-phase lap K: {@code currentLapNumber ==
+     * K} where K ∈ [1, lapCount]. See {@link de.vvwt.tm.scoring.internal.DefaultScoringService}
+     * Step 10 and {@link
+     * de.vvwt.tm.tournament.internal.DefaultPhaseLifecycleService#start(java.util.UUID)} init-hook.
      */
     private int currentLapNumber;
 
@@ -137,7 +142,7 @@ public class Phase {
      * @param sequenceNumber ordering within the tournament (&ge; 1)
      * @param description human-readable label (NOT NULL)
      * @param status lifecycle status name (e.g., {@code "PENDING"})
-     * @param currentLapNumber active lap index (&ge; 0)
+     * @param currentLapNumber 1-based running-lap index (DEC-65); 0 = sentinel "no lap running"
      * @param createdAt creation timestamp (may be null; DB sets default)
      */
     public Phase(

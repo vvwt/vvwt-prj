@@ -342,27 +342,34 @@ class DefaultScoringServiceTest {
     // Step 10 — Phase lap auto-advance
     // -----------------------------------------------------------------------
 
-    /** Step 10: lap number is advanced when ALL matches in the current lap are terminal. */
+    /**
+     * Step 10: lap number is advanced when ALL matches in the current lap are terminal.
+     *
+     * <p>AC-TEST-PHASETEST-MIGRATION (E56S01, DEC-65 D-1): Phase has 2 laps; lap 1 finishing is a
+     * non-last-lap advance → {@code currentLapNumber} goes from 1 to 2.
+     */
     @Test
     void registerMatchResult_advancesLapNumber_whenAllMatchesTerminal() {
         arrangeHappyPath_singleSetMatchWinner1();
-        // match itself is in lap 1; after cascade its state becomes FINISHED_WINNER1
-        // → all matches in lap 1 are terminal → lap advances
+        // Phase is ACTIVE in lap 1 (1-based, DEC-65); phase has 2 laps total.
+        phase.setCurrentLapNumber(1);
         match.setMatchState(MatchState.INPROGRESS); // starts non-terminal
-        // Make the match appear terminal AFTER state update (matchRepository.findByPhaseId re-reads
-        // the persisted state). Since we're unit-testing without DB, we arrange the phase-matches
-        // list to show the match already in terminal state (as it would be after save).
+        // Lap-1 terminal match + open lap-2 match → lapCount=2, currentMatchLap=1 < lapCount → advance
         Match terminalMatch = new Match();
         terminalMatch.setId(MATCH_ID);
         terminalMatch.setMatchState(MatchState.FINISHED_WINNER1);
         terminalMatch.setLapNumber(1);
-        when(matchRepository.findByPhaseId(PHASE_ID)).thenReturn(List.of(terminalMatch));
+        Match openLap2 = new Match();
+        openLap2.setId(UUID.randomUUID());
+        openLap2.setMatchState(MatchState.OPEN);
+        openLap2.setLapNumber(2);
+        when(matchRepository.findByPhaseId(PHASE_ID)).thenReturn(List.of(terminalMatch, openLap2));
 
         service.registerMatchResult(input);
 
         ArgumentCaptor<Phase> phaseCaptor = ArgumentCaptor.forClass(Phase.class);
         verify(phaseRepository).save(phaseCaptor.capture());
-        assertThat(phaseCaptor.getValue().getCurrentLapNumber()).isEqualTo(1); // advanced from 0
+        assertThat(phaseCaptor.getValue().getCurrentLapNumber()).isEqualTo(2); // advanced lap 1→2
     }
 
     /** Step 10: lap is NOT advanced when not all matches in the current lap are terminal. */
@@ -386,16 +393,34 @@ class DefaultScoringServiceTest {
     // Step 12 — Event publication
     // -----------------------------------------------------------------------
 
-    /** Step 12: {@link MatchResultChangedEvent} is published after cascade. */
+    /**
+     * Step 12: {@link MatchResultChangedEvent} is published after cascade.
+     *
+     * <p>AC-TEST-PHASETEST-MIGRATION (E56S01): fixture updated to use a 2-lap phase where lap 1
+     * finalization is a non-last-lap advance (DEC-65 D-3). Phase seeded with {@code
+     * currentLapNumber=1} (ACTIVE, playing lap 1); lap 2 exists (lapCount=2) → lap 1 finalize
+     * advances to lap 2, NOT the sentinel. Two events: MatchResultChangedEvent + LapAdvancedEvent.
+     */
     @Test
     void registerMatchResult_publishesMatchResultChangedEvent() {
+        // AC-TEST-PHASETEST-MIGRATION: 2-lap setup; lap 1 finalization is non-last-lap advance
+        phase.setCurrentLapNumber(1); // ACTIVE, lap 1 running (1-based)
+        // lap-1 terminal match (being submitted)
+        Match terminalLap1 = new Match();
+        terminalLap1.setId(MATCH_ID);
+        terminalLap1.setMatchState(MatchState.FINISHED_WINNER1);
+        terminalLap1.setLapNumber(1);
+        // lap-2 open match → lapCount=2 (non-last lap for lap 1)
+        Match openLap2 = new Match();
+        openLap2.setId(UUID.randomUUID());
+        openLap2.setMatchState(MatchState.OPEN);
+        openLap2.setLapNumber(2);
         arrangeHappyPath_singleSetMatchWinner1();
+        when(matchRepository.findByPhaseId(PHASE_ID)).thenReturn(List.of(terminalLap1, openLap2));
 
         service.registerMatchResult(input);
 
-        // arrangeHappyPath_singleSetMatchWinner1 also arranges terminal match → lap advances
-        // so 2 events are published: MatchResultChangedEvent + LapAdvancedEvent
-        // Events extend ApplicationEvent → publishEvent(ApplicationEvent) overload is invoked
+        // Non-last-lap advance → 2 events: MatchResultChangedEvent + LapAdvancedEvent
         ArgumentCaptor<ApplicationEvent> eventCaptor =
                 ArgumentCaptor.forClass(ApplicationEvent.class);
         verify(eventPublisher, times(2)).publishEvent(eventCaptor.capture());
@@ -403,26 +428,34 @@ class DefaultScoringServiceTest {
                 .anySatisfy(e -> assertThat(e).isInstanceOf(MatchResultChangedEvent.class));
     }
 
-    /** Step 12: {@link LapAdvancedEvent} is also published when a lap advance occurs. */
+    /**
+     * Step 12: {@link LapAdvancedEvent} is published when a non-last lap is finalized.
+     *
+     * <p>AC-TEST-PHASETEST-MIGRATION (E56S01): fixture updated to use a 2-lap phase where lap 1
+     * finalization advances to lap 2 (DEC-65 D-3 non-last-lap branch). Phase seeded with {@code
+     * currentLapNumber=1} (ACTIVE, playing lap 1).
+     */
     @Test
     void registerMatchResult_publishesLapAdvancedEvent_whenLapAdvanced() {
+        // AC-TEST-PHASETEST-MIGRATION: 2-lap setup; lap 1 finalization → advance to lap 2
+        phase.setCurrentLapNumber(1); // ACTIVE, lap 1 running (1-based)
+        Match terminalLap1 = new Match();
+        terminalLap1.setId(MATCH_ID);
+        terminalLap1.setMatchState(MatchState.FINISHED_WINNER1);
+        terminalLap1.setLapNumber(1);
+        Match openLap2 = new Match();
+        openLap2.setId(UUID.randomUUID());
+        openLap2.setMatchState(MatchState.OPEN);
+        openLap2.setLapNumber(2);
         arrangeHappyPath_singleSetMatchWinner1();
-
-        // All matches in lap are terminal → lap advances
-        Match terminalMatch = new Match();
-        terminalMatch.setId(MATCH_ID);
-        terminalMatch.setMatchState(MatchState.FINISHED_WINNER1);
-        terminalMatch.setLapNumber(1);
-        when(matchRepository.findByPhaseId(PHASE_ID)).thenReturn(List.of(terminalMatch));
+        when(matchRepository.findByPhaseId(PHASE_ID)).thenReturn(List.of(terminalLap1, openLap2));
 
         service.registerMatchResult(input);
 
-        // 2 events: MatchResultChangedEvent + LapAdvancedEvent
-        // Events extend ApplicationEvent → publishEvent(ApplicationEvent) overload is invoked
+        // Non-last-lap advance → 2 events: MatchResultChangedEvent + LapAdvancedEvent
         ArgumentCaptor<ApplicationEvent> eventCaptor =
                 ArgumentCaptor.forClass(ApplicationEvent.class);
         verify(eventPublisher, times(2)).publishEvent(eventCaptor.capture());
-        // Both MatchResultChangedEvent and LapAdvancedEvent should be published
         assertThat(eventCaptor.getAllValues())
                 .anySatisfy(e -> assertThat(e).isInstanceOf(LapAdvancedEvent.class));
     }
