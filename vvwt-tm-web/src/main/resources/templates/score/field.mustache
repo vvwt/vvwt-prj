@@ -44,9 +44,11 @@
             color: #666;
             margin-bottom: 20px;
         }
-        /* AC8: global error banner */
+        /* AC8: global error banner.
+         * E49S03 M-C: initial hide via inline style="display:none" on the element (see HTML below)
+         * so that vvwtShow(el.style.display='') can clear the inline override and reveal it.
+         * Stylesheet display:none cannot be cleared by vvwtShow — root cause of E49S03 bug. */
         #error-banner {
-            display: none;
             background: #c0392b;
             color: #fff;
             padding: 12px 16px;
@@ -61,16 +63,16 @@
             margin-bottom: 20px;
             min-height: 1.4em;
         }
-        /* AC9: no-match panel */
+        /* AC9: no-match panel.
+         * E49S03 M-C: initial hide via inline style="display:none" (see HTML element below). */
         #no-match-panel {
-            display: none;
             padding: 32px 16px;
             color: #666;
             font-size: 1em;
         }
-        /* AC3: match display panel */
+        /* AC3: match display panel.
+         * E49S03 M-C: initial hide via inline style="display:none" (see HTML element below). */
         #match-panel {
-            display: none;
         }
         /* Team names row */
         #team-row {
@@ -167,16 +169,16 @@
             border-radius: 6px;
             cursor: pointer;
         }
-        /* AC11: queue status pill */
+        /* AC11: queue status pill.
+         * E49S03 M-C: initial hide via inline style="display:none" (see HTML element below). */
         #queue-status {
-            display: none;
             font-size: 0.75em;
             color: #888;
             margin-bottom: 12px;
         }
-        /* AC5: confirmation dialog overlay */
+        /* AC5: confirmation dialog overlay.
+         * E49S03 M-C: initial hide via inline style="display:none" (see HTML element below). */
         #confirm-dialog {
-            display: none;
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0,0,0,0.7);
@@ -234,8 +236,9 @@
     </div>
     <div id="page-wrapper">
 
-        <!-- AC8: global error banner -->
-        <div id="error-banner"></div>
+        <!-- AC8: global error banner.
+             E49S03 M-C: inline style="display:none" for vvwtShow compatibility. -->
+        <div id="error-banner" style="display:none"></div>
 
         <!-- AC3: page heading and field label -->
         <h1>{{heading}}</h1>
@@ -244,14 +247,17 @@
         <!-- Status / loading line -->
         <div id="status-msg">{{msgLoading}}</div>
 
-        <!-- AC11: score queue status -->
-        <div id="queue-status"></div>
+        <!-- AC11: score queue status.
+             E49S03 M-C: inline style="display:none" for vvwtShow compatibility. -->
+        <div id="queue-status" style="display:none"></div>
 
-        <!-- AC9: no-match panel — shown when no active match on this field -->
-        <div id="no-match-panel">{{msgNoMatch}}</div>
+        <!-- AC9: no-match panel — shown when no active match on this field.
+             E49S03 M-C: inline style="display:none" for vvwtShow compatibility. -->
+        <div id="no-match-panel" style="display:none">{{msgNoMatch}}</div>
 
-        <!-- AC3: match display + score entry panel -->
-        <div id="match-panel">
+        <!-- AC3: match display + score entry panel.
+             E49S03 M-C: inline style="display:none" for vvwtShow compatibility. -->
+        <div id="match-panel" style="display:none">
 
             <!-- Team names row (AC3) -->
             <div id="team-row">
@@ -304,8 +310,9 @@
 
     </div><!-- /#page-wrapper -->
 
-    <!-- AC5: confirmation dialog overlay -->
-    <div id="confirm-dialog">
+    <!-- AC5: confirmation dialog overlay.
+         E49S03 M-C: inline style="display:none" for vvwtShow compatibility. -->
+    <div id="confirm-dialog" style="display:none">
         <div id="confirm-dialog-box">
             <div id="confirm-dialog-heading">{{msgConfirmHeading}}</div>
             <div id="confirm-dialog-prompt">{{msgConfirmPrompt}}</div>

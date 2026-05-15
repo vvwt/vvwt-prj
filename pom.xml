@@ -121,6 +121,12 @@
              google-java-format 1.19.x: matches JDK 21 AST support. -->
         <spotless-maven-plugin.version>2.44.3</spotless-maven-plugin.version>
         <google-java-format.version>1.19.2</google-java-format.version>
+
+        <!-- HtmlUnit 4.x — headless browser for CSS-cascade + computed-style test assertions
+             (E49S03 — DEC-19 scoring-tablet visibility fix; DEC-22 RED-first testing).
+             Apache 2.0 license — OSS-compliant per DEC-3.
+             4.11.0: latest stable, supports CSS2.1 cascade + window.getComputedStyle. -->
+        <htmlunit.version>4.11.0</htmlunit.version>
     </properties>
 
     <!-- ===================================================================
@@ -231,6 +237,15 @@
                 <groupId>com.github.ben-manes.caffeine</groupId>
                 <artifactId>caffeine</artifactId>
                 <version>${caffeine.version}</version>
+            </dependency>
+
+            <!-- HtmlUnit — headless browser for CSS-cascade + computed-style assertions.
+                 E49S03: DEC-22 RED-first tests for scoring-tablet vvwtShow visibility fix.
+                 Apache 2.0 license — OSS-compliant per DEC-3. Version in properties. -->
+            <dependency>
+                <groupId>org.htmlunit</groupId>
+                <artifactId>htmlunit</artifactId>
+                <version>${htmlunit.version}</version>
             </dependency>
 
             <!-- Standalone-worker CLI -->

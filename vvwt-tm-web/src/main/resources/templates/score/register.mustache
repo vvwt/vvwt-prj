@@ -55,9 +55,11 @@
             margin-bottom: 28px;
             min-height: 1.4em;
         }
-        /* PIN display block — hidden until registration succeeds */
+        /* PIN display block — hidden until registration succeeds.
+         * E49S03 M-C: initial hide via inline style="display:none" on the element (see HTML below)
+         * so that vvwtShow(el.style.display='') can clear the inline override and reveal it.
+         * Stylesheet display:none cannot be cleared by vvwtShow — root cause of E49S03 bug. */
         #pin-block {
-            display: none;
             margin: 0 auto 28px;
         }
         /* AC2: PIN instruction text */
@@ -77,9 +79,9 @@
             padding: 18px 32px;
             display: inline-block;
         }
-        /* AC8: retry button — hidden until an error occurs */
+        /* AC8: retry button — hidden until an error occurs.
+         * E49S03 M-C: initial hide via inline style="display:none" (see HTML element below). */
         #retry-btn {
-            display: none;
             margin-top: 16px;
             padding: 12px 28px;
             font-size: 1em;
@@ -89,9 +91,9 @@
             border-radius: 4px;
             cursor: pointer;
         }
-        /* E49S01 AC7: device name — shown below PIN after registration */
+        /* E49S01 AC7: device name — shown below PIN after registration.
+         * E49S03 M-C: initial hide via inline style="display:none" (see HTML element below). */
         #device-name {
-            display: none;
             margin-top: 12px;
             font-size: 0.85em;
             color: #888;
@@ -121,17 +123,21 @@
         <!-- Status message: changes as registration / polling progresses -->
         <div id="status-msg">{{msgRegistering}}</div>
 
-        <!-- AC2: PIN display block — hidden until POST /api/devices/register succeeds -->
-        <div id="pin-block">
+        <!-- AC2: PIN display block — hidden until POST /api/devices/register succeeds.
+             E49S03 M-C: inline style="display:none" so vvwtShow(el.style.display='') can reveal it.
+             Stylesheet display:none was the root cause (vvwtShow could not override cascade). -->
+        <div id="pin-block" style="display:none">
             <div id="pin-instruction">{{msgPinInstruction}}</div>
             <!-- AC2: large, centered PIN; AC9: only PIN is shown here, never the device token -->
             <div id="pin-value"></div>
-            <!-- E49S01 AC7: device name — shown below PIN after registration -->
-            <div id="device-name"></div>
+            <!-- E49S01 AC7: device name — shown below PIN after registration.
+                 E49S03 M-C: inline style="display:none" for vvwtShow compatibility. -->
+            <div id="device-name" style="display:none"></div>
         </div>
 
-        <!-- AC8: retry button — shown when registration or network fails -->
-        <button id="retry-btn" type="button">{{msgRetry}}</button>
+        <!-- AC8: retry button — shown when registration or network fails.
+             E49S03 M-C: inline style="display:none" for vvwtShow compatibility. -->
+        <button id="retry-btn" type="button" style="display:none">{{msgRetry}}</button>
 
         <div id="version-info">
             <small>{{versionLabel}}: {{appVersion}}</small>
