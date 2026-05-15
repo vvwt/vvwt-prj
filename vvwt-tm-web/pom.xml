@@ -275,6 +275,17 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- HtmlUnit — headless browser for CSS-cascade + computed-style assertions.
+             E49S03: DEC-22 RED-first tests for scoring-tablet vvwtShow visibility fix (AC-TEST-*).
+             Verifies that elements hidden by inline style="display:none" become visible after
+             vvwtShow(el) is called, while elements hidden by a stylesheet rule remain hidden.
+             Apache 2.0 license — OSS-compliant per DEC-3. Version in parent pom. -->
+        <dependency>
+            <groupId>org.htmlunit</groupId>
+            <artifactId>htmlunit</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <!-- ===================================================================
