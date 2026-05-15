@@ -428,8 +428,224 @@ class DefaultScoringServiceTest {
     }
 
     // -----------------------------------------------------------------------
+    // AC-TEST-LASTLAP-SENTINEL-RED (E56S01, DEC-65 D-3)
+    // After finalizing the last lap, currentLapNumber MUST be 0 (sentinel)
+    // and status stays ACTIVE. After finalizing a non-last lap K, currentLapNumber == K+1.
+    // RED on current HEAD: no sentinel branch → currentLapNumber = lapCount+1 on last lap.
+    // -----------------------------------------------------------------------
+
+    /**
+     * AC-TEST-LASTLAP-SENTINEL-RED (E56S01, DEC-65 D-3).
+     *
+     * <p>When the last lap ({@code lapNumber == lapCount}) is finalized (all matches terminal),
+     * {@code phase.currentLapNumber} MUST be set to {@code 0} (sentinel) — not {@code lapCount+1}.
+     * {@code phase.status} stays {@code ACTIVE} (D-4: no auto-COMPLETED).
+     *
+     * <p><b>RED on current HEAD:</b> no sentinel branch → {@code setCurrentLapNumber(lapCount+1)},
+     * which violates DEC-65 D-3.
+     */
+    @Test
+    void registerMatchResult_lastLapFinalized_setsCurrentLapNumberToSentinel() {
+        // ARRANGE: phase in ACTIVE state, playing lap 2 out of 2 (last lap)
+        phase.setCurrentLapNumber(2); // ACTIVE, lap 2 running (1-based)
+        match.setLapNumber(2); // submitting for lap 2
+
+        // All lap-2 matches terminal after this submission
+        Match terminalLap2Match = new Match();
+        terminalLap2Match.setId(MATCH_ID);
+        terminalLap2Match.setMatchState(MatchState.FINISHED_WINNER1);
+        terminalLap2Match.setLapNumber(2);
+
+        // Also a lap-1 match (terminal — already done)
+        Match terminalLap1Match = new Match();
+        terminalLap1Match.setId(UUID.randomUUID());
+        terminalLap1Match.setMatchState(MatchState.FINISHED_WINNER1);
+        terminalLap1Match.setLapNumber(1);
+
+        arrangeForLastLapSentinel(terminalLap2Match, terminalLap1Match);
+
+        // ACT
+        service.registerMatchResult(input);
+
+        // ASSERT — DEC-65 D-3: last-lap sentinel = 0
+        org.mockito.ArgumentCaptor<Phase> captor =
+                org.mockito.ArgumentCaptor.forClass(Phase.class);
+        verify(phaseRepository).save(captor.capture());
+        assertThat(captor.getValue().getCurrentLapNumber()).isEqualTo(0);
+    }
+
+    /**
+     * AC-TEST-LASTLAP-SENTINEL-RED — non-last-lap boundary counter-assertion (E56S01, DEC-65 D-3).
+     *
+     * <p>When a non-last lap ({@code lapNumber < lapCount}) is finalized, {@code currentLapNumber}
+     * advances to {@code currentMatchLap + 1} — NOT the sentinel. The sentinel fires ONLY on the
+     * last lap.
+     *
+     * <p><b>RED on current HEAD:</b> the current code increments from {@code previousLapNumber},
+     * which will equal {@code lapCount} instead of the sentinel when seeded with 1-based setup.
+     */
+    @Test
+    void registerMatchResult_nonLastLapFinalized_advancesToNextLap() {
+        // ARRANGE: phase in ACTIVE state, playing lap 1 out of 2 (non-last lap)
+        phase.setCurrentLapNumber(1); // ACTIVE, lap 1 running (1-based)
+        match.setLapNumber(1); // submitting for lap 1
+
+        // lap-1 match now terminal
+        Match terminalLap1Match = new Match();
+        terminalLap1Match.setId(MATCH_ID);
+        terminalLap1Match.setMatchState(MatchState.FINISHED_WINNER1);
+        terminalLap1Match.setLapNumber(1);
+
+        // lap-2 match not yet started (OPEN) — lapCount = 2
+        Match openLap2Match = new Match();
+        openLap2Match.setId(UUID.randomUUID());
+        openLap2Match.setMatchState(MatchState.OPEN);
+        openLap2Match.setLapNumber(2);
+
+        arrangeForLapAdvance(terminalLap1Match, openLap2Match);
+
+        // ACT
+        service.registerMatchResult(input);
+
+        // ASSERT — non-last lap K=1: advance to K+1=2 (NOT sentinel)
+        org.mockito.ArgumentCaptor<Phase> captor =
+                org.mockito.ArgumentCaptor.forClass(Phase.class);
+        verify(phaseRepository).save(captor.capture());
+        assertThat(captor.getValue().getCurrentLapNumber()).isEqualTo(2);
+    }
+
+    /**
+     * AC-TEST-NO-AUTO-COMPLETED-GREEN (E56S01, DEC-65 D-4).
+     *
+     * <p>After last-lap finalization, {@code phase.status} MUST stay {@code ACTIVE} (not auto-flip
+     * to COMPLETED). The scoring cascade MUST NOT invoke any phase-lifecycle transition. This test
+     * verifies no {@link de.vvwt.tm.tournament.PhaseLifecycleService#complete(UUID)} or equivalent
+     * is called.
+     *
+     * <p><b>GREEN-only test:</b> verifies that the scoring service does NOT invoke a
+     * status-transition on the phase (the correct behavior; tested here as an explicit assertion).
+     */
+    @Test
+    void registerMatchResult_lastLapFinalized_phaseStatusStaysActive() {
+        phase.setCurrentLapNumber(2); // ACTIVE, lap 2 running
+        match.setLapNumber(2);
+        phase.setStatus("ACTIVE");
+
+        Match terminalLap2 = new Match();
+        terminalLap2.setId(MATCH_ID);
+        terminalLap2.setMatchState(MatchState.FINISHED_WINNER1);
+        terminalLap2.setLapNumber(2);
+
+        Match terminalLap1 = new Match();
+        terminalLap1.setId(UUID.randomUUID());
+        terminalLap1.setMatchState(MatchState.FINISHED_WINNER1);
+        terminalLap1.setLapNumber(1);
+
+        arrangeForLastLapSentinel(terminalLap2, terminalLap1);
+
+        service.registerMatchResult(input);
+
+        // ASSERT — phase status NOT changed to COMPLETED by scoring cascade
+        org.mockito.ArgumentCaptor<Phase> captor =
+                org.mockito.ArgumentCaptor.forClass(Phase.class);
+        verify(phaseRepository).save(captor.capture());
+        assertThat(captor.getValue().getStatus()).isEqualTo("ACTIVE");
+    }
+
+    /**
+     * AC-ERROR-OPERATOR-CORRECTION-WINDOW (E56S01, DEC-65 D-7).
+     *
+     * <p>After last-lap finalization ({@code currentLapNumber=0}, sentinel), a score correction on
+     * a last-lap match triggers the cascade again. The sentinel MUST NOT be advanced to 1 (a
+     * re-increment from 0 would be wrong). The correction MUST NOT call {@code
+     * setCurrentLapNumber} at all — only the last-lap match is terminal, and the sentinel logic
+     * must detect that this is still the last-lap scenario.
+     *
+     * <p>Concretely: {@code currentMatchLap=2}, {@code lapCount=2} (still last lap) → sentinel-0
+     * stays.
+     */
+    @Test
+    void registerMatchResult_scoreCorrectionAfterSentinel_doesNotAdvanceLap() {
+        // ARRANGE: sentinel state — last-lap done, currentLapNumber=0
+        phase.setCurrentLapNumber(0); // sentinel
+        match.setLapNumber(2); // submitting correction for lap 2 match
+
+        // Both laps still terminal (correction doesn't change state)
+        Match terminalLap2 = new Match();
+        terminalLap2.setId(MATCH_ID);
+        terminalLap2.setMatchState(MatchState.FINISHED_WINNER1);
+        terminalLap2.setLapNumber(2);
+
+        Match terminalLap1 = new Match();
+        terminalLap1.setId(UUID.randomUUID());
+        terminalLap1.setMatchState(MatchState.FINISHED_WINNER1);
+        terminalLap1.setLapNumber(1);
+
+        arrangeForLastLapSentinel(terminalLap2, terminalLap1);
+
+        service.registerMatchResult(input);
+
+        // ASSERT — currentLapNumber stays 0 (sentinel preserved)
+        org.mockito.ArgumentCaptor<Phase> captor =
+                org.mockito.ArgumentCaptor.forClass(Phase.class);
+        verify(phaseRepository).save(captor.capture());
+        assertThat(captor.getValue().getCurrentLapNumber()).isEqualTo(0);
+    }
+
+    // -----------------------------------------------------------------------
     // Private helpers
     // -----------------------------------------------------------------------
+
+    /** Arranges mocks for last-lap sentinel scenario: all matches terminal, lapCount derived. */
+    private void arrangeForLastLapSentinel(Match... terminalMatches) {
+        when(tournamentRepository.findByIdForUpdate(TOURNAMENT_ID)).thenReturn(tournament);
+        when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(match));
+        when(ruleResolver.resolve(tournament))
+                .thenReturn(new TournamentRuleResolver.ResolvedRules(scoringRule, validationRule));
+        when(validationRule.isSetClosed(anyInt(), anyInt(), anyInt(), any()))
+                .thenReturn(ValidationResult.winner1());
+
+        SetResult wonSet =
+                new SetResult(
+                        MATCH_ID, 0, PHASE_ID, 25, 15, SetState.WINNER1.getLegacyCode(), null,
+                        null);
+        when(setResultRepository.findByMatchIdAndSetIndex(MATCH_ID, 0))
+                .thenReturn(Optional.empty());
+        when(setResultRepository.findByMatchId(MATCH_ID)).thenReturn(List.of(wonSet));
+        when(matchOutcomeRepository.findById(MATCH_ID)).thenReturn(Optional.empty());
+        when(phaseRepository.findById(PHASE_ID)).thenReturn(Optional.of(phase));
+        when(scoringRule.calculatePoints(any(), any())).thenReturn(new ScoringResult(3, 0));
+        when(matchRepository.findTerminalByPhaseIdAndAvatarId(any(), any()))
+                .thenReturn(Collections.emptyList());
+        when(teamAvatarRatingRepository.findById(any())).thenReturn(Optional.empty());
+        when(matchRepository.findByPhaseId(PHASE_ID)).thenReturn(List.of(terminalMatches));
+    }
+
+    /** Arranges mocks for a non-last-lap advance scenario. */
+    private void arrangeForLapAdvance(Match terminalCurrentLapMatch, Match openNextLapMatch) {
+        when(tournamentRepository.findByIdForUpdate(TOURNAMENT_ID)).thenReturn(tournament);
+        when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(match));
+        when(ruleResolver.resolve(tournament))
+                .thenReturn(new TournamentRuleResolver.ResolvedRules(scoringRule, validationRule));
+        when(validationRule.isSetClosed(anyInt(), anyInt(), anyInt(), any()))
+                .thenReturn(ValidationResult.winner1());
+
+        SetResult wonSet =
+                new SetResult(
+                        MATCH_ID, 0, PHASE_ID, 25, 15, SetState.WINNER1.getLegacyCode(), null,
+                        null);
+        when(setResultRepository.findByMatchIdAndSetIndex(MATCH_ID, 0))
+                .thenReturn(Optional.empty());
+        when(setResultRepository.findByMatchId(MATCH_ID)).thenReturn(List.of(wonSet));
+        when(matchOutcomeRepository.findById(MATCH_ID)).thenReturn(Optional.empty());
+        when(phaseRepository.findById(PHASE_ID)).thenReturn(Optional.of(phase));
+        when(scoringRule.calculatePoints(any(), any())).thenReturn(new ScoringResult(3, 0));
+        when(matchRepository.findTerminalByPhaseIdAndAvatarId(any(), any()))
+                .thenReturn(Collections.emptyList());
+        when(teamAvatarRatingRepository.findById(any())).thenReturn(Optional.empty());
+        when(matchRepository.findByPhaseId(PHASE_ID))
+                .thenReturn(List.of(terminalCurrentLapMatch, openNextLapMatch));
+    }
 
     /**
      * Arranges mocks for a single-set BEST_OF_3 match where team1 wins set 0 with 25:15, deriving

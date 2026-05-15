@@ -53,12 +53,36 @@ class PhaseTest {
                         Phase.PhaseStatus.COMPLETED);
     }
 
-    /** AC-TDD-Phase: currentLapNumber invariant — can be set to 0 (initial). */
+    /**
+     * AC-TDD-Phase / AC-TEST-PHASETEST-MIGRATION (E56S01, DEC-65 D-1): {@code currentLapNumber}
+     * MUST be settable to 0 (sentinel / no-lap-running signal for PENDING, PREPARED, ASSIGNED,
+     * COMPLETED, or post-last-lap ACTIVE).
+     *
+     * <p>Re-scoped per DEC-65 D-1: this assertion remains valid for PENDING, PREPARED, ASSIGNED,
+     * and COMPLETED phases (sentinel-0 for all non-ACTIVE-mid-phase states). It is NOT a general
+     * "starts at 0" assertion — the full lifecycle picture is in the tests below.
+     */
     @Test
-    void phase_currentLapNumber_startsAtZero() {
+    void phase_currentLapNumber_canBeSetToZero_validForNonActiveAndSentinelStates() {
         Phase phase = new Phase();
         phase.setCurrentLapNumber(0);
         assertThat(phase.getCurrentLapNumber()).isEqualTo(0);
+    }
+
+    /**
+     * AC-TEST-PHASETEST-MIGRATION (E56S01, DEC-65 D-1): {@code currentLapNumber} can be set to a
+     * positive value (1-based running-lap index for ACTIVE mid-phase).
+     *
+     * <p>Per DEC-65 D-1: {@code ACTIVE} mid-phase lap K has {@code currentLapNumber == K}, where
+     * {@code K ∈ [1, lapCount]}.
+     */
+    @Test
+    void phase_currentLapNumber_canBeSetToPositiveValue_validForActiveMidPhase() {
+        Phase phase = new Phase();
+        phase.setCurrentLapNumber(1);
+        assertThat(phase.getCurrentLapNumber()).isEqualTo(1);
+        phase.setCurrentLapNumber(3);
+        assertThat(phase.getCurrentLapNumber()).isEqualTo(3);
     }
 
     /** AC-TDD-Phase: sequenceNumber must be positive (≥ 1) by convention. */
