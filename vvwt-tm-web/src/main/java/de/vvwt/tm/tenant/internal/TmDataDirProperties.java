@@ -17,10 +17,13 @@ import org.springframework.stereotype.Component;
  *   <li>The tenant registry: {@code ${tm.data.dir}/tenant-registry.json}
  * </ul>
  *
- * <h2>Default value (AC9)</h2>
+ * <h2>Default value (AC9 / DEC-68)</h2>
  *
- * <p>The default is {@code ${user.home}/.vvwt-tm} — a platform-appropriate, user-scoped application
- * data directory that does not require administrator privileges.
+ * <p>The default is {@code ${user.home}/.tournament-manager} — the canonical Tournament Manager
+ * data root per DEC-68 (E55S15). This Java-level default is a belt-and-suspenders fallback for an
+ * absent {@code application.yml}; in normal deployments {@code application.yml} sets {@code
+ * tm.data.dir: ${TM_DATA_DIR:${user.home}/.tournament-manager}} and this field is overridden by
+ * Spring property binding before any consumer reads it.
  *
  * <h2>Override</h2>
  *
@@ -32,6 +35,8 @@ import org.springframework.stereotype.Component;
  * @see <a href="../../../../../../../../docs/governance/stories/E14S02.story.md">Story E14S02
  *     AC9</a>
  * @see <a href="../../../../../../../../docs/governance/decisions/DEC-20.md">DEC-20</a>
+ * @see <a href="../../../../../../../../docs/governance/decisions/DEC-68.md">DEC-68 —
+ *     filesystem-path canon</a>
  */
 @Component
 @ConfigurationProperties(prefix = "tm.data")
@@ -39,9 +44,10 @@ public class TmDataDirProperties {
 
     /**
      * Root directory for all Tournament Manager tenant data and the registry file. Defaults to
-     * {@code ${user.home}/.vvwt-tm} (platform-appropriate per AC9).
+     * {@code ${user.home}/.tournament-manager} (DEC-68 canonical root; platform-appropriate per
+     * AC9).
      */
-    private String dir = System.getProperty("user.home") + "/.vvwt-tm";
+    private String dir = System.getProperty("user.home") + "/.tournament-manager";
 
     /**
      * Returns the configured data directory path.

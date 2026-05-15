@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.mock.env.MockEnvironment;
 
 /**
  * Unit tests for {@link DatabaseDirectoryInitializer} — verifies path extraction and URL
@@ -14,6 +15,11 @@ import org.junit.jupiter.api.io.TempDir;
  *
  * <p>Acceptance criteria covered: AC7 (error-handling), AC10 (POSIX permission logic tested in the
  * integration test; here we cover the in-memory skip branch).
+ *
+ * <p>AC-TEST-RED-FIRST-DBINIT-REROOT (E55S15 / DEC-68 / DEC-22): {@code resolveDatasourceUrl()}
+ * with no {@code spring.datasource.url}, no {@code TM_DB_PATH}, but {@code TM_DATA_DIR} set must
+ * return a URL containing {@code <TM_DATA_DIR>/db/tm}. Test written RED against the pre-change
+ * hardcoded {@code ~/.tournament-manager/db/tm} literal.
  */
 class DatabaseDirectoryInitializerTest {
 
@@ -65,6 +71,47 @@ class DatabaseDirectoryInitializerTest {
 
         assertThat(Files.exists(targetDir)).isTrue();
         assertThat(Files.isDirectory(targetDir)).isTrue();
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-TEST-RED-FIRST-DBINIT-REROOT (E55S15) — DEC-22 RED-first
+    // Calls resolveDatasourceUrl() (package-private after
+    // AC-IMPL-DATABASEDIRECTORYINITIALIZER-REROOT)
+    // directly. Written RED against the pre-change hardcoded ~/.tournament-manager/db/tm literal.
+    // Goes GREEN after the fallback is re-rooted to honour TM_DATA_DIR.
+    // -------------------------------------------------------------------------
+
+    @Test
+    void fallbackUrlDerivedFromTmDataDirWhenNeitherDatasourceUrlNorDbPathSet(
+            @TempDir Path tempDataDir) {
+        DatabaseDirectoryInitializer initializer = new DatabaseDirectoryInitializer();
+        MockEnvironment env = new MockEnvironment();
+        // No spring.datasource.url, no TM_DB_PATH
+        env.setProperty("TM_DATA_DIR", tempDataDir.toAbsolutePath().toString());
+
+        String url = initializer.resolveDatasourceUrl(env);
+
+        assertThat(url)
+                .as(
+                        "Fallback URL must derive from TM_DATA_DIR per DEC-68"
+                                + " (AC-IMPL-DATABASEDIRECTORYINITIALIZER-REROOT, E55S15)")
+                .contains(tempDataDir.toAbsolutePath() + "/db/tm");
+    }
+
+    @Test
+    void fallbackUrlUsesDefaultRootWhenTmDataDirNotSet() {
+        DatabaseDirectoryInitializer initializer = new DatabaseDirectoryInitializer();
+        MockEnvironment env = new MockEnvironment();
+        // No spring.datasource.url, no TM_DB_PATH, no TM_DATA_DIR
+
+        String url = initializer.resolveDatasourceUrl(env);
+
+        // Should resolve to user.home/.tournament-manager/db/tm (the DEC-68 root default)
+        assertThat(url)
+                .as(
+                        "Fallback URL with no TM_DATA_DIR must use ~/.tournament-manager/db/tm"
+                                + " per DEC-68 (E55S15)")
+                .contains("/.tournament-manager/db/tm");
     }
 
     // -------------------------------------------------------------------------

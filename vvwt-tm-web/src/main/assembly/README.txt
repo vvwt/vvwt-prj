@@ -30,10 +30,20 @@ Override the HTTP port (default 8080):
 
    ./bin/tournament-manager --server.port=9090
 
-Override the database location (default: ~/.tournament-manager/db/tm):
+Override the data directory (default: ~/.tournament-manager):
+
+   export TM_DATA_DIR=/path/to/your/data
+   ./bin/tournament-manager
+
+   All Tournament Manager data — databases, audio files, photos, certificates,
+   slot-optimization keys — will be stored under TM_DATA_DIR.
+
+Override only the database location (default: ${TM_DATA_DIR}/db/tm):
 
    export TM_DB_PATH=/path/to/your/db/tm
    ./bin/tournament-manager
+
+   TM_DB_PATH takes precedence over TM_DATA_DIR for the database location only.
 
 Print startup diagnostics:
 
