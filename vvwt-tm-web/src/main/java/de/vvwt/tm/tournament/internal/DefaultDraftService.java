@@ -15,6 +15,7 @@ import de.vvwt.tm.tournament.Team2AvatarSlot;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.TeamRepository;
+import de.vvwt.tm.tournament.TeamSortCalculatorRegistry;
 import de.vvwt.tm.tournament.TimelineCalculationService;
 import de.vvwt.tm.tournament.TimelineEntry;
 import de.vvwt.tm.tournament.Tournament;
@@ -141,6 +142,13 @@ public class DefaultDraftService implements DraftService {
     private final Team2AvatarDistributorRegistry distributorRegistry;
 
     /**
+     * Registry of {@link de.vvwt.tm.tournament.TeamSortCalculator} strategies. Used for
+     * registry-membership validation of {@code DraftSection.sortType} at save and apply time (AC6,
+     * E58S03 DEC-73 D-3).
+     */
+    private final TeamSortCalculatorRegistry sortCalculatorRegistry;
+
+    /**
      * Constructs the service with Phase-aggregate collaborators from E21S03, tournament repository
      * + Jackson ObjectMapper for draft JSON serialization (E21S19), the timeline calculation
      * service for preview timeline population (E48S12), JdbcTemplate for cascade-delete and
@@ -170,6 +178,8 @@ public class DefaultDraftService implements DraftService {
      *     strategies for gameMode membership validation at save and apply time (AC6, E58S01)
      * @param distributorRegistry registry of {@link de.vvwt.tm.tournament.Team2AvatarDistributor}
      *     strategies for distributionMode dispatch and membership validation (AC4, AC6, E58S02)
+     * @param sortCalculatorRegistry registry of {@link de.vvwt.tm.tournament.TeamSortCalculator}
+     *     strategies for sortType membership validation at save and apply time (AC6, E58S03)
      */
     public DefaultDraftService(
             @Qualifier("tmPhaseRepository") PhaseRepository phaseRepository,
@@ -184,7 +194,9 @@ public class DefaultDraftService implements DraftService {
             @Qualifier("tmTeamRepository") TeamRepository teamRepository,
             @Qualifier("tmMatchGeneratorRegistry") MatchGeneratorRegistry matchGeneratorRegistry,
             @Qualifier("tmTeam2AvatarDistributorRegistry")
-                    Team2AvatarDistributorRegistry distributorRegistry) {
+                    Team2AvatarDistributorRegistry distributorRegistry,
+            @Qualifier("tmTeamSortCalculatorRegistry")
+                    TeamSortCalculatorRegistry sortCalculatorRegistry) {
         this.phaseRepository = phaseRepository;
         this.phaseBreakRepository = phaseBreakRepository;
         this.tournamentRepository = tournamentRepository;
@@ -196,6 +208,7 @@ public class DefaultDraftService implements DraftService {
         this.teamRepository = teamRepository;
         this.matchGeneratorRegistry = matchGeneratorRegistry;
         this.distributorRegistry = distributorRegistry;
+        this.sortCalculatorRegistry = sortCalculatorRegistry;
     }
 
     // -------------------------------------------------------------------------
@@ -306,6 +319,8 @@ public class DefaultDraftService implements DraftService {
         config.validateGameModeMembership(matchGeneratorRegistry.knownIds());
         // AC6 (E58S02 DEC-73 D-2): validate distributionMode registry membership
         config.validateDistributionModeMembership(distributorRegistry.knownKeys());
+        // AC6 (E58S03 DEC-73 D-3): validate sortType registry membership
+        config.validateSortTypeMembership(sortCalculatorRegistry.knownKeys());
         // AC-IMPL-FIRST-PHASE-INVARIANT (E48S16): first phase must have sortType=team_number
         config.validateFirstPhaseTeamNumber();
         // AC-IMPL-LAST-PHASE-INVARIANT (E48S01): D-10 — last phase must be siegerehrung
@@ -454,6 +469,8 @@ public class DefaultDraftService implements DraftService {
         config.validateGameModeMembership(matchGeneratorRegistry.knownIds());
         // AC6 (E58S02 DEC-73 D-2): validate distributionMode registry membership before persisting
         config.validateDistributionModeMembership(distributorRegistry.knownKeys());
+        // AC6 (E58S03 DEC-73 D-3): validate sortType registry membership before persisting
+        config.validateSortTypeMembership(sortCalculatorRegistry.knownKeys());
         String json;
         try {
             json = objectMapper.writeValueAsString(config);

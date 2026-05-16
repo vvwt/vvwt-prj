@@ -100,6 +100,12 @@ class DraftServiceTest {
      */
     @Mock private de.vvwt.tm.tournament.Team2AvatarDistributorRegistry distributorRegistry;
 
+    /**
+     * E58S03 AC6: TeamSortCalculatorRegistry mock for sortType membership validation in saveDraft()
+     * and apply(). Stubbed to return known keys in setUp().
+     */
+    @Mock private de.vvwt.tm.tournament.TeamSortCalculatorRegistry sortCalculatorRegistry;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private DefaultDraftService draftService;
@@ -126,7 +132,8 @@ class DraftServiceTest {
                         teamAvatarRepository,
                         teamRepository,
                         matchGeneratorRegistry, // E58S01 AC6: registry-membership validation
-                        distributorRegistry); // E58S02 AC4/AC6: distributor registry dispatch
+                        distributorRegistry, // E58S02 AC4/AC6: distributor registry dispatch
+                        sortCalculatorRegistry); // E58S03 AC6: sortType membership validation
         // Stub: registry knows "roundRobin" and "siegerehrung" — used by saveDraft()/apply() paths.
         // lenient() because preview_* tests do not invoke knownIds() and would trigger
         // UnnecessaryStubbingException with strict Mockito mode.
@@ -137,6 +144,11 @@ class DraftServiceTest {
         lenient()
                 .when(distributorRegistry.knownKeys())
                 .thenReturn(Set.of("sequential", "round_robin"));
+        // E58S03 AC6: sortCalculatorRegistry knows "team_number", "placement_group",
+        // "group_placement"
+        lenient()
+                .when(sortCalculatorRegistry.knownKeys())
+                .thenReturn(Set.of("team_number", "placement_group", "group_placement"));
         // E58S02: stub distributor.get("sequential") for apply() tests that use
         // persistStructuralAvatars
         de.vvwt.tm.tournament.Team2AvatarDistributor sequentialDistributor =

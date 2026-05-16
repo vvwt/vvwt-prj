@@ -48,6 +48,7 @@ class DefaultDraftServiceGameModeValidationTest {
     private TournamentRepository tournamentRepository;
     private MatchGeneratorRegistry matchGeneratorRegistry;
     private Team2AvatarDistributorRegistry distributorRegistry;
+    private de.vvwt.tm.tournament.TeamSortCalculatorRegistry sortCalculatorRegistry;
     private DefaultDraftService service;
     private UUID tournamentId;
 
@@ -56,6 +57,7 @@ class DefaultDraftServiceGameModeValidationTest {
         tournamentRepository = mock(TournamentRepository.class);
         matchGeneratorRegistry = mock(MatchGeneratorRegistry.class);
         distributorRegistry = mock(Team2AvatarDistributorRegistry.class);
+        sortCalculatorRegistry = mock(de.vvwt.tm.tournament.TeamSortCalculatorRegistry.class);
 
         service =
                 new DefaultDraftService(
@@ -69,7 +71,8 @@ class DefaultDraftServiceGameModeValidationTest {
                         mock(TeamAvatarRepository.class),
                         mock(TeamRepository.class),
                         matchGeneratorRegistry,
-                        distributorRegistry); // E58S02 AC4/AC6
+                        distributorRegistry,
+                        sortCalculatorRegistry); // E58S03 AC6
 
         tournamentId = UUID.randomUUID();
         Tournament tournament = new Tournament();
@@ -84,6 +87,11 @@ class DefaultDraftServiceGameModeValidationTest {
         lenient()
                 .when(distributorRegistry.knownKeys())
                 .thenReturn(Set.of("sequential", "round_robin"));
+        // E58S03 AC6: sortCalculatorRegistry knows "team_number", etc.
+        // lenient because tests that fail at gameMode validation don't reach sortType validation
+        lenient()
+                .when(sortCalculatorRegistry.knownKeys())
+                .thenReturn(Set.of("team_number", "placement_group", "group_placement"));
     }
 
     // -------------------------------------------------------------------------

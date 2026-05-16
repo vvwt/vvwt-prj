@@ -12,22 +12,25 @@ import de.vvwt.tm.tournament.Team2AvatarDistributorRegistry;
 import de.vvwt.tm.tournament.Team2AvatarSlot;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarProposal;
+import de.vvwt.tm.tournament.TeamAvatarRating;
 import de.vvwt.tm.tournament.TeamAvatarRatingRepository;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.TeamRepository;
+import de.vvwt.tm.tournament.TeamSortCalculator;
+import de.vvwt.tm.tournament.TeamSortCalculatorRegistry;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftSection;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -66,9 +69,8 @@ import org.springframework.transaction.annotation.Transactional;
  *       becomes the source slot for Phase N+1).
  * </ul>
  *
- * <p>Defense: if a Team cannot be resolved (corrupt data), {@link
- * #requireTeamForDisplay(TeamAvatar)} throws {@link IllegalStateException} with the offending
- * teamId (AC-ERROR-MISSING-TEAM-DEFENSE).
+ * <p>Defense: if a Team cannot be resolved (corrupt data), {@link #buildTeamLookup} throws {@link
+ * IllegalStateException} with the offending teamId (AC-ERROR-MISSING-TEAM-DEFENSE).
  *
  * <h2>sortType algorithms</h2>
  *
@@ -106,6 +108,7 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
     private final RefereeAssigner refereeAssigner;
     private final PhaseLifecycleService phaseLifecycleService;
     private final Team2AvatarDistributorRegistry distributorRegistry;
+    private final TeamSortCalculatorRegistry sortRegistry;
 
     public DefaultPhaseTransitionService(
             @Qualifier("tmTournamentRepository") TournamentRepository tournamentRepository,
@@ -117,7 +120,8 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
             @Qualifier("tmRefereeAssigner") RefereeAssigner refereeAssigner,
             @Qualifier("tmPhaseLifecycleService") PhaseLifecycleService phaseLifecycleService,
             @Qualifier("tmTeam2AvatarDistributorRegistry")
-                    Team2AvatarDistributorRegistry distributorRegistry) {
+                    Team2AvatarDistributorRegistry distributorRegistry,
+            @Qualifier("tmTeamSortCalculatorRegistry") TeamSortCalculatorRegistry sortRegistry) {
         this.tournamentRepository = tournamentRepository;
         this.phaseRepository = phaseRepository;
         this.teamAvatarRepository = teamAvatarRepository;
@@ -127,6 +131,7 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
         this.refereeAssigner = refereeAssigner;
         this.phaseLifecycleService = phaseLifecycleService;
         this.distributorRegistry = distributorRegistry;
+        this.sortRegistry = sortRegistry;
     }
 
     // -------------------------------------------------------------------------
@@ -155,11 +160,11 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
         }
 
         // Phase N+1 branch: use fromPhase TeamAvatars (existing behavior — E48S07)
-        List<TeamAvatar> fromAvatars =
-                teamAvatarRepository.findByPhaseId(fromPhaseOpt.get().getId());
+        Phase fromPhase = fromPhaseOpt.get();
+        List<TeamAvatar> fromAvatars = teamAvatarRepository.findByPhaseId(fromPhase.getId());
         // E48S20: build Team lookup map for display-field population (avoid N+1 per avatar)
         Map<UUID, Team> teamById = buildTeamLookup(fromAvatars);
-        return computeProposals(fromAvatars, toSection, teamById);
+        return computeProposals(fromAvatars, toSection, teamById, fromPhase.getId());
     }
 
     // -------------------------------------------------------------------------
@@ -405,168 +410,42 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
     }
 
     // -------------------------------------------------------------------------
-    // sortType algorithms (Phase 2+ — with Team lookup for display fields)
+    // sortType registry dispatch (Phase 2+ — E58S03 AC5)
     // -------------------------------------------------------------------------
 
+    /**
+     * Dispatches proposal computation to the registered {@link TeamSortCalculator} for the given
+     * sortType (E58S03 AC5 — registry dispatch replaces inline switch).
+     *
+     * <p>AC7 (DEC-69 production callsite): bulk-loads all ratings for avatars in the from-phase via
+     * {@link TeamAvatarRatingRepository#findByPhaseId(UUID)} and passes the resulting map to {@link
+     * TeamSortCalculator#sortTeams} — replaces the previous per-avatar N+1 {@code findByAvatarId}
+     * calls inside the old private sort methods.
+     *
+     * @param fromAvatars avatars from the preceding phase
+     * @param toSection draft section defining sortType and groupCount for the target phase
+     * @param teamById pre-built Team lookup map for display-field population
+     * @param fromPhaseId the phase id whose avatars supply the ratings (used for bulk load)
+     * @return list of proposals produced by the calculator; never null
+     */
     private List<TeamAvatarProposal> computeProposals(
-            List<TeamAvatar> fromAvatars, DraftSection toSection, Map<UUID, Team> teamById) {
-        // E51S13: pass sortType down to sub-methods so every proposal carries it
-        String sortType = toSection.getSortType();
-        return switch (sortType) {
-            case "team_number" ->
-                    computeTeamNumber(fromAvatars, toSection.getGroupCount(), teamById, sortType);
-            case "placement_group" -> computePlacementGroup(fromAvatars, teamById, sortType);
-            case "group_placement" -> computeGroupPlacement(fromAvatars, teamById, sortType);
-            default -> throw new IllegalArgumentException("Unknown sortType: " + sortType);
-        };
-    }
-
-    /**
-     * Round-Robin distribution: avatars sorted by (group_number, group_position) ascending are
-     * distributed across {@code groupCount} groups in round-robin order.
-     *
-     * <p>Avatar at index i (0-indexed) goes to group {@code (i % groupCount) + 1} with position
-     * {@code (i / groupCount) + 1}.
-     *
-     * <p>E48S20 (AC-IMPL-SERVICE-POPULATES-FIELDS): {@code teamNumber} and {@code teamDescription}
-     * from the Team aggregate; {@code sourceGroupNumber} and {@code sourceGroupPosition} from the
-     * fromPhase avatar's structural identity.
-     */
-    private List<TeamAvatarProposal> computeTeamNumber(
             List<TeamAvatar> fromAvatars,
-            int groupCount,
+            DraftSection toSection,
             Map<UUID, Team> teamById,
-            String sortType) {
-        // fromAvatars is already ordered by group_number, group_position (repository contract)
-        List<TeamAvatarProposal> proposals = new ArrayList<>(fromAvatars.size());
-        for (int i = 0; i < fromAvatars.size(); i++) {
-            TeamAvatar av = fromAvatars.get(i);
-            Team team = requireTeamForDisplay(av, teamById);
-            int targetGroup = (i % groupCount) + 1;
-            int targetPosition = (i / groupCount) + 1;
-            // E51S13 (AC-IMPL-DTO-SORTTYPE-NULLABLE): populate sortType from toSection
-            proposals.add(
-                    new TeamAvatarProposal(
-                            av.getTeamId(),
-                            team.getTeamNumber(),
-                            team.getDescription(),
-                            targetGroup,
-                            targetPosition,
-                            av.getGroupNumber(),
-                            av.getGroupPosition(),
-                            sortType));
-        }
-        return proposals;
-    }
+            UUID fromPhaseId) {
+        String sortType = toSection.getSortType();
+        TeamSortCalculator calculator = sortRegistry.get(sortType);
 
-    /**
-     * Placement-group distribution: teams keep their Phase-N group; positions within each group are
-     * re-assigned by descending points (higher points = rank 1 = position 1).
-     *
-     * <p>Teams with no rating are placed at the end (effectively rank last).
-     *
-     * <p>E48S20: source fields populated from fromPhase avatar structural identity.
-     */
-    private List<TeamAvatarProposal> computePlacementGroup(
-            List<TeamAvatar> fromAvatars, Map<UUID, Team> teamById, String sortType) {
-        // Group avatars by their fromPhase groupNumber, preserving encounter order within each
-        // group
-        Map<Integer, List<TeamAvatar>> byGroup = new LinkedHashMap<>();
-        for (TeamAvatar av : fromAvatars) {
-            byGroup.computeIfAbsent(av.getGroupNumber(), k -> new ArrayList<>()).add(av);
-        }
+        // AC7: bulk-load all ratings for avatars in the from-phase (DEC-69 production callsite)
+        List<TeamAvatarRating> ratingsList = teamAvatarRatingRepository.findByPhaseId(fromPhaseId);
+        Map<UUID, TeamAvatarRating> ratingsByAvatarId =
+                ratingsList.stream()
+                        .collect(
+                                Collectors.toMap(
+                                        TeamAvatarRating::getAvatarId, Function.identity()));
 
-        List<TeamAvatarProposal> proposals = new ArrayList<>(fromAvatars.size());
-        for (Map.Entry<Integer, List<TeamAvatar>> entry : byGroup.entrySet()) {
-            int groupNumber = entry.getKey();
-            List<TeamAvatar> groupAvatars = entry.getValue();
-
-            // Sort by descending points — higher points = better placement = lower position index
-            groupAvatars.sort(
-                    Comparator.comparingInt(
-                                    (TeamAvatar av) ->
-                                            teamAvatarRatingRepository
-                                                    .findByAvatarId(av.getId())
-                                                    .map(r -> r.getPoints())
-                                                    .orElse(Integer.MIN_VALUE))
-                            .reversed());
-
-            for (int pos = 0; pos < groupAvatars.size(); pos++) {
-                TeamAvatar av = groupAvatars.get(pos);
-                Team team = requireTeamForDisplay(av, teamById);
-                // E51S13 (AC-IMPL-DTO-SORTTYPE-NULLABLE): populate sortType from toSection
-                proposals.add(
-                        new TeamAvatarProposal(
-                                av.getTeamId(),
-                                team.getTeamNumber(),
-                                team.getDescription(),
-                                groupNumber,
-                                pos + 1,
-                                av.getGroupNumber(),
-                                av.getGroupPosition(),
-                                sortType));
-            }
-        }
-        return proposals;
-    }
-
-    /**
-     * Group-placement distribution: rank-N finisher from every Phase-N group → target group N.
-     *
-     * <p>Truncates to the minimum group size when groups are unequal — teams with rank beyond the
-     * minimum are excluded (no equivalent rank slot in the smaller group).
-     *
-     * <p>Within each target group, positions are assigned in the order the source groups are
-     * encountered (source group 1 first, source group 2 second, etc.).
-     *
-     * <p>E48S20: source fields populated from fromPhase avatar structural identity.
-     */
-    private List<TeamAvatarProposal> computeGroupPlacement(
-            List<TeamAvatar> fromAvatars, Map<UUID, Team> teamById, String sortType) {
-        // Group avatars by their fromPhase groupNumber
-        Map<Integer, List<TeamAvatar>> byGroup = new LinkedHashMap<>();
-        for (TeamAvatar av : fromAvatars) {
-            byGroup.computeIfAbsent(av.getGroupNumber(), k -> new ArrayList<>()).add(av);
-        }
-
-        // Sort each group by descending points: index 0 = rank 1 (best), index 1 = rank 2, ...
-        for (List<TeamAvatar> groupAvatars : byGroup.values()) {
-            groupAvatars.sort(
-                    Comparator.comparingInt(
-                                    (TeamAvatar av) ->
-                                            teamAvatarRatingRepository
-                                                    .findByAvatarId(av.getId())
-                                                    .map(r -> r.getPoints())
-                                                    .orElse(Integer.MIN_VALUE))
-                            .reversed());
-        }
-
-        // Truncate to minimum group size
-        int minSize = byGroup.values().stream().mapToInt(List::size).min().orElse(0);
-
-        // Build proposals: rank slot r → target group (r+1), position = source-group order
-        List<TeamAvatarProposal> proposals = new ArrayList<>();
-        for (int rankSlot = 0; rankSlot < minSize; rankSlot++) {
-            int targetGroup = rankSlot + 1;
-            int posWithinGroup = 1;
-            for (List<TeamAvatar> sourceGroup : byGroup.values()) {
-                TeamAvatar av = sourceGroup.get(rankSlot);
-                Team team = requireTeamForDisplay(av, teamById);
-                // E51S13 (AC-IMPL-DTO-SORTTYPE-NULLABLE): populate sortType from toSection
-                proposals.add(
-                        new TeamAvatarProposal(
-                                av.getTeamId(),
-                                team.getTeamNumber(),
-                                team.getDescription(),
-                                targetGroup,
-                                posWithinGroup,
-                                av.getGroupNumber(),
-                                av.getGroupPosition(),
-                                sortType));
-                posWithinGroup++;
-            }
-        }
-        return proposals;
+        return calculator.sortTeams(
+                fromAvatars, ratingsByAvatarId, teamById, toSection.getGroupCount(), sortType);
     }
 
     // -------------------------------------------------------------------------
@@ -653,28 +532,6 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
             }
         }
         return teamById;
-    }
-
-    /**
-     * Returns the {@link Team} for the given avatar's teamId from the pre-built lookup map.
-     *
-     * <p>Throws {@link IllegalStateException} if the team is not in the map (should not happen if
-     * {@link #buildTeamLookup} was called with the same avatar list).
-     *
-     * @param av the avatar whose teamId is looked up
-     * @param teamById pre-built lookup map
-     * @return the Team entity; never null
-     * @throws IllegalStateException if not found in the map
-     */
-    private Team requireTeamForDisplay(TeamAvatar av, Map<UUID, Team> teamById) {
-        Team team = teamById.get(av.getTeamId());
-        if (team == null) {
-            throw new IllegalStateException(
-                    "Team not found in lookup for teamId="
-                            + av.getTeamId()
-                            + " (AC-ERROR-MISSING-TEAM-DEFENSE)");
-        }
-        return team;
     }
 
     /**

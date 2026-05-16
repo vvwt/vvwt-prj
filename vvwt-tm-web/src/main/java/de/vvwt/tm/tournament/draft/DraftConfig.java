@@ -179,4 +179,34 @@ public final class DraftConfig {
             }
         }
     }
+
+    /**
+     * Validates that all sections have a {@code sortType} that is a member of the given set of
+     * known registry keys (AC6, E58S03).
+     *
+     * <p>Replaces the hardcoded string-set check that previously lived in {@link
+     * DraftSection#validate()} — the registry is the single source of truth for valid sort keys.
+     *
+     * @param knownKeys the set of registered sort-calculator key IDs; must not be {@code null}
+     * @throws IllegalArgumentException if any section has a {@code sortType} not in {@code
+     *     knownKeys}; the message names the unknown key
+     * @see <a href="E58S03">E58S03 — AC6 sortType registry-membership validation</a>
+     * @see <a href="DEC-73">DEC-73 D-3</a>
+     */
+    public void validateSortTypeMembership(Set<String> knownKeys) {
+        for (DraftSection section : sections) {
+            String st = section.getSortType();
+            if (st != null && !knownKeys.contains(st)) {
+                throw new IllegalArgumentException(
+                        "Section "
+                                + section.getSectionNumber()
+                                + ": sortType '"
+                                + st
+                                + "' is not registered in the TeamSortCalculatorRegistry."
+                                + " Known keys: "
+                                + String.join(", ", new java.util.TreeSet<>(knownKeys))
+                                + " (AC6, E58S03)");
+            }
+        }
+    }
 }

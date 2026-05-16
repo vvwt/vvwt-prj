@@ -85,13 +85,56 @@ class DraftSectionTest {
         assertThatThrownBy(section::validate).isInstanceOf(IllegalArgumentException.class);
     }
 
-    /** AC-TDD-DraftSection: validate() throws on invalid sortType. */
+    /**
+     * AC-TDD-DraftSection: validate() accepts any non-blank sortType — registry-membership
+     * validation moved to {@link DraftConfig#validateSortTypeMembership(java.util.Set)} (AC6,
+     * E58S03 DEC-73 D-3).
+     */
     @Test
-    void validate_withInvalidSortType_throwsIllegalArgument() {
+    void validate_withUnknownSortType_passesFieldValidation() {
+        // validate() no longer rejects unknown-but-non-blank sortTypes; registry check is
+        // responsibility of DraftConfig.validateSortTypeMembership (E58S03 AC6)
         DraftSection section =
-                new DraftSection(1, "invalid", 2, "roundRobin", 5, 10, 15, 1, List.of());
+                new DraftSection(1, "unknown_sort_type", 2, "roundRobin", 5, 10, 15, 1, List.of());
 
-        assertThatThrownBy(section::validate).isInstanceOf(IllegalArgumentException.class);
+        section.validate(); // must not throw — field constraint is only "not blank"
+    }
+
+    /**
+     * AC-E58S03-SORT-TYPE-MEMBERSHIP-REJECTED: DraftConfig.validateSortTypeMembership rejects a
+     * sortType not in the registry's known keys (AC6, E58S03 DEC-73 D-3).
+     */
+    @Test
+    void validateSortTypeMembership_withUnknownSortType_throwsIllegalArgument() {
+        DraftSection section =
+                new DraftSection(1, "invalid_sort", 2, "roundRobin", 5, 10, 15, 1, List.of());
+        DraftConfig config = new DraftConfig(List.of(section));
+
+        assertThatThrownBy(
+                        () ->
+                                config.validateSortTypeMembership(
+                                        java.util.Set.of(
+                                                "team_number",
+                                                "placement_group",
+                                                "group_placement")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("invalid_sort")
+                .hasMessageContaining("TeamSortCalculatorRegistry");
+    }
+
+    /**
+     * AC-E58S03-SORT-TYPE-MEMBERSHIP-ACCEPTED: DraftConfig.validateSortTypeMembership accepts known
+     * sortType keys (AC6, E58S03).
+     */
+    @Test
+    void validateSortTypeMembership_withKnownSortType_passes() {
+        DraftSection section =
+                new DraftSection(1, "team_number", 2, "roundRobin", 5, 10, 15, 1, List.of());
+        DraftConfig config = new DraftConfig(List.of(section));
+
+        // must not throw
+        config.validateSortTypeMembership(
+                java.util.Set.of("team_number", "placement_group", "group_placement"));
     }
 
     /** AC-TDD-DraftSection: validate() throws on groupCount < 1. */
