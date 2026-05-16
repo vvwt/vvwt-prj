@@ -45,6 +45,11 @@ class DefaultTeamAvatarRatingRepository implements TeamAvatarRatingRepository {
     private static final String SELECT_BY_AVATAR_ID =
             "SELECT * FROM team_avatar_rating WHERE avatar_id=?";
 
+    private static final String SELECT_BY_PHASE_ID =
+            "SELECT tar.* FROM team_avatar_rating tar"
+                    + " JOIN team_avatar ta ON ta.id = tar.avatar_id"
+                    + " WHERE ta.phase_id=?";
+
     private static final String DELETE_BY_AVATAR_ID =
             "DELETE FROM team_avatar_rating WHERE avatar_id=?";
 
@@ -109,6 +114,19 @@ class DefaultTeamAvatarRatingRepository implements TeamAvatarRatingRepository {
     @Override
     public Optional<TeamAvatarRating> findById(UUID avatarId) {
         return findByAvatarId(avatarId);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Bulk-loads all ratings for avatars in the given phase via a single JOIN query (E58S03
+     * AC7). Production callsite: {@code DefaultPhaseTransitionService.computeProposals} uses this
+     * to assemble the {@code ratingsByAvatarId} map for {@link
+     * de.vvwt.tm.tournament.TeamSortCalculator} (DEC-69 production-callsite obligation).
+     */
+    @Override
+    public List<TeamAvatarRating> findByPhaseId(UUID phaseId) {
+        return jdbc.query(SELECT_BY_PHASE_ID, ROW_MAPPER, phaseId);
     }
 
     /** {@inheritDoc} */

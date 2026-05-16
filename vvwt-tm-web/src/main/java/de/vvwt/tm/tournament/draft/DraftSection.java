@@ -213,13 +213,9 @@ public final class DraftSection {
         if (sortType == null || sortType.isBlank()) {
             throw new IllegalArgumentException("sortType must not be blank");
         }
-        if (!sortType.equals("team_number")
-                && !sortType.equals("placement_group")
-                && !sortType.equals("group_placement")) {
-            throw new IllegalArgumentException(
-                    "sortType must be one of: team_number, placement_group, group_placement. Got: "
-                            + sortType);
-        }
+        // Note: sortType registry-membership check was moved to
+        // DraftConfig.validateSortTypeMembership()
+        // which validates against the TeamSortCalculatorRegistry (AC6, E58S03 DEC-73 D-3).
         if (groupCount < 1) {
             throw new IllegalArgumentException("groupCount must be ≥ 1, got: " + groupCount);
         }

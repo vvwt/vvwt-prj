@@ -7,6 +7,7 @@ import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.infrastructure.testsupport.TenantDaoTestSupport;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -224,6 +225,72 @@ class TeamAvatarRatingRepositoryIT {
     }
 
     // -------------------------------------------------------------------------
+    // findByPhaseId — AC7 (E58S03 DEC-46 three-rule compliance)
+    // -------------------------------------------------------------------------
+
+    /**
+     * AC7 (E58S03): {@link TeamAvatarRatingRepository#findByPhaseId(UUID)} returns all ratings for
+     * avatars in the given phase.
+     *
+     * <p>DEC-46 three-rule compliance:
+     *
+     * <ol>
+     *   <li>Schema from migration (Flyway via @SpringBootTest).
+     *   <li>Independent verifier: write tests use assertj-db (not covered here — this is the
+     *       read-path test).
+     *   <li>Read-path fixtures inserted via direct JDBC ({@link
+     *       TenantDaoTestSupport#insertDirectly}), never via the repository's own save methods.
+     * </ol>
+     */
+    @Test
+    @DisplayName("findByPhaseId() — returns all ratings for avatars in the given phase (AC7)")
+    void findByPhaseId_returnsAllRatingsForPhase() {
+        // Insert a second avatar in the same phase (team_number=2 to avoid
+        // UQ_TEAM_TOURNAMENT_NUMBER)
+        UUID teamId2 = insertTeamFixture(tournamentId, 2);
+        UUID avatarId2 = insertAvatarFixtureAt(tournamentId, phaseId, teamId2, 1, 2);
+
+        // Insert ratings via direct JDBC (DEC-26 Rule 3)
+        insertRatingDirectly(avatarId, 20, 4, 1, 4.0, 2.0);
+        insertRatingDirectly(avatarId2, 15, 3, 2, 1.5, 1.2);
+
+        List<TeamAvatarRating> ratings = teamAvatarRatingRepository.findByPhaseId(phaseId);
+
+        assertThat(ratings).hasSize(2);
+        assertThat(ratings)
+                .extracting(TeamAvatarRating::getAvatarId)
+                .containsExactlyInAnyOrder(avatarId, avatarId2);
+    }
+
+    @Test
+    @DisplayName("findByPhaseId() — returns empty list when no ratings exist for phase")
+    void findByPhaseId_returnsEmptyWhenNoRatingsForPhase() {
+        // No ratings inserted — avatarId exists but has no rating row
+        List<TeamAvatarRating> ratings = teamAvatarRatingRepository.findByPhaseId(phaseId);
+
+        assertThat(ratings).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findByPhaseId() — does not return ratings from a different phase")
+    void findByPhaseId_doesNotReturnRatingsFromOtherPhase() {
+        // Insert a second phase
+        UUID otherPhaseId = insertPhaseFixture(tournamentId, 2);
+        // team_number=2 to avoid UQ_TEAM_TOURNAMENT_NUMBER unique constraint
+        UUID teamId2 = insertTeamFixture(tournamentId, 2);
+        UUID avatarInOtherPhase = insertAvatarFixtureAt(tournamentId, otherPhaseId, teamId2, 1, 1);
+
+        // Insert rating for the first phase and the other phase
+        insertRatingDirectly(avatarId, 25, 5, 0, 5.0, 3.0);
+        insertRatingDirectly(avatarInOtherPhase, 10, 2, 1, 2.0, 1.0);
+
+        List<TeamAvatarRating> ratings = teamAvatarRatingRepository.findByPhaseId(phaseId);
+
+        assertThat(ratings).hasSize(1);
+        assertThat(ratings.get(0).getAvatarId()).isEqualTo(avatarId);
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
@@ -290,13 +357,21 @@ class TeamAvatarRatingRepositoryIT {
     }
 
     private UUID insertTeamFixture(UUID trnId) {
+        return insertTeamFixture(trnId, 1);
+    }
+
+    /**
+     * Inserts a team with the given teamNumber — used by E58S03 AC7 tests that need a second team
+     * in the same tournament without violating the UQ_TEAM_TOURNAMENT_NUMBER unique constraint.
+     */
+    private UUID insertTeamFixture(UUID trnId, int teamNumber) {
         UUID id = UUID.randomUUID();
         Map<String, Object> cols = new LinkedHashMap<>();
         cols.put("id", id);
         // E45S06: tenant_id removed from team (DEC-39 D1)
         cols.put("tournament_id", trnId);
-        cols.put("team_number", 1);
-        cols.put("description", "Fixture Team");
+        cols.put("team_number", teamNumber);
+        cols.put("description", "Fixture Team " + teamNumber);
         cols.put("participate", true);
         cols.put("referee_assignment", false);
         cols.put("without_assessment", false);
@@ -305,16 +380,36 @@ class TeamAvatarRatingRepositoryIT {
     }
 
     private UUID insertAvatarFixture(UUID trnId, UUID pId, UUID tId) {
+        return insertAvatarFixtureAt(trnId, pId, tId, 1, 1);
+    }
+
+    /** Inserts avatar at specific (groupNumber, groupPosition) coordinates — E58S03 AC7. */
+    private UUID insertAvatarFixtureAt(
+            UUID trnId, UUID pId, UUID tId, int groupNumber, int groupPosition) {
         UUID id = UUID.randomUUID();
         Map<String, Object> cols = new LinkedHashMap<>();
         cols.put("id", id);
         // E45S06: tenant_id removed from team_avatar (DEC-39 D1)
         cols.put("tournament_id", trnId);
         cols.put("phase_id", pId);
-        cols.put("group_number", 1);
-        cols.put("group_position", 1);
+        cols.put("group_number", groupNumber);
+        cols.put("group_position", groupPosition);
         cols.put("team_id", tId);
         TenantDaoTestSupport.insertDirectly(dataSource, "team_avatar", cols);
+        return id;
+    }
+
+    /** Inserts a second phase fixture at sequenceNumber — E58S03 AC7. */
+    private UUID insertPhaseFixture(UUID trnId, int sequenceNumber) {
+        UUID id = UUID.randomUUID();
+        Map<String, Object> cols = new LinkedHashMap<>();
+        cols.put("id", id);
+        // E45S06: tenant_id removed from phase (DEC-39 D1)
+        cols.put("tournament_id", trnId);
+        cols.put("sequence_number", sequenceNumber);
+        cols.put("description", "Phase " + sequenceNumber);
+        cols.put("status", "DRAFT");
+        TenantDaoTestSupport.insertDirectly(dataSource, "phase", cols);
         return id;
     }
 }

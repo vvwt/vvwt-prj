@@ -19,6 +19,7 @@ import de.vvwt.tm.tournament.TeamAvatarRating;
 import de.vvwt.tm.tournament.TeamAvatarRatingRepository;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.TeamRepository;
+import de.vvwt.tm.tournament.TeamSortCalculatorRegistry;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import java.time.LocalDateTime;
@@ -66,6 +67,7 @@ class PhaseTransitionServiceTest {
     @Mock private RefereeAssigner refereeAssigner;
     @Mock private PhaseLifecycleService phaseLifecycleService;
     @Mock private Team2AvatarDistributorRegistry distributorRegistry;
+    @Mock private TeamSortCalculatorRegistry sortRegistry;
 
     private DefaultPhaseTransitionService service;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -81,6 +83,15 @@ class PhaseTransitionServiceTest {
                 new SequentialTeam2AvatarDistributor();
         lenient().when(distributorRegistry.get("sequential")).thenReturn(sequentialDistributor);
 
+        // E58S03 AC5: wire real calculator instances for Phase-2+ paths
+        lenient().when(sortRegistry.get("team_number")).thenReturn(new TeamNumberSortCalculator());
+        lenient()
+                .when(sortRegistry.get("placement_group"))
+                .thenReturn(new PlacementGroupSortCalculator());
+        lenient()
+                .when(sortRegistry.get("group_placement"))
+                .thenReturn(new GroupPlacementSortCalculator());
+
         service =
                 new DefaultPhaseTransitionService(
                         tournamentRepository,
@@ -91,7 +102,8 @@ class PhaseTransitionServiceTest {
                         teamRepository,
                         refereeAssigner,
                         phaseLifecycleService,
-                        distributorRegistry); // E58S02
+                        distributorRegistry,
+                        sortRegistry); // E58S03 AC5
     }
 
     // -------------------------------------------------------------------------
@@ -138,7 +150,11 @@ class PhaseTransitionServiceTest {
             when(teamRepository.findById(tid)).thenReturn(Optional.of(teamWithNumber(tid, i)));
         }
 
-        // No ratings needed for team_number algorithm
+        // E58S03 AC7: findByPhaseId bulk-load — no ratings needed for team_number algorithm
+        lenient()
+                .when(teamAvatarRatingRepository.findByPhaseId(FROM_PHASE_ID))
+                .thenReturn(List.of());
+
         // Act
         List<TeamAvatarProposal> proposals = service.proposeTransition(TO_PHASE_ID);
 
@@ -252,19 +268,16 @@ class PhaseTransitionServiceTest {
 
         // Ratings: A is rank 1 in group 1 (highest points), B rank 2, C rank 3
         // D is rank 1 in group 2, E rank 2, F rank 3
-        // compareTo: higher points = lower rank index = better position
-        when(teamAvatarRatingRepository.findByAvatarId(avatarA))
-                .thenReturn(Optional.of(rating(avatarA, 6))); // 6 points = best
-        when(teamAvatarRatingRepository.findByAvatarId(avatarB))
-                .thenReturn(Optional.of(rating(avatarB, 4)));
-        when(teamAvatarRatingRepository.findByAvatarId(avatarC))
-                .thenReturn(Optional.of(rating(avatarC, 2)));
-        when(teamAvatarRatingRepository.findByAvatarId(avatarD))
-                .thenReturn(Optional.of(rating(avatarD, 6)));
-        when(teamAvatarRatingRepository.findByAvatarId(avatarE))
-                .thenReturn(Optional.of(rating(avatarE, 4)));
-        when(teamAvatarRatingRepository.findByAvatarId(avatarF))
-                .thenReturn(Optional.of(rating(avatarF, 2)));
+        // E58S03 AC7: bulk-load via findByPhaseId (replaces per-avatar findByAvatarId)
+        when(teamAvatarRatingRepository.findByPhaseId(FROM_PHASE_ID))
+                .thenReturn(
+                        List.of(
+                                rating(avatarA, 6), // 6 points = best
+                                rating(avatarB, 4),
+                                rating(avatarC, 2),
+                                rating(avatarD, 6),
+                                rating(avatarE, 4),
+                                rating(avatarF, 2)));
 
         // Act
         List<TeamAvatarProposal> proposals = service.proposeTransition(TO_PHASE_ID);
@@ -362,22 +375,18 @@ class PhaseTransitionServiceTest {
         when(teamRepository.findById(teamB4)).thenReturn(Optional.of(teamWithNumber(teamB4, 8)));
 
         // Ratings sorted by group; within each group, descending points = ascending rank
-        when(teamAvatarRatingRepository.findByAvatarId(avatarA1))
-                .thenReturn(Optional.of(rating(avatarA1, 8)));
-        when(teamAvatarRatingRepository.findByAvatarId(avatarA2))
-                .thenReturn(Optional.of(rating(avatarA2, 6)));
-        when(teamAvatarRatingRepository.findByAvatarId(avatarA3))
-                .thenReturn(Optional.of(rating(avatarA3, 4)));
-        when(teamAvatarRatingRepository.findByAvatarId(avatarA4))
-                .thenReturn(Optional.of(rating(avatarA4, 2)));
-        when(teamAvatarRatingRepository.findByAvatarId(avatarB1))
-                .thenReturn(Optional.of(rating(avatarB1, 8)));
-        when(teamAvatarRatingRepository.findByAvatarId(avatarB2))
-                .thenReturn(Optional.of(rating(avatarB2, 6)));
-        when(teamAvatarRatingRepository.findByAvatarId(avatarB3))
-                .thenReturn(Optional.of(rating(avatarB3, 4)));
-        when(teamAvatarRatingRepository.findByAvatarId(avatarB4))
-                .thenReturn(Optional.of(rating(avatarB4, 2)));
+        // E58S03 AC7: bulk-load via findByPhaseId (replaces per-avatar findByAvatarId)
+        when(teamAvatarRatingRepository.findByPhaseId(FROM_PHASE_ID))
+                .thenReturn(
+                        List.of(
+                                rating(avatarA1, 8),
+                                rating(avatarA2, 6),
+                                rating(avatarA3, 4),
+                                rating(avatarA4, 2),
+                                rating(avatarB1, 8),
+                                rating(avatarB2, 6),
+                                rating(avatarB3, 4),
+                                rating(avatarB4, 2)));
 
         // Act
         List<TeamAvatarProposal> proposals = service.proposeTransition(TO_PHASE_ID);
@@ -453,16 +462,15 @@ class PhaseTransitionServiceTest {
         when(teamRepository.findById(tmB1)).thenReturn(Optional.of(teamWithNumber(tmB1, 4)));
         when(teamRepository.findById(tmB2)).thenReturn(Optional.of(teamWithNumber(tmB2, 5)));
 
-        when(teamAvatarRatingRepository.findByAvatarId(avrA1))
-                .thenReturn(Optional.of(rating(avrA1, 6)));
-        when(teamAvatarRatingRepository.findByAvatarId(avrA2))
-                .thenReturn(Optional.of(rating(avrA2, 4)));
-        when(teamAvatarRatingRepository.findByAvatarId(avrA3))
-                .thenReturn(Optional.of(rating(avrA3, 2)));
-        when(teamAvatarRatingRepository.findByAvatarId(avrB1))
-                .thenReturn(Optional.of(rating(avrB1, 6)));
-        when(teamAvatarRatingRepository.findByAvatarId(avrB2))
-                .thenReturn(Optional.of(rating(avrB2, 4)));
+        // E58S03 AC7: bulk-load via findByPhaseId (replaces per-avatar findByAvatarId)
+        when(teamAvatarRatingRepository.findByPhaseId(FROM_PHASE_ID))
+                .thenReturn(
+                        List.of(
+                                rating(avrA1, 6),
+                                rating(avrA2, 4),
+                                rating(avrA3, 2),
+                                rating(avrB1, 6),
+                                rating(avrB2, 4)));
 
         // Act
         List<TeamAvatarProposal> proposals = service.proposeTransition(TO_PHASE_ID);
@@ -651,6 +659,11 @@ class PhaseTransitionServiceTest {
             when(teamRepository.findById(tid)).thenReturn(Optional.of(teamWithNumber(tid, i)));
         }
 
+        // E58S03 AC7: findByPhaseId bulk-load — no ratings needed for team_number algorithm
+        lenient()
+                .when(teamAvatarRatingRepository.findByPhaseId(FROM_PHASE_ID))
+                .thenReturn(List.of());
+
         // Act — Phase 2 must still use the avatar-based path
         List<TeamAvatarProposal> proposals = service.proposeTransition(TO_PHASE_ID);
 
@@ -810,6 +823,11 @@ class PhaseTransitionServiceTest {
         team2.setParticipate(true);
         when(teamRepository.findById(teamId1)).thenReturn(Optional.of(team1));
         when(teamRepository.findById(teamId2)).thenReturn(Optional.of(team2));
+
+        // E58S03 AC7: bulk-load via findByPhaseId — no ratings needed for team_number
+        lenient()
+                .when(teamAvatarRatingRepository.findByPhaseId(FROM_PHASE_ID))
+                .thenReturn(List.of());
 
         List<TeamAvatarProposal> proposals = service.proposeTransition(TO_PHASE_ID);
 
@@ -1236,14 +1254,10 @@ class PhaseTransitionServiceTest {
         when(teamRepository.findById(t3)).thenReturn(Optional.of(teamWithNumber(t3, 3)));
         when(teamRepository.findById(t4)).thenReturn(Optional.of(teamWithNumber(t4, 4)));
 
-        when(teamAvatarRatingRepository.findByAvatarId(av1))
-                .thenReturn(Optional.of(rating(av1, 6)));
-        when(teamAvatarRatingRepository.findByAvatarId(av2))
-                .thenReturn(Optional.of(rating(av2, 4)));
-        when(teamAvatarRatingRepository.findByAvatarId(av3))
-                .thenReturn(Optional.of(rating(av3, 6)));
-        when(teamAvatarRatingRepository.findByAvatarId(av4))
-                .thenReturn(Optional.of(rating(av4, 4)));
+        // E58S03 AC7: bulk-load via findByPhaseId (replaces per-avatar findByAvatarId)
+        when(teamAvatarRatingRepository.findByPhaseId(FROM_PHASE_ID))
+                .thenReturn(
+                        List.of(rating(av1, 6), rating(av2, 4), rating(av3, 6), rating(av4, 4)));
 
         List<TeamAvatarProposal> proposals = service.proposeTransition(TO_PHASE_ID);
 
@@ -1301,14 +1315,10 @@ class PhaseTransitionServiceTest {
         when(teamRepository.findById(t3)).thenReturn(Optional.of(teamWithNumber(t3, 3)));
         when(teamRepository.findById(t4)).thenReturn(Optional.of(teamWithNumber(t4, 4)));
 
-        when(teamAvatarRatingRepository.findByAvatarId(av1))
-                .thenReturn(Optional.of(rating(av1, 6)));
-        when(teamAvatarRatingRepository.findByAvatarId(av2))
-                .thenReturn(Optional.of(rating(av2, 4)));
-        when(teamAvatarRatingRepository.findByAvatarId(av3))
-                .thenReturn(Optional.of(rating(av3, 6)));
-        when(teamAvatarRatingRepository.findByAvatarId(av4))
-                .thenReturn(Optional.of(rating(av4, 4)));
+        // E58S03 AC7: bulk-load via findByPhaseId (replaces per-avatar findByAvatarId)
+        when(teamAvatarRatingRepository.findByPhaseId(FROM_PHASE_ID))
+                .thenReturn(
+                        List.of(rating(av1, 6), rating(av2, 4), rating(av3, 6), rating(av4, 4)));
 
         List<TeamAvatarProposal> proposals = service.proposeTransition(TO_PHASE_ID);
 
