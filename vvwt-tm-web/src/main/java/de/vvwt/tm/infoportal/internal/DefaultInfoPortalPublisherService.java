@@ -20,8 +20,10 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -86,22 +88,22 @@ public class DefaultInfoPortalPublisherService implements InfoPortalPublisherSer
                     Base64.getEncoder().encodeToString(keypairManager.getPublicKey().getEncoded());
             RegistrationRequest req =
                     new RegistrationRequest(
-                            "ed25519", publicKeyBase64, null, null); // UNSIGNED (signature=null)
+                            "Ed25519", publicKeyBase64, null, null); // UNSIGNED (signature=null)
             Envelope<RegistrationRequest> envelope = new Envelope<>(Envelope.SCHEMA_VERSION, req);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("X-Tenant-Id", properties.getTenantId());
 
-            ResponseEntity<Object> resp =
-                    restTemplate.postForEntity(
+            ResponseEntity<Envelope<RegistrationResponse>> resp =
+                    restTemplate.exchange(
                             properties.getUrl() + "/api/v1/register",
+                            HttpMethod.POST,
                             new HttpEntity<>(envelope, headers),
-                            Object.class);
+                            new ParameterizedTypeReference<Envelope<RegistrationResponse>>() {});
 
-            if (resp.getStatusCode().is2xxSuccessful()
-                    && resp.getBody() instanceof RegistrationResponse regResp) {
-                handleAlgorithmWarning(regResp.algorithm_warning());
+            if (resp.getStatusCode().is2xxSuccessful() && resp.getBody() != null) {
+                handleAlgorithmWarning(resp.getBody().payload().algorithm_warning());
                 status.setRegistered(true);
                 log.info("[InfoPortal] Tenant registered with info-server");
             }
@@ -138,8 +140,8 @@ public class DefaultInfoPortalPublisherService implements InfoPortalPublisherSer
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("X-Vvwt-Signature", signatureBase64);
 
-            ResponseEntity<Object> resp =
-                    restTemplate.postForEntity(
+            ResponseEntity<Envelope<TournamentRegistrationResponse>> resp =
+                    restTemplate.exchange(
                             properties.getUrl()
                                     + "/api/v1/tournaments/"
                                     + properties.getTenantId()
@@ -148,11 +150,13 @@ public class DefaultInfoPortalPublisherService implements InfoPortalPublisherSer
                                     + "/"
                                     + tournamentId
                                     + "/register",
+                            HttpMethod.POST,
                             new HttpEntity<>(envelope, headers),
-                            Object.class);
+                            new ParameterizedTypeReference<
+                                    Envelope<TournamentRegistrationResponse>>() {});
 
-            if (resp.getStatusCode().is2xxSuccessful()
-                    && resp.getBody() instanceof TournamentRegistrationResponse tResp) {
+            if (resp.getStatusCode().is2xxSuccessful() && resp.getBody() != null) {
+                TournamentRegistrationResponse tResp = resp.getBody().payload();
                 stateDao.upsertRegistration(
                         properties.getLocationId(),
                         tournamentId,
