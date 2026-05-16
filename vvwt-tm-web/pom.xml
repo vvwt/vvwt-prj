@@ -286,6 +286,14 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- ArchUnit JUnit 5 — build-time interface-mandate enforcement guard (E57S04, DEC-72 Clause E-ext).
+             Asserts every self-created Spring component is addressable through a public first-party interface.
+             Apache 2.0 license — OSS-compliant per DEC-3. Version managed by parent pom (archunit.version). -->
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+        </dependency>
+
     </dependencies>
 
     <!-- ===================================================================

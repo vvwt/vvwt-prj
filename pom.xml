@@ -56,6 +56,12 @@
         <assertj-db.version>3.0.2</assertj-db.version>
         <jqwik.version>1.9.3</jqwik.version>
 
+        <!-- ArchUnit — build-time architecture tests (E57S04 — DEC-72 Clause E-ext enforcement guard).
+             Apache 2.0 license — OSS-compliant per DEC-3.
+             archunit-junit5: JUnit 5 integration for @Test-based architecture rules.
+             Version centralised here; child modules declare test-scoped dep without version. -->
+        <archunit.version>1.4.1</archunit.version>
+
         <!-- Logging -->
         <slf4j.version>2.0.17</slf4j.version>
 
@@ -206,6 +212,16 @@
                 <groupId>net.jqwik</groupId>
                 <artifactId>jqwik-engine</artifactId>
                 <version>${jqwik.version}</version>
+            </dependency>
+
+            <!-- ArchUnit JUnit 5 integration — build-time architecture tests (E57S04 — DEC-72 Clause E-ext).
+                 Apache 2.0 license — OSS-compliant per DEC-3. Test scope only.
+                 Version centralised in properties (archunit.version). -->
+            <dependency>
+                <groupId>com.tngtech.archunit</groupId>
+                <artifactId>archunit-junit5</artifactId>
+                <version>${archunit.version}</version>
+                <scope>test</scope>
             </dependency>
 
             <!-- Own modules — managed here so siblings reference without version -->
