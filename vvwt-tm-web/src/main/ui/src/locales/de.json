@@ -193,11 +193,29 @@
       "notInDraftStatus": "Der Phasenplan kann nur im Status ENTWURF angewendet werden."
     }
   },
-  "draftConfig": {
-    "gameMode": {
-      "roundRobin": "RoundRobin",
+  "matchOption": {
+    "generator": {
+      "roundRobin": "Jeder gegen Jeden",
       "awardCeremony": "Siegerehrung"
     },
+    "matchFormat": {
+      "BEST_OF_1": "1 Gewinnsatz",
+      "BEST_OF_3": "2 Gewinnsätze",
+      "BEST_OF_5": "3 Gewinnsätze",
+      "BEST_OF_7": "4 Gewinnsätze",
+      "FIXED_2_SETS": "Genau 2 Sätze"
+    },
+    "scoringRule": {
+      "setPoints": "Satzgewinn",
+      "threePoint": "Drei-Punkte-Wertung",
+      "twoPoint": "Zwei-Punkte-Wertung"
+    },
+    "setValidationRule": {
+      "standardVolleyball": "Standard-Volleyball",
+      "timeBounded": "Zeitbegrenzter Satz"
+    }
+  },
+  "draftConfig": {
     "distributionMode": {
       "label": "Verteilungsmodus",
       "sequential": "Sequenziell (Standard)",

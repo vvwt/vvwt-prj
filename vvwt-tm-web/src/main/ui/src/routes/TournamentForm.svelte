@@ -27,6 +27,10 @@
     type TournamentCreateRequest,
   } from '../stores/tournamentStore.js';
   import { getGeneratorList, type MatchGeneratorInfo } from '../stores/generatorStore.js';
+  import {
+    filterNonLastPhaseGenerators,
+    resolveNonLastDefault,
+  } from '../lib/generatorFilter.js';
 
   // ── Props ────────────────────────────────────────────────────────────────
   interface Props {
@@ -51,6 +55,8 @@
 
   let rules = $state<TournamentRules | null>(null);
   let generators = $state<MatchGeneratorInfo[]>([]); // E58S05 AC2/AC5: shared generator list
+  // E58S06 AC1: only non-last-phase generators appear in the tournament-form dropdown
+  let nonLastGenerators = $derived(filterNonLastPhaseGenerators(generators));
   let loading = $state(true);
   let saving = $state(false);
   let saveError = $state<string | null>(null);
@@ -76,8 +82,10 @@
       if (rules.matchFormats.length > 0) matchFormat = rules.matchFormats[0];
       if (rules.scoringRuleIds.length > 0) scoringRuleId = rules.scoringRuleIds[0];
       if (rules.setValidationRuleIds.length > 0) setValidationRuleId = rules.setValidationRuleIds[0];
-      // E58S05 AC5: default matchGeneratorId from shared generator registry
-      if (generators.length > 0) matchGeneratorId = generators[0].keyId;
+      // E58S06 AC2: default to the first non-last-phase generator (capability filter — DEC-73 D-5)
+      // Falls back to null if no non-last generator exists (AC11 graceful degradation)
+      const defaultGen = resolveNonLastDefault(generators, '');
+      if (defaultGen !== null) matchGeneratorId = defaultGen;
 
       if (editId) {
         // Load existing tournament for edit
@@ -225,11 +233,12 @@
 
       <!-- Match format -->
       {#if rules}
+        <!-- E58S06 AC6/AC7: render German i18n labels via matchOption.matchFormat.* namespace (AC8) -->
         <div class="form__field">
           <label for="matchFormat">{$_('tournamentForm.fields.matchFormat')}</label>
           <select id="matchFormat" bind:value={matchFormat} required>
             {#each rules.matchFormats as fmt}
-              <option value={fmt}>{fmt}</option>
+              <option value={fmt}>{$_(`matchOption.matchFormat.${fmt}`, { default: fmt })}</option>
             {/each}
           </select>
           {#if fieldErrors['matchFormat']}
@@ -237,12 +246,12 @@
           {/if}
         </div>
 
-        <!-- Scoring rule -->
+        <!-- E58S06 AC6/AC7: render German i18n labels via matchOption.scoringRule.* namespace (AC8) -->
         <div class="form__field">
           <label for="scoringRuleId">{$_('tournamentForm.fields.scoringRuleId')}</label>
           <select id="scoringRuleId" bind:value={scoringRuleId} required>
             {#each rules.scoringRuleIds as id}
-              <option value={id}>{id}</option>
+              <option value={id}>{$_(`matchOption.scoringRule.${id}`, { default: id })}</option>
             {/each}
           </select>
           {#if fieldErrors['scoringRuleId']}
@@ -250,12 +259,12 @@
           {/if}
         </div>
 
-        <!-- Set validation rule -->
+        <!-- E58S06 AC6/AC7: render German i18n labels via matchOption.setValidationRule.* namespace (AC8) -->
         <div class="form__field">
           <label for="setValidationRuleId">{$_('tournamentForm.fields.setValidationRuleId')}</label>
           <select id="setValidationRuleId" bind:value={setValidationRuleId} required>
             {#each rules.setValidationRuleIds as id}
-              <option value={id}>{id}</option>
+              <option value={id}>{$_(`matchOption.setValidationRule.${id}`, { default: id })}</option>
             {/each}
           </select>
           {#if fieldErrors['setValidationRuleId']}
@@ -263,12 +272,13 @@
           {/if}
         </div>
 
-        <!-- Match generator — E58S05 AC5: populated from shared generatorStore -->
+        <!-- E58S06 AC1: capability-filtered to non-last-phase generators only (DEC-73 D-5)
+             E58S06 AC6/AC7: German labels via matchOption.generator.* namespace (AC8) -->
         <div class="form__field">
           <label for="matchGeneratorId">{$_('tournamentForm.fields.matchGeneratorId')}</label>
           <select id="matchGeneratorId" bind:value={matchGeneratorId} required>
-            {#each generators as gen (gen.keyId)}
-              <option value={gen.keyId}>{gen.keyId}</option>
+            {#each nonLastGenerators as gen (gen.keyId)}
+              <option value={gen.keyId}>{$_(`matchOption.generator.${gen.keyId}`, { default: gen.keyId })}</option>
             {/each}
           </select>
           {#if fieldErrors['matchGeneratorId']}
