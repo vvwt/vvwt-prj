@@ -3,7 +3,10 @@ package de.vvwt.info.ratelimit.internal;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.info.dto.envelope.Envelope;
 import de.vvwt.info.dto.error.ErrorResponse;
+import de.vvwt.info.ratelimit.IpRateLimiter;
+import de.vvwt.info.ratelimit.RateLimitAuditService;
 import de.vvwt.info.ratelimit.SourceIpExtractor;
+import de.vvwt.info.ratelimit.TournamentConcurrencyLimiter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -59,9 +62,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     RateLimitFilter(
             SourceIpExtractor sourceIpExtractor,
-            IpRateLimiter ipRateLimiter,
-            TournamentConcurrencyLimiter concurrencyLimiter,
-            RateLimitAuditService auditService,
+            de.vvwt.info.ratelimit.IpRateLimiter ipRateLimiter,
+            de.vvwt.info.ratelimit.TournamentConcurrencyLimiter concurrencyLimiter,
+            de.vvwt.info.ratelimit.RateLimitAuditService auditService,
             ObjectMapper objectMapper) {
         this.sourceIpExtractor = sourceIpExtractor;
         this.ipRateLimiter = ipRateLimiter;

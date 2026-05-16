@@ -9,6 +9,8 @@ import de.vvwt.info.persistence.tournament.TournamentDeltaDao;
 import de.vvwt.info.publish.JcsCanonicalizer;
 import de.vvwt.info.publish.PublishController;
 import de.vvwt.info.publish.PublishService;
+import de.vvwt.info.publish.internal.DefaultJcsCanonicalizer;
+import de.vvwt.info.publish.internal.DefaultPublishService;
 import java.time.Clock;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -33,7 +35,7 @@ public class PublishConfig {
 
     @Bean
     public JcsCanonicalizer jcsCanonicalizer() {
-        return new JcsCanonicalizer();
+        return new DefaultJcsCanonicalizer();
     }
 
     @Bean
@@ -46,7 +48,7 @@ public class PublishConfig {
             JcsCanonicalizer jcsCanonicalizer,
             PublishProperties publishProperties,
             Clock clock) {
-        return new PublishService(
+        return new DefaultPublishService(
                 tenantDao,
                 tournamentDao,
                 tournamentDeltaDao,

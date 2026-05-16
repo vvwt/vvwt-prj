@@ -8,7 +8,7 @@ import static org.mockito.Mockito.when;
 import de.vvwt.info.persistence.audit.AuditLogDao;
 import de.vvwt.info.persistence.audit.RejectionReason;
 import de.vvwt.info.persistence.audit.SignatureOutcome;
-import de.vvwt.info.ratelimit.internal.RateLimitAuditService;
+import de.vvwt.info.ratelimit.internal.DefaultRateLimitAuditService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -16,7 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * Unit tests for {@link RateLimitAuditService}.
+ * Unit tests for {@link DefaultRateLimitAuditService}.
  *
  * <p>DEC-22 RED-first. Verifies audit-log record fields per AC4 (D-X5 split).
  *
@@ -32,7 +32,7 @@ class RateLimitAuditServiceTest {
 
     @Mock private AuditLogDao auditLogDao;
 
-    @InjectMocks private RateLimitAuditService rateLimitAuditService;
+    @InjectMocks private DefaultRateLimitAuditService rateLimitAuditService;
 
     @Test
     void emitRateLimitedAuditRow_populatesAllRequiredFields() {

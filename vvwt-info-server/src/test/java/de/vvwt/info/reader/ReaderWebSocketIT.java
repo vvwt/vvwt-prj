@@ -8,7 +8,7 @@ import de.vvwt.info.dto.envelope.Envelope;
 import de.vvwt.info.dto.snapshot.TeamEntry;
 import de.vvwt.info.dto.snapshot.TournamentSnapshot;
 import de.vvwt.info.persistence.testsupport.InfoDaoTestSupport;
-import de.vvwt.info.reader.internal.HmacTokenValidator;
+import de.vvwt.info.reader.internal.DefaultHmacTokenValidator;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
@@ -75,7 +75,7 @@ class ReaderWebSocketIT {
     }
 
     private String tokenFor(byte[] secret, String teamId) {
-        byte[] hmac = HmacTokenValidator.computeHmac(secret, teamId);
+        byte[] hmac = DefaultHmacTokenValidator.computeHmac(secret, teamId);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(hmac);
     }
 

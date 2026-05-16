@@ -76,7 +76,7 @@ class PublishControllerIT {
 
         keyPair = KeyPairGenerator.getInstance("Ed25519").generateKeyPair();
         tenantId = "it-tenant-" + UUID.randomUUID();
-        jcsCanonicalizer = new JcsCanonicalizer();
+        jcsCanonicalizer = new de.vvwt.info.publish.internal.DefaultJcsCanonicalizer();
 
         // Register the tenant via the registration endpoint
         String publicKeyB64 = Base64.getEncoder().encodeToString(keyPair.getPublic().getEncoded());

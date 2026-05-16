@@ -1,12 +1,15 @@
 package de.vvwt.info.ratelimit.config;
 
 import de.vvwt.info.persistence.audit.AuditLogDao;
+import de.vvwt.info.ratelimit.IpRateLimiter;
+import de.vvwt.info.ratelimit.RateLimitAuditService;
 import de.vvwt.info.ratelimit.SourceIpExtractor;
+import de.vvwt.info.ratelimit.TournamentConcurrencyLimiter;
+import de.vvwt.info.ratelimit.internal.DefaultIpRateLimiter;
+import de.vvwt.info.ratelimit.internal.DefaultRateLimitAuditService;
 import de.vvwt.info.ratelimit.internal.DefaultSourceIpExtractor;
-import de.vvwt.info.ratelimit.internal.IpRateLimiter;
-import de.vvwt.info.ratelimit.internal.RateLimitAuditService;
+import de.vvwt.info.ratelimit.internal.DefaultTournamentConcurrencyLimiter;
 import de.vvwt.info.ratelimit.internal.RateLimitFilter;
-import de.vvwt.info.ratelimit.internal.TournamentConcurrencyLimiter;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -34,18 +37,19 @@ public class RateLimitConfig {
     @Bean
     public IpRateLimiter ipRateLimiter(RateLimitProperties props) {
         RateLimitProperties.PerIp perIp = props.getPerIp();
-        return new IpRateLimiter(
+        return new DefaultIpRateLimiter(
                 perIp.getPublisherRpm(), perIp.getReaderPollRpm(), perIp.getReaderWsRpm());
     }
 
     @Bean
     public TournamentConcurrencyLimiter tournamentConcurrencyLimiter(RateLimitProperties props) {
-        return new TournamentConcurrencyLimiter(props.getPerTournamentToken().getMaxConcurrentWs());
+        return new DefaultTournamentConcurrencyLimiter(
+                props.getPerTournamentToken().getMaxConcurrentWs());
     }
 
     @Bean
     public RateLimitAuditService rateLimitAuditService(AuditLogDao auditLogDao) {
-        return new RateLimitAuditService(auditLogDao);
+        return new DefaultRateLimitAuditService(auditLogDao);
     }
 
     @Bean

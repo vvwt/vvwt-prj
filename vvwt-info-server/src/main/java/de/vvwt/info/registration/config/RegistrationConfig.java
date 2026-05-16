@@ -2,15 +2,19 @@ package de.vvwt.info.registration.config;
 
 import de.vvwt.info.crypto.SignatureVerifier;
 import de.vvwt.info.crypto.SignatureVerifierRegistry;
+import de.vvwt.info.crypto.internal.DefaultSignatureVerifierRegistry;
 import de.vvwt.info.crypto.internal.Ed25519SignatureVerifier;
 import de.vvwt.info.persistence.algorithm.AlgorithmRegistryDao;
 import de.vvwt.info.persistence.audit.AuditLogDao;
 import de.vvwt.info.persistence.invitation.ConsumedInvitationTokenDao;
 import de.vvwt.info.persistence.tenant.TenantDao;
 import de.vvwt.info.registration.InvitationTokenPool;
+import de.vvwt.info.registration.InvitationTokenPoolInitializer;
 import de.vvwt.info.registration.RegistrationController;
 import de.vvwt.info.registration.RegistrationService;
-import jakarta.annotation.PostConstruct;
+import de.vvwt.info.registration.internal.DefaultInvitationTokenPool;
+import de.vvwt.info.registration.internal.DefaultInvitationTokenPoolInitializer;
+import de.vvwt.info.registration.internal.DefaultRegistrationService;
 import java.time.Clock;
 import java.util.Map;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -49,7 +53,8 @@ public class RegistrationConfig {
 
     @Bean
     public SignatureVerifierRegistry signatureVerifierRegistry(Ed25519SignatureVerifier ed25519) {
-        return new SignatureVerifierRegistry(Map.<String, SignatureVerifier>of("Ed25519", ed25519));
+        return new DefaultSignatureVerifierRegistry(
+                Map.<String, SignatureVerifier>of("Ed25519", ed25519));
     }
 
     @Bean
@@ -57,7 +62,7 @@ public class RegistrationConfig {
             RegistrationProperties props,
             ConsumedInvitationTokenDao consumedTokenDao,
             Clock clock) {
-        return new InvitationTokenPool(props, consumedTokenDao, clock);
+        return new DefaultInvitationTokenPool(props, consumedTokenDao, clock);
     }
 
     @Bean
@@ -68,7 +73,7 @@ public class RegistrationConfig {
             InvitationTokenPool tokenPool,
             RegistrationProperties props,
             Clock clock) {
-        return new RegistrationService(
+        return new DefaultRegistrationService(
                 algorithmRegistryDao, tenantDao, auditLogDao, tokenPool, props, clock);
     }
 
@@ -80,23 +85,6 @@ public class RegistrationConfig {
     /** Initializes the invitation token pool after the Spring context is ready. */
     @Bean
     public InvitationTokenPoolInitializer invitationTokenPoolInitializer(InvitationTokenPool pool) {
-        return new InvitationTokenPoolInitializer(pool);
-    }
-
-    /**
-     * Thin initializer bean that calls {@link InvitationTokenPool#initialize()} once the
-     * application context is ready.
-     */
-    public static class InvitationTokenPoolInitializer {
-        private final InvitationTokenPool pool;
-
-        public InvitationTokenPoolInitializer(InvitationTokenPool pool) {
-            this.pool = pool;
-        }
-
-        @PostConstruct
-        public void init() {
-            pool.initialize();
-        }
+        return new DefaultInvitationTokenPoolInitializer(pool);
     }
 }

@@ -1,5 +1,6 @@
 package de.vvwt.info.reader.internal;
 
+import de.vvwt.info.reader.HmacTokenValidator;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
@@ -27,7 +28,7 @@ import org.springframework.stereotype.Component;
  *     AC9</a>
  */
 @Component
-public class HmacTokenValidator {
+public class DefaultHmacTokenValidator implements HmacTokenValidator {
 
     /** Expected length of a 32-byte HMAC-SHA256 output when Base64URL-encoded without padding. */
     private static final int EXPECTED_TOKEN_LENGTH = 43;
@@ -47,6 +48,7 @@ public class HmacTokenValidator {
      * @return the matching team UUID if validation succeeds; empty if the token is invalid,
      *     malformed, or does not match any registered team
      */
+    @Override
     public Optional<String> validateAndResolveTeam(
             byte[] perTournamentSecret, Collection<String> teamUuids, String teamToken) {
 

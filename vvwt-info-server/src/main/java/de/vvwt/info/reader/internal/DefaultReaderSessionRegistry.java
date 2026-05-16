@@ -1,5 +1,6 @@
 package de.vvwt.info.reader.internal;
 
+import de.vvwt.info.reader.ReaderSessionRegistry;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -7,7 +8,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
 
 /**
- * Thread-safe registry mapping tournament IDs to their active WebSocket reader sessions.
+ * Thread-safe registry mapping tournament IDs to their active WebSocket reader sessions (E38S06
+ * AC13).
  *
  * <p>Lifecycle:
  *
@@ -21,7 +23,7 @@ import org.springframework.web.socket.WebSocketSession;
  * @see <a href="../../../../../../../../docs/governance/stories/E38S06.story.md">E38S06 AC13</a>
  */
 @Component
-public class ReaderSessionRegistry {
+public class DefaultReaderSessionRegistry implements ReaderSessionRegistry {
 
     private final ConcurrentHashMap<String, Set<WebSocketSession>> sessionsByTournament =
             new ConcurrentHashMap<>();
@@ -32,6 +34,7 @@ public class ReaderSessionRegistry {
      * @param tournamentId the tournament the client is subscribing to
      * @param session the newly opened WebSocket session
      */
+    @Override
     public void register(String tournamentId, WebSocketSession session) {
         sessionsByTournament
                 .computeIfAbsent(
@@ -46,6 +49,7 @@ public class ReaderSessionRegistry {
      * @param tournamentId the tournament the session was subscribed to
      * @param session the session that closed
      */
+    @Override
     public void deregister(String tournamentId, WebSocketSession session) {
         Set<WebSocketSession> sessions = sessionsByTournament.get(tournamentId);
         if (sessions != null) {
@@ -62,6 +66,7 @@ public class ReaderSessionRegistry {
      * @param tournamentId the tournament to look up
      * @return unmodifiable set of active sessions; empty if none
      */
+    @Override
     public Set<WebSocketSession> sessionsFor(String tournamentId) {
         Set<WebSocketSession> sessions = sessionsByTournament.get(tournamentId);
         return sessions != null ? Set.copyOf(sessions) : Set.of();
@@ -75,6 +80,7 @@ public class ReaderSessionRegistry {
      *
      * @return flat set of all currently-tracked WebSocket sessions
      */
+    @Override
     public Set<WebSocketSession> allSessions() {
         return sessionsByTournament.values().stream()
                 .flatMap(Set::stream)

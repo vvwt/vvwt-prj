@@ -1,8 +1,9 @@
 package de.vvwt.info.reader.internal;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.vvwt.info.ratelimit.internal.TournamentConcurrencyLimiter;
+import de.vvwt.info.ratelimit.TournamentConcurrencyLimiter;
 import de.vvwt.info.reader.ReaderService;
+import de.vvwt.info.reader.ReaderSessionRegistry;
 import de.vvwt.info.reader.config.ReaderProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;

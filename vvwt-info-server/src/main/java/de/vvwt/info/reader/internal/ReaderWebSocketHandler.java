@@ -5,8 +5,8 @@ import de.vvwt.info.dto.envelope.Envelope;
 import de.vvwt.info.dto.reader.StreamHello;
 import de.vvwt.info.dto.snapshot.TournamentSnapshot;
 import de.vvwt.info.persistence.tournament.TournamentRecord;
-import de.vvwt.info.ratelimit.internal.TournamentConcurrencyLimiter;
 import de.vvwt.info.reader.ReaderService;
+import de.vvwt.info.reader.ReaderSessionRegistry;
 import de.vvwt.info.reader.config.ReaderProperties;
 import java.io.IOException;
 import java.util.Optional;
@@ -62,14 +62,14 @@ public class ReaderWebSocketHandler extends TextWebSocketHandler {
     private final ReaderSessionRegistry sessionRegistry;
     private final ReaderProperties readerProperties;
     private final ObjectMapper objectMapper;
-    private final TournamentConcurrencyLimiter concurrencyLimiter;
+    private final de.vvwt.info.ratelimit.TournamentConcurrencyLimiter concurrencyLimiter;
 
     public ReaderWebSocketHandler(
             ReaderService readerService,
             ReaderSessionRegistry sessionRegistry,
             ReaderProperties readerProperties,
             ObjectMapper objectMapper,
-            TournamentConcurrencyLimiter concurrencyLimiter) {
+            de.vvwt.info.ratelimit.TournamentConcurrencyLimiter concurrencyLimiter) {
         this.readerService = readerService;
         this.sessionRegistry = sessionRegistry;
         this.readerProperties = readerProperties;

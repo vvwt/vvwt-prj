@@ -1,10 +1,12 @@
 package de.vvwt.info.ratelimit.internal;
 
+import de.vvwt.info.ratelimit.TournamentConcurrencyLimiter;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Per-tournament-token WebSocket concurrency limiter (E38S07 AC3, AC10, AC13).
+ * Per-tournament-token WebSocket concurrency limiter backed by a {@link ConcurrentHashMap} of
+ * {@link AtomicInteger} counters (E38S07 AC3, AC10, AC13).
  *
  * <p>Maintains an {@link AtomicInteger} slot counter per tournament token. {@link
  * #tryAcquireSlot(String)} increments the counter if below the configured maximum and returns
@@ -17,12 +19,12 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @see <a href="../../../../../../../../../docs/governance/stories/E38S07.story.md">E38S07 AC3,
  *     AC10, AC13</a>
  */
-public class TournamentConcurrencyLimiter {
+public class DefaultTournamentConcurrencyLimiter implements TournamentConcurrencyLimiter {
 
     private final int maxConcurrentWs;
     private final ConcurrentHashMap<String, AtomicInteger> counters = new ConcurrentHashMap<>();
 
-    public TournamentConcurrencyLimiter(int maxConcurrentWs) {
+    public DefaultTournamentConcurrencyLimiter(int maxConcurrentWs) {
         this.maxConcurrentWs = maxConcurrentWs;
     }
 
@@ -32,6 +34,7 @@ public class TournamentConcurrencyLimiter {
      * @param tournamentToken the per-tournament-token identifier
      * @return {@code true} if a slot was acquired; {@code false} if the maximum is already reached
      */
+    @Override
     public boolean tryAcquireSlot(String tournamentToken) {
         AtomicInteger counter =
                 counters.computeIfAbsent(tournamentToken, k -> new AtomicInteger(0));
@@ -53,6 +56,7 @@ public class TournamentConcurrencyLimiter {
      *
      * @param tournamentToken the per-tournament-token identifier
      */
+    @Override
     public void releaseSlot(String tournamentToken) {
         AtomicInteger counter = counters.get(tournamentToken);
         if (counter == null) {
@@ -69,11 +73,12 @@ public class TournamentConcurrencyLimiter {
     }
 
     /**
-     * Returns the current slot count for the given tournament token (for testing/observability).
+     * Returns the current slot count for the given tournament token (for observability).
      *
      * @param tournamentToken the tournament token
      * @return current concurrent connection count; 0 if none
      */
+    @Override
     public int currentCount(String tournamentToken) {
         AtomicInteger counter = counters.get(tournamentToken);
         return counter == null ? 0 : counter.get();

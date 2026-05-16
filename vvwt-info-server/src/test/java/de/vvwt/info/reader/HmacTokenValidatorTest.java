@@ -2,7 +2,7 @@ package de.vvwt.info.reader;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import de.vvwt.info.reader.internal.HmacTokenValidator;
+import de.vvwt.info.reader.internal.DefaultHmacTokenValidator;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
@@ -13,7 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * RED-first unit tests for {@link HmacTokenValidator} (E38S06 AC6, AC9).
+ * RED-first unit tests for {@link DefaultHmacTokenValidator} (E38S06 AC6, AC9).
  *
  * <p>Tests written BEFORE the production class exists per DEC-22 Iron Law.
  *
@@ -29,12 +29,12 @@ import org.junit.jupiter.api.Test;
  */
 class HmacTokenValidatorTest {
 
-    private HmacTokenValidator validator;
+    private DefaultHmacTokenValidator validator;
     private byte[] secret;
 
     @BeforeEach
     void setUp() {
-        validator = new HmacTokenValidator();
+        validator = new DefaultHmacTokenValidator();
         secret = new byte[32];
         for (int i = 0; i < 32; i++) secret[i] = (byte) i;
     }

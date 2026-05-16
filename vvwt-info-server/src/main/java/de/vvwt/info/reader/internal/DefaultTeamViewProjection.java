@@ -3,11 +3,13 @@ package de.vvwt.info.reader.internal;
 import de.vvwt.info.dto.snapshot.ScheduleEntry;
 import de.vvwt.info.dto.snapshot.TeamEntry;
 import de.vvwt.info.dto.snapshot.TournamentSnapshot;
+import de.vvwt.info.reader.TeamViewProjection;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
 /**
- * Filters a full {@link TournamentSnapshot} to the per-team view scope (E38S06 AC12).
+ * Default implementation of {@link TeamViewProjection} that filters a full {@link
+ * TournamentSnapshot} to the per-team view scope (E38S06 AC12).
  *
  * <p>Per-team view projection rules (Brief S-1 + D-G6 + D-G6a):
  *
@@ -32,17 +34,9 @@ import org.springframework.stereotype.Component;
  * @see <a href="../../../../../../../../docs/governance/stories/E38S06.story.md">E38S06 AC12</a>
  */
 @Component
-public class TeamViewProjection {
+public class DefaultTeamViewProjection implements TeamViewProjection {
 
-    /**
-     * Returns a filtered copy of {@code snapshot} containing only the entries visible to the
-     * requesting team.
-     *
-     * @param snapshot the full tournament snapshot from {@code tournament.state}
-     * @param requestingTeamEntry the resolved {@link TeamEntry} for the requesting team (from HMAC
-     *     validation)
-     * @return a new {@link TournamentSnapshot} with schedule entries filtered to team scope
-     */
+    @Override
     public TournamentSnapshot project(TournamentSnapshot snapshot, TeamEntry requestingTeamEntry) {
         String teamName = requestingTeamEntry.name();
 

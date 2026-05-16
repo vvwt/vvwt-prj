@@ -4,10 +4,10 @@ import de.vvwt.info.persistence.audit.AuditLogDao;
 import de.vvwt.info.persistence.audit.AuditLogRecord;
 import de.vvwt.info.persistence.audit.RejectionReason;
 import de.vvwt.info.persistence.audit.SignatureOutcome;
+import de.vvwt.info.ratelimit.RateLimitAuditService;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
-import org.springframework.stereotype.Component;
 
 /**
  * Emits audit-log rows for rate-limit rejections (E38S07 AC4, AC7).
@@ -25,12 +25,11 @@ import org.springframework.stereotype.Component;
  * @see <a href="../../../../../../../../../docs/governance/stories/E38S07.story.md">E38S07 AC4,
  *     AC7</a>
  */
-@Component
-public class RateLimitAuditService {
+public class DefaultRateLimitAuditService implements RateLimitAuditService {
 
     private final AuditLogDao auditLogDao;
 
-    public RateLimitAuditService(AuditLogDao auditLogDao) {
+    public DefaultRateLimitAuditService(AuditLogDao auditLogDao) {
         this.auditLogDao = auditLogDao;
     }
 
@@ -43,6 +42,7 @@ public class RateLimitAuditService {
      * @param tournamentId the tournament ID extracted from the request path; may be {@code null}
      * @param requestPath the HTTP request path (no query string)
      */
+    @Override
     public void emitRateLimitedAuditRow(
             String sourceIp, String tenantId, String tournamentId, String requestPath) {
         AuditLogRecord record =
