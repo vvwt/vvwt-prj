@@ -501,6 +501,7 @@
   "matchOverview": {
     "pageTitle": "Spiele der Phase",
     "showMatchesButton": "Spiele anzeigen",
+    "loading": "Spiele werden geladen…",
     "loadError": "Fehler beim Laden der Spiele.",
     "empty": "Keine Spiele vorhanden.",
     "columns": {
@@ -526,6 +527,7 @@
   "correction": {
     "pageTitle": "Match-Korrektur",
     "matchIdLabel": "Match-ID",
+    "loading": "Spielergebnisse werden geladen…",
     "submitButton": "Korrektur einreichen",
     "submittingButton": "Wird eingereicht…",
     "submitError": "Fehler beim Einreichen der Korrektur.",

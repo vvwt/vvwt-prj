@@ -284,6 +284,53 @@ describe('MatchOverview — load failure error message (AC-ERR-MATCHOVERVIEW-LOA
     });
 });
 
+// ── AC-TEST-MATCH-OVERVIEW-LOADING-MESSAGE-RED (E48S27) ──────────────────────
+//
+// DEC-22 RED-first: these tests are authored BEFORE the loading-message fix.
+// Source-inspection tests — the same pattern used by the existing E48S26 tests
+// in this file (see 'PhaseList.svelte — E48S26 entry link...' block below).
+// This pattern is used because the @testing-library/svelte render() is not
+// available in this environment (lifecycle_function_unavailable — pre-existing
+// Svelte 5 SSR issue unrelated to E48S27).
+//
+// On the commit BEFORE the fix (RED state):
+//   - MatchOverview.svelte contains the bare `…` in the loading branch.
+//   - The source does NOT contain 'matchOverview.loading' or data-testid="match-overview-loading".
+//   → Tests FAIL.
+//
+// After the fix (GREEN state):
+//   - MatchOverview.svelte uses $_(\'matchOverview.loading\') and the data-testid.
+//   → Tests PASS.
+
+describe('MatchOverview — loading state uses localized i18n key (AC-TEST-MATCH-OVERVIEW-LOADING-MESSAGE-RED)', () => {
+    const __dirname_match = path.dirname(new URL(import.meta.url).pathname);
+    const matchOverviewSource = fs.readFileSync(
+        path.resolve(__dirname_match, './MatchOverview.svelte'),
+        'utf8'
+    );
+
+    it('loading branch uses the matchOverview.loading i18n key (not bare "…")', () => {
+        // Source must reference the i18n key for the loading message
+        expect(matchOverviewSource).toContain("'matchOverview.loading'");
+    });
+
+    it('loading branch does NOT use the bare "…" ellipsis as loading text', () => {
+        // After fix: loading branch must not contain bare "…" as the only content
+        // Check that the loading paragraph uses the i18n key, not the raw "…"
+        // The raw "…" pattern in loading context: ">…<" or ">…</p>"
+        const loadingBranchMatch = matchOverviewSource.match(
+            /\{#if loading\}[\s\S]*?\{:else/
+        );
+        expect(loadingBranchMatch, 'loading branch not found').toBeTruthy();
+        // The loading branch must NOT consist solely of the bare ellipsis
+        expect(loadingBranchMatch![0]).not.toMatch(/>…</);
+    });
+
+    it('loading element has data-testid="match-overview-loading" for testability', () => {
+        expect(matchOverviewSource).toContain('data-testid="match-overview-loading"');
+    });
+});
+
 // ── AC-TEST-PHASELIST-ENTRY-LINK-RED (source check supplement) ───────────────
 
 describe('PhaseList.svelte — E48S26 entry link and dead-code removal (source inspection)', () => {

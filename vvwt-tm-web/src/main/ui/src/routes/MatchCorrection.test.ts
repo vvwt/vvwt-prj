@@ -263,6 +263,51 @@ describe('MatchCorrection — match-not-found error (AC-ERR-CORRECTION-PRELOAD-M
     });
 });
 
+// ── AC-TEST-MATCH-CORRECTION-LOADING-MESSAGE-RED (E48S27) ────────────────────
+//
+// DEC-22 RED-first: these tests are authored BEFORE the loading-message fix.
+// Source-inspection tests — the same pattern used by the existing E48S26 tests
+// in this file (see 'MatchCorrection.svelte — source checks...' block below).
+// This pattern is used because the @testing-library/svelte render() is not
+// available in this environment (lifecycle_function_unavailable — pre-existing
+// Svelte 5 SSR issue unrelated to E48S27).
+//
+// On the commit BEFORE the fix (RED state):
+//   - MatchCorrection.svelte contains the bare `…` in the preloading branch.
+//   - The source does NOT contain 'correction.loading' or data-testid="correction-loading".
+//   → Tests FAIL.
+//
+// After the fix (GREEN state):
+//   - MatchCorrection.svelte uses $_(\'correction.loading\') and the data-testid.
+//   → Tests PASS.
+
+describe('MatchCorrection — pre-loading state uses localized i18n key (AC-TEST-MATCH-CORRECTION-LOADING-MESSAGE-RED)', () => {
+    const __dirname_corr = path.dirname(new URL(import.meta.url).pathname);
+    const matchCorrectionSource = fs.readFileSync(
+        path.resolve(__dirname_corr, './MatchCorrection.svelte'),
+        'utf8'
+    );
+
+    it('preloading branch uses the correction.loading i18n key (not bare "…")', () => {
+        // Source must reference the i18n key for the loading message
+        expect(matchCorrectionSource).toContain("'correction.loading'");
+    });
+
+    it('preloading branch does NOT use the bare "…" ellipsis as loading text', () => {
+        // After fix: preloading branch must not contain bare "…" as the only content
+        const preloadingBranchMatch = matchCorrectionSource.match(
+            /\{#if preloading\}[\s\S]*?\{:else/
+        );
+        expect(preloadingBranchMatch, 'preloading branch not found').toBeTruthy();
+        // The preloading branch must NOT consist solely of the bare ellipsis
+        expect(preloadingBranchMatch![0]).not.toMatch(/>…</);
+    });
+
+    it('preloading element has data-testid="correction-loading" for testability', () => {
+        expect(matchCorrectionSource).toContain('data-testid="correction-loading"');
+    });
+});
+
 // ── Source checks: back-nav and phantom AC cleanup ────────────────────────────
 
 describe('MatchCorrection.svelte — source checks (E48S26 governance)', () => {
