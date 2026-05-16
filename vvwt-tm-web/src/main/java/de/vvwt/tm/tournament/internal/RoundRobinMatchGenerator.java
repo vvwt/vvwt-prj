@@ -79,9 +79,28 @@ public class RoundRobinMatchGenerator implements MatchGenerator {
         this.tournamentRepository = tournamentRepository;
     }
 
+    /**
+     * Returns the registry key {@code "roundRobin"}.
+     *
+     * <p>Renamed from {@code getBeanId()} by E58S01 (DEC-73 D-1).
+     *
+     * @return {@code "roundRobin"}
+     */
     @Override
-    public String getBeanId() {
+    public String getKeyId() {
         return "roundRobin";
+    }
+
+    /**
+     * Returns {@code false} — Round-Robin is not the terminal phase generator.
+     *
+     * <p>Added by E58S01 (DEC-73 D-2).
+     *
+     * @return {@code false}
+     */
+    @Override
+    public boolean isLastPhaseGenerator() {
+        return false;
     }
 
     /**

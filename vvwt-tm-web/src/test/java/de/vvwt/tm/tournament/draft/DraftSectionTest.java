@@ -18,13 +18,11 @@ import org.junit.jupiter.api.Test;
  *
  * <h2>E51S20 — gameMode/distributionMode String→Enum migration</h2>
  *
- * <p>Constructor calls updated from {@code String} to {@link GameMode}/{@link DistributionMode}
- * enum constants. Tests for unknown wire-format values updated to verify {@link
- * InvalidFormatException} at Jackson deserialization time (AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE,
- * E51S20).
+ * <p>Constructor calls updated from {@code String} to/{@link DistributionMode} enum constants.
+ * Tests for unknown wire-format values updated to verify {@link InvalidFormatException} at Jackson
+ * deserialization time (AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE, E51S20).
  *
  * @see DraftSection
- * @see GameMode
  * @see DistributionMode
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
  * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
@@ -35,7 +33,7 @@ class DraftSectionTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static DraftSection validSection() {
-        return new DraftSection(1, "team_number", 2, GameMode.ROUND_ROBIN, 5, 10, 15, 1, List.of());
+        return new DraftSection(1, "team_number", 2, "roundRobin", 5, 10, 15, 1, List.of());
     }
 
     /** AC-TDD-DraftSection: valid section constructs without error. */
@@ -46,7 +44,7 @@ class DraftSectionTest {
         assertThat(section.getSectionNumber()).isEqualTo(1);
         assertThat(section.getSortType()).isEqualTo("team_number");
         assertThat(section.getGroupCount()).isEqualTo(2);
-        assertThat(section.getGameMode()).isEqualTo(GameMode.ROUND_ROBIN);
+        assertThat(section.getGameMode()).isEqualTo("roundRobin");
         assertThat(section.getLapBreakTimeMinutes()).isEqualTo(5);
         assertThat(section.getSectionBreakTimeMinutes()).isEqualTo(10);
         assertThat(section.getLapTimeMinutes()).isEqualTo(15);
@@ -58,7 +56,7 @@ class DraftSectionTest {
     @Test
     void constructor_withNullBreaks_treatsAsEmpty() {
         DraftSection section =
-                new DraftSection(1, "team_number", 2, GameMode.ROUND_ROBIN, 5, 10, 15, 1, null);
+                new DraftSection(1, "team_number", 2, "roundRobin", 5, 10, 15, 1, null);
 
         assertThat(section.getBreaks()).isEmpty();
     }
@@ -76,8 +74,7 @@ class DraftSectionTest {
     @Test
     void validate_withSectionNumberZero_throwsIllegalArgument() {
         DraftSection section =
-                new DraftSection(
-                        0, "team_number", 2, GameMode.ROUND_ROBIN, 5, 10, 15, 1, List.of());
+                new DraftSection(0, "team_number", 2, "roundRobin", 5, 10, 15, 1, List.of());
 
         assertThatThrownBy(section::validate).isInstanceOf(IllegalArgumentException.class);
     }
@@ -85,8 +82,7 @@ class DraftSectionTest {
     /** AC-TDD-DraftSection: validate() throws on null sortType. */
     @Test
     void validate_withNullSortType_throwsIllegalArgument() {
-        DraftSection section =
-                new DraftSection(1, null, 2, GameMode.ROUND_ROBIN, 5, 10, 15, 1, List.of());
+        DraftSection section = new DraftSection(1, null, 2, "roundRobin", 5, 10, 15, 1, List.of());
 
         assertThatThrownBy(section::validate).isInstanceOf(IllegalArgumentException.class);
     }
@@ -95,7 +91,7 @@ class DraftSectionTest {
     @Test
     void validate_withInvalidSortType_throwsIllegalArgument() {
         DraftSection section =
-                new DraftSection(1, "invalid", 2, GameMode.ROUND_ROBIN, 5, 10, 15, 1, List.of());
+                new DraftSection(1, "invalid", 2, "roundRobin", 5, 10, 15, 1, List.of());
 
         assertThatThrownBy(section::validate).isInstanceOf(IllegalArgumentException.class);
     }
@@ -104,8 +100,7 @@ class DraftSectionTest {
     @Test
     void validate_withGroupCountZero_throwsIllegalArgument() {
         DraftSection section =
-                new DraftSection(
-                        1, "team_number", 0, GameMode.ROUND_ROBIN, 5, 10, 15, 1, List.of());
+                new DraftSection(1, "team_number", 0, "roundRobin", 5, 10, 15, 1, List.of());
 
         assertThatThrownBy(section::validate).isInstanceOf(IllegalArgumentException.class);
     }
@@ -114,7 +109,7 @@ class DraftSectionTest {
     @Test
     void validate_withLapTimeZero_throwsIllegalArgument() {
         DraftSection section =
-                new DraftSection(1, "team_number", 2, GameMode.ROUND_ROBIN, 5, 10, 0, 1, List.of());
+                new DraftSection(1, "team_number", 2, "roundRobin", 5, 10, 0, 1, List.of());
 
         assertThatThrownBy(section::validate).isInstanceOf(IllegalArgumentException.class);
     }
@@ -123,8 +118,7 @@ class DraftSectionTest {
     @Test
     void validate_withPlacementGroupSortType_passes() {
         DraftSection section =
-                new DraftSection(
-                        1, "placement_group", 2, GameMode.ROUND_ROBIN, 5, 10, 15, 1, List.of());
+                new DraftSection(1, "placement_group", 2, "roundRobin", 5, 10, 15, 1, List.of());
 
         section.validate(); // must not throw
     }
@@ -137,10 +131,9 @@ class DraftSectionTest {
      * AC-TEST-DRAFT-SECTION-WHITELIST-RED / E51S20: validate() throws for null gameMode.
      *
      * <p>In E51S20, unknown wire-format values are rejected at Jackson deserialization time via
-     * {@link GameMode#fromWireFormat(String)} ({@link InvalidFormatException}). The only way to
+     * GameMode.fromWireFormat (removed by E58S01) ({@link InvalidFormatException}). The only way to
      * trigger the validate() null-check is to pass null directly via the constructor.
      *
-     * @see GameMode
      * @see <a href="E48S01">E48S01 — gameMode whitelist</a>
      * @see <a href="E51S20">E51S20 — String→Enum: invalid value rejected at deserialization</a>
      */
@@ -156,15 +149,14 @@ class DraftSectionTest {
     /**
      * AC-TEST-DRAFT-SECTION-WHITELIST-RED: validate() accepts siegerehrung as a valid gameMode.
      *
-     * <p>Verifies {@link GameMode#SIEGEREHRUNG} is a valid enum constant.
+     * <p>Verifies siegerehrung string key is a valid enum constant.
      *
      * @see <a href="E48S01">E48S01 — gameMode whitelist</a>
      */
     @Test
     void validate_withSiegerehrungGameMode_passes() {
         DraftSection section =
-                new DraftSection(
-                        1, "team_number", 2, GameMode.SIEGEREHRUNG, 5, 10, 15, 1, List.of());
+                new DraftSection(1, "team_number", 2, "siegerehrung", 5, 10, 15, 1, List.of());
 
         section.validate(); // must not throw
     }

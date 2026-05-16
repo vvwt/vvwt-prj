@@ -1,7 +1,6 @@
 package de.vvwt.tm.tournament.internal.dto.draft;
 
 import de.vvwt.tm.tournament.draft.DistributionMode;
-import de.vvwt.tm.tournament.draft.GameMode;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -26,25 +25,21 @@ import java.util.List;
  * de.vvwt.tm.tournament.draft.DistributionMode#SEQUENTIAL}. When present, the value is forwarded
  * as-is; domain validation rejects unrecognized values.
  *
- * <h2>E51S20 — gameMode and distributionMode as type-safe enums</h2>
+ * <h2>E58S01 — gameMode migrated from GameMode enum to String (DEC-73 D-5)</h2>
  *
- * <p>{@link #gameMode} migrated from {@code String} to {@link GameMode} enum. The {@code @Pattern}
- * + {@code @NotBlank} annotations are removed — Jackson's {@link GameMode#fromWireFormat(String)}
- * rejects unknown wire-format values with {@link
- * com.fasterxml.jackson.databind.exc.InvalidFormatException}, which Spring MVC translates to HTTP
- * 400 at the deserialization boundary.
- *
- * <p>{@link #distributionMode} migrated to {@link DistributionMode} enum (nullable — absent/null in
- * the request defaults to {@link DistributionMode#SEQUENTIAL} in the domain class).
+ * <p>{@link #gameMode} is now a plain {@code String} (registry key) instead of the removed {@code
+ * GameMode} enum. Jackson deserializes the JSON string value directly. {@code @NotBlank} validates
+ * presence at the REST layer. Registry-membership validation (AC6) occurs in {@link
+ * de.vvwt.tm.tournament.internal.DefaultDraftService} via {@link
+ * de.vvwt.tm.tournament.draft.DraftConfig#validateGameModeMembership(java.util.Set)}.
  *
  * @see DraftRequest
  * @see DraftBreakRequest
- * @see GameMode
  * @see DistributionMode
  * @see <a href="DEC-21">DEC-21 — Spring Modulith package layout</a>
  * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
  * @see <a href="E51S15">E51S15 — distributionMode feature</a>
- * @see <a href="E51S20">E51S20 — gameMode/distributionMode String→Enum migration</a>
+ * @see <a href="E58S01">E58S01 — gameMode String migration; AC5</a>
  */
 public record DraftSectionRequest(
         @NotNull @Min(value = 1, message = "sectionNumber must be ≥ 1") Integer sectionNumber,
@@ -57,13 +52,14 @@ public record DraftSectionRequest(
                 String sortType,
         @NotNull @Min(value = 1, message = "groupCount must be ≥ 1") Integer groupCount,
         /**
-         * Game mode for this phase. Required; deserialized via {@link
-         * GameMode#fromWireFormat(String)} — unknown wire-format values are rejected at the Jackson
-         * deserialization boundary with HTTP 400 (AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE, E51S20).
+         * Game mode registry key for this phase (e.g., {@code "roundRobin"}, {@code
+         * "siegerehrung"}). Required; must not be blank. Registry-membership validation (AC6,
+         * E58S01) occurs in {@link de.vvwt.tm.tournament.internal.DefaultDraftService}.
          *
-         * @see GameMode
+         * <p>Migrated from {@code GameMode} enum to {@code String} by E58S01 (DEC-73 D-5). Jackson
+         * deserializes the JSON value as a plain String.
          */
-        @NotNull GameMode gameMode,
+        @NotBlank(message = "gameMode must not be blank") String gameMode,
         @NotNull @Min(value = 0, message = "lapBreakTimeMinutes must be ≥ 0")
                 Integer lapBreakTimeMinutes,
         @NotNull @Min(value = 0, message = "sectionBreakTimeMinutes must be ≥ 0")
@@ -85,6 +81,5 @@ public record DraftSectionRequest(
          * @see de.vvwt.tm.tournament.draft.DraftSection#getDistributionMode()
          * @see <a href="E51S15">E51S15 — distributionMode feature (sequential default + round-robin
          *     toggle)</a>
-         * @see <a href="E51S20">E51S20 — migrated from String to DistributionMode enum</a>
          */
         DistributionMode distributionMode) {}

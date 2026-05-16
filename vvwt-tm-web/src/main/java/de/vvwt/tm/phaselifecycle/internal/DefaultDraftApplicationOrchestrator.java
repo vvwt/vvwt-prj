@@ -31,7 +31,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  *   <li>For each created phase ID: inserts a PENDING {@code phase_lifecycle_job} row via {@link
  *       PhaseLifecycleJobRepository#enqueueJob(PhaseLifecycleJob)} (sequence = 1-indexed per
  *       DraftSection ordering; game_mode from {@link
- *       de.vvwt.tm.tournament.draft.GameMode#getWireFormat()}).
+ *       de.vvwt.tm.tournament.draft.DraftSection#getGameMode()} — a String key after E58S01
+ *       GameMode enum removal).
  *   <li>Registers an {@code afterCommit} callback via {@link TransactionSynchronizationManager}
  *       that <em>submits</em> {@link JobDrainService#drainNext(UUID)} to the per-tournament {@link
  *       WorkerRegistry} executor thread. The drain runs asynchronously in the background — the HTTP
@@ -137,7 +138,8 @@ class DefaultDraftApplicationOrchestrator implements DraftApplicationOrchestrato
         List<DraftSection> sections = config.getSections();
         for (int i = 0; i < sections.size(); i++) {
             UUID phaseId = phaseIds.get(i);
-            String gameMode = sections.get(i).getGameMode().getWireFormat();
+            // E58S01 DEC-73 D-5: getGameMode() now returns String directly (GameMode enum removed)
+            String gameMode = sections.get(i).getGameMode();
             int sequence = i + 1;
             jobRepository.enqueueJob(
                     new PhaseLifecycleJob(tournamentId, phaseId, gameMode, sequence));

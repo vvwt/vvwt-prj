@@ -1,6 +1,7 @@
 package de.vvwt.tm.tournament.internal;
 
 import de.vvwt.tm.tournament.MatchGenerator;
+import de.vvwt.tm.tournament.MatchGeneratorInfo;
 import de.vvwt.tm.tournament.MatchGeneratorRegistry;
 import java.util.Collections;
 import java.util.List;
@@ -19,8 +20,8 @@ import org.springframework.stereotype.Component;
  * TournamentRulesController} (E21S02/S10).
  *
  * <p>Spring collects every {@link MatchGenerator} bean in the application context and passes them
- * to this constructor. The registry indexes them by {@link MatchGenerator#getBeanId()}. Duplicate
- * bean IDs throw {@link IllegalStateException} at startup — a configuration error.
+ * to this constructor. The registry indexes them by {@link MatchGenerator#getKeyId()}. Duplicate
+ * key IDs throw {@link IllegalStateException} at startup — a configuration error.
  *
  * <p>Legacy {@code de.vvwt.tm.domain.generator.MatchGeneratorRegistry} remains untouched until
  * E21S13 atomic cutover per DEC-32.
@@ -32,41 +33,49 @@ import org.springframework.stereotype.Component;
 @Component("tmMatchGeneratorRegistry")
 class DefaultMatchGeneratorRegistry implements MatchGeneratorRegistry {
 
-    private final Map<String, MatchGenerator> generatorsByBeanId;
+    private final Map<String, MatchGenerator> generatorsByKeyId;
+    private final List<MatchGeneratorInfo> generatorInfoList;
 
     /**
      * Constructs the registry from all {@link MatchGenerator} beans discovered by Spring.
      *
+     * <p>Updated by E58S01: indexes by {@link MatchGenerator#getKeyId()} (renamed from {@code
+     * getBeanId()}); builds the immutable {@link MatchGeneratorInfo} list eagerly.
+     *
      * @param generators all beans in the application context that implement {@link MatchGenerator}
-     * @throws IllegalStateException if two generators share the same bean ID
+     * @throws IllegalStateException if two generators share the same key ID
      */
     DefaultMatchGeneratorRegistry(List<MatchGenerator> generators) {
-        this.generatorsByBeanId =
+        this.generatorsByKeyId =
                 generators.stream()
                         .collect(
                                 Collectors.toMap(
-                                        MatchGenerator::getBeanId,
+                                        MatchGenerator::getKeyId,
                                         Function.identity(),
                                         (a, b) -> {
                                             throw new IllegalStateException(
-                                                    "Duplicate MatchGenerator bean ID: '"
-                                                            + a.getBeanId()
+                                                    "Duplicate MatchGenerator key ID: '"
+                                                            + a.getKeyId()
                                                             + "'. Each generator must have a unique"
                                                             + " ID.");
                                         }));
+        this.generatorInfoList =
+                generators.stream()
+                        .map(g -> new MatchGeneratorInfo(g.getKeyId(), g.isLastPhaseGenerator()))
+                        .collect(Collectors.collectingAndThen(Collectors.toList(), List::copyOf));
     }
 
     /** {@inheritDoc} */
     @Override
     public MatchGenerator get(String beanId) {
-        MatchGenerator generator = generatorsByBeanId.get(beanId);
+        MatchGenerator generator = generatorsByKeyId.get(beanId);
         if (generator == null) {
             throw new IllegalArgumentException(
                     "No MatchGenerator with id '"
                             + beanId
                             + "' — known ids: "
                             + String.join(
-                                    ", ", new java.util.TreeSet<>(generatorsByBeanId.keySet())));
+                                    ", ", new java.util.TreeSet<>(generatorsByKeyId.keySet())));
         }
         return generator;
     }
@@ -74,12 +83,18 @@ class DefaultMatchGeneratorRegistry implements MatchGeneratorRegistry {
     /** {@inheritDoc} */
     @Override
     public Set<String> knownIds() {
-        return Collections.unmodifiableSet(generatorsByBeanId.keySet());
+        return Collections.unmodifiableSet(generatorsByKeyId.keySet());
     }
 
     /** {@inheritDoc} */
     @Override
     public Map<String, MatchGenerator> getAll() {
-        return Collections.unmodifiableMap(generatorsByBeanId);
+        return Collections.unmodifiableMap(generatorsByKeyId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<MatchGeneratorInfo> getGeneratorInfoList() {
+        return generatorInfoList;
     }
 }

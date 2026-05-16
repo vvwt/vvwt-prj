@@ -138,7 +138,7 @@ class SiegerehrungGeneratorRegistryIT {
         MatchGenerator generator = matchGeneratorRegistry.get("siegerehrung");
 
         assertThat(generator).isNotNull();
-        assertThat(generator.getBeanId()).isEqualTo("siegerehrung");
+        assertThat(generator.getKeyId()).isEqualTo("siegerehrung");
     }
 
     // -------------------------------------------------------------------------

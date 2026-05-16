@@ -32,27 +32,28 @@ import java.util.Set;
  * schema). No Flyway migration needed — additive JSON field. Absent field defaults to {@link
  * DistributionMode#SEQUENTIAL} via constructor null-guard.
  *
- * <h2>E51S20 — gameMode and distributionMode as type-safe enums</h2>
+ * <h2>E58S01 — gameMode migrated from GameMode enum to String (DEC-73 D-5)</h2>
  *
- * <p>Both {@link #gameMode} and {@link #distributionMode} are now {@link GameMode} / {@link
- * DistributionMode} enums instead of raw {@code String}. Call-site comparisons migrate from {@code
- * "siegerehrung".equals(gameMode)} to {@code gameMode == GameMode.SIEGEREHRUNG} (DEC-22 Q-1b
- * mechanical refactor). JSON wire-format is preserved via {@link GameMode#getWireFormat()} + {@link
- * GameMode#fromWireFormat(String)} ({@link DistributionMode} analogous).
+ * <p>{@link #gameMode} is now a {@code String} registry key instead of the removed {@code GameMode}
+ * enum. Jackson deserializes it natively as a String. Known values at runtime: {@code
+ * "roundRobin"}, {@code "siegerehrung"} — validated against {@link
+ * de.vvwt.tm.tournament.MatchGeneratorRegistry} at draft save and apply time (AC6). JSON
+ * wire-format is unchanged: the same String values {@code "siegerehrung"} and {@code "roundRobin"}
+ * flow through the API as before.
  *
  * @see DraftConfig
  * @see DraftBreak
- * @see GameMode
  * @see DistributionMode
  * @see <a href="DEC-14">DEC-14 — H2 persistence, draft_json column (no migration)</a>
  * @see <a href="DEC-21">DEC-21 — Spring Modulith package layout</a>
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
+ * @see <a href="DEC-73">DEC-73 D-5 — GameMode enum removed; String registry key</a>
  * @see <a href="DEC-9">DEC-9 — TeamAvatar structural identity (phaseId, groupNumber,
  *     groupPosition)</a>
  * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
  * @see <a href="E51S15">E51S15 — distributionMode feature (sequential default + round-robin
  *     toggle)</a>
- * @see <a href="E51S20">E51S20 — String→Enum hygiene sweep (gameMode + distributionMode)</a>
+ * @see <a href="E58S01">E58S01 — gameMode String migration; AC5</a>
  */
 public final class DraftSection {
 
@@ -69,15 +70,19 @@ public final class DraftSection {
     private final int groupCount;
 
     /**
-     * Game mode for this phase.
+     * Game mode registry key for this phase (e.g., {@code "roundRobin"}, {@code "siegerehrung"}).
      *
-     * <p>The last phase in a draft MUST use {@link GameMode#SIEGEREHRUNG} (enforced at apply time
-     * via {@link de.vvwt.tm.tournament.internal.DefaultDraftService#apply}).
+     * <p>The last phase in a draft MUST use the registry key of the last-phase generator (i.e.,
+     * {@code "siegerehrung"} — enforced at apply time via {@link
+     * de.vvwt.tm.tournament.internal.DefaultDraftService#apply}). Registry-membership validation
+     * occurs at save and apply time (AC6, E58S01).
      *
-     * @see <a href="E48S01">E48S01 — gameMode whitelist + last-phase invariant</a>
-     * @see <a href="E51S20">E51S20 — migrated from String to GameMode enum</a>
+     * <p>Migrated from {@code GameMode} enum to {@code String} by E58S01 (DEC-73 D-5).
+     *
+     * @see <a href="E58S01">E58S01 — AC5 GameMode enum removed</a>
+     * @see <a href="DEC-73">DEC-73 D-5</a>
      */
-    private final GameMode gameMode;
+    private final String gameMode;
 
     /** Pause between rounds within the section, in minutes. Must be ≥ 0. */
     private final int lapBreakTimeMinutes;
@@ -103,7 +108,6 @@ public final class DraftSection {
      * @see <a href="E51S15">E51S15 — distributionMode feature</a>
      * @see <a href="DEC-14">DEC-14 — persistence in draft_json JSON column (no Flyway
      *     migration)</a>
-     * @see <a href="E51S20">E51S20 — migrated from String to DistributionMode enum</a>
      */
     private final DistributionMode distributionMode;
 
@@ -113,8 +117,9 @@ public final class DraftSection {
      * @param sectionNumber ordering within the draft (≥ 1)
      * @param sortType team-entry sort strategy
      * @param groupCount number of groups (≥ 1)
-     * @param gameMode game mode; must not be {@code null} (Jackson deserializes via {@link
-     *     GameMode#fromWireFormat(String)})
+     * @param gameMode game mode registry key (e.g., {@code "roundRobin"}, {@code "siegerehrung"});
+     *     must not be {@code null} or blank; validated against the registry at save/apply time
+     *     (AC6)
      * @param lapBreakTimeMinutes pause between laps (≥ 0)
      * @param sectionBreakTimeMinutes pause after section (≥ 0)
      * @param lapTimeMinutes lap duration in minutes (> 0)
@@ -128,7 +133,7 @@ public final class DraftSection {
             @JsonProperty("sectionNumber") int sectionNumber,
             @JsonProperty("sortType") String sortType,
             @JsonProperty("groupCount") int groupCount,
-            @JsonProperty("gameMode") GameMode gameMode,
+            @JsonProperty("gameMode") String gameMode,
             @JsonProperty("lapBreakTimeMinutes") int lapBreakTimeMinutes,
             @JsonProperty("sectionBreakTimeMinutes") int sectionBreakTimeMinutes,
             @JsonProperty("lapTimeMinutes") int lapTimeMinutes,
@@ -157,7 +162,7 @@ public final class DraftSection {
      * @param sectionNumber ordering within the draft (≥ 1)
      * @param sortType team-entry sort strategy
      * @param groupCount number of groups (≥ 1)
-     * @param gameMode game mode ({@link GameMode#ROUND_ROBIN} or {@link GameMode#SIEGEREHRUNG})
+     * @param gameMode game mode registry key (e.g., {@code "roundRobin"}, {@code "siegerehrung"})
      * @param lapBreakTimeMinutes pause between laps (≥ 0)
      * @param sectionBreakTimeMinutes pause after section (≥ 0)
      * @param lapTimeMinutes lap duration in minutes (> 0)
@@ -168,7 +173,7 @@ public final class DraftSection {
             int sectionNumber,
             String sortType,
             int groupCount,
-            GameMode gameMode,
+            String gameMode,
             int lapBreakTimeMinutes,
             int sectionBreakTimeMinutes,
             int lapTimeMinutes,
@@ -213,9 +218,9 @@ public final class DraftSection {
         if (groupCount < 1) {
             throw new IllegalArgumentException("groupCount must be ≥ 1, got: " + groupCount);
         }
-        // gameMode is now a typed enum — null check replaces whitelist check (E51S20)
-        if (gameMode == null) {
-            throw new IllegalArgumentException("gameMode must not be null");
+        // gameMode is now a String — null/blank check replaces enum null check (E58S01 DEC-73 D-5)
+        if (gameMode == null || gameMode.isBlank()) {
+            throw new IllegalArgumentException("gameMode must not be null or blank");
         }
         if (lapBreakTimeMinutes < 0) {
             throw new IllegalArgumentException(
@@ -300,12 +305,16 @@ public final class DraftSection {
     }
 
     /**
-     * Returns the game mode for this phase.
+     * Returns the game mode registry key for this phase (e.g., {@code "roundRobin"}, {@code
+     * "siegerehrung"}).
      *
-     * @return the {@link GameMode} enum constant; never {@code null}
-     * @see <a href="E51S20">E51S20 — migrated from String to GameMode enum</a>
+     * <p>Migrated from returning {@code GameMode} enum to returning {@code String} by E58S01
+     * (DEC-73 D-5). Wire-format is unchanged — the same String values flow through the JSON API.
+     *
+     * @return the game mode registry key; never {@code null}
+     * @see <a href="E58S01">E58S01 — AC5 GameMode enum removed</a>
      */
-    public GameMode getGameMode() {
+    public String getGameMode() {
         return gameMode;
     }
 
@@ -335,7 +344,6 @@ public final class DraftSection {
      * @return the {@link DistributionMode} enum constant; never {@code null} (defaults to {@link
      *     DistributionMode#SEQUENTIAL} when absent/null in draft_json)
      * @see <a href="E51S15">E51S15 — distributionMode feature</a>
-     * @see <a href="E51S20">E51S20 — migrated from String to DistributionMode enum</a>
      */
     public DistributionMode getDistributionMode() {
         return distributionMode;

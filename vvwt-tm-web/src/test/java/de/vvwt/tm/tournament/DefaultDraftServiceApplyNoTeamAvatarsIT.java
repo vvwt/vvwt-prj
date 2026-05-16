@@ -7,7 +7,6 @@ import de.vvwt.tm.slotopt.SlotOptimizationClient;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftSection;
-import de.vvwt.tm.tournament.draft.GameMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -349,30 +348,14 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
                 new DraftConfig(
                         List.of(
                                 new DraftSection(
-                                        1,
-                                        "team_number",
-                                        2,
-                                        GameMode.ROUND_ROBIN,
-                                        0,
-                                        0,
-                                        15,
-                                        1,
-                                        List.of()),
+                                        1, "team_number", 2, "roundRobin", 0, 0, 15, 1, List.of()),
                                 new DraftSection(
-                                        2,
-                                        "team_number",
-                                        2,
-                                        GameMode.ROUND_ROBIN,
-                                        0,
-                                        0,
-                                        15,
-                                        1,
-                                        List.of()),
+                                        2, "team_number", 2, "roundRobin", 0, 0, 15, 1, List.of()),
                                 new DraftSection(
                                         3,
                                         "team_number",
                                         1,
-                                        GameMode.SIEGEREHRUNG,
+                                        "siegerehrung",
                                         0,
                                         0,
                                         15,

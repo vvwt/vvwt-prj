@@ -11,7 +11,6 @@ import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftPreviewResult;
 import de.vvwt.tm.tournament.draft.DraftSection;
-import de.vvwt.tm.tournament.draft.GameMode;
 import java.util.List;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
@@ -70,7 +69,8 @@ class DefaultDraftServiceLapInvariantTest {
                 Mockito.mock(JdbcTemplate.class), // E48S13
                 Mockito.mock(de.vvwt.tm.tournament.TournamentLifecycleService.class), // E48S22
                 Mockito.mock(TeamAvatarRepository.class), // E51S02
-                Mockito.mock(TeamRepository.class)); // E51S02
+                Mockito.mock(TeamRepository.class), // E51S02
+                Mockito.mock(de.vvwt.tm.tournament.MatchGeneratorRegistry.class)); // E58S01 AC6
     }
 
     /**
@@ -99,7 +99,7 @@ class DefaultDraftServiceLapInvariantTest {
         // Build a config with one section whose groupCount matches the parameter
         DraftSection section =
                 new DraftSection(
-                        1, "team_number", groupCount, GameMode.ROUND_ROBIN, 0, 0, 15, 1, List.of());
+                        1, "team_number", groupCount, "roundRobin", 0, 0, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(section));
 
         // participating team count = teamsPerGroup * groupCount

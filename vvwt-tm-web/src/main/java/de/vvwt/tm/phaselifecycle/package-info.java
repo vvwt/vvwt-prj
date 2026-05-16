@@ -50,11 +50,11 @@
  *       de.vvwt.tm.tournament.Phase}, {@link de.vvwt.tm.tournament.TournamentRepository}, and other
  *       tournament-context public types consumed by the orchestrator (E55S04).
  *   <li>{@code tournament::draft} — {@link de.vvwt.tm.tournament.draft.DraftConfig}, {@link
- *       de.vvwt.tm.tournament.draft.DraftSection}, {@link de.vvwt.tm.tournament.draft.GameMode}
- *       consumed by {@link de.vvwt.tm.phaselifecycle.DraftApplicationOrchestrator} (E55S06, Option
- *       C, DEC-64 D-11). The {@code tournament.draft} named interface (DEC-35) is explicitly
- *       declared here to satisfy Spring Modulith boundary enforcement — a plain {@code
- *       "tournament"} dep covers the root package only, not its named-interface sub-packages.
+ *       de.vvwt.tm.tournament.draft.DraftSection} consumed by {@link
+ *       de.vvwt.tm.phaselifecycle.DraftApplicationOrchestrator} (E55S06, Option C, DEC-64 D-11).
+ *       The {@code tournament.draft} named interface (DEC-35) is explicitly declared here to
+ *       satisfy Spring Modulith boundary enforcement — a plain {@code "tournament"} dep covers the
+ *       root package only, not its named-interface sub-packages.
  *   <li>{@code slotopt} — {@link de.vvwt.tm.slotopt.SlotOptimizationClient} invoked by the
  *       orchestrator for Leg-1/2/3 routing (E55S04).
  *   <li>{@code tenant} — {@link de.vvwt.tm.tenant.TenantContextResolver} for per-tenant DataSource

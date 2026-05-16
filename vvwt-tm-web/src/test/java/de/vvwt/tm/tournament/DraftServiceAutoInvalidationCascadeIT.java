@@ -8,7 +8,6 @@ import de.vvwt.tm.slotopt.SlotOptimizationClient;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftSection;
-import de.vvwt.tm.tournament.draft.GameMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -179,7 +178,7 @@ class DraftServiceAutoInvalidationCascadeIT {
                     + " — AC-TEST-AUTO-INVALIDATION-CASCADE-RED")
     void resetPlanAndReApply_enqueuesFreshJobRows() {
         // Step 1: first apply — 3 phases with gameMode ROUND_ROBIN / ROUND_ROBIN / SIEGEREHRUNG
-        DraftConfig firstConfig = buildThreePhaseDraftConfig(GameMode.ROUND_ROBIN);
+        DraftConfig firstConfig = buildThreePhaseDraftConfig("roundRobin");
         List<UUID> firstPhaseIds =
                 draftApplicationOrchestrator.applyDraft(tournamentId, firstConfig);
         assertThat(firstPhaseIds).hasSize(3);
@@ -207,7 +206,7 @@ class DraftServiceAutoInvalidationCascadeIT {
                 .isEqualTo(0);
 
         // Step 3: re-apply with changed phase-2 gameMode (ROUND_ROBIN instead of SIEGEREHRUNG)
-        DraftConfig secondConfig = buildThreePhaseDraftConfig(GameMode.ROUND_ROBIN);
+        DraftConfig secondConfig = buildThreePhaseDraftConfig("roundRobin");
         List<UUID> secondPhaseIds =
                 draftApplicationOrchestrator.applyDraft(tournamentId, secondConfig);
         assertThat(secondPhaseIds).hasSize(3);
@@ -276,13 +275,13 @@ class DraftServiceAutoInvalidationCascadeIT {
      *
      * @param phase2GameMode the game mode to use for phase 2
      */
-    private DraftConfig buildThreePhaseDraftConfig(GameMode phase2GameMode) {
+    private DraftConfig buildThreePhaseDraftConfig(String phase2GameMode) {
         DraftSection s1 =
-                new DraftSection(1, "team_number", 2, GameMode.ROUND_ROBIN, 0, 0, 12, 1, List.of());
+                new DraftSection(1, "team_number", 2, "roundRobin", 0, 0, 12, 1, List.of());
         DraftSection s2 =
                 new DraftSection(2, "team_number", 2, phase2GameMode, 0, 0, 12, 1, List.of());
         DraftSection s3 =
-                new DraftSection(3, "team_number", 1, GameMode.SIEGEREHRUNG, 0, 0, 5, 1, List.of());
+                new DraftSection(3, "team_number", 1, "siegerehrung", 0, 0, 5, 1, List.of());
         return new DraftConfig(List.of(s1, s2, s3));
     }
 }

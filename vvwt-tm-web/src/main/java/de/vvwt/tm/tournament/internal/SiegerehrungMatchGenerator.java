@@ -38,7 +38,9 @@ import org.springframework.stereotype.Component;
  *   <li>DEC-35: lives in {@code de.vvwt.tm.tournament.internal} — implementation package.
  *   <li>DEC-22: RED-first tests in {@code SiegerehrungMatchGeneratorTest} written before this
  *       class.
- *   <li>AC-IMPL-SIEGEREHRUNG-GENERATOR-BEAN: {@code getBeanId()} returns {@code "siegerehrung"}.
+ *   <li>AC-IMPL-SIEGEREHRUNG-GENERATOR-BEAN: {@code getKeyId()} returns {@code "siegerehrung"}.
+ *   <li>E58S01 AC1: renamed {@code getBeanId()} → {@code getKeyId()} (DEC-73 D-1).
+ *   <li>E58S01 AC2: {@code isLastPhaseGenerator()} returns {@code true} (DEC-73 D-2).
  * </ul>
  *
  * @see MatchGenerator
@@ -60,11 +62,25 @@ public class SiegerehrungMatchGenerator implements MatchGenerator {
      * Returns the registry key {@code "siegerehrung"} — the lookup key in {@link
      * de.vvwt.tm.tournament.MatchGeneratorRegistry}.
      *
+     * <p>Renamed from {@code getBeanId()} by E58S01 (DEC-73 D-1).
+     *
      * @return {@code "siegerehrung"}
      */
     @Override
-    public String getBeanId() {
+    public String getKeyId() {
         return "siegerehrung";
+    }
+
+    /**
+     * Returns {@code true} — Siegerehrung is the terminal (last) phase generator.
+     *
+     * <p>Added by E58S01 (DEC-73 D-2).
+     *
+     * @return {@code true}
+     */
+    @Override
+    public boolean isLastPhaseGenerator() {
+        return true;
     }
 
     /**

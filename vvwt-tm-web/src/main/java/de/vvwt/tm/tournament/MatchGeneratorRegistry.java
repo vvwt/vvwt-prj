@@ -1,5 +1,6 @@
 package de.vvwt.tm.tournament;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -15,7 +16,9 @@ import java.util.Set;
  * the bounded-context root package.
  *
  * @see MatchGenerator
+ * @see MatchGeneratorInfo
  * @since E57S01
+ * @since E58S01 — {@link #getGeneratorInfoList()} added (DEC-73 D-4)
  */
 public interface MatchGeneratorRegistry {
 
@@ -41,4 +44,18 @@ public interface MatchGeneratorRegistry {
      * @return immutable map from bean ID to generator instance; never null
      */
     Map<String, MatchGenerator> getAll();
+
+    /**
+     * Returns an unmodifiable list of {@link MatchGeneratorInfo} records — one per registered
+     * generator — containing each generator's key ID and capability predicate.
+     *
+     * <p>Added by E58S01 (DEC-73 D-4). Consumers that need to enumerate available generators
+     * without holding generator instances should use this method.
+     *
+     * @return immutable list of generator info records; never null; may be empty
+     * @see MatchGeneratorInfo
+     * @see <a href="DEC-73">DEC-73 D-4</a>
+     * @see <a href="E58S01">E58S01 — AC4</a>
+     */
+    List<MatchGeneratorInfo> getGeneratorInfoList();
 }

@@ -2,6 +2,7 @@ package de.vvwt.tm.tournament.internal;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.tournament.DraftService;
+import de.vvwt.tm.tournament.MatchGeneratorRegistry;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseBreak;
 import de.vvwt.tm.tournament.PhaseBreakConfig;
@@ -23,7 +24,6 @@ import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftPreviewResult;
 import de.vvwt.tm.tournament.draft.DraftPreviewSection;
 import de.vvwt.tm.tournament.draft.DraftSection;
-import de.vvwt.tm.tournament.draft.GameMode;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import de.vvwt.tm.tournament.exceptions.TournamentNotFoundException;
 import de.vvwt.tm.tournament.exceptions.TournamentNotInDraftException;
@@ -126,6 +126,13 @@ public class DefaultDraftService implements DraftService {
     private final TeamRepository teamRepository;
 
     /**
+     * Registry of {@link de.vvwt.tm.tournament.MatchGenerator} strategies. Used for
+     * registry-membership validation of {@code DraftSection.gameMode} at save and apply time (AC6,
+     * E58S01 DEC-73 D-7).
+     */
+    private final MatchGeneratorRegistry matchGeneratorRegistry;
+
+    /**
      * Constructs the service with Phase-aggregate collaborators from E21S03, tournament repository
      * + Jackson ObjectMapper for draft JSON serialization (E21S19), the timeline calculation
      * service for preview timeline population (E48S12), JdbcTemplate for cascade-delete and
@@ -151,6 +158,8 @@ public class DefaultDraftService implements DraftService {
      *     at apply-time (E51S02)
      * @param teamRepository team persistence for Phase 1 teamId population from {@code
      *     participate=true} teams (E51S02)
+     * @param matchGeneratorRegistry registry of {@link de.vvwt.tm.tournament.MatchGenerator}
+     *     strategies for gameMode membership validation at save and apply time (AC6, E58S01)
      */
     public DefaultDraftService(
             @Qualifier("tmPhaseRepository") PhaseRepository phaseRepository,
@@ -162,7 +171,8 @@ public class DefaultDraftService implements DraftService {
             JdbcTemplate jdbcTemplate,
             TournamentLifecycleService lifecycleService,
             @Qualifier("tmTeamAvatarRepository") TeamAvatarRepository teamAvatarRepository,
-            @Qualifier("tmTeamRepository") TeamRepository teamRepository) {
+            @Qualifier("tmTeamRepository") TeamRepository teamRepository,
+            @Qualifier("tmMatchGeneratorRegistry") MatchGeneratorRegistry matchGeneratorRegistry) {
         this.phaseRepository = phaseRepository;
         this.phaseBreakRepository = phaseBreakRepository;
         this.tournamentRepository = tournamentRepository;
@@ -172,6 +182,7 @@ public class DefaultDraftService implements DraftService {
         this.lifecycleService = lifecycleService;
         this.teamAvatarRepository = teamAvatarRepository;
         this.teamRepository = teamRepository;
+        this.matchGeneratorRegistry = matchGeneratorRegistry;
     }
 
     // -------------------------------------------------------------------------
@@ -278,6 +289,8 @@ public class DefaultDraftService implements DraftService {
         }
 
         // Step (c): Invariant validation
+        // AC6 (E58S01 DEC-73 D-7): validate gameMode registry membership before phase creation
+        config.validateGameModeMembership(matchGeneratorRegistry.knownIds());
         // AC-IMPL-FIRST-PHASE-INVARIANT (E48S16): first phase must have sortType=team_number
         config.validateFirstPhaseTeamNumber();
         // AC-IMPL-LAST-PHASE-INVARIANT (E48S01): D-10 — last phase must be siegerehrung
@@ -422,6 +435,8 @@ public class DefaultDraftService implements DraftService {
                             + tournament.getStatus()
                             + " (only DRAFT tournaments may be saved).");
         }
+        // AC6 (E58S01 DEC-73 D-7): validate gameMode registry membership before persisting
+        config.validateGameModeMembership(matchGeneratorRegistry.knownIds());
         String json;
         try {
             json = objectMapper.writeValueAsString(config);
@@ -631,7 +646,9 @@ public class DefaultDraftService implements DraftService {
         // FK CASCADE on match + team_avatar_rating means this is safe inside the TX.
         jdbcTemplate.update("DELETE FROM team_avatar WHERE phase_id = ?", phaseId);
 
-        if (section.getGameMode() == GameMode.SIEGEREHRUNG) {
+        // E58S01 DEC-73 D-5: gameMode is now a String; use "siegerehrung".equals() (null-safe,
+        // constant on left per DEC-59 string comparison convention)
+        if ("siegerehrung".equals(section.getGameMode())) {
             // DEC-59 Clause A: siegerehrung receives N rank-slot avatars (one per participating
             // team). Structural identity: groupNumber=1, groupPosition=1..N (rank slot).
             // DEC-59 Clause B: teamId=NULL (populated via Clause C operator-confirmation only).
@@ -747,7 +764,8 @@ public class DefaultDraftService implements DraftService {
         // Siegerehrung branch (E48S09, AC-IMPL-COMPUTE-PREVIEW-SIEGEREHRUNG-BRANCH):
         // SiegerehrungMatchGenerator.generate() returns emptyList() at runtime (E48S02) →
         // preview returns 0 matches/laps. Breaks and sectionBreak preserved for ceremony pause.
-        if (section.getGameMode() == GameMode.SIEGEREHRUNG) {
+        // E58S01 DEC-73 D-5: gameMode is now a String; use "siegerehrung".equals() (null-safe)
+        if ("siegerehrung".equals(section.getGameMode())) {
             int intraPhaseBreakTime =
                     section.getBreaks().stream().mapToInt(DraftBreak::getDurationMinutes).sum();
             int estimatedTimeMinutes = intraPhaseBreakTime + section.getSectionBreakTimeMinutes();

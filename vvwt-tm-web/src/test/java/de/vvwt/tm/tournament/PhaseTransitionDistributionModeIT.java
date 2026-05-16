@@ -7,7 +7,6 @@ import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tournament.draft.DistributionMode;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftSection;
-import de.vvwt.tm.tournament.draft.GameMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -184,7 +183,7 @@ class PhaseTransitionDistributionModeIT {
                                         1,
                                         "team_number",
                                         2,
-                                        GameMode.ROUND_ROBIN,
+                                        "roundRobin",
                                         0,
                                         0,
                                         15,
@@ -195,7 +194,7 @@ class PhaseTransitionDistributionModeIT {
                                         2,
                                         "team_number",
                                         1,
-                                        GameMode.SIEGEREHRUNG,
+                                        "siegerehrung",
                                         0,
                                         0,
                                         15,
@@ -283,7 +282,7 @@ class PhaseTransitionDistributionModeIT {
                                         1,
                                         "team_number",
                                         2,
-                                        GameMode.ROUND_ROBIN,
+                                        "roundRobin",
                                         0,
                                         0,
                                         15,
@@ -294,7 +293,7 @@ class PhaseTransitionDistributionModeIT {
                                         2,
                                         "team_number",
                                         1,
-                                        GameMode.SIEGEREHRUNG,
+                                        "siegerehrung",
                                         0,
                                         0,
                                         15,

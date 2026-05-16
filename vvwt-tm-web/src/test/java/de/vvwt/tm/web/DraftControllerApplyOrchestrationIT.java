@@ -11,7 +11,6 @@ import de.vvwt.tm.phaselifecycle.DraftApplicationOrchestrator;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tournament.TournamentService;
 import de.vvwt.tm.tournament.draft.DraftConfig;
-import de.vvwt.tm.tournament.draft.GameMode;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftApplyResponse;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftRequest;
 import de.vvwt.tm.tournament.internal.dto.draft.DraftSectionRequest;
@@ -143,11 +142,10 @@ class DraftControllerApplyOrchestrationIT {
 
         // Build request
         DraftSectionRequest s1 =
-                new DraftSectionRequest(
-                        1, "team_number", 2, GameMode.ROUND_ROBIN, 0, 0, 12, 1, null, null);
+                new DraftSectionRequest(1, "team_number", 2, "roundRobin", 0, 0, 12, 1, null, null);
         DraftSectionRequest s2 =
                 new DraftSectionRequest(
-                        2, "team_number", 1, GameMode.SIEGEREHRUNG, 0, 0, 5, 1, null, null);
+                        2, "team_number", 1, "siegerehrung", 0, 0, 5, 1, null, null);
         DraftRequest requestBody = new DraftRequest(List.of(s1, s2));
 
         // POST /apply
