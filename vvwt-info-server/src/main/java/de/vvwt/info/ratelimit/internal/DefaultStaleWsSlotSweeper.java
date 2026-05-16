@@ -1,6 +1,8 @@
 package de.vvwt.info.ratelimit.internal;
 
-import de.vvwt.info.reader.internal.ReaderSessionRegistry;
+import de.vvwt.info.ratelimit.StaleWsSlotSweeper;
+import de.vvwt.info.ratelimit.TournamentConcurrencyLimiter;
+import de.vvwt.info.reader.ReaderSessionRegistry;
 import de.vvwt.info.reader.internal.ReaderWebSocketHandler;
 import java.util.Set;
 import org.slf4j.Logger;
@@ -26,14 +28,14 @@ import org.springframework.web.socket.WebSocketSession;
  * @see <a href="../../../../../../../../../docs/governance/stories/E38S07.story.md">E38S07 AC13</a>
  */
 @Component
-public class StaleWsSlotSweeper {
+public class DefaultStaleWsSlotSweeper implements StaleWsSlotSweeper {
 
-    private static final Logger log = LoggerFactory.getLogger(StaleWsSlotSweeper.class);
+    private static final Logger log = LoggerFactory.getLogger(DefaultStaleWsSlotSweeper.class);
 
     private final TournamentConcurrencyLimiter concurrencyLimiter;
     private final ReaderSessionRegistry sessionRegistry;
 
-    public StaleWsSlotSweeper(
+    public DefaultStaleWsSlotSweeper(
             TournamentConcurrencyLimiter concurrencyLimiter,
             ReaderSessionRegistry sessionRegistry) {
         this.concurrencyLimiter = concurrencyLimiter;
@@ -48,6 +50,7 @@ public class StaleWsSlotSweeper {
      * {@code false} has its tournament-token slot released. The session will be deregistered by the
      * next handler callback or on the following sweep.
      */
+    @Override
     @Scheduled(fixedDelayString = "${vvwt.info.rate-limit.stale-ws-sweep-interval-ms:30000}")
     public void sweepStaleSlots() {
         Set<WebSocketSession> sessions = sessionRegistry.allSessions();

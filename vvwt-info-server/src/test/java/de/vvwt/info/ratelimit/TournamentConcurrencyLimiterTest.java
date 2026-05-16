@@ -2,7 +2,7 @@ package de.vvwt.info.ratelimit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import de.vvwt.info.ratelimit.internal.TournamentConcurrencyLimiter;
+import de.vvwt.info.ratelimit.internal.DefaultTournamentConcurrencyLimiter;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 /**
- * Unit tests for {@link TournamentConcurrencyLimiter}.
+ * Unit tests for {@link DefaultTournamentConcurrencyLimiter}.
  *
  * <p>DEC-22 RED-first. Verifies slot acquisition/release and concurrency safety.
  *
@@ -24,7 +24,7 @@ class TournamentConcurrencyLimiterTest {
 
     @Test
     void mSlots_mAcquisitionsSucceed() {
-        TournamentConcurrencyLimiter limiter = new TournamentConcurrencyLimiter(3);
+        DefaultTournamentConcurrencyLimiter limiter = new DefaultTournamentConcurrencyLimiter(3);
 
         assertThat(limiter.tryAcquireSlot(TOKEN)).isTrue();
         assertThat(limiter.tryAcquireSlot(TOKEN)).isTrue();
@@ -33,7 +33,7 @@ class TournamentConcurrencyLimiterTest {
 
     @Test
     void mPlusOneSlot_rejected() {
-        TournamentConcurrencyLimiter limiter = new TournamentConcurrencyLimiter(2);
+        DefaultTournamentConcurrencyLimiter limiter = new DefaultTournamentConcurrencyLimiter(2);
 
         limiter.tryAcquireSlot(TOKEN);
         limiter.tryAcquireSlot(TOKEN);
@@ -43,7 +43,7 @@ class TournamentConcurrencyLimiterTest {
 
     @Test
     void releaseSlot_allowsNextAcquisition() {
-        TournamentConcurrencyLimiter limiter = new TournamentConcurrencyLimiter(1);
+        DefaultTournamentConcurrencyLimiter limiter = new DefaultTournamentConcurrencyLimiter(1);
 
         assertThat(limiter.tryAcquireSlot(TOKEN)).isTrue();
         assertThat(limiter.tryAcquireSlot(TOKEN)).isFalse(); // exhausted
@@ -55,7 +55,7 @@ class TournamentConcurrencyLimiterTest {
 
     @Test
     void slotCountNeverNegative() {
-        TournamentConcurrencyLimiter limiter = new TournamentConcurrencyLimiter(1);
+        DefaultTournamentConcurrencyLimiter limiter = new DefaultTournamentConcurrencyLimiter(1);
 
         limiter.releaseSlot(TOKEN); // spurious release on empty — should not go negative
         limiter.releaseSlot(TOKEN);
@@ -65,7 +65,7 @@ class TournamentConcurrencyLimiterTest {
 
     @Test
     void differentTokens_independentCounters() {
-        TournamentConcurrencyLimiter limiter = new TournamentConcurrencyLimiter(1);
+        DefaultTournamentConcurrencyLimiter limiter = new DefaultTournamentConcurrencyLimiter(1);
 
         limiter.tryAcquireSlot(TOKEN);
         assertThat(limiter.tryAcquireSlot(TOKEN)).isFalse(); // TOKEN exhausted
@@ -77,7 +77,8 @@ class TournamentConcurrencyLimiterTest {
     void concurrentAcquisitions_doNotExceedMax() throws InterruptedException {
         int maxSlots = 5;
         int threads = 20;
-        TournamentConcurrencyLimiter limiter = new TournamentConcurrencyLimiter(maxSlots);
+        DefaultTournamentConcurrencyLimiter limiter =
+                new DefaultTournamentConcurrencyLimiter(maxSlots);
         AtomicInteger acquired = new AtomicInteger(0);
         CountDownLatch ready = new CountDownLatch(threads);
         CountDownLatch start = new CountDownLatch(1);

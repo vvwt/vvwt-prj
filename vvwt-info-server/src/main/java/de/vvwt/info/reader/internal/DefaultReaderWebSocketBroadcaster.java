@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.info.dto.envelope.Envelope;
 import de.vvwt.info.dto.event.DomainEvent;
+import de.vvwt.info.reader.ReaderSessionRegistry;
+import de.vvwt.info.reader.ReaderWebSocketBroadcaster;
 import java.io.IOException;
 import java.util.Set;
 import org.slf4j.Logger;
@@ -27,14 +29,16 @@ import org.springframework.web.socket.WebSocketSession;
  * @see <a href="../../../../../../../../docs/governance/stories/E38S06.story.md">E38S06 AC2</a>
  */
 @Component
-public class ReaderWebSocketBroadcaster {
+public class DefaultReaderWebSocketBroadcaster implements ReaderWebSocketBroadcaster {
 
-    private static final Logger log = LoggerFactory.getLogger(ReaderWebSocketBroadcaster.class);
+    private static final Logger log =
+            LoggerFactory.getLogger(DefaultReaderWebSocketBroadcaster.class);
 
     private final ReaderSessionRegistry registry;
     private final ObjectMapper objectMapper;
 
-    public ReaderWebSocketBroadcaster(ReaderSessionRegistry registry, ObjectMapper objectMapper) {
+    public DefaultReaderWebSocketBroadcaster(
+            ReaderSessionRegistry registry, ObjectMapper objectMapper) {
         this.registry = registry;
         this.objectMapper = objectMapper;
     }
@@ -45,6 +49,7 @@ public class ReaderWebSocketBroadcaster {
      *
      * @param event the published delta event
      */
+    @Override
     @EventListener
     public void onDeltaPublished(TournamentDeltaPublishedEvent event) {
         Set<WebSocketSession> sessions = registry.sessionsFor(event.tournamentId());

@@ -3,6 +3,7 @@ package de.vvwt.info.publish;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import de.vvwt.info.publish.internal.DefaultJcsCanonicalizer;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -15,7 +16,7 @@ import org.junit.jupiter.api.Test;
  */
 class JcsCanonicalizerTest {
 
-    private final JcsCanonicalizer canonicalizer = new JcsCanonicalizer();
+    private final JcsCanonicalizer canonicalizer = new DefaultJcsCanonicalizer();
 
     @Test
     void canonicalize_sortsObjectKeys() {

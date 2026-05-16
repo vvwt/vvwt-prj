@@ -19,6 +19,7 @@ import de.vvwt.info.persistence.audit.SignatureOutcome;
 import de.vvwt.info.persistence.tenant.TenantDao;
 import de.vvwt.info.persistence.tenant.TenantRecord;
 import de.vvwt.info.registration.config.RegistrationProperties;
+import de.vvwt.info.registration.internal.DefaultRegistrationService;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -75,7 +76,7 @@ class RegistrationServiceTest {
         props.getTenant().setMaxTenants(1);
 
         service =
-                new RegistrationService(
+                new DefaultRegistrationService(
                         algorithmRegistryDao, tenantDao, auditLogDao, tokenPool, props, fixedClock);
 
         when(auditLogDao.append(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -322,7 +323,7 @@ class RegistrationServiceTest {
         props.getRegistration().setMode("INVITATION_ONLY");
         props.getTenant().setMaxTenants(-1);
         service =
-                new RegistrationService(
+                new DefaultRegistrationService(
                         algorithmRegistryDao, tenantDao, auditLogDao, tokenPool, props, fixedClock);
         when(auditLogDao.append(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -346,7 +347,7 @@ class RegistrationServiceTest {
         props.getRegistration().setMode("INVITATION_ONLY");
         props.getTenant().setMaxTenants(-1);
         service =
-                new RegistrationService(
+                new DefaultRegistrationService(
                         algorithmRegistryDao, tenantDao, auditLogDao, tokenPool, props, fixedClock);
         when(auditLogDao.append(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -367,7 +368,7 @@ class RegistrationServiceTest {
         props.getRegistration().setMode("INVITATION_ONLY");
         props.getTenant().setMaxTenants(-1);
         service =
-                new RegistrationService(
+                new DefaultRegistrationService(
                         algorithmRegistryDao, tenantDao, auditLogDao, tokenPool, props, fixedClock);
         when(auditLogDao.append(any())).thenAnswer(inv -> inv.getArgument(0));
 

@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import de.vvwt.info.persistence.invitation.ConsumedInvitationTokenDao;
 import de.vvwt.info.persistence.invitation.ConsumedInvitationTokenRecord;
 import de.vvwt.info.registration.config.RegistrationProperties;
+import de.vvwt.info.registration.internal.DefaultInvitationTokenPool;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -38,7 +39,7 @@ class InvitationTokenPoolTest {
         when(dao.findAll()).thenReturn(List.of());
 
         var pool =
-                new InvitationTokenPool(
+                new DefaultInvitationTokenPool(
                         propsWithTokens("TOKEN_A", "TOKEN_B"), dao, Clock.systemUTC());
         pool.initialize();
 
@@ -56,7 +57,7 @@ class InvitationTokenPoolTest {
                                         "TOKEN_A", LocalDateTime.now(), null)));
 
         var pool =
-                new InvitationTokenPool(
+                new DefaultInvitationTokenPool(
                         propsWithTokens("TOKEN_A", "TOKEN_B"), dao, Clock.systemUTC());
         pool.initialize();
 
@@ -69,7 +70,8 @@ class InvitationTokenPoolTest {
         var dao = mock(ConsumedInvitationTokenDao.class);
         when(dao.findAll()).thenReturn(List.of());
 
-        var pool = new InvitationTokenPool(propsWithTokens("TOKEN_A"), dao, Clock.systemUTC());
+        var pool =
+                new DefaultInvitationTokenPool(propsWithTokens("TOKEN_A"), dao, Clock.systemUTC());
         pool.initialize();
 
         assertThat(pool.isAvailable("UNKNOWN")).isFalse();
@@ -80,7 +82,8 @@ class InvitationTokenPoolTest {
         var dao = mock(ConsumedInvitationTokenDao.class);
         when(dao.findAll()).thenReturn(List.of());
 
-        var pool = new InvitationTokenPool(propsWithTokens("TOKEN_A"), dao, Clock.systemUTC());
+        var pool =
+                new DefaultInvitationTokenPool(propsWithTokens("TOKEN_A"), dao, Clock.systemUTC());
         pool.initialize();
 
         assertThat(pool.isAvailable(null)).isFalse();
@@ -93,7 +96,7 @@ class InvitationTokenPoolTest {
 
         var fixedClock = Clock.fixed(Instant.parse("2026-04-27T12:00:00Z"), ZoneOffset.UTC);
 
-        var pool = new InvitationTokenPool(propsWithTokens("TOKEN_X"), dao, fixedClock);
+        var pool = new DefaultInvitationTokenPool(propsWithTokens("TOKEN_X"), dao, fixedClock);
         pool.initialize();
 
         pool.consumeToken("TOKEN_X", "tenant-1");
@@ -117,7 +120,8 @@ class InvitationTokenPoolTest {
         var dao = mock(ConsumedInvitationTokenDao.class);
         when(dao.findAll()).thenReturn(List.of());
 
-        var pool = new InvitationTokenPool(propsWithTokens("TOKEN_Y"), dao, Clock.systemUTC());
+        var pool =
+                new DefaultInvitationTokenPool(propsWithTokens("TOKEN_Y"), dao, Clock.systemUTC());
         pool.initialize();
         // Consume TOKEN_Y first
         pool.consumeToken("TOKEN_Y", "tenant-1");
@@ -137,7 +141,8 @@ class InvitationTokenPoolTest {
                                 new ConsumedInvitationTokenRecord(
                                         "T2", LocalDateTime.now(), null)));
 
-        var pool = new InvitationTokenPool(propsWithTokens("T1", "T2"), dao, Clock.systemUTC());
+        var pool =
+                new DefaultInvitationTokenPool(propsWithTokens("T1", "T2"), dao, Clock.systemUTC());
         pool.initialize();
 
         assertThat(pool.isAvailable("T1")).isFalse();

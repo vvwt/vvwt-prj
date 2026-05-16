@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
+import de.vvwt.info.crypto.internal.DefaultSignatureVerifierRegistry;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -21,7 +22,7 @@ class SignatureVerifierRegistryTest {
     @Test
     void resolve_knownAlgorithmId_returnsVerifier() {
         SignatureVerifier ed25519Verifier = mock(SignatureVerifier.class);
-        var registry = new SignatureVerifierRegistry(Map.of("Ed25519", ed25519Verifier));
+        var registry = new DefaultSignatureVerifierRegistry(Map.of("Ed25519", ed25519Verifier));
 
         SignatureVerifier resolved = registry.resolve("Ed25519");
 
@@ -31,7 +32,8 @@ class SignatureVerifierRegistryTest {
     @Test
     void resolve_unknownAlgorithmId_throwsIllegalArgumentException() {
         var registry =
-                new SignatureVerifierRegistry(Map.of("Ed25519", mock(SignatureVerifier.class)));
+                new DefaultSignatureVerifierRegistry(
+                        Map.of("Ed25519", mock(SignatureVerifier.class)));
 
         assertThatThrownBy(() -> registry.resolve("ml-dsa-65"))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -41,7 +43,8 @@ class SignatureVerifierRegistryTest {
     @Test
     void resolve_nullAlgorithmId_throwsIllegalArgumentException() {
         var registry =
-                new SignatureVerifierRegistry(Map.of("Ed25519", mock(SignatureVerifier.class)));
+                new DefaultSignatureVerifierRegistry(
+                        Map.of("Ed25519", mock(SignatureVerifier.class)));
 
         assertThatThrownBy(() -> registry.resolve(null))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -51,7 +54,8 @@ class SignatureVerifierRegistryTest {
     void registry_multipleAlgorithms_routesCorrectly() {
         SignatureVerifier ed25519 = mock(SignatureVerifier.class);
         SignatureVerifier other = mock(SignatureVerifier.class);
-        var registry = new SignatureVerifierRegistry(Map.of("Ed25519", ed25519, "OTHER", other));
+        var registry =
+                new DefaultSignatureVerifierRegistry(Map.of("Ed25519", ed25519, "OTHER", other));
 
         assertThat(registry.resolve("Ed25519")).isSameAs(ed25519);
         assertThat(registry.resolve("OTHER")).isSameAs(other);

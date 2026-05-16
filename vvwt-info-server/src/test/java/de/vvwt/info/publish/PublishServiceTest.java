@@ -19,6 +19,8 @@ import de.vvwt.info.persistence.tournament.TournamentDao;
 import de.vvwt.info.persistence.tournament.TournamentDeltaDao;
 import de.vvwt.info.persistence.tournament.TournamentRecord;
 import de.vvwt.info.publish.config.PublishProperties;
+import de.vvwt.info.publish.internal.DefaultJcsCanonicalizer;
+import de.vvwt.info.publish.internal.DefaultPublishService;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -60,7 +62,7 @@ class PublishServiceTest {
         auditLogDao = mock(AuditLogDao.class);
         signatureVerifierRegistry = mock(SignatureVerifierRegistry.class);
         signatureVerifier = mock(SignatureVerifier.class);
-        jcsCanonicalizer = new JcsCanonicalizer();
+        jcsCanonicalizer = new DefaultJcsCanonicalizer();
         publishProperties = new PublishProperties();
         clock = Clock.fixed(Instant.parse("2026-04-27T10:00:00Z"), ZoneOffset.UTC);
 
@@ -68,7 +70,7 @@ class PublishServiceTest {
         when(auditLogDao.append(any())).thenAnswer(inv -> inv.getArgument(0));
 
         service =
-                new PublishService(
+                new DefaultPublishService(
                         tenantDao,
                         tournamentDao,
                         tournamentDeltaDao,

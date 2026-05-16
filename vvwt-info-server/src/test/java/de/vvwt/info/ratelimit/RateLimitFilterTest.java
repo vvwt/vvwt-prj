@@ -4,11 +4,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import de.vvwt.info.ratelimit.internal.IpRateLimiter;
-import de.vvwt.info.ratelimit.internal.RateLimitAuditService;
 import de.vvwt.info.ratelimit.internal.RateLimitFilter;
 import de.vvwt.info.ratelimit.internal.RateLimitType;
-import de.vvwt.info.ratelimit.internal.TournamentConcurrencyLimiter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

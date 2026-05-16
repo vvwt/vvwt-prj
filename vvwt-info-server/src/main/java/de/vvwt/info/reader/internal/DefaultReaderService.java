@@ -8,6 +8,7 @@ import de.vvwt.info.persistence.tournament.TournamentDao;
 import de.vvwt.info.persistence.tournament.TournamentDeltaDao;
 import de.vvwt.info.persistence.tournament.TournamentDeltaRecord;
 import de.vvwt.info.persistence.tournament.TournamentRecord;
+import de.vvwt.info.reader.HmacTokenValidator;
 import de.vvwt.info.reader.ReaderService;
 import java.time.Instant;
 import java.time.LocalDateTime;

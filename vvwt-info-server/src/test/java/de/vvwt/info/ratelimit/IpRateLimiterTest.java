@@ -2,12 +2,12 @@ package de.vvwt.info.ratelimit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import de.vvwt.info.ratelimit.internal.IpRateLimiter;
+import de.vvwt.info.ratelimit.internal.DefaultIpRateLimiter;
 import de.vvwt.info.ratelimit.internal.RateLimitType;
 import org.junit.jupiter.api.Test;
 
 /**
- * Unit tests for {@link IpRateLimiter}.
+ * Unit tests for {@link DefaultIpRateLimiter}.
  *
  * <p>DEC-22 RED-first. Verifies per-IP isolation and limit enforcement.
  *
@@ -18,7 +18,7 @@ class IpRateLimiterTest {
     @Test
     void perIpLimit_nPlusOneRequest_rejected() {
         // limit = 2 rpm for easy testing
-        IpRateLimiter limiter = new IpRateLimiter(2, 2, 2);
+        DefaultIpRateLimiter limiter = new DefaultIpRateLimiter(2, 2, 2);
 
         assertThat(limiter.tryConsume("1.2.3.4", RateLimitType.PUBLISHER)).isTrue();
         assertThat(limiter.tryConsume("1.2.3.4", RateLimitType.PUBLISHER)).isTrue();
@@ -27,7 +27,7 @@ class IpRateLimiterTest {
 
     @Test
     void differentIps_doNotShareBucket() {
-        IpRateLimiter limiter = new IpRateLimiter(1, 1, 1);
+        DefaultIpRateLimiter limiter = new DefaultIpRateLimiter(1, 1, 1);
 
         assertThat(limiter.tryConsume("1.2.3.4", RateLimitType.PUBLISHER)).isTrue();
         assertThat(limiter.tryConsume("1.2.3.4", RateLimitType.PUBLISHER)).isFalse(); // exhausted
@@ -38,7 +38,7 @@ class IpRateLimiterTest {
 
     @Test
     void readerPollType_usesItsOwnBucket() {
-        IpRateLimiter limiter = new IpRateLimiter(1, 1, 1);
+        DefaultIpRateLimiter limiter = new DefaultIpRateLimiter(1, 1, 1);
 
         assertThat(limiter.tryConsume("1.2.3.4", RateLimitType.READER_POLL)).isTrue();
         assertThat(limiter.tryConsume("1.2.3.4", RateLimitType.READER_POLL)).isFalse();
@@ -48,7 +48,7 @@ class IpRateLimiterTest {
 
     @Test
     void readerWsType_usesItsOwnBucket() {
-        IpRateLimiter limiter = new IpRateLimiter(1, 1, 1);
+        DefaultIpRateLimiter limiter = new DefaultIpRateLimiter(1, 1, 1);
 
         assertThat(limiter.tryConsume("1.2.3.4", RateLimitType.READER_WS)).isTrue();
         assertThat(limiter.tryConsume("1.2.3.4", RateLimitType.READER_WS)).isFalse();
