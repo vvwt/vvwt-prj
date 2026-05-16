@@ -657,10 +657,29 @@ class DefaultMatchCorrectionServiceTest {
                         null,
                         LocalDateTime.now());
 
-        // findByPhaseId returns all three matches (match being corrected + sibling terminal + lap2)
+        // findByPhaseId returns all three matches (match being corrected + sibling terminal + lap2).
+        // Use a SEPARATE Match instance for matchBeingCorrected in the phaseMatches list to avoid
+        // shared-object mutation: the cascade may change the Match object's state via
+        // match.setMatchState(derivedState) before the lap-advance guard runs.
+        Match matchBeingCorrectedSnapshot =
+                new Match(
+                        MATCH_ID,
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        MatchState.FINISHED_WINNER1.getLegacyCode(),
+                        3,
+                        1,
+                        1,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
         when(matchRepository.findByPhaseId(PHASE_ID))
-                .thenReturn(List.of(matchBeingCorrected, siblingTerminal, lap2Match));
+                .thenReturn(List.of(matchBeingCorrectedSnapshot, siblingTerminal, lap2Match));
 
+        // Two sets both won by team1 → deriveMatchState(2,0,2) = FINISHED_WINNER1 for BEST_OF_3
         when(setResultRepository.findByMatchId(MATCH_ID))
                 .thenReturn(
                         List.of(
@@ -670,6 +689,15 @@ class DefaultMatchCorrectionServiceTest {
                                         PHASE_ID,
                                         25,
                                         10,
+                                        SetState.WINNER1.getLegacyCode(),
+                                        LocalDateTime.now(),
+                                        LocalDateTime.now()),
+                                new SetResult(
+                                        MATCH_ID,
+                                        1,
+                                        PHASE_ID,
+                                        25,
+                                        15,
                                         SetState.WINNER1.getLegacyCode(),
                                         LocalDateTime.now(),
                                         LocalDateTime.now())));
@@ -806,9 +834,26 @@ class DefaultMatchCorrectionServiceTest {
                         null,
                         LocalDateTime.now());
 
+        // Separate snapshot instance to avoid shared-object mutation
+        Match matchBeingCorrectedLastLapSnapshot =
+                new Match(
+                        MATCH_ID,
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        MatchState.FINISHED_WINNER1.getLegacyCode(),
+                        3,
+                        2, // lapNumber = 2 = lapCount (last lap)
+                        1,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
         when(matchRepository.findByPhaseId(PHASE_ID))
-                .thenReturn(List.of(matchBeingCorrected, siblingTerminal));
+                .thenReturn(List.of(matchBeingCorrectedLastLapSnapshot, siblingTerminal));
 
+        // Two sets both won by team1 → FINISHED_WINNER1 after cascade
         when(setResultRepository.findByMatchId(MATCH_ID))
                 .thenReturn(
                         List.of(
@@ -818,6 +863,15 @@ class DefaultMatchCorrectionServiceTest {
                                         PHASE_ID,
                                         25,
                                         10,
+                                        SetState.WINNER1.getLegacyCode(),
+                                        LocalDateTime.now(),
+                                        LocalDateTime.now()),
+                                new SetResult(
+                                        MATCH_ID,
+                                        1,
+                                        PHASE_ID,
+                                        25,
+                                        15,
                                         SetState.WINNER1.getLegacyCode(),
                                         LocalDateTime.now(),
                                         LocalDateTime.now())));

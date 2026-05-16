@@ -41,13 +41,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Default implementation of {@link MatchCorrectionService} — operator match-score correction and
- * Nacherfassung cascade (E48S25, DEC-35, DEC-58).
+ * Nacherfassung cascade (E48S25, DEC-35, DEC-58, updated E56S02 for DEC-74).
  *
  * <p>This service is a peer to {@link DefaultScoringService}, sharing the same repository
  * injections directly. It does NOT call {@code ScoringService.registerMatchResult()} in a loop
  * (which would acquire the DEC-37 lock N times). Instead it acquires the lock ONCE for the entire
- * batch and runs a simplified cascade (Steps 2-8 of the scoring cascade, excluding Steps 10/12
- * lap-advance and DEC-65-restricted {@code phase.currentLapNumber} mutation).
+ * batch and runs a simplified cascade (Steps 2-8 of the scoring cascade) followed by a
+ * forward-only, current-lap-guarded lap-advance (Step 10 per DEC-74).
  *
  * <h2>DEC compliance</h2>
  *
@@ -55,14 +55,17 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>DEC-35 — implementation in {@code de.vvwt.tm.scoring.internal}; interface in {@code
  *       de.vvwt.tm.scoring}
  *   <li>DEC-37 Clause B — {@code tournamentRepository.findByIdForUpdate(tournamentId)} is the FIRST
- *       action for non-CANCELED paths; CANCELED audit-only path skips the lock
+ *       action for non-CANCELED paths; CANCELED audit-only path skips the lock; the lap-advance
+ *       write is co-committed inside the same transaction (no new lock boundary)
  *   <li>DEC-58 — naming canon: {@code DefaultMatchCorrectionService}
- *   <li>DEC-65 — this implementation MUST NOT call {@code phase.setCurrentLapNumber()} or invoke
- *       any code path that modifies {@code phase.current_lap_number}; the lap-advance step (Step 10
- *       of {@code DefaultScoringService}) is explicitly omitted
- *   <li>DEC-22 — all methods were RED-first; unit tests in {@code
- *       DefaultMatchCorrectionServiceTest} were written and verified failing before this file was
- *       created
+ *   <li>DEC-74 (amends DEC-65 D-3/D-5) — this implementation advances {@code
+ *       phase.currentLapNumber} forward-only when the corrected match's {@code lapNumber} equals
+ *       the phase's current {@code currentLapNumber} AND every match of the phase with that {@code
+ *       lapNumber} is terminal (same match set and terminal predicate as {@link
+ *       DefaultScoringService} Step 10); on a fire it advances to {@code lapNumber+1} or to
+ *       sentinel {@code 0} if last lap; never backward, never from a non-current lap
+ *   <li>DEC-22 — all new tests were RED-first (E56S02); existing tests from E48S25 preserved and
+ *       migrated per DEC-74 D-6
  * </ul>
  *
  * <h2>Guard ordering (before any DB write)</h2>
@@ -77,17 +80,18 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <h2>CANCELED audit-only path</h2>
  *
- * <p>For CANCELED matches: no DEC-37 lock, no cascade, no WS event. Only {@code audit_log} rows are
- * written (one per submitted set correction). Returns {@code auditOnly=true}.
+ * <p>For CANCELED matches: no DEC-37 lock, no cascade, no WS event, no lap-advance. Only {@code
+ * audit_log} rows are written (one per submitted set correction). Returns {@code auditOnly=true}.
  *
- * @since E48S25
+ * @since E48S25, updated E56S02 (DEC-74 operationalization)
  * @see MatchCorrectionService
  * @see DefaultScoringService
  * @see <a href="DEC-35">DEC-35 — Spring Modulith package layout</a>
  * @see <a href="DEC-37">DEC-37 Clause B — pessimistic DB lock</a>
  * @see <a href="DEC-58">DEC-58 — Universal interface mandate</a>
- * @see <a href="DEC-65">DEC-65 — correction MUST NOT touch currentLapNumber</a>
+ * @see <a href="DEC-74">DEC-74 — path-independent lap-advance (amends DEC-65 D-3/D-5)</a>
  * @see <a href="E48S25">E48S25 — Operator Match Score Correction + Nacherfassung</a>
+ * @see <a href="E56S02">E56S02 — Operationalize DEC-74</a>
  */
 @Service("tmMatchCorrectionService")
 public class DefaultMatchCorrectionService implements MatchCorrectionService {
@@ -138,7 +142,8 @@ public class DefaultMatchCorrectionService implements MatchCorrectionService {
     // ---------------------------------------------------------------------------
 
     /**
-     * Corrects match set scores.
+     * Corrects match set scores and, if the correction completes the lap currently in play,
+     * advances {@code phase.currentLapNumber} (DEC-74 — forward-only, current-lap-guarded).
      *
      * <p><b>Guard ordering (before any DB write):</b>
      *
@@ -149,8 +154,17 @@ public class DefaultMatchCorrectionService implements MatchCorrectionService {
      *   <li>Standoff pre-check — equal setsWon on non-tie format → reject
      * </ol>
      *
-     * <p><b>DEC-65:</b> This method NEVER modifies {@code phase.currentLapNumber}. The lap-advance
-     * step from {@link DefaultScoringService} Step 10 is explicitly omitted here.
+     * <p><b>DEC-74 lap-advance (Step 10):</b> After the cascade, this method conditionally
+     * advances {@code phase.currentLapNumber} — forward-only, guarded to the lap in play:
+     *
+     * <ul>
+     *   <li>(a) {@code match.lapNumber} is non-null; AND
+     *   <li>(b) {@code match.lapNumber == phase.currentLapNumber} (lap currently in play); AND
+     *   <li>(c) every match of the phase with that {@code lapNumber} is terminal.
+     * </ul>
+     *
+     * On a fire: advances to {@code lapNumber+1}, or writes sentinel {@code 0} if last lap.
+     * The counter never moves backward and never advances from a non-current lap (DEC-74 D-3).
      *
      * @param input the correction input
      * @return the correction result
@@ -425,9 +439,71 @@ public class DefaultMatchCorrectionService implements MatchCorrectionService {
                 match.getMemberAvatar2Id(), input.phaseId(), scoringRule, format, correlationId);
 
         // -----------------------------------------------------------------------
-        // DEC-65: Step 10 (lap auto-advance) is intentionally OMITTED.
-        // Correction MUST NOT touch phase.currentLapNumber.
+        // Step 10 (DEC-74) — forward-only, current-lap-guarded lap advance.
+        // Mirrors DefaultScoringService Step 10 allTerminalInLap + sentinel logic.
+        // Guard: (a) lapNumber non-null AND (b) lapNumber == currentLapNumber AND (c) all terminal.
         // -----------------------------------------------------------------------
+        int previousLapNumber = phase.getCurrentLapNumber();
+        int newLapNumber = previousLapNumber;
+
+        Integer matchLapNumber = match.getLapNumber();
+        if (matchLapNumber != null && matchLapNumber.equals(previousLapNumber)) {
+            // Guard (a) and (b) passed — check (c): all matches in this lap terminal
+            List<Match> phaseMatches = matchRepository.findByPhaseId(match.getPhaseId());
+            boolean allTerminalInLap =
+                    phaseMatches.stream()
+                            .filter(m -> matchLapNumber.equals(m.getLapNumber()))
+                            .allMatch(m -> isTerminalState(m.getMatchState()));
+
+            if (allTerminalInLap) {
+                // Derive lapCount = max(match.lapNumber) for this phase (DEC-65 D-1).
+                int lapCount =
+                        phaseMatches.stream()
+                                .mapToInt(m -> m.getLapNumber() != null ? m.getLapNumber() : 0)
+                                .max()
+                                .orElse(0);
+                boolean isLastLap = matchLapNumber >= lapCount;
+                if (isLastLap) {
+                    // Last-lap finalization: write sentinel-0; phase stays ACTIVE (DEC-74 D-4).
+                    newLapNumber = 0;
+                    phase.setCurrentLapNumber(0);
+                    log.info(
+                            "[correction] Step10 last-lap sentinel written (lap {}/{}) phaseId={}"
+                                    + " correlationId={}",
+                            matchLapNumber,
+                            lapCount,
+                            phase.getId(),
+                            correlationId);
+                } else {
+                    // Non-last lap: advance to next lap (DEC-74 D-2).
+                    newLapNumber = matchLapNumber + 1;
+                    phase.setCurrentLapNumber(newLapNumber);
+                    log.info(
+                            "[correction] Step10 lap advanced {} -> {} phaseId={}"
+                                    + " correlationId={}",
+                            previousLapNumber,
+                            newLapNumber,
+                            phase.getId(),
+                            correlationId);
+                }
+                phaseRepository.save(phase);
+            } else {
+                log.debug(
+                        "[correction] Step10 lap NOT advanced (not all matches terminal in lap {})"
+                                + " phaseId={} correlationId={}",
+                        matchLapNumber,
+                        phase.getId(),
+                        correlationId);
+            }
+        } else {
+            log.debug(
+                    "[correction] Step10 skipped — guard (a)/(b) not met: matchLapNumber={},"
+                            + " currentLapNumber={} matchId={} correlationId={}",
+                    matchLapNumber,
+                    previousLapNumber,
+                    input.matchId(),
+                    correlationId);
+        }
 
         // -----------------------------------------------------------------------
         // Emit MatchResultChangedEvent (post-commit)
@@ -442,8 +518,8 @@ public class DefaultMatchCorrectionService implements MatchCorrectionService {
                         previousMatchState,
                         derivedState,
                         input.actorId(),
-                        phase.getCurrentLapNumber(), // previous and new are the same (no advance)
-                        phase.getCurrentLapNumber(),
+                        previousLapNumber,
+                        newLapNumber,
                         correlationId);
         eventPublisher.publishEvent(event);
 
@@ -612,5 +688,18 @@ public class DefaultMatchCorrectionService implements MatchCorrectionService {
                         isWithoutAssessment,
                         LocalDateTime.now());
         teamAvatarRatingRepository.save(rating);
+    }
+
+    /**
+     * Returns {@code true} if the given {@link MatchState} is terminal.
+     *
+     * <p>Terminal states: FINISHED_WINNER1, FINISHED_WINNER2, FINISHED_STANDOFF, CANCELED. Mirrors
+     * the identical predicate in {@link DefaultScoringService} per DEC-74 D-2 clause (c).
+     */
+    private boolean isTerminalState(MatchState state) {
+        return state == MatchState.FINISHED_WINNER1
+                || state == MatchState.FINISHED_WINNER2
+                || state == MatchState.FINISHED_STANDOFF
+                || state == MatchState.CANCELED;
     }
 }
