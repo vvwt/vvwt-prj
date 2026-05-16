@@ -73,7 +73,7 @@
 
   /** Per-row inline assign state: keyed by device id (E49S01 inline-row). */
   let rowPinInputs = $state<Record<string, string>>({});
-  let rowFieldInputs = $state<Record<string, string>>({});
+  let rowFieldInputs = $state<Record<string, number | null>>({});
   let rowAssignErrors = $state<Record<string, string>>({});
 
   /** Field conflict confirmation (E06S05 AC4). */
@@ -207,8 +207,12 @@
 
   async function handleRowAssign(device: Device): Promise<void> {
     const pin = rowPinInputs[device.id]?.trim() ?? null;
-    const fieldStr = rowFieldInputs[device.id]?.trim() ?? '';
-    const fieldNumber = parseInt(fieldStr, 10);
+    // rowFieldInputs[device.id] is a number at runtime (Svelte bind:value on type="number"
+    // coerces the value); consuming it as a number directly avoids the TypeError that arose
+    // when the pre-fix code called .trim() on a number (E49S06 root cause).
+    const fieldRaw = rowFieldInputs[device.id];
+    const fieldNumber =
+      typeof fieldRaw === 'number' && !isNaN(fieldRaw) ? Math.trunc(fieldRaw) : NaN;
     if (isNaN(fieldNumber) || fieldNumber < 1) {
       rowAssignErrors = { ...rowAssignErrors, [device.id]: $_('devices.assignError') };
       return;
@@ -264,7 +268,7 @@
     try {
       await assignDevice(deviceId, fieldNumber, pin);
       rowPinInputs = { ...rowPinInputs, [deviceId]: '' };
-      rowFieldInputs = { ...rowFieldInputs, [deviceId]: '' };
+      rowFieldInputs = { ...rowFieldInputs, [deviceId]: null };
       await loadDevices();
     } catch (e: unknown) {
       const status = (e as { status?: number }).status;
