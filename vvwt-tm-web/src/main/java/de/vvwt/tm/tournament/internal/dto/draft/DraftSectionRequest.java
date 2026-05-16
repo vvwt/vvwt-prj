@@ -1,6 +1,5 @@
 package de.vvwt.tm.tournament.internal.dto.draft;
 
-import de.vvwt.tm.tournament.draft.DistributionMode;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -18,12 +17,13 @@ import java.util.List;
  * <p>Inventory: E21S01 line 438. Reconstructed under {@code
  * de.vvwt.tm.tournament.internal.dto.draft} per DEC-21.
  *
- * <h2>E51S15 — distributionMode field</h2>
+ * <h2>E51S15 / E58S02 — distributionMode field</h2>
  *
  * <p>{@code distributionMode} is optional in the request (may be absent/null). The domain class
- * {@link de.vvwt.tm.tournament.draft.DraftSection} defaults null to {@link
- * de.vvwt.tm.tournament.draft.DistributionMode#SEQUENTIAL}. When present, the value is forwarded
- * as-is; domain validation rejects unrecognized values.
+ * {@link de.vvwt.tm.tournament.draft.DraftSection} defaults null to {@code "sequential"}. When
+ * present, the value is forwarded as-is (plain String); registry-membership validation occurs at
+ * draft save/apply time. Migrated from {@code DistributionMode} enum to {@code String} by E58S02
+ * (DEC-73 D-2).
  *
  * <h2>E58S01 — gameMode migrated from GameMode enum to String (DEC-73 D-5)</h2>
  *
@@ -35,11 +35,11 @@ import java.util.List;
  *
  * @see DraftRequest
  * @see DraftBreakRequest
- * @see DistributionMode
  * @see <a href="DEC-21">DEC-21 — Spring Modulith package layout</a>
  * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
  * @see <a href="E51S15">E51S15 — distributionMode feature</a>
  * @see <a href="E58S01">E58S01 — gameMode String migration; AC5</a>
+ * @see <a href="E58S02">E58S02 — distributionMode String migration; AC5</a>
  */
 public record DraftSectionRequest(
         @NotNull @Min(value = 1, message = "sectionNumber must be ≥ 1") Integer sectionNumber,
@@ -73,13 +73,14 @@ public record DraftSectionRequest(
         @Valid List<DraftBreakRequest> breaks,
         /**
          * Team distribution algorithm for Phase-1 avatar assignment. Optional — absent/null
-         * defaults to {@link DistributionMode#SEQUENTIAL} in the domain class. When present, must
-         * be one of the known wire-format values; unknown values are rejected at the Jackson
-         * deserialization boundary with HTTP 400 (AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE, E51S20).
+         * defaults to {@code "sequential"} in the domain class. When present, the value is
+         * forwarded as a plain String. Registry-membership validation occurs at draft save/apply
+         * time (AC6, E58S02). Migrated from {@code DistributionMode} enum to {@code String} by
+         * E58S02 (DEC-73 D-2).
          *
-         * @see DistributionMode
          * @see de.vvwt.tm.tournament.draft.DraftSection#getDistributionMode()
          * @see <a href="E51S15">E51S15 — distributionMode feature (sequential default + round-robin
          *     toggle)</a>
+         * @see <a href="E58S02">E58S02 — DistributionMode enum removed</a>
          */
-        DistributionMode distributionMode) {}
+        String distributionMode) {}

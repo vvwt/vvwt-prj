@@ -2,6 +2,7 @@ package de.vvwt.tm.tournament.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -11,6 +12,7 @@ import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.PhaseTransitionService;
 import de.vvwt.tm.tournament.RefereeAssigner;
 import de.vvwt.tm.tournament.Team;
+import de.vvwt.tm.tournament.Team2AvatarDistributorRegistry;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarProposal;
 import de.vvwt.tm.tournament.TeamAvatarRating;
@@ -63,6 +65,7 @@ class PhaseTransitionServiceTest {
     @Mock private TeamRepository teamRepository;
     @Mock private RefereeAssigner refereeAssigner;
     @Mock private PhaseLifecycleService phaseLifecycleService;
+    @Mock private Team2AvatarDistributorRegistry distributorRegistry;
 
     private DefaultPhaseTransitionService service;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -73,6 +76,11 @@ class PhaseTransitionServiceTest {
 
     @BeforeEach
     void setUp() {
+        // E58S02: stub sequential distributor for Phase-1 path (default distributionMode)
+        SequentialTeam2AvatarDistributor sequentialDistributor =
+                new SequentialTeam2AvatarDistributor();
+        lenient().when(distributorRegistry.get("sequential")).thenReturn(sequentialDistributor);
+
         service =
                 new DefaultPhaseTransitionService(
                         tournamentRepository,
@@ -82,7 +90,8 @@ class PhaseTransitionServiceTest {
                         objectMapper,
                         teamRepository,
                         refereeAssigner,
-                        phaseLifecycleService);
+                        phaseLifecycleService,
+                        distributorRegistry); // E58S02
     }
 
     // -------------------------------------------------------------------------

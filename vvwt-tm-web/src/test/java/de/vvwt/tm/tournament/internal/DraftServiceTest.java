@@ -93,6 +93,13 @@ class DraftServiceTest {
      */
     @Mock private de.vvwt.tm.tournament.MatchGeneratorRegistry matchGeneratorRegistry;
 
+    /**
+     * E58S02 AC4/AC6: Team2AvatarDistributorRegistry mock for registry dispatch and membership
+     * validation in persistStructuralAvatars(), saveDraft(), and apply(). Stubbed to return known
+     * keys in setUp().
+     */
+    @Mock private de.vvwt.tm.tournament.Team2AvatarDistributorRegistry distributorRegistry;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private DefaultDraftService draftService;
@@ -118,13 +125,43 @@ class DraftServiceTest {
                         lifecycleService,
                         teamAvatarRepository,
                         teamRepository,
-                        matchGeneratorRegistry); // E58S01 AC6: registry-membership validation
+                        matchGeneratorRegistry, // E58S01 AC6: registry-membership validation
+                        distributorRegistry); // E58S02 AC4/AC6: distributor registry dispatch
         // Stub: registry knows "roundRobin" and "siegerehrung" — used by saveDraft()/apply() paths.
         // lenient() because preview_* tests do not invoke knownIds() and would trigger
         // UnnecessaryStubbingException with strict Mockito mode.
         lenient()
                 .when(matchGeneratorRegistry.knownIds())
                 .thenReturn(Set.of("roundRobin", "siegerehrung"));
+        // E58S02: distributorRegistry knows "sequential" and "round_robin"
+        lenient()
+                .when(distributorRegistry.knownKeys())
+                .thenReturn(Set.of("sequential", "round_robin"));
+        // E58S02: stub distributor.get("sequential") for apply() tests that use
+        // persistStructuralAvatars
+        de.vvwt.tm.tournament.Team2AvatarDistributor sequentialDistributor =
+                org.mockito.Mockito.mock(de.vvwt.tm.tournament.Team2AvatarDistributor.class);
+        lenient()
+                .when(sequentialDistributor.distribute(any(), anyInt()))
+                .thenAnswer(
+                        invocation -> {
+                            java.util.List<de.vvwt.tm.tournament.Team> teams =
+                                    invocation.getArgument(0);
+                            int groupCount = invocation.getArgument(1);
+                            // Simple sequential logic for test stubs
+                            java.util.List<de.vvwt.tm.tournament.Team2AvatarSlot> slots =
+                                    new java.util.ArrayList<>();
+                            int n = teams.size();
+                            int ppg = (n + groupCount - 1) / groupCount;
+                            if (ppg == 0) ppg = 1;
+                            for (int i = 0; i < n; i++) {
+                                slots.add(
+                                        new de.vvwt.tm.tournament.Team2AvatarSlot(
+                                                (i / ppg) + 1, (i % ppg) + 1));
+                            }
+                            return slots;
+                        });
+        lenient().when(distributorRegistry.get(eq("sequential"))).thenReturn(sequentialDistributor);
     }
 
     /**

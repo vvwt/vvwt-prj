@@ -133,6 +133,23 @@ class DefaultTeamAvatarRepository implements TeamAvatarRepository {
         jdbc.update(UPDATE_TEAM_ID, avatar.getTeamId(), avatar.getId());
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Iterates {@link #save(TeamAvatar)} for each avatar. Used by {@code
+     * DefaultDraftService.persistStructuralAvatars()} as its production callsite (DEC-70, E58S02
+     * AC7).
+     */
+    @Override
+    public List<TeamAvatar> saveAll(List<TeamAvatar> avatars) {
+        java.util.Objects.requireNonNull(avatars, "avatars must not be null");
+        List<TeamAvatar> saved = new java.util.ArrayList<>(avatars.size());
+        for (TeamAvatar avatar : avatars) {
+            saved.add(save(avatar));
+        }
+        return saved;
+    }
+
     private static final RowMapper<TeamAvatar> ROW_MAPPER = (rs, rowNum) -> mapRow(rs);
 
     @SuppressWarnings("try")

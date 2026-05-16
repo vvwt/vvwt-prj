@@ -10,6 +10,8 @@ import de.vvwt.tm.tournament.PhaseBreakRepository;
 import de.vvwt.tm.tournament.PhaseConfig;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.Team;
+import de.vvwt.tm.tournament.Team2AvatarDistributorRegistry;
+import de.vvwt.tm.tournament.Team2AvatarSlot;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.TeamRepository;
@@ -18,7 +20,6 @@ import de.vvwt.tm.tournament.TimelineEntry;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentLifecycleService;
 import de.vvwt.tm.tournament.TournamentRepository;
-import de.vvwt.tm.tournament.draft.DistributionMode;
 import de.vvwt.tm.tournament.draft.DraftBreak;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftPreviewResult;
@@ -133,6 +134,13 @@ public class DefaultDraftService implements DraftService {
     private final MatchGeneratorRegistry matchGeneratorRegistry;
 
     /**
+     * Registry of {@link de.vvwt.tm.tournament.Team2AvatarDistributor} strategies. Used for
+     * registry dispatch in {@link #persistStructuralAvatars} and registry-membership validation of
+     * {@code DraftSection.distributionMode} at save and apply time (AC4, AC6, E58S02 DEC-73 D-2).
+     */
+    private final Team2AvatarDistributorRegistry distributorRegistry;
+
+    /**
      * Constructs the service with Phase-aggregate collaborators from E21S03, tournament repository
      * + Jackson ObjectMapper for draft JSON serialization (E21S19), the timeline calculation
      * service for preview timeline population (E48S12), JdbcTemplate for cascade-delete and
@@ -160,6 +168,8 @@ public class DefaultDraftService implements DraftService {
      *     participate=true} teams (E51S02)
      * @param matchGeneratorRegistry registry of {@link de.vvwt.tm.tournament.MatchGenerator}
      *     strategies for gameMode membership validation at save and apply time (AC6, E58S01)
+     * @param distributorRegistry registry of {@link de.vvwt.tm.tournament.Team2AvatarDistributor}
+     *     strategies for distributionMode dispatch and membership validation (AC4, AC6, E58S02)
      */
     public DefaultDraftService(
             @Qualifier("tmPhaseRepository") PhaseRepository phaseRepository,
@@ -172,7 +182,9 @@ public class DefaultDraftService implements DraftService {
             TournamentLifecycleService lifecycleService,
             @Qualifier("tmTeamAvatarRepository") TeamAvatarRepository teamAvatarRepository,
             @Qualifier("tmTeamRepository") TeamRepository teamRepository,
-            @Qualifier("tmMatchGeneratorRegistry") MatchGeneratorRegistry matchGeneratorRegistry) {
+            @Qualifier("tmMatchGeneratorRegistry") MatchGeneratorRegistry matchGeneratorRegistry,
+            @Qualifier("tmTeam2AvatarDistributorRegistry")
+                    Team2AvatarDistributorRegistry distributorRegistry) {
         this.phaseRepository = phaseRepository;
         this.phaseBreakRepository = phaseBreakRepository;
         this.tournamentRepository = tournamentRepository;
@@ -183,6 +195,7 @@ public class DefaultDraftService implements DraftService {
         this.teamAvatarRepository = teamAvatarRepository;
         this.teamRepository = teamRepository;
         this.matchGeneratorRegistry = matchGeneratorRegistry;
+        this.distributorRegistry = distributorRegistry;
     }
 
     // -------------------------------------------------------------------------
@@ -291,6 +304,8 @@ public class DefaultDraftService implements DraftService {
         // Step (c): Invariant validation
         // AC6 (E58S01 DEC-73 D-7): validate gameMode registry membership before phase creation
         config.validateGameModeMembership(matchGeneratorRegistry.knownIds());
+        // AC6 (E58S02 DEC-73 D-2): validate distributionMode registry membership
+        config.validateDistributionModeMembership(distributorRegistry.knownKeys());
         // AC-IMPL-FIRST-PHASE-INVARIANT (E48S16): first phase must have sortType=team_number
         config.validateFirstPhaseTeamNumber();
         // AC-IMPL-LAST-PHASE-INVARIANT (E48S01): D-10 — last phase must be siegerehrung
@@ -437,6 +452,8 @@ public class DefaultDraftService implements DraftService {
         }
         // AC6 (E58S01 DEC-73 D-7): validate gameMode registry membership before persisting
         config.validateGameModeMembership(matchGeneratorRegistry.knownIds());
+        // AC6 (E58S02 DEC-73 D-2): validate distributionMode registry membership before persisting
+        config.validateDistributionModeMembership(distributorRegistry.knownKeys());
         String json;
         try {
             json = objectMapper.writeValueAsString(config);
@@ -656,11 +673,13 @@ public class DefaultDraftService implements DraftService {
             // by DraftApplicationOrchestrator.applyDraft() after apply() returns — E55S06 Option
             // C);
             // OrchestratorStepB skips L3 for siegerehrung (DEC-59 Clause F).
+            List<TeamAvatar> avatars = new ArrayList<>(teamCount);
             for (int i = 0; i < teamCount; i++) {
                 TeamAvatar avatar = buildAvatar(tournamentId, phaseId, 1, i + 1);
                 // teamId = null (Clause B — universally NULL at apply-time)
-                teamAvatarRepository.save(avatar);
+                avatars.add(avatar);
             }
+            teamAvatarRepository.saveAll(avatars);
         } else {
             // Non-siegerehrung phases (Phase 1 and Phase 2+):
             // DEC-59 Clause A: exactly N avatars (N = participatingTeams.size()).
@@ -668,39 +687,30 @@ public class DefaultDraftService implements DraftService {
             // DEC-59 Clause B: teamId=NULL for ALL phases including Phase 1.
             //   Previous carve-out: Phase 1 "MAY be populated immediately" — removed.
             // DEC-59 Clause D: DraftSection.distributionMode determines groupNumber+groupPosition.
+            //   Registry dispatch via Team2AvatarDistributorRegistry (E58S02 DEC-73 D-2).
             //   The same algorithm is used by computePhase1Proposals() in
             //   DefaultPhaseTransitionService so that the proposal's (group, position) matches
             //   the slot created here (DEC-9 structural identity for UPDATE-by-identity in
             //   commitTransition).
             int groupCount = section.getGroupCount();
-            DistributionMode distributionMode = section.getDistributionMode();
+            String distributionMode = section.getDistributionMode();
 
-            if (distributionMode == DistributionMode.ROUND_ROBIN) {
-                // Round-Robin: team at index i → group (i % groupCount)+1, pos (i / groupCount)+1
-                for (int i = 0; i < teamCount; i++) {
-                    int groupNumber = (i % groupCount) + 1;
-                    int groupPosition = (i / groupCount) + 1;
-                    TeamAvatar avatar =
-                            buildAvatar(tournamentId, phaseId, groupNumber, groupPosition);
-                    // teamId = null (DEC-59 Clause B — universal; was: populated for Phase 1)
-                    teamAvatarRepository.save(avatar);
-                }
-            } else {
-                // SEQUENTIAL (default) — enum type enforces valid values; no unrecognized fallback
-                // needed (E51S20: AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE now rejects at
-                // deserialization)
-                // Sequential: fill Group 1 fully before Group 2.
-                // positionsPerGroup = ceil(N / groupCount)
-                int positionsPerGroup = (teamCount + groupCount - 1) / groupCount;
-                for (int i = 0; i < teamCount; i++) {
-                    int groupNumber = (i / positionsPerGroup) + 1;
-                    int groupPosition = (i % positionsPerGroup) + 1;
-                    TeamAvatar avatar =
-                            buildAvatar(tournamentId, phaseId, groupNumber, groupPosition);
-                    // teamId = null (DEC-59 Clause B — universal; was: populated for Phase 1)
-                    teamAvatarRepository.save(avatar);
-                }
+            // Registry dispatch: get the distributor for the given mode key (AC4, E58S02).
+            // Membership was validated at apply/saveDraft entry — IAE here indicates a bug.
+            List<Team2AvatarSlot> slots =
+                    distributorRegistry
+                            .get(distributionMode)
+                            .distribute(participatingTeams, groupCount);
+
+            List<TeamAvatar> avatars = new ArrayList<>(teamCount);
+            for (Team2AvatarSlot slot : slots) {
+                TeamAvatar avatar =
+                        buildAvatar(
+                                tournamentId, phaseId, slot.groupNumber(), slot.groupPosition());
+                // teamId = null (DEC-59 Clause B — universal)
+                avatars.add(avatar);
             }
+            teamAvatarRepository.saveAll(avatars);
         }
     }
 

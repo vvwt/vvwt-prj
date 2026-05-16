@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.slotopt.SlotOptimizationClient;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
-import de.vvwt.tm.tournament.draft.DistributionMode;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftSection;
 import java.time.LocalDateTime;
@@ -189,7 +188,7 @@ class PhaseTransitionDistributionModeIT {
                                         15,
                                         1,
                                         List.of(),
-                                        DistributionMode.SEQUENTIAL),
+                                        "sequential"),
                                 new DraftSection(
                                         2,
                                         "team_number",
@@ -200,7 +199,7 @@ class PhaseTransitionDistributionModeIT {
                                         15,
                                         1,
                                         List.of(),
-                                        DistributionMode.SEQUENTIAL)));
+                                        "sequential")));
 
         List<UUID> phaseIds = draftService.apply(tournament, config);
         UUID phase1Id = phaseIds.get(0);
@@ -288,7 +287,7 @@ class PhaseTransitionDistributionModeIT {
                                         15,
                                         1,
                                         List.of(),
-                                        DistributionMode.ROUND_ROBIN),
+                                        "round_robin"),
                                 new DraftSection(
                                         2,
                                         "team_number",
@@ -299,7 +298,7 @@ class PhaseTransitionDistributionModeIT {
                                         15,
                                         1,
                                         List.of(),
-                                        DistributionMode.SEQUENTIAL)));
+                                        "sequential")));
 
         List<UUID> phaseIds = draftService.apply(tournament, config);
         UUID phase1Id = phaseIds.get(0);
