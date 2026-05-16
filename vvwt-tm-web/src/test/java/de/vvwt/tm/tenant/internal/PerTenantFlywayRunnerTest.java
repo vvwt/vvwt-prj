@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Unit tests for {@link PerTenantFlywayRunner}.
+ * Unit tests for {@link DefaultPerTenantFlywayRunner}.
  *
  * <p>Tests verify the runner's behavioral contracts without depending on the presence of per-module
  * migration directories (which are added by E15 stories, not E14S04). The ordering and
@@ -22,7 +22,7 @@ import org.junit.jupiter.api.io.TempDir;
  *
  * <p>Story: E14S04 — Per-tenant Flyway runner, tests first (DEC-20, DEC-21, DEC-22).
  */
-class PerTenantFlywayRunnerTest {
+class DefaultPerTenantFlywayRunnerTest {
 
     // ------------------------------------------------------------------
     // AC6 — unknown tenant: resolver throws, runner propagates
@@ -41,8 +41,9 @@ class PerTenantFlywayRunnerTest {
                     throw new TenantDataSourceResolver.UnknownTenantException(tenantId);
                 };
 
-        PerTenantFlywayRunner runner =
-                new PerTenantFlywayRunner(rejectingResolver, TournamentManagerApplication.class);
+        DefaultPerTenantFlywayRunner runner =
+                new DefaultPerTenantFlywayRunner(
+                        rejectingResolver, TournamentManagerApplication.class);
 
         assertThatThrownBy(() -> runner.run(unknownId))
                 .isInstanceOf(TenantDataSourceResolver.UnknownTenantException.class)
@@ -69,8 +70,8 @@ class PerTenantFlywayRunnerTest {
         DataSource ds = H2TestDataSourceHelper.createTempFileDataSource(tempDir, tenantId);
 
         // Runner with no migration locations — Flyway is a no-op, idempotency trivially holds
-        PerTenantFlywayRunner runner =
-                new PerTenantFlywayRunner(id -> ds, TournamentManagerApplication.class) {
+        DefaultPerTenantFlywayRunner runner =
+                new DefaultPerTenantFlywayRunner(id -> ds, TournamentManagerApplication.class) {
                     @Override
                     public List<String> buildLocations() {
                         return List.of(); // No migrations — tests the "empty" path
@@ -87,7 +88,7 @@ class PerTenantFlywayRunnerTest {
     // ------------------------------------------------------------------
 
     /**
-     * AC3: {@link PerTenantFlywayRunner#buildLocations()} returns a non-null list. When no
+     * AC3: {@link DefaultPerTenantFlywayRunner#buildLocations()} returns a non-null list. When no
      * per-module migration directories exist on the classpath, it returns empty. When they exist,
      * every entry follows {@code classpath:db/migration/{moduleName}}.
      *
@@ -101,8 +102,8 @@ class PerTenantFlywayRunnerTest {
                 id -> {
                     throw new AssertionError("should not be called");
                 };
-        PerTenantFlywayRunner runner =
-                new PerTenantFlywayRunner(noopResolver, TournamentManagerApplication.class);
+        DefaultPerTenantFlywayRunner runner =
+                new DefaultPerTenantFlywayRunner(noopResolver, TournamentManagerApplication.class);
 
         List<String> locations = runner.buildLocations();
 
@@ -121,7 +122,7 @@ class PerTenantFlywayRunnerTest {
     }
 
     /**
-     * AC3 (classpath-filtering): {@link PerTenantFlywayRunner#buildLocations()} filters out
+     * AC3 (classpath-filtering): {@link DefaultPerTenantFlywayRunner#buildLocations()} filters out
      * classpath locations that do not exist on the current classpath.
      *
      * <p>Verified via a subclass override that presents a mix of existing and non-existing
@@ -137,8 +138,8 @@ class PerTenantFlywayRunnerTest {
         // Subclass that demonstrates the filtering logic with a controlled candidate set:
         // db/migration-test-broken/ exists on the test classpath (created for AC4 tests)
         // db/migration/nonexistent-xyz/ does NOT exist
-        PerTenantFlywayRunner runner =
-                new PerTenantFlywayRunner(noopResolver, TournamentManagerApplication.class) {
+        DefaultPerTenantFlywayRunner runner =
+                new DefaultPerTenantFlywayRunner(noopResolver, TournamentManagerApplication.class) {
                     @Override
                     public List<String> buildLocations() {
                         List<String> candidates =
@@ -177,8 +178,8 @@ class PerTenantFlywayRunnerTest {
     // ------------------------------------------------------------------
 
     /**
-     * AC8: {@link PerTenantFlywayRunner#buildLocations()} must NEVER return the legacy root path
-     * {@code classpath:db/migration} (without a module sub-directory).
+     * AC8: {@link DefaultPerTenantFlywayRunner#buildLocations()} must NEVER return the legacy root
+     * path {@code classpath:db/migration} (without a module sub-directory).
      *
      * <p>Verified against the production project's current module graph.
      */
@@ -188,8 +189,8 @@ class PerTenantFlywayRunnerTest {
                 id -> {
                     throw new AssertionError("should not be called");
                 };
-        PerTenantFlywayRunner runner =
-                new PerTenantFlywayRunner(noopResolver, TournamentManagerApplication.class);
+        DefaultPerTenantFlywayRunner runner =
+                new DefaultPerTenantFlywayRunner(noopResolver, TournamentManagerApplication.class);
 
         List<String> locations = runner.buildLocations();
 

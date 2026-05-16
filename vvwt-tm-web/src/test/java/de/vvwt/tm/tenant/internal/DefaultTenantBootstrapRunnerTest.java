@@ -11,6 +11,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import de.vvwt.tm.tenant.PerTenantFlywayRunner;
 import de.vvwt.tm.tenant.TenantDataSourceResolver;
 import de.vvwt.tm.tenant.TenantRegistryPort;
 import de.vvwt.tm.tenant.TenantRegistryPort.TenantRecord;

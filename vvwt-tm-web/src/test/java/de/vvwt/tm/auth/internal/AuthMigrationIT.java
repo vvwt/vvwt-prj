@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 
 import de.vvwt.tm.TournamentManagerApplication;
-import de.vvwt.tm.tenant.internal.PerTenantFlywayRunner;
+import de.vvwt.tm.tenant.internal.DefaultPerTenantFlywayRunner;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -40,11 +40,11 @@ import org.junit.jupiter.api.io.TempDir;
  *
  * <h2>Design</h2>
  *
- * <p>Tests use a {@code PerTenantFlywayRunner} subclass that restricts locations to {@code
+ * <p>Tests use a {@code DefaultPerTenantFlywayRunner} subclass that restricts locations to {@code
  * classpath:db/migration/auth} only. Real H2 file-DataSources provide production-faithful
  * isolation. {@link AdminCredentialsDao} exercises the Flyway-created schema shape (AC3).
  *
- * @see PerTenantFlywayRunner
+ * @see DefaultPerTenantFlywayRunner
  * @see AdminCredentialsDao
  * @see <a
  *     href="../../../../../../../../../../../.gaai/project/contexts/artefacts/stories/E15S05.story.md">Story
@@ -97,20 +97,20 @@ class AuthMigrationIT {
     // -------------------------------------------------------------------------
 
     /**
-     * A {@link PerTenantFlywayRunner} subclass that restricts migration locations to {@code
+     * A {@link DefaultPerTenantFlywayRunner} subclass that restricts migration locations to {@code
      * classpath:db/migration/auth} — the single location added by E15S05.
      *
      * <p>If {@code db/migration/auth/} is absent from the classpath, {@code buildLocations()}
      * returns an empty list, Flyway is a no-op, and the table-existence assertions fail (RED state
      * before the migration file is added).
      */
-    private static PerTenantFlywayRunner runnerWithAuthMigrationOnly(DataSource dataSource) {
-        return new PerTenantFlywayRunner(
+    private static DefaultPerTenantFlywayRunner runnerWithAuthMigrationOnly(DataSource dataSource) {
+        return new DefaultPerTenantFlywayRunner(
                 tenantId -> dataSource, TournamentManagerApplication.class) {
             @Override
             public List<String> buildLocations() {
                 ClassLoader cl = Thread.currentThread().getContextClassLoader();
-                if (cl == null) cl = PerTenantFlywayRunner.class.getClassLoader();
+                if (cl == null) cl = DefaultPerTenantFlywayRunner.class.getClassLoader();
                 boolean exists = cl.getResource("db/migration/auth") != null;
                 return exists ? List.of("classpath:db/migration/auth") : List.of();
             }
@@ -135,7 +135,7 @@ class AuthMigrationIT {
     void authMigration_applied_adminCredentialsTableExists(@TempDir Path tempDir) throws Exception {
         UUID tenantId = UUID.randomUUID();
         DataSource ds = createTempFileDataSource(tempDir, tenantId);
-        PerTenantFlywayRunner runner = runnerWithAuthMigrationOnly(ds);
+        DefaultPerTenantFlywayRunner runner = runnerWithAuthMigrationOnly(ds);
 
         runner.run(tenantId);
 
@@ -155,7 +155,7 @@ class AuthMigrationIT {
             throws Exception {
         UUID tenantId = UUID.randomUUID();
         DataSource ds = createTempFileDataSource(tempDir, tenantId);
-        PerTenantFlywayRunner runner = runnerWithAuthMigrationOnly(ds);
+        DefaultPerTenantFlywayRunner runner = runnerWithAuthMigrationOnly(ds);
 
         runner.run(tenantId);
 
@@ -204,8 +204,8 @@ class AuthMigrationIT {
         DataSource dsA = createTempFileDataSource(tempDir, tenantA);
         DataSource dsB = createTempFileDataSource(tempDir, tenantB);
 
-        PerTenantFlywayRunner runnerA = runnerWithAuthMigrationOnly(dsA);
-        PerTenantFlywayRunner runnerB = runnerWithAuthMigrationOnly(dsB);
+        DefaultPerTenantFlywayRunner runnerA = runnerWithAuthMigrationOnly(dsA);
+        DefaultPerTenantFlywayRunner runnerB = runnerWithAuthMigrationOnly(dsB);
 
         runnerA.run(tenantA);
         runnerB.run(tenantB);
@@ -248,7 +248,7 @@ class AuthMigrationIT {
             throws Exception {
         UUID tenantId = UUID.randomUUID();
         DataSource ds = createTempFileDataSource(tempDir, tenantId);
-        PerTenantFlywayRunner runner = runnerWithAuthMigrationOnly(ds);
+        DefaultPerTenantFlywayRunner runner = runnerWithAuthMigrationOnly(ds);
 
         // First run — migration applied
         runner.run(tenantId);

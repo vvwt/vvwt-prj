@@ -1,5 +1,6 @@
 package de.vvwt.tm.tenant.internal;
 
+import de.vvwt.tm.tenant.PerTenantFlywayRunner;
 import de.vvwt.tm.tenant.TenantDataSourceResolver;
 import java.util.ArrayList;
 import java.util.List;
@@ -67,14 +68,19 @@ import org.springframework.modulith.core.ApplicationModules;
  * <p>This class lives in {@code de.vvwt.tm.tenant.internal}. It MUST NOT be imported by classes
  * outside the {@code tenant} module. Spring wiring is done via {@link TenantContextConfiguration}.
  *
+ * <p>Bean registration is via {@code TenantContextConfiguration#perTenantFlywayRunner()} — this
+ * class carries no {@code @Component} annotation (DEC-70: no test-only or duplicate wiring).
+ *
+ * @see de.vvwt.tm.tenant.PerTenantFlywayRunner
  * @see TenantDataSourceResolver
  * @see TenantContextConfiguration
  * @see <a href="../../../../../../../../docs/governance/stories/E14S04.story.md">Story E14S04</a>
  * @see <a href="../../../../../../../../docs/governance/decisions/DEC-20.md">DEC-20</a>
  * @see <a href="../../../../../../../../docs/governance/decisions/DEC-21.md">DEC-21</a>
  * @see <a href="../../../../../../../../docs/governance/decisions/DEC-22.md">DEC-22</a>
+ * @since E57S05 (DEC-58/DEC-72 interface extraction)
  */
-public class PerTenantFlywayRunner {
+public class DefaultPerTenantFlywayRunner implements PerTenantFlywayRunner {
 
     private final TenantDataSourceResolver resolver;
     private final Class<?> applicationClass;
@@ -88,7 +94,8 @@ public class PerTenantFlywayRunner {
      *     null}
      * @throws IllegalArgumentException if either argument is {@code null}
      */
-    public PerTenantFlywayRunner(TenantDataSourceResolver resolver, Class<?> applicationClass) {
+    public DefaultPerTenantFlywayRunner(
+            TenantDataSourceResolver resolver, Class<?> applicationClass) {
         if (resolver == null) {
             throw new IllegalArgumentException("resolver must not be null");
         }
@@ -112,6 +119,7 @@ public class PerTenantFlywayRunner {
      * @throws org.flywaydb.core.api.FlywayException if a migration fails (AC4); propagated
      *     unchanged
      */
+    @Override
     public void run(UUID tenantId) {
         if (tenantId == null) {
             throw new IllegalArgumentException("tenantId must not be null");
@@ -145,6 +153,7 @@ public class PerTenantFlywayRunner {
      * @see <a href="../../../../../../../../docs/governance/stories/E14S05.story.md">Story E14S05
      *     AC5</a>
      */
+    @Override
     public void runWithDataSource(UUID tenantId, DataSource dataSource) {
         if (tenantId == null) {
             throw new IllegalArgumentException("tenantId must not be null");
@@ -257,7 +266,7 @@ public class PerTenantFlywayRunner {
                         : classpathLocation;
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
         if (cl == null) {
-            cl = PerTenantFlywayRunner.class.getClassLoader();
+            cl = DefaultPerTenantFlywayRunner.class.getClassLoader();
         }
         return cl.getResource(resourcePath) != null;
     }

@@ -2,6 +2,7 @@ package de.vvwt.tm.tenant.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import de.vvwt.tm.tenant.PerTenantFlywayRunner;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tenant.TenantRegistryPort;
 import de.vvwt.tm.tenant.TenantRegistryPort.TenantRecord;

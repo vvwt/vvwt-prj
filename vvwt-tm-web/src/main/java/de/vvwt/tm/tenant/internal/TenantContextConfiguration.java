@@ -3,6 +3,8 @@ package de.vvwt.tm.tenant.internal;
 import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.tenant.DiagnosticProperties;
 import de.vvwt.tm.tenant.LocationContext;
+import de.vvwt.tm.tenant.PerTenantFlywayRunner;
+import de.vvwt.tm.tenant.TenantBootstrapRunner;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantDataSourceResolver;
 import de.vvwt.tm.tenant.TenantRegistryPort;
@@ -173,7 +175,7 @@ public class TenantContextConfiguration {
     @ConditionalOnMissingBean(PerTenantFlywayRunner.class)
     public PerTenantFlywayRunner perTenantFlywayRunner(
             TenantDataSourceResolver tenantDataSourceResolver) {
-        return new PerTenantFlywayRunner(
+        return new DefaultPerTenantFlywayRunner(
                 tenantDataSourceResolver, TournamentManagerApplication.class);
     }
 
@@ -269,8 +271,8 @@ public class TenantContextConfiguration {
      * @see <a href="../../../../../../../../docs/governance/decisions/DEC-21.md">DEC-21</a>
      */
     @Bean
-    @ConditionalOnMissingBean(DefaultTenantBootstrapRunner.class)
-    public DefaultTenantBootstrapRunner defaultTenantBootstrapRunner(
+    @ConditionalOnMissingBean(TenantBootstrapRunner.class)
+    public TenantBootstrapRunner defaultTenantBootstrapRunner(
             TenantRegistryPort tenantRegistryPort,
             PerTenantFlywayRunner perTenantFlywayRunner,
             TenantDataSourceResolver tenantDataSourceResolver,

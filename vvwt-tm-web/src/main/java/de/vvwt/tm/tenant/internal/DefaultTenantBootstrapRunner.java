@@ -1,5 +1,7 @@
 package de.vvwt.tm.tenant.internal;
 
+import de.vvwt.tm.tenant.PerTenantFlywayRunner;
+import de.vvwt.tm.tenant.TenantBootstrapRunner;
 import de.vvwt.tm.tenant.TenantDataSourceResolver;
 import de.vvwt.tm.tenant.TenantRegistryPort;
 import de.vvwt.tm.tenant.TenantRegistryPort.TenantRecord;
@@ -15,7 +17,6 @@ import org.h2.jdbcx.JdbcDataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
-import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -103,7 +104,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * @see <a href="../../../../../../../../docs/governance/decisions/DEC-22.md">DEC-22 (TDD)</a>
  */
 @Order(1)
-public class DefaultTenantBootstrapRunner implements ApplicationRunner {
+public class DefaultTenantBootstrapRunner implements TenantBootstrapRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultTenantBootstrapRunner.class);
 

@@ -41,7 +41,7 @@ import org.junit.jupiter.api.io.TempDir;
  *
  * <h2>Flyway history table structure</h2>
  *
- * <p>The {@link PerTenantFlywayRunner} uses module-namespaced history tables: {@code
+ * <p>The {@link DefaultPerTenantFlywayRunner} uses module-namespaced history tables: {@code
  * flyway_schema_history_tenant} and {@code flyway_schema_history_tournament}. With {@code
  * baselineOnMigrate=true} and {@code baselineVersion="0"}, Flyway creates a baseline row for
  * version {@code "0"} only when it encounters a non-empty schema without a history table. For a
@@ -49,7 +49,7 @@ import org.junit.jupiter.api.io.TempDir;
  * only {@code installed_rank} rows where {@code version} = {@code '1'} (i.e., real migration rows,
  * not baseline rows) and asserts exactly one such row per module.
  *
- * @see PerTenantFlywayRunner
+ * @see DefaultPerTenantFlywayRunner
  * @see <a href="../../../../../../../../docs/governance/stories/E46S06.story.md">Story E46S06</a>
  * @see <a href="../../../../../../../../docs/governance/stories/E51S01.story.md">Story E51S01</a>
  * @see <a href="../../../../../../../../docs/governance/decisions/DEC-22.md">DEC-22 — TDD Iron
@@ -81,10 +81,10 @@ class FlywayV1BaselineIT {
         UUID tenantId = UUID.randomUUID();
         DataSource ds = H2TestDataSourceHelper.createTempFileDataSource(tempDir, tenantId);
 
-        // Use the real production PerTenantFlywayRunner with production migration locations.
+        // Use the real production DefaultPerTenantFlywayRunner with production migration locations.
         // This causes Flyway to apply all modules' production V*.sql files to the fresh H2 DB.
-        PerTenantFlywayRunner runner =
-                new PerTenantFlywayRunner(id -> ds, TournamentManagerApplication.class);
+        DefaultPerTenantFlywayRunner runner =
+                new DefaultPerTenantFlywayRunner(id -> ds, TournamentManagerApplication.class);
         runner.run(tenantId);
 
         // Query flyway_schema_history_tenant for all migration versions (exclude baseline rows)
