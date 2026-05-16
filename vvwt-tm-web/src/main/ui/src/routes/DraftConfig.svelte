@@ -48,6 +48,10 @@
     getGeneratorList,
     type MatchGeneratorInfo,
   } from '../stores/generatorStore.js';
+  import {
+    filterLastPhaseGenerators,
+    filterNonLastPhaseGenerators,
+  } from '../lib/generatorFilter.js';
 
   // ── Props ────────────────────────────────────────────────────────────────
   interface Props {
@@ -84,6 +88,11 @@
    * E58S05 AC3: replaces hardcoded roundRobin/awardCeremony option list.
    */
   let generators = $state<MatchGeneratorInfo[]>([]);
+  /**
+   * The tournament's chosen match generator (from TournamentForm). Used as the default gameMode
+   * when adding new non-last phases (E58S05 AC5 clause 2).
+   */
+  let tournamentMatchGeneratorId = $state<string>('roundRobin');
 
   // ── Init ─────────────────────────────────────────────────────────────────
   onMount(async () => {
@@ -113,6 +122,8 @@
       plannedStartTime = tournament.plannedStartTime ?? null;
       tournamentStatus = tournament.status ?? null;
       generators = gens;
+      // E58S05 AC5: use the tournament's chosen generator as the default for new phases
+      tournamentMatchGeneratorId = tournament.matchGeneratorId ?? 'roundRobin';
     } catch (e: unknown) {
       loadError = e instanceof Error ? e.message : String(e);
     } finally {
@@ -134,7 +145,8 @@
         sectionNumber: next,
         sortType: 'team_number',
         groupCount: 1,
-        gameMode: 'roundRobin',
+        // E58S05 AC5: default to tournament's chosen generator (not hardcoded 'roundRobin')
+        gameMode: tournamentMatchGeneratorId,
         lapBreakTimeMinutes: 5,
         sectionBreakTimeMinutes: 15,
         lapTimeMinutes: 15,
@@ -463,8 +475,8 @@
               title={si === sections.length - 1 ? $_('draftConfig.errors.lastPhaseMustBeAwardCeremony') : undefined}
             >
               {#each (si === sections.length - 1
-                ? generators.filter(g => g.isLastPhaseGenerator)
-                : generators.filter(g => !g.isLastPhaseGenerator)) as gen (gen.keyId)}
+                ? filterLastPhaseGenerators(generators)
+                : filterNonLastPhaseGenerators(generators)) as gen (gen.keyId)}
                 <option value={gen.keyId}>{$_(`draftConfig.gameMode.${gen.keyId}`)}</option>
               {/each}
             </select>

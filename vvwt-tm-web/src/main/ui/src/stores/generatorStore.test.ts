@@ -89,3 +89,61 @@ describe('generatorStore — AC2: single fetch, shared cache (E58S05)', () => {
     await expect(getGeneratorList()).rejects.toThrow();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AC2 — cross-consumer: DraftConfig + TournamentForm both import from generatorStore
+// Verified via source inspection: no component fetches the endpoint independently
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('generatorStore — AC2: both consumers import from generatorStore (E58S05)', () => {
+  it('DraftConfig.svelte imports from generatorStore and NOT from a direct fetch', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const draftConfigSrc = path.resolve(
+      __dirname,
+      '../routes/DraftConfig.svelte',
+    );
+    const source = fs.readFileSync(draftConfigSrc, 'utf8');
+    expect(source).toContain("from '../stores/generatorStore.js'");
+    // Must NOT fetch the endpoint independently
+    expect(source).not.toContain("'/api/match-generators'");
+    expect(source).not.toContain('"/api/match-generators"');
+  });
+
+  it('TournamentForm.svelte imports from generatorStore and NOT from a direct fetch', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const tournamentFormSrc = path.resolve(
+      __dirname,
+      '../routes/TournamentForm.svelte',
+    );
+    const source = fs.readFileSync(tournamentFormSrc, 'utf8');
+    expect(source).toContain("from '../stores/generatorStore.js'");
+    // Must NOT fetch the endpoint independently
+    expect(source).not.toContain("'/api/match-generators'");
+    expect(source).not.toContain('"/api/match-generators"');
+  });
+
+  it('both consumers share the same module cache: getGeneratorList() called from two consumers fetches once', async () => {
+    // Simulate DraftConfig + TournamentForm both calling getGeneratorList() on the same module instance
+    const mockGenerators = [
+      { keyId: 'roundRobin', isLastPhaseGenerator: false },
+      { keyId: 'awardCeremony', isLastPhaseGenerator: true },
+    ];
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => mockGenerators,
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { getGeneratorList } = await import('./generatorStore.js');
+
+    // Consumer 1 (DraftConfig): calls getGeneratorList
+    await getGeneratorList();
+    // Consumer 2 (TournamentForm): calls getGeneratorList on same module instance
+    await getGeneratorList();
+
+    // Assert: fetch called exactly once (not once per consumer)
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
