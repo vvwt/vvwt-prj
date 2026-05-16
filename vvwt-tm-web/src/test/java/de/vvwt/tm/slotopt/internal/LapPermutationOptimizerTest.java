@@ -16,7 +16,6 @@ import de.vvwt.tm.slotopt.CancellationToken;
 import de.vvwt.tm.slotopt.JobHandle;
 import de.vvwt.tm.slotopt.MappingResult;
 import de.vvwt.tm.slotopt.OptimizationResult;
-import de.vvwt.tm.slotopt.PhaseToRawPhaseDefMapper;
 import de.vvwt.tm.slotopt.SlotResultApplicator;
 import de.vvwt.tm.tournament.Match;
 import java.time.Instant;
@@ -356,7 +355,7 @@ class LapPermutationOptimizerTest {
         TransformResult tr = StructuralFingerprint.transform(raw);
         CanonicalPhaseDef canonical = tr.canonical();
         java.util.Map<de.vvwt.slotopt.worker.types.PositionTuple, Integer> denseMap =
-                PhaseToRawPhaseDefMapper.buildDenseIdMapping(raw);
+                DefaultPhaseToRawPhaseDefMapper.buildDenseIdMapping(raw);
         int[][] denseIdsByRawRow = new int[rowCount][];
         for (int r = 0; r < rowCount; r++) {
             de.vvwt.slotopt.worker.types.PositionTuple pt1 =
@@ -401,7 +400,7 @@ class LapPermutationOptimizerTest {
         TransformResult tr = StructuralFingerprint.transform(raw);
         CanonicalPhaseDef canonical = tr.canonical();
         java.util.Map<de.vvwt.slotopt.worker.types.PositionTuple, Integer> denseMap =
-                PhaseToRawPhaseDefMapper.buildDenseIdMapping(raw);
+                DefaultPhaseToRawPhaseDefMapper.buildDenseIdMapping(raw);
         int[][] denseIdsByRawRow = new int[lapCount][];
         for (int r = 0; r < lapCount; r++) {
             int groupBase = (r % 2 == 0) ? 0 : 2;

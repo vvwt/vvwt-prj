@@ -23,7 +23,8 @@ import org.junit.jupiter.api.Test;
  * is removed from this test. Remaining sites:
  *
  * <ol>
- *   <li>{@code de.vvwt.tm.slotopt.PhaseToRawPhaseDefMapper} — pre-existing, {@code :3}
+ *   <li>{@code de.vvwt.tm.slotopt.internal.DefaultPhaseToRawPhaseDefMapper} — pre-existing, {@code
+ *       :3} (E57S01: moved from interface to implementation)
  *   <li>{@code de.vvwt.tm.slotopt.FallbackSlotOptimizationClient} — pre-existing, {@code :3}
  *   <li>{@code de.vvwt.tm.tournament.internal.DefaultRoundAssignmentService} — {@code :3}
  *       (coherence anchor field)
@@ -68,9 +69,13 @@ class FieldCountDefaultCoherenceTest {
 
     private static final String MODULE_ROOT = "vvwt-tm-web/src/main/java/de/vvwt/tm";
 
-    /** Site 1: PhaseToRawPhaseDefMapper — pre-existing slotopt site */
+    /**
+     * Site 1: DefaultPhaseToRawPhaseDefMapper — implementation holds the {@code @Value} annotation
+     * (E57S01: interface extraction moved the annotation from PhaseToRawPhaseDefMapper to
+     * DefaultPhaseToRawPhaseDefMapper in slotopt.internal).
+     */
     private static final String SITE_MAPPER =
-            MODULE_ROOT + "/slotopt/PhaseToRawPhaseDefMapper.java";
+            MODULE_ROOT + "/slotopt/internal/DefaultPhaseToRawPhaseDefMapper.java";
 
     /** Site 2: FallbackSlotOptimizationClient — pre-existing slotopt site */
     private static final String SITE_FALLBACK_CLIENT =
@@ -113,7 +118,7 @@ class FieldCountDefaultCoherenceTest {
         // Remaining 3 Java sites:
         String[] javaSites = {SITE_MAPPER, SITE_FALLBACK_CLIENT, SITE_ROUND_ASSIGNMENT};
         String[] siteLabels = {
-            "PhaseToRawPhaseDefMapper (site 1)",
+            "DefaultPhaseToRawPhaseDefMapper (site 1)",
             "FallbackSlotOptimizationClient (site 2)",
             "DefaultRoundAssignmentService (site 3)"
         };

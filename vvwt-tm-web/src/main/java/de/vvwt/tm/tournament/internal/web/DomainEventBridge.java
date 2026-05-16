@@ -65,7 +65,7 @@ import org.springframework.stereotype.Component;
  * @see <a href="E21S10">E21S10 — inventory row 450</a>
  */
 @Component("tmDomainEventBridge")
-public class DomainEventBridge {
+public class DomainEventBridge implements de.vvwt.tm.tournament.DomainEventBridge {
 
     private static final Logger log = LoggerFactory.getLogger(DomainEventBridge.class);
 

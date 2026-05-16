@@ -4,7 +4,7 @@ import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.photo.PhotoStorageService;
 import de.vvwt.tm.scoring.ScoringRuleRegistry;
 import de.vvwt.tm.scoring.SetValidationRuleRegistry;
-import de.vvwt.tm.scoring.internal.TournamentRuleResolver;
+import de.vvwt.tm.scoring.TournamentRuleResolver;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tenant.TenantDataSourceResolver;

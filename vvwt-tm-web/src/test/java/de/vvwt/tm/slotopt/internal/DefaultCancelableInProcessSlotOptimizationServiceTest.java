@@ -273,7 +273,7 @@ class DefaultCancelableInProcessSlotOptimizationServiceTest {
 
         // Build denseIdsByRawRow
         java.util.Map<de.vvwt.slotopt.worker.types.PositionTuple, Integer> denseMap =
-                PhaseToRawPhaseDefMapper.buildDenseIdMapping(raw);
+                DefaultPhaseToRawPhaseDefMapper.buildDenseIdMapping(raw);
         int[][] denseIdsByRawRow = new int[rowCount][];
         for (int r = 0; r < rowCount; r++) {
             de.vvwt.slotopt.worker.types.PositionTuple pt1 =

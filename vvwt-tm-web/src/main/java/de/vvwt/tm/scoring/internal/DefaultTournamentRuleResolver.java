@@ -4,24 +4,23 @@ import de.vvwt.tm.scoring.ScoringRule;
 import de.vvwt.tm.scoring.ScoringRuleRegistry;
 import de.vvwt.tm.scoring.SetValidationRule;
 import de.vvwt.tm.scoring.SetValidationRuleRegistry;
+import de.vvwt.tm.scoring.TournamentRuleResolver;
 import de.vvwt.tm.tournament.Tournament;
 import org.springframework.stereotype.Component;
 
 /**
- * Internal service that resolves both rule beans ({@link ScoringRule} + {@link SetValidationRule})
- * for a given {@link Tournament} in a single operation.
+ * Default implementation of {@link TournamentRuleResolver}.
+ *
+ * <p>Internal service that resolves both rule beans ({@link ScoringRule} + {@link
+ * SetValidationRule}) for a given {@link Tournament} in a single operation.
  *
  * <p>Each {@code Tournament} row stores Spring bean IDs for each pluggable rule dimension. This
  * resolver translates those IDs into live rule instances by delegating to the appropriate
  * registries.
  *
- * <p>The resolver is an implementation detail of the {@code scoring} module (DEC-35 § Internal
- * package). Visibility MAY be package-private per DEC-35 — declared {@code public} here for Spring
- * component scanning whilst remaining in {@code scoring.internal} (other modules cannot import it
- * per Modulith boundary enforcement).
- *
  * <p>Consumer graph: {@code DefaultScoringService} (within {@code scoring.internal}); post-E22S06
- * also {@code ScoreEntryService} (within {@code scoring.internal}). No cross-module consumers.
+ * also {@code DefaultScoreEntryService} (within {@code scoring.internal}). No cross-module
+ * consumers.
  *
  * <p>Reconstructed from {@code de.vvwt.tm.domain.rules.TournamentRuleResolver} per DEC-22
  * Reconstruction-in-Place (E22S05). The new resolver takes only the two scoring registries (not the
@@ -31,9 +30,11 @@ import org.springframework.stereotype.Component;
  *
  * @see ScoringRuleRegistry
  * @see SetValidationRuleRegistry
+ * @since E57S01 (DEC-58/DEC-72 interface extraction: renamed from TournamentRuleResolver,
+ *     implements {@link TournamentRuleResolver})
  */
 @Component("scoringTournamentRuleResolver")
-public class TournamentRuleResolver {
+class DefaultTournamentRuleResolver implements TournamentRuleResolver {
 
     private final ScoringRuleRegistry scoringRuleRegistry;
     private final SetValidationRuleRegistry setValidationRuleRegistry;
@@ -41,16 +42,13 @@ public class TournamentRuleResolver {
     /**
      * Constructs the resolver. Spring injects both registries.
      *
-     * <p>Constructor signature per AC-CONSTRUCTOR-SIGNATURES-PRESERVED: {@code
-     * TournamentRuleResolver(ScoringRuleRegistry, SetValidationRuleRegistry)}.
-     *
      * @param scoringRuleRegistry registry of all {@link ScoringRule} beans; must not be {@code
      *     null}
      * @param setValidationRuleRegistry registry of all {@link SetValidationRule} beans; must not be
      *     {@code null}
      * @throws IllegalArgumentException if either registry is {@code null}
      */
-    public TournamentRuleResolver(
+    DefaultTournamentRuleResolver(
             ScoringRuleRegistry scoringRuleRegistry,
             SetValidationRuleRegistry setValidationRuleRegistry) {
         if (scoringRuleRegistry == null) {
@@ -64,19 +62,14 @@ public class TournamentRuleResolver {
     }
 
     /**
-     * Resolves both rule instances for the given tournament in a single call.
+     * {@inheritDoc}
      *
      * <p>Reads {@link Tournament#getScoringRuleId()} and {@link
      * Tournament#getSetValidationRuleId()}, then delegates to the respective registries. Both
      * registries throw {@code ValidationException} on an unknown ID — the security-relevant reject
      * at cascade entry (AC-RESOLVER-CASCADE-ENTRY, AC-SECURITY-ID-VALIDATION).
-     *
-     * @param tournament the tournament whose rules are needed; must not be {@code null}
-     * @return a {@link ResolvedRules} tuple (never {@code null})
-     * @throws IllegalArgumentException if {@code tournament} is {@code null}
-     * @throws de.vvwt.tm.tournament.exceptions.ValidationException if either rule ID is not
-     *     registered (propagated from the registries)
      */
+    @Override
     public ResolvedRules resolve(Tournament tournament) {
         if (tournament == null) {
             throw new IllegalArgumentException("tournament must not be null");
@@ -86,12 +79,4 @@ public class TournamentRuleResolver {
                 setValidationRuleRegistry.get(tournament.getSetValidationRuleId());
         return new ResolvedRules(scoringRule, setValidationRule);
     }
-
-    /**
-     * Immutable tuple of the two resolved rules for a tournament.
-     *
-     * <p>Internal record co-located in {@code scoring.internal} — not part of the public module
-     * API. Declared here (per AC-PUBLIC-API-METHODS) for co-location with its producer.
-     */
-    public record ResolvedRules(ScoringRule scoringRule, SetValidationRule setValidationRule) {}
 }

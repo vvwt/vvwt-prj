@@ -1,4 +1,4 @@
-package de.vvwt.tm.slotopt;
+package de.vvwt.tm.slotopt.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
@@ -8,6 +8,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import de.vvwt.tm.slotopt.MappingResult;
+import de.vvwt.tm.slotopt.SlotResultApplicator;
 import de.vvwt.tm.tournament.Match;
 import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.MatchState;
@@ -29,7 +31,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * Unit tests for {@link SlotResultApplicator}.
+ * Unit tests for {@link DefaultSlotResultApplicator} (via {@link SlotResultApplicator} interface).
  *
  * <p>Covers AC12 of story E04S02 (original) and the E51S11 refactor: flat-index
  * rank-as-lap-permutation model.
@@ -44,16 +46,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
  *   <li>AC-ERROR-HANDLING-EMPTY-PHASE
  * </ul>
  *
- * <p>These tests are RED against the current avatar-permutation + circle-method implementation.
- * They will go GREEN after {@link SlotResultApplicator} is refactored.
- *
+ * @see DefaultSlotResultApplicator
  * @see SlotResultApplicator
  * @see <a
  *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E51S11.story.md">Story
  *     E51S11</a>
+ * @since E57S01 (moved from slotopt.SlotResultApplicatorTest to slotopt.internal per DEC-58
+ *     interface extraction)
  */
 @ExtendWith(MockitoExtension.class)
-class SlotResultApplicatorTest {
+class DefaultSlotResultApplicatorTest {
 
     @Mock private MatchRepository matchRepository;
     @Mock private TeamAvatarRepository teamAvatarRepository;
@@ -65,7 +67,7 @@ class SlotResultApplicatorTest {
 
     @BeforeEach
     void setUp() {
-        applicator = new SlotResultApplicator(matchRepository);
+        applicator = new DefaultSlotResultApplicator(matchRepository);
     }
 
     // =========================================================================
@@ -308,7 +310,7 @@ class SlotResultApplicatorTest {
             when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(cfAvatars);
             when(matchRepository.findByPhaseId(phaseId)).thenReturn(freshMatches);
             MappingResult freshMapping =
-                    new PhaseToRawPhaseDefMapper(teamAvatarRepository, matchRepository)
+                    new DefaultPhaseToRawPhaseDefMapper(teamAvatarRepository, matchRepository)
                             .map(phaseId);
             when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -895,7 +897,8 @@ class SlotResultApplicatorTest {
             UUID phaseId, List<TeamAvatar> avatars, List<Match> matches) {
         when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(avatars);
         when(matchRepository.findByPhaseId(phaseId)).thenReturn(matches);
-        return new PhaseToRawPhaseDefMapper(teamAvatarRepository, matchRepository).map(phaseId);
+        return new DefaultPhaseToRawPhaseDefMapper(teamAvatarRepository, matchRepository)
+                .map(phaseId);
     }
 
     /** Builds a map from match UUID → L2 (lapNumber, fieldNumber) array. */
@@ -974,7 +977,8 @@ class SlotResultApplicatorTest {
             UUID phaseId, List<TeamAvatar> avatars, List<Match> matches) {
         when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(avatars);
         when(matchRepository.findByPhaseId(phaseId)).thenReturn(matches);
-        return new PhaseToRawPhaseDefMapper(teamAvatarRepository, matchRepository).map(phaseId);
+        return new DefaultPhaseToRawPhaseDefMapper(teamAvatarRepository, matchRepository)
+                .map(phaseId);
     }
 
     /** Builds TeamAvatars with given (groupNumber, groupPosition) pairs. */
@@ -1086,7 +1090,7 @@ class SlotResultApplicatorTest {
         de.vvwt.slotopt.worker.types.CanonicalPhaseDef canonical = tr.canonical();
 
         // denseIdsByRawRow: one entry per lap-row (not per match)
-        var denseMap = PhaseToRawPhaseDefMapper.buildDenseIdMapping(raw);
+        var denseMap = DefaultPhaseToRawPhaseDefMapper.buildDenseIdMapping(raw);
         int[][] denseIdsByRawRow = new int[lapCount][];
         for (int i = 0; i < lapCount; i++) {
             List<de.vvwt.slotopt.worker.types.PositionTuple> positions = lapRows.get(i).positions();

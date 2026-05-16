@@ -1,8 +1,10 @@
-package de.vvwt.tm.scoring;
+package de.vvwt.tm.scoring.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import de.vvwt.tm.scoring.SetValidationRule;
+import de.vvwt.tm.scoring.SetValidationRuleRegistry;
 import de.vvwt.tm.tournament.MatchFormat;
 import de.vvwt.tm.tournament.exceptions.ValidationException;
 import java.util.Map;
@@ -10,17 +12,18 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Cross-package unit tests for {@link SetValidationRuleRegistry} per DEC-36.
+ * Same-package white-box unit tests for {@link DefaultSetValidationRuleRegistry} per DEC-36.
  *
- * <p>Tests reference {@link SetValidationRule} (the public interface) for fixture implementations.
- * The registry itself is in the same package as this test class per AC-FILES-CREATED.
+ * <p>Tests are in {@code scoring.internal} (same package as the subject) and use the public
+ * interface type {@link SetValidationRuleRegistry} for the variable holding the subject, per
+ * DEC-36.
  *
- * <p>RED-first per DEC-22 Iron Law: tests written before {@link SetValidationRuleRegistry} exists.
- *
+ * @see DefaultSetValidationRuleRegistry
  * @see SetValidationRuleRegistry
- * @see SetValidationRule
+ * @since E57S01 (moved from scoring.SetValidationRuleRegistryTest to scoring.internal per DEC-58
+ *     interface extraction)
  */
-class SetValidationRuleRegistryTest {
+class DefaultSetValidationRuleRegistryTest {
 
     /** Minimal test-fixture SetValidationRule implementation. */
     private static SetValidationRule ruleOf(String beanId) {
@@ -47,7 +50,7 @@ class SetValidationRuleRegistryTest {
         ruleA = ruleOf("standardVolleyball");
         ruleB = ruleOf("timeBounded");
         registry =
-                new SetValidationRuleRegistry(
+                new DefaultSetValidationRuleRegistry(
                         Map.of("standardVolleyball", ruleA, "timeBounded", ruleB));
     }
 
@@ -98,7 +101,7 @@ class SetValidationRuleRegistryTest {
 
     @Test
     void constructor_emptyMap_registryIsEmpty() {
-        SetValidationRuleRegistry empty = new SetValidationRuleRegistry(Map.of());
+        SetValidationRuleRegistry empty = new DefaultSetValidationRuleRegistry(Map.of());
         assertThat(empty.getAll()).isEmpty();
     }
 }

@@ -1,130 +1,42 @@
 package de.vvwt.tm.tournament;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
-import org.springframework.stereotype.Repository;
 
 /**
- * Tenant-scoped repository for {@link MatchOutcome} entities (DEC-21, DEC-22, DEC-26, E21S05).
+ * Tenant-scoped repository for {@link MatchOutcome} entities.
  *
  * <p>Boundary-API per inventory line 293 — consumed by {@code CascadeRecomputeService} in the
- * {@code scoring} context. Elevated to boundary-API per Brief D-4 refinement.
+ * {@code scoring} context.
  *
- * <p>Uses plain {@link JdbcTemplate} to avoid entity-mapping conflicts during the
- * reconstruction-in-place phase (DEC-21/DEC-22). Bean qualifier {@code "tmMatchOutcomeRepository"}
- * avoids collision with legacy {@code de.vvwt.tm.domain.repo.MatchOutcomeRepository}.
+ * <p>DEC-58 Clause A + DEC-72: every self-created Spring component must have a public interface in
+ * the bounded-context root package.
  *
  * @see MatchOutcome
- * @see <a href="DEC-21">DEC-21 — boundary-API placement</a>
- * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
- * @see <a href="DEC-26">DEC-26 — DAO test governance</a>
- * @see <a href="E21S05">E21S05 — inventory line 293</a>
+ * @since E57S01
  */
-@Repository("tmMatchOutcomeRepository")
-public class MatchOutcomeRepository {
-
-    private final JdbcTemplate jdbc;
-
-    private static final String INSERT_SQL =
-            "INSERT INTO match_outcome (match_id, team1_sets_won, team1_balls_won,"
-                    + " team2_sets_won, team2_balls_won, set_count, computed_state, updated_at)"
-                    + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-
-    private static final String UPDATE_SQL =
-            "UPDATE match_outcome SET team1_sets_won=?, team1_balls_won=?, team2_sets_won=?,"
-                    + " team2_balls_won=?, set_count=?, computed_state=?, updated_at=?"
-                    + " WHERE match_id=?";
-
-    private static final String SELECT_BY_ID = "SELECT * FROM match_outcome WHERE match_id=?";
-
-    private static final String EXISTS_BY_ID =
-            "SELECT COUNT(*) FROM match_outcome WHERE match_id=?";
-
-    private static final String DELETE_BY_MATCH_ID = "DELETE FROM match_outcome WHERE match_id=?";
-
-    public MatchOutcomeRepository(JdbcTemplate jdbc) {
-        this.jdbc = jdbc;
-    }
+public interface MatchOutcomeRepository {
 
     /**
      * Persists a match outcome. Inserts if new, updates otherwise.
      *
-     * @param matchOutcome the outcome to save (matchId must be set by caller)
+     * @param matchOutcome the outcome to save
      * @return the saved match outcome
      */
-    public MatchOutcome save(MatchOutcome matchOutcome) {
-        Integer count = jdbc.queryForObject(EXISTS_BY_ID, Integer.class, matchOutcome.getMatchId());
-        boolean exists = count != null && count > 0;
-
-        LocalDateTime now = LocalDateTime.now();
-        if (exists) {
-            jdbc.update(
-                    UPDATE_SQL,
-                    matchOutcome.getTeam1SetsWon(),
-                    matchOutcome.getTeam1BallsWon(),
-                    matchOutcome.getTeam2SetsWon(),
-                    matchOutcome.getTeam2BallsWon(),
-                    matchOutcome.getSetCount(),
-                    matchOutcome.getComputedState(),
-                    matchOutcome.getUpdatedAt() != null ? matchOutcome.getUpdatedAt() : now,
-                    matchOutcome.getMatchId());
-        } else {
-            jdbc.update(
-                    INSERT_SQL,
-                    matchOutcome.getMatchId(),
-                    matchOutcome.getTeam1SetsWon(),
-                    matchOutcome.getTeam1BallsWon(),
-                    matchOutcome.getTeam2SetsWon(),
-                    matchOutcome.getTeam2BallsWon(),
-                    matchOutcome.getSetCount(),
-                    matchOutcome.getComputedState(),
-                    matchOutcome.getUpdatedAt() != null ? matchOutcome.getUpdatedAt() : now);
-        }
-        return matchOutcome;
-    }
+    MatchOutcome save(MatchOutcome matchOutcome);
 
     /**
      * Returns the match outcome for the given match id.
      *
-     * @param matchId the match UUID (same as match_outcome primary key)
+     * @param matchId the match UUID
      * @return Optional.of(outcome) if found, Optional.empty() if not found
      */
-    public Optional<MatchOutcome> findById(UUID matchId) {
-        List<MatchOutcome> results = jdbc.query(SELECT_BY_ID, ROW_MAPPER, matchId);
-        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
-    }
+    Optional<MatchOutcome> findById(UUID matchId);
 
     /**
      * Deletes the match outcome for the given match id.
      *
      * @param matchId the match UUID
      */
-    public void deleteByMatchId(UUID matchId) {
-        jdbc.update(DELETE_BY_MATCH_ID, matchId);
-    }
-
-    // -------------------------------------------------------------------------
-    // Row mapper
-    // -------------------------------------------------------------------------
-
-    private static final RowMapper<MatchOutcome> ROW_MAPPER = MatchOutcomeRepository::mapRow;
-
-    private static MatchOutcome mapRow(ResultSet rs, int rowNum) throws SQLException {
-        MatchOutcome mo = new MatchOutcome();
-        mo.setMatchId(rs.getObject("match_id", UUID.class));
-        mo.setTeam1SetsWon(rs.getInt("team1_sets_won"));
-        mo.setTeam1BallsWon(rs.getInt("team1_balls_won"));
-        mo.setTeam2SetsWon(rs.getInt("team2_sets_won"));
-        mo.setTeam2BallsWon(rs.getInt("team2_balls_won"));
-        mo.setSetCount(rs.getInt("set_count"));
-        mo.setComputedState(rs.getInt("computed_state"));
-        mo.setUpdatedAt(rs.getObject("updated_at", LocalDateTime.class));
-        return mo;
-    }
+    void deleteByMatchId(UUID matchId);
 }

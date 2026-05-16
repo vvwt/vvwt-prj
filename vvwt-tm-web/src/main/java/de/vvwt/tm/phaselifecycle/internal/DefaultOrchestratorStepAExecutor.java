@@ -1,5 +1,6 @@
 package de.vvwt.tm.phaselifecycle.internal;
 
+import de.vvwt.tm.phaselifecycle.OrchestratorStepAExecutor;
 import de.vvwt.tm.tenant.DiagnosticProperties;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseLifecycleService;
@@ -18,7 +19,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Package-private executor for T-job-step-A of the Saga-Orchestrator drain pipeline (DEC-64 D-12).
+ * Default implementation of {@link OrchestratorStepAExecutor} for the Saga-Orchestrator drain
+ * pipeline (DEC-64 D-12).
  *
  * <p>T-job-step-A runs MatchGen (L1) + round-assignment (L2) + PENDING→PREPARED transition in one
  * {@code REQUIRES_NEW} transaction. Extracted into a separate Spring bean so that {@link
@@ -45,11 +47,14 @@ import org.springframework.transaction.annotation.Transactional;
  * @since E55S04
  * @updated E55S08 (inject {@link PhaseRepository}; write {@code slot_opt_queued} or {@code idle} at
  *     step-A-done per DEC-66 D-2)
+ * @updated E57S01 (DEC-58/DEC-72 interface extraction: renamed from OrchestratorStepAExecutor,
+ *     implements {@link OrchestratorStepAExecutor})
  */
 @Service
-class OrchestratorStepAExecutor {
+class DefaultOrchestratorStepAExecutor implements OrchestratorStepAExecutor {
 
-    private static final Logger LOG = LoggerFactory.getLogger(OrchestratorStepAExecutor.class);
+    private static final Logger LOG =
+            LoggerFactory.getLogger(DefaultOrchestratorStepAExecutor.class);
 
     /** Written when optimize=TRUE AND non-siegerehrung — per DEC-66 D-2 row 3. */
     static final String SLOT_OPT_QUEUED = "slot_opt_queued";
@@ -67,7 +72,7 @@ class OrchestratorStepAExecutor {
     private final int fallbackFieldCount;
     private final DiagnosticProperties diagnosticProperties;
 
-    OrchestratorStepAExecutor(
+    DefaultOrchestratorStepAExecutor(
             @Qualifier("tmTournamentRepository") TournamentRepository tournamentRepository,
             @Qualifier("tmPhasePreparationService") PhasePreparationService phasePreparationService,
             RoundAssignmentService roundAssignmentService,
@@ -105,8 +110,9 @@ class OrchestratorStepAExecutor {
      * @param gameMode the generator key (from job row, set at enqueue time)
      * @throws RuntimeException on any failure — T-step-A TX rolls back; job stays RUNNING
      */
+    @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    void executeStepA(UUID tournamentId, UUID phaseId, String gameMode) {
+    public void executeStepA(UUID tournamentId, UUID phaseId, String gameMode) {
         // E55S10 AC-DIAG-INSTRUMENT-SPRING-TX-BOUNDARY: register TX-boundary listener when enabled
         DiagnosticTransactionSupport.registerIfEnabled(diagnosticProperties);
 
@@ -114,7 +120,7 @@ class OrchestratorStepAExecutor {
         Tournament tournament = tournamentRepository.findByIdForUpdate(tournamentId);
 
         LOG.info(
-                "OrchestratorStepAExecutor: START tournamentId={}, phaseId={}, gameMode={}",
+                "DefaultOrchestratorStepAExecutor: START tournamentId={}, phaseId={}, gameMode={}",
                 tournamentId,
                 phaseId,
                 gameMode);
@@ -128,7 +134,7 @@ class OrchestratorStepAExecutor {
         if (resolvedFieldCount < 1) {
             resolvedFieldCount = fallbackFieldCount;
             LOG.info(
-                    "OrchestratorStepAExecutor: tournament.fieldCount={} → D-13 fallback {}",
+                    "DefaultOrchestratorStepAExecutor: tournament.fieldCount={} → D-13 fallback {}",
                     tournament.getFieldCount(),
                     resolvedFieldCount);
         }
@@ -158,8 +164,8 @@ class OrchestratorStepAExecutor {
         phaseRepository.updateLastJobState(phaseId, stepADoneState);
 
         LOG.info(
-                "OrchestratorStepAExecutor: DONE tournamentId={}, phaseId={} last_job_state='{}'"
-                        + " (column-scoped UPDATE, E55S09 H-B defense-in-depth)",
+                "DefaultOrchestratorStepAExecutor: DONE tournamentId={}, phaseId={}"
+                    + " last_job_state='{}' (column-scoped UPDATE, E55S09 H-B defense-in-depth)",
                 tournamentId,
                 phaseId,
                 stepADoneState);

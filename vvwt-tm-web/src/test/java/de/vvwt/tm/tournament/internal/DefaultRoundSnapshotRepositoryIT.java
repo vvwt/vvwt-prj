@@ -1,4 +1,4 @@
-package de.vvwt.tm.tournament;
+package de.vvwt.tm.tournament.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.db.api.Assertions.assertThat;
@@ -6,6 +6,8 @@ import static org.assertj.db.api.Assertions.assertThat;
 import de.vvwt.tm.infrastructure.testsupport.TenantDaoTestSupport;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.internal.ThreadLocalTenantContextImpl;
+import de.vvwt.tm.tournament.RoundSnapshot;
+import de.vvwt.tm.tournament.RoundSnapshotRepository;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -18,7 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
- * Integration test for {@link RoundSnapshotRepository} — DEC-26 three-rule compliance.
+ * Integration test for {@link DefaultRoundSnapshotRepository} — DEC-26 three-rule compliance.
  *
  * <p>AC-TDD-RoundSnapshotRepository, AC-DAO-3RULES-RoundSnapshotRepository.
  *
@@ -30,12 +32,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
  *       repository under test
  * </ul>
  *
+ * @see DefaultRoundSnapshotRepository
  * @see RoundSnapshotRepository
  * @see TenantDaoTestSupport
- * @see <a href="DEC-26">DEC-26 — DAO test governance: three rules</a>
- * @see <a href="E21S03">E21S03 — Phase cluster reconstruction (inventory line 300)</a>
+ * @since E57S01 (moved from tournament.RoundSnapshotRepositoryIT to tournament.internal per DEC-58
+ *     interface extraction)
  */
-class RoundSnapshotRepositoryIT {
+class DefaultRoundSnapshotRepositoryIT {
 
     private DataSource ds;
     private AssertDbConnection assertDb;
@@ -56,13 +59,9 @@ class RoundSnapshotRepositoryIT {
         tournamentId = UUID.randomUUID();
         phaseId = UUID.randomUUID();
         // Standalone test — no Spring context; use ThreadLocalTenantContextImpl directly.
-        // TenantContextTestSupport.Binder requires a full @SpringBootTest application context
-        // (AC-TENANT-BINDER-ADOPTION departure: standalone lifecycle differs — documented in
-        // impl-report).
         tenantContext = new ThreadLocalTenantContextImpl();
         tenantScope = tenantContext.bind(tenantId);
         // E45S06: tenant_id removed (DEC-39 D1); tournament requires location_id (DEC-39 D2)
-        // Insert locations row, then tournament (FK), then phase (FK)
         UUID locationId = UUID.randomUUID();
         TenantDaoTestSupport.insertDirectly(
                 ds, "locations", Map.of("id", locationId, "display_name", "IT Location"));
@@ -96,7 +95,7 @@ class RoundSnapshotRepositoryIT {
                         "PENDING",
                         "current_lap_number",
                         0));
-        repo = new RoundSnapshotRepository(new JdbcTemplate(ds));
+        repo = new DefaultRoundSnapshotRepository(new JdbcTemplate(ds));
     }
 
     @AfterEach
@@ -154,8 +153,7 @@ class RoundSnapshotRepositoryIT {
     /**
      * E45S06 — DEC-41 Snapshot-Driven: findById executes without tenant_id WHERE predicate.
      * Post-S06: round_snapshots table has no tenant_id column (DEC-39 D1); isolation via DEC-20
-     * routing. The old {@code findById_differentTenant_returnsEmpty} test is replaced — the
-     * column-discriminator predicate no longer exists; routing provides cross-tenant isolation.
+     * routing.
      */
     @Test
     void findById_noTenantPredicate_returnsRow() {

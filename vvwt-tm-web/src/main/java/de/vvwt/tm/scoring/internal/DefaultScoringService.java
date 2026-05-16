@@ -4,6 +4,7 @@ import de.vvwt.tm.scoring.ScoringResult;
 import de.vvwt.tm.scoring.ScoringRule;
 import de.vvwt.tm.scoring.ScoringService;
 import de.vvwt.tm.scoring.SetValidationRule;
+import de.vvwt.tm.scoring.TournamentRuleResolver;
 import de.vvwt.tm.scoring.ValidationResult;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.AuditLogEntry;

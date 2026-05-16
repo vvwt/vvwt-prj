@@ -559,7 +559,7 @@ class RoutingSlotOptimizationClientTest {
         de.vvwt.slotopt.worker.types.TransformResult tr =
                 de.vvwt.slotopt.worker.types.StructuralFingerprint.transform(raw);
         CanonicalPhaseDef canonical = tr.canonical();
-        var denseMap = PhaseToRawPhaseDefMapper.buildDenseIdMapping(raw);
+        var denseMap = DefaultPhaseToRawPhaseDefMapper.buildDenseIdMapping(raw);
         int[][] denseIdsByRawRow = new int[lapCount][];
         for (int lap = 0; lap < lapCount; lap++) {
             de.vvwt.slotopt.worker.types.RawRow row = rows.get(lap);
@@ -610,7 +610,7 @@ class RoutingSlotOptimizationClientTest {
         de.vvwt.slotopt.worker.types.TransformResult tr =
                 de.vvwt.slotopt.worker.types.StructuralFingerprint.transform(raw);
         CanonicalPhaseDef canonical = tr.canonical();
-        var denseMap = PhaseToRawPhaseDefMapper.buildDenseIdMapping(raw);
+        var denseMap = DefaultPhaseToRawPhaseDefMapper.buildDenseIdMapping(raw);
         int[][] denseIdsByRawRow = new int[lapCount][];
         for (int i = 0; i < lapCount; i++) {
             de.vvwt.slotopt.worker.types.RawRow row = rows.get(i);
@@ -669,7 +669,7 @@ class RoutingSlotOptimizationClientTest {
         de.vvwt.slotopt.worker.types.TransformResult tr =
                 de.vvwt.slotopt.worker.types.StructuralFingerprint.transform(raw);
         CanonicalPhaseDef canonical = tr.canonical();
-        var denseMap = PhaseToRawPhaseDefMapper.buildDenseIdMapping(raw);
+        var denseMap = DefaultPhaseToRawPhaseDefMapper.buildDenseIdMapping(raw);
         int[][] denseIdsByRawRow = new int[lapCount][];
         for (int i = 0; i < lapCount; i++) {
             List<de.vvwt.slotopt.worker.types.PositionTuple> pos = lapRows.get(i).positions();
