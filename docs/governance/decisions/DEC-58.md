@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-58.md at c73f60f9344c1aaa51a39e0ab056ecedc812d195 2026-05-09 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-58.md at 038d6d3d9ba0307bca1208112490544195cd79db 2026-05-16 -->
 ---
 id: DEC-58
 domain: architecture
@@ -6,6 +6,7 @@ level: architectural
 title: "Amendment to DEC-35 — universal interface mandate for self-created Spring components: all `@Service`, `@Component`, and hand-authored `@Repository` (custom non-Spring-Data) beans MUST have a public interface in the bounded-context root package; cross-module + cross-package + intra-`internal` consumer type substitution applies; listeners and other not-directly-injected Spring components covered uniformly"
 status: active
 amends: DEC-35
+amended_by: [DEC-72]
 related_to: [DEC-21, DEC-26, DEC-36, DEC-37, DEC-38, DEC-40, DEC-46, DEC-55, DEC-59]
 tags:
   - spring-modulith
@@ -18,7 +19,7 @@ tags:
   - amendment
 created_at: 2026-05-09
 created_by: discovery
-last_updated_at: 2026-05-10
+last_updated_at: 2026-05-15
 last_updated_by: discovery
 supersedes: null
 superseded_by: null
@@ -269,3 +270,9 @@ DEC-58 and Story B ship in **separate atomic Discovery commits** per the precede
   - `.gaai/project/contexts/memory/index.md` (DECISIONS-LOG entry + Decision Registry entry).
   - `.gaai/project/contexts/memory/decisions/DEC-35.md` (frontmatter `amended_by: [DEC-40, DEC-58]`).
 - Commit message pattern: `chore(discovery): author DEC-58 — amendment to DEC-35 §1 (universal interface mandate for self-created Spring components)`.
+
+---
+
+## 2026-05-15 Amendment — Config/adapter-bean exclusions, `@Bean`-trigger extension, machine-checked enforcement
+
+See **DEC-72** for the full amendment. In summary: DEC-72 (a) extends Clause A's trigger to cover first-party **service-shaped beans produced by an `@Bean` factory method** — closing the annotation-only loophole, since a `@Bean`-produced service bean carries no class-level stereotype annotation and previously escaped the mandate entirely (audit instance: `AdminCredentialsBootstrap`); (b) extends Clause D's excluded set with three further bean kinds, each previously Clause-B-covered and now a first-class exclusion — `@ConfigurationProperties` holders (typed configuration carriers, no proxy/mock value), `@ControllerAdvice` / `@RestControllerAdvice` beans (controller-family primary adapters), and framework-config-only adapter beans (a `@Component` whose role is fully expressed by a Spring-framework-supplied config interface it implements, e.g. `WebMvcConfigurer` / `HandlerInterceptor`, with no first-party service contract) — adding three rows to the Clause B coverage table; and (c) mandates a machine-checked recurrence guard — a build-time architecture test (ArchUnit-style) wired into `mvn verify` that fails the build on any interface-mandate violation, its predicate encoding the Clause A-ext trigger and the full Clause C + Clause D + Clause D-ext exclusion set. Origin: a 2026-05-15 codebase audit found 37 active violations across 3 Maven modules — this DEC's E51S19 "codebase-wide audit" had surveyed only `vvwt-tm-web`'s `.internal` packages, and DEC-58 § Scope's promised follow-up remediation story was never authored. DEC-72 is operationalized by Epic E57 (E57S01/S02/S03 module remediation + E57S04 enforcement guard). All other clauses of this DEC — Clause A's annotation trigger (now a subset of the Clause A-ext trigger), Clause B (minus the new exclusions), Clause C (Spring Data carve-out), Clause E (listeners universally covered), and § Naming canon — remain TEXTUALLY UNCHANGED. `last_updated_at` advances to 2026-05-15; `status` remains `active`; no `supersedes`/`superseded_by` change.

@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-54.md at 719ceab1b0f8677f1dc548dcd4ae587309d80dcb 2026-05-07 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-54.md at 8b0c5be3354fe6aa38d9046e7b534ac2d203ed68 2026-05-16 -->
 ---
 id: DEC-54
 domain: governance
@@ -9,9 +9,10 @@ amends: DEC-22
 created_by: discovery
 created_at: 2026-05-07
 last_updated_by: discovery
-last_updated_at: 2026-05-07
+last_updated_at: 2026-05-15
 supersedes: null
 superseded_by: null
+amended_by: [DEC-71]
 tags:
   - tdd
   - testing
@@ -557,3 +558,25 @@ precedent.
   - pointer paragraph appended at the tail: `## 2026-05-07 Amendment
     — qa-review canonical-build gate` with one-paragraph summary
     referencing this DEC.
+
+---
+
+## 2026-05-15 Amendment — qa-review strict `mvn verify` gate (no pre-existing-failure allowance)
+
+DEC-71 amends DEC-54. The qa-review Step 8 `mvn verify` gate admits **no
+"pre-existing failure" allowance**: a non-zero `mvn verify` exit is qa_report
+FAIL unconditionally — the Step performs no build-failure attribution (no
+`git stash` baseline probe, no `origin/staging` checkout, no classification
+of failures as "pre-existing"), and the Step verdict is the exit code of
+`mvn-verify-gate.sh`. DEC-71 also closes the qa-review verdict vocabulary —
+the qa_report verdict is `{PASS, FAIL}` and a per-Step verdict is `{PASS,
+FAIL, SKIPPED}` where defined; invented verdicts such as "CONDITIONAL PASS"
+and self-granted carve-outs absent from the skill or a DEC are forbidden, and
+a gate FAIL the agent disputes is escalated, not reinterpreted. Origin: E49S04
+(PR #285, merged 2026-05-14) shipped a build-wide `vvwt-tm-web` Spring-context
+regression mislabelled "pre-existing" via a `git stash` probe that — because
+the Delivery flow commits before `qa-review` runs — never reverts the story's
+own committed code (fixed by E49S05). DEC-54's Decision clauses, the Step-8
+verdict table, the asymmetric-error preference, and the SKIPPED-for-non-Maven
+semantics remain TEXTUALLY UNCHANGED. See `DEC-71.md` for the full amendment
+context.
