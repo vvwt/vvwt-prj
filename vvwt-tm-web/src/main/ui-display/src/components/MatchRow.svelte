@@ -77,9 +77,9 @@
     line-height: 1.3;
   }
 
-  /* AC3: current lap highlight — darker background + bold left border */
+  /* AC3: current lap highlight — uniform background matching .round-row--active (E50S07) */
   .match-row--current {
-    background: #eef4fb;
+    background: #d6e8ff;
     border-left-color: #2980b9;
     font-weight: 600;
   }
@@ -123,6 +123,7 @@
     margin-top: 0.15rem;
     font-family: monospace;
     letter-spacing: 0.05em;
+    text-align: center;
   }
 
   .match-row__referee {
