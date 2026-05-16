@@ -546,13 +546,14 @@ describe('DraftConfig.svelte — AC3: no hardcoded generator list (E58S05)', () 
 });
 
 describe('DraftConfig.svelte — AC4: capability-flag filter, not key-string matching (E58S05)', () => {
-  it('DraftConfig.svelte source uses isLastPhaseGenerator flag for filtering', async () => {
+  it('DraftConfig.svelte source delegates to generatorFilter functions (flag-based, not key-string)', async () => {
     const fs = await import('fs');
     const path = await import('path');
     const src = path.resolve(__dirname, './DraftConfig.svelte');
     const source = fs.readFileSync(src, 'utf8');
-    // RED: fails before isLastPhaseGenerator flag filtering is added
-    expect(source).toContain('isLastPhaseGenerator');
+    // AC4: DraftConfig must delegate to the generatorFilter module which enforces flag-based filtering
+    expect(source).toContain('filterLastPhaseGenerators');
+    expect(source).toContain('filterNonLastPhaseGenerators');
   });
 
   it('DraftConfig.svelte does NOT filter generators by key string matching (no hardcoded key comparisons)', async () => {
@@ -561,25 +562,69 @@ describe('DraftConfig.svelte — AC4: capability-flag filter, not key-string mat
     const src = path.resolve(__dirname, './DraftConfig.svelte');
     const source = fs.readFileSync(src, 'utf8');
     // AC4 contract: filtering must use the isLastPhaseGenerator flag, NOT key-string matching
-    // (e.g., NOT: filter(g => g.keyId === 'awardCeremony') or includes/match on key string)
-    // The implementation should NOT compare keyId string to determine last-phase capability
     expect(source).not.toMatch(/keyId\s*===?\s*['"]awardCeremony['"]/);
     expect(source).not.toMatch(/keyId\s*===?\s*['"]siegerehrung['"]/);
+  });
+
+  it('filterLastPhaseGenerators returns generators with isLastPhaseGenerator=true independent of key (AC4 behavioral)', async () => {
+    // AC4 behavioral test: fixture uses keys NOT matching traditional ceremony names.
+    // A key-string filter (e.g., g.keyId === 'awardCeremony') would FAIL this test.
+    const { filterLastPhaseGenerators: flp } = await import('../lib/generatorFilter.js');
+    const fixture = [
+      { keyId: 'teamDuel', isLastPhaseGenerator: false },
+      { keyId: 'trophyFinal', isLastPhaseGenerator: true },  // key ≠ 'awardCeremony'
+      { keyId: 'groupStage', isLastPhaseGenerator: false },
+    ];
+    const result = flp(fixture);
+    expect(result).toHaveLength(1);
+    expect(result[0].keyId).toBe('trophyFinal'); // returned by flag, not by key string
+    expect(result[0].isLastPhaseGenerator).toBe(true);
+  });
+
+  it('filterNonLastPhaseGenerators returns generators with isLastPhaseGenerator=false independent of key (AC4 behavioral)', async () => {
+    const { filterNonLastPhaseGenerators: fnlp } = await import('../lib/generatorFilter.js');
+    const fixture = [
+      { keyId: 'myCustomGen', isLastPhaseGenerator: false },  // key ≠ 'roundRobin'
+      { keyId: 'trophyFinal', isLastPhaseGenerator: true },
+    ];
+    const result = fnlp(fixture);
+    expect(result).toHaveLength(1);
+    expect(result[0].keyId).toBe('myCustomGen');
   });
 });
 
 describe('DraftConfig.svelte — AC5: tournament-page default (E58S05)', () => {
-  it('DraftConfig.svelte or its store receives a default generator from TournamentForm context', async () => {
+  it('DraftConfig.svelte imports from generatorStore (shared module = tournament page uses same source)', async () => {
     const fs = await import('fs');
     const path = await import('path');
     const src = path.resolve(__dirname, './DraftConfig.svelte');
     const source = fs.readFileSync(src, 'utf8');
-    // AC5: the tournament-page generator choice becomes the default for the phase plan.
-    // DraftConfig uses the generatorStore (which is also used by TournamentForm) — both
-    // consume the same central module. The phase-plan defaultGameMode is initialized
-    // from the registry (first available generator per section type).
-    // Verify DraftConfig imports from generatorStore (shared module = same source)
+    // AC5 clause 1: both DraftConfig and TournamentForm consume the same generatorStore module
     expect(source).toContain('generatorStore');
+  });
+
+  it('DraftConfig.svelte reads tournament.matchGeneratorId as the default generator for new phases (AC5 clause 2)', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // AC5 clause 2: the tournament's chosen match generator becomes the default for new phases in the draft
+    // DraftConfig must read tournament.matchGeneratorId and use it in addSection()
+    expect(source).toContain('tournament.matchGeneratorId');
+    expect(source).toContain('tournamentMatchGeneratorId');
+  });
+
+  it('DraftConfig.svelte addSection() uses tournamentMatchGeneratorId as gameMode default (AC5 clause 2)', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // AC5 clause 2: new sections default to the tournament's generator, not hardcoded 'roundRobin'
+    // The addSection function must use tournamentMatchGeneratorId (not the literal 'roundRobin')
+    const addSectionBlock = source.match(/function addSection\(\)[^}]+gameMode:[^,}]+/s);
+    expect(addSectionBlock).not.toBeNull();
+    expect(addSectionBlock![0]).toContain('tournamentMatchGeneratorId');
+    expect(addSectionBlock![0]).not.toMatch(/gameMode:\s*'roundRobin'/);
   });
 });
 
