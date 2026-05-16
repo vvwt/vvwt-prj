@@ -263,6 +263,56 @@ describe('MatchCorrection — match-not-found error (AC-ERR-CORRECTION-PRELOAD-M
     });
 });
 
+// ── AC-TEST-MATCH-CORRECTION-LOADING-MESSAGE-RED (E48S27) ────────────────────
+//
+// DEC-22 RED-first: these tests are authored BEFORE the loading-message fix.
+// On current HEAD (MatchCorrection.svelte renders bare `…`), they FAIL because:
+//   1. No element with data-testid="correction-loading" exists.
+//   2. The content rendered is the bare literal "…", not a localized message.
+// After the fix (Phase 3), they go GREEN.
+
+describe('MatchCorrection — pre-loading state renders localized message (AC-TEST-MATCH-CORRECTION-LOADING-MESSAGE-RED)', () => {
+    it('renders an element with data-testid="correction-loading" while pre-loading', async () => {
+        // Keep preloading = true by returning a never-resolving promise
+        mockListPhaseMatches.mockReturnValue(new Promise(() => {}));
+        render(MatchCorrection, {
+            props: { params: { tournamentId: TOURNAMENT_ID, phaseId: PHASE_ID, matchId: MATCH_ID } },
+        });
+        // The loading element must be present in the DOM
+        await waitFor(() => {
+            expect(screen.getByTestId('correction-loading')).toBeTruthy();
+        });
+    });
+
+    it('pre-loading message is non-empty and not the bare literal "…"', async () => {
+        mockListPhaseMatches.mockReturnValue(new Promise(() => {}));
+        render(MatchCorrection, {
+            props: { params: { tournamentId: TOURNAMENT_ID, phaseId: PHASE_ID, matchId: MATCH_ID } },
+        });
+        await waitFor(() => {
+            const el = screen.getByTestId('correction-loading');
+            const text = el.textContent ?? '';
+            // Must not be the bare ellipsis character
+            expect(text).not.toBe('…');
+            // Must not be empty
+            expect(text.trim().length).toBeGreaterThan(0);
+        });
+    });
+
+    it('pre-loading message is a resolved i18n string (contains "geladen" in German locale)', async () => {
+        mockListPhaseMatches.mockReturnValue(new Promise(() => {}));
+        render(MatchCorrection, {
+            props: { params: { tournamentId: TOURNAMENT_ID, phaseId: PHASE_ID, matchId: MATCH_ID } },
+        });
+        await waitFor(() => {
+            const el = screen.getByTestId('correction-loading');
+            const text = el.textContent ?? '';
+            // de.json correction.loading = "Spielergebnisse werden geladen…"
+            expect(text.toLowerCase()).toContain('geladen');
+        });
+    });
+});
+
 // ── Source checks: back-nav and phantom AC cleanup ────────────────────────────
 
 describe('MatchCorrection.svelte — source checks (E48S26 governance)', () => {

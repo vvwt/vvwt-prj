@@ -284,6 +284,56 @@ describe('MatchOverview — load failure error message (AC-ERR-MATCHOVERVIEW-LOA
     });
 });
 
+// ── AC-TEST-MATCH-OVERVIEW-LOADING-MESSAGE-RED (E48S27) ──────────────────────
+//
+// DEC-22 RED-first: these tests are authored BEFORE the loading-message fix.
+// On current HEAD (MatchOverview.svelte renders bare `…`), they FAIL because:
+//   1. No element with data-testid="match-overview-loading" exists.
+//   2. The content rendered is the bare literal "…", not a localized message.
+// After the fix (Phase 3), they go GREEN.
+
+describe('MatchOverview — loading state renders localized message (AC-TEST-MATCH-OVERVIEW-LOADING-MESSAGE-RED)', () => {
+    it('renders an element with data-testid="match-overview-loading" while loading', async () => {
+        // Keep loading = true by returning a never-resolving promise
+        mockListPhaseMatches.mockReturnValue(new Promise(() => {}));
+        render(MatchOverview, {
+            props: { params: { tournamentId: TOURNAMENT_ID, phaseId: PHASE_ID } },
+        });
+        // The loading element must be present in the DOM
+        await waitFor(() => {
+            expect(screen.getByTestId('match-overview-loading')).toBeTruthy();
+        });
+    });
+
+    it('loading message is non-empty and not the bare literal "…"', async () => {
+        mockListPhaseMatches.mockReturnValue(new Promise(() => {}));
+        render(MatchOverview, {
+            props: { params: { tournamentId: TOURNAMENT_ID, phaseId: PHASE_ID } },
+        });
+        await waitFor(() => {
+            const el = screen.getByTestId('match-overview-loading');
+            const text = el.textContent ?? '';
+            // Must not be the bare ellipsis character
+            expect(text).not.toBe('…');
+            // Must not be empty
+            expect(text.trim().length).toBeGreaterThan(0);
+        });
+    });
+
+    it('loading message is a resolved i18n string (contains "geladen" in German locale)', async () => {
+        mockListPhaseMatches.mockReturnValue(new Promise(() => {}));
+        render(MatchOverview, {
+            props: { params: { tournamentId: TOURNAMENT_ID, phaseId: PHASE_ID } },
+        });
+        await waitFor(() => {
+            const el = screen.getByTestId('match-overview-loading');
+            const text = el.textContent ?? '';
+            // de.json matchOverview.loading = "Spiele werden geladen…"
+            expect(text.toLowerCase()).toContain('geladen');
+        });
+    });
+});
+
 // ── AC-TEST-PHASELIST-ENTRY-LINK-RED (source check supplement) ───────────────
 
 describe('PhaseList.svelte — E48S26 entry link and dead-code removal (source inspection)', () => {
