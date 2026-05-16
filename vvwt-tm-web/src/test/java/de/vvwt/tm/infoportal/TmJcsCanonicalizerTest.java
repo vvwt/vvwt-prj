@@ -3,6 +3,7 @@ package de.vvwt.tm.infoportal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import de.vvwt.tm.infoportal.internal.DefaultTmJcsCanonicalizer;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 
@@ -24,7 +25,7 @@ import org.junit.jupiter.api.Test;
  */
 class TmJcsCanonicalizerTest {
 
-    private final TmJcsCanonicalizer tmCan = new TmJcsCanonicalizer();
+    private final TmJcsCanonicalizer tmCan = new DefaultTmJcsCanonicalizer();
 
     @Test
     void canonicalize_sortsObjectKeys() {

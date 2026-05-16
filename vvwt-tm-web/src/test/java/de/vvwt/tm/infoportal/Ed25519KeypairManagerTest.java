@@ -2,6 +2,7 @@ package de.vvwt.tm.infoportal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import de.vvwt.tm.infoportal.internal.DefaultEd25519KeypairManager;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.PrivateKey;
@@ -27,7 +28,7 @@ class Ed25519KeypairManagerTest {
 
     @Test
     void generateKeypair_producesValidEd25519Keys(@TempDir Path tmpDir) throws Exception {
-        Ed25519KeypairManager manager = new Ed25519KeypairManager(tmpDir);
+        Ed25519KeypairManager manager = new DefaultEd25519KeypairManager(tmpDir);
 
         manager.initializeIfAbsent();
 
@@ -41,7 +42,7 @@ class Ed25519KeypairManagerTest {
 
     @Test
     void generateKeypair_createsOnDiskFiles(@TempDir Path tmpDir) throws Exception {
-        Ed25519KeypairManager manager = new Ed25519KeypairManager(tmpDir);
+        Ed25519KeypairManager manager = new DefaultEd25519KeypairManager(tmpDir);
         manager.initializeIfAbsent();
 
         // Should have created keypair files on disk
@@ -57,7 +58,7 @@ class Ed25519KeypairManagerTest {
     @Test
     void noPlaInTextOnDisk_rawPrivateKeyBytesAbsentFromAllDiskFiles(@TempDir Path tmpDir)
             throws Exception {
-        Ed25519KeypairManager manager = new Ed25519KeypairManager(tmpDir);
+        Ed25519KeypairManager manager = new DefaultEd25519KeypairManager(tmpDir);
         manager.initializeIfAbsent();
 
         // Get raw private key bytes for comparison
@@ -83,7 +84,7 @@ class Ed25519KeypairManagerTest {
 
     @Test
     void initializeIfAbsent_isIdempotent(@TempDir Path tmpDir) throws Exception {
-        Ed25519KeypairManager manager = new Ed25519KeypairManager(tmpDir);
+        Ed25519KeypairManager manager = new DefaultEd25519KeypairManager(tmpDir);
         manager.initializeIfAbsent();
         PublicKey pub1 = manager.getPublicKey();
 
@@ -96,12 +97,12 @@ class Ed25519KeypairManagerTest {
 
     @Test
     void reloadFromDisk_recoversKeypair(@TempDir Path tmpDir) throws Exception {
-        Ed25519KeypairManager manager1 = new Ed25519KeypairManager(tmpDir);
+        Ed25519KeypairManager manager1 = new DefaultEd25519KeypairManager(tmpDir);
         manager1.initializeIfAbsent();
         byte[] pub1Encoded = manager1.getPublicKey().getEncoded();
 
         // New manager instance — loads from same tmpDir
-        Ed25519KeypairManager manager2 = new Ed25519KeypairManager(tmpDir);
+        Ed25519KeypairManager manager2 = new DefaultEd25519KeypairManager(tmpDir);
         manager2.initializeIfAbsent();
         byte[] pub2Encoded = manager2.getPublicKey().getEncoded();
 
@@ -110,7 +111,7 @@ class Ed25519KeypairManagerTest {
 
     @Test
     void sign_producesVerifiableSignature(@TempDir Path tmpDir) throws Exception {
-        Ed25519KeypairManager manager = new Ed25519KeypairManager(tmpDir);
+        Ed25519KeypairManager manager = new DefaultEd25519KeypairManager(tmpDir);
         manager.initializeIfAbsent();
 
         byte[] payload = "test-payload".getBytes();

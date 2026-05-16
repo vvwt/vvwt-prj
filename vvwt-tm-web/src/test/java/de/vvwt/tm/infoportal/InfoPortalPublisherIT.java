@@ -3,6 +3,8 @@ package de.vvwt.tm.infoportal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import de.vvwt.tm.infoportal.internal.DefaultEd25519KeypairManager;
+import de.vvwt.tm.infoportal.internal.DefaultTmJcsCanonicalizer;
 import java.nio.file.Path;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -65,10 +67,10 @@ class InfoPortalPublisherIT {
         // Guard: skip if Docker unavailable
         assumeTrue(isDockerAvailable(), "Docker not available — skipping Testcontainers IT");
 
-        keypairManager = new Ed25519KeypairManager(tmpDir.resolve("keys"));
+        keypairManager = new DefaultEd25519KeypairManager(tmpDir.resolve("keys"));
         keypairManager.initializeIfAbsent();
 
-        canonicalizer = new TmJcsCanonicalizer();
+        canonicalizer = new DefaultTmJcsCanonicalizer();
         restTemplate = new RestTemplate();
 
         properties = new InfoPortalProperties();

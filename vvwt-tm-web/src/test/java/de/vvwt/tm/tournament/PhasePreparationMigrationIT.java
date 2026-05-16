@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 
 import de.vvwt.tm.TournamentManagerApplication;
-import de.vvwt.tm.tenant.internal.PerTenantFlywayRunner;
+import de.vvwt.tm.tenant.internal.DefaultPerTenantFlywayRunner;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -42,17 +42,17 @@ import org.junit.jupiter.api.io.TempDir;
  *   <li><b>AC-IMPL-FLYWAY-MIGRATION-FILENAME</b> — migration filename presence verified implicitly
  *       by migration application (runner builds locations from classpath).
  *   <li><b>AC-ERROR-HANDLING-MIGRATION-IDEMPOTENT</b> — running migration twice is a no-op.
- *   <li><b>AC-GOVERNANCE-DEC-44-IT-FRAMEWORK</b> — uses PerTenantFlywayRunner directly
+ *   <li><b>AC-GOVERNANCE-DEC-44-IT-FRAMEWORK</b> — uses DefaultPerTenantFlywayRunner directly
  *       (no @SpringBootTest); DEC-44 carve-out applies (not a web-module controller IT).
  * </ul>
  *
  * <h2>Framework</h2>
  *
- * <p>Tests use a {@code PerTenantFlywayRunner} subclass that restricts locations to {@code
+ * <p>Tests use a {@code DefaultPerTenantFlywayRunner} subclass that restricts locations to {@code
  * classpath:db/migration/tournament} only. Real H2 file-based DataSources provide
  * production-faithful isolation. No Spring context is loaded — pure JDBC assertion.
  *
- * @see PerTenantFlywayRunner
+ * @see DefaultPerTenantFlywayRunner
  * @see <a
  *     href="../../../../../../../../../../../.gaai/project/contexts/artefacts/stories/E51S01.story.md">Story
  *     E51S01</a>
@@ -233,8 +233,9 @@ class PhasePreparationMigrationIT {
     // -------------------------------------------------------------------------
 
     /**
-     * A {@link PerTenantFlywayRunner} subclass that applies {@code classpath:db/migration/tenant}
-     * followed by {@code classpath:db/migration/tournament} — in DEC-21 dependency order.
+     * A {@link DefaultPerTenantFlywayRunner} subclass that applies {@code
+     * classpath:db/migration/tenant} followed by {@code classpath:db/migration/tournament} — in
+     * DEC-21 dependency order.
      *
      * <p>The {@code tournament/V1__initial_schema.sql} has a cross-module FK: {@code
      * tournament.location_id REFERENCES locations(id)} where {@code locations} is created by {@code
@@ -246,14 +247,14 @@ class PhasePreparationMigrationIT {
      * FKs, nullable team_id) all fail because the columns / altered FKs do not exist. After V3 is
      * added → all assertions pass.
      */
-    private static PerTenantFlywayRunner runnerWithTenantAndTournamentMigrations(
+    private static DefaultPerTenantFlywayRunner runnerWithTenantAndTournamentMigrations(
             DataSource dataSource) {
-        return new PerTenantFlywayRunner(
+        return new DefaultPerTenantFlywayRunner(
                 tenantId -> dataSource, TournamentManagerApplication.class) {
             @Override
             public List<String> buildLocations() {
                 ClassLoader cl = Thread.currentThread().getContextClassLoader();
-                if (cl == null) cl = PerTenantFlywayRunner.class.getClassLoader();
+                if (cl == null) cl = DefaultPerTenantFlywayRunner.class.getClassLoader();
                 java.util.List<String> locations = new java.util.ArrayList<>();
                 // tenant first: creates the locations table (FK dependency of tournament/V1)
                 if (cl.getResource("db/migration/tenant") != null) {
@@ -606,7 +607,7 @@ class PhasePreparationMigrationIT {
     void migration_v3_appliedTwice_isIdempotent(@TempDir Path tempDir) throws Exception {
         UUID tenantId = UUID.randomUUID();
         DataSource ds = createTempFileDataSource(tempDir, tenantId);
-        PerTenantFlywayRunner runner = runnerWithTenantAndTournamentMigrations(ds);
+        DefaultPerTenantFlywayRunner runner = runnerWithTenantAndTournamentMigrations(ds);
 
         runner.run(tenantId);
 
@@ -627,7 +628,7 @@ class PhasePreparationMigrationIT {
     // -------------------------------------------------------------------------
 
     // Note: This test class intentionally does NOT use @SpringBootTest — it is a
-    // pure-JDBC PerTenantFlywayRunner test, analogous to AuthMigrationIT.
+    // pure-JDBC DefaultPerTenantFlywayRunner test, analogous to AuthMigrationIT.
     // DEC-44's @SpringBootTest(RANDOM_PORT) requirement applies to web-module
     // controller ITs; this is a schema-migration IT (DEC-44 carve-out).
 }

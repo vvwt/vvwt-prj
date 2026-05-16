@@ -14,19 +14,19 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Integration tests for {@link PerTenantFlywayRunner} using real H2 file DataSources.
+ * Integration tests for {@link DefaultPerTenantFlywayRunner} using real H2 file DataSources.
  *
  * <p>Each test creates isolated H2 files under JUnit's {@code @TempDir} — no shared state. Tests
- * use a subclass that overrides {@link PerTenantFlywayRunner#buildLocations()} to point at test
- * migration directories, since Wave-1 per-module production migration directories are added by E15
- * stories (not E14S04).
+ * use a subclass that overrides {@link DefaultPerTenantFlywayRunner#buildLocations()} to point at
+ * test migration directories, since Wave-1 per-module production migration directories are added by
+ * E15 stories (not E14S04).
  *
  * <p>Story: E14S04 — DEC-20 (per-tenant Flyway), DEC-21 (per-module migration paths), DEC-22 (TDD
  * Iron Law, reconstruction-in-place).
  *
  * <p>No Spring context is loaded — this is a pure Flyway + H2 integration test.
  */
-class PerTenantFlywayRunnerIT {
+class DefaultPerTenantFlywayRunnerIT {
 
     /**
      * Creates a runner that uses the test-classpath {@code db/migration-test/tenant/} directory.
@@ -38,9 +38,9 @@ class PerTenantFlywayRunnerIT {
      * Flyway auto-configuration from picking it up during full-context integration tests (which
      * would cause a "duplicate version 1" conflict with {@code V1__initial_schema.sql}).
      */
-    private static PerTenantFlywayRunner runnerWithTestMigrations(
+    private static DefaultPerTenantFlywayRunner runnerWithTestMigrations(
             TenantDataSourceResolver resolver) {
-        return new PerTenantFlywayRunner(resolver, TournamentManagerApplication.class) {
+        return new DefaultPerTenantFlywayRunner(resolver, TournamentManagerApplication.class) {
             @Override
             public List<String> buildLocations() {
                 // Points at the test-classpath tenant migration directory (E14S04 test resource)
@@ -74,14 +74,14 @@ class PerTenantFlywayRunnerIT {
         DataSource dsA = H2TestDataSourceHelper.createTempFileDataSource(tempDir, tenantA);
         DataSource dsB = H2TestDataSourceHelper.createTempFileDataSource(tempDir, tenantB);
 
-        PerTenantFlywayRunner runnerA = runnerWithTestMigrations(id -> dsA);
-        PerTenantFlywayRunner runnerB = runnerWithTestMigrations(id -> dsB);
+        DefaultPerTenantFlywayRunner runnerA = runnerWithTestMigrations(id -> dsA);
+        DefaultPerTenantFlywayRunner runnerB = runnerWithTestMigrations(id -> dsB);
 
         runnerA.run(tenantA);
         runnerB.run(tenantB);
 
         // Both tenants have their own flyway_schema_history_tenant (Flyway ran in each)
-        // E45S06: PerTenantFlywayRunner uses module-namespaced history tables
+        // E45S06: DefaultPerTenantFlywayRunner uses module-namespaced history tables
         // (flyway_schema_history_{moduleName}); the test migration location is
         // "classpath:db/migration-test/tenant" → moduleName = "tenant" → table =
         // "flyway_schema_history_tenant".
@@ -115,7 +115,7 @@ class PerTenantFlywayRunnerIT {
     void singleTenant_happyPath_migrationsApplied(@TempDir Path tempDir) throws Exception {
         UUID tenantId = UUID.randomUUID();
         DataSource ds = H2TestDataSourceHelper.createTempFileDataSource(tempDir, tenantId);
-        PerTenantFlywayRunner runner = runnerWithTestMigrations(id -> ds);
+        DefaultPerTenantFlywayRunner runner = runnerWithTestMigrations(id -> ds);
 
         runner.run(tenantId);
 
@@ -140,7 +140,7 @@ class PerTenantFlywayRunnerIT {
     void runTwice_isIdempotent(@TempDir Path tempDir) throws Exception {
         UUID tenantId = UUID.randomUUID();
         DataSource ds = H2TestDataSourceHelper.createTempFileDataSource(tempDir, tenantId);
-        PerTenantFlywayRunner runner = runnerWithTestMigrations(id -> ds);
+        DefaultPerTenantFlywayRunner runner = runnerWithTestMigrations(id -> ds);
 
         runner.run(tenantId);
         int historyRowCountAfterFirstRun = H2TestDataSourceHelper.countFlywayHistoryRows(ds);
@@ -168,8 +168,8 @@ class PerTenantFlywayRunnerIT {
         DataSource ds = H2TestDataSourceHelper.createTempFileDataSource(tempDir, tenantId);
 
         // Runner pointing at a test directory with intentionally broken SQL (AC4)
-        PerTenantFlywayRunner runner =
-                new PerTenantFlywayRunner(id -> ds, TournamentManagerApplication.class) {
+        DefaultPerTenantFlywayRunner runner =
+                new DefaultPerTenantFlywayRunner(id -> ds, TournamentManagerApplication.class) {
                     @Override
                     public List<String> buildLocations() {
                         return List.of("classpath:db/migration-test-broken");
@@ -200,7 +200,7 @@ class PerTenantFlywayRunnerIT {
         DataSource ds = H2TestDataSourceHelper.createTempFileDataSource(tempDir, tenantId);
 
         // Runner uses per-module locations only (the production behavior)
-        PerTenantFlywayRunner runner = runnerWithTestMigrations(id -> ds);
+        DefaultPerTenantFlywayRunner runner = runnerWithTestMigrations(id -> ds);
 
         runner.run(tenantId);
 

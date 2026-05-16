@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import de.vvwt.info.dto.registration.AlgorithmWarning;
 import de.vvwt.info.dto.registration.RegistrationResponse;
 import de.vvwt.tm.infoportal.InfoPortalPublisherService.PublisherStatus;
+import de.vvwt.tm.infoportal.internal.DefaultInfoPortalPublisherService;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.time.LocalDate;
@@ -64,7 +65,7 @@ class InfoPortalPublisherServiceTest {
         when(canonicalizer.canonicalize(anyString())).thenReturn("{}".getBytes());
 
         service =
-                new InfoPortalPublisherService(
+                new DefaultInfoPortalPublisherService(
                         properties, stateDao, restTemplate, keypairManager, canonicalizer);
     }
 
