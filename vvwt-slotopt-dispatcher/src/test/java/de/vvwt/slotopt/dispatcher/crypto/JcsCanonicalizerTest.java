@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.vvwt.slotopt.dispatcher.crypto.internal.DefaultJcsCanonicalizer;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +15,10 @@ import org.junit.jupiter.api.Test;
  *
  * <p>RED-first per DEC-22 / AC-JCS-CANONICALIZER: tests written before the production class is
  * created.
+ *
+ * <p>E57S03: the test variable is typed as the {@link JcsCanonicalizer} interface (DEC-36
+ * cross-package rule — this test lives in {@code crypto}, the implementation in {@code
+ * crypto.internal}); the concrete instance is {@link DefaultJcsCanonicalizer}.
  *
  * <p>Test vectors sourced from RFC 8785 §B (normative examples). @SpecSource RFC 8785 — JSON
  * Canonicalization Scheme, §B (IETF, 2021) https://www.rfc-editor.org/rfc/rfc8785#appendix-B
@@ -26,7 +31,7 @@ class JcsCanonicalizerTest {
     @BeforeEach
     void setUp() {
         mapper = new ObjectMapper();
-        canonicalizer = new JcsCanonicalizer();
+        canonicalizer = new DefaultJcsCanonicalizer();
     }
 
     /** RFC 8785 §B.1 — empty object canonical form is {@code {}}. @SpecSource RFC 8785 §B.1 */

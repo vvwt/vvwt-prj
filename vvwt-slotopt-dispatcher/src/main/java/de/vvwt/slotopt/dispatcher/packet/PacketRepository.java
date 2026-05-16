@@ -59,7 +59,8 @@ public interface PacketRepository extends CrudRepository<PacketRecord, Long> {
     /**
      * Finds all CLAIMED packets whose {@code timeoutAt} is before the given instant.
      *
-     * <p>Used by {@link PacketTimeoutSweeper} to identify packets to reissue.
+     * <p>Used by {@link de.vvwt.slotopt.dispatcher.packet.internal.DefaultPacketTimeoutSweeper} to
+     * identify packets to reissue.
      *
      * @param now reference instant; packets with {@code timeoutAt < now} are timed out
      * @return list of timed-out claimed packets
