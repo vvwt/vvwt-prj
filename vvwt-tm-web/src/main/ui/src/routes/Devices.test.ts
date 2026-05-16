@@ -180,3 +180,32 @@ describe('App.svelte — AC16: tournament-name truncation CSS (E47S01)', () => {
     expect(source).toMatch(/display\s*:\s*none|width\s*:\s*0/);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AC-TEST-REGRESSION-RED-FIRST — E49S06
+// Regression guard for TypeError: …trim is not a function in handleRowAssign.
+// RED on pre-fix code (rowFieldInputs?.trim() present + Record<string,string>).
+// GREEN after fix (trim call removed, type corrected to number | null).
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Devices.svelte — AC-TEST-REGRESSION-RED-FIRST: handleRowAssign field-value type (E49S06)', () => {
+  it('Devices.svelte handleRowAssign does NOT call .trim() on the rowFieldInputs value', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './Devices.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // Pre-fix: source contains `rowFieldInputs[device.id]?.trim()`
+    // Post-fix: that call is removed (field value consumed as number directly)
+    expect(source).not.toMatch(/rowFieldInputs\[device\.id\]\?\.trim/);
+  });
+
+  it('Devices.svelte rowFieldInputs is NOT declared as Record<string, string>', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './Devices.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // Pre-fix: `let rowFieldInputs = $state<Record<string, string>>({})`
+    // Post-fix: type is corrected to hold number | null
+    expect(source).not.toMatch(/rowFieldInputs\s*=\s*\$state<Record<string,\s*string>>/);
+  });
+});
