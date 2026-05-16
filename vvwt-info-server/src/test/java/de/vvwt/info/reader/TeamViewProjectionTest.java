@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import de.vvwt.info.dto.snapshot.ScheduleEntry;
 import de.vvwt.info.dto.snapshot.TeamEntry;
 import de.vvwt.info.dto.snapshot.TournamentSnapshot;
-import de.vvwt.info.reader.internal.TeamViewProjection;
+import de.vvwt.info.reader.internal.DefaultTeamViewProjection;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,7 +25,7 @@ class TeamViewProjectionTest {
 
     @BeforeEach
     void setUp() {
-        projection = new TeamViewProjection();
+        projection = new DefaultTeamViewProjection();
         teamA = new TeamEntry("uuid-a", "Team Alpha", 1);
         teamB = new TeamEntry("uuid-b", "Team Beta", 2);
         teamC = new TeamEntry("uuid-c", "Team Gamma", 3);
