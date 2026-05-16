@@ -1,38 +1,5 @@
-/**
- * Declarative parent-route map for the back-arrow navigation mechanism.
- * Story E47S01 — AC5, Brief D-12. Updated by E48S15 — Brief D-2 (P→Tournaments).
- *
- * Maps route pattern → parent path template. The map is a const — no
- * regex-derivation, no path-segment-trimming heuristic (per Brief D-12
- * rationale: heuristics break on edge cases like /tournaments/new vs /tournaments).
- *
- * resolveParent() substitutes :tournamentId with the concrete UUID from the
- * route params, returning the fully-resolved parent path. Returns null for
- * top-level routes (no back-arrow).
- *
- * Convention (E48S15, User decision 2026-05-06):
- *   - Tournament-sub-routes (/tournaments/:tournamentId/{subroute}) target /tournaments (the list).
- *   - Sub-sub-routes (/tournaments/:tournamentId/phases/:phaseId/transition) target
- *     their immediate parent (/phases).
- *
- * Rationale: Tournament-Edit is a one-time-setup page. Routing back through it strands
- * the user and forces a 2-step navigation to reach the list. /tournaments is the user's
- * natural navigation hub (User feedback 2026-05-06).
- *
- * Reference: Story E48S15, Brief discovery-2026-05-06-tournament-form-bugs D-2 (P→Tournaments).
- *
- * Future Discovery sessions adding new Tournament-sub-routes MUST default to /tournaments
- * as the back-arrow target. Sub-sub-routes (per-phase, per-match drill-downs) target their
- * immediate parent.
- *
- * DEC-2: pure TypeScript module — no SvelteKit primitives, no new npm dependency.
- * DEC-22: TDD Iron Law — RED-first tests in Teams.test.ts.
- */
-
-/**
- * Route pattern → parent path template.
- * `:tournamentId` is a placeholder resolved at runtime by resolveParent().
- */
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 export const PARENT_ROUTE_MAP: Record<string, string> = {
   // Tournament sub-routes: all target /tournaments (the list) — E48S15 P→Tournaments convention
   '/tournaments/:tournamentId/teams':                '/tournaments',

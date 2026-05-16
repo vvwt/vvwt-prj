@@ -1,21 +1,5 @@
-/**
- * API client for tournament certificate template management (E12S05).
- *
- * Wraps the REST endpoints (renamed at E23S10 Cutover-2 per AC-URL-RENAME-CERTIFICATE-ENDPOINTS):
- *   GET    /api/certificate/tournaments/{id}/template/info  — metadata (or null if no template)
- *   POST   /api/certificate/tournaments/{id}/template       — upload (or replace) template
- *   DELETE /api/certificate/tournaments/{id}/template       — delete template
- *   GET    /api/certificate/variables                       — list available Mustache variables
- *
- * Upload uses XMLHttpRequest instead of fetch to expose upload progress (AC1).
- * All authenticated endpoints rely on browser-cached basic-auth via same-origin credentials
- * (consistent with the existing `apiFetch` pattern and audioStore.ts).
- *
- * @see CertificateTemplateController  (Java, E12S04)
- * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest}
- */
-
-/** Mirrors CertificateTemplateMetadataResponse DTO (E12S04). */
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 export interface CertificateTemplateMetadata {
     tournamentId: string;
     filename: string;

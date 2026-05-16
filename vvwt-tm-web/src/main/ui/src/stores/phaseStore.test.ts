@@ -1,14 +1,5 @@
-/**
- * Unit tests for phaseStore lifecycle functions (E48S06).
- *
- * Verifies (RED-first per DEC-22 TDD Iron Law):
- * - startPhase, completePhase, forceCompletePhase export existence and API contract
- * - i18n: de.json contains all E48S06 phase lifecycle translation keys
- *   (AC-FRONTEND-PHASE-LIFECYCLE-BUTTONS, AC-FRONTEND-COMPLETE-DISABLED-LOGIC,
- *   AC-FRONTEND-FORCE-COMPLETE-CONFIRMATION)
- * - phaseStore exports expected API surface
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import deMessages from '../locales/de.json';
 

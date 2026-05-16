@@ -1,21 +1,5 @@
-/**
- * Unit tests for Timer Link & QR Code view — Story E11S07.
- *
- * Verifies:
- * - AC1/AC5: Timer URL is derived deterministically from origin + `/timer/` + tournamentId
- * - AC2: QR code SVG is generated for a valid URL (module-level unit test; canvas not required)
- * - AC4: de.json contains all required i18n keys for the timerLink namespace
- * - AC6: de.json contains the noScheduleNote key
- * - de.json: audio.timerLinkButton keys are present (AC3)
- *
- * Note: Component rendering tests for TimerLink.svelte are omitted because the Svelte
- * component relies on `window.location.origin` (jsdom sets this to 'http://localhost'),
- * `navigator.clipboard` (unavailable in jsdom by default), and an inline SVG QR code rendered
- * by the `qrcode` library (which requires `QRCodeLib.create` on the module object). All
- * business logic (URL derivation, QR generation, clipboard copy) is tested at the unit level
- * below without rendering the component.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import deMessages from '../locales/de.json';
 // qrcode has no @types package; the same pattern is used in Devices.svelte (E06S05).

@@ -1,9 +1,5 @@
-/**
- * vvwt-info-client entry point.
- *
- * Story E38S01 — minimal scaffold (DEC-2: Svelte 5 + TypeScript + Vite, no SvelteKit).
- * Business logic (per-team timeline view, WebSocket reader) is E38S06/E38S08 scope.
- */
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { mount } from 'svelte';
 import App from './App.svelte';
 

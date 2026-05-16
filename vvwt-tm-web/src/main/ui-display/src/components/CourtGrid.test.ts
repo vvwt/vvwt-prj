@@ -1,35 +1,5 @@
-/**
- * E50S04 — CourtGrid multi-round display tests.
- * E50S05 — CourtGrid body row-distribution defect fix tests.
- *
- * DEC-22 Iron Law: RED-first tests written BEFORE production code changes.
- *
- * E50S04 RED tests must FAIL against the current CourtGrid.svelte (single-lap render):
- *   - AC-TEST-MULTI-ROUND-ALL-LAPS-VISIBLE-RED: N distinct lapNumbers → N row-groups per field
- *   - AC-TEST-MULTI-ROUND-LAP-ASCENDING-ORDER-RED: rows ordered lap ascending (1 at top)
- *   - AC-TEST-VERTICAL-FILL-EQUAL-DISTRIBUTION-RED: grid-template-rows: repeat(N, 1fr)
- *   - AC-TEST-ACTIVE-ROUND-HIGHLIGHT-RED: active-round CSS class on currentLap row
- *   - AC-TEST-ACTIVE-ROUND-HIGHLIGHT-CSS-CONTRAST-RED: active-round background differs ≥ 30 RGB
- *
- * E50S05 RED test must FAIL on current code (no body row-distribution mechanism):
- *   - AC-TEST-COURT-GRID-BODY-ROW-DISTRIBUTION-RED: .court-grid__body must declare a row-distribution
- *     mechanism (grid-template-rows, grid-auto-rows, or display:flex with field-column flex:1)
- *
- * GREEN regression tests (E50S05):
- *   - AC-TEST-COURT-GRID-FIELD-COLUMN-1FR-PER-LAP-PRESERVED-GREEN
- *   - AC-TEST-COURT-GRID-ZERO-LAPS-NO-LAYOUT-ERROR-GREEN
- *   - AC-TEST-COURT-GRID-SINGLE-LAP-FULL-HEIGHT-GREEN
- *   - AC-TEST-COURT-GRID-MANY-LAPS-EQUAL-DISTRIBUTION-GREEN
- *   - AC-TEST-COURT-GRID-NOPHASE-LOADING-STATES-GREEN
- *
- * Strategy: source-inspection via readFileSync — same pattern as App.layout.test.ts (E50S02).
- * CourtGrid.svelte prop interface must NOT change (AC-GOVERNANCE-NO-OUT-OF-SCOPE-REFACTOR).
- *
- * Story: E50S04 — contexts/artefacts/stories/E50S04.story.md
- * Story: E50S05 — contexts/artefacts/stories/E50S05.story.md
- * DECs: DEC-2, DEC-22, DEC-29, DEC-30, DEC-54
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';

@@ -1,54 +1,5 @@
-/**
- * vvwt-tablet.js — Shared ES5 utility script for the VVWT scoring tablet UI.
- *
- * Story:      E06S02 (AC4, AC5, AC8) — DEC-19 (ES5 scoring tablet carve-out)
- * Target:     ECMAScript 5 — iOS 9 Safari (WebKit ~600) and above.
- * Constraint: Zero external dependencies. Hand-authored ES5. No ES2015+ syntax.
- *
- * Contents:
- *   1. Global error handler         (AC8)  — window.onerror banner display
- *   2. WebSocket connection manager (AC4a) — connect, reconnect, message dispatch
- *   3. Polling fallback             (AC4b) — activates when WebSocket is unavailable
- *   4. DOM helpers                  (AC4c) — query, setText, show, hide, addClass, removeClass
- *   5. Form serialization           (AC4d) — serialize form inputs to JSON object
- *
- * ES5 compliance verified: no ES6+ keywords or syntax (arrow functions, template literals,
- * class, destructuring, Proxy, spread, for-of, or block-scoped declarations).
- */
-
-/* =========================================================================
-   1. Global error handler (AC8 — DoR)
-   Catches uncaught JS exceptions and renders a visible error banner.
-   ========================================================================= */
-window.onerror = function (message, source, lineno, colno, error) {
-    var banner = document.getElementById('error-banner');
-    if (banner) {
-        banner.style.display = 'block';
-        banner.textContent = '[Error] ' + (message || 'Unknown error') +
-            (source ? ' @ ' + source + ':' + lineno : '');
-    }
-    /* Return false to allow default browser error handling (console output) */
-    return false;
-};
-
-/* =========================================================================
-   2. WebSocket connection manager (AC4a)
-   Creates and maintains a WebSocket connection with automatic reconnect.
-   Falls back to polling after maxReconnectAttempts consecutive failures.
-   ========================================================================= */
-
-/**
- * VvwtWebSocket — WebSocket manager with reconnect logic.
- *
- * @param {string} url            WebSocket URL (e.g. "ws://localhost:8080/ws/websocket")
- * @param {object} options
- * @param {number} [options.reconnectDelay=3000]     Milliseconds before first reconnect attempt.
- * @param {number} [options.maxReconnectAttempts=5]  Give up and activate polling after this many failures.
- * @param {function} [options.onMessage]             Called with the parsed message payload on each message.
- * @param {function} [options.onOpen]                Called when connection is established.
- * @param {function} [options.onClose]               Called when connection closes.
- * @param {function} [options.onFallback]            Called when polling fallback is activated.
- */
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 function VvwtWebSocket(url, options) {
     this._url = url;
     this._options = options || {};

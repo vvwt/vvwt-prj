@@ -1,10 +1,5 @@
-/**
- * German (DE) string table — single source of truth for all user-visible strings.
- * AC16 (governance): all component strings MUST reference keys from this table;
- * NO inline string literals in Svelte template blocks.
- * Story: E38S08.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 const de: Record<string, string> = {
   // App / loading
   'app.title': 'vvwt-info',

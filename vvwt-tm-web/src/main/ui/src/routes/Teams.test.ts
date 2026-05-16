@@ -1,17 +1,5 @@
-/**
- * Tests for Teams route — Story E47S01 / E48S15.
- *
- * AC3: No per-page .teams__header; title registered via pageHeader store.
- * AC4: Per-page "Team hinzufügen" button gone from <main>; action registered via store invokes openAddRow.
- * AC5 (E47S01): Back-arrow action navigates via parentRouteMap.
- * E48S15: parentRouteMap 7 sub-routes updated to target /tournaments (P→Tournaments).
- * AC6: Tournament name displayed in header (via tournamentStore.getTournament).
- * AC7: Narrow viewport — "Team hinzufügen" is icon-only with aria-label.
- * AC14: getTournament returns undefined → no literal "undefined"/"null" in header; back-arrow + title still registered.
- *
- * RED-first per DEC-22: all tests fail before migration.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect } from 'vitest';
 import { get } from 'svelte/store';
 import deMessages from '../locales/de.json';

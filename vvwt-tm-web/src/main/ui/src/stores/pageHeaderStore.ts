@@ -1,20 +1,5 @@
-/**
- * Page header shell store — Story E47S01 (AC1).
- *
- * Provides a writable store that route components use to register their
- * page title, primary action buttons, and navigation context (back-arrow,
- * tournament name) with the persistent brand-header in App.svelte.
- *
- * Shell mechanism choice: writable store (option 2 per E47S01 Story Notes).
- * Rationale: matches existing project pattern (multiple *Store.ts files in
- * src/stores/); supports dynamic updates when tournament name resolves
- * asynchronously; most predictable and testable idiom in this codebase.
- *
- * DEC-2: Svelte store — no SvelteKit primitives, no new npm dependency.
- * DEC-22: TDD Iron Law — RED-first tests exist in App.test.ts, Teams.test.ts,
- *         Tournaments.test.ts, Devices.test.ts, and all sub-route test files.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { writable } from 'svelte/store';
 
 /**

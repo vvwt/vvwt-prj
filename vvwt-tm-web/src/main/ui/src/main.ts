@@ -1,12 +1,5 @@
-/**
- * Application bootstrap for Tournament Manager Admin SPA.
- *
- * Story E05S01 — AC1, AC5.
- *
- * Initializes i18n before mounting the Svelte app so that translation strings
- * are available immediately on first render (AC5, AC9).
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { mount } from 'svelte';
 import App from './App.svelte';
 import { initI18n } from './lib/i18n.js';

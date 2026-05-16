@@ -1,19 +1,5 @@
-/**
- * Tests for SlotOptimization route — Story E47S02.
- *
- * AC1: de.json has slotopt.title = "Slot-Optimierung".
- * AC2: Header renders "Slot-Optimierung" from slotopt.title; legacy <h2>Slot Optimization</h2> gone.
- * AC3: In-page <h2> gone; title registered via pageHeader store.
- * AC5: Back-arrow registered; backTo = '/tournaments' (E48S15: updated from /edit to /tournaments).
- * AC6: SlotOptimization registers tournamentId → header shows tournament name.
- * AC7: Action-area empty (cancel button stays in-page per D-4 + story notes).
- * AC10: Inline cancel button NOT relocated to header; still present in route body.
- * AC14: undefined getTournament → no 'undefined'/'null'/'[object Object]' in DOM; back-arrow + title registered.
- *
- * RED-first per DEC-22: tests for AC2, AC3, AC5, AC6 fail before migration
- * (SlotOptimization.svelte has hardcoded <h2>Slot Optimization</h2> and no pageHeader).
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect } from 'vitest';
 import deMessages from '../locales/de.json';
 

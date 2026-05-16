@@ -1,19 +1,5 @@
-/**
- * RED-first tests for PhaseTransition.svelte (E48S08).
- *
- * Covers AC-FRONTEND-VITEST-DRAGDROP-RED and AC-FRONTEND-VITEST-COMPLEMENTARY-COVERAGE-RED.
- *
- * JSDOM DnD limitation: HTML5 DragEvent.dataTransfer is read-only / not propagated in JSDOM.
- * Strategy per AC-FRONTEND-VITEST-DRAGDROP-RED: test the pure swap-logic function directly
- * via exported `swapSlots` from `phaseTransitionUtils.ts` (Direct-Handler-Invocation).
- * NOT via dispatchEvent(DragEvent).
- *
- * Source-code structural checks follow the existing pattern from other test files
- * (e.g., TimerAudio.test.ts): fs.readFileSync + path.resolve.
- *
- * DEC-22 Iron Law: all tests written RED-first.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';

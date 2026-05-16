@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 package de.vvwt.slotopt.dispatcher.identity;
 
 import jakarta.servlet.http.HttpServletRequest;

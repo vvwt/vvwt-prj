@@ -1,14 +1,5 @@
-/**
- * Tests for generatorFilter — E58S05 AC4/AC8 TDD RED-first.
- *
- * AC4: the phase-plan dropdown filters generators by the isLastPhaseGenerator capability flag,
- * NOT by matching the generator key string. These tests use a fixture that includes a generator
- * whose key is NOT 'awardCeremony' but has isLastPhaseGenerator=true, so that a key-string-based
- * filter would fail the test while a flag-based filter passes.
- *
- * RED-first per DEC-22 (AC8): these tests fail before generatorFilter.ts is created.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect } from 'vitest';
 import {
     filterNonLastPhaseGenerators,

@@ -1,10 +1,5 @@
-/**
- * Unit tests for TimerWsClient — E11S05.
- *
- * Uses vitest with jsdom. The STOMP/SockJS stack is mocked to exercise
- * the client lifecycle without a real WebSocket server.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { TimerWsClient } from './timerWs.js';
 

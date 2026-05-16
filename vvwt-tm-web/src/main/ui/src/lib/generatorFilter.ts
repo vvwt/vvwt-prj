@@ -1,15 +1,5 @@
-/**
- * Generator filter utilities for capability-flag-based filtering.
- *
- * E58S05 AC4: the phase-plan dropdown filters generators by the isLastPhaseGenerator
- * capability flag — NOT by matching the generator key string. This module provides
- * pure functions to make that logic independently testable.
- *
- * @see DraftConfig.svelte (consumer)
- * @see generatorStore.ts (data source)
- * @see MatchGeneratorInfo (type)
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import type { MatchGeneratorInfo } from '../stores/generatorStore.js';
 
 /**

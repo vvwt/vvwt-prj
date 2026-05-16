@@ -1,12 +1,5 @@
-/**
- * Pure utility functions for PhaseTransition drag-and-drop logic (E48S08).
- *
- * Extracted to a plain TypeScript module so that tests can invoke functions directly
- * without JSDOM DnD limitations (AC-FRONTEND-VITEST-DRAGDROP-RED).
- *
- * DEC-22 Iron Law: functions tested RED-first via PhaseTransition.test.ts.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import type { TeamAvatarSlot } from '../stores/phaseTransitionStore.js';
 
 /**

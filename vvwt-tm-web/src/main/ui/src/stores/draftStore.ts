@@ -1,15 +1,5 @@
-/**
- * Draft configuration API functions for the Tournament Manager Admin SPA.
- *
- * Story E05S06 — AC2–AC5 (draft CRUD and apply).
- * Story E08S05 — AC2 (breaks), AC3 (timeline preview), AC4 (start time).
- *
- * Exposes:
- *   - Types: DraftBreak, DraftSection, DraftConfig, DraftPreviewSection,
- *            DraftTimelineEntry, DraftPreview
- *   - API functions: getDraft, saveDraft, previewDraft, applyDraft
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { apiFetch } from '../lib/api.js';
 
 // ─────────────────────────────────────────────────────────────────

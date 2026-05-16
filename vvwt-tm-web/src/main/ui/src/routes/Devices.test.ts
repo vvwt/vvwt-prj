@@ -1,14 +1,5 @@
-/**
- * Tests for Devices route — Story E47S01.
- *
- * AC3: No per-page .devices__header; title registered via pageHeader store.
- * AC7: Narrow viewport → "QR zeigen" (btn--secondary) is icon-only with aria-label.
- * AC8: Narrow → "alle löschen" (btn--danger) is in Overflow-Menu, not bare button; desktop → bare button.
- * AC17: Devices narrow → BOTH icon-collapse (D-9) AND Overflow-Menu (D-11) apply simultaneously.
- *
- * RED-first per DEC-22: all tests fail before migration.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect } from 'vitest';
 import { get } from 'svelte/store';
 import deMessages from '../locales/de.json';

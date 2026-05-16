@@ -1,17 +1,5 @@
-/**
- * i18n initialization for the Tournament Manager Display SPA.
- *
- * Story E07S05 — AC10: All visible strings are sourced from the translation layer.
- *
- * Mirrors the admin SPA pattern (E05S01) but uses the display-specific locales.
- * Locale detection order:
- *   1. browser navigator.language
- *   2. Falls back to 'de' if the browser locale has no translation file
- *
- * Adding a new language: add a JSON file in src/locales/{locale}.json and register
- * it in addMessages() below. No component changes required.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { addMessages, getLocaleFromNavigator, init, locale } from 'svelte-i18n';
 import de from '../locales/de.json';
 

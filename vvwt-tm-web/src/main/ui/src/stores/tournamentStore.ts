@@ -1,20 +1,5 @@
-/**
- * Tournament selection state and API functions for the Tournament Manager Admin SPA.
- *
- * Story E05S04 — AC9: selected tournament ID stored in SPA client-side state and
- * persisted across page navigations within the SPA via sessionStorage.
- *
- * The store exposes:
- *   - `selectedTournamentId` — reactive writable store (UUID string | null)
- *   - `selectTournament(id)` — sets the selection and persists to sessionStorage
- *   - `clearSelection()` — clears the selection
- *   - API functions: listTournaments, createTournament, updateTournament, deleteTournament,
- *     getTournamentRules
- *
- * All API functions use `apiFetch` from api.ts to include browser-cached basic-auth
- * credentials (E05S02 AC7).
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { writable } from 'svelte/store';
 import { apiFetch } from '../lib/api.js';
 

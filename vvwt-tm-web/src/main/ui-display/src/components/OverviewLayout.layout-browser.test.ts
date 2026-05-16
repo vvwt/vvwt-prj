@@ -1,40 +1,5 @@
-/**
- * E50S06 — OverviewLayout real-browser layout regression test.
- *
- * DEC-22 Iron Law: RED-first. This test MUST fail on current HEAD (no grid-row placement)
- * and pass after the fix (explicit grid-row: 2 on __main and __sidebar).
- *
- * WHY a real browser layout engine:
- *   The vertical-fill defect has passed mvn verify twice because prior tests are layout-blind:
- *   - E50S04: source-inspection regex (never exercises the browser)
- *   - E50S05: jsdom CSSOM assertions (jsdom computes no layout geometry)
- *   jsdom sets all layout properties (offsetHeight, getBoundingClientRect) to zero.
- *   Only a real browser layout engine can observe that the rendered page fails to fill the
- *   viewport. This test runs in Playwright/Chromium (system Chromium) via vitest browser mode.
- *
- * ROOT CAUSE (detected by this test on RED commit):
- *   .overview-layout { grid-template-rows: auto 1fr; height: 100%; }
- *   .overview-layout__main and .overview-layout__sidebar have no explicit grid-row.
- *   CSS auto-placement assigns both children to row 1 (auto = content-sized) when no
- *   banner element is present. The 1fr row stays empty. Both children collapse to content
- *   height (height = 0 in Chromium). The viewport's lower portion is blank grey space.
- *
- * CSS SOURCE STRATEGY:
- *   The test reads the CSS <style> block directly from OverviewLayout.svelte using
- *   @vitest/browser's commands.readFile API. This ensures the test exercises the ACTUAL
- *   component CSS (including any future edits), not a stale hardcoded copy.
- *   When the fix adds `grid-row: 2` to OverviewLayout.svelte, this test immediately
- *   picks it up and turns GREEN.
- *
- * This test runs ONLY in the "browser" vitest project (vitest.workspace.ts),
- * which uses Playwright/Chromium as the test environment. The jsdom project
- * excludes this file (*.layout-browser.test.ts pattern).
- *
- * Story: E50S06 — contexts/artefacts/stories/E50S06.story.md
- * DECs: DEC-2, DEC-22, DEC-54
- * AC: AC-TEST-VERTICAL-FILL-REAL-ENGINE-RED, AC-TEST-VERTICAL-FILL-BANNER-PRESENT-GREEN
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import { commands, page } from '@vitest/browser/context';
 

@@ -1,17 +1,5 @@
-/**
- * Unit tests for websocket.ts (E07S06, AC7, AC9).
- *
- * Tests focus on:
- *   - Reconnect backoff: each failed attempt increases the delay, capped at 30s (AC7)
- *   - Fallback trigger: after MAX_RECONNECT_ATTEMPTS failures, onFallback is called (AC9)
- *   - connect() calls onStatusChange('connecting') immediately (AC7)
- *   - disconnect() stops the client and calls onStatusChange('disconnected')
- *
- * Note: @stomp/stompjs and sockjs-client are mocked — these tests run in jsdom, not a
- * browser with a real WebSocket. The tests verify the reconnect orchestration logic
- * in websocket.ts without requiring an actual STOMP server.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // ---------------------------------------------------------------------------

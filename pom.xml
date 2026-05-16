@@ -430,46 +430,192 @@
                     <version>${frontend-maven-plugin.version}</version>
                 </plugin>
 
-                <!-- Spotless code formatter (E18S02 — DEC-30).
-                     Scope: googleJavaFormat (AOSP) + removeUnusedImports + importOrder only.
-                     No license headers, no trailing-whitespace rules, no custom rulesets —
-                     narrow start per DEC-30 § Decision #6. Any scope addition requires a
-                     DEC-30 amendment.
-                     Execution: spotless:check binds to verify phase; developers run
-                     spotless:apply locally before committing (see patterns/conventions.md). -->
+                <!-- Spotless: version pin only. Configuration and executions are in <build><plugins>
+                     directly — not in <pluginManagement> — to prevent Maven's POM-merge from
+                     truncating multi-line <content> strings in <execution><configuration> elements.
+                     Version properties: spotless-maven-plugin.version (2.44.x) and
+                     google-java-format.version (1.19.x) pinned above (DEC-30). -->
                 <plugin>
                     <groupId>com.diffplug.spotless</groupId>
                     <artifactId>spotless-maven-plugin</artifactId>
                     <version>${spotless-maven-plugin.version}</version>
-                    <configuration>
-                        <java>
-                            <googleJavaFormat>
-                                <version>${google-java-format.version}</version>
-                                <style>AOSP</style>
-                                <reflowLongStrings>true</reflowLongStrings>
-                            </googleJavaFormat>
-                            <removeUnusedImports/>
-                            <importOrder/>
-                        </java>
-                    </configuration>
-                    <executions>
-                        <execution>
-                            <id>spotless-check</id>
-                            <phase>verify</phase>
-                            <goals><goal>check</goal></goals>
-                        </execution>
-                    </executions>
                 </plugin>
 
             </plugins>
         </pluginManagement>
 
-        <!-- Activate Spotless in all modules via parent-POM inheritance (DEC-30).
-             spotless:check runs at verify; spotless:apply is the manual fix command. -->
+        <!-- Activate Spotless in all modules via parent-POM inheritance (DEC-30; DEC-76).
+             Configuration is defined here in <build><plugins> (not in <pluginManagement>)
+             to prevent Maven's POM-merge from truncating multi-line <content> strings.
+             spotless:check binds to verify phase via 4 named executions (one per file-type
+             group). Developers run spotless:apply@<execution-id> per group, or use the
+             helper invocation documented in patterns/conventions.md. -->
         <plugins>
             <plugin>
                 <groupId>com.diffplug.spotless</groupId>
                 <artifactId>spotless-maven-plugin</artifactId>
+                <executions>
+
+                    <!-- Execution 1 (DEC-30 + DEC-76 D1): Java — googleJavaFormat (AOSP)
+                         + SPDX licenseHeader (//) applied globally to the Java formatter.
+                         Scope: googleJavaFormat (AOSP) + removeUnusedImports + importOrder.
+                         Delimiter matches first non-header code line in a Java source file. -->
+                    <execution>
+                        <id>spotless-java</id>
+                        <phase>verify</phase>
+                        <goals><goal>check</goal></goals>
+                        <configuration>
+                            <java>
+                                <googleJavaFormat>
+                                    <version>${google-java-format.version}</version>
+                                    <style>AOSP</style>
+                                    <reflowLongStrings>true</reflowLongStrings>
+                                </googleJavaFormat>
+                                <removeUnusedImports/>
+                                <importOrder/>
+                            </java>
+                            <licenseHeader>
+                                <content>// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
+</content>
+                                <delimiter>(package|import|public|class|module)</delimiter>
+                            </licenseHeader>
+                        </configuration>
+                    </execution>
+
+                    <!-- Execution 2 (DEC-76 D1/D3): Svelte, HTML, Mustache.
+                         Comment syntax: HTML block comment (DEC-76 D2).
+                         Delimiter: first real tag or Mustache expression; supports
+                         case-insensitive <!doctype (HTML5) and leading whitespace in partials.
+                         AC2: handoff/ excluded (tool templates, not first-party source). -->
+                    <execution>
+                        <id>spotless-html-like</id>
+                        <phase>verify</phase>
+                        <goals><goal>check</goal></goals>
+                        <configuration>
+                            <licenseHeader>
+                                <content><![CDATA[<!--
+  SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+  SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+]]></content>
+                                <delimiter>(\s*(?i)&lt;!DOCTYPE|\s*&lt;html|\s*&lt;script|\s*&lt;style|\s*&lt;[a-zA-Z]|\s*\{|\s*\{\{)</delimiter>
+                            </licenseHeader>
+                            <formats>
+                                <format>
+                                    <includes>
+                                        <include>**/*.svelte</include>
+                                    </includes>
+                                    <excludes>
+                                        <exclude>**/node_modules/**</exclude>
+                                        <exclude>**/target/**</exclude>
+                                        <exclude>**/dist/**</exclude>
+                                        <exclude>**/dist-timer/**</exclude>
+                                        <exclude>**/dist-display/**</exclude>
+                                    </excludes>
+                                </format>
+                                <format>
+                                    <includes>
+                                        <include>**/*.html</include>
+                                    </includes>
+                                    <excludes>
+                                        <exclude>**/node_modules/**</exclude>
+                                        <exclude>**/target/**</exclude>
+                                        <exclude>**/dist/**</exclude>
+                                        <exclude>**/dist-timer/**</exclude>
+                                        <exclude>**/dist-display/**</exclude>
+                                        <exclude>**/handoff/**</exclude>
+                                    </excludes>
+                                </format>
+                                <format>
+                                    <includes>
+                                        <include>**/*.mustache</include>
+                                    </includes>
+                                    <excludes>
+                                        <exclude>**/target/**</exclude>
+                                        <exclude>**/handoff/**</exclude>
+                                    </excludes>
+                                </format>
+                            </formats>
+                        </configuration>
+                    </execution>
+
+                    <!-- Execution 3 (DEC-76 D1/D3): TypeScript and JavaScript.
+                         Comment syntax: double-slash (DEC-76 D2).
+                         AC2: *.d.ts (type declarations), *.svelte.ts (Svelte generated stubs),
+                         *.config.ts / *.config.js (build config), handoff/ excluded.
+                         dist variants: dist/, dist-timer/, dist-display/ all excluded (AC2). -->
+                    <execution>
+                        <id>spotless-ts-js</id>
+                        <phase>verify</phase>
+                        <goals><goal>check</goal></goals>
+                        <configuration>
+                            <licenseHeader>
+                                <content>// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
+</content>
+                                <delimiter>(import|export|const|let|var|function|class|interface|type|describe|it|test|@|"use strict")</delimiter>
+                            </licenseHeader>
+                            <formats>
+                                <format>
+                                    <includes>
+                                        <include>**/*.ts</include>
+                                        <include>**/*.js</include>
+                                    </includes>
+                                    <excludes>
+                                        <exclude>**/node_modules/**</exclude>
+                                        <exclude>**/target/**</exclude>
+                                        <exclude>**/dist/**</exclude>
+                                        <exclude>**/dist-timer/**</exclude>
+                                        <exclude>**/dist-display/**</exclude>
+                                        <exclude>**/*.d.ts</exclude>
+                                        <exclude>**/*.svelte.ts</exclude>
+                                        <exclude>**/*.config.ts</exclude>
+                                        <exclude>**/*.config.js</exclude>
+                                        <exclude>**/handoff/**</exclude>
+                                    </excludes>
+                                </format>
+                            </formats>
+                        </configuration>
+                    </execution>
+
+                    <!-- Execution 4 (DEC-76 D1/D3): CSS.
+                         Comment syntax: CSS block comment (DEC-76 D2).
+                         Delimiter: first non-whitespace, non-comment-syntax line — i.e., a real
+                         CSS rule or at-rule. This avoids the delimiter matching the /* comment
+                         start of the license header itself (which would make Spotless treat the
+                         header region as always-empty and never insert the header). -->
+                    <execution>
+                        <id>spotless-css</id>
+                        <phase>verify</phase>
+                        <goals><goal>check</goal></goals>
+                        <configuration>
+                            <licenseHeader>
+                                <content><![CDATA[/*
+ * SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+]]></content>
+                                <delimiter>([^/\*\s])</delimiter>
+                            </licenseHeader>
+                            <formats>
+                                <format>
+                                    <includes>
+                                        <include>**/*.css</include>
+                                    </includes>
+                                    <excludes>
+                                        <exclude>**/node_modules/**</exclude>
+                                        <exclude>**/target/**</exclude>
+                                        <exclude>**/dist/**</exclude>
+                                        <exclude>**/dist-timer/**</exclude>
+                                        <exclude>**/dist-display/**</exclude>
+                                    </excludes>
+                                </format>
+                            </formats>
+                        </configuration>
+                    </execution>
+
+                </executions>
             </plugin>
 
             <!--

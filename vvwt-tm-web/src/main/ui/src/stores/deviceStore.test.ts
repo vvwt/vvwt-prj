@@ -1,15 +1,5 @@
-/**
- * Unit tests for deviceStore (E06S05, E07S03, E49S01).
- *
- * Verifies:
- * - Store exports the expected API functions
- * - API functions make the correct HTTP calls (mocked fetch)
- * - de.json contains all device translation keys (AC11)
- * - E07S03: configureDisplayDevice, removeDevice, getDisplayLimit (AC3, AC4, AC5)
- * - E07S03: de.json contains all display device and filter translation keys (AC9)
- * - E49S01: assignDevice with pin, resetPinLock, renameDevice (AC5, AC6, AC11)
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import deMessages from '../locales/de.json';
 

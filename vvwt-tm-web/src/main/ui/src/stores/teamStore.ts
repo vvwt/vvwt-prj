@@ -1,12 +1,5 @@
-/**
- * Team management state and API functions for the Tournament Manager Admin SPA.
- *
- * Story E05S05 — AC6, AC7, AC8, AC9: team grid view with inline editing.
- *
- * All API functions use `apiFetch` from api.ts to include browser-cached basic-auth
- * credentials (E05S02 AC7).
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { apiFetch } from '../lib/api.js';
 
 // ─────────────────────────────────────────────────────────────────

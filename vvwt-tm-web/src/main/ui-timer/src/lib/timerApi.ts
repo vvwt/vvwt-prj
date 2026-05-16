@@ -1,23 +1,5 @@
-/**
- * Timer data API client (E11S03 AC5, AC6).
- *
- * Fetches timer data from the E26S03 endpoint:
- *   GET /api/timer/tournaments/{tournamentId}
- *
- * Error classification (AC6):
- *   - 404 INVALID_TIMER_URL  → InvalidTimerUrlError  ("Timer not found")
- *   - 404 NO_ACTIVE_TOURNAMENT → NoActiveTournamentError ("No active tournament")
- *   - 200 emptySchedule=true   → NoScheduleConfiguredError ("No schedule configured")
- *   - Network / other non-2xx  → NetworkError
- *
- * No authentication header is sent — the endpoint is public per E11S02 AC6a.
- */
-
-// ---------------------------------------------------------------------------
-// Types — mirroring E11S02 TimerDataResponse JSON shape
-// ---------------------------------------------------------------------------
-
-/** A single entry in the timer schedule: either a match round or a break. */
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 export interface TimerScheduleEntry {
   /** Discriminator: 'ROUND' for a match round, 'BREAK' for a pause. */
   type: 'ROUND' | 'BREAK';

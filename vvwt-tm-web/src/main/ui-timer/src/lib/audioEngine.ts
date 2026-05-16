@@ -1,20 +1,5 @@
-/**
- * Audio engine for the VVWT Timer SPA (E11S04).
- *
- * Responsibilities:
- *  - Preload HTMLAudioElement per category from server URLs (AC1)
- *  - Track load status per category (loaded / loading / error) (AC8)
- *  - Play, pause, stop audio; handle missing elements gracefully
- *  - Enforce pause-music behavior: start at break start, cut at break end (AC4)
- *
- * Uses plain HTMLAudioElement (no Web Audio API). The AudioContext unlock
- * is handled by ClockSyncDialog (user gesture on page load per E11S03 story note).
- *
- * All methods are no-ops when the corresponding element is not loaded (AC8 resilience).
- */
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 export type AudioCategory = 'START' | 'END' | 'PAUSE';
 
 export type AudioLoadStatus = 'idle' | 'loading' | 'loaded' | 'error';

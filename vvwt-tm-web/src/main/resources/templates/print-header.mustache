@@ -1,20 +1,6 @@
 <!--
-  print-header.mustache — shared Mustache partial for all print pages.
-
-  E08S07 AC5, AC8:
-  - Displays tournament name, date, and (optionally) phase name at the top of every printed page.
-  - All text sourced from i18n keys (via PrintController model attributes — AC8).
-  - Included via the print-header partial in any print page template.
-
-  Required model attributes (populated by PrintController):
-    tournamentName       — tournament description (e.g. "VVW Hallenturnier 2026")
-    tournamentDate       — formatted date string (dd.MM.yyyy) or empty string
-    msgTournamentLabel   — i18n label for "Tournament"
-    msgDateLabel         — i18n label for "Date"
-
-  Optional model attributes:
-    phaseName            — phase description; rendered only if non-empty
-    msgPhaseLabel        — i18n label for "Phase"; rendered only if phaseName present
+  SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+  SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 <header class="print-header">
     <div class="print-header__tournament-name">{{tournamentName}}</div>

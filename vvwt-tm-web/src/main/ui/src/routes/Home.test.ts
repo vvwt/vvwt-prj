@@ -1,13 +1,5 @@
-/**
- * Tests for Home route — Story E47S02.
- *
- * AC3: In-page <h1> gone; title registered via pageHeader store (home.heading key).
- * AC7: Action-area empty; tournament-name slot empty (top-level route).
- * AC11: Header title sourced from de.json#home.heading (not home.title).
- *
- * RED-first per DEC-22: tests fail before migration (Home.svelte still has <h1> in main).
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect } from 'vitest';
 import deMessages from '../locales/de.json';
 

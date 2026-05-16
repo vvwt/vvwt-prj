@@ -1,33 +1,5 @@
-/**
- * Display API client for the display SPA (E07S05, E07S07).
- *
- * Typed fetch functions for the three display overview endpoints (E07S04) and the
- * device registration/status endpoints (E07S02, E07S07):
- *   - POST /api/devices/register         — register a DISPLAY device (E07S07 AC1)
- *   - GET  /api/devices/status?token=    — poll device status + configuration (E07S07 AC3, AC5)
- *   - GET  /api/display/overview?token=  — current phase overview (E07S04 AC1)
- *   - GET  /api/display/overview/matches?token=[&lap=] — matches (E07S04 AC2)
- *   - GET  /api/display/overview/groups?token= — group standings (E07S04 AC3)
- *
- * Error classification for overview endpoints (E07S05 AC9):
- *   - 401 → UnauthorizedError (device token invalid; show re-register message)
- *   - 404 → NoActivePhaseError (no active tournament; show no-phase message)
- *   - other non-2xx → ApiError (generic error; show retry button)
- *
- * Error classification for registration/status endpoints (E07S07):
- *   - 429 → DeviceLimitError (registration limit reached; AC6)
- *   - 404 from status poll → DeviceRemovedError (device deleted by admin; AC7)
- *   - other non-2xx → ApiError
- *
- * DEC-16 / AC8 offline compatibility: all endpoints are served by the local TM instance
- * over LAN; no external calls are made by this module.
- *
- * localStorage key constant (AC11):
- * The key 'vvwt_device_token' is written by E07S07 (registerDisplayDevice / writeDeviceToken)
- * and read by E07S05 (readDeviceToken). One key, two modules.
- */
-
-/** localStorage key for the display device token (AC11). Written by E07S07, read by E07S05. */
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 export const DEVICE_TOKEN_STORAGE_KEY = 'vvwt_device_token';
 
 /** Device type identifier for DISPLAY devices sent to POST /api/devices/register (AC1). */

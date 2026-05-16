@@ -1,20 +1,5 @@
-/**
- * API client for tournament audio file management (E11S06).
- *
- * Wraps the E26S03 REST endpoints (canonical Wave-2 URL-schema per Brief v1.1 D-10):
- *   GET    /api/audio/tournaments/{id}          — list uploaded files
- *   POST   /api/audio/tournaments/{id}/{cat}    — upload (or replace) file
- *   DELETE /api/audio/tournaments/{id}/{cat}    — delete file
- *
- * Upload uses XMLHttpRequest instead of fetch to expose upload progress (AC2).
- * All authenticated endpoints rely on browser-cached basic-auth via same-origin credentials
- * (consistent with the existing `apiFetch` pattern in `lib/api.ts`).
- *
- * @see AudioController  (Java, E26S03)
- * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest}
- */
-
-/** Mirrors AudioCategory enum on the server (E11S01). */
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 export type AudioCategory = 'START' | 'END' | 'PAUSE';
 
 /** Mirrors AudioMetadataResponse DTO (E11S01). */
