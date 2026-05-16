@@ -67,8 +67,8 @@ public interface PhaseTransitionService {
      * <p>Acquires a per-tournament pessimistic DB row-lock (DEC-37 Clause B) as the first read.
      * Persists {@link TeamAvatar} entities for {@code toPhaseId}, then invokes match generation via
      * {@code PhasePreparationService.generateMatches(toPhaseId, gameMode)}. For {@code
-     * gameMode=siegerehrung}, the No-op generator bean (E48S02) handles match generation — no
-     * matches are created.
+     * gameMode=awardCeremony} (renamed from siegerehrung by E58S04), the No-op generator bean
+     * (E48S02) handles match generation — no matches are created.
      *
      * @param toPhaseId the UUID of the target phase
      * @param assignments the final (admin-corrected) team-to-(group, position) assignments

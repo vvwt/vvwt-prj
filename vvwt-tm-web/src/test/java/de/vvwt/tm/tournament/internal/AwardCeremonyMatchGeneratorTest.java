@@ -14,41 +14,42 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Unit tests for {@link SiegerehrungMatchGenerator} — AC-TEST-SIEGEREHRUNG-GENERATOR-RED.
+ * Unit tests for {@link AwardCeremonyMatchGenerator} — AC-TEST-AWARD-CEREMONY-GENERATOR-RED.
  *
- * <p>RED-first per DEC-22 Iron Law: tests were written before the production class existed.
+ * <p>RED-first per DEC-22 Iron Law: tests were written before the production class existed
+ * (originally as {@code SiegerehrungMatchGeneratorTest}; renamed by E58S04 — DEC-73 D-7).
  *
  * <h2>DEC-36 same-package test typing</h2>
  *
  * <p>This test class resides in {@code de.vvwt.tm.tournament.internal} — the SAME package as {@link
- * SiegerehrungMatchGenerator}. Per DEC-36, same-package tests MAY reference the implementation
+ * AwardCeremonyMatchGenerator}. Per DEC-36, same-package tests MAY reference the implementation
  * class directly (white-box). The test exercises both the {@link MatchGenerator} interface contract
  * and the implementation-specific no-op behaviour.
  *
- * @see SiegerehrungMatchGenerator
+ * @see AwardCeremonyMatchGenerator
  * @see MatchGenerator
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
  * @see <a href="DEC-36">DEC-36 — cross-package test typing (same-package: white-box permitted)</a>
- * @see <a href="E48S02">E48S02 — AC-TEST-SIEGEREHRUNG-GENERATOR-RED</a>
+ * @see <a href="DEC-73">DEC-73 — D-7: siegerehrung → awardCeremony rename</a>
  */
-@DisplayName("SiegerehrungMatchGenerator — unit tests (AC-TEST-SIEGEREHRUNG-GENERATOR-RED)")
-class SiegerehrungMatchGeneratorTest {
+@DisplayName("AwardCeremonyMatchGenerator — unit tests (AC-TEST-AWARD-CEREMONY-GENERATOR-RED)")
+class AwardCeremonyMatchGeneratorTest {
 
-    private SiegerehrungMatchGenerator generator;
+    private AwardCeremonyMatchGenerator generator;
 
     @BeforeEach
     void setUp() {
-        generator = new SiegerehrungMatchGenerator();
+        generator = new AwardCeremonyMatchGenerator();
     }
 
     // -------------------------------------------------------------------------
-    // AC1 (E58S01) — getKeyId() returns "siegerehrung"
+    // AC3 (E58S04) — getKeyId() returns "awardCeremony"
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("getKeyId returns 'siegerehrung' (AC1, E58S01)")
-    void getKeyId_returnsSiegerehrung() {
-        assertThat(generator.getKeyId()).isEqualTo("siegerehrung");
+    @DisplayName("getKeyId returns 'awardCeremony' (AC3, E58S04 / DEC-73 D-7)")
+    void getKeyId_returnsAwardCeremony() {
+        assertThat(generator.getKeyId()).isEqualTo("awardCeremony");
     }
 
     // -------------------------------------------------------------------------
@@ -57,7 +58,7 @@ class SiegerehrungMatchGeneratorTest {
 
     @Test
     @DisplayName(
-            "isLastPhaseGenerator returns true — siegerehrung is the terminal phase (AC2, E58S01)")
+            "isLastPhaseGenerator returns true — awardCeremony is the terminal phase (AC2, E58S01)")
     void isLastPhaseGenerator_returnsTrue() {
         assertThat(generator.isLastPhaseGenerator()).isTrue();
     }

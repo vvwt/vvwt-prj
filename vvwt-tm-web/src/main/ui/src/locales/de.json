@@ -196,7 +196,7 @@
   "draftConfig": {
     "gameMode": {
       "roundRobin": "RoundRobin",
-      "siegerehrung": "Siegerehrung"
+      "awardCeremony": "Siegerehrung"
     },
     "distributionMode": {
       "label": "Verteilungsmodus",
@@ -204,7 +204,7 @@
       "round_robin": "Reihum (Legacy)"
     },
     "errors": {
-      "lastPhaseMustBeSiegerehrung": "Die letzte Phase muss den Spielmodus Siegerehrung haben.",
+      "lastPhaseMustBeAwardCeremony": "Die letzte Phase muss den Spielmodus Siegerehrung haben.",
       "firstPhaseMustBeTeamNumber": "Die erste Phase muss die Sortiermethode Teamnummer haben."
     },
     "rundenzeit": {

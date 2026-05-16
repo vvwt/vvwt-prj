@@ -72,7 +72,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <h2>E51S18 — DEC-59 operationalization: uniform avatar persistence (Clauses A + B + D + E)</h2>
  *
  * <p>Step (d2) persists structural {@link TeamAvatar} placeholders for EVERY phase at apply-time,
- * including siegerehrung (DEC-59 Clause A: N avatars per phase uniformly). ALL avatars have {@code
+ * including awardCeremony (DEC-59 Clause A: N avatars per phase uniformly). ALL avatars have {@code
  * teamId = null} regardless of phase (DEC-59 Clause B: universal NULL — Phase 1 carve-out removed).
  * {@code DraftSection.distributionMode} determines the {@code (groupNumber, groupPosition)} layout
  * (DEC-59 Clause D). Delete-and-recreate idempotency: existing avatars for each phase are deleted
@@ -80,7 +80,8 @@ import org.springframework.transaction.annotation.Transactional;
  * publication, no match generation in this step (E51S03 scope). E55S06 (DEC-64 D-5/Option C): step
  * (d3) MatchGenJobScheduledEvent publication removed; phase_lifecycle_job row-insertion and
  * worker-drain are handled by {@code DraftApplicationOrchestrator} in the {@code phaselifecycle}
- * module (OrchestratorStepB skips L3 for siegerehrung per DEC-59 Clause F).
+ * module (OrchestratorStepB skips L3 for awardCeremony per DEC-59 Clause F; key renamed from {@code
+ * siegerehrung} by E58S04 — DEC-73 D-7).
  *
  * <h2>DRAFT-precondition (E48S22, AC-IMPL-PHASES-EXIST-GUARD-REMOVED)</h2>
  *
@@ -273,12 +274,12 @@ public class DefaultDraftService implements DraftService {
      *       draft.error.notInDraftStatus}).
      *   <li>(c) Invariant validation: {@link
      *       de.vvwt.tm.tournament.draft.DraftConfig#validateFirstPhaseTeamNumber()} + {@link
-     *       de.vvwt.tm.tournament.draft.DraftConfig#validateLastPhaseSiegerehrung()}.
+     *       de.vvwt.tm.tournament.draft.DraftConfig#validateLastPhaseAwardCeremony()}.
      *   <li>(d) Phase record creation: one Phase per section in PENDING status; PhaseBreak entities
      *       for intra-phase breaks.
-     *   <li>(d2) Structural TeamAvatar persistence (E51S02, DEC-55 D-1): for every non-siegerehrung
-     *       phase, structural avatars are created with {@code (phaseId, groupNumber,
-     *       groupPosition)} populated. Phase 1: {@code teamId} populated from {@code
+     *   <li>(d2) Structural TeamAvatar persistence (E51S02, DEC-55 D-1): for every
+     *       non-awardCeremony phase, structural avatars are created with {@code (phaseId,
+     *       groupNumber, groupPosition)} populated. Phase 1: {@code teamId} populated from {@code
      *       participate=true} teams. Phase 2+: {@code teamId = null} (structural placeholder).
      *       Delete-and-recreate idempotency. No event publication, no match generation (E51S03
      *       scope).
@@ -323,8 +324,8 @@ public class DefaultDraftService implements DraftService {
         config.validateSortTypeMembership(sortCalculatorRegistry.knownKeys());
         // AC-IMPL-FIRST-PHASE-INVARIANT (E48S16): first phase must have sortType=team_number
         config.validateFirstPhaseTeamNumber();
-        // AC-IMPL-LAST-PHASE-INVARIANT (E48S01): D-10 — last phase must be siegerehrung
-        config.validateLastPhaseSiegerehrung();
+        // AC-IMPL-LAST-PHASE-INVARIANT (E48S01): D-10 — last phase must be awardCeremony
+        config.validateLastPhaseAwardCeremony();
 
         // Step (d): Phase record creation (PENDING status)
         List<UUID> createdPhaseIds = new ArrayList<>();
@@ -625,23 +626,23 @@ public class DefaultDraftService implements DraftService {
      * + B, E51S18; amends DEC-55 D-1, E51S02).
      *
      * <p><b>DEC-59 Clause A:</b> Exactly {@code N} avatars are persisted per phase, where {@code N
-     * = participatingTeams.size()}. This applies uniformly to Phase 1, Phase 2+, and siegerehrung.
+     * = participatingTeams.size()}. This applies uniformly to Phase 1, Phase 2+, and awardCeremony.
      * The previous formula {@code groupCount × ceil(N/groupCount)} for Phase 2+ and {@code 0
-     * avatars for siegerehrung} are superseded.
+     * avatars for awardCeremony} are superseded.
      *
      * <p><b>DEC-59 Clause B:</b> {@code teamId = NULL} universally at apply-time for ALL phases
      * including Phase 1. The previous DEC-55 D-1 carve-out "Phase 1 MAY be populated immediately"
      * is removed. teamId population happens exclusively via the operator-confirmation workflow
      * ({@link DefaultPhaseTransitionService#commitTransition(UUID, List)}, DEC-59 Clause C).
      *
-     * <p><b>Siegerehrung (DEC-59 Clause A):</b> siegerehrung phases receive {@code N} rank-slot
+     * <p><b>AwardCeremony (DEC-59 Clause A):</b> awardCeremony phases receive {@code N} rank-slot
      * avatars ({@code groupNumber=1, groupPosition=1..N}). The lifecycle (PENDING → PREPARED) runs
-     * via vacuous L1+L2 execution — {@link SiegerehrungMatchGenerator} returns an empty match list;
-     * L2 processes empty input as a no-op; {@code
+     * via vacuous L1+L2 execution — {@link AwardCeremonyMatchGenerator} returns an empty match
+     * list; L2 processes empty input as a no-op; {@code
      * PhaseLifecycleService.transition("match-gen-done")} advances to PREPARED (DEC-59 Clause E).
      *
      * <p><b>distributionMode (DEC-59 Clause D):</b> {@code DraftSection.distributionMode} (E51S15)
-     * determines the structural {@code (groupNumber, groupPosition)} layout for non-siegerehrung
+     * determines the structural {@code (groupNumber, groupPosition)} layout for non-awardCeremony
      * phases. Does NOT affect teamId (which is always NULL per Clause B). The same branching logic
      * is used in {@link DefaultPhaseTransitionService#computePhase1Proposals} for proposal
      * computation — layout and proposal must use the same algorithm so that {@code
@@ -680,16 +681,17 @@ public class DefaultDraftService implements DraftService {
         // FK CASCADE on match + team_avatar_rating means this is safe inside the TX.
         jdbcTemplate.update("DELETE FROM team_avatar WHERE phase_id = ?", phaseId);
 
-        // E58S01 DEC-73 D-5: gameMode is now a String; use "siegerehrung".equals() (null-safe,
+        // E58S04 DEC-73 D-7: gameMode key renamed "siegerehrung" → "awardCeremony"
+        // E58S01 DEC-73 D-5: gameMode is now a String; use "awardCeremony".equals() (null-safe,
         // constant on left per DEC-59 string comparison convention)
-        if ("siegerehrung".equals(section.getGameMode())) {
-            // DEC-59 Clause A: siegerehrung receives N rank-slot avatars (one per participating
+        if ("awardCeremony".equals(section.getGameMode())) {
+            // DEC-59 Clause A: awardCeremony receives N rank-slot avatars (one per participating
             // team). Structural identity: groupNumber=1, groupPosition=1..N (rank slot).
             // DEC-59 Clause B: teamId=NULL (populated via Clause C operator-confirmation only).
-            // DEC-59 Clause E: siegerehrung phase also gets a phase_lifecycle_job row (enqueued
+            // DEC-59 Clause E: awardCeremony phase also gets a phase_lifecycle_job row (enqueued
             // by DraftApplicationOrchestrator.applyDraft() after apply() returns — E55S06 Option
             // C);
-            // OrchestratorStepB skips L3 for siegerehrung (DEC-59 Clause F).
+            // OrchestratorStepB skips L3 for awardCeremony (DEC-59 Clause F).
             List<TeamAvatar> avatars = new ArrayList<>(teamCount);
             for (int i = 0; i < teamCount; i++) {
                 TeamAvatar avatar = buildAvatar(tournamentId, phaseId, 1, i + 1);
@@ -788,11 +790,12 @@ public class DefaultDraftService implements DraftService {
      */
     private DraftPreviewSection computePreview(
             DraftSection section, int participatingTeamCount, int fieldCount) {
-        // Siegerehrung branch (E48S09, AC-IMPL-COMPUTE-PREVIEW-SIEGEREHRUNG-BRANCH):
-        // SiegerehrungMatchGenerator.generate() returns emptyList() at runtime (E48S02) →
+        // AwardCeremony branch (E48S09, AC-IMPL-COMPUTE-PREVIEW-SIEGEREHRUNG-BRANCH):
+        // AwardCeremonyMatchGenerator.generate() returns emptyList() at runtime (E48S02) →
         // preview returns 0 matches/laps. Breaks and sectionBreak preserved for ceremony pause.
-        // E58S01 DEC-73 D-5: gameMode is now a String; use "siegerehrung".equals() (null-safe)
-        if ("siegerehrung".equals(section.getGameMode())) {
+        // E58S04 DEC-73 D-7: gameMode key renamed "siegerehrung" → "awardCeremony"
+        // E58S01 DEC-73 D-5: gameMode is now a String; use "awardCeremony".equals() (null-safe)
+        if ("awardCeremony".equals(section.getGameMode())) {
             int intraPhaseBreakTime =
                     section.getBreaks().stream().mapToInt(DraftBreak::getDurationMinutes).sum();
             int estimatedTimeMinutes = intraPhaseBreakTime + section.getSectionBreakTimeMinutes();

@@ -82,7 +82,7 @@ class PhaseTransitionControllerIT {
     private UUID tournamentId;
     private UUID fromPhaseId;
     private UUID toPhaseRoundRobinId;
-    private UUID toSiegerehrungPhaseId;
+    private UUID toAwardCeremonyPhaseId;
     private UUID teamId1;
     private UUID teamId2;
     private UUID avatarFromId1;
@@ -90,13 +90,13 @@ class PhaseTransitionControllerIT {
     // E51S06: structural placeholder avatars in toPhases (teamId=NULL, set by commitTransition)
     private UUID avatarToRoundRobinId1;
     private UUID avatarToRoundRobinId2;
-    private UUID avatarToSiegerehrungId1;
-    private UUID avatarToSiegerehrungId2;
+    private UUID avatarToAwardCeremonyId1;
+    private UUID avatarToAwardCeremonyId2;
 
     /**
      * Draft JSON with 3 sections: - section 1: team_number, roundRobin - section 2: team_number,
      * roundRobin (toPhaseRoundRobinId) - section 3: team_number, siegerehrung
-     * (toSiegerehrungPhaseId)
+     * (toAwardCeremonyPhaseId)
      */
     private static final String DRAFT_JSON =
             "{"
@@ -110,7 +110,7 @@ class PhaseTransitionControllerIT {
                     + "   \"lapBreakTimeMinutes\": 0, \"sectionBreakTimeMinutes\": 0,"
                     + "   \"lapTimeMinutes\": 15, \"setQuantity\": 3, \"breaks\": []},"
                     + "  {\"sectionNumber\": 3, \"sortType\": \"team_number\","
-                    + "   \"groupCount\": 1, \"gameMode\": \"siegerehrung\","
+                    + "   \"groupCount\": 1, \"gameMode\": \"awardCeremony\","
                     + "   \"lapBreakTimeMinutes\": 0, \"sectionBreakTimeMinutes\": 0,"
                     + "   \"lapTimeMinutes\": 15, \"setQuantity\": 3, \"breaks\": []}"
                     + "]"
@@ -175,11 +175,11 @@ class PhaseTransitionControllerIT {
 
         // toPhase for siegerehrung (sequenceNumber=3)
         // E51S06: status=PREPARED — commitTransition requires PREPARED → ASSIGNED transition
-        toSiegerehrungPhaseId = UUID.randomUUID();
+        toAwardCeremonyPhaseId = UUID.randomUUID();
         jdbcTemplate.update(
                 "INSERT INTO phase (id, tournament_id, sequence_number, description, status,"
                         + " current_lap_number) VALUES (?, ?, ?, ?, ?, ?)",
-                toSiegerehrungPhaseId,
+                toAwardCeremonyPhaseId,
                 tournamentId,
                 3,
                 "Siegerehrung",
@@ -271,25 +271,25 @@ class PhaseTransitionControllerIT {
                 1,
                 LocalDateTime.now());
 
-        // E51S06: structural placeholder avatars in toSiegerehrungPhaseId (teamId=NULL)
+        // E51S06: structural placeholder avatars in toAwardCeremonyPhaseId (teamId=NULL)
         // siegerehrung has no matches (no-op generator), so no match INSERT needed here.
-        avatarToSiegerehrungId1 = UUID.randomUUID();
+        avatarToAwardCeremonyId1 = UUID.randomUUID();
         jdbcTemplate.update(
                 "INSERT INTO team_avatar (id, tournament_id, phase_id, team_id, group_number,"
                         + " group_position, created_at) VALUES (?, ?, ?, NULL, ?, ?, ?)",
-                avatarToSiegerehrungId1,
+                avatarToAwardCeremonyId1,
                 tournamentId,
-                toSiegerehrungPhaseId,
+                toAwardCeremonyPhaseId,
                 1,
                 1,
                 LocalDateTime.now());
-        avatarToSiegerehrungId2 = UUID.randomUUID();
+        avatarToAwardCeremonyId2 = UUID.randomUUID();
         jdbcTemplate.update(
                 "INSERT INTO team_avatar (id, tournament_id, phase_id, team_id, group_number,"
                         + " group_position, created_at) VALUES (?, ?, ?, NULL, ?, ?, ?)",
-                avatarToSiegerehrungId2,
+                avatarToAwardCeremonyId2,
                 tournamentId,
-                toSiegerehrungPhaseId,
+                toAwardCeremonyPhaseId,
                 1,
                 2,
                 LocalDateTime.now());
@@ -433,7 +433,7 @@ class PhaseTransitionControllerIT {
     @DisplayName(
             "POST transition-commit — siegerehrung phase → 200, TeamAvatars persisted, no Matches"
                     + " (AC-TEST-COMMIT-TRANSITION-SIEGEREHRUNG-RED)")
-    void postTransitionCommit_siegerehrung_returns200AndPersistsAvatarsButNoMatches()
+    void postTransitionCommit_awardCeremony_returns200AndPersistsAvatarsButNoMatches()
             throws Exception {
         // DEC-59 Clause C precondition: commitTransition on Phase 3 (siegerehrung) requires
         // Phase 2 (predecessor, sequenceNumber=2) to be in COMPLETED status.
@@ -447,7 +447,7 @@ class PhaseTransitionControllerIT {
             tenantBinder.unbind();
         }
 
-        // Given: assignment for toSiegerehrungPhaseId (groupCount=1, 2 teams)
+        // Given: assignment for toAwardCeremonyPhaseId (groupCount=1, 2 teams)
         String body =
                 "["
                         + "{\"teamId\":\""
@@ -463,7 +463,7 @@ class PhaseTransitionControllerIT {
                                 new URI(
                                         baseUrl
                                                 + "/api/phases/"
-                                                + toSiegerehrungPhaseId
+                                                + toAwardCeremonyPhaseId
                                                 + "/transition-commit"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .body(body);
@@ -481,7 +481,7 @@ class PhaseTransitionControllerIT {
                     jdbcTemplate.queryForObject(
                             "SELECT COUNT(*) FROM team_avatar WHERE phase_id = ?",
                             Integer.class,
-                            toSiegerehrungPhaseId);
+                            toAwardCeremonyPhaseId);
             assertThat(avatarCount)
                     .as("2 TeamAvatars must be persisted for siegerehrung toPhase")
                     .isEqualTo(2);
@@ -491,7 +491,7 @@ class PhaseTransitionControllerIT {
                     jdbcTemplate.queryForObject(
                             "SELECT COUNT(*) FROM match WHERE phase_id = ?",
                             Integer.class,
-                            toSiegerehrungPhaseId);
+                            toAwardCeremonyPhaseId);
             assertThat(matchCount)
                     .as(
                             "No Matches must be created for siegerehrung phase"

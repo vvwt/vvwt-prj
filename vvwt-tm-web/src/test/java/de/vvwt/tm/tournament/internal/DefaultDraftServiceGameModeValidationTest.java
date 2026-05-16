@@ -80,8 +80,8 @@ class DefaultDraftServiceGameModeValidationTest {
         when(tournamentRepository.findById(tournamentId)).thenReturn(Optional.of(tournament));
         when(tournamentRepository.findByIdForUpdate(tournamentId)).thenReturn(tournament);
 
-        // MatchGeneratorRegistry knows only "roundRobin" and "siegerehrung"
-        when(matchGeneratorRegistry.knownIds()).thenReturn(Set.of("roundRobin", "siegerehrung"));
+        // MatchGeneratorRegistry knows only "roundRobin" and "awardCeremony"
+        when(matchGeneratorRegistry.knownIds()).thenReturn(Set.of("roundRobin", "awardCeremony"));
         // E58S02: distributorRegistry knows "sequential" and "round_robin"
         // lenient because tests that fail at gameMode validation don't reach distributor validation
         lenient()
@@ -148,7 +148,7 @@ class DefaultDraftServiceGameModeValidationTest {
         DraftSection unknownSection =
                 new DraftSection(2, "group_placement", 1, "unknownMode", 0, 0, 15, 1, List.of());
         DraftSection sieg =
-                new DraftSection(3, "group_placement", 1, "siegerehrung", 0, 0, 15, 1, List.of());
+                new DraftSection(3, "group_placement", 1, "awardCeremony", 0, 0, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(rrSection, unknownSection, sieg));
 
         assertThatThrownBy(() -> service.apply(tournamentId, config))

@@ -221,7 +221,7 @@ class DraftApplicationOrchestratorIT {
                         tournamentId);
         assertThat(gameModes.get(0)).isEqualToIgnoringCase("roundRobin");
         assertThat(gameModes.get(1)).isEqualToIgnoringCase("roundRobin");
-        assertThat(gameModes.get(2)).isEqualToIgnoringCase("siegerehrung");
+        assertThat(gameModes.get(2)).isEqualToIgnoringCase("awardCeremony");
     }
 
     /**
@@ -314,7 +314,7 @@ class DraftApplicationOrchestratorIT {
         DraftSection s2 =
                 new DraftSection(2, "team_number", 2, "roundRobin", 0, 0, 12, 1, List.of());
         DraftSection s3 =
-                new DraftSection(3, "team_number", 1, "siegerehrung", 0, 0, 5, 1, List.of());
+                new DraftSection(3, "team_number", 1, "awardCeremony", 0, 0, 5, 1, List.of());
         return new DraftConfig(List.of(s1, s2, s3));
     }
 }

@@ -33,16 +33,16 @@ import org.springframework.transaction.annotation.Transactional;
  * transaction, acquiring the per-tournament pessimistic row-lock per DEC-37 Clause B. This
  * serializes concurrent T-step-A executions for the same tournament.
  *
- * <h2>Siegerehrung handling (DEC-59 Clause E)</h2>
+ * <h2>AwardCeremony handling (DEC-59 Clause E; key renamed from siegerehrung by E58S04)</h2>
  *
  * <p>The {@code gameMode} parameter is sourced from the already-committed job row (set at enqueue
- * time). When {@code gameMode="siegerehrung"}, L1 is invoked with the {@code "siegerehrung"}
+ * time). When {@code gameMode="awardCeremony"}, L1 is invoked with the {@code "awardCeremony"}
  * generator key (producing 0 matches). L2 is a no-op (0 matches). The PENDING→PREPARED transition
  * proceeds normally.
  *
  * <p>Authorizing decisions: DEC-37 Clause B, DEC-55 D-3, DEC-56 D-1 (L1+L2 always run), DEC-59
- * Clause E, DEC-64 D-12, DEC-66 D-2, AC-IMPL-LAST-JOB-STATE-STEP-A-DONE-OPTIMIZE-TRUE-QUEUED,
- * AC-IMPL-LAST-JOB-STATE-STEP-A-DONE-OPTIMIZE-FALSE-OR-SIEGEREHRUNG.
+ * Clause E, DEC-64 D-12, DEC-66 D-2, DEC-73 D-7, AC-IMPL-LAST-JOB-STATE-STEP-A-DONE-OPTIMIZE-
+ * TRUE-QUEUED, AC-IMPL-LAST-JOB-STATE-STEP-A-DONE-OPTIMIZE-FALSE-OR-AWARD-CEREMONY.
  *
  * @since E55S04
  * @updated E55S08 (inject {@link PhaseRepository}; write {@code slot_opt_queued} or {@code idle} at
@@ -56,13 +56,16 @@ class DefaultOrchestratorStepAExecutor implements OrchestratorStepAExecutor {
     private static final Logger LOG =
             LoggerFactory.getLogger(DefaultOrchestratorStepAExecutor.class);
 
-    /** Written when optimize=TRUE AND non-siegerehrung — per DEC-66 D-2 row 3. */
+    /** Written when optimize=TRUE AND non-awardCeremony — per DEC-66 D-2 row 3. */
     static final String SLOT_OPT_QUEUED = "slot_opt_queued";
 
-    /** Written at step-A terminal paths (optimize=FALSE or siegerehrung) — per DEC-66 D-2 row 2. */
+    /**
+     * Written at step-A terminal paths (optimize=FALSE or awardCeremony) — per DEC-66 D-2 row 2.
+     */
     static final String IDLE = "idle";
 
-    static final String SIEGEREHRUNG_GAME_MODE = "siegerehrung";
+    /** Registry key for the award-ceremony generator (renamed from siegerehrung by E58S04). */
+    static final String AWARD_CEREMONY_GAME_MODE = "awardCeremony";
 
     private final TournamentRepository tournamentRepository;
     private final PhasePreparationService phasePreparationService;
@@ -98,10 +101,10 @@ class DefaultOrchestratorStepAExecutor implements OrchestratorStepAExecutor {
      *   <li>DEC-37 Clause B: {@code findByIdForUpdate(tournamentId)} — acquires per-tournament
      *       pessimistic row-lock as the FIRST DB read.
      *   <li>L1: {@link PhasePreparationService#generateMatches(UUID, String)} with the job's {@code
-     *       gameMode} as the generator key (supports "roundRobin", "siegerehrung", etc.).
+     *       gameMode} as the generator key (supports "roundRobin", "awardCeremony", etc.).
      *   <li>Resolve {@code fieldCount} (tournament.fieldCount with fallback per DEC-55 D-13).
      *   <li>L2: {@link RoundAssignmentService#assignRoundsAndFields(UUID, int)} — a no-op if 0
-     *       matches (siegerehrung / DEC-56 D-1 vacuous case).
+     *       matches (awardCeremony / DEC-56 D-1 vacuous case).
      *   <li>Advance phase lifecycle: {@code PENDING → PREPARED} via {@code "match-gen-done"}.
      * </ol>
      *
@@ -140,7 +143,7 @@ class DefaultOrchestratorStepAExecutor implements OrchestratorStepAExecutor {
         }
 
         // Step 4 (L2): assign rounds and fields
-        // DEC-56 D-1 + siegerehrung: if 0 matches, assignRoundsAndFields is a no-op
+        // DEC-56 D-1 + awardCeremony: if 0 matches, assignRoundsAndFields is a no-op
         roundAssignmentService.assignRoundsAndFields(phaseId, resolvedFieldCount);
 
         // Step 5: transition phase PENDING → PREPARED
@@ -148,17 +151,17 @@ class DefaultOrchestratorStepAExecutor implements OrchestratorStepAExecutor {
 
         // Step 6 (DEC-66 D-2, AC-IMPL-LAST-JOB-STATE-STEP-A-DONE): write lastJobState at step-A
         // terminal.
-        // optimize=TRUE AND non-siegerehrung → slot_opt_queued (step-B will be enqueued by
+        // optimize=TRUE AND non-awardCeremony → slot_opt_queued (step-B will be enqueued by
         // orchestrator)
-        // optimize=FALSE OR siegerehrung → idle (terminal: no step-B enqueued)
+        // optimize=FALSE OR awardCeremony → idle (terminal: no step-B enqueued)
         // E55S09 H-B structural fix (DEFENSE-IN-DEPTH per AC-FIX-H-B-ORCHESTRATOR-STEP-A-COLUMN-
         // SCOPED): use column-scoped updateLastJobState instead of findById+setLastJobState+save.
         // This call-site is already structurally protected by the preceding transition() guard at
         // step 5 (which throws IllegalStateException on a non-PENDING phase, rolling back the TX
         // before this write executes). The fix is DEFENSE-IN-DEPTH: eliminates the latent producer
         // surface if the transition-guard upstream is ever weakened.
-        boolean isSiegerehrung = SIEGEREHRUNG_GAME_MODE.equalsIgnoreCase(gameMode);
-        boolean stepBWillBeEnqueued = tournament.isOptimize() && !isSiegerehrung;
+        boolean isAwardCeremony = AWARD_CEREMONY_GAME_MODE.equalsIgnoreCase(gameMode);
+        boolean stepBWillBeEnqueued = tournament.isOptimize() && !isAwardCeremony;
         String stepADoneState = stepBWillBeEnqueued ? SLOT_OPT_QUEUED : IDLE;
         // Column-scoped write: UPDATE phase SET last_job_state=? WHERE id=?
         phaseRepository.updateLastJobState(phaseId, stepADoneState);

@@ -244,11 +244,11 @@ class OrchestratorLastJobStateIT {
     @DisplayName(
             "DEC-66 D-2: siegerehrung → last_job_state='idle' after step-A (no step-B)"
                     + " (AC-TEST-LAST-JOB-STATE-SIEGEREHRUNG-IDLE-RED)")
-    void siegerehrungLastJobStateIsIdleAfterStepA() {
-        tournamentId = insertTournament(true, "siegerehrung");
+    void awardCeremonyLastJobStateIsIdleAfterStepA() {
+        tournamentId = insertTournament(true, "awardCeremony");
         phaseId = insertPhase(tournamentId);
         // No teams needed — siegerehrung produces 0 matches
-        jobRepository.enqueueJob(new PhaseLifecycleJob(tournamentId, phaseId, "siegerehrung", 1));
+        jobRepository.enqueueJob(new PhaseLifecycleJob(tournamentId, phaseId, "awardCeremony", 1));
 
         jobDrainService.drainNext(tournamentId);
 

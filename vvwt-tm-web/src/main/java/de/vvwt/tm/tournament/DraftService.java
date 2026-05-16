@@ -74,7 +74,7 @@ public interface DraftService {
      *   <li>Acquires per-tournament row-lock as the FIRST read (DEC-37 Clause B).
      *   <li>DRAFT-precondition check (→ {@link
      *       de.vvwt.tm.tournament.exceptions.TournamentNotInDraftException} if not DRAFT).
-     *   <li>Invariant validation (first-phase team_number, last-phase siegerehrung).
+     *   <li>Invariant validation (first-phase team_number, last-phase awardCeremony).
      *   <li>Phase record creation (one per section, PENDING status, no TeamAvatars).
      *   <li>Persists {@code draft_json} to the tournament row.
      *   <li>Delegates DRAFT→PLANNED to {@link

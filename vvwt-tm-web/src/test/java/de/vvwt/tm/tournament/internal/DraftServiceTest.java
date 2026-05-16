@@ -134,12 +134,13 @@ class DraftServiceTest {
                         matchGeneratorRegistry, // E58S01 AC6: registry-membership validation
                         distributorRegistry, // E58S02 AC4/AC6: distributor registry dispatch
                         sortCalculatorRegistry); // E58S03 AC6: sortType membership validation
-        // Stub: registry knows "roundRobin" and "siegerehrung" — used by saveDraft()/apply() paths.
+        // Stub: registry knows "roundRobin" and "awardCeremony" — used by saveDraft()/apply()
+        // paths.
         // lenient() because preview_* tests do not invoke knownIds() and would trigger
         // UnnecessaryStubbingException with strict Mockito mode.
         lenient()
                 .when(matchGeneratorRegistry.knownIds())
-                .thenReturn(Set.of("roundRobin", "siegerehrung"));
+                .thenReturn(Set.of("roundRobin", "awardCeremony"));
         // E58S02: distributorRegistry knows "sequential" and "round_robin"
         lenient()
                 .when(distributorRegistry.knownKeys())
@@ -191,13 +192,13 @@ class DraftServiceTest {
      */
     private static DraftSection lastSection(int sectionNumber) {
         return new DraftSection(
-                sectionNumber, "team_number", 1, "siegerehrung", 0, 0, 15, 1, List.of());
+                sectionNumber, "team_number", 1, "awardCeremony", 0, 0, 15, 1, List.of());
     }
 
     private static DraftSection sectionWithBreak(int sectionNumber) {
         DraftBreak breakItem = new DraftBreak(1, 10, "Pause");
         return new DraftSection(
-                sectionNumber, "team_number", 1, "siegerehrung", 0, 0, 15, 1, List.of(breakItem));
+                sectionNumber, "team_number", 1, "awardCeremony", 0, 0, 15, 1, List.of(breakItem));
     }
 
     // -------------------------------------------------------------------------
@@ -597,7 +598,7 @@ class DraftServiceTest {
      * AC-TEST-COMPUTE-PREVIEW-SIEGEREHRUNG-ZERO-RED: siegerehrung gameMode → 0 matches, 0 laps, 0
      * totalMatches; estimatedTimeMinutes = intra-phase breaks + sectionBreakTimeMinutes only.
      *
-     * <p>Fixture: gameMode="siegerehrung", groupCount=1, lapTimeMinutes=15,
+     * <p>Fixture: gameMode="awardCeremony", groupCount=1, lapTimeMinutes=15,
      * sectionBreakTimeMinutes=30, lapBreakTimeMinutes=2, breaks=[10min, 5min].
      *
      * <p>Expected estimatedTimeMinutes = 10 + 5 + 30 = 45 (lapTime=0, interLapBreaks=0).
@@ -606,7 +607,7 @@ class DraftServiceTest {
      * added to computePreview.
      */
     @Test
-    void preview_siegerehrung_section_returnsZeroMatchesAndPreservesBreakTime() {
+    void preview_awardCeremony_section_returnsZeroMatchesAndPreservesBreakTime() {
         DraftBreak break1 = new DraftBreak(1, 10, "Pause 1");
         DraftBreak break2 = new DraftBreak(2, 5, "Pause 2");
         DraftSection section =
@@ -614,7 +615,7 @@ class DraftServiceTest {
                         1,
                         "team_number",
                         1,
-                        "siegerehrung",
+                        "awardCeremony",
                         2, // lapBreakTimeMinutes
                         30, // sectionBreakTimeMinutes
                         15, // lapTimeMinutes
@@ -649,8 +650,8 @@ class DraftServiceTest {
      * matches=6, laps=ceil(6/2)=3. estimatedTimeMinutes = 15*3 + 0 + 0 + 0 = 45.
      *
      * <p>RED-first per DEC-22 Iron Law (E48S09, Q-1a): null gameMode triggers NPE on {@code
-     * "siegerehrung".equals(section.getGameMode())} ONLY if implemented as {@code
-     * section.getGameMode().equals("siegerehrung")} — using the literal first makes the NPE
+     * "awardCeremony".equals(section.getGameMode())} ONLY if implemented as {@code
+     * section.getGameMode().equals("awardCeremony")} — using the literal first makes the NPE
      * impossible. This test verifies the fall-through behavior for defensive completeness.
      */
     @Test
@@ -736,7 +737,7 @@ class DraftServiceTest {
         DraftSection rrSection =
                 new DraftSection(1, "team_number", 1, "roundRobin", 2, 10, 15, 1, List.of());
         DraftSection sieg =
-                new DraftSection(2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, List.of());
+                new DraftSection(2, "team_number", 1, "awardCeremony", 0, 0, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(rrSection, sieg));
 
         // Stub: when the service is called for any phase list at the given start time,

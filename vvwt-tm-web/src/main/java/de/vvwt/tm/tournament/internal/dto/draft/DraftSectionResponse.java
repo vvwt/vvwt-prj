@@ -20,7 +20,8 @@ import java.util.List;
  *
  * <p>{@link #gameMode} is now a plain {@code String} (registry key) instead of the removed {@code
  * GameMode} enum. Jackson serializes it as a JSON string directly. Wire-format is preserved: the
- * same String values ({@code "siegerehrung"}, {@code "roundRobin"}) flow through the API as before.
+ * same String values ({@code "awardCeremony"}, {@code "roundRobin"}) flow through the API as
+ * before.
  *
  * @see DraftResponse
  * @see DraftBreakResponse
@@ -35,7 +36,7 @@ public record DraftSectionResponse(
         String sortType,
         int groupCount,
         /**
-         * Game mode registry key for this phase (e.g., {@code "siegerehrung"}, {@code
+         * Game mode registry key for this phase (e.g., {@code "awardCeremony"}, {@code
          * "roundRobin"}). Serialized to JSON as a plain String.
          *
          * <p>Migrated from {@code GameMode} enum to {@code String} by E58S01 (DEC-73 D-5).

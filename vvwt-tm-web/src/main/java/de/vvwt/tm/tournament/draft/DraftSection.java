@@ -37,10 +37,10 @@ import java.util.Set;
  *
  * <p>{@link #gameMode} is now a {@code String} registry key instead of the removed {@code GameMode}
  * enum. Jackson deserializes it natively as a String. Known values at runtime: {@code
- * "roundRobin"}, {@code "siegerehrung"} — validated against {@link
+ * "roundRobin"}, {@code "awardCeremony"} — validated against {@link
  * de.vvwt.tm.tournament.MatchGeneratorRegistry} at draft save and apply time (AC6). JSON
- * wire-format is unchanged: the same String values {@code "siegerehrung"} and {@code "roundRobin"}
- * flow through the API as before.
+ * wire-format updated by E58S04: {@code "siegerehrung"} renamed to {@code "awardCeremony"} (DEC-73
+ * D-7).
  *
  * @see DraftConfig
  * @see DraftBreak
@@ -72,10 +72,10 @@ public final class DraftSection {
     private final int groupCount;
 
     /**
-     * Game mode registry key for this phase (e.g., {@code "roundRobin"}, {@code "siegerehrung"}).
+     * Game mode registry key for this phase (e.g., {@code "roundRobin"}, {@code "awardCeremony"}).
      *
      * <p>The last phase in a draft MUST use the registry key of the last-phase generator (i.e.,
-     * {@code "siegerehrung"} — enforced at apply time via {@link
+     * {@code "awardCeremony"} — enforced at apply time via {@link
      * de.vvwt.tm.tournament.internal.DefaultDraftService#apply}). Registry-membership validation
      * occurs at save and apply time (AC6, E58S01).
      *
@@ -122,7 +122,7 @@ public final class DraftSection {
      * @param sectionNumber ordering within the draft (≥ 1)
      * @param sortType team-entry sort strategy
      * @param groupCount number of groups (≥ 1)
-     * @param gameMode game mode registry key (e.g., {@code "roundRobin"}, {@code "siegerehrung"});
+     * @param gameMode game mode registry key (e.g., {@code "roundRobin"}, {@code "awardCeremony"});
      *     must not be {@code null} or blank; validated against the registry at save/apply time
      *     (AC6)
      * @param lapBreakTimeMinutes pause between laps (≥ 0)
@@ -167,7 +167,7 @@ public final class DraftSection {
      * @param sectionNumber ordering within the draft (≥ 1)
      * @param sortType team-entry sort strategy
      * @param groupCount number of groups (≥ 1)
-     * @param gameMode game mode registry key (e.g., {@code "roundRobin"}, {@code "siegerehrung"})
+     * @param gameMode game mode registry key (e.g., {@code "roundRobin"}, {@code "awardCeremony"})
      * @param lapBreakTimeMinutes pause between laps (≥ 0)
      * @param sectionBreakTimeMinutes pause after section (≥ 0)
      * @param lapTimeMinutes lap duration in minutes (> 0)
@@ -307,10 +307,11 @@ public final class DraftSection {
 
     /**
      * Returns the game mode registry key for this phase (e.g., {@code "roundRobin"}, {@code
-     * "siegerehrung"}).
+     * "awardCeremony"}).
      *
      * <p>Migrated from returning {@code GameMode} enum to returning {@code String} by E58S01
-     * (DEC-73 D-5). Wire-format is unchanged — the same String values flow through the JSON API.
+     * (DEC-73 D-5). Wire-format updated by E58S04: {@code "siegerehrung"} renamed to {@code
+     * "awardCeremony"} (DEC-73 D-7).
      *
      * @return the game mode registry key; never {@code null}
      * @see <a href="E58S01">E58S01 — AC5 GameMode enum removed</a>

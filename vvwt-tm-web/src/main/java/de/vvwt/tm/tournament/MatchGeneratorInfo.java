@@ -18,7 +18,7 @@ package de.vvwt.tm.tournament;
  * </ul>
  *
  * @param keyId the registry key identifying the generator (e.g., {@code "roundRobin"}, {@code
- *     "siegerehrung"}); non-null, non-empty
+ *     "awardCeremony"}); non-null, non-empty
  * @param isLastPhaseGenerator {@code true} if this generator is intended for the terminal (last)
  *     phase of a tournament; {@code false} otherwise
  * @see MatchGenerator#getKeyId()

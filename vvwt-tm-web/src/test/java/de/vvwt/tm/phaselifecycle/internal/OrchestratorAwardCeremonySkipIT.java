@@ -25,16 +25,20 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * RED-first IT for siegerehrung-phase siegerehrung L3-skip — AC-TEST-SIEGEREHRUNG-SKIP-SLOTOPT-RED.
+ * RED-first IT for award-ceremony-phase L3-skip — AC-TEST-AWARD-CEREMONY-SKIP-SLOTOPT-RED.
+ *
+ * <p>Renamed from {@code OrchestratorSiegerehrungSkipIT} by E58S04 (DEC-73 D-7).
  *
  * <p>DEC-22 Iron Law: RED before GREEN. At RED time, {@code drainNext()} throws {@code
- * UnsupportedOperationException}. GREEN state: siegerehrung phase is PREPARED, optimized=FALSE, no
+ * UnsupportedOperationException}. GREEN state: awardCeremony phase is PREPARED, optimized=FALSE, no
  * matches, and {@code SlotOptimizationClient.optimize()} is NOT invoked.
  *
- * <p>The tournament's {@code draftJson} contains one section with {@code gameMode="siegerehrung"}.
- * Per DEC-59 Clause F, the orchestrator skips L3 for siegerehrung phases.
+ * <p>The tournament's {@code draftJson} contains one section with {@code gameMode="awardCeremony"}.
+ * Per DEC-59 Clause F (literal updated by E58S04 per DEC-73 D-7), the orchestrator skips L3 for
+ * awardCeremony phases.
  *
- * <p>Authorizing decisions: DEC-22 (RED-first), DEC-44, DEC-59 Clause F, DEC-55 D-6, DEC-64 D-12.
+ * <p>Authorizing decisions: DEC-22 (RED-first), DEC-44, DEC-59 Clause F, DEC-55 D-6, DEC-64 D-12,
+ * DEC-73 D-7.
  *
  * @since E55S04
  */
@@ -42,17 +46,17 @@ import org.springframework.test.context.ActiveProfiles;
         classes = TournamentManagerApplication.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
         properties = {
-            "spring.datasource.url=jdbc:h2:mem:orchestratorsiegit;DB_CLOSE_DELAY=-1"
+            "spring.datasource.url=jdbc:h2:mem:orchestratorawardit;DB_CLOSE_DELAY=-1"
                     + ";DB_CLOSE_ON_EXIT=FALSE;CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
-@Import({TenantContextTestSupport.class, OrchestratorSiegerehrungSkipIT.SlotOptConfig.class})
-@DisplayName("OrchestratorSiegerehrungSkipIT — AC-TEST-SIEGEREHRUNG-SKIP-SLOTOPT-RED (E55S04)")
-class OrchestratorSiegerehrungSkipIT {
+@Import({TenantContextTestSupport.class, OrchestratorAwardCeremonySkipIT.SlotOptConfig.class})
+@DisplayName("OrchestratorAwardCeremonySkipIT — AC-TEST-AWARD-CEREMONY-SKIP-SLOTOPT-RED (E55S04)")
+class OrchestratorAwardCeremonySkipIT {
 
     /**
      * SlotOptimizationClient that throws AssertionError if called — SlotOpt must NOT be invoked for
-     * siegerehrung phases (DEC-59 Clause F). If the test reaches its assertions without this bean
+     * awardCeremony phases (DEC-59 Clause F). If the test reaches its assertions without this bean
      * throwing, the contract is satisfied.
      */
     @TestConfiguration
@@ -64,7 +68,7 @@ class OrchestratorSiegerehrungSkipIT {
             return phaseId -> {
                 throw new AssertionError(
                         "SlotOptimizationClient.optimize() must NOT be called"
-                                + " for siegerehrung phase (DEC-59 Clause F)");
+                                + " for awardCeremony phase (DEC-59 Clause F)");
             };
         }
     }
@@ -87,11 +91,11 @@ class OrchestratorSiegerehrungSkipIT {
         jdbcTemplate.update(
                 "INSERT INTO locations (id, display_name) VALUES (?, ?)",
                 locationId,
-                "Sieg IT Location");
+                "Award IT Location");
 
-        // Build draftJson with one siegerehrung section
+        // Build draftJson with one awardCeremony section (renamed from siegerehrung by E58S04)
         String draftJson =
-                "{\"sections\":[{\"name\":\"Siegerehrung\",\"gameMode\":\"siegerehrung\","
+                "{\"sections\":[{\"name\":\"Award Ceremony\",\"gameMode\":\"awardCeremony\","
                         + "\"groupCount\":1,\"teamCount\":4,\"distributionMode\":\"MANUAL\"}]}";
 
         tournamentId = UUID.randomUUID();
@@ -102,7 +106,7 @@ class OrchestratorSiegerehrungSkipIT {
                         + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 tournamentId,
                 locationId,
-                "Siegerehrung IT Tournament",
+                "Award Ceremony IT Tournament",
                 "BEST_OF_3",
                 "setPoints",
                 "standardVolleyball",
@@ -111,7 +115,7 @@ class OrchestratorSiegerehrungSkipIT {
                 LocalDateTime.now(),
                 2,
                 4,
-                true, // optimize=true, but siegerehrung bypasses L3
+                true, // optimize=true, but awardCeremony bypasses L3
                 draftJson);
 
         phaseId = UUID.randomUUID();
@@ -121,13 +125,13 @@ class OrchestratorSiegerehrungSkipIT {
                         + " VALUES (?, ?, ?, ?, ?, ?, ?)",
                 phaseId,
                 tournamentId,
-                1, // sequenceNumber=1 → index 0 in draftJson.sections → "siegerehrung"
-                "Siegerehrung Phase",
+                1, // sequenceNumber=1 → index 0 in draftJson.sections → "awardCeremony"
+                "Award Ceremony Phase",
                 "PENDING",
                 0,
                 false);
 
-        // Insert team_avatars for siegerehrung phase (required even if no matches generated)
+        // Insert team_avatars for awardCeremony phase (required even if no matches generated)
         for (int i = 1; i <= 4; i++) {
             UUID teamId = UUID.randomUUID();
             jdbcTemplate.update(
@@ -152,7 +156,7 @@ class OrchestratorSiegerehrungSkipIT {
                     teamId);
         }
 
-        jobRepository.enqueueJob(new PhaseLifecycleJob(tournamentId, phaseId, "siegerehrung", 1));
+        jobRepository.enqueueJob(new PhaseLifecycleJob(tournamentId, phaseId, "awardCeremony", 1));
     }
 
     @AfterEach
@@ -177,12 +181,14 @@ class OrchestratorSiegerehrungSkipIT {
     }
 
     /**
-     * AC-TEST-SIEGEREHRUNG-SKIP-SLOTOPT-RED: siegerehrung phase completes with no matches,
+     * AC-TEST-AWARD-CEREMONY-SKIP-SLOTOPT-RED: awardCeremony phase completes with no matches,
      * phase.optimized=FALSE, phase.status=PREPARED. SlotOptimizationClient is NOT invoked.
      */
     @Test
-    @DisplayName("siegerehrung phase: PREPARED, optimized=FALSE, no matches, SlotOpt not called")
-    void siegerehrungPhaseSkipsSlotOpt() {
+    @DisplayName(
+            "awardCeremony phase: PREPARED, optimized=FALSE, no matches, SlotOpt not called"
+                    + " (AC4, E58S04)")
+    void awardCeremonyPhaseSkipsSlotOpt() {
         // When
         jobDrainService.drainNext(tournamentId);
 
@@ -203,14 +209,14 @@ class OrchestratorSiegerehrungSkipIT {
         Boolean optimized =
                 jdbcTemplate.queryForObject(
                         "SELECT optimized FROM phase WHERE id = ?", Boolean.class, phaseId);
-        assertThat(optimized).as("phase optimized must be false for siegerehrung").isFalse();
+        assertThat(optimized).as("phase optimized must be false for awardCeremony").isFalse();
 
-        // Then: no matches (siegerehrung L1 returns empty list, L2 is vacuous)
+        // Then: no matches (awardCeremony L1 returns empty list, L2 is vacuous)
         Integer matchCount =
                 jdbcTemplate.queryForObject(
                         "SELECT COUNT(*) FROM match WHERE phase_id = ?", Integer.class, phaseId);
         assertThat(matchCount)
-                .as("siegerehrung phase must have 0 matches (DEC-59 Clause E)")
+                .as("awardCeremony phase must have 0 matches (DEC-59 Clause E)")
                 .isEqualTo(0);
 
         // Then: SlotOptimizationClient.optimize() was NOT invoked (verify via AssertionError spy)

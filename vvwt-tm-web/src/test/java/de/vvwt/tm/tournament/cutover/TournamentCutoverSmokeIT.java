@@ -191,7 +191,7 @@ class TournamentCutoverSmokeIT {
                             1, "team_number", 1, "roundRobin", 0, 0, 15, 1, null, null);
             var section2 =
                     new DraftSectionRequest(
-                            2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, null, null);
+                            2, "team_number", 1, "awardCeremony", 0, 0, 15, 1, null, null);
             var draftRequest = new DraftRequest(List.of(section1, section2));
             ResponseEntity<DraftApplyResponse> draftResp =
                     authed.postForEntity(
