@@ -8,6 +8,8 @@ import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.PhaseTransitionService;
 import de.vvwt.tm.tournament.RefereeAssigner;
 import de.vvwt.tm.tournament.Team;
+import de.vvwt.tm.tournament.Team2AvatarDistributorRegistry;
+import de.vvwt.tm.tournament.Team2AvatarSlot;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarProposal;
 import de.vvwt.tm.tournament.TeamAvatarRatingRepository;
@@ -15,7 +17,6 @@ import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
-import de.vvwt.tm.tournament.draft.DistributionMode;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftSection;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
@@ -104,6 +105,7 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
     private final TeamRepository teamRepository;
     private final RefereeAssigner refereeAssigner;
     private final PhaseLifecycleService phaseLifecycleService;
+    private final Team2AvatarDistributorRegistry distributorRegistry;
 
     public DefaultPhaseTransitionService(
             @Qualifier("tmTournamentRepository") TournamentRepository tournamentRepository,
@@ -113,7 +115,9 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
             ObjectMapper objectMapper,
             @Qualifier("tmTeamRepository") TeamRepository teamRepository,
             @Qualifier("tmRefereeAssigner") RefereeAssigner refereeAssigner,
-            @Qualifier("tmPhaseLifecycleService") PhaseLifecycleService phaseLifecycleService) {
+            @Qualifier("tmPhaseLifecycleService") PhaseLifecycleService phaseLifecycleService,
+            @Qualifier("tmTeam2AvatarDistributorRegistry")
+                    Team2AvatarDistributorRegistry distributorRegistry) {
         this.tournamentRepository = tournamentRepository;
         this.phaseRepository = phaseRepository;
         this.teamAvatarRepository = teamAvatarRepository;
@@ -122,6 +126,7 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
         this.teamRepository = teamRepository;
         this.refereeAssigner = refereeAssigner;
         this.phaseLifecycleService = phaseLifecycleService;
+        this.distributorRegistry = distributorRegistry;
     }
 
     // -------------------------------------------------------------------------
@@ -354,40 +359,21 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
         int groupCount = toSection.getGroupCount();
         int teamCount = participating.size();
 
-        // E51S15: branch on distributionMode to compute (targetGroup, targetPosition).
-        // Mirrors the same algorithm used in DefaultDraftService.persistStructuralAvatars()
-        // for Phase 1 (DEC-9 structural identity — group+position must match avatar slots).
-        //
-        // sequential (default): fill Group 1 fully before Group 2
-        //   positionsPerGroup = ceil(teamCount / groupCount)
-        //   targetGroup = (i / positionsPerGroup) + 1
-        //   targetPosition = (i % positionsPerGroup) + 1
-        //
-        // round_robin (legacy): distribute one-per-group before advancing position
-        //   targetGroup = (i % groupCount) + 1
-        //   targetPosition = (i / groupCount) + 1
-        //
-        // AC-TEST-COMPUTE-PHASE-1-PROPOSALS-SEQUENTIAL-RED,
-        // AC-TEST-COMPUTE-PHASE-1-PROPOSALS-ROUND-ROBIN-RED
-        DistributionMode distributionMode = toSection.getDistributionMode();
-        int positionsPerGroup =
-                distributionMode == DistributionMode.ROUND_ROBIN
-                        ? 0 // unused for round_robin
-                        : (teamCount + groupCount - 1) / groupCount;
+        // E58S02: Registry dispatch for distributionMode (DEC-73 D-2).
+        // Replaces inline DistributionMode enum branching with strategy pattern lookup.
+        // The same algorithm is used in DefaultDraftService.persistStructuralAvatars()
+        // so that proposal (group, position) matches the avatar slot created at apply-time
+        // (DEC-9 structural identity for UPDATE-by-identity in commitTransition).
+        String distributionMode = toSection.getDistributionMode();
+        List<Team2AvatarSlot> slots =
+                distributorRegistry.get(distributionMode).distribute(participating, groupCount);
 
         List<TeamAvatarProposal> proposals = new ArrayList<>(teamCount);
         for (int i = 0; i < teamCount; i++) {
             Team team = participating.get(i);
-            int targetGroup;
-            int targetPosition;
-            if (distributionMode == DistributionMode.ROUND_ROBIN) {
-                targetGroup = (i % groupCount) + 1;
-                targetPosition = (i / groupCount) + 1;
-            } else {
-                // SEQUENTIAL (default) — E51S20: enum type enforces valid values
-                targetGroup = (i / positionsPerGroup) + 1;
-                targetPosition = (i % positionsPerGroup) + 1;
-            }
+            Team2AvatarSlot slot = slots.get(i);
+            int targetGroup = slot.groupNumber();
+            int targetPosition = slot.groupPosition();
 
             // E48S20 (AC-ERROR-MISSING-TEAM-DEFENSE): defense against corrupt data
             validateTeamDisplayFields(team);

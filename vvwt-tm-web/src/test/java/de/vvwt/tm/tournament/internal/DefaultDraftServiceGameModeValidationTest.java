@@ -1,6 +1,7 @@
 package de.vvwt.tm.tournament.internal;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -9,6 +10,7 @@ import de.vvwt.tm.tournament.MatchGeneratorRegistry;
 import de.vvwt.tm.tournament.PhaseBreakRepository;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.Team;
+import de.vvwt.tm.tournament.Team2AvatarDistributorRegistry;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.TimelineCalculationService;
@@ -45,6 +47,7 @@ class DefaultDraftServiceGameModeValidationTest {
 
     private TournamentRepository tournamentRepository;
     private MatchGeneratorRegistry matchGeneratorRegistry;
+    private Team2AvatarDistributorRegistry distributorRegistry;
     private DefaultDraftService service;
     private UUID tournamentId;
 
@@ -52,6 +55,7 @@ class DefaultDraftServiceGameModeValidationTest {
     void setUp() {
         tournamentRepository = mock(TournamentRepository.class);
         matchGeneratorRegistry = mock(MatchGeneratorRegistry.class);
+        distributorRegistry = mock(Team2AvatarDistributorRegistry.class);
 
         service =
                 new DefaultDraftService(
@@ -64,7 +68,8 @@ class DefaultDraftServiceGameModeValidationTest {
                         mock(TournamentLifecycleService.class),
                         mock(TeamAvatarRepository.class),
                         mock(TeamRepository.class),
-                        matchGeneratorRegistry);
+                        matchGeneratorRegistry,
+                        distributorRegistry); // E58S02 AC4/AC6
 
         tournamentId = UUID.randomUUID();
         Tournament tournament = new Tournament();
@@ -72,8 +77,13 @@ class DefaultDraftServiceGameModeValidationTest {
         when(tournamentRepository.findById(tournamentId)).thenReturn(Optional.of(tournament));
         when(tournamentRepository.findByIdForUpdate(tournamentId)).thenReturn(tournament);
 
-        // Registry knows only "roundRobin" and "siegerehrung"
+        // MatchGeneratorRegistry knows only "roundRobin" and "siegerehrung"
         when(matchGeneratorRegistry.knownIds()).thenReturn(Set.of("roundRobin", "siegerehrung"));
+        // E58S02: distributorRegistry knows "sequential" and "round_robin"
+        // lenient because tests that fail at gameMode validation don't reach distributor validation
+        lenient()
+                .when(distributorRegistry.knownKeys())
+                .thenReturn(Set.of("sequential", "round_robin"));
     }
 
     // -------------------------------------------------------------------------

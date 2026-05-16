@@ -1141,19 +1141,18 @@ class DraftControllerIT {
     }
 
     /**
-     * AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE (E51S20): PUT /draft with an unknown {@code
-     * distributionMode} wire-format value must be rejected with HTTP 400.
+     * AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE (E51S20/E58S02): PUT /draft with an unknown {@code
+     * distributionMode} value must be rejected with HTTP 400.
      *
-     * <p>RED before enum migration: currently {@code "turbo_mode"} is accepted silently as a String
-     * value (no fail-fast validation at deserialization boundary).
-     *
-     * <p>GREEN after enum migration: {@code DistributionMode.fromWireFormat("turbo_mode")} throws
-     * {@link com.fasterxml.jackson.databind.exc.InvalidFormatException} → HTTP 400.
+     * <p>E58S02 (DEC-73 D-2): {@code distributionMode} is now a plain String (not enum). Unknown
+     * values pass Jackson deserialization but are rejected at registry-membership validation in
+     * {@code DraftConfig.validateDistributionModeMembership()} → {@link IllegalArgumentException} →
+     * HTTP 400 (via {@link GlobalExceptionHandler}).
      */
     @Test
     @DisplayName(
-            "PUT /draft with unknown distributionMode wire-format value → 400 Bad Request"
-                    + " (E51S20 AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE)")
+            "PUT /draft with unknown distributionMode value → 400 Bad Request"
+                    + " (E51S20/E58S02 AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE)")
     void putDraft_unknownDistributionModeWireFormat_returns400() throws Exception {
         UUID tournamentId = createDraftTournament("IT unknown-distributionMode E51S20");
 
@@ -1181,13 +1180,12 @@ class DraftControllerIT {
                         new HttpEntity<>(rawJson, headers),
                         String.class);
 
-        // RED: currently returns 200 (unknown string silently accepted by domain defaulting
-        // fallback)
-        // GREEN: must return 400 after DistributionMode enum enforces wire-format validation
+        // E58S02: unknown distributionMode is a plain String; Jackson accepts it.
+        // Rejected by DraftConfig.validateDistributionModeMembership() → IAE → 400.
         assertThat(response.getStatusCode())
                 .as(
-                        "Unknown distributionMode wire-format must be rejected with 400 Bad Request"
-                                + " (AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE, E51S20)")
+                        "Unknown distributionMode must be rejected with 400 Bad Request"
+                                + " (AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE, E51S20/E58S02)")
                 .isEqualTo(HttpStatus.BAD_REQUEST);
     }
 

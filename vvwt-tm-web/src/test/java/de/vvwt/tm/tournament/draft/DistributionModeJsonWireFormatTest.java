@@ -1,85 +1,73 @@
 package de.vvwt.tm.tournament.draft;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 /**
- * Q-1a RED-first wire-format preservation tests for {@link DistributionMode}.
+ * Wire-format preservation tests for the {@code distributionMode} field in {@link DraftSection}.
  *
- * <p>Demonstrates that JSON round-trip preserves the external wire-format strings ({@code
- * "sequential"}, {@code "round_robin"}) and that unknown wire-format values fail-fast with a
- * deserialization exception.
+ * <p>E58S02 (DEC-73 D-2): {@code distributionMode} migrated from {@code DistributionMode} enum to
+ * plain {@code String}. This test replaces the old {@code DistributionMode} enum wire-format tests.
  *
- * <p>These tests were RED before {@code DistributionMode} was authored (AC-TEST-JSON-WIRE-FORMAT-*,
- * E51S20). They drove the {@code @JsonValue}/{@code @JsonCreator} design of the enum.
+ * <p>Verifies that JSON round-trip preserves the wire-format strings ({@code "sequential"}, {@code
+ * "round_robin"}) and that the default ({@code null}) resolves to {@code "sequential"}.
  *
- * @see DistributionMode
- * @see <a href="E51S20">E51S20 — String→Enum hygiene sweep</a>
- * @see <a href="DEC-22">DEC-22 — Q-1a fresh-RED-first for wire-format ACs</a>
+ * @see DraftSection
+ * @see <a href="E58S02">E58S02 — DistributionMode enum removed; String registry key (DEC-73
+ *     D-2)</a>
+ * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
  */
 class DistributionModeJsonWireFormatTest {
 
     private final ObjectMapper mapper = new ObjectMapper();
 
     // -------------------------------------------------------------------------
-    // Deserialization (wire-format String → enum constant)
+    // Round-trip: DraftSection JSON → getDistributionMode() → JSON
     // -------------------------------------------------------------------------
 
     @Test
-    void deserializesFromWireFormat_sequential() throws Exception {
-        // AC-TEST-JSON-WIRE-FORMAT-PRESERVED-INPUT-RED: "sequential" → SEQUENTIAL
-        String json = "\"sequential\"";
-        DistributionMode result = mapper.readValue(json, DistributionMode.class);
-        assertThat(result).isEqualTo(DistributionMode.SEQUENTIAL);
+    void wireFormat_sequential_roundTrips() throws Exception {
+        String json =
+                "{\"sectionNumber\":1,\"sortType\":\"team_number\",\"groupCount\":2,"
+                        + "\"gameMode\":\"roundRobin\",\"lapBreakTimeMinutes\":0,"
+                        + "\"sectionBreakTimeMinutes\":0,\"lapTimeMinutes\":15,\"setQuantity\":1,"
+                        + "\"breaks\":[],\"distributionMode\":\"sequential\"}";
+
+        DraftSection section = mapper.readValue(json, DraftSection.class);
+        assertThat(section.getDistributionMode()).isEqualTo("sequential");
+
+        String serialized = mapper.writeValueAsString(section);
+        assertThat(serialized).contains("\"distributionMode\":\"sequential\"");
     }
 
     @Test
-    void deserializesFromWireFormat_roundRobin() throws Exception {
-        // AC-TEST-JSON-WIRE-FORMAT-PRESERVED-INPUT-RED: "round_robin" → ROUND_ROBIN
-        String json = "\"round_robin\"";
-        DistributionMode result = mapper.readValue(json, DistributionMode.class);
-        assertThat(result).isEqualTo(DistributionMode.ROUND_ROBIN);
-    }
+    void wireFormat_roundRobin_roundTrips() throws Exception {
+        String json =
+                "{\"sectionNumber\":1,\"sortType\":\"team_number\",\"groupCount\":2,"
+                        + "\"gameMode\":\"roundRobin\",\"lapBreakTimeMinutes\":0,"
+                        + "\"sectionBreakTimeMinutes\":0,\"lapTimeMinutes\":15,\"setQuantity\":1,"
+                        + "\"breaks\":[],\"distributionMode\":\"round_robin\"}";
 
-    // -------------------------------------------------------------------------
-    // Serialization (enum constant → wire-format String)
-    // -------------------------------------------------------------------------
+        DraftSection section = mapper.readValue(json, DraftSection.class);
+        assertThat(section.getDistributionMode()).isEqualTo("round_robin");
 
-    @Test
-    void serializesToWireFormat_sequential() throws Exception {
-        // AC-TEST-JSON-WIRE-FORMAT-PRESERVED-OUTPUT-RED: SEQUENTIAL → "sequential"
-        String json = mapper.writeValueAsString(DistributionMode.SEQUENTIAL);
-        assertThat(json).isEqualTo("\"sequential\"");
+        String serialized = mapper.writeValueAsString(section);
+        assertThat(serialized).contains("\"distributionMode\":\"round_robin\"");
     }
 
     @Test
-    void serializesToWireFormat_roundRobin() throws Exception {
-        // AC-TEST-JSON-WIRE-FORMAT-PRESERVED-OUTPUT-RED: ROUND_ROBIN → "round_robin"
-        String json = mapper.writeValueAsString(DistributionMode.ROUND_ROBIN);
-        assertThat(json).isEqualTo("\"round_robin\"");
-    }
+    void wireFormat_absent_defaultsToSequential() throws Exception {
+        String jsonWithoutField =
+                "{\"sectionNumber\":1,\"sortType\":\"team_number\",\"groupCount\":2,"
+                        + "\"gameMode\":\"roundRobin\",\"lapBreakTimeMinutes\":0,"
+                        + "\"sectionBreakTimeMinutes\":0,\"lapTimeMinutes\":15,\"setQuantity\":1,"
+                        + "\"breaks\":[]}";
 
-    // -------------------------------------------------------------------------
-    // Unknown wire-format value — fail-fast (AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE)
-    // -------------------------------------------------------------------------
-
-    @Test
-    void deserialize_unknownWireFormat_throwsException() {
-        // AC-ERROR-UNKNOWN-WIRE-FORMAT-VALUE: unknown values must fail fast, not silently accept
-        assertThatThrownBy(() -> mapper.readValue("\"turbo_mode\"", DistributionMode.class))
-                .isInstanceOf(com.fasterxml.jackson.databind.exc.InvalidFormatException.class);
-    }
-
-    // -------------------------------------------------------------------------
-    // Wire-format accessor
-    // -------------------------------------------------------------------------
-
-    @Test
-    void getWireFormat_returnsExpectedStrings() {
-        assertThat(DistributionMode.SEQUENTIAL.getWireFormat()).isEqualTo("sequential");
-        assertThat(DistributionMode.ROUND_ROBIN.getWireFormat()).isEqualTo("round_robin");
+        DraftSection section = mapper.readValue(jsonWithoutField, DraftSection.class);
+        assertThat(section.getDistributionMode())
+                .as("absent distributionMode must default to 'sequential'")
+                .isEqualTo("sequential");
     }
 }

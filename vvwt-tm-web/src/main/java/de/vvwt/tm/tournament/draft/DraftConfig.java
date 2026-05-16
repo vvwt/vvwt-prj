@@ -150,4 +150,33 @@ public final class DraftConfig {
             }
         }
     }
+
+    /**
+     * Validates that all sections have a {@code distributionMode} that is a member of the given set
+     * of known registry keys (AC6, E58S02).
+     *
+     * <p>No-op if there are no sections or if {@code knownKeys} is empty.
+     *
+     * @param knownKeys the set of registered distributor key IDs; must not be {@code null}
+     * @throws IllegalArgumentException if any section has a {@code distributionMode} not in {@code
+     *     knownKeys}; the message names the unknown key
+     * @see <a href="E58S02">E58S02 — AC6 distributionMode registry-membership validation</a>
+     * @see <a href="DEC-73">DEC-73 D-2</a>
+     */
+    public void validateDistributionModeMembership(Set<String> knownKeys) {
+        for (DraftSection section : sections) {
+            String dm = section.getDistributionMode();
+            if (!knownKeys.contains(dm)) {
+                throw new IllegalArgumentException(
+                        "Section "
+                                + section.getSectionNumber()
+                                + ": distributionMode '"
+                                + dm
+                                + "' is not registered in the Team2AvatarDistributorRegistry."
+                                + " Known keys: "
+                                + String.join(", ", new java.util.TreeSet<>(knownKeys))
+                                + " (AC6, E58S02)");
+            }
+        }
+    }
 }

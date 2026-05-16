@@ -16,21 +16,22 @@ import java.util.Set;
  * <p>Inventory: E21S01 line 241. Named-interface sub-package placement by E33S04 (DEC-35 retrofit).
  * Legacy {@code de.vvwt.tm.domain.draft.DraftSection} remains active until E21S13.
  *
- * <h2>E51S15 — distributionMode (distribution_mode in draft_json)</h2>
+ * <h2>E51S15 / E58S02 — distributionMode (distribution_mode in draft_json)</h2>
  *
  * <p>{@link #distributionMode} controls how teams are distributed across groups in Phase-1 and how
  * Phase-1 proposals are computed in {@code DefaultPhaseTransitionService.computePhase1Proposals}:
  *
  * <ul>
- *   <li>{@link DistributionMode#SEQUENTIAL} (default) — fill Group 1 fully before Group 2 (group =
- *       i / positionsPerGroup + 1, position = i % positionsPerGroup + 1).
- *   <li>{@link DistributionMode#ROUND_ROBIN} (legacy) — distribute teams one-per-group before
- *       advancing to the next position (group = i % groupCount + 1, position = i / groupCount + 1).
+ *   <li>{@code "sequential"} (default) — fill Group 1 fully before Group 2 (group = i /
+ *       positionsPerGroup + 1, position = i % positionsPerGroup + 1).
+ *   <li>{@code "round_robin"} — distribute teams one-per-group before advancing to the next
+ *       position (group = i % groupCount + 1, position = i / groupCount + 1).
  * </ul>
  *
  * <p>Persistence: stored in {@code tournament.draft_json} (existing JSON column per DEC-14 H2
- * schema). No Flyway migration needed — additive JSON field. Absent field defaults to {@link
- * DistributionMode#SEQUENTIAL} via constructor null-guard.
+ * schema). No Flyway migration needed — additive JSON field. Absent field defaults to {@code
+ * "sequential"} via constructor null-guard. Migrated from {@code DistributionMode} enum to {@code
+ * String} by E58S02 (DEC-73 D-2).
  *
  * <h2>E58S01 — gameMode migrated from GameMode enum to String (DEC-73 D-5)</h2>
  *
@@ -43,10 +44,10 @@ import java.util.Set;
  *
  * @see DraftConfig
  * @see DraftBreak
- * @see DistributionMode
  * @see <a href="DEC-14">DEC-14 — H2 persistence, draft_json column (no migration)</a>
  * @see <a href="DEC-21">DEC-21 — Spring Modulith package layout</a>
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
+ * @see <a href="DEC-73">DEC-73 D-2 — DistributionMode enum removed; String registry key</a>
  * @see <a href="DEC-73">DEC-73 D-5 — GameMode enum removed; String registry key</a>
  * @see <a href="DEC-9">DEC-9 — TeamAvatar structural identity (phaseId, groupNumber,
  *     groupPosition)</a>
@@ -54,6 +55,7 @@ import java.util.Set;
  * @see <a href="E51S15">E51S15 — distributionMode feature (sequential default + round-robin
  *     toggle)</a>
  * @see <a href="E58S01">E58S01 — gameMode String migration; AC5</a>
+ * @see <a href="E58S02">E58S02 — distributionMode String migration; AC5</a>
  */
 public final class DraftSection {
 
@@ -100,16 +102,19 @@ public final class DraftSection {
     private final List<DraftBreak> breaks;
 
     /**
-     * Team distribution algorithm for Phase-1 avatar assignment.
+     * Team distribution algorithm for Phase-1 avatar assignment. Registry key string.
      *
-     * <p>Defaults to {@link DistributionMode#SEQUENTIAL} when absent/null in draft_json
-     * (AC-TEST-DEFAULT-IS-SEQUENTIAL-RED, E51S15).
+     * <p>Defaults to {@code "sequential"} when absent/null in draft_json
+     * (AC-TEST-DEFAULT-IS-SEQUENTIAL-RED, E51S15). Migrated from {@code DistributionMode} enum to
+     * {@code String} by E58S02 (DEC-73 D-2). Known values: {@code "sequential"}, {@code
+     * "round_robin"}.
      *
      * @see <a href="E51S15">E51S15 — distributionMode feature</a>
+     * @see <a href="E58S02">E58S02 — DistributionMode enum removed</a>
      * @see <a href="DEC-14">DEC-14 — persistence in draft_json JSON column (no Flyway
      *     migration)</a>
      */
-    private final DistributionMode distributionMode;
+    private final String distributionMode;
 
     /**
      * Jackson-compatible constructor.
@@ -125,8 +130,9 @@ public final class DraftSection {
      * @param lapTimeMinutes lap duration in minutes (> 0)
      * @param setQuantity sets per match (≥ 1)
      * @param breaks optional intra-phase breaks; {@code null} treated as empty
-     * @param distributionMode team distribution algorithm; {@code null} defaults to {@link
-     *     DistributionMode#SEQUENTIAL} (AC-TEST-DEFAULT-IS-SEQUENTIAL-RED, E51S15)
+     * @param distributionMode team distribution algorithm registry key; {@code null} defaults to
+     *     {@code "sequential"} (AC-TEST-DEFAULT-IS-SEQUENTIAL-RED, E51S15). Migrated from {@code
+     *     DistributionMode} enum to {@code String} by E58S02 (DEC-73 D-2).
      */
     @JsonCreator
     public DraftSection(
@@ -139,7 +145,7 @@ public final class DraftSection {
             @JsonProperty("lapTimeMinutes") int lapTimeMinutes,
             @JsonProperty("setQuantity") int setQuantity,
             @JsonProperty("breaks") List<DraftBreak> breaks,
-            @JsonProperty("distributionMode") DistributionMode distributionMode) {
+            @JsonProperty("distributionMode") String distributionMode) {
         this.sectionNumber = sectionNumber;
         this.sortType = sortType;
         this.groupCount = groupCount;
@@ -149,9 +155,8 @@ public final class DraftSection {
         this.lapTimeMinutes = lapTimeMinutes;
         this.setQuantity = setQuantity;
         this.breaks = breaks == null ? List.of() : List.copyOf(breaks);
-        // AC-TEST-DEFAULT-IS-SEQUENTIAL-RED: absent/null distributionMode → SEQUENTIAL
-        this.distributionMode =
-                (distributionMode == null) ? DistributionMode.SEQUENTIAL : distributionMode;
+        // AC-TEST-DEFAULT-IS-SEQUENTIAL-RED: absent/null distributionMode → "sequential"
+        this.distributionMode = (distributionMode == null) ? "sequential" : distributionMode;
     }
 
     /**
@@ -237,11 +242,11 @@ public final class DraftSection {
         if (setQuantity < 1) {
             throw new IllegalArgumentException("setQuantity must be ≥ 1, got: " + setQuantity);
         }
-        // distributionMode is now a typed enum — null check only (E51S20).
-        // Constructor null-guard enforces SEQUENTIAL default; explicit null is impossible
-        // after construction via @JsonCreator (DistributionMode.fromWireFormat handles unknowns).
-        if (distributionMode == null) {
-            throw new IllegalArgumentException("distributionMode must not be null");
+        // distributionMode is now a String registry key — null/blank check (E58S02 DEC-73 D-2).
+        // Constructor null-guard enforces "sequential" default; explicit null is impossible
+        // after construction via @JsonCreator since the constructor assigns the default.
+        if (distributionMode == null || distributionMode.isBlank()) {
+            throw new IllegalArgumentException("distributionMode must not be null or blank");
         }
     }
 
@@ -339,13 +344,17 @@ public final class DraftSection {
     }
 
     /**
-     * Returns the team distribution algorithm for Phase-1 avatar assignment.
+     * Returns the team distribution algorithm registry key for Phase-1 avatar assignment.
      *
-     * @return the {@link DistributionMode} enum constant; never {@code null} (defaults to {@link
-     *     DistributionMode#SEQUENTIAL} when absent/null in draft_json)
+     * <p>Migrated from returning {@code DistributionMode} enum to returning {@code String} by
+     * E58S02 (DEC-73 D-2). Known values: {@code "sequential"}, {@code "round_robin"}.
+     *
+     * @return the registry key; never {@code null} (defaults to {@code "sequential"} when
+     *     absent/null in draft_json)
      * @see <a href="E51S15">E51S15 — distributionMode feature</a>
+     * @see <a href="E58S02">E58S02 — DistributionMode enum removed</a>
      */
-    public DistributionMode getDistributionMode() {
+    public String getDistributionMode() {
         return distributionMode;
     }
 }

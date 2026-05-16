@@ -80,4 +80,16 @@ public interface TeamAvatarRepository {
      * @param avatar the avatar whose {@code teamId} and {@code id} are used
      */
     void updateTeamId(TeamAvatar avatar);
+
+    /**
+     * Persists all TeamAvatars in the given list. Inserts each avatar if new.
+     *
+     * <p>Added by E58S02 (AC7) to replace the N×{@code save(TeamAvatar)} loop in {@code
+     * persistStructuralAvatars()} with a single batch operation. Production callsite: {@code
+     * DefaultDraftService.persistStructuralAvatars()} (DEC-70 — must have a production callsite).
+     *
+     * @param avatars the list of avatars to persist; must not be {@code null}; may be empty
+     * @return the list of saved avatars, in the same order; never {@code null}
+     */
+    List<TeamAvatar> saveAll(List<TeamAvatar> avatars);
 }

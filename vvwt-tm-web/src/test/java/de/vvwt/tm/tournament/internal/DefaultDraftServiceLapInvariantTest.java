@@ -70,7 +70,8 @@ class DefaultDraftServiceLapInvariantTest {
                 Mockito.mock(de.vvwt.tm.tournament.TournamentLifecycleService.class), // E48S22
                 Mockito.mock(TeamAvatarRepository.class), // E51S02
                 Mockito.mock(TeamRepository.class), // E51S02
-                Mockito.mock(de.vvwt.tm.tournament.MatchGeneratorRegistry.class)); // E58S01 AC6
+                Mockito.mock(de.vvwt.tm.tournament.MatchGeneratorRegistry.class), // E58S01 AC6
+                Mockito.mock(de.vvwt.tm.tournament.Team2AvatarDistributorRegistry.class)); // E58S02
     }
 
     /**
