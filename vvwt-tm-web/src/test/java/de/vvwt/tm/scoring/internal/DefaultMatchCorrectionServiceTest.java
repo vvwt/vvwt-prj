@@ -585,11 +585,11 @@ class DefaultMatchCorrectionServiceTest {
      * AC-TEST-CORRECTION-ADVANCES-CURRENT-LAP-RED — TDD RED-first (E56S02, DEC-22).
      *
      * <p>ACTIVE phase with lapCount=2, currentLapNumber=1. Phase has two matches in lap 1. After
-     * the first match is terminal (incomplete lap), currentLapNumber stays 1. After the last
-     * match in lap 1 is terminal, currentLapNumber advances to 2.
+     * the first match is terminal (incomplete lap), currentLapNumber stays 1. After the last match
+     * in lap 1 is terminal, currentLapNumber advances to 2.
      *
-     * <p>This test FAILS on HEAD (correction path omits the advance entirely) and passes after
-     * the DEC-74 fix.
+     * <p>This test FAILS on HEAD (correction path omits the advance entirely) and passes after the
+     * DEC-74 fix.
      */
     @Test
     @DisplayName(
@@ -657,7 +657,8 @@ class DefaultMatchCorrectionServiceTest {
                         null,
                         LocalDateTime.now());
 
-        // findByPhaseId returns all three matches (match being corrected + sibling terminal + lap2).
+        // findByPhaseId returns all three matches (match being corrected + sibling terminal +
+        // lap2).
         // Use a SEPARATE Match instance for matchBeingCorrected in the phaseMatches list to avoid
         // shared-object mutation: the cascade may change the Match object's state via
         // match.setMatchState(derivedState) before the lap-advance guard runs.
@@ -877,7 +878,8 @@ class DefaultMatchCorrectionServiceTest {
                                         LocalDateTime.now())));
 
         MatchCorrectionResult result =
-                service.correctMatchSets(correctionInput(List.of(new SetScoreCorrection(0, 25, 10))));
+                service.correctMatchSets(
+                        correctionInput(List.of(new SetScoreCorrection(0, 25, 10))));
 
         // Last-lap finalization → sentinel 0 (DEC-74 D-4)
         assertThat(phase.getCurrentLapNumber()).isEqualTo(0);
@@ -972,8 +974,8 @@ class DefaultMatchCorrectionServiceTest {
     /**
      * AC-TEST-CORRECTION-FUTURE-LAP-NO-CHANGE-GREEN — already GREEN on HEAD.
      *
-     * <p>Completing all matches of a future lap (lapNumber &gt; currentLapNumber) does NOT pull
-     * the counter forward. Guards against a guard implementation that over-fires on a future lap.
+     * <p>Completing all matches of a future lap (lapNumber &gt; currentLapNumber) does NOT pull the
+     * counter forward. Guards against a guard implementation that over-fires on a future lap.
      */
     @Test
     @DisplayName(
@@ -1088,7 +1090,8 @@ class DefaultMatchCorrectionServiceTest {
         when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(canceledMatch));
 
         MatchCorrectionResult result =
-                service.correctMatchSets(correctionInput(List.of(new SetScoreCorrection(0, 25, 10))));
+                service.correctMatchSets(
+                        correctionInput(List.of(new SetScoreCorrection(0, 25, 10))));
 
         // CANCELED branch → audit-only, no cascade, no advance
         assertThat(result.auditOnly()).isTrue();

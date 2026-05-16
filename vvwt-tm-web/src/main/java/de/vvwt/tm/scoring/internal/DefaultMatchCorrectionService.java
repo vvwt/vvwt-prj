@@ -154,8 +154,8 @@ public class DefaultMatchCorrectionService implements MatchCorrectionService {
      *   <li>Standoff pre-check — equal setsWon on non-tie format → reject
      * </ol>
      *
-     * <p><b>DEC-74 lap-advance (Step 10):</b> After the cascade, this method conditionally
-     * advances {@code phase.currentLapNumber} — forward-only, guarded to the lap in play:
+     * <p><b>DEC-74 lap-advance (Step 10):</b> After the cascade, this method conditionally advances
+     * {@code phase.currentLapNumber} — forward-only, guarded to the lap in play:
      *
      * <ul>
      *   <li>(a) {@code match.lapNumber} is non-null; AND
@@ -163,8 +163,8 @@ public class DefaultMatchCorrectionService implements MatchCorrectionService {
      *   <li>(c) every match of the phase with that {@code lapNumber} is terminal.
      * </ul>
      *
-     * On a fire: advances to {@code lapNumber+1}, or writes sentinel {@code 0} if last lap.
-     * The counter never moves backward and never advances from a non-current lap (DEC-74 D-3).
+     * On a fire: advances to {@code lapNumber+1}, or writes sentinel {@code 0} if last lap. The
+     * counter never moves backward and never advances from a non-current lap (DEC-74 D-3).
      *
      * @param input the correction input
      * @return the correction result
