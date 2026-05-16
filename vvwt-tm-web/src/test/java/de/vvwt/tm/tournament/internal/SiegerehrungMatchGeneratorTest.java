@@ -42,13 +42,24 @@ class SiegerehrungMatchGeneratorTest {
     }
 
     // -------------------------------------------------------------------------
-    // getBeanId returns "siegerehrung"
+    // AC1 (E58S01) — getKeyId() returns "siegerehrung"
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("getBeanId returns 'siegerehrung'")
-    void getBeanId_returnsSiegerehrung() {
-        assertThat(generator.getBeanId()).isEqualTo("siegerehrung");
+    @DisplayName("getKeyId returns 'siegerehrung' (AC1, E58S01)")
+    void getKeyId_returnsSiegerehrung() {
+        assertThat(generator.getKeyId()).isEqualTo("siegerehrung");
+    }
+
+    // -------------------------------------------------------------------------
+    // AC2 (E58S01) — isLastPhaseGenerator() returns true
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName(
+            "isLastPhaseGenerator returns true — siegerehrung is the terminal phase (AC2, E58S01)")
+    void isLastPhaseGenerator_returnsTrue() {
+        assertThat(generator.isLastPhaseGenerator()).isTrue();
     }
 
     // -------------------------------------------------------------------------

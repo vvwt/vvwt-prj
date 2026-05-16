@@ -2,7 +2,6 @@ package de.vvwt.tm.tournament.internal.dto.draft;
 
 import de.vvwt.tm.tournament.draft.DistributionMode;
 import de.vvwt.tm.tournament.draft.DraftSection;
-import de.vvwt.tm.tournament.draft.GameMode;
 import java.util.List;
 
 /**
@@ -17,34 +16,34 @@ import java.util.List;
  * absent/null to {@link DistributionMode#SEQUENTIAL}). The frontend reads this value to preserve
  * the user's selection on round-trip save/load.
  *
- * <h2>E51S20 — gameMode and distributionMode as type-safe enums</h2>
+ * <h2>E58S01 — gameMode migrated from GameMode enum to String (DEC-73 D-5)</h2>
  *
- * <p>Both {@link #gameMode} and {@link #distributionMode} fields are now typed as {@link GameMode}
- * / {@link DistributionMode} enums. Jackson serializes them via {@link GameMode#getWireFormat()} /
- * {@link DistributionMode#getWireFormat()} — the JSON wire-format strings ({@code "siegerehrung"},
- * {@code "roundRobin"}, {@code "sequential"}, {@code "round_robin"}) are preserved unchanged.
+ * <p>{@link #gameMode} is now a plain {@code String} (registry key) instead of the removed {@code
+ * GameMode} enum. Jackson serializes it as a JSON string directly. Wire-format is preserved: the
+ * same String values ({@code "siegerehrung"}, {@code "roundRobin"}) flow through the API as before.
  *
  * @see DraftResponse
  * @see DraftBreakResponse
- * @see GameMode
  * @see DistributionMode
  * @see <a href="DEC-21">DEC-21 — Spring Modulith package layout</a>
  * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
  * @see <a href="E51S15">E51S15 — distributionMode feature</a>
- * @see <a href="E51S20">E51S20 — gameMode/distributionMode String→Enum migration</a>
+ * @see <a href="E58S01">E58S01 — gameMode String migration; AC5</a>
  */
 public record DraftSectionResponse(
         int sectionNumber,
         String sortType,
         int groupCount,
         /**
-         * Game mode for this phase. Serialized to JSON as the wire-format string (e.g., {@code
-         * "siegerehrung"}, {@code "roundRobin"}) via {@link GameMode#getWireFormat()}.
+         * Game mode registry key for this phase (e.g., {@code "siegerehrung"}, {@code
+         * "roundRobin"}). Serialized to JSON as a plain String.
          *
-         * @see GameMode
-         * @see <a href="E51S20">E51S20 — migrated from String to GameMode enum</a>
+         * <p>Migrated from {@code GameMode} enum to {@code String} by E58S01 (DEC-73 D-5).
+         * Wire-format unchanged.
+         *
+         * @see <a href="E58S01">E58S01 — AC5 GameMode enum removed</a>
          */
-        GameMode gameMode,
+        String gameMode,
         int lapBreakTimeMinutes,
         int sectionBreakTimeMinutes,
         int lapTimeMinutes,
@@ -59,7 +58,6 @@ public record DraftSectionResponse(
          * @see DistributionMode
          * @see de.vvwt.tm.tournament.draft.DraftSection#getDistributionMode()
          * @see <a href="E51S15">E51S15 — distributionMode feature</a>
-         * @see <a href="E51S20">E51S20 — migrated from String to DistributionMode enum</a>
          */
         DistributionMode distributionMode) {
 

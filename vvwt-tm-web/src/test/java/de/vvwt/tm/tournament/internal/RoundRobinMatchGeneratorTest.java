@@ -62,6 +62,16 @@ class RoundRobinMatchGeneratorTest extends MatchGeneratorAbstractTest {
     }
 
     @Override
+    protected String expectedKeyId() {
+        return "roundRobin";
+    }
+
+    @Override
+    protected boolean expectedIsLastPhaseGenerator() {
+        return false;
+    }
+
+    @Override
     protected Phase minimalPhase() {
         Phase p = super.minimalPhase();
         p.setTournamentId(UUID.randomUUID());
@@ -236,15 +246,6 @@ class RoundRobinMatchGeneratorTest extends MatchGeneratorAbstractTest {
                             n, e.getKey(), expectedAppearances)
                     .isEqualTo(expectedAppearances);
         }
-    }
-
-    // -------------------------------------------------------------------------
-    // getBeanId
-    // -------------------------------------------------------------------------
-
-    @Test
-    void getBeanId_returnsRoundRobin() {
-        assertThat(generator.getBeanId()).isEqualTo("roundRobin");
     }
 
     // -------------------------------------------------------------------------

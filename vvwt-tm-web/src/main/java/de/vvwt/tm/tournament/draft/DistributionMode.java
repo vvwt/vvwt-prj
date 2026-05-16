@@ -36,7 +36,6 @@ import com.fasterxml.jackson.databind.exc.InvalidFormatException;
  * </ul>
  *
  * @see DraftSection
- * @see GameMode
  * @see <a href="E51S20">E51S20 — String→Enum hygiene sweep (gameMode + distributionMode)</a>
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law, Q-1a for wire-format ACs</a>
  * @see <a href="E51S15">E51S15 — distributionMode feature (sequential default + round-robin

@@ -115,7 +115,7 @@ class PhasePreparationServiceTest {
                 .thenReturn(avatars);
 
         MatchGenerator generator = mock(MatchGenerator.class);
-        when(generator.getBeanId()).thenReturn("roundRobinNew");
+        when(generator.getKeyId()).thenReturn("roundRobinNew");
         when(matchGeneratorRegistry.get("roundRobinNew")).thenReturn(generator);
 
         Match generatedMatch = buildMatch();
@@ -146,7 +146,7 @@ class PhasePreparationServiceTest {
                 .thenReturn(avatars);
 
         MatchGenerator generator = mock(MatchGenerator.class);
-        when(generator.getBeanId()).thenReturn("roundRobinNew");
+        when(generator.getKeyId()).thenReturn("roundRobinNew");
         when(matchGeneratorRegistry.get("roundRobinNew")).thenReturn(generator);
         when(generator.generate(any(), any())).thenReturn(List.of());
 

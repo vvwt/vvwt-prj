@@ -12,11 +12,14 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 /**
- * Abstract contract test for the {@link MatchGenerator} SPI (AC-TDD-MatchGenerator, E21S08).
+ * Abstract contract test for the {@link MatchGenerator} SPI (AC-TDD-MatchGenerator, E21S08; updated
+ * E58S01 for AC1 getKeyId() + AC2 isLastPhaseGenerator()).
  *
  * <p>Any concrete {@link MatchGenerator} implementation can extend this class to verify the base
  * contract: null inputs throw {@link IllegalArgumentException}; the result list is non-null; the
- * generator is stateless (multiple calls with the same input return equal results).
+ * generator is stateless (multiple calls with the same input return equal results); {@link
+ * MatchGenerator#getKeyId()} returns a non-null, non-empty string; {@link
+ * MatchGenerator#isLastPhaseGenerator()} returns a deterministic boolean.
  *
  * <p>Source: inventory row 256 — {@code de.vvwt.tm.tournament.MatchGenerator} (promoted to public
  * root package by E33S06 per DEC-35).
@@ -106,5 +109,51 @@ public abstract class MatchGeneratorAbstractTest {
         List<Match> second = gen.generate(phase, avatars);
 
         assertThat(first).hasSameSizeAs(second);
+    }
+
+    // -------------------------------------------------------------------------
+    // AC1 (E58S01) — getKeyId() contract
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns the expected key ID string for the concrete generator under test. Subclasses must
+     * override to return the exact value of {@link MatchGenerator#getKeyId()}.
+     */
+    protected abstract String expectedKeyId();
+
+    @Test
+    void getKeyId_returnsNonNullNonEmpty() {
+        MatchGenerator gen = newGenerator();
+        assertThat(gen.getKeyId()).isNotNull().isNotEmpty();
+    }
+
+    @Test
+    void getKeyId_returnsExpectedValue() {
+        MatchGenerator gen = newGenerator();
+        assertThat(gen.getKeyId()).isEqualTo(expectedKeyId());
+    }
+
+    // -------------------------------------------------------------------------
+    // AC2 (E58S01) — isLastPhaseGenerator() contract
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns the expected result of {@link MatchGenerator#isLastPhaseGenerator()} for the concrete
+     * generator under test.
+     */
+    protected abstract boolean expectedIsLastPhaseGenerator();
+
+    @Test
+    void isLastPhaseGenerator_returnsDeterministicValue() {
+        MatchGenerator gen = newGenerator();
+        boolean first = gen.isLastPhaseGenerator();
+        boolean second = gen.isLastPhaseGenerator();
+        assertThat(first).isEqualTo(second);
+    }
+
+    @Test
+    void isLastPhaseGenerator_returnsExpectedValue() {
+        MatchGenerator gen = newGenerator();
+        assertThat(gen.isLastPhaseGenerator()).isEqualTo(expectedIsLastPhaseGenerator());
     }
 }

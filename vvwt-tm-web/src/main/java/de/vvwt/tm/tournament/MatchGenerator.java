@@ -25,7 +25,7 @@ import java.util.List;
  *       duplicate avatar IDs throw {@link IllegalArgumentException}.
  * </ul>
  *
- * <p>The registry key ({@link #getBeanId()}) must match the value stored in {@code
+ * <p>The registry key ({@link #getKeyId()}) must match the value stored in {@code
  * Tournament.matchGeneratorId} and the qualifier passed to {@link
  * MatchGeneratorRegistry#get(String)}.
  *
@@ -33,11 +33,14 @@ import java.util.List;
  * atomic cutover per DEC-32.
  *
  * @see MatchGeneratorRegistry
+ * @see MatchGeneratorInfo
  * @see de.vvwt.tm.tournament.internal.RoundRobinMatchGenerator
  * @see <a href="DEC-21">DEC-21 — Spring Modulith, root package = public API surface</a>
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law (reconstruction-in-place)</a>
  * @see <a href="DEC-35">DEC-35 — Public package required content</a>
+ * @see <a href="DEC-73">DEC-73 — D-1 getKeyId rename; D-2 isLastPhaseGenerator</a>
  * @see <a href="E21S08">E21S08 — inventory row 256</a>
+ * @see <a href="E58S01">E58S01 — AC1 rename; AC2 isLastPhaseGenerator</a>
  */
 public interface MatchGenerator {
 
@@ -64,7 +67,25 @@ public interface MatchGenerator {
      * Returns the registry key of this generator, used as the lookup key in {@link
      * de.vvwt.tm.tournament.MatchGeneratorRegistry}.
      *
-     * @return non-null, non-empty bean ID (e.g., {@code "roundRobinNew"})
+     * <p>Renamed from {@code getBeanId()} by E58S01 (DEC-73 D-1) to use domain vocabulary ("key")
+     * rather than infrastructure vocabulary ("bean").
+     *
+     * @return non-null, non-empty key ID (e.g., {@code "roundRobin"}, {@code "siegerehrung"})
      */
-    String getBeanId();
+    String getKeyId();
+
+    /**
+     * Returns {@code true} if this generator is intended for the last phase of a tournament (i.e.,
+     * the phase that signals the end of competition and the start of the awards ceremony).
+     *
+     * <p>Exactly one registered generator must return {@code true} — the {@code siegerehrung}
+     * generator. All other generators return {@code false}.
+     *
+     * <p>Added by E58S01 (DEC-73 D-2 capability predicate).
+     *
+     * @return {@code true} if this generator marks the last phase; {@code false} otherwise
+     * @see MatchGeneratorInfo
+     * @see <a href="DEC-73">DEC-73 D-2</a>
+     */
+    boolean isLastPhaseGenerator();
 }

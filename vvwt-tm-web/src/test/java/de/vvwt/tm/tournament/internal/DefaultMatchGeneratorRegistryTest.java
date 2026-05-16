@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import de.vvwt.tm.tournament.MatchGenerator;
+import de.vvwt.tm.tournament.MatchGeneratorInfo;
 import de.vvwt.tm.tournament.MatchGeneratorRegistry;
 import java.util.List;
 import java.util.Set;
@@ -24,9 +25,14 @@ import org.junit.jupiter.api.Test;
  */
 class DefaultMatchGeneratorRegistryTest {
 
-    private static MatchGenerator mockGenerator(String beanId) {
+    private static MatchGenerator mockGenerator(String keyId) {
+        return mockGenerator(keyId, false);
+    }
+
+    private static MatchGenerator mockGenerator(String keyId, boolean isLastPhase) {
         MatchGenerator gen = mock(MatchGenerator.class);
-        when(gen.getBeanId()).thenReturn(beanId);
+        when(gen.getKeyId()).thenReturn(keyId);
+        when(gen.isLastPhaseGenerator()).thenReturn(isLastPhase);
         return gen;
     }
 
@@ -90,6 +96,66 @@ class DefaultMatchGeneratorRegistryTest {
         MatchGeneratorRegistry registry = new DefaultMatchGeneratorRegistry(List.of(gen));
 
         assertThatThrownBy(() -> registry.knownIds().add("hack"))
+                .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    // -------------------------------------------------------------------------
+    // AC3 + AC4 (E58S01) — MatchGeneratorInfo + getGeneratorInfoList()
+    // -------------------------------------------------------------------------
+
+    @Test
+    void getGeneratorInfoList_returnsList_withCorrectKeyIdAndIsLastPhase() {
+        MatchGenerator rrGen = mockGenerator("roundRobin", false);
+        MatchGenerator siegGen = mockGenerator("siegerehrung", true);
+        MatchGeneratorRegistry registry =
+                new DefaultMatchGeneratorRegistry(List.of(rrGen, siegGen));
+
+        List<MatchGeneratorInfo> infoList = registry.getGeneratorInfoList();
+
+        assertThat(infoList).hasSize(2);
+        assertThat(infoList)
+                .anySatisfy(
+                        info -> {
+                            assertThat(info.keyId()).isEqualTo("roundRobin");
+                            assertThat(info.isLastPhaseGenerator()).isFalse();
+                        });
+        assertThat(infoList)
+                .anySatisfy(
+                        info -> {
+                            assertThat(info.keyId()).isEqualTo("siegerehrung");
+                            assertThat(info.isLastPhaseGenerator()).isTrue();
+                        });
+    }
+
+    @Test
+    void getGeneratorInfoList_exactlyOneIsLastPhaseGenerator() {
+        MatchGenerator rrGen = mockGenerator("roundRobin", false);
+        MatchGenerator siegGen = mockGenerator("siegerehrung", true);
+        MatchGeneratorRegistry registry =
+                new DefaultMatchGeneratorRegistry(List.of(rrGen, siegGen));
+
+        List<MatchGeneratorInfo> infoList = registry.getGeneratorInfoList();
+
+        long lastPhaseCount =
+                infoList.stream().filter(MatchGeneratorInfo::isLastPhaseGenerator).count();
+        assertThat(lastPhaseCount).isEqualTo(1);
+        assertThat(
+                        infoList.stream()
+                                .filter(MatchGeneratorInfo::isLastPhaseGenerator)
+                                .findFirst()
+                                .map(MatchGeneratorInfo::keyId))
+                .hasValue("siegerehrung");
+    }
+
+    @Test
+    void getGeneratorInfoList_isUnmodifiable() {
+        MatchGenerator gen = mockGenerator("roundRobin", false);
+        MatchGeneratorRegistry registry = new DefaultMatchGeneratorRegistry(List.of(gen));
+
+        assertThatThrownBy(
+                        () ->
+                                registry.getGeneratorInfoList()
+                                        .add(new MatchGeneratorInfo("x", false)))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 }

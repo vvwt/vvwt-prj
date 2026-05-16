@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Draft configuration for tournament phase-planning — an ordered list of sections.
@@ -23,6 +24,8 @@ import java.util.List;
  * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
  * @see <a href="E48S01">E48S01 — last-phase-siegerehrung invariant (D-10)</a>
  * @see <a href="E48S16">E48S16 — first-phase sortType=team_number invariant</a>
+ * @see <a href="E58S01">E58S01 — AC5 GameMode enum removed; validateLastPhaseSiegerehrung uses
+ *     String comparison</a>
  */
 public final class DraftConfig {
 
@@ -108,12 +111,43 @@ public final class DraftConfig {
                 sections.stream()
                         .max(Comparator.comparingInt(DraftSection::getSectionNumber))
                         .orElseThrow();
-        if (lastSection.getGameMode() != GameMode.SIEGEREHRUNG) {
+        // E58S01 DEC-73 D-5: gameMode is now a String; use "siegerehrung".equals() (null-safe,
+        // per DEC-59 string comparison convention — constant on left)
+        if (!"siegerehrung".equals(lastSection.getGameMode())) {
             throw new IllegalArgumentException(
                     "Last phase (sectionNumber "
                             + lastSection.getSectionNumber()
                             + ") must have gameMode=siegerehrung, got: "
                             + lastSection.getGameMode());
+        }
+    }
+
+    /**
+     * Validates that all sections have a {@code gameMode} that is a member of the given set of
+     * known registry keys (AC6, E58S01).
+     *
+     * <p>No-op if there are no sections or if {@code knownIds} is empty.
+     *
+     * @param knownIds the set of registered generator key IDs; must not be {@code null}
+     * @throws IllegalArgumentException if any section has a {@code gameMode} not in {@code
+     *     knownIds}; the message names the unknown key
+     * @see <a href="E58S01">E58S01 — AC6 registry-membership validation</a>
+     * @see <a href="DEC-73">DEC-73 D-7</a>
+     */
+    public void validateGameModeMembership(Set<String> knownIds) {
+        for (DraftSection section : sections) {
+            String gm = section.getGameMode();
+            if (!knownIds.contains(gm)) {
+                throw new IllegalArgumentException(
+                        "Section "
+                                + section.getSectionNumber()
+                                + ": gameMode '"
+                                + gm
+                                + "' is not registered in the MatchGeneratorRegistry."
+                                + " Known ids: "
+                                + String.join(", ", new java.util.TreeSet<>(knownIds))
+                                + " (AC6, E58S01)");
+            }
         }
     }
 }
