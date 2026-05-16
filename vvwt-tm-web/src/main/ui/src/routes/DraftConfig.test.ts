@@ -170,8 +170,8 @@ describe('DraftConfig.svelte — AC-TEST-FRONTEND-DRAFT-CONFIG-PHASE-SUBMISSION-
     // Verify the gameMode dropdown exists in the template
     expect(source).toContain('section.gameMode');
     // E58S05 AC3: options are now data-driven from the registry, not hardcoded.
-    // Verify the dynamic i18n key pattern is used (draftConfig.gameMode.${gen.keyId})
-    expect(source).toContain('draftConfig.gameMode.');
+    // E58S06 AC8: key namespace relocated from draftConfig.gameMode.* to matchOption.generator.*
+    expect(source).toContain('matchOption.generator.');
     // E58S05 AC3: hardcoded option values are replaced; static keys no longer exist as option values
     // (They may still appear as generator keyIds in the generatorStore, not as hardcoded options)
   });
@@ -634,10 +634,10 @@ describe('DraftConfig.svelte — AC6: i18n labels on generator key (E58S05)', ()
     const path = await import('path');
     const src = path.resolve(__dirname, './DraftConfig.svelte');
     const source = fs.readFileSync(src, 'utf8');
-    // AC6: labels rendered via i18n(draftConfig.gameMode.{keyId}) pattern
-    // The template must contain a dynamic i18n key using the generator keyId
-    // e.g.: $_(draftConfig.gameMode.${gen.keyId}) or $_(`draftConfig.gameMode.${gen.keyId}`)
-    expect(source).toMatch(/draftConfig\.gameMode\.\$\{/);
+    // AC6: labels rendered via i18n keyed on generator keyId
+    // E58S06 AC8: key namespace relocated from draftConfig.gameMode.* to matchOption.generator.*
+    // e.g.: $_(matchOption.generator.${gen.keyId}) or $_(`matchOption.generator.${gen.keyId}`)
+    expect(source).toMatch(/matchOption\.generator\.\$\{/);
   });
 });
 

@@ -51,6 +51,8 @@
   import {
     filterLastPhaseGenerators,
     filterNonLastPhaseGenerators,
+    resolveNonLastDefault,
+    normalizeNonLastPhaseGameModes,
   } from '../lib/generatorFilter.js';
 
   // ── Props ────────────────────────────────────────────────────────────────
@@ -115,7 +117,7 @@
         // E58S05 AC3: load generator list from registry (shared module, fetched once)
         getGeneratorList(),
       ]);
-      sections = config.sections.map(s => ({
+      const rawSections = config.sections.map(s => ({
         ...s,
         breaks: s.breaks ?? [],
       }));
@@ -124,6 +126,11 @@
       generators = gens;
       // E58S05 AC5: use the tournament's chosen generator as the default for new phases
       tournamentMatchGeneratorId = tournament.matchGeneratorId ?? 'roundRobin';
+      // E58S06 AC3: normalize non-last-phase gameModes on load (blank or last-phase key → default)
+      // Defensive: if tournamentMatchGeneratorId is itself a last-phase key, resolveNonLastDefault
+      // finds the first non-last generator. AC11: null default → graceful degradation.
+      const nonLastDefault = resolveNonLastDefault(gens, tournamentMatchGeneratorId);
+      sections = normalizeNonLastPhaseGameModes(rawSections, gens, nonLastDefault);
     } catch (e: unknown) {
       loadError = e instanceof Error ? e.message : String(e);
     } finally {
@@ -158,6 +165,10 @@
     ];
     // Auto-set last section to siegerehrung (AC-FRONTEND-GAMEMODE-DROPDOWN, E48S01)
     enforceLastSectionAwardCeremony();
+    // E58S06 AC3/AC4: normalize non-last phases after structural change (demoted phase fix)
+    sections = normalizeNonLastPhaseGameModes(
+      sections, generators, resolveNonLastDefault(generators, tournamentMatchGeneratorId)
+    );
   }
 
   function removeSection(idx: number): void {
@@ -166,6 +177,10 @@
       .map((s, i) => ({ ...s, sectionNumber: i + 1 }));
     // Auto-set last section to siegerehrung after removal (AC-FRONTEND-GAMEMODE-DROPDOWN)
     enforceLastSectionAwardCeremony();
+    // E58S06 AC3: normalize non-last phases after structural change
+    sections = normalizeNonLastPhaseGameModes(
+      sections, generators, resolveNonLastDefault(generators, tournamentMatchGeneratorId)
+    );
     // Clear break errors for removed section
     const newErrors: Record<string, string> = {};
     for (const [key, val] of Object.entries(breakErrors)) {
@@ -402,7 +417,11 @@
       tournamentStatus = updated.status;
       // Re-fetch draft to re-populate form with preserved draftJson
       const config = await getDraft(tournamentId);
-      sections = config.sections.map(s => ({ ...s, breaks: s.breaks ?? [] }));
+      const rawResetSections = config.sections.map(s => ({ ...s, breaks: s.breaks ?? [] }));
+      // E58S06 AC3: normalize non-last phases after reset (4th entry point)
+      sections = normalizeNonLastPhaseGameModes(
+        rawResetSections, generators, resolveNonLastDefault(generators, tournamentMatchGeneratorId)
+      );
       applySuccess = false;
     } catch (e: unknown) {
       const apiErr = e && typeof e === 'object' && 'apiError' in e
@@ -477,7 +496,8 @@
               {#each (si === sections.length - 1
                 ? filterLastPhaseGenerators(generators)
                 : filterNonLastPhaseGenerators(generators)) as gen (gen.keyId)}
-                <option value={gen.keyId}>{$_(`draftConfig.gameMode.${gen.keyId}`)}</option>
+                <!-- E58S06 AC8: generator labels now in neutral matchOption.generator.* namespace -->
+                <option value={gen.keyId}>{$_(`matchOption.generator.${gen.keyId}`, { default: gen.keyId })}</option>
               {/each}
             </select>
           </div>
