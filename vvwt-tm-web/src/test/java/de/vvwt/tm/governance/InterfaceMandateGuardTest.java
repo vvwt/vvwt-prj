@@ -141,8 +141,10 @@ class InterfaceMandateGuardTest {
                     "org.springframework.data.jpa.repository.JpaRepository",
                     "org.springframework.data.jdbc.repository.query.Query");
 
+    private static final String BEAN = "org.springframework.context.annotation.Bean";
+
     // -------------------------------------------------------------------------
-    // Guard test
+    // Guard tests
     // -------------------------------------------------------------------------
 
     @Test
@@ -376,6 +378,154 @@ class InterfaceMandateGuardTest {
                 events.add(
                         SimpleConditionEvent.violated(
                                 javaClass, javaClass.getName() + " has a first-party interface"));
+            }
+        }
+
+        private boolean isFirstPartyInterface(JavaClass iface) {
+            String ifaceName = iface.getName();
+            for (String prefix : FRAMEWORK_PACKAGE_PREFIXES) {
+                if (ifaceName.startsWith(prefix)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Guard test — @Bean-factory-produced service beans (DEC-72 Clause A-ext)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Asserts that every concrete return type of a {@code @Bean} factory method declared in a
+     * first-party {@code @Configuration} class implements at least one public first-party
+     * interface.
+     *
+     * <p>A {@code @Bean} method is compliant iff its return type is either:
+     *
+     * <ul>
+     *   <li>An interface type (the bean IS the interface — already compliant), OR
+     *   <li>A concrete class that implements at least one public first-party interface.
+     * </ul>
+     *
+     * <p>A concrete return type with no public first-party interface is a DEC-72 Clause A-ext
+     * violation.
+     */
+    @Test
+    void beanProducedServicesMustHaveFirstPartyInterface() {
+        var classes =
+                new ClassFileImporter()
+                        .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+                        .importPackages(APP_PACKAGE_ROOT);
+
+        ArchRule rule =
+                noClasses()
+                        .that(new ConfigurationWithBeanMethodsPredicate())
+                        .should(new HasBeanMethodWithConcreteReturnTypeLackingInterfaceCondition())
+                        .as(
+                                "DEC-58/DEC-72 Clause A-ext @Bean mandate: every @Bean factory"
+                                        + " method in '"
+                                        + APP_PACKAGE_ROOT
+                                        + "' whose return type is a concrete first-party class must"
+                                        + " produce a type that implements at least one public"
+                                        + " first-party interface. See DEC-58 + DEC-72.");
+
+        rule.check(classes);
+    }
+
+    /**
+     * Identifies first-party {@code @Configuration} classes that have at least one {@code @Bean}
+     * method.
+     */
+    private static final class ConfigurationWithBeanMethodsPredicate
+            extends com.tngtech.archunit.base.DescribedPredicate<JavaClass> {
+
+        ConfigurationWithBeanMethodsPredicate() {
+            super("are first-party @Configuration classes with @Bean factory methods");
+        }
+
+        @Override
+        public boolean test(JavaClass javaClass) {
+            if (!javaClass.isMetaAnnotatedWith(CONFIGURATION)) {
+                return false;
+            }
+            return javaClass.getMethods().stream()
+                    .anyMatch(m -> m.isAnnotatedWith(BEAN) || m.isMetaAnnotatedWith(BEAN));
+        }
+    }
+
+    /**
+     * ArchUnit condition that fires a SATISFIED event when a {@code @Configuration} class contains
+     * at least one {@code @Bean} method whose return type is a concrete first-party class lacking a
+     * public first-party interface.
+     */
+    private final class HasBeanMethodWithConcreteReturnTypeLackingInterfaceCondition
+            extends ArchCondition<JavaClass> {
+
+        HasBeanMethodWithConcreteReturnTypeLackingInterfaceCondition() {
+            super(
+                    "have a @Bean method whose concrete return type lacks a public first-party"
+                            + " interface (DEC-72 Clause A-ext)");
+        }
+
+        @Override
+        public void check(JavaClass javaClass, ConditionEvents events) {
+            for (JavaMethod method : javaClass.getMethods()) {
+                if (!method.isAnnotatedWith(BEAN) && !method.isMetaAnnotatedWith(BEAN)) {
+                    continue;
+                }
+                JavaClass returnType = method.getRawReturnType();
+                if (returnType.isInterface()
+                        || returnType.getModifiers().contains(JavaModifier.ABSTRACT)
+                        || returnType.isAnnotation()) {
+                    // Return type is already an interface / abstract / annotation — no mandate
+                    continue;
+                }
+                // Check if return type is a first-party class (not a framework class)
+                String returnTypeName = returnType.getName();
+                boolean isFirstParty = true;
+                for (String prefix : FRAMEWORK_PACKAGE_PREFIXES) {
+                    if (returnTypeName.startsWith(prefix)) {
+                        isFirstParty = false;
+                        break;
+                    }
+                }
+                if (!isFirstParty) {
+                    continue;
+                }
+                // Apply DEC-58 Clause D exclusions to return type:
+                // @RestController / @Controller (Clause D), @ControllerAdvice /
+                // @RestControllerAdvice (D-ext-2)
+                if (returnType.isMetaAnnotatedWith(REST_CONTROLLER)
+                        || returnType.isMetaAnnotatedWith(CONTROLLER)
+                        || returnType.isMetaAnnotatedWith(CONTROLLER_ADVICE)
+                        || returnType.isMetaAnnotatedWith(REST_CONTROLLER_ADVICE)) {
+                    continue;
+                }
+                // @ConfigurationProperties (D-ext-1)
+                if (returnType.isAnnotatedWith(CONFIGURATION_PROPERTIES)
+                        || returnType.isMetaAnnotatedWith(CONFIGURATION_PROPERTIES)) {
+                    continue;
+                }
+                // Concrete first-party return type — check for a public first-party interface
+                boolean hasFirstPartyInterface =
+                        returnType.getAllRawInterfaces().stream()
+                                .anyMatch(
+                                        iface ->
+                                                iface.getModifiers().contains(JavaModifier.PUBLIC)
+                                                        && isFirstPartyInterface(iface));
+                if (!hasFirstPartyInterface) {
+                    String message =
+                            String.format(
+                                    "DEC-58/DEC-72 VIOLATION: @Bean method %s#%s returns concrete"
+                                        + " first-party type %s that does not implement any public"
+                                        + " first-party interface. Add a '{Foo}' interface and"
+                                        + " change the @Bean return type to that interface. See"
+                                        + " DEC-58 Clause A + DEC-72 Clause A-ext.",
+                                    javaClass.getName(), method.getName(), returnTypeName);
+                    // noClasses().should(this): SATISFIED event causes rule failure.
+                    events.add(SimpleConditionEvent.satisfied(javaClass, message));
+                }
             }
         }
 
