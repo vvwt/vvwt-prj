@@ -70,7 +70,7 @@ public interface MatchGenerator {
      * <p>Renamed from {@code getBeanId()} by E58S01 (DEC-73 D-1) to use domain vocabulary ("key")
      * rather than infrastructure vocabulary ("bean").
      *
-     * @return non-null, non-empty key ID (e.g., {@code "roundRobin"}, {@code "siegerehrung"})
+     * @return non-null, non-empty key ID (e.g., {@code "roundRobin"}, {@code "awardCeremony"})
      */
     String getKeyId();
 
@@ -78,8 +78,9 @@ public interface MatchGenerator {
      * Returns {@code true} if this generator is intended for the last phase of a tournament (i.e.,
      * the phase that signals the end of competition and the start of the awards ceremony).
      *
-     * <p>Exactly one registered generator must return {@code true} — the {@code siegerehrung}
-     * generator. All other generators return {@code false}.
+     * <p>Exactly one registered generator must return {@code true} — the {@code awardCeremony}
+     * generator (renamed from {@code siegerehrung} by E58S04 — DEC-73 D-7). All other generators
+     * return {@code false}.
      *
      * <p>Added by E58S01 (DEC-73 D-2 capability predicate).
      *

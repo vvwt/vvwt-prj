@@ -15,7 +15,7 @@ import java.util.UUID;
  *
  * @param tournamentId the tournament this job belongs to
  * @param phaseId the phase to be processed by MatchGen → L1+L2 → SlotOpt
- * @param gameMode the {@code DraftSection.gameMode} value (e.g., "standard", "siegerehrung"); used
+ * @param gameMode the {@code DraftSection.gameMode} value (e.g., "standard", "awardCeremony"); used
  *     by the orchestrator to select the correct MatchGenerator
  * @param sequence the phase sequence number within the tournament; determines FIFO drain order
  * @since E55S01

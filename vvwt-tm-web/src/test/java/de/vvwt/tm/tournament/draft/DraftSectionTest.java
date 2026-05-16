@@ -195,9 +195,9 @@ class DraftSectionTest {
      * @see <a href="E48S01">E48S01 — gameMode whitelist</a>
      */
     @Test
-    void validate_withSiegerehrungGameMode_passes() {
+    void validate_withAwardCeremonyGameMode_passes() {
         DraftSection section =
-                new DraftSection(1, "team_number", 2, "siegerehrung", 5, 10, 15, 1, List.of());
+                new DraftSection(1, "team_number", 2, "awardCeremony", 5, 10, 15, 1, List.of());
 
         section.validate(); // must not throw
     }

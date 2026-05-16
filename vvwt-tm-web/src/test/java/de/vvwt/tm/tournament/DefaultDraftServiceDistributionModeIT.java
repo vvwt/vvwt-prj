@@ -336,7 +336,7 @@ class DefaultDraftServiceDistributionModeIT {
         DraftSection phase1 =
                 new DraftSection(1, "team_number", 2, "roundRobin", 0, 0, 15, 1, List.of());
         DraftSection phase2 =
-                new DraftSection(2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, List.of());
+                new DraftSection(2, "team_number", 1, "awardCeremony", 0, 0, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(phase1, phase2));
 
         // Verify the constructed section's default distributionMode
@@ -415,7 +415,7 @@ class DefaultDraftServiceDistributionModeIT {
                         distributionMode);
         DraftSection phase2 =
                 new DraftSection(
-                        2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, List.of(), "sequential");
+                        2, "team_number", 1, "awardCeremony", 0, 0, 15, 1, List.of(), "sequential");
         return new DraftConfig(List.of(phase1, phase2));
     }
 

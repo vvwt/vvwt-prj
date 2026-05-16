@@ -16,16 +16,18 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * Integration test verifying that the {@code siegerehrungMatchGenerator} bean is registered and
+ * Integration test verifying that the {@code awardCeremonyMatchGenerator} bean is registered and
  * picked up by {@link MatchGeneratorRegistry}, and that {@link
- * PhasePreparationService#generateMatches(UUID, String)} with key {@code "siegerehrung"} succeeds
+ * PhasePreparationService#generateMatches(UUID, String)} with key {@code "awardCeremony"} succeeds
  * without exception and produces an empty match list.
+ *
+ * <p>Renamed from {@code SiegerehrungGeneratorRegistryIT} by E58S04 (DEC-73 D-7).
  *
  * <p>Covers:
  *
  * <ul>
  *   <li>AC-IMPL-MATCHGENERATOR-REGISTRY-PICKUP
- *   <li>AC-TEST-PHASE-PREPARATION-SIEGEREHRUNG-INTEGRATION-GREEN
+ *   <li>AC-TEST-PHASE-PREPARATION-AWARD-CEREMONY-INTEGRATION-GREEN
  * </ul>
  *
  * <h2>Why {@code @SpringBootTest} (DEC-38 Clause C analogy)</h2>
@@ -43,30 +45,29 @@ import org.springframework.test.context.ActiveProfiles;
  *
  * <p>This test class is in {@code de.vvwt.tm.tournament} (the public API package). The {@link
  * MatchGeneratorRegistry} is also in the public package — no cross-package concern. {@link
- * PhasePreparationService} is now a public interface in {@code de.vvwt.tm.tournament} per DEC-58;
- * this test injects it via the interface type (DEC-36 cross-package typing rule).
+ * PhasePreparationService} is a public interface in {@code de.vvwt.tm.tournament} per DEC-58; this
+ * test injects it via the interface type (DEC-36 cross-package typing rule).
  *
  * @see MatchGeneratorRegistry
- * @see de.vvwt.tm.tournament.internal.SiegerehrungMatchGenerator
+ * @see de.vvwt.tm.tournament.internal.AwardCeremonyMatchGenerator
  * @see PhasePreparationService
  * @see de.vvwt.tm.tournament.internal.DefaultPhasePreparationService
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law (RED-first before bean registration)</a>
  * @see <a href="DEC-38">DEC-38 Clause C analogy — full @SpringBootTest for tenant-routing DB
  *     ITs</a>
- * @see <a href="E48S02">E48S02 — AC-IMPL-MATCHGENERATOR-REGISTRY-PICKUP,
- *     AC-TEST-PHASE-PREPARATION-SIEGEREHRUNG-INTEGRATION-GREEN</a>
+ * @see <a href="DEC-73">DEC-73 — D-7: siegerehrung → awardCeremony rename</a>
  */
 @SpringBootTest(
         classes = de.vvwt.tm.TournamentManagerApplication.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
         properties = {
-            "spring.datasource.url=jdbc:h2:mem:siegerehrungregistryit;DB_CLOSE_DELAY=-1"
+            "spring.datasource.url=jdbc:h2:mem:awardceremonyregistryit;DB_CLOSE_DELAY=-1"
                     + ";DB_CLOSE_ON_EXIT=FALSE;CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         })
 @ActiveProfiles("test")
 @Import(TenantContextTestSupport.class)
-@DisplayName("SiegerehrungMatchGenerator — registry pickup + generateMatches IT")
-class SiegerehrungGeneratorRegistryIT {
+@DisplayName("AwardCeremonyMatchGenerator — registry pickup + generateMatches IT")
+class AwardCeremonyGeneratorRegistryIT {
 
     @Autowired private MatchGeneratorRegistry matchGeneratorRegistry;
 
@@ -91,17 +92,17 @@ class SiegerehrungGeneratorRegistryIT {
         tournamentId = UUID.randomUUID();
         phaseId = UUID.randomUUID();
 
-        // Insert tournament with match_generator_id = "siegerehrung"
+        // Insert tournament with match_generator_id = "awardCeremony" (renamed from siegerehrung)
         jdbcTemplate.update(
                 "INSERT INTO tournament (id, description, match_format, scoring_rule_id,"
                         + " set_validation_rule_id, match_generator_id, status, location_id)"
                         + " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 tournamentId,
-                "Siegerehrung Test Tournament",
+                "Award Ceremony Test Tournament",
                 "BEST_OF_3",
                 "combinedSetsScoring",
                 "threeSetValidation",
-                "siegerehrung",
+                "awardCeremony",
                 "ACTIVE",
                 locationId);
 
@@ -112,7 +113,7 @@ class SiegerehrungGeneratorRegistryIT {
                 phaseId,
                 tournamentId,
                 1,
-                "Siegerehrung",
+                "Award Ceremony",
                 "PENDING",
                 0);
     }
@@ -132,27 +133,28 @@ class SiegerehrungGeneratorRegistryIT {
 
     @Test
     @DisplayName(
-            "MatchGeneratorRegistry.get('siegerehrung') resolves the SiegerehrungMatchGenerator"
-                    + " bean")
-    void registry_getSiegerehrung_resolvesSiegerehrungMatchGeneratorBean() {
-        MatchGenerator generator = matchGeneratorRegistry.get("siegerehrung");
+            "MatchGeneratorRegistry.get('awardCeremony') resolves the AwardCeremonyMatchGenerator"
+                    + " bean (AC3, E58S04)")
+    void registry_getAwardCeremony_resolvesAwardCeremonyMatchGeneratorBean() {
+        MatchGenerator generator = matchGeneratorRegistry.get("awardCeremony");
 
         assertThat(generator).isNotNull();
-        assertThat(generator.getKeyId()).isEqualTo("siegerehrung");
+        assertThat(generator.getKeyId()).isEqualTo("awardCeremony");
     }
 
     // -------------------------------------------------------------------------
-    // AC-TEST-PHASE-PREPARATION-SIEGEREHRUNG-INTEGRATION-GREEN
+    // AC-TEST-PHASE-PREPARATION-AWARD-CEREMONY-INTEGRATION-GREEN
     // -------------------------------------------------------------------------
 
     @Test
     @DisplayName(
-            "generateMatches for 'siegerehrung' phase produces no exception and an empty match"
-                    + " list")
-    void generateMatches_siegerehrungKey_noExceptionAndEmptyMatchList() {
+            "generateMatches for 'awardCeremony' phase produces no exception and an empty match"
+                    + " list (AC4, E58S04)")
+    void generateMatches_awardCeremonyKey_noExceptionAndEmptyMatchList() {
         // Act: no-op generator must not throw
         assertThatNoException()
-                .isThrownBy(() -> phasePreparationService.generateMatches(phaseId, "siegerehrung"));
+                .isThrownBy(
+                        () -> phasePreparationService.generateMatches(phaseId, "awardCeremony"));
 
         // Assert: no matches were persisted (DEC-26 Rule 2 — verify via independent DB query)
         Integer matchCount =

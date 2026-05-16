@@ -159,7 +159,7 @@ class DraftControllerIT {
         // gameMode=siegerehrung: single-section draft must use siegerehrung as last phase
         // per D-10 invariant (AC-IMPL-LAST-PHASE-INVARIANT, E48S01).
         return new DraftSectionRequest(
-                1, "team_number", 1, "siegerehrung", 0, 0, 15, 1, null, null);
+                1, "team_number", 1, "awardCeremony", 0, 0, 15, 1, null, null);
     }
 
     private static DraftRequest sampleRequest() {
@@ -180,7 +180,7 @@ class DraftControllerIT {
                 new DraftSectionRequest(1, "team_number", 1, "roundRobin", 0, 0, 15, 1, null, null);
         var s2 =
                 new DraftSectionRequest(
-                        2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, null, null);
+                        2, "team_number", 1, "awardCeremony", 0, 0, 15, 1, null, null);
         return new DraftRequest(List.of(s1, s2));
     }
 
@@ -260,7 +260,7 @@ class DraftControllerIT {
         assertThat(section.sectionNumber()).isEqualTo(1);
         assertThat(section.sortType()).isEqualTo("team_number");
         assertThat(section.groupCount()).isEqualTo(1);
-        assertThat(section.gameMode()).isEqualTo("siegerehrung");
+        assertThat(section.gameMode()).isEqualTo("awardCeremony");
         assertThat(section.lapTimeMinutes()).isEqualTo(15);
         assertThat(section.setQuantity()).isEqualTo(1);
     }
@@ -637,7 +637,7 @@ class DraftControllerIT {
     @DisplayName(
             "POST /draft/preview with siegerehrung phase 2 returns totalMatches=0, totalLaps=0"
                     + " (E48S09 AC-TEST-CONTROLLER-IT-PREVIEW-SIEGEREHRUNG-GREEN)")
-    void previewDraft_siegerehrungPhase_returnsZeroMatchesAndLaps() throws Exception {
+    void previewDraft_awardCeremonyPhase_returnsZeroMatchesAndLaps() throws Exception {
         UUID tournamentId;
         tenantBinder.bindDefaultTenant();
         try {
@@ -665,7 +665,7 @@ class DraftControllerIT {
                 new DraftSectionRequest(1, "team_number", 2, "roundRobin", 0, 0, 15, 1, null, null);
         var phase2 =
                 new DraftSectionRequest(
-                        2, "team_number", 1, "siegerehrung", 0, 20, 15, 1, null, null);
+                        2, "team_number", 1, "awardCeremony", 0, 20, 15, 1, null, null);
         DraftRequest request = new DraftRequest(List.of(phase1, phase2));
 
         ResponseEntity<DraftPreviewResponse> response =
@@ -769,7 +769,7 @@ class DraftControllerIT {
                         1, "team_number", 2, "roundRobin", 2, 10, 15, 1, null, null);
         var phase2 =
                 new DraftSectionRequest(
-                        2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, null, null);
+                        2, "team_number", 1, "awardCeremony", 0, 0, 15, 1, null, null);
         DraftRequest request = new DraftRequest(List.of(phase1, phase2));
 
         ResponseEntity<DraftPreviewResponse> response =
@@ -900,7 +900,7 @@ class DraftControllerIT {
                 .isEqualTo("roundRobin");
         assertThat(getResponse.getBody().sections().get(1).gameMode())
                 .as("second section gameMode must be siegerehrung")
-                .isEqualTo("siegerehrung");
+                .isEqualTo("awardCeremony");
     }
 
     // =========================================================================
@@ -1035,13 +1035,13 @@ class DraftControllerIT {
         // Three different payloads — each with a distinct lapTimeMinutes to distinguish them
         var section1st =
                 new DraftSectionRequest(
-                        1, "team_number", 1, "siegerehrung", 0, 0, 10, 1, null, null);
+                        1, "team_number", 1, "awardCeremony", 0, 0, 10, 1, null, null);
         var section2nd =
                 new DraftSectionRequest(
-                        1, "team_number", 1, "siegerehrung", 0, 0, 20, 1, null, null);
+                        1, "team_number", 1, "awardCeremony", 0, 0, 20, 1, null, null);
         var section3rd =
                 new DraftSectionRequest(
-                        1, "team_number", 1, "siegerehrung", 0, 0, 30, 1, null, null);
+                        1, "team_number", 1, "awardCeremony", 0, 0, 30, 1, null, null);
 
         ResponseEntity<DraftResponse> r1 =
                 authed.exchange(
@@ -1162,7 +1162,7 @@ class DraftControllerIT {
                     "sectionNumber":1,
                     "sortType":"team_number",
                     "groupCount":1,
-                    "gameMode":"siegerehrung",
+                    "gameMode":"awardCeremony",
                     "lapBreakTimeMinutes":0,
                     "sectionBreakTimeMinutes":0,
                     "lapTimeMinutes":15,

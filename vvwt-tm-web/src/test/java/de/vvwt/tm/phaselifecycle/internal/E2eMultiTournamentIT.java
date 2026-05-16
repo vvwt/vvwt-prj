@@ -120,11 +120,11 @@ class E2eMultiTournamentIT {
 
         phaseIdA1 = createRoundRobinPhase(tournamentIdA, 1, "Phase A1");
         phaseIdA2 = createRoundRobinPhase(tournamentIdA, 2, "Phase A2");
-        phaseIdA3 = createSiegerehrungPhase(tournamentIdA, 3, "Phase A3 Siegerehrung");
+        phaseIdA3 = createAwardCeremonyPhase(tournamentIdA, 3, "Phase A3 Siegerehrung");
 
         phaseIdB1 = createRoundRobinPhase(tournamentIdB, 1, "Phase B1");
         phaseIdB2 = createRoundRobinPhase(tournamentIdB, 2, "Phase B2");
-        phaseIdB3 = createSiegerehrungPhase(tournamentIdB, 3, "Phase B3 Siegerehrung");
+        phaseIdB3 = createAwardCeremonyPhase(tournamentIdB, 3, "Phase B3 Siegerehrung");
     }
 
     @AfterEach
@@ -173,11 +173,11 @@ class E2eMultiTournamentIT {
         jobRepository.enqueueJob(new PhaseLifecycleJob(tournamentIdA, phaseIdA1, "roundRobin", 1));
         jobRepository.enqueueJob(new PhaseLifecycleJob(tournamentIdA, phaseIdA2, "roundRobin", 2));
         jobRepository.enqueueJob(
-                new PhaseLifecycleJob(tournamentIdA, phaseIdA3, "siegerehrung", 3));
+                new PhaseLifecycleJob(tournamentIdA, phaseIdA3, "awardCeremony", 3));
         jobRepository.enqueueJob(new PhaseLifecycleJob(tournamentIdB, phaseIdB1, "roundRobin", 1));
         jobRepository.enqueueJob(new PhaseLifecycleJob(tournamentIdB, phaseIdB2, "roundRobin", 2));
         jobRepository.enqueueJob(
-                new PhaseLifecycleJob(tournamentIdB, phaseIdB3, "siegerehrung", 3));
+                new PhaseLifecycleJob(tournamentIdB, phaseIdB3, "awardCeremony", 3));
 
         // Drain both tournaments concurrently on separate test threads
         ExecutorService pool = Executors.newFixedThreadPool(2);
@@ -323,7 +323,7 @@ class E2eMultiTournamentIT {
         return phaseId;
     }
 
-    private UUID createSiegerehrungPhase(UUID tournamentId, int seq, String description) {
+    private UUID createAwardCeremonyPhase(UUID tournamentId, int seq, String description) {
         UUID phaseId = UUID.randomUUID();
         jdbcTemplate.update(
                 "INSERT INTO phase (id, tournament_id, sequence_number, description, status,"

@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
  * @see DraftConfig
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
  * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
- * @see <a href="E48S01">E48S01 — last-phase-siegerehrung invariant</a>
+ * @see <a href="E48S01">E48S01 — last-phase-awardCeremony invariant</a>
  * @see <a href="E48S16">E48S16 — first-phase sortType=team_number invariant</a>
  */
 class DraftConfigTest {
@@ -86,57 +86,62 @@ class DraftConfigTest {
 
     /**
      * AC-TEST-LAST-PHASE-INVARIANT-RED: DraftConfig with N sections where the highest sectionNumber
-     * has gameMode=roundrobin throws IllegalArgumentException identifying the offending
+     * has gameMode=roundRobin throws IllegalArgumentException identifying the offending
      * sectionNumber.
      *
-     * <p>RED-first per DEC-22 Iron Law. Was RED before validateLastPhaseSiegerehrung() was added.
+     * <p>RED-first per DEC-22 Iron Law. Was RED before validateLastPhaseAwardCeremony() was added.
+     * Renamed from validateLastPhaseSiegerehrung by E58S04 (DEC-73 D-7).
      *
-     * @see <a href="E48S01">E48S01 — last-phase-siegerehrung invariant</a>
+     * @see <a href="E48S01">E48S01 — last-phase-awardCeremony invariant</a>
      */
     @Test
-    void validateLastPhaseSiegerehrung_withLastPhaseRoundrobin_throwsIdentifyingSection() {
+    void validateLastPhaseAwardCeremony_withLastPhaseRoundRobin_throwsIdentifyingSection() {
         DraftSection phase1 =
                 new DraftSection(1, "team_number", 2, "roundRobin", 5, 10, 15, 1, List.of());
         DraftSection phase2 =
-                new DraftSection(2, "team_number", 1, "siegerehrung", 5, 10, 15, 1, List.of());
+                new DraftSection(2, "team_number", 1, "awardCeremony", 5, 10, 15, 1, List.of());
         DraftSection phase3 =
                 new DraftSection(3, "team_number", 1, "roundRobin", 5, 10, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(phase1, phase2, phase3));
 
-        assertThatThrownBy(config::validateLastPhaseSiegerehrung)
+        assertThatThrownBy(config::validateLastPhaseAwardCeremony)
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("3")
-                .hasMessageContaining("siegerehrung");
+                .hasMessageContaining("awardCeremony");
     }
 
     /**
      * AC-TEST-LAST-PHASE-INVARIANT-RED: DraftConfig where the highest sectionNumber has
-     * gameMode=siegerehrung passes validation without throwing.
+     * gameMode=awardCeremony passes validation without throwing.
      *
-     * @see <a href="E48S01">E48S01 — last-phase-siegerehrung invariant</a>
+     * <p>Renamed from validateLastPhaseSiegerehrung by E58S04 (DEC-73 D-7).
+     *
+     * @see <a href="E48S01">E48S01 — last-phase-awardCeremony invariant</a>
      */
     @Test
-    void validateLastPhaseSiegerehrung_withLastPhaseSiegerehrung_passes() {
+    void validateLastPhaseAwardCeremony_withLastPhaseAwardCeremony_passes() {
         DraftSection phase1 =
                 new DraftSection(1, "team_number", 2, "roundRobin", 5, 10, 15, 1, List.of());
         DraftSection phase2 =
-                new DraftSection(2, "team_number", 1, "siegerehrung", 5, 10, 15, 1, List.of());
+                new DraftSection(2, "team_number", 1, "awardCeremony", 5, 10, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(phase1, phase2));
 
-        config.validateLastPhaseSiegerehrung(); // must not throw
+        config.validateLastPhaseAwardCeremony(); // must not throw
     }
 
     /**
      * AC-TEST-LAST-PHASE-INVARIANT-RED: Empty DraftConfig passes validation (no sections → nothing
      * to enforce).
      *
-     * @see <a href="E48S01">E48S01 — last-phase-siegerehrung invariant</a>
+     * <p>Renamed from validateLastPhaseSiegerehrung by E58S04 (DEC-73 D-7).
+     *
+     * @see <a href="E48S01">E48S01 — last-phase-awardCeremony invariant</a>
      */
     @Test
-    void validateLastPhaseSiegerehrung_withEmptySections_passes() {
+    void validateLastPhaseAwardCeremony_withEmptySections_passes() {
         DraftConfig config = DraftConfig.empty();
 
-        config.validateLastPhaseSiegerehrung(); // must not throw
+        config.validateLastPhaseAwardCeremony(); // must not throw
     }
 
     // -------------------------------------------------------------------------
@@ -159,7 +164,7 @@ class DraftConfigTest {
         DraftSection phase1 =
                 new DraftSection(1, "placement_group", 2, "roundRobin", 5, 10, 15, 1, List.of());
         DraftSection phase2 =
-                new DraftSection(2, "team_number", 1, "siegerehrung", 5, 10, 15, 1, List.of());
+                new DraftSection(2, "team_number", 1, "awardCeremony", 5, 10, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(phase1, phase2));
 
         assertThatThrownBy(config::validateFirstPhaseTeamNumber)
@@ -181,7 +186,7 @@ class DraftConfigTest {
         DraftSection phase1 =
                 new DraftSection(1, "group_placement", 2, "roundRobin", 5, 10, 15, 1, List.of());
         DraftSection phase2 =
-                new DraftSection(2, "team_number", 1, "siegerehrung", 5, 10, 15, 1, List.of());
+                new DraftSection(2, "team_number", 1, "awardCeremony", 5, 10, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(phase1, phase2));
 
         assertThatThrownBy(config::validateFirstPhaseTeamNumber)
@@ -207,7 +212,7 @@ class DraftConfigTest {
         DraftSection phase2 =
                 new DraftSection(2, "placement_group", 1, "roundRobin", 5, 10, 15, 1, List.of());
         DraftSection phase3 =
-                new DraftSection(3, "group_placement", 1, "siegerehrung", 5, 10, 15, 1, List.of());
+                new DraftSection(3, "group_placement", 1, "awardCeremony", 5, 10, 15, 1, List.of());
         DraftConfig config = new DraftConfig(List.of(phase1, phase2, phase3));
 
         config.validateFirstPhaseTeamNumber(); // must not throw
@@ -215,7 +220,7 @@ class DraftConfigTest {
 
     /**
      * AC-TEST-FIRST-PHASE-VALID-GREEN: Empty DraftConfig passes first-phase validation (no sections
-     * → nothing to enforce). Mirror of validateLastPhaseSiegerehrung empty-section no-op.
+     * → nothing to enforce). Mirror of validateLastPhaseAwardCeremony empty-section no-op.
      *
      * @see <a href="E48S16">E48S16 — first-phase sortType=team_number invariant</a>
      */

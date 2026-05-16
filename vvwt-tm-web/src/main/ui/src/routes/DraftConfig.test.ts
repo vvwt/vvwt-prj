@@ -127,13 +127,13 @@ describe('DraftConfig.svelte — AC-TEST-FRONTEND-PRE-SUBMIT-VALIDATION-RED (E48
     expect(source).toContain('validateLastPhase');
   });
 
-  it('DraftConfig.svelte source references draftConfig.errors.lastPhaseMustBeSiegerehrung i18n key', async () => {
+  it('DraftConfig.svelte source references draftConfig.errors.lastPhaseMustBeAwardCeremony i18n key (renamed from lastPhaseMustBeSiegerehrung by E58S04)', async () => {
     const fs = await import('fs');
     const path = await import('path');
     const src = path.resolve(__dirname, './DraftConfig.svelte');
     const source = fs.readFileSync(src, 'utf8');
-    // RED: this fails before the i18n error key is referenced
-    expect(source).toContain('draftConfig.errors.lastPhaseMustBeSiegerehrung');
+    // GREEN: key renamed to lastPhaseMustBeAwardCeremony by E58S04 (DEC-73 D-7)
+    expect(source).toContain('draftConfig.errors.lastPhaseMustBeAwardCeremony');
   });
 
   it('DraftConfig.svelte handleApply calls validateLastPhase before backend call', async () => {
@@ -170,22 +170,22 @@ describe('DraftConfig.svelte — AC-TEST-FRONTEND-DRAFT-CONFIG-PHASE-SUBMISSION-
     // Verify the gameMode dropdown exists in the template
     expect(source).toContain('section.gameMode');
     expect(source).toContain('draftConfig.gameMode.roundRobin');
-    expect(source).toContain('draftConfig.gameMode.siegerehrung');
+    expect(source).toContain('draftConfig.gameMode.awardCeremony');
   });
 
-  it('DraftConfig.svelte source has last-section auto-set to siegerehrung with disabled/readonly', async () => {
+  it('DraftConfig.svelte source has last-section auto-set to awardCeremony with disabled/readonly (renamed from siegerehrung by E58S04)', async () => {
     const fs = await import('fs');
     const path = await import('path');
     const src = path.resolve(__dirname, './DraftConfig.svelte');
     const source = fs.readFileSync(src, 'utf8');
-    // Last section auto-set: source must reference siegerehrung assignment for the last index
-    // The implementation sets gameMode='siegerehrung' for the last section reactively
-    expect(source).toContain("'siegerehrung'");
+    // Last section auto-set: source must reference awardCeremony assignment for the last index
+    // The implementation sets gameMode='awardCeremony' for the last section reactively (E58S04 DEC-73 D-7)
+    expect(source).toContain("'awardCeremony'");
     // Disabled attribute on last section's select
     expect(source).toContain('disabled');
   });
 
-  it('DraftConfig.svelte handleApply sets applyError when last phase is not siegerehrung', async () => {
+  it('DraftConfig.svelte handleApply sets applyError when last phase is not awardCeremony (renamed from siegerehrung by E58S04)', async () => {
     const fs = await import('fs');
     const path = await import('path');
     const src = path.resolve(__dirname, './DraftConfig.svelte');
@@ -281,14 +281,14 @@ describe('DraftConfig.svelte — AC-TEST-FRONTEND-PHASE-START-TIME-RED (E48S11)'
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('DraftConfig.svelte — AC-TEST-FRONTEND-RUNDENZEIT-DISABLED-RED (E48S09)', () => {
-  it('DraftConfig.svelte lapTimeMinutes input is disabled for siegerehrung gameMode', async () => {
+  it('DraftConfig.svelte lapTimeMinutes input is disabled for awardCeremony gameMode (renamed from siegerehrung by E58S04)', async () => {
     const fs = await import('fs');
     const path = await import('path');
     const src = path.resolve(__dirname, './DraftConfig.svelte');
     const source = fs.readFileSync(src, 'utf8');
-    // RED: fails before disabled={section.gameMode === 'siegerehrung'} is added to lapTimeMinutes input
+    // GREEN: awardCeremony replaced siegerehrung (E58S04 DEC-73 D-7)
     // The disabled binding must appear in the lapTimeMinutes input context
-    expect(source).toContain("disabled={section.gameMode === 'siegerehrung'}");
+    expect(source).toContain("disabled={section.gameMode === 'awardCeremony'}");
   });
 
   it('DraftConfig.svelte lapTimeMinutes input references draftConfig.rundenzeit.disabledTooltip i18n key', async () => {

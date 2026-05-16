@@ -13,7 +13,7 @@ import java.util.UUID;
  * @param jobId the primary key of the claimed {@code phase_lifecycle_job} row
  * @param phaseId the phase to be processed
  * @param gameMode the {@code game_mode} value stored at enqueue time (e.g., {@code "roundRobin"},
- *     {@code "siegerehrung"}); used to select the correct MatchGenerator (DEC-59 Clause F)
+ *     {@code "awardCeremony"}); used to select the correct MatchGenerator (DEC-59 Clause F)
  * @param tournamentId the parent tournament
  * @since E55S04
  * @see <a href="../../../../../../../../docs/governance/decisions/DEC-64.md">DEC-64 D-12</a>

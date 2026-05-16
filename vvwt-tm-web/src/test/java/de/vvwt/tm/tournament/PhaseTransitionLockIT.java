@@ -77,7 +77,7 @@ class PhaseTransitionLockIT {
                     + "   \"lapBreakTimeMinutes\": 0, \"sectionBreakTimeMinutes\": 0,"
                     + "   \"lapTimeMinutes\": 15, \"setQuantity\": 3, \"breaks\": []},"
                     + "  {\"sectionNumber\": 2, \"sortType\": \"team_number\","
-                    + "   \"groupCount\": 1, \"gameMode\": \"siegerehrung\","
+                    + "   \"groupCount\": 1, \"gameMode\": \"awardCeremony\","
                     + "   \"lapBreakTimeMinutes\": 0, \"sectionBreakTimeMinutes\": 0,"
                     + "   \"lapTimeMinutes\": 15, \"setQuantity\": 3, \"breaks\": []}"
                     + "]"

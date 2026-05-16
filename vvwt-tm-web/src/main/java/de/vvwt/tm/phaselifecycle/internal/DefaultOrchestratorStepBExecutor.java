@@ -35,8 +35,9 @@ import org.springframework.transaction.annotation.Transactional;
  * <ul>
  *   <li>When {@code tournament.optimize=false}: skip SlotOpt. {@code phase.optimized} stays {@code
  *       false}.
- *   <li>When {@code gameMode="siegerehrung"}: skip SlotOpt (DEC-59 Clause F). {@code
- *       phase.optimized} stays {@code false}.
+ *   <li>When {@code gameMode="awardCeremony"}: skip SlotOpt (DEC-59 Clause F; key renamed from
+ *       {@code "siegerehrung"} by E58S04 — DEC-73 D-7). {@code phase.optimized} stays {@code
+ *       false}.
  *   <li>Otherwise: invoke {@code SlotOptimizationClient.optimize(phaseId)} (L3), then set {@code
  *       phase.optimized=true}.
  * </ul>
@@ -82,7 +83,8 @@ class DefaultOrchestratorStepBExecutor implements OrchestratorStepBExecutor {
     private static final Logger LOG =
             LoggerFactory.getLogger(DefaultOrchestratorStepBExecutor.class);
 
-    static final String SIEGEREHRUNG_GAME_MODE = "siegerehrung";
+    /** Registry key for the award-ceremony generator (renamed from siegerehrung by E58S04). */
+    static final String AWARD_CEREMONY_GAME_MODE = "awardCeremony";
 
     /** Written at step-B entry (before L3 decision) — per DEC-66 D-2. */
     static final String SLOT_OPT_RUNNING = "slot_opt_running";
@@ -121,8 +123,8 @@ class DefaultOrchestratorStepBExecutor implements OrchestratorStepBExecutor {
      *   <li>DEC-37 Clause B: {@code findByIdForUpdate(tournamentId)} — per-tournament row-lock.
      *   <li>Load phase.
      *   <li>DEC-66 D-2: write {@code phase.last_job_state='slot_opt_running'} (before L3 decision).
-     *   <li>If L3 should run ({@code tournament.optimize=true} AND NOT siegerehrung): invoke {@link
-     *       SlotOptimizationClient#optimize(UUID)} and set {@code phase.optimized=true}.
+     *   <li>If L3 should run ({@code tournament.optimize=true} AND NOT awardCeremony): invoke
+     *       {@link SlotOptimizationClient#optimize(UUID)} and set {@code phase.optimized=true}.
      *   <li>DEC-66 D-2: write {@code phase.last_job_state='idle'} (step-B success terminal).
      *   <li>Persist phase.
      *   <li>Mark job COMPLETED.
@@ -171,9 +173,9 @@ class DefaultOrchestratorStepBExecutor implements OrchestratorStepBExecutor {
 
         // Step 4: L3 skip decision
         // DEC-56 D-1: L3 is skipped when tournament.optimize=false
-        // DEC-59 Clause F: L3 is skipped for siegerehrung phases
-        boolean isSiegerehrung = SIEGEREHRUNG_GAME_MODE.equalsIgnoreCase(gameMode);
-        boolean shouldRunL3 = tournament.isOptimize() && !isSiegerehrung;
+        // DEC-59 Clause F: L3 is skipped for awardCeremony phases (renamed from siegerehrung)
+        boolean isAwardCeremony = AWARD_CEREMONY_GAME_MODE.equalsIgnoreCase(gameMode);
+        boolean shouldRunL3 = tournament.isOptimize() && !isAwardCeremony;
 
         if (shouldRunL3) {
             // Step 5a (L3): invoke SlotOpt — throws on failure; TX will roll back
@@ -186,10 +188,10 @@ class DefaultOrchestratorStepBExecutor implements OrchestratorStepBExecutor {
                     phaseId);
         } else {
             LOG.info(
-                    "DefaultOrchestratorStepBExecutor: L3 skipped (optimize={}, isSiegerehrung={}),"
-                            + " phase.optimized stays false, phaseId={}",
+                    "DefaultOrchestratorStepBExecutor: L3 skipped (optimize={},"
+                            + " isAwardCeremony={}), phase.optimized stays false, phaseId={}",
                     tournament.isOptimize(),
-                    isSiegerehrung,
+                    isAwardCeremony,
                     phaseId);
         }
 

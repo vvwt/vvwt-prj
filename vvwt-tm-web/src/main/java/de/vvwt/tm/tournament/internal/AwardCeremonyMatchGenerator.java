@@ -11,14 +11,15 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * No-op {@link MatchGenerator} for the {@code gameMode=siegerehrung} phase type (E48S02, Path-i per
- * Brief O-15).
+ * No-op {@link MatchGenerator} for the {@code gameMode=awardCeremony} phase type (E48S02, Path-i
+ * per Brief O-15; renamed from {@code siegerehrung} by E58S04 — DEC-73 D-7).
  *
- * <p>A Siegerehrung phase does not generate matches — it is a ceremony phase. This bean registers
- * under the key {@code "siegerehrung"} in the {@link de.vvwt.tm.tournament.MatchGeneratorRegistry},
- * enabling {@link PhasePreparationService} to resolve a generator for Siegerehrung phases without
- * throwing {@link IllegalArgumentException} or requiring any modification to the service itself
- * (registry-driven dispatch — minimal-invasive).
+ * <p>An award-ceremony phase does not generate matches — it is a ceremony phase. This bean
+ * registers under the key {@code "awardCeremony"} in the {@link
+ * de.vvwt.tm.tournament.MatchGeneratorRegistry}, enabling {@link PhasePreparationService} to
+ * resolve a generator for award-ceremony phases without throwing {@link IllegalArgumentException}
+ * or requiring any modification to the service itself (registry-driven dispatch —
+ * minimal-invasive).
  *
  * <h2>Path-i trade-off (from Brief O-15)</h2>
  *
@@ -26,21 +27,23 @@ import org.springframework.stereotype.Component;
  * caller. This is acceptable because:
  *
  * <ol>
- *   <li>The {@code gameMode} field comes from {@code DraftSection.gameMode}, which is whitelist-
- *       validated to {@code {roundrobin, siegerehrung}} by E48S01. No accidental mis-dispatch.
- *   <li>The draft-apply flow is deterministic per {@code draft_json}; accidental siegerehrung
- *       invocation is structurally prevented by the whitelist.
+ *   <li>The {@code gameMode} field comes from {@code DraftSection.gameMode}, which is
+ *       registry-membership validated at draft save/apply time (DEC-73 D-6). No accidental
+ *       mis-dispatch.
+ *   <li>The draft-apply flow is deterministic per {@code draft_json}; accidental awardCeremony
+ *       invocation is structurally prevented by the registry-membership check.
  * </ol>
  *
  * <h2>DEC compliance</h2>
  *
  * <ul>
  *   <li>DEC-35: lives in {@code de.vvwt.tm.tournament.internal} — implementation package.
- *   <li>DEC-22: RED-first tests in {@code SiegerehrungMatchGeneratorTest} written before this
- *       class.
- *   <li>AC-IMPL-SIEGEREHRUNG-GENERATOR-BEAN: {@code getKeyId()} returns {@code "siegerehrung"}.
+ *   <li>DEC-22: RED-first tests in {@code AwardCeremonyMatchGeneratorTest} written before this
+ *       class (originally {@code SiegerehrungMatchGeneratorTest}).
+ *   <li>AC-IMPL-AWARD-CEREMONY-GENERATOR-BEAN: {@code getKeyId()} returns {@code "awardCeremony"}.
  *   <li>E58S01 AC1: renamed {@code getBeanId()} → {@code getKeyId()} (DEC-73 D-1).
  *   <li>E58S01 AC2: {@code isLastPhaseGenerator()} returns {@code true} (DEC-73 D-2).
+ *   <li>E58S04 AC3: renamed {@code "siegerehrung"} → {@code "awardCeremony"} (DEC-73 D-7).
  * </ul>
  *
  * @see MatchGenerator
@@ -48,31 +51,32 @@ import org.springframework.stereotype.Component;
  * @see PhasePreparationService
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
  * @see <a href="DEC-35">DEC-35 — implementation in tournament.internal</a>
- * @see <a href="E48S02">E48S02 — AC-IMPL-SIEGEREHRUNG-GENERATOR-BEAN</a>
+ * @see <a href="DEC-73">DEC-73 — D-7: siegerehrung → awardCeremony rename</a>
  */
-@Component("siegerehrungMatchGenerator")
-public class SiegerehrungMatchGenerator implements MatchGenerator {
+@Component("awardCeremonyMatchGenerator")
+public class AwardCeremonyMatchGenerator implements MatchGenerator {
 
-    private static final Logger LOG = LoggerFactory.getLogger(SiegerehrungMatchGenerator.class);
+    private static final Logger LOG = LoggerFactory.getLogger(AwardCeremonyMatchGenerator.class);
 
     /** Default no-arg constructor. No collaborators needed for a no-op generator. */
-    public SiegerehrungMatchGenerator() {}
+    public AwardCeremonyMatchGenerator() {}
 
     /**
-     * Returns the registry key {@code "siegerehrung"} — the lookup key in {@link
+     * Returns the registry key {@code "awardCeremony"} — the lookup key in {@link
      * de.vvwt.tm.tournament.MatchGeneratorRegistry}.
      *
-     * <p>Renamed from {@code getBeanId()} by E58S01 (DEC-73 D-1).
+     * <p>Renamed from {@code getBeanId()} by E58S01 (DEC-73 D-1). Registry key renamed from {@code
+     * "siegerehrung"} to {@code "awardCeremony"} by E58S04 (DEC-73 D-7).
      *
-     * @return {@code "siegerehrung"}
+     * @return {@code "awardCeremony"}
      */
     @Override
     public String getKeyId() {
-        return "siegerehrung";
+        return "awardCeremony";
     }
 
     /**
-     * Returns {@code true} — Siegerehrung is the terminal (last) phase generator.
+     * Returns {@code true} — the award-ceremony phase is the terminal (last) phase generator.
      *
      * <p>Added by E58S01 (DEC-73 D-2).
      *
@@ -84,7 +88,7 @@ public class SiegerehrungMatchGenerator implements MatchGenerator {
     }
 
     /**
-     * Returns an empty list — Siegerehrung phases have no matches.
+     * Returns an empty list — award-ceremony phases have no matches.
      *
      * <p>Input validation is performed per the {@link MatchGenerator} contract: {@code null} phase
      * or {@code null} avatars list throw {@link IllegalArgumentException}.
@@ -103,7 +107,7 @@ public class SiegerehrungMatchGenerator implements MatchGenerator {
             throw new IllegalArgumentException("avatars must not be null");
         }
         LOG.info(
-                "[siegerehrung] generate: phaseId={} — no-op generator, returning empty list",
+                "[awardCeremony] generate: phaseId={} — no-op generator, returning empty list",
                 phase.getId());
         return Collections.emptyList();
     }

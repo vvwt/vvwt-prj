@@ -133,7 +133,7 @@
       },
     ];
     // Auto-set last section to siegerehrung (AC-FRONTEND-GAMEMODE-DROPDOWN, E48S01)
-    enforceLastSectionSiegerehrung();
+    enforceLastSectionAwardCeremony();
   }
 
   function removeSection(idx: number): void {
@@ -141,7 +141,7 @@
       .filter((_, i) => i !== idx)
       .map((s, i) => ({ ...s, sectionNumber: i + 1 }));
     // Auto-set last section to siegerehrung after removal (AC-FRONTEND-GAMEMODE-DROPDOWN)
-    enforceLastSectionSiegerehrung();
+    enforceLastSectionAwardCeremony();
     // Clear break errors for removed section
     const newErrors: Record<string, string> = {};
     for (const [key, val] of Object.entries(breakErrors)) {
@@ -155,16 +155,16 @@
   // ── gameMode helpers (E48S01) ────────────────────────────────────────────
 
   /**
-   * Ensures the last section always has gameMode='siegerehrung'.
+   * Ensures the last section always has gameMode='awardCeremony'.
    * Called after addSection() and removeSection() to maintain the D-10 invariant in the UI.
    * AC-FRONTEND-GAMEMODE-DROPDOWN: last-section auto-set on every structural change.
    */
-  function enforceLastSectionSiegerehrung(): void {
+  function enforceLastSectionAwardCeremony(): void {
     if (sections.length === 0) return;
     const lastIdx = sections.length - 1;
-    if (sections[lastIdx].gameMode !== 'siegerehrung') {
+    if (sections[lastIdx].gameMode !== 'awardCeremony') {
       sections = sections.map((s, i) =>
-        i === lastIdx ? { ...s, gameMode: 'siegerehrung' } : s
+        i === lastIdx ? { ...s, gameMode: 'awardCeremony' } : s
       );
     }
   }
@@ -187,7 +187,7 @@
   }
 
   /**
-   * Pre-submit validation: verifies the last section has gameMode='siegerehrung'.
+   * Pre-submit validation: verifies the last section has gameMode='awardCeremony'.
    * Returns an i18n error key string if invalid, or null if valid.
    * AC-FRONTEND-PRE-SUBMIT-VALIDATION-MIRROR (E48S01).
    */
@@ -196,8 +196,8 @@
     const lastSection = sections.reduce((max, s) =>
       s.sectionNumber > max.sectionNumber ? s : max
     );
-    if (lastSection.gameMode !== 'siegerehrung') {
-      return $_('draftConfig.errors.lastPhaseMustBeSiegerehrung');
+    if (lastSection.gameMode !== 'awardCeremony') {
+      return $_('draftConfig.errors.lastPhaseMustBeAwardCeremony');
     }
     return null;
   }
@@ -432,10 +432,10 @@
             <select
               bind:value={section.gameMode}
               disabled={si === sections.length - 1}
-              title={si === sections.length - 1 ? $_('draftConfig.errors.lastPhaseMustBeSiegerehrung') : undefined}
+              title={si === sections.length - 1 ? $_('draftConfig.errors.lastPhaseMustBeAwardCeremony') : undefined}
             >
               <option value="roundRobin">{$_('draftConfig.gameMode.roundRobin')}</option>
-              <option value="siegerehrung">{$_('draftConfig.gameMode.siegerehrung')}</option>
+              <option value="awardCeremony">{$_('draftConfig.gameMode.awardCeremony')}</option>
             </select>
           </div>
 
@@ -461,8 +461,8 @@
               type="number"
               min="1"
               bind:value={section.lapTimeMinutes}
-              disabled={section.gameMode === 'siegerehrung'}
-              title={section.gameMode === 'siegerehrung' ? $_('draftConfig.rundenzeit.disabledTooltip') : undefined}
+              disabled={section.gameMode === 'awardCeremony'}
+              title={section.gameMode === 'awardCeremony' ? $_('draftConfig.rundenzeit.disabledTooltip') : undefined}
             />
           </div>
 

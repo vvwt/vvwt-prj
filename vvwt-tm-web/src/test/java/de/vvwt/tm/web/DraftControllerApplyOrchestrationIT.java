@@ -145,7 +145,7 @@ class DraftControllerApplyOrchestrationIT {
                 new DraftSectionRequest(1, "team_number", 2, "roundRobin", 0, 0, 12, 1, null, null);
         DraftSectionRequest s2 =
                 new DraftSectionRequest(
-                        2, "team_number", 1, "siegerehrung", 0, 0, 5, 1, null, null);
+                        2, "team_number", 1, "awardCeremony", 0, 0, 5, 1, null, null);
         DraftRequest requestBody = new DraftRequest(List.of(s1, s2));
 
         // POST /apply

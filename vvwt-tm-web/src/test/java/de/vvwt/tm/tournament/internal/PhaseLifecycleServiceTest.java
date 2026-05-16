@@ -328,12 +328,12 @@ class PhaseLifecycleServiceTest {
     @DisplayName(
             "transition() — siegerehrung ASSIGNED + optimize=true + optimized=false"
                     + " → guard ACCEPTS via Clause F OR-term (E51S18 DEC-59 Clause F RED)")
-    void transition_siegerehrungPhase_optimizeEnabled_notOptimized_guardAcceptsClauseF() {
+    void transition_awardCeremonyPhase_optimizeEnabled_notOptimized_guardAcceptsClauseF() {
         // Synthetic input: siegerehrung phase, optimize=true, optimized=false, status=ASSIGNED
         // draft_json with one siegerehrung section (sequenceNumber=1 → section index 0)
         tournament.setOptimize(true);
         tournament.setDraftJson(
-                "{\"sections\":[{\"gameMode\":\"siegerehrung\",\"groupCount\":1}]}");
+                "{\"sections\":[{\"gameMode\":\"awardCeremony\",\"groupCount\":1}]}");
 
         Phase phase = assignedPhase(); // sequenceNumber=1, status=ASSIGNED
         phase.setOptimized(false);
@@ -419,7 +419,7 @@ class PhaseLifecycleServiceTest {
             "start() — siegerehrung phase (lapCount=0) ASSIGNED→ACTIVE"
                     + " sets currentLapNumber=0 (sentinel HOW decision)"
                     + " [AC-ERROR-SIEGEREHRUNG-PHASE]")
-    void start_siegerehrungPhase_lapCountZero_setsCurrentLapNumberToSentinel() {
+    void start_awardCeremonyPhase_lapCountZero_setsCurrentLapNumberToSentinel() {
         // ARRANGE: siegerehrung → no matches (lapCount=0)
         Phase phase = assignedPhase();
         phase.setCurrentLapNumber(0);

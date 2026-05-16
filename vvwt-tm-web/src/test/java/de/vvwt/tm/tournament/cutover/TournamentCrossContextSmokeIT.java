@@ -213,7 +213,7 @@ class TournamentCrossContextSmokeIT {
                             1, "team_number", 1, "roundRobin", 0, 0, 15, 1, null, null);
             var section2 =
                     new DraftSectionRequest(
-                            2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, null, null);
+                            2, "team_number", 1, "awardCeremony", 0, 0, 15, 1, null, null);
             ResponseEntity<DraftApplyResponse> draftResp =
                     authed.postForEntity(
                             new URI(baseUrl + "/api/tournaments/" + tournamentId + "/draft/apply"),

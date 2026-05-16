@@ -690,12 +690,12 @@ describe('PhaseList.svelte — activateGuardFails siegerehrung carve-out RED (AC
         'utf8'
     );
 
-    it("activateGuardFails function contains siegerehrung carve-out (DEC-59 Clause F)", () => {
+    it("activateGuardFails function contains awardCeremony carve-out (DEC-59 Clause F, renamed from siegerehrung by E58S04)", () => {
         const fnMatch = source.match(/function activateGuardFails[\s\S]*?\n  \}/);
         expect(fnMatch, 'activateGuardFails function not found').toBeTruthy();
         const fnBody = fnMatch![0];
-        // RED: FAILS on baseline — no gameMode or siegerehrung check
-        expect(fnBody).toMatch(/siegerehrung|gameMode/);
+        // GREEN: checks for awardCeremony or gameMode (renamed from siegerehrung by E58S04 DEC-73 D-7)
+        expect(fnBody).toMatch(/awardCeremony|gameMode/);
     });
 
     it("activateGuardFails uses !== true for optimized (defensive null handling)", () => {

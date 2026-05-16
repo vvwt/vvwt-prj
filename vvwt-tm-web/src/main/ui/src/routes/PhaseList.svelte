@@ -129,21 +129,21 @@
    * DEC-59 Clause F).
    *
    * Client mirror of server-side guard (DEC-59 Clause F):
-   *   ALLOWED iff: !tournament.optimize OR phase.optimized OR section.gameMode == 'siegerehrung'
+   *   ALLOWED iff: !tournament.optimize OR phase.optimized OR section.gameMode == 'awardCeremony'
    *
    * Guard FAILS (button disabled) when:
-   *   tournament.optimize=true AND phase.optimized !== true AND gameMode !== 'siegerehrung'
+   *   tournament.optimize=true AND phase.optimized !== true AND gameMode !== 'awardCeremony'
    *
    * Using `!== true` instead of `=== false` handles null/undefined defensively:
    *   - null !== true → guard fires → button disabled (AC-ERROR-OPTIMIZED-FIELD-NULL-IS-FALSE-DEFENSIVE)
    *   - false !== true → guard fires → button disabled (normal unoptimized case)
    *   - true !== true → false → guard passes → button enabled (optimized case)
    *
-   * The `'siegerehrung'` literal is authorized per DEC-59 Clause F text.
+   * The `'awardCeremony'` literal is authorized per DEC-59 Clause F text.
    * E51S20 GameMode enum may substitute the literal in a follow-up story.
    */
   function activateGuardFails(phase: PhaseOverview): boolean {
-    return tournamentOptimize && phase.optimized !== true && phase.gameMode !== 'siegerehrung';
+    return tournamentOptimize && phase.optimized !== true && phase.gameMode !== 'awardCeremony';
   }
 
   /**

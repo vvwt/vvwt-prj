@@ -355,7 +355,7 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
                                         3,
                                         "team_number",
                                         1,
-                                        "siegerehrung",
+                                        "awardCeremony",
                                         0,
                                         0,
                                         15,

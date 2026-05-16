@@ -216,13 +216,13 @@ class TournamentLifecycleSupportTest {
     @DisplayName("readGameMode returns gameMode from valid draft_json")
     void readGameMode_validDraftJson_returnsGameMode() {
         UUID tId = UUID.randomUUID();
-        String draftJson = "{\"sections\":[{\"sectionNumber\":1,\"gameMode\":\"siegerehrung\"}]}";
+        String draftJson = "{\"sections\":[{\"sectionNumber\":1,\"gameMode\":\"awardCeremony\"}]}";
         Tournament t = buildTournament(tId, draftJson);
         when(tournamentRepository.findById(tId)).thenReturn(Optional.of(t));
 
         String gameMode = impl.readGameMode(tId);
 
-        assertThat(gameMode).isEqualTo("siegerehrung");
+        assertThat(gameMode).isEqualTo("awardCeremony");
     }
 
     // =========================================================================

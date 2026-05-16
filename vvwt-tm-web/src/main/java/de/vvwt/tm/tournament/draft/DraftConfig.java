@@ -22,10 +22,11 @@ import java.util.Set;
  * @see <a href="DEC-21">DEC-21 — Spring Modulith package layout</a>
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
  * @see <a href="E21S07">E21S07 — Draft phase-planning reconstruction</a>
- * @see <a href="E48S01">E48S01 — last-phase-siegerehrung invariant (D-10)</a>
+ * @see <a href="E48S01">E48S01 — last-phase-awardCeremony invariant (D-10)</a>
  * @see <a href="E48S16">E48S16 — first-phase sortType=team_number invariant</a>
- * @see <a href="E58S01">E58S01 — AC5 GameMode enum removed; validateLastPhaseSiegerehrung uses
+ * @see <a href="E58S01">E58S01 — AC5 GameMode enum removed; validateLastPhaseAwardCeremony uses
  *     String comparison</a>
+ * @see <a href="E58S04">E58S04 — renamed siegerehrung → awardCeremony (DEC-73 D-7)</a>
  */
 public final class DraftConfig {
 
@@ -94,16 +95,16 @@ public final class DraftConfig {
 
     /**
      * Validates that the last phase (highest {@code sectionNumber}) has {@code
-     * gameMode=siegerehrung}, as required by the D-10 invariant.
+     * gameMode=awardCeremony}, as required by the D-10 invariant.
      *
      * <p>No-op if there are no sections (empty draft has nothing to enforce).
      *
      * @throws IllegalArgumentException if the last phase does not have {@code
-     *     gameMode=siegerehrung}; the message identifies the offending sectionNumber and its actual
-     *     gameMode
-     * @see <a href="E48S01">E48S01 — last-phase-siegerehrung invariant (D-10)</a>
+     *     gameMode=awardCeremony}; the message identifies the offending sectionNumber and its
+     *     actual gameMode
+     * @see <a href="E48S01">E48S01 — last-phase-awardCeremony invariant (D-10)</a>
      */
-    public void validateLastPhaseSiegerehrung() {
+    public void validateLastPhaseAwardCeremony() {
         if (sections.isEmpty()) {
             return;
         }
@@ -111,13 +112,14 @@ public final class DraftConfig {
                 sections.stream()
                         .max(Comparator.comparingInt(DraftSection::getSectionNumber))
                         .orElseThrow();
-        // E58S01 DEC-73 D-5: gameMode is now a String; use "siegerehrung".equals() (null-safe,
+        // E58S04 DEC-73 D-7: renamed from siegerehrung to awardCeremony
+        // E58S01 DEC-73 D-5: gameMode is a String; use "awardCeremony".equals() (null-safe,
         // per DEC-59 string comparison convention — constant on left)
-        if (!"siegerehrung".equals(lastSection.getGameMode())) {
+        if (!"awardCeremony".equals(lastSection.getGameMode())) {
             throw new IllegalArgumentException(
                     "Last phase (sectionNumber "
                             + lastSection.getSectionNumber()
-                            + ") must have gameMode=siegerehrung, got: "
+                            + ") must have gameMode=awardCeremony, got: "
                             + lastSection.getGameMode());
         }
     }

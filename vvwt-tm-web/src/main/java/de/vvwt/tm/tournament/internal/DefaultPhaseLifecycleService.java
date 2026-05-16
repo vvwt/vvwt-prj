@@ -37,8 +37,9 @@ import org.springframework.transaction.annotation.Transactional;
  * for all status mutations; it validates every call against the {@link #ALLOWED} transition table
  * (DEC-55 D-4). The {@code ASSIGNED → ACTIVE "start"} transition additionally enforces the
  * activation-guard {@code !tournament.optimize OR phase.optimized OR section.gameMode ==
- * "siegerehrung"} (DEC-55 D-6 amended by DEC-59 Clause F, E51S18). The {@code ObjectMapper} is
- * injected to parse {@code tournament.draftJson} for the gameMode lookup.
+ * "awardCeremony"} (DEC-55 D-6 amended by DEC-59 Clause F, E51S18; key renamed from {@code
+ * "siegerehrung"} by E58S04 — DEC-73 D-7). The {@code ObjectMapper} is injected to parse {@code
+ * tournament.draftJson} for the gameMode lookup.
  *
  * <p>{@link #prepare(UUID)} transitions PENDING → PREPARED (E48S17 / E51S06 rollback of E48S21).
  * Pure status flip only — avatar persistence (E51S02) and match generation (E51S03) are separate
@@ -69,9 +70,9 @@ import org.springframework.transaction.annotation.Transactional;
  * operator chose forceComplete deliberately and may need to correct data before reaching the
  * certificate workflow; tournament-completion via the Notabschluss path remains explicit (manual
  * POST /complete). Rationale: under D-10 invariant (E48S01) the last phase always has {@code
- * gameMode=siegerehrung}; per DEC-59 D-3 + Clause E Siegerehrung has no matches → {@code
- * complete()} always succeeds vacuously → {@code complete()} of Siegerehrung IS the ceremonial
- * tournament-completion gesture.
+ * gameMode=awardCeremony}; per DEC-59 D-3 + Clause E the award-ceremony phase has no matches →
+ * {@code complete()} always succeeds vacuously → {@code complete()} of the award-ceremony IS the
+ * ceremonial tournament-completion gesture.
  *
  * <p>{@link #forceComplete(UUID)} delegates to {@link MatchLockdownService} for match bulk-cancel —
  * reusing E48S04 logic without duplication (AC-IMPL-FORCE-COMPLETE-REUSES-LOCKDOWN).
@@ -85,8 +86,9 @@ import org.springframework.transaction.annotation.Transactional;
  * @see <a href="DEC-35">DEC-35 — package layout: impl in .internal</a>
  * @see <a href="DEC-37">DEC-37 Clause B — per-tournament pessimistic DB row-lock</a>
  * @see <a href="DEC-55">DEC-55 D-4 + D-6 — ASSIGNED status, transition-table, activation-guard</a>
- * @see <a href="DEC-59">DEC-59 Clause F — activation-guard gameMode OR-term (siegerehrung exempt);
- *     Clause E — Siegerehrung as ceremonial tournament-completion gesture</a>
+ * @see <a href="DEC-59">DEC-59 Clause F — activation-guard gameMode OR-term (awardCeremony exempt;
+ *     renamed from siegerehrung by E58S04); Clause E — award-ceremony as ceremonial
+ *     tournament-completion gesture</a>
  * @see <a href="E48S06">E48S06 — Phase-Lifecycle Service</a>
  * @see <a href="E48S17">E48S17 — PREPARED enum + prepare() + start() refactor</a>
  * @see <a href="E48S22">E48S22 — atomic-side-effect precedent (DRAFT→PLANNED on apply())</a>
@@ -256,14 +258,15 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
         }
 
         // AC-IMPL-ACTIVATION-GUARD-INSIDE-START (E51S05 + E51S18 DEC-59 Clause F):
-        // Guard: !tournament.optimize OR phase.optimized OR section.gameMode == "siegerehrung"
-        // DEC-59 Clause F amends DEC-55 D-6: siegerehrung phases are exempt from the optimize-guard
-        // because slot-optimization is N/A for ceremony-ordering (no slot structure to optimize).
+        // Guard: !tournament.optimize OR phase.optimized OR section.gameMode == "awardCeremony"
+        // DEC-59 Clause F amends DEC-55 D-6: awardCeremony phases are exempt from the
+        // optimize-guard because slot-optimization is N/A for ceremony-ordering (no slot structure
+        // to optimize). Key renamed from "siegerehrung" to "awardCeremony" by E58S04 (DEC-73 D-7).
         if (target == PhaseStatus.ACTIVE && "start".equals(verb)) {
             boolean optimizeEnabled = tournament != null && tournament.isOptimize();
             boolean phaseOptimized = phase.isOptimized();
-            boolean isSiegerehrung = isSiegerehrungPhase(tournament, phase);
-            if (optimizeEnabled && !phaseOptimized && !isSiegerehrung) {
+            boolean isAwardCeremony = isAwardCeremonyPhase(tournament, phase);
+            if (optimizeEnabled && !phaseOptimized && !isAwardCeremony) {
                 throw new ConflictException(
                         "Phase "
                                 + phaseId
@@ -281,7 +284,7 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
         phase.setStatus(target.name());
 
         // [E56S01 DEC-65 D-2/D-4] currentLapNumber hooks at status transitions:
-        // ACTIVE init: set 1 (or 0 for siegerehrung with lapCount=0) per DEC-65 D-2.
+        // ACTIVE init: set 1 (or 0 for awardCeremony with lapCount=0) per DEC-65 D-2.
         // COMPLETED reset: set 0 (idempotent sentinel) per DEC-65 D-4.
         if (target == PhaseStatus.ACTIVE) {
             int lapCount =
@@ -435,8 +438,9 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
         phase.setStatus("ACTIVE");
 
         // [E56S01 DEC-65 D-2] Init-hook: set currentLapNumber=1 in the same TX as status=ACTIVE.
-        // For siegerehrung phases (lapCount==0, no match rows per DEC-59 Clause F), use sentinel-0
-        // because no lap 1 exists to run — HOW decision recorded in E56S01 execution-plan.
+        // For awardCeremony phases (lapCount==0, no match rows per DEC-59 Clause F), use
+        // sentinel-0 because no lap 1 exists to run — HOW decision recorded in E56S01
+        // execution-plan.
         int lapCount =
                 matchRepository.findByPhaseId(phaseId).stream()
                         .mapToInt(m -> m.getLapNumber() != null ? m.getLapNumber() : 0)
@@ -606,12 +610,13 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
     }
 
     /**
-     * Determines whether the given phase corresponds to a {@code siegerehrung} section in the
-     * tournament's draft configuration (DEC-59 Clause F, E51S18).
+     * Determines whether the given phase corresponds to an {@code awardCeremony} section in the
+     * tournament's draft configuration (DEC-59 Clause F, E51S18; key renamed from {@code
+     * siegerehrung} by E58S04 — DEC-73 D-7).
      *
      * <p>Parses {@code tournament.draftJson} via Jackson to find the {@link DraftSection} at index
      * {@code phase.sequenceNumber - 1} (sequenceNumber is 1-based; sections list is 0-based).
-     * Returns {@code true} if the matching section has {@code gameMode == "siegerehrung"}.
+     * Returns {@code true} if the matching section has {@code gameMode == "awardCeremony"}.
      *
      * <p>Fail-safe: returns {@code false} (guard fires normally) if:
      *
@@ -623,12 +628,13 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
      *
      * @param tournament the locked tournament aggregate (may be null if not found)
      * @param phase the phase being evaluated
-     * @return {@code true} if the phase's section has gameMode "siegerehrung"; {@code false}
+     * @return {@code true} if the phase's section has gameMode "awardCeremony"; {@code false}
      *     otherwise
      * @see <a href="DEC-59">DEC-59 Clause F — activation-guard gameMode OR-term</a>
      * @see <a href="E51S18">E51S18 — operationalize DEC-59 Clause F</a>
+     * @see <a href="DEC-73">DEC-73 D-7 — siegerehrung → awardCeremony rename</a>
      */
-    private boolean isSiegerehrungPhase(Tournament tournament, Phase phase) {
+    private boolean isAwardCeremonyPhase(Tournament tournament, Phase phase) {
         if (tournament == null || tournament.getDraftJson() == null) {
             return false;
         }
@@ -640,11 +646,11 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
             if (index < 0 || index >= sections.size()) {
                 return false;
             }
-            // E58S01 DEC-73 D-5: gameMode is now a String; use "siegerehrung".equals() (null-safe)
-            return "siegerehrung".equals(sections.get(index).getGameMode());
+            // E58S04 DEC-73 D-7: gameMode key renamed "siegerehrung" → "awardCeremony"
+            return "awardCeremony".equals(sections.get(index).getGameMode());
         } catch (Exception e) {
             log.warn(
-                    "[E51S18] isSiegerehrungPhase: failed to parse draftJson for tournament {}"
+                    "[E51S18] isAwardCeremonyPhase: failed to parse draftJson for tournament {}"
                             + " — defaulting to false (guard fires normally). Error: {}",
                     tournament.getId(),
                     e.getMessage());

@@ -674,7 +674,7 @@ class DefaultDraftServiceApplyAvatarsIT {
                         new DraftSection(
                                 1, "team_number", groupCount, "roundRobin", 0, 0, 15, 1, List.of()),
                         new DraftSection(
-                                2, "team_number", 1, "siegerehrung", 0, 0, 15, 1, List.of())));
+                                2, "team_number", 1, "awardCeremony", 0, 0, 15, 1, List.of())));
     }
 
     /**
@@ -709,6 +709,6 @@ class DefaultDraftServiceApplyAvatarsIT {
                                 1,
                                 List.of()),
                         new DraftSection(
-                                3, "team_number", 1, "siegerehrung", 0, 0, 15, 1, List.of())));
+                                3, "team_number", 1, "awardCeremony", 0, 0, 15, 1, List.of())));
     }
 }

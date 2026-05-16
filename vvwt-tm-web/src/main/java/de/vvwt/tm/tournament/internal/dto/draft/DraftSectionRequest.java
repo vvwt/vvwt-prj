@@ -53,7 +53,7 @@ public record DraftSectionRequest(
         @NotNull @Min(value = 1, message = "groupCount must be ≥ 1") Integer groupCount,
         /**
          * Game mode registry key for this phase (e.g., {@code "roundRobin"}, {@code
-         * "siegerehrung"}). Required; must not be blank. Registry-membership validation (AC6,
+         * "awardCeremony"}). Required; must not be blank. Registry-membership validation (AC6,
          * E58S01) occurs in {@link de.vvwt.tm.tournament.internal.DefaultDraftService}.
          *
          * <p>Migrated from {@code GameMode} enum to {@code String} by E58S01 (DEC-73 D-5). Jackson

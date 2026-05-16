@@ -106,7 +106,7 @@ class DefaultMatchGeneratorRegistryTest {
     @Test
     void getGeneratorInfoList_returnsList_withCorrectKeyIdAndIsLastPhase() {
         MatchGenerator rrGen = mockGenerator("roundRobin", false);
-        MatchGenerator siegGen = mockGenerator("siegerehrung", true);
+        MatchGenerator siegGen = mockGenerator("awardCeremony", true);
         MatchGeneratorRegistry registry =
                 new DefaultMatchGeneratorRegistry(List.of(rrGen, siegGen));
 
@@ -122,7 +122,7 @@ class DefaultMatchGeneratorRegistryTest {
         assertThat(infoList)
                 .anySatisfy(
                         info -> {
-                            assertThat(info.keyId()).isEqualTo("siegerehrung");
+                            assertThat(info.keyId()).isEqualTo("awardCeremony");
                             assertThat(info.isLastPhaseGenerator()).isTrue();
                         });
     }
@@ -130,7 +130,7 @@ class DefaultMatchGeneratorRegistryTest {
     @Test
     void getGeneratorInfoList_exactlyOneIsLastPhaseGenerator() {
         MatchGenerator rrGen = mockGenerator("roundRobin", false);
-        MatchGenerator siegGen = mockGenerator("siegerehrung", true);
+        MatchGenerator siegGen = mockGenerator("awardCeremony", true);
         MatchGeneratorRegistry registry =
                 new DefaultMatchGeneratorRegistry(List.of(rrGen, siegGen));
 
@@ -144,7 +144,7 @@ class DefaultMatchGeneratorRegistryTest {
                                 .filter(MatchGeneratorInfo::isLastPhaseGenerator)
                                 .findFirst()
                                 .map(MatchGeneratorInfo::keyId))
-                .hasValue("siegerehrung");
+                .hasValue("awardCeremony");
     }
 
     @Test
