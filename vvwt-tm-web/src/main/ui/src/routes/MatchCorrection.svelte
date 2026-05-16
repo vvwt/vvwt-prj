@@ -179,7 +179,7 @@
   <h2 class="correction__subtitle">{$_('correction.matchIdLabel')}: {matchId}</h2>
 
   {#if preloading}
-    <p class="correction__loading">…</p>
+    <p class="correction__loading" data-testid="correction-loading">{$_('correction.loading')}</p>
   {:else if preloadError !== null}
     <p class="correction__error" role="alert" data-testid="match-not-found-error">{preloadError}</p>
   {:else if resultState !== null}

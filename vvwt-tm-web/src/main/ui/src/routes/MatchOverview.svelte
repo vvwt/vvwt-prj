@@ -90,7 +90,7 @@
 <main class="match-overview">
 
   {#if loading}
-    <p class="match-overview__loading">…</p>
+    <p class="match-overview__loading" data-testid="match-overview-loading">{$_('matchOverview.loading')}</p>
   {:else if loadError}
     <p class="match-overview__error" data-testid="match-overview-error">{loadError}</p>
   {:else if matches.length === 0}
