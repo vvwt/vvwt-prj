@@ -1,4 +1,4 @@
-package de.vvwt.tm.slotopt;
+package de.vvwt.tm.slotopt.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
@@ -8,6 +8,8 @@ import de.vvwt.slotopt.worker.types.PositionTuple;
 import de.vvwt.slotopt.worker.types.RawRow;
 import de.vvwt.slotopt.worker.types.StructuralFingerprint;
 import de.vvwt.slotopt.worker.types.TransformResult;
+import de.vvwt.tm.slotopt.MappingResult;
+import de.vvwt.tm.slotopt.PhaseToRawPhaseDefMapper;
 import de.vvwt.tm.tournament.Match;
 import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.MatchState;
@@ -23,11 +25,17 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * Unit tests for {@link PhaseToRawPhaseDefMapper} — covers AC8–AC11 and AC13 of story E04S02, and
- * E54S02 RED-first tests for RawRow=Lap refactor per DEC-61 Clause B.
+ * Unit tests for {@link DefaultPhaseToRawPhaseDefMapper} (via {@link PhaseToRawPhaseDefMapper}
+ * interface) — covers AC8–AC11 and AC13 of story E04S02, and E54S02 RED-first tests for RawRow=Lap
+ * refactor per DEC-61 Clause B.
+ *
+ * @see DefaultPhaseToRawPhaseDefMapper
+ * @see PhaseToRawPhaseDefMapper
+ * @since E57S01 (moved from slotopt.PhaseToRawPhaseDefMapperTest to slotopt.internal per DEC-58
+ *     interface extraction)
  */
 @ExtendWith(MockitoExtension.class)
-class PhaseToRawPhaseDefMapperTest {
+class DefaultPhaseToRawPhaseDefMapperTest {
 
     @Mock private TeamAvatarRepository teamAvatarRepository;
 
@@ -40,7 +48,7 @@ class PhaseToRawPhaseDefMapperTest {
 
     @BeforeEach
     void setUp() {
-        mapper = new PhaseToRawPhaseDefMapper(teamAvatarRepository, matchRepository);
+        mapper = new DefaultPhaseToRawPhaseDefMapper(teamAvatarRepository, matchRepository);
     }
 
     // -------------------------------------------------------------------------

@@ -5,6 +5,7 @@ import de.vvwt.tm.tournament.Match;
 import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
+import de.vvwt.tm.tournament.RefereeAssigner;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
@@ -24,12 +25,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Spring service that assigns referee teams to every eligible match in a phase (E21S08
- * reconstruction).
+ * Default implementation of {@link RefereeAssigner}.
  *
- * <p>Reconstruction-in-place counterpart of {@code de.vvwt.tm.domain.referee.RefereeAssigner}
- * (inventory row 276). Lives at {@code de.vvwt.tm.tournament.internal.referee} per AC-PACKAGE-D8.
- * Uses new {@code de.vvwt.tm.tournament.*} types instead of {@code de.vvwt.tm.domain.*} types.
+ * <p>Spring service that assigns referee teams to every eligible match in a phase (E21S08
+ * reconstruction). Reconstruction-in-place counterpart of {@code
+ * de.vvwt.tm.domain.referee.RefereeAssigner} (inventory row 276). Lives at {@code
+ * de.vvwt.tm.tournament.internal.referee} per AC-PACKAGE-D8. Uses new {@code
+ * de.vvwt.tm.tournament.*} types instead of {@code de.vvwt.tm.domain.*} types.
  *
  * <h2>Core algorithm</h2>
  *
@@ -50,13 +52,13 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * @see RefereeAssignmentReport
  * @see RefereePreferenceConfig
- * @see <a href="DEC-22">DEC-22 — TDD Iron Law (reconstruction-in-place)</a>
- * @see <a href="E21S08">E21S08 — inventory row 276</a>
+ * @since E57S01 (DEC-58/DEC-72 interface extraction: renamed from RefereeAssigner, implements
+ *     {@link RefereeAssigner})
  */
 @Service("tmRefereeAssigner")
-public class RefereeAssigner {
+public class DefaultRefereeAssigner implements RefereeAssigner {
 
-    private static final Logger LOG = LoggerFactory.getLogger(RefereeAssigner.class);
+    private static final Logger LOG = LoggerFactory.getLogger(DefaultRefereeAssigner.class);
 
     private final PhaseRepository phaseRepository;
     private final MatchRepository matchRepository;
@@ -67,13 +69,13 @@ public class RefereeAssigner {
     /**
      * Constructs the service. Spring injects all collaborators.
      *
-     * @param phaseRepository repository for {@link Phase} entities (from E21S03)
-     * @param matchRepository repository for {@link Match} entities (from E21S04/E21S05)
-     * @param teamRepository repository for {@link Team} entities (from E21S04)
-     * @param teamAvatarRepository repository for {@link TeamAvatar} entities (from E21S04)
+     * @param phaseRepository repository for {@link Phase} entities
+     * @param matchRepository repository for {@link Match} entities
+     * @param teamRepository repository for {@link Team} entities
+     * @param teamAvatarRepository repository for {@link TeamAvatar} entities
      * @param objectMapper Jackson mapper for parsing {@link RefereePreferenceConfig}
      */
-    public RefereeAssigner(
+    public DefaultRefereeAssigner(
             PhaseRepository phaseRepository,
             MatchRepository matchRepository,
             TeamRepository teamRepository,
@@ -86,18 +88,8 @@ public class RefereeAssigner {
         this.objectMapper = objectMapper;
     }
 
-    /**
-     * Assigns referee teams to every eligible match in the given phase.
-     *
-     * <p>Matches with a non-null {@code refereeDescription} are counted as manually overridden and
-     * left untouched.
-     *
-     * @param phaseId the phase to process; must not be {@code null}
-     * @return a summary report; never {@code null}
-     * @throws NullPointerException if {@code phaseId} is null
-     * @throws IllegalArgumentException if the phase does not exist
-     * @throws IllegalStateException if any match has null slot coordinates
-     */
+    /** {@inheritDoc} */
+    @Override
     @Transactional
     public RefereeAssignmentReport assignReferees(UUID phaseId) {
         if (phaseId == null) {
@@ -117,7 +109,9 @@ public class RefereeAssigner {
         List<Match> allMatches = matchRepository.findByPhaseId(phaseId);
 
         if (allMatches.isEmpty()) {
-            LOG.info("RefereeAssigner: phase {} has no matches — nothing to assign.", phaseId);
+            LOG.info(
+                    "DefaultRefereeAssigner: phase {} has no matches — nothing to assign.",
+                    phaseId);
             return RefereeAssignmentReport.builder().totalMatches(0).build();
         }
 
@@ -176,7 +170,7 @@ public class RefereeAssigner {
                 if (match.getRefereeDescription() != null) {
                     lapOverrideCount++;
                     LOG.debug(
-                            "RefereeAssigner: lap={} match={} — manual override, skipping.",
+                            "DefaultRefereeAssigner: lap={} match={} — manual override, skipping.",
                             lapNumber,
                             match.getId());
                 } else {
@@ -207,7 +201,7 @@ public class RefereeAssigner {
                                     + ": no eligible referee available for match "
                                     + match.getId()
                                     + ".";
-                    LOG.warn("RefereeAssigner: {}", warning);
+                    LOG.warn("DefaultRefereeAssigner: {}", warning);
                     reportBuilder.addWarning(warning).incrementNoReferee();
                     continue;
                 }
@@ -219,7 +213,8 @@ public class RefereeAssigner {
                 alreadyRefereesThisLap.add(chosenTeamId);
 
                 LOG.debug(
-                        "RefereeAssigner: lap={} field={} match={} — assigned refereeTeamId={}.",
+                        "DefaultRefereeAssigner: lap={} field={} match={} — assigned"
+                                + " refereeTeamId={}.",
                         lapNumber,
                         match.getFieldNumber(),
                         match.getId(),
@@ -230,8 +225,8 @@ public class RefereeAssigner {
         RefereeAssignmentReport report = reportBuilder.build();
 
         LOG.info(
-                "RefereeAssigner: phase={} — total={}, assigned={}, overridden={}, noReferee={},"
-                        + " warnings={}",
+                "DefaultRefereeAssigner: phase={} — total={}, assigned={}, overridden={},"
+                        + " noReferee={}, warnings={}",
                 phaseId,
                 report.getTotalMatches(),
                 report.getAssignedCount(),

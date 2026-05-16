@@ -1,11 +1,11 @@
 package de.vvwt.tm.auth.internal;
 
+import de.vvwt.tm.auth.AdminCredentialsBootstrap;
 import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
-import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -79,12 +79,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
  * @see <a
  *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E15S04.story.md">Story
  *     E15S04</a>
- * @since E15S03
+ * @since E15S03 (renamed DefaultAdminCredentialsBootstrap in E57S01; DEC-58/DEC-72 interface
+ *     extraction: implements {@link AdminCredentialsBootstrap} from {@code de.vvwt.tm.auth})
  */
 @Order(2)
-public class AdminCredentialsBootstrap implements ApplicationRunner {
+public class DefaultAdminCredentialsBootstrap implements AdminCredentialsBootstrap {
 
-    private static final Logger log = LoggerFactory.getLogger(AdminCredentialsBootstrap.class);
+    private static final Logger log =
+            LoggerFactory.getLogger(DefaultAdminCredentialsBootstrap.class);
 
     /**
      * Holds the bcrypt hash after bootstrap completes. {@code null} before {@link
@@ -108,7 +110,7 @@ public class AdminCredentialsBootstrap implements ApplicationRunner {
      * @param dao the credentials DAO; must not be {@code null}
      * @param encoder the password encoder (BCrypt); must not be {@code null}
      */
-    public AdminCredentialsBootstrap(
+    public DefaultAdminCredentialsBootstrap(
             PasswordGenerator generator, AdminCredentialsDao dao, PasswordEncoder encoder) {
         this.generator = generator;
         this.dao = dao;
@@ -222,11 +224,12 @@ public class AdminCredentialsBootstrap implements ApplicationRunner {
      * @throws IllegalStateException if called before {@link #run(ApplicationArguments)} has
      *     completed (should not happen in production)
      */
+    @Override
     public String getPasswordHash() {
         String hash = this.passwordHash;
         if (hash == null) {
             throw new IllegalStateException(
-                    "AdminCredentialsBootstrap.getPasswordHash() called before bootstrap "
+                    "DefaultAdminCredentialsBootstrap.getPasswordHash() called before bootstrap "
                             + "completed. Ensure callers are invoked after ApplicationRunner "
                             + "(@Order(2)) has run.");
         }

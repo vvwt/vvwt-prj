@@ -12,6 +12,7 @@ import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.MatchState;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
+import de.vvwt.tm.tournament.RefereeAssigner;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
@@ -55,7 +56,7 @@ class RefereeAssignerTest {
         teamAvatarRepository = mock(TeamAvatarRepository.class);
         objectMapper = new ObjectMapper();
         assigner =
-                new RefereeAssigner(
+                new DefaultRefereeAssigner(
                         phaseRepository,
                         matchRepository,
                         teamRepository,

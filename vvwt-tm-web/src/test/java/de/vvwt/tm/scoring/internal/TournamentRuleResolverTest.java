@@ -8,6 +8,7 @@ import de.vvwt.tm.scoring.ScoringRule;
 import de.vvwt.tm.scoring.ScoringRuleRegistry;
 import de.vvwt.tm.scoring.SetValidationRule;
 import de.vvwt.tm.scoring.SetValidationRuleRegistry;
+import de.vvwt.tm.scoring.TournamentRuleResolver;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.exceptions.ValidationException;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,7 +38,8 @@ class TournamentRuleResolverTest {
 
     @BeforeEach
     void setUp() {
-        resolver = new TournamentRuleResolver(scoringRuleRegistry, setValidationRuleRegistry);
+        resolver =
+                new DefaultTournamentRuleResolver(scoringRuleRegistry, setValidationRuleRegistry);
     }
 
     // -----------------------------------------------------------------------
@@ -121,7 +123,7 @@ class TournamentRuleResolverTest {
 
     @Test
     void constructor_nullScoringRegistry_throwsIllegalArgumentException() {
-        assertThatThrownBy(() -> new TournamentRuleResolver(null, setValidationRuleRegistry))
+        assertThatThrownBy(() -> new DefaultTournamentRuleResolver(null, setValidationRuleRegistry))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -131,7 +133,7 @@ class TournamentRuleResolverTest {
 
     @Test
     void constructor_nullSetValidationRegistry_throwsIllegalArgumentException() {
-        assertThatThrownBy(() -> new TournamentRuleResolver(scoringRuleRegistry, null))
+        assertThatThrownBy(() -> new DefaultTournamentRuleResolver(scoringRuleRegistry, null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }

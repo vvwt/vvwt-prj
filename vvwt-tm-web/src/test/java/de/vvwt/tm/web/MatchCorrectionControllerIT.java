@@ -7,7 +7,7 @@ import static org.mockito.Mockito.when;
 import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.scoring.ScoringResult;
 import de.vvwt.tm.scoring.ScoringRule;
-import de.vvwt.tm.scoring.internal.TournamentRuleResolver;
+import de.vvwt.tm.scoring.TournamentRuleResolver;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
 import de.vvwt.tm.tournament.MatchState;
 import de.vvwt.tm.web.internal.dto.MatchCorrectionRequest;

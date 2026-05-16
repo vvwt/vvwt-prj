@@ -54,7 +54,7 @@ class AdminCredentialsBootstrapTest {
 
     @Mock private ApplicationArguments args;
 
-    @InjectMocks private AdminCredentialsBootstrap bootstrap;
+    @InjectMocks private DefaultAdminCredentialsBootstrap bootstrap;
 
     // -------------------------------------------------------------------------
     // T1 / AC3 — First-start: four interactions in order (generate → encode → insertNew → log)
@@ -169,7 +169,7 @@ class AdminCredentialsBootstrapTest {
      */
     @Test
     void orderAnnotation_isTwo() {
-        Order order = AdminCredentialsBootstrap.class.getAnnotation(Order.class);
+        Order order = DefaultAdminCredentialsBootstrap.class.getAnnotation(Order.class);
 
         assertThat(order)
                 .as("AC7: AdminCredentialsBootstrap must declare @Order annotation")
@@ -208,7 +208,7 @@ class AdminCredentialsBootstrapTest {
      */
     @Test
     void packagePlacement_newBootstrap_isInAuthInternal() {
-        String packageName = AdminCredentialsBootstrap.class.getPackageName();
+        String packageName = DefaultAdminCredentialsBootstrap.class.getPackageName();
 
         assertThat(packageName)
                 .as("AC9: AdminCredentialsBootstrap (new) must be in de.vvwt.tm.auth.internal")

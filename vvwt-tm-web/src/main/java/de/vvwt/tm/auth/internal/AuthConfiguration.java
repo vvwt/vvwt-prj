@@ -1,5 +1,6 @@
 package de.vvwt.tm.auth.internal;
 
+import de.vvwt.tm.auth.AdminCredentialsBootstrap;
 import de.vvwt.tm.auth.AdminCredentialsProvider;
 import de.vvwt.tm.tenant.TenantDataSourceResolver;
 import de.vvwt.tm.tenant.TenantRegistryPort;
@@ -101,7 +102,7 @@ public class AuthConfiguration {
                 new DefaultTenantDataSourceAdapter(tenantRegistryPort, tenantDataSourceResolver);
         AdminCredentialsDao dao = new AdminCredentialsDao(perTenantDataSource);
         PasswordGenerator generator = new PasswordGenerator(new SecureRandom());
-        return new AdminCredentialsBootstrap(generator, dao, passwordEncoder);
+        return new DefaultAdminCredentialsBootstrap(generator, dao, passwordEncoder);
     }
 
     /**

@@ -1,8 +1,10 @@
-package de.vvwt.tm.scoring;
+package de.vvwt.tm.scoring.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import de.vvwt.tm.scoring.ScoringRule;
+import de.vvwt.tm.scoring.ScoringRuleRegistry;
 import de.vvwt.tm.tournament.exceptions.ValidationException;
 import java.util.List;
 import java.util.Set;
@@ -10,20 +12,17 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Cross-package unit tests for {@link ScoringRuleRegistry} per DEC-36.
+ * Same-package white-box unit tests for {@link DefaultScoringRuleRegistry} per DEC-36.
  *
- * <p>Tests reference {@link ScoringRule} (the public interface), never the registry implementation
- * class directly from a different-package perspective — this class IS in the same package as the
- * subject, so it is technically a same-package test (white-box permitted per DEC-36), but we use
- * the public interface type for collaborators in accordance with the story's DEC-36 cross-package
- * consumer perspective for the rule fixtures.
+ * <p>Tests are in {@code scoring.internal} (same package as the subject) and use the public
+ * interface type {@link ScoringRuleRegistry} for the variable holding the subject, per DEC-36.
  *
- * <p>RED-first per DEC-22 Iron Law: tests written before {@link ScoringRuleRegistry} exists.
- *
+ * @see DefaultScoringRuleRegistry
  * @see ScoringRuleRegistry
- * @see ScoringRule
+ * @since E57S01 (moved from scoring.ScoringRuleRegistryTest to scoring.internal per DEC-58
+ *     interface extraction)
  */
-class ScoringRuleRegistryTest {
+class DefaultScoringRuleRegistryTest {
 
     /** Minimal test-fixture ScoringRule implementation. */
     private static ScoringRule ruleOf(String beanId) {
@@ -50,7 +49,7 @@ class ScoringRuleRegistryTest {
     void setUp() {
         ruleA = ruleOf("setPoints");
         ruleB = ruleOf("threePoint");
-        registry = new ScoringRuleRegistry(List.of(ruleA, ruleB));
+        registry = new DefaultScoringRuleRegistry(List.of(ruleA, ruleB));
     }
 
     // -----------------------------------------------------------------------
@@ -99,7 +98,7 @@ class ScoringRuleRegistryTest {
 
     @Test
     void constructor_emptyList_registryIsEmpty() {
-        ScoringRuleRegistry empty = new ScoringRuleRegistry(List.of());
+        ScoringRuleRegistry empty = new DefaultScoringRuleRegistry(List.of());
         assertThat(empty.knownIds()).isEmpty();
     }
 }

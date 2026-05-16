@@ -1,4 +1,4 @@
-package de.vvwt.tm.tournament;
+package de.vvwt.tm.tournament.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.db.api.Assertions.assertThat;
@@ -6,6 +6,8 @@ import static org.assertj.db.api.Assertions.assertThat;
 import de.vvwt.tm.infrastructure.testsupport.TenantDaoTestSupport;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tenant.internal.ThreadLocalTenantContextImpl;
+import de.vvwt.tm.tournament.PhaseBreak;
+import de.vvwt.tm.tournament.PhaseBreakRepository;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -19,7 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
- * Integration test for {@link PhaseBreakRepository} — DEC-26 three-rule compliance.
+ * Integration test for {@link DefaultPhaseBreakRepository} — DEC-26 three-rule compliance.
  *
  * <p>AC-TDD-PhaseBreakRepository, AC-DAO-3RULES-PhaseBreakRepository.
  *
@@ -31,12 +33,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
  *       repository under test
  * </ul>
  *
+ * @see DefaultPhaseBreakRepository
  * @see PhaseBreakRepository
  * @see TenantDaoTestSupport
- * @see <a href="DEC-26">DEC-26 — DAO test governance: three rules</a>
- * @see <a href="E21S03">E21S03 — Phase cluster reconstruction (inventory line 296)</a>
+ * @since E57S01 (moved from tournament.PhaseBreakRepositoryIT to tournament.internal per DEC-58
+ *     interface extraction)
  */
-class PhaseBreakRepositoryIT {
+class DefaultPhaseBreakRepositoryIT {
 
     private DataSource ds;
     private AssertDbConnection assertDb;
@@ -56,13 +59,9 @@ class PhaseBreakRepositoryIT {
         UUID tournamentId = UUID.randomUUID();
         phaseId = UUID.randomUUID();
         // Standalone test — no Spring context; use ThreadLocalTenantContextImpl directly.
-        // TenantContextTestSupport.Binder requires a full @SpringBootTest application context
-        // (AC-TENANT-BINDER-ADOPTION departure: standalone lifecycle differs — documented in
-        // impl-report).
         tenantContext = new ThreadLocalTenantContextImpl();
         tenantScope = tenantContext.bind(tenantId);
         // E45S06: tenant_id removed (DEC-39 D1); tournament requires location_id (DEC-39 D2)
-        // Insert locations row, then tournament (FK), then phase (FK)
         UUID locationId = UUID.randomUUID();
         TenantDaoTestSupport.insertDirectly(
                 ds, "locations", Map.of("id", locationId, "display_name", "IT Location"));
@@ -96,7 +95,7 @@ class PhaseBreakRepositoryIT {
                         "PENDING",
                         "current_lap_number",
                         0));
-        repo = new PhaseBreakRepository(new JdbcTemplate(ds));
+        repo = new DefaultPhaseBreakRepository(new JdbcTemplate(ds));
     }
 
     @AfterEach

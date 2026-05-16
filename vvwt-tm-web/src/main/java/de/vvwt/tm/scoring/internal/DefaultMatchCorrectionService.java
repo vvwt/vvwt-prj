@@ -4,6 +4,7 @@ import de.vvwt.tm.scoring.MatchCorrectionInput;
 import de.vvwt.tm.scoring.MatchCorrectionResult;
 import de.vvwt.tm.scoring.MatchCorrectionService;
 import de.vvwt.tm.scoring.SetScoreCorrection;
+import de.vvwt.tm.scoring.TournamentRuleResolver;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.AuditLogEntry;
 import de.vvwt.tm.tournament.AuditLogRepository;

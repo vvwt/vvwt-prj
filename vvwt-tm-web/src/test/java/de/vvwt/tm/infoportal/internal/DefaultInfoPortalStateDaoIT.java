@@ -1,7 +1,9 @@
-package de.vvwt.tm.infoportal;
+package de.vvwt.tm.infoportal.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import de.vvwt.tm.infoportal.InfoPortalStateDao;
+import de.vvwt.tm.infoportal.InfoPortalStateRecord;
 import de.vvwt.tm.infrastructure.testsupport.TenantDaoTestSupport;
 import java.time.Instant;
 import java.util.Map;
@@ -13,8 +15,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * DAO integration tests for {@link InfoPortalStateDao} — DEC-26 + DEC-46 three rules via {@link
- * TenantDaoTestSupport} (TM is DEC-20 DB-per-Tenant, eligible per DEC-46 clause #2(a)).
+ * DAO integration tests for {@link DefaultInfoPortalStateDao} (via {@link InfoPortalStateDao}
+ * interface) — DEC-26 + DEC-46 three rules via {@link TenantDaoTestSupport} (TM is DEC-20
+ * DB-per-Tenant, eligible per DEC-46 clause #2(a)).
  *
  * <p>DEC-22 Iron Law: tests written RED-first before DAO class exists.
  *
@@ -32,6 +35,8 @@ import org.junit.jupiter.api.Test;
  * token, secret) to 4-param (locationId, tournamentId, token, secret). Direct-insert fixtures no
  * longer include {@code tenant_id}.
  *
+ * @see DefaultInfoPortalStateDao
+ * @see InfoPortalStateDao
  * @see <a
  *     href="../../../../../../../../.gaai/project/contexts/artefacts/stories/E38S09.story.md">E38S09
  *     AC12</a>
@@ -39,8 +44,10 @@ import org.junit.jupiter.api.Test;
  *     href="../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-26.md">DEC-26</a>
  * @see <a
  *     href="../../../../../../../../.gaai/project/contexts/memory/decisions/DEC-46.md">DEC-46</a>
+ * @since E57S01 (moved from infoportal.InfoPortalStateDaoIT to infoportal.internal per DEC-58
+ *     interface extraction)
  */
-class InfoPortalStateDaoIT {
+class DefaultInfoPortalStateDaoIT {
 
     private DataSource dataSource;
     private AssertDbConnection assertDb;
@@ -55,7 +62,7 @@ class InfoPortalStateDaoIT {
                 dataSource, "db/migration/infoportal/V1__initial_schema.sql");
         // DEC-26 Rule 2: independent assertj-db verifier
         assertDb = TenantDaoTestSupport.assertDbOf(dataSource);
-        dao = new InfoPortalStateDao(dataSource);
+        dao = new DefaultInfoPortalStateDao(dataSource);
     }
 
     // -------------------------------------------------------------------------

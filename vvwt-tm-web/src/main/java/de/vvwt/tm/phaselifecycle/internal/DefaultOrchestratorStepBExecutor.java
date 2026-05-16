@@ -1,6 +1,7 @@
 package de.vvwt.tm.phaselifecycle.internal;
 
 import de.vvwt.tm.phaselifecycle.CancelFlagRegistry;
+import de.vvwt.tm.phaselifecycle.OrchestratorStepBExecutor;
 import de.vvwt.tm.phaselifecycle.PhaseLifecycleJobRepository;
 import de.vvwt.tm.slotopt.SlotOptimizationClient;
 import de.vvwt.tm.tenant.DiagnosticProperties;
@@ -16,12 +17,13 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Package-private executor for T-job-step-B of the Saga-Orchestrator drain pipeline (DEC-64 D-12).
+ * Default implementation of {@link OrchestratorStepBExecutor} for the Saga-Orchestrator drain
+ * pipeline (DEC-64 D-12).
  *
  * <p>T-job-step-B runs SlotOpt invocation (L3) + {@code phase.optimized=true} write + {@code
  * phase_lifecycle_job.status=COMPLETED} in one {@code REQUIRES_NEW} transaction. Extracted into a
  * separate Spring bean to allow {@link DefaultPhaseLifecycleOrchestrator} to call it through the
- * AOP proxy boundary (same reason as {@link OrchestratorStepAExecutor}).
+ * AOP proxy boundary.
  *
  * <h2>DEC-37 Clause B</h2>
  *
@@ -71,11 +73,14 @@ import org.springframework.transaction.annotation.Transactional;
  *     per DEC-66 D-2)
  * @updated E55S10 (inject {@link DiagnosticProperties}; register TX-boundary listener when {@code
  *     tm.diagnostics.spring-tx-trace=true} per AC-DIAG-INSTRUMENT-SPRING-TX-BOUNDARY)
+ * @updated E57S01 (DEC-58/DEC-72 interface extraction: renamed from OrchestratorStepBExecutor,
+ *     implements {@link OrchestratorStepBExecutor})
  */
 @Service
-class OrchestratorStepBExecutor {
+class DefaultOrchestratorStepBExecutor implements OrchestratorStepBExecutor {
 
-    private static final Logger LOG = LoggerFactory.getLogger(OrchestratorStepBExecutor.class);
+    private static final Logger LOG =
+            LoggerFactory.getLogger(DefaultOrchestratorStepBExecutor.class);
 
     static final String SIEGEREHRUNG_GAME_MODE = "siegerehrung";
 
@@ -92,7 +97,7 @@ class OrchestratorStepBExecutor {
     private final CancelFlagRegistry cancelFlagRegistry;
     private final DiagnosticProperties diagnosticProperties;
 
-    OrchestratorStepBExecutor(
+    DefaultOrchestratorStepBExecutor(
             @Qualifier("tmTournamentRepository") TournamentRepository tournamentRepository,
             @Qualifier("tmPhaseRepository") PhaseRepository phaseRepository,
             SlotOptimizationClient slotOptimizationClient,
@@ -129,8 +134,9 @@ class OrchestratorStepBExecutor {
      * @param jobId the job row id (to mark completed)
      * @throws RuntimeException on any failure — T-step-B TX rolls back; job stays RUNNING
      */
+    @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    void executeStepB(UUID tournamentId, UUID phaseId, String gameMode, UUID jobId) {
+    public void executeStepB(UUID tournamentId, UUID phaseId, String gameMode, UUID jobId) {
         // E55S10 AC-DIAG-INSTRUMENT-SPRING-TX-BOUNDARY: register TX-boundary listener when enabled
         DiagnosticTransactionSupport.registerIfEnabled(diagnosticProperties);
 
@@ -138,7 +144,7 @@ class OrchestratorStepBExecutor {
         var tournament = tournamentRepository.findByIdForUpdate(tournamentId);
 
         LOG.info(
-                "OrchestratorStepBExecutor: START tournamentId={}, phaseId={}, gameMode={},"
+                "DefaultOrchestratorStepBExecutor: START tournamentId={}, phaseId={}, gameMode={},"
                         + " jobId={}",
                 tournamentId,
                 phaseId,
@@ -160,7 +166,8 @@ class OrchestratorStepBExecutor {
         phase.setLastJobState(SLOT_OPT_RUNNING);
         phaseRepository.save(phase);
         LOG.info(
-                "OrchestratorStepBExecutor: last_job_state='slot_opt_running' phaseId={}", phaseId);
+                "DefaultOrchestratorStepBExecutor: last_job_state='slot_opt_running' phaseId={}",
+                phaseId);
 
         // Step 4: L3 skip decision
         // DEC-56 D-1: L3 is skipped when tournament.optimize=false
@@ -174,11 +181,12 @@ class OrchestratorStepBExecutor {
             // Step 5b: set phase.optimized=true (SlotOpt completed successfully)
             phase.setOptimized(true);
             LOG.info(
-                    "OrchestratorStepBExecutor: L3 complete, phase.optimized=true," + " phaseId={}",
+                    "DefaultOrchestratorStepBExecutor: L3 complete, phase.optimized=true,"
+                            + " phaseId={}",
                     phaseId);
         } else {
             LOG.info(
-                    "OrchestratorStepBExecutor: L3 skipped (optimize={}, isSiegerehrung={}),"
+                    "DefaultOrchestratorStepBExecutor: L3 skipped (optimize={}, isSiegerehrung={}),"
                             + " phase.optimized stays false, phaseId={}",
                     tournament.isOptimize(),
                     isSiegerehrung,
@@ -203,7 +211,7 @@ class OrchestratorStepBExecutor {
         cancelFlagRegistry.clear(tournamentId);
 
         LOG.info(
-                "OrchestratorStepBExecutor: DONE tournamentId={}, phaseId={}, jobId={}",
+                "DefaultOrchestratorStepBExecutor: DONE tournamentId={}, phaseId={}, jobId={}",
                 tournamentId,
                 phaseId,
                 jobId);
