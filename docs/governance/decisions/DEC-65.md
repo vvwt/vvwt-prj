@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-65.md at 1d466cf91a49a4c46b5dec94361c73ccb6ecb665 2026-05-14 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-65.md at d7e9230599995db21adc1acff38dba512037122b 2026-05-16 -->
 ---
 id: DEC-65
 domain: architecture
@@ -6,6 +6,7 @@ level: architectural
 title: "Amendment to DEC-60 — Phase.currentLapNumber semantic flip from completed-counter (0-based) to running-lap-index (1-based) consistent with Match.lapNumber 1-based emit; ACTIVE-init = 1, last-lap-finalization sentinel = 0 (operator-controlled COMPLETED transition only); operationalization deferred to post-Epic-E55 (DEC-64 Saga-Orchestrator landing)"
 status: active
 amends: DEC-60
+amended_by: [DEC-74]
 related_to: [DEC-22, DEC-44, DEC-49, DEC-54, DEC-55, DEC-56, DEC-60, DEC-64]
 tags:
   - phase-lifecycle
