@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-59.md at ab727af1fcf7b6d334ad25e83a8bb6fd04a559cd 2026-05-09 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-59.md at e5326b6d09e95ccda2f9a65b7e6aa07bc741daad 2026-05-16 -->
 ---
 id: DEC-59
 domain: architecture
@@ -6,6 +6,7 @@ level: architectural
 title: "Amendment to DEC-55 D-1 — uniform avatar persistence at apply (N avatars per phase including siegerehrung; teamId=NULL universally including Phase 1) + codification of operator-confirmation team-assignment workflow + distributionMode as sole source of Phase-N team-assignment shape"
 status: active
 amends: DEC-55
+amended_by: [DEC-73]
 related_to: [DEC-9, DEC-22, DEC-25, DEC-49, DEC-54, DEC-55, DEC-56]
 tags:
   - team-avatar
@@ -18,7 +19,7 @@ tags:
   - amendment
 created_at: 2026-05-09
 created_by: discovery
-last_updated_at: 2026-05-09
+last_updated_at: 2026-05-16
 last_updated_by: discovery
 supersedes: null
 superseded_by: null
@@ -238,3 +239,16 @@ Story A and this DEC ship in **separate atomic Discovery commits** per the prece
   - `.gaai/project/contexts/memory/index.md` (DECISIONS-LOG entry + Decision Registry entry).
   - `.gaai/project/contexts/memory/decisions/DEC-55.md` (frontmatter `amended_by: [DEC-56, DEC-59]`).
 - Commit message pattern: `chore(discovery): author DEC-59 — amendment to DEC-55 D-1 (uniform avatar persistence + operator-confirmation workflow + distributionMode source)`.
+
+---
+
+## 2026-05-16 Amendment — Registry+strategy decomposition of distribution & sort; siegerehrung→awardCeremony literal rename
+
+See **DEC-73** for the full amendment. In summary, DEC-73 (the `planung/ToDo.md` registry-refactor Discovery cycle) amends DEC-59 by pointer:
+
+- **Clause C** — DEC-59 Clause C names `computePhase1Proposals` / `computeProposals` as the proposal-computation algorithm and explicitly admits *"(or successor implementation)"*. DEC-73's new `Team2AvatarDistributor` + `TeamSortCalculator` registries (plus the `AbstractAssignmentProposalCalculator` base) ARE that successor implementation. The inline `DistributionMode` / `sortType` branching moves into registry-dispatched strategies. No Clause C contradiction — the successor provision is exercised.
+- **Clause D** — DEC-59 Clause D names the **field** `DraftSection.distributionMode` (not the enum *type*) the sole source of truth, and already speaks in string values (`"sequential"` / `"round_robin"`). DEC-73 removes the `DistributionMode` (and `GameMode`) enum, making `gameMode` / `distributionMode` String registry-keys. This is **consistent with** Clause D — Clause D is unchanged.
+- **Clauses E & F** — the string literal `'siegerehrung'` that keys the siegerehrung empty-match-list dispatch (Clause E) and the activation guard (Clause F) is renamed in code to `'awardCeremony'` (DEC-73 D-7). The DEC-59 mechanism is unchanged; only the literal is renamed — this exercises DEC-59 § Clause F's own anticipation that *"The K-5 (String→Enum hygiene) Story may later upgrade the literal `'siegerehrung'`"* (here: rename, not enum-upgrade).
+- **The operator-confirmation team-assignment workflow (Clauses A–C) is otherwise textually unchanged.** DEC-73's D-2/D-3 extractions are behaviour-preserving — observable proposal output is identical pre/post.
+
+(Frontmatter `amended_by: [DEC-73]` is the authoritative amendment record; `status` remains `active`; no `supersedes`/`superseded_by` change.)
