@@ -10,6 +10,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import de.vvwt.info.dto.envelope.Envelope;
 import de.vvwt.info.dto.registration.AlgorithmWarning;
 import de.vvwt.info.dto.registration.RegistrationResponse;
 import de.vvwt.tm.infoportal.InfoPortalPublisherService.PublisherStatus;
@@ -20,6 +21,8 @@ import java.time.LocalDate;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.HttpClientErrorException;
@@ -85,14 +88,25 @@ class InfoPortalPublisherServiceTest {
     @Test
     @SuppressWarnings("unchecked")
     void registerTenant_callsRegistrationEndpointWithoutSignature() throws Exception {
-        RegistrationResponse resp = new RegistrationResponse(null, null);
-        when(restTemplate.postForEntity(anyString(), any(), eq(Object.class)))
-                .thenReturn(ResponseEntity.ok(resp));
+        Envelope<RegistrationResponse> envResp =
+                new Envelope<>(Envelope.SCHEMA_VERSION, new RegistrationResponse(null, null));
+        when(restTemplate.exchange(
+                        anyString(),
+                        eq(HttpMethod.POST),
+                        any(),
+                        any(ParameterizedTypeReference.class)))
+                .thenReturn(ResponseEntity.ok(envResp));
 
         service.registerTenant();
 
-        // Verify call was made (UNSIGNED registration — no signature in body per D-X4 b)
-        verify(restTemplate, times(1)).postForEntity(anyString(), any(), eq(Object.class));
+        // Verify call was made via exchange (UNSIGNED registration — no signature in body per D-X4
+        // b)
+        verify(restTemplate, times(1))
+                .exchange(
+                        anyString(),
+                        eq(HttpMethod.POST),
+                        any(),
+                        any(ParameterizedTypeReference.class));
         // Signature should NOT be called for tenant registration (unsigned)
         verify(keypairManager, never()).sign(any());
     }
@@ -102,8 +116,13 @@ class InfoPortalPublisherServiceTest {
     // -------------------------------------------------------------------------
 
     @Test
+    @SuppressWarnings("unchecked")
     void registerTenant_403_setsStatusToError() throws Exception {
-        when(restTemplate.postForEntity(anyString(), any(), eq(Object.class)))
+        when(restTemplate.exchange(
+                        anyString(),
+                        eq(HttpMethod.POST),
+                        any(),
+                        any(ParameterizedTypeReference.class)))
                 .thenThrow(
                         HttpClientErrorException.create(
                                 HttpStatus.FORBIDDEN, "Forbidden", null, null, null));
