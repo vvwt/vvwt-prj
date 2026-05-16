@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -17,6 +18,9 @@ import de.vvwt.slotopt.dispatcher.job.JobRepository;
 import de.vvwt.slotopt.dispatcher.job.JobService;
 import de.vvwt.slotopt.dispatcher.job.SubmitJobRequest;
 import de.vvwt.slotopt.dispatcher.job.SubmitJobResponse;
+import de.vvwt.slotopt.dispatcher.packet.PacketDecomposerService;
+import de.vvwt.slotopt.dispatcher.packet.PacketRecord;
+import de.vvwt.slotopt.dispatcher.packet.PacketRepository;
 import de.vvwt.slotopt.worker.types.CanonicalPhaseDef;
 import de.vvwt.slotopt.worker.types.JobDef;
 import de.vvwt.slotopt.worker.types.PositionTuple;
@@ -35,15 +39,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /**
  * Unit tests for {@link DefaultJobService}.
  *
- * <p>TDD RED-first per DEC-22 / AC-TDD-RED-FIRST-EVIDENCE (E37S07). Written before production
- * class.
+ * <p>TDD RED-first per DEC-22 / AC-TDD-RED-FIRST-EVIDENCE (E37S07, E60S01). Written before
+ * production class.
  *
  * <p>DEC-36: this test class is in {@code job.internal} (same package as {@link
  * DefaultJobService}), so white-box access to the implementation class is permitted. However, the
- * collaborators ({@link JobRepository}, {@link AuditService}) are mocked via their PUBLIC
- * INTERFACES (different packages), per DEC-36.
+ * collaborators ({@link JobRepository}, {@link AuditService}, {@link PacketDecomposerService},
+ * {@link PacketRepository}) are mocked via their PUBLIC INTERFACES (different packages), per
+ * DEC-36.
  *
- * <p>Story: E37S07; AC-JOB-SERVICE; DEC-36
+ * <p>Story: E37S07 (original); E60S01 (decomposition wiring + status transition tests); DEC-36
  */
 @ExtendWith(MockitoExtension.class)
 class DefaultJobServiceTest {
@@ -59,6 +64,13 @@ class DefaultJobServiceTest {
     // de.vvwt.slotopt.dispatcher.cache)
     @Mock private ResultsCacheService resultsCacheService;
 
+    // DEC-36: mock via PUBLIC INTERFACE (PacketDecomposerService is in
+    // de.vvwt.slotopt.dispatcher.packet)
+    @Mock private PacketDecomposerService packetDecomposerService;
+
+    // DEC-36: mock via PUBLIC INTERFACE (PacketRepository is in de.vvwt.slotopt.dispatcher.packet)
+    @Mock private PacketRepository packetRepository;
+
     private JobService jobService; // typed as public interface (DEC-36)
 
     @BeforeEach
@@ -68,7 +80,9 @@ class DefaultJobServiceTest {
                         jobRepository,
                         auditService,
                         new com.fasterxml.jackson.databind.ObjectMapper(),
-                        resultsCacheService);
+                        resultsCacheService,
+                        packetDecomposerService,
+                        packetRepository);
     }
 
     @Test
@@ -86,12 +100,14 @@ class DefaultJobServiceTest {
                             r.setId(1L);
                             return r;
                         });
+        when(packetDecomposerService.decompose(any(JobRecord.class))).thenReturn(List.of());
 
         SubmitJobResponse response = jobService.submitJob(request);
 
         assertThat(response.jobId()).isNotNull();
         assertThat(response.submittedAt()).isNotNull();
-        verify(jobRepository).save(any(JobRecord.class));
+        // save is called twice: once for RECEIVED, once for DECOMPOSED
+        verify(jobRepository, org.mockito.Mockito.times(2)).save(any(JobRecord.class));
     }
 
     @Test
@@ -108,6 +124,7 @@ class DefaultJobServiceTest {
                             r.setId(1L);
                             return r;
                         });
+        when(packetDecomposerService.decompose(any(JobRecord.class))).thenReturn(List.of());
 
         jobService.submitJob(request);
 
@@ -199,12 +216,155 @@ class DefaultJobServiceTest {
                             r.setId(1L);
                             return r;
                         });
+        when(packetDecomposerService.decompose(any(JobRecord.class))).thenReturn(List.of());
 
         SubmitJobResponse response = jobService.submitJob(request);
 
         assertThat(response.cacheHit()).isFalse();
         assertThat(response.jobId()).isNotNull();
-        verify(jobRepository).save(any(JobRecord.class));
+        // save is called twice: once for RECEIVED, once for DECOMPOSED
+        verify(jobRepository, org.mockito.Mockito.times(2)).save(any(JobRecord.class));
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-TEST-DECOMPOSE-INVOKED-ON-SUBMIT / AC-TEST-JOB-DECOMPOSED-TRANSITION (E60S01)
+    // -------------------------------------------------------------------------
+
+    /**
+     * AC-TEST-DECOMPOSE-INVOKED-ON-SUBMIT (RED-first per DEC-22 / AC-GOV-RED-FIRST):
+     *
+     * <p>A non-cache-hit job submitted via {@code submitJob} MUST result in {@link
+     * PacketDecomposerService#decompose(JobRecord)} being called and the returned packets being
+     * persisted via {@link PacketRepository#saveAll(Iterable)}.
+     *
+     * <p>Story: E60S01; DEC-22, DEC-36
+     */
+    @Test
+    void submitJob_nonCacheHit_invokesDecomposerAndPersistsPackets() {
+        RawPhaseDef phase = buildSmallPhase(2);
+        CanonicalPhaseDef canonical =
+                new CanonicalPhaseDef(2, 2, List.of(List.of(0, 1), List.of(0, 1)));
+        JobDef jobDef = new JobDef(UUID.randomUUID(), 2, canonical);
+        SubmitJobRequest request = new SubmitJobRequest(jobDef, phase);
+
+        when(resultsCacheService.lookup(any(byte[].class), any())).thenReturn(Optional.empty());
+        when(jobRepository.save(any(JobRecord.class)))
+                .thenAnswer(
+                        inv -> {
+                            JobRecord r = inv.getArgument(0);
+                            r.setId(1L);
+                            return r;
+                        });
+        PacketRecord fakePacket = new PacketRecord();
+        fakePacket.setPacketId(UUID.randomUUID());
+        when(packetDecomposerService.decompose(any(JobRecord.class)))
+                .thenReturn(List.of(fakePacket));
+
+        jobService.submitJob(request);
+
+        verify(packetDecomposerService).decompose(any(JobRecord.class));
+        verify(packetRepository).saveAll(any());
+    }
+
+    /**
+     * AC-TEST-JOB-DECOMPOSED-TRANSITION (RED-first per DEC-22 / AC-GOV-RED-FIRST):
+     *
+     * <p>After decomposition completes, the {@link JobRecord} persisted by {@code submitJob} MUST
+     * have {@code status == "DECOMPOSED"} (not {@code "RECEIVED"}).
+     *
+     * <p>Story: E60S01; DEC-22, DEC-36
+     */
+    @Test
+    void submitJob_nonCacheHit_advancesJobStatusToDecomposed() {
+        RawPhaseDef phase = buildSmallPhase(2);
+        CanonicalPhaseDef canonical =
+                new CanonicalPhaseDef(2, 2, List.of(List.of(0, 1), List.of(0, 1)));
+        JobDef jobDef = new JobDef(UUID.randomUUID(), 2, canonical);
+        SubmitJobRequest request = new SubmitJobRequest(jobDef, phase);
+
+        when(resultsCacheService.lookup(any(byte[].class), any())).thenReturn(Optional.empty());
+
+        // Capture the saved JobRecord to verify its final status
+        java.util.concurrent.atomic.AtomicReference<JobRecord> savedRecord =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        when(jobRepository.save(any(JobRecord.class)))
+                .thenAnswer(
+                        inv -> {
+                            JobRecord r = inv.getArgument(0);
+                            r.setId(1L);
+                            savedRecord.set(r);
+                            return r;
+                        });
+        when(packetDecomposerService.decompose(any(JobRecord.class)))
+                .thenReturn(List.of(new PacketRecord()));
+
+        jobService.submitJob(request);
+
+        // The job status must be DECOMPOSED after the full submitJob call completes
+        assertThat(savedRecord.get()).isNotNull();
+        assertThat(savedRecord.get().getStatus()).isEqualTo("DECOMPOSED");
+    }
+
+    /**
+     * AC-TEST-CACHE-HIT-NOT-DECOMPOSED (regression guard — cache-hit short-circuit is unchanged):
+     *
+     * <p>A cache-hit job MUST NOT invoke the decomposer and MUST NOT persist any {@link
+     * PacketRecord}.
+     *
+     * <p>Story: E60S01; DEC-22, DEC-36
+     */
+    @Test
+    void submitJob_cacheHit_doesNotDecomposeOrPersistPackets() {
+        RawPhaseDef phase = buildSmallPhase(1);
+        CanonicalPhaseDef canonical = new CanonicalPhaseDef(1, 2, List.of(List.of(0, 1)));
+        JobDef jobDef = new JobDef(UUID.randomUUID(), 2, canonical);
+        SubmitJobRequest request = new SubmitJobRequest(jobDef, phase);
+
+        CachedResult cachedResult =
+                new CachedResult(
+                        new byte[32],
+                        "default",
+                        "{\"bestRank\":1}",
+                        Instant.parse("2026-04-26T10:00:00Z"));
+        when(resultsCacheService.lookup(any(byte[].class), eq("default")))
+                .thenReturn(Optional.of(cachedResult));
+
+        jobService.submitJob(request);
+
+        verify(packetDecomposerService, never()).decompose(any());
+        verify(packetRepository, never()).saveAll(any());
+    }
+
+    /**
+     * AC-ERR-DECOMPOSE-FAILURE-DETERMINISTIC: if decomposition fails (e.g., malformed jobDefJson
+     * that the decomposer cannot process), the job must not be left in a half-decomposed state. No
+     * packets are persisted and the exception propagates (caller handles it).
+     *
+     * <p>Story: E60S01; AC-ERR-DECOMPOSE-FAILURE-DETERMINISTIC; DEC-22
+     */
+    @Test
+    void submitJob_decompositionFailure_noPacketsPersisted() {
+        RawPhaseDef phase = buildSmallPhase(2);
+        CanonicalPhaseDef canonical =
+                new CanonicalPhaseDef(2, 2, List.of(List.of(0, 1), List.of(0, 1)));
+        JobDef jobDef = new JobDef(UUID.randomUUID(), 2, canonical);
+        SubmitJobRequest request = new SubmitJobRequest(jobDef, phase);
+
+        when(resultsCacheService.lookup(any(byte[].class), any())).thenReturn(Optional.empty());
+        when(jobRepository.save(any(JobRecord.class)))
+                .thenAnswer(
+                        inv -> {
+                            JobRecord r = inv.getArgument(0);
+                            r.setId(1L);
+                            return r;
+                        });
+        when(packetDecomposerService.decompose(any(JobRecord.class)))
+                .thenThrow(new IllegalArgumentException("malformed jobDefJson"));
+
+        assertThatThrownBy(() -> jobService.submitJob(request))
+                .isInstanceOf(IllegalArgumentException.class);
+        // No packets must have been saved
+        verify(packetRepository, never()).saveAll(any());
     }
 
     // -------------------------------------------------------------------------
