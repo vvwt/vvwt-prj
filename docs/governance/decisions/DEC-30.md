@@ -1,10 +1,11 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-30.md at b5b6952161ce9a601c4f8e32a3a6b29e383ac3d8 2026-04-22 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-30.md at 74fa07b261e3670b3adf944626835be5d36d9e1b 2026-05-16 -->
 ---
 id: DEC-30
 domain: governance
 level: operational
 title: "Project-wide formatting and unused-import enforcement via Spotless + google-java-format (AOSP style) across all vvwt-prj modules; parent-POM inheritance; multi-agent-authorship consistency"
 status: active
+amended_by: [DEC-76]
 created_by: discovery
 created_at: 2026-04-19
 last_updated_by: discovery
