@@ -58,15 +58,15 @@ import org.springframework.context.ApplicationEventPublisher;
  * the test class is co-located in {@code de.vvwt.tm.scoring.internal} — same package as the
  * subject. This is the DEC-36 white-box exception for same-package tests.
  *
- * <p>TDD Iron Law (DEC-22): every test in this class was written RED (failing — {@code
- * DefaultMatchCorrectionService} did not exist) before the corresponding production code was added.
+ * <p>TDD Iron Law (DEC-22): every test in this class was written RED (failing) before the
+ * corresponding production code was added.
  *
- * @since E48S25
+ * @since E48S25, updated E56S02 (DEC-74 operationalization)
  * @see DefaultMatchCorrectionService
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
  * @see <a href="DEC-36">DEC-36 — same-package white-box exemption</a>
  * @see <a href="DEC-37">DEC-37 Clause B — lock-first contract</a>
- * @see <a href="DEC-65">DEC-65 — correction MUST NOT touch currentLapNumber</a>
+ * @see <a href="DEC-74">DEC-74 — path-independent lap-advance (amends DEC-65)</a>
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -577,19 +577,192 @@ class DefaultMatchCorrectionServiceTest {
     }
 
     // -----------------------------------------------------------------------
-    // DEC-65: currentLapNumber MUST NOT be modified
-    // (AC-TEST-DEC65-CURRENTLAPNUMBER-UNCHANGED)
+    // DEC-74 RED-first tests: correction path advances Phase.currentLapNumber
+    // (AC-TEST-CORRECTION-ADVANCES-CURRENT-LAP-RED, AC-TEST-CORRECTION-LAST-LAP-SENTINEL-RED)
     // -----------------------------------------------------------------------
 
+    /**
+     * AC-TEST-CORRECTION-ADVANCES-CURRENT-LAP-RED — TDD RED-first (E56S02, DEC-22).
+     *
+     * <p>ACTIVE phase with lapCount=2, currentLapNumber=1. Phase has two matches in lap 1. After
+     * the first match is terminal (incomplete lap), currentLapNumber stays 1. After the last match
+     * in lap 1 is terminal, currentLapNumber advances to 2.
+     *
+     * <p>This test FAILS on HEAD (correction path omits the advance entirely) and passes after the
+     * DEC-74 fix.
+     */
     @Test
-    @DisplayName("AC-DEC65: correction cascade MUST NOT call phase.setCurrentLapNumber()")
-    void correctionCascade_doesNotModifyCurrentLapNumber() {
-        // Phase with currentLapNumber=0 (sentinel for "last lap completed")
-        Phase phaseWithLap0 =
-                new Phase(PHASE_ID, TOURNAMENT_ID, 1, "Vorrunde", "ACTIVE", 0, LocalDateTime.now());
-        when(phaseRepository.findById(PHASE_ID)).thenReturn(Optional.of(phaseWithLap0));
+    @DisplayName(
+            "AC-TEST-CORRECTION-ADVANCES-CURRENT-LAP-RED: last match of current lap terminal via"
+                    + " correction → currentLapNumber advances (DEC-74)")
+    void correctionLastMatchOfCurrentLap_advancesCurrentLapNumber() {
+        // Phase: ACTIVE, currentLapNumber=1, lapCount=2 (two laps in phase)
+        Phase phase =
+                new Phase(PHASE_ID, TOURNAMENT_ID, 1, "Vorrunde", "ACTIVE", 1, LocalDateTime.now());
+        when(phaseRepository.findById(PHASE_ID)).thenReturn(Optional.of(phase));
 
-        MatchCorrectionInput input = correctionInput(List.of(new SetScoreCorrection(0, 25, 10)));
+        UUID sibling1Id = UUID.randomUUID();
+        UUID sibling2Id = UUID.randomUUID();
+
+        // The match being corrected: lap 1, finishing terminal
+        Match matchBeingCorrected =
+                new Match(
+                        MATCH_ID,
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        MatchState.FINISHED_WINNER1.getLegacyCode(),
+                        3,
+                        1, // lapNumber = 1 (current lap)
+                        1,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
+        when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(matchBeingCorrected));
+
+        // After correction: match under test is FINISHED_WINNER1, sibling also terminal → all
+        // terminal in lap 1.
+        Match siblingTerminal =
+                new Match(
+                        sibling1Id,
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR2_ID,
+                        AVATAR1_ID,
+                        MatchState.FINISHED_WINNER2.getLegacyCode(),
+                        3,
+                        1, // lapNumber = 1
+                        2,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
+
+        // Match in lap 2 (not yet current)
+        Match lap2Match =
+                new Match(
+                        sibling2Id,
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        MatchState.OPEN.getLegacyCode(),
+                        3,
+                        2, // lapNumber = 2
+                        1,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
+
+        // findByPhaseId returns all three matches (match being corrected + sibling terminal +
+        // lap2).
+        // Use a SEPARATE Match instance for matchBeingCorrected in the phaseMatches list to avoid
+        // shared-object mutation: the cascade may change the Match object's state via
+        // match.setMatchState(derivedState) before the lap-advance guard runs.
+        Match matchBeingCorrectedSnapshot =
+                new Match(
+                        MATCH_ID,
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        MatchState.FINISHED_WINNER1.getLegacyCode(),
+                        3,
+                        1,
+                        1,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
+        when(matchRepository.findByPhaseId(PHASE_ID))
+                .thenReturn(List.of(matchBeingCorrectedSnapshot, siblingTerminal, lap2Match));
+
+        // Two sets both won by team1 → deriveMatchState(2,0,2) = FINISHED_WINNER1 for BEST_OF_3
+        when(setResultRepository.findByMatchId(MATCH_ID))
+                .thenReturn(
+                        List.of(
+                                new SetResult(
+                                        MATCH_ID,
+                                        0,
+                                        PHASE_ID,
+                                        25,
+                                        10,
+                                        SetState.WINNER1.getLegacyCode(),
+                                        LocalDateTime.now(),
+                                        LocalDateTime.now()),
+                                new SetResult(
+                                        MATCH_ID,
+                                        1,
+                                        PHASE_ID,
+                                        25,
+                                        15,
+                                        SetState.WINNER1.getLegacyCode(),
+                                        LocalDateTime.now(),
+                                        LocalDateTime.now())));
+
+        service.correctMatchSets(correctionInput(List.of(new SetScoreCorrection(0, 25, 10))));
+
+        // After all matches in lap 1 are terminal → currentLapNumber must be 2
+        assertThat(phase.getCurrentLapNumber()).isEqualTo(2);
+        // phaseRepository.save must have been called (DEC-74 advance fired)
+        verify(phaseRepository, times(1)).save(phase);
+    }
+
+    /**
+     * AC-TEST-CORRECTION-ADVANCES-CURRENT-LAP-RED (early-exit assertion) — incomplete lap does NOT
+     * advance.
+     *
+     * <p>When only one of two lap-1 matches is terminal, the advance must NOT fire.
+     */
+    @Test
+    @DisplayName(
+            "AC-TEST-CORRECTION-INCOMPLETE-LAP-NO-CHANGE: incomplete lap → currentLapNumber"
+                    + " unchanged (DEC-74 D-2 clause (c))")
+    void correctionIncompleteLap_doesNotAdvanceCurrentLapNumber() {
+        Phase phase =
+                new Phase(PHASE_ID, TOURNAMENT_ID, 1, "Vorrunde", "ACTIVE", 1, LocalDateTime.now());
+        when(phaseRepository.findById(PHASE_ID)).thenReturn(Optional.of(phase));
+
+        UUID siblingId = UUID.randomUUID();
+        Match matchBeingCorrected =
+                new Match(
+                        MATCH_ID,
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        MatchState.FINISHED_WINNER1.getLegacyCode(),
+                        3,
+                        1, // current lap
+                        1,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
+        when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(matchBeingCorrected));
+
+        // Sibling in same lap is still OPEN → lap incomplete
+        Match siblingOpen =
+                new Match(
+                        siblingId,
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR2_ID,
+                        AVATAR1_ID,
+                        MatchState.OPEN.getLegacyCode(),
+                        3,
+                        1, // same lap
+                        2,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
+
+        when(matchRepository.findByPhaseId(PHASE_ID))
+                .thenReturn(List.of(matchBeingCorrected, siblingOpen));
 
         when(setResultRepository.findByMatchId(MATCH_ID))
                 .thenReturn(
@@ -604,9 +777,430 @@ class DefaultMatchCorrectionServiceTest {
                                         LocalDateTime.now(),
                                         LocalDateTime.now())));
 
-        service.correctMatchSets(input);
+        service.correctMatchSets(correctionInput(List.of(new SetScoreCorrection(0, 25, 10))));
 
-        // phaseRepository.save must NOT be called (no lap advancement)
+        // Incomplete lap → no advance
+        assertThat(phase.getCurrentLapNumber()).isEqualTo(1);
+        verify(phaseRepository, never()).save(any());
+    }
+
+    /**
+     * AC-TEST-CORRECTION-LAST-LAP-SENTINEL-RED — TDD RED-first (E56S02, DEC-22).
+     *
+     * <p>When the last lap is completed via correction, currentLapNumber must become 0 (sentinel)
+     * and phase.status stays ACTIVE (no auto-COMPLETED). MUST FAIL on HEAD.
+     */
+    @Test
+    @DisplayName(
+            "AC-TEST-CORRECTION-LAST-LAP-SENTINEL-RED: last lap terminal via correction →"
+                    + " currentLapNumber=0 sentinel, status ACTIVE (DEC-74 D-4)")
+    void correctionLastLapCompleted_writesSentinel0() {
+        // Phase: ACTIVE, currentLapNumber=2 (last lap, lapCount=2)
+        Phase phase =
+                new Phase(PHASE_ID, TOURNAMENT_ID, 1, "Vorrunde", "ACTIVE", 2, LocalDateTime.now());
+        when(phaseRepository.findById(PHASE_ID)).thenReturn(Optional.of(phase));
+
+        UUID sibling = UUID.randomUUID();
+        Match matchBeingCorrected =
+                new Match(
+                        MATCH_ID,
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        MatchState.FINISHED_WINNER1.getLegacyCode(),
+                        3,
+                        2, // lapNumber = 2 = lapCount (last lap)
+                        1,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
+        when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(matchBeingCorrected));
+
+        // Sibling in lap 2, also terminal
+        Match siblingTerminal =
+                new Match(
+                        sibling,
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR2_ID,
+                        AVATAR1_ID,
+                        MatchState.FINISHED_WINNER2.getLegacyCode(),
+                        3,
+                        2, // lapNumber = 2 (last lap)
+                        2,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
+
+        // Separate snapshot instance to avoid shared-object mutation
+        Match matchBeingCorrectedLastLapSnapshot =
+                new Match(
+                        MATCH_ID,
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        MatchState.FINISHED_WINNER1.getLegacyCode(),
+                        3,
+                        2, // lapNumber = 2 = lapCount (last lap)
+                        1,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
+        when(matchRepository.findByPhaseId(PHASE_ID))
+                .thenReturn(List.of(matchBeingCorrectedLastLapSnapshot, siblingTerminal));
+
+        // Two sets both won by team1 → FINISHED_WINNER1 after cascade
+        when(setResultRepository.findByMatchId(MATCH_ID))
+                .thenReturn(
+                        List.of(
+                                new SetResult(
+                                        MATCH_ID,
+                                        0,
+                                        PHASE_ID,
+                                        25,
+                                        10,
+                                        SetState.WINNER1.getLegacyCode(),
+                                        LocalDateTime.now(),
+                                        LocalDateTime.now()),
+                                new SetResult(
+                                        MATCH_ID,
+                                        1,
+                                        PHASE_ID,
+                                        25,
+                                        15,
+                                        SetState.WINNER1.getLegacyCode(),
+                                        LocalDateTime.now(),
+                                        LocalDateTime.now())));
+
+        MatchCorrectionResult result =
+                service.correctMatchSets(
+                        correctionInput(List.of(new SetScoreCorrection(0, 25, 10))));
+
+        // Last-lap finalization → sentinel 0 (DEC-74 D-4)
+        assertThat(phase.getCurrentLapNumber()).isEqualTo(0);
+        // Phase status stays ACTIVE — no auto-COMPLETED (DEC-65 D-4 / DEC-74 D-4)
+        assertThat(phase.getStatus()).isEqualTo("ACTIVE");
+        // Not an audit-only result
+        assertThat(result.auditOnly()).isFalse();
+        // phaseRepository.save must have been called
+        verify(phaseRepository, times(1)).save(phase);
+    }
+
+    // -----------------------------------------------------------------------
+    // DEC-74 regression-guard GREEN tests (already GREEN on HEAD, stay GREEN after fix)
+    // (AC-TEST-CORRECTION-NON-CURRENT-LAP-NO-CHANGE-GREEN,
+    //  AC-TEST-CORRECTION-FUTURE-LAP-NO-CHANGE-GREEN)
+    // -----------------------------------------------------------------------
+
+    /**
+     * AC-TEST-CORRECTION-NON-CURRENT-LAP-NO-CHANGE-GREEN — already GREEN on HEAD.
+     *
+     * <p>Correcting a match in an already-completed earlier lap (lapNumber &lt; currentLapNumber)
+     * does NOT change currentLapNumber. Guards against backward regression.
+     */
+    @Test
+    @DisplayName(
+            "AC-TEST-CORRECTION-NON-CURRENT-LAP-NO-CHANGE-GREEN: correct earlier lap (lapNumber <"
+                    + " currentLapNumber) → currentLapNumber unchanged (DEC-74 D-3)")
+    void correctionEarlierLap_doesNotChangeCurrentLapNumber() {
+        // Phase: ACTIVE, currentLapNumber=3 (lap 3 in play)
+        Phase phase =
+                new Phase(PHASE_ID, TOURNAMENT_ID, 1, "Vorrunde", "ACTIVE", 3, LocalDateTime.now());
+        when(phaseRepository.findById(PHASE_ID)).thenReturn(Optional.of(phase));
+
+        // Match being corrected is in lap 1 (already past)
+        Match pastLapMatch =
+                new Match(
+                        MATCH_ID,
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        MatchState.FINISHED_WINNER1.getLegacyCode(),
+                        3,
+                        1, // lap 1 < currentLapNumber=3
+                        1,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
+        when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(pastLapMatch));
+
+        // Even if all lap-1 matches are terminal (they already were), guard (b) checks
+        // lapNumber==currentLapNumber (1!=3) → advance must NOT fire.
+        // findByPhaseId returns lap-1 matches all terminal
+        Match sibling =
+                new Match(
+                        UUID.randomUUID(),
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR2_ID,
+                        AVATAR1_ID,
+                        MatchState.FINISHED_WINNER2.getLegacyCode(),
+                        3,
+                        1,
+                        2,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
+        when(matchRepository.findByPhaseId(PHASE_ID)).thenReturn(List.of(pastLapMatch, sibling));
+
+        when(setResultRepository.findByMatchId(MATCH_ID))
+                .thenReturn(
+                        List.of(
+                                new SetResult(
+                                        MATCH_ID,
+                                        0,
+                                        PHASE_ID,
+                                        25,
+                                        10,
+                                        SetState.WINNER1.getLegacyCode(),
+                                        LocalDateTime.now(),
+                                        LocalDateTime.now())));
+
+        service.correctMatchSets(correctionInput(List.of(new SetScoreCorrection(0, 25, 10))));
+
+        // currentLapNumber must remain 3 — no backward regression
+        assertThat(phase.getCurrentLapNumber()).isEqualTo(3);
+        verify(phaseRepository, never()).save(any());
+    }
+
+    /**
+     * AC-TEST-CORRECTION-FUTURE-LAP-NO-CHANGE-GREEN — already GREEN on HEAD.
+     *
+     * <p>Completing all matches of a future lap (lapNumber &gt; currentLapNumber) does NOT pull the
+     * counter forward. Guards against a guard implementation that over-fires on a future lap.
+     */
+    @Test
+    @DisplayName(
+            "AC-TEST-CORRECTION-FUTURE-LAP-NO-CHANGE-GREEN: complete future lap (lapNumber >"
+                    + " currentLapNumber) → currentLapNumber unchanged (DEC-74 D-3)")
+    void correctionFutureLapAllTerminal_doesNotAdvanceCurrentLapNumber() {
+        // Phase: ACTIVE, currentLapNumber=1, lapCount=3
+        Phase phase =
+                new Phase(PHASE_ID, TOURNAMENT_ID, 1, "Vorrunde", "ACTIVE", 1, LocalDateTime.now());
+        when(phaseRepository.findById(PHASE_ID)).thenReturn(Optional.of(phase));
+
+        // Match being corrected is in lap 3 (future lap, not yet current)
+        Match futureLapMatch =
+                new Match(
+                        MATCH_ID,
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        MatchState.FINISHED_WINNER1.getLegacyCode(),
+                        3,
+                        3, // lapNumber=3 > currentLapNumber=1
+                        1,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
+        when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(futureLapMatch));
+
+        // All lap-3 matches are terminal, lap-1 match is OPEN (current lap not complete)
+        Match lap3Sibling =
+                new Match(
+                        UUID.randomUUID(),
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR2_ID,
+                        AVATAR1_ID,
+                        MatchState.FINISHED_WINNER2.getLegacyCode(),
+                        3,
+                        3,
+                        2,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
+        Match lap1Match =
+                new Match(
+                        UUID.randomUUID(),
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        MatchState.OPEN.getLegacyCode(),
+                        3,
+                        1, // current lap, not yet done
+                        1,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
+        when(matchRepository.findByPhaseId(PHASE_ID))
+                .thenReturn(List.of(futureLapMatch, lap3Sibling, lap1Match));
+
+        when(setResultRepository.findByMatchId(MATCH_ID))
+                .thenReturn(
+                        List.of(
+                                new SetResult(
+                                        MATCH_ID,
+                                        0,
+                                        PHASE_ID,
+                                        25,
+                                        10,
+                                        SetState.WINNER1.getLegacyCode(),
+                                        LocalDateTime.now(),
+                                        LocalDateTime.now())));
+
+        service.correctMatchSets(correctionInput(List.of(new SetScoreCorrection(0, 25, 10))));
+
+        // guard (b) lapNumber(3) != currentLapNumber(1) → advance must NOT fire
+        assertThat(phase.getCurrentLapNumber()).isEqualTo(1);
+        verify(phaseRepository, never()).save(any());
+    }
+
+    /**
+     * AC-TEST-CANCELED-CORRECTION-NO-CHANGE — CANCELED match correction does not change
+     * currentLapNumber (audit-only branch never reaches the guard).
+     */
+    @Test
+    @DisplayName(
+            "AC-TEST-CANCELED-CORRECTION-NO-CHANGE: CANCELED match correction does not change"
+                    + " currentLapNumber (DEC-74 D-5)")
+    void canceledMatchCorrection_doesNotChangeCurrentLapNumber() {
+        Phase phase =
+                new Phase(PHASE_ID, TOURNAMENT_ID, 1, "Vorrunde", "ACTIVE", 2, LocalDateTime.now());
+        when(phaseRepository.findById(PHASE_ID)).thenReturn(Optional.of(phase));
+
+        Match canceledMatch =
+                new Match(
+                        MATCH_ID,
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        MatchState.CANCELED.getLegacyCode(),
+                        3,
+                        2, // same as currentLapNumber — would fire if not CANCELED branch
+                        1,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
+        when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(canceledMatch));
+
+        MatchCorrectionResult result =
+                service.correctMatchSets(
+                        correctionInput(List.of(new SetScoreCorrection(0, 25, 10))));
+
+        // CANCELED branch → audit-only, no cascade, no advance
+        assertThat(result.auditOnly()).isTrue();
+        assertThat(phase.getCurrentLapNumber()).isEqualTo(2);
+        // findByPhaseId must NOT be called (canceled path exits before lap-advance guard)
+        verify(matchRepository, never()).findByPhaseId(any());
+    }
+
+    /**
+     * AC-ERROR-NULL-LAPNUMBER — match with null lapNumber does not advance counter (guard clause
+     * (a)).
+     */
+    @Test
+    @DisplayName(
+            "AC-ERROR-NULL-LAPNUMBER: match with null lapNumber → guard short-circuits, no advance"
+                    + " (DEC-74 D-2 clause (a))")
+    void nullLapNumber_guardShortCircuits_noAdvance() {
+        Phase phase =
+                new Phase(PHASE_ID, TOURNAMENT_ID, 1, "Vorrunde", "ACTIVE", 1, LocalDateTime.now());
+        when(phaseRepository.findById(PHASE_ID)).thenReturn(Optional.of(phase));
+
+        // Match with lapNumber=null (slot-opt not yet run)
+        Match matchNullLap =
+                new Match(
+                        MATCH_ID,
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        MatchState.FINISHED_WINNER1.getLegacyCode(),
+                        3,
+                        null, // null lapNumber
+                        null,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
+        when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(matchNullLap));
+
+        when(setResultRepository.findByMatchId(MATCH_ID))
+                .thenReturn(
+                        List.of(
+                                new SetResult(
+                                        MATCH_ID,
+                                        0,
+                                        PHASE_ID,
+                                        25,
+                                        10,
+                                        SetState.WINNER1.getLegacyCode(),
+                                        LocalDateTime.now(),
+                                        LocalDateTime.now())));
+
+        service.correctMatchSets(correctionInput(List.of(new SetScoreCorrection(0, 25, 10))));
+
+        // guard (a): lapNumber is null → no advance, no error
+        assertThat(phase.getCurrentLapNumber()).isEqualTo(1);
+        verify(phaseRepository, never()).save(any());
+        verify(matchRepository, never()).findByPhaseId(any());
+    }
+
+    /**
+     * AC-ERROR-OPERATOR-CORRECTION-WINDOW — after last-lap sentinel (currentLapNumber=0), a
+     * correction of a last-lap match does NOT advance off 0 (guard (b): lapNumber is never 0).
+     */
+    @Test
+    @DisplayName(
+            "AC-ERROR-OPERATOR-CORRECTION-WINDOW: correction after sentinel (currentLapNumber=0)"
+                    + " → currentLapNumber stays 0 (DEC-65 D-7 / DEC-74 D-2)")
+    void correctionAfterSentinel_doesNotAdvanceOff0() {
+        // Sentinel state: all last-lap matches done, phase still ACTIVE, currentLapNumber=0
+        Phase phase =
+                new Phase(PHASE_ID, TOURNAMENT_ID, 1, "Vorrunde", "ACTIVE", 0, LocalDateTime.now());
+        when(phaseRepository.findById(PHASE_ID)).thenReturn(Optional.of(phase));
+
+        // Re-correction of a last-lap match (lapNumber=2, and currentLapNumber is 0)
+        Match match =
+                new Match(
+                        MATCH_ID,
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        MatchState.FINISHED_WINNER1.getLegacyCode(),
+                        3,
+                        2, // lapNumber=2 (last lap, but sentinel 0 means no current lap)
+                        1,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
+        when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(match));
+
+        when(setResultRepository.findByMatchId(MATCH_ID))
+                .thenReturn(
+                        List.of(
+                                new SetResult(
+                                        MATCH_ID,
+                                        0,
+                                        PHASE_ID,
+                                        25,
+                                        10,
+                                        SetState.WINNER1.getLegacyCode(),
+                                        LocalDateTime.now(),
+                                        LocalDateTime.now())));
+
+        service.correctMatchSets(correctionInput(List.of(new SetScoreCorrection(0, 25, 10))));
+
+        // Guard (b): lapNumber=2 != currentLapNumber=0 → no advance
+        assertThat(phase.getCurrentLapNumber()).isEqualTo(0);
         verify(phaseRepository, never()).save(any());
     }
 

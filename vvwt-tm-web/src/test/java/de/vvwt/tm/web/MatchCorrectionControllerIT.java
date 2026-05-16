@@ -72,10 +72,17 @@ import org.springframework.test.context.ActiveProfiles;
  *
  * <p>Inserts a PENDING phase. Verifies HTTP 409.
  *
+ * <h2>DEC-74 lap-advance (AC-TEST-CORRECTION-ADVANCE-IT)</h2>
+ *
+ * <p>Verifies end-to-end that correcting the last match in the current lap advances {@code
+ * phase.currentLapNumber} forward-only, using the guard added in E56S02 (DEC-74).
+ *
  * @see MatchCorrectionController
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law (RED-first)</a>
  * @see <a href="DEC-44">DEC-44 — web-module ITs use @SpringBootTest(RANDOM_PORT)</a>
+ * @see <a href="DEC-74">DEC-74 — path-independent lap-advance</a>
  * @see <a href="E48S25">E48S25 — Operator Match Score Correction + Nacherfassung</a>
+ * @see <a href="E56S02">E56S02 — DefaultMatchCorrectionService DEC-74 operationalization</a>
  */
 @AutoConfigureTestRestTemplate
 @SpringBootTest(
@@ -464,6 +471,79 @@ class MatchCorrectionControllerIT {
     }
 
     // =========================================================================
+    // DEC-74 end-to-end lap-advance via REST (AC-TEST-CORRECTION-ADVANCE-IT)
+    // =========================================================================
+
+    /**
+     * AC-TEST-CORRECTION-ADVANCE-IT — DEC-74 forward-only lap-advance via the correction REST
+     * endpoint.
+     *
+     * <p>Setup: ACTIVE phase with {@code current_lap_number=1}; one match in lap 1 (sole match in
+     * that lap). After submitting a correction that keeps the match terminal, the DEC-74 guard
+     * fires: lap 1 is the last lap (max lap = 1), so the sentinel 0 is written to {@code
+     * current_lap_number}.
+     *
+     * <p>Assertion: {@code phase.current_lap_number} in the DB is 0 (sentinel) after the
+     * correction.
+     *
+     * @see <a href="DEC-74">DEC-74 — path-independent lap-advance</a>
+     * @see <a href="E56S02">E56S02 — DefaultMatchCorrectionService DEC-74 operationalization</a>
+     */
+    @Test
+    @DisplayName(
+            "AC-TEST-CORRECTION-ADVANCE-IT: correcting last match of current lap advances"
+                    + " phase.current_lap_number (DEC-74 end-to-end)")
+    void correctionCompletingCurrentLap_advancesCurrentLapNumber() throws Exception {
+        tenantBinder.bindDefaultTenant();
+        seedActivePhaseWithLapMatch(1, 1, MatchState.FINISHED_WINNER1);
+        tenantBinder.unbind();
+
+        // Correct the match: submit 2 winning sets for team1 (BEST_OF_3 → FINISHED_WINNER1)
+        MatchCorrectionRequest request =
+                new MatchCorrectionRequest(
+                        tournamentId,
+                        phaseId,
+                        List.of(new SetScoreEntry(0, 25, 10), new SetScoreEntry(1, 25, 15)),
+                        "DEC-74 IT correction");
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<MatchCorrectionRequest> entity = new HttpEntity<>(request, headers);
+
+        ResponseEntity<MatchCorrectionResultResponse> response =
+                authed.exchange(
+                        new URI(baseUrl + "/api/matches/" + matchId + "/correction"),
+                        HttpMethod.POST,
+                        entity,
+                        MatchCorrectionResultResponse.class);
+
+        assertThat(response.getStatusCode())
+                .as("correction must return HTTP 200")
+                .isEqualTo(HttpStatus.OK);
+
+        MatchCorrectionResultResponse body = response.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.auditOnly())
+                .as("auditOnly must be false for terminal-state match correction")
+                .isFalse();
+
+        // DEC-74 independent verifier: read current_lap_number directly via JdbcTemplate (DEC-26)
+        tenantBinder.bindDefaultTenant();
+        Integer currentLapNumber =
+                jdbcTemplate.queryForObject(
+                        "SELECT current_lap_number FROM phase WHERE id = ?",
+                        Integer.class,
+                        phaseId.toString());
+        tenantBinder.unbind();
+
+        assertThat(currentLapNumber)
+                .as(
+                        "AC-TEST-CORRECTION-ADVANCE-IT: after completing the sole match in lap 1"
+                            + " (last lap), phase.current_lap_number must be 0 (sentinel, DEC-74)")
+                .isEqualTo(0);
+    }
+
+    // =========================================================================
     // Fixture helpers
     // =========================================================================
 
@@ -473,6 +553,61 @@ class MatchCorrectionControllerIT {
      */
     private void seedActivePhaseWithFinishedMatch(MatchState matchState) {
         seedPhaseWithMatch("ACTIVE", matchState);
+    }
+
+    /**
+     * Seeds an ACTIVE phase with {@code current_lap_number=currentLap} and one match with {@code
+     * lap_number=matchLap} in the given state. Used for DEC-74 lap-advance IT
+     * (AC-TEST-CORRECTION-ADVANCE-IT).
+     */
+    private void seedActivePhaseWithLapMatch(int currentLap, int matchLap, MatchState matchState) {
+        // Insert phase with explicit current_lap_number
+        jdbcTemplate.update(
+                "INSERT INTO phase (id, tournament_id, sequence_number, description, status,"
+                        + " current_lap_number, created_at)"
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                phaseId,
+                tournamentId,
+                1,
+                "DEC-74 IT Phase",
+                "ACTIVE",
+                currentLap,
+                LocalDateTime.now());
+
+        // Insert team_avatar rows (FK required by match.member_avatar_1_id and member_avatar_2_id)
+        jdbcTemplate.update(
+                "INSERT INTO team_avatar (id, tournament_id, phase_id, group_number,"
+                        + " group_position, team_id) VALUES (?, ?, ?, ?, ?, ?)",
+                avatar1Id,
+                tournamentId,
+                phaseId,
+                1,
+                1,
+                team1Id);
+        jdbcTemplate.update(
+                "INSERT INTO team_avatar (id, tournament_id, phase_id, group_number,"
+                        + " group_position, team_id) VALUES (?, ?, ?, ?, ?, ?)",
+                avatar2Id,
+                tournamentId,
+                phaseId,
+                1,
+                2,
+                team2Id);
+
+        // Insert match with lap_number
+        jdbcTemplate.update(
+                "INSERT INTO match (id, tournament_id, phase_id, member_avatar_1_id,"
+                        + " member_avatar_2_id, state, set_limit, lap_number, created_at)"
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                matchId,
+                tournamentId,
+                phaseId,
+                avatar1Id,
+                avatar2Id,
+                matchState.getLegacyCode(),
+                3, // BEST_OF_3
+                matchLap,
+                LocalDateTime.now());
     }
 
     private void seedPhaseWithMatch(String phaseStatus, MatchState matchState) {
