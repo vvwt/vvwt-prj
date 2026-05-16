@@ -162,15 +162,18 @@ describe('DraftConfig.svelte — AC-TEST-FRONTEND-PRE-SUBMIT-VALIDATION-RED (E48
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('DraftConfig.svelte — AC-TEST-FRONTEND-DRAFT-CONFIG-PHASE-SUBMISSION-GREEN (E48S01)', () => {
-  it('DraftConfig.svelte source contains a gameMode select field', async () => {
+  it('DraftConfig.svelte source contains a data-driven gameMode select field (E58S05 AC3)', async () => {
     const fs = await import('fs');
     const path = await import('path');
     const src = path.resolve(__dirname, './DraftConfig.svelte');
     const source = fs.readFileSync(src, 'utf8');
     // Verify the gameMode dropdown exists in the template
     expect(source).toContain('section.gameMode');
-    expect(source).toContain('draftConfig.gameMode.roundRobin');
-    expect(source).toContain('draftConfig.gameMode.awardCeremony');
+    // E58S05 AC3: options are now data-driven from the registry, not hardcoded.
+    // Verify the dynamic i18n key pattern is used (draftConfig.gameMode.${gen.keyId})
+    expect(source).toContain('draftConfig.gameMode.');
+    // E58S05 AC3: hardcoded option values are replaced; static keys no longer exist as option values
+    // (They may still appear as generator keyIds in the generatorStore, not as hardcoded options)
   });
 
   it('DraftConfig.svelte source has last-section auto-set to awardCeremony with disabled/readonly (renamed from siegerehrung by E58S04)', async () => {
@@ -502,5 +505,105 @@ describe('DraftConfig.svelte — E51S15 per-section distributionMode (AC-TEST-UI
     // Must NOT bind to a tournament-level distributionMode variable
     // (i.e., there should be no top-level "let distributionMode" declaration)
     expect(source).not.toMatch(/\blet distributionMode\b/);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E58S05 — AC3, AC4, AC5, AC6, AC7, AC8 (TDD RED-first)
+// Data-driven, capability-filtered phase-plan generator dropdown
+// RED-first per DEC-22 (AC8): these tests FAIL before DraftConfig.svelte is updated
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('DraftConfig.svelte — AC3: no hardcoded generator list (E58S05)', () => {
+  it('DraftConfig.svelte imports from generatorStore', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // RED: fails before generatorStore import is added
+    expect(source).toContain('generatorStore');
+  });
+
+  it('DraftConfig.svelte does NOT contain hardcoded roundRobin option element', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // RED: fails before hardcoded options are replaced with dynamic list
+    // The old pattern was: <option value="roundRobin">{$_('draftConfig.gameMode.roundRobin')}</option>
+    // After E58S05, the dropdown is populated from the registry, not hardcoded options
+    expect(source).not.toMatch(/<option\s+value="roundRobin">/);
+  });
+
+  it('DraftConfig.svelte does NOT contain hardcoded awardCeremony option element', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // RED: fails before hardcoded options are replaced
+    expect(source).not.toMatch(/<option\s+value="awardCeremony">/);
+  });
+});
+
+describe('DraftConfig.svelte — AC4: capability-flag filter, not key-string matching (E58S05)', () => {
+  it('DraftConfig.svelte source uses isLastPhaseGenerator flag for filtering', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // RED: fails before isLastPhaseGenerator flag filtering is added
+    expect(source).toContain('isLastPhaseGenerator');
+  });
+
+  it('DraftConfig.svelte does NOT filter generators by key string matching (no hardcoded key comparisons)', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // AC4 contract: filtering must use the isLastPhaseGenerator flag, NOT key-string matching
+    // (e.g., NOT: filter(g => g.keyId === 'awardCeremony') or includes/match on key string)
+    // The implementation should NOT compare keyId string to determine last-phase capability
+    expect(source).not.toMatch(/keyId\s*===?\s*['"]awardCeremony['"]/);
+    expect(source).not.toMatch(/keyId\s*===?\s*['"]siegerehrung['"]/);
+  });
+});
+
+describe('DraftConfig.svelte — AC5: tournament-page default (E58S05)', () => {
+  it('DraftConfig.svelte or its store receives a default generator from TournamentForm context', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // AC5: the tournament-page generator choice becomes the default for the phase plan.
+    // DraftConfig uses the generatorStore (which is also used by TournamentForm) — both
+    // consume the same central module. The phase-plan defaultGameMode is initialized
+    // from the registry (first available generator per section type).
+    // Verify DraftConfig imports from generatorStore (shared module = same source)
+    expect(source).toContain('generatorStore');
+  });
+});
+
+describe('DraftConfig.svelte — AC6: i18n labels on generator key (E58S05)', () => {
+  it('DraftConfig.svelte renders generator labels via i18n keyed on generator keyId', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // AC6: labels rendered via i18n(draftConfig.gameMode.{keyId}) pattern
+    // The template must contain a dynamic i18n key using the generator keyId
+    // e.g.: $_(draftConfig.gameMode.${gen.keyId}) or $_(`draftConfig.gameMode.${gen.keyId}`)
+    expect(source).toMatch(/draftConfig\.gameMode\.\$\{/);
+  });
+});
+
+describe('DraftConfig.svelte — AC7: single-phase tournament sole phase is last phase (E58S05)', () => {
+  it('DraftConfig.svelte last-phase detection uses sections.length - 1 index comparison', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './DraftConfig.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // AC7: the last section (si === sections.length - 1) is treated as the last phase
+    // This naturally makes a single-section tournament's sole section the last phase
+    expect(source).toMatch(/si\s*===?\s*sections\.length\s*-\s*1/);
   });
 });

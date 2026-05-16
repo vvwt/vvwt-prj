@@ -389,3 +389,46 @@ describe('TournamentForm.svelte — E53S05 AC4: seedMannschaftsfoto field in CRE
     expect(ifaceBlock).toContain('seedMannschaftsfoto');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E58S05 — AC2/AC5: TournamentForm consumes shared generatorStore
+//
+// AC2: both DraftConfig and TournamentForm consume the central generatorStore module;
+//      no component fetches /api/match-generators independently.
+// AC5: the matchGeneratorId dropdown is populated from the shared generator list,
+//      NOT from rules.matchGeneratorIds (which is a scoring-rules field, not a generator registry).
+//
+// RED-first per DEC-22: these tests fail before TournamentForm.svelte is updated.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('TournamentForm.svelte — AC2/AC5: shared generatorStore, no independent fetch (E58S05)', () => {
+  it('TournamentForm.svelte imports from generatorStore (shared module)', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './TournamentForm.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // AC2: TournamentForm must import from the central generatorStore module
+    expect(source).toContain('generatorStore');
+  });
+
+  it('TournamentForm.svelte matchGeneratorId select is NOT populated from rules.matchGeneratorIds', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './TournamentForm.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // AC5: the generator dropdown must NOT iterate rules.matchGeneratorIds
+    // (rules.matchGeneratorIds comes from the scoring-rules endpoint, not the generator registry)
+    expect(source).not.toContain('rules.matchGeneratorIds');
+  });
+
+  it('TournamentForm.svelte uses a generators variable from generatorStore for the matchGeneratorId dropdown', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './TournamentForm.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    // AC5: the component must declare a generators state variable populated from getGeneratorList()
+    expect(source).toContain('getGeneratorList');
+    // The matchGeneratorId select must iterate over generators (not rules.matchGeneratorIds)
+    expect(source).toMatch(/generators.*matchGeneratorId|matchGeneratorId.*generators/s);
+  });
+});

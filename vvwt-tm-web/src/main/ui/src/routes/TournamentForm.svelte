@@ -26,6 +26,7 @@
     type TournamentRules,
     type TournamentCreateRequest,
   } from '../stores/tournamentStore.js';
+  import { getGeneratorList, type MatchGeneratorInfo } from '../stores/generatorStore.js';
 
   // ── Props ────────────────────────────────────────────────────────────────
   interface Props {
@@ -49,6 +50,7 @@
   let seedMannschaftsfoto = $state(true); // E53S05: default true — Vorbelegung checked by default
 
   let rules = $state<TournamentRules | null>(null);
+  let generators = $state<MatchGeneratorInfo[]>([]); // E58S05 AC2/AC5: shared generator list
   let loading = $state(true);
   let saving = $state(false);
   let saveError = $state<string | null>(null);
@@ -69,12 +71,13 @@
       actions: [],
     });
     try {
-      rules = await getTournamentRules();
+      [rules, generators] = await Promise.all([getTournamentRules(), getGeneratorList()]);
       // Set default selections to first option in each list
       if (rules.matchFormats.length > 0) matchFormat = rules.matchFormats[0];
       if (rules.scoringRuleIds.length > 0) scoringRuleId = rules.scoringRuleIds[0];
       if (rules.setValidationRuleIds.length > 0) setValidationRuleId = rules.setValidationRuleIds[0];
-      if (rules.matchGeneratorIds.length > 0) matchGeneratorId = rules.matchGeneratorIds[0];
+      // E58S05 AC5: default matchGeneratorId from shared generator registry
+      if (generators.length > 0) matchGeneratorId = generators[0].keyId;
 
       if (editId) {
         // Load existing tournament for edit
@@ -260,12 +263,12 @@
           {/if}
         </div>
 
-        <!-- Match generator -->
+        <!-- Match generator — E58S05 AC5: populated from shared generatorStore -->
         <div class="form__field">
           <label for="matchGeneratorId">{$_('tournamentForm.fields.matchGeneratorId')}</label>
           <select id="matchGeneratorId" bind:value={matchGeneratorId} required>
-            {#each rules.matchGeneratorIds as id}
-              <option value={id}>{id}</option>
+            {#each generators as gen (gen.keyId)}
+              <option value={gen.keyId}>{gen.keyId}</option>
             {/each}
           </select>
           {#if fieldErrors['matchGeneratorId']}

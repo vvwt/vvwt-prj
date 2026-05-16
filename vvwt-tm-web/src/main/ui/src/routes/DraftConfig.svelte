@@ -44,6 +44,10 @@
   import { getTournament, resetPlan } from '../stores/tournamentStore.js';
   import { formatDuration } from '../lib/formatDuration.js';
   import { formatStartTime } from '../lib/formatStartTime.js';
+  import {
+    getGeneratorList,
+    type MatchGeneratorInfo,
+  } from '../stores/generatorStore.js';
 
   // ── Props ────────────────────────────────────────────────────────────────
   interface Props {
@@ -75,6 +79,11 @@
   let resettingPlan = $state(false);
   /** Break validation errors: key = `${sectionIdx}-${breakIdx}`, value = error message. */
   let breakErrors = $state<Record<string, string>>({});
+  /**
+   * Registry-sourced generator list. Loaded once from /api/match-generators via generatorStore.
+   * E58S05 AC3: replaces hardcoded roundRobin/awardCeremony option list.
+   */
+  let generators = $state<MatchGeneratorInfo[]>([]);
 
   // ── Init ─────────────────────────────────────────────────────────────────
   onMount(async () => {
@@ -91,9 +100,11 @@
       return;
     }
     try {
-      const [config, tournament] = await Promise.all([
+      const [config, tournament, gens] = await Promise.all([
         getDraft(tournamentId),
         getTournament(tournamentId),
+        // E58S05 AC3: load generator list from registry (shared module, fetched once)
+        getGeneratorList(),
       ]);
       sections = config.sections.map(s => ({
         ...s,
@@ -101,6 +112,7 @@
       }));
       plannedStartTime = tournament.plannedStartTime ?? null;
       tournamentStatus = tournament.status ?? null;
+      generators = gens;
     } catch (e: unknown) {
       loadError = e instanceof Error ? e.message : String(e);
     } finally {
@@ -155,16 +167,29 @@
   // ── gameMode helpers (E48S01) ────────────────────────────────────────────
 
   /**
-   * Ensures the last section always has gameMode='awardCeremony'.
-   * Called after addSection() and removeSection() to maintain the D-10 invariant in the UI.
+   * Returns the key of the last-phase generator from the registry
+   * (the first generator with isLastPhaseGenerator==true).
+   * Falls back to 'awardCeremony' if the registry is not yet loaded.
+   * E58S05 AC4: uses the capability flag, NOT string key matching.
+   */
+  function getLastPhaseGeneratorKey(): string {
+    const lastPhaseGen = generators.find(g => g.isLastPhaseGenerator);
+    return lastPhaseGen?.keyId ?? 'awardCeremony';
+  }
+
+  /**
+   * Ensures the last section always has a last-phase-capable gameMode.
+   * Called after addSection() and removeSection() to maintain the invariant in the UI.
+   * E58S05 AC4: uses isLastPhaseGenerator flag, not key-string matching.
    * AC-FRONTEND-GAMEMODE-DROPDOWN: last-section auto-set on every structural change.
    */
   function enforceLastSectionAwardCeremony(): void {
     if (sections.length === 0) return;
     const lastIdx = sections.length - 1;
-    if (sections[lastIdx].gameMode !== 'awardCeremony') {
+    const lastPhaseKey = getLastPhaseGeneratorKey();
+    if (sections[lastIdx].gameMode !== lastPhaseKey) {
       sections = sections.map((s, i) =>
-        i === lastIdx ? { ...s, gameMode: 'awardCeremony' } : s
+        i === lastIdx ? { ...s, gameMode: lastPhaseKey } : s
       );
     }
   }
@@ -187,16 +212,19 @@
   }
 
   /**
-   * Pre-submit validation: verifies the last section has gameMode='awardCeremony'.
+   * Pre-submit validation: verifies the last section has a last-phase-capable gameMode.
    * Returns an i18n error key string if invalid, or null if valid.
-   * AC-FRONTEND-PRE-SUBMIT-VALIDATION-MIRROR (E48S01).
+   * AC-FRONTEND-PRE-SUBMIT-VALIDATION-MIRROR (E48S01); updated by E58S05 to use registry flag.
    */
   function validateLastPhase(): string | null {
     if (sections.length === 0) return null;
     const lastSection = sections.reduce((max, s) =>
       s.sectionNumber > max.sectionNumber ? s : max
     );
-    if (lastSection.gameMode !== 'awardCeremony') {
+    // E58S05 AC4: check via registry flag — if generators loaded, verify the selected key is
+    // a last-phase generator; if not yet loaded, fall back to the known key
+    const lastPhaseKey = getLastPhaseGeneratorKey();
+    if (lastSection.gameMode !== lastPhaseKey) {
       return $_('draftConfig.errors.lastPhaseMustBeAwardCeremony');
     }
     return null;
@@ -426,7 +454,7 @@
             </select>
           </div>
 
-          <!-- Game mode (E48S01 AC-FRONTEND-GAMEMODE-DROPDOWN) -->
+          <!-- Game mode (E48S01 AC-FRONTEND-GAMEMODE-DROPDOWN; E58S05 AC3/AC4 data-driven) -->
           <div class="form__field">
             <label>{$_('draft.section.fields.gameMode')}</label>
             <select
@@ -434,8 +462,11 @@
               disabled={si === sections.length - 1}
               title={si === sections.length - 1 ? $_('draftConfig.errors.lastPhaseMustBeAwardCeremony') : undefined}
             >
-              <option value="roundRobin">{$_('draftConfig.gameMode.roundRobin')}</option>
-              <option value="awardCeremony">{$_('draftConfig.gameMode.awardCeremony')}</option>
+              {#each (si === sections.length - 1
+                ? generators.filter(g => g.isLastPhaseGenerator)
+                : generators.filter(g => !g.isLastPhaseGenerator)) as gen (gen.keyId)}
+                <option value={gen.keyId}>{$_(`draftConfig.gameMode.${gen.keyId}`)}</option>
+              {/each}
             </select>
           </div>
 
