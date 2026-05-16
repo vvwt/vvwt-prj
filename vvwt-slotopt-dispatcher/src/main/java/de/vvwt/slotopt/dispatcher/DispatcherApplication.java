@@ -14,8 +14,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * crypto} package SPI (DEC-43 / E37S04).
  *
  * <p>{@code @EnableScheduling} activates the {@link
- * de.vvwt.slotopt.dispatcher.packet.PacketTimeoutSweeper} {@code @Scheduled} bean (per
- * AC-PACKET-TIMEOUT-SWEEPER, E37S08).
+ * de.vvwt.slotopt.dispatcher.packet.internal.DefaultPacketTimeoutSweeper} {@code @Scheduled} bean
+ * (per AC-PACKET-TIMEOUT-SWEEPER, E37S08).
  *
  * <p>See DEC-10 (Spring Boot module structure), DEC-11 (service boundary), DEC-43
  * (algorithm-agility).
