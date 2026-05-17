@@ -222,16 +222,20 @@ class TournamentCrossContextSmokeIT {
             assertThat(draftResp.getStatusCode()).isEqualTo(HttpStatus.OK);
             UUID phaseId = draftResp.getBody().phaseIds().get(0);
 
-            // E48S17: apply() no longer generates matches; verify MatchRepository is wired (empty
-            // result is the expected post-E48S17 behavior — cross-context wiring is confirmed by
-            // the fact that the call itself succeeds without ClassCastException or bean-not-found).
+            // DEC-32 cross-context wiring: MatchRepository.findByPhaseId must be callable from
+            // the scoring context without ClassCastException or bean-not-found. The call itself
+            // confirms the cross-context wiring is structurally sound.
+            // Note: E55S06 introduced async match generation via the phaselifecycle orchestrator
+            // that runs immediately after apply(); asserting isEmpty() is therefore racy and has
+            // been removed. The wiring assertion is satisfied by the successful invocation below
+            // (a bean-wiring failure would throw before returning any result).
             List<Match> matches = matchRepository.findByPhaseId(phaseId);
             assertThat(matches)
                     .as(
                             "MatchRepository (de.vvwt.tm.tournament.*) must be readable from"
-                                    + " scoring context — E48S17: apply() no longer creates matches"
-                                    + " (empty is correct), confirms DEC-32 cross-context wiring")
-                    .isEmpty();
+                                + " scoring context — DEC-32 cross-context wiring confirmed by"
+                                + " successful invocation (no ClassCastException / bean-not-found)")
+                    .isNotNull();
 
             // Verify Phase 1 readable (used by print + display consumer contexts after rewrite)
             assertThat(phaseRepository.findById(phaseId))
