@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.slotopt.dispatcher.job.JobRecord;
 import de.vvwt.slotopt.dispatcher.packet.PacketDecomposerService;
 import de.vvwt.slotopt.dispatcher.packet.PacketRecord;
+import de.vvwt.slotopt.worker.types.CanonicalPhaseDef;
 import de.vvwt.slotopt.worker.types.JobDef;
 import java.util.ArrayList;
 import java.util.List;
@@ -70,9 +71,18 @@ public class DefaultPacketDecomposerService implements PacketDecomposerService {
         int n = jobDef.n();
         long totalPerms = factorial(n);
 
-        // Determine packet count
+        // Determine packet count.
+        // For very small jobs (totalPerms < MIN_PACKET_COUNT), clamp to totalPerms so that no
+        // empty packet intervals are created. PacketSolver rejects rankFrom == rankTo with an
+        // IllegalArgumentException. E60S05: clamp added; the MIN_PACKET_COUNT=4 floor is retained
+        // for all jobs with ≥ 4 permutations.
         int packetCount;
-        if (totalPerms < (long) MIN_PACKET_COUNT * PERMS_PER_PACKET) {
+        if (totalPerms <= 0) {
+            // Edge case: n=0 — no permutations; produce 0 packets (caller must handle).
+            packetCount = 0;
+        } else if (totalPerms < MIN_PACKET_COUNT) {
+            packetCount = (int) totalPerms;
+        } else if (totalPerms < (long) MIN_PACKET_COUNT * PERMS_PER_PACKET) {
             packetCount = MIN_PACKET_COUNT;
         } else {
             packetCount = (int) Math.ceil((double) totalPerms / PERMS_PER_PACKET);
@@ -107,12 +117,18 @@ public class DefaultPacketDecomposerService implements PacketDecomposerService {
         packet.setPacketId(UUID.randomUUID());
         packet.setJobId(jobId);
 
-        // Payload: JSON with rankFrom, rankTo, n, and canonicalPhaseDef for the worker
+        // Payload: JSON with rankFrom, rankTo, n, and canonicalPhaseDef for the worker.
+        // canonicalPhaseDef is extracted from jobDef and placed at the top level of the payload
+        // so that the worker's PacketPayload deserializer (de.vvwt.slotopt.worker.runtime.internal)
+        // can bind it directly without needing to navigate the nested jobDef structure.
+        // E60S05: this was the E2E bug — the dispatcher embedded canonicalPhaseDef inside jobDef
+        // (as a nested JSON object) but the worker expected it at the payload's top level.
+        CanonicalPhaseDef canonicalPhaseDef = jobDef.canonicalPhaseDef();
         String payload;
         try {
             payload =
                     objectMapper.writeValueAsString(
-                            new PacketPayload(jobId, n, jobDef, rankFrom, rankTo));
+                            new PacketPayload(jobId, n, canonicalPhaseDef, rankFrom, rankTo));
         } catch (JsonProcessingException e) {
             // Fallback to minimal JSON if serialization fails (should not happen in production)
             payload =
@@ -148,5 +164,25 @@ public class DefaultPacketDecomposerService implements PacketDecomposerService {
     // Internal payload record for JSON serialization
     // -------------------------------------------------------------------------
 
-    record PacketPayload(UUID jobId, int n, JobDef jobDef, long rankFrom, long rankTo) {}
+    /**
+     * Internal payload record for JSON serialization.
+     *
+     * <p>Fields match the worker's {@code PacketPayload} deserializer ({@code
+     * de.vvwt.slotopt.worker.runtime.internal.PacketPayload}) exactly:
+     *
+     * <ul>
+     *   <li>{@code jobId} — job UUID for worker observability
+     *   <li>{@code n} — permutation size (number of rows in the phase)
+     *   <li>{@code canonicalPhaseDef} — the canonical phase topology (NOT nested inside jobDef)
+     *   <li>{@code rankFrom} — inclusive start of the permutation range for this packet
+     *   <li>{@code rankTo} — exclusive end of the permutation range for this packet
+     * </ul>
+     *
+     * <p>E60S05 fix: previously the payload contained a full {@code jobDef} object (which nested
+     * {@code canonicalPhaseDef} one level deeper). The worker expected {@code canonicalPhaseDef} at
+     * the payload's top level — this mismatch caused {@code NullPointerException} in {@code
+     * DefaultComputeStep.solvePacket()} every time a packet was claimed.
+     */
+    record PacketPayload(
+            UUID jobId, int n, CanonicalPhaseDef canonicalPhaseDef, long rankFrom, long rankTo) {}
 }

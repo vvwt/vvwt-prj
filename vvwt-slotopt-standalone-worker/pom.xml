@@ -160,6 +160,25 @@
                 </executions>
             </plugin>
 
+            <!-- maven-jar-plugin: test-jar execution for E60S05 E2E IT harness.
+                 The dispatcher's test code imports WorkerLauncher + WorkerRunResult
+                 (public classes in de.vvwt.slotopt.standalone.integration). These live in
+                 src/test/java of this module and are only available to other modules via
+                 a test-jar artifact (classifier=tests). DEC-11: test-scope only — no
+                 production compile dependency introduced. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>test-jar</id>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
             <!-- maven-failsafe-plugin: runs *IT.java integration tests in the
                  integration-test + verify phases. E41S06: 5 WireMock-based ITs.
                  Version from parent pluginManagement (maven-failsafe-plugin.version). -->

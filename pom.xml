@@ -240,6 +240,23 @@
                 <version>${project.version}</version>
             </dependency>
 
+            <!-- Standalone worker main artifact (E60S05 — E2E IT harness; test-scope from dispatcher) -->
+            <dependency>
+                <groupId>de.vvwt</groupId>
+                <artifactId>vvwt-slotopt-standalone-worker</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- Standalone worker test-jar (E60S05 — exposes WorkerLauncher/WorkerRunResult
+                 to dispatcher E2E IT; classifier=tests selects the test-jar artifact produced
+                 by the maven-jar-plugin test-jar execution in vvwt-slotopt-standalone-worker) -->
+            <dependency>
+                <groupId>de.vvwt</groupId>
+                <artifactId>vvwt-slotopt-standalone-worker</artifactId>
+                <version>${project.version}</version>
+                <classifier>tests</classifier>
+            </dependency>
+
             <!-- Public Participant Info Service modules (E38 — DEC-42) -->
             <dependency>
                 <groupId>de.vvwt</groupId>

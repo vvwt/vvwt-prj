@@ -103,10 +103,14 @@ public class OptimizerWorkerMain {
         ComputeStep computeStep =
                 new DefaultComputeStep(dispatcherClient, resultSigner, config.signingAlgorithm());
 
-        // Bootstrap phase: validate algorithm + register key → obtain workerId
+        // Bootstrap phase: validate algorithm + register key → obtain workerId.
+        // Pass workerKeyManager so that the real Ed25519 public key is used in registration
+        // (E60S05: completes the wiring that was deferred from E41S05).
         UUID workerId;
         try {
-            workerId = new DefaultBootstrapService(dispatcherClient).run(config);
+            workerId =
+                    new DefaultBootstrapService(dispatcherClient, event -> {}, workerKeyManager)
+                            .run(config);
         } catch (BootstrapException e) {
             System.err.println("ERROR: Bootstrap failed: " + e.getMessage());
             System.exit(e.getExitCode());
