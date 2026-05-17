@@ -1,32 +1,5 @@
-/**
- * Timer WebSocket client — E11S05.
- *
- * Connects to the server's STOMP endpoint at /ws (E05S03 infrastructure) using
- * SockJS + STOMP. Subscribes to the tenant-scoped display topic
- * {@code /topic/display/{tenantId}/events} to receive LAP_ADVANCED and
- * PHASE_STATUS_CHANGED events published by the server.
- *
- * Auth model (AC1, D-7):
- * The timer is unauthenticated — it sends a custom STOMP CONNECT header
- * {@code X-Timer-Connect: true} and {@code X-Timer-Tenant-Id: {tenantId}} instead
- * of admin Basic credentials or a device token. The server's WebSocketSecurityConfig
- * recognises this header and creates a synthetic "timer-client" principal.
- *
- * Disconnect resilience (AC4):
- * On disconnect, the {@code onDisconnected} callback fires. The client enters a
- * reconnect loop with exponential backoff (1s → 2s → 4s → … → max 30s). On
- * successful reconnect, {@code onReconnected} fires and the caller is expected to
- * reload the schedule from E11S02 (AC5).
- *
- * Local continuation (D-6):
- * The timer does NOT stop on disconnect. The App component continues running the
- * local countdown engine until reconnect succeeds and the schedule is refreshed.
- *
- * Error handling (AC6):
- * If the initial connection is refused, {@code onDisconnected} fires immediately.
- * Reconnect attempts continue in the background. No error is thrown.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { Client as StompClient } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 

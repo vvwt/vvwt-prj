@@ -1,12 +1,5 @@
-/**
- * i18n unit tests — Story E05S01, AC5, AC9.
- *
- * Verifies that:
- * - The German translation file loads correctly
- * - i18n initializes without throwing
- * - The fallback locale resolves to 'de'
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import deMessages from '../locales/de.json';
 

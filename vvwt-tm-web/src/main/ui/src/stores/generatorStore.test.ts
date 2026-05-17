@@ -1,18 +1,5 @@
-/**
- * Tests for generatorStore — E58S05 AC2 + AC8 TDD RED-first.
- *
- * AC2 (testing): a central TypeScript module loads the generator list and caches it;
- * the phase-plan page and the tournament page both consume that shared module, and no
- * component fetches the endpoint independently. Verified by a test that asserts the
- * generator-list endpoint is fetched exactly once across both consumer calls (not once
- * per call).
- *
- * RED-first per DEC-22 (AC8): these tests fail before generatorStore.ts is created.
- *
- * Test isolation: vi.resetModules() between tests ensures the module-level cache is
- * reset (each dynamic import() gets a fresh module instance).
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // ─────────────────────────────────────────────────────────────────────────────

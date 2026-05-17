@@ -1,19 +1,5 @@
-/**
- * Tests for generatorFilter — E58S05 AC4/AC8 TDD RED-first.
- * Extended by E58S06 AC1–AC5, AC11 (DEC-22 TDD RED-first).
- *
- * AC4 (E58S05): the phase-plan dropdown filters generators by the isLastPhaseGenerator capability
- * flag, NOT by matching the generator key string. These tests use a fixture that includes a
- * generator whose key is NOT 'awardCeremony' but has isLastPhaseGenerator=true, so that a
- * key-string-based filter would fail the test while a flag-based filter passes.
- *
- * AC1–AC5, AC11 (E58S06): new pure functions resolveNonLastDefault and
- * normalizeNonLastPhaseGameModes, tested at module level per AC5 constraint
- * (Svelte component mounting infeasible in Vitest+jsdom — E58S05 AC2 finding).
- *
- * RED-first per DEC-22 (AC5): new tests added BEFORE corresponding implementations.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect } from 'vitest';
 import {
     filterNonLastPhaseGenerators,

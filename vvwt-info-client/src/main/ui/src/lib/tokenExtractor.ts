@@ -1,13 +1,5 @@
-/**
- * URL token extraction — reads tournament_token and team_token from URL PATH only (AC10).
- *
- * AC10: tokens read from URL path, never query string/cookie/localStorage/sessionStorage/IndexedDB.
- * Tokens are NEVER logged to the browser console.
- * Expected URL shape: /info/{tournament_token}/{team_token}[/*]
- *
- * Story: E38S08.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 export interface TokenPair {
   tournamentToken: string | null;
   teamToken: string | null;

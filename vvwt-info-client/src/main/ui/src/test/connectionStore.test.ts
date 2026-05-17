@@ -1,9 +1,5 @@
-/**
- * AC1 (testing), AC3 (sequence-gap reconnect), AC14 (backoff), AC15 (stale indicator).
- * DEC-22 Iron Law: written BEFORE connectionStore.ts exists (RED state).
- * Story: E38S08.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
 import {

@@ -1,3 +1,7 @@
+<!--
+  SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+  SPDX-License-Identifier: AGPL-3.0-or-later
+-->
 <script lang="ts">
   /**
    * ConnectionStatus component — displays network-error (AC14) and stale-data (AC15) indicators.

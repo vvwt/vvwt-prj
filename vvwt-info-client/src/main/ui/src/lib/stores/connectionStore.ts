@@ -1,14 +1,5 @@
-/**
- * WebSocket connection state machine — single state machine, reconnect-on-gap (AC3, AC14, AC15).
- *
- * AC3: sequence-gap detection → reconnect (NOT buffer-then-reapply).
- * AC14: exponential backoff with full jitter, initial 1s, factor ×2, cap 60s, indefinite retry,
- *       reset on success. Network-error UX with "Verbindung verloren — Wiederverbindung…" indicator.
- * AC15: separate stale-data indicator (60s threshold, distinct DOM testid from AC14 indicator).
- *
- * Story: E38S08. DEC-2: no SvelteKit. DEC-22: authored after RED-first tests.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { writable, get } from 'svelte/store';
 import type { Writable } from 'svelte/store';
 

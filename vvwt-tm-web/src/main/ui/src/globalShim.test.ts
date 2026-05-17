@@ -1,33 +1,5 @@
-/**
- * Regression test for E18S03 — Vite global→globalThis shim.
- *
- * Root cause: sockjs-client@1.6.1 references the Node.js built-in `global`
- * identifier at module-evaluation time. Vite ≥ 5 does NOT auto-shim `global`,
- * so loading any SPA entry bundle that transitively imports sockjs-client
- * throws `ReferenceError: global is not defined` in browsers.
- *
- * Fix: add `define: { global: 'globalThis' }` to each of the three
- * vite.config.ts files. Vite substitutes every bare `global` reference in the
- * bundle with `globalThis`, which is a valid browser global.
- *
- * DEC-22 / AC5 compliance: this test encodes the failure mode
- * "loading the entry bundle in a browser-like environment throws
- * ReferenceError: global is not defined". It uses a build-config assertion
- * approach (config file content check) rather than a full bundle evaluation,
- * because:
- *   1. Building the bundle in a test context requires a full `vite build` run
- *      (expensive, not hermetic in unit-test scope).
- *   2. The `define` entry in vite.config.ts IS the preventive mechanism;
- *      its presence directly controls whether the shim is emitted into the
- *      bundle at build time.
- *   3. AC3 (symmetric form) and AC4 (explanatory comment) are also verifiable
- *      from the config file content, keeping all regression checks co-located.
- *
- * RED-first evidence: run this test BEFORE adding the `define` block to
- * vite.config.ts — all three assertions fail. Add the block → GREEN.
- * The impl-report documents the RED→GREEN transcript.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';

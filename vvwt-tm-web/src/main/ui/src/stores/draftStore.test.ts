@@ -1,17 +1,5 @@
-/**
- * Unit tests for draftStore — E21S21 (AC-TEST-FE-PREVIEW-NO-BODY-RED,
- * AC-TEST-FE-APPLY-NO-BODY-RED, AC-TEST-FE-HANDLEPREVIEW-SINGLE-FETCH-RED,
- * AC-TEST-FE-LOCAL-STATE-DIVERGENCE-RED).
- *
- * Verifies:
- * - previewDraft(tournamentId, config) sends Content-Type: application/json and JSON body
- * - applyDraft(tournamentId, config) sends Content-Type: application/json and JSON body
- * - draftStore exports the expected API functions with correct signatures
- *
- * Note: handlePreview auto-save removal is a DraftConfig.svelte component concern.
- * The store-level tests confirm previewDraft and applyDraft accept config and send body.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 // ─────────────────────────────────────────────────────────────────────────────

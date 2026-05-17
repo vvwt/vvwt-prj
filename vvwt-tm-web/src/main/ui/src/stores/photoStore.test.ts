@@ -1,12 +1,5 @@
-/**
- * Unit tests for photoStore (E12S03).
- *
- * Verifies:
- * - AC8: de.json contains all required photo translation keys (i18n DoR)
- * - photoStore exports the expected API functions
- * - getPhotoUrl produces the expected URL patterns
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import deMessages from '../locales/de.json';
 import { getPhotoUrl, uploadPhoto, deletePhoto } from './photoStore.js';

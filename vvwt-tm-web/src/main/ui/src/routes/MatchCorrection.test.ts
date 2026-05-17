@@ -1,17 +1,5 @@
-/**
- * RED-first tests for MatchCorrection.svelte — E48S26.
- *
- * Covers:
- *   AC-TEST-CORRECTION-FORM-PRELOAD-RED: form opens pre-filled with existing set values
- *   AC-TEST-CORRECTION-FORM-EMPTY-NACHERFASSUNG-RED: form opens empty for match with no recorded sets
- *   AC-TEST-CORRECTION-FORM-FRESH-ENTRY-PRESERVED-RED: pre-loaded form remains editable
- *   AC-ERR-CORRECTION-PRELOAD-MATCH-NOT-FOUND: error rendered when matchId not in phase list
- *   AC-GOV-PHANTOM-AC-CLEANUP (source check): back-nav updated to match-overview route
- *
- * DEC-22 Iron Law: all tests written RED-first.
- * DEC-54: render() is mandatory for behaviour tests.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/svelte';
 import * as fs from 'fs';

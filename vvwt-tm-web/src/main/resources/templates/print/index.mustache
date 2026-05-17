@@ -1,31 +1,6 @@
 <!--
-  print/index.mustache — Tournament print index page (E08S07 AC1; E53S03 gate + fotos fix).
-
-  Rendered by PrintController.printIndex() when a tournament exists and has phases.
-  Provides navigation links to E08S08 (Laufzettel) and E08S09 (Mannschaftsfoto-Uebersicht).
-
-  Required model attributes (see PrintController):
-    locale                — HTML lang attribute
-    title                 — page title (i18n)
-    cssPath               — path to print CSS
-    tournamentName        — tournament description
-    tournamentDate        — formatted date (dd.MM.yyyy) or empty
-    msgTournamentLabel    — i18n label "Tournament"
-    msgDateLabel          — i18n label "Date"
-    heading               — page heading (i18n)
-    tournamentId          — UUID string of the tournament
-    linksAvailable        — boolean: true when at least one ACTIVE phase exists (E53S03)
-    laufzettelUrl         — URL to /team-schedules (E08S08); present only when linksAvailable
-    fotosUrl              — URL to /activity-schedule/{photoTypeId} (E53S03 fix); present only
-                             when linksAvailable AND a photo activity-type is configured
-    noActivePhaseMessage  — operator-actionable empty-state message (E53S03);
-                             present only when linksAvailable=false
-    msgLaufzettelLink     — link label (i18n)
-    msgFotosLink          — link label (i18n)
-    appVersion            — application version string
-    hasTeamLinks          — boolean: true when at least one per-team laufzettel link is available (E08S10)
-    msgTeamLinksHeading   — section heading for per-team laufzettel links (E08S10)
-    teamLinks             — list of {teamNumber, teamName, url} maps (E08S10); present only when hasTeamLinks
+  SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+  SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 <!DOCTYPE html>
 <html lang="{{locale}}">

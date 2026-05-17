@@ -1,13 +1,5 @@
-/**
- * Tournament state store — holds the current tournament snapshot.
- *
- * Stores the latest snapshot received from the server (WS or poll fallback).
- * Delta application is handled at the WS message layer in App.svelte.
- * lastKnownSeq is used by the connection store for gap detection (AC3).
- *
- * Story: E38S08. DEC-22: authored after RED-first tests.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { writable } from 'svelte/store';
 import type { Writable } from 'svelte/store';
 

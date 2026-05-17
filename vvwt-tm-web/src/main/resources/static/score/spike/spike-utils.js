@@ -1,13 +1,5 @@
-/**
- * spike-utils.js — ES5-only utility script for iOS 9 compatibility spike (E06S01).
- *
- * DEC-19: All code MUST be ES5. No let, const, arrow functions, template literals,
- * class, destructuring, Proxy, async/await, default parameters, for...of, or spread.
- *
- * AC8: Global error handler catches uncaught exceptions.
- * AC9: No external scripts, stylesheets, or fonts — this file is served locally.
- * AC10: All user-visible strings are parameterized via SpikeI18n.
- */
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 "use strict";
 
 /* ======================================================================

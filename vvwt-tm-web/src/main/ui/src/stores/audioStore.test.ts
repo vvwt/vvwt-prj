@@ -1,19 +1,5 @@
-/**
- * Unit tests for audioStore — Story E11S08 (AC6).
- *
- * Verifies that each audioStore export issues the canonical Wave-2 URL:
- *   GET    /api/audio/tournaments/${tournamentId}           — listAudio
- *   POST   /api/audio/tournaments/${tournamentId}/${cat}   — uploadAudio
- *   DELETE /api/audio/tournaments/${tournamentId}/${cat}   — deleteAudio
- *   GET    /api/audio/tournaments/${tournamentId}/${cat}/stream — (served via TimerAudio.svelte AC4)
- *
- * DEC-22 RED-first: these specs are committed against the legacy audioStore.ts that
- * still uses `/api/tournaments/${id}/...` paths — they FAIL on first commit (RED),
- * and PASS after AC1–AC3 fixes land (GREEN).
- *
- * Canonical URL strings are hardcoded per Brief Q4=(F) (no shared SoT module).
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { listAudio, uploadAudio, deleteAudio } from './audioStore.js';
 

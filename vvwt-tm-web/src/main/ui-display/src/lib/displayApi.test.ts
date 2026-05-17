@@ -1,25 +1,5 @@
-/**
- * Unit tests for displayApi.ts (E07S05, E07S07).
- *
- * E07S05 tests — error classification for overview endpoints:
- *   - 401 → UnauthorizedError
- *   - 404 → NoActivePhaseError
- *   - 500 → ApiError with status 500
- *   - 200 → returns parsed JSON body
- *   - localStorage token reader (readDeviceToken)
- *
- * E07S07 tests — device registration and status polling:
- *   - registerDisplayDevice(): 201 → returns deviceToken
- *   - registerDisplayDevice(): 429 → throws DeviceLimitError (AC6)
- *   - registerDisplayDevice(): 500 → throws ApiError (AC9)
- *   - registerDisplayDevice(): sends DISPLAY deviceType (AC1)
- *   - pollDeviceStatus(): 200 → returns status result
- *   - pollDeviceStatus(): 404 → throws DeviceRemovedError (AC7)
- *   - pollDeviceStatus(): 500 → throws ApiError (AC9)
- *   - writeDeviceToken(): stores token in localStorage (AC11)
- *   - clearDeviceToken(): removes token from localStorage (AC7)
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   fetchPhaseOverview,

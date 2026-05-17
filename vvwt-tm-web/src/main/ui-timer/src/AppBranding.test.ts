@@ -1,16 +1,5 @@
-/**
- * AC2 — Brand lockup height invariant test for TM Timer SPA.
- *
- * DEC-22 Iron Law: written BEFORE App.svelte .brand-lockup CSS edit (RED state).
- * RED: current App.svelte has `:global(.brand-lockup) { min-width: 120px; height: auto; display: block; }` —
- *   POSITIVE regex fails (no height:2em), NEGATIVE for min-width:* matches (fails), NEGATIVE for height:auto matches (fails).
- *
- * Strategy: identical to AC1. The `:global(.brand-lockup)` selector form is accepted by the
- * rule-body locator regex `(?::global\()?\.brand-lockup\)?` in pre-process step 3.
- *
- * DEC-22, DEC-42. Story: E44S04 — brand-lockup oversize fix.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';

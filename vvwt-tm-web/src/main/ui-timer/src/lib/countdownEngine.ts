@@ -1,19 +1,5 @@
-/**
- * Countdown engine for the VVWT Timer SPA (E11S04).
- *
- * Responsibilities:
- *  - Resolve the effective schedule (server times + clock offset + user overrides, AC7)
- *  - Determine the current active event index and time remaining until it
- *  - Manage transport state: STOPPED / PLAYING / PAUSED
- *  - Fire audio events when event triggers are reached
- *  - Track round counter (AC6)
- *
- * Design principles:
- *  - No server polling (D-6): uses Date.now() + clockOffsetSeconds only
- *  - Pure logic — no DOM, no HTMLAudioElement; callers handle audio
- *  - All time values in seconds-since-midnight
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { parseTimeToSeconds, applyClockOffset, formatTimeSeconds } from './timerApi.js';
 import type { TimerScheduleEntry } from './timerApi.js';
 

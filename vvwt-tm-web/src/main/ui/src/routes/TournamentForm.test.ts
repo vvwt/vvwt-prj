@@ -1,21 +1,5 @@
-/**
- * Tests for TournamentForm route — Story E47S02 and E48S14.
- *
- * E47S02 tests:
- * AC3: In-page <h1> gone from route body; title registered via pageHeader store.
- * AC4: main h1 GONE (RED: exists pre-migration) AND Save/Cancel still in form__actions (TRUE pre+post).
- * AC5: Back-arrow registered; backTo = '/tournaments' for both /new and /:id/edit.
- * AC6 complement: TournamentForm-edit does NOT show tournament name in header.
- * AC7: Action-area empty; tournament-name slot empty for both TournamentForm-new and TournamentForm-edit.
- * AC8: No per-page back-button (pop() call bound to a back-button) in main body.
- * AC9: No in-template <h1> rendering the page title in main container.
- *
- * E48S14 tests:
- * AC-TEST-FRONTEND-CREATE-PAYLOAD-RED: TournamentForm.svelte CREATE payload includes plannedStartTime.
- * RED-first: before fix, the CREATE object literal at lines 126-135 omits plannedStartTime.
- * After fix: plannedStartTime line mirrors the UPDATE payload at line 123.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect } from 'vitest';
 
 // ─────────────────────────────────────────────────────────────────────────────

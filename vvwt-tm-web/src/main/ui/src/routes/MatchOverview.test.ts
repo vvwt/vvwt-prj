@@ -1,18 +1,5 @@
-/**
- * RED-first tests for MatchOverview.svelte — E48S26.
- *
- * Covers:
- *   AC-TEST-MATCHOVERVIEW-PAGE-RENDER-RED: render() tests — rows, team names, set scores, match state
- *   AC-TEST-MATCHOVERVIEW-KORRIGIEREN-LINK-RED: "Korrigieren" link for eligible states; absent for INPROGRESS/ONCHECK
- *   AC-ERR-MATCHOVERVIEW-EMPTY-PHASE: empty-state message rendered when no matches
- *   AC-ERR-MATCHOVERVIEW-LOAD-FAILURE: error message rendered when fetch fails
- *   AC-GOV-DEAD-CODE-REMOVED: source inspection — no dead toggleMatchList / isCorrectionEligible symbols
- *
- * DEC-22 Iron Law: all tests written RED-first before MatchOverview.svelte exists.
- * DEC-54: render() is mandatory — source-inspection via fs.readFileSync is INSUFFICIENT here
- *   (the Svelte compiler must be invoked to verify template output).
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import * as fs from 'fs';

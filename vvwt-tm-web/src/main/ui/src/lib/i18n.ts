@@ -1,18 +1,5 @@
-/**
- * i18n initialization for Tournament Manager Admin SPA.
- *
- * Story E05S01 — AC5, AC9.
- *
- * Uses svelte-i18n for translation. Locale detection order:
- *   1. browser navigator.language (AC9: browser Accept-Language detection)
- *   2. Falls back to 'de' if the browser locale has no translation file (AC9: German fallback)
- *
- * Adding a new language requires only:
- *   1. Add a new JSON file in src/locales/{locale}.json
- *   2. Register it in addMessages() below
- *   No Svelte component changes required (AC5).
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { addMessages, getLocaleFromNavigator, init, locale } from 'svelte-i18n';
 import de from '../locales/de.json';
 import en from '../locales/en.json';

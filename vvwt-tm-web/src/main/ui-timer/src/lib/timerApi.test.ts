@@ -1,18 +1,5 @@
-/**
- * Unit tests for timerApi.ts (E11S03 AC5, AC6).
- *
- * Tests:
- *   1. Successful fetch → returns TimerData
- *   2. 404 INVALID_TIMER_URL → throws InvalidTimerUrlError
- *   3. 404 NO_ACTIVE_TOURNAMENT → throws NoActiveTournamentError
- *   4. 200 with emptySchedule=true → throws NoScheduleConfiguredError
- *   5. 500 error → throws NetworkError
- *   6. Network fetch failure → throws NetworkError
- *   7. getTournamentIdFromUrl — extracts UUID from /timer/tournaments/{uuid}
- *   8. applyClockOffset — applies offset correctly
- *   9. parseTimeToSeconds — valid and invalid inputs
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   fetchTimerData,

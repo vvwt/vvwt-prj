@@ -1,25 +1,5 @@
-/**
- * E50S07 — MatchRow CSS defect fix tests.
- *
- * DEC-22 Iron Law: RED-first tests written BEFORE production code changes.
- *
- * RED tests (must FAIL against current MatchRow.svelte):
- *   - AC-TEST-SCORES-CENTERED-RED: .match-row__scores CSS rule must have text-align: center
- *     (absent in current code → defaults to left-aligned)
- *   - AC-TEST-ACTIVE-HIGHLIGHT-UNIFORM-RED: .match-row--current and .round-row--active
- *     (from CourtGrid.svelte) must resolve to the SAME background color
- *     (current: #eef4fb vs #d6e8ff → two-tone seam)
- *
- * GREEN regression tests (must pass immediately and remain GREEN):
- *   - AC-TEST-INACTIVE-ROWS-UNCHANGED-GREEN: base .match-row rule exists; .match-row--completed exists
- *
- * Strategy: source-inspection via readFileSync — same pattern as CourtGrid.test.ts (E50S04).
- * CSSOM-property assertions are sufficient per Story Notes §"CSS-property assertions, not layout geometry".
- *
- * Story: E50S07 — contexts/artefacts/stories/E50S07.story.md
- * DECs: DEC-2, DEC-22, DEC-54
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';

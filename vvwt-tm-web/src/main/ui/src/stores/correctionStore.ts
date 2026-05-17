@@ -1,13 +1,5 @@
-/**
- * Correction API client for the Tournament Manager Admin SPA.
- *
- * Story E48S25 — Operator Match Score Correction + Nacherfassung.
- *
- * Provides types and API calls for:
- *   - Submitting a set-score correction (POST /api/matches/:matchId/correction)
- *
- * See MatchCorrectionController.java for the server-side contract.
- */
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { apiFetch } from '../lib/api.js';
 
 // ── Types ─────────────────────────────────────────────────────────────────────

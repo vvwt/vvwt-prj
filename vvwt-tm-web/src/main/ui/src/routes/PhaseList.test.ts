@@ -1,23 +1,5 @@
-/**
- * RED-first tests for PhaseList.svelte (E48S19 + E48S23).
- *
- * Covers (E48S19):
- *   - AC-TEST-PHASELIST-PREPARE-NAVIGATES-RED: handlePrepare navigates to /prepare route, NOT preparePhase API
- *   - AC-TEST-PHASELIST-START-UNCHANGED-GREEN: handleStart regression — push() never called
- *   - AC-TEST-I18N-PHASES-COLUMNS-RESOLVE-RED: de.json has all 7 phases.columns keys
- *   - AC-ERROR-HANDLING-INVALID-NAVIGATION-CONTEXT: handlePrepare sets actionError when context invalid
- *
- * Covers (E48S23 — Reset-Plan affordance on Phasen-Übersicht):
- *   - AC-TEST-RESET-PLAN-VISIBLE-WHEN-PLANNED-RED: button with draft.resetPlanButton key rendered inside PLANNED conditional
- *   - AC-TEST-RESET-PLAN-HIDDEN-WHEN-NOT-PLANNED-RED: button NOT rendered outside PLANNED conditional
- *   - AC-TEST-RESET-PLAN-CLICK-CALLS-CONFIRM-RED: handler calls window.confirm with draft.resetPlanConfirm key
- *   - AC-TEST-RESET-PLAN-CONFIRM-INVOKES-API-RED: handler calls resetPlan(tournamentId) from tournamentStore
- *   - AC-TEST-RESET-PLAN-ERROR-RENDERS-MESSAGEKEY-RED: handler extracts apiError.messageKey + renders i18n-resolved error
- *
- * Source-code structural checks (pattern: PhaseTransition.test.ts / fs.readFileSync).
- * DEC-22 Iron Law: all tests written RED-first before production-code changes.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';

@@ -1,9 +1,5 @@
-/**
- * AC1 (testing) — tournament state store tests.
- * DEC-22 Iron Law: written BEFORE tournamentStore.ts exists (RED state).
- * Story: E38S08.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect } from 'vitest';
 import { get } from 'svelte/store';
 import { createTournamentStore } from '../lib/stores/tournamentStore.js';

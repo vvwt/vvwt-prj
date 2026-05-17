@@ -1,15 +1,5 @@
-/**
- * Tests for Certificates route — Story E52S02.
- *
- * AC-TEST-NEW-ROUTE-REGISTERED-RED: App.svelte must register /tournaments/:tournamentId/certificates route.
- * AC-TEST-GENERATE-UI-INVOKES-RENDER-CONTROLLER-RED: Certificates.svelte must invoke CertificateRenderController endpoints.
- * AC-URL-FE-NEW-ROUTE-CERTIFICATES: new route must point at Certificates component.
- * AC-URL-SUB-PAGE-BUTTON-NAVIGATION: navigation via push().
- * AC-I18N-DE-NEW-GENERATE-UI-KEYS: de.json must have certificates.* namespace.
- *
- * RED-first per DEC-22: all tests fail before implementation.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect } from 'vitest';
 import deMessages from '../locales/de.json';
 

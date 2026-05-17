@@ -1,17 +1,5 @@
-/**
- * Tests for Tournaments route — Story E47S01.
- *
- * AC3: Route registers title via pageHeader store; per-page .tournaments__header is removed.
- * AC4: Per-page "Neues Turnier" button gone from route body; header action handler invokes push('/tournaments/new').
- * AC7: Narrow viewport → "Neues Turnier" button is icon-only (no visible text, has aria-label).
- * AC10 (i18n): tournaments.title key present in de.json (already tested in TimerLink.test.ts — not re-tested here).
- *
- * RED-first per DEC-22: all these tests fail against the current implementation because
- *   - .tournaments__header still exists in the template
- *   - The "Neues Turnier" button is in <main>, not registered via pageHeader
- *   - No pageHeader store exists yet
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect } from 'vitest';
 import { get } from 'svelte/store';
 import deMessages from '../locales/de.json';

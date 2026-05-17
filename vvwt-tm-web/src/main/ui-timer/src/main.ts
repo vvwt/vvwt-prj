@@ -1,12 +1,5 @@
-/**
- * Entry point for the Tournament Manager Timer SPA.
- *
- * Story E11S03 — AC1, DEC-2: Vite + Svelte + TypeScript, no SvelteKit.
- *
- * Initializes i18n before mounting the Svelte app so that translation strings
- * are available immediately on first render.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { mount } from 'svelte';
 import App from './App.svelte';
 import { initI18n } from './lib/i18n.js';

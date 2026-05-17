@@ -1,24 +1,5 @@
-/**
- * Unit tests for countdownEngine.ts (E11S04 AC2, AC3, AC4, AC6, AC7).
- *
- * Tests:
- *   1. resolveEffectiveTime — override takes priority (AC7)
- *   2. resolveEffectiveTime — server time + clock offset used when no override
- *   3. resolveEffectiveTime — null when no server time and no override
- *   4. resolveActiveEvent — finds next upcoming event
- *   5. resolveActiveEvent — returns playing event
- *   6. resolveActiveEvent — returns -1 when all events past
- *   7. computeRoundCounter — counts rounds correctly (AC6)
- *   8. computeDoneIndices — marks past events as done
- *   9. getAudioEventOnActivate — ROUND → START_SOUND (AC3)
- *  10. getAudioEventOnActivate — REGULAR BREAK → PAUSE_MUSIC_START (AC4)
- *  11. getAudioEventOnActivate — ADDITIONAL break → NONE (D-8)
- *  12. getAudioEventOnDeactivate — ROUND → END_SOUND
- *  13. getAudioEventOnDeactivate — REGULAR BREAK → PAUSE_MUSIC_STOP
- *  14. buildSnapshot — PAUSED uses pausedAt time (not current time)
- *  15. buildSnapshot — countdown display MM:SS format (AC2)
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect, vi } from 'vitest';
 import {
   resolveEffectiveTime,

@@ -1,32 +1,6 @@
 <!--
-  activity-schedule.mustache — Mannschaftsfoto-Übersicht: activity schedule print template.
-
-  E08S09 AC1–AC11:
-  - Renders a photographer-centric round table for one activity type (AC3).
-  - Time column shown only when hasTime is truthy (AC7).
-  - Break separator rows interleaved in rows (AC4).
-  - Summary line below table (AC5).
-  - Warning section for unassigned teams when hasUnassigned (AC6).
-  - All static text via model attributes (i18n — AC10).
-  - CSS @media print from print.css (AC8).
-
-  Required model attributes (all set by PrintController):
-    tournamentName, tournamentDate, phaseName, msgTournamentLabel,
-    msgDateLabel, msgPhaseLabel, cssPath, appVersion, locale
-      — shared print-header partial attributes
-    title            — page title (browser tab / print header)
-    heading          — e.g. "Mannschaftsfoto — Zeitplan"
-    activityName     — human-readable activity type name
-    hasTime          — boolean: whether to show time column
-    rows             — list of row attribute maps (from ActivityScheduleAssembler)
-    totalTeams       — total assigned team count (AC5)
-    totalRounds      — count of non-empty rounds (AC5)
-    hasUnassigned    — boolean: show warning section
-    unassignedTeams  — list of {teamName} maps (AC6)
-    msgColRound, msgColTime, msgColTeams — column headers
-    msgSummary       — summary text template (AC5)
-    msgUnassignedTitle — warning section heading (AC6)
-    msgBreakLabel    — fallback break label
+  SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+  SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 <!DOCTYPE html>
 <html lang="{{locale}}">

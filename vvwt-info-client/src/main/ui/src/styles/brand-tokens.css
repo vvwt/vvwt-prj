@@ -1,22 +1,7 @@
-/**
- * VVW brand CSS custom properties.
- *
- * AC10 (E44S03): CSS token adoption — audit count 15 ≤ 20 threshold.
- * Shared token DEFINITIONS are excluded from the AC10 component-local audit count.
- *
- * Colour palette per HANDOFF:
- *   --vvw-blue    : primary brand blue
- *   --vvw-yellow  : Info-portal accent / favicon differentiator (E44S03 D-6)
- *   --vvw-ink     : dark text on brand-colour backgrounds
- *
- * WCAG AA contrast (AC5 — DEC-42 internet-facing):
- *   --vvw-ink on --vvw-yellow background : ~10:1 (AAA)
- *   white on --vvw-blue background       : ~7:1  (AAA)
- *   --vvw-yellow on --vvw-blue background: ~5:1  (AA normal text)
- *
- * Story: E44S03. DEC-2 (Vite+Svelte), DEC-42 (internet-facing WCAG AA obligation).
+/*
+ * SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-
 :root {
   --vvw-blue: #1956a8;
   --vvw-yellow: #ffcb1f;

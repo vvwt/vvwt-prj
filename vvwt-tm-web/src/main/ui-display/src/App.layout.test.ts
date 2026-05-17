@@ -1,31 +1,5 @@
-/**
- * Layout tests for Display SPA header band (E50S02) and Sidebar-Header reposition (E50S03).
- *
- * DEC-22 Iron Law: RED-first tests written BEFORE production code changes.
- *
- * E50S02 tests (retained, some updated for E50S03 supersession):
- *   - E50S03 supersedes E50S02's AC envelope: display-header is REMOVED from App.svelte.
- *   - E50S02 tests that asserted display-header IS present in App.svelte are updated here
- *     to assert display-header is NOT present (per AC-TEST-LAYOUT-NO-TOP-HEADER-RED).
- *   - E50S02 regression tests for ConnectionStatus 5 states, loading state, noPhase remain GREEN.
- *
- * E50S03 RED tests (AC-TEST-LAYOUT-*-RED):
- *   - Must FAIL against current source (display-header still in App.svelte, no sidebar-header).
- *   - Will pass after the fix (SidebarHeader.svelte introduced, OverviewLayout updated).
- *
- * E50S03 GREEN regression tests:
- *   - Must pass both before and after the fix.
- *
- * Strategy: source-inspection via readFileSync — the display SPA test stack is
- * Vitest + jsdom with vitest@^3.1.3 + jsdom@^29.0.2 (no Playwright).
- * Structural assertions use CSS class existence and style-rule content inspection.
- * No bounding-box geometry (jsdom does not implement it reliably).
- *
- * Story: E50S02 — contexts/artefacts/stories/E50S02.story.md
- * Story: E50S03 — contexts/artefacts/stories/E50S03.story.md
- * DECs: DEC-2, DEC-22, DEC-29, DEC-30, DEC-54
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';

@@ -1,25 +1,5 @@
-/**
- * Brand lockup height invariant test for TM Display SPA.
- *
- * Originally authored for E44S04 AC3 (height: 2em for brand-lockup).
- * Updated for E50S02: brand-lockup height relaxed to 1.8em per
- * AC-IMPL-LOGO-HEIGHT-FIELD-HEADER-EQUIVALENT (story notes: "This story relaxes
- * the AC13 minimum-render-size if necessary"). The logo must still be visually
- * identifiable (AC13 intent preserved); height: 1.8em within the <=~3em structural
- * envelope satisfies this.
- *
- * Updated for E50S03: the .brand-lockup rule moves from App.svelte to
- * SidebarHeader.svelte (the header component was relocated into the sidebar).
- * AppBranding.test.ts now reads SidebarHeader.svelte for the brand-lockup rule.
- * App.svelte no longer contains a .brand-lockup rule (asserted by negative test).
- *
- * E44S04 AC3 POSITIVE assertion updated from height:2em → height:1.8em (E50S02).
- * E50S03: source file changed from App.svelte → SidebarHeader.svelte.
- * NEGATIVE assertions unchanged (no min-width, no height:auto).
- *
- * DEC-22, DEC-2. Story: E44S04, E50S02, E50S03.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';

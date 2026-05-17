@@ -1,17 +1,5 @@
-/**
- * Tests for formatStartTime helper — Story E48S11
- * AC-TEST-FRONTEND-PHASE-START-TIME-RED (helper portion)
- *
- * RED-first per DEC-22: these tests FAIL before formatStartTime is implemented.
- *
- * Specification (Story E48S11 Context, paragraph 3):
- *   formatStartTime(base: Date | string, offsetMinutes: number): string
- *   Returns "HH:mm" (zero-padded both sides).
- *   `base` is a LocalDateTime ISO string (e.g. "2026-06-01T09:00:00" — no TZ designator;
- *   parsed as LOCAL wall-clock time by JS Date constructor).
- *   On parse error: returns "" (graceful degradation — AC-ERROR-HANDLING-INVALID-START-TIME).
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect } from 'vitest';
 import { formatStartTime } from './formatStartTime';
 

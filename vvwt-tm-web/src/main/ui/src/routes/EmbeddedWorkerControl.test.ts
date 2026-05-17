@@ -1,15 +1,5 @@
-/**
- * Tests for EmbeddedWorkerControl route — Story E63S05.
- *
- * AC1: de.json has embeddedWorker.title.
- * AC2: EmbeddedWorkerControl.svelte registers embeddedWorker.title via pageHeader.
- * AC3: Control endpoints (/pause, /resume, /disable) are referenced in the component.
- * AC4: stateCode is displayed in the route body (numeric gauge encoding).
- * AC5: parentRouteMap has /embedded-worker → /tournaments back-arrow entry.
- *
- * Source-inspection tests (no DOM mounting required) per DEC-22 / project test conventions.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect } from 'vitest';
 import deMessages from '../locales/de.json';
 
