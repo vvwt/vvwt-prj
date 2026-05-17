@@ -90,6 +90,9 @@
  *       {@code cancelled=TRUE} on the RUNNING job row and {@link
  *       de.vvwt.tm.phaselifecycle.CancelFlagRegistry} to signal the in-memory cancel mirror (DEC-64
  *       D-10 cooperative cancel). Added at E55S05 per DEC-40 Clause A.
+ *   <li>{@code infoportal} — {@link de.vvwt.tm.web.InfoPortalOptInController} (E62S02) consumes
+ *       {@link de.vvwt.tm.infoportal.InfoPortalOptInService} for the per-tournament Info-Portal
+ *       opt-in REST endpoint. Added at E62S02 per DEC-40 Clause A.
  * </ul>
  *
  * <h2>Boundary rules (DEC-40 § Clause A)</h2>
@@ -123,6 +126,7 @@
             "timer",
             "timer::audio",
             "slotopt",
-            "phaselifecycle"
+            "phaselifecycle",
+            "infoportal"
         })
 package de.vvwt.tm.web;
