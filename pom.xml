@@ -594,6 +594,7 @@
                                         <exclude>**/dist/**</exclude>
                                         <exclude>**/dist-timer/**</exclude>
                                         <exclude>**/dist-display/**</exclude>
+                                        <exclude>**/resources/static/info/assets/**</exclude>
                                         <exclude>**/*.d.ts</exclude>
                                         <exclude>**/*.svelte.ts</exclude>
                                         <exclude>**/*.config.ts</exclude>
