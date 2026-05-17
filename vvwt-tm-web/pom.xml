@@ -118,6 +118,15 @@
             <artifactId>vvwt-slotopt-worker-lib</artifactId>
         </dependency>
 
+        <!-- vvwt-slotopt-worker-runtime — shared HTTP client + compute-step + outage-policy seam
+             for the embedded slot-opt worker (E63S03, DEC-11). Spring-Boot-free + plain-Spring-free.
+             Provides: ComputeStep, DispatcherClient, ResultSigner, OutagePolicy and their defaults.
+             Version managed by parent POM dependencyManagement (DEC-10). -->
+        <dependency>
+            <groupId>de.vvwt</groupId>
+            <artifactId>vvwt-slotopt-worker-runtime</artifactId>
+        </dependency>
+
         <!-- Spring Boot Mustache starter — DEC-12 (Mustache engine), DEC-19 (scoring tablet surface)
              E06S02 AC1: Mustache library via parent POM dependencyManagement (BOM-managed via
              spring-boot-starter-mustache → jmustache). Library choice: jmustache (Apache-2.0, DEC-3).
@@ -785,7 +794,7 @@
                                         <exclude>de.vvwt:vvwt-slotopt-dispatcher</exclude>
                                     </excludes>
                                     <searchTransitive>true</searchTransitive>
-                                    <message>DEC-42 D2: vvwt-tm-web MUST NOT depend on vvwt-info-server or vvwt-info-client. Only vvwt-info-dto is the allowed cross-subsystem dep. DEC-11: vvwt-tm-web MUST NOT depend on vvwt-slotopt-dispatcher; only vvwt-slotopt-worker-lib is allowed.</message>
+                                    <message>DEC-42 D2: vvwt-tm-web MUST NOT depend on vvwt-info-server or vvwt-info-client. Only vvwt-info-dto is the allowed cross-subsystem dep. DEC-11: vvwt-tm-web MUST NOT depend on vvwt-slotopt-dispatcher; only vvwt-slotopt-worker-lib and vvwt-slotopt-worker-runtime are allowed.</message>
                                 </bannedDependencies>
                             </rules>
                             <fail>true</fail>
