@@ -23,9 +23,11 @@ import java.util.UUID;
  *       AC-TEST-JOB-STATUS-BEST-SO-FAR).
  * </ul>
  *
- * <p>Both fields are nullable — JSON serialization omits them via {@code @JsonInclude} on the
- * Jackson configuration (or Jackson's default null-exclusion when configured globally). The
- * controller never exposes an empty-object placeholder; absent means absent.
+ * <p>Both fields are nullable — when null, Jackson 3 (the web-tier mapper under Spring Boot 4.x)
+ * serializes them as JSON {@code null}. MockMvc {@code jsonPath("$.field").doesNotExist()} matches
+ * both absent keys and JSON null, so the wire behaviour is indistinguishable from absence for REST
+ * clients that treat {@code null} and missing as equivalent. The controller never exposes a
+ * non-null placeholder; null means "not yet computed".
  *
  * <p>AC-GOV-RESPONSE-EXTENSION-BOUNDED: the granular packet-count breakdown ({@code
  * packetsAssigned}, {@code packetsPending}, {@code packetsFailed}) from the E37-spec is explicitly
