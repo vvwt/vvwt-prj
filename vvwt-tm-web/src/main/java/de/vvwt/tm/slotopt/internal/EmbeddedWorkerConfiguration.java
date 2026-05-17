@@ -13,6 +13,7 @@ import de.vvwt.slotopt.worker.runtime.internal.DefaultComputeStep;
 import de.vvwt.slotopt.worker.runtime.internal.DefaultDispatcherClient;
 import de.vvwt.slotopt.worker.runtime.internal.DefaultResultSigner;
 import de.vvwt.tm.slotopt.EmbeddedWorker;
+import de.vvwt.tm.slotopt.EmbeddedWorkerControlService;
 import de.vvwt.tm.slotopt.HostActivityProbe;
 import java.io.IOException;
 import java.net.URI;
@@ -26,7 +27,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Spring configuration for the TM embedded slot-optimization worker (E63S03, E63S04).
+ * Spring configuration for the TM embedded slot-optimization worker (E63S03, E63S04, E63S05).
  *
  * <p>Activated only when {@code tm.slotopt.embedded-worker.enabled=true}. When the property is
  * absent or {@code false}, no bean is registered, no keypair is generated, and no dispatcher
@@ -50,8 +51,14 @@ import org.springframework.context.annotation.Configuration;
  * via the {@code embeddedWorker} factory method. The {@link InterPacketThrottle} is constructed
  * from the {@code tm.slotopt.embedded-worker.cpu-max-ratio} property.
  *
+ * <h2>E63S05 control service wiring</h2>
+ *
+ * <p>The {@link EmbeddedWorkerControlService} bean is wired by the {@code
+ * embeddedWorkerControlService} factory method and delegates to the {@link EmbeddedWorker} bean.
+ *
  * @see EmbeddedWorker
  * @see DefaultEmbeddedWorker
+ * @see EmbeddedWorkerControlService
  */
 @Configuration
 @ConditionalOnProperty(name = "tm.slotopt.embedded-worker.enabled", havingValue = "true")
@@ -135,5 +142,19 @@ class EmbeddedWorkerConfiguration {
                 hostActivityProbe,
                 interPacketThrottle,
                 pauseCheckIntervalMs);
+    }
+
+    /**
+     * Creates the {@link EmbeddedWorkerControlService} bean (E63S05).
+     *
+     * <p>DEC-58/DEC-72 Clause A-ext: returns the public interface, not the concrete class.
+     *
+     * @param embeddedWorker the embedded worker bean (always present — same
+     *     {@code @ConditionalOnProperty} guard as this config)
+     * @return the control service
+     */
+    @Bean
+    EmbeddedWorkerControlService embeddedWorkerControlService(EmbeddedWorker embeddedWorker) {
+        return new DefaultEmbeddedWorkerControlService(embeddedWorker);
     }
 }

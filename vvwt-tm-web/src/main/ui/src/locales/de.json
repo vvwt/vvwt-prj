@@ -572,5 +572,8 @@
       "tournament-not-active": "Korrektur nicht möglich: Turnier ist nicht aktiv.",
       "standoff-format-mismatch": "Unzulässiges Ergebnis: Unentschieden im gewählten Spielmodus nicht erlaubt."
     }
+  },
+  "embeddedWorker": {
+    "title": "Eingebetteter Worker"
   }
 }

@@ -57,6 +57,8 @@ export const PARENT_ROUTE_MAP: Record<string, string> = {
   '/tournaments/:tournamentId/phases/:phaseId/matches': '/tournaments/:tournamentId/phases',
   // E48S25 → E48S26: match correction route — back-arrow to match-overview (the calling page)
   '/tournaments/:tournamentId/phases/:phaseId/matches/:matchId/correction': '/tournaments/:tournamentId/phases/:phaseId/matches',
+  // E63S05: embedded worker control — top-level admin route, back-arrow to /tournaments
+  '/embedded-worker': '/tournaments',
 };
 
 /**
