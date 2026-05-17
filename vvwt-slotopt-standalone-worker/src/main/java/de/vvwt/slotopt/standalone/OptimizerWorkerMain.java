@@ -2,10 +2,6 @@ package de.vvwt.slotopt.standalone;
 
 import de.vvwt.slotopt.standalone.bootstrap.BootstrapException;
 import de.vvwt.slotopt.standalone.bootstrap.internal.DefaultBootstrapService;
-import de.vvwt.slotopt.standalone.crypto.ResultSigner;
-import de.vvwt.slotopt.standalone.crypto.internal.DefaultResultSigner;
-import de.vvwt.slotopt.standalone.http.DispatcherClient;
-import de.vvwt.slotopt.standalone.http.internal.DefaultDispatcherClient;
 import de.vvwt.slotopt.standalone.internal.DefaultWorkerConfigLoader;
 import de.vvwt.slotopt.standalone.log.StructuredLogger;
 import de.vvwt.slotopt.standalone.log.internal.DefaultStructuredLogger;
@@ -17,6 +13,12 @@ import de.vvwt.slotopt.standalone.runtime.internal.DefaultWorkerLoop;
 import de.vvwt.slotopt.worker.identity.WorkerKeyCorruptException;
 import de.vvwt.slotopt.worker.identity.WorkerKeyManager;
 import de.vvwt.slotopt.worker.identity.internal.DefaultWorkerKeyManager;
+import de.vvwt.slotopt.worker.runtime.ComputeStep;
+import de.vvwt.slotopt.worker.runtime.DispatcherClient;
+import de.vvwt.slotopt.worker.runtime.ResultSigner;
+import de.vvwt.slotopt.worker.runtime.internal.DefaultComputeStep;
+import de.vvwt.slotopt.worker.runtime.internal.DefaultDispatcherClient;
+import de.vvwt.slotopt.worker.runtime.internal.DefaultResultSigner;
 import java.io.IOException;
 import java.util.UUID;
 import org.slf4j.LoggerFactory;
@@ -31,9 +33,11 @@ import picocli.CommandLine.Command;
  * <ol>
  *   <li>Loads and validates configuration via {@link WorkerConfigLoader}.
  *   <li>Constructs the worker infrastructure: {@link WorkerKeyManager}, {@link DispatcherClient},
- *       {@link ResultSigner}, {@link StructuredLogger}, {@link CpuThrottle}.
+ *       {@link ResultSigner}, {@link ComputeStep}, {@link StructuredLogger}, {@link CpuThrottle}.
  *   <li>Runs the bootstrap phase via {@link DefaultBootstrapService} to validate the signing
  *       algorithm and register the worker's public key with the dispatcher.
+ *   <li>Registers the JVM shutdown hook (relocated from {@code DefaultWorkerLoop} constructor per
+ *       E63S01 DEC-70 fix — the hook belongs to the application lifecycle, not the compute loop).
  *   <li>Runs the runtime polling loop via {@link DefaultWorkerLoop}.
  *   <li>Exits with the appropriate exit code: 0 on graceful shutdown, or the code carried by {@link
  *       BootstrapException} / {@link WorkerLoopException} on error.
@@ -42,7 +46,8 @@ import picocli.CommandLine.Command;
  * <p>Actual option parsing lives in {@link
  * de.vvwt.slotopt.standalone.internal.DefaultWorkerConfigLoader}.
  *
- * <p>Story: E41S02 AC-OPTIMIZER-WORKER-MAIN; E41S05 AC-EXIT-CODE-RUNTIME wiring.
+ * <p>Story: E41S02 AC-OPTIMIZER-WORKER-MAIN; E41S05 AC-EXIT-CODE-RUNTIME wiring; E63S01 re-wire
+ * onto shared runtime library + JVM shutdown hook relocation.
  *
  * @see WorkerConfigLoader
  * @see de.vvwt.slotopt.standalone.internal.DefaultWorkerConfigLoader
@@ -50,7 +55,7 @@ import picocli.CommandLine.Command;
 @Command(
         name = "vvwt-slotopt-standalone-worker",
         mixinStandardHelpOptions = true,
-        version = "vvwt-slotopt-standalone-worker E41S05",
+        version = "vvwt-slotopt-standalone-worker E63S01",
         description =
                 "VVW Slot-Opt Standalone Worker — headless compute process. Registers with the"
                         + " dispatcher, pulls packets, and submits signed results.")
@@ -89,10 +94,14 @@ public class OptimizerWorkerMain {
             return; // unreachable; satisfies compiler
         }
 
-        // Construct HTTP client and result signer
+        // Construct HTTP client, result signer, and compute step
+        // (dispatcher HTTP client + signing moved to shared vvwt-slotopt-worker-runtime library)
         DispatcherClient dispatcherClient =
                 new DefaultDispatcherClient(config.dispatcherUrl(), config.httpTimeout());
-        ResultSigner resultSigner = new DefaultResultSigner(workerKeyManager, config);
+        ResultSigner resultSigner =
+                new DefaultResultSigner(workerKeyManager, config.signingAlgorithm());
+        ComputeStep computeStep =
+                new DefaultComputeStep(dispatcherClient, resultSigner, config.signingAlgorithm());
 
         // Bootstrap phase: validate algorithm + register key → obtain workerId
         UUID workerId;
@@ -108,18 +117,18 @@ public class OptimizerWorkerMain {
         StructuredLogger logger = new DefaultStructuredLogger();
         CpuThrottle cpuThrottle = new DefaultCpuThrottle();
 
-        // Runtime polling loop
-        WorkerLoop workerLoop =
-                new DefaultWorkerLoop(
-                        dispatcherClient,
-                        resultSigner,
-                        workerKeyManager,
-                        config,
-                        cpuThrottle,
-                        logger,
-                        workerId);
+        // Runtime polling loop (JVM shutdown hook relocated here from DefaultWorkerLoop — E63S01)
+        DefaultWorkerLoop workerLoop =
+                new DefaultWorkerLoop(computeStep, config, cpuThrottle, logger, workerId);
+
+        // AC-GRACEFUL-SHUTDOWN: register JVM shutdown hook here (not in DefaultWorkerLoop
+        // constructor) so the hook belongs to the application lifecycle (DEC-70 fix)
+        Runtime.getRuntime()
+                .addShutdownHook(new Thread(workerLoop::requestShutdown, "worker-shutdown-hook"));
+
+        WorkerLoop loop = workerLoop;
         try {
-            workerLoop.run();
+            loop.run();
             System.exit(0);
         } catch (WorkerLoopException e) {
             System.err.println("ERROR: Worker loop terminated: " + e.getMessage());

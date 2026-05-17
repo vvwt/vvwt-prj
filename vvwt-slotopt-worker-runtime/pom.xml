@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>de.vvwt</groupId>
+        <artifactId>vvwt-prj</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>vvwt-slotopt-worker-runtime</artifactId>
+    <name>VVW Slot-Opt Worker Runtime Library</name>
+    <description>
+        Shared Spring-Boot-free library for the worker compute path: dispatcher HTTP client,
+        result signer, compute-step abstraction, and outage-policy seam.
+        Consumed by vvwt-slotopt-standalone-worker and (E63S03+) the TM embedded worker.
+        Spring-Boot-free AND plain-Spring-free (DEC-11, AC-GOV-NEW-RUNTIME-LIBRARY-MODULE).
+        No compile dependency on vvwt-slotopt-dispatcher (DEC-11 service boundary).
+        Package root: de.vvwt.slotopt.worker.runtime (DEC-35-by-analogy).
+        Story: E63S01.
+    </description>
+
+    <dependencies>
+
+        <!-- Slot-opt worker library: algorithms + keypair + type model (DEC-11) -->
+        <dependency>
+            <groupId>de.vvwt</groupId>
+            <artifactId>vvwt-slotopt-worker-lib</artifactId>
+        </dependency>
+
+        <!-- Logging API — slf4j-api (DEC-3 OSS MIT) -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+
+        <!-- Jackson: JSON (de)serialisation for HTTP bodies (DEC-3 OSS Apache 2.0) -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <!-- Jackson JSR-310 module: LocalDate (deprecation_date) + Instant -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+
+        <!-- Test dependencies -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <plugins>
+
+            <!-- Enforcer: block Spring Boot / Spring drift (DEC-11, AC-GOV-NEW-RUNTIME-LIBRARY-MODULE) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>ban-spring-boot-in-slotopt-worker-runtime</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>org.springframework.boot:*</exclude>
+                                        <exclude>org.springframework:*</exclude>
+                                    </excludes>
+                                    <message>
+                                        vvwt-slotopt-worker-runtime must remain Spring-Boot-free AND
+                                        plain-Spring-free (DEC-11, AC-GOV-NEW-RUNTIME-LIBRARY-MODULE).
+                                    </message>
+                                </bannedDependencies>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <!-- AC-GOV-NO-DISPATCHER-COMPILE-DEP: DEC-11 service boundary build-checked -->
+                        <id>ban-dispatcher-dep-in-slotopt-worker-runtime</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>de.vvwt:vvwt-slotopt-dispatcher</exclude>
+                                    </excludes>
+                                    <message>
+                                        vvwt-slotopt-worker-runtime must NOT depend on
+                                        vvwt-slotopt-dispatcher (DEC-11 service boundary,
+                                        AC-GOV-NO-DISPATCHER-COMPILE-DEP). Use only the HTTP client
+                                        defined within this library.
+                                    </message>
+                                </bannedDependencies>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+        </plugins>
+    </build>
+
+</project>

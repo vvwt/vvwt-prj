@@ -24,7 +24,7 @@ public interface BootstrapService {
      * <ol>
      *   <li>Emits {@code worker_started} INFO event.
      *   <li>Calls {@code GET /api/algorithms} via {@link
-     *       de.vvwt.slotopt.standalone.http.DispatcherClient}.
+     *       de.vvwt.slotopt.worker.runtime.DispatcherClient}.
      *   <li>Emits {@code algorithms_announced} INFO event.
      *   <li>Validates that {@link WorkerConfig#signingAlgorithm()} is in the announced list.
      *   <li>Validates the chosen algorithm is not past its deprecation deadline (DEC-48).

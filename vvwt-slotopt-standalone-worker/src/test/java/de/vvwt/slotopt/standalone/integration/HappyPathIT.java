@@ -184,8 +184,8 @@ class HappyPathIT {
     // =========================================================================
 
     /**
-     * Launches the worker in a background thread and signals stopAfterNextIteration after the
-     * worker has started. Waits for completion within 30 seconds.
+     * Launches the worker in a background thread and requests graceful shutdown after a short
+     * delay. Waits for completion within 30 seconds.
      */
     private WorkerRunResult launchWithStopAfterNextIteration() {
         WorkerRunResult[] resultRef = new WorkerRunResult[1];
@@ -200,8 +200,8 @@ class HappyPathIT {
             Thread.currentThread().interrupt();
         }
 
-        // Signal stop-after-next-iteration (loop stops after processing the one stubbed packet)
-        launcher.stopAfterNextIteration();
+        // Signal graceful shutdown (loop stops after processing the one stubbed packet)
+        launcher.requestShutdown();
 
         try {
             workerThread.join(30_000);

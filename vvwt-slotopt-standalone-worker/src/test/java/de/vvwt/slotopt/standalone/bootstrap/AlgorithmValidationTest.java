@@ -3,8 +3,8 @@ package de.vvwt.slotopt.standalone.bootstrap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import de.vvwt.slotopt.standalone.http.AnnouncedAlgorithm;
-import de.vvwt.slotopt.standalone.http.AnnouncedAlgorithmsResponse;
+import de.vvwt.slotopt.worker.runtime.AnnouncedAlgorithm;
+import de.vvwt.slotopt.worker.runtime.AnnouncedAlgorithmsResponse;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;

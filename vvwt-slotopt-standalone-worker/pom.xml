@@ -34,6 +34,15 @@
             <artifactId>vvwt-slotopt-worker-lib</artifactId>
         </dependency>
 
+        <!-- Shared worker runtime library: dispatcher HTTP client, result signer, compute-step
+             seam (E63S01 — DEC-11 delta-amendment). Replaces the code that was previously
+             duplicated in vvwt-slotopt-standalone-worker's http + crypto + runtime.internal
+             packages. -->
+        <dependency>
+            <groupId>de.vvwt</groupId>
+            <artifactId>vvwt-slotopt-worker-runtime</artifactId>
+        </dependency>
+
         <!-- CLI parsing — Picocli (no Spring Boot, DEC-3 OSS Apache 2.0, Brief D-2 / O-2) -->
         <dependency>
             <groupId>info.picocli</groupId>
@@ -187,6 +196,29 @@
                                     <message>
                                         vvwt-slotopt-standalone-worker must remain Spring-Boot-free
                                         (DEC-10, DEC-11, Brief C-6). Plain Java + Picocli process only.
+                                    </message>
+                                </bannedDependencies>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <!-- AC-GOV-NO-DISPATCHER-COMPILE-DEP: DEC-11 service boundary build-checked -->
+                        <id>ban-dispatcher-dep-in-slotopt-standalone-worker</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>de.vvwt:vvwt-slotopt-dispatcher</exclude>
+                                    </excludes>
+                                    <message>
+                                        vvwt-slotopt-standalone-worker must NOT depend on
+                                        vvwt-slotopt-dispatcher (DEC-11 service boundary,
+                                        AC-GOV-NO-DISPATCHER-COMPILE-DEP). HTTP communication uses
+                                        the DispatcherClient in vvwt-slotopt-worker-runtime.
                                     </message>
                                 </bannedDependencies>
                             </rules>
