@@ -13,6 +13,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import javax.sql.DataSource;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -87,6 +88,34 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @TestConfiguration
 public class WebModuleTestConfig {
 
+    /**
+     * Global counter used to assign each {@code WebModuleTestConfig} bean instance a unique context
+     * ID.
+     *
+     * <p>Each {@code @SpringBootTest} ApplicationContext that loads {@code WebModuleTestConfig}
+     * creates one instance of this {@code @TestConfiguration}. The counter is static so it
+     * increments monotonically across all instances in the same JVM. Each instance captures its own
+     * ID via {@link #contextId}, ensuring that the H2 in-memory tenant databases created by {@link
+     * #inMemoryTenantDataSourceResolver} have a unique name prefix per context.
+     *
+     * <p>Without this isolation, {@code DB_CLOSE_DELAY=-1} keeps named H2 in-memory databases alive
+     * for the entire JVM lifetime. During {@code mvn verify}, multiple {@code @SpringBootTest}
+     * contexts share the same JVM. If they use the same tenant UUID (from the stable file registry
+     * at {@code tm.data.dir}), they would connect to the same H2 database ({@code web-it-{uuid}})
+     * and share stale schema-history, residual test data, or trigger concurrent-migration races —
+     * causing {@code PrintControllerIT}'s ApplicationContext startup to fail intermittently.
+     *
+     * <p>E16S04 fix — matches the isolation strategy of E16S02 ({@code generate-unique-name=true}
+     * for the flat DataSource) and E16S03 ({@code ${random.uuid}} for {@code tm.data.dir}).
+     */
+    private static final AtomicLong CONTEXT_ID_SEQ = new AtomicLong(0);
+
+    /**
+     * Per-instance context ID, captured once at construction time from {@link #CONTEXT_ID_SEQ}.
+     * Used as a unique prefix in H2 tenant database names to prevent cross-context sharing.
+     */
+    private final long contextId = CONTEXT_ID_SEQ.incrementAndGet();
+
     // =========================================================================
     // Tenant infrastructure
     // =========================================================================
@@ -128,21 +157,38 @@ public class WebModuleTestConfig {
 
     /**
      * In-memory {@link TenantDataSourceResolver} — replaces the production file-based resolver.
-     * Each tenant UUID maps to a distinct {@code jdbc:h2:mem:web-it-{uuid}} database.
+     * Each tenant UUID maps to a distinct {@code jdbc:h2:mem:web-it-{contextId}-{uuid}} database.
+     *
+     * <p>The {@code contextId} prefix (derived from {@link #contextId}) makes the H2 database name
+     * unique to this {@code WebModuleTestConfig} instance, i.e. to the Spring test
+     * ApplicationContext that loaded it. This prevents cross-context sharing of H2 databases when
+     * {@code DB_CLOSE_DELAY=-1} keeps them alive across context boundaries in a single {@code mvn
+     * verify} JVM run. Without this prefix, two contexts with the same tenant UUID (e.g. from the
+     * stable file registry at {@code tm.data.dir}) would resolve to the same H2 database and share
+     * stale schema-history — the root cause of {@code PrintControllerIT}'s intermittent
+     * ApplicationContext startup failures (E16S04).
      *
      * @param dataSourceProperties the Spring Boot datasource properties for username/password
-     * @return an in-memory resolver
+     * @return an in-memory resolver scoped to this context instance
      */
     @Bean
     public TenantDataSourceResolver inMemoryTenantDataSourceResolver(
             DataSourceProperties dataSourceProperties) {
         ConcurrentHashMap<UUID, DataSource> cache = new ConcurrentHashMap<>();
+        long ctxId = contextId; // capture for lambda (effectively final)
         return tenantId ->
                 cache.computeIfAbsent(
                         tenantId,
                         id -> {
+                            // E16S04: include contextId prefix to isolate this context's H2
+                            // databases from other Spring test contexts in the same JVM.
+                            // DB_CLOSE_DELAY=-1 keeps named H2 databases alive for the JVM
+                            // lifetime; without the prefix, two contexts sharing the same tenant
+                            // UUID would connect to the same physical H2 instance.
                             String url =
-                                    "jdbc:h2:mem:web-it-"
+                                    "jdbc:h2:mem:web-it-ctx"
+                                            + ctxId
+                                            + "-"
                                             + id
                                             + ";DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
                                             + ";CASE_INSENSITIVE_IDENTIFIERS=TRUE";
