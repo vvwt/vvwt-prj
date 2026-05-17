@@ -778,3 +778,88 @@ describe('PhaseList.svelte — optimized=null treated as false defensive (AC-ERR
         expect(fnBody).toMatch(/idle.*optimized|optimized.*idle/s);
     });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// E64S01 — Phase overview shows game mode as a German label (DEC-73 D-7)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── AC1 (TDD) + AC2 + AC3: formatGameMode uses i18n matchOption.generator.* ──
+// RED-first: these tests FAIL before the fix because formatGameMode() currently
+// returns the raw phase.gameMode string unchanged, without routing through de.json.
+//
+// The mapping logic is tested at the source level (structural inspection of the
+// formatGameMode function body) because Svelte 5 component mounting is infeasible
+// in the project's Vitest+jsdom environment (E58S05 pre-existing gap).
+//
+// The canonical fallback-aware i18n pattern (AC3) is:
+//   $_(`matchOption.generator.${value}`, { default: value })
+// verified by checking that the formatGameMode function body references the
+// matchOption.generator prefix and provides a default fallback.
+
+describe("PhaseList.svelte — E64S01: formatGameMode routes through i18n (AC1+AC2+AC3)", () => {
+    const source = fs.readFileSync(
+        path.resolve(__dirname_local, './PhaseList.svelte'),
+        'utf8'
+    );
+
+    // AC1 (TDD RED): formatGameMode must reference the matchOption.generator i18n namespace
+    it("formatGameMode function body references matchOption.generator i18n key prefix", () => {
+        const fnMatch = source.match(/function formatGameMode[\s\S]*?\n  \}/);
+        expect(fnMatch, 'formatGameMode function not found in source').toBeTruthy();
+        const fnBody = fnMatch![0];
+        // Must reference the matchOption.generator.* namespace
+        expect(fnBody).toContain('matchOption.generator.');
+    });
+
+    // AC3: canonical fallback-aware pattern — provides a default fallback value
+    // The implementation uses the function parameter (gameMode) as the default fallback:
+    //   get(_)(`matchOption.generator.${gameMode}`, { default: gameMode })
+    // This satisfies AC3: a game-mode key with no catalogue entry degrades to the key string.
+    it("formatGameMode uses a fallback-aware i18n call (default: <param>) per AC3", () => {
+        const fnMatch = source.match(/function formatGameMode[\s\S]*?\n  \}/);
+        expect(fnMatch, 'formatGameMode function not found in source').toBeTruthy();
+        const fnBody = fnMatch![0];
+        // Must supply a default fallback (AC3: never a blank cell, never a runtime error)
+        // The pattern: { default: <gameMode-param> } — matches either literal 'value' or
+        // the parameter name used in the implementation (gameMode).
+        expect(fnBody).toMatch(/\{\s*default\s*:/);
+    });
+
+    // AC3: null/absent game mode still renders "—" (existing defensive behaviour preserved)
+    it("formatGameMode still returns '—' for null/absent game mode (AC3 preservation)", () => {
+        const fnMatch = source.match(/function formatGameMode[\s\S]*?\n  \}/);
+        expect(fnMatch, 'formatGameMode function not found in source').toBeTruthy();
+        const fnBody = fnMatch![0];
+        // The null/absent guard returning '—' must still be present
+        expect(fnBody).toContain("'—'");
+    });
+
+    // AC2 + AC4: de.json catalogue has the required labels (no new keys added, AC5)
+    it("de.json matchOption.generator.roundRobin is 'Jeder gegen Jeden'", () => {
+        type MatchOptionSection = { generator: Record<string, string> };
+        const matchOption = (deMessages as unknown as Record<string, MatchOptionSection>).matchOption;
+        expect(matchOption.generator).toHaveProperty('roundRobin');
+        expect(matchOption.generator.roundRobin).toBe('Jeder gegen Jeden');
+    });
+
+    it("de.json matchOption.generator.awardCeremony is 'Siegerehrung'", () => {
+        type MatchOptionSection = { generator: Record<string, string> };
+        const matchOption = (deMessages as unknown as Record<string, MatchOptionSection>).matchOption;
+        expect(matchOption.generator).toHaveProperty('awardCeremony');
+        expect(matchOption.generator.awardCeremony).toBe('Siegerehrung');
+    });
+
+    // AC4 audit: the Spielmodus cell in the template uses formatGameMode (not a raw phase.gameMode reference)
+    it("the Spielmodus table cell renders via formatGameMode, not raw phase.gameMode (AC4)", () => {
+        // The <td> that renders the game mode must call formatGameMode
+        expect(source).toContain('formatGameMode(phase.gameMode)');
+    });
+
+    // AC5: no new translation key added, no value changed — only roundRobin + awardCeremony exist under generator
+    it("de.json matchOption.generator has exactly 2 keys (roundRobin + awardCeremony) — no new key added (AC5)", () => {
+        type MatchOptionSection = { generator: Record<string, string> };
+        const matchOption = (deMessages as unknown as Record<string, MatchOptionSection>).matchOption;
+        const generatorKeys = Object.keys(matchOption.generator);
+        expect(generatorKeys.sort()).toEqual(['awardCeremony', 'roundRobin'].sort());
+    });
+});

@@ -185,10 +185,18 @@
     }
   }
 
-  /** Formats a gameMode string for display. Returns "—" when null/absent (AC-PHASE-LIST-DEFENSIVE). */
+  /**
+   * Formats a gameMode string for display using the existing i18n catalogue.
+   * Returns "—" when null/absent (AC-PHASE-LIST-DEFENSIVE).
+   * Routes the value through matchOption.generator.* labels per DEC-73 D-7
+   * using the canonical fallback-aware pattern (AC3 — E64S01):
+   *   get(_)(`matchOption.generator.${value}`, { default: value })
+   * A key with no catalogue entry degrades to showing the key string itself
+   * (never a blank cell, never a runtime error).
+   */
   function formatGameMode(gameMode: string | null | undefined): string {
     if (!gameMode) return '—';
-    return gameMode;
+    return get(_)(`matchOption.generator.${gameMode}`, { default: gameMode });
   }
 
   /** Counts finished matches across all finish states. */
