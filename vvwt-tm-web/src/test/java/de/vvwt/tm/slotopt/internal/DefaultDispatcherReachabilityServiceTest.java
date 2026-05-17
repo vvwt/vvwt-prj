@@ -3,6 +3,7 @@ package de.vvwt.tm.slotopt.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sun.net.httpserver.HttpServer;
+import de.vvwt.tm.slotopt.DispatcherStatus;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.time.Duration;
@@ -15,7 +16,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for {@link DefaultDispatcherReachabilityService}.
  *
- * <p>TDD RED-first per DEC-22 Iron Law (E27S03). Uses JDK 21 built-in {@link
+ * <p>TDD RED-first per DEC-22 Iron Law (E27S03, E63S07). Uses JDK 21 built-in {@link
  * com.sun.net.httpserver.HttpServer} as the HTTP test-double (no third-party dependency — DEC-3
  * minimal-dependency; pattern established at E41S06 DispatcherStub).
  *
@@ -26,6 +27,9 @@ import org.junit.jupiter.api.Test;
  * @see <a href="../../../../../../../../../docs/governance/stories/E27S03.story.md">Story E27S03 —
  *     AC-REACHABILITY-SERVICE-AUTHORED, AC-REACHABILITY-NULL-URL-RETURNS-FALSE,
  *     AC-REACHABILITY-TIMEOUT-OBSERVED</a>
+ * @see <a href="../../../../../../../../../docs/governance/stories/E63S07.story.md">Story E63S07 —
+ *     AC-GOV-REACHABILITY-SERVICE-INTERFACE-CHANGE-RED-FIRST,
+ *     AC-TEST-STATUS-DISTINGUISHES-NOT-CONFIGURED</a>
  */
 class DefaultDispatcherReachabilityServiceTest {
 
@@ -182,6 +186,101 @@ class DefaultDispatcherReachabilityServiceTest {
 
         assertThat(result).isFalse();
         // Must return within 500ms timeout + 500ms epsilon = 1000ms
+        assertThat(elapsed.toMillis()).isLessThan(1000);
+    }
+
+    // =========================================================================
+    // E63S07: getStatus() — AC-GOV-REACHABILITY-SERVICE-INTERFACE-CHANGE-RED-FIRST
+    //         AC-TEST-STATUS-DISTINGUISHES-NOT-CONFIGURED
+    // =========================================================================
+
+    /**
+     * AC-TEST-STATUS-DISTINGUISHES-NOT-CONFIGURED: when url is null, getStatus() returns
+     * NOT_CONFIGURED (not UNREACHABLE).
+     */
+    @Test
+    void getStatus_nullUrl_returnsNotConfigured() {
+        DefaultDispatcherReachabilityService service =
+                new DefaultDispatcherReachabilityService(null, 2000);
+
+        DispatcherStatus status = service.getStatus();
+
+        assertThat(status).isEqualTo(DispatcherStatus.NOT_CONFIGURED);
+    }
+
+    /**
+     * AC-TEST-STATUS-DISTINGUISHES-NOT-CONFIGURED: when url is empty, getStatus() returns
+     * NOT_CONFIGURED.
+     */
+    @Test
+    void getStatus_emptyUrl_returnsNotConfigured() {
+        DefaultDispatcherReachabilityService service =
+                new DefaultDispatcherReachabilityService("", 2000);
+
+        DispatcherStatus status = service.getStatus();
+
+        assertThat(status).isEqualTo(DispatcherStatus.NOT_CONFIGURED);
+    }
+
+    /**
+     * AC-GOV-EXTENDS-REACHABILITY-SERVICE: when dispatcher responds HTTP 200, getStatus() returns
+     * REACHABLE.
+     */
+    @Test
+    void getStatus_http200_returnsReachable() {
+        stubServer.createContext(
+                "/",
+                exchange -> {
+                    exchange.sendResponseHeaders(200, 0);
+                    exchange.getResponseBody().close();
+                });
+
+        DefaultDispatcherReachabilityService service =
+                new DefaultDispatcherReachabilityService(baseUrl, 2000);
+
+        DispatcherStatus status = service.getStatus();
+
+        assertThat(status).isEqualTo(DispatcherStatus.REACHABLE);
+    }
+
+    /**
+     * AC-ERR-RECHECK-TIMEOUT-SHOWS-OFFLINE: when dispatcher responds non-2xx, getStatus() returns
+     * UNREACHABLE (not NOT_CONFIGURED).
+     */
+    @Test
+    void getStatus_http503_returnsUnreachable() {
+        stubServer.createContext(
+                "/",
+                exchange -> {
+                    exchange.sendResponseHeaders(503, 0);
+                    exchange.getResponseBody().close();
+                });
+
+        DefaultDispatcherReachabilityService service =
+                new DefaultDispatcherReachabilityService(baseUrl, 2000);
+
+        DispatcherStatus status = service.getStatus();
+
+        assertThat(status).isEqualTo(DispatcherStatus.UNREACHABLE);
+    }
+
+    /**
+     * AC-ERR-RECHECK-TIMEOUT-SHOWS-OFFLINE: when connection is refused (unreachable host),
+     * getStatus() returns UNREACHABLE within the timeout bound.
+     */
+    @Test
+    void getStatus_connectionRefused_returnsUnreachableWithinTimeout() {
+        stubServer.stop(0);
+        stubServer = null;
+
+        DefaultDispatcherReachabilityService service =
+                new DefaultDispatcherReachabilityService(baseUrl, 500);
+
+        Instant start = Instant.now();
+        DispatcherStatus status = service.getStatus();
+        Duration elapsed = Duration.between(start, Instant.now());
+
+        assertThat(status).isEqualTo(DispatcherStatus.UNREACHABLE);
         assertThat(elapsed.toMillis()).isLessThan(1000);
     }
 }

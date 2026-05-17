@@ -1,10 +1,14 @@
 <script lang="ts">
   /**
-   * Slot Optimization admin view (E27S02, AC-SVELTE-CANCEL-UI-AUTHORED).
+   * Slot Optimization admin view (E27S02, AC-SVELTE-CANCEL-UI-AUTHORED;
+   * E63S07 AC-TEST-STATUS-DISPLAYED, AC-TEST-MANUAL-RECHECK).
    *
    * Polls GET /api/slotopt/tournaments/:tournamentId/status every 2 seconds.
    * Shows current state badge (running / idle / cancelled) and a Cancel button
    * that appears only while state is "running".
+   *
+   * E63S07 extension: also shows the dispatcher reachability status with a
+   * manual re-check button (GET /api/slotopt/dispatcher/status + POST /api/slotopt/dispatcher/recheck).
    *
    * Hash route: /tournaments/:tournamentId/slot-optimization
    */
@@ -19,11 +23,20 @@
 
   type OptState = 'running' | 'idle' | 'cancelled' | 'unknown';
 
+  /** E63S07: dispatcher reachability tri-state. */
+  type DispatcherStatusValue = 'REACHABLE' | 'UNREACHABLE' | 'NOT_CONFIGURED';
+
   interface StatusResponse {
     state: OptState;
     startedAt?: string;
     bestSoFarVarietyScore?: number;
     lastJobState?: string | null;  // E51S07: phase.last_job_state from DB (DEC-55 D-8)
+  }
+
+  /** E63S07: response from GET /api/slotopt/dispatcher/status and POST /api/slotopt/dispatcher/recheck */
+  interface DispatcherStatusResponse {
+    status: DispatcherStatusValue;
+    dispatcherUrl?: string | null;
   }
 
   let state: OptState = 'unknown';
@@ -32,6 +45,12 @@
   let errorMsg: string | null = null;
   let cancelMsg: string | null = null;
   let polling = true;
+
+  // E63S07: dispatcher status state
+  let dispatcherStatus: DispatcherStatusValue | null = null;
+  let dispatcherUrl: string | null = null;
+  let dispatcherErrorMsg: string | null = null;
+  let recheckInFlight = false;  // AC-ERR-RECHECK-CONCURRENT-CLICKS: debounce re-check button
 
   async function fetchStatus(): Promise<void> {
     if (!params.tournamentId) return;
@@ -48,6 +67,53 @@
       errorMsg = null;
     } catch (e) {
       errorMsg = String(e);
+    }
+  }
+
+  /** E63S07 AC-TEST-STATUS-DISPLAYED: fetch dispatcher reachability status on mount. */
+  async function fetchDispatcherStatus(): Promise<void> {
+    try {
+      const res = await fetch(
+        '/api/slotopt/dispatcher/status',
+        { credentials: 'include' }
+      );
+      if (!res.ok) {
+        dispatcherErrorMsg = `Dispatcher status fetch failed: ${res.status}`;
+        return;
+      }
+      const body: DispatcherStatusResponse = await res.json();
+      dispatcherStatus = body.status;
+      dispatcherUrl = body.dispatcherUrl ?? null;
+      dispatcherErrorMsg = null;
+    } catch (e) {
+      dispatcherErrorMsg = String(e);
+    }
+  }
+
+  /**
+   * E63S07 AC-TEST-MANUAL-RECHECK: operator-initiated dispatcher re-probe.
+   * AC-ERR-RECHECK-CONCURRENT-CLICKS: button disabled while in-flight (recheckInFlight flag).
+   */
+  async function recheckDispatcher(): Promise<void> {
+    if (recheckInFlight) return;
+    recheckInFlight = true;
+    try {
+      const res = await fetch(
+        '/api/slotopt/dispatcher/recheck',
+        { method: 'POST', credentials: 'include' }
+      );
+      if (!res.ok) {
+        dispatcherErrorMsg = `Re-check failed: ${res.status}`;
+        return;
+      }
+      const body: DispatcherStatusResponse = await res.json();
+      dispatcherStatus = body.status;
+      dispatcherUrl = body.dispatcherUrl ?? null;
+      dispatcherErrorMsg = null;
+    } catch (e) {
+      dispatcherErrorMsg = String(e);
+    } finally {
+      recheckInFlight = false;
     }
   }
 
@@ -85,6 +151,8 @@
       tournamentId: tid || null,
       actions: [],
     });
+    // E63S07: fetch dispatcher status on mount
+    fetchDispatcherStatus();
   });
 
   // Start polling
@@ -131,11 +199,45 @@
   {#if cancelMsg}
     <p class="cancel-msg">{cancelMsg}</p>
   {/if}
+
+  <!-- E63S07 AC-TEST-STATUS-DISPLAYED: dispatcher reachability section -->
+  <hr class="section-divider" />
+  <div class="dispatcher-section">
+    <div class="section-header">
+      <span class="label">Dispatcher:</span>
+      {#if dispatcherStatus !== null}
+        <span class="badge badge--dispatcher-{dispatcherStatus.toLowerCase()}">{dispatcherStatus.replace('_', ' ')}</span>
+      {:else}
+        <span class="badge badge--unknown">checking…</span>
+      {/if}
+      <!-- E63S07 AC-TEST-MANUAL-RECHECK: re-check button
+           AC-ERR-RECHECK-CONCURRENT-CLICKS: disabled while in-flight -->
+      <button
+        class="btn btn--recheck"
+        on:click={recheckDispatcher}
+        disabled={recheckInFlight}
+        aria-busy={recheckInFlight}
+      >
+        {recheckInFlight ? 'Checking…' : 'Re-check'}
+      </button>
+    </div>
+
+    {#if dispatcherUrl}
+      <div class="dispatcher-url-row">
+        <span class="label-sm">URL:</span>
+        <span class="dispatcher-url">{dispatcherUrl}</span>
+      </div>
+    {/if}
+
+    {#if dispatcherErrorMsg}
+      <p class="error">{dispatcherErrorMsg}</p>
+    {/if}
+  </div>
 </section>
 
 <style>
-  .slot-opt-panel { padding: 1rem; max-width: 480px; }
-  .status-row, .score-row { display: flex; gap: 0.5rem; align-items: center; margin: 0.5rem 0; }
+  .slot-opt-panel { padding: 1rem; max-width: 520px; }
+  .status-row, .score-row, .job-state-row { display: flex; gap: 0.5rem; align-items: center; margin: 0.5rem 0; }
   .label { font-weight: 600; }
   .badge { padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.85rem; text-transform: capitalize; }
   .badge--running  { background: #d4edda; color: #155724; }
@@ -146,4 +248,18 @@
   .btn--cancel:hover { background: #c82333; }
   .error { color: #721c24; }
   .cancel-msg { color: #155724; margin-top: 0.5rem; }
+
+  /* E63S07: dispatcher section */
+  .section-divider { margin: 1.25rem 0 1rem; border: none; border-top: 1px solid #dee2e6; }
+  .dispatcher-section { }
+  .section-header { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+  .badge--dispatcher-reachable    { background: #d4edda; color: #155724; }
+  .badge--dispatcher-unreachable  { background: #f8d7da; color: #721c24; }
+  .badge--dispatcher-not_configured { background: #e2e3e5; color: #383d41; }
+  .btn--recheck { padding: 0.25rem 0.75rem; background: #6c757d; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+  .btn--recheck:hover:not(:disabled) { background: #5a6268; }
+  .btn--recheck:disabled { opacity: 0.65; cursor: not-allowed; }
+  .dispatcher-url-row { display: flex; gap: 0.5rem; align-items: flex-start; margin-top: 0.4rem; }
+  .label-sm { font-weight: 600; font-size: 0.85rem; flex-shrink: 0; }
+  .dispatcher-url { font-size: 0.85rem; word-break: break-all; color: #495057; }
 </style>

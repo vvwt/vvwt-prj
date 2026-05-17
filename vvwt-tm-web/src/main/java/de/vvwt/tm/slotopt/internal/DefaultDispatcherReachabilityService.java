@@ -1,6 +1,9 @@
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 package de.vvwt.tm.slotopt.internal;
 
 import de.vvwt.tm.slotopt.DispatcherReachabilityService;
+import de.vvwt.tm.slotopt.DispatcherStatus;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -23,6 +26,13 @@ import org.slf4j.LoggerFactory;
  * immediately without making any HTTP call. This allows TM to run in offline mode (Leg 3 only)
  * without a configured dispatcher URL.
  *
+ * <h2>Tri-state status (E63S07 extension)</h2>
+ *
+ * <p>{@link #getStatus()} returns {@link DispatcherStatus#NOT_CONFIGURED} when the URL is
+ * null/blank, {@link DispatcherStatus#REACHABLE} when the HEAD probe succeeds (HTTP 2xx), and
+ * {@link DispatcherStatus#UNREACHABLE} otherwise. The probe mechanism is unchanged from E27S03.
+ * {@link #isReachable()} delegates to {@link #getStatus()} for consistency.
+ *
  * <h2>Timeout mechanism</h2>
  *
  * <p>Uses JDK 11+ {@link HttpClient} with a timeout equal to {@code reachabilityTimeoutMs} applied
@@ -30,15 +40,18 @@ import org.slf4j.LoggerFactory;
  *
  * <h2>Offline-operability</h2>
  *
- * <p>Per DEC-15 and Brief T-3, this service MUST NOT throw exceptions — it must always return
- * {@code false} on any failure. The caller (RoutingSlotOptimizationClient) treats {@code false} as
- * "fall through to Leg 3".
+ * <p>Per DEC-15 and Brief T-3, this service MUST NOT throw exceptions — it must always return a
+ * defined status on any failure. The caller (RoutingSlotOptimizationClient) treats {@code
+ * false}/{@code UNREACHABLE} as "fall through to Leg 3".
  *
  * @see DispatcherReachabilityService
  * @see <a href="../../../../../../../../../docs/governance/decisions/DEC-15.md">DEC-15</a>
  * @see <a href="../../../../../../../../../docs/governance/stories/E27S03.story.md">Story E27S03 —
  *     AC-REACHABILITY-SERVICE-AUTHORED, AC-REACHABILITY-NULL-URL-RETURNS-FALSE,
  *     AC-REACHABILITY-TIMEOUT-OBSERVED</a>
+ * @see <a href="../../../../../../../../../docs/governance/stories/E63S07.story.md">Story E63S07 —
+ *     AC-GOV-EXTENDS-REACHABILITY-SERVICE,
+ *     AC-GOV-REACHABILITY-SERVICE-INTERFACE-CHANGE-RED-FIRST</a>
  */
 public class DefaultDispatcherReachabilityService implements DispatcherReachabilityService {
 
@@ -68,19 +81,33 @@ public class DefaultDispatcherReachabilityService implements DispatcherReachabil
     /**
      * {@inheritDoc}
      *
-     * <p>Sends a {@code HEAD} request to the dispatcher base URL. Returns {@code true} iff the
-     * response status is HTTP 2xx within {@code reachabilityTimeoutMs}; {@code false} otherwise.
-     *
-     * <p>Per AC-REACHABILITY-NULL-URL-RETURNS-FALSE: when {@code dispatcherBaseUrl} is null or
-     * empty, returns {@code false} immediately without any HTTP call.
+     * <p>Delegates to {@link #getStatus()} and returns {@code true} iff the result is {@link
+     * DispatcherStatus#REACHABLE}.
      */
     @Override
     public boolean isReachable() {
+        return getStatus() == DispatcherStatus.REACHABLE;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Returns {@link DispatcherStatus#NOT_CONFIGURED} when {@code dispatcherBaseUrl} is null or
+     * empty (no HTTP call). Sends a {@code HEAD} request to the dispatcher base URL and returns
+     * {@link DispatcherStatus#REACHABLE} iff the response status is HTTP 2xx within {@code
+     * reachabilityTimeoutMs}; {@link DispatcherStatus#UNREACHABLE} on any non-2xx, timeout, or
+     * network error.
+     *
+     * <p>AC-ERR-RECHECK-TIMEOUT-SHOWS-OFFLINE: the HEAD probe is bounded by {@code
+     * reachabilityTimeoutMs}; the method always returns a defined status (never throws).
+     */
+    @Override
+    public DispatcherStatus getStatus() {
         if (dispatcherBaseUrl == null || dispatcherBaseUrl.isBlank()) {
             LOG.debug(
-                    "DefaultDispatcherReachabilityService.isReachable: url is null/empty —"
-                            + " returning false (Leg 3 fallback)");
-            return false;
+                    "DefaultDispatcherReachabilityService.getStatus: url is null/empty —"
+                            + " returning NOT_CONFIGURED");
+            return DispatcherStatus.NOT_CONFIGURED;
         }
 
         try {
@@ -98,26 +125,24 @@ public class DefaultDispatcherReachabilityService implements DispatcherReachabil
             boolean reachable = statusCode >= 200 && statusCode < 300;
 
             LOG.debug(
-                    "DefaultDispatcherReachabilityService.isReachable: url={}, status={},"
-                            + " reachable={}",
+                    "DefaultDispatcherReachabilityService.getStatus: url={}, status={}, result={}",
                     dispatcherBaseUrl,
                     statusCode,
-                    reachable);
+                    reachable ? "REACHABLE" : "UNREACHABLE");
 
-            return reachable;
+            return reachable ? DispatcherStatus.REACHABLE : DispatcherStatus.UNREACHABLE;
         } catch (java.net.http.HttpTimeoutException e) {
             LOG.debug(
-                    "DefaultDispatcherReachabilityService.isReachable: timeout after {}ms for"
-                            + " url={}",
+                    "DefaultDispatcherReachabilityService.getStatus: timeout after {}ms for url={}",
                     reachabilityTimeoutMs,
                     dispatcherBaseUrl);
-            return false;
+            return DispatcherStatus.UNREACHABLE;
         } catch (Exception e) {
             LOG.debug(
-                    "DefaultDispatcherReachabilityService.isReachable: error probing {}: {}",
+                    "DefaultDispatcherReachabilityService.getStatus: error probing {}: {}",
                     dispatcherBaseUrl,
                     e.getMessage());
-            return false;
+            return DispatcherStatus.UNREACHABLE;
         }
     }
 }
