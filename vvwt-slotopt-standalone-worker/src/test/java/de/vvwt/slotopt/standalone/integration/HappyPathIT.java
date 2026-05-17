@@ -28,9 +28,19 @@ import org.junit.jupiter.api.Test;
  * <p>DEC-36: only public interfaces referenced from this cross-package test.
  *
  * <p>Story: E41S06 AC-INTEGRATION-TEST-HAPPY-PATH, AC-OBSERVABILITY-EVENT-MATRIX,
- * AC-FINAL-ASSEMBLY-SMOKE.
+ * AC-FINAL-ASSEMBLY-SMOKE. E41S08: {@link #launchWithStopAfterNextIteration()} replaced fixed
+ * {@code Thread.sleep(500)} readiness gate with deterministic {@code CountDownLatch} on {@code
+ * packet_pulled} event to eliminate timing-race flake under {@code mvn verify} parallel load (AC2,
+ * AC4).
  */
 class HappyPathIT {
+
+    /**
+     * Maximum time (ms) to wait for the worker to observe {@code packet_pulled} before triggering
+     * shutdown. Generous (25 s) to accommodate high-load CI environments while still failing fast
+     * if the worker genuinely fails to start — well under the 30 s join timeout.
+     */
+    private static final long PACKET_PULLED_READINESS_TIMEOUT_MS = 25_000L;
 
     private DispatcherStub stub;
     private WorkerLauncher launcher;
@@ -184,8 +194,21 @@ class HappyPathIT {
     // =========================================================================
 
     /**
-     * Launches the worker in a background thread and requests graceful shutdown after a short
-     * delay. Waits for completion within 30 seconds.
+     * Launches the worker in a background thread and requests graceful shutdown only after the
+     * worker has emitted {@code packet_pulled} — signalling that a packet cycle has begun and the
+     * shutdown signal will arrive after (not before) the packet is processed.
+     *
+     * <p>This replaces the previous fixed {@code Thread.sleep(500)} readiness gate that caused an
+     * intermittent 30 s timeout under {@code mvn verify} parallel load: under high CPU contention
+     * 500 ms was insufficient for the worker subprocess to start and begin a packet cycle, so
+     * {@code requestShutdown()} arrived before {@code packet_pulled}, the worker stopped early, and
+     * the event-sequence assertion failed on an empty list (E41S08 root cause).
+     *
+     * <p>AC4 — fail-fast diagnostic: if {@code packet_pulled} is not observed within {@value
+     * #PACKET_PULLED_READINESS_TIMEOUT_MS} ms, {@code requestShutdown()} is called anyway (to avoid
+     * a perpetual hang) and a diagnostic message is printed. The subsequent assertion on the empty
+     * event list then fails with a descriptive message rather than silently timing out at the full
+     * 30 s join limit.
      */
     private WorkerRunResult launchWithStopAfterNextIteration() {
         WorkerRunResult[] resultRef = new WorkerRunResult[1];
@@ -193,14 +216,33 @@ class HappyPathIT {
                 new Thread(() -> resultRef[0] = launcher.launch(), "worker-launch-thread");
         workerThread.start();
 
-        // Give the worker time to start up and reach the loop
+        // Deterministic readiness gate: wait until packet_pulled is observed (or timeout).
+        // launcher.launch() populates runtimeLoggerRef before submitting the worker thread,
+        // so awaitFirstRuntimeEvent is safe to call from this thread without a data race.
+        boolean packetPulledObserved;
         try {
-            Thread.sleep(500);
+            packetPulledObserved =
+                    launcher.awaitFirstRuntimeEvent(
+                            "packet_pulled", PACKET_PULLED_READINESS_TIMEOUT_MS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            packetPulledObserved = false;
         }
 
-        // Signal graceful shutdown (loop stops after processing the one stubbed packet)
+        if (!packetPulledObserved) {
+            // AC4: fail-fast diagnostic — the worker did not reach packet_pulled within the
+            // readiness timeout. This indicates a genuine worker startup failure, not a race.
+            // Trigger shutdown anyway to unblock the join; the assertion will then fail with
+            // a clear diagnostic message rather than a silent 30 s timeout.
+            System.err.println(
+                    "DIAGNOSTIC [E41S08]: packet_pulled not observed within "
+                            + PACKET_PULLED_READINESS_TIMEOUT_MS
+                            + " ms — worker may have failed to start."
+                            + " Triggering shutdown to unblock join.");
+        }
+
+        // Signal graceful shutdown — arrives after packet is being processed (or on diagnostic
+        // timeout).
         launcher.requestShutdown();
 
         try {
