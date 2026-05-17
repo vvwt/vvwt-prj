@@ -4,16 +4,18 @@ import de.vvwt.slotopt.standalone.WorkerConfig;
 import de.vvwt.slotopt.standalone.bootstrap.BootstrapException;
 import de.vvwt.slotopt.standalone.bootstrap.ExitCode;
 import de.vvwt.slotopt.standalone.bootstrap.internal.DefaultBootstrapService;
-import de.vvwt.slotopt.standalone.crypto.ResultSigner;
-import de.vvwt.slotopt.standalone.crypto.internal.DefaultResultSigner;
-import de.vvwt.slotopt.standalone.http.DispatcherClient;
-import de.vvwt.slotopt.standalone.http.internal.DefaultDispatcherClient;
 import de.vvwt.slotopt.standalone.runtime.CpuThrottle;
 import de.vvwt.slotopt.standalone.runtime.WorkerLoopException;
 import de.vvwt.slotopt.standalone.runtime.internal.DefaultWorkerLoop;
 import de.vvwt.slotopt.worker.identity.WorkerKeyCorruptException;
 import de.vvwt.slotopt.worker.identity.WorkerKeyManager;
 import de.vvwt.slotopt.worker.identity.internal.DefaultWorkerKeyManager;
+import de.vvwt.slotopt.worker.runtime.ComputeStep;
+import de.vvwt.slotopt.worker.runtime.DispatcherClient;
+import de.vvwt.slotopt.worker.runtime.ResultSigner;
+import de.vvwt.slotopt.worker.runtime.internal.DefaultComputeStep;
+import de.vvwt.slotopt.worker.runtime.internal.DefaultDispatcherClient;
+import de.vvwt.slotopt.worker.runtime.internal.DefaultResultSigner;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -36,9 +38,9 @@ import org.slf4j.LoggerFactory;
 /**
  * In-process worker runner for integration tests.
  *
- * <p>Constructs the full worker pipeline (key manager, dispatcher client, bootstrap service, worker
- * loop) from a {@link WorkerConfig} and runs the worker in a background thread. Captures stderr
- * output and structured events for assertion.
+ * <p>Constructs the full worker pipeline (key manager, dispatcher client, compute step, bootstrap
+ * service, worker loop) from a {@link WorkerConfig} and runs the worker in a background thread.
+ * Captures stderr output and structured events for assertion.
  *
  * <p>Does NOT invoke {@link de.vvwt.slotopt.standalone.OptimizerWorkerMain#main} — that would call
  * {@code System.exit()}, which terminates the JVM. Instead, component classes are instantiated
@@ -48,7 +50,8 @@ import org.slf4j.LoggerFactory;
  * de.vvwt.slotopt.standalone.bootstrap.BootstrapService}, {@link
  * de.vvwt.slotopt.standalone.runtime.WorkerLoop}).
  *
- * <p>Story: E41S06 AC-INTEGRATION-TEST-HAPPY-PATH and related ITs.
+ * <p>Story: E41S06 AC-INTEGRATION-TEST-HAPPY-PATH and related ITs; E63S01 re-wired onto shared
+ * runtime library (AC-GOV-NO-TEST-ONLY-MEMBERS-IN-EXTRACTED-CODE: stopAfterNextIteration removed).
  */
 class WorkerLauncher {
 
@@ -61,7 +64,7 @@ class WorkerLauncher {
     /**
      * Creates a launcher pointing at the given dispatcher URL with a 30-second timeout.
      *
-     * @param dispatcherUrl base URL of the WireMock dispatcher test-double
+     * @param dispatcherUrl base URL of the test-double dispatcher
      */
     WorkerLauncher(URI dispatcherUrl) {
         this(dispatcherUrl, DEFAULT_TIMEOUT);
@@ -70,7 +73,7 @@ class WorkerLauncher {
     /**
      * Creates a launcher with a custom timeout.
      *
-     * @param dispatcherUrl base URL of the WireMock dispatcher test-double
+     * @param dispatcherUrl base URL of the test-double dispatcher
      * @param timeout maximum wait time for worker thread to complete
      */
     WorkerLauncher(URI dispatcherUrl, Duration timeout) {
@@ -144,18 +147,6 @@ class WorkerLauncher {
         }
     }
 
-    /**
-     * Tells the worker loop to stop after the next iteration completes.
-     *
-     * <p>Used by happy-path tests to trigger a clean single-iteration run.
-     */
-    void stopAfterNextIteration() {
-        DefaultWorkerLoop loop = workerLoopRef;
-        if (loop != null) {
-            loop.stopAfterNextIteration();
-        }
-    }
-
     private int runWorkerInThread(
             List<String> bootstrapEventSink, CapturingStructuredLogger runtimeLogger) {
 
@@ -194,7 +185,10 @@ class WorkerLauncher {
 
         DispatcherClient dispatcherClient =
                 new DefaultDispatcherClient(config.dispatcherUrl(), config.httpTimeout());
-        ResultSigner resultSigner = new DefaultResultSigner(workerKeyManager, config);
+        ResultSigner resultSigner =
+                new DefaultResultSigner(workerKeyManager, config.signingAlgorithm());
+        ComputeStep computeStep =
+                new DefaultComputeStep(dispatcherClient, resultSigner, config.signingAlgorithm());
 
         // Bootstrap phase with event capture
         UUID workerId;
@@ -216,19 +210,11 @@ class WorkerLauncher {
             return e.getExitCode();
         }
 
-        // Runtime loop
-        // No-op CpuThrottle for IT speed — polls without delay
+        // Runtime loop — no-op CpuThrottle for IT speed
         CpuThrottle noOpThrottle = duration -> {};
 
         DefaultWorkerLoop workerLoop =
-                new DefaultWorkerLoop(
-                        dispatcherClient,
-                        resultSigner,
-                        workerKeyManager,
-                        config,
-                        noOpThrottle,
-                        runtimeLogger,
-                        workerId);
+                new DefaultWorkerLoop(computeStep, config, noOpThrottle, runtimeLogger, workerId);
         workerLoopRef = workerLoop;
 
         try {

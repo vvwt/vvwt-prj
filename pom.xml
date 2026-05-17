@@ -21,6 +21,8 @@
     <!-- Phase-1 modules (slot-optimization service) — DEC-10, DEC-11 -->
     <modules>
         <module>vvwt-slotopt-worker-lib</module>
+        <!-- Shared Spring-Boot-free runtime library (E63S01 — DEC-11 delta-amendment) -->
+        <module>vvwt-slotopt-worker-runtime</module>
         <module>vvwt-slotopt-dispatcher</module>
         <module>vvwt-slotopt-standalone-worker</module>
         <module>vvwt-benchmark</module>
@@ -228,6 +230,13 @@
             <dependency>
                 <groupId>de.vvwt</groupId>
                 <artifactId>vvwt-slotopt-worker-lib</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- Shared worker runtime library (E63S01 — DEC-11 delta-amendment) -->
+            <dependency>
+                <groupId>de.vvwt</groupId>
+                <artifactId>vvwt-slotopt-worker-runtime</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

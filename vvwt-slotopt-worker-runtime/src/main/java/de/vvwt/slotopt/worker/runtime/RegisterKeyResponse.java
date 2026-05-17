@@ -1,0 +1,15 @@
+package de.vvwt.slotopt.worker.runtime;
+
+import java.time.Instant;
+import java.util.UUID;
+
+/**
+ * HTTP response body for {@code POST /api/register-key} from the worker's perspective.
+ *
+ * <p>Mirrors the wire shape of the dispatcher's {@code RegisterKeyResponse} record (per Brief
+ * D-10). Fields: {@code workerId}, {@code role}, {@code algorithm}, {@code registeredAt}.
+ *
+ * <p>Story: E41S04 AC-REGISTER-KEY-WITH-ALGORITHM (moved to E63S01 shared library).
+ */
+public record RegisterKeyResponse(
+        UUID workerId, String role, String algorithm, Instant registeredAt) {}

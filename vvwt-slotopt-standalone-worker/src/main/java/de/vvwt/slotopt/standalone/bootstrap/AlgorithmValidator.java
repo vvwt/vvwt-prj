@@ -1,7 +1,7 @@
 package de.vvwt.slotopt.standalone.bootstrap;
 
-import de.vvwt.slotopt.standalone.http.AnnouncedAlgorithm;
-import de.vvwt.slotopt.standalone.http.AnnouncedAlgorithmsResponse;
+import de.vvwt.slotopt.worker.runtime.AnnouncedAlgorithm;
+import de.vvwt.slotopt.worker.runtime.AnnouncedAlgorithmsResponse;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;

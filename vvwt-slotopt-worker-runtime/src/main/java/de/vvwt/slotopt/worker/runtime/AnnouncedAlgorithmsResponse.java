@@ -1,0 +1,13 @@
+package de.vvwt.slotopt.worker.runtime;
+
+import java.util.List;
+
+/**
+ * Response wrapper for the {@code GET /api/algorithms} endpoint.
+ *
+ * <p>The dispatcher returns a JSON array of {@link AnnouncedAlgorithm} objects. This record wraps
+ * the deserialized list for use in the bootstrap validation logic.
+ *
+ * <p>Story: E41S04 AC-FETCH-ALGORITHMS-WIRE, AC-DISPATCHER-CLIENT-INTERFACE (moved to E63S01).
+ */
+public record AnnouncedAlgorithmsResponse(List<AnnouncedAlgorithm> algorithms) {}
