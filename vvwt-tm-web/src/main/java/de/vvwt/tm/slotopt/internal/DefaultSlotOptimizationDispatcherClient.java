@@ -292,17 +292,29 @@ public class DefaultSlotOptimizationDispatcherClient implements SlotOptimization
 
                 if ("COMPLETED".equals(status.status())
                         || "COMPLETED_FROM_CACHE".equals(status.status())) {
-                    // Job is done — return a non-null permutation sentinel
-                    // The actual permutation result is in the job record on the dispatcher side;
-                    // for Leg-2 routing purposes, a completed job means we return a non-empty
-                    // Optional. The result permutation is applied by the dispatcher to the
-                    // submit-job's phaseId — TM's role here is to confirm completion.
+                    // Job is done — extract the bestRank from finalResult and return it.
+                    // AC-TEST-POLLRESULT-RETURNS-REAL-RESULT (E63S02): return the actual rank so
+                    // the caller (RoutingSlotOptimizationClient.tryLeg2) can apply it via
+                    // SlotResultApplicator. An empty-array sentinel would leave the phase
+                    // unoptimized.
+                    // AC-ERR-MALFORMED-RESULT-REJECTED: if finalResult is null/missing, treat as
+                    // fetch failure → return empty so caller falls through to Leg 3.
+                    if (status.finalResult() == null) {
+                        LOG.warn(
+                                "DefaultSlotOptimizationDispatcherClient.pollResult: jobId={}"
+                                        + " COMPLETED but finalResult is null — treating as fetch"
+                                        + " failure, falling through to Leg 3",
+                                jobId);
+                        return Optional.empty();
+                    }
+                    long bestRank = status.finalResult().bestRank();
                     LOG.info(
                             "DefaultSlotOptimizationDispatcherClient.pollResult: jobId={}"
-                                    + " COMPLETED after {}ms",
+                                    + " COMPLETED after {}ms, bestRank={}",
                             jobId,
-                            System.currentTimeMillis() - startMs);
-                    return Optional.of(new int[0]); // sentinel: job completed
+                            System.currentTimeMillis() - startMs,
+                            bestRank);
+                    return Optional.of(new int[] {(int) bestRank});
                 }
 
                 // Job still in progress — wait with backoff
@@ -414,11 +426,36 @@ public class DefaultSlotOptimizationDispatcherClient implements SlotOptimization
             @JsonProperty("submittedAt") Instant submittedAt,
             @JsonProperty("cacheHit") boolean cacheHit) {}
 
-    /** Job status response DTO per E37S09 wire format. */
+    /**
+     * Job status response DTO per E37S09 wire format, extended with E60S04 result surfaces.
+     *
+     * <p>AC-GOV-E60-SURFACE-BINDING (E63S02): {@code finalResult} carries the global optimum
+     * ({@code bestRank} / {@code bestScore}) for a COMPLETED job — introduced by E60S04. The {@code
+     * bestRank} is the lap-permutation rank that {@link de.vvwt.tm.slotopt.SlotResultApplicator}
+     * consumes directly (AC-GOV-RANK-SEMANTICS: verified in impl-report — rank semantics match
+     * SlotResultApplicator's expectation).
+     *
+     * <p>DEC-9: carries only structural data (bestRank / bestScore). No team UUIDs or names.
+     *
+     * <p>AC-GOV-NO-DISPATCHER-COMPILE-DEP: this DTO is defined independently of {@code
+     * vvwt-slotopt-dispatcher}'s {@code OptimumResult} — the Maven Enforcer ban stays.
+     */
     @JsonIgnoreProperties(ignoreUnknown = true)
     private record JobStatusResponseDto(
             @JsonProperty("jobId") UUID jobId,
             @JsonProperty("status") String status,
             @JsonProperty("totalPackets") int totalPackets,
-            @JsonProperty("completedPackets") int completedPackets) {}
+            @JsonProperty("completedPackets") int completedPackets,
+            @JsonProperty("finalResult") FinalResultDto finalResult) {}
+
+    /**
+     * Local DTO for the {@code finalResult} field of the job-status response (E60S04).
+     *
+     * <p>Mirrors {@code vvwt-slotopt-dispatcher}'s {@code OptimumResult} shape without introducing
+     * a compile dependency (DEC-11 / AC-GOV-NO-DISPATCHER-COMPILE-DEP). Fields: {@code bestRank}
+     * (the lap-permutation rank in [0, lapCount!)) and {@code bestScore} (the optimizer's cost).
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record FinalResultDto(
+            @JsonProperty("bestRank") long bestRank, @JsonProperty("bestScore") double bestScore) {}
 }

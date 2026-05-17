@@ -251,30 +251,50 @@ public class RoutingSlotOptimizationClient implements SlotOptimizationClient {
     }
 
     /**
-     * Attempts Leg 2: submits the job to the dispatcher and polls for result.
+     * Attempts Leg 2: submits the job to the dispatcher, polls for result, and applies it.
      *
-     * <p>Per AC-LEG-2-FALLS-THROUGH-ON-WIRE-ERROR: on any error, returns {@code false} so the
-     * caller falls through to Leg 3.
+     * <p>AC-TEST-LEG2-RESULT-APPLIED (E63S02): on a successful poll, extracts the lap-permutation
+     * rank from the result and applies it via {@link SlotResultApplicator#applyResult}. The prior
+     * implementation returned a non-empty Optional sentinel (empty array) without applying the
+     * result — leaving the phase silently unoptimized.
+     *
+     * <p>AC-GOV-RANK-SEMANTICS (E63S02): the dispatcher's {@code finalResult.bestRank} is the
+     * lap-permutation rank in {@code [0, lapCount!)} that {@link SlotResultApplicator} consumes
+     * directly — no translation step required (verified empirically; see impl-report).
+     *
+     * <p>Per AC-LEG-2-FALLS-THROUGH-ON-WIRE-ERROR / AC-ERR-RESULT-FETCH-FAILURE-FALLS-THROUGH: on
+     * any error or empty result, returns {@code false} so the caller falls through to Leg 3. The
+     * phase is never silently left unoptimized on a Leg-2 "success".
      *
      * @param phaseId the phase being optimized
-     * @param groupMapping the mapping result for submission
-     * @return {@code true} if Leg 2 succeeded; {@code false} to fall through to Leg 3
+     * @param phaseMapping the phase-global mapping result (for both submit and apply)
+     * @return {@code true} if Leg 2 succeeded (result applied); {@code false} to fall through to
+     *     Leg 3
      */
-    private boolean tryLeg2(UUID phaseId, MappingResult groupMapping) {
+    private boolean tryLeg2(UUID phaseId, MappingResult phaseMapping) {
         try {
-            UUID jobId = dispatcherClient.submitJob(groupMapping.raw());
+            UUID jobId = dispatcherClient.submitJob(phaseMapping.raw());
             Optional<int[]> result = dispatcherClient.pollResult(jobId);
             if (result.isEmpty()) {
+                // Empty = poll timeout, fetch failure, or malformed result (AC-ERR-RESULT-FETCH)
                 LOG.warn(
-                        "RoutingSlotOptimizationClient.tryLeg2: poll timeout for phase={}, job={}",
+                        "RoutingSlotOptimizationClient.tryLeg2: no result for phase={}, job={}"
+                                + " → falling through to Leg 3",
                         phaseId,
                         jobId);
                 return false;
             }
+            // AC-TEST-LEG2-RESULT-APPLIED: result contains the bestRank from the dispatcher's
+            // finalResult payload (E60S04 surface). Apply it via SlotResultApplicator — the same
+            // applicator Leg 1 and Leg 3 use.
+            long rank = result.get()[0];
             LOG.info(
-                    "RoutingSlotOptimizationClient.tryLeg2: success for phase={}, job={}",
+                    "RoutingSlotOptimizationClient.tryLeg2: applying dispatcher result for"
+                            + " phase={}, job={}, rank={}",
                     phaseId,
-                    jobId);
+                    jobId,
+                    rank);
+            applicator.applyResult(rank, mapper.getFieldCount(), phaseMapping);
             return true;
         } catch (DispatcherAlgorithmMismatchException e) {
             LOG.warn(
