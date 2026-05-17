@@ -551,6 +551,8 @@
                                         <exclude>**/dist-timer/**</exclude>
                                         <exclude>**/dist-display/**</exclude>
                                         <exclude>**/handoff/**</exclude>
+                                        <!-- vvwt-info-client Vite build output (gitignored) — E63S08 -->
+                                        <exclude>**/resources/static/info/**</exclude>
                                     </excludes>
                                 </format>
                                 <format>

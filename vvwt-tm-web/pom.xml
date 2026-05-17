@@ -303,6 +303,31 @@
             <artifactId>archunit-junit5</artifactId>
         </dependency>
 
+        <!-- vvwt-slotopt-standalone-worker (test scope, tests classifier) — E63S08 E2E harness.
+             Provides WorkerLauncher + WorkerRunResult from the integration test-jar of the
+             standalone worker (made public by E60S05). Used by SlotOptE2EIT to run the standalone
+             worker in-process against the live dispatcher subprocess (AC-TEST-E2E-LEG2-LIVE-WORKER).
+             Test scope only: TM MUST NOT have a production/runtime dep on the standalone worker.
+             DEC-11: the Enforcer bans vvwt-slotopt-dispatcher, NOT vvwt-slotopt-standalone-worker.
+             AC-GOV-NO-DISPATCHER-COMPILE-DEP: the dispatcher is launched as an external subprocess
+             (ProcessBuilder) — no compile dep on vvwt-slotopt-dispatcher introduced. -->
+        <dependency>
+            <groupId>de.vvwt</groupId>
+            <artifactId>vvwt-slotopt-standalone-worker</artifactId>
+            <classifier>tests</classifier>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- vvwt-slotopt-standalone-worker main artifact (test scope) — required so that the
+             transitive compile dependencies of the worker (worker-lib, worker-runtime, etc.)
+             are available in the test classpath when WorkerLauncher is invoked. The test-jar
+             does not carry transitive deps; the main artifact does. -->
+        <dependency>
+            <groupId>de.vvwt</groupId>
+            <artifactId>vvwt-slotopt-standalone-worker</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <!-- ===================================================================
