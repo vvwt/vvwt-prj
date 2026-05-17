@@ -165,8 +165,17 @@
 <header class="brand-header">
   <!-- AC15: DOM order: Logo → [back-arrow] → title → [tournament-name] → spacer → actions -->
 
-  <!-- Logo (always first) -->
-  <img src="/admin/vvw-tm-logo.svg" alt="Tournament Manager" class="brand-lockup" />
+  <!-- Logo (always first) — E64S03: keyboard-operable home link (AC2/AC3) -->
+  <!-- Activating the logo navigates to the admin home route via push('/') (AC2). -->
+  <!-- The button is focusable and activatable by keyboard; aria-label provides the accessible name (AC3). -->
+  <button
+    class="brand-lockup-btn"
+    type="button"
+    aria-label="Startseite"
+    onclick={() => push('/')}
+  >
+    <img src="/admin/vvw-tm-logo.svg" alt="" class="brand-lockup" aria-hidden="true" />
+  </button>
 
   <!-- Back-arrow: only on sub-routes where backTo is set by the route component (AC5, AC15) -->
   {#if pageHeaderState.backTo}
@@ -274,6 +283,23 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
+  }
+
+  /* E64S03: Logo home-link button (AC2/AC3) — transparent button shell around the logo image */
+  .brand-lockup-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    border-radius: 4px;
+  }
+
+  .brand-lockup-btn:focus-visible {
+    outline: 2px solid #2980b9;
+    outline-offset: 2px;
   }
 
   .brand-lockup {
