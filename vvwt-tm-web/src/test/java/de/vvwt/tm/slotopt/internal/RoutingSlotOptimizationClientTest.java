@@ -154,7 +154,10 @@ class RoutingSlotOptimizationClientTest {
 
     /**
      * AC-ROUTING-EXTENDED-LEG-2: lapCount > threshold + dispatcher reachable → calls Leg 2
-     * (submitJob + pollResult), does NOT call Leg 3.
+     * (submitJob + pollResult), applies result, does NOT call Leg 3.
+     *
+     * <p>E63S02 update: pollResult now returns the actual rank (not the old empty-array sentinel).
+     * Updated stub to return {@code Optional.of(new int[]{0})} — rank 0 = identity permutation.
      */
     @Test
     void optimize_lapCountAboveThreshold_dispatcherReachable_callsLeg2() {
@@ -168,7 +171,8 @@ class RoutingSlotOptimizationClientTest {
         when(reachabilityMock.isReachable()).thenReturn(true);
         UUID jobId = UUID.randomUUID();
         when(dispatcherClientMock.submitJob(any())).thenReturn(jobId);
-        when(dispatcherClientMock.pollResult(jobId)).thenReturn(Optional.of(new int[0]));
+        // E63S02: pollResult now returns the actual rank from finalResult, not the empty sentinel
+        when(dispatcherClientMock.pollResult(jobId)).thenReturn(Optional.of(new int[] {0}));
 
         subject.optimize(phaseId);
 
@@ -445,6 +449,106 @@ class RoutingSlotOptimizationClientTest {
         verify(applicatorMock, times(1))
                 .applyResult(anyLong(), eq(FIELD_COUNT), any(MappingResult.class));
         // mapGroup does not exist (deleted per DEC-61 Clause D) — enforced by compilation.
+    }
+
+    // =========================================================================
+    // E63S02 RED-first tests — AC-TEST-LEG2-RESULT-APPLIED
+    // pollResult now returns the actual rank; tryLeg2 must apply it via applicator
+    // =========================================================================
+
+    /**
+     * AC-TEST-LEG2-RESULT-APPLIED (E63S02 RED-first): when Leg 2 completes successfully (pollResult
+     * returns a rank), {@link de.vvwt.tm.slotopt.SlotResultApplicator#applyResult} is called with
+     * the fetched rank, the fieldCount, and the phase-global mapping.
+     *
+     * <p>RED against current code: current tryLeg2() ignores the result content and never calls
+     * applicator. This test verifies that after the fix, the applicator IS called with the correct
+     * rank when Leg 2 succeeds.
+     *
+     * <p>Fixture: lapCount = EXHAUSTIVE_MAX_N + 1 = 3 (above threshold → routes to Leg 2);
+     * dispatcher reachable; pollResult returns rank=5 (non-identity permutation). After the fix,
+     * applicator must receive rank=5.
+     */
+    @Test
+    void optimize_leg2Succeeds_applicatorCalledWithRankFromDispatcher_E63S02() {
+        UUID phaseId = UUID.randomUUID();
+        UUID tournamentId = UUID.randomUUID();
+        int lapCount = EXHAUSTIVE_MAX_N + 1;
+        MappingResult mapping =
+                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
+        when(mapperMock.map(phaseId)).thenReturn(mapping);
+        when(reachabilityMock.isReachable()).thenReturn(true);
+        UUID jobId = UUID.randomUUID();
+        when(dispatcherClientMock.submitJob(any())).thenReturn(jobId);
+        // Rank 5 returned by the dispatcher (non-identity permutation)
+        int dispatcherRank = 5;
+        when(dispatcherClientMock.pollResult(jobId))
+                .thenReturn(Optional.of(new int[] {dispatcherRank}));
+
+        subject.optimize(phaseId);
+
+        // Applicator MUST be called with the dispatcher's rank
+        verify(applicatorMock).applyResult(eq((long) dispatcherRank), eq(FIELD_COUNT), any());
+        // Leg 3 MUST NOT be invoked (Leg 2 succeeded)
+        verify(cancelableServiceMock, never()).optimize(any(), any(), any());
+    }
+
+    /**
+     * AC-TEST-LEG2-RESULT-APPLIED (E63S02): applicator is called with rank=0 (identity permutation)
+     * when the dispatcher returns rank 0 — identity is a valid optimization result.
+     */
+    @Test
+    void optimize_leg2Succeeds_rank0_applicatorCalledWithRank0_E63S02() {
+        UUID phaseId = UUID.randomUUID();
+        UUID tournamentId = UUID.randomUUID();
+        int lapCount = EXHAUSTIVE_MAX_N + 1;
+        MappingResult mapping =
+                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
+        when(mapperMock.map(phaseId)).thenReturn(mapping);
+        when(reachabilityMock.isReachable()).thenReturn(true);
+        UUID jobId = UUID.randomUUID();
+        when(dispatcherClientMock.submitJob(any())).thenReturn(jobId);
+        when(dispatcherClientMock.pollResult(jobId)).thenReturn(Optional.of(new int[] {0}));
+
+        subject.optimize(phaseId);
+
+        verify(applicatorMock).applyResult(eq(0L), eq(FIELD_COUNT), any());
+        verify(cancelableServiceMock, never()).optimize(any(), any(), any());
+    }
+
+    /**
+     * AC-ERR-RESULT-FETCH-FAILURE-FALLS-THROUGH (E63S02): when pollResult returns empty (malformed
+     * result / fetch failure from dispatcher), tryLeg2 returns false and routing falls through to
+     * Leg 3. The applicator MUST NOT be called.
+     *
+     * <p>Distinguishes the "result not available (empty Optional)" case from the existing "poll
+     * timeout (empty Optional)" case — both must produce Leg 3 fall-through with no applicator
+     * call.
+     */
+    @Test
+    void optimize_leg2ResultFetchFailure_fallsThroughToLeg3_applicatorNotCalled_E63S02() {
+        UUID phaseId = UUID.randomUUID();
+        UUID tournamentId = UUID.randomUUID();
+        int lapCount = EXHAUSTIVE_MAX_N + 1;
+        MappingResult mapping =
+                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
+        when(mapperMock.map(phaseId)).thenReturn(mapping);
+        when(reachabilityMock.isReachable()).thenReturn(true);
+        UUID jobId = UUID.randomUUID();
+        when(dispatcherClientMock.submitJob(any())).thenReturn(jobId);
+        // Empty optional = malformed result or fetch failure (AC-ERR-RESULT-FETCH-FAILURE)
+        when(dispatcherClientMock.pollResult(jobId)).thenReturn(Optional.empty());
+        when(cancelableServiceMock.optimize(
+                        eq(phaseId), eq(tournamentId), any(CancellationToken.class)))
+                .thenReturn(OptimizationResult.completed(0L, 0.0));
+
+        subject.optimize(phaseId);
+
+        // Must NOT call applicator (no result to apply)
+        verify(applicatorMock, never()).applyResult(anyLong(), anyInt(), any());
+        // Must fall through to Leg 3
+        verify(cancelableServiceMock)
+                .optimize(eq(phaseId), eq(tournamentId), any(CancellationToken.class));
     }
 
     // =========================================================================

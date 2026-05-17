@@ -315,7 +315,10 @@ class DefaultSlotOptimizationDispatcherClientTest {
 
     /**
      * AC-POLL-RESULT-WIRE-FORMAT: pollResult returns non-empty Optional when job status is
-     * COMPLETED.
+     * COMPLETED and finalResult is present.
+     *
+     * <p>E63S02 update: updated stub to include {@code finalResult} (the E60S04 result surface).
+     * Without finalResult, the response is treated as a malformed result and returns empty.
      */
     @Test
     void pollResult_completedStatus_returnsNonEmpty() {
@@ -328,7 +331,8 @@ class DefaultSlotOptimizationDispatcherClientTest {
                                 + "\","
                                 + "\"status\":\"COMPLETED\","
                                 + "\"totalPackets\":1,"
-                                + "\"completedPackets\":1}"));
+                                + "\"completedPackets\":1,"
+                                + "\"finalResult\":{\"bestRank\":0,\"bestScore\":1.0}}"));
 
         Optional<int[]> result = subject.pollResult(jobId);
 
@@ -347,11 +351,114 @@ class DefaultSlotOptimizationDispatcherClientTest {
                                 + "\","
                                 + "\"status\":\"COMPLETED\","
                                 + "\"totalPackets\":1,"
-                                + "\"completedPackets\":1}"));
+                                + "\"completedPackets\":1,"
+                                + "\"finalResult\":{\"bestRank\":0,\"bestScore\":1.0}}"));
 
         subject.pollResult(jobId);
 
         assertThat(lastJobStatusPath.get()).endsWith("/api/job-status/" + jobId);
+    }
+
+    // =========================================================================
+    // AC-TEST-POLLRESULT-RETURNS-REAL-RESULT (E63S02 RED-first)
+    // pollResult must return the actual bestRank from finalResult, not the empty-array sentinel
+    // =========================================================================
+
+    /**
+     * AC-TEST-POLLRESULT-RETURNS-REAL-RESULT (E63S02): when the dispatcher reports COMPLETED with a
+     * finalResult payload, pollResult returns an Optional containing the bestRank from finalResult
+     * — NOT an empty-array sentinel.
+     *
+     * <p>RED against current code: current code returns {@code Optional.of(new int[0])} (empty
+     * array) regardless of finalResult. This test asserts that the returned array has length 1 and
+     * contains the bestRank value.
+     *
+     * <p>DEC-56/DEC-61: bestRank is the lap-permutation rank (an integer in [0, lapCount!)) that
+     * {@link de.vvwt.tm.slotopt.SlotResultApplicator#applyResult} consumes directly — no
+     * translation step needed (rank semantics verified in impl-report per AC-GOV-RANK-SEMANTICS).
+     */
+    @Test
+    void pollResult_completedWithFinalResult_returnsActualBestRank() {
+        UUID jobId = UUID.randomUUID();
+        int expectedRank = 5; // rank 5 = a non-identity lap permutation
+        jobStatusResponse.set(
+                new StubResponse(
+                        200,
+                        "{\"jobId\":\""
+                                + jobId
+                                + "\","
+                                + "\"status\":\"COMPLETED\","
+                                + "\"totalPackets\":4,"
+                                + "\"completedPackets\":4,"
+                                + "\"finalResult\":{\"bestRank\":"
+                                + expectedRank
+                                + ",\"bestScore\":0.42}}"));
+
+        Optional<int[]> result = subject.pollResult(jobId);
+
+        assertThat(result).isPresent();
+        assertThat(result.get()).hasSize(1);
+        assertThat(result.get()[0]).isEqualTo(expectedRank);
+    }
+
+    /**
+     * AC-TEST-CACHE-COMPLETION-PATH (E63S02): when the dispatcher reports COMPLETED_FROM_CACHE with
+     * a finalResult payload, pollResult returns the actual bestRank — the cache-hit path is treated
+     * identically to a freshly finalized job.
+     *
+     * <p>RED against current code: current code does not parse finalResult for either completion
+     * variant; it returns the empty-array sentinel.
+     */
+    @Test
+    void pollResult_completedFromCacheWithFinalResult_returnsActualBestRank() {
+        UUID jobId = UUID.randomUUID();
+        int expectedRank = 2;
+        jobStatusResponse.set(
+                new StubResponse(
+                        200,
+                        "{\"jobId\":\""
+                                + jobId
+                                + "\","
+                                + "\"status\":\"COMPLETED_FROM_CACHE\","
+                                + "\"totalPackets\":4,"
+                                + "\"completedPackets\":4,"
+                                + "\"finalResult\":{\"bestRank\":"
+                                + expectedRank
+                                + ",\"bestScore\":0.35}}"));
+
+        Optional<int[]> result = subject.pollResult(jobId);
+
+        assertThat(result).isPresent();
+        assertThat(result.get()).hasSize(1);
+        assertThat(result.get()[0]).isEqualTo(expectedRank);
+    }
+
+    /**
+     * AC-ERR-MALFORMED-RESULT-REJECTED (E63S02): when the job is COMPLETED but finalResult is
+     * missing/null (malformed response), pollResult returns empty — treated as a fetch failure so
+     * the caller falls through to Leg 3.
+     *
+     * <p>RED against current code: current code returns the empty-array sentinel regardless; the
+     * new code must treat a missing/null finalResult as an empty Optional.
+     */
+    @Test
+    void pollResult_completedButNullFinalResult_returnsEmpty() {
+        UUID jobId = UUID.randomUUID();
+        jobStatusResponse.set(
+                new StubResponse(
+                        200,
+                        "{\"jobId\":\""
+                                + jobId
+                                + "\","
+                                + "\"status\":\"COMPLETED\","
+                                + "\"totalPackets\":1,"
+                                + "\"completedPackets\":1,"
+                                + "\"finalResult\":null}"));
+
+        Optional<int[]> result = subject.pollResult(jobId);
+
+        // Malformed: COMPLETED but no extractable rank → treat as fetch failure → empty
+        assertThat(result).isEmpty();
     }
 
     // =========================================================================
