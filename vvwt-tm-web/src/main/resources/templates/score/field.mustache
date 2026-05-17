@@ -337,8 +337,10 @@
     <!--
         E61S01 inline ES5 score-entry logic — redesigned.
         E61S03 — team-position swap logic added.
+        E65S03 — swap extended: each column now fully follows the team (name, score, +/-).
         AC1:  Logo lockup removed (E61S01); swap control button added (E61S03).
         AC2:  Header shows active match identity (teams + round/set) — JS-populated.
+              E65S03: displayed score in each column follows the team (AC2, AC3).
         AC3:  Bottom-left wordmark rendered in template.
         AC4:  Bottom-centre field number rendered in template.
         AC5:  Single editable score input per team; +/- buttons operate on it.
@@ -348,6 +350,8 @@
         AC9:  +/- buttons increment/decrement the single score input.
         E61S03 swap model: effectiveSwap = (deterministicSwap(setIndex, isTiebreak, pts) + swapOffset) % 2.
         deterministicSwap = setIndex%2 XOR tiebreak-8-point-switch. swapOffset from localStorage.
+        E65S03 currentSwap: applySwap() sets currentSwap=swap; updateScoreDisplay() and +/- handlers
+        route to score1 or score2 based on currentSwap. AC4: score1/score2 payload mapping is team-fixed.
         DEC-19: ECMAScript 5 only — var, named functions, no arrow/class/template literals.
     -->
     <script>
@@ -391,6 +395,17 @@
     var currentTeam2Points   = 0;
     var score1               = 0;
     var score2               = 0;
+
+    /*
+     * AC2, AC3 (E65S03): currentSwap — active swap state (0 = normal, 1 = swapped).
+     * Updated by applySwap() on every render and swap-button press.
+     * Consulted by updateScoreDisplay() and all +/- handlers so each on-screen column
+     * consistently shows and modifies the score of the team displayed in that column.
+     * AC4 invariant: score1/score2 always hold team1/team2 points respectively;
+     * the team1Points/team2Points payload in sendPartialScore() and submitSetResult()
+     * is always team-fixed (never changed by a swap).
+     */
+    var currentSwap          = 0;
 
     /* AC11: offline score queue — array of {matchId, setIndex, team1Points, team2Points} */
     var scoreQueue           = [];
@@ -514,12 +529,24 @@
     }
 
     /* -------------------------------------------------------------------------
-       AC5: Score display helpers — single input per team
+       AC5: Score display helpers — single input per team.
+       AC2, AC3 (E65S03): swap-aware — each on-screen column shows the score of
+       the team currently displayed in that column, as tracked by currentSwap.
+       When currentSwap === 0: left column (input-team1) = score1, right = score2.
+       When currentSwap === 1: left column (input-team1) = score2, right = score1.
+       AC4 invariant: score1/score2 remain team-fixed; only the displayed values swap.
        --------------------------------------------------------------------- */
 
     function updateScoreDisplay() {
-        if (elInputTeam1) { elInputTeam1.value = String(score1); }
-        if (elInputTeam2) { elInputTeam2.value = String(score2); }
+        if (currentSwap === 1) {
+            /* Swapped: left column shows team2's score, right shows team1's score */
+            if (elInputTeam1) { elInputTeam1.value = String(score2); }
+            if (elInputTeam2) { elInputTeam2.value = String(score1); }
+        } else {
+            /* Normal: left column shows team1's score, right shows team2's score */
+            if (elInputTeam1) { elInputTeam1.value = String(score1); }
+            if (elInputTeam2) { elInputTeam2.value = String(score2); }
+        }
     }
 
     /* -------------------------------------------------------------------------
@@ -562,30 +589,42 @@
         return val;
     }
 
+    /*
+     * AC3 (E65S03): +/- handlers and input-change handlers are swap-aware.
+     * Each on-screen column's controls modify the score of the team shown in
+     * that column. When currentSwap === 1 the left column (col-team1 controls)
+     * belongs to team2, and the right column (col-team2 controls) belongs to team1.
+     * AC4 invariant: score1 always holds team1's points, score2 team2's points;
+     * the payload mapping in sendPartialScore() and submitSetResult() is team-fixed.
+     */
     if (elPlusTeam1) {
         elPlusTeam1.onclick = function () {
-            score1 = clamp(score1 + 1);
+            if (currentSwap === 1) { score2 = clamp(score2 + 1); }
+            else                   { score1 = clamp(score1 + 1); }
             updateScoreDisplay();
             sendPartialScore();
         };
     }
     if (elMinusTeam1) {
         elMinusTeam1.onclick = function () {
-            score1 = clamp(score1 - 1);
+            if (currentSwap === 1) { score2 = clamp(score2 - 1); }
+            else                   { score1 = clamp(score1 - 1); }
             updateScoreDisplay();
             sendPartialScore();
         };
     }
     if (elPlusTeam2) {
         elPlusTeam2.onclick = function () {
-            score2 = clamp(score2 + 1);
+            if (currentSwap === 1) { score1 = clamp(score1 + 1); }
+            else                   { score2 = clamp(score2 + 1); }
             updateScoreDisplay();
             sendPartialScore();
         };
     }
     if (elMinusTeam2) {
         elMinusTeam2.onclick = function () {
-            score2 = clamp(score2 - 1);
+            if (currentSwap === 1) { score1 = clamp(score1 - 1); }
+            else                   { score2 = clamp(score2 - 1); }
             updateScoreDisplay();
             sendPartialScore();
         };
@@ -593,7 +632,9 @@
     if (elInputTeam1) {
         elInputTeam1.onchange = function () {
             var v = parseInt(elInputTeam1.value, 10);
-            score1 = isNaN(v) ? 0 : clamp(v);
+            var clamped = isNaN(v) ? 0 : clamp(v);
+            if (currentSwap === 1) { score2 = clamped; }
+            else                   { score1 = clamped; }
             updateScoreDisplay();
             sendPartialScore();
         };
@@ -601,7 +642,9 @@
     if (elInputTeam2) {
         elInputTeam2.onchange = function () {
             var v = parseInt(elInputTeam2.value, 10);
-            score2 = isNaN(v) ? 0 : clamp(v);
+            var clamped = isNaN(v) ? 0 : clamp(v);
+            if (currentSwap === 1) { score1 = clamped; }
+            else                   { score2 = clamped; }
             updateScoreDisplay();
             sendPartialScore();
         };
@@ -623,12 +666,17 @@
 
     /*
      * AC2, AC3, AC4, AC5, AC6 (E61S03): Apply the visual swap to the displayed match.
-     * Updates only the column labels and header team display — score input IDs are
-     * structural (fixed) and their values remain bound to team1/team2 identity (AC5).
+     * AC2, AC3 (E65S03): Extended — now also updates the displayed score values so
+     * each column shows the score of the team it displays, and records the swap state
+     * in currentSwap for the +/- handlers and updateScoreDisplay() to consult.
      * team1Name and team2Name are the authoritative names from the API (never swapped in storage).
+     * AC4 invariant: score1/score2 remain team-fixed; the swap is presentation-only.
      */
     function applySwap(setIndex, isTiebreak, t1Points, t2Points) {
         var swap = effectiveSwap(setIndex, isTiebreak, t1Points, t2Points);
+        /* Record active swap state so updateScoreDisplay() and handlers route correctly */
+        currentSwap = swap;
+
         /* Retrieve team names stored on last renderMatch call */
         var leftName  = (swap === 1) ? currentTeam2Name : currentTeam1Name;
         var rightName = (swap === 1) ? currentTeam1Name : currentTeam2Name;
@@ -637,9 +685,12 @@
         if (elHeaderTeams) {
             vvwtSetText(elHeaderTeams, leftName + ' ' + MSG_VS_LABEL + ' ' + rightName);
         }
-        /* Update column labels (score inputs stay at their fixed IDs) */
+        /* Update column labels */
         vvwtSetText(elLabelTeam1, leftName);
         vvwtSetText(elLabelTeam2, rightName);
+
+        /* AC2, AC3 (E65S03): update displayed score values to match the swap state */
+        updateScoreDisplay();
     }
 
     /* Storage for team names used by applySwap between renderMatch calls */
