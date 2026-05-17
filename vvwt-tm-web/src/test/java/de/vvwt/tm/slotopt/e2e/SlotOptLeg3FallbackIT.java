@@ -5,8 +5,6 @@ package de.vvwt.tm.slotopt.e2e;
 import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.slotopt.SlotOptimizationClient;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
-import de.vvwt.tm.tournament.PhasePreparationService;
-import de.vvwt.tm.tournament.RoundAssignmentService;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,15 +34,15 @@ import org.springframework.test.context.ActiveProfiles;
  *
  * <p>Per DEC-15 (offline-operability), when the dispatcher URL is not configured, TM must complete
  * slot optimization in-process without any network dependency. The {@code
- * RoutingSlotOptimizationClient} routes directly to {@code CancelableInProcessSlotOptimizationService}
- * (Leg 3) when {@code DispatcherReachabilityService.isReachable()} returns {@code false} due to a
- * null/blank URL.
+ * RoutingSlotOptimizationClient} routes directly to {@code
+ * CancelableInProcessSlotOptimizationService} (Leg 3) when {@code
+ * DispatcherReachabilityService.isReachable()} returns {@code false} due to a null/blank URL.
  *
  * <h2>Large phase ({@code lapCount=11} — boundary routing)</h2>
  *
  * <p>The test inserts a 12-team / 1-group phase whose round-robin match generation produces 11 laps
- * (one above the {@code tm.slotopt.exhaustive-max-n=10} threshold). This forces the router to
- * check dispatcher reachability — and since the URL is absent, it falls through to Leg 3. {@code
+ * (one above the {@code tm.slotopt.exhaustive-max-n=10} threshold). This forces the router to check
+ * dispatcher reachability — and since the URL is absent, it falls through to Leg 3. {@code
  * lapCount=11} exercises the exact boundary condition (one above threshold) per the E63S08 edge
  * case table.
  *
@@ -70,8 +68,6 @@ import org.springframework.test.context.ActiveProfiles;
 class SlotOptLeg3FallbackIT {
 
     @Autowired private SlotOptimizationClient slotOptimizationClient;
-    @Autowired private PhasePreparationService phasePreparationService;
-    @Autowired private RoundAssignmentService roundAssignmentService;
     @Autowired private TenantContextTestSupport.Binder tenantBinder;
     @Autowired private JdbcTemplate jdbcTemplate;
 
@@ -82,11 +78,8 @@ class SlotOptLeg3FallbackIT {
     void setUp() {
         tenantBinder.bindDefaultTenant();
         tournamentId = UUID.randomUUID();
+        // Inserts phase + avatars + 11 laps × 2 fields = 22 matches with lapNumber in [1..11]
         phaseId = TmSlotOptE2ETestSupport.buildAndPersistLargePhase(tournamentId, jdbcTemplate);
-        // Generate 11 laps (N−1 for N=12 round-robin) → lapCount > threshold → Leg 3 (no URL)
-        phasePreparationService.generateMatches(phaseId, "roundRobin");
-        // L1 baseline assignment
-        roundAssignmentService.assignRoundsAndFields(phaseId, 2);
     }
 
     @AfterEach
@@ -100,9 +93,9 @@ class SlotOptLeg3FallbackIT {
      * Leg 3 (cancelable in-process) and produces non-null lap/field assignments.
      *
      * <p>Verifies DEC-15 offline-operability: TM can fully optimize a large phase without any
-     * network access. The routing client checks {@code DispatcherReachabilityService.isReachable()};
-     * since the URL is absent, it returns {@code false} immediately (null-URL fast path) and Leg 3
-     * executes.
+     * network access. The routing client checks {@code
+     * DispatcherReachabilityService.isReachable()}; since the URL is absent, it returns {@code
+     * false} immediately (null-URL fast path) and Leg 3 executes.
      *
      * <p>After {@code optimize()} returns, all 55 matches (11 laps × 5 matches/lap for 12 teams
      * round-robin) must have non-null {@code lap_number} and {@code field_number}.

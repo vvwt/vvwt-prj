@@ -430,14 +430,15 @@ public class DefaultSlotOptimizationDispatcherClient implements SlotOptimization
      * appear in the rows.
      */
     private Map<String, Object> buildSubmitJobPayload(RawPhaseDef rawPhaseDef) {
-        // Build rows array: each row = [{group: int, pos: int}, ...]
-        List<List<Map<String, Integer>>> rows = new ArrayList<>();
+        // Build rows array per RawPhaseDefDeserializer wire format (E37S07):
+        // each row = {"positions": [{group: int, pos: int}, ...]}
+        List<Map<String, Object>> rows = new ArrayList<>();
         for (RawRow row : rawPhaseDef.rows()) {
             List<Map<String, Integer>> positions = new ArrayList<>();
             for (PositionTuple pt : row.positions()) {
                 positions.add(Map.of("group", pt.group(), "pos", pt.pos()));
             }
-            rows.add(positions);
+            rows.add(Map.of("positions", positions));
         }
 
         // Submit-job payload per SubmitJobRequest shape (E37S07)
@@ -447,7 +448,7 @@ public class DefaultSlotOptimizationDispatcherClient implements SlotOptimization
                         "rowCount", rawPhaseDef.rowCount(),
                         "rows", rows);
 
-        // JobDef: UUID + n + minimal canonicalPhaseDef for dispatcher
+        // JobDef: UUID + n + canonicalPhaseDef (E63S08: canonical must include rows)
         Map<String, Object> jobDef =
                 Map.of(
                         "jobId", UUID.randomUUID(),
@@ -458,14 +459,21 @@ public class DefaultSlotOptimizationDispatcherClient implements SlotOptimization
     }
 
     /**
-     * Builds a minimal canonicalPhaseDef representation for the JobDef in the submit-job payload.
+     * Builds the canonicalPhaseDef payload for the JobDef in the submit-job request.
+     *
+     * <p>Computes the canonical form from the raw phase def via {@link
+     * de.vvwt.slotopt.worker.types.StructuralFingerprint#canonicalize(RawPhaseDef)}, producing a
+     * fully-populated {@code CanonicalPhaseDef} with {@code rowCount}, {@code avatarCount}, and
+     * {@code rows}. The dispatcher's {@code CanonicalPhaseDef} constructor requires all three
+     * fields to be non-null/non-empty (E63S08 — fixes pre-existing omission of {@code rows}).
      */
     private Map<String, Object> buildCanonicalPhaseDefPayload(RawPhaseDef rawPhaseDef) {
-        // Minimal representation — dispatcher needs rowCount and avatarCount
+        de.vvwt.slotopt.worker.types.CanonicalPhaseDef canonical =
+                de.vvwt.slotopt.worker.types.StructuralFingerprint.canonicalize(rawPhaseDef);
         return Map.of(
-                "rowCount", rawPhaseDef.rowCount(),
-                "avatarCount", rawPhaseDef.rowCount() // conservative estimate
-                );
+                "rowCount", canonical.rowCount(),
+                "avatarCount", canonical.avatarCount(),
+                "rows", canonical.rows());
     }
 
     // =========================================================================

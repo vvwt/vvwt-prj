@@ -100,11 +100,16 @@
             <artifactId>spring-boot-flyway</artifactId>
         </dependency>
 
-        <!-- H2: in-memory DB for IT (test scope) — DEC-26 analogous, E37S05 -->
+        <!-- H2: in-memory DB for standalone process startup and IT (runtime scope — E63S08).
+             The dispatcher's application.yml declares H2 as the default datasource; H2 must
+             therefore be on the runtime classpath so the fat JAR can start standalone.
+             Previously test-scoped (E37S05), which silently excluded H2 from the fat JAR
+             and prevented the dispatcher from starting as a subprocess in E2E tests.
+             Runtime scope ensures H2 is bundled in the fat JAR (AC-ERR-E2E-EXPOSED-DEFECT-SURFACED). -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <scope>test</scope>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- assertj-db: independent persistence verifier for DAO IT (DEC-26 Rule 2, E37S05) -->

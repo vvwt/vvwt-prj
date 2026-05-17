@@ -6,8 +6,6 @@ import de.vvwt.slotopt.standalone.integration.WorkerLauncher;
 import de.vvwt.tm.TournamentManagerApplication;
 import de.vvwt.tm.slotopt.SlotOptimizationClient;
 import de.vvwt.tm.tenant.TenantContextTestSupport;
-import de.vvwt.tm.tournament.PhasePreparationService;
-import de.vvwt.tm.tournament.RoundAssignmentService;
 import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -49,13 +47,13 @@ import org.springframework.test.context.DynamicPropertySource;
  *
  * <p>The live dispatcher is started as an external OS subprocess using {@link
  * DispatcherProcessLauncher} (ProcessBuilder). This introduces no compile-time dependency on {@code
- * vvwt-slotopt-dispatcher} (Maven Enforcer ban per DEC-11). The dispatcher JAR is resolved from
- * the filesystem at test runtime.
+ * vvwt-slotopt-dispatcher} (Maven Enforcer ban per DEC-11). The dispatcher JAR is resolved from the
+ * filesystem at test runtime.
  *
  * <h2>Execution pattern (AC-ERR-E2E-DETERMINISTIC)</h2>
  *
- * <p>The standalone worker runs in a background thread via {@link WorkerLauncher#launch()}.
- * {@code optimize()} is called on the main test thread — it submits the job to the dispatcher and
+ * <p>The standalone worker runs in a background thread via {@link WorkerLauncher#launch()}. {@code
+ * optimize()} is called on the main test thread — it submits the job to the dispatcher and
  * condition-polls for the result (exponential backoff, no fixed sleep, per {@code
  * DefaultSlotOptimizationDispatcherClient}). The worker bootstraps (registers with dispatcher) and
  * pulls packets concurrently; the dispatcher completes the job once all packets are solved. No
@@ -116,8 +114,6 @@ class SlotOptE2EIT {
     }
 
     @Autowired private SlotOptimizationClient slotOptimizationClient;
-    @Autowired private PhasePreparationService phasePreparationService;
-    @Autowired private RoundAssignmentService roundAssignmentService;
     @Autowired private TenantContextTestSupport.Binder tenantBinder;
     @Autowired private JdbcTemplate jdbcTemplate;
 
@@ -128,11 +124,9 @@ class SlotOptE2EIT {
     void setUp() {
         tenantBinder.bindDefaultTenant();
         tournamentId = UUID.randomUUID();
+        // Inserts phase + avatars + 11 laps × 2 fields = 22 matches with lapNumber in [1..11]
+        // (direct insertion — no generateMatches/assignRoundsAndFields needed)
         phaseId = TmSlotOptE2ETestSupport.buildAndPersistLargePhase(tournamentId, jdbcTemplate);
-        // Generate 11 laps (N−1 for N=12 round-robin in 1 group) via real match generator
-        phasePreparationService.generateMatches(phaseId, "roundRobin");
-        // L1 baseline: assign initial round and field numbers
-        roundAssignmentService.assignRoundsAndFields(phaseId, 2);
     }
 
     @AfterEach
@@ -147,9 +141,9 @@ class SlotOptE2EIT {
      *
      * <p>The standalone worker runs in a background thread ({@link WorkerLauncher#launch()}).
      * {@code optimize()} is called on the main thread; it submits the phase to the dispatcher and
-     * polls with exponential backoff until the job is COMPLETED. The worker bootstraps concurrently,
-     * pulls and solves packets. On return, all matches must have non-null {@code lap_number} and
-     * {@code field_number}.
+     * polls with exponential backoff until the job is COMPLETED. The worker bootstraps
+     * concurrently, pulls and solves packets. On return, all matches must have non-null {@code
+     * lap_number} and {@code field_number}.
      *
      * <p>Boundary: {@code lapCount=11} (one above {@code tm.slotopt.exhaustive-max-n=10}) — the
      * routing decision boundary per E63S08 edge case table.
@@ -162,8 +156,7 @@ class SlotOptE2EIT {
         // Launch standalone worker in background — it registers with dispatcher and waits for jobs.
         // WorkerLauncher.launch() blocks until the worker exits or times out.
         WorkerLauncher workerLauncher =
-                new WorkerLauncher(
-                        dispatcherLauncher.getBaseUri(), Duration.ofSeconds(120));
+                new WorkerLauncher(dispatcherLauncher.getBaseUri(), Duration.ofSeconds(120));
         ExecutorService workerExecutor = Executors.newSingleThreadExecutor();
         workerExecutor.submit(workerLauncher::launch);
         try {
@@ -186,20 +179,18 @@ class SlotOptE2EIT {
      *
      * <p>The TM context has the dispatcher URL configured, so TM's embedded worker (if enabled via
      * {@code tm.slotopt.embedded-worker.enabled=true}) would also be registered. This test launches
-     * an additional standalone worker so that at least one worker is guaranteed to contribute.
-     * The job completes when all packets are solved. Asserts non-null lap/field after
-     * {@code optimize()} returns.
+     * an additional standalone worker so that at least one worker is guaranteed to contribute. The
+     * job completes when all packets are solved. Asserts non-null lap/field after {@code
+     * optimize()} returns.
      *
      * <p>The AC is satisfied by the standalone worker's participation — embedded worker
      * participation is additive and not required to be the sole solver.
      */
     @Test
-    @DisplayName(
-            "AC-TEST-E2E-EMBEDDED-WORKER-CONTRIBUTES: worker pool solves phase via dispatcher")
+    @DisplayName("AC-TEST-E2E-EMBEDDED-WORKER-CONTRIBUTES: worker pool solves phase via dispatcher")
     void leg2_embeddedWorkerContributes_packetSolved() throws Exception {
         WorkerLauncher workerLauncher =
-                new WorkerLauncher(
-                        dispatcherLauncher.getBaseUri(), Duration.ofSeconds(120));
+                new WorkerLauncher(dispatcherLauncher.getBaseUri(), Duration.ofSeconds(120));
         ExecutorService workerExecutor = Executors.newSingleThreadExecutor();
         workerExecutor.submit(workerLauncher::launch);
         try {

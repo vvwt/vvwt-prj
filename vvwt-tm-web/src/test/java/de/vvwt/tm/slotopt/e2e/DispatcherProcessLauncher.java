@@ -21,8 +21,8 @@ import java.util.stream.Stream;
  *
  * <p>This launcher provides a live dispatcher for TM end-to-end integration tests
  * (AC-TEST-E2E-LEG2-LIVE-WORKER) without introducing a compile-time dependency on the dispatcher
- * module (AC-GOV-NO-DISPATCHER-COMPILE-DEP, DEC-11). The dispatcher JAR is resolved from the
- * Maven build output at test runtime — no hardcoded path.
+ * module (AC-GOV-NO-DISPATCHER-COMPILE-DEP, DEC-11). The dispatcher JAR is resolved from the Maven
+ * build output at test runtime — no hardcoded path.
  *
  * <h2>Readiness probing (AC-ERR-E2E-DETERMINISTIC)</h2>
  *
@@ -103,8 +103,7 @@ class DispatcherProcessLauncher {
         command.add("--spring.datasource.driver-class-name=org.h2.Driver");
         command.add("--spring.datasource.username=sa");
         command.add("--spring.datasource.password=");
-        command.add("--spring.jpa.hibernate.ddl-auto=create-drop");
-        command.add("--spring.jpa.database-platform=org.hibernate.dialect.H2Dialect");
+        // Let Flyway manage the schema (do NOT set ddl-auto=create-drop — it conflicts with Flyway)
         // Reduce startup noise
         command.add("--logging.level.root=WARN");
         command.add("--logging.level.de.vvwt=INFO");
