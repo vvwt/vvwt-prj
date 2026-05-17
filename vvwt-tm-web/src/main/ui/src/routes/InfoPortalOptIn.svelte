@@ -39,7 +39,7 @@
 
   onMount(async () => {
     pageHeader.set({
-      title: get(_)('infoPortal.title') ?? 'Info-Portal',
+      title: get(_)('infoPortal.title'),
       backTo: '/tournaments',
       tournamentId: tournamentId || null,
       actions: [],
@@ -94,22 +94,23 @@
 
 <div class="info-portal-opt-in">
   {#if loading}
-    <p class="loading">Laden…</p>
+    <p class="loading">{$_('infoPortal.loading')}</p>
   {:else if loadError}
-    <p class="error">Fehler: {loadError}</p>
+    <p class="error">{$_('infoPortal.loadError', { default: 'Fehler: {error}', values: { error: loadError } })}</p>
   {:else if status === 'DISABLED'}
     <div class="status-disabled">
       <span class="status-icon">⊘</span>
-      <p>Info-Portal nicht konfiguriert</p>
+      <p>{$_('infoPortal.statusDisabled')}</p>
+      <p class="config-hint">{$_('infoPortal.configHint')}</p>
     </div>
   {:else if status === 'REGISTERED'}
     <div class="status-registered">
       <span class="status-icon">✓</span>
-      <p>Bereits veröffentlicht</p>
+      <p>{$_('infoPortal.statusRegistered')}</p>
     </div>
   {:else if status === 'NOT_REGISTERED'}
     <div class="status-not-registered">
-      <p>Dieses Turnier ist noch nicht im Info-Portal veröffentlicht.</p>
+      <p>{$_('infoPortal.statusNotRegistered')}</p>
       {#if actionError}
         <p class="error">{actionError}</p>
       {/if}
@@ -118,13 +119,13 @@
         disabled={submitting}
         onclick={handleOptIn}
       >
-        {submitting ? 'Wird veröffentlicht…' : 'Opt-in: Im Info-Portal veröffentlichen'}
+        {submitting ? $_('infoPortal.submittingOptIn') : $_('infoPortal.optInButton')}
       </button>
     </div>
   {:else if status === 'ERROR'}
     <div class="status-error">
       <span class="status-icon">✗</span>
-      <p>Veröffentlichung fehlgeschlagen.</p>
+      <p>{$_('infoPortal.statusError')}</p>
       {#if actionError}
         <p class="error">{actionError}</p>
       {/if}
@@ -133,7 +134,7 @@
         disabled={submitting}
         onclick={handleOptIn}
       >
-        {submitting ? 'Wird erneut versucht…' : 'Erneut versuchen'}
+        {submitting ? $_('infoPortal.submittingRetry') : $_('infoPortal.retryButton')}
       </button>
     </div>
   {/if}
@@ -154,6 +155,11 @@
   }
   .error {
     color: var(--color-error, #c00);
+  }
+  .config-hint {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--color-text-muted, #888);
   }
   .status-icon {
     font-size: 1.5rem;

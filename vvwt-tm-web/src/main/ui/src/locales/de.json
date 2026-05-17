@@ -54,7 +54,8 @@
     "cancelConfirm": "Turnier wirklich abbrechen?",
     "lifecycleError": "Fehler beim Statuswechsel.",
     "phasesButton": "Phasen",
-    "schedulesButton": "Zeitpläne"
+    "schedulesButton": "Zeitpläne",
+    "infoPortalButton": "Info-Portal"
   },
   "phases": {
     "pageTitle": "Phasenübersicht",
@@ -471,7 +472,19 @@
     "publisherUnhealthy": {
       "title": "Publisher nicht erreichbar",
       "body": "Der Info-Portal-Publisher hat 5 aufeinanderfolgende Fehler gemeldet. Bitte Verbindung prüfen."
-    }
+    },
+    "title": "Info-Portal",
+    "loading": "Laden…",
+    "loadError": "Fehler beim Laden: {error}",
+    "statusDisabled": "Info-Portal nicht konfiguriert",
+    "configHint": "Um das Info-Portal zu aktivieren, tragen Sie in application.yml unter info-portal: die Eigenschaften url, tenant-id und location-id ein. Eine Konfiguration über die Benutzeroberäche ist nicht möglich.",
+    "statusRegistered": "Bereits veröffentlicht",
+    "statusNotRegistered": "Dieses Turnier ist noch nicht im Info-Portal veröffentlicht.",
+    "optInButton": "Im Info-Portal veröffentlichen",
+    "submittingOptIn": "Wird veröffentlicht…",
+    "statusError": "Veröffentlichung fehlgeschlagen.",
+    "retryButton": "Erneut versuchen",
+    "submittingRetry": "Wird erneut versucht…"
   },
   "error": {
     "tournament": {

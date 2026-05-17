@@ -232,7 +232,7 @@
               <!-- E62S02: navigate to Info-Portal opt-in control -->
               <button class="btn btn--secondary btn--sm"
                       onclick={() => push(`/tournaments/${t.id}/info-portal`)}>
-                {$_('tournaments.infoPortalButton') ?? 'Info-Portal'}
+                {$_('tournaments.infoPortalButton')}
               </button>
               <!-- E48S05 AC-FRONTEND-NAV-FROM-TOURNAMENTS: Phasen nav for PLANNED/ACTIVE/COMPLETED/CANCELLED -->
               <!-- E52S01 AC-IMPL-VISIBILITY-GATE: Zeitpläne button (print index) — same gate as phases (PLANNED|ACTIVE|COMPLETED|CANCELLED) -->

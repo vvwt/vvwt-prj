@@ -351,3 +351,30 @@ describe('E52S03 — App.svelte: /timer-link route REGISTERED (AC-TEST-TIMERLINK
     expect(source).toContain('timer-link');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E64S02 — AC2: tournaments.infoPortalButton key in de.json
+// RED-first per DEC-22: test fails until de.json gains the key
+// ─────────────────────────────────────────────────────────────────────────────
+import deMessages from '../locales/de.json';
+
+describe('de.json — E64S02 AC2: tournaments.infoPortalButton key (AC-TEST-E64S02-INFOPORTALBUTTON-KEY-RED)', () => {
+  it('de.json tournaments.infoPortalButton is a non-empty German string', () => {
+    // AC2: tournaments.infoPortalButton key must exist nested in tournaments namespace
+    const t = (deMessages as unknown as Record<string, Record<string, string>>).tournaments;
+    expect(t).toHaveProperty('infoPortalButton');
+    expect(typeof t.infoPortalButton).toBe('string');
+    expect(t.infoPortalButton.length).toBeGreaterThan(0);
+  });
+
+  it('Tournaments.svelte renders infoPortalButton via $_ not dead ?? literal', async () => {
+    // AC5: the button must use $_(key) form without dead ?? literal fallback
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './Tournaments.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain("$_('tournaments.infoPortalButton')");
+    // Must NOT use the dead ?? literal anti-pattern (AC5)
+    expect(source).not.toMatch(/\$_\('tournaments\.infoPortalButton'\)\s*\?\?\s*'[^']+'/);
+  });
+});
