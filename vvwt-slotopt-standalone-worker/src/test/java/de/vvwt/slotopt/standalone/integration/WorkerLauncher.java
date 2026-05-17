@@ -53,7 +53,8 @@ import org.slf4j.LoggerFactory;
  * <p>Story: E41S06 AC-INTEGRATION-TEST-HAPPY-PATH and related ITs; E63S01 re-wired onto shared
  * runtime library (AC-GOV-NO-TEST-ONLY-MEMBERS-IN-EXTRACTED-CODE: stopAfterNextIteration removed).
  * E60S05: made {@code public} so the class is accessible from the dispatcher E2E test package via
- * the test-jar of vvwt-slotopt-standalone-worker.
+ * the test-jar of vvwt-slotopt-standalone-worker. E41S08: added {@link #awaitFirstRuntimeEvent} for
+ * deterministic readiness gating.
  */
 public class WorkerLauncher {
 
@@ -62,6 +63,15 @@ public class WorkerLauncher {
     private final URI dispatcherUrl;
     private final Duration timeout;
     private volatile DefaultWorkerLoop workerLoopRef;
+
+    /**
+     * Runtime event logger, created at construction time so that {@link #awaitFirstRuntimeEvent}
+     * can register a readiness latch BEFORE the worker thread starts — eliminating the window in
+     * which a late-starting worker could miss the latch registration (E41S08).
+     *
+     * <p>The same instance is passed into the worker pipeline by {@link #launch()}.
+     */
+    private final CapturingStructuredLogger runtimeLogger = new CapturingStructuredLogger();
 
     /**
      * Creates a launcher pointing at the given dispatcher URL with a 30-second timeout.
@@ -97,7 +107,6 @@ public class WorkerLauncher {
         PrintStream originalErr = System.err;
 
         List<String> bootstrapEvents = Collections.synchronizedList(new ArrayList<>());
-        CapturingStructuredLogger runtimeLogger = new CapturingStructuredLogger();
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
         Future<Integer> future =
@@ -149,8 +158,31 @@ public class WorkerLauncher {
         }
     }
 
+    /**
+     * Blocks until the first occurrence of the named runtime event is observed in the worker's
+     * structured event stream, or until the timeout elapses.
+     *
+     * <p>This provides a deterministic readiness gate for tests that need to verify the worker has
+     * reached a specific point in its lifecycle (e.g. {@code packet_pulled}) before triggering
+     * shutdown — replacing the fixed {@code Thread.sleep} pattern that fails under parallel {@code
+     * mvn verify} load (E41S08 timing-race fix).
+     *
+     * <p>The {@link CapturingStructuredLogger} is created at construction time and shared with the
+     * worker pipeline via {@link #launch()}, so latches registered by this method are guaranteed to
+     * be in place before the worker emits any event.
+     *
+     * @param eventName the runtime event name to wait for (e.g. {@code "packet_pulled"})
+     * @param timeoutMs maximum wait time in milliseconds
+     * @return {@code true} if the event was observed within the timeout; {@code false} on timeout
+     * @throws InterruptedException if the waiting thread is interrupted
+     */
+    public boolean awaitFirstRuntimeEvent(String eventName, long timeoutMs)
+            throws InterruptedException {
+        return runtimeLogger.awaitEvent(eventName, timeoutMs);
+    }
+
     private int runWorkerInThread(
-            List<String> bootstrapEventSink, CapturingStructuredLogger runtimeLogger) {
+            List<String> bootstrapEventSink, CapturingStructuredLogger runtimeLoggerArg) {
 
         Path keyDir;
         try {
@@ -220,7 +252,8 @@ public class WorkerLauncher {
         CpuThrottle noOpThrottle = duration -> {};
 
         DefaultWorkerLoop workerLoop =
-                new DefaultWorkerLoop(computeStep, config, noOpThrottle, runtimeLogger, workerId);
+                new DefaultWorkerLoop(
+                        computeStep, config, noOpThrottle, runtimeLoggerArg, workerId);
         workerLoopRef = workerLoop;
 
         try {
