@@ -201,6 +201,40 @@ class ScoreFieldSwapIT {
     }
 
     // =========================================================================
+    // AC2+AC3 (E65S03): swap-aware score display — structural governance marker
+    // =========================================================================
+
+    /**
+     * AC2+AC3 (E65S03): After a side-swap each column shows the correct team's score and +/-
+     * buttons. The fix tracks the active swap state in a {@code currentSwap} variable (0 or 1) that
+     * {@code updateScoreDisplay} and the +/- handlers consult to route to the correct score.
+     *
+     * <p>Test surface: rendered-HTML / inline-script source inspection (see AC7 constraint). The
+     * runtime behaviour — each column's displayed score and +/- routing belonging to the team
+     * currently shown (AC2, AC3) — is verified by the implementer and recorded in the E65S03
+     * impl-report.
+     *
+     * <p>DEC-22 Iron Law: this test was written RED-first against the E61S03 implementation that
+     * does NOT yet declare {@code currentSwap} — it fails until the E65S03 fix is applied.
+     */
+    @Test
+    @DisplayName(
+            "AC2+AC3 (E65S03 swap-aware score): inline script declares currentSwap variable"
+                    + " — swap-state is tracked so updateScoreDisplay routes values correctly")
+    void fieldPage_inlineScriptDeclareCurrentSwap() throws Exception {
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/field/1"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as(
+                        "Inline script must declare 'currentSwap' variable — the swap-state"
+                                + " tracker that makes updateScoreDisplay and +/- handlers"
+                                + " swap-aware (AC2+AC3: E65S03)")
+                .contains("currentSwap");
+    }
+
+    // =========================================================================
     // AC9 (governance): no ES2015+ syntax in the inline script
     // =========================================================================
 
