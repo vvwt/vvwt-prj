@@ -36,28 +36,35 @@
  * allowedDependencies}), the Spring framework, and the Java standard library. No other TM
  * bounded-context module is imported.
  *
- * <p>Consequently, {@code allowedDependencies = {}} (empty) at this commit. When future E38 Phase
- * 2+ stories add cross-module integration (e.g., infoportal subscribing to tournament-context
- * events for snapshot publication), {@code allowedDependencies} expands at that story's commit per
- * DEC-21.
+ * <p>{@code allowedDependencies = {"tournament", "tournament::events"}} as of E62S01 (DEC-21):
  *
- * <h2>DEC-35 internal split (deferred — E45S02 scope boundary)</h2>
+ * <ul>
+ *   <li>{@code "tournament"} — the root {@code de.vvwt.tm.tournament} module (Team, Match,
+ *       TeamAvatar, Phase, PhaseBreak, Tournament, and their repositories) consumed by the {@link
+ *       de.vvwt.tm.infoportal.TournamentSnapshotBuilder} (E62S01).
+ *   <li>{@code "tournament::events"} — the {@code de.vvwt.tm.tournament.events} {@link
+ *       org.springframework.modulith.NamedInterface} sub-package. Declared here so that E62S03's
+ *       {@code @TransactionalEventListener} inherits a ready boundary edge without triggering an
+ *       additional {@code allowedDependencies} edit at that story's commit. Spring Modulith {@code
+ *       verify()} does not fail on a declared-but-not-yet-consumed dependency entry (per DEC-21
+ *       Notes / DEC-40 {@code tournament::exceptions} precedent).
+ * </ul>
  *
- * <p>All current {@code infoportal} classes reside at the package root. The DEC-35 pragmatic-
- * hexagonal split (service interfaces in public package, implementations in {@code .internal}) is
- * deferred to a follow-up story or Wave-3 cleanup. S02 ships the module declaration only. Candidate
- * for future {@code .internal} relocation: {@link de.vvwt.tm.infoportal.Ed25519KeypairManager}
- * (implementation detail). See {@code impl-report.md} for the classification rationale.
+ * <h2>DEC-35 internal split</h2>
+ *
+ * <p>As of E62S01: {@link de.vvwt.tm.infoportal.TournamentSnapshotBuilder} (public interface) and
+ * {@code de.vvwt.tm.infoportal.internal.DefaultTournamentSnapshotBuilder} (implementation) follow
+ * the DEC-35 pragmatic-hexagonal split. Legacy classes at the package root (E38/E45S02 scope)
+ * retain their deferred classification per the E45S02 rationale pending a future Wave-3 cleanup.
  *
  * <p>Authorizing decisions: DEC-21 (Spring Modulith layout + {@code allowedDependencies} contract),
- * DEC-35 (package layout; {@code .internal} split deferred per AC-DEC35-INTERNAL-CLASSIFICATION-
- * DEFERRED), DEC-40 (Primary-Adapter-Isolation — REST controller {@link
- * de.vvwt.tm.infoportal.InfoPortalStatusController} resides in {@code de.vvwt.tm.web} scope; the
- * controller class is currently at the infoportal root but routes through the web module per
- * DEC-40), DEC-42 (PPIS as third subsystem — {@code vvwt-info-dto} is the only cross-subsystem
- * dependency from TM side).
+ * DEC-35 (package layout — interface public, impl in {@code .internal}), DEC-40 (Primary-Adapter-
+ * Isolation), DEC-42 (PPIS as third subsystem — {@code vvwt-info-dto} is the only cross-subsystem
+ * dependency from TM side), DEC-58 (universal interface mandate for {@code @Service} beans).
  *
- * @since E45S02
+ * @since E45S02 (module declaration); E62S01 (allowedDependencies expansion +
+ *     TournamentSnapshotBuilder)
  */
-@org.springframework.modulith.ApplicationModule(allowedDependencies = {})
+@org.springframework.modulith.ApplicationModule(
+        allowedDependencies = {"tournament", "tournament::events"})
 package de.vvwt.tm.infoportal;
