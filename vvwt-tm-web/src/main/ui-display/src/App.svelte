@@ -63,6 +63,14 @@
   import ErrorPanel from './components/ErrorPanel.svelte';
   import SidebarHeader from './components/SidebarHeader.svelte';
   import DisplayRegisterPage from './components/DisplayRegisterPage.svelte';
+  import LicenseInfoPanel from './components/LicenseInfoPanel.svelte';
+
+  // ---------------------------------------------------------------------------
+  // E59S03 AC3: Info-panel toggle state (§13 source-code offer)
+  // ---------------------------------------------------------------------------
+
+  /** Whether the AGPL §13 source-code info panel is open. */
+  let licenseInfoOpen: boolean = $state(false);
 
   // ---------------------------------------------------------------------------
   // Client-side routing (E07S07)
@@ -406,6 +414,29 @@
       </OverviewLayout>
     {/if}
   </div>
+
+  <!--
+    E59S03 AC3: Persistently-rendered entry point to the §13 source-code offer.
+    A fixed-position button is always visible on the live display view (bottom-right corner)
+    so the live overview view loses no layout space. The button carries an accessible
+    aria-label naming its purpose — an icon alone would not satisfy AC3 discoverability.
+    Clicking opens LicenseInfoPanel as a modal overlay.
+  -->
+  <button
+    class="license-info-btn"
+    type="button"
+    aria-label="Source code information (AGPL-3.0-or-later)"
+    title="Source code information (AGPL-3.0-or-later)"
+    onclick={() => { licenseInfoOpen = true; }}
+  >ℹ</button>
+
+  <!--
+    E59S03 AC3: AGPL §13 info panel — rendered as overlay, conditionally visible.
+    Mounted only when licenseInfoOpen is true so it occupies no DOM space otherwise.
+  -->
+  {#if licenseInfoOpen}
+    <LicenseInfoPanel onClose={() => { licenseInfoOpen = false; }} />
+  {/if}
 {/if}
 
 <style>
@@ -463,5 +494,33 @@
 
   @keyframes spin {
     to { transform: rotate(360deg); }
+  }
+
+  /*
+   * E59S03 AC3: Persistently-rendered info button — fixed bottom-right corner.
+   * Always visible on the live display view; does not displace any layout.
+   * Carries accessible aria-label so it is not an "icon alone" (AC3 discoverability).
+   */
+  .license-info-btn {
+    position: fixed;
+    bottom: 0.6rem;
+    right: 0.6rem;
+    z-index: 100;
+    background: rgba(44, 62, 80, 0.7);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 2rem;
+    height: 2rem;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+
+  .license-info-btn:hover {
+    background: rgba(44, 62, 80, 0.95);
   }
 </style>

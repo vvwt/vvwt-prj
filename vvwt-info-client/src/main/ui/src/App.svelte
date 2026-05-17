@@ -231,6 +231,17 @@
       <p>{de['app.loading']}</p>
     </div>
   {/if}
+
+  <!-- E59S03 AC2/AC5: Persistent AGPL §13 source-code offer footer (Infoportal SPA). -->
+  <!-- Text from de['license.sourceCode'] to satisfy AC16 (no inline literals). -->
+  <footer class="agpl-footer">
+    <a
+      href="https://github.com/vvwt/vvwt-prj"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="agpl-footer__link"
+    >{de['license.sourceCode']}</a>
+  </footer>
 </main>
 
 <style>
@@ -257,5 +268,24 @@
     padding: 2rem;
     color: #888;
     font-style: italic;
+  }
+
+  /* E59S03 AC2/AC5: AGPL §13 source-code offer footer */
+  .agpl-footer {
+    margin-top: 1.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #e0e0e0;
+    text-align: center;
+    font-size: 0.75rem;
+  }
+
+  .agpl-footer__link {
+    color: #888;
+    text-decoration: none;
+  }
+
+  .agpl-footer__link:hover {
+    text-decoration: underline;
+    color: #555;
   }
 </style>

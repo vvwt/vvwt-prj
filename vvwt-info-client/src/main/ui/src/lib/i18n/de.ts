@@ -34,6 +34,9 @@ const de: Record<string, string> = {
 
   // Separator used between team names in match display
   'schedule.vs.separator': ' — ',
+
+  // E59S03 AC2/AC5: AGPL §13 source-code offer (English per AC5)
+  'license.sourceCode': 'Source code (AGPL-3.0-or-later)',
 };
 
 export default de;
