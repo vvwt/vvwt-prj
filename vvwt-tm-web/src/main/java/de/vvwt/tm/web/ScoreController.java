@@ -245,6 +245,8 @@ public class ScoreController {
         model.addAttribute("msgQueueSaved", msg("score.field.queue.saved", "Saved.", locale));
         model.addAttribute("versionLabel", msg("score.field.version.label", "Version", locale));
         model.addAttribute("appVersion", appVersion);
+        // AC1/AC8 (E61S03): swap control label
+        model.addAttribute("msgSwapLabel", msg("score.field.swap.label", "Swap sides", locale));
 
         return "score/field";
     }
