@@ -1,9 +1,5 @@
 // SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Tests for InfoPortalOptIn route component — E62S02 AC3.
-// AC3: The TM-admin Svelte opt-in control reflects the current opt-in state of a
-// tournament and sets it on operator action.
-// Structural source-inspection tests per project test pattern.
 import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
