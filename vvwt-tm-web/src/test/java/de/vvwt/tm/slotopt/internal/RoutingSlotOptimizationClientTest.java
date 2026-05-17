@@ -172,7 +172,8 @@ class RoutingSlotOptimizationClientTest {
         UUID jobId = UUID.randomUUID();
         when(dispatcherClientMock.submitJob(any())).thenReturn(jobId);
         // E63S02: pollResult now returns the actual rank from finalResult, not the empty sentinel
-        when(dispatcherClientMock.pollResult(jobId)).thenReturn(Optional.of(new int[] {0}));
+        when(dispatcherClientMock.pollResult(eq(jobId), any(CancellationToken.class)))
+                .thenReturn(Optional.of(new int[] {0}));
 
         subject.optimize(phaseId);
 
@@ -303,7 +304,8 @@ class RoutingSlotOptimizationClientTest {
         when(reachabilityMock.isReachable()).thenReturn(true);
         UUID jobId = UUID.randomUUID();
         when(dispatcherClientMock.submitJob(any())).thenReturn(jobId);
-        when(dispatcherClientMock.pollResult(jobId)).thenReturn(Optional.empty()); // timeout
+        when(dispatcherClientMock.pollResult(eq(jobId), any(CancellationToken.class)))
+                .thenReturn(Optional.empty()); // timeout (token not cancelled → Leg 3 fallthrough)
         when(cancelableServiceMock.optimize(
                         eq(phaseId), eq(tournamentId), any(CancellationToken.class)))
                 .thenReturn(OptimizationResult.completed(0L, 0.0));
@@ -482,7 +484,7 @@ class RoutingSlotOptimizationClientTest {
         when(dispatcherClientMock.submitJob(any())).thenReturn(jobId);
         // Rank 5 returned by the dispatcher (non-identity permutation)
         int dispatcherRank = 5;
-        when(dispatcherClientMock.pollResult(jobId))
+        when(dispatcherClientMock.pollResult(eq(jobId), any(CancellationToken.class)))
                 .thenReturn(Optional.of(new int[] {dispatcherRank}));
 
         subject.optimize(phaseId);
@@ -508,7 +510,8 @@ class RoutingSlotOptimizationClientTest {
         when(reachabilityMock.isReachable()).thenReturn(true);
         UUID jobId = UUID.randomUUID();
         when(dispatcherClientMock.submitJob(any())).thenReturn(jobId);
-        when(dispatcherClientMock.pollResult(jobId)).thenReturn(Optional.of(new int[] {0}));
+        when(dispatcherClientMock.pollResult(eq(jobId), any(CancellationToken.class)))
+                .thenReturn(Optional.of(new int[] {0}));
 
         subject.optimize(phaseId);
 
@@ -537,7 +540,9 @@ class RoutingSlotOptimizationClientTest {
         UUID jobId = UUID.randomUUID();
         when(dispatcherClientMock.submitJob(any())).thenReturn(jobId);
         // Empty optional = malformed result or fetch failure (AC-ERR-RESULT-FETCH-FAILURE)
-        when(dispatcherClientMock.pollResult(jobId)).thenReturn(Optional.empty());
+        // token not cancelled → falls through to Leg 3
+        when(dispatcherClientMock.pollResult(eq(jobId), any(CancellationToken.class)))
+                .thenReturn(Optional.empty());
         when(cancelableServiceMock.optimize(
                         eq(phaseId), eq(tournamentId), any(CancellationToken.class)))
                 .thenReturn(OptimizationResult.completed(0L, 0.0));
@@ -726,6 +731,222 @@ class RoutingSlotOptimizationClientTest {
         }
         return new MappingResult(
                 raw, canonical, canonical.avatarCount(), matches, denseIdsByRawRow);
+    }
+
+    // =========================================================================
+    // E63S06 RED-first tests — Leg-2 cancel: register handle + 3-case BSF
+    // =========================================================================
+
+    /**
+     * AC-TEST-LEG2-JOB-REGISTERED-CANCELLABLE (E63S06 RED-first):
+     *
+     * <p>While Leg-2 is running (submitJob called, pollResult in progress), the job MUST be
+     * registered in {@link de.vvwt.tm.slotopt.SlotOptimizationJobRegistry} so that an operator
+     * cancel for that tournament reaches a handle.
+     *
+     * <p>RED against current code: {@code tryLeg2()} never calls {@code jobRegistry.register()}.
+     * After the fix, a {@link de.vvwt.tm.slotopt.JobHandle} is registered before {@code pollResult}
+     * is called.
+     */
+    @Test
+    void leg2Cancel_jobRegisteredBeforePoll_E63S06() {
+        UUID phaseId = UUID.randomUUID();
+        UUID tournamentId = UUID.randomUUID();
+        int lapCount = EXHAUSTIVE_MAX_N + 1;
+        MappingResult mapping =
+                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
+        when(mapperMock.map(phaseId)).thenReturn(mapping);
+        when(reachabilityMock.isReachable()).thenReturn(true);
+        UUID jobId = UUID.randomUUID();
+        when(dispatcherClientMock.submitJob(any())).thenReturn(jobId);
+        when(dispatcherClientMock.pollResult(eq(jobId), any(CancellationToken.class)))
+                .thenReturn(Optional.of(new int[] {0}));
+
+        subject.optimize(phaseId);
+
+        // MUST register a handle in the registry before pollResult is called
+        verify(registryMock).register(eq(tournamentId), any(JobHandle.class));
+        // MUST complete the handle after Leg-2 finishes
+        verify(registryMock).complete(tournamentId);
+    }
+
+    /**
+     * AC-TEST-CANCEL-CASE-PARTIAL-BEST-SO-FAR (E63S06 RED-first — case 2):
+     *
+     * <p>When an operator cancel interrupts the poll (pollResult returns empty due to cancellation)
+     * AND the dispatcher exposes a partial bestSoFar (≥1 packet completed), TM applies it via
+     * {@link de.vvwt.tm.slotopt.SlotResultApplicator}.
+     *
+     * <p>RED against current code: cancel-interrupted poll falls through to Leg 3; no BSF fetch.
+     * After the fix, {@code fetchBestSoFar(jobId)} is called and the result is applied.
+     *
+     * <p>Simulates cancel: {@code pollResult(jobId, token)} returns empty (token is cancelled).
+     * {@code fetchBestSoFar(jobId)} returns rank=7 (partial result). Applicator must be called with
+     * rank=7; Leg 3 must NOT be invoked.
+     */
+    @Test
+    void leg2Cancel_cancelledPoll_partialBsfApplied_caseTwo_E63S06() {
+        UUID phaseId = UUID.randomUUID();
+        UUID tournamentId = UUID.randomUUID();
+        int lapCount = EXHAUSTIVE_MAX_N + 1;
+        MappingResult mapping =
+                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
+        when(mapperMock.map(phaseId)).thenReturn(mapping);
+        when(reachabilityMock.isReachable()).thenReturn(true);
+        UUID jobId = UUID.randomUUID();
+        when(dispatcherClientMock.submitJob(any())).thenReturn(jobId);
+        // pollResult returns empty (simulating cancel-interrupted poll)
+        when(dispatcherClientMock.pollResult(eq(jobId), any(CancellationToken.class)))
+                .thenReturn(Optional.empty());
+        // Dispatcher has partial bestSoFar with rank=7
+        when(dispatcherClientMock.fetchBestSoFar(jobId)).thenReturn(Optional.of(new int[] {7}));
+
+        // Simulate cancel: the CancellationToken is cancelled during the poll
+        // We stub the registry so when cancel is checked the token IS cancelled
+        // (done by setting cancellationFlag via the JobHandle that tryLeg2 creates)
+        // For the test: we capture the token via registryMock and cancel it
+        java.util.concurrent.atomic.AtomicReference<CancellationToken> capturedToken =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        org.mockito.Mockito.doAnswer(
+                        inv -> {
+                            JobHandle h = inv.getArgument(1, JobHandle.class);
+                            capturedToken.set(h.getCancellationToken());
+                            // Cancel the token so pollResult(jobId, token) sees it cancelled
+                            h.getCancellationToken().cancel();
+                            return null;
+                        })
+                .when(registryMock)
+                .register(eq(tournamentId), any(JobHandle.class));
+
+        subject.optimize(phaseId);
+
+        // Case 2: applicator must be called with BSF rank=7
+        verify(applicatorMock).applyResult(eq(7L), eq(FIELD_COUNT), any(MappingResult.class));
+        // Leg 3 must NOT be invoked (TM detaches)
+        verify(cancelableServiceMock, never()).optimize(any(), any(), any());
+    }
+
+    /**
+     * AC-TEST-CANCEL-CASE-NO-RESULT (E63S06 RED-first — case 3):
+     *
+     * <p>When an operator cancel interrupts the poll AND the dispatcher has produced no result
+     * (bestSoFar is empty), TM retains the existing valid L1+L2 assignment. The phase is never left
+     * unassigned and the cancel never throws.
+     *
+     * <p>RED against current code: cancel-interrupted poll falls through to Leg 3. After the fix,
+     * Leg 3 is NOT invoked and the applicator is NOT called (L1+L2 assignment retained).
+     */
+    @Test
+    void leg2Cancel_cancelledPoll_noBsf_retainsL1L2_caseThree_E63S06() {
+        UUID phaseId = UUID.randomUUID();
+        UUID tournamentId = UUID.randomUUID();
+        int lapCount = EXHAUSTIVE_MAX_N + 1;
+        MappingResult mapping =
+                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
+        when(mapperMock.map(phaseId)).thenReturn(mapping);
+        when(reachabilityMock.isReachable()).thenReturn(true);
+        UUID jobId = UUID.randomUUID();
+        when(dispatcherClientMock.submitJob(any())).thenReturn(jobId);
+        when(dispatcherClientMock.pollResult(eq(jobId), any(CancellationToken.class)))
+                .thenReturn(Optional.empty());
+        // No bestSoFar from dispatcher (no packet completed)
+        when(dispatcherClientMock.fetchBestSoFar(jobId)).thenReturn(Optional.empty());
+
+        // Cancel the token via registry side-effect
+        org.mockito.Mockito.doAnswer(
+                        inv -> {
+                            JobHandle h = inv.getArgument(1, JobHandle.class);
+                            h.getCancellationToken().cancel();
+                            return null;
+                        })
+                .when(registryMock)
+                .register(eq(tournamentId), any(JobHandle.class));
+
+        subject.optimize(phaseId);
+
+        // Case 3: applicator NOT called (L1+L2 retained), Leg 3 NOT invoked
+        verify(applicatorMock, never()).applyResult(anyLong(), anyInt(), any());
+        verify(cancelableServiceMock, never()).optimize(any(), any(), any());
+    }
+
+    /**
+     * AC-TEST-CANCEL-RACE-WITH-COMPLETION (E63S06 — case 1):
+     *
+     * <p>A cancel that arrives AFTER the dispatcher has already finalized the job results in the
+     * normal Leg-2 final-result apply; the cancel is a no-op (not an error, not a regression of the
+     * applied result).
+     *
+     * <p>This test verifies that the existing E63S02 happy path is PRESERVED: when pollResult
+     * returns a rank, the applicator is called and Leg 3 is NOT invoked — regardless of whether the
+     * cancel was requested.
+     */
+    @Test
+    void leg2Cancel_raceWithCompletion_normalApplyRuns_caseOne_E63S06() {
+        UUID phaseId = UUID.randomUUID();
+        UUID tournamentId = UUID.randomUUID();
+        int lapCount = EXHAUSTIVE_MAX_N + 1;
+        MappingResult mapping =
+                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
+        when(mapperMock.map(phaseId)).thenReturn(mapping);
+        when(reachabilityMock.isReachable()).thenReturn(true);
+        UUID jobId = UUID.randomUUID();
+        when(dispatcherClientMock.submitJob(any())).thenReturn(jobId);
+        // pollResult returns a result (dispatcher already finished)
+        when(dispatcherClientMock.pollResult(eq(jobId), any(CancellationToken.class)))
+                .thenReturn(Optional.of(new int[] {3}));
+
+        subject.optimize(phaseId);
+
+        // Case 1: normal apply with rank=3
+        verify(applicatorMock).applyResult(eq(3L), eq(FIELD_COUNT), any(MappingResult.class));
+        verify(cancelableServiceMock, never()).optimize(any(), any(), any());
+        // fetchBestSoFar must NOT be called (poll succeeded → no BSF fetch needed)
+        verify(dispatcherClientMock, never()).fetchBestSoFar(any());
+    }
+
+    /**
+     * AC-TEST-DISPATCHER-JOB-NOT-ABORTED (E63S06):
+     *
+     * <p>On cancel, TM detaches — no abort / cancel request is sent to the dispatcher. The
+     * dispatcher job is left to run for the shared structural-fingerprint cache.
+     *
+     * <p>Verifies structurally: the {@link de.vvwt.tm.slotopt.SlotOptimizationDispatcherClient}
+     * interface does NOT have an {@code abortJob} or {@code cancelJob} method called (and the
+     * production code never calls one). Since we mock the interface, any unexpected call would fail
+     * the test.
+     */
+    @Test
+    void leg2Cancel_noAbortSentToDispatcher_E63S06() {
+        UUID phaseId = UUID.randomUUID();
+        UUID tournamentId = UUID.randomUUID();
+        int lapCount = EXHAUSTIVE_MAX_N + 1;
+        MappingResult mapping =
+                buildMappingWithLapCount(phaseId, lapCount, FIELD_COUNT, tournamentId);
+        when(mapperMock.map(phaseId)).thenReturn(mapping);
+        when(reachabilityMock.isReachable()).thenReturn(true);
+        UUID jobId = UUID.randomUUID();
+        when(dispatcherClientMock.submitJob(any())).thenReturn(jobId);
+        when(dispatcherClientMock.pollResult(eq(jobId), any(CancellationToken.class)))
+                .thenReturn(Optional.empty());
+        when(dispatcherClientMock.fetchBestSoFar(jobId)).thenReturn(Optional.empty());
+
+        org.mockito.Mockito.doAnswer(
+                        inv -> {
+                            JobHandle h = inv.getArgument(1, JobHandle.class);
+                            h.getCancellationToken().cancel();
+                            return null;
+                        })
+                .when(registryMock)
+                .register(eq(tournamentId), any(JobHandle.class));
+
+        subject.optimize(phaseId);
+
+        // Only submitJob, pollResult (with token), and fetchBestSoFar are allowed — no abort
+        verify(dispatcherClientMock).submitJob(any());
+        verify(dispatcherClientMock).pollResult(eq(jobId), any(CancellationToken.class));
+        verify(dispatcherClientMock).fetchBestSoFar(jobId);
+        // No other interactions on dispatcherClientMock (no abortJob etc.)
+        org.mockito.Mockito.verifyNoMoreInteractions(dispatcherClientMock);
     }
 
     /**

@@ -462,6 +462,115 @@ class DefaultSlotOptimizationDispatcherClientTest {
     }
 
     // =========================================================================
+    // E63S06 RED-first tests — cancellation-aware pollResult + fetchBestSoFar
+    // =========================================================================
+
+    /**
+     * AC-TEST-CANCEL-INTERRUPTS-POLL (E63S06 RED-first): when the CancellationToken is cancelled,
+     * {@code pollResult(jobId, token)} returns {@link Optional#empty()} immediately without waiting
+     * for the dispatcher.
+     *
+     * <p>RED against current code: no cancellation-aware {@code pollResult} overload exists. After
+     * the fix, the loop checks the token at each iteration and returns empty on cancel.
+     */
+    @Test
+    void pollResult_cancelledToken_returnsEmptyImmediately_E63S06() {
+        UUID jobId = UUID.randomUUID();
+        // Dispatcher says RUNNING — would normally keep polling
+        jobStatusResponse.set(
+                new StubResponse(
+                        200,
+                        "{\"jobId\":\""
+                                + jobId
+                                + "\","
+                                + "\"status\":\"RUNNING\","
+                                + "\"totalPackets\":4,"
+                                + "\"completedPackets\":0,"
+                                + "\"finalResult\":null,"
+                                + "\"bestSoFar\":null}"));
+
+        de.vvwt.tm.slotopt.CancellationToken token = de.vvwt.tm.slotopt.CancellationToken.create();
+        token.cancel(); // pre-cancelled
+
+        Optional<int[]> result = subject.pollResult(jobId, token);
+
+        // Must return empty immediately (cancelled before first poll check)
+        assertThat(result).isEmpty();
+    }
+
+    /**
+     * AC-TEST-CANCEL-CASE-PARTIAL-BEST-SO-FAR (E63S06 RED-first): {@code fetchBestSoFar(jobId)}
+     * returns the bestSoFar rank when the dispatcher reports a partial result.
+     *
+     * <p>RED against current code: no {@code fetchBestSoFar} method exists.
+     */
+    @Test
+    void fetchBestSoFar_partialResult_returnsRank_E63S06() {
+        UUID jobId = UUID.randomUUID();
+        int expectedRank = 3;
+        // Dispatcher reports in-progress with bestSoFar populated
+        jobStatusResponse.set(
+                new StubResponse(
+                        200,
+                        "{\"jobId\":\""
+                                + jobId
+                                + "\","
+                                + "\"status\":\"RUNNING\","
+                                + "\"totalPackets\":4,"
+                                + "\"completedPackets\":1,"
+                                + "\"finalResult\":null,"
+                                + "\"bestSoFar\":{\"bestRank\":"
+                                + expectedRank
+                                + ",\"bestScore\":0.42}}"));
+
+        Optional<int[]> result = subject.fetchBestSoFar(jobId);
+
+        assertThat(result).isPresent();
+        assertThat(result.get()).hasSize(1);
+        assertThat(result.get()[0]).isEqualTo(expectedRank);
+    }
+
+    /**
+     * AC-ERR-BEST-SO-FAR-FETCH-FAILURE (E63S06): when the dispatcher reports no bestSoFar (no
+     * packet completed), {@code fetchBestSoFar(jobId)} returns {@link Optional#empty()}. The phase
+     * is resolved by case (3) — retain existing L1+L2 assignment.
+     */
+    @Test
+    void fetchBestSoFar_noCompletedPackets_returnsEmpty_E63S06() {
+        UUID jobId = UUID.randomUUID();
+        jobStatusResponse.set(
+                new StubResponse(
+                        200,
+                        "{\"jobId\":\""
+                                + jobId
+                                + "\","
+                                + "\"status\":\"RUNNING\","
+                                + "\"totalPackets\":4,"
+                                + "\"completedPackets\":0,"
+                                + "\"finalResult\":null,"
+                                + "\"bestSoFar\":null}"));
+
+        Optional<int[]> result = subject.fetchBestSoFar(jobId);
+
+        assertThat(result).isEmpty();
+    }
+
+    /**
+     * AC-ERR-BEST-SO-FAR-FETCH-FAILURE (E63S06): when fetchBestSoFar fails with a network error, it
+     * returns {@link Optional#empty()} (never throws — phase falls back to case 3).
+     */
+    @Test
+    void fetchBestSoFar_networkError_returnsEmpty_E63S06() {
+        UUID jobId = UUID.randomUUID();
+        // Stub returns 500 — should be treated as failure → empty
+        jobStatusResponse.set(new StubResponse(500, "{\"error\":\"internal\"}"));
+
+        Optional<int[]> result = subject.fetchBestSoFar(jobId);
+
+        assertThat(result).isEmpty();
+    }
+
+    // =========================================================================
     // Helpers
     // =========================================================================
 

@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-49.md at f9e3fe5673ee595a0048f53ec837922954ac9110 2026-05-12 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-49.md — updated at E63S06 2026-05-17 -->
 ---
 id: DEC-49
 domain: architecture
@@ -16,9 +16,9 @@ tags:
   - dec-4-amendment
 created_at: 2026-04-28
 created_by: discovery
-last_updated_at: 2026-05-09
+last_updated_at: 2026-05-17
 last_updated_by: delivery
-amended_by: [DEC-55, DEC-56, DEC-64]
+amended_by: [DEC-55, DEC-56, DEC-64, DEC-49-delta-E63S06]
 session_brief_ref: discovery-2026-04-28-e27-slotopt-integration-completion
 ---
 
@@ -102,6 +102,8 @@ Operator-facing routing documentation MUST be authored at `vvwt-prj/vvwt-tm-web/
 ## Impact
 
 > **2026-05-08 Amendment:** DEC-55 amends DEC-49 by pointer (delta-amendment pattern per DEC-46/48/50/51/53 precedent). DEC-55 fills the architectural gaps left implicit by DEC-49: WHEN slot-optimization runs within the tournament lifecycle, WHO triggers it, and the per-tournament FIFO-queue serial ordering that ensures Phase N+1 slot-opt starts only after Phase N completes. DEC-49's D-3 (routing rule), D-11 (admin-cancel scope), D-11a (Best-So-Far semantics), D-12 (dispatcher URL config), S-3a (DEC-43 D3 warning channel), T-6 (in-memory queue trade-off), D-10 (operator-doc requirement) are textually unchanged. See `decisions/DEC-55.md` for the full E51 background-job-pipeline architecture.
+
+> **2026-05-17 Amendment (E63S06):** DEC-49-delta-E63S06 extends D-11 / D-11a admin-cancel + Best-So-Far semantics to the Leg-2 (dispatcher HTTP) path. Prior to E63S06, D-11 / D-11a were defined exclusively for `CancelableInProcessSlotOptimizationService` (Leg 3). The delta introduces three-case BSF resolution for Leg-2 cancel: (1) cancel races with completion → normal final-result apply; (2) partial bestSoFar from dispatcher (≥1 packet completed) → `fetchBestSoFar()` result applied via `SlotResultApplicator`; (3) no result → phase retains existing valid L1+L2 assignment (TM detaches; never falls through to Leg 3 on cancel). TM does NOT send an abort/cancel to the dispatcher (T-1: detach-on-cancel). The Leg-2 cancel is implemented via cooperative `CancellationToken` passed to `SlotOptimizationDispatcherClient.pollResult(UUID, CancellationToken)` and registered in `SlotOptimizationJobRegistry` before polling. See `decisions/DEC-49-delta-E63S06.md` for the full amendment text.
 
 > **2026-05-09 Amendment:** DEC-56 amends DEC-49 D-3 N-definition by pointer (delta-amendment pattern per DEC-46/48/50/51/53/55 precedent). DEC-49 D-3 text "N is defined as `canonicalPhaseDef.rowCount()` — the number of matches" is superseded. **DEC-56's replacement:** N is defined as `lapCount` = `RawPhaseDef.rows.size()` — the number of distinct laps (rounds). The slot-optimizer permutes lap orderings; `N!` is the factorial of lap count, not match count. Threshold `tm.slotopt.exhaustive-max-n=10` is evaluated against `lapCount`. All other DEC-49 decisions (D-11, D-11a, D-12, S-3a, T-6, D-10) are textually unchanged. See `decisions/DEC-56.md` for the full amendment text and rationale.
 
