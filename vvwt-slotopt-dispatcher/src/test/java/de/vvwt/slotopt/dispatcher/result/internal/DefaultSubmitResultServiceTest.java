@@ -24,6 +24,7 @@ import de.vvwt.slotopt.dispatcher.packet.PacketRepository;
 import de.vvwt.slotopt.dispatcher.result.AlgorithmMismatchException;
 import de.vvwt.slotopt.dispatcher.result.LateResultRepository;
 import de.vvwt.slotopt.dispatcher.result.PacketNotFoundException;
+import de.vvwt.slotopt.dispatcher.result.PacketResultService;
 import de.vvwt.slotopt.dispatcher.result.ResultAuditService;
 import de.vvwt.slotopt.dispatcher.result.SubmitResultRequest;
 import de.vvwt.slotopt.dispatcher.result.SubmitResultResponse;
@@ -58,6 +59,7 @@ class DefaultSubmitResultServiceTest {
     private ResultAuditService auditService;
     private ResultsCacheService resultsCacheService;
     private JobRepository jobRepository;
+    private PacketResultService packetResultService;
     private DefaultSubmitResultService service;
 
     @BeforeEach
@@ -70,6 +72,7 @@ class DefaultSubmitResultServiceTest {
         auditService = mock(ResultAuditService.class);
         resultsCacheService = mock(ResultsCacheService.class);
         jobRepository = mock(JobRepository.class);
+        packetResultService = mock(PacketResultService.class);
         service =
                 new DefaultSubmitResultService(
                         keyRegistrationRepository,
@@ -79,7 +82,8 @@ class DefaultSubmitResultServiceTest {
                         lateResultRepository,
                         auditService,
                         resultsCacheService,
-                        jobRepository);
+                        jobRepository,
+                        packetResultService);
     }
 
     // -------------------------------------------------------------------------
