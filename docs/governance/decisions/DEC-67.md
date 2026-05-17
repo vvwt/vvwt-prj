@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-67.md at 17cae34b71e17cee9cc8da23c3d7bf8695f20675 2026-05-15 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-67.md at 15c13c81cf6051f89481bd98a37caf691cd754e1 2026-05-17 -->
 ---
 id: DEC-67
 domain: governance
@@ -62,7 +62,7 @@ DEC-67 amends DEC-22 with a **scope clarification** — not a waiver, not a weak
 
 - **DEC-22** gains an inline `## 2026-05-15 Amendment` paragraph pointing to DEC-67; its frontmatter `amended_by` extends to `[DEC-34, DEC-36, DEC-41, DEC-54, DEC-67]` and `last_updated_at` advances to 2026-05-15. No DEC-22 Decision clause is modified.
 - **E55S14** (the H2 `2.3.232 → 2.4.240` upgrade re-do) is the first story authored under DEC-67: a 1-line `pom.xml` version-coordinate change, verified by `mvn verify` BUILD SUCCESS + documented defect-justification (the empirical evidence carried from E55S12) + a recommended GREEN-only regression-guard. E55S12 verified during its escalation that H2 2.4.240 requires no source-level migration for this codebase's usage (file-mode + standard JDBC) — so E55S14 is a pure version-coordinate change under clause 3.
-- **E55S12 stays `failed`** as historical record — it is NOT reopened. Its escape-clause AC (`AC-ERROR-HANDLING-RED-FIRST-IT-CANNOT-BE-MADE-DETERMINISTIC`) reflected the category error that DEC-67 corrects; rewriting E55S12 would obscure that history.
+- **E55S12 is closed as `superseded`** (by E55S14) — it is NOT reopened, and its story body is NOT rewritten. Its escape-clause AC (`AC-ERROR-HANDLING-RED-FIRST-IT-CANNOT-BE-MADE-DETERMINISTIC`) reflected the category error that DEC-67 corrects; the `superseded` status records that E55S14 carries the work forward without obscuring that history. (E55S12 was initially marked `failed` by the daemon-post-exit-gate at escalation; relabelled `superseded` 2026-05-15 per operator direction — the escalation was a governance category error, not a delivery defect, so `superseded` is the more accurate terminal status.)
 - **Future dependency upgrades** (H2, Spring Boot, any Maven dependency) follow DEC-67: bump the coordinate + verify the existing suite stays green, with documented defect-justification when the upgrade targets a specific defect, and a recommended GREEN-only guard.
 - **No `qa-review` skill change. No operationalization story** beyond E55S14 — the enforcement is the Discovery-side Independent Review gate, not a Delivery-side check.
 - **No supersession** — DEC-67 amends, does not supersede, DEC-22. It is the first DEC-22 amendment authored from a delivery-time category-error post-mortem rather than from a forward-looking policy change.
