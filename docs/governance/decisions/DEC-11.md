@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-11.md at 52aee626efc44225ff357223d923f253678c09eb 2026-04-26 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-11.md at 74b4f4b903dbcade0ac7dc7a04135d22f4a1c44d 2026-05-17 -->
 ---
 id: DEC-11
 domain: architecture
@@ -7,8 +7,8 @@ title: "Slot-optimization service components live as Maven submodules within vvw
 status: active
 created_by: discovery
 created_at: 2026-04-11
-last_updated_by: discovery
-last_updated_at: 2026-04-11
+last_updated_by: delivery
+last_updated_at: 2026-05-17
 supersedes: null
 superseded_by: null
 tags:
@@ -58,6 +58,24 @@ The slot-optimization service Phase-1 components live as the following submodule
 | `vvwt-dispatcher` | E01S06 (register-key + submit-job), E01S07 (packet decomposition + pull-packet), E01S08 (result intake + finalization), E01S09 cache DB layer |
 | `vvwt-standalone-worker` | E01S05 (plain-Java CLI process, picocli) |
 | `vvwt-benchmark` | E01S12 (JMH ship-gate, isolated from production deps) |
+| `vvwt-slotopt-worker-runtime` | E63S01 (shared Spring-Boot-free compute-path library: dispatcher HTTP client, result signer, compute-step abstraction, outage-policy seam) |
+
+### Delta-amendment: E63S01 (2026-05-17) — `vvwt-slotopt-worker-runtime` added to slot-opt boundary
+
+Story E63S01 extracted the worker compute path (dispatcher HTTP client, result signing, pull-solve-sign-submit step) from `vvwt-slotopt-standalone-worker` into a new shared library `vvwt-slotopt-worker-runtime`.
+
+**Rationale:** The standalone worker previously bundled all HTTP and crypto logic in its own packages (`standalone.http`, `standalone.crypto`). To enable future consumers (e.g., a TM-embedded worker per DEC-4) to share the same compute path without depending on the standalone CLI process, these concerns were extracted into a Spring-Boot-free, independently testable library module.
+
+**Module boundary rules for `vvwt-slotopt-worker-runtime`:**
+
+- **MUST NOT** depend on Spring Boot or any Spring framework JAR (enforced by Maven Enforcer `bannedDependencies` rule in the module's POM).
+- **MUST NOT** depend on `vvwt-slotopt-dispatcher` (enforced by Maven Enforcer rule). The runtime library is a pure client-side library; it knows the HTTP API contract but not the dispatcher's internals.
+- **MAY** depend on `vvwt-worker-lib` (Lehmer codec, PacketSolver, worker-identity types).
+- **MAY** depend on `slf4j-api`, `jackson-databind`, `jackson-datatype-jsr310` for logging and JSON serialization.
+- TM modules (future) **MAY** depend on `vvwt-slotopt-worker-runtime` to embed a compute worker, without violating DEC-4's "never imports dispatcher internals" constraint.
+- `vvwt-slotopt-standalone-worker` depends on `vvwt-slotopt-worker-runtime` (delegating all HTTP and crypto to it) and is **banned from re-importing `vvwt-slotopt-dispatcher`** (Enforcer rule added in E63S01).
+
+**DEC-70 compliance:** The `stopAfterNextIteration` test-only field and method were removed from `DefaultWorkerLoop` as part of E63S01. The `ComputeStep` interface replaces the test-only seam — tests exercise `DefaultComputeStep` directly; the loop's polling behavior is validated via integration tests using the real `requestShutdown()` production API.
 
 DEC-4's "TM never runs optimization in-process" constraint is preserved by:
 - TM submitter integration (E01S10) lives in a future TM submodule and **calls the dispatcher over HTTP** — never imports `vvwt-dispatcher` as a code dependency.
