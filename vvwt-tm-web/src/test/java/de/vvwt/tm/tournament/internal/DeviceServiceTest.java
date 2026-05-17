@@ -3,6 +3,7 @@
 package de.vvwt.tm.tournament.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -11,12 +12,14 @@ import static org.mockito.Mockito.when;
 
 import de.vvwt.tm.tournament.Device;
 import de.vvwt.tm.tournament.DeviceRepository;
+import de.vvwt.tm.tournament.events.DeviceRegisteredEvent;
 import de.vvwt.tm.tournament.exceptions.DeviceLimitExceededException;
 import de.vvwt.tm.tournament.exceptions.DevicePinLockedException;
 import de.vvwt.tm.tournament.exceptions.PinMismatchException;
 import de.vvwt.tm.tournament.exceptions.PinMissingForTabletException;
 import de.vvwt.tm.tournament.exceptions.RenameNotSupportedForDisplayException;
 import de.vvwt.tm.tournament.exceptions.UnexpectedPinForDisplayException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -28,6 +31,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 /**
  * Unit tests for {@link DefaultDeviceService} (E21S06, AC-TDD-DeviceService).
@@ -74,6 +78,8 @@ class DeviceServiceTest {
 
     private DeviceLimitConfig limitConfig;
     private DefaultDeviceService service;
+    private final List<Object> publishedEvents = new ArrayList<>();
+    private ApplicationEventPublisher capturingPublisher;
 
     private static final UUID TENANT_ID = UUID.randomUUID();
 
@@ -81,7 +87,9 @@ class DeviceServiceTest {
     void setUp() {
         limitConfig = new DeviceLimitConfig();
         limitConfig.setMaxDeviceCount(5);
-        service = new DefaultDeviceService(deviceRepository, limitConfig);
+        publishedEvents.clear();
+        capturingPublisher = publishedEvents::add;
+        service = new DefaultDeviceService(deviceRepository, limitConfig, capturingPublisher);
     }
 
     // =========================================================================
@@ -130,6 +138,70 @@ class DeviceServiceTest {
 
         assertThat(result.getPin()).as("DISPLAY device has no PIN").isNull();
         assertThat(result.getDeviceType()).isEqualTo(Device.TYPE_DISPLAY);
+    }
+
+    // =========================================================================
+    // AC-E65S01-REGISTER-PUBLISHES-EVENT — registration publishes DeviceRegisteredEvent (E65S01)
+    // =========================================================================
+
+    /**
+     * AC1/AC2/AC6 (E65S01): register publishes a DeviceRegisteredEvent whose deviceId matches the
+     * persisted device UUID.
+     *
+     * <p>TDD RED: written before DefaultDeviceService accepted an ApplicationEventPublisher — the
+     * constructor signature did not exist, causing a compile error (DEC-22 Iron Law).
+     */
+    @Test
+    @DisplayName(
+            "AC-E65S01-REGISTER-PUBLISHES-EVENT: register SCORING_TABLET publishes"
+                    + " DeviceRegisteredEvent with correct deviceId (DEC-22 / E65S01 AC6)")
+    void register_scoringTablet_publishesDeviceRegisteredEvent() {
+        when(deviceRepository.countByTenant()).thenReturn(0L);
+        when(deviceRepository.isPinTaken(any())).thenReturn(false);
+        when(deviceRepository.isNameTaken(any())).thenReturn(false);
+        ArgumentCaptor<Device> captor = ArgumentCaptor.forClass(Device.class);
+        when(deviceRepository.save(captor.capture())).thenAnswer(inv -> captor.getValue());
+
+        Device result = service.register(Device.TYPE_SCORING_TABLET);
+
+        assertThat(publishedEvents)
+                .as("register must publish exactly one DeviceRegisteredEvent (E65S01 AC2/AC6)")
+                .hasSize(1)
+                .first()
+                .isInstanceOf(DeviceRegisteredEvent.class)
+                .satisfies(
+                        e ->
+                                assertThat(((DeviceRegisteredEvent) e).getDeviceId())
+                                        .as("deviceId must match saved device UUID")
+                                        .isEqualTo(result.getId()));
+    }
+
+    /**
+     * AC5 (E65S01): if the event publisher throws (e.g. a broker failure), the registration result
+     * is still returned — the live-notification is purely additive.
+     */
+    @Test
+    @DisplayName(
+            "AC-E65S01-REGISTER-SURVIVES-PUBLISH-FAILURE: publisher failure does NOT abort"
+                    + " registration (E65S01 AC5)")
+    void register_scoringTablet_publisherFailure_doesNotAbortRegistration() {
+        when(deviceRepository.countByTenant()).thenReturn(0L);
+        when(deviceRepository.isPinTaken(any())).thenReturn(false);
+        when(deviceRepository.isNameTaken(any())).thenReturn(false);
+        ArgumentCaptor<Device> captor = ArgumentCaptor.forClass(Device.class);
+        when(deviceRepository.save(captor.capture())).thenAnswer(inv -> captor.getValue());
+
+        // Publisher that always throws — simulates broker failure
+        ApplicationEventPublisher failingPublisher =
+                event -> {
+                    throw new RuntimeException("simulated broker failure");
+                };
+        DefaultDeviceService svcWithFailingPublisher =
+                new DefaultDeviceService(deviceRepository, limitConfig, failingPublisher);
+
+        assertThatCode(() -> svcWithFailingPublisher.register(Device.TYPE_SCORING_TABLET))
+                .as("publisher failure must NOT propagate out of register() (E65S01 AC5)")
+                .doesNotThrowAnyException();
     }
 
     // =========================================================================

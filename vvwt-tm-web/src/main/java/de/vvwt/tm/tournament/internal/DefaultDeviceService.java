@@ -5,6 +5,7 @@ package de.vvwt.tm.tournament.internal;
 import de.vvwt.tm.tournament.Device;
 import de.vvwt.tm.tournament.DeviceRepository;
 import de.vvwt.tm.tournament.DeviceService;
+import de.vvwt.tm.tournament.events.DeviceRegisteredEvent;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import de.vvwt.tm.tournament.exceptions.DeviceLimitExceededException;
 import de.vvwt.tm.tournament.exceptions.DevicePinLockedException;
@@ -18,7 +19,10 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 /**
@@ -42,6 +46,8 @@ import org.springframework.stereotype.Service;
  *   <li>unassignLocation: sets locationId = null (DEC-24)
  *   <li>listDevices: delegates to repository
  *   <li>deleteDevice: delegates to repository
+ *   <li>register: publishes {@link DeviceRegisteredEvent} after saving, so open admin Devices pages
+ *       update live without a reload (E65S01 AC2)
  * </ul>
  *
  * <h2>PIN generation algorithm</h2>
@@ -63,6 +69,8 @@ import org.springframework.stereotype.Service;
  */
 @Service("tmDeviceService")
 public class DefaultDeviceService implements DeviceService {
+
+    private static final Logger log = LoggerFactory.getLogger(DefaultDeviceService.class);
 
     /** Digits used for PIN generation — confusable digits 0, 1, 8 excluded (legacy parity). */
     private static final char[] PIN_DIGITS = {'2', '3', '4', '5', '6', '7', '9'};
@@ -88,6 +96,7 @@ public class DefaultDeviceService implements DeviceService {
 
     private final DeviceRepository deviceRepository;
     private final DeviceLimitConfig limitConfig;
+    private final ApplicationEventPublisher eventPublisher;
     private final SecureRandom secureRandom = new SecureRandom();
 
     /**
@@ -105,10 +114,16 @@ public class DefaultDeviceService implements DeviceService {
      *
      * @param deviceRepository device persistence
      * @param limitConfig device limit configuration
+     * @param eventPublisher Spring application event publisher — used to publish {@link
+     *     DeviceRegisteredEvent} after a successful registration (E65S01 AC2)
      */
-    public DefaultDeviceService(DeviceRepository deviceRepository, DeviceLimitConfig limitConfig) {
+    public DefaultDeviceService(
+            DeviceRepository deviceRepository,
+            DeviceLimitConfig limitConfig,
+            ApplicationEventPublisher eventPublisher) {
         this.deviceRepository = deviceRepository;
         this.limitConfig = limitConfig;
+        this.eventPublisher = eventPublisher;
     }
 
     // -------------------------------------------------------------------------
@@ -120,6 +135,11 @@ public class DefaultDeviceService implements DeviceService {
      *
      * <p>Enforces the device limit before registration. SCORING_TABLET devices receive a 4-digit
      * PIN; DISPLAY devices receive no PIN.
+     *
+     * <p>After the device is persisted, a {@link DeviceRegisteredEvent} is published so any open
+     * admin Devices page can update its list live without a manual reload (E65S01 AC2). If
+     * publishing fails (e.g. no STOMP broker, broker error), the failure is caught and logged; the
+     * registration result is returned normally (E65S01 AC5).
      *
      * @throws DeviceLimitExceededException if the device count would exceed the configured limit
      */
@@ -166,7 +186,21 @@ public class DefaultDeviceService implements DeviceService {
         }
         // DISPLAY: pin stays null; name set via configure()
 
-        return deviceRepository.save(device);
+        Device saved = deviceRepository.save(device);
+
+        // AC2/AC5 (E65S01): publish DeviceRegisteredEvent so open admin Devices pages update live.
+        // The notification is purely additive — any failure (e.g. no STOMP broker connected) is
+        // caught and logged; the registration result is unaffected (AC5).
+        try {
+            eventPublisher.publishEvent(new DeviceRegisteredEvent(this, saved.getId()));
+        } catch (Exception e) {
+            log.warn(
+                    "[tm-device] Failed to publish DeviceRegisteredEvent for device {}: {}",
+                    saved.getId(),
+                    e.getMessage());
+        }
+
+        return saved;
     }
 
     // -------------------------------------------------------------------------
