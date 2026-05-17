@@ -37,13 +37,27 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * DispatcherClient}) are referenced via interface per DEC-36.
  *
  * <p>Story: E41S04 AC-OBSERVABILITY-EVENTS-BOOTSTRAP, AC-EXIT-CODE-BOOTSTRAP,
- * AC-DEC43-D3-ADMIN-WARNING-SURFACE, AC-ALGORITHM-VALIDATION.
+ * AC-DEC43-D3-ADMIN-WARNING-SURFACE, AC-ALGORITHM-VALIDATION. Fix: E41S07
+ * AC-FIX-DETERMINISTIC-DEPRECATION-TESTS — replaced LocalDate.now()-relative fixture dates with
+ * UTC-anchored fixed dates to eliminate timezone-fragility (DEC-48 UTC boundary).
  */
 @ExtendWith(MockitoExtension.class)
 class DefaultBootstrapServiceTest {
 
-    private static final LocalDate FUTURE_DATE = LocalDate.now().plusYears(2);
-    private static final LocalDate PAST_DATE = LocalDate.now().minusDays(1);
+    /**
+     * A deprecation date unambiguously in the future relative to any realistic test execution time.
+     * DEC-48: 2099-12-31 + 1 day = 2100-01-01T00:00:00Z, always in the future → accepted with
+     * warning. UTC-anchored; no LocalDate.now() dependency (E41S07 fix).
+     */
+    private static final LocalDate FUTURE_DATE = LocalDate.of(2099, 12, 31);
+
+    /**
+     * A deprecation date unambiguously in the past relative to any realistic test execution time.
+     * DEC-48: 2020-01-01 + 1 day = 2020-01-02T00:00:00Z, always before any realistic execution
+     * instant → rejected (ALGORITHM_DEPRECATED_PAST_DEADLINE). UTC-anchored; no LocalDate.now()
+     * dependency (E41S07 fix).
+     */
+    private static final LocalDate PAST_DATE = LocalDate.of(2020, 1, 1);
 
     @Mock private DispatcherClient dispatcherClient;
 

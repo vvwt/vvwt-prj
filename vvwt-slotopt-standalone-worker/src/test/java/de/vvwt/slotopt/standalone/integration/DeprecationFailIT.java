@@ -19,9 +19,20 @@ import org.junit.jupiter.api.Test;
  * DEC-43 D3 / DEC-48 boundary: a deprecation_date in the past means the algorithm is past its UTC
  * end-of-day boundary and new registrations MUST be rejected by the client.
  *
- * <p>Story: E41S06 AC-INTEGRATION-TEST-DEPRECATION-FAIL.
+ * <p>Story: E41S06 AC-INTEGRATION-TEST-DEPRECATION-FAIL. Fix: E41S07
+ * AC-FIX-DETERMINISTIC-DEPRECATION-TESTS — replaced LocalDate.now().minusDays(1) with UTC-anchored
+ * fixed date LocalDate.of(2020, 1, 1) to eliminate timezone-fragility. The DEC-48 boundary for
+ * 2020-01-01 is 2020-01-02T00:00Z, always in the past at any realistic test execution time, making
+ * the fixture unambiguously past-deprecated regardless of JVM default timezone.
  */
 class DeprecationFailIT {
+
+    /**
+     * Past deprecation date — unambiguously before any realistic test execution instant. DEC-48:
+     * 2020-01-01 + 1 day = 2020-01-02T00:00:00Z, always in the past → algorithm rejected.
+     * UTC-anchored; no LocalDate.now() dependency (E41S07 fix).
+     */
+    private static final LocalDate PAST_DATE = LocalDate.of(2020, 1, 1);
 
     private DispatcherStub stub;
     private WorkerLauncher launcher;
@@ -41,9 +52,10 @@ class DeprecationFailIT {
             "AC-INTEGRATION-TEST-DEPRECATION-FAIL: worker fails fast with non-zero exit code when"
                     + " algorithm has past deprecation_date")
     void deprecationFail_pastDeprecationDate_failsFastWithNonZeroExit() {
-        // Past date: yesterday — algorithm is past its deprecation deadline
-        LocalDate pastDate = LocalDate.now().minusDays(1);
-        stub.stubAlgorithmWithPastDeprecation(pastDate);
+        // Past date: 2020-01-01 — unambiguously past its UTC end-of-day boundary
+        // (2020-01-02T00:00Z)
+        // at any realistic test execution instant, regardless of JVM default timezone (E41S07 fix).
+        stub.stubAlgorithmWithPastDeprecation(PAST_DATE);
         launcher = new WorkerLauncher(stub.baseUri());
 
         WorkerRunResult result = launcher.launch();

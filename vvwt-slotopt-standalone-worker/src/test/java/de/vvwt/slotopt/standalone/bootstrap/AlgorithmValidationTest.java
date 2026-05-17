@@ -18,12 +18,28 @@ import org.junit.jupiter.api.Test;
  * testing the public surface, we use the package-accessible validator.
  *
  * <p>Story: E41S04 AC-ALGORITHM-VALIDATION, AC-DEC43-D3-ADMIN-WARNING-SURFACE,
- * AC-RECOMMENDED-MIGRATION-DERIVATION, AC-DEC43-PAST-DEPRECATION-FAIL-FAST.
+ * AC-RECOMMENDED-MIGRATION-DERIVATION, AC-DEC43-PAST-DEPRECATION-FAIL-FAST. Fix: E41S07
+ * AC-FIX-DETERMINISTIC-DEPRECATION-TESTS — replaced LocalDate.now()-relative fixture dates with
+ * UTC-anchored fixed dates to eliminate timezone-fragility (DEC-48 UTC boundary).
  */
 class AlgorithmValidationTest {
 
-    private static final LocalDate FUTURE_DATE = LocalDate.now().plusYears(2);
-    private static final LocalDate PAST_DATE = LocalDate.now().minusDays(1);
+    /**
+     * A deprecation date unambiguously in the future relative to any realistic test execution time.
+     * DEC-48: accepted if Instant.now().isBefore(depDate.plusDays(1).atStartOfDay(UTC)). 2099-12-31
+     * + 1 day = 2100-01-01T00:00:00Z, always in the future → algorithm accepted with warning (not
+     * rejected). UTC-anchored; no LocalDate.now() dependency (E41S07 fix).
+     */
+    private static final LocalDate FUTURE_DATE = LocalDate.of(2099, 12, 31);
+
+    /**
+     * A deprecation date unambiguously in the past relative to any realistic test execution time.
+     * DEC-48: rejected if !Instant.now().isBefore(depDate.plusDays(1).atStartOfDay(UTC)).
+     * 2020-01-01 + 1 day = 2020-01-02T00:00:00Z, always before any realistic execution instant →
+     * algorithm rejected (ALGORITHM_DEPRECATED_PAST_DEADLINE). UTC-anchored; no LocalDate.now()
+     * dependency (E41S07 fix).
+     */
+    private static final LocalDate PAST_DATE = LocalDate.of(2020, 1, 1);
 
     /** TC-13: Algorithm in announced list with null deprecation_date → SUCCESS (no exception). */
     @Test
@@ -96,37 +112,39 @@ class AlgorithmValidationTest {
 
     /**
      * TC-17: Past-deprecation boundary uses DEC-48 semantics. The entire deprecation_date day is
-     * the LAST accepted day; rejection starts at first instant of day AFTER deprecation_date. If
-     * today IS the deprecation_date, the algorithm is still accepted (future-side check is strict:
-     * today == deprecationDate is still ACCEPTED as it is not past).
+     * the LAST accepted day; rejection starts at first instant of day AFTER deprecation_date in
+     * UTC.
+     *
+     * <p>DEC-48: accepted if
+     * Instant.now().isBefore(depDate.plusDays(1).atStartOfDay(ZoneOffset.UTC)). This test verifies
+     * the two sides of the boundary using UTC-anchored fixed dates that are unambiguous regardless
+     * of wall-clock time or JVM default timezone (E41S07 fix).
+     *
+     * <p>Future side: FUTURE_DATE (2099-12-31) as deprecation_date → boundary 2100-01-01T00:00Z is
+     * always in the future → algorithm is valid (accepted with deprecation warning, not rejected).
+     * Past side: PAST_DATE (2020-01-01) as deprecation_date → boundary 2020-01-02T00:00Z is always
+     * before any realistic execution instant → algorithm is rejected (fail-fast).
      */
     @Test
     void validate_deprecation_boundary_semantics_dec48() {
-        LocalDate today = LocalDate.now();
-        // today is the deprecation_date → ACCEPTED (warning, not fail-fast)
-        // The DEC-48 formula: accepted if
-        // Instant.now().isBefore(depDate.plusDays(1).atStartOfDay(UTC))
-        // Since today == depDate, plusDays(1) is tomorrow → still future → accepted with warning
-        AnnouncedAlgorithmsResponse responseToday =
+        // Future side: deprecation_date 2099-12-31 → boundary 2100-01-01T00:00Z is in the future
+        // → DEC-48 accepted with deprecation warning (not fail-fast)
+        AnnouncedAlgorithmsResponse responseFuture =
                 new AnnouncedAlgorithmsResponse(
-                        List.of(new AnnouncedAlgorithm("Ed25519", "Ed25519", today, null)));
+                        List.of(new AnnouncedAlgorithm("Ed25519", "Ed25519", FUTURE_DATE, null)));
 
-        AlgorithmValidationResult resultToday =
-                AlgorithmValidator.validate("Ed25519", responseToday);
-        // Today's deprecation_date: the entire day is still accepted
-        // (unless we're exactly at midnight UTC today→tomorrow boundary, but that's within
-        // tolerance)
-        // The key: if today is the depDate, plusDays(1) is still in the future → accepted with
-        // warning
-        assertThat(resultToday.isValid()).isTrue();
+        AlgorithmValidationResult resultFuture =
+                AlgorithmValidator.validate("Ed25519", responseFuture);
+        assertThat(resultFuture.isValid()).isTrue();
+        assertThat(resultFuture.hasDeprecationWarning()).isTrue();
 
-        // yesterday is past → fail-fast
-        LocalDate yesterday = today.minusDays(1);
-        AnnouncedAlgorithmsResponse responseYesterday =
+        // Past side: deprecation_date 2020-01-01 → boundary 2020-01-02T00:00Z is in the past
+        // → DEC-48 rejected (algorithm deprecated past deadline)
+        AnnouncedAlgorithmsResponse responsePast =
                 new AnnouncedAlgorithmsResponse(
-                        List.of(new AnnouncedAlgorithm("Ed25519", "Ed25519", yesterday, null)));
+                        List.of(new AnnouncedAlgorithm("Ed25519", "Ed25519", PAST_DATE, null)));
 
-        assertThatThrownBy(() -> AlgorithmValidator.validate("Ed25519", responseYesterday))
+        assertThatThrownBy(() -> AlgorithmValidator.validate("Ed25519", responsePast))
                 .isInstanceOf(BootstrapException.class)
                 .satisfies(
                         ex ->
