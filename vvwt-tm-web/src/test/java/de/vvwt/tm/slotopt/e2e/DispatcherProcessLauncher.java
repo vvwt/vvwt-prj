@@ -2,18 +2,24 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package de.vvwt.tm.slotopt.e2e;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -30,16 +36,37 @@ import java.util.stream.Stream;
  * dispatcher is declared ready when the probe returns HTTP 2xx. The poll uses a 500 ms interval
  * with a 60-second overall timeout; a diagnostic {@link AssertionError} is thrown on timeout.
  *
+ * <h2>Subprocess output capture (AC-TEST-DEATH-FAILURE-CARRIES-OUTPUT, E63S09)</h2>
+ *
+ * <p>The dispatcher subprocess stdout and stderr (merged via {@code redirectErrorStream(true)}) are
+ * captured asynchronously by an {@link OutputGobbler} daemon thread that drains the pipe
+ * continuously into a bounded in-memory circular buffer. When the subprocess fails to become ready
+ * (either because it died or because the readiness timeout elapsed), the captured output is
+ * included in the {@link AssertionError} message so the startup-failure cause (e.g., a Spring
+ * bean-creation stack trace) is visible in the build output without a manual re-launch
+ * (AC-ERR-TIMEOUT-CASE-ALSO-DIAGNOSTIC). The gobbler never blocks the launcher: a subprocess that
+ * emits a large volume of output does not fill the OS pipe buffer because the gobbler drains it
+ * continuously (AC-ERR-CAPTURE-NEVER-HANGS-LAUNCHER).
+ *
  * <h2>No compile dependency on dispatcher (AC-GOV-NO-DISPATCHER-COMPILE-DEP)</h2>
  *
  * <p>The JAR path is resolved at runtime from the filesystem ({@code
  * vvwt-slotopt-dispatcher/target/vvwt-slotopt-dispatcher-*.jar}). This class never imports any
- * class from {@code vvwt-slotopt-dispatcher}.
+ * class from {@code vvwt-slotopt-dispatcher}. Output capture uses only {@link
+ * java.lang.Process#getInputStream()} — no dispatcher class is imported.
  *
  * <h2>H2 in-memory database</h2>
  *
  * <p>The dispatcher is started with an H2 in-memory datasource ({@code
  * jdbc:h2:mem:e2eit-dispatcher;...}) so that it is ephemeral and does not require a real database.
+ *
+ * <h2>Secret exposure surface (AC-SEC-NO-SECRET-LEAK-VIA-CAPTURE)</h2>
+ *
+ * <p>The dispatcher is started with {@code logging.level.root=WARN} and {@code
+ * logging.level.de.vvwt=INFO} — the same levels as before E63S09. No additional log verbosity is
+ * raised, so no credential or Ed25519 key material is drawn into the captured stream beyond what
+ * was already emitted at those levels. Captured output is surfaced only in test/build failure
+ * output; it is not written to any persistent or shared location.
  *
  * @see SlotOptE2EIT
  */
@@ -50,6 +77,7 @@ class DispatcherProcessLauncher {
 
     private final int port;
     private Process process;
+    private OutputGobbler gobbler;
 
     /**
      * Creates a launcher that will use the given port.
@@ -84,7 +112,8 @@ class DispatcherProcessLauncher {
      *
      * @throws IOException if the JAR cannot be found or the process fails to start
      * @throws InterruptedException if the polling thread is interrupted
-     * @throws AssertionError if the dispatcher does not become ready within the timeout
+     * @throws AssertionError if the dispatcher does not become ready within the timeout; the
+     *     message includes the captured subprocess output to aid diagnosis
      */
     void start() throws IOException, InterruptedException {
         Path jarPath = resolveDispatcherJar();
@@ -108,10 +137,35 @@ class DispatcherProcessLauncher {
         command.add("--logging.level.root=WARN");
         command.add("--logging.level.de.vvwt=INFO");
 
+        startWithCommand(command);
+    }
+
+    /**
+     * Starts a subprocess using the given command and waits for it to become ready on {@link
+     * #port}.
+     *
+     * <p>This method is the core launch+readiness path. {@link #start()} delegates here after
+     * resolving the dispatcher JAR path. Tests may call this method directly to inject a controlled
+     * subprocess command (bypassing JAR resolution) for verifying the output-capture diagnostics
+     * (AC-TEST-DEATH-FAILURE-CARRIES-OUTPUT, E63S09).
+     *
+     * <p>The subprocess stdout and stderr are captured by an {@link OutputGobbler} daemon thread.
+     * If the subprocess fails to become ready, the captured output is appended to the {@link
+     * AssertionError} message.
+     *
+     * @param command the command (executable + arguments) for {@link ProcessBuilder}
+     * @throws IOException if the process fails to start
+     * @throws InterruptedException if the polling thread is interrupted
+     * @throws AssertionError if the subprocess does not become ready; message includes captured
+     *     output
+     */
+    void startWithCommand(List<String> command) throws IOException, InterruptedException {
         ProcessBuilder pb = new ProcessBuilder(command);
-        pb.redirectErrorStream(true);
-        pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+        pb.redirectErrorStream(true); // merge stderr into stdout for unified capture
         process = pb.start();
+
+        gobbler = new OutputGobbler(process);
+        gobbler.start();
 
         awaitReadiness();
     }
@@ -129,9 +183,13 @@ class DispatcherProcessLauncher {
      * Stops the dispatcher subprocess and waits for it to exit.
      *
      * <p>Destroys the process (SIGTERM on Unix, TerminateProcess on Windows), then waits up to 10
-     * seconds for it to exit. Forces a kill if it does not exit in time.
+     * seconds for it to exit. Forces a kill if it does not exit in time. Interrupts the output
+     * gobbler thread (daemon — will exit when the process stream closes).
      */
     void stop() {
+        if (gobbler != null) {
+            gobbler.interrupt();
+        }
         if (process != null && process.isAlive()) {
             process.destroy();
             try {
@@ -155,11 +213,17 @@ class DispatcherProcessLauncher {
         long deadline = System.currentTimeMillis() + READINESS_TIMEOUT_MS;
         while (System.currentTimeMillis() < deadline) {
             if (!process.isAlive()) {
+                // Give the gobbler a brief moment to drain the last output the subprocess emitted
+                // before dying, so the failure message is as complete as possible.
+                Thread.sleep(200);
+                String captured = gobbler.drainAsString();
+                String detail = captured.isEmpty() ? "(no output captured)" : "\n" + captured;
                 throw new AssertionError(
                         "DispatcherProcessLauncher: dispatcher process died before becoming"
                                 + " ready (port="
                                 + port
-                                + ")");
+                                + "). Captured dispatcher output:"
+                                + detail);
             }
             try {
                 HttpRequest request =
@@ -181,13 +245,16 @@ class DispatcherProcessLauncher {
             Thread.sleep(READINESS_POLL_INTERVAL_MS);
         }
         stop();
+        String captured = gobbler.drainAsString();
+        String detail = captured.isEmpty() ? "(no output captured)" : "\n" + captured;
         throw new AssertionError(
                 "DispatcherProcessLauncher: dispatcher did not become ready within "
                         + READINESS_TIMEOUT_MS
                         + " ms on port "
                         + port
                         + ". Check that the dispatcher JAR is built and the H2 datasource"
-                        + " properties are correct.");
+                        + " properties are correct. Captured dispatcher output:"
+                        + detail);
     }
 
     private static Path resolveDispatcherJar() throws IOException {
@@ -249,5 +316,55 @@ class DispatcherProcessLauncher {
                 "DispatcherProcessLauncher: cannot resolve vvwt-tm-web module basedir from"
                         + " user.dir="
                         + userDir);
+    }
+
+    /**
+     * Asynchronously drains a subprocess output stream into a bounded circular buffer.
+     *
+     * <p>Runs as a daemon thread so it does not prevent JVM exit. Captures lines up to {@link
+     * #MAX_LINES}; when the buffer is full, the oldest line is removed to make room — the
+     * subprocess is never blocked on a full OS pipe buffer (AC-ERR-CAPTURE-NEVER-HANGS-LAUNCHER).
+     */
+    private static final class OutputGobbler extends Thread {
+
+        private static final int MAX_LINES = 200;
+
+        private final Process target;
+        private final Deque<String> lines = new ArrayDeque<>();
+
+        OutputGobbler(Process target) {
+            this.target = target;
+            setDaemon(true);
+            setName("dispatcher-output-gobbler");
+        }
+
+        @Override
+        public void run() {
+            try (BufferedReader reader =
+                    new BufferedReader(
+                            new InputStreamReader(
+                                    target.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    synchronized (lines) {
+                        if (lines.size() >= MAX_LINES) {
+                            lines.pollFirst(); // drop oldest when full
+                        }
+                        lines.addLast(line);
+                    }
+                }
+            } catch (IOException ignored) {
+                // stream closed — subprocess has exited; normal termination
+            }
+        }
+
+        /** Returns all captured lines joined by newlines, then clears the buffer. */
+        String drainAsString() {
+            synchronized (lines) {
+                String result = lines.stream().collect(Collectors.joining("\n"));
+                lines.clear();
+                return result;
+            }
+        }
     }
 }
