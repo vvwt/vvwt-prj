@@ -24,9 +24,20 @@ import org.junit.jupiter.api.Test;
  * non-null and in the future, the client MUST surface a clear admin warning."
  *
  * <p>Story: E41S06 AC-INTEGRATION-TEST-DEPRECATION-WARNING, AC-OBSERVABILITY-EVENT-MATRIX
- * (algorithm_deprecation_warning event).
+ * (algorithm_deprecation_warning event). Fix: E41S07 AC-FIX-DETERMINISTIC-DEPRECATION-TESTS —
+ * replaced LocalDate.now().plusMonths(6) with UTC-anchored fixed date LocalDate.of(2099, 12, 31) to
+ * eliminate timezone-fragility. The DEC-48 boundary for 2099-12-31 is 2100-01-01T00:00Z, always in
+ * the future at any realistic test execution time, making the fixture unambiguously future-dated
+ * regardless of JVM default timezone.
  */
 class DeprecationWarningIT {
+
+    /**
+     * Future deprecation date — unambiguously after any realistic test execution instant. DEC-48:
+     * 2099-12-31 + 1 day = 2100-01-01T00:00:00Z, always in the future → accepted with warning.
+     * UTC-anchored; no LocalDate.now() dependency (E41S07 fix).
+     */
+    private static final LocalDate FUTURE_DATE = LocalDate.of(2099, 12, 31);
 
     private DispatcherStub stub;
     private WorkerLauncher launcher;
@@ -46,8 +57,10 @@ class DeprecationWarningIT {
             "AC-INTEGRATION-TEST-DEPRECATION-WARNING: worker emits warning event + stderr line"
                     + " and continues running when algorithm has future deprecation_date")
     void deprecationWarning_futureDeprecationDate_warningEmittedAndWorkerContinues() {
-        LocalDate futureDate = LocalDate.now().plusMonths(6);
-        stub.stubAlgorithmWithFutureDeprecation(futureDate);
+        // Future date: 2099-12-31 — unambiguously before its UTC end-of-day boundary
+        // (2100-01-01T00:00Z)
+        // at any realistic test execution instant, regardless of JVM default timezone (E41S07 fix).
+        stub.stubAlgorithmWithFutureDeprecation(FUTURE_DATE);
         launcher = new WorkerLauncher(stub.baseUri());
 
         WorkerRunResult result = launchWithShutdownAfterDelay();
