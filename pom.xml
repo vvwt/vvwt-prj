@@ -636,6 +636,7 @@
                                         <exclude>**/dist/**</exclude>
                                         <exclude>**/dist-timer/**</exclude>
                                         <exclude>**/dist-display/**</exclude>
+                                        <exclude>**/resources/static/info/assets/**</exclude>
                                     </excludes>
                                 </format>
                             </formats>
