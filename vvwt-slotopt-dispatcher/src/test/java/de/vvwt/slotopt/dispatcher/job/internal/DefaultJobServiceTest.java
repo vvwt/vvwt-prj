@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 package de.vvwt.slotopt.dispatcher.job.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -303,6 +305,71 @@ class DefaultJobServiceTest {
         // The job status must be DECOMPOSED after the full submitJob call completes
         assertThat(savedRecord.get()).isNotNull();
         assertThat(savedRecord.get().getStatus()).isEqualTo("DECOMPOSED");
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-TEST-CACHE-HIT-RESPONSE-USABLE — E60S04 (RED-first)
+    // -------------------------------------------------------------------------
+
+    /**
+     * AC-TEST-CACHE-HIT-RESPONSE-USABLE (RED-first per DEC-22):
+     *
+     * <p>When a cache hit occurs, the {@link SubmitJobResponse} MUST carry the cached optimum
+     * inline — {@code cachedResult} is non-null with the correct {@code bestRank} / {@code
+     * bestScore} from the cached payload.
+     *
+     * <p>Story: E60S04; AC-TEST-CACHE-HIT-RESPONSE-USABLE; DEC-22, DEC-9
+     */
+    @Test
+    void submitJob_cacheHit_responseCachedResultContainsBestRankAndBestScore() {
+        RawPhaseDef phase = buildSmallPhase(1);
+        CanonicalPhaseDef canonical = new CanonicalPhaseDef(1, 2, List.of(List.of(0, 1)));
+        JobDef jobDef = new JobDef(UUID.randomUUID(), 2, canonical);
+        SubmitJobRequest request = new SubmitJobRequest(jobDef, phase);
+
+        CachedResult cachedResult =
+                new CachedResult(
+                        new byte[32],
+                        "default",
+                        "{\"bestRank\":3,\"bestScore\":42.5}",
+                        Instant.parse("2026-04-26T10:00:00Z"));
+        when(resultsCacheService.lookup(any(byte[].class), eq("default")))
+                .thenReturn(Optional.of(cachedResult));
+
+        SubmitJobResponse response = jobService.submitJob(request);
+
+        assertThat(response.cacheHit()).isTrue();
+        // AC-TEST-CACHE-HIT-RESPONSE-USABLE: cached optimum reachable from response
+        assertThat(response.cachedResult()).isNotNull();
+        assertThat(response.cachedResult().bestRank()).isEqualTo(3);
+        assertThat(response.cachedResult().bestScore()).isEqualTo(42.5);
+    }
+
+    /**
+     * AC-ERR-CACHE-HIT-RESPONSE-CONSISTENT: malformed cached payload must yield null cachedResult
+     * (not a broken reference) — the submitter is never given a bad reference.
+     *
+     * <p>Story: E60S04; AC-ERR-CACHE-HIT-RESPONSE-CONSISTENT; DEC-22
+     */
+    @Test
+    void submitJob_cacheHit_malformedPayload_cachedResultIsNull() {
+        RawPhaseDef phase = buildSmallPhase(1);
+        CanonicalPhaseDef canonical = new CanonicalPhaseDef(1, 2, List.of(List.of(0, 1)));
+        JobDef jobDef = new JobDef(UUID.randomUUID(), 2, canonical);
+        SubmitJobRequest request = new SubmitJobRequest(jobDef, phase);
+
+        // Payload is missing both bestRank and bestScore
+        CachedResult cachedResult =
+                new CachedResult(
+                        new byte[32], "default", "{\"someOtherField\":true}", Instant.now());
+        when(resultsCacheService.lookup(any(byte[].class), eq("default")))
+                .thenReturn(Optional.of(cachedResult));
+
+        SubmitJobResponse response = jobService.submitJob(request);
+
+        assertThat(response.cacheHit()).isTrue();
+        // Malformed payload → null cachedResult (not a broken reference)
+        assertThat(response.cachedResult()).isNull();
     }
 
     /**
