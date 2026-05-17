@@ -1,17 +1,5 @@
-/**
- * Tests for InfoPortalOptIn route component — E62S02 AC3.
- *
- * AC3: The TM-admin Svelte opt-in control reflects the current opt-in state of a
- * tournament and sets it on operator action.
- *
- * Per project test pattern (feedback/ac_behavioural_what_not_test_how.md): structural
- * source-inspection tests verify component shape. Full render tests via
- * @testing-library/svelte require Svelte 5 component mounting which requires the
- * Svelte runtime — verify empirically and use if available.
- *
- * RED-first per DEC-22: tests fail before component exists.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
