@@ -42,9 +42,12 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * never skip silently (AC5).
  *
  * <p>The {@code vvwt-info-server} fat-JAR is built by the Maven reactor before the {@code
- * integration-test} phase runs in {@code vvwt-tm-web}. The JAR path is derived from the Maven
- * output directory without introducing a compile-time Maven dependency on {@code vvwt-info-server}
- * in {@code vvwt-tm-web/pom.xml} (DEC-42 D2).
+ * integration-test} phase runs in {@code vvwt-tm-web}. This ordering is established by the parent
+ * {@code pom.xml} {@code <modules>} declaration order — the {@code vvwt-info-*} modules are
+ * declared ahead of {@code vvwt-tm-web} — because DEC-42 D2 forbids a Maven dependency edge from
+ * {@code vvwt-tm-web} to {@code vvwt-info-server} that could otherwise reorder the reactor. The JAR
+ * path is derived from the Maven output directory without introducing a compile-time Maven
+ * dependency on {@code vvwt-info-server} in {@code vvwt-tm-web/pom.xml} (DEC-42 D2).
  *
  * <p>Single-tenant constraint (DEC-42 D3 self-host profile): the info-server in self-host mode
  * allows exactly one tenant. All tests in this class share one tenant-id and one Ed25519 keypair
@@ -89,8 +92,13 @@ class InfoPortalPublisherIT {
      * {@code vvwt-tm-web/pom.xml} (DEC-42 D2 preserved).
      *
      * <p>The Maven reactor builds {@code vvwt-info-server:package} before {@code
-     * vvwt-tm-web:integration-test} because {@code vvwt-tm-web} depends on {@code vvwt-info-dto}
-     * which is in the same reactor.
+     * vvwt-tm-web:integration-test} because the parent {@code pom.xml} {@code <modules>} block
+     * declares {@code vvwt-info-dto} / {@code vvwt-info-server} / {@code vvwt-info-client} ahead of
+     * {@code vvwt-tm-web}. With no dependency edge between {@code vvwt-tm-web} and {@code
+     * vvwt-info-server} (DEC-42 D2 forbids one), Maven uses that {@code <modules>} declaration
+     * order as the reactor tiebreaker. The {@code vvwt-tm-web → vvwt-info-dto} dependency does NOT
+     * pull {@code vvwt-info-server} forward — {@code vvwt-info-dto} and {@code vvwt-info-server}
+     * are distinct modules.
      */
     private static Path resolveInfoServerJar() {
         // vvwt-tm-web sits at: <root>/vvwt-tm-web/

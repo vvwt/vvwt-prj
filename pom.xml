@@ -27,13 +27,18 @@
         <module>vvwt-slotopt-standalone-worker</module>
         <module>vvwt-benchmark</module>
 
-        <!-- Tournament Manager modules (E02+) — DEC-10, DEC-7 -->
-        <module>vvwt-tm-web</module>
-
-        <!-- Public Participant Info Service modules (E38+) — DEC-42, DEC-10 -->
+        <!-- Public Participant Info Service modules (E38+) — DEC-42, DEC-10.
+             Declared BEFORE vvwt-tm-web: vvwt-tm-web's InfoPortalPublisherIT launches
+             vvwt-info-server's repackaged fat-JAR via Testcontainers, so that JAR must be
+             built before vvwt-tm-web's integration-test phase. DEC-42 D2 forbids a Maven
+             dependency edge from vvwt-tm-web to vvwt-info-server, so this <modules>
+             declaration order is the only reactor-ordering lever (E16S06). -->
         <module>vvwt-info-dto</module>
         <module>vvwt-info-server</module>
         <module>vvwt-info-client</module>
+
+        <!-- Tournament Manager modules (E02+) — DEC-10, DEC-7 -->
+        <module>vvwt-tm-web</module>
     </modules>
 
     <!-- ===================================================================
