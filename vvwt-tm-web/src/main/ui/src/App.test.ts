@@ -130,3 +130,45 @@ describe('App.svelte — header DOM order (E47S01 AC15)', () => {
     expect(source).toMatch(/tournamentId/);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E64S03 AC1 — TDD RED: logo is a keyboard-operable control that navigates to
+//               the home route when activated (AC2/AC3). The test is source-
+//               inspection because Svelte 5 component mounting is infeasible in
+//               the project's Vitest+jsdom environment (pre-existing gap E58S05).
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('App.svelte — logo home navigation (E64S03 AC1/AC2/AC3/AC4)', () => {
+  it('logo element is a keyboard-operable button (not a bare img) with an onclick to push("/")', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const appPath = path.resolve(__dirname, './App.svelte');
+    const source = fs.readFileSync(appPath, 'utf8');
+    // The logo must be wrapped in or replaced by a button with push('/') navigation
+    expect(source).toMatch(/push\s*\(\s*['"]\s*\/\s*['"]\s*\)/);
+    // The interactive control must have an accessible name (aria-label)
+    expect(source).toMatch(/aria-label\s*=\s*["'][^"']+["']/);
+    // The brand-lockup img must still be present inside the template (AC3 — img retained)
+    expect(source).toContain('brand-lockup');
+  });
+
+  it('logo button navigates to the home route "/" via push (AC2)', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const appPath = path.resolve(__dirname, './App.svelte');
+    const source = fs.readFileSync(appPath, 'utf8');
+    // push('/') call must appear in the template area, associated with the logo control
+    expect(source).toContain("push('/')");
+  });
+
+  it('back-arrow control is unchanged — still guarded by {#if pageHeaderState.backTo} (AC4)', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const appPath = path.resolve(__dirname, './App.svelte');
+    const source = fs.readFileSync(appPath, 'utf8');
+    // Back-arrow conditional must still exist
+    expect(source).toMatch(/#if\s+pageHeaderState\.backTo/);
+    // Back-arrow button must still call push with pageHeaderState.backTo
+    expect(source).toMatch(/push\s*\(\s*pageHeaderState\.backTo\s*\)/);
+  });
+});
