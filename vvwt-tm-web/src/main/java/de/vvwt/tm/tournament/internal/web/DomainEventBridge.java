@@ -5,6 +5,7 @@ package de.vvwt.tm.tournament.internal.web;
 import de.vvwt.tm.tournament.events.DeviceRegisteredEvent;
 import de.vvwt.tm.tournament.events.LapAdvancedEvent;
 import de.vvwt.tm.tournament.events.MatchResultChangedEvent;
+import de.vvwt.tm.tournament.events.PartialScoreUpdatedEvent;
 import de.vvwt.tm.tournament.events.PhaseStatusChangedEvent;
 import java.time.Instant;
 import java.util.UUID;
@@ -83,6 +84,7 @@ public class DomainEventBridge implements de.vvwt.tm.tournament.DomainEventBridg
     public static final String EVENT_TYPE_LAP_ADVANCED = "LAP_ADVANCED";
     public static final String EVENT_TYPE_PHASE_STATUS_CHANGED = "PHASE_STATUS_CHANGED";
     public static final String EVENT_TYPE_DEVICE_REGISTERED = "DEVICE_REGISTERED";
+    public static final String EVENT_TYPE_PARTIAL_SCORE_UPDATED = "PARTIAL_SCORE_UPDATED";
 
     private final SimpMessagingTemplate messagingTemplate;
 
@@ -206,6 +208,35 @@ public class DomainEventBridge implements de.vvwt.tm.tournament.DomainEventBridg
 
         broadcastSafe(
                 EVENTS_TOPIC, message, EVENT_TYPE_DEVICE_REGISTERED, event.getDeviceId(), null);
+    }
+
+    // =========================================================================
+    // PartialScoreUpdatedEvent — display only (E65S02)
+    // =========================================================================
+
+    /**
+     * Forwards {@link PartialScoreUpdatedEvent} to the tenant-scoped display topic (E65S02, AC2,
+     * AC4).
+     *
+     * @param event the domain event carrying tenantId and matchId
+     */
+    @EventListener
+    public void onPartialScoreUpdated(PartialScoreUpdatedEvent event) {
+        EventMessage message =
+                new EventMessage(
+                        EVENT_TYPE_PARTIAL_SCORE_UPDATED, event.getMatchId(), Instant.now());
+
+        log.debug(
+                "[tm-ws] Broadcasting {} matchId={}",
+                EVENT_TYPE_PARTIAL_SCORE_UPDATED,
+                event.getMatchId());
+
+        broadcastSafe(
+                displayTopic(event.getTenantId()),
+                message,
+                EVENT_TYPE_PARTIAL_SCORE_UPDATED,
+                event.getMatchId(),
+                null);
     }
 
     // =========================================================================

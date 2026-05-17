@@ -37,9 +37,11 @@ export interface WsEventMessage {
 }
 
 /** Known event types broadcast by DomainEventBridge. */
-export const EVENT_TYPE_MATCH_RESULT_CHANGED = 'MATCH_RESULT_CHANGED';
-export const EVENT_TYPE_LAP_ADVANCED         = 'LAP_ADVANCED';
-export const EVENT_TYPE_PHASE_STATUS_CHANGED = 'PHASE_STATUS_CHANGED';
+export const EVENT_TYPE_MATCH_RESULT_CHANGED  = 'MATCH_RESULT_CHANGED';
+export const EVENT_TYPE_LAP_ADVANCED          = 'LAP_ADVANCED';
+export const EVENT_TYPE_PHASE_STATUS_CHANGED  = 'PHASE_STATUS_CHANGED';
+/** E65S02 AC2: in-progress score update — triggers Display overview refresh (no set confirmation needed). */
+export const EVENT_TYPE_PARTIAL_SCORE_UPDATED = 'PARTIAL_SCORE_UPDATED';
 
 // ---------------------------------------------------------------------------
 // Connection status

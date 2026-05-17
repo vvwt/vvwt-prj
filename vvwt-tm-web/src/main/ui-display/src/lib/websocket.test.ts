@@ -44,6 +44,7 @@ import {
   EVENT_TYPE_MATCH_RESULT_CHANGED,
   EVENT_TYPE_LAP_ADVANCED,
   EVENT_TYPE_PHASE_STATUS_CHANGED,
+  EVENT_TYPE_PARTIAL_SCORE_UPDATED,
 } from './websocket.js';
 
 // ---------------------------------------------------------------------------
@@ -240,5 +241,9 @@ describe('websocket.ts — reconnect and fallback orchestration (AC7, AC9)', () 
     expect(EVENT_TYPE_MATCH_RESULT_CHANGED).toBe('MATCH_RESULT_CHANGED');
     expect(EVENT_TYPE_LAP_ADVANCED).toBe('LAP_ADVANCED');
     expect(EVENT_TYPE_PHASE_STATUS_CHANGED).toBe('PHASE_STATUS_CHANGED');
+  });
+
+  it('exports EVENT_TYPE_PARTIAL_SCORE_UPDATED = "PARTIAL_SCORE_UPDATED" (E65S02 AC7)', () => {
+    expect(EVENT_TYPE_PARTIAL_SCORE_UPDATED).toBe('PARTIAL_SCORE_UPDATED');
   });
 });

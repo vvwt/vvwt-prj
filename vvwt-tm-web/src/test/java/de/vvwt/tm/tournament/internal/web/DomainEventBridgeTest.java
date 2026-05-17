@@ -5,6 +5,7 @@ package de.vvwt.tm.tournament.internal.web;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -12,6 +13,7 @@ import static org.mockito.Mockito.verify;
 
 import de.vvwt.tm.tournament.MatchState;
 import de.vvwt.tm.tournament.events.MatchResultChangedEvent;
+import de.vvwt.tm.tournament.events.PartialScoreUpdatedEvent;
 import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
@@ -119,6 +121,66 @@ class DomainEventBridgeTest {
             // Template was called (bridge attempted broadcast)
             verify(mockTemplate)
                     .convertAndSend(eq(DomainEventBridge.EVENTS_TOPIC), any(EventMessage.class));
+        }
+    }
+
+    // =========================================================================
+    // Unit tests — E65S02 AC2/AC4 onPartialScoreUpdated
+    // =========================================================================
+
+    /**
+     * Unit-level tests for the {@code onPartialScoreUpdated} listener (E65S02, AC2, AC4, DEC-22).
+     *
+     * <p>Written RED-first: {@link DomainEventBridge#onPartialScoreUpdated} did not exist at
+     * test-commit time per DEC-22 Iron Law.
+     */
+    @Nested
+    @DisplayName("Unit: E65S02 onPartialScoreUpdated — PARTIAL_SCORE_UPDATED broadcast")
+    class PartialScoreUpdatedTest {
+
+        @Test
+        @DisplayName(
+                "E65S02 AC2: onPartialScoreUpdated broadcasts PARTIAL_SCORE_UPDATED"
+                        + " to the tenant-scoped display topic")
+        void onPartialScoreUpdated_broadcastsToDisplayTopic() {
+            SimpMessagingTemplate mockTemplate = mock(SimpMessagingTemplate.class);
+            DomainEventBridge bridge = new DomainEventBridge(mockTemplate);
+
+            UUID tenantId = UUID.randomUUID();
+            UUID matchId = UUID.randomUUID();
+            PartialScoreUpdatedEvent event = new PartialScoreUpdatedEvent(this, tenantId, matchId);
+
+            bridge.onPartialScoreUpdated(event);
+
+            String expectedTopic = DomainEventBridge.displayTopic(tenantId);
+            verify(mockTemplate)
+                    .convertAndSend(
+                            eq(expectedTopic),
+                            argThat(
+                                    (EventMessage msg) ->
+                                            "PARTIAL_SCORE_UPDATED".equals(msg.getEventType())
+                                                    && matchId.equals(msg.getEntityId())));
+        }
+
+        @Test
+        @DisplayName("E65S02 AC4: different tenant → different display topic (tenant isolation)")
+        void onPartialScoreUpdated_usesTenantScopedTopic() {
+            SimpMessagingTemplate mockTemplate = mock(SimpMessagingTemplate.class);
+            DomainEventBridge bridge = new DomainEventBridge(mockTemplate);
+
+            UUID tenantA = UUID.randomUUID();
+            UUID tenantB = UUID.randomUUID();
+            UUID matchId = UUID.randomUUID();
+
+            bridge.onPartialScoreUpdated(new PartialScoreUpdatedEvent(this, tenantA, matchId));
+
+            verify(mockTemplate)
+                    .convertAndSend(
+                            eq(DomainEventBridge.displayTopic(tenantA)), any(EventMessage.class));
+            // tenantB topic must NOT be called
+            verify(mockTemplate, org.mockito.Mockito.never())
+                    .convertAndSend(
+                            eq(DomainEventBridge.displayTopic(tenantB)), any(EventMessage.class));
         }
     }
 
