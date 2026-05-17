@@ -182,6 +182,19 @@
         }
         #confirm-yes-btn { background: #27ae60; color: #fff; }
         #confirm-no-btn  { background: #555; color: #eee; }
+        /* AC1 (E61S03): swap control button */
+        #swap-btn {
+            display: block;
+            width: 90%;
+            margin: 0 auto 20px;
+            padding: 10px 0;
+            font-size: 0.95em;
+            background: #444466;
+            color: #ccc;
+            border: 1px solid #555;
+            border-radius: 6px;
+            cursor: pointer;
+        }
         /* AC3, AC4: bottom bar — fixed at page bottom */
         #bottom-bar {
             position: fixed;
@@ -282,6 +295,9 @@
             <!-- AC5: confirm set result button -->
             <button id="confirm-btn" type="button">{{msgConfirmHeading}}</button>
 
+            <!-- AC1 (E61S03): manual swap control — swaps on-screen left/right team positions -->
+            <button id="swap-btn" type="button">{{msgSwapLabel}}</button>
+
         </div><!-- /#match-panel -->
 
     </div><!-- /#page-wrapper -->
@@ -316,20 +332,24 @@
 
     <!--
         E61S01 inline ES5 score-entry logic — redesigned.
-        AC1:  Logo lockup removed; favicon links unchanged.
+        E61S03 — team-position swap logic added.
+        AC1:  Logo lockup removed (E61S01); swap control button added (E61S03).
         AC2:  Header shows active match identity (teams + round/set) — JS-populated.
         AC3:  Bottom-left wordmark rendered in template.
         AC4:  Bottom-centre field number rendered in template.
         AC5:  Single editable score input per team; +/- buttons operate on it.
         AC6:  When no active match, header spans are empty (no stale text).
-        AC7:  All strings from i18n message keys.
+        AC7:  All strings from i18n message keys (incl. score.field.swap.label, E61S03 AC8).
         AC8:  ECMAScript 5 only (DEC-19).
         AC9:  +/- buttons increment/decrement the single score input.
+        E61S03 swap model: effectiveSwap = (deterministicSwap(setIndex, isTiebreak, pts) + swapOffset) % 2.
+        deterministicSwap = setIndex%2 XOR tiebreak-8-point-switch. swapOffset from localStorage.
         DEC-19: ECMAScript 5 only — var, named functions, no arrow/class/template literals.
     -->
     <script>
     /* =========================================================================
        E61S01 — Score-entry page ES5 inline script (redesigned).
+       E61S03 — Team-position swap added (AC1–AC10).
        DEC-19 constraint: ECMAScript 5 only.
        Relies on helpers from /score/assets/vvwt-tablet.js (must load first):
          vvwtFetch, vvwtSetText, vvwtShow, vvwtHide, vvwtQuery
@@ -350,6 +370,7 @@
     var MSG_LAP_LABEL        = '{{msgLapLabel}}';
     var MSG_SET_LABEL        = '{{msgSetLabel}}';
     var MSG_VS_LABEL         = '{{msgVsLabel}}';
+    var MSG_SWAP_LABEL       = '{{msgSwapLabel}}';
 
     /* -------------------------------------------------------------------------
        Page state
@@ -361,11 +382,71 @@
     /* Current match state */
     var currentMatchId       = null;
     var currentSetIndex      = 0;
+    var currentIsTiebreak    = false;
+    var currentTeam1Points   = 0;
+    var currentTeam2Points   = 0;
     var score1               = 0;
     var score2               = 0;
 
     /* AC11: offline score queue — array of {matchId, setIndex, team1Points, team2Points} */
     var scoreQueue           = [];
+
+    /* -------------------------------------------------------------------------
+       AC1, AC4, AC6 (E61S03): Swap state — relative-toggle model.
+       swapOffset (0 or 1) is the manual-swap component, persisted in localStorage.
+       The deterministic component (per-set alternation + tiebreak 8-point switch)
+       is recomputed each render from the API state (setIndex, isTiebreak, points).
+       The effective swap = (deterministicSwap(setIndex, isTiebreak, points) + swapOffset) % 2.
+       When effectiveSwap === 1, team2 appears on the left, team1 on the right.
+       This is PURELY presentation — the score-team binding (AC5) is unchanged:
+       score1 always belongs to team1, score2 to team2.
+       DEC-19: localStorage is permitted on the scoring-tablet surface.
+       --------------------------------------------------------------------- */
+    var SWAP_OFFSET_KEY        = 'vvwt_swap_offset_field_' + FIELD_NUMBER;
+    /* AC3, AC10 (E61S03): tiebreak 8-point threshold — deterministic mid-set switch. */
+    var TIEBREAK_SWAP_THRESHOLD = 8;
+
+    /* Load persisted manual-swap offset (0 or 1, default 0). */
+    function loadSwapOffset() {
+        try {
+            var raw = window.localStorage ? window.localStorage.getItem(SWAP_OFFSET_KEY) : null;
+            if (raw === '1') { return 1; }
+        } catch (e) { /* ignore — iOS 9 private mode */ }
+        return 0;
+    }
+
+    /* Save manual-swap offset to localStorage. */
+    function saveSwapOffset(offset) {
+        try {
+            if (window.localStorage) {
+                window.localStorage.setItem(SWAP_OFFSET_KEY, String(offset));
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    /*
+     * AC2, AC3 (E61S03): Compute the deterministic swap component from the API state.
+     * - Per-set alternation: setIndex % 2.
+     * - Tiebreak 8-point switch: if isTiebreak AND max(t1Points, t2Points) >= TIEBREAK_SWAP_THRESHOLD,
+     *   flip the alternation (XOR with 1).
+     * This is a pure function — recomputed on every render and page reload (AC3, AC6).
+     */
+    function deterministicSwap(setIndex, isTiebreak, t1Points, t2Points) {
+        var base = setIndex % 2;
+        if (isTiebreak) {
+            var maxPoints = t1Points > t2Points ? t1Points : t2Points;
+            if (maxPoints >= TIEBREAK_SWAP_THRESHOLD) {
+                base = 1 - base;
+            }
+        }
+        return base;
+    }
+
+    /* AC4 (E61S03): Compute effective swap from deterministic component + manual offset. */
+    function effectiveSwap(setIndex, isTiebreak, t1Points, t2Points) {
+        var swapOffset = loadSwapOffset();
+        return (deterministicSwap(setIndex, isTiebreak, t1Points, t2Points) + swapOffset) % 2;
+    }
 
     /* -------------------------------------------------------------------------
        DOM references
@@ -398,6 +479,8 @@
     var elConfirmScore   = vvwtQuery('#confirm-dialog-score');
     var elConfirmYesBtn  = vvwtQuery('#confirm-yes-btn');
     var elConfirmNoBtn   = vvwtQuery('#confirm-no-btn');
+    /* AC1 (E61S03): swap control button */
+    var elSwapBtn        = vvwtQuery('#swap-btn');
 
     /* -------------------------------------------------------------------------
        AC10: Token storage helpers (same pattern as register.mustache)
@@ -519,6 +602,45 @@
             sendPartialScore();
         };
     }
+
+    /* -------------------------------------------------------------------------
+       AC1, AC4 (E61S03): Swap button handler — relative toggle.
+       Increments the persisted swap offset (mod 2) and re-applies the visual swap
+       to the currently shown match without reloading. Score bindings unchanged (AC5).
+       --------------------------------------------------------------------- */
+
+    if (elSwapBtn) {
+        elSwapBtn.onclick = function () {
+            var current = loadSwapOffset();
+            saveSwapOffset(1 - current);
+            applySwap(currentSetIndex, currentIsTiebreak, currentTeam1Points, currentTeam2Points);
+        };
+    }
+
+    /*
+     * AC2, AC3, AC4, AC5, AC6 (E61S03): Apply the visual swap to the displayed match.
+     * Updates only the column labels and header team display — score input IDs are
+     * structural (fixed) and their values remain bound to team1/team2 identity (AC5).
+     * team1Name and team2Name are the authoritative names from the API (never swapped in storage).
+     */
+    function applySwap(setIndex, isTiebreak, t1Points, t2Points) {
+        var swap = effectiveSwap(setIndex, isTiebreak, t1Points, t2Points);
+        /* Retrieve team names stored on last renderMatch call */
+        var leftName  = (swap === 1) ? currentTeam2Name : currentTeam1Name;
+        var rightName = (swap === 1) ? currentTeam1Name : currentTeam2Name;
+
+        /* AC2: update header — left vs right ordering */
+        if (elHeaderTeams) {
+            vvwtSetText(elHeaderTeams, leftName + ' ' + MSG_VS_LABEL + ' ' + rightName);
+        }
+        /* Update column labels (score inputs stay at their fixed IDs) */
+        vvwtSetText(elLabelTeam1, leftName);
+        vvwtSetText(elLabelTeam2, rightName);
+    }
+
+    /* Storage for team names used by applySwap between renderMatch calls */
+    var currentTeam1Name = '';
+    var currentTeam2Name = '';
 
     /* -------------------------------------------------------------------------
        AC5, AC7: Confirm dialog
@@ -688,27 +810,25 @@
     }
 
     function renderMatch(data) {
-        currentMatchId  = data.matchId  || null;
-        currentSetIndex = data.setIndex || 0;
-        score1          = data.team1Points || 0;
-        score2          = data.team2Points || 0;
+        currentMatchId      = data.matchId  || null;
+        currentSetIndex     = data.setIndex || 0;
+        currentIsTiebreak   = data.isTiebreak ? true : false;
+        currentTeam1Points  = data.team1Points || 0;
+        currentTeam2Points  = data.team2Points || 0;
+        score1              = currentTeam1Points;
+        score2              = currentTeam2Points;
 
-        /* AC2: populate header with team names and round/set */
-        var t1 = data.team1Name || '?';
-        var t2 = data.team2Name || '?';
-        if (elHeaderTeams) {
-            vvwtSetText(elHeaderTeams, t1 + ' ' + MSG_VS_LABEL + ' ' + t2);
-        }
+        /* Store canonical team names (API order, never swapped) */
+        currentTeam1Name = data.team1Name || '?';
+        currentTeam2Name = data.team2Name || '?';
+
+        /* AC2: round/set header (position-independent) */
         if (elHeaderRoundSet) {
             var lapNum = data.lapNumber || 0;
-            var setNum = (data.setIndex || 0) + 1;
+            var setNum = currentSetIndex + 1;
             vvwtSetText(elHeaderRoundSet,
                 MSG_LAP_LABEL + ' ' + lapNum + ' — ' + MSG_SET_LABEL + ' ' + setNum);
         }
-
-        /* AC5: score column labels */
-        vvwtSetText(elLabelTeam1, t1);
-        vvwtSetText(elLabelTeam2, t2);
 
         /* Referee */
         if (data.refereeTeamName) {
@@ -720,6 +840,13 @@
 
         /* AC5: update single score inputs */
         updateScoreDisplay();
+
+        /*
+         * AC2, AC3, AC4, AC6 (E61S03): Apply the visual team-position swap.
+         * Deterministic component recomputed from current set, tiebreak status, and points.
+         * Combined with persisted manual-swap offset loaded from localStorage.
+         */
+        applySwap(currentSetIndex, currentIsTiebreak, currentTeam1Points, currentTeam2Points);
 
         /* Retry any queued submissions (AC11) */
         if (scoreQueue.length > 0) {

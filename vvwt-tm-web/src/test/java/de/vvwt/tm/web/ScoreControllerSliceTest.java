@@ -158,7 +158,9 @@ class ScoreControllerSliceTest {
                     "msgQueuePending",
                     "msgQueueSaved",
                     "versionLabel",
-                    "appVersion");
+                    "appVersion",
+                    // AC1/AC8 (E61S03): swap control label added
+                    "msgSwapLabel");
 
     @Test
     @DisplayName("AC-MODEL-ATTRIBUTE-PARITY: helloWorld model contains exactly the legacy key set")
