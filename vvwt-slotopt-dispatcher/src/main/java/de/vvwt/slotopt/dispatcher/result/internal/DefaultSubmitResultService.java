@@ -1,16 +1,16 @@
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 package de.vvwt.slotopt.dispatcher.result.internal;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.vvwt.slotopt.dispatcher.cache.ResultsCacheService;
 import de.vvwt.slotopt.dispatcher.crypto.InvalidSignatureException;
 import de.vvwt.slotopt.dispatcher.crypto.JcsCanonicalizer;
 import de.vvwt.slotopt.dispatcher.crypto.SignatureVerifier;
 import de.vvwt.slotopt.dispatcher.crypto.SignatureVerifierRegistry;
 import de.vvwt.slotopt.dispatcher.identity.KeyRegistration;
 import de.vvwt.slotopt.dispatcher.identity.KeyRegistrationRepository;
-import de.vvwt.slotopt.dispatcher.job.JobRecord;
-import de.vvwt.slotopt.dispatcher.job.JobRepository;
+import de.vvwt.slotopt.dispatcher.job.JobFinalizationService;
 import de.vvwt.slotopt.dispatcher.packet.PacketRecord;
 import de.vvwt.slotopt.dispatcher.packet.PacketRepository;
 import de.vvwt.slotopt.dispatcher.result.AlgorithmMismatchException;
@@ -23,8 +23,6 @@ import de.vvwt.slotopt.dispatcher.result.SubmitResultRequest;
 import de.vvwt.slotopt.dispatcher.result.SubmitResultResponse;
 import de.vvwt.slotopt.dispatcher.result.SubmitResultService;
 import de.vvwt.slotopt.dispatcher.result.UnknownWorkerException;
-import de.vvwt.slotopt.worker.types.JobDef;
-import de.vvwt.slotopt.worker.types.StructuralFingerprint;
 import java.time.Instant;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -48,8 +46,8 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>Canonicalize {@code resultPayloadJson} via JCS.
  *   <li>Verify signature — invalid → {@link InvalidSignatureException} (HTTP 401).
  *   <li>First-valid-wins per DEC-6: RESULT_RECEIVED → {@link LateResult} + superseded response;
- *       CLAIMED → retain result atomically + mark RESULT_RECEIVED + audit entry + cache write +
- *       accepted response.
+ *       CLAIMED → retain result atomically + mark RESULT_RECEIVED + audit entry + trigger
+ *       finalization + accepted response.
  * </ol>
  *
  * <p>E60S02 extends step 6 (CLAIMED path): result is retained via {@link PacketResultService}
@@ -57,24 +55,20 @@ import org.springframework.transaction.annotation.Transactional;
  * boundary (AC-ERR-RETENTION-ATOMIC-WITH-ACCEPT). A retention failure propagates as an exception,
  * rolling back the entire transaction so the packet remains {@code CLAIMED} and reissuable.
  *
- * <p>Story: E37S09 + E37S10 (AC-CACHE-WRITE-ON-ACCEPTED-RESULT retrofit) + E60S02
- * (AC-TEST-RESULT-RETAINED-ON-ACCEPT, AC-ERR-RETENTION-ATOMIC-WITH-ACCEPT); DEC-6, DEC-35, DEC-36,
- * DEC-43
+ * <p>E60S03: the per-packet cache write is removed from this class. The result cache is now written
+ * once at finalization by {@link JobFinalizationService} after all packets of a job have reached
+ * {@code RESULT_RECEIVED} (AC-TEST-NO-PER-PACKET-CACHE-WRITE, AC-GOV-FINALIZATION-CONFORMS-SPEC).
+ * Finalization is triggered here after the packet accept; any finalization failure is absorbed
+ * (AC-ERR-FINALIZATION-DOES-NOT-BLOCK-RESULT-ACCEPT).
+ *
+ * <p>Story: E37S09 + E37S10 + E60S02 (AC-TEST-RESULT-RETAINED-ON-ACCEPT,
+ * AC-ERR-RETENTION-ATOMIC-WITH-ACCEPT) + E60S03 (AC-TEST-NO-PER-PACKET-CACHE-WRITE,
+ * AC-ERR-FINALIZATION-DOES-NOT-BLOCK-RESULT-ACCEPT); DEC-6, DEC-35, DEC-36, DEC-43
  */
 @Service
 class DefaultSubmitResultService implements SubmitResultService {
 
     private static final Logger LOG = Logger.getLogger(DefaultSubmitResultService.class.getName());
-
-    /**
-     * V1 game-mode discriminator for cache keys per DEC-9 / AC-CACHE-WRITE-ON-ACCEPTED-RESULT.
-     *
-     * <p>V1 supports a single optimization objective; the game-mode constant ensures cache-key
-     * correctness in future when multiple objectives are introduced. It matches the {@code
-     * gameMode} used by {@link de.vvwt.slotopt.dispatcher.job.internal.DefaultJobService} when
-     * performing the cache-read short-circuit.
-     */
-    static final String V1_GAME_MODE = "default";
 
     private final KeyRegistrationRepository keyRegistrationRepository;
     private final PacketRepository packetRepository;
@@ -82,9 +76,8 @@ class DefaultSubmitResultService implements SubmitResultService {
     private final JcsCanonicalizer canonicalizer;
     private final LateResultRepository lateResultRepository;
     private final ResultAuditService auditService;
-    private final ResultsCacheService resultsCacheService;
-    private final JobRepository jobRepository;
     private final PacketResultService packetResultService;
+    private final JobFinalizationService jobFinalizationService;
     private final ObjectMapper objectMapper;
 
     DefaultSubmitResultService(
@@ -94,18 +87,16 @@ class DefaultSubmitResultService implements SubmitResultService {
             JcsCanonicalizer canonicalizer,
             LateResultRepository lateResultRepository,
             ResultAuditService auditService,
-            ResultsCacheService resultsCacheService,
-            JobRepository jobRepository,
-            PacketResultService packetResultService) {
+            PacketResultService packetResultService,
+            JobFinalizationService jobFinalizationService) {
         this.keyRegistrationRepository = keyRegistrationRepository;
         this.packetRepository = packetRepository;
         this.verifierRegistry = verifierRegistry;
         this.canonicalizer = canonicalizer;
         this.lateResultRepository = lateResultRepository;
         this.auditService = auditService;
-        this.resultsCacheService = resultsCacheService;
-        this.jobRepository = jobRepository;
         this.packetResultService = packetResultService;
+        this.jobFinalizationService = jobFinalizationService;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -234,49 +225,19 @@ class DefaultSubmitResultService implements SubmitResultService {
                 receivedAt,
                 "ACCEPTED");
 
-        // AC-CACHE-WRITE-ON-ACCEPTED-RESULT (E37S10 retrofit):
-        // Write the accepted result to the cache keyed by structural fingerprint + V1 game mode.
-        // Cache write must NOT block result acceptance — absorbed like audit failures.
+        // E60S03: trigger job finalization after packet accepted.
+        // Finalization checks whether all packets are now RESULT_RECEIVED and, if so, aggregates
+        // the global optimum, transitions job to COMPLETED, and writes the result cache once.
+        // AC-ERR-FINALIZATION-DOES-NOT-BLOCK-RESULT-ACCEPT: any failure is absorbed here.
         try {
-            byte[] fingerprint = computeFingerprint(packet.getJobId());
-            resultsCacheService.recordAcceptedResult(
-                    fingerprint, V1_GAME_MODE, request.resultPayloadJson(), packet.getJobId());
+            jobFinalizationService.tryFinalizeJob(packet.getJobId());
         } catch (Exception e) {
             LOG.log(
                     Level.WARNING,
-                    "Cache write failed for job {0} — ignored: {1}",
+                    "Finalization failed for job {0} — absorbed: {1}",
                     new Object[] {packet.getJobId(), e.getMessage()});
         }
 
         return new SubmitResultResponse(true, null);
-    }
-
-    /**
-     * Computes the structural fingerprint for a job from its stored {@code jobDefJson}.
-     *
-     * <p>Looks up the {@link JobRecord} by {@code jobId}, deserializes the {@link JobDef}, and
-     * calls {@link
-     * StructuralFingerprint#fingerprint(de.vvwt.slotopt.worker.types.CanonicalPhaseDef)}.
-     *
-     * @param jobId the UUID of the job owning the packet
-     * @return the 32-byte SHA-256 structural fingerprint
-     * @throws IllegalStateException if the job is not found or jobDefJson cannot be deserialized
-     */
-    private byte[] computeFingerprint(java.util.UUID jobId) {
-        JobRecord jobRecord =
-                jobRepository
-                        .findByJobId(jobId)
-                        .orElseThrow(
-                                () ->
-                                        new IllegalStateException(
-                                                "Job not found for fingerprint computation: "
-                                                        + jobId));
-        try {
-            JobDef jobDef = objectMapper.readValue(jobRecord.getJobDefJson(), JobDef.class);
-            return StructuralFingerprint.fingerprint(jobDef.canonicalPhaseDef());
-        } catch (Exception e) {
-            throw new IllegalStateException(
-                    "Failed to compute fingerprint from jobDefJson for job " + jobId, e);
-        }
     }
 }

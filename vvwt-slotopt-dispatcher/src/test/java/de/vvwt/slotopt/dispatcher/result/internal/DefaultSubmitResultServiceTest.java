@@ -1,24 +1,23 @@
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 package de.vvwt.slotopt.dispatcher.result.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import de.vvwt.slotopt.dispatcher.cache.ResultsCacheService;
 import de.vvwt.slotopt.dispatcher.crypto.InvalidSignatureException;
 import de.vvwt.slotopt.dispatcher.crypto.JcsCanonicalizer;
 import de.vvwt.slotopt.dispatcher.crypto.SignatureVerifier;
 import de.vvwt.slotopt.dispatcher.crypto.SignatureVerifierRegistry;
 import de.vvwt.slotopt.dispatcher.identity.KeyRegistration;
 import de.vvwt.slotopt.dispatcher.identity.KeyRegistrationRepository;
-import de.vvwt.slotopt.dispatcher.job.JobRecord;
-import de.vvwt.slotopt.dispatcher.job.JobRepository;
+import de.vvwt.slotopt.dispatcher.job.JobFinalizationService;
 import de.vvwt.slotopt.dispatcher.packet.PacketRecord;
 import de.vvwt.slotopt.dispatcher.packet.PacketRepository;
 import de.vvwt.slotopt.dispatcher.result.AlgorithmMismatchException;
@@ -46,8 +45,13 @@ import org.junit.jupiter.api.Test;
  *
  * <p>RED-first per DEC-22 / AC-TDD-RED-FIRST-EVIDENCE (E37S09).
  *
- * <p>Story: E37S09 + E37S10 (AC-CACHE-WRITE-ON-ACCEPTED-RESULT retrofit); AC-SUBMIT-RESULT-SERVICE;
- * AC-ALGORITHM-MISMATCH-REJECTED; AC-FIRST-VALID-WINS; DEC-22, DEC-36
+ * <p>E60S03: updated to reflect that cache is no longer written per-packet
+ * (AC-TEST-NO-PER-PACKET-CACHE-WRITE). The {@code submit_packetClaimed_writesToCache} test now
+ * asserts that finalization is triggered (which handles cache write at job completion).
+ *
+ * <p>Story: E37S09 + E37S10 (AC-CACHE-WRITE-ON-ACCEPTED-RESULT retrofit) + E60S02 + E60S03
+ * (AC-TEST-NO-PER-PACKET-CACHE-WRITE); AC-SUBMIT-RESULT-SERVICE; AC-ALGORITHM-MISMATCH-REJECTED;
+ * AC-FIRST-VALID-WINS; DEC-22, DEC-36
  */
 class DefaultSubmitResultServiceTest {
 
@@ -57,9 +61,8 @@ class DefaultSubmitResultServiceTest {
     private JcsCanonicalizer canonicalizer;
     private LateResultRepository lateResultRepository;
     private ResultAuditService auditService;
-    private ResultsCacheService resultsCacheService;
-    private JobRepository jobRepository;
     private PacketResultService packetResultService;
+    private JobFinalizationService jobFinalizationService;
     private DefaultSubmitResultService service;
 
     @BeforeEach
@@ -70,9 +73,8 @@ class DefaultSubmitResultServiceTest {
         canonicalizer = mock(JcsCanonicalizer.class);
         lateResultRepository = mock(LateResultRepository.class);
         auditService = mock(ResultAuditService.class);
-        resultsCacheService = mock(ResultsCacheService.class);
-        jobRepository = mock(JobRepository.class);
         packetResultService = mock(PacketResultService.class);
+        jobFinalizationService = mock(JobFinalizationService.class);
         service =
                 new DefaultSubmitResultService(
                         keyRegistrationRepository,
@@ -81,9 +83,8 @@ class DefaultSubmitResultServiceTest {
                         canonicalizer,
                         lateResultRepository,
                         auditService,
-                        resultsCacheService,
-                        jobRepository,
-                        packetResultService);
+                        packetResultService,
+                        jobFinalizationService);
     }
 
     // -------------------------------------------------------------------------
@@ -264,19 +265,13 @@ class DefaultSubmitResultServiceTest {
     }
 
     // -------------------------------------------------------------------------
-    // AC-CACHE-WRITE-ON-ACCEPTED-RESULT (E37S10 retrofit)
+    // AC-TEST-NO-PER-PACKET-CACHE-WRITE (E60S03)
+    // Cache is no longer written per-packet — it is written once at finalization.
+    // Verifies that submit() for a CLAIMED packet triggers finalization (not cache directly).
     // -------------------------------------------------------------------------
 
-    /**
-     * Verifies that when a result is accepted (CLAIMED packet), {@link
-     * ResultsCacheService#recordAcceptedResult} is called with the structural fingerprint derived
-     * from the job's {@link de.vvwt.slotopt.worker.types.CanonicalPhaseDef} and the canonical V1
-     * game mode.
-     *
-     * <p>RED-first per DEC-22 / AC-CACHE-WRITE-ON-ACCEPTED-RESULT + AC-RETROFIT-EVIDENCE (E37S10).
-     */
     @Test
-    void submit_packetClaimed_writesToCache() throws Exception {
+    void submit_packetClaimed_triggersFinalizationNotDirectCacheWrite() throws Exception {
         UUID workerId = UUID.randomUUID();
         UUID packetId = UUID.randomUUID();
         UUID jobId = UUID.randomUUID();
@@ -296,28 +291,13 @@ class DefaultSubmitResultServiceTest {
         packet.setStatus("CLAIMED");
         when(packetRepository.findByPacketId(packetId)).thenReturn(Optional.of(packet));
 
-        // JobRecord with a minimal valid jobDefJson containing a CanonicalPhaseDef
-        // The jobDefJson is what DefaultJobService persists; here we stub the lookup.
-        JobRecord jobRecord = new JobRecord();
-        jobRecord.setJobId(jobId);
-        // Minimal JSON for JobDef: {jobId, n, canonicalPhaseDef{rowCount, avatarCount, rows}}
-        jobRecord.setJobDefJson(
-                "{\"jobId\":\""
-                        + jobId
-                        + "\",\"n\":2,"
-                        + "\"canonicalPhaseDef\":{\"rowCount\":1,\"avatarCount\":2,"
-                        + "\"rows\":[[0,1]]}}");
-        when(jobRepository.findByJobId(jobId)).thenReturn(Optional.of(jobRecord));
-
         SubmitResultRequest req =
                 new SubmitResultRequest(packetId, workerId, "Ed25519", new byte[64], resultPayload);
 
         service.submit(req, "127.0.0.1");
 
-        // Verify cache write was called with non-null fingerprint, correct gameMode + payload
-        verify(resultsCacheService)
-                .recordAcceptedResult(
-                        any(byte[].class), eq("default"), eq(resultPayload), eq(jobId));
+        // E60S03: finalization service must be triggered (cache write delegated to finalization)
+        verify(jobFinalizationService).tryFinalizeJob(jobId);
     }
 
     // -------------------------------------------------------------------------
