@@ -15,6 +15,7 @@
    * Story E48S05 — adds /tournaments/:tournamentId/phases route (AC-FRONTEND-PHASES-ROUTE).
    * Story E47S01 — shell foundation: persistent header with page title, back-arrow,
    *                tournament name, action buttons. Sticky on scroll. Responsive collapse.
+   * Story E63S05 — adds /embedded-worker route (AC-GOV-CONTROLLER-PLACEMENT).
    *
    * Hash-based routing decision (Brief H-2): No server-side catch-all is needed for
    * deep-link URLs because the hash fragment is never sent to the server.
@@ -57,6 +58,7 @@
   import PhasePreparation from './routes/PhasePreparation.svelte';
   import MatchCorrection from './routes/MatchCorrection.svelte';
   import MatchOverview from './routes/MatchOverview.svelte';
+  import EmbeddedWorkerControl from './routes/EmbeddedWorkerControl.svelte';
   import { pageHeader, type PageHeaderState } from './stores/pageHeaderStore.js';
   import { getTournament, type Tournament } from './stores/tournamentStore.js';
   import { _ } from 'svelte-i18n';
@@ -81,6 +83,7 @@
     ['/tournaments/:tournamentId/phases/:phaseId/matches', MatchOverview],
     ['/tournaments/:tournamentId/phases/:phaseId/matches/:matchId/correction', MatchCorrection],
     ['/devices', Devices],
+    ['/embedded-worker', EmbeddedWorkerControl],
   ]);
 
   /** Fallback: redirect unknown routes to home. */

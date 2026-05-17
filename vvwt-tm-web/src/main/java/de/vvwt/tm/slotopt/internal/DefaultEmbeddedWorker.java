@@ -13,11 +13,14 @@ import de.vvwt.slotopt.worker.runtime.OutagePolicy;
 import de.vvwt.slotopt.worker.runtime.RegisterKeyRequest;
 import de.vvwt.slotopt.worker.runtime.RegisterKeyResponse;
 import de.vvwt.tm.slotopt.EmbeddedWorker;
+import de.vvwt.tm.slotopt.EmbeddedWorkerState;
 import de.vvwt.tm.slotopt.HostActivityProbe;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,7 +89,8 @@ import org.slf4j.LoggerFactory;
  * interface mandate (Clause A-ext). This class is NOT component-scanned; it is instantiated
  * exclusively by the configuration class.
  *
- * <p>Story: E63S03 (base), E63S04 (host-protection additions).
+ * <p>Story: E63S03 (base), E63S04 (host-protection additions), E63S05 (operator controls +
+ * observability).
  */
 class DefaultEmbeddedWorker implements EmbeddedWorker {
 
@@ -114,6 +118,24 @@ class DefaultEmbeddedWorker implements EmbeddedWorker {
      * Volatile flag — set by {@link #stop()} to signal the loop to exit after current iteration.
      */
     private final AtomicBoolean shutdownRequested = new AtomicBoolean(false);
+
+    // E63S05: operator controls + observability state
+
+    /** Current worker lifecycle state (E63S05). Updated atomically by the loop and controls. */
+    private final AtomicReference<EmbeddedWorkerState> state =
+            new AtomicReference<>(EmbeddedWorkerState.STOPPED);
+
+    /**
+     * Set by {@link #disable()} — prevents restart after run-time disable (E63S05). Once true, the
+     * worker cannot be re-enabled without a host restart.
+     */
+    private final AtomicBoolean runtimeDisabled = new AtomicBoolean(false);
+
+    /** Total packets successfully processed since last {@link #start()} (E63S05). */
+    private final AtomicLong packetsCompleted = new AtomicLong(0);
+
+    /** Total packets that failed (ComputeStepException) since last {@link #start()} (E63S05). */
+    private final AtomicLong packetsFailed = new AtomicLong(0);
 
     /** The background worker thread; null before {@link #start()} or after termination. */
     private volatile Thread workerThread;
@@ -169,11 +191,16 @@ class DefaultEmbeddedWorker implements EmbeddedWorker {
      */
     @Override
     public synchronized void start() {
+        if (runtimeDisabled.get()) {
+            LOG.warn("DefaultEmbeddedWorker.start() called but worker is runtime-disabled — no-op");
+            return;
+        }
         if (workerThread != null && workerThread.isAlive()) {
             LOG.debug("DefaultEmbeddedWorker.start() called but worker is already running — no-op");
             return;
         }
         shutdownRequested.set(false);
+        state.set(EmbeddedWorkerState.RUNNING);
         workerThread = new Thread(this::runLoop, "vvwt-embedded-worker");
         workerThread.setDaemon(true);
         workerThread.start();
@@ -198,6 +225,10 @@ class DefaultEmbeddedWorker implements EmbeddedWorker {
                 Thread.currentThread().interrupt();
             }
         }
+        state.compareAndSet(EmbeddedWorkerState.RUNNING, EmbeddedWorkerState.STOPPED);
+        state.compareAndSet(
+                EmbeddedWorkerState.PAUSED_BY_HOST_ACTIVITY, EmbeddedWorkerState.STOPPED);
+        state.compareAndSet(EmbeddedWorkerState.PAUSED_BY_OPERATOR, EmbeddedWorkerState.STOPPED);
         LOG.info("DefaultEmbeddedWorker: stopped");
     }
 
@@ -206,6 +237,79 @@ class DefaultEmbeddedWorker implements EmbeddedWorker {
     public boolean isRunning() {
         Thread t = workerThread;
         return t != null && t.isAlive();
+    }
+
+    // -------------------------------------------------------------------------
+    // E63S05: operator controls + observability
+    // -------------------------------------------------------------------------
+
+    /** {@inheritDoc} */
+    @Override
+    public EmbeddedWorkerState getState() {
+        return state.get();
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Non-blocking: sets state to {@link EmbeddedWorkerState#PAUSED_BY_OPERATOR} if the worker
+     * is in a controllable state (RUNNING or PAUSED_BY_HOST_ACTIVITY). The loop detects this on its
+     * next iteration.
+     */
+    @Override
+    public void pause() {
+        EmbeddedWorkerState current = state.get();
+        if (current == EmbeddedWorkerState.RUNNING
+                || current == EmbeddedWorkerState.PAUSED_BY_HOST_ACTIVITY) {
+            state.set(EmbeddedWorkerState.PAUSED_BY_OPERATOR);
+            LOG.info("DefaultEmbeddedWorker: paused by operator");
+        } else {
+            LOG.debug("DefaultEmbeddedWorker.pause(): state={} — no transition applied", current);
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Non-blocking: transitions the worker from {@link EmbeddedWorkerState#PAUSED_BY_OPERATOR}
+     * to {@link EmbeddedWorkerState#RUNNING}. If already running, this is a no-op.
+     */
+    @Override
+    public void resume() {
+        if (state.compareAndSet(
+                EmbeddedWorkerState.PAUSED_BY_OPERATOR, EmbeddedWorkerState.RUNNING)) {
+            LOG.info("DefaultEmbeddedWorker: resumed by operator");
+        } else {
+            LOG.debug(
+                    "DefaultEmbeddedWorker.resume(): state={} — no transition applied",
+                    state.get());
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Non-blocking: sets the runtime-disabled flag, then signals the worker thread to stop. The
+     * flag prevents restart via {@link #start()}.
+     */
+    @Override
+    public void disable() {
+        runtimeDisabled.set(true);
+        stop();
+        state.set(EmbeddedWorkerState.STOPPED);
+        LOG.info("DefaultEmbeddedWorker: runtime-disabled by operator");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long getPacketsCompleted() {
+        return packetsCompleted.get();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long getPacketsFailed() {
+        return packetsFailed.get();
     }
 
     // -------------------------------------------------------------------------
@@ -237,6 +341,7 @@ class DefaultEmbeddedWorker implements EmbeddedWorker {
                     e.getHttpStatus(),
                     e.getMessage());
             // AC-ERR-PERSISTENT-FAILURE-SELF-STOPS-NOT-CRASH: stop, don't crash host
+            state.set(EmbeddedWorkerState.ERROR); // E63S05 observability
             return;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -248,11 +353,24 @@ class DefaultEmbeddedWorker implements EmbeddedWorker {
         long currentBackoffMs = BACKOFF_INITIAL_MS;
         while (!shutdownRequested.get()) {
 
+            // E63S05: operator pause — check FIRST (takes priority over host-activity check).
+            if (state.get() == EmbeddedWorkerState.PAUSED_BY_OPERATOR) {
+                sleepUnlessShutdown(pauseCheckIntervalMs);
+                continue;
+            }
+
             // E63S04: live-scoring auto-pause — check BETWEEN packets, never mid-packet.
             // AC-TEST-AUTO-PAUSE-ON-LIVE-SCORING, AC-TEST-PAUSE-IS-BETWEEN-PACKETS
-            while (isLiveScoringActiveConservative() && !shutdownRequested.get()) {
+            if (isLiveScoringActiveConservative()) {
+                state.compareAndSet(
+                        EmbeddedWorkerState.RUNNING, EmbeddedWorkerState.PAUSED_BY_HOST_ACTIVITY);
                 sleepUnlessShutdown(pauseCheckIntervalMs);
+                continue;
             }
+            // Probe returned false — clear host-activity pause if still set.
+            state.compareAndSet(
+                    EmbeddedWorkerState.PAUSED_BY_HOST_ACTIVITY, EmbeddedWorkerState.RUNNING);
+
             if (shutdownRequested.get()) {
                 break;
             }
@@ -272,6 +390,7 @@ class DefaultEmbeddedWorker implements EmbeddedWorker {
                 } else {
                     // PACKET_PROCESSED or PACKET_SUPERSEDED: apply inter-packet CPU throttle.
                     // AC-TEST-CPU-THROTTLE-RATIO, AC-TEST-THROTTLE-IS-BETWEEN-PACKETS (E63S04)
+                    packetsCompleted.incrementAndGet(); // E63S05 observability
                     long throttleSleepMs = interPacketThrottle.computeSleepMs(solveTimeNs);
                     if (throttleSleepMs > 0) {
                         LOG.trace(
@@ -284,6 +403,7 @@ class DefaultEmbeddedWorker implements EmbeddedWorker {
                 }
 
             } catch (ComputeStepException e) {
+                packetsFailed.incrementAndGet(); // E63S05 observability
                 // The embedded worker survives outages — invoke outage policy
                 DispatcherException cause =
                         (e.getCause() instanceof DispatcherException de) ? de : null;
