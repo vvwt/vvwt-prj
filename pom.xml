@@ -116,6 +116,10 @@
         <!-- Node.js version pinned here so it can be updated in one place. -->
         <node.version>v22.22.2</node.version>
         <maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
+        <!-- maven-antrun-plugin: E16S05 — creates the build-directory-scoped test temp
+             directory (target/test-tmp) before the test phase forks, so the test JVMs'
+             retargeted java.io.tmpdir points at an existing directory. -->
+        <maven-antrun-plugin.version>3.1.0</maven-antrun-plugin.version>
 
         <!-- Spring Modulith 2.0.6 — mandatory co-bump with Spring Boot 4.x per DEC-10 / DEC-21.
              2.x line pairs with SB 4.x; 1.4.6 was the SB 3.4.x provisional period (superseded by E42S01).
@@ -376,16 +380,51 @@
                     </configuration>
                 </plugin>
 
+                <!--
+                     E16S05: retarget the test JVMs' java.io.tmpdir into the module
+                     build directory (target/test-tmp) instead of the shared OS temp
+                     directory. The test profile (application-test.yml) resolves
+                     tm.data.dir from ${java.io.tmpdir}, and embedded Tomcat places its
+                     tomcat.* / tomcat-docbase.* working directories there too — so
+                     redirecting this one property relocates every test-created temp
+                     artefact under target/, where `mvn clean` (and the delivery
+                     daemon's worktree teardown) reclaims it. Without this, repeated
+                     `mvn verify` accumulated orphan directories in /tmp without bound
+                     and eventually exhausted the host disk (E16S05 root cause).
+                     The target/test-tmp directory is created before the test phase by
+                     the maven-antrun-plugin execution below.
+                -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${maven-surefire-plugin.version}</version>
+                    <configuration>
+                        <systemPropertyVariables>
+                            <java.io.tmpdir>${project.build.directory}/test-tmp</java.io.tmpdir>
+                        </systemPropertyVariables>
+                    </configuration>
                 </plugin>
 
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <version>${maven-failsafe-plugin.version}</version>
+                    <configuration>
+                        <systemPropertyVariables>
+                            <java.io.tmpdir>${project.build.directory}/test-tmp</java.io.tmpdir>
+                        </systemPropertyVariables>
+                    </configuration>
+                </plugin>
+
+                <!-- E16S05: antrun creates target/test-tmp before the test phase forks
+                     (the test JVMs' retargeted java.io.tmpdir must point at an existing
+                     directory — the JVM does not create java.io.tmpdir itself). The
+                     execution is activated for all modules via the parent <build><plugins>
+                     entry below. -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-antrun-plugin</artifactId>
+                    <version>${maven-antrun-plugin.version}</version>
                 </plugin>
 
                 <plugin>
@@ -694,6 +733,32 @@
                                 <argument>scripts/verify-brand-assets.sh</argument>
                             </arguments>
                             <workingDirectory>${project.basedir}</workingDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- E16S05: create the build-directory-scoped test temp directory
+                 (target/test-tmp) before the test phase. The maven-surefire-plugin /
+                 maven-failsafe-plugin pluginManagement entries retarget the test JVMs'
+                 java.io.tmpdir to this directory; the JVM does not create java.io.tmpdir
+                 itself (it warns and File.createTempFile throws if it is absent), so the
+                 directory must exist before the fork. Bound to process-test-resources,
+                 the last lifecycle phase before `test`. Inherited by every module, so
+                 surefire (unit *Test) and failsafe (*IT) forks in every module find the
+                 directory. `mvn clean` removes it together with the rest of target/. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>create-test-tmp-dir</id>
+                        <phase>process-test-resources</phase>
+                        <goals><goal>run</goal></goals>
+                        <configuration>
+                            <target>
+                                <mkdir dir="${project.build.directory}/test-tmp"/>
+                            </target>
                         </configuration>
                     </execution>
                 </executions>
