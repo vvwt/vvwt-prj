@@ -3,6 +3,7 @@
 package de.vvwt.slotopt.dispatcher.job.internal;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.slotopt.dispatcher.audit.AuditService;
 import de.vvwt.slotopt.dispatcher.cache.CachedResult;
@@ -15,6 +16,7 @@ import de.vvwt.slotopt.dispatcher.job.SubmitJobResponse;
 import de.vvwt.slotopt.dispatcher.packet.PacketDecomposerService;
 import de.vvwt.slotopt.dispatcher.packet.PacketRecord;
 import de.vvwt.slotopt.dispatcher.packet.PacketRepository;
+import de.vvwt.slotopt.dispatcher.result.OptimumResult;
 import de.vvwt.slotopt.worker.types.RawPhaseDef;
 import de.vvwt.slotopt.worker.types.StructuralFingerprint;
 import java.time.Instant;
@@ -121,11 +123,16 @@ public class DefaultJobService implements JobService {
         // If a cached result exists for this fingerprint + V1 game mode, return immediately
         // without persisting a JobRecord or decomposing into packets.
         // Cache lookup failure is treated as a cache miss (absorbed exception) per the AC.
+        // E60S04: on cache hit, parse the cached payload to return the optimum inline
+        // (AC-TEST-CACHE-HIT-RESPONSE-USABLE). Payload parse failure → null cachedResult
+        // (AC-ERR-CACHE-HIT-RESPONSE-CONSISTENT: never a broken reference).
         try {
             Optional<CachedResult> cacheHit = resultsCacheService.lookup(fingerprint, V1_GAME_MODE);
             if (cacheHit.isPresent()) {
                 UUID syntheticJobId = UUID.randomUUID();
-                return new SubmitJobResponse(syntheticJobId, null, true);
+                OptimumResult cachedOptimum =
+                        parseCachedOptimum(cacheHit.get().resultPayloadJson());
+                return new SubmitJobResponse(syntheticJobId, null, true, cachedOptimum);
             }
         } catch (Exception e) {
             LOG.log(Level.WARNING, "Cache lookup failed — treating as miss: {0}", e.getMessage());
@@ -175,5 +182,41 @@ public class DefaultJobService implements JobService {
 
         // (6) Return response
         return new SubmitJobResponse(jobId, submittedAt);
+    }
+
+    /**
+     * Attempts to extract {@link OptimumResult} from a cached result payload JSON.
+     *
+     * <p>Returns null if the payload is missing {@code bestRank} or {@code bestScore}, or if
+     * parsing fails (AC-ERR-CACHE-HIT-RESPONSE-CONSISTENT: never a broken reference).
+     *
+     * <p>DEC-9: only structural data extracted — {@code bestRank} (int) and {@code bestScore}
+     * (double).
+     */
+    private OptimumResult parseCachedOptimum(String resultPayloadJson) {
+        try {
+            JsonNode node = objectMapper.readTree(resultPayloadJson);
+            JsonNode rankNode = node.get("bestRank");
+            JsonNode scoreNode = node.get("bestScore");
+            if (rankNode == null
+                    || rankNode.isNull()
+                    || !rankNode.isNumber()
+                    || scoreNode == null
+                    || scoreNode.isNull()
+                    || !scoreNode.isNumber()) {
+                LOG.log(
+                        Level.WARNING,
+                        "Cached payload missing bestRank/bestScore — cachedResult will be null"
+                                + " (AC-ERR-CACHE-HIT-RESPONSE-CONSISTENT)");
+                return null;
+            }
+            return new OptimumResult(rankNode.intValue(), scoreNode.doubleValue());
+        } catch (Exception e) {
+            LOG.log(
+                    Level.WARNING,
+                    "Failed to parse cached result payload — cachedResult will be null: {0}",
+                    e.getMessage());
+            return null;
+        }
     }
 }
