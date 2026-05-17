@@ -126,7 +126,8 @@ class DefaultTenantBootstrapRunnerConcurrentBootstrapIT {
         // Sharing the resolver across both runners mirrors the production wiring where the
         // resolver is a singleton bean.
         TenantContextTestSupport.InMemoryTenantDataSourceResolver sharedResolver =
-                new TenantContextTestSupport.InMemoryTenantDataSourceResolver(dataSourceProperties);
+                new TenantContextTestSupport.InMemoryTenantDataSourceResolver(
+                        dataSourceProperties, 0L);
 
         // The two runners share registry, resolver, data dir, and bootstrap properties — the
         // production race scenario. They use independent flat-DB JdbcTemplates (the AC11
