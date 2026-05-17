@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 package de.vvwt.tm.slotopt;
 
 import de.vvwt.slotopt.worker.types.RawPhaseDef;
@@ -8,7 +10,7 @@ import java.util.UUID;
 /**
  * Client interface for the vvwt-slotopt-dispatcher HTTP API (Leg 2 routing per DEC-11 + DEC-43).
  *
- * <p>Provides the three HTTP operations required for Leg 2 slot-optimization dispatch:
+ * <p>Provides the HTTP operations required for Leg 2 slot-optimization dispatch:
  *
  * <ol>
  *   <li>{@link #register()} — POST {@code /api/register-key} with TM's Ed25519 public key per
@@ -16,7 +18,10 @@ import java.util.UUID;
  *       per DEC-43 D1.
  *   <li>{@link #submitJob(RawPhaseDef)} — POST {@code /api/submit-job} with the structural phase
  *       payload per DEC-9 (no UUIDs); returns the assigned job UUID.
- *   <li>{@link #pollResult(UUID)} — GET {@code /api/job-status/{id}} until COMPLETED or timeout.
+ *   <li>{@link #pollResult(UUID, CancellationToken)} — GET {@code /api/job-status/{id}} until
+ *       COMPLETED or timeout; supports cooperative cancellation (E63S06).
+ *   <li>{@link #fetchBestSoFar(UUID)} — GET {@code /api/job-status/{id}} once and extract the
+ *       {@code bestSoFar} field (E63S06 Leg-2 cancel case 2).
  * </ol>
  *
  * <h2>DEC-11 boundary</h2>
@@ -41,7 +46,9 @@ import java.util.UUID;
  * @see DispatcherReachabilityService
  * @see <a href="../../../../../../../../docs/governance/decisions/DEC-11.md">DEC-11</a>
  * @see <a href="../../../../../../../../docs/governance/decisions/DEC-43.md">DEC-43 D1–D3</a>
+ * @see <a href="../../../../../../../../docs/governance/decisions/DEC-49.md">DEC-49 D-11/D-11a</a>
  * @see <a href="../../../../../../../../docs/governance/stories/E27S03.story.md">Story E27S03</a>
+ * @see <a href="../../../../../../../../docs/governance/stories/E63S06.story.md">Story E63S06</a>
  */
 public interface SlotOptimizationDispatcherClient {
 
@@ -77,18 +84,58 @@ public interface SlotOptimizationDispatcherClient {
     UUID submitJob(RawPhaseDef rawPhaseDef);
 
     /**
-     * Polls the dispatcher for the result of the given job, using exponential backoff.
+     * Polls the dispatcher for the result of the given job, using exponential backoff. Supports
+     * cooperative cancellation via a {@link CancellationToken} (E63S06 —
+     * AC-TEST-CANCEL-INTERRUPTS-POLL).
      *
      * <p>GETs {@code /api/job-status/{id}} until the job status is {@code COMPLETED} or the
-     * configured poll timeout is exceeded. On timeout or wire error, falls through gracefully (see
-     * {@link de.vvwt.tm.slotopt.internal.RoutingSlotOptimizationClient}).
+     * configured poll timeout is exceeded. If {@code token} is non-null and {@code
+     * token.isCancelled()} is {@code true} at any poll iteration, returns {@link Optional#empty()}
+     * immediately (the caller then fetches bestSoFar for the Leg-2 BSF resolution).
      *
      * @param jobId the job UUID assigned by {@link #submitJob(RawPhaseDef)}
+     * @param token cooperative cancellation token; may be {@code null} (no cancellation check)
      * @return the permutation result if the job completed within the poll timeout, or {@link
-     *     Optional#empty()} if the job is still pending (RECEIVED/DECOMPOSED) or timed out
+     *     Optional#empty()} if the job is still pending, timed out, or cancelled
      * @throws DispatcherAlgorithmMismatchException if the dispatcher returns HTTP 400 for algorithm
      *     mismatch during result polling
      * @throws RuntimeException on other HTTP errors
      */
-    Optional<int[]> pollResult(UUID jobId);
+    Optional<int[]> pollResult(UUID jobId, CancellationToken token);
+
+    /**
+     * Backwards-compatible single-argument overload. Delegates to {@link #pollResult(UUID,
+     * CancellationToken)} with a {@code null} token (no cancellation).
+     *
+     * @param jobId the job UUID assigned by {@link #submitJob(RawPhaseDef)}
+     * @return the permutation result if the job completed within the poll timeout, or {@link
+     *     Optional#empty()} on timeout or wire error
+     */
+    default Optional<int[]> pollResult(UUID jobId) {
+        return pollResult(jobId, null);
+    }
+
+    /**
+     * Fetches the best-so-far result from the dispatcher for an in-progress job (E63S06,
+     * AC-TEST-CANCEL-CASE-PARTIAL-BEST-SO-FAR — case 2 of Leg-2 cancel BSF resolution).
+     *
+     * <p>GETs {@code /api/job-status/{id}} once and extracts the {@code bestSoFar} field from the
+     * response. This field is populated by the dispatcher as packets complete (E60S04).
+     *
+     * <ul>
+     *   <li>If {@code bestSoFar} is non-null → returns {@code Optional.of(new int[]{bestRank})}.
+     *   <li>If {@code bestSoFar} is null (no packet completed yet) → returns {@link
+     *       Optional#empty()}.
+     *   <li>On wire error → returns {@link Optional#empty()} (case 3 fallback — never throws to the
+     *       caller; the phase retains its existing L1+L2 assignment per
+     *       AC-ERR-BEST-SO-FAR-FETCH-FAILURE).
+     * </ul>
+     *
+     * <p>DEC-9: carries only structural data (bestRank). No team UUIDs or names. DEC-11: HTTP only
+     * — no compile dependency on {@code vvwt-slotopt-dispatcher}.
+     *
+     * @param jobId the job UUID to query
+     * @return the best lap-permutation rank found so far, or {@link Optional#empty()} if none
+     */
+    Optional<int[]> fetchBestSoFar(UUID jobId);
 }

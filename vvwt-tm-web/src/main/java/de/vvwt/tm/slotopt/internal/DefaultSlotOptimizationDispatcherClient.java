@@ -7,6 +7,7 @@ import de.vvwt.slotopt.worker.identity.WorkerKeyManager;
 import de.vvwt.slotopt.worker.types.PositionTuple;
 import de.vvwt.slotopt.worker.types.RawPhaseDef;
 import de.vvwt.slotopt.worker.types.RawRow;
+import de.vvwt.tm.slotopt.CancellationToken;
 import de.vvwt.tm.slotopt.DispatcherAlgorithmMismatchException;
 import de.vvwt.tm.slotopt.SlotOptimizationDeprecationWarningEvent;
 import de.vvwt.tm.slotopt.SlotOptimizationDispatcherClient;
@@ -260,10 +261,11 @@ public class DefaultSlotOptimizationDispatcherClient implements SlotOptimization
      * {@inheritDoc}
      *
      * <p>Polls {@code GET /api/job-status/{id}} with exponential backoff until COMPLETED or {@code
-     * pollTimeoutMs} elapsed.
+     * pollTimeoutMs} elapsed. If {@code token} is non-null and cancelled at any iteration, returns
+     * {@link Optional#empty()} immediately (E63S06 AC-TEST-CANCEL-INTERRUPTS-POLL).
      */
     @Override
-    public Optional<int[]> pollResult(UUID jobId) {
+    public Optional<int[]> pollResult(UUID jobId, CancellationToken token) {
         long startMs = System.currentTimeMillis();
         long backoffMs = INITIAL_POLL_INTERVAL_MS;
 
@@ -273,6 +275,16 @@ public class DefaultSlotOptimizationDispatcherClient implements SlotOptimization
                 pollTimeoutMs);
 
         while (System.currentTimeMillis() - startMs < pollTimeoutMs) {
+            // E63S06 AC-TEST-CANCEL-INTERRUPTS-POLL: check cancellation before each poll
+            if (token != null && token.isCancelled()) {
+                LOG.info(
+                        "DefaultSlotOptimizationDispatcherClient.pollResult: jobId={} poll"
+                                + " cancelled via CancellationToken — returning empty for"
+                                + " Leg-2 BSF resolution",
+                        jobId);
+                return Optional.empty();
+            }
+
             try {
                 String responseBody =
                         restClient
@@ -354,6 +366,56 @@ public class DefaultSlotOptimizationDispatcherClient implements SlotOptimization
         return Optional.empty();
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>GETs {@code /api/job-status/{id}} once and extracts the {@code bestSoFar} field. Used for
+     * Leg-2 cancel case 2 (E63S06 AC-TEST-CANCEL-CASE-PARTIAL-BEST-SO-FAR).
+     *
+     * <p>Never throws — on any error, returns {@link Optional#empty()} (phase falls back to case 3:
+     * retain existing L1+L2 assignment per AC-ERR-BEST-SO-FAR-FETCH-FAILURE).
+     */
+    @Override
+    public Optional<int[]> fetchBestSoFar(UUID jobId) {
+        LOG.debug("DefaultSlotOptimizationDispatcherClient.fetchBestSoFar: jobId={}", jobId);
+        try {
+            String responseBody =
+                    restClient
+                            .get()
+                            .uri("/api/job-status/{id}", jobId)
+                            .retrieve()
+                            .body(String.class);
+
+            JobStatusResponseDto status =
+                    objectMapper.readValue(responseBody, JobStatusResponseDto.class);
+
+            if (status.bestSoFar() == null) {
+                LOG.info(
+                        "DefaultSlotOptimizationDispatcherClient.fetchBestSoFar: jobId={}"
+                                + " — no bestSoFar (no packet completed) → case 3 (retain L1+L2)",
+                        jobId);
+                return Optional.empty();
+            }
+
+            long bestRank = status.bestSoFar().bestRank();
+            LOG.info(
+                    "DefaultSlotOptimizationDispatcherClient.fetchBestSoFar: jobId={}"
+                            + " — partial bestSoFar rank={} → case 2 (apply partial result)",
+                    jobId,
+                    bestRank);
+            return Optional.of(new int[] {(int) bestRank});
+
+        } catch (Exception e) {
+            // AC-ERR-BEST-SO-FAR-FETCH-FAILURE: fetch error → case 3 (never throws)
+            LOG.warn(
+                    "DefaultSlotOptimizationDispatcherClient.fetchBestSoFar: error for jobId={}"
+                            + ": {} → case 3 (retain L1+L2)",
+                    jobId,
+                    e.getMessage());
+            return Optional.empty();
+        }
+    }
+
     // =========================================================================
     // Internal wire format helpers
     // =========================================================================
@@ -430,10 +492,12 @@ public class DefaultSlotOptimizationDispatcherClient implements SlotOptimization
      * Job status response DTO per E37S09 wire format, extended with E60S04 result surfaces.
      *
      * <p>AC-GOV-E60-SURFACE-BINDING (E63S02): {@code finalResult} carries the global optimum
-     * ({@code bestRank} / {@code bestScore}) for a COMPLETED job — introduced by E60S04. The {@code
-     * bestRank} is the lap-permutation rank that {@link de.vvwt.tm.slotopt.SlotResultApplicator}
-     * consumes directly (AC-GOV-RANK-SEMANTICS: verified in impl-report — rank semantics match
-     * SlotResultApplicator's expectation).
+     * ({@code bestRank} / {@code bestScore}) for a COMPLETED job — introduced by E60S04.
+     *
+     * <p>E63S06 extension: {@code bestSoFar} carries the best result among completed packets for an
+     * in-progress job — exposed by E60S04. Used for Leg-2 cancel case 2
+     * (AC-TEST-CANCEL-CASE-PARTIAL-BEST-SO-FAR). Null when no packet has completed yet (case 3).
+     * Null when the job is COMPLETED (use {@code finalResult} instead).
      *
      * <p>DEC-9: carries only structural data (bestRank / bestScore). No team UUIDs or names.
      *
@@ -446,7 +510,8 @@ public class DefaultSlotOptimizationDispatcherClient implements SlotOptimization
             @JsonProperty("status") String status,
             @JsonProperty("totalPackets") int totalPackets,
             @JsonProperty("completedPackets") int completedPackets,
-            @JsonProperty("finalResult") FinalResultDto finalResult) {}
+            @JsonProperty("finalResult") FinalResultDto finalResult,
+            @JsonProperty("bestSoFar") FinalResultDto bestSoFar) {}
 
     /**
      * Local DTO for the {@code finalResult} field of the job-status response (E60S04).

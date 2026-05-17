@@ -7,6 +7,7 @@ import de.vvwt.tm.slotopt.DispatcherAlgorithmMismatchException;
 import de.vvwt.tm.slotopt.DispatcherReachabilityService;
 import de.vvwt.tm.slotopt.JobHandle;
 import de.vvwt.tm.slotopt.MappingResult;
+import de.vvwt.tm.slotopt.OptimizationAlreadyInProgressException;
 import de.vvwt.tm.slotopt.PhaseToRawPhaseDefMapper;
 import de.vvwt.tm.slotopt.SlotOptimizationClient;
 import de.vvwt.tm.slotopt.SlotOptimizationDispatcherClient;
@@ -204,7 +205,7 @@ public class RoutingSlotOptimizationClient implements SlotOptimizationClient {
                     phaseId,
                     lapCount,
                     exhaustiveMaxN);
-            boolean leg2Succeeded = tryLeg2(phaseId, phaseMapping);
+            boolean leg2Succeeded = tryLeg2(phaseId, phaseMapping, tournamentId);
             if (!leg2Succeeded) {
                 LOG.info(
                         "RoutingSlotOptimizationClient: Leg 2 failed for phase={} →"
@@ -253,64 +254,159 @@ public class RoutingSlotOptimizationClient implements SlotOptimizationClient {
     /**
      * Attempts Leg 2: submits the job to the dispatcher, polls for result, and applies it.
      *
-     * <p>AC-TEST-LEG2-RESULT-APPLIED (E63S02): on a successful poll, extracts the lap-permutation
-     * rank from the result and applies it via {@link SlotResultApplicator#applyResult}. The prior
-     * implementation returned a non-empty Optional sentinel (empty array) without applying the
-     * result — leaving the phase silently unoptimized.
+     * <p>E63S06 — Leg-2 cancel with Best-So-Far + DEC-49 delta-amendment:
      *
-     * <p>AC-GOV-RANK-SEMANTICS (E63S02): the dispatcher's {@code finalResult.bestRank} is the
-     * lap-permutation rank in {@code [0, lapCount!)} that {@link SlotResultApplicator} consumes
-     * directly — no translation step required (verified empirically; see impl-report).
+     * <p>Before calling {@code pollResult}, a {@link JobHandle} is registered in {@link
+     * SlotOptimizationJobRegistry} so that an operator cancel for the tournament reaches this
+     * handle (AC-TEST-LEG2-JOB-REGISTERED-CANCELLABLE). A {@link CancellationToken} is passed to
+     * {@code pollResult} so that cancel interrupts the poll promptly
+     * (AC-TEST-CANCEL-INTERRUPTS-POLL).
      *
-     * <p>Per AC-LEG-2-FALLS-THROUGH-ON-WIRE-ERROR / AC-ERR-RESULT-FETCH-FAILURE-FALLS-THROUGH: on
-     * any error or empty result, returns {@code false} so the caller falls through to Leg 3. The
-     * phase is never silently left unoptimized on a Leg-2 "success".
+     * <p>Three-case BSF resolution on operator cancel (DEC-49 delta-amendment, E63S06):
+     *
+     * <ol>
+     *   <li>Case 1 — cancel raced with completion: {@code pollResult} already returned a rank → the
+     *       normal final-result apply runs; the cancel is effectively a no-op
+     *       (AC-TEST-CANCEL-RACE-WITH-COMPLETION).
+     *   <li>Case 2 — partial bestSoFar: the token is cancelled AND the dispatcher exposes a partial
+     *       result (≥1 packet completed) → TM applies the partial rank via {@link
+     *       SlotResultApplicator} (AC-TEST-CANCEL-CASE-PARTIAL-BEST-SO-FAR). TM detaches — the
+     *       dispatcher job is NOT aborted (AC-TEST-DISPATCHER-JOB-NOT-ABORTED, T-1).
+     *   <li>Case 3 — no result: the token is cancelled AND the dispatcher has produced nothing → TM
+     *       returns {@code true} (Leg 2 handled the cancel), leaving the phase with its existing
+     *       valid L1+L2 assignment (AC-TEST-CANCEL-CASE-NO-RESULT). Never falls through to Leg 3 on
+     *       cancel.
+     * </ol>
+     *
+     * <p>AC-TEST-LEG2-RESULT-APPLIED (E63S02): on a successful poll (case 1), extracts the
+     * lap-permutation rank from the result and applies it via {@link
+     * SlotResultApplicator#applyResult}.
+     *
+     * <p>Non-cancel empty result (wire timeout / error): falls through to Leg 3 as before
+     * (AC-LEG-2-FALLS-THROUGH-ON-WIRE-ERROR).
      *
      * @param phaseId the phase being optimized
      * @param phaseMapping the phase-global mapping result (for both submit and apply)
-     * @return {@code true} if Leg 2 succeeded (result applied); {@code false} to fall through to
-     *     Leg 3
+     * @param tournamentId the tournament owning the phase (for registry handle registration)
+     * @return {@code true} if Leg 2 handled the optimization (result applied or cancel resolved);
+     *     {@code false} to fall through to Leg 3 (wire error or poll timeout without cancel)
      */
-    private boolean tryLeg2(UUID phaseId, MappingResult phaseMapping) {
+    private boolean tryLeg2(UUID phaseId, MappingResult phaseMapping, UUID tournamentId) {
+        // E63S06 AC-TEST-LEG2-JOB-REGISTERED-CANCELLABLE: register a handle before polling so
+        // that an operator cancel for this tournament reaches it.
+        CancellationToken token = CancellationToken.create();
+        JobHandle handle = new JobHandle(token, Instant.now());
         try {
-            UUID jobId = dispatcherClient.submitJob(phaseMapping.raw());
-            Optional<int[]> result = dispatcherClient.pollResult(jobId);
-            if (result.isEmpty()) {
-                // Empty = poll timeout, fetch failure, or malformed result (AC-ERR-RESULT-FETCH)
+            jobRegistry.register(tournamentId, handle);
+        } catch (OptimizationAlreadyInProgressException e) {
+            // Another job (e.g. Leg 3 from a concurrent call) is already registered.
+            // Fall through to Leg 3 to avoid double-registration.
+            LOG.warn(
+                    "RoutingSlotOptimizationClient.tryLeg2: registry already has a handle for"
+                            + " tournament={} — falling through to Leg 3",
+                    tournamentId);
+            return false;
+        }
+        try {
+            UUID jobId;
+            try {
+                jobId = dispatcherClient.submitJob(phaseMapping.raw());
+            } catch (DispatcherAlgorithmMismatchException e) {
                 LOG.warn(
-                        "RoutingSlotOptimizationClient.tryLeg2: no result for phase={}, job={}"
-                                + " → falling through to Leg 3",
+                        "RoutingSlotOptimizationClient.tryLeg2: algorithm mismatch for phase={},"
+                                + " algorithmId={}, httpStatus={} → falling through to Leg 3",
                         phaseId,
-                        jobId);
+                        e.getAlgorithmId(),
+                        e.getHttpStatus());
+                return false;
+            } catch (RuntimeException e) {
+                LOG.warn(
+                        "RoutingSlotOptimizationClient.tryLeg2: submitJob wire error for phase={}:"
+                                + " {} → falling through to Leg 3",
+                        phaseId,
+                        e.getMessage());
                 return false;
             }
-            // AC-TEST-LEG2-RESULT-APPLIED: result contains the bestRank from the dispatcher's
-            // finalResult payload (E60S04 surface). Apply it via SlotResultApplicator — the same
-            // applicator Leg 1 and Leg 3 use.
-            long rank = result.get()[0];
-            LOG.info(
-                    "RoutingSlotOptimizationClient.tryLeg2: applying dispatcher result for"
-                            + " phase={}, job={}, rank={}",
-                    phaseId,
-                    jobId,
-                    rank);
-            applicator.applyResult(rank, mapper.getFieldCount(), phaseMapping);
-            return true;
-        } catch (DispatcherAlgorithmMismatchException e) {
+
+            // E63S06 AC-TEST-CANCEL-INTERRUPTS-POLL: pass token so poll exits promptly on cancel
+            Optional<int[]> result;
+            try {
+                result = dispatcherClient.pollResult(jobId, token);
+            } catch (DispatcherAlgorithmMismatchException e) {
+                LOG.warn(
+                        "RoutingSlotOptimizationClient.tryLeg2: algorithm mismatch during poll"
+                                + " for phase={}, algorithmId={}, httpStatus={}"
+                                + " → falling through to Leg 3",
+                        phaseId,
+                        e.getAlgorithmId(),
+                        e.getHttpStatus());
+                return false;
+            } catch (RuntimeException e) {
+                LOG.warn(
+                        "RoutingSlotOptimizationClient.tryLeg2: poll wire error for phase={}: {}"
+                                + " → falling through to Leg 3",
+                        phaseId,
+                        e.getMessage());
+                return false;
+            }
+
+            if (result.isPresent()) {
+                // Case 1 (normal completion) or cancel raced with completion:
+                // poll returned a rank → apply it via SlotResultApplicator
+                long rank = result.get()[0];
+                LOG.info(
+                        "RoutingSlotOptimizationClient.tryLeg2: applying dispatcher result for"
+                                + " phase={}, job={}, rank={}",
+                        phaseId,
+                        jobId,
+                        rank);
+                applicator.applyResult(rank, mapper.getFieldCount(), phaseMapping);
+                return true;
+            }
+
+            // pollResult returned empty — check WHY:
+            if (token.isCancelled()) {
+                // Operator cancel interrupted the poll — resolve via BSF
+                // E63S06 AC-TEST-DISPATCHER-JOB-NOT-ABORTED: TM detaches, no abort sent
+                LOG.info(
+                        "RoutingSlotOptimizationClient.tryLeg2: poll cancelled for phase={}"
+                                + ", job={} — fetching bestSoFar from dispatcher",
+                        phaseId,
+                        jobId);
+                Optional<int[]> bsf = dispatcherClient.fetchBestSoFar(jobId);
+                if (bsf.isPresent()) {
+                    // Case 2: partial bestSoFar — apply it
+                    long bsfRank = bsf.get()[0];
+                    LOG.info(
+                            "RoutingSlotOptimizationClient.tryLeg2: case-2 BSF for phase={},"
+                                    + " job={}, rank={} — applying partial result",
+                            phaseId,
+                            jobId,
+                            bsfRank);
+                    applicator.applyResult(bsfRank, mapper.getFieldCount(), phaseMapping);
+                } else {
+                    // Case 3: no result — phase retains existing L1+L2 assignment
+                    LOG.info(
+                            "RoutingSlotOptimizationClient.tryLeg2: case-3 no BSF for phase={},"
+                                    + " job={} — retaining existing L1+L2 assignment",
+                            phaseId,
+                            jobId);
+                }
+                // Cancel resolved — return true (Leg 2 handled it; do NOT fall through to Leg 3)
+                return true;
+            }
+
+            // Not cancelled — regular poll timeout or fetch failure → fall through to Leg 3
             LOG.warn(
-                    "RoutingSlotOptimizationClient.tryLeg2: algorithm mismatch for phase={},"
-                            + " algorithmId={}, httpStatus={} → falling through to Leg 3",
+                    "RoutingSlotOptimizationClient.tryLeg2: no result for phase={}, job={}"
+                            + " → falling through to Leg 3",
                     phaseId,
-                    e.getAlgorithmId(),
-                    e.getHttpStatus());
+                    jobId);
             return false;
-        } catch (RuntimeException e) {
-            LOG.warn(
-                    "RoutingSlotOptimizationClient.tryLeg2: wire error for phase={}: {} → falling"
-                            + " through to Leg 3",
-                    phaseId,
-                    e.getMessage());
-            return false;
+
+        } finally {
+            // Always release the registry handle (AC-TEST-LEG2-JOB-REGISTERED-CANCELLABLE)
+            jobRegistry.complete(tournamentId);
         }
     }
 
