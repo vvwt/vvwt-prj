@@ -527,6 +527,16 @@
 
 </div>
 
+<!-- E59S03 AC2/AC5: Persistent AGPL §13 source-code offer footer (TM Timer SPA) -->
+<footer class="agpl-footer">
+  <a
+    href="https://github.com/vvwt/vvwt-prj"
+    target="_blank"
+    rel="noopener noreferrer"
+    class="agpl-footer__link"
+  >Source code (AGPL-3.0-or-later)</a>
+</footer>
+
 <style>
   :global(*, *::before, *::after) {
     box-sizing: border-box;
@@ -724,5 +734,25 @@
   :global(.brand-lockup) {
     height: 2em;
     display: block;
+  }
+
+  /* E59S03 AC2/AC5: AGPL §13 source-code offer footer */
+  .agpl-footer {
+    padding: 0.4rem 1rem;
+    background: #f8f9fa;
+    border-top: 1px solid #e0e0e0;
+    text-align: center;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .agpl-footer__link {
+    color: #555;
+    text-decoration: none;
+  }
+
+  .agpl-footer__link:hover {
+    text-decoration: underline;
+    color: #2980b9;
   }
 </style>
