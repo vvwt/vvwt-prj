@@ -17,6 +17,7 @@ import de.vvwt.slotopt.dispatcher.result.AlgorithmMismatchException;
 import de.vvwt.slotopt.dispatcher.result.LateResult;
 import de.vvwt.slotopt.dispatcher.result.LateResultRepository;
 import de.vvwt.slotopt.dispatcher.result.PacketNotFoundException;
+import de.vvwt.slotopt.dispatcher.result.PacketResultService;
 import de.vvwt.slotopt.dispatcher.result.ResultAuditService;
 import de.vvwt.slotopt.dispatcher.result.SubmitResultRequest;
 import de.vvwt.slotopt.dispatcher.result.SubmitResultResponse;
@@ -47,11 +48,18 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>Canonicalize {@code resultPayloadJson} via JCS.
  *   <li>Verify signature — invalid → {@link InvalidSignatureException} (HTTP 401).
  *   <li>First-valid-wins per DEC-6: RESULT_RECEIVED → {@link LateResult} + superseded response;
- *       CLAIMED → mark RESULT_RECEIVED + audit entry + accepted response.
+ *       CLAIMED → retain result atomically + mark RESULT_RECEIVED + audit entry + cache write +
+ *       accepted response.
  * </ol>
  *
- * <p>Story: E37S09 + E37S10 (AC-CACHE-WRITE-ON-ACCEPTED-RESULT retrofit); AC-SUBMIT-RESULT-SERVICE;
- * AC-ALGORITHM-MISMATCH-REJECTED; AC-FIRST-VALID-WINS; DEC-6, DEC-35, DEC-36, DEC-43
+ * <p>E60S02 extends step 6 (CLAIMED path): result is retained via {@link PacketResultService}
+ * BEFORE the {@code RESULT_RECEIVED} status update — both are in the same {@code @Transactional}
+ * boundary (AC-ERR-RETENTION-ATOMIC-WITH-ACCEPT). A retention failure propagates as an exception,
+ * rolling back the entire transaction so the packet remains {@code CLAIMED} and reissuable.
+ *
+ * <p>Story: E37S09 + E37S10 (AC-CACHE-WRITE-ON-ACCEPTED-RESULT retrofit) + E60S02
+ * (AC-TEST-RESULT-RETAINED-ON-ACCEPT, AC-ERR-RETENTION-ATOMIC-WITH-ACCEPT); DEC-6, DEC-35, DEC-36,
+ * DEC-43
  */
 @Service
 class DefaultSubmitResultService implements SubmitResultService {
@@ -76,6 +84,7 @@ class DefaultSubmitResultService implements SubmitResultService {
     private final ResultAuditService auditService;
     private final ResultsCacheService resultsCacheService;
     private final JobRepository jobRepository;
+    private final PacketResultService packetResultService;
     private final ObjectMapper objectMapper;
 
     DefaultSubmitResultService(
@@ -86,7 +95,8 @@ class DefaultSubmitResultService implements SubmitResultService {
             LateResultRepository lateResultRepository,
             ResultAuditService auditService,
             ResultsCacheService resultsCacheService,
-            JobRepository jobRepository) {
+            JobRepository jobRepository,
+            PacketResultService packetResultService) {
         this.keyRegistrationRepository = keyRegistrationRepository;
         this.packetRepository = packetRepository;
         this.verifierRegistry = verifierRegistry;
@@ -95,6 +105,7 @@ class DefaultSubmitResultService implements SubmitResultService {
         this.auditService = auditService;
         this.resultsCacheService = resultsCacheService;
         this.jobRepository = jobRepository;
+        this.packetResultService = packetResultService;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -202,7 +213,16 @@ class DefaultSubmitResultService implements SubmitResultService {
             return new SubmitResultResponse(false, "superseded");
         }
 
-        // CLAIMED — first valid result
+        // CLAIMED — first valid result.
+        //
+        // E60S02 AC-ERR-RETENTION-ATOMIC-WITH-ACCEPT:
+        // Retain the result BEFORE updating packet status. Both writes share this @Transactional
+        // boundary. If retainResult() throws (DB failure, malformed payload), the transaction
+        // rolls back: the packet stays CLAIMED and no retention row is written.
+        // The packet remains claimable / reissuable.
+        packetResultService.retainResult(
+                request.packetId(), packet.getJobId(), request.resultPayloadJson());
+
         packet.setStatus("RESULT_RECEIVED");
         packetRepository.save(packet);
 
