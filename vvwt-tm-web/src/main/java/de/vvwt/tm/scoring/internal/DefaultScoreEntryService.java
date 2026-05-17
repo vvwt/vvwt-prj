@@ -7,6 +7,7 @@ import de.vvwt.tm.scoring.ScoreEntryResult;
 import de.vvwt.tm.scoring.ScoreEntryService;
 import de.vvwt.tm.scoring.ScoringService;
 import de.vvwt.tm.scoring.SetSubmitInput;
+import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.Device;
 import de.vvwt.tm.tournament.DeviceRepository;
 import de.vvwt.tm.tournament.Match;
@@ -25,6 +26,7 @@ import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.events.PartialScoreUpdatedEvent;
 import de.vvwt.tm.tournament.exceptions.ForbiddenException;
 import de.vvwt.tm.tournament.exceptions.MatchCanceledException;
 import de.vvwt.tm.tournament.exceptions.UnauthorizedException;
@@ -33,6 +35,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -136,6 +139,8 @@ public class DefaultScoreEntryService implements ScoreEntryService {
     private final ScoringService scoringService;
     private final SimpMessagingTemplate messagingTemplate;
     private final SetResultRepository setResultRepository;
+    private final ApplicationEventPublisher eventPublisher;
+    private final TenantContext tenantContext;
 
     /** Constructor injection per DEC-35. */
     public DefaultScoreEntryService(
@@ -147,7 +152,9 @@ public class DefaultScoreEntryService implements ScoreEntryService {
             TeamRepository teamRepository,
             ScoringService scoringService,
             SimpMessagingTemplate messagingTemplate,
-            SetResultRepository setResultRepository) {
+            SetResultRepository setResultRepository,
+            ApplicationEventPublisher eventPublisher,
+            TenantContext tenantContext) {
         this.deviceRepository = deviceRepository;
         this.tournamentRepository = tournamentRepository;
         this.phaseRepository = phaseRepository;
@@ -157,6 +164,8 @@ public class DefaultScoreEntryService implements ScoreEntryService {
         this.scoringService = scoringService;
         this.messagingTemplate = messagingTemplate;
         this.setResultRepository = setResultRepository;
+        this.eventPublisher = eventPublisher;
+        this.tenantContext = tenantContext;
     }
 
     // -------------------------------------------------------------------------
@@ -233,6 +242,11 @@ public class DefaultScoreEntryService implements ScoreEntryService {
 
         // AC1: Persist the partial score as an OPEN set_result row (survives reload + restart)
         persistPartialScore(existing.matchId(), request);
+
+        // E65S02 AC2/AC4: Publish PartialScoreUpdatedEvent → DomainEventBridge broadcasts to
+        // Display overview via tenant-scoped WebSocket topic /topic/display/{tenantId}/events
+        eventPublisher.publishEvent(
+                new PartialScoreUpdatedEvent(this, tenantContext.current(), existing.matchId()));
 
         // Build a partial result with updated scores and broadcast
         ScoreEntryResult partial =

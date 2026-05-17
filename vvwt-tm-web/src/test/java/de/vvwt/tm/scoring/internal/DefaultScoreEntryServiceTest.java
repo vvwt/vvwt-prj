@@ -13,6 +13,7 @@ import de.vvwt.tm.scoring.PartialScoreInput;
 import de.vvwt.tm.scoring.ScoreEntryResult;
 import de.vvwt.tm.scoring.ScoringService;
 import de.vvwt.tm.scoring.SetSubmitInput;
+import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.Device;
 import de.vvwt.tm.tournament.DeviceRepository;
 import de.vvwt.tm.tournament.Match;
@@ -30,6 +31,7 @@ import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.events.PartialScoreUpdatedEvent;
 import de.vvwt.tm.tournament.exceptions.ForbiddenException;
 import de.vvwt.tm.tournament.exceptions.UnauthorizedException;
 import java.util.List;
@@ -38,11 +40,13 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 /**
@@ -85,6 +89,8 @@ class DefaultScoreEntryServiceTest {
     @Mock private ScoringService scoringService;
     @Mock private SimpMessagingTemplate messagingTemplate;
     @Mock private SetResultRepository setResultRepository;
+    @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private TenantContext tenantContext;
 
     @InjectMocks private DefaultScoreEntryService service;
 
@@ -885,5 +891,51 @@ class DefaultScoreEntryServiceTest {
                 .isInstanceOf(UnauthorizedException.class);
 
         verify(scoringService, never()).registerMatchResult(any());
+    }
+
+    // =======================================================================
+    // E65S02 — AC2/AC4/AC7: handlePartialScore publishes PartialScoreUpdatedEvent (TDD RED-first)
+    // =======================================================================
+
+    /**
+     * T-E65-1 (E65S02 AC2/AC4/AC7): handlePartialScore publishes a {@link PartialScoreUpdatedEvent}
+     * via {@link ApplicationEventPublisher} with tenantId from {@link TenantContext#current()} and
+     * matchId from the resolved match (DEC-22 RED-first).
+     */
+    @Test
+    void handlePartialScore_publishesPartialScoreUpdatedEvent() {
+        // Arrange
+        activeTournament.setMatchFormat("BEST_OF_3");
+        when(deviceRepository.findByDeviceToken(DEVICE_TOKEN))
+                .thenReturn(Optional.of(assignedDevice));
+        when(tournamentRepository.findAll()).thenReturn(List.of(activeTournament));
+        when(phaseRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(activePhase));
+        when(matchRepository.findByPhaseIdAndFieldNumberAndLapNumber(
+                        PHASE_ID, FIELD_NUMBER, LAP_NUMBER))
+                .thenReturn(List.of(activeMatch));
+        when(teamAvatarRepository.findById(any())).thenReturn(Optional.empty());
+        when(setResultRepository.findByMatchId(MATCH_ID)).thenReturn(List.of());
+        when(setResultRepository.findByMatchIdAndSetIndex(MATCH_ID, 0))
+                .thenReturn(Optional.empty());
+        when(tenantContext.current()).thenReturn(TENANT_ID);
+
+        PartialScoreInput input = new PartialScoreInput(MATCH_ID, 0, 10, 8, DEVICE_TOKEN);
+
+        // Act
+        service.handlePartialScore(input);
+
+        // Assert — ApplicationEventPublisher.publishEvent called with correct event
+        // PartialScoreUpdatedEvent extends ApplicationEvent → routes to
+        // publishEvent(ApplicationEvent)
+        ArgumentCaptor<PartialScoreUpdatedEvent> captor =
+                ArgumentCaptor.forClass(PartialScoreUpdatedEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        PartialScoreUpdatedEvent psue = captor.getValue();
+        assertThat(psue.getTenantId())
+                .as("event tenantId must come from TenantContext")
+                .isEqualTo(TENANT_ID);
+        assertThat(psue.getMatchId())
+                .as("event matchId must be the resolved match's ID")
+                .isEqualTo(MATCH_ID);
     }
 }

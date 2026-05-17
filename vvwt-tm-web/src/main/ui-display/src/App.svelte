@@ -56,6 +56,7 @@
     EVENT_TYPE_MATCH_RESULT_CHANGED,
     EVENT_TYPE_LAP_ADVANCED,
     EVENT_TYPE_PHASE_STATUS_CHANGED,
+    EVENT_TYPE_PARTIAL_SCORE_UPDATED,
     type WsEventMessage,
     type ConnectionStatus as WsConnectionStatus,
   } from './lib/websocket.js';
@@ -208,6 +209,10 @@
       case EVENT_TYPE_PHASE_STATUS_CHANGED:
         // AC5: phase transition → full reload
         void fullReload();
+        break;
+      case EVENT_TYPE_PARTIAL_SCORE_UPDATED:
+        // E65S02 AC2: partial (in-progress) score update → refresh matches + standings
+        void refreshMatchesAndStandings();
         break;
       default:
         // Unknown event type — ignore silently
