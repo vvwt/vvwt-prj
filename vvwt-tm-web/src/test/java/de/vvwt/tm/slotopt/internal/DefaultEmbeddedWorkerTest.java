@@ -72,13 +72,17 @@ class DefaultEmbeddedWorkerTest {
             WorkerKeyManager keyManager,
             DispatcherClient dispatcherClient,
             OutagePolicy outagePolicy) {
+        // E63S04: pass no-op host-protection (never active, no throttle) to preserve existing tests
         return new DefaultEmbeddedWorker(
                 computeStep,
                 keyManager,
                 dispatcherClient,
                 /* pollIntervalMs= */ 10L,
                 /* backoffMaxMs= */ 50L,
-                outagePolicy);
+                outagePolicy,
+                /* hostActivityProbe= */ () -> false,
+                /* interPacketThrottle= */ new InterPacketThrottle(1.0, 0),
+                /* pauseCheckIntervalMs= */ 10L);
     }
 
     private WorkerKeyManager mockKeyManager() {

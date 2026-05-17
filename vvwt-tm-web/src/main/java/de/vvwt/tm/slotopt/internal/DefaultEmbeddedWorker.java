@@ -13,6 +13,7 @@ import de.vvwt.slotopt.worker.runtime.OutagePolicy;
 import de.vvwt.slotopt.worker.runtime.RegisterKeyRequest;
 import de.vvwt.slotopt.worker.runtime.RegisterKeyResponse;
 import de.vvwt.tm.slotopt.EmbeddedWorker;
+import de.vvwt.tm.slotopt.HostActivityProbe;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -40,12 +41,34 @@ import org.slf4j.LoggerFactory;
  *       OutagePolicy} is invoked (logs and returns normally for the embedded form); the loop then
  *       applies capped exponential backoff and retries (AC-TEST-OUTAGE-SURVIVE-AND-RESUME,
  *       AC-ERR-OUTAGE-BACKOFF-NO-BUSY-LOOP).
- *   <li><strong>No host DB / Saga-Orchestrator coupling</strong> — this class has no dependency on
- *       any TM service, DAO, or repository (AC-GOV-NO-HOST-DB-OR-ORCHESTRATOR-COUPLING, DEC-64).
+ *   <li><strong>Host-protection: live-scoring auto-pause</strong> (E63S04) — between packets, the
+ *       worker checks {@link HostActivityProbe#isLiveScoringActive()}. When the probe returns
+ *       {@code true}, the worker pauses (sleeps {@code pauseCheckIntervalMs}) and rechecks on an
+ *       interval rather than pulling the next packet. The probe is the ONLY host-coupling channel
+ *       (DEC-64/C-5). If the probe throws, the worker conservatively treats the host as active
+ *       (AC-ERR-PROBE-FAILURE-IS-CONSERVATIVE).
+ *   <li><strong>Host-protection: inter-packet CPU throttle</strong> (E63S04) — after each solved
+ *       packet, the worker sleeps proportionally to keep its averaged CPU share within the
+ *       configured ratio. This is {@link InterPacketThrottle} — NOT the standalone {@code
+ *       CpuThrottle} (idle-poll pacing only).
+ *   <li><strong>No host DB / Saga-Orchestrator coupling</strong> — this class has no direct
+ *       dependency on any TM DAO or repository. The only host read is through the injected {@link
+ *       HostActivityProbe} interface (AC-GOV-NO-HOST-DB-OR-ORCHESTRATOR-COUPLING, DEC-64).
  *   <li><strong>DEC-11</strong> — talks to the dispatcher over HTTP only via the injected {@link
  *       ComputeStep} and {@link DispatcherClient}; no compile dependency on {@code
  *       vvwt-slotopt-dispatcher}.
  * </ul>
+ *
+ * <h2>Between-packet sequence (E63S04)</h2>
+ *
+ * <ol>
+ *   <li>Probe check: while {@code isLiveScoringActive()} returns {@code true} (or throws) AND
+ *       shutdown is not requested → sleep {@code pauseCheckIntervalMs} and recheck.
+ *   <li>Pull and solve (packet runs to completion uninterrupted — no mid-packet check).
+ *   <li>If PACKET_PROCESSED or PACKET_SUPERSEDED: apply inter-packet throttle sleep (computed from
+ *       solve time and {@code cpuMaxRatio}).
+ *   <li>If NO_PACKET: apply the existing idle sleep ({@code pollIntervalMs}).
+ * </ol>
  *
  * <h2>Thread lifecycle</h2>
  *
@@ -63,7 +86,7 @@ import org.slf4j.LoggerFactory;
  * interface mandate (Clause A-ext). This class is NOT component-scanned; it is instantiated
  * exclusively by the configuration class.
  *
- * <p>Story: E63S03.
+ * <p>Story: E63S03 (base), E63S04 (host-protection additions).
  */
 class DefaultEmbeddedWorker implements EmbeddedWorker {
 
@@ -81,6 +104,11 @@ class DefaultEmbeddedWorker implements EmbeddedWorker {
     private final long backoffMaxMs;
     private final OutagePolicy outagePolicy;
     private final List<String> supportedAlgorithms;
+
+    // E63S04 host-protection
+    private final HostActivityProbe hostActivityProbe;
+    private final InterPacketThrottle interPacketThrottle;
+    private final long pauseCheckIntervalMs;
 
     /**
      * Volatile flag — set by {@link #stop()} to signal the loop to exit after current iteration.
@@ -105,6 +133,10 @@ class DefaultEmbeddedWorker implements EmbeddedWorker {
      * @param pollIntervalMs sleep duration (ms) between pull attempts when no packet is available
      * @param backoffMaxMs maximum backoff duration (ms) during a dispatcher outage
      * @param outagePolicy strategy for reacting to a dispatcher outage
+     * @param hostActivityProbe probe for host live-scoring state (E63S04); the only host-coupling
+     *     channel (DEC-64/C-5)
+     * @param interPacketThrottle inter-packet CPU throttle (E63S04); bounds averaged CPU share
+     * @param pauseCheckIntervalMs how often (ms) to recheck the probe while paused (E63S04)
      */
     DefaultEmbeddedWorker(
             ComputeStep computeStep,
@@ -112,13 +144,20 @@ class DefaultEmbeddedWorker implements EmbeddedWorker {
             DispatcherClient dispatcherClient,
             long pollIntervalMs,
             long backoffMaxMs,
-            OutagePolicy outagePolicy) {
+            OutagePolicy outagePolicy,
+            HostActivityProbe hostActivityProbe,
+            InterPacketThrottle interPacketThrottle,
+            long pauseCheckIntervalMs) {
         this.computeStep = Objects.requireNonNull(computeStep, "computeStep");
         this.keyManager = Objects.requireNonNull(keyManager, "keyManager");
         this.dispatcherClient = Objects.requireNonNull(dispatcherClient, "dispatcherClient");
         this.pollIntervalMs = pollIntervalMs;
         this.backoffMaxMs = backoffMaxMs;
         this.outagePolicy = Objects.requireNonNull(outagePolicy, "outagePolicy");
+        this.hostActivityProbe = Objects.requireNonNull(hostActivityProbe, "hostActivityProbe");
+        this.interPacketThrottle =
+                Objects.requireNonNull(interPacketThrottle, "interPacketThrottle");
+        this.pauseCheckIntervalMs = pauseCheckIntervalMs;
         this.supportedAlgorithms = List.of(keyManager.algorithmId());
     }
 
@@ -180,7 +219,7 @@ class DefaultEmbeddedWorker implements EmbeddedWorker {
      *
      * <ol>
      *   <li>Register keypair with the dispatcher (DEC-6/DEC-43).
-     *   <li>Enter the pull-solve-submit loop.
+     *   <li>Enter the pull-solve-submit loop with host-protection (E63S04).
      *   <li>On outage: invoke outage policy (returns normally for embedded form) → back off →
      *       retry.
      *   <li>On shutdown: exit cleanly after the current iteration.
@@ -205,20 +244,44 @@ class DefaultEmbeddedWorker implements EmbeddedWorker {
             return;
         }
 
-        // Step 2: Pull-solve-submit loop
+        // Step 2: Pull-solve-submit loop with host-protection
         long currentBackoffMs = BACKOFF_INITIAL_MS;
         while (!shutdownRequested.get()) {
+
+            // E63S04: live-scoring auto-pause — check BETWEEN packets, never mid-packet.
+            // AC-TEST-AUTO-PAUSE-ON-LIVE-SCORING, AC-TEST-PAUSE-IS-BETWEEN-PACKETS
+            while (isLiveScoringActiveConservative() && !shutdownRequested.get()) {
+                sleepUnlessShutdown(pauseCheckIntervalMs);
+            }
+            if (shutdownRequested.get()) {
+                break;
+            }
+
             try {
+                long solveStartNs = System.nanoTime();
                 ComputeStepResult result = computeStep.execute(workerId, supportedAlgorithms);
+                long solveTimeNs = System.nanoTime() - solveStartNs;
 
                 // Reset backoff after a successful iteration
                 currentBackoffMs = BACKOFF_INITIAL_MS;
 
                 if (result == ComputeStepResult.NO_PACKET) {
                     // AC-ERR-NO-PACKET-IDLES-GRACEFULLY: no packet → idle, no error
+                    // No solve-time measured, no throttle sleep.
                     sleepUnlessShutdown(pollIntervalMs);
+                } else {
+                    // PACKET_PROCESSED or PACKET_SUPERSEDED: apply inter-packet CPU throttle.
+                    // AC-TEST-CPU-THROTTLE-RATIO, AC-TEST-THROTTLE-IS-BETWEEN-PACKETS (E63S04)
+                    long throttleSleepMs = interPacketThrottle.computeSleepMs(solveTimeNs);
+                    if (throttleSleepMs > 0) {
+                        LOG.trace(
+                                "DefaultEmbeddedWorker: inter-packet throttle sleep {}ms"
+                                        + " (solveTime={}ns)",
+                                throttleSleepMs,
+                                solveTimeNs);
+                        sleepUnlessShutdown(throttleSleepMs);
+                    }
                 }
-                // PACKET_PROCESSED / PACKET_SUPERSEDED: continue immediately
 
             } catch (ComputeStepException e) {
                 // The embedded worker survives outages — invoke outage policy
@@ -241,6 +304,29 @@ class DefaultEmbeddedWorker implements EmbeddedWorker {
         }
 
         LOG.info("DefaultEmbeddedWorker: loop exited cleanly (shutdown requested)");
+    }
+
+    /**
+     * Probes the host for live-scoring activity with conservative fail-safe semantics.
+     *
+     * <p>Returns {@code true} (treat as active/pause) if the probe throws or is otherwise
+     * unavailable. This ensures a probe failure causes the worker to pause rather than charging
+     * ahead and competing with TM's primary duties.
+     *
+     * <p>AC-ERR-PROBE-FAILURE-IS-CONSERVATIVE.
+     *
+     * @return {@code true} if live-scoring is active OR if the probe threw an exception
+     */
+    private boolean isLiveScoringActiveConservative() {
+        try {
+            return hostActivityProbe.isLiveScoringActive();
+        } catch (Exception e) {
+            LOG.warn(
+                    "DefaultEmbeddedWorker: HostActivityProbe threw — treating host as active"
+                            + " (fail-safe). cause={}",
+                    e.getMessage());
+            return true; // AC-ERR-PROBE-FAILURE-IS-CONSERVATIVE
+        }
     }
 
     /**
