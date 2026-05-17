@@ -13,16 +13,16 @@ import org.junit.jupiter.api.Test;
  *
  * <p>Covers {@code AC-TEST-DEATH-FAILURE-CARRIES-OUTPUT}: when the dispatcher subprocess dies
  * before becoming ready, the {@link AssertionError} surfaced by {@link
- * DispatcherProcessLauncher#startWithCommand} must contain the subprocess's captured output so
- * the cause is identifiable from the build log without a manual re-launch.
+ * DispatcherProcessLauncher#startWithCommand} must contain the subprocess's captured output so the
+ * cause is identifiable from the build log without a manual re-launch.
  *
  * <h2>Failure-path mechanism</h2>
  *
  * <p>The test uses {@link DispatcherProcessLauncher#startWithCommand} to inject a controlled
- * subprocess command ({@link SentinelAndExitMain}) that prints a known sentinel line to stderr
- * and exits immediately with code 1, bypassing the real dispatcher JAR resolution. The
- * {@link DispatcherProcessLauncher} is constructed on an arbitrary free port; the subprocess
- * will never serve HTTP — it is expected to die immediately.
+ * subprocess command ({@link SentinelAndExitMain}) that prints a known sentinel line to stderr and
+ * exits immediately with code 1, bypassing the real dispatcher JAR resolution. The {@link
+ * DispatcherProcessLauncher} is constructed on an arbitrary free port; the subprocess will never
+ * serve HTTP — it is expected to die immediately.
  */
 class DispatcherProcessLauncherTest {
 
@@ -31,13 +31,13 @@ class DispatcherProcessLauncherTest {
      * included in the failure message.
      *
      * <p>Regression guard: prior to E63S09, {@link DispatcherProcessLauncher} used {@code
-     * redirectOutput(Redirect.DISCARD)}, so subprocess output was silently discarded and the
-     * {@link AssertionError} contained only the generic "process died" message — the root cause
-     * was invisible without a manual re-launch.
+     * redirectOutput(Redirect.DISCARD)}, so subprocess output was silently discarded and the {@link
+     * AssertionError} contained only the generic "process died" message — the root cause was
+     * invisible without a manual re-launch.
      *
      * <p>TDD: this test was written RED against the pre-fix {@link DispatcherProcessLauncher}
-     * (which used DISCARD and had no {@code startWithCommand} method) and turned GREEN after
-     * the {@link OutputGobbler} + {@code startWithCommand} refactor (E63S09).
+     * (which used DISCARD and had no {@code startWithCommand} method) and turned GREEN after the
+     * {@link OutputGobbler} + {@code startWithCommand} refactor (E63S09).
      */
     @Test
     @DisplayName(
@@ -48,11 +48,7 @@ class DispatcherProcessLauncherTest {
         String javaBinary = ProcessHandle.current().info().command().orElse("java");
         String classpath = System.getProperty("java.class.path");
         List<String> command =
-                List.of(
-                        javaBinary,
-                        "-cp",
-                        classpath,
-                        SentinelAndExitMain.class.getName());
+                List.of(javaBinary, "-cp", classpath, SentinelAndExitMain.class.getName());
 
         // Use an arbitrary port; the subprocess will die before any readiness probe is attempted.
         DispatcherProcessLauncher launcher = new DispatcherProcessLauncher(0);

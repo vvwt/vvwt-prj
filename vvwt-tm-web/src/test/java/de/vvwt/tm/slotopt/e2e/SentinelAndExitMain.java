@@ -8,8 +8,8 @@ package de.vvwt.tm.slotopt.e2e;
  * <p>Prints a sentinel diagnostic line to stderr and exits with code 1, simulating a dispatcher
  * subprocess that fails during startup with a recognisable error message.
  *
- * <p>Used exclusively to exercise the {@link DispatcherProcessLauncher} output-capture path
- * without requiring a real dispatcher JAR.
+ * <p>Used exclusively to exercise the {@link DispatcherProcessLauncher} output-capture path without
+ * requiring a real dispatcher JAR.
  */
 class SentinelAndExitMain {
 

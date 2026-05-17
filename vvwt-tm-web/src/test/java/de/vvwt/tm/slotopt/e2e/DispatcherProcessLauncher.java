@@ -323,8 +323,7 @@ class DispatcherProcessLauncher {
      *
      * <p>Runs as a daemon thread so it does not prevent JVM exit. Captures lines up to {@link
      * #MAX_LINES}; when the buffer is full, the oldest line is removed to make room — the
-     * subprocess is never blocked on a full OS pipe buffer
-     * (AC-ERR-CAPTURE-NEVER-HANGS-LAUNCHER).
+     * subprocess is never blocked on a full OS pipe buffer (AC-ERR-CAPTURE-NEVER-HANGS-LAUNCHER).
      */
     private static final class OutputGobbler extends Thread {
 
