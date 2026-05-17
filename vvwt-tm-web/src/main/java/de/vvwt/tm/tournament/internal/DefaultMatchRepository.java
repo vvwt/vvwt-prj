@@ -56,6 +56,12 @@ public class DefaultMatchRepository implements MatchRepository {
     private static final String SELECT_BY_FIELD_LAP =
             "SELECT * FROM match WHERE field_number=? AND lap_number=?";
 
+    // E22S13: Phase-scoped variant — prevents surfacing later-phase matches at the same
+    // (fieldNumber, lapNumber) coordinate. Used by DefaultScoreEntryService.resolveActiveMatch()
+    // to scope match resolution to the active phase (AC2 — phase-scoped match resolution).
+    private static final String SELECT_BY_PHASE_FIELD_LAP =
+            "SELECT * FROM match WHERE phase_id=? AND field_number=? AND lap_number=?";
+
     private static final String SELECT_TERMINAL_BY_PHASE_AND_AVATAR =
             "SELECT * FROM match WHERE phase_id=?"
                     + " AND (member_avatar_1_id=? OR member_avatar_2_id=?)"
@@ -147,6 +153,13 @@ public class DefaultMatchRepository implements MatchRepository {
     @Override
     public List<Match> findByFieldNumberAndLapNumber(int fieldNumber, int lapNumber) {
         return jdbc.query(SELECT_BY_FIELD_LAP, ROW_MAPPER, fieldNumber, lapNumber);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<Match> findByPhaseIdAndFieldNumberAndLapNumber(
+            UUID phaseId, int fieldNumber, int lapNumber) {
+        return jdbc.query(SELECT_BY_PHASE_FIELD_LAP, ROW_MAPPER, phaseId, fieldNumber, lapNumber);
     }
 
     /** {@inheritDoc} */

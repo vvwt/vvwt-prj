@@ -154,7 +154,8 @@ class DefaultScoreEntryServiceTest {
                 .thenReturn(Optional.of(assignedDevice));
         when(tournamentRepository.findAll()).thenReturn(List.of(activeTournament));
         when(phaseRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(activePhase));
-        when(matchRepository.findByFieldNumberAndLapNumber(FIELD_NUMBER, LAP_NUMBER))
+        when(matchRepository.findByPhaseIdAndFieldNumberAndLapNumber(
+                        PHASE_ID, FIELD_NUMBER, LAP_NUMBER))
                 .thenReturn(List.of(activeMatch));
 
         // Team name resolution
@@ -247,7 +248,8 @@ class DefaultScoreEntryServiceTest {
                 .thenReturn(Optional.of(assignedDevice));
         when(tournamentRepository.findAll()).thenReturn(List.of(activeTournament));
         when(phaseRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(activePhase));
-        when(matchRepository.findByFieldNumberAndLapNumber(FIELD_NUMBER, LAP_NUMBER))
+        when(matchRepository.findByPhaseIdAndFieldNumberAndLapNumber(
+                        PHASE_ID, FIELD_NUMBER, LAP_NUMBER))
                 .thenReturn(List.of(activeMatch));
 
         // Team name resolution (needed to build the existing MatchScoreResponse for matchId check)
@@ -402,7 +404,7 @@ class DefaultScoreEntryServiceTest {
                 .thenReturn(Optional.of(assignedDevice)); // assignedDevice.assignedField=1
         when(tournamentRepository.findAll()).thenReturn(List.of(activeTournament));
         when(phaseRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(activePhase));
-        when(matchRepository.findByFieldNumberAndLapNumber(1, LAP_NUMBER))
+        when(matchRepository.findByPhaseIdAndFieldNumberAndLapNumber(PHASE_ID, 1, LAP_NUMBER))
                 .thenReturn(List.of(activeMatch)); // activeMatch.fieldNumber=1 (1-based)
 
         TeamAvatar avatar1 = new TeamAvatar();
@@ -480,6 +482,114 @@ class DefaultScoreEntryServiceTest {
                             + " device.assignedField=1 and match.fieldNumber=1 must be equal (both"
                             + " 1-based per DEC-60 D-1 / E53S09) → no ForbiddenException")
                 .doesNotThrowAnyException();
+    }
+
+    // =======================================================================
+    // AC5 — Regression guard: phase-scoped match resolution (E22S13 fix)
+    //
+    // Before the fix: resolveActiveMatch called findByFieldNumberAndLapNumber which
+    // is NOT scoped to the active phase. A later-phase match at the same
+    // (fieldNumber, lapNumber) coordinate could be surfaced.
+    //
+    // After the fix: resolveActiveMatch calls findByPhaseIdAndFieldNumberAndLapNumber,
+    // scoped to the active phase. A later-phase match at the same coordinate is never
+    // returned.
+    // =======================================================================
+
+    /**
+     * AC5-REGRESSION-E22S13-RED: getMatchForField must NOT surface a match from a non-active phase.
+     *
+     * <p>Scenario (AC1): phase-1 is ACTIVE; its match on (field=1, lap=1) is in a terminal state.
+     * Phase-2 (not yet active) has a match at the same (fieldNumber=1, lapNumber=1) coordinate.
+     *
+     * <p>Expected: getMatchForField returns Optional.empty() — the later-phase match is NOT
+     * surfaced, and the terminal active-phase match is not returned (it is terminal).
+     *
+     * <p>This test verifies AC1 (reproduction guard), AC2 (phase-scoped resolution), and AC3
+     * (terminal active-phase match → empty).
+     */
+    @Test
+    void getMatchForField_laterPhaseMatchSameCoordinates_notSurfaced() {
+        // AC5-REGRESSION-E22S13-RED
+        // Active phase (phase 1) has a match at (field=1, lap=1) but it is TERMINAL (FINISHED).
+        // Phase-scoped query returns empty → getMatchForField returns Optional.empty().
+        // (The not-yet-active phase-2 match at the same coordinates is never consulted
+        //  because the query is now scoped to the active phase.)
+        when(deviceRepository.findByDeviceToken(DEVICE_TOKEN))
+                .thenReturn(Optional.of(assignedDevice));
+        when(tournamentRepository.findAll()).thenReturn(List.of(activeTournament));
+        when(phaseRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(activePhase));
+        // Active-phase match exists but is TERMINAL — phase-scoped query returns only terminal
+        // match
+        Match terminalMatch = new Match();
+        terminalMatch.setId(UUID.randomUUID());
+        terminalMatch.setTournamentId(TOURNAMENT_ID);
+        terminalMatch.setPhaseId(PHASE_ID);
+        terminalMatch.setMatchState(MatchState.FINISHED_WINNER1);
+        terminalMatch.setFieldNumber(FIELD_NUMBER);
+        terminalMatch.setLapNumber(LAP_NUMBER);
+        // Phase-scoped query on the active phase returns the terminal match (only)
+        when(matchRepository.findByPhaseIdAndFieldNumberAndLapNumber(
+                        PHASE_ID, FIELD_NUMBER, LAP_NUMBER))
+                .thenReturn(List.of(terminalMatch));
+
+        Optional<ScoreEntryResult> result = service.getMatchForField(FIELD_NUMBER, DEVICE_TOKEN);
+
+        assertThat(result)
+                .as(
+                        "AC5-REGRESSION-E22S13: later-phase match at same (field, lap) coordinate"
+                            + " must NOT be surfaced; terminal active-phase match → empty result")
+                .isEmpty();
+    }
+
+    /**
+     * AC5-REGRESSION-E22S13-POSITIVE-RED: active-phase non-terminal match IS returned (happy path
+     * with phase-scoped query).
+     *
+     * <p>Verifies that after the fix, the happy path still works: a non-terminal active-phase match
+     * at (field=1, lap=1) is returned when the phase-scoped query finds it.
+     */
+    @Test
+    void getMatchForField_activePhaseMatchReturned_phaseScoped() {
+        // AC5-REGRESSION-E22S13-POSITIVE-RED
+        when(deviceRepository.findByDeviceToken(DEVICE_TOKEN))
+                .thenReturn(Optional.of(assignedDevice));
+        when(tournamentRepository.findAll()).thenReturn(List.of(activeTournament));
+        when(phaseRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(activePhase));
+        // Phase-scoped query returns the active match
+        when(matchRepository.findByPhaseIdAndFieldNumberAndLapNumber(
+                        PHASE_ID, FIELD_NUMBER, LAP_NUMBER))
+                .thenReturn(List.of(activeMatch));
+
+        TeamAvatar avatar1 = new TeamAvatar();
+        avatar1.setId(AVATAR1_ID);
+        avatar1.setTeamId(TEAM1_ID);
+        TeamAvatar avatar2 = new TeamAvatar();
+        avatar2.setId(AVATAR2_ID);
+        avatar2.setTeamId(TEAM2_ID);
+        Team team1 = new Team();
+        team1.setId(TEAM1_ID);
+        team1.setDescription("Mannschaft 03");
+        Team team2 = new Team();
+        team2.setId(TEAM2_ID);
+        team2.setDescription("Mannschaft 06");
+        when(teamAvatarRepository.findById(AVATAR1_ID)).thenReturn(Optional.of(avatar1));
+        when(teamAvatarRepository.findById(AVATAR2_ID)).thenReturn(Optional.of(avatar2));
+        when(teamRepository.findById(TEAM1_ID)).thenReturn(Optional.of(team1));
+        when(teamRepository.findById(TEAM2_ID)).thenReturn(Optional.of(team2));
+
+        Optional<ScoreEntryResult> result = service.getMatchForField(FIELD_NUMBER, DEVICE_TOKEN);
+
+        assertThat(result)
+                .as(
+                        "AC5-REGRESSION-E22S13-POSITIVE: active-phase non-terminal match must be"
+                                + " returned")
+                .isPresent();
+        assertThat(result.get().matchId())
+                .as("returned match must be the active phase match")
+                .isEqualTo(MATCH_ID);
+        assertThat(result.get().team1Name()).isEqualTo("Mannschaft 03");
+        assertThat(result.get().team2Name()).isEqualTo("Mannschaft 06");
     }
 
     /**

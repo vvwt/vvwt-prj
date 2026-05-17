@@ -382,12 +382,16 @@ public class DefaultScoreEntryService implements ScoreEntryService {
     }
 
     /**
-     * Resolves the active non-terminal match for the given field.
+     * Resolves the active non-terminal match for the given field, scoped to the active phase.
      *
-     * <p>Traversal: active tournament → active phase → current lap → non-terminal match on field.
+     * <p>Traversal: active tournament → active phase → current lap → non-terminal match on field
+     * within the active phase. The match query is scoped to the active phase's ID to prevent
+     * surfacing matches from non-active phases that share the same ({@code fieldNumber}, {@code
+     * lapNumber}) coordinate (E22S13, AC2 — phase-scoped match resolution). Lap and field numbers
+     * restart per phase (DEC-56/DEC-60), so a coordinate pair exists once in every phase.
      *
      * @param fieldNumber the court field number
-     * @return populated result or empty if no match found
+     * @return populated result or empty if no active-phase non-terminal match found
      */
     private Optional<ScoreEntryResult> resolveActiveMatch(int fieldNumber) {
         // Find active tournament (DEC-5: at most one per tenant)
@@ -416,12 +420,17 @@ public class DefaultScoreEntryService implements ScoreEntryService {
             return Optional.empty();
         }
 
-        // Current lap number from the active phase
+        // Current lap number from the active phase (DEC-65: 1-based running-lap index;
+        // 0 = sentinel "no lap running")
         int lapNumber = activePhase.getCurrentLapNumber();
 
-        // Find a non-terminal match on this field+lap
+        // Find a non-terminal match on this field+lap — SCOPED TO THE ACTIVE PHASE (E22S13 fix).
+        // Using findByPhaseIdAndFieldNumberAndLapNumber instead of findByFieldNumberAndLapNumber
+        // prevents surfacing later-phase matches at the same (fieldNumber, lapNumber) coordinate.
         Match activeMatch = null;
-        for (Match m : matchRepository.findByFieldNumberAndLapNumber(fieldNumber, lapNumber)) {
+        for (Match m :
+                matchRepository.findByPhaseIdAndFieldNumberAndLapNumber(
+                        activePhase.getId(), fieldNumber, lapNumber)) {
             if (isNonTerminal(m.getMatchState())) {
                 activeMatch = m;
                 break;
