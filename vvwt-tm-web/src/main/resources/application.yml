@@ -175,10 +175,12 @@ tm:
       # Override via TM_SLOTOPT_WORKER_KEY_DIR env var or -Dtm.slotopt.dispatcher.worker-key-dir.
       worker-key-dir: ${TM_SLOTOPT_WORKER_KEY_DIR:${tm.data.dir}/slotopt-keys}
     # ---------------------------------------------------------------------------
-    # E63S03 — Embedded slot-optimization worker (opt-in, OFF by default)
+    # E63S03/E63S04 — Embedded slot-optimization worker (opt-in, OFF by default)
     # When enabled, the TM contributes compute cycles to the dispatcher's general job pool
     # from a background thread. The worker uses its OWN Ed25519 keypair (distinct from the
     # Leg-2 submitter keypair above) stored in ${tm.data.dir}/embedded-worker-keys/ (DEC-68).
+    # Host-protection (E63S04): the worker auto-pauses while TM is live-scoring and applies
+    # an inter-packet CPU throttle to limit its averaged CPU share (conservative defaults).
     # ---------------------------------------------------------------------------
     embedded-worker:
       # Master opt-in switch. absent or false => worker thread never starts, no keypair generated.
@@ -197,6 +199,23 @@ tm:
       backoff-max-ms: 30000
       # HTTP request timeout (ms) for dispatcher API calls.
       http-timeout-ms: 10000
+      # ---------------------------------------------------------------------------
+      # E63S04 — Host-protection: inter-packet CPU throttle
+      # After each solved packet, the worker sleeps proportionally so its averaged CPU share
+      # stays within this ratio (0.25 = max 25% of host CPU).
+      # Formula: sleep = solve_time * (1 / ratio - 1). Range: (0.0, 1.0]; >= 1.0 disables.
+      # Conservative default: 0.25 (worker uses at most 25% of averaged CPU time).
+      # The sleep is capped at backoff-max-ms. This is NOT the standalone CpuThrottle
+      # (idle-poll pacing only); it is a new ratio-based inter-packet throttle (AC-GOV-INTER-PACKET-THROTTLE-IS-NEW).
+      # ---------------------------------------------------------------------------
+      cpu-max-ratio: 0.25
+      # ---------------------------------------------------------------------------
+      # E63S04 — Host-protection: live-scoring auto-pause probe check interval
+      # While TM is live-scoring (HostActivityProbe returns true), the embedded worker pauses
+      # between packets and rechecks the probe on this interval (ms). When live-scoring ends,
+      # the worker resumes pulling (AC-TEST-AUTO-PAUSE-ON-LIVE-SCORING, AC-ERR-RESUME-AFTER-PAUSE).
+      # ---------------------------------------------------------------------------
+      live-scoring-pause-check-interval-ms: 1000
   # ---------------------------------------------------------------------------
   # E55S10 — Diagnostic instrumentation (default OFF per AC-SEC-NO-DEBUG-LEAK-IN-PROD)
   # Enable for operator-driven bug reproduction (see .gaai/project/contexts/artefacts/diagnose/)

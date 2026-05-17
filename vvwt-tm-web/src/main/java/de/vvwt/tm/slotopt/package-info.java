@@ -9,7 +9,7 @@
  *
  * <h2>Allowed dependencies (DEC-21, DEC-49)</h2>
  *
- * <p>The {@code slotopt} context depends on {@code tournament}:
+ * <p>The {@code slotopt} context depends on:
  *
  * <ul>
  *   <li>{@code tournament} — {@link de.vvwt.tm.tournament.Match}, {@link
@@ -18,14 +18,19 @@
  *       de.vvwt.tm.tournament.TeamAvatarRepository}, {@link
  *       de.vvwt.tm.tournament.TournamentRepository}, {@link de.vvwt.tm.tournament.Phase} — used by
  *       pre-existing {@code slotopt} classes.
+ *   <li>{@code tournament::events} — {@link de.vvwt.tm.tournament.events.PhaseStatusChangedEvent} —
+ *       observed by {@link de.vvwt.tm.slotopt.internal.DefaultHostActivityProbe} to track whether
+ *       any phase is ACTIVE (live-scoring running). This is the permitted DEC-64/C-5 in-process
+ *       host-coupling channel for the embedded worker (E63S04). Unlike the E55S06 removal of
+ *       slot-opt pipeline events, this dependency is for READ-ONLY observation of host live-scoring
+ *       state — a distinct concern.
  * </ul>
  *
- * <p>E55S06 (DEC-64 D-5): {@code tournament::events} dependency removed. {@link
- * de.vvwt.tm.slotopt.internal.SlotOptInvocationListener}, {@link
- * de.vvwt.tm.slotopt.internal.SlotOptJobScheduler}, and {@link
- * de.vvwt.tm.slotopt.internal.SlotOptFifoDispatcher} are deleted as part of the event-driven
- * pipeline removal. The events {@code OptimizePhaseRequestedEvent}, {@code
- * SlotOptJobScheduledEvent}, and {@code SlotOptJobCompletedEvent} are also deleted.
+ * <p>E55S06 (DEC-64 D-5): the slot-opt pipeline events ({@code OptimizePhaseRequestedEvent}, {@code
+ * SlotOptJobScheduledEvent}, {@code SlotOptJobCompletedEvent}) and their listener beans ({@code
+ * SlotOptInvocationListener}, {@code SlotOptJobScheduler}, {@code SlotOptFifoDispatcher}) were
+ * deleted. The {@code tournament::events} dependency was removed at that time. E63S04 re-adds it
+ * for a different purpose: read-only host-activity observation.
  *
  * <p>The canonical {@link SlotOptimizationClient} entry point from E27S01 forward is {@link
  * de.vvwt.tm.slotopt.internal.RoutingSlotOptimizationClient}. See DEC-49 for the routing rule
@@ -33,10 +38,11 @@
  *
  * <p>Authorizing decisions: DEC-21 (Spring Modulith layout), DEC-22 (TDD Iron Law), DEC-40
  * (allowedDependencies per-entry justification), DEC-49 (routing rule + canonical entry point),
- * DEC-64 D-5 (event pipeline deleted; {@code tournament::events} dependency removed, E55S06).
+ * DEC-64 D-5 / DEC-64 C-5 (host-coupling permitted via HostActivityProbe — E63S04).
  *
  * @since E27S01
- * @updated E55S06 (removed {@code tournament::events} from allowedDependencies — DEC-64 D-5)
+ * @updated E63S04 (re-added {@code tournament::events} for host-activity probe — DEC-64 C-5)
  */
-@org.springframework.modulith.ApplicationModule(allowedDependencies = {"tournament"})
+@org.springframework.modulith.ApplicationModule(
+        allowedDependencies = {"tournament", "tournament::events"})
 package de.vvwt.tm.slotopt;
