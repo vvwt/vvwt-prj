@@ -1,19 +1,5 @@
-/**
- * Unit tests for audioEngine.ts (E11S04 AC1, AC8).
- *
- * Tests:
- *   1. preload with null URLs → idle status, no element created
- *   2. preload with URLs → loading status, element created
- *   3. canplaythrough event → loaded status
- *   4. error event → error status
- *   5. play() on loaded element → currentTime=0, play() called
- *   6. play() when no element → no-op (no crash)
- *   7. stopPauseMusic() → pauses and resets currentTime
- *   8. pauseAll() → pauses playing elements
- *   9. stopAll() → pauses all and resets currentTime
- *  10. hasAnyUrl() → true when at least one URL configured
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AudioEngine } from './audioEngine.js';
 import type { AudioCategory } from './audioEngine.js';

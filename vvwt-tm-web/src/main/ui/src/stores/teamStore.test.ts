@@ -1,11 +1,5 @@
-/**
- * Unit tests for teamStore (E05S05 AC12 — i18n coverage).
- *
- * Verifies:
- * - AC12: de.json contains all team translation keys (i18n DoR)
- * - teamStore exports the expected API functions
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import deMessages from '../locales/de.json';
 

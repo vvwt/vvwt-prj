@@ -1,9 +1,5 @@
-/**
- * AC1 (testing), AC10 (security — token extraction), AC6 (410 UX), AC5 (supersede UX).
- * DEC-22 Iron Law: written BEFORE App.svelte implementation complete (RED state).
- * Story: E38S08.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
 import App from '../App.svelte';

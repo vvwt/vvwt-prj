@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 package de.vvwt.tm.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -302,13 +304,15 @@ class PrintControllerIT {
     @Test
     @DisplayName(
             "AC-TEST-PLAYING-ROW-VS-CONTEXT-RED: singleTeamSchedule response contains"
-                    + " 'vs Mannschaft 03' in playing row — E53S02")
+                    + " 'Spiel gegen Mannschaft 03' in playing row — E53S02 (updated E08S10)")
     void singleTeamSchedule_playingRow_containsVsOpponentContext() throws Exception {
         UUID tid = seedTournamentWithActivePhaseAndMatches();
         // team_number=2 ("Mannschaft 02") plays against team_number=3 ("Mannschaft 03") in round 1
         // AC-CONTENT-REFEREEING-ROW-NO-REGRESSION-PLAYING (E53S04): fixed getTeamId arg from 1→2
         // (seedTournamentWithActivePhaseAndMatches inserts teams with team_number=2,3,5; there is
         // no team with team_number=1 — hence EmptyResultDataAccess on staging HEAD 36bf620).
+        // E08S10 changed print.laufzettel.playing.vs from "vs" to "Spiel gegen" — updated here
+        // to match current messages.properties.
         UUID team1Id = getTeamId(tid, 2);
         ResponseEntity<String> response =
                 authed.getForEntity(
@@ -323,8 +327,8 @@ class PrintControllerIT {
                 .as("AC-TEST-PLAYING-ROW-VS-CONTEXT-RED: must return 200")
                 .isEqualTo(HttpStatus.OK);
         assertThat(response.getBody())
-                .as("AC-TEST-PLAYING-ROW-VS-CONTEXT-RED: playing row must contain 'vs'")
-                .contains("vs");
+                .as("AC-TEST-PLAYING-ROW-VS-CONTEXT-RED: playing row must contain 'Spiel gegen'")
+                .contains("Spiel gegen");
         assertThat(response.getBody())
                 .as("AC-TEST-PLAYING-ROW-VS-CONTEXT-RED: playing row must contain opponent name")
                 .contains("Mannschaft 03");

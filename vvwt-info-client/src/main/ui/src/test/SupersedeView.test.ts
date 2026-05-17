@@ -1,9 +1,5 @@
-/**
- * AC1 (testing), AC5 (supersede UX rendering).
- * DEC-22 Iron Law: written BEFORE SupersedeView.svelte exists (RED state).
- * Story: E38S08.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
 import SupersedeView from '../lib/components/SupersedeView.svelte';

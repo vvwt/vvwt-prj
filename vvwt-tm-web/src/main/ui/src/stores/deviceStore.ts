@@ -1,15 +1,5 @@
-/**
- * API client and types for the Device Management section of the admin SPA.
- *
- * Story E06S05 — AC1 (list), AC3 (unassign), AC5 (assign), AC7 (clear all), AC9 (error handling).
- * Story E07S03 — AC3 (configure display device), AC4 (remove device), AC5 (display limit).
- * Story E49S01 — PIN out-of-band assign, device name, pin-lock reset, rename.
- *
- * All API functions use `apiFetch` from api.ts to include browser-cached basic-auth
- * credentials (E05S02 AC7). Auth is enforced server-side for all endpoints except
- * /api/devices/register and /api/devices/status (E06S03 design).
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { apiFetch } from '../lib/api.js';
 
 // ─────────────────────────────────────────────────────────────────

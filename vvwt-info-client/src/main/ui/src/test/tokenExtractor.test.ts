@@ -1,9 +1,5 @@
-/**
- * AC1 (testing), AC10 (URL token extraction — path only, no localStorage/sessionStorage).
- * DEC-22 Iron Law: written BEFORE tokenExtractor.ts exists (RED state).
- * Story: E38S08.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { extractTokensFromPath } from '../lib/tokenExtractor.js';
 

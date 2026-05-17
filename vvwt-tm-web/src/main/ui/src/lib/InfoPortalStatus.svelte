@@ -1,3 +1,7 @@
+<!--
+  SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+  SPDX-License-Identifier: AGPL-3.0-or-later
+-->
 <script lang="ts">
   /**
    * Info Portal publisher status banner (AC4, AC10, DEC-43 D3).

@@ -1,19 +1,5 @@
-/**
- * API client for tournament-scoped team photo management (E12S03, E23S05 Cutover-1).
- *
- * Wraps the E23S05 REST endpoints (URL renamed at Cutover-1 per DEC-21 + DEC-40 precedent):
- *   POST   /api/photo/tournaments/{tournamentId}/teams/{teamId}  — upload (or replace) photo
- *   GET    /api/photo/tournaments/{tournamentId}/teams/{teamId}  — retrieve photo (binary)
- *   DELETE /api/photo/tournaments/{tournamentId}/teams/{teamId}  — delete photo
- *
- * Upload uses XMLHttpRequest to expose upload progress (consistent with audioStore.ts pattern).
- * Photo retrieval is done via a URL (used as <img src>) rather than fetching the binary in JS.
- *
- * @see TeamPhotoController  (Java, E23S05)
- * @see AudioStore           (E11S06 — pattern reference)
- */
-
-/** Photo metadata returned by the upload endpoint (E12S02). */
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 export interface PhotoMetadata {
     filename: string;
     sizeBytes: number;

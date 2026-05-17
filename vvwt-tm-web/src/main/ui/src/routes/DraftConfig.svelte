@@ -1,3 +1,7 @@
+<!--
+  SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+  SPDX-License-Identifier: AGPL-3.0-or-later
+-->
 <script lang="ts">
   /**
    * Draft configuration view — Story E05S06 (AC2–AC5); extended by E08S05, E47S01, E48S01, E48S16.

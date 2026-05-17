@@ -1,14 +1,5 @@
-/**
- * i18n initialization for the Tournament Manager Timer SPA.
- *
- * Story E11S03 — DEC-2: Vite + Svelte + TypeScript, no SvelteKit.
- *
- * Mirrors the admin and display SPA patterns (E05S01, E07S05).
- * Locale detection order:
- *   1. browser navigator.language
- *   2. Falls back to 'de' if the browser locale has no translation file
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { addMessages, getLocaleFromNavigator, init, locale } from 'svelte-i18n';
 import de from '../locales/de.json';
 

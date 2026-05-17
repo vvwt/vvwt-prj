@@ -1,3 +1,7 @@
+<!--
+  SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+  SPDX-License-Identifier: AGPL-3.0-or-later
+-->
 <script lang="ts">
   /**
    * Match overview page for an ACTIVE phase — Story E48S26.

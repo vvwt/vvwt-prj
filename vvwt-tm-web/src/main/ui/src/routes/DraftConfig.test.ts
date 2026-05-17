@@ -1,20 +1,5 @@
-/**
- * Tests for DraftConfig route — Story E47S01, extended by E48S01.
- *
- * E47S01:
- * AC3: No per-page .draft-config__header; title registered via pageHeader store.
- * AC5: Back-arrow registered (navigates to /tournaments/:tournamentId/edit).
- * AC6: tournamentId registered for tournament name display in header.
- * AC12: No pop()-based back-button rendered in the template (removed per D-10).
- *       Note: applySuccess pop() is an async post-action redirect — NOT a back-button. It stays.
- *
- * E48S01 (AC-TEST-FRONTEND-PRE-SUBMIT-VALIDATION-RED, AC-TEST-FRONTEND-DRAFT-CONFIG-PHASE-SUBMISSION-GREEN):
- * Pre-submit validation function that enforces last-phase=siegerehrung invariant.
- * The source-inspection pattern is used (JSDOM-independent per existing test convention).
- *
- * RED-first per DEC-22: E48S01 tests fail before DraftConfig.svelte is extended.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect } from 'vitest';
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -1,25 +1,6 @@
 <!--
-  laufzettel.mustache — single team's Laufzettel (team schedule) print template.
-
-  E08S08 AC1, AC3–AC12, AC14:
-  - Renders a single team's schedule with round rows, break separators, and phase headers.
-  - All static text via model attributes (i18n — AC14).
-  - Time column shown only when hasTime is truthy (AC10).
-  - Uses print-header partial for tournament/phase metadata (AC3).
-  - CSS @media print from print.css ensures A4 portrait fit (AC12).
-
-  Required model attributes (all set by PrintController):
-    tournamentName, tournamentDate, phaseName, msgTournamentLabel,
-    msgDateLabel, msgPhaseLabel, cssPath  — shared header model
-    title         — page title (browser tab)
-    heading       — e.g. "Laufzettel Team 1"
-    teamName      — team description (may be empty)
-    hasTime       — boolean: show time column
-    rows          — list of row attribute maps (from LaufzettelAssembler)
-    msgColRound, msgColTime, msgColActivity, msgColField — column headers
-    msgReferee, msgFree, msgBreak — row labels
-    msgPlayingVs  — "vs" separator for playing rows (E53S02)
-    msgVs         — "vs" separator for refereeing rows (E53S02)
+  SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+  SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 <!DOCTYPE html>
 <html lang="{{locale}}">

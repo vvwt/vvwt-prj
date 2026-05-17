@@ -1,38 +1,5 @@
-/**
- * E50S01 — Vitest tests for Display SPA noPhase reactivity.
- *
- * RED-first per DEC-22 AC-GOVERNANCE-DEC-22-RED-FIRST:
- *   Steps 1a–1b test the noPhase polling reactivity (AC-TEST-DISPLAY-REACTS-TO-TOURNAMENT-ACTIVATION-RED,
- *   AC-TEST-DISPLAY-REACTS-TO-PHASE-ACTIVATION-RED). These tests MUST fail before production code
- *   changes because App.svelte does not currently activate polling when errorType === 'noPhase'.
- *
- * Steps 1c–1d cover regression guards (AC-TEST-DISPLAY-REACTIVITY-WS-CONNECTED-GREEN,
- *   AC-TEST-DISPLAY-REACTIVITY-NO-DOUBLE-CONNECT).
- *
- * Strategy:
- *   - These tests are unit tests that directly exercise the functions exported or indirectly
- *     invoked in App.svelte's lifecycle, via a module-level harness.
- *   - We test App.svelte's behaviour by calling loadData() + activatePollingFallback() with
- *     a controlled sequence of fetch mock responses.
- *
- * Note: App.svelte uses Svelte 5 runes ($state), which are not directly instantiable in
- *   jsdom without full Svelte rendering. We test the logic extracted into testable helper
- *   functions (displayApi calls + polling). The App.svelte integration is verified via the
- *   polling activation path tests that drive the onMount logic via a minimal harness.
- *
- * Test approach:
- *   The core reactive logic is in App.svelte's loadData() + activatePollingFallback().
- *   We cannot mount a Svelte 5 component in jsdom without @testing-library/svelte (not installed).
- *   We therefore test the behaviour through a functional harness that replays the relevant
- *   control flow, mocking fetch exactly as App.svelte would call it.
- *
- *   Specifically:
- *     - Sequence 1: fetch returns 404 (NoActivePhaseError) → errorType = 'noPhase'
- *       → polling is activated → next tick fetch returns 200 → display exits noPhase
- *     - This tests the gap: currently, App.svelte does NOT activate polling after noPhase.
- *       After the fix, it will. The test drives this.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   fetchPhaseOverview,

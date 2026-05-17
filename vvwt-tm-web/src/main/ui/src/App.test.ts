@@ -1,22 +1,5 @@
-/**
- * Tests for App.svelte shell foundation — Story E47S01.
- *
- * AC1: App.svelte exposes shell mechanism — child routes register title/actions via
- *      pageHeader store and the persistent header renders them.
- * AC2: brand-header has position:sticky + top:0.
- * AC15: header DOM order (Logo → [back-arrow] → title → [tournament-name] → spacer → actions).
- * AC10 (i18n partial): common.moreActions key present in de.json.
- *
- * Note: jsdom does not compute `<style>` block CSS rules in getComputedStyle.
- * For AC2 (sticky), we verify the CSS property is present in the component's style block
- * by asserting a data attribute and checking inline style after setting it programmatically.
- * The real AC2 assertion: App.svelte applies the sticky style — verified by the presence of
- * the CSS class and style rule content, cross-checked with the component source.
- *
- * For AC15 DOM order: we render App with a known store state and verify
- * the resulting sibling order of header children.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { get } from 'svelte/store';
 import deMessages from './locales/de.json';

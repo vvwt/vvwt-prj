@@ -1,16 +1,5 @@
-/**
- * Tests for PhasePreparation.svelte — E51S06.
- *
- * AC-TEST-FRONTEND-PREPARE-ROUTE-LANDS-DRAG-AND-DROP-GREEN:
- * Verifies that PhasePreparation.svelte does NOT override commitEndpoint to /prepare.
- * The drag&drop Vorbereiten route must commit via the default transition-commit endpoint.
- *
- * E51S06 rollback of E48S21: commitEndpoint override to /prepare removed.
- * PhaseTransition.svelte default (transition-commit) is used instead.
- *
- * DEC-22 Iron Law: tests written GREEN (the change is already in place).
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';

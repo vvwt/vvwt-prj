@@ -1,19 +1,5 @@
-/**
- * Central registry module for match generator data.
- *
- * E58S05 — AC2, AC3, AC5:
- * Loads the generator list from GET /api/match-generators exactly once and caches the result.
- * Both DraftConfig.svelte and TournamentForm.svelte consume this module; no component fetches
- * the endpoint independently.
- *
- * The cache is module-level (process-lifetime in tests, page-lifetime in browser).
- * Tests must call resetGeneratorCacheForTest() between test cases to ensure isolation.
- *
- * @see MatchGeneratorInfoController (backend, de.vvwt.tm.web)
- * @see DraftConfig.svelte (consumer 1 — phase-plan page)
- * @see TournamentForm.svelte (consumer 2 — tournament create/edit page)
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { apiFetch } from '../lib/api.js';
 
 /** A registered match generator's key and capability flag. */

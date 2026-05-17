@@ -1,23 +1,6 @@
 <!--
-  print-layout.mustache — base HTML layout for all print pages (E08S07 AC3).
-
-  This template serves as the canonical HTML skeleton that all print page templates follow.
-  It is not rendered directly by a controller endpoint — instead, it documents the structure
-  that each concrete print page template (index.mustache, error.mustache, and future templates
-  in E08S08/S09) replicates.
-
-  Note on jmustache and layout composition:
-  Spring Boot's auto-configured MustacheViewResolver uses jmustache, which does not support
-  layout inheritance (Handlebars-style {{{{layout}}}} blocks) natively. Each concrete print
-  page template is therefore self-contained, includes the print-header partial,
-  and follows the structure below. This template documents the shared structure.
-
-  Required model attributes for any print page:
-    locale           — HTML lang attribute value (e.g. "de")
-    title            — title element text (i18n key: print.*.title)
-    cssPath          — path to print CSS (/print/assets/print.css)
-    [+ print-header attributes: tournamentName, tournamentDate, etc.]
-    [+ page-specific content attributes]
+  SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+  SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 <!DOCTYPE html>
 <html lang="{{locale}}">

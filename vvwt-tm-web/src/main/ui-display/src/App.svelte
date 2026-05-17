@@ -1,3 +1,7 @@
+<!--
+  SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+  SPDX-License-Identifier: AGPL-3.0-or-later
+-->
 <script lang="ts">
   /**
    * Root component for the display SPA (E07S05, E07S06, E07S07).

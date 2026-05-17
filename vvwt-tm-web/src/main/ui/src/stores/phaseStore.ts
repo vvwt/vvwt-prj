@@ -1,9 +1,5 @@
-/**
- * Phase overview API functions for the Tournament Manager Admin SPA (E48S05 + E48S06 + E48S17).
- *
- * Provides types and API calls for reading phases and for phase lifecycle mutations (E48S06,
- * E48S17). E48S17 adds the PREPARED status and the preparePhase() API call.
- */
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { apiFetch } from '../lib/api.js';
 
 // ── Types ─────────────────────────────────────────────────────────────────────

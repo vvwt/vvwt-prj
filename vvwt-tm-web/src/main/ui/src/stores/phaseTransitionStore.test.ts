@@ -1,15 +1,5 @@
-/**
- * RED-first tests for phaseTransitionStore (E48S08).
- *
- * Verifies (DEC-22 TDD Iron Law):
- * - API exports: fetchProposal, commitTransition
- * - i18n: de.json contains all phaseTransition.* keys (AC-FRONTEND-VITEST-COMPLEMENTARY-COVERAGE-RED)
- * - fetch behaviour: proposal GET and commit POST payloads
- *
- * AC-FRONTEND-LOAD-PROPOSAL, AC-FRONTEND-COMMIT-BUTTON, AC-FRONTEND-COMMIT-PAYLOAD-SHAPE,
- * AC-FRONTEND-VITEST-COMPLEMENTARY-COVERAGE-RED
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import deMessages from '../locales/de.json';
 

@@ -1,12 +1,5 @@
-/**
- * Unit tests for tournament store (E05S04 AC9, AC11).
- *
- * Verifies:
- * - AC9: selectedTournamentId persists to/from sessionStorage
- * - i18n: de.json contains all tournament translation keys (AC11)
- * - tournamentStore exports the expected API functions
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
 import deMessages from '../locales/de.json';

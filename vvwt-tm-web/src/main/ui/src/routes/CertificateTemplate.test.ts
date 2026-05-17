@@ -1,14 +1,5 @@
-/**
- * Tests for CertificateTemplate route — Story E47S01.
- *
- * AC3: No per-page .cert-template__header; title registered via pageHeader store.
- * AC5: Back-arrow registered.
- * AC6: tournamentId registered for tournament name.
- * AC12: No pop()-based back-button in template.
- *
- * RED-first per DEC-22: tests fail before migration.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect } from 'vitest';
 
 describe('CertificateTemplate.svelte — AC3: per-page header removed (E47S01)', () => {

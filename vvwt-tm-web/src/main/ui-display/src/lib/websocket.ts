@@ -1,28 +1,5 @@
-/**
- * WebSocket STOMP client store for the Gesamtübersicht display SPA (E07S06).
- *
- * Provides:
- *   - connect(deviceToken, tenantId, onEvent, onStatusChange) — connect, subscribe, handle events
- *   - disconnect() — cleanly disconnect
- *
- * Reconnection strategy (AC7):
- *   - Exponential backoff starting at 1s, doubling on each failure, capped at 30s.
- *   - After {@link MAX_RECONNECT_ATTEMPTS} consecutive failures, falls back to HTTP polling (AC9).
- *   - On successful reconnect, triggers a fresh REST data load to catch up missed updates.
- *
- * Security (AC1, DEC-16):
- *   - Device token is sent in the STOMP CONNECT frame header {@code X-Device-Token}.
- *   - WebSocket URL is relative ("/ws"), resolved against the serving host → LAN-safe (DEC-16).
- *   - No admin credentials; display devices are read-only at the WebSocket layer (AC12).
- *
- * Tenant isolation (AC11):
- *   - Subscribes only to "/topic/display/{tenantId}/events" — the tenant-scoped topic.
- *   - The server enforces this; the frontend subscribes only to its own tenant's topic.
- *
- * @see displayApi.ts
- * @see App.svelte
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 

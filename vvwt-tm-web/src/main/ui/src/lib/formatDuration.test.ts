@@ -1,11 +1,5 @@
-/**
- * Tests for formatDuration helper — Story E48S11
- * AC-TEST-FRONTEND-FORMAT-DURATION-RED
- *
- * RED-first per DEC-22: these tests FAIL before formatDuration is implemented.
- * Specification per Brief Q-4 (pure H:MM always — variable hours, 2-digit minutes).
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect } from 'vitest';
 import { formatDuration } from './formatDuration';
 

@@ -1,16 +1,5 @@
-/**
- * Unit tests for publicHostStore — Story E49S04.
- *
- * AC-TEST-REGISTRATION-URL-NOT-LOOPBACK-RED:
- *   getPublicOrigin() must return the LAN origin from the backend, not window.location.origin
- *   when that origin is loopback.
- *
- * AC-TEST-TIMER-URL-USES-LAN-HOST-RED:
- *   The same store is consumed by TimerLink.svelte (tested here at the store level).
- *
- * These tests were RED before publicHostStore.ts was authored.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearPublicOriginCache, getPublicOrigin } from './publicHostStore.js';
 

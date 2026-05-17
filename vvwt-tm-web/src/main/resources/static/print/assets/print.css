@@ -1,30 +1,7 @@
 /*
- * Tournament Manager — Print Stylesheet
- *
- * E08S07 — AC4, AC6, AC10
- *
- * Purpose: CSS for all /print/** Mustache-rendered pages. Loaded via a <link> tag in
- * print-layout.mustache. Served as a static resource from classpath:/static/print/assets/
- * at URL /print/assets/print.css (DEC-15: bundled in jlink archive automatically).
- *
- * AC4: @media print rules, .page-break class, table styling, header styling, break-row styling.
- * AC6: CSS file and any print-specific static assets are served from the same static asset path
- *      as the existing application, bundled in the jlink archive.
- * AC10: Produces acceptable output in Chrome, Firefox, Safari, and Edge current + previous major.
- *
- * Design notes:
- * - Screen styles are minimal — print pages are not interactive admin UI elements.
- * - All meaningful styling lives in @media print to ensure accurate print preview.
- * - No external fonts, no CDN references (DEC-16: offline-first).
- * - No JavaScript required on print pages.
+ * SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-
-/* ============================================================
-   SCREEN STYLES (minimal — print pages are not interactive)
-   ============================================================ */
-
-* {
-    box-sizing: border-box;
 }
 
 body {

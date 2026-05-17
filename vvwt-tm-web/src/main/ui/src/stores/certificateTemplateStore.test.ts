@@ -1,12 +1,5 @@
-/**
- * Unit tests for certificateTemplateStore (E12S05).
- *
- * Verifies:
- * - AC8: de.json contains all required certificateTemplate translation keys (i18n DoR)
- * - certificateTemplateStore exports the expected API functions
- * - tournaments namespace contains the certificateTemplateButton key
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import deMessages from '../locales/de.json';
 import {

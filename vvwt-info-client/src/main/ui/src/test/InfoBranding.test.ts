@@ -1,20 +1,5 @@
-/**
- * AC3, AC12 — Brand lockup rendering tests for Info portal.
- *
- * DEC-22 Iron Law: written BEFORE App.svelte lockup addition (RED state).
- * RED: current App.svelte has no lockup <img> tag.
- *
- * AC3: Verifies the root component renders an <img> with:
- *   - alt="Live Information" (speaking alt per Brief Q-4)
- *   - src ending with 'vvw-info-logo.svg' (yellow-inverted lockup, NOT blue vvw-tm-logo.svg)
- *   - src resolved via Vite BASE_URL (no hardcoded /info/ literal)
- *
- * AC12: Verifies the lockup <img> has min-width >= 120px CSS (Brief C-9).
- *
- * DEC-2: Svelte 5 + Vite + TypeScript; no SvelteKit.
- * Story: E44S03 — DEC-22, DEC-42.
- */
-
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
 import App from '../App.svelte';

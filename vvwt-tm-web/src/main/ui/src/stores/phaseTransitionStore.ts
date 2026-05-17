@@ -1,20 +1,5 @@
-/**
- * Phase-Transition API functions for the Tournament Manager Admin SPA (E48S08 + E51S13).
- *
- * Provides types and API calls for the Drag&Drop Phase-Transition frontend:
- *   - fetchProposal: GET /api/phases/{phaseId}/transition-proposal
- *   - commitTransition: POST /api/phases/{phaseId}/transition-commit
- *   - sourceLabelBySortType: source-pane label resolver (E51S13 — replaces hasSourceSlot)
- *
- * Backend DTO shape (E51S13 TeamAvatarProposal Java record — extended with sortType):
- *   teamId: UUID (string on wire), teamNumber: int, teamDescription: string,
- *   groupNumber: int, groupPosition: int,
- *   sourceGroupNumber: int|null, sourceGroupPosition: int|null,
- *   sortType: string|null
- *
- * DEC-9: structural identity (teamId, groupNumber, groupPosition). UUID must NOT be rendered in DOM.
- * Note: phaseId is always implicit from the URL path, NOT in the body.
- */
+// SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { apiFetch } from '../lib/api.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
