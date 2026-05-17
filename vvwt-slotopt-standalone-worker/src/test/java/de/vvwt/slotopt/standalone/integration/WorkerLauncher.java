@@ -52,8 +52,10 @@ import org.slf4j.LoggerFactory;
  *
  * <p>Story: E41S06 AC-INTEGRATION-TEST-HAPPY-PATH and related ITs; E63S01 re-wired onto shared
  * runtime library (AC-GOV-NO-TEST-ONLY-MEMBERS-IN-EXTRACTED-CODE: stopAfterNextIteration removed).
+ * E60S05: made {@code public} so the class is accessible from the dispatcher E2E test package via
+ * the test-jar of vvwt-slotopt-standalone-worker.
  */
-class WorkerLauncher {
+public class WorkerLauncher {
 
     private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(30);
 
@@ -66,7 +68,7 @@ class WorkerLauncher {
      *
      * @param dispatcherUrl base URL of the test-double dispatcher
      */
-    WorkerLauncher(URI dispatcherUrl) {
+    public WorkerLauncher(URI dispatcherUrl) {
         this(dispatcherUrl, DEFAULT_TIMEOUT);
     }
 
@@ -76,7 +78,7 @@ class WorkerLauncher {
      * @param dispatcherUrl base URL of the test-double dispatcher
      * @param timeout maximum wait time for worker thread to complete
      */
-    WorkerLauncher(URI dispatcherUrl, Duration timeout) {
+    public WorkerLauncher(URI dispatcherUrl, Duration timeout) {
         this.dispatcherUrl = dispatcherUrl;
         this.timeout = timeout;
     }
@@ -89,7 +91,7 @@ class WorkerLauncher {
      *
      * @return {@link WorkerRunResult} with exit code, stderr, and captured event list
      */
-    WorkerRunResult launch() {
+    public WorkerRunResult launch() {
         ByteArrayOutputStream stderrBaos = new ByteArrayOutputStream();
         PrintStream capturedErr = new PrintStream(stderrBaos);
         PrintStream originalErr = System.err;
@@ -140,7 +142,7 @@ class WorkerLauncher {
      * <p>Used by tests that need to trigger graceful termination without waiting for a natural
      * stop.
      */
-    void requestShutdown() {
+    public void requestShutdown() {
         DefaultWorkerLoop loop = workerLoopRef;
         if (loop != null) {
             loop.requestShutdown();
@@ -190,7 +192,10 @@ class WorkerLauncher {
         ComputeStep computeStep =
                 new DefaultComputeStep(dispatcherClient, resultSigner, config.signingAlgorithm());
 
-        // Bootstrap phase with event capture
+        // Bootstrap phase with event capture.
+        // Pass the real workerKeyManager so that registration uses the actual Ed25519 public key
+        // (E60S05: completes the wiring that was deferred from E41S05 — dummy key caused HTTP 401
+        // on submit-result because the dispatcher verified against a 32-zero-byte dummy).
         UUID workerId;
         try {
             workerId =
@@ -203,7 +208,8 @@ class WorkerLauncher {
                                                         ? event.substring(0, event.indexOf(' '))
                                                         : event;
                                         bootstrapEventSink.add(eventName);
-                                    })
+                                    },
+                                    workerKeyManager)
                             .run(config);
         } catch (BootstrapException e) {
             System.err.println("ERROR: Bootstrap failed: " + e.getMessage());

@@ -12,4 +12,4 @@ import java.util.List;
  * @param capturedEvents event names emitted via {@link CapturingStructuredLogger} and bootstrap
  *     event consumer
  */
-record WorkerRunResult(int exitCode, String stderr, List<String> capturedEvents) {}
+public record WorkerRunResult(int exitCode, String stderr, List<String> capturedEvents) {}

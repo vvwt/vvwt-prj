@@ -30,10 +30,18 @@ class DefaultPacketDecomposerServiceTest {
         service = new DefaultPacketDecomposerService();
     }
 
-    /** For N=2 (2! = 2), which is < 4 × 100_000_000, should produce exactly 4 packets. */
+    /**
+     * For N=2 (2! = 2 perms, which is &lt; MIN_PACKET_COUNT=4), the decomposer clamps packet count
+     * to totalPerms=2 to avoid empty rankFrom==rankTo intervals.
+     *
+     * <p>E60S05: clamping fix — the old behaviour produced 4 packets for any n, which meant packets
+     * 3 and 4 would have rankFrom==rankTo==2 (empty intervals). PacketSolver rejects empty
+     * intervals with IllegalArgumentException. The corrected behaviour is: if totalPerms &lt;
+     * MIN_PACKET_COUNT, produce exactly totalPerms packets.
+     */
     @Test
-    void decompose_smallN_producesExactlyFourPackets() {
-        // N=2: 2! = 2. packetPayloadJson has rankFrom/rankTo intervals covering [0, 2).
+    void decompose_smallN_belowMinPacketCount_producesExactlyTotalPermsPackets() {
+        // N=2: 2! = 2 perms < MIN_PACKET_COUNT=4 → 2 packets covering [0, 2).
         // CanonicalPhaseDef for 2 avatars, 1 row: [[0, 1]]
         String jobDefJson =
                 """
@@ -45,9 +53,32 @@ class DefaultPacketDecomposerServiceTest {
         JobRecord job = buildJobRecord(UUID.randomUUID(), jobDefJson);
         List<PacketRecord> packets = service.decompose(job);
 
-        assertThat(packets).hasSize(4);
+        // 2 perms → 2 packets (clamped to totalPerms, not floored at MIN_PACKET_COUNT=4)
+        assertThat(packets).hasSize(2);
         assertPacketsValid(packets, job.getJobId());
         assertRanksContiguous(packets, 2L);
+    }
+
+    /**
+     * For N=4 (4! = 24 perms, which is &ge; MIN_PACKET_COUNT=4), the decomposer applies the
+     * MIN_PACKET_COUNT=4 floor — exactly 4 packets covering [0, 24).
+     */
+    @Test
+    void decompose_smallN_atOrAboveMinPacketCount_producesExactlyFourPackets() {
+        // N=4: 4! = 24 perms >= MIN_PACKET_COUNT=4 → exactly 4 packets (floor applied).
+        String jobDefJson =
+                """
+                {"jobId":"%s","n":4,"canonicalPhaseDef":{"rowCount":1,"avatarCount":2,"rows":[[0,1]]}}
+                """
+                        .formatted(UUID.randomUUID())
+                        .trim();
+
+        JobRecord job = buildJobRecord(UUID.randomUUID(), jobDefJson);
+        List<PacketRecord> packets = service.decompose(job);
+
+        assertThat(packets).hasSize(4);
+        assertPacketsValid(packets, job.getJobId());
+        assertRanksContiguous(packets, 24L); // 4! = 24
     }
 
     /**

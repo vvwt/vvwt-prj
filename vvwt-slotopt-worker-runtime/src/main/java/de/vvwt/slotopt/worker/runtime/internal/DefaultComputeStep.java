@@ -19,6 +19,7 @@ import de.vvwt.slotopt.worker.types.CanonicalPhaseDef;
 import de.vvwt.slotopt.worker.types.JobDef;
 import de.vvwt.slotopt.worker.types.PacketResult;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -181,18 +182,42 @@ public class DefaultComputeStep implements ComputeStep {
      * Builds the {@code resultPayloadJson} string for the submit-result request.
      *
      * <p>The canonical result payload contains the computation outcome that the dispatcher will
-     * JCS-canonicalize and verify against the worker's public key (per Brief D-10 + O-6 (ii)).
+     * JCS-canonicalize (RFC 8785, §3.2.3: keys sorted by Unicode code-point) and verify against the
+     * worker's public key (per Brief D-10 + O-6 (ii)).
+     *
+     * <p>The worker signs {@code resultPayloadJson.getBytes(UTF-8)} (see {@link
+     * DefaultResultSigner}); the dispatcher JCS-canonicalizes the received string before verifying
+     * the signature. For verification to succeed:
+     *
+     * <ol>
+     *   <li>Keys must be in JCS-canonical (lexicographic) order: {@code bestRank} &lt; {@code
+     *       bestScore} &lt; {@code packetId}.
+     *   <li>Floating-point values must use JCS number serialization: {@link
+     *       BigDecimal#valueOf(double)} + {@link BigDecimal#stripTrailingZeros()} + {@link
+     *       BigDecimal#toPlainString()} — identical to the dispatcher's {@code
+     *       DefaultJcsCanonicalizer} for DOUBLE nodes. In particular, {@code 0.0} serializes as
+     *       {@code 0} (not {@code 0.0}).
+     * </ol>
+     *
+     * <p>E60S05 fix: the original implementation placed {@code packetId} first (wrong key order)
+     * and used Java's default {@code double}-to-string conversion (produces {@code 0.0} for zero),
+     * both of which broke signature verification.
      */
     private String buildResultPayloadJson(PullPacketResponse packet, PacketResult result) {
+        // JCS-canonical double serialization: BigDecimal.valueOf(double) → stripTrailingZeros()
+        // → toPlainString(). Matches DefaultJcsCanonicalizer's DOUBLE branch exactly.
+        String bestScoreJcs =
+                BigDecimal.valueOf(result.bestScore()).stripTrailingZeros().toPlainString();
         return "{"
-                + "\"packetId\":\""
-                + packet.packetId()
-                + "\","
                 + "\"bestRank\":"
                 + result.bestRank()
                 + ","
                 + "\"bestScore\":"
-                + result.bestScore()
+                + bestScoreJcs
+                + ","
+                + "\"packetId\":\""
+                + packet.packetId()
+                + "\""
                 + "}";
     }
 }

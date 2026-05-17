@@ -6,6 +6,7 @@ import de.vvwt.slotopt.standalone.bootstrap.AlgorithmValidator;
 import de.vvwt.slotopt.standalone.bootstrap.BootstrapException;
 import de.vvwt.slotopt.standalone.bootstrap.BootstrapService;
 import de.vvwt.slotopt.standalone.bootstrap.ExitCode;
+import de.vvwt.slotopt.worker.identity.WorkerKeyManager;
 import de.vvwt.slotopt.worker.runtime.AnnouncedAlgorithmsResponse;
 import de.vvwt.slotopt.worker.runtime.DispatcherClient;
 import de.vvwt.slotopt.worker.runtime.DispatcherException;
@@ -48,6 +49,7 @@ public class DefaultBootstrapService implements BootstrapService {
 
     private final DispatcherClient dispatcherClient;
     private final Consumer<String> eventConsumer;
+    private final WorkerKeyManager workerKeyManager;
 
     /**
      * Constructs a new {@code DefaultBootstrapService} for production use.
@@ -55,7 +57,7 @@ public class DefaultBootstrapService implements BootstrapService {
      * @param dispatcherClient the HTTP client for dispatcher communication
      */
     public DefaultBootstrapService(DispatcherClient dispatcherClient) {
-        this(dispatcherClient, event -> {});
+        this(dispatcherClient, event -> {}, null);
     }
 
     /**
@@ -68,8 +70,31 @@ public class DefaultBootstrapService implements BootstrapService {
      */
     public DefaultBootstrapService(
             DispatcherClient dispatcherClient, Consumer<String> eventConsumer) {
+        this(dispatcherClient, eventConsumer, null);
+    }
+
+    /**
+     * Constructs a new {@code DefaultBootstrapService} with full dependency injection.
+     *
+     * <p>The {@code workerKeyManager} provides the real Ed25519 public key for registration with
+     * the dispatcher. When non-null, {@link WorkerKeyManager#getPublicKeyBytes()} is used in the
+     * {@code POST /api/register-key} request body, ensuring that the registered public key matches
+     * the key used to sign submitted results. When {@code null}, a 32-byte zero-placeholder is used
+     * (legacy path retained for unit tests that mock {@code dispatcherClient.registerKey} and do
+     * not assert on key bytes).
+     *
+     * @param dispatcherClient the HTTP client for dispatcher communication
+     * @param eventConsumer receives structured event strings for each emitted observability event
+     * @param workerKeyManager the key manager providing the real public key for registration; may
+     *     be {@code null} in unit-test contexts that mock the dispatcher client
+     */
+    public DefaultBootstrapService(
+            DispatcherClient dispatcherClient,
+            Consumer<String> eventConsumer,
+            WorkerKeyManager workerKeyManager) {
         this.dispatcherClient = dispatcherClient;
         this.eventConsumer = eventConsumer;
+        this.workerKeyManager = workerKeyManager;
     }
 
     /** {@inheritDoc} */
@@ -141,17 +166,20 @@ public class DefaultBootstrapService implements BootstrapService {
                 "algorithm_picked",
                 "algorithm_id=" + config.signingAlgorithm() + " deprecation_date=" + depDateStr);
 
-        // Step 7: generate keypair + register
-        // Keypair generation: worker-lib WorkerKeyManager (E41S03 ResultSigner dependency)
-        // For E41S04: generate a new UUID for workerId and use a dummy 32-byte public key
-        // (the actual keypair generation via WorkerKeyManager is wired in E41S05 when the full
-        // runtime context including keyDir is available)
+        // Step 7: register keypair with the dispatcher.
+        // Use the real public key from WorkerKeyManager when available (E60S05 wiring — the
+        // E41S05 comment "real keypair in E41S05 wiring" was never implemented; done here).
+        // Unit tests that mock dispatcherClient.registerKey(any()) pass null workerKeyManager and
+        // receive the legacy 32-zero-byte placeholder — they do not assert on key bytes.
         UUID workerId = UUID.randomUUID();
-        byte[] dummyPublicKey = new byte[32]; // placeholder; real keypair in E41S05 wiring
+        byte[] publicKeyBytes =
+                (workerKeyManager != null)
+                        ? workerKeyManager.getPublicKeyBytes()
+                        : new byte[32]; // legacy placeholder for unit-test contexts
 
         RegisterKeyRequest registerRequest =
                 new RegisterKeyRequest(
-                        workerId, "worker", config.signingAlgorithm(), dummyPublicKey);
+                        workerId, "worker", config.signingAlgorithm(), publicKeyBytes);
         RegisterKeyResponse registerResponse;
         try {
             registerResponse = dispatcherClient.registerKey(registerRequest);

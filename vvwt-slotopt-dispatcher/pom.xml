@@ -133,6 +133,32 @@
             <artifactId>archunit-junit5</artifactId>
         </dependency>
 
+        <!-- vvwt-slotopt-standalone-worker (test scope, tests classifier) — E60S05 E2E harness.
+             Provides WorkerLauncher + WorkerRunResult from the integration test-jar of the
+             standalone worker. The test-jar (classifier=tests) is produced by the
+             maven-jar-plugin test-jar execution in vvwt-slotopt-standalone-worker/pom.xml.
+             Test scope only: dispatcher MUST NOT have a production/runtime dep on the standalone
+             worker (DEC-11 service boundary). Enforcer rule in vvwt-slotopt-standalone-worker
+             bans the reverse dep (standalone → dispatcher), not this direction.
+             AC-GOV-NO-MODULE-BOUNDARY-BREACH: test code only, no production compile dep.
+             The non-classifier (main) artifact is also declared below for runtime transitive deps. -->
+        <dependency>
+            <groupId>de.vvwt</groupId>
+            <artifactId>vvwt-slotopt-standalone-worker</artifactId>
+            <classifier>tests</classifier>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- vvwt-slotopt-standalone-worker main artifact (test scope) — required so that the
+             transitive compile dependencies of the worker (worker-lib, worker-runtime, etc.)
+             are available in the test classpath when WorkerLauncher is invoked. The test-jar
+             does not carry transitive deps; the main artifact does. -->
+        <dependency>
+            <groupId>de.vvwt</groupId>
+            <artifactId>vvwt-slotopt-standalone-worker</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -147,6 +173,25 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+
+            <!-- maven-surefire-plugin: include E2E IT tests from the e2e package.
+                 E60S05: LiveWorkerE2EIT uses @SpringBootTest(RANDOM_PORT) — the same
+                 mechanism as AlgorithmAnnouncementIT and other Spring slice tests in this
+                 module. Surefire runs these in-process (no forked JVM classpath issues
+                 that arise with the Spring Boot fat-jar + failsafe forked JVM).
+                 Pre-existing *IT.java tests in other packages were already silently excluded
+                 by surefire's default exclusion pattern; this entry adds only the e2e package.
+                 Version from parent pluginManagement (maven-surefire-plugin.version). -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <includes>
+                        <include>**/*Test.java</include>
+                        <include>**/e2e/*IT.java</include>
+                    </includes>
+                </configuration>
             </plugin>
         </plugins>
     </build>
