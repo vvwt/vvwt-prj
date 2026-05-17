@@ -2,8 +2,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package de.vvwt.tm.infoportal;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.infoportal.internal.DefaultInfoPortalOptInListener;
 import de.vvwt.tm.infoportal.internal.DefaultInfoPortalOptInService;
+import de.vvwt.tm.infoportal.internal.DefaultTournamentEventDeltaPublisher;
+import de.vvwt.tm.tournament.SetResultRepository;
 import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.tournament.TournamentRepository;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -47,5 +50,25 @@ public class InfoPortalOptInConfig {
             InfoPortalStateDao stateDao) {
         return new DefaultInfoPortalOptInListener(
                 publisherService, teamRepository, snapshotBuilder, stateDao);
+    }
+
+    /**
+     * Async after-commit event listener for live delta publication (E62S03, AC2–AC6).
+     *
+     * <p>Conditional on {@link InfoPortalPublisherService} — when {@code info-portal.url} is not
+     * configured, no listener is registered and no tournament events trigger a publish attempt.
+     */
+    @Bean
+    @ConditionalOnBean(InfoPortalPublisherService.class)
+    public TournamentEventDeltaPublisher tournamentEventDeltaPublisher(
+            InfoPortalPublisherService publisherService,
+            InfoPortalStateDao stateDao,
+            TournamentSnapshotBuilder snapshotBuilder,
+            SetResultRepository setResultRepository,
+            InfoPortalProperties properties) {
+        ObjectMapper om = new ObjectMapper();
+        om.findAndRegisterModules();
+        return new DefaultTournamentEventDeltaPublisher(
+                publisherService, stateDao, snapshotBuilder, setResultRepository, properties, om);
     }
 }
