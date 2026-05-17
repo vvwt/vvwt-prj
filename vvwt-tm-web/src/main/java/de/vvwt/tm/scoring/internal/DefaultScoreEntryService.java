@@ -8,11 +8,15 @@ import de.vvwt.tm.scoring.SetSubmitInput;
 import de.vvwt.tm.tournament.Device;
 import de.vvwt.tm.tournament.DeviceRepository;
 import de.vvwt.tm.tournament.Match;
+import de.vvwt.tm.tournament.MatchFormat;
 import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.MatchState;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
+import de.vvwt.tm.tournament.SetResult;
 import de.vvwt.tm.tournament.SetResultInput;
+import de.vvwt.tm.tournament.SetResultRepository;
+import de.vvwt.tm.tournament.SetState;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
@@ -22,6 +26,7 @@ import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.exceptions.ForbiddenException;
 import de.vvwt.tm.tournament.exceptions.MatchCanceledException;
 import de.vvwt.tm.tournament.exceptions.UnauthorizedException;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -128,6 +133,7 @@ public class DefaultScoreEntryService implements ScoreEntryService {
     private final TeamRepository teamRepository;
     private final ScoringService scoringService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final SetResultRepository setResultRepository;
 
     /** Constructor injection per DEC-35. */
     public DefaultScoreEntryService(
@@ -138,7 +144,8 @@ public class DefaultScoreEntryService implements ScoreEntryService {
             TeamAvatarRepository teamAvatarRepository,
             TeamRepository teamRepository,
             ScoringService scoringService,
-            SimpMessagingTemplate messagingTemplate) {
+            SimpMessagingTemplate messagingTemplate,
+            SetResultRepository setResultRepository) {
         this.deviceRepository = deviceRepository;
         this.tournamentRepository = tournamentRepository;
         this.phaseRepository = phaseRepository;
@@ -147,6 +154,7 @@ public class DefaultScoreEntryService implements ScoreEntryService {
         this.teamRepository = teamRepository;
         this.scoringService = scoringService;
         this.messagingTemplate = messagingTemplate;
+        this.setResultRepository = setResultRepository;
     }
 
     // -------------------------------------------------------------------------
@@ -221,6 +229,9 @@ public class DefaultScoreEntryService implements ScoreEntryService {
             return;
         }
 
+        // AC1: Persist the partial score as an OPEN set_result row (survives reload + restart)
+        persistPartialScore(existing.matchId(), request);
+
         // Build a partial result with updated scores and broadcast
         ScoreEntryResult partial =
                 new ScoreEntryResult(
@@ -232,7 +243,8 @@ public class DefaultScoreEntryService implements ScoreEntryService {
                         existing.team2Name(),
                         existing.refereeTeamName(),
                         request.team1Points(),
-                        request.team2Points());
+                        request.team2Points(),
+                        existing.isTiebreak());
 
         String topic = SCORE_TOPIC_PREFIX + fieldNumber;
         try {
@@ -449,8 +461,29 @@ public class DefaultScoreEntryService implements ScoreEntryService {
                         ? resolveRefereeTeamName(activeMatch.getRefereeTeamId())
                         : null;
 
-        // Current set index defaults to 0 (scoring service manages set progression)
-        int currentSetIndex = 0;
+        // AC2/AC3/AC4: Load set_result rows and derive true setIndex, current points, isTiebreak
+        List<SetResult> setResults = setResultRepository.findByMatchId(activeMatch.getId());
+
+        // AC2: setIndex = count of completed (non-OPEN, non-CANCELED) set_result rows
+        int currentSetIndex = computeSetIndex(setResults);
+
+        // AC3: current points from the OPEN set_result row for the current set (0:0 if none)
+        int team1Points = 0;
+        int team2Points = 0;
+        for (SetResult sr : setResults) {
+            if (sr.getSetIndex() == currentSetIndex && sr.getSetState() == SetState.OPEN) {
+                team1Points = sr.getTeam1Points();
+                team2Points = sr.getTeam2Points();
+                break;
+            }
+        }
+
+        // AC4: isTiebreak — detect if the current open set is the deciding tiebreak set
+        MatchFormat matchFormat = null;
+        if (activeTournament.getMatchFormat() != null) {
+            matchFormat = MatchFormat.fromPersistedName(activeTournament.getMatchFormat());
+        }
+        boolean isTiebreak = computeIsTiebreak(matchFormat, setResults);
 
         ScoreEntryResult result =
                 new ScoreEntryResult(
@@ -461,8 +494,9 @@ public class DefaultScoreEntryService implements ScoreEntryService {
                         team1Name,
                         team2Name,
                         refereeName,
-                        0, // team1Points — initial display is 0:0
-                        0); // team2Points
+                        team1Points,
+                        team2Points,
+                        isTiebreak);
 
         return Optional.of(result);
     }
@@ -514,5 +548,101 @@ public class DefaultScoreEntryService implements ScoreEntryService {
             }
         }
         return false;
+    }
+
+    /**
+     * AC2: Computes the true current set index as the count of completed (non-OPEN, non-CANCELED)
+     * set_result rows.
+     *
+     * @param setResults all set_result rows for the match (may be empty)
+     * @return 0-based index of the current open set
+     */
+    private static int computeSetIndex(List<SetResult> setResults) {
+        int count = 0;
+        for (SetResult sr : setResults) {
+            SetState state = sr.getSetState();
+            if (state != SetState.OPEN && state != SetState.CANCELED) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * AC4: Detects whether the current open set is a deciding tiebreak set.
+     *
+     * <p>A tiebreak is in play when both teams have won {@code requiredToWin - 1} sets each (from
+     * the completed rows) AND the match format has a deciding-set concept (i.e., is not {@code
+     * FIXED_2_SETS}).
+     *
+     * @param format the match format (may be null if not configured)
+     * @param setResults all set_result rows for the match
+     * @return {@code true} if the current open set is the tiebreak deciding set
+     */
+    private static boolean computeIsTiebreak(MatchFormat format, List<SetResult> setResults) {
+        if (format == null) {
+            return false;
+        }
+        // FIXED_2_SETS has no deciding-set concept
+        if (!format.getDecidingSet().isPresent()) {
+            return false;
+        }
+        // BEST_OF_1: requiredToWin=1, so requiredToWin-1=0; both at 0 just means match not started
+        if (format.getRequiredToWin() <= 1) {
+            return false;
+        }
+        int requiredToWin = format.getRequiredToWin();
+        int team1Wins = 0;
+        int team2Wins = 0;
+        for (SetResult sr : setResults) {
+            SetState state = sr.getSetState();
+            if (state == SetState.WINNER1) {
+                team1Wins++;
+            } else if (state == SetState.WINNER2) {
+                team2Wins++;
+            }
+        }
+        return team1Wins == (requiredToWin - 1) && team2Wins == (requiredToWin - 1);
+    }
+
+    /**
+     * AC1: Persists the partial score as an OPEN {@link SetResult} row (INSERT or UPDATE).
+     *
+     * <p>If an OPEN row already exists for {@code (matchId, setIndex)}, it is updated. Otherwise, a
+     * new OPEN row is inserted. The phaseId is resolved from the match entity to satisfy the {@link
+     * SetResult} NOT NULL constraint.
+     *
+     * @param matchId the match whose partial score is being persisted
+     * @param request the partial score input carrying setIndex and team points
+     */
+    private void persistPartialScore(UUID matchId, PartialScoreInput request) {
+        int setIndex = request.setIndex();
+        Optional<SetResult> existingOpt =
+                setResultRepository.findByMatchIdAndSetIndex(matchId, setIndex);
+        if (existingOpt.isPresent()) {
+            SetResult existing = existingOpt.get();
+            existing.setTeam1Points(request.team1Points());
+            existing.setTeam2Points(request.team2Points());
+            // Ensure state remains OPEN (do not overwrite WINNER1/WINNER2 rows — cascade owns
+            // those)
+            if (existing.getSetState() == SetState.OPEN) {
+                setResultRepository.update(existing);
+            }
+        } else {
+            // Resolve phaseId from the match (needed for SetResult composite key context)
+            UUID phaseId = matchRepository.findById(matchId).map(Match::getPhaseId).orElse(null);
+            if (phaseId == null) {
+                log.warn("[E61S02] Cannot persist partial score: match {} not found", matchId);
+                return;
+            }
+            SetResult newRow = new SetResult();
+            newRow.setMatchId(matchId);
+            newRow.setSetIndex(setIndex);
+            newRow.setPhaseId(phaseId);
+            newRow.setTeam1Points(request.team1Points());
+            newRow.setTeam2Points(request.team2Points());
+            newRow.setSetState(SetState.OPEN);
+            setResultRepository.insert(newRow);
+        }
     }
 }

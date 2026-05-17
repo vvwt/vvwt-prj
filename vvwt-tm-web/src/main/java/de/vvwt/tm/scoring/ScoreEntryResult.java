@@ -38,6 +38,7 @@ import java.util.UUID;
  * @param refereeTeamName display name of the referee team; {@code null} if not assigned
  * @param team1Points current points for team 1 in the open set
  * @param team2Points current points for team 2 in the open set
+ * @param isTiebreak {@code true} if the current open set is a deciding tiebreak set (AC4, E61S02)
  * @since E22S06
  * @see ScoreEntryService
  */
@@ -50,4 +51,5 @@ public record ScoreEntryResult(
         String team2Name,
         String refereeTeamName,
         int team1Points,
-        int team2Points) {}
+        int team2Points,
+        boolean isTiebreak) {}
