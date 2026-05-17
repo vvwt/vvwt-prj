@@ -18,7 +18,10 @@ import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.MatchState;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
+import de.vvwt.tm.tournament.SetResult;
 import de.vvwt.tm.tournament.SetResultInput;
+import de.vvwt.tm.tournament.SetResultRepository;
+import de.vvwt.tm.tournament.SetState;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
@@ -79,6 +82,7 @@ class DefaultScoreEntryServiceTest {
     @Mock private TeamRepository teamRepository;
     @Mock private ScoringService scoringService;
     @Mock private SimpMessagingTemplate messagingTemplate;
+    @Mock private SetResultRepository setResultRepository;
 
     @InjectMocks private DefaultScoreEntryService service;
 
@@ -590,6 +594,267 @@ class DefaultScoreEntryServiceTest {
                 .isEqualTo(MATCH_ID);
         assertThat(result.get().team1Name()).isEqualTo("Mannschaft 03");
         assertThat(result.get().team2Name()).isEqualTo("Mannschaft 06");
+    }
+
+    // =======================================================================
+    // E61S02 — AC2/AC3/AC4: true set index, current points, tiebreak (TDD RED-first, DEC-22)
+    // =======================================================================
+
+    /**
+     * T-E61-1 (AC2-RED): getMatchForField with 1 completed set → setIndex must equal 1, not 0.
+     *
+     * <p>Scenario: one WINNER1 set_result row exists for the active match (set 0 was won by team
+     * 1). The resolved setIndex must be 1 (count of non-OPEN, non-CANCELED completed sets).
+     *
+     * <p>RED: current implementation hardcodes currentSetIndex=0 → assertion fails.
+     */
+    @Test
+    void getMatchForField_multiSetMatch_returnsCorrectSetIndex() {
+        // Arrange — standard resolution chain
+        activeTournament.setMatchFormat("BEST_OF_3");
+        when(deviceRepository.findByDeviceToken(DEVICE_TOKEN))
+                .thenReturn(Optional.of(assignedDevice));
+        when(tournamentRepository.findAll()).thenReturn(List.of(activeTournament));
+        when(phaseRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(activePhase));
+        when(matchRepository.findByPhaseIdAndFieldNumberAndLapNumber(
+                        PHASE_ID, FIELD_NUMBER, LAP_NUMBER))
+                .thenReturn(List.of(activeMatch));
+        when(teamAvatarRepository.findById(any())).thenReturn(Optional.empty());
+
+        // One completed set (WINNER1 = set 0 done, team1 wins)
+        SetResult completedSet = new SetResult();
+        completedSet.setMatchId(MATCH_ID);
+        completedSet.setSetIndex(0);
+        completedSet.setPhaseId(PHASE_ID);
+        completedSet.setTeam1Points(25);
+        completedSet.setTeam2Points(18);
+        completedSet.setSetState(SetState.WINNER1);
+
+        when(setResultRepository.findByMatchId(MATCH_ID)).thenReturn(List.of(completedSet));
+
+        // Act
+        Optional<ScoreEntryResult> result = service.getMatchForField(FIELD_NUMBER, DEVICE_TOKEN);
+
+        // Assert — AC2: setIndex = count of completed (non-OPEN, non-CANCELED) sets = 1
+        assertThat(result).isPresent();
+        assertThat(result.get().setIndex())
+                .as("AC2: setIndex must equal the count of completed sets (1)")
+                .isEqualTo(1);
+    }
+
+    /**
+     * T-E61-2 (AC3-RED): getMatchForField with a persisted OPEN set_result → returns its points.
+     *
+     * <p>Scenario: one WINNER1 set (set 0) and one OPEN partial set (set 1, 10:8). The result must
+     * carry team1Points=10, team2Points=8.
+     *
+     * <p>RED: current implementation returns 0:0 hardcoded → assertion fails.
+     */
+    @Test
+    void getMatchForField_withPersistedPartialScore_returnsCurrentPoints() {
+        // Arrange
+        activeTournament.setMatchFormat("BEST_OF_3");
+        when(deviceRepository.findByDeviceToken(DEVICE_TOKEN))
+                .thenReturn(Optional.of(assignedDevice));
+        when(tournamentRepository.findAll()).thenReturn(List.of(activeTournament));
+        when(phaseRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(activePhase));
+        when(matchRepository.findByPhaseIdAndFieldNumberAndLapNumber(
+                        PHASE_ID, FIELD_NUMBER, LAP_NUMBER))
+                .thenReturn(List.of(activeMatch));
+        when(teamAvatarRepository.findById(any())).thenReturn(Optional.empty());
+
+        // Set 0 completed (WINNER1), set 1 in-progress (OPEN, 10:8)
+        SetResult completedSet = new SetResult();
+        completedSet.setMatchId(MATCH_ID);
+        completedSet.setSetIndex(0);
+        completedSet.setPhaseId(PHASE_ID);
+        completedSet.setTeam1Points(25);
+        completedSet.setTeam2Points(18);
+        completedSet.setSetState(SetState.WINNER1);
+
+        SetResult openSet = new SetResult();
+        openSet.setMatchId(MATCH_ID);
+        openSet.setSetIndex(1);
+        openSet.setPhaseId(PHASE_ID);
+        openSet.setTeam1Points(10);
+        openSet.setTeam2Points(8);
+        openSet.setSetState(SetState.OPEN);
+
+        when(setResultRepository.findByMatchId(MATCH_ID))
+                .thenReturn(List.of(completedSet, openSet));
+
+        // Act
+        Optional<ScoreEntryResult> result = service.getMatchForField(FIELD_NUMBER, DEVICE_TOKEN);
+
+        // Assert — AC3: points from the OPEN set_result row
+        assertThat(result).isPresent();
+        assertThat(result.get().team1Points())
+                .as("AC3: team1Points must come from the OPEN set_result row")
+                .isEqualTo(10);
+        assertThat(result.get().team2Points())
+                .as("AC3: team2Points must come from the OPEN set_result row")
+                .isEqualTo(8);
+    }
+
+    /**
+     * T-E61-3 (AC4-RED): getMatchForField with BEST_OF_3, both teams 1-1 → isTiebreak=true.
+     *
+     * <p>Scenario: BEST_OF_3 match, set 0 won by team1 (WINNER1), set 1 won by team2 (WINNER2).
+     * Both at 1-1 (requiredToWin-1=1) → current set is the deciding tiebreak set.
+     *
+     * <p>RED: current implementation does not have an {@code isTiebreak} field → compilation fails
+     * (or assertion fails if field added but not computed).
+     */
+    @Test
+    void getMatchForField_tiebreakSet_returnsTiebreakTrue() {
+        // Arrange
+        activeTournament.setMatchFormat("BEST_OF_3");
+        when(deviceRepository.findByDeviceToken(DEVICE_TOKEN))
+                .thenReturn(Optional.of(assignedDevice));
+        when(tournamentRepository.findAll()).thenReturn(List.of(activeTournament));
+        when(phaseRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(activePhase));
+        when(matchRepository.findByPhaseIdAndFieldNumberAndLapNumber(
+                        PHASE_ID, FIELD_NUMBER, LAP_NUMBER))
+                .thenReturn(List.of(activeMatch));
+        when(teamAvatarRepository.findById(any())).thenReturn(Optional.empty());
+
+        // Both teams 1-1: set 0 WINNER1, set 1 WINNER2
+        SetResult set0 = new SetResult();
+        set0.setMatchId(MATCH_ID);
+        set0.setSetIndex(0);
+        set0.setPhaseId(PHASE_ID);
+        set0.setTeam1Points(25);
+        set0.setTeam2Points(18);
+        set0.setSetState(SetState.WINNER1);
+
+        SetResult set1 = new SetResult();
+        set1.setMatchId(MATCH_ID);
+        set1.setSetIndex(1);
+        set1.setPhaseId(PHASE_ID);
+        set1.setTeam1Points(18);
+        set1.setTeam2Points(25);
+        set1.setSetState(SetState.WINNER2);
+
+        when(setResultRepository.findByMatchId(MATCH_ID)).thenReturn(List.of(set0, set1));
+
+        // Act
+        Optional<ScoreEntryResult> result = service.getMatchForField(FIELD_NUMBER, DEVICE_TOKEN);
+
+        // Assert — AC4: isTiebreak=true (both at requiredToWin-1=1, format has deciding set)
+        assertThat(result).isPresent();
+        assertThat(result.get().isTiebreak())
+                .as("AC4: BEST_OF_3 at 1-1 must be detected as tiebreak")
+                .isTrue();
+    }
+
+    /**
+     * T-E61-4 (AC4-RED): getMatchForField with BEST_OF_3, no completed sets → isTiebreak=false.
+     *
+     * <p>Scenario: brand new match (no set_result rows). Not a tiebreak.
+     *
+     * <p>RED: same as T-E61-3 for different reason — field doesn't exist yet.
+     */
+    @Test
+    void getMatchForField_nonTiebreakSet_returnsTiebreakFalse() {
+        // Arrange
+        activeTournament.setMatchFormat("BEST_OF_3");
+        when(deviceRepository.findByDeviceToken(DEVICE_TOKEN))
+                .thenReturn(Optional.of(assignedDevice));
+        when(tournamentRepository.findAll()).thenReturn(List.of(activeTournament));
+        when(phaseRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(activePhase));
+        when(matchRepository.findByPhaseIdAndFieldNumberAndLapNumber(
+                        PHASE_ID, FIELD_NUMBER, LAP_NUMBER))
+                .thenReturn(List.of(activeMatch));
+        when(teamAvatarRepository.findById(any())).thenReturn(Optional.empty());
+
+        // No set_result rows at all
+        when(setResultRepository.findByMatchId(MATCH_ID)).thenReturn(List.of());
+
+        // Act
+        Optional<ScoreEntryResult> result = service.getMatchForField(FIELD_NUMBER, DEVICE_TOKEN);
+
+        // Assert — AC4: no completed sets → not a tiebreak
+        assertThat(result).isPresent();
+        assertThat(result.get().isTiebreak())
+                .as("AC4: BEST_OF_3 with 0-0 score must NOT be detected as tiebreak")
+                .isFalse();
+    }
+
+    /**
+     * T-E61-5 (AC1-RED): handlePartialScore persists partial score to set_result as OPEN row.
+     *
+     * <p>Scenario: no existing OPEN row for (matchId, setIndex=0) → INSERT a new OPEN SetResult.
+     *
+     * <p>RED: current implementation never calls setResultRepository → assertion fails.
+     */
+    @Test
+    void handlePartialScore_persistsScoreToSetResult() {
+        // Arrange
+        activeTournament.setMatchFormat("BEST_OF_3");
+        activeMatch.setPhaseId(PHASE_ID); // needed so persistPartialScore can resolve phaseId
+        when(deviceRepository.findByDeviceToken(DEVICE_TOKEN))
+                .thenReturn(Optional.of(assignedDevice));
+        when(tournamentRepository.findAll()).thenReturn(List.of(activeTournament));
+        when(phaseRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(activePhase));
+        when(matchRepository.findByPhaseIdAndFieldNumberAndLapNumber(
+                        PHASE_ID, FIELD_NUMBER, LAP_NUMBER))
+                .thenReturn(List.of(activeMatch));
+        when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(activeMatch));
+        when(teamAvatarRepository.findById(any())).thenReturn(Optional.empty());
+        when(setResultRepository.findByMatchId(MATCH_ID)).thenReturn(List.of());
+        when(setResultRepository.findByMatchIdAndSetIndex(MATCH_ID, 0))
+                .thenReturn(Optional.empty()); // no existing OPEN row
+
+        PartialScoreInput input = new PartialScoreInput(MATCH_ID, 0, 10, 8, DEVICE_TOKEN);
+
+        // Act
+        service.handlePartialScore(input);
+
+        // Assert — AC1: setResultRepository.insert must be called with OPEN state
+        verify(setResultRepository).insert(any(SetResult.class));
+    }
+
+    /**
+     * T-E61-6 (AC1-RED): handlePartialScore updates existing OPEN set_result when one exists.
+     *
+     * <p>Scenario: an OPEN set_result already exists for (matchId, setIndex=0) → UPDATE it, no
+     * INSERT.
+     *
+     * <p>RED: current implementation never calls setResultRepository → assertion fails.
+     */
+    @Test
+    void handlePartialScore_updatesExistingOpenSetResult() {
+        // Arrange
+        activeTournament.setMatchFormat("BEST_OF_3");
+        when(deviceRepository.findByDeviceToken(DEVICE_TOKEN))
+                .thenReturn(Optional.of(assignedDevice));
+        when(tournamentRepository.findAll()).thenReturn(List.of(activeTournament));
+        when(phaseRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(activePhase));
+        when(matchRepository.findByPhaseIdAndFieldNumberAndLapNumber(
+                        PHASE_ID, FIELD_NUMBER, LAP_NUMBER))
+                .thenReturn(List.of(activeMatch));
+        when(teamAvatarRepository.findById(any())).thenReturn(Optional.empty());
+        when(setResultRepository.findByMatchId(MATCH_ID)).thenReturn(List.of());
+
+        // Existing OPEN row
+        SetResult existingOpen = new SetResult();
+        existingOpen.setMatchId(MATCH_ID);
+        existingOpen.setSetIndex(0);
+        existingOpen.setPhaseId(PHASE_ID);
+        existingOpen.setTeam1Points(5);
+        existingOpen.setTeam2Points(3);
+        existingOpen.setSetState(SetState.OPEN);
+        when(setResultRepository.findByMatchIdAndSetIndex(MATCH_ID, 0))
+                .thenReturn(Optional.of(existingOpen));
+
+        PartialScoreInput input = new PartialScoreInput(MATCH_ID, 0, 10, 8, DEVICE_TOKEN);
+
+        // Act
+        service.handlePartialScore(input);
+
+        // Assert — AC1: UPDATE (not INSERT) when OPEN row already exists
+        verify(setResultRepository).update(any(SetResult.class));
+        verify(setResultRepository, never()).insert(any(SetResult.class));
     }
 
     /**
