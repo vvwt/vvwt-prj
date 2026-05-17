@@ -63,6 +63,7 @@
   import MatchCorrection from './routes/MatchCorrection.svelte';
   import MatchOverview from './routes/MatchOverview.svelte';
   import EmbeddedWorkerControl from './routes/EmbeddedWorkerControl.svelte';
+  import InfoPortalOptIn from './routes/InfoPortalOptIn.svelte';
   import { pageHeader, type PageHeaderState } from './stores/pageHeaderStore.js';
   import { getTournament, type Tournament } from './stores/tournamentStore.js';
   import { _ } from 'svelte-i18n';
@@ -88,6 +89,7 @@
     ['/tournaments/:tournamentId/phases/:phaseId/matches/:matchId/correction', MatchCorrection],
     ['/devices', Devices],
     ['/embedded-worker', EmbeddedWorkerControl],
+    ['/tournaments/:tournamentId/info-portal', InfoPortalOptIn],
   ]);
 
   /** Fallback: redirect unknown routes to home. */
