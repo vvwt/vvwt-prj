@@ -19,8 +19,8 @@ import org.junit.jupiter.api.Test;
  * RED-first unit tests for {@link AbstractAssignmentProposalCalculator} (AC3, AC8, DEC-22).
  *
  * <p>Updated from E58S03: tests use the new {@code rank(...)} interface returning {@link
- * RankedTeamEntry} and the {@code buildEntry} helper instead of old {@code buildProposal} /
- * {@code getPointsOrMin} / {@code sortTeams} (E66S01 AC2, AC7).
+ * RankedTeamEntry} and the {@code buildEntry} helper instead of old {@code buildProposal} / {@code
+ * getPointsOrMin} / {@code sortTeams} (E66S01 AC2, AC7).
  *
  * <p>Same-package test: MAY white-box against the abstract base class per DEC-36 (same-package test
  * typing rule).

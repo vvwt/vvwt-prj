@@ -18,9 +18,9 @@ import java.util.UUID;
  * distribution is embedded in the output — that is the responsibility of {@link
  * Team2AvatarDistributor} (DEC-77 D-1).
  *
- * <p>The calculator receives all information it needs as parameters. It does NOT call any repository
- * itself (DEC-59 Clause C / AC7 — {@code teamId} is written only by the operator-confirmation
- * handler; the ranking merely proposes the order).
+ * <p>The calculator receives all information it needs as parameters. It does NOT call any
+ * repository itself (DEC-59 Clause C / AC7 — {@code teamId} is written only by the
+ * operator-confirmation handler; the ranking merely proposes the order).
  *
  * <p>DEC-58 Clause A + DEC-72: public interface in the bounded-context root package {@code
  * de.vvwt.tm.tournament}; implementations live in {@code de.vvwt.tm.tournament.internal} (DEC-35).
@@ -52,13 +52,13 @@ public interface TeamSortCalculator {
      * <p>The returned list contains one {@link RankedTeamEntry} per avatar in {@code fromAvatars}.
      * Element at index 0 is the highest-ranked team; the last element is the lowest-ranked.
      *
-     * <p>The caller is responsible for loading the {@code ratingsByAvatarId} map before calling this
-     * method (via {@link TeamAvatarRatingRepository#findByPhaseId(UUID)} for Phase N). An empty map
-     * signals that no ratings exist for the previous phase.
+     * <p>The caller is responsible for loading the {@code ratingsByAvatarId} map before calling
+     * this method (via {@link TeamAvatarRatingRepository#findByPhaseId(UUID)} for Phase N). An
+     * empty map signals that no ratings exist for the previous phase.
      *
      * <p>No {@code teamId} is written by any implementation (DEC-59 Clause C / AC7 — teamId is
-     * written only by the operator-confirmation handler). The returned entries carry the teamId from
-     * the source avatar so the caller can build a {@link TeamAvatarProposal}.
+     * written only by the operator-confirmation handler). The returned entries carry the teamId
+     * from the source avatar so the caller can build a {@link TeamAvatarProposal}.
      *
      * @param fromAvatars the previous phase's {@link TeamAvatar} slots; must not be {@code null};
      *     sorted by (groupNumber, groupPosition) ascending (repository contract)

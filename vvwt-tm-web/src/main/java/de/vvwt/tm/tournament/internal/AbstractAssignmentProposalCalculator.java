@@ -5,7 +5,6 @@ package de.vvwt.tm.tournament.internal;
 import de.vvwt.tm.tournament.RankedTeamEntry;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamAvatar;
-import de.vvwt.tm.tournament.TeamAvatarRating;
 import de.vvwt.tm.tournament.TeamSortCalculator;
 import java.util.Map;
 import java.util.UUID;
@@ -59,9 +58,10 @@ abstract class AbstractAssignmentProposalCalculator implements TeamSortCalculato
     /**
      * Constructs a {@link RankedTeamEntry} for a Phase-2+ avatar.
      *
-     * <p>Carries the avatar's {@code teamId} (for proposal-building) and the source-phase structural
-     * coordinates ({@code sourceGroupNumber}, {@code sourceGroupPosition}) as informational display
-     * fields. Per AC7 / DEC-59 Clause C, no teamId is written to the database by the calculator.
+     * <p>Carries the avatar's {@code teamId} (for proposal-building) and the source-phase
+     * structural coordinates ({@code sourceGroupNumber}, {@code sourceGroupPosition}) as
+     * informational display fields. Per AC7 / DEC-59 Clause C, no teamId is written to the database
+     * by the calculator.
      *
      * @param fromAvatar the predecessor-phase avatar (source of teamId and structural identity)
      * @param team the resolved Team for display fields

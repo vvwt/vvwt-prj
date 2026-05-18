@@ -171,7 +171,8 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
         List<TeamAvatar> fromAvatars = teamAvatarRepository.findByPhaseId(fromPhase.getId());
         // E48S20: build Team lookup map for display-field population (avoid N+1 per avatar)
         Map<UUID, Team> teamById = buildTeamLookup(fromAvatars);
-        List<RankedTeamEntry> ranked = rankPhase2PlusTeams(fromAvatars, toSection, teamById, fromPhase.getId());
+        List<RankedTeamEntry> ranked =
+                rankPhase2PlusTeams(fromAvatars, toSection, teamById, fromPhase.getId());
         return buildProposals(ranked, toSection);
     }
 
@@ -437,8 +438,8 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
      * this method reads {@code toSection.getDistributionMode()} for all callers.
      *
      * @param ranked the flat ranked list; index 0 = highest-ranked team
-     * @param toSection the draft section for the target phase (provides groupCount, distributionMode,
-     *     sortType)
+     * @param toSection the draft section for the target phase (provides groupCount,
+     *     distributionMode, sortType)
      * @return list of proposals with target (groupNumber, groupPosition) assigned; never null
      */
     private List<TeamAvatarProposal> buildProposals(
