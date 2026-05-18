@@ -508,9 +508,9 @@ class DefaultDisplayOverviewServiceTest {
     // =========================================================================
 
     /**
-     * RED-first test: getGroupStandings with multiple teams → sorted per D-33 (points DESC,
-     * setQuotient DESC, ballQuotient DESC, withoutAssessment last), position 1-indexed.
-     * (AC-GROUP-STANDINGS-D33-SORT)
+     * RED-first test: getGroupStandings with multiple teams → sorted per DEC-77 D-3 (points DESC,
+     * setQuotient DESC, ballQuotient DESC, groupPosition ASC, withoutAssessment last), position
+     * 1-indexed. (AC-GROUP-STANDINGS-D33-SORT)
      */
     @Test
     void getGroupStandings_multipleTeams_sortedByD33Criteria() {
@@ -525,8 +525,8 @@ class DefaultDisplayOverviewServiceTest {
         Device device = buildDisplayDevice(tenantId);
         Tournament tournament = buildTournament(tournamentId, "ACTIVE", 2);
         Phase phase = buildPhase(phaseId, tenantId, tournamentId, "Phase", "ACTIVE", 1, 1);
-        TeamAvatar ta1 = buildAvatarWithTeam(avatarId1, phaseId, tenantId, 1, teamId1);
-        TeamAvatar ta2 = buildAvatarWithTeam(avatarId2, phaseId, tenantId, 1, teamId2);
+        TeamAvatar ta1 = buildAvatarWithGroupPos(avatarId1, phaseId, 1, 1, teamId1);
+        TeamAvatar ta2 = buildAvatarWithGroupPos(avatarId2, phaseId, 1, 2, teamId2);
         Team team1 = buildTeam(teamId1, tournamentId, "Team Low");
         Team team2 = buildTeam(teamId2, tournamentId, "Team High");
 
@@ -540,8 +540,8 @@ class DefaultDisplayOverviewServiceTest {
         when(tournamentRepository.findAll()).thenReturn(List.of(tournament));
         when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(phase));
         when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(List.of(ta1, ta2));
-        when(teamAvatarRatingRepository.findById(avatarId1)).thenReturn(Optional.of(rating1));
-        when(teamAvatarRatingRepository.findById(avatarId2)).thenReturn(Optional.of(rating2));
+        when(teamAvatarRatingRepository.findByPhaseId(phaseId))
+                .thenReturn(List.of(rating1, rating2));
         when(teamRepository.findById(teamId1)).thenReturn(Optional.of(team1));
         when(teamRepository.findById(teamId2)).thenReturn(Optional.of(team2));
 
@@ -560,12 +560,147 @@ class DefaultDisplayOverviewServiceTest {
     }
 
     // =========================================================================
-    // AC-GROUP-STANDINGS-ZERO-RATING-FALLBACK
+    // AC1 (E66S04): no-divergence — groupPosition tie-break matches PlacementComparator
     // =========================================================================
 
     /**
-     * RED-first test: no TeamAvatarRating row for avatar → service uses zero-score default, DTO
-     * populates without NPE. (AC-GROUP-STANDINGS-ZERO-RATING-FALLBACK)
+     * RED-first test (E66S04 AC1, DEC-77 D-3/D-6): when two teams are tied on all quotients, the
+     * team with the lower groupPosition ranks first in Display standings — matching the DEC-77 D-3
+     * placement comparator (no-divergence property).
+     *
+     * <p>This test is RED with the pre-E66S04 code: {@code TeamAvatarRating.compareTo()} does not
+     * include the {@code groupPosition} tie-break (it stops at ballQuotient DESC and returns 0),
+     * leaving the ordering undefined for equal-score teams. After E66S04, the Display standings use
+     * {@link de.vvwt.tm.tournament.PlacementComparator#forRatings(java.util.Map)}, which always
+     * breaks ties deterministically by {@code groupPosition} ASC.
+     *
+     * @see de.vvwt.tm.tournament.PlacementComparator
+     * @see <a href="DEC-77">DEC-77 D-3 — placement comparator (groupPosition tie-break)</a>
+     * @see <a href="DEC-77">DEC-77 D-6 — Display standings use the shared comparator</a>
+     * @see <a href="E66S04">E66S04 AC1</a>
+     */
+    @Test
+    void getGroupStandings_tiedOnAllQuotients_groupPositionDeterminesOrder_noDivergence() {
+        UUID tenantId = UUID.randomUUID();
+        UUID phaseId = UUID.randomUUID();
+        UUID tournamentId = UUID.randomUUID();
+        UUID avatarId1 = UUID.randomUUID(); // groupPosition=1 (better prior seeding)
+        UUID avatarId2 = UUID.randomUUID(); // groupPosition=2 (worse prior seeding)
+        UUID teamId1 = UUID.randomUUID();
+        UUID teamId2 = UUID.randomUUID();
+
+        Device device = buildDisplayDevice(tenantId);
+        Tournament tournament = buildTournament(tournamentId, "ACTIVE", 2);
+        Phase phase = buildPhase(phaseId, tenantId, tournamentId, "Phase", "ACTIVE", 1, 1);
+        // avatarId1 has groupPosition=1; avatarId2 has groupPosition=2
+        TeamAvatar ta1 = buildAvatarWithGroupPos(avatarId1, phaseId, 1, 1, teamId1);
+        TeamAvatar ta2 = buildAvatarWithGroupPos(avatarId2, phaseId, 1, 2, teamId2);
+        Team team1 = buildTeam(teamId1, tournamentId, "Team Pos1");
+        Team team2 = buildTeam(teamId2, tournamentId, "Team Pos2");
+
+        // Identical ratings — tied on all quotients; only groupPosition differs
+        TeamAvatarRating rating1 =
+                buildRating(avatarId1, tenantId, 6, 3, 1, 50, 30, false, 3.0, 1.667);
+        TeamAvatarRating rating2 =
+                buildRating(avatarId2, tenantId, 6, 3, 1, 50, 30, false, 3.0, 1.667);
+
+        when(deviceRepository.findByDeviceToken("valid-token")).thenReturn(Optional.of(device));
+        when(tournamentRepository.findAll()).thenReturn(List.of(tournament));
+        when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(phase));
+        when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(List.of(ta1, ta2));
+        when(teamAvatarRatingRepository.findByPhaseId(phaseId))
+                .thenReturn(List.of(rating1, rating2));
+        when(teamRepository.findById(teamId1)).thenReturn(Optional.of(team1));
+        when(teamRepository.findById(teamId2)).thenReturn(Optional.of(team2));
+
+        DisplayGroupStandingsResponse response = service.getGroupStandings("valid-token");
+
+        assertThat(response.groups()).hasSize(1);
+        List<DisplayGroupStandingsResponse.TeamRanking> rankings =
+                response.groups().get(0).rankings();
+        assertThat(rankings).hasSize(2);
+        // groupPosition 1 (ta1 / "Team Pos1") must rank at position 1 per DEC-77 D-3
+        assertThat(rankings.get(0).teamName())
+                .as(
+                        "AC1 no-divergence: tied-on-quotients teams must be ordered by groupPosition"
+                                + " ASC (DEC-77 D-3 4th tie-break); lower groupPosition=1 ranks"
+                                + " first")
+                .isEqualTo("Team Pos1");
+        assertThat(rankings.get(0).position()).isEqualTo(1);
+        assertThat(rankings.get(1).teamName()).isEqualTo("Team Pos2");
+        assertThat(rankings.get(1).position()).isEqualTo(2);
+    }
+
+    /**
+     * RED-first test (E66S04 AC1/AC4, DEC-77 D-3): a team with {@code withoutAssessment=true} and
+     * any score ranks last in Display standings — same as PlacementComparator behaviour
+     * (no-divergence property). Tie between two withoutAssessment teams is broken by groupPosition
+     * ASC (AC4 determinism).
+     *
+     * @see <a href="DEC-77">DEC-77 D-3 — withoutAssessment last</a>
+     * @see <a href="E66S04">E66S04 AC1/AC4</a>
+     */
+    @Test
+    void getGroupStandings_withoutAssessment_ranksLast_sameAsPlacementComparator() {
+        UUID tenantId = UUID.randomUUID();
+        UUID phaseId = UUID.randomUUID();
+        UUID tournamentId = UUID.randomUUID();
+        UUID avatarIdAssessed = UUID.randomUUID();
+        UUID avatarIdUnrated = UUID.randomUUID();
+        UUID teamIdAssessed = UUID.randomUUID();
+        UUID teamIdUnrated = UUID.randomUUID();
+
+        Device device = buildDisplayDevice(tenantId);
+        Tournament tournament = buildTournament(tournamentId, "ACTIVE", 2);
+        Phase phase = buildPhase(phaseId, tenantId, tournamentId, "Phase", "ACTIVE", 1, 1);
+        TeamAvatar taAssessed = buildAvatarWithGroupPos(avatarIdAssessed, phaseId, 1, 1, teamIdAssessed);
+        TeamAvatar taUnrated = buildAvatarWithGroupPos(avatarIdUnrated, phaseId, 1, 2, teamIdUnrated);
+        Team teamAssessed = buildTeam(teamIdAssessed, tournamentId, "Assessed Team");
+        Team teamUnrated = buildTeam(teamIdUnrated, tournamentId, "Unrated Team");
+
+        // assessed team has 0 points but withoutAssessment=false → ranks first
+        TeamAvatarRating ratingAssessed =
+                buildRating(avatarIdAssessed, tenantId, 0, 0, 0, 0, 0, false, 0.0, 0.0);
+        // unrated team has 999 points but withoutAssessment=true → ranks last
+        TeamAvatarRating ratingUnrated =
+                buildRating(avatarIdUnrated, tenantId, 999, 9, 0, 99, 1, true, 9.9, 99.0);
+
+        when(deviceRepository.findByDeviceToken("valid-token")).thenReturn(Optional.of(device));
+        when(tournamentRepository.findAll()).thenReturn(List.of(tournament));
+        when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(phase));
+        when(teamAvatarRepository.findByPhaseId(phaseId))
+                .thenReturn(List.of(taAssessed, taUnrated));
+        when(teamAvatarRatingRepository.findByPhaseId(phaseId))
+                .thenReturn(List.of(ratingAssessed, ratingUnrated));
+        when(teamRepository.findById(teamIdAssessed)).thenReturn(Optional.of(teamAssessed));
+        when(teamRepository.findById(teamIdUnrated)).thenReturn(Optional.of(teamUnrated));
+
+        DisplayGroupStandingsResponse response = service.getGroupStandings("valid-token");
+
+        assertThat(response.groups()).hasSize(1);
+        List<DisplayGroupStandingsResponse.TeamRanking> rankings =
+                response.groups().get(0).rankings();
+        assertThat(rankings).hasSize(2);
+        assertThat(rankings.get(0).teamName())
+                .as("withoutAssessment=true team must rank last regardless of raw scores")
+                .isEqualTo("Assessed Team");
+        assertThat(rankings.get(0).position()).isEqualTo(1);
+        assertThat(rankings.get(1).teamName()).isEqualTo("Unrated Team");
+        assertThat(rankings.get(1).position()).isEqualTo(2);
+    }
+
+    // =========================================================================
+    // AC-GROUP-STANDINGS-ZERO-RATING-FALLBACK (updated for E66S04 — no rating row = unrated/last)
+    // =========================================================================
+
+    /**
+     * Test: no TeamAvatarRating row for avatar → team treated as unrated (withoutAssessment-
+     * equivalent per PlacementComparator), DTO populates with zero values without NPE.
+     * (AC-GROUP-STANDINGS-ZERO-RATING-FALLBACK adapted for E66S04)
+     *
+     * <p>With PlacementComparator, a team with no rating row is treated the same as
+     * withoutAssessment=true (ranks last). The DTO output fields default to zero for missing
+     * ratings.
      */
     @Test
     void getGroupStandings_noRatingRow_usesZeroDefault() {
@@ -578,15 +713,15 @@ class DefaultDisplayOverviewServiceTest {
         Device device = buildDisplayDevice(tenantId);
         Tournament tournament = buildTournament(tournamentId, "ACTIVE", 2);
         Phase phase = buildPhase(phaseId, tenantId, tournamentId, "Phase", "ACTIVE", 1, 1);
-        TeamAvatar ta = buildAvatarWithTeam(avatarId, phaseId, tenantId, 1, teamId);
+        TeamAvatar ta = buildAvatarWithGroupPos(avatarId, phaseId, 1, 1, teamId);
         Team team = buildTeam(teamId, tournamentId, "Team Zero");
 
         when(deviceRepository.findByDeviceToken("valid-token")).thenReturn(Optional.of(device));
         when(tournamentRepository.findAll()).thenReturn(List.of(tournament));
         when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(phase));
         when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(List.of(ta));
-        when(teamAvatarRatingRepository.findById(avatarId))
-                .thenReturn(Optional.empty()); // no rating
+        when(teamAvatarRatingRepository.findByPhaseId(phaseId))
+                .thenReturn(List.of()); // no rating for this avatar
         when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
 
         DisplayGroupStandingsResponse response = service.getGroupStandings("valid-token");
@@ -661,6 +796,21 @@ class DefaultDisplayOverviewServiceTest {
         ta.setId(id);
         ta.setPhaseId(phaseId);
         ta.setGroupNumber(groupNumber);
+        ta.setTeamId(teamId);
+        return ta;
+    }
+
+    /**
+     * Builds a {@link TeamAvatar} with an explicit {@code groupPosition} (E66S04 — needed for
+     * AC1 no-divergence tests where groupPosition tie-break is verified).
+     */
+    private TeamAvatar buildAvatarWithGroupPos(
+            UUID id, UUID phaseId, int groupNumber, int groupPosition, UUID teamId) {
+        TeamAvatar ta = new TeamAvatar();
+        ta.setId(id);
+        ta.setPhaseId(phaseId);
+        ta.setGroupNumber(groupNumber);
+        ta.setGroupPosition(groupPosition);
         ta.setTeamId(teamId);
         return ta;
     }
