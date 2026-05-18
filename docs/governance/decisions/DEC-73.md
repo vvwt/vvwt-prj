@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-73.md at e5326b6d09e95ccda2f9a65b7e6aa07bc741daad 2026-05-16 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-73.md at 8583b600dee1687fe18e1dc904e86477e583b3b3 2026-05-18 -->
 ---
 id: DEC-73
 domain: architecture
@@ -6,7 +6,7 @@ level: architectural
 title: "Registry+strategy decomposition of match-generation, team-distribution and team-sort; GameMode/DistributionMode enums removed in favour of registry string-keys; isLastPhaseGenerator capability-driven last-phase rule"
 status: active
 amends: DEC-59
-amended_by: []
+amended_by: [DEC-77]
 related_to: [DEC-56, DEC-58, DEC-72, DEC-35, DEC-9]
 tags:
   - architecture
