@@ -338,6 +338,10 @@
         E61S01 inline ES5 score-entry logic — redesigned.
         E61S03 — team-position swap logic added.
         E65S03 — swap extended: each column now fully follows the team (name, score, +/-).
+        E65S05 — auto-advance polling: when no active match, poll every POLL_INTERVAL_MS ms;
+                 stop polling when a match is found (AC2, AC3). Polling uses window.setInterval /
+                 window.clearInterval (ES5, iOS 9 safe). AC5: poll continues on network error so
+                 once connectivity returns the next interval fires and loads the correct match.
         AC1:  Logo lockup removed (E61S01); swap control button added (E61S03).
         AC2:  Header shows active match identity (teams + round/set) — JS-populated.
               E65S03: displayed score in each column follows the team (AC2, AC3).
@@ -358,6 +362,13 @@
     /* =========================================================================
        E61S01 — Score-entry page ES5 inline script (redesigned).
        E61S03 — Team-position swap added (AC1–AC10).
+       E65S05 — Auto-advance polling added (AC1–AC8):
+                When no active match found, poll every POLL_INTERVAL_MS ms until a match
+                appears (tournament advances to next round). Uses window.setInterval /
+                window.clearInterval (ES5 — iOS 9 safe). stopPolling() is called as soon
+                as renderMatch() is entered so the tablet never continues polling while a
+                match is displayed. AC5: polling also continues on network errors so once
+                connectivity returns the next interval fires and loads the correct match.
        DEC-19 constraint: ECMAScript 5 only.
        Relies on helpers from /score/assets/vvwt-tablet.js (must load first):
          vvwtFetch, vvwtSetText, vvwtShow, vvwtHide, vvwtQuery
@@ -409,6 +420,49 @@
 
     /* AC11: offline score queue — array of {matchId, setIndex, team1Points, team2Points} */
     var scoreQueue           = [];
+
+    /*
+     * AC2, AC3 (E65S05): Auto-advance polling state.
+     * POLL_INTERVAL_MS — how often to re-query the match API while in the no-match/waiting state.
+     * pollIntervalId   — handle returned by window.setInterval; null when polling is not active.
+     * Polling starts when the field page finds no active match (204 / null data or connectivity
+     * restored after error). Polling stops as soon as renderMatch() is called with a real match.
+     * DEC-19: window.setInterval and window.clearInterval are ES3/ES5 standard (iOS 9 safe).
+     */
+    var POLL_INTERVAL_MS = 5000;
+    var pollIntervalId   = null;
+
+    /* -------------------------------------------------------------------------
+       AC2, AC3 (E65S05): Polling helpers — auto-advance to next-round match.
+       startPolling() — starts the interval if not already running (idempotent).
+       stopPolling()  — clears the interval if running (idempotent).
+       Called from loadMatch() and renderMatch() to manage the polling lifecycle.
+       DEC-19: var + named functions only; no arrow functions, class, or template literals.
+       --------------------------------------------------------------------- */
+
+    /*
+     * Start the no-match polling interval. Idempotent: a second call while the
+     * interval is already running is a no-op (the existing pollIntervalId guard
+     * prevents duplicate setInterval calls).
+     */
+    function startPolling() {
+        if (!pollIntervalId) {
+            pollIntervalId = window.setInterval(function () {
+                loadMatch();
+            }, POLL_INTERVAL_MS);
+        }
+    }
+
+    /*
+     * Stop the no-match polling interval. Idempotent: safe to call even when
+     * polling is not active (pollIntervalId null check prevents double-clear).
+     */
+    function stopPolling() {
+        if (pollIntervalId) {
+            window.clearInterval(pollIntervalId);
+            pollIntervalId = null;
+        }
+    }
 
     /* -------------------------------------------------------------------------
        AC1, AC4, AC6 (E61S03): Swap state — relative-toggle model.
@@ -842,8 +896,14 @@
             function (data) {
                 vvwtSetText(elStatusMsg, '');
                 if (!data) {
+                    /*
+                     * AC3 (E65S05): No active match on this field — enter waiting/idle state
+                     * and start polling so the tablet advances automatically when the phase
+                     * advances to the next round. startPolling() is idempotent.
+                     */
                     currentMatchId = null;
                     vvwtShow(elNoMatchPanel);
+                    startPolling();
                     return;
                 }
                 renderMatch(data);
@@ -854,17 +914,34 @@
                 } else if (err && err.indexOf('403') !== -1) {
                     showError(MSG_ERROR_FORBIDDEN);
                 } else if (err && err.indexOf('204') !== -1) {
+                    /*
+                     * AC3 (E65S05): 204 No Content = no match for this field — waiting state.
+                     * Start polling; the next interval will detect when a match appears.
+                     */
                     currentMatchId = null;
                     vvwtSetText(elStatusMsg, '');
                     vvwtShow(elNoMatchPanel);
+                    startPolling();
                 } else {
+                    /*
+                     * AC5 (E65S05): Network error — start polling so once connectivity returns
+                     * the round-tracking mechanism fires and shows the correct current match.
+                     * Error banner remains visible; poll fires silently in the background.
+                     */
                     showError(MSG_ERROR_NET);
+                    startPolling();
                 }
             }
         );
     }
 
     function renderMatch(data) {
+        /*
+         * AC2 (E65S05): A match was found — stop polling. The tablet is now displaying
+         * the correct next-round match without a manual reload. stopPolling() is idempotent.
+         */
+        stopPolling();
+
         currentMatchId      = data.matchId  || null;
         currentSetIndex     = data.setIndex || 0;
         currentIsTiebreak   = data.isTiebreak ? true : false;
