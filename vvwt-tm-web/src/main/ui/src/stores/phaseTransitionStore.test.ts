@@ -341,3 +341,131 @@ describe('phaseTransitionStore — hasSourceSlot deleted after E51S13 (AC-TEST-H
         expect((store as Record<string, unknown>)['hasSourceSlot']).toBeUndefined();
     });
 });
+
+// ── E66S02: updateSortAndDistribution store function ─────────────────────────
+
+/**
+ * AC3 (E66S02): updateSortAndDistribution must be exported from phaseTransitionStore and
+ * call PUT /api/phases/{phaseId}/transition-settings with the correct body.
+ */
+describe('phaseTransitionStore — updateSortAndDistribution export (E66S02 AC3)', () => {
+    it('exports updateSortAndDistribution function', async () => {
+        const store = await import('./phaseTransitionStore.js');
+        expect(typeof (store as Record<string, unknown>)['updateSortAndDistribution']).toBe('function');
+    });
+});
+
+describe('phaseTransitionStore — updateSortAndDistribution API call (E66S02 AC3)', () => {
+    const phaseId = '550e8400-e29b-41d4-a716-446655440066';
+    let originalFetch: typeof globalThis.fetch;
+
+    beforeEach(() => {
+        originalFetch = globalThis.fetch;
+    });
+
+    afterEach(() => {
+        globalThis.fetch = originalFetch;
+        vi.restoreAllMocks();
+    });
+
+    it('calls PUT /api/phases/{id}/transition-settings with sortType and distributionMode in body', async () => {
+        const mockSlots = [
+            { teamId: 'team-1', groupNumber: 1, groupPosition: 1, sortType: 'placement_group', sourceGroupNumber: 1, sourceGroupPosition: 1, teamNumber: 1, teamDescription: 'TSV A' },
+            { teamId: 'team-2', groupNumber: 1, groupPosition: 2, sortType: 'placement_group', sourceGroupNumber: 1, sourceGroupPosition: 2, teamNumber: 2, teamDescription: 'TSV B' },
+        ];
+        globalThis.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => mockSlots,
+        });
+
+        const { updateSortAndDistribution } = await import('./phaseTransitionStore.js');
+        const result = await updateSortAndDistribution(phaseId, 'placement_group', 'round_robin');
+
+        expect(result).toEqual(mockSlots);
+        expect(globalThis.fetch).toHaveBeenCalledWith(
+            expect.stringContaining(`/api/phases/${phaseId}/transition-settings`),
+            expect.objectContaining({
+                method: 'PUT',
+                headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
+            })
+        );
+
+        // Verify body contains sortType and distributionMode
+        const callArgs = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+        const body = JSON.parse(callArgs[1].body as string) as { sortType: string; distributionMode: string };
+        expect(body.sortType).toBe('placement_group');
+        expect(body.distributionMode).toBe('round_robin');
+    });
+
+    it('throws Error with message on HTTP 400 (unknown sortType)', async () => {
+        globalThis.fetch = vi.fn().mockResolvedValue({
+            ok: false,
+            status: 400,
+            json: async () => ({ message: 'sortType not registered: unknown_xyz' }),
+        });
+
+        const { updateSortAndDistribution } = await import('./phaseTransitionStore.js');
+        await expect(updateSortAndDistribution(phaseId, 'unknown_xyz', 'sequential'))
+            .rejects.toThrow('sortType not registered: unknown_xyz');
+    });
+
+    it('throws Error with HTTP status fallback when no message body', async () => {
+        globalThis.fetch = vi.fn().mockResolvedValue({
+            ok: false,
+            status: 409,
+            json: async () => ({}),
+        });
+
+        const { updateSortAndDistribution } = await import('./phaseTransitionStore.js');
+        await expect(updateSortAndDistribution(phaseId, 'team_number', 'sequential'))
+            .rejects.toThrow('HTTP 409');
+    });
+});
+
+// ── E66S02: de.json i18n keys for sortType and distributionMode selectors ────
+
+describe('de.json — phaseTransition sort/distribution selector keys (E66S02 AC8)', () => {
+    it('should contain phaseTransition.sortTypeLabel i18n key', () => {
+        const pt = (deMessages as unknown as Record<string, Record<string, unknown>>).phaseTransition;
+        expect(pt).toHaveProperty('sortTypeLabel');
+        expect(pt['sortTypeLabel']).toBeTypeOf('string');
+    });
+
+    it('should contain phaseTransition.distributionModeLabel i18n key', () => {
+        const pt = (deMessages as unknown as Record<string, Record<string, unknown>>).phaseTransition;
+        expect(pt).toHaveProperty('distributionModeLabel');
+        expect(pt['distributionModeLabel']).toBeTypeOf('string');
+    });
+
+    it('should contain phaseTransition.sortType.team_number i18n key', () => {
+        const pt = (deMessages as unknown as Record<string, Record<string, Record<string, string>>>).phaseTransition;
+        expect(pt['sortType']).toBeDefined();
+        expect(pt['sortType']['team_number']).toBeTypeOf('string');
+        expect(pt['sortType']['team_number'].length).toBeGreaterThan(0);
+    });
+
+    it('should contain phaseTransition.sortType.placement_group i18n key', () => {
+        const pt = (deMessages as unknown as Record<string, Record<string, Record<string, string>>>).phaseTransition;
+        expect(pt['sortType']['placement_group']).toBeTypeOf('string');
+        expect(pt['sortType']['placement_group'].length).toBeGreaterThan(0);
+    });
+
+    it('should contain phaseTransition.sortType.group_placement i18n key', () => {
+        const pt = (deMessages as unknown as Record<string, Record<string, Record<string, string>>>).phaseTransition;
+        expect(pt['sortType']['group_placement']).toBeTypeOf('string');
+        expect(pt['sortType']['group_placement'].length).toBeGreaterThan(0);
+    });
+
+    it('should contain phaseTransition.distributionMode.sequential i18n key', () => {
+        const pt = (deMessages as unknown as Record<string, Record<string, Record<string, string>>>).phaseTransition;
+        expect(pt['distributionMode']).toBeDefined();
+        expect(pt['distributionMode']['sequential']).toBeTypeOf('string');
+        expect(pt['distributionMode']['sequential'].length).toBeGreaterThan(0);
+    });
+
+    it('should contain phaseTransition.distributionMode.round_robin i18n key', () => {
+        const pt = (deMessages as unknown as Record<string, Record<string, Record<string, string>>>).phaseTransition;
+        expect(pt['distributionMode']['round_robin']).toBeTypeOf('string');
+        expect(pt['distributionMode']['round_robin'].length).toBeGreaterThan(0);
+    });
+});

@@ -530,7 +530,18 @@
     "sourceLabelPhase1": "Nr.{n}",
     "sourceLabelPhase2plus": "Gruppe {g}, Platz {p}",
     "targetLabelEmpty": "— leer —",
-    "teamColumnHeading": "Mannschaft"
+    "teamColumnHeading": "Mannschaft",
+    "sortTypeLabel": "Sortiermodus",
+    "distributionModeLabel": "Verteilungsmodus",
+    "sortType": {
+      "team_number": "Mannschaftsnummer",
+      "placement_group": "Platzierung in Gruppe",
+      "group_placement": "Gruppe nach Platzierung"
+    },
+    "distributionMode": {
+      "sequential": "Sequenziell",
+      "round_robin": "Round-Robin"
+    }
   },
   "matchOverview": {
     "pageTitle": "Spiele der Phase",

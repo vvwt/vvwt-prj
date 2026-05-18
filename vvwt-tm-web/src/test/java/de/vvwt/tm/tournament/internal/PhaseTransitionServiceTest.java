@@ -1338,6 +1338,141 @@ class PhaseTransitionServiceTest {
         }
     }
 
+    // =========================================================================
+    // E66S02 — updateSortAndDistribution (AC1, AC5 — RED-first per DEC-22)
+    // =========================================================================
+
+    /**
+     * AC-TEST-E66S02-REJECT-UNKNOWN-SORTTYPE-RED: updateSortAndDistribution rejects an unregistered
+     * sortType with IllegalArgumentException (AC5, DEC-73 D-6 membership check at the new write
+     * site).
+     *
+     * <p>DEC-22: test written RED-first — method does not exist yet.
+     */
+    @Test
+    @DisplayName(
+            "updateSortAndDistribution — unregistered sortType → IllegalArgumentException"
+                    + " (AC-TEST-E66S02-REJECT-UNKNOWN-SORTTYPE-RED, AC5)")
+    void updateSortAndDistribution_rejectUnknownSortType_throws() throws Exception {
+        Phase toPhase = preparedPhase(TO_PHASE_ID, 2);
+
+        when(phaseRepository.findById(TO_PHASE_ID)).thenReturn(Optional.of(toPhase));
+        // sortRegistry.get for unknown key → throws (real behaviour)
+        when(sortRegistry.get("unknown_sort"))
+                .thenThrow(
+                        new IllegalArgumentException(
+                                "No TeamSortCalculator registered for key: unknown_sort"));
+
+        assertThatThrownBy(
+                        () ->
+                                service.updateSortAndDistribution(
+                                        TO_PHASE_ID, "unknown_sort", "sequential"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    /**
+     * AC-TEST-E66S02-REJECT-UNKNOWN-DISTRIBUTION-RED: updateSortAndDistribution rejects an
+     * unregistered distributionMode with IllegalArgumentException (AC5, DEC-73 D-6).
+     *
+     * <p>DEC-22: RED-first.
+     */
+    @Test
+    @DisplayName(
+            "updateSortAndDistribution — unregistered distributionMode → IllegalArgumentException"
+                    + " (AC-TEST-E66S02-REJECT-UNKNOWN-DISTRIBUTION-RED, AC5)")
+    void updateSortAndDistribution_rejectUnknownDistributionMode_throws() throws Exception {
+        Phase toPhase = preparedPhase(TO_PHASE_ID, 2);
+
+        when(phaseRepository.findById(TO_PHASE_ID)).thenReturn(Optional.of(toPhase));
+        // sortRegistry.get for known key → OK (lenient stub from @BeforeEach handles team_number)
+        // distributorRegistry.get for unknown key → throws
+        when(distributorRegistry.get("bad_mode"))
+                .thenThrow(
+                        new IllegalArgumentException(
+                                "No Team2AvatarDistributor registered for key: bad_mode"));
+
+        assertThatThrownBy(
+                        () ->
+                                service.updateSortAndDistribution(
+                                        TO_PHASE_ID, "team_number", "bad_mode"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    /**
+     * AC-TEST-E66S02-PERSIST-TARGET-SECTION-ONLY-RED: updateSortAndDistribution persists sortType
+     * and distributionMode into the target PREPARED phase's DraftSection and into no other section
+     * (AC4, DEC-77 D-5).
+     *
+     * <p>DEC-22: RED-first. Method not yet implemented — test fails with NoSuchMethodError or
+     * AbstractMethodError until production code is written.
+     *
+     * <p>Verifies: after calling updateSortAndDistribution, the tournament's draft_json has the
+     * updated sortType and distributionMode ONLY for the section matching toPhase.sequenceNumber.
+     */
+    @Test
+    @DisplayName(
+            "updateSortAndDistribution — persists sortType+distributionMode to target section only"
+                    + " (AC-TEST-E66S02-PERSIST-TARGET-SECTION-ONLY-RED, AC4)")
+    void updateSortAndDistribution_persistsToTargetPreparedPhaseSection() throws Exception {
+        // Given: Phase 2 is PREPARED; draft_json has sections 1 and 2
+        // Section 2 initially has sortType=team_number, distributionMode=sequential
+        Phase toPhase = preparedPhase(TO_PHASE_ID, 2);
+        // Section 1: original sort/distribution; Section 2: to be updated
+        String originalJson = buildDraftJsonWithDistributionMode(2, "team_number", "sequential");
+        Tournament tournament = tournamentWithDraftJson(TOURNAMENT_ID, originalJson);
+        // tournamentRepository.save must capture the updated tournament
+        when(phaseRepository.findById(TO_PHASE_ID)).thenReturn(Optional.of(toPhase));
+        when(tournamentRepository.findById(TOURNAMENT_ID)).thenReturn(Optional.of(tournament));
+        when(tournamentRepository.findByIdForUpdate(TOURNAMENT_ID)).thenReturn(tournament);
+
+        // Stub tournamentRepository.save to capture what was passed (return input)
+        when(tournamentRepository.save(org.mockito.ArgumentMatchers.any(Tournament.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        // Phase 2 fromPhase for proposeTransition re-call after persist
+        Phase fromPhase = phase(FROM_PHASE_ID, 1);
+        lenient()
+                .when(phaseRepository.findByTournamentIdAndSequenceNumber(TOURNAMENT_ID, 1))
+                .thenReturn(Optional.of(fromPhase));
+        lenient().when(teamAvatarRepository.findByPhaseId(FROM_PHASE_ID)).thenReturn(List.of());
+
+        // Act: change sortType to placement_group, distributionMode to round_robin
+        service.updateSortAndDistribution(TO_PHASE_ID, "placement_group", "round_robin");
+
+        // Assert: tournamentRepository.save was called with updated draft_json
+        org.mockito.ArgumentCaptor<Tournament> captor =
+                org.mockito.ArgumentCaptor.forClass(Tournament.class);
+        org.mockito.Mockito.verify(tournamentRepository).save(captor.capture());
+        String savedJson = captor.getValue().getDraftJson();
+        com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(savedJson);
+        com.fasterxml.jackson.databind.JsonNode sections = root.get("sections");
+
+        // Section 1 (sectionNumber=1) must be UNCHANGED
+        com.fasterxml.jackson.databind.JsonNode sec1 = null;
+        com.fasterxml.jackson.databind.JsonNode sec2 = null;
+        for (com.fasterxml.jackson.databind.JsonNode sec : sections) {
+            if (sec.get("sectionNumber").asInt() == 1) sec1 = sec;
+            if (sec.get("sectionNumber").asInt() == 2) sec2 = sec;
+        }
+        assertThat(sec1).isNotNull();
+        assertThat(sec1.get("sortType").asText()).isEqualTo("team_number");
+        // Section 2 must have new sortType and distributionMode
+        assertThat(sec2).isNotNull();
+        assertThat(sec2.get("sortType").asText()).isEqualTo("placement_group");
+        assertThat(sec2.get("distributionMode").asText()).isEqualTo("round_robin");
+    }
+
+    // Helper: creates a Phase with status PREPARED
+    private Phase preparedPhase(UUID id, int sequenceNumber) {
+        Phase p = new Phase();
+        p.setId(id);
+        p.setTournamentId(TOURNAMENT_ID);
+        p.setSequenceNumber(sequenceNumber);
+        p.setDescription("Phase " + sequenceNumber);
+        p.setStatus("PREPARED");
+        return p;
+    }
+
     /**
      * AC-TEST-PHASE-2-PROPOSAL-SORTTYPE-GROUP-PLACEMENT-RED: every Phase-2+ proposal computed via
      * the group_placement branch has {@code sortType = "group_placement"}.

@@ -82,4 +82,41 @@ public interface PhaseTransitionService {
      *     AC-ERROR-HANDLING-DRAFT-JSON-NULL)
      */
     void commitTransition(UUID toPhaseId, List<TeamAvatarProposal> assignments);
+
+    /**
+     * Updates the {@code sortType} and {@code distributionMode} of the target PREPARED phase's
+     * {@link de.vvwt.tm.tournament.draft.DraftSection} and returns the re-computed proposal (DEC-77
+     * D-5, E66S02).
+     *
+     * <p>The operation is invalidation-neutral: it re-computes only the team-assignment proposal
+     * for the target phase. It does NOT reset the phase, re-trigger match generation, or change any
+     * other phase's data or status. The {@code teamId} write into avatar slots is NOT performed
+     * here — that remains exclusively with {@link #commitTransition} per DEC-59 Clause C.
+     *
+     * <p>Membership validation: both {@code sortType} and {@code distributionMode} are validated
+     * against their respective registries before any persistence. An unregistered key throws {@link
+     * IllegalArgumentException} (DEC-73 D-6 — same membership rule applied at this new write site,
+     * AC5 E66S02).
+     *
+     * <p>Write target: only the {@link de.vvwt.tm.tournament.draft.DraftSection} whose {@code
+     * sectionNumber} matches the target phase's {@code sequenceNumber} is mutated in {@code
+     * draft_json}. No other section is touched (AC4 E66S02).
+     *
+     * @param toPhaseId the UUID of the target (PREPARED) phase
+     * @param sortType the new sort-type registry key (e.g. {@code "team_number"}, {@code
+     *     "placement_group"}, {@code "group_placement"})
+     * @param distributionMode the new distribution-mode registry key (e.g. {@code "sequential"},
+     *     {@code "round_robin"})
+     * @return the recomputed proposal list with the new sortType and distributionMode applied
+     * @throws de.vvwt.tm.tournament.exceptions.ConflictException if the phase is not {@code
+     *     PREPARED}
+     * @throws IllegalArgumentException if {@code sortType} or {@code distributionMode} is not
+     *     registered, or if the phase or its tournament cannot be found
+     * @see <a href="DEC-77">DEC-77 D-5 — operator-editable post-apply sortType/distributionMode
+     *     surface</a>
+     * @see <a href="DEC-73">DEC-73 D-6 — registry-membership check</a>
+     * @see <a href="E66S02">E66S02 — AC4, AC5, AC6</a>
+     */
+    List<TeamAvatarProposal> updateSortAndDistribution(
+            UUID toPhaseId, String sortType, String distributionMode);
 }
