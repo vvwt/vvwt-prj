@@ -4,6 +4,9 @@ package de.vvwt.tm.web.certificate;
 
 import de.vvwt.tm.certificate.CertificateTemplateMetadata;
 import de.vvwt.tm.certificate.CertificateTemplateService;
+import de.vvwt.tm.tenant.LocationDisplayResolver;
+import de.vvwt.tm.tournament.Tournament;
+import de.vvwt.tm.tournament.TournamentRepository;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
@@ -105,14 +108,23 @@ import org.springframework.web.multipart.MultipartFile;
 public class CertificateTemplateController {
 
     private final CertificateTemplateService certificateTemplateService;
+    private final LocationDisplayResolver locationDisplayResolver;
+    private final TournamentRepository tournamentRepository;
 
     /**
      * Constructor injection per DEC-35 Spring DI canon (interface type, not implementation).
      *
      * @param certificateTemplateService the certificate template service port
+     * @param locationDisplayResolver the location display resolver (tenant module)
+     * @param tournamentRepository the tournament repository (for organizer pre-fill, E68S02 AC1)
      */
-    public CertificateTemplateController(CertificateTemplateService certificateTemplateService) {
+    public CertificateTemplateController(
+            CertificateTemplateService certificateTemplateService,
+            LocationDisplayResolver locationDisplayResolver,
+            TournamentRepository tournamentRepository) {
         this.certificateTemplateService = certificateTemplateService;
+        this.locationDisplayResolver = locationDisplayResolver;
+        this.tournamentRepository = tournamentRepository;
     }
 
     // -------------------------------------------------------------------------
@@ -257,6 +269,52 @@ public class CertificateTemplateController {
         }
 
         return ResponseEntity.noContent().build();
+    }
+
+    // -------------------------------------------------------------------------
+    // E68S02 AC1 — GET /api/certificate/print-defaults/{tournamentId}
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns the pre-fill defaults for the certificate print override form (E68S02 AC1).
+     *
+     * <p>The response contains the current organizer and venue values that the UI pre-populates
+     * into the override input fields before the operator opens the print screen:
+     *
+     * <ul>
+     *   <li>{@code organizer} — the tournament's stored organizer (null → empty string)
+     *   <li>{@code venue} — the current live location display name from {@link
+     *       LocationDisplayResolver}
+     * </ul>
+     *
+     * <p>Falls under {@code /api/**} — requires admin authentication per {@code SecurityConfig}. No
+     * new security rule needed (AC10).
+     *
+     * <p>DEC-40 Clause A — cross-bounded-context import count: {@code certificate} (template
+     * service), {@code tournament} (repository), {@code tenant} (resolver) = 2 bounded contexts.
+     * Trigger β does NOT fire.
+     *
+     * @param tournamentId the tournament UUID (path variable)
+     * @return 200 with {@link CertificatePrintDefaultsResponse}, or 404 if tournament not found
+     * @throws NoSuchElementException if tournament not found (→ 404 via GlobalExceptionHandler)
+     * @since E68S02
+     */
+    @GetMapping("/api/certificate/print-defaults/{tournamentId}")
+    public ResponseEntity<CertificatePrintDefaultsResponse> printDefaults(
+            @PathVariable("tournamentId") UUID tournamentId) {
+
+        Tournament tournament =
+                tournamentRepository
+                        .findById(tournamentId)
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "Tournament not found: " + tournamentId));
+
+        String organizer = tournament.getOrganizer() != null ? tournament.getOrganizer() : "";
+        String venue = locationDisplayResolver.resolveLocationDisplayName();
+
+        return ResponseEntity.ok(new CertificatePrintDefaultsResponse(organizer, venue));
     }
 
     // -------------------------------------------------------------------------

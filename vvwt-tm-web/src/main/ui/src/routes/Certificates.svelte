@@ -51,6 +51,14 @@
   let loadError = $state<string | null>(null);
   let teams = $state<Team[]>([]);
 
+  /**
+   * E68S02 AC1 AC2 AC3 AC5 AC6 — ephemeral per-print override fields.
+   * Pre-filled from /api/certificate/print-defaults/{tournamentId} on mount.
+   * Blank/whitespace values are treated as no-override at the BE layer (AC6).
+   */
+  let organizerOverride = $state('');
+  let venueOverride = $state('');
+
   /** Teams that lack a photo — shown in warning per AC-ERROR-MISSING-TEAM-PHOTOS. */
   const teamsWithoutPhoto = $derived(teams.filter(t => !t.hasPhoto));
 
@@ -71,9 +79,11 @@
 
     try {
       // Verify tournament exists + is COMPLETED; fetch teams for missing-photo check.
-      const [tournament, teamList] = await Promise.all([
+      // E68S02 AC1: also fetch print defaults (organizer + venue pre-fill values).
+      const [tournament, teamList, defaultsRes] = await Promise.all([
         getTournament(tournamentId),
         listTeams(tournamentId),
+        fetch(`/api/certificate/print-defaults/${tournamentId}`),
       ]);
 
       if (tournament.status !== 'COMPLETED') {
@@ -83,6 +93,14 @@
       }
 
       teams = teamList;
+
+      // AC1: pre-fill override fields from current tournament/tenant defaults.
+      if (defaultsRes.ok) {
+        const defaults = await defaultsRes.json() as { organizer: string; venue: string };
+        organizerOverride = defaults.organizer ?? '';
+        venueOverride = defaults.venue ?? '';
+      }
+      // If defaults fetch fails, fields remain blank — override still works (AC6).
     } catch (e: unknown) {
       loadError = e instanceof Error ? e.message : get(_)('certificates.error.loadTeams');
     } finally {
@@ -94,24 +112,46 @@
     resetPageHeader();
   });
 
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  /**
+   * Builds URL query params for the override values (E68S02 AC2 AC3).
+   * Only non-blank values are appended — blank values are treated as no-override (AC5 AC6).
+   */
+  function buildOverrideParams(): string {
+    const params = new URLSearchParams();
+    if (organizerOverride.trim()) {
+      params.set('organizerOverride', organizerOverride.trim());
+    }
+    if (venueOverride.trim()) {
+      params.set('venueOverride', venueOverride.trim());
+    }
+    const qs = params.toString();
+    return qs ? `?${qs}` : '';
+  }
+
   // ── Actions ───────────────────────────────────────────────────────────────
 
   /**
    * Opens the single-team certificate in a new browser tab.
    * BE endpoint: GET /certificate/tournaments/{tid}/print/{teamId} (CertificateRenderController, E24S05).
+   * E68S02: appends non-blank organizerOverride/venueOverride as query params (AC2).
    * AC-IMPL-NEW-COMPONENT-CALLS-RENDER-CONTROLLER.
    */
   function openSingleCertificate(teamId: string): void {
-    window.open(`/certificate/tournaments/${tournamentId}/print/${teamId}`, '_blank');
+    const overrides = buildOverrideParams();
+    window.open(`/certificate/tournaments/${tournamentId}/print/${teamId}${overrides}`, '_blank');
   }
 
   /**
    * Opens the all-teams certificate ZIP in a new browser tab (triggers browser download).
    * BE endpoint: GET /certificate/tournaments/{tid}/print (CertificateRenderController, E24S05).
+   * E68S02: appends non-blank organizerOverride/venueOverride as query params (AC3).
    * AC-IMPL-NEW-COMPONENT-CALLS-RENDER-CONTROLLER.
    */
   function openAllCertificates(): void {
-    window.open(`/certificate/tournaments/${tournamentId}/print`, '_blank');
+    const overrides = buildOverrideParams();
+    window.open(`/certificate/tournaments/${tournamentId}/print${overrides}`, '_blank');
   }
 </script>
 
@@ -130,6 +170,35 @@
         })}
       </div>
     {/if}
+
+    <!-- ── Override fields (E68S02 AC1 AC2 AC3 AC7) ─────────────────────── -->
+    <section class="certificates__section certificates__overrides">
+      <p class="certificates__overrides-hint">{$_('certificates.overrides.hint')}</p>
+      <div class="certificates__override-row">
+        <label class="certificates__override-label" for="organizerOverride">
+          {$_('certificates.overrides.organizerLabel')}
+        </label>
+        <input
+          id="organizerOverride"
+          class="certificates__override-input"
+          type="text"
+          bind:value={organizerOverride}
+          placeholder={$_('certificates.overrides.organizerPlaceholder')}
+        />
+      </div>
+      <div class="certificates__override-row">
+        <label class="certificates__override-label" for="venueOverride">
+          {$_('certificates.overrides.venueLabel')}
+        </label>
+        <input
+          id="venueOverride"
+          class="certificates__override-input"
+          type="text"
+          bind:value={venueOverride}
+          placeholder={$_('certificates.overrides.venuePlaceholder')}
+        />
+      </div>
+    </section>
 
     <!-- ── All-teams section ─────────────────────────────────────────────── -->
     <section class="certificates__section">
@@ -224,6 +293,38 @@
     font-weight: 600;
     background: #f5f5f5;
     color: #555;
+  }
+
+  .certificates__overrides {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .certificates__overrides-hint {
+    margin: 0 0 0.25rem;
+    font-size: 0.85rem;
+    color: #555;
+  }
+
+  .certificates__override-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .certificates__override-label {
+    flex: 0 0 10rem;
+    font-size: 0.9rem;
+    color: #333;
+  }
+
+  .certificates__override-input {
+    flex: 1;
+    padding: 0.35rem 0.6rem;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    font-size: 0.9rem;
   }
 
   .btn {

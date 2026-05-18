@@ -40,6 +40,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 /**
  * REST controller for certificate rendering at new URLs (E24S05 — E23 scope-gap closure).
@@ -171,17 +172,36 @@ public class CertificateRenderController {
      *   <li>MustacheException during SVG render → 500 plaintext
      * </ol>
      *
+     * <p>E68S02 ephemeral override parameters (AC1 AC2 AC3 AC5 AC6):
+     *
+     * <ul>
+     *   <li>{@code organizerOverride} — when non-blank, replaces the stored organizer in the
+     *       rendered certificate; blank/absent → stored {@code tournament.organizer} used (AC5
+     *       AC6).
+     *   <li>{@code venueOverride} — when non-blank, used as the location line verbatim and {@link
+     *       LocationDisplayResolver#resolveLocationDisplayName()} is NOT called; blank/absent →
+     *       resolver called live at render time (AC5 Notes: venue must remain a live read when not
+     *       overridden — must not be a screen-time snapshot).
+     * </ul>
+     *
      * <p>Unknown tournament → {@link TournamentNotFoundException} → 404 via {@link
      * de.vvwt.tm.web.GlobalExceptionHandler#handleTournamentNotFound}.
      *
      * @param tid the tournament UUID (tenant-scoped)
      * @param teamId the team UUID
+     * @param organizerOverride ephemeral organizer override; null or blank → use stored organizer
+     * @param venueOverride ephemeral venue override; null or blank → live locationDisplayResolver
+     *     call
      * @param model Spring MVC model (used for HTML path)
      * @return response entity or view name
      */
     @GetMapping("/print/{teamId}")
     public Object singleCertificate(
-            @PathVariable("tid") UUID tid, @PathVariable("teamId") UUID teamId, Model model) {
+            @PathVariable("tid") UUID tid,
+            @PathVariable("teamId") UUID teamId,
+            @RequestParam(name = "organizerOverride", required = false) String organizerOverride,
+            @RequestParam(name = "venueOverride", required = false) String venueOverride,
+            Model model) {
         Tournament tournament =
                 tournamentRepository
                         .findById(tid)
@@ -213,7 +233,12 @@ public class CertificateRenderController {
                         .findFirst()
                         .orElseThrow(() -> new TournamentNotFoundException(teamId));
 
-        String locationDisplayName = locationDisplayResolver.resolveLocationDisplayName();
+        // E68S02 AC5 AC6: venue resolved live when no non-blank override supplied;
+        // when venueOverride is non-blank, use it directly (resolver NOT called — AC5 Notes).
+        String locationDisplayName =
+                (venueOverride != null && !venueOverride.isBlank())
+                        ? venueOverride
+                        : locationDisplayResolver.resolveLocationDisplayName();
 
         // AC3: SVG template uploaded → existing SVG render path (unchanged)
         // AC1/AC4: no template or HTML template → HTML system-default render path (E67S01)
@@ -223,7 +248,10 @@ public class CertificateRenderController {
             String templateContent = readTemplateContent(templateOpt.get());
             List<CertificatePlacementRow> svgRows =
                     certificateAssembler.buildSvgRows(
-                            tournament, List.of(teamPlacement), locationDisplayName);
+                            tournament,
+                            List.of(teamPlacement),
+                            locationDisplayName,
+                            organizerOverride);
 
             try {
                 String renderedSvg =
@@ -250,7 +278,7 @@ public class CertificateRenderController {
         // AC1/AC4: HTML system-default render — labels via MessageSource per AC9 (existing path)
         List<CertificatePlacementRow> htmlRows =
                 certificateAssembler.buildHtmlRows(
-                        tournament, List.of(teamPlacement), locationDisplayName);
+                        tournament, List.of(teamPlacement), locationDisplayName, organizerOverride);
         CertificatePlacementRow row = htmlRows.get(0);
 
         model.addAttribute("singleCertificate", certificateAssembler.toMustacheMap(row));
@@ -279,12 +307,23 @@ public class CertificateRenderController {
      *   <li>MustacheException or IOException during ZIP creation → 500 plaintext
      * </ol>
      *
+     * <p>E68S02 ephemeral override parameters (AC2 AC3 AC5 AC6): see {@link
+     * #singleCertificate(UUID, UUID, String, String, Model)} for the full override semantics. The
+     * same parameters apply to both endpoints (AC3: both documents honour override values).
+     *
      * @param tid the tournament UUID (tenant-scoped)
+     * @param organizerOverride ephemeral organizer override; null or blank → use stored organizer
+     * @param venueOverride ephemeral venue override; null or blank → live locationDisplayResolver
+     *     call
      * @param model Spring MVC model (used for HTML path)
      * @return response entity or view name
      */
     @GetMapping("/print")
-    public Object allCertificates(@PathVariable("tid") UUID tid, Model model) {
+    public Object allCertificates(
+            @PathVariable("tid") UUID tid,
+            @RequestParam(name = "organizerOverride", required = false) String organizerOverride,
+            @RequestParam(name = "venueOverride", required = false) String venueOverride,
+            Model model) {
         Tournament tournament =
                 tournamentRepository
                         .findById(tid)
@@ -310,7 +349,12 @@ public class CertificateRenderController {
                                     + " Spiele.");
         }
 
-        String locationDisplayName = locationDisplayResolver.resolveLocationDisplayName();
+        // E68S02 AC5 AC6: venue resolved live when no non-blank override supplied;
+        // when venueOverride is non-blank, use it directly (resolver NOT called — AC5 Notes).
+        String locationDisplayName =
+                (venueOverride != null && !venueOverride.isBlank())
+                        ? venueOverride
+                        : locationDisplayResolver.resolveLocationDisplayName();
 
         // AC3: SVG template uploaded → existing ZIP archive render path (unchanged)
         // AC2/AC4: no template or HTML template → HTML system-default render path (E67S01)
@@ -319,7 +363,8 @@ public class CertificateRenderController {
         if (templateOpt.isPresent() && "svg".equals(templateOpt.get().metadata().format())) {
             String templateContent = readTemplateContent(templateOpt.get());
             List<CertificatePlacementRow> svgRows =
-                    certificateAssembler.buildSvgRows(tournament, placements, locationDisplayName);
+                    certificateAssembler.buildSvgRows(
+                            tournament, placements, locationDisplayName, organizerOverride);
 
             try {
                 byte[] zipBytes = buildSvgZip(svgRows, templateContent);
@@ -350,7 +395,8 @@ public class CertificateRenderController {
 
         // AC2/AC4: HTML system-default render — labels via MessageSource per AC9 (existing path)
         List<CertificatePlacementRow> htmlRows =
-                certificateAssembler.buildHtmlRows(tournament, placements, locationDisplayName);
+                certificateAssembler.buildHtmlRows(
+                        tournament, placements, locationDisplayName, organizerOverride);
 
         List<Map<String, Object>> certificateMaps = new ArrayList<>();
         for (int i = 0; i < htmlRows.size(); i++) {

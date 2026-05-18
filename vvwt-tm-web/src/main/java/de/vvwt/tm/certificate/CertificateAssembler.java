@@ -30,6 +30,15 @@ import java.util.UUID;
  *
  * @see CertificatePlacementRow
  * @see AvatarPlacement
+ *     <h2>E68S02 — Ephemeral per-print organizer/venue override</h2>
+ *     <p>The overloaded {@link #buildSvgRows(Tournament, List, String, String)} and {@link
+ *     #buildHtmlRows(Tournament, List, String, String)} methods accept an optional {@code
+ *     organizerOverride}. When non-blank, the override replaces {@code tournament.getOrganizer()}
+ *     in the rendered certificate; when null or blank, the stored value is used as before (AC5
+ *     AC6). The venue is passed as {@code locationDisplayName} to both overloads; the controller is
+ *     responsible for deciding whether to call {@link de.vvwt.tm.tenant.LocationDisplayResolver}
+ *     live or to pass a supplied override (AC5 Notes: no-override path MUST remain a live read, not
+ *     a screen-time snapshot).
  * @since E23S08
  */
 public interface CertificateAssembler {
@@ -74,6 +83,8 @@ public interface CertificateAssembler {
      *
      * <p>SVG path: {@code teamPhoto} is a base64 data URI embedded inline.
      *
+     * <p>The organizer value is taken from {@code tournament.getOrganizer()} (null → empty string).
+     *
      * @param tournament the tournament entity
      * @param placements the ordered placement list from {@link #computePlacementOrder}
      * @param locationDisplayName the location display name ({{location}} variable)
@@ -83,9 +94,34 @@ public interface CertificateAssembler {
             Tournament tournament, List<AvatarPlacement> placements, String locationDisplayName);
 
     /**
+     * Builds {@link CertificatePlacementRow} list for SVG certificate rendering with an optional
+     * per-print organizer override (E68S02 AC2 AC3).
+     *
+     * <p>When {@code organizerOverride} is non-null and non-blank, it replaces {@code
+     * tournament.getOrganizer()} in every row. Blank/null override falls back to the stored
+     * organizer (AC5 AC6).
+     *
+     * <p>SVG path: {@code teamPhoto} is a base64 data URI embedded inline.
+     *
+     * @param tournament the tournament entity
+     * @param placements the ordered placement list from {@link #computePlacementOrder}
+     * @param locationDisplayName the location display name ({{location}} variable)
+     * @param organizerOverride ephemeral organizer override; null or blank → use stored organizer
+     * @return ordered list of placement rows with base64-encoded photo values
+     * @since E68S02
+     */
+    List<CertificatePlacementRow> buildSvgRows(
+            Tournament tournament,
+            List<AvatarPlacement> placements,
+            String locationDisplayName,
+            String organizerOverride);
+
+    /**
      * Builds {@link CertificatePlacementRow} list for HTML certificate rendering.
      *
      * <p>HTML path: {@code teamPhoto} is a relative URL to the photo API endpoint.
+     *
+     * <p>The organizer value is taken from {@code tournament.getOrganizer()} (null → empty string).
      *
      * @param tournament the tournament entity
      * @param placements the ordered placement list from {@link #computePlacementOrder}
@@ -94,6 +130,29 @@ public interface CertificateAssembler {
      */
     List<CertificatePlacementRow> buildHtmlRows(
             Tournament tournament, List<AvatarPlacement> placements, String locationDisplayName);
+
+    /**
+     * Builds {@link CertificatePlacementRow} list for HTML certificate rendering with an optional
+     * per-print organizer override (E68S02 AC2 AC3).
+     *
+     * <p>When {@code organizerOverride} is non-null and non-blank, it replaces {@code
+     * tournament.getOrganizer()} in every row. Blank/null override falls back to the stored
+     * organizer (AC5 AC6).
+     *
+     * <p>HTML path: {@code teamPhoto} is a relative URL to the photo API endpoint.
+     *
+     * @param tournament the tournament entity
+     * @param placements the ordered placement list from {@link #computePlacementOrder}
+     * @param locationDisplayName the location display name
+     * @param organizerOverride ephemeral organizer override; null or blank → use stored organizer
+     * @return ordered list of placement rows with photo URL values
+     * @since E68S02
+     */
+    List<CertificatePlacementRow> buildHtmlRows(
+            Tournament tournament,
+            List<AvatarPlacement> placements,
+            String locationDisplayName,
+            String organizerOverride);
 
     /**
      * Renders a certificate SVG template for a single team placement row.
