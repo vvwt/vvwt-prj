@@ -49,6 +49,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  *   <li>AC-TEST-PROPOSE-GROUP-PLACEMENT-RED: proposeTransition with sortType=group_placement
  *   <li>AC-TEST-PROPOSE-GROUP-PLACEMENT-RED (edge case): unequal group sizes
  *   <li>AC-ERROR-HANDLING-DRAFT-JSON-NULL: draft_json null → IllegalArgumentException
+ *   <li>AC3 (E66S01): Phase 2+ honors distributionMode from draft section
  * </ul>
  *
  * @see DefaultPhaseTransitionService
@@ -56,9 +57,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law (Q-1a, RED-first)</a>
  * @see <a href="DEC-36">DEC-36 — same-package test typing rule</a>
  * @see <a href="E48S07">E48S07 — AC-TEST-PROPOSE-*-RED</a>
+ * @see <a href="E66S01">E66S01 — AC3: Phase 2+ distributionMode honored</a>
  */
 @ExtendWith(MockitoExtension.class)
-@DisplayName("DefaultPhaseTransitionService unit tests — E48S07")
+@DisplayName("DefaultPhaseTransitionService unit tests — E48S07, E66S01")
 class PhaseTransitionServiceTest {
 
     @Mock private TournamentRepository tournamentRepository;
@@ -80,12 +82,17 @@ class PhaseTransitionServiceTest {
 
     @BeforeEach
     void setUp() {
-        // E58S02: stub sequential distributor for Phase-1 path (default distributionMode)
+        // E58S02: stub sequential distributor for Phase-1 and Phase-2+ paths (default
+        // distributionMode)
         SequentialTeam2AvatarDistributor sequentialDistributor =
                 new SequentialTeam2AvatarDistributor();
         lenient().when(distributorRegistry.get("sequential")).thenReturn(sequentialDistributor);
+        // E66S01 AC3: stub round_robin distributor for Phase-2+ distributionMode tests
+        RoundRobinTeam2AvatarDistributor roundRobinDistributor =
+                new RoundRobinTeam2AvatarDistributor();
+        lenient().when(distributorRegistry.get("round_robin")).thenReturn(roundRobinDistributor);
 
-        // E58S03 AC5: wire real calculator instances for Phase-2+ paths
+        // E58S03 AC5 / E66S01 AC4: wire real calculator instances for Phase-2+ paths
         lenient().when(sortRegistry.get("team_number")).thenReturn(new TeamNumberSortCalculator());
         lenient()
                 .when(sortRegistry.get("placement_group"))
@@ -105,7 +112,7 @@ class PhaseTransitionServiceTest {
                         refereeAssigner,
                         phaseLifecycleService,
                         distributorRegistry,
-                        sortRegistry); // E58S03 AC5
+                        sortRegistry);
     }
 
     // -------------------------------------------------------------------------
@@ -113,24 +120,16 @@ class PhaseTransitionServiceTest {
     // -------------------------------------------------------------------------
 
     /**
-     * AC-TEST-PROPOSE-TEAM-NUMBER-RED: 8 Teams, 2 Gruppen, sortType=team_number
+     * AC-TEST-PROPOSE-TEAM-NUMBER-RED: 8 Teams, 2 Gruppen, sortType=team_number (Phase 2+).
      *
-     * <p>Expected: Round-Robin after team number ascending
+     * <p>TeamNumberSortCalculator sorts avatars by teamNumber ASC and produces a flat ranked list.
+     * Sequential distributor fills G1 first: teams with lower teamNumber go to G1, higher to G2.
      *
-     * <ul>
-     *   <li>Team 1 → Gruppe 1 Pos 1
-     *   <li>Team 2 → Gruppe 2 Pos 1
-     *   <li>Team 3 → Gruppe 1 Pos 2
-     *   <li>Team 4 → Gruppe 2 Pos 2
-     *   <li>Team 5 → Gruppe 1 Pos 3
-     *   <li>Team 6 → Gruppe 2 Pos 3
-     *   <li>Team 7 → Gruppe 1 Pos 4
-     *   <li>Team 8 → Gruppe 2 Pos 4
-     * </ul>
+     * <p>E66S01: now uses rank() + distribute() pipeline (DEC-77 D-1).
      */
     @Test
-    @DisplayName("proposeTransition — sortType=team_number — 8 Teams → 2 Gruppen Round-Robin")
-    void proposeTransition_teamNumber_8teams2groups_roundRobin() throws Exception {
+    @DisplayName("proposeTransition — sortType=team_number — 8 Teams → 2 Gruppen Sequential")
+    void proposeTransition_teamNumber_8teams2groups_sequential() throws Exception {
         // Given
         Phase toPhase = phaseWithSortType(TO_PHASE_ID, 2, "team_number", 2);
         Phase fromPhase = phase(FROM_PHASE_ID, 1);
@@ -142,7 +141,7 @@ class PhaseTransitionServiceTest {
                 .thenReturn(Optional.of(fromPhase));
         when(tournamentRepository.findById(TOURNAMENT_ID)).thenReturn(Optional.of(tournament));
 
-        // 8 teams in fromPhase — team_number is teamNumber field ascending
+        // 8 avatars in fromPhase
         List<TeamAvatar> fromAvatars = avatars8Teams(FROM_PHASE_ID);
         when(teamAvatarRepository.findByPhaseId(FROM_PHASE_ID)).thenReturn(fromAvatars);
 
@@ -160,71 +159,55 @@ class PhaseTransitionServiceTest {
         // Act
         List<TeamAvatarProposal> proposals = service.proposeTransition(TO_PHASE_ID);
 
-        // Assert: 8 proposals, Round-Robin after team number
+        // Assert: 8 proposals
+        // TeamNumberSortCalculator sorts by teamNumber ASC → [T1, T2, T3, T4, T5, T6, T7, T8]
+        // Sequential distribute(8, 2): positionsPerGroup=4 → G1=T1..T4, G2=T5..T8
         assertThat(proposals).hasSize(8);
 
-        // team with teamNumber=1 → group=1, pos=1
-        TeamAvatarProposal t1 =
-                proposals.stream()
-                        .filter(p -> p.teamId().equals(teamIdForNumber(1)))
-                        .findFirst()
-                        .orElseThrow();
-        assertThat(t1.groupNumber()).isEqualTo(1);
-        assertThat(t1.groupPosition()).isEqualTo(1);
-
-        // team with teamNumber=2 → group=2, pos=1
-        TeamAvatarProposal t2 =
-                proposals.stream()
-                        .filter(p -> p.teamId().equals(teamIdForNumber(2)))
-                        .findFirst()
-                        .orElseThrow();
-        assertThat(t2.groupNumber()).isEqualTo(2);
-        assertThat(t2.groupPosition()).isEqualTo(1);
-
-        // team with teamNumber=3 → group=1, pos=2
-        TeamAvatarProposal t3 =
-                proposals.stream()
-                        .filter(p -> p.teamId().equals(teamIdForNumber(3)))
-                        .findFirst()
-                        .orElseThrow();
-        assertThat(t3.groupNumber()).isEqualTo(1);
-        assertThat(t3.groupPosition()).isEqualTo(2);
-
-        // team with teamNumber=4 → group=2, pos=2
-        TeamAvatarProposal t4 =
-                proposals.stream()
-                        .filter(p -> p.teamId().equals(teamIdForNumber(4)))
-                        .findFirst()
-                        .orElseThrow();
-        assertThat(t4.groupNumber()).isEqualTo(2);
-        assertThat(t4.groupPosition()).isEqualTo(2);
+        // team with teamNumber=1 → G1 pos1
+        assertProposal(proposals, teamIdForNumber(1), 1, 1);
+        // team with teamNumber=2 → G1 pos2
+        assertProposal(proposals, teamIdForNumber(2), 1, 2);
+        // team with teamNumber=3 → G1 pos3
+        assertProposal(proposals, teamIdForNumber(3), 1, 3);
+        // team with teamNumber=4 → G1 pos4
+        assertProposal(proposals, teamIdForNumber(4), 1, 4);
+        // team with teamNumber=5 → G2 pos1
+        assertProposal(proposals, teamIdForNumber(5), 2, 1);
+        // team with teamNumber=6 → G2 pos2
+        assertProposal(proposals, teamIdForNumber(6), 2, 2);
+        // team with teamNumber=7 → G2 pos3
+        assertProposal(proposals, teamIdForNumber(7), 2, 3);
+        // team with teamNumber=8 → G2 pos4
+        assertProposal(proposals, teamIdForNumber(8), 2, 4);
     }
 
     // -------------------------------------------------------------------------
-    // AC-TEST-PROPOSE-PLACEMENT-GROUP-RED
+    // AC-TEST-PROPOSE-PLACEMENT-GROUP-RED (E66S01: rank-major + sequential)
     // -------------------------------------------------------------------------
 
     /**
-     * AC-TEST-PROPOSE-PLACEMENT-GROUP-RED: sortType=placement_group
+     * AC-TEST-PROPOSE-PLACEMENT-GROUP-RED: sortType=placement_group (E66S01 DEC-77 D-2).
      *
      * <p>Phase N has 2 groups (3 teams each):
      *
      * <ul>
-     *   <li>Group 1: A[rank 1], B[rank 2], C[rank 3]
-     *   <li>Group 2: D[rank 1], E[rank 2], F[rank 3]
+     *   <li>Group 1: A[6pts], B[4pts], C[2pts]
+     *   <li>Group 2: D[6pts], E[4pts], F[2pts]
      * </ul>
      *
-     * Expected: each team stays in their group, re-sorted by placement.
+     * <p>DEC-77 D-2 rank-major interleaving: rank-1 from each group, then rank-2, then rank-3.
+     * PlacementGroupSortCalculator produces flat: [A, D, B, E, C, F]. Sequential distribute(6, 2):
+     * positionsPerGroup=3 → G1=[A,D,B], G2=[E,C,F].
      *
-     * <ul>
-     *   <li>Group 1: A Pos 1, B Pos 2, C Pos 3
-     *   <li>Group 2: D Pos 1, E Pos 2, F Pos 3
-     * </ul>
+     * <p>Updated from E58S03: old behavior was "teams stay in same source group". New behavior per
+     * DEC-77 D-2 is rank-major interleaving followed by sequential distribution.
      */
     @Test
     @DisplayName(
-            "proposeTransition — sortType=placement_group — teams stay in group, sorted by rank")
-    void proposeTransition_placementGroup_2groups3teams_stayInGroupSortByRank() throws Exception {
+            "proposeTransition — sortType=placement_group — rank-major interleaving + sequential"
+                    + " distribution (E66S01, DEC-77 D-2)")
+    void proposeTransition_placementGroup_2groups3teams_rankMajorInterleaving() throws Exception {
         // Given
         Phase toPhase = phaseWithSortType(TO_PHASE_ID, 2, "placement_group", 2);
         Phase fromPhase = phase(FROM_PHASE_ID, 1);
@@ -260,7 +243,6 @@ class PhaseTransitionServiceTest {
                         avatar(avatarF, FROM_PHASE_ID, teamF, 2, 3));
         when(teamAvatarRepository.findByPhaseId(FROM_PHASE_ID)).thenReturn(fromAvatars);
 
-        // E48S20: teamRepository.findById stubs needed for buildTeamLookup (Phase 2+ path)
         when(teamRepository.findById(teamA)).thenReturn(Optional.of(teamWithNumber(teamA, 1)));
         when(teamRepository.findById(teamB)).thenReturn(Optional.of(teamWithNumber(teamB, 2)));
         when(teamRepository.findById(teamC)).thenReturn(Optional.of(teamWithNumber(teamC, 3)));
@@ -268,13 +250,12 @@ class PhaseTransitionServiceTest {
         when(teamRepository.findById(teamE)).thenReturn(Optional.of(teamWithNumber(teamE, 5)));
         when(teamRepository.findById(teamF)).thenReturn(Optional.of(teamWithNumber(teamF, 6)));
 
-        // Ratings: A is rank 1 in group 1 (highest points), B rank 2, C rank 3
-        // D is rank 1 in group 2, E rank 2, F rank 3
-        // E58S03 AC7: bulk-load via findByPhaseId (replaces per-avatar findByAvatarId)
+        // Ratings: A=6pts (rank-1 G1), B=4pts (rank-2 G1), C=2pts (rank-3 G1)
+        //          D=6pts (rank-1 G2), E=4pts (rank-2 G2), F=2pts (rank-3 G2)
         when(teamAvatarRatingRepository.findByPhaseId(FROM_PHASE_ID))
                 .thenReturn(
                         List.of(
-                                rating(avatarA, 6), // 6 points = best
+                                rating(avatarA, 6),
                                 rating(avatarB, 4),
                                 rating(avatarC, 2),
                                 rating(avatarD, 6),
@@ -284,26 +265,26 @@ class PhaseTransitionServiceTest {
         // Act
         List<TeamAvatarProposal> proposals = service.proposeTransition(TO_PHASE_ID);
 
-        // Assert
+        // Assert: 6 proposals
+        // Rank-major flat: [A, D, B, E, C, F]
+        // Sequential distribute(6, 2): positionsPerGroup=3 → G1=positions 1-3, G2=positions 1-3
+        // Index 0=A → G1p1, 1=D → G1p2, 2=B → G1p3, 3=E → G2p1, 4=C → G2p2, 5=F → G2p3
         assertThat(proposals).hasSize(6);
 
-        // Group 1: A pos 1, B pos 2, C pos 3
-        assertProposal(proposals, teamA, 1, 1);
-        assertProposal(proposals, teamB, 1, 2);
-        assertProposal(proposals, teamC, 1, 3);
-
-        // Group 2: D pos 1, E pos 2, F pos 3
-        assertProposal(proposals, teamD, 2, 1);
-        assertProposal(proposals, teamE, 2, 2);
-        assertProposal(proposals, teamF, 2, 3);
+        assertProposal(proposals, teamA, 1, 1); // rank-1 G1 → G1 pos1
+        assertProposal(proposals, teamD, 1, 2); // rank-1 G2 → G1 pos2
+        assertProposal(proposals, teamB, 1, 3); // rank-2 G1 → G1 pos3
+        assertProposal(proposals, teamE, 2, 1); // rank-2 G2 → G2 pos1
+        assertProposal(proposals, teamC, 2, 2); // rank-3 G1 → G2 pos2
+        assertProposal(proposals, teamF, 2, 3); // rank-3 G2 → G2 pos3
     }
 
     // -------------------------------------------------------------------------
-    // AC-TEST-PROPOSE-GROUP-PLACEMENT-RED
+    // AC-TEST-PROPOSE-GROUP-PLACEMENT-RED (E66S01: group-major + sequential)
     // -------------------------------------------------------------------------
 
     /**
-     * AC-TEST-PROPOSE-GROUP-PLACEMENT-RED: sortType=group_placement
+     * AC-TEST-PROPOSE-GROUP-PLACEMENT-RED: sortType=group_placement (E66S01 DEC-77 D-2).
      *
      * <p>Phase N has 2 groups, 4 teams each:
      *
@@ -312,20 +293,18 @@ class PhaseTransitionServiceTest {
      *   <li>Group 2: B1[rank 1], B2[rank 2], B3[rank 3], B4[rank 4]
      * </ul>
      *
-     * Expected Phase N+1 (4 groups, 2 teams each):
+     * <p>DEC-77 D-2 group-major ordering: all of G1 in placement order, then all of G2.
+     * GroupPlacementSortCalculator produces flat: [A1, A2, A3, A4, B1, B2, B3, B4]. Sequential
+     * distribute(8, 4): positionsPerGroup=2 → G1=[A1,A2], G2=[A3,A4], G3=[B1,B2], G4=[B3,B4].
      *
-     * <ul>
-     *   <li>Group 1: A1, B1
-     *   <li>Group 2: A2, B2
-     *   <li>Group 3: A3, B3
-     *   <li>Group 4: A4, B4
-     * </ul>
+     * <p>Updated from E58S03: old test expected round-robin-style cross-group placement. New
+     * behavior per DEC-77 D-2 is group-major flat list + sequential distribution.
      */
     @Test
     @DisplayName(
-            "proposeTransition — sortType=group_placement — all rank-1 to group1, all rank-2 to"
-                    + " group2")
-    void proposeTransition_groupPlacement_2groups4teams_crossGroupDistribution() throws Exception {
+            "proposeTransition — sortType=group_placement — group-major flat list + sequential"
+                    + " distribution (E66S01, DEC-77 D-2)")
+    void proposeTransition_groupPlacement_2groups4teams_groupMajorSequential() throws Exception {
         // Given
         Phase toPhase = phaseWithSortType(TO_PHASE_ID, 2, "group_placement", 4);
         Phase fromPhase = phase(FROM_PHASE_ID, 1);
@@ -366,7 +345,6 @@ class PhaseTransitionServiceTest {
                         avatar(avatarB4, FROM_PHASE_ID, teamB4, 2, 4));
         when(teamAvatarRepository.findByPhaseId(FROM_PHASE_ID)).thenReturn(fromAvatars);
 
-        // E48S20: teamRepository.findById stubs needed for buildTeamLookup (Phase 2+ path)
         when(teamRepository.findById(teamA1)).thenReturn(Optional.of(teamWithNumber(teamA1, 1)));
         when(teamRepository.findById(teamA2)).thenReturn(Optional.of(teamWithNumber(teamA2, 2)));
         when(teamRepository.findById(teamA3)).thenReturn(Optional.of(teamWithNumber(teamA3, 3)));
@@ -376,8 +354,7 @@ class PhaseTransitionServiceTest {
         when(teamRepository.findById(teamB3)).thenReturn(Optional.of(teamWithNumber(teamB3, 7)));
         when(teamRepository.findById(teamB4)).thenReturn(Optional.of(teamWithNumber(teamB4, 8)));
 
-        // Ratings sorted by group; within each group, descending points = ascending rank
-        // E58S03 AC7: bulk-load via findByPhaseId (replaces per-avatar findByAvatarId)
+        // Ratings: within each source group, descending points = ascending placement rank
         when(teamAvatarRatingRepository.findByPhaseId(FROM_PHASE_ID))
                 .thenReturn(
                         List.of(
@@ -394,38 +371,39 @@ class PhaseTransitionServiceTest {
         List<TeamAvatarProposal> proposals = service.proposeTransition(TO_PHASE_ID);
 
         // Assert: 8 proposals, 4 groups of 2
+        // Group-major flat: [A1, A2, A3, A4, B1, B2, B3, B4]
+        // Sequential distribute(8, 4): positionsPerGroup=2
+        //   i=0 A1 → G1p1, i=1 A2 → G1p2
+        //   i=2 A3 → G2p1, i=3 A4 → G2p2
+        //   i=4 B1 → G3p1, i=5 B2 → G3p2
+        //   i=6 B3 → G4p1, i=7 B4 → G4p2
         assertThat(proposals).hasSize(8);
 
-        // All rank-1 finishers → group 1
-        assertProposalInGroup(proposals, teamA1, 1);
-        assertProposalInGroup(proposals, teamB1, 1);
-
-        // All rank-2 finishers → group 2
-        assertProposalInGroup(proposals, teamA2, 2);
-        assertProposalInGroup(proposals, teamB2, 2);
-
-        // All rank-3 finishers → group 3
-        assertProposalInGroup(proposals, teamA3, 3);
-        assertProposalInGroup(proposals, teamB3, 3);
-
-        // All rank-4 finishers → group 4
-        assertProposalInGroup(proposals, teamA4, 4);
-        assertProposalInGroup(proposals, teamB4, 4);
+        assertProposal(proposals, teamA1, 1, 1); // G1-rank1 → G1p1
+        assertProposal(proposals, teamA2, 1, 2); // G1-rank2 → G1p2
+        assertProposal(proposals, teamA3, 2, 1); // G1-rank3 → G2p1
+        assertProposal(proposals, teamA4, 2, 2); // G1-rank4 → G2p2
+        assertProposal(proposals, teamB1, 3, 1); // G2-rank1 → G3p1
+        assertProposal(proposals, teamB2, 3, 2); // G2-rank2 → G3p2
+        assertProposal(proposals, teamB3, 4, 1); // G2-rank3 → G4p1
+        assertProposal(proposals, teamB4, 4, 2); // G2-rank4 → G4p2
     }
 
     /**
-     * AC-TEST-PROPOSE-GROUP-PLACEMENT-RED (edge case): unequal group sizes.
+     * AC-TEST-PROPOSE-GROUP-PLACEMENT-RED (edge case): unequal group sizes (E66S01).
      *
-     * <p>Group 1 has 3 teams, Group 2 has 2 teams → 2 "rank slots". Delivery choice: truncate to
-     * smallest group. Only rank-1 and rank-2 finishers from all groups are distributed; rank-3
-     * finisher from Group 1 is dropped (no equivalent rank-3 in Group 2).
+     * <p>Group 1 has 3 teams, Group 2 has 2 teams → 5 total. GroupPlacementSortCalculator returns
+     * all 5 (no truncation). Sequential distribute(5, 2): positionsPerGroup=3 → G1=[A1,A2,A3],
+     * G2=[B1,B2]. 5 proposals total.
      *
-     * <p>Expected: 2 groups of 2 (4 proposals total, not 5).
+     * <p>Updated from E58S03: old behavior truncated to min-group-size (4 proposals). New behavior
+     * per DEC-77 D-1/D-2: calculator returns all teams; distributor determines placement.
      */
     @Test
     @DisplayName(
-            "proposeTransition — sortType=group_placement — unequal group sizes truncates to min")
-    void proposeTransition_groupPlacement_unequalGroupSizes_truncatesToMin() throws Exception {
+            "proposeTransition — sortType=group_placement — unequal group sizes: all 5 teams"
+                    + " distributed sequentially (E66S01)")
+    void proposeTransition_groupPlacement_unequalGroupSizes_allTeamsDistributed() throws Exception {
         // Given
         Phase toPhase = phaseWithSortType(TO_PHASE_ID, 2, "group_placement", 2);
         Phase fromPhase = phase(FROM_PHASE_ID, 1);
@@ -457,14 +435,12 @@ class PhaseTransitionServiceTest {
                         avatar(avrB2, FROM_PHASE_ID, tmB2, 2, 2));
         when(teamAvatarRepository.findByPhaseId(FROM_PHASE_ID)).thenReturn(fromAvatars);
 
-        // E48S20: teamRepository.findById stubs needed for buildTeamLookup (Phase 2+ path)
         when(teamRepository.findById(tmA1)).thenReturn(Optional.of(teamWithNumber(tmA1, 1)));
         when(teamRepository.findById(tmA2)).thenReturn(Optional.of(teamWithNumber(tmA2, 2)));
         when(teamRepository.findById(tmA3)).thenReturn(Optional.of(teamWithNumber(tmA3, 3)));
         when(teamRepository.findById(tmB1)).thenReturn(Optional.of(teamWithNumber(tmB1, 4)));
         when(teamRepository.findById(tmB2)).thenReturn(Optional.of(teamWithNumber(tmB2, 5)));
 
-        // E58S03 AC7: bulk-load via findByPhaseId (replaces per-avatar findByAvatarId)
         when(teamAvatarRatingRepository.findByPhaseId(FROM_PHASE_ID))
                 .thenReturn(
                         List.of(
@@ -477,12 +453,92 @@ class PhaseTransitionServiceTest {
         // Act
         List<TeamAvatarProposal> proposals = service.proposeTransition(TO_PHASE_ID);
 
-        // Assert: 4 proposals (truncated; rank-3 from group 1 has no group-2 equivalent)
+        // Assert: 5 proposals (all teams — no truncation in new design)
+        // Group-major flat: [A1, A2, A3, B1, B2]
+        // Sequential distribute(5, 2): positionsPerGroup=3 → G1=[A1,A2,A3], G2=[B1,B2]
+        assertThat(proposals).hasSize(5);
+        assertProposal(proposals, tmA1, 1, 1);
+        assertProposal(proposals, tmA2, 1, 2);
+        assertProposal(proposals, tmA3, 1, 3);
+        assertProposal(proposals, tmB1, 2, 1);
+        assertProposal(proposals, tmB2, 2, 2);
+    }
+
+    // -------------------------------------------------------------------------
+    // AC3 (E66S01): Phase 2+ honors distributionMode
+    // -------------------------------------------------------------------------
+
+    /**
+     * AC3 (E66S01): Phase 2+ with sortType=team_number and distributionMode=round_robin produces
+     * round-robin distribution.
+     *
+     * <p>DEC-77 D-1: distribution is decoupled from sort; Phase 2+ now honors distributionMode from
+     * the draft section (previously Phase 2+ ignored distributionMode and always used the old
+     * calculator's built-in logic).
+     *
+     * <p>4 teams, 2 groups with round_robin: RoundRobin distribute(4, 2): i=0 → G1p1, i=1 → G2p1,
+     * i=2 → G1p2, i=3 → G2p2.
+     */
+    @Test
+    @DisplayName(
+            "proposeTransition — Phase 2+ — distributionMode=round_robin honored (E66S01 AC3)")
+    void proposeTransition_phase2Plus_roundRobinDistributionMode_honored() throws Exception {
+        // Given: Phase 2+ with sortType=team_number, distributionMode=round_robin
+        Phase toPhase = phaseWithSortType(TO_PHASE_ID, 2, "team_number", 2);
+        Phase fromPhase = phase(FROM_PHASE_ID, 1);
+        // Build draft_json with distributionMode=round_robin
+        Tournament tournament =
+                tournamentWithDraftJson(
+                        TOURNAMENT_ID, buildDraftJsonWithDistributionMode(2, "team_number", "round_robin"));
+
+        when(phaseRepository.findById(TO_PHASE_ID)).thenReturn(Optional.of(toPhase));
+        when(phaseRepository.findByTournamentIdAndSequenceNumber(TOURNAMENT_ID, 1))
+                .thenReturn(Optional.of(fromPhase));
+        when(tournamentRepository.findById(TOURNAMENT_ID)).thenReturn(Optional.of(tournament));
+
+        UUID t1 = UUID.randomUUID();
+        UUID t2 = UUID.randomUUID();
+        UUID t3 = UUID.randomUUID();
+        UUID t4 = UUID.randomUUID();
+        UUID av1 = UUID.randomUUID();
+        UUID av2 = UUID.randomUUID();
+        UUID av3 = UUID.randomUUID();
+        UUID av4 = UUID.randomUUID();
+
+        // fromAvatars: 4 teams — all in group 1 for simplicity; teamNumbers determine sort order
+        List<TeamAvatar> fromAvatars =
+                List.of(
+                        avatar(av1, FROM_PHASE_ID, t1, 1, 1),
+                        avatar(av2, FROM_PHASE_ID, t2, 1, 2),
+                        avatar(av3, FROM_PHASE_ID, t3, 1, 3),
+                        avatar(av4, FROM_PHASE_ID, t4, 1, 4));
+        when(teamAvatarRepository.findByPhaseId(FROM_PHASE_ID)).thenReturn(fromAvatars);
+
+        // teamNumbers: t1=1, t2=2, t3=3, t4=4
+        Team team1 = teamWithNumber(t1, 1);
+        Team team2 = teamWithNumber(t2, 2);
+        Team team3 = teamWithNumber(t3, 3);
+        Team team4 = teamWithNumber(t4, 4);
+        when(teamRepository.findById(t1)).thenReturn(Optional.of(team1));
+        when(teamRepository.findById(t2)).thenReturn(Optional.of(team2));
+        when(teamRepository.findById(t3)).thenReturn(Optional.of(team3));
+        when(teamRepository.findById(t4)).thenReturn(Optional.of(team4));
+
+        lenient()
+                .when(teamAvatarRatingRepository.findByPhaseId(FROM_PHASE_ID))
+                .thenReturn(List.of());
+
+        // Act
+        List<TeamAvatarProposal> proposals = service.proposeTransition(TO_PHASE_ID);
+
+        // Assert: 4 proposals with round-robin distribution
+        // TeamNumberSortCalculator ranks: [T1, T2, T3, T4] (sorted by teamNumber ASC)
+        // RoundRobin distribute(4, 2): i=0 → G1p1, i=1 → G2p1, i=2 → G1p2, i=3 → G2p2
         assertThat(proposals).hasSize(4);
-        assertProposalInGroup(proposals, tmA1, 1);
-        assertProposalInGroup(proposals, tmB1, 1);
-        assertProposalInGroup(proposals, tmA2, 2);
-        assertProposalInGroup(proposals, tmB2, 2);
+        assertProposal(proposals, t1, 1, 1); // T1 → G1p1
+        assertProposal(proposals, t2, 2, 1); // T2 → G2p1
+        assertProposal(proposals, t3, 1, 2); // T3 → G1p2
+        assertProposal(proposals, t4, 2, 2); // T4 → G2p2
     }
 
     // -------------------------------------------------------------------------
@@ -501,8 +557,8 @@ class PhaseTransitionServiceTest {
         when(phaseRepository.findById(TO_PHASE_ID)).thenReturn(Optional.of(toPhase));
         when(tournamentRepository.findById(TOURNAMENT_ID)).thenReturn(Optional.of(tournament));
         // No stub for findByTournamentIdAndSequenceNumber — service throws before reaching
-        // fromPhase
-        // resolution because draft_json is null (checked immediately after tournament load).
+        // fromPhase resolution because draft_json is null (checked immediately after tournament
+        // load).
 
         assertThatThrownBy(() -> service.proposeTransition(TO_PHASE_ID))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -669,7 +725,7 @@ class PhaseTransitionServiceTest {
         // Act — Phase 2 must still use the avatar-based path
         List<TeamAvatarProposal> proposals = service.proposeTransition(TO_PHASE_ID);
 
-        // Assert: 8 proposals from fromAvatars, round-robin distribution
+        // Assert: 8 proposals from fromAvatars
         assertThat(proposals).hasSize(8);
     }
 
@@ -963,21 +1019,6 @@ class PhaseTransitionServiceTest {
             av.setTeamId(teamIdForNumber(i));
             av.setGroupNumber(1);
             av.setGroupPosition(i);
-            // No ratings needed for team_number algorithm; store teamNumber as a recognisable UUID
-            // marker. The implementation reads the team's number from the Team entity or from
-            // the avatar's teamId. Since we don't have Team objects in unit tests, the
-            // DefaultPhaseTransitionService must accept teamId ordering.
-            // For team_number: the service sorts teams by their teamId order among the fromAvatars
-            // list OR by a separate teamNumber lookup. Given the story says "by Team-Nummer
-            // aufsteigend", we need the service to know team numbers.
-            // We pass them in deterministic UUID order by using a sorted list.
-            // Simplification: team_number algorithm uses the index position in the sorted avatar
-            // list (the existing TeamAvatarRepository returns them in group_number, group_position
-            // order, and for fromPhase Phase 1 the positions correspond to team numbers).
-            // Actually the service will need Team.teamNumber — let's use a TeamRepository mock.
-            // We must add that as a collaborator. For simplicity in this RED test:
-            // The service uses the fromAvatars ordered by their avatar.getGroupPosition()
-            // (which in Phase 1 corresponds to initial seeding order = team number order).
             avatars.add(av);
         }
         return avatars;
@@ -1039,26 +1080,53 @@ class PhaseTransitionServiceTest {
         // Build minimal draft_json containing a section for toPhase (sequenceNumber=2)
         // The service reads sections[index].sortType and sections[index].groupCount
         // Section sectionNumber=2 maps to Phase sequenceNumber=2 (1-indexed)
-        String json =
-                "{"
-                        + "\"sections\": ["
-                        + "  {\"sectionNumber\": 1, \"sortType\": \"team_number\","
-                        + "   \"groupCount\": "
-                        + groupCount
-                        + ", \"gameMode\": \"roundRobin\","
-                        + "   \"lapBreakTimeMinutes\": 5, \"sectionBreakTimeMinutes\": 10,"
-                        + "   \"lapTimeMinutes\": 15, \"setQuantity\": 3, \"breaks\": []},"
-                        + "  {\"sectionNumber\": 2, \"sortType\": \""
-                        + sortType
-                        + "\","
-                        + "   \"groupCount\": "
-                        + groupCount
-                        + ", \"gameMode\": \"roundRobin\","
-                        + "   \"lapBreakTimeMinutes\": 5, \"sectionBreakTimeMinutes\": 10,"
-                        + "   \"lapTimeMinutes\": 15, \"setQuantity\": 3, \"breaks\": []}"
-                        + "]"
-                        + "}";
-        return json;
+        return "{"
+                + "\"sections\": ["
+                + "  {\"sectionNumber\": 1, \"sortType\": \"team_number\","
+                + "   \"groupCount\": "
+                + groupCount
+                + ", \"gameMode\": \"roundRobin\","
+                + "   \"lapBreakTimeMinutes\": 5, \"sectionBreakTimeMinutes\": 10,"
+                + "   \"lapTimeMinutes\": 15, \"setQuantity\": 3, \"breaks\": []},"
+                + "  {\"sectionNumber\": 2, \"sortType\": \""
+                + sortType
+                + "\","
+                + "   \"groupCount\": "
+                + groupCount
+                + ", \"gameMode\": \"roundRobin\","
+                + "   \"lapBreakTimeMinutes\": 5, \"sectionBreakTimeMinutes\": 10,"
+                + "   \"lapTimeMinutes\": 15, \"setQuantity\": 3, \"breaks\": []}"
+                + "]"
+                + "}";
+    }
+
+    /**
+     * Builds a draft_json for Phase 2 with the given distributionMode on the section 2 entry.
+     * Used for AC3 distributionMode tests.
+     */
+    private String buildDraftJsonWithDistributionMode(
+            int groupCount, String sortType, String distributionMode) {
+        return "{"
+                + "\"sections\": ["
+                + "  {\"sectionNumber\": 1, \"sortType\": \"team_number\","
+                + "   \"groupCount\": "
+                + groupCount
+                + ", \"gameMode\": \"roundRobin\","
+                + "   \"lapBreakTimeMinutes\": 5, \"sectionBreakTimeMinutes\": 10,"
+                + "   \"lapTimeMinutes\": 15, \"setQuantity\": 3, \"breaks\": []},"
+                + "  {\"sectionNumber\": 2, \"sortType\": \""
+                + sortType
+                + "\","
+                + "   \"groupCount\": "
+                + groupCount
+                + ", \"distributionMode\": \""
+                + distributionMode
+                + "\","
+                + "   \"gameMode\": \"roundRobin\","
+                + "   \"lapBreakTimeMinutes\": 5, \"sectionBreakTimeMinutes\": 10,"
+                + "   \"lapTimeMinutes\": 15, \"setQuantity\": 3, \"breaks\": []}"
+                + "]"
+                + "}";
     }
 
     private void assertProposal(
@@ -1177,7 +1245,7 @@ class PhaseTransitionServiceTest {
      *
      * <p>DEC-22: test written before {@code sortType} field exists — fails (RED) until the field is
      * added and populated in {@link
-     * de.vvwt.tm.tournament.internal.DefaultPhaseTransitionService#computePhase1Proposals}.
+     * de.vvwt.tm.tournament.internal.DefaultPhaseTransitionService#rankPhase1Teams}.
      *
      * @see <a href="E51S13">E51S13 — Bug 2a sortType-driven source-pane label</a>
      */
@@ -1213,7 +1281,7 @@ class PhaseTransitionServiceTest {
      * the placement_group branch has {@code sortType = "placement_group"}.
      *
      * <p>DEC-22: RED-first — fails until {@link
-     * de.vvwt.tm.tournament.internal.DefaultPhaseTransitionService#computeProposals} populates
+     * de.vvwt.tm.tournament.internal.DefaultPhaseTransitionService#buildProposals} populates
      * sortType from {@code toSection.getSortType()}.
      *
      * @see <a href="E51S13">E51S13 — AC-TEST-PHASE-2-PROPOSAL-SORTTYPE-PLACEMENT-GROUP-RED</a>
@@ -1256,7 +1324,6 @@ class PhaseTransitionServiceTest {
         when(teamRepository.findById(t3)).thenReturn(Optional.of(teamWithNumber(t3, 3)));
         when(teamRepository.findById(t4)).thenReturn(Optional.of(teamWithNumber(t4, 4)));
 
-        // E58S03 AC7: bulk-load via findByPhaseId (replaces per-avatar findByAvatarId)
         when(teamAvatarRatingRepository.findByPhaseId(FROM_PHASE_ID))
                 .thenReturn(
                         List.of(rating(av1, 6), rating(av2, 4), rating(av3, 6), rating(av4, 4)));
@@ -1295,7 +1362,7 @@ class PhaseTransitionServiceTest {
                 .thenReturn(Optional.of(fromPhase));
         when(tournamentRepository.findById(TOURNAMENT_ID)).thenReturn(Optional.of(tournament));
 
-        // 4 avatars in 2 groups (2 per group — equal size needed for group_placement)
+        // 4 avatars in 2 groups (2 per group — equal size)
         UUID t1 = UUID.randomUUID();
         UUID t2 = UUID.randomUUID();
         UUID t3 = UUID.randomUUID();
@@ -1317,7 +1384,6 @@ class PhaseTransitionServiceTest {
         when(teamRepository.findById(t3)).thenReturn(Optional.of(teamWithNumber(t3, 3)));
         when(teamRepository.findById(t4)).thenReturn(Optional.of(teamWithNumber(t4, 4)));
 
-        // E58S03 AC7: bulk-load via findByPhaseId (replaces per-avatar findByAvatarId)
         when(teamAvatarRatingRepository.findByPhaseId(FROM_PHASE_ID))
                 .thenReturn(
                         List.of(rating(av1, 6), rating(av2, 4), rating(av3, 6), rating(av4, 4)));

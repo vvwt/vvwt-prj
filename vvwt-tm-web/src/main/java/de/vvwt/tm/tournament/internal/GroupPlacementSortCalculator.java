@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package de.vvwt.tm.tournament.internal;
 
+import de.vvwt.tm.tournament.RankedTeamEntry;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamAvatar;
-import de.vvwt.tm.tournament.TeamAvatarProposal;
 import de.vvwt.tm.tournament.TeamAvatarRating;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -18,20 +18,23 @@ import org.springframework.stereotype.Component;
  * {@link de.vvwt.tm.tournament.TeamSortCalculator} implementation for the {@code "group_placement"}
  * sort mode.
  *
- * <p>Group-placement distribution: rank-N finisher from every Phase-N group → target group N.
- * Truncates to the minimum group size when groups are unequal — teams with rank beyond the minimum
- * are excluded (no equivalent rank slot in the smaller group).
+ * <p>DEC-77 D-2: group-major (source-group-first then placement): all teams of source group 1 in
+ * placement order, then all teams of source group 2, and so on. Source groups are visited in
+ * ascending group-number order. Placement order within each group is defined by the DEC-77 D-3
+ * comparator ({@link PlacementComparator}): points DESC → setQuotient DESC → ballQuotient DESC →
+ * groupPosition ASC, withoutAssessment last.
  *
- * <p>Within each target group, positions are assigned in the order the source groups are
- * encountered (source group 1 first, source group 2 second, etc.).
- *
- * <p>Extracted from {@code DefaultPhaseTransitionService.computeGroupPlacement} (E58S03 AC5).
- * Behaviour is identical to the original switch-case branch.
+ * <p>Returns a flat ordered list — no distribution is applied (DEC-77 D-1). Distribution is the
+ * responsibility of {@link de.vvwt.tm.tournament.Team2AvatarDistributor}.
  *
  * @see de.vvwt.tm.tournament.TeamSortCalculator
  * @see AbstractAssignmentProposalCalculator
+ * @see PlacementComparator
  * @see <a href="DEC-73">DEC-73 D-3 — TeamSortCalculator strategy</a>
- * @see <a href="E58S03">E58S03 — AC4, AC5, AC8</a>
+ * @see <a href="DEC-77">DEC-77 D-2 — group_placement: group-major</a>
+ * @see <a href="DEC-77">DEC-77 D-3 — placement comparator</a>
+ * @see <a href="E58S03">E58S03 — AC4, AC5, AC8 (original)</a>
+ * @see <a href="E66S01">E66S01 — AC4, AC5 (updated: flat list, DEC-77 D-3 comparator)</a>
  */
 @Component("tmGroupPlacementSortCalculator")
 class GroupPlacementSortCalculator extends AbstractAssignmentProposalCalculator {
@@ -42,44 +45,40 @@ class GroupPlacementSortCalculator extends AbstractAssignmentProposalCalculator 
         return "group_placement";
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Emits all teams from source group 1 (in DEC-77 D-3 placement order), then all from source
+     * group 2, and so on (group-major ordering). Source groups are visited in ascending group-number
+     * order.
+     */
     @Override
-    public List<TeamAvatarProposal> sortTeams(
+    public List<RankedTeamEntry> rank(
             List<TeamAvatar> fromAvatars,
             Map<UUID, TeamAvatarRating> ratingsByAvatarId,
-            Map<UUID, Team> teamById,
-            int groupCount,
-            String sortType) {
-        // Group avatars by their fromPhase groupNumber
+            Map<UUID, Team> teamById) {
+        // Group avatars by sourceGroupNumber
         Map<Integer, List<TeamAvatar>> byGroup = new LinkedHashMap<>();
         for (TeamAvatar av : fromAvatars) {
             byGroup.computeIfAbsent(av.getGroupNumber(), k -> new ArrayList<>()).add(av);
         }
 
-        // Sort each group by descending points: index 0 = rank 1 (best), index 1 = rank 2, ...
-        for (List<TeamAvatar> groupAvatars : byGroup.values()) {
-            groupAvatars.sort(
-                    Comparator.comparingInt(
-                                    (TeamAvatar av) ->
-                                            getPointsOrMin(av.getId(), ratingsByAvatarId))
-                            .reversed());
-        }
+        Comparator<TeamAvatar> cmp = PlacementComparator.forRatings(ratingsByAvatarId);
 
-        // Truncate to minimum group size
-        int minSize = byGroup.values().stream().mapToInt(List::size).min().orElse(0);
+        // Sort group keys ascending for consistent ordering
+        List<Integer> groupKeys = new ArrayList<>(byGroup.keySet());
+        groupKeys.sort(Comparator.naturalOrder());
 
-        // Build proposals: rank slot r → target group (r+1), position = source-group order
-        List<TeamAvatarProposal> proposals = new ArrayList<>();
-        for (int rankSlot = 0; rankSlot < minSize; rankSlot++) {
-            int targetGroup = rankSlot + 1;
-            int posWithinGroup = 1;
-            for (List<TeamAvatar> sourceGroup : byGroup.values()) {
-                TeamAvatar av = sourceGroup.get(rankSlot);
+        // Group-major: emit all of group 1 in placement order, then group 2, etc.
+        List<RankedTeamEntry> ranked = new ArrayList<>(fromAvatars.size());
+        for (Integer key : groupKeys) {
+            List<TeamAvatar> groupAvatars = new ArrayList<>(byGroup.get(key));
+            groupAvatars.sort(cmp);
+            for (TeamAvatar av : groupAvatars) {
                 Team team = requireTeamForDisplay(av, teamById);
-                proposals.add(buildProposal(av, team, targetGroup, posWithinGroup, sortType));
-                posWithinGroup++;
+                ranked.add(buildEntry(av, team));
             }
         }
-        return proposals;
+        return ranked;
     }
 }

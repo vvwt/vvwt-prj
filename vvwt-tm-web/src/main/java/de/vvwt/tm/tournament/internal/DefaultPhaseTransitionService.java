@@ -8,6 +8,7 @@ import de.vvwt.tm.tournament.Phase.PhaseStatus;
 import de.vvwt.tm.tournament.PhaseLifecycleService;
 import de.vvwt.tm.tournament.PhaseRepository;
 import de.vvwt.tm.tournament.PhaseTransitionService;
+import de.vvwt.tm.tournament.RankedTeamEntry;
 import de.vvwt.tm.tournament.RefereeAssigner;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.Team2AvatarDistributorRegistry;
@@ -18,7 +19,6 @@ import de.vvwt.tm.tournament.TeamAvatarRating;
 import de.vvwt.tm.tournament.TeamAvatarRatingRepository;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.TeamRepository;
-import de.vvwt.tm.tournament.TeamSortCalculator;
 import de.vvwt.tm.tournament.TeamSortCalculatorRegistry;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
@@ -48,18 +48,33 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>{@link #proposeTransition(UUID)} — pure read-only; no lock; no persistence. Derives
  *       team-to-(group, position) assignment from {@code toPhase}'s sortType. For Phase 1
  *       (sequenceNumber=1), uses the Phase-1-Branch (E48S18): loads {@code tournament.Teams} where
- *       {@code participate=true}, sorted by {@code teamNumber}, and distributes via Round-Robin.
- *       For Phase 2+ (sequenceNumber&gt;1), uses the existing Phase-N-Avatar path.
+ *       {@code participate=true}, sorted by {@code teamNumber}, builds a flat {@link
+ *       RankedTeamEntry} list, and distributes via the configured {@code distributionMode}. For
+ *       Phase 2+ (sequenceNumber&gt;1), delegates to {@link
+ *       de.vvwt.tm.tournament.TeamSortCalculator#rank} and then distributes.
  *   <li>{@link #commitTransition(UUID, List)} — acquires per-tournament pessimistic DB row-lock
  *       (DEC-37 Clause B), persists {@link TeamAvatar} entities for {@code toPhaseId}, then invokes
  *       match generation via {@link PhasePreparationService#generateMatches}.
  * </ul>
  *
+ * <h2>E66S01 — AC3, AC6: unified sort + distribute pipeline (DEC-77 D-1/D-4)</h2>
+ *
+ * <p>Phase 1 and Phase 2+ share the same two-step pipeline:
+ *
+ * <ol>
+ *   <li>Sort: produce a flat {@link RankedTeamEntry} list (Phase 1: by teamNumber; Phase 2+: via
+ *       {@link de.vvwt.tm.tournament.TeamSortCalculator#rank}).
+ *   <li>Distribute: map the ranked list to {@code (groupNumber, groupPosition)} slots via {@link
+ *       de.vvwt.tm.tournament.Team2AvatarDistributor#distribute(int, int)} (DEC-77 D-1).
+ * </ol>
+ *
+ * <p>Phase 2+ now honors {@code distributionMode} from the draft section (AC3). Both phases use
+ * {@link #buildProposals(List, DraftSection)} as the single distribution entry-point (AC6).
+ *
  * <h2>E48S20 — DTO widening (AC-IMPL-SERVICE-POPULATES-FIELDS)</h2>
  *
- * <p>All {@code computeXxx} methods populate the four new {@link TeamAvatarProposal} display fields
- * ({@code teamNumber}, {@code teamDescription}, {@code sourceGroupNumber}, {@code
- * sourceGroupPosition}):
+ * <p>All proposals populate the four {@link TeamAvatarProposal} display fields ({@code teamNumber},
+ * {@code teamDescription}, {@code sourceGroupNumber}, {@code sourceGroupPosition}):
  *
  * <ul>
  *   <li>Phase 1 branch: {@code teamNumber} and {@code teamDescription} from {@link Team}; source
@@ -67,34 +82,23 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>Phase 2+ branches: {@code teamNumber} and {@code teamDescription} from the {@link Team}
  *       aggregate behind the previous-phase {@link TeamAvatar} (via {@code
  *       TeamRepository.findById}); {@code sourceGroupNumber} and {@code sourceGroupPosition} from
- *       the fromPhase {@link TeamAvatar}'s structural identity (the team's placement in Phase N
- *       becomes the source slot for Phase N+1).
+ *       the fromPhase {@link TeamAvatar}'s structural identity.
  * </ul>
  *
  * <p>Defense: if a Team cannot be resolved (corrupt data), {@link #buildTeamLookup} throws {@link
  * IllegalStateException} with the offending teamId (AC-ERROR-MISSING-TEAM-DEFENSE).
- *
- * <h2>sortType algorithms</h2>
- *
- * <ul>
- *   <li>{@code team_number} (Phase 1) — Round-Robin distribution over participating Tournament
- *       Teams sorted by {@code teamNumber} ascending across N target groups.
- *   <li>{@code team_number} (Phase 2+) — Round-Robin distribution over the avatar list sorted by
- *       (group_number, group_position) ascending (fromPhase seeding order) across N target groups.
- *   <li>{@code placement_group} — Teams keep their Phase-N group; positions are re-assigned by
- *       descending points (higher points = better placement = lower position number).
- *   <li>{@code group_placement} — Cross-group: rank-1 from every Phase-N group → target group 1,
- *       rank-2 → group 2, etc. Truncates to the minimum group size when groups are unequal.
- * </ul>
  *
  * @see PhaseTransitionService
  * @see <a href="DEC-9">DEC-9 — TeamAvatar structural identity (groupNumber, groupPosition)</a>
  * @see <a href="DEC-35">DEC-35 — interface in public package, impl in .internal</a>
  * @see <a href="DEC-37">DEC-37 Clause B — per-tournament pessimistic DB row-lock
  *     (commitTransition)</a>
+ * @see <a href="DEC-77">DEC-77 D-1 — sort/distribute decoupling</a>
+ * @see <a href="DEC-77">DEC-77 D-4 — unified proposal pipeline</a>
  * @see <a href="E48S07">E48S07 — Drag&amp;Drop Phase-Transition Backend</a>
  * @see <a href="E48S18">E48S18 — Phase-1-Branch (proposeTransition for sequenceNumber=1)</a>
  * @see <a href="E48S20">E48S20 — DTO widening: display fields + source-slot fields</a>
+ * @see <a href="E66S01">E66S01 — AC3, AC6: unified pipeline, distributionMode for Phase 2+</a>
  */
 @Service("tmPhaseTransitionService")
 public class DefaultPhaseTransitionService implements PhaseTransitionService {
@@ -144,10 +148,10 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
      * {@inheritDoc}
      *
      * <p>No DB lock required. For Phase 1 (sequenceNumber=1), uses the Phase-1-Branch (E48S18):
-     * loads participating Tournament Teams, sorted by teamNumber, distributes via Round-Robin. For
-     * Phase 2+ (sequenceNumber&gt;1), resolves fromPhase via {@code
-     * phaseRepository.findByTournamentIdAndSequenceNumber(toPhase.tournamentId,
-     * toPhase.sequenceNumber - 1)} and uses existing avatar-based algorithms.
+     * loads participating Tournament Teams, builds a flat {@link RankedTeamEntry} list (sorted by
+     * teamNumber), and distributes via {@link #buildProposals}. For Phase 2+ (sequenceNumber&gt;1),
+     * delegates to the registered {@link de.vvwt.tm.tournament.TeamSortCalculator#rank} and then
+     * distributes via {@link #buildProposals} (AC6 unified pipeline, E66S01).
      */
     @Override
     public List<TeamAvatarProposal> proposeTransition(UUID toPhaseId) {
@@ -158,15 +162,17 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
         Optional<Phase> fromPhaseOpt = requireFromPhase(toPhase);
         if (fromPhaseOpt.isEmpty()) {
             // Phase-1-Branch (E48S18): source is tournament.Teams where participate=true
-            return computePhase1Proposals(tournament, toSection);
+            List<RankedTeamEntry> ranked = rankPhase1Teams(tournament, toSection);
+            return buildProposals(ranked, toSection);
         }
 
-        // Phase N+1 branch: use fromPhase TeamAvatars (existing behavior — E48S07)
+        // Phase N+1 branch: use fromPhase TeamAvatars (E48S07, E66S01 AC3/AC6)
         Phase fromPhase = fromPhaseOpt.get();
         List<TeamAvatar> fromAvatars = teamAvatarRepository.findByPhaseId(fromPhase.getId());
         // E48S20: build Team lookup map for display-field population (avoid N+1 per avatar)
         Map<UUID, Team> teamById = buildTeamLookup(fromAvatars);
-        return computeProposals(fromAvatars, toSection, teamById, fromPhase.getId());
+        List<RankedTeamEntry> ranked = rankPhase2PlusTeams(fromAvatars, toSection, teamById, fromPhase.getId());
+        return buildProposals(ranked, toSection);
     }
 
     // -------------------------------------------------------------------------
@@ -306,34 +312,29 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
     }
 
     // -------------------------------------------------------------------------
-    // Phase-1-Branch algorithm (E48S18 + E48S20 display-field population)
+    // Phase-1-Branch: sort by teamNumber (E48S18, E66S01 AC6)
     // -------------------------------------------------------------------------
 
     /**
-     * Computes a Round-Robin proposal for Phase 1 from participating Tournament Teams.
+     * Produces a flat {@link RankedTeamEntry} list for Phase 1 from participating Tournament Teams,
+     * sorted by {@code teamNumber} ascending (TeamRepository contract).
      *
-     * <p>Source: {@link TeamRepository#findByTournamentId(UUID)} filtered for {@code
-     * participate=true}, sorted by {@code teamNumber} ascending (repository contract).
+     * <p>DEC-22: defense-in-depth — Phase 1 MUST have sortType=team_number (E48S16 invariant).
+     * Throws {@link IllegalStateException} if violated.
      *
-     * <p>Round-Robin: team at index {@code i} (0-indexed) goes to group {@code (i % groupCount) +
-     * 1} with position {@code (i / groupCount) + 1}.
-     *
-     * <p>E48S20 (AC-IMPL-SERVICE-POPULATES-FIELDS): {@code teamNumber} and {@code teamDescription}
-     * are taken directly from the {@link Team} entity. Source fields ({@code sourceGroupNumber},
-     * {@code sourceGroupPosition}) are {@code null} — Phase 1 has no previous phase.
+     * <p>E66S01 AC6: this method replaces the old {@code computePhase1Proposals}. Distribution is
+     * now handled by {@link #buildProposals(List, DraftSection)}, which is also used by Phase 2+,
+     * completing the DEC-77 D-4 unified pipeline.
      *
      * @param tournament the tournament containing the participating teams
      * @param toSection the DraftSection for Phase 1 (must have sortType=team_number, E48S16
      *     invariant)
-     * @return list of TeamAvatarProposals for Phase 1 (never null, never empty)
+     * @return flat ranked list of participating teams sorted by teamNumber ASC
      * @throws IllegalStateException if sortType ≠ team_number (defense-in-depth vs. E48S16 bypass)
      * @throws IllegalArgumentException if no participating teams exist
      *     (AC-ERROR-HANDLING-EMPTY-TEAMS)
-     * @throws IllegalStateException if any participating Team has null teamnumber or description
-     *     (AC-ERROR-MISSING-TEAM-DEFENSE)
      */
-    private List<TeamAvatarProposal> computePhase1Proposals(
-            Tournament tournament, DraftSection toSection) {
+    private List<RankedTeamEntry> rankPhase1Teams(Tournament tournament, DraftSection toSection) {
         // Defense-in-depth: Phase 1 MUST have sortType=team_number (E48S16 invariant)
         if (!"team_number".equals(toSection.getSortType())) {
             throw new IllegalStateException(
@@ -363,80 +364,51 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
                             + ")");
         }
 
-        int groupCount = toSection.getGroupCount();
-        int teamCount = participating.size();
-
-        // E58S02: Registry dispatch for distributionMode (DEC-73 D-2).
-        // Replaces inline DistributionMode enum branching with strategy pattern lookup.
-        // The same algorithm is used in DefaultDraftService.persistStructuralAvatars()
-        // so that proposal (group, position) matches the avatar slot created at apply-time
-        // (DEC-9 structural identity for UPDATE-by-identity in commitTransition).
-        String distributionMode = toSection.getDistributionMode();
-        List<Team2AvatarSlot> slots =
-                distributorRegistry.get(distributionMode).distribute(participating, groupCount);
-
-        List<TeamAvatarProposal> proposals = new ArrayList<>(teamCount);
-        for (int i = 0; i < teamCount; i++) {
-            Team team = participating.get(i);
-            Team2AvatarSlot slot = slots.get(i);
-            int targetGroup = slot.groupNumber();
-            int targetPosition = slot.groupPosition();
-
-            // E48S20 (AC-ERROR-MISSING-TEAM-DEFENSE): defense against corrupt data
+        // E48S20 (AC-ERROR-MISSING-TEAM-DEFENSE): validate display fields before building entries
+        // Phase 1 has no source phase → sourceGroupNumber and sourceGroupPosition are null
+        List<RankedTeamEntry> ranked = new ArrayList<>(participating.size());
+        for (Team team : participating) {
             validateTeamDisplayFields(team);
-
-            // E48S20 (AC-IMPL-SERVICE-POPULATES-FIELDS): populate display fields
-            // Phase 1 has no source phase → sourceGroupNumber and sourceGroupPosition are null
-            // E51S13 (AC-IMPL-DTO-SORTTYPE-NULLABLE): populate sortType from toSection (always
-            // "team_number" for Phase 1 per the defense-in-depth check above)
-            proposals.add(
-                    new TeamAvatarProposal(
-                            team.getId(),
-                            team.getTeamNumber(),
-                            team.getDescription(),
-                            targetGroup,
-                            targetPosition,
-                            null,
-                            null,
-                            toSection.getSortType()));
+            ranked.add(
+                    new RankedTeamEntry(
+                            team.getId(), team.getTeamNumber(), team.getDescription(), null, null));
         }
 
         log.debug(
-                "[E48S18] computePhase1Proposals: tournamentId={}, participatingTeams={},"
-                        + " groups={}",
+                "[E48S18/E66S01] rankPhase1Teams: tournamentId={}, participatingTeams={}",
                 tournament.getId(),
-                participating.size(),
-                groupCount);
+                ranked.size());
 
-        return proposals;
+        return ranked;
     }
 
     // -------------------------------------------------------------------------
-    // sortType registry dispatch (Phase 2+ — E58S03 AC5)
+    // Phase-2+-Branch: sort via registry (E58S03, E66S01 AC3/AC6)
     // -------------------------------------------------------------------------
 
     /**
-     * Dispatches proposal computation to the registered {@link TeamSortCalculator} for the given
-     * sortType (E58S03 AC5 — registry dispatch replaces inline switch).
+     * Produces a flat {@link RankedTeamEntry} list for Phase 2+ by delegating to the registered
+     * {@link de.vvwt.tm.tournament.TeamSortCalculator#rank} for the given sortType.
      *
      * <p>AC7 (DEC-69 production callsite): bulk-loads all ratings for avatars in the from-phase via
      * {@link TeamAvatarRatingRepository#findByPhaseId(UUID)} and passes the resulting map to {@link
-     * TeamSortCalculator#sortTeams} — replaces the previous per-avatar N+1 {@code findByAvatarId}
-     * calls inside the old private sort methods.
+     * de.vvwt.tm.tournament.TeamSortCalculator#rank}.
+     *
+     * <p>E66S01 AC6: returns a flat ranked list; distribution is handled by {@link
+     * #buildProposals(List, DraftSection)}, completing the DEC-77 D-4 unified pipeline.
      *
      * @param fromAvatars avatars from the preceding phase
-     * @param toSection draft section defining sortType and groupCount for the target phase
+     * @param toSection draft section defining sortType for the target phase
      * @param teamById pre-built Team lookup map for display-field population
      * @param fromPhaseId the phase id whose avatars supply the ratings (used for bulk load)
-     * @return list of proposals produced by the calculator; never null
+     * @return flat ranked list produced by the calculator; never null
      */
-    private List<TeamAvatarProposal> computeProposals(
+    private List<RankedTeamEntry> rankPhase2PlusTeams(
             List<TeamAvatar> fromAvatars,
             DraftSection toSection,
             Map<UUID, Team> teamById,
             UUID fromPhaseId) {
         String sortType = toSection.getSortType();
-        TeamSortCalculator calculator = sortRegistry.get(sortType);
 
         // AC7: bulk-load all ratings for avatars in the from-phase (DEC-69 production callsite)
         List<TeamAvatarRating> ratingsList = teamAvatarRatingRepository.findByPhaseId(fromPhaseId);
@@ -446,8 +418,56 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
                                 Collectors.toMap(
                                         TeamAvatarRating::getAvatarId, Function.identity()));
 
-        return calculator.sortTeams(
-                fromAvatars, ratingsByAvatarId, teamById, toSection.getGroupCount(), sortType);
+        return sortRegistry.get(sortType).rank(fromAvatars, ratingsByAvatarId, teamById);
+    }
+
+    // -------------------------------------------------------------------------
+    // Unified distribution step — DEC-77 D-1/D-4 (E66S01 AC3, AC6)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Distributes a flat ranked list of teams into {@code (groupNumber, groupPosition)} slots and
+     * builds the final {@link TeamAvatarProposal} list (DEC-77 D-1, E66S01 AC6).
+     *
+     * <p>Both Phase 1 and Phase 2+ use this method — it is the single entry-point for distribution,
+     * replacing the old Phase-1-only inline distribution and the old Phase-2+ distribution-free
+     * {@code computeProposals} (AC6 unification).
+     *
+     * <p>AC3 (E66S01): Phase 2+ now honors {@code distributionMode} from the draft section because
+     * this method reads {@code toSection.getDistributionMode()} for all callers.
+     *
+     * @param ranked the flat ranked list; index 0 = highest-ranked team
+     * @param toSection the draft section for the target phase (provides groupCount, distributionMode,
+     *     sortType)
+     * @return list of proposals with target (groupNumber, groupPosition) assigned; never null
+     */
+    private List<TeamAvatarProposal> buildProposals(
+            List<RankedTeamEntry> ranked, DraftSection toSection) {
+        int teamCount = ranked.size();
+        int groupCount = toSection.getGroupCount();
+        String distributionMode = toSection.getDistributionMode();
+        String sortType = toSection.getSortType();
+
+        List<Team2AvatarSlot> slots =
+                distributorRegistry.get(distributionMode).distribute(teamCount, groupCount);
+
+        List<TeamAvatarProposal> proposals = new ArrayList<>(teamCount);
+        for (int i = 0; i < teamCount; i++) {
+            RankedTeamEntry entry = ranked.get(i);
+            Team2AvatarSlot slot = slots.get(i);
+            proposals.add(
+                    new TeamAvatarProposal(
+                            entry.teamId(),
+                            entry.teamNumber(),
+                            entry.description(),
+                            slot.groupNumber(),
+                            slot.groupPosition(),
+                            entry.sourceGroupNumber(),
+                            entry.sourceGroupPosition(),
+                            sortType));
+        }
+
+        return proposals;
     }
 
     // -------------------------------------------------------------------------

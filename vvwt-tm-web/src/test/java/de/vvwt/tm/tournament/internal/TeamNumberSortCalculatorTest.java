@@ -4,10 +4,9 @@ package de.vvwt.tm.tournament.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import de.vvwt.tm.tournament.RankedTeamEntry;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamAvatar;
-import de.vvwt.tm.tournament.TeamAvatarProposal;
-import de.vvwt.tm.tournament.TeamAvatarRating;
 import de.vvwt.tm.tournament.TeamSortCalculator;
 import java.util.List;
 import java.util.Map;
@@ -16,27 +15,21 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * RED-first unit tests for {@link TeamNumberSortCalculator} (AC4, AC5, AC8, DEC-22).
+ * Unit tests for {@link TeamNumberSortCalculator} (E66S01 AC4, DEC-77 D-2, DEC-22).
  *
- * <p>Same-package test per DEC-36. Verifies that the round-robin distribution behaviour matches the
- * original {@code DefaultPhaseTransitionService.computeTeamNumber} exactly (AC5).
- *
- * <p>AC10 verification: teamId is passed through from fromAvatar — the calculator does NOT write
- * teamId to DB.
+ * <p>Updated from E58S03: uses the new {@code rank(...)} interface returning flat ranked list.
+ * DEC-77 D-2: team_number ranks by registration number ascending.
  *
  * @see TeamNumberSortCalculator
  * @see TeamSortCalculator
- * @see <a href="DEC-22">DEC-22 — TDD Iron Law (RED-first)</a>
- * @see <a href="E58S03">E58S03 — AC4, AC5, AC10</a>
+ * @see <a href="DEC-77">DEC-77 D-2 — team_number: ascending by registration number</a>
+ * @see <a href="DEC-22">DEC-22 — TDD Iron Law</a>
+ * @see <a href="E66S01">E66S01 — AC4</a>
  */
-@DisplayName("TeamNumberSortCalculator unit tests — E58S03")
+@DisplayName("TeamNumberSortCalculator unit tests — E66S01 AC4")
 class TeamNumberSortCalculatorTest {
 
     private final TeamSortCalculator calculator = new TeamNumberSortCalculator();
-
-    // -------------------------------------------------------------------------
-    // AC4: registered under correct key
-    // -------------------------------------------------------------------------
 
     @Test
     @DisplayName("getKeyId() returns 'team_number'")
@@ -45,95 +38,80 @@ class TeamNumberSortCalculatorTest {
     }
 
     // -------------------------------------------------------------------------
-    // AC5: behaviour-equivalent to original computeTeamNumber
-    // Round-Robin: avatar at index i → group (i%groupCount)+1, position (i/groupCount)+1
+    // AC4: flat list sorted by teamNumber ASC
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("sortTeams distributes 4 avatars across 2 groups in round-robin order")
-    void sortTeams_fourAvatarsTwoGroups_roundRobinDistribution() {
-        UUID t1 = UUID.randomUUID(),
-                t2 = UUID.randomUUID(),
-                t3 = UUID.randomUUID(),
-                t4 = UUID.randomUUID();
-        List<TeamAvatar> fromAvatars =
-                List.of(
-                        avatarAt(1, 1, t1), avatarAt(1, 2, t2),
-                        avatarAt(2, 1, t3), avatarAt(2, 2, t4));
-        Map<UUID, Team> teamById =
-                Map.of(
-                        t1, team(t1, 1, "Team 1"),
-                        t2, team(t2, 2, "Team 2"),
-                        t3, team(t3, 3, "Team 3"),
-                        t4, team(t4, 4, "Team 4"));
-        Map<UUID, TeamAvatarRating> ratings = Map.of();
+    @DisplayName("rank() returns flat list sorted by teamNumber ASC")
+    void rank_sortsByTeamNumberAscending() {
+        UUID t1 = UUID.randomUUID(), t2 = UUID.randomUUID(), t3 = UUID.randomUUID();
+        TeamAvatar av1 = avatar(1, 1, t1);
+        TeamAvatar av2 = avatar(1, 2, t2);
+        TeamAvatar av3 = avatar(2, 1, t3);
 
-        List<TeamAvatarProposal> proposals =
-                calculator.sortTeams(fromAvatars, ratings, teamById, 2, "team_number");
+        // t1=num3, t2=num1, t3=num2
+        Map<UUID, Team> teamById = Map.of(
+                t1, team(t1, 3, "Team3"),
+                t2, team(t2, 1, "Team1"),
+                t3, team(t3, 2, "Team2"));
 
-        // Round-Robin: index 0 → group 1 pos 1, index 1 → group 2 pos 1,
-        //              index 2 → group 1 pos 2, index 3 → group 2 pos 2
-        assertThat(proposals).hasSize(4);
-        assertProposal(proposals.get(0), 1, 1, "team_number");
-        assertProposal(proposals.get(1), 2, 1, "team_number");
-        assertProposal(proposals.get(2), 1, 2, "team_number");
-        assertProposal(proposals.get(3), 2, 2, "team_number");
+        List<RankedTeamEntry> ranked = calculator.rank(List.of(av1, av2, av3), Map.of(), teamById);
+
+        assertThat(ranked).hasSize(3);
+        // Expected: Team1(t2), Team2(t3), Team3(t1)
+        assertThat(ranked.get(0).teamNumber()).isEqualTo(1);
+        assertThat(ranked.get(0).teamId()).isEqualTo(t2);
+        assertThat(ranked.get(1).teamNumber()).isEqualTo(2);
+        assertThat(ranked.get(1).teamId()).isEqualTo(t3);
+        assertThat(ranked.get(2).teamNumber()).isEqualTo(3);
+        assertThat(ranked.get(2).teamId()).isEqualTo(t1);
     }
 
     @Test
-    @DisplayName("sortTeams with single group puts all avatars in group 1")
-    void sortTeams_singleGroup_allInGroupOne() {
-        UUID t1 = UUID.randomUUID(), t2 = UUID.randomUUID();
-        List<TeamAvatar> fromAvatars = List.of(avatarAt(1, 1, t1), avatarAt(1, 2, t2));
-        Map<UUID, Team> teamById =
-                Map.of(
-                        t1, team(t1, 1, "T1"),
-                        t2, team(t2, 2, "T2"));
-
-        List<TeamAvatarProposal> proposals =
-                calculator.sortTeams(fromAvatars, Map.of(), teamById, 1, "team_number");
-
-        assertThat(proposals).hasSize(2);
-        assertProposal(proposals.get(0), 1, 1, "team_number");
-        assertProposal(proposals.get(1), 1, 2, "team_number");
+    @DisplayName("rank() with empty fromAvatars returns empty list")
+    void rank_emptyAvatars_returnsEmpty() {
+        assertThat(calculator.rank(List.of(), Map.of(), Map.of())).isEmpty();
     }
 
     // -------------------------------------------------------------------------
-    // AC10: teamId NOT set by calculator
+    // AC7: teamId carried from avatar (not written to DB)
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName(
-            "sortTeams passes through fromAvatar.teamId — calculator does NOT write to DB (AC10 —"
-                    + " DEC-59 Clause C)")
-    void sortTeams_allProposalsHaveFromAvatarTeamId() {
+    @DisplayName("rank() carries fromAvatar.teamId (not written to DB — AC7)")
+    void rank_carriesTeamIdFromAvatar() {
         UUID t1 = UUID.randomUUID();
-        List<TeamAvatar> fromAvatars = List.of(avatarAt(1, 1, t1));
+        TeamAvatar av1 = avatar(1, 1, t1);
         Map<UUID, Team> teamById = Map.of(t1, team(t1, 1, "T1"));
 
-        List<TeamAvatarProposal> proposals =
-                calculator.sortTeams(fromAvatars, Map.of(), teamById, 1, "team_number");
+        List<RankedTeamEntry> ranked = calculator.rank(List.of(av1), Map.of(), teamById);
 
-        // AC10: teamId is passed through from fromAvatar (not written to DB by calculator).
-        // The operator-confirmation handler (commitTransition, DEC-59 Clause C) is the sole
-        // DB writer for teamId.
-        assertThat(proposals).allSatisfy(p -> assertThat(p.teamId()).isEqualTo(t1));
+        assertThat(ranked).hasSize(1);
+        assertThat(ranked.get(0).teamId()).isEqualTo(t1);
     }
 
-    @Test
-    @DisplayName("sortTeams with empty fromAvatars returns empty list")
-    void sortTeams_emptyAvatars_returnsEmpty() {
-        List<TeamAvatarProposal> proposals =
-                calculator.sortTeams(List.of(), Map.of(), Map.of(), 1, "team_number");
+    // -------------------------------------------------------------------------
+    // AC2: entries carry source coordinates, not distribution slots
+    // -------------------------------------------------------------------------
 
-        assertThat(proposals).isEmpty();
+    @Test
+    @DisplayName("rank() entries carry source structural coordinates from predecessor phase")
+    void rank_entriesCarrySourceCoordinates() {
+        UUID t1 = UUID.randomUUID();
+        TeamAvatar av1 = avatar(2, 3, t1);
+        Map<UUID, Team> teamById = Map.of(t1, team(t1, 7, "T1"));
+
+        List<RankedTeamEntry> ranked = calculator.rank(List.of(av1), Map.of(), teamById);
+
+        assertThat(ranked.get(0).sourceGroupNumber()).isEqualTo(2);
+        assertThat(ranked.get(0).sourceGroupPosition()).isEqualTo(3);
     }
 
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
-    private static TeamAvatar avatarAt(int groupNumber, int groupPosition, UUID teamId) {
+    private static TeamAvatar avatar(int groupNumber, int groupPosition, UUID teamId) {
         TeamAvatar av = new TeamAvatar();
         av.setId(UUID.randomUUID());
         av.setGroupNumber(groupNumber);
@@ -148,12 +126,5 @@ class TeamNumberSortCalculatorTest {
         t.setTeamNumber(number);
         t.setDescription(description);
         return t;
-    }
-
-    private static void assertProposal(
-            TeamAvatarProposal p, int group, int position, String sortType) {
-        assertThat(p.groupNumber()).isEqualTo(group);
-        assertThat(p.groupPosition()).isEqualTo(position);
-        assertThat(p.sortType()).isEqualTo(sortType);
     }
 }
