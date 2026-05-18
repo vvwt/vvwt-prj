@@ -56,15 +56,27 @@ import org.springframework.web.bind.annotation.RequestMapping;
  * <h2>Endpoints</h2>
  *
  * <ul>
- *   <li>{@code GET /certificate/tournaments/{tid}/print/{teamId}} — single certificate (SVG or HTML
- *       by template format; 400 if template absent; 500 on Mustache failure)
- *   <li>{@code GET /certificate/tournaments/{tid}/print} — all certificates (ZIP for SVG; HTML page
- *       for HTML; same error paths)
+ *   <li>{@code GET /certificate/tournaments/{tid}/print/{teamId}} — single certificate (SVG if SVG
+ *       template uploaded; HTML system-default for no-template or HTML-template; 400 if no game
+ *       results; 500 on Mustache failure)
+ *   <li>{@code GET /certificate/tournaments/{tid}/print} — all certificates (ZIP for SVG; HTML
+ *       system-default page for no-template or HTML-template; same error paths)
  * </ul>
+ *
+ * <h2>E67S01 — Automatic fallback to system-default certificate</h2>
+ *
+ * <p>When no per-tournament template is uploaded, the endpoints fall back to the built-in
+ * system-default branded HTML certificate (E46S04 Mustache partials). The no-template 400 gate has
+ * been removed (AC6). An uploaded HTML template's content is also ignored — both the no-template
+ * and HTML-template paths produce the identical system-default render (AC4). Only an uploaded SVG
+ * template changes the behavior (SVG render path, AC3). The no-results 400 branches are preserved
+ * unchanged (AC5). Labels use {@link MessageSource} via the existing HTML render path (AC9). The
+ * change is confined to this primary adapter (DEC-40, AC10). No new service, registry, or DAO is
+ * introduced (AC10). The rendered standard certificate remains self-contained (DEC-16, AC10).
  *
  * <h2>DEC-40 Clause B disposition (AC-DEC-40-CLAUSE-B-N-A)</h2>
  *
- * <p>All 5 return branches produce non-JSON content (HTML view, SVG bytes, ZIP bytes, plaintext
+ * <p>All return branches produce non-JSON content (HTML view, SVG bytes, ZIP bytes, plaintext
  * errors). DEC-40 Clause B governs Jackson JSON serialization and is N/A for this controller.
  *
  * <h2>DEC-40 Trigger-β (AC-BETA-DOES-NOT-FIRE)</h2>
@@ -83,6 +95,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
  * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
  * @see <a href="DEC-38">DEC-38 — @ApplicationModuleTest IT canon</a>
  * @since E24S05
+ * @since E67S01 — automatic fallback to system-default certificate; no-template 400 gate removed
  */
 @Controller
 @RequestMapping("/certificate/tournaments/{tid}")
@@ -146,18 +159,17 @@ public class CertificateRenderController {
     /**
      * Renders a single certificate for a team (AC-URL-SINGLE).
      *
-     * <p>5 branches:
+     * <p>E67S01 branch order (AC1, AC3, AC4, AC5):
      *
-     * <ul>
-     *   <li>SVG template → {@code ResponseEntity<byte[]>} with {@code image/svg+xml} + {@code
-     *       Content-Disposition: attachment}
-     *   <li>HTML template → Mustache view {@code "certificate/print"} + model attribute {@code
-     *       singleCertificate}
-     *   <li>Template absent → 400 plaintext
-     *   <li>No standings → 400 plaintext
-     *   <li>MustacheException → 500 plaintext {@code "Mustache rendering error: " +
-     *       ex.getMessage()}
-     * </ul>
+     * <ol>
+     *   <li>Resolve tournament or 404
+     *   <li>No final phase → 400 plaintext (no-results branch, preserved per AC5)
+     *   <li>No computed placements → 400 plaintext (no-results branch, preserved per AC5)
+     *   <li>SVG template uploaded → SVG byte-response attachment (AC3: SVG path unchanged)
+     *   <li>No template or HTML template → HTML system-default render via {@code certificate/print}
+     *       view (AC1: no-template → 200; AC4: HTML-template → 200, same output)
+     *   <li>MustacheException during SVG render → 500 plaintext
+     * </ol>
      *
      * <p>Unknown tournament → {@link TournamentNotFoundException} → 404 via {@link
      * de.vvwt.tm.web.GlobalExceptionHandler#handleTournamentNotFound}.
@@ -175,16 +187,7 @@ public class CertificateRenderController {
                         .findById(tid)
                         .orElseThrow(() -> new TournamentNotFoundException(tid));
 
-        Optional<CertificateTemplateService.TemplateFile> templateOpt =
-                certificateTemplateService.retrieveFile(tid);
-        if (templateOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .contentType(MediaType.TEXT_PLAIN)
-                    .body(
-                            "Keine Urkunden-Vorlage hochgeladen. Bitte laden Sie zuerst eine"
-                                    + " Vorlage hoch.");
-        }
-
+        // AC5: no-results branches checked BEFORE template presence (preserved per E67S01)
         Optional<Phase> finalPhaseOpt = certificateAssembler.getFinalPhase(tid);
         if (finalPhaseOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -212,11 +215,12 @@ public class CertificateRenderController {
 
         String locationDisplayName = locationDisplayResolver.resolveLocationDisplayName();
 
-        CertificateTemplateService.TemplateFile templateFile = templateOpt.get();
-        String format = templateFile.metadata().format();
-
-        if ("svg".equals(format)) {
-            String templateContent = readTemplateContent(templateFile);
+        // AC3: SVG template uploaded → existing SVG render path (unchanged)
+        // AC1/AC4: no template or HTML template → HTML system-default render path (E67S01)
+        Optional<CertificateTemplateService.TemplateFile> templateOpt =
+                certificateTemplateService.retrieveFile(tid);
+        if (templateOpt.isPresent() && "svg".equals(templateOpt.get().metadata().format())) {
+            String templateContent = readTemplateContent(templateOpt.get());
             List<CertificatePlacementRow> svgRows =
                     certificateAssembler.buildSvgRows(
                             tournament, List.of(teamPlacement), locationDisplayName);
@@ -241,17 +245,17 @@ public class CertificateRenderController {
                         .contentType(MediaType.TEXT_PLAIN)
                         .body("Mustache rendering error: " + ex.getMessage());
             }
-
-        } else {
-            List<CertificatePlacementRow> htmlRows =
-                    certificateAssembler.buildHtmlRows(
-                            tournament, List.of(teamPlacement), locationDisplayName);
-            CertificatePlacementRow row = htmlRows.get(0);
-
-            model.addAttribute("singleCertificate", certificateAssembler.toMustacheMap(row));
-            model.addAttribute("certificates", List.of(certificateAssembler.toMustacheMap(row)));
-            return "certificate/print";
         }
+
+        // AC1/AC4: HTML system-default render — labels via MessageSource per AC9 (existing path)
+        List<CertificatePlacementRow> htmlRows =
+                certificateAssembler.buildHtmlRows(
+                        tournament, List.of(teamPlacement), locationDisplayName);
+        CertificatePlacementRow row = htmlRows.get(0);
+
+        model.addAttribute("singleCertificate", certificateAssembler.toMustacheMap(row));
+        model.addAttribute("certificates", List.of(certificateAssembler.toMustacheMap(row)));
+        return "certificate/print";
     }
 
     // =========================================================================
@@ -261,15 +265,19 @@ public class CertificateRenderController {
     /**
      * Renders all certificates for a tournament in batch (AC-URL-BATCH).
      *
-     * <p>4 branches:
+     * <p>E67S01 branch order (AC2, AC3, AC4, AC5):
      *
-     * <ul>
-     *   <li>SVG template → ZIP archive ({@code application/zip}) with one SVG per team
-     *   <li>HTML template → Mustache view {@code "certificate/print-all"} + model attribute {@code
-     *       certificates}
-     *   <li>Template absent → 400 plaintext
-     *   <li>MustacheException → 500 plaintext
-     * </ul>
+     * <ol>
+     *   <li>Resolve tournament or 404
+     *   <li>No final phase → 400 plaintext (no-results branch, preserved per AC5)
+     *   <li>No computed placements → 400 plaintext (no-results branch, preserved per AC5)
+     *   <li>SVG template uploaded → ZIP archive ({@code application/zip}) with one SVG per team
+     *       (AC3: SVG path unchanged)
+     *   <li>No template or HTML template → HTML system-default render via {@code
+     *       certificate/print-all} view (AC2: no-template → 200; AC4: HTML-template → 200, same
+     *       output)
+     *   <li>MustacheException or IOException during ZIP creation → 500 plaintext
+     * </ol>
      *
      * @param tid the tournament UUID (tenant-scoped)
      * @param model Spring MVC model (used for HTML path)
@@ -282,16 +290,7 @@ public class CertificateRenderController {
                         .findById(tid)
                         .orElseThrow(() -> new TournamentNotFoundException(tid));
 
-        Optional<CertificateTemplateService.TemplateFile> templateOpt =
-                certificateTemplateService.retrieveFile(tid);
-        if (templateOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .contentType(MediaType.TEXT_PLAIN)
-                    .body(
-                            "Keine Urkunden-Vorlage hochgeladen. Bitte laden Sie zuerst eine"
-                                    + " Vorlage hoch.");
-        }
-
+        // AC5: no-results branches checked BEFORE template presence (preserved per E67S01)
         Optional<Phase> finalPhaseOpt = certificateAssembler.getFinalPhase(tid);
         if (finalPhaseOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -313,11 +312,12 @@ public class CertificateRenderController {
 
         String locationDisplayName = locationDisplayResolver.resolveLocationDisplayName();
 
-        CertificateTemplateService.TemplateFile templateFile = templateOpt.get();
-        String format = templateFile.metadata().format();
-
-        if ("svg".equals(format)) {
-            String templateContent = readTemplateContent(templateFile);
+        // AC3: SVG template uploaded → existing ZIP archive render path (unchanged)
+        // AC2/AC4: no template or HTML template → HTML system-default render path (E67S01)
+        Optional<CertificateTemplateService.TemplateFile> templateOpt =
+                certificateTemplateService.retrieveFile(tid);
+        if (templateOpt.isPresent() && "svg".equals(templateOpt.get().metadata().format())) {
+            String templateContent = readTemplateContent(templateOpt.get());
             List<CertificatePlacementRow> svgRows =
                     certificateAssembler.buildSvgRows(tournament, placements, locationDisplayName);
 
@@ -346,22 +346,22 @@ public class CertificateRenderController {
                         .contentType(MediaType.TEXT_PLAIN)
                         .body("ZIP creation error: " + ex.getMessage());
             }
-
-        } else {
-            List<CertificatePlacementRow> htmlRows =
-                    certificateAssembler.buildHtmlRows(tournament, placements, locationDisplayName);
-
-            List<Map<String, Object>> certificateMaps = new ArrayList<>();
-            for (int i = 0; i < htmlRows.size(); i++) {
-                Map<String, Object> certMap =
-                        new LinkedHashMap<>(certificateAssembler.toMustacheMap(htmlRows.get(i)));
-                certMap.put("showPageBreak", i > 0);
-                certificateMaps.add(certMap);
-            }
-
-            model.addAttribute("certificates", certificateMaps);
-            return "certificate/print-all";
         }
+
+        // AC2/AC4: HTML system-default render — labels via MessageSource per AC9 (existing path)
+        List<CertificatePlacementRow> htmlRows =
+                certificateAssembler.buildHtmlRows(tournament, placements, locationDisplayName);
+
+        List<Map<String, Object>> certificateMaps = new ArrayList<>();
+        for (int i = 0; i < htmlRows.size(); i++) {
+            Map<String, Object> certMap =
+                    new LinkedHashMap<>(certificateAssembler.toMustacheMap(htmlRows.get(i)));
+            certMap.put("showPageBreak", i > 0);
+            certificateMaps.add(certMap);
+        }
+
+        model.addAttribute("certificates", certificateMaps);
+        return "certificate/print-all";
     }
 
     // =========================================================================

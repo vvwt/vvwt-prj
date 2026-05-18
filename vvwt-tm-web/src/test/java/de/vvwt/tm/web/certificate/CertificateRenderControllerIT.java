@@ -35,12 +35,10 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
 /**
- * Integration tests for {@link CertificateRenderController} — E24S05.
+ * Integration tests for {@link CertificateRenderController} — E24S05 / E67S01.
  *
- * <p>Uses {@code @ApplicationModuleTest(ALL_DEPENDENCIES, RANDOM_PORT)} targeting the {@code web}
- * module per DEC-38 Clause A + DEC-40 2026-04-22 Amendment. Boots {@code web} + all declared {@code
- * allowedDependencies} (tenant, tournament, scoring, photo, certificate). {@link
- * WebModuleTestConfig} provides the test infrastructure beans.
+ * <p>Uses {@code @SpringBootTest(RANDOM_PORT)} per DEC-44 web-module IT pattern. Boots the full
+ * application context. {@link WebModuleTestConfig} provides the test infrastructure beans.
  *
  * <h2>DEC-38 Amendment reverse-case (real beans in scope)</h2>
  *
@@ -52,10 +50,12 @@ import org.springframework.util.MultiValueMap;
  * <h2>Test coverage</h2>
  *
  * <ul>
- *   <li>AC-CERT-IT-NO-TEMPLATE-400: authenticated + tournament exists + no template → 400
- *   <li>AC-CERT-IT-BATCH-NO-TEMPLATE-400: batch endpoint + no template → 400
+ *   <li>AC-CERT-IT-NO-RESULTS-400: authenticated + tournament exists + no template + no game
+ *       results → 400 (E67S01: no-results branch is preserved; 400 is now from missing results, not
+ *       missing template)
+ *   <li>AC-CERT-IT-BATCH-NO-RESULTS-400: batch endpoint + no template + no game results → 400
  *   <li>AC-CERT-IT-SECURITY-UNAUTHENTICATED: unauthenticated → 401
- *   <li>AC-BYTE-EQUIVALENT-400: 400 body byte-equivalent to legacy PrintController response
+ *   <li>AC-BYTE-EQUIVALENT-400: 400 body non-empty for no-results scenario
  *   <li>AC-CERT-IT-SVG-HAPPY: tournament exists + SVG template uploaded → 400 (no standings)
  * </ul>
  *
@@ -65,6 +65,7 @@ import org.springframework.util.MultiValueMap;
  * @see <a href="DEC-38">DEC-38 — @ApplicationModuleTest IT canon</a>
  * @see <a href="DEC-40">DEC-40 — Primary-Adapter-Isolation</a>
  * @since E24S05
+ * @since E67S01 — no-template fallback to system-default certificate
  */
 @AutoConfigureTestRestTemplate
 @SpringBootTest(
@@ -140,12 +141,16 @@ class CertificateRenderControllerIT {
     }
 
     // =========================================================================
-    // AC-CERT-IT-NO-TEMPLATE-400 — authenticated, no template → 400
+    // AC-CERT-IT-NO-RESULTS-400 — authenticated, no template, no game results → 400
+    // E67S01: the 400 here is from the no-results branch (AC5 preserved), not no-template.
+    // The no-results check runs BEFORE the template check in the updated controller.
     // =========================================================================
 
     @Test
-    @DisplayName("AC-CERT-IT-NO-TEMPLATE-400: single endpoint, no template → 400 text/plain")
-    void singleCertificate_noTemplate_returns400() throws Exception {
+    @DisplayName(
+            "AC-CERT-IT-NO-RESULTS-400 (E67S01 AC5): single endpoint, no template + no game"
+                    + " results → 400 text/plain (no-results branch preserved)")
+    void singleCertificate_noTemplateNoResults_returns400() throws Exception {
         UUID tournamentId = createTournament("CertRender No Template Test");
         UUID teamId = UUID.randomUUID();
 
@@ -160,16 +165,20 @@ class CertificateRenderControllerIT {
                         String.class);
 
         assertThat(response.getStatusCode())
-                .as("AC-CERT-IT-NO-TEMPLATE-400 — no template must return 400")
+                .as(
+                        "AC-CERT-IT-NO-RESULTS-400 — no game results must return 400"
+                                + " (no-results branch preserved per E67S01 AC5)")
                 .isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody())
-                .as("AC-CERT-IT-NO-TEMPLATE-400 — 400 body must be non-empty")
+                .as("AC-CERT-IT-NO-RESULTS-400 — 400 body must be non-empty")
                 .isNotBlank();
     }
 
     @Test
-    @DisplayName("AC-CERT-IT-BATCH-NO-TEMPLATE-400: batch endpoint, no template → 400 text/plain")
-    void allCertificates_noTemplate_returns400() throws Exception {
+    @DisplayName(
+            "AC-CERT-IT-BATCH-NO-RESULTS-400 (E67S01 AC5): batch endpoint, no template + no"
+                    + " game results → 400 text/plain (no-results branch preserved)")
+    void allCertificates_noTemplateNoResults_returns400() throws Exception {
         UUID tournamentId = createTournament("CertRender Batch No Template Test");
 
         ResponseEntity<String> response =
@@ -178,7 +187,9 @@ class CertificateRenderControllerIT {
                         String.class);
 
         assertThat(response.getStatusCode())
-                .as("AC-CERT-IT-BATCH-NO-TEMPLATE-400 — batch no template must return 400")
+                .as(
+                        "AC-CERT-IT-BATCH-NO-RESULTS-400 — batch no game results must return 400"
+                                + " (no-results branch preserved per E67S01 AC5)")
                 .isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).isNotBlank();
     }
@@ -188,19 +199,15 @@ class CertificateRenderControllerIT {
     // =========================================================================
 
     /**
-     * AC-BYTE-EQUIVALENT-400: new endpoint returns non-empty 400 body for no-template scenario.
-     *
-     * <p>Note: byte-equivalence with legacy /print endpoint is NOT verifiable in the
-     * {@code @ApplicationModuleTest(web)} context because the legacy {@code PrintController} lives
-     * in the {@code infrastructure} module which is not in {@code web}'s {@code
-     * allowedDependencies}. This IT verifies the new endpoint error semantics independently.
-     * Cross-endpoint byte-equivalence is covered by E24S07 cutover ITs where both controllers are
-     * loaded in a full @SpringBootTest context.
+     * AC-BYTE-EQUIVALENT-400: endpoint returns non-empty 400 body for the no-results scenario
+     * (E67S01: no-results branch preserved; 400 is from missing game results, not missing
+     * template).
      */
     @Test
     @DisplayName(
-            "AC-BYTE-EQUIVALENT-400: new /certificate endpoint, no template → 400 non-empty body")
-    void singleCertificate_noTemplate_returns400WithNonEmptyBody() throws Exception {
+            "AC-BYTE-EQUIVALENT-400 (E67S01): /certificate endpoint, no template + no game results"
+                    + " → 400 non-empty body (no-results branch)")
+    void singleCertificate_noResults_returns400WithNonEmptyBody() throws Exception {
         UUID tournamentId = createTournament("CertRender Byte Equiv Test");
         UUID teamId = UUID.randomUUID();
 
@@ -215,7 +222,7 @@ class CertificateRenderControllerIT {
                         String.class);
 
         assertThat(response.getStatusCode())
-                .as("AC-BYTE-EQUIVALENT-400 — new endpoint must return 400")
+                .as("AC-BYTE-EQUIVALENT-400 — no game results must return 400")
                 .isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody())
                 .as("AC-BYTE-EQUIVALENT-400 — 400 body must be non-empty")
