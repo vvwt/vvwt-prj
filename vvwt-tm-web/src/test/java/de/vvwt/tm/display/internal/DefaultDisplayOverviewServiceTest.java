@@ -797,6 +797,128 @@ class DefaultDisplayOverviewServiceTest {
                 .isEqualTo(2);
     }
 
+    // =========================================================================
+    // AC-E66S06-REFEREE-TEAM-RESOLVED (E66S06 AC2 / AC3)
+    // =========================================================================
+
+    /**
+     * RED-first test (E66S06 AC2/AC3): match with refereeTeamId set → getMatchesByLap returns
+     * MatchEntry with refereeTeamName resolved from teamById map.
+     *
+     * <p>RED: current service always passes {@code null} for refereeTeamName (line 258 in the
+     * production service). GREEN: referee team name resolved via {@code
+     * teamById.get(m.getRefereeTeamId())}.
+     *
+     * @see DefaultDisplayOverviewService#getMatchesByLap(String, Integer)
+     */
+    @Test
+    void getMatchesByLap_matchWithRefereeTeamId_resolveRefereeTeamName() {
+        UUID tenantId = UUID.randomUUID();
+        UUID phaseId = UUID.randomUUID();
+        UUID tournamentId = UUID.randomUUID();
+        UUID avatarId1 = UUID.randomUUID();
+        UUID avatarId2 = UUID.randomUUID();
+        UUID teamId1 = UUID.randomUUID();
+        UUID teamId2 = UUID.randomUUID();
+        UUID refereeTeamId = UUID.randomUUID();
+        UUID matchId = UUID.randomUUID();
+
+        Device device = buildDisplayDevice(tenantId);
+        Tournament tournament = buildTournament(tournamentId, "ACTIVE", 2);
+        Phase phase = buildPhase(phaseId, tenantId, tournamentId, "Phase", "ACTIVE", 1, 1);
+
+        Match match = new Match();
+        match.setId(matchId);
+        match.setPhaseId(phaseId);
+        match.setLapNumber(1);
+        match.setMatchState(MatchState.OPEN);
+        match.setMemberAvatar1Id(avatarId1);
+        match.setMemberAvatar2Id(avatarId2);
+        match.setRefereeTeamId(refereeTeamId); // referee team assigned
+
+        TeamAvatar ta1 = buildAvatarWithTeam(avatarId1, phaseId, tenantId, 1, teamId1);
+        TeamAvatar ta2 = buildAvatarWithTeam(avatarId2, phaseId, tenantId, 1, teamId2);
+        Team team1 = buildTeam(teamId1, tournamentId, "Playing Team A");
+        Team team2 = buildTeam(teamId2, tournamentId, "Playing Team B");
+        Team refereeTeam = buildTeam(refereeTeamId, tournamentId, "Referee Team");
+
+        when(deviceRepository.findByDeviceToken("valid-token")).thenReturn(Optional.of(device));
+        when(tournamentRepository.findAll()).thenReturn(List.of(tournament));
+        when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(phase));
+        when(matchRepository.findByPhaseId(phaseId)).thenReturn(List.of(match));
+        when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(List.of(ta1, ta2));
+        when(teamRepository.findByTournamentId(tournamentId))
+                .thenReturn(List.of(team1, team2, refereeTeam)); // referee team in team list
+        when(setResultRepository.findByMatchId(matchId)).thenReturn(List.of());
+
+        DisplayMatchesResponse response = service.getMatchesByLap("valid-token", 1);
+
+        assertThat(response.matches()).hasSize(1);
+        DisplayMatchesResponse.MatchEntry entry = response.matches().get(0);
+        assertThat(entry.refereeTeamName())
+                .as(
+                        "AC-E66S06-AC3: refereeTeamName must be resolved from Match.refereeTeamId"
+                                + " via teamById — currently always null (RED)")
+                .isEqualTo("Referee Team");
+    }
+
+    /**
+     * RED-first test (E66S06 AC2): match with null refereeTeamId → refereeTeamName is null; no
+     * blank line or runtime error.
+     *
+     * <p>GREEN immediately (service returns null for refereeTeamName), but included to document the
+     * AC2 null-case contract explicitly and prevent regression.
+     *
+     * @see DefaultDisplayOverviewService#getMatchesByLap(String, Integer)
+     */
+    @Test
+    void getMatchesByLap_matchWithNullRefereeTeamId_refereeTeamNameIsNull() {
+        UUID tenantId = UUID.randomUUID();
+        UUID phaseId = UUID.randomUUID();
+        UUID tournamentId = UUID.randomUUID();
+        UUID avatarId1 = UUID.randomUUID();
+        UUID avatarId2 = UUID.randomUUID();
+        UUID teamId1 = UUID.randomUUID();
+        UUID teamId2 = UUID.randomUUID();
+        UUID matchId = UUID.randomUUID();
+
+        Device device = buildDisplayDevice(tenantId);
+        Tournament tournament = buildTournament(tournamentId, "ACTIVE", 2);
+        Phase phase = buildPhase(phaseId, tenantId, tournamentId, "Phase", "ACTIVE", 1, 1);
+
+        Match match = new Match();
+        match.setId(matchId);
+        match.setPhaseId(phaseId);
+        match.setLapNumber(1);
+        match.setMatchState(MatchState.OPEN);
+        match.setMemberAvatar1Id(avatarId1);
+        match.setMemberAvatar2Id(avatarId2);
+        match.setRefereeTeamId(null); // no referee assigned
+
+        TeamAvatar ta1 = buildAvatarWithTeam(avatarId1, phaseId, tenantId, 1, teamId1);
+        TeamAvatar ta2 = buildAvatarWithTeam(avatarId2, phaseId, tenantId, 1, teamId2);
+        Team team1 = buildTeam(teamId1, tournamentId, "Playing Team A");
+        Team team2 = buildTeam(teamId2, tournamentId, "Playing Team B");
+
+        when(deviceRepository.findByDeviceToken("valid-token")).thenReturn(Optional.of(device));
+        when(tournamentRepository.findAll()).thenReturn(List.of(tournament));
+        when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(phase));
+        when(matchRepository.findByPhaseId(phaseId)).thenReturn(List.of(match));
+        when(teamAvatarRepository.findByPhaseId(phaseId)).thenReturn(List.of(ta1, ta2));
+        when(teamRepository.findByTournamentId(tournamentId)).thenReturn(List.of(team1, team2));
+        when(setResultRepository.findByMatchId(matchId)).thenReturn(List.of());
+
+        DisplayMatchesResponse response = service.getMatchesByLap("valid-token", 1);
+
+        assertThat(response.matches()).hasSize(1);
+        DisplayMatchesResponse.MatchEntry entry = response.matches().get(0);
+        assertThat(entry.refereeTeamName())
+                .as(
+                        "AC-E66S06-AC2: match with no referee assigned — refereeTeamName must be"
+                                + " null (no placeholder, no blank line)")
+                .isNull();
+    }
+
     @SuppressWarnings("checkstyle:ParameterNumber")
     private TeamAvatarRating buildRating(
             UUID avatarId,
