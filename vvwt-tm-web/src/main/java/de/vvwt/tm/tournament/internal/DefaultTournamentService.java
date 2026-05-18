@@ -226,6 +226,8 @@ public class DefaultTournamentService implements TournamentService {
      * @param seedMannschaftsfoto {@code true} (or {@code null} → default {@code true}) seeds a
      *     Mannschaftsfoto ActivityType with {@code FIRST_FREE_ROUND} assignment rule; {@code false}
      *     skips seeding (E53S05 AC1)
+     * @param organizer organizer name to store; {@code null} → fall back to tenant display_name
+     *     snapshot via repository INSERT logic (E46S01 backward compat; E68S01)
      * @return the persisted tournament (never {@code null}); team rows are persisted as a side
      *     effect within the same transaction — they are NOT embedded in the returned object
      * @throws IllegalArgumentException if matchFormat is invalid or matchGeneratorId is not
@@ -234,6 +236,7 @@ public class DefaultTournamentService implements TournamentService {
      *     AC-I18N-LOCALE-CHAIN</a>
      * @see <a href="E48S14">E48S14 — Bug-fix: plannedStartTime was not wired in CREATE path</a>
      * @see <a href="E53S05">E53S05 — Mannschaftsfoto Vorbelegung: seedMannschaftsfoto seeding</a>
+     * @see <a href="E68S01">E68S01 — Organizer as editable field</a>
      */
     @Transactional
     @Override
@@ -248,7 +251,8 @@ public class DefaultTournamentService implements TournamentService {
             String matchGeneratorId,
             LocalTime plannedStartTime,
             Boolean optimize,
-            Boolean seedMannschaftsfoto) {
+            Boolean seedMannschaftsfoto,
+            String organizer) {
         validateBeanIds(matchFormat, matchGeneratorId);
 
         Tournament tournament = new Tournament();
@@ -271,6 +275,11 @@ public class DefaultTournamentService implements TournamentService {
         // (true per DEC-55 D-5).
         if (optimize != null) {
             tournament.setOptimize(optimize);
+        }
+        // E68S01: wire organizer when provided; null → repository INSERT falls back to tenant
+        // display_name snapshot (E46S01 backward compat for API callers that omit the field).
+        if (organizer != null) {
+            tournament.setOrganizer(organizer);
         }
         // DEC-39 D2: location_id NOT NULL — resolved from the first location row for this tenant.
         // In the Wave-1 single-location model, only one location exists per tenant DB.
@@ -342,6 +351,8 @@ public class DefaultTournamentService implements TournamentService {
      *     verbatim)
      * @param matchGeneratorId new match generator ID (applied if not {@code null})
      * @param plannedStartTime new planned start time (always applied; {@code null} means clear)
+     * @param organizer new organizer name (applied if not {@code null}; {@code null} means no
+     *     change; E68S01: intentional reversal of E46S01 write-once)
      * @return the updated tournament (never {@code null})
      * @throws NoSuchElementException if the tournament does not exist for the current tenant
      * @throws ConflictException if the tournament is not in DRAFT status (AC4)
@@ -360,7 +371,8 @@ public class DefaultTournamentService implements TournamentService {
             String setValidationRuleId,
             String matchGeneratorId,
             LocalTime plannedStartTime,
-            Boolean optimize) {
+            Boolean optimize,
+            String organizer) {
         Tournament tournament = getTournament(id);
 
         if (!"DRAFT".equals(tournament.getStatus())) {
@@ -398,6 +410,11 @@ public class DefaultTournamentService implements TournamentService {
         // E51S07 AC-IMPL-TOURNAMENT-FORM-CHECKBOX: apply optimize if provided; null = no change.
         if (optimize != null) {
             tournament.setOptimize(optimize);
+        }
+        // E68S01: apply organizer if provided; null = no change (nullable-field convention).
+        // Intentional reversal of E46S01's write-once handling.
+        if (organizer != null) {
+            tournament.setOrganizer(organizer);
         }
 
         validateBeanIds(tournament.getMatchFormat(), tournament.getMatchGeneratorId());

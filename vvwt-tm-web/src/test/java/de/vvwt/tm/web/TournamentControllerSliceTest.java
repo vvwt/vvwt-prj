@@ -116,7 +116,8 @@ class TournamentControllerSliceTest {
                         "roundRobin",
                         null,
                         null,
-                        null); // E53S05: seedMannschaftsfoto = null
+                        null, // E53S05: seedMannschaftsfoto = null
+                        null); // E68S01: organizer = null
         mockMvc.perform(
                         post("/api/tournaments")
                                 .contentType(MediaType.APPLICATION_JSON)
@@ -177,7 +178,8 @@ class TournamentControllerSliceTest {
                         eq("roundRobin"),
                         isNull(),
                         isNull(),
-                        isNull())) // E53S05: seedMannschaftsfoto = null
+                        isNull(), // E53S05: seedMannschaftsfoto = null
+                        isNull())) // E68S01: organizer = null
                 .thenReturn(created);
 
         TournamentCreateRequest req =
@@ -192,7 +194,8 @@ class TournamentControllerSliceTest {
                         "roundRobin",
                         null,
                         null,
-                        null); // E53S05: seedMannschaftsfoto = null
+                        null, // E53S05: seedMannschaftsfoto = null
+                        null); // E68S01: organizer = null
 
         mockMvc.perform(
                         post("/api/tournaments")
@@ -219,7 +222,8 @@ class TournamentControllerSliceTest {
                         "roundRobin",
                         null,
                         null,
-                        null); // E53S05: seedMannschaftsfoto = null
+                        null, // E53S05: seedMannschaftsfoto = null
+                        null); // E68S01: organizer = null
 
         mockMvc.perform(
                         post("/api/tournaments")

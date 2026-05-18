@@ -198,7 +198,8 @@ class TeamPhotoSizeLimitIT {
                         "roundRobin",
                         null,
                         null,
-                        null);
+                        null, // seedMannschaftsfoto = null
+                        null); // E68S01: organizer = null
 
         ResponseEntity<TournamentResponse> created =
                 authed.postForEntity(

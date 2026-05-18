@@ -137,7 +137,8 @@ class TournamentControllerIT {
                         "roundRobin",
                         null,
                         null,
-                        null); // E53S05: seedMannschaftsfoto = null
+                        null, // E53S05: seedMannschaftsfoto = null
+                        null); // E68S01: organizer = null
 
         ResponseEntity<TournamentResponse> response =
                 authed.postForEntity(
@@ -177,7 +178,8 @@ class TournamentControllerIT {
                         "roundRobin",
                         null,
                         null,
-                        null); // E53S05: seedMannschaftsfoto = null
+                        null, // E53S05: seedMannschaftsfoto = null
+                        null); // E68S01: organizer = null
         ResponseEntity<TournamentResponse> created =
                 authed.postForEntity(
                         new URI(baseUrl + "/api/tournaments"), create, TournamentResponse.class);
@@ -226,7 +228,8 @@ class TournamentControllerIT {
                         "roundRobin",
                         null,
                         null,
-                        null); // E53S05: seedMannschaftsfoto = null
+                        null, // E53S05: seedMannschaftsfoto = null
+                        null); // E68S01: organizer = null
         TournamentResponse created =
                 authed.postForEntity(
                                 new URI(baseUrl + "/api/tournaments"),
@@ -236,7 +239,17 @@ class TournamentControllerIT {
 
         TournamentUpdateRequest update =
                 new TournamentUpdateRequest(
-                        "Updated Name", null, null, null, null, null, null, null, null, null);
+                        "Updated Name",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null); // E68S01: organizer = null
 
         ResponseEntity<TournamentResponse> response =
                 authed.exchange(
@@ -270,7 +283,8 @@ class TournamentControllerIT {
                         "roundRobin",
                         null,
                         null,
-                        null); // E53S05: seedMannschaftsfoto = null
+                        null, // E53S05: seedMannschaftsfoto = null
+                        null); // E68S01: organizer = null
         TournamentResponse created =
                 authed.postForEntity(
                                 new URI(baseUrl + "/api/tournaments"),

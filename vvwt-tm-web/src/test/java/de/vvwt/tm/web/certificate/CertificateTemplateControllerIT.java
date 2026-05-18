@@ -738,7 +738,8 @@ class CertificateTemplateControllerIT {
                         "roundRobin",
                         null,
                         null,
-                        null); // E53S05: seedMannschaftsfoto = null
+                        null, // E53S05: seedMannschaftsfoto = null
+                        null); // E68S01: organizer = null
 
         ResponseEntity<TournamentResponse> created =
                 authed.postForEntity(

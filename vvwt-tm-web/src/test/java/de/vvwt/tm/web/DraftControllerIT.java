@@ -150,7 +150,8 @@ class DraftControllerIT {
                             "roundRobin",
                             null,
                             null,
-                            null) // E53S05: seedMannschaftsfoto = null
+                            null, // E53S05: seedMannschaftsfoto = null
+                            null) // E68S01: organizer = null
                     .getId();
         } finally {
             tenantBinder.unbind();
@@ -576,7 +577,8 @@ class DraftControllerIT {
                                     "roundRobin",
                                     null,
                                     null,
-                                    null) // E53S05: seedMannschaftsfoto = null
+                                    null, // E53S05: seedMannschaftsfoto = null
+                                    null) // E68S01: organizer = null
                             .getId();
         } finally {
             tenantBinder.unbind();
@@ -656,7 +658,8 @@ class DraftControllerIT {
                                     "roundRobin",
                                     null,
                                     null,
-                                    null) // E53S05: seedMannschaftsfoto = null
+                                    null, // E53S05: seedMannschaftsfoto = null
+                                    null) // E68S01: organizer = null
                             .getId();
         } finally {
             tenantBinder.unbind();
@@ -753,7 +756,8 @@ class DraftControllerIT {
                                     "roundRobin",
                                     null, // plannedStartTime set below via repository (E48S14)
                                     null,
-                                    null) // E53S05: seedMannschaftsfoto = null
+                                    null, // E53S05: seedMannschaftsfoto = null
+                                    null) // E68S01: organizer = null
                             .getId();
             // Set plannedStartTime directly on the tournament entity (createTournament does not
             // accept plannedStartTime; use repository to set it for the fixture)

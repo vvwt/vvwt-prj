@@ -100,7 +100,8 @@ class TournamentControllerOptimizeIT {
                         "roundRobin",
                         null,
                         false, // optimize = false
-                        null); // seedMannschaftsfoto = null → server default (E53S05)
+                        null, // seedMannschaftsfoto = null → server default (E53S05)
+                        null); // E68S01: organizer = null
 
         ResponseEntity<TournamentResponse> response =
                 authed.postForEntity(baseUrl + "/api/tournaments", req, TournamentResponse.class);
@@ -156,7 +157,8 @@ class TournamentControllerOptimizeIT {
                         "roundRobin",
                         null,
                         null, // optimize = null → default true
-                        null); // seedMannschaftsfoto = null → server default (E53S05)
+                        null, // seedMannschaftsfoto = null → server default (E53S05)
+                        null); // E68S01: organizer = null
 
         ResponseEntity<TournamentResponse> response =
                 authed.postForEntity(baseUrl + "/api/tournaments", req, TournamentResponse.class);

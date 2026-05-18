@@ -119,7 +119,10 @@ public class TournamentController {
                         // E51S07 AC-IMPL-TOURNAMENT-FORM-CHECKBOX: pass optimize flag.
                         request.optimize(),
                         // E53S05 AC1: pass seedMannschaftsfoto flag; null → server default true.
-                        request.seedMannschaftsfoto());
+                        request.seedMannschaftsfoto(),
+                        // E68S01: pass organizer; null → service/repository falls back to tenant
+                        // display_name snapshot (E46S01 backward compat).
+                        request.organizer());
 
         URI location =
                 ServletUriComponentsBuilder.fromCurrentRequest()
@@ -158,7 +161,9 @@ public class TournamentController {
                         request.matchGeneratorId(),
                         request.plannedStartTime(),
                         // E51S07 AC-IMPL-TOURNAMENT-FORM-CHECKBOX: pass optimize flag.
-                        request.optimize());
+                        request.optimize(),
+                        // E68S01: pass organizer; null = no change (nullable-field convention).
+                        request.organizer());
 
         return ResponseEntity.ok(TournamentResponse.from(tournament));
     }
