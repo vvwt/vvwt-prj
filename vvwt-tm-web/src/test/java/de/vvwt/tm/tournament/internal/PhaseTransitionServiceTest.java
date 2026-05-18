@@ -1236,6 +1236,192 @@ class PhaseTransitionServiceTest {
     }
 
     // =========================================================================
+    // E66S03 — rating-basis fields in proposals (RED-first per DEC-22 AC1)
+    // =========================================================================
+
+    /**
+     * AC-TEST-RATING-FIELDS-PHASE2PLUS-RED (E66S03 AC1/AC2/AC3): Phase-2+ proposals for a team WITH
+     * a previous-phase rating carry the rating basis fields (points, setsWon, setsLost, ballsWon,
+     * ballsLost, withoutAssessment=false).
+     *
+     * <p>A team WITHOUT a rating row gets null rating fields (AC5b — no rating row case).
+     *
+     * <p>DEC-22 Iron Law: test is written before the production fields exist — fails RED until
+     * {@link TeamAvatarProposal} gains the new fields and {@link DefaultPhaseTransitionService}
+     * populates them.
+     *
+     * @see <a href="E66S03">E66S03 — AC2/AC3/AC5</a>
+     * @see <a href="DEC-77">DEC-77 D-3 — placement comparator inputs</a>
+     */
+    @Test
+    @DisplayName(
+            "proposeTransition — Phase 2+ — rated team carries rating fields; unrated team has"
+                    + " null fields (E66S03 AC-TEST-RATING-FIELDS-PHASE2PLUS-RED)")
+    void proposeTransition_phase2Plus_ratingFieldsPopulated() throws Exception {
+        // Given: Phase 2+, 2 avatars — one rated, one without a rating row
+        Phase toPhase = phaseWithSortType(TO_PHASE_ID, 2, "team_number", 2);
+        Phase fromPhase = phase(FROM_PHASE_ID, 1);
+        Tournament tournament =
+                tournamentWithDraftJson(TOURNAMENT_ID, buildDraftJson(2, "team_number"));
+
+        when(phaseRepository.findById(TO_PHASE_ID)).thenReturn(Optional.of(toPhase));
+        when(phaseRepository.findByTournamentIdAndSequenceNumber(TOURNAMENT_ID, 1))
+                .thenReturn(Optional.of(fromPhase));
+        when(tournamentRepository.findById(TOURNAMENT_ID)).thenReturn(Optional.of(tournament));
+
+        UUID avRated = UUID.randomUUID();
+        UUID avUnrated = UUID.randomUUID();
+        UUID tmRated = UUID.randomUUID();
+        UUID tmUnrated = UUID.randomUUID();
+
+        List<TeamAvatar> fromAvatars =
+                List.of(
+                        avatar(avRated, FROM_PHASE_ID, tmRated, 1, 1),
+                        avatar(avUnrated, FROM_PHASE_ID, tmUnrated, 1, 2));
+        when(teamAvatarRepository.findByPhaseId(FROM_PHASE_ID)).thenReturn(fromAvatars);
+
+        when(teamRepository.findById(tmRated)).thenReturn(Optional.of(teamWithNumber(tmRated, 1)));
+        when(teamRepository.findById(tmUnrated))
+                .thenReturn(Optional.of(teamWithNumber(tmUnrated, 2)));
+
+        // Only the rated team has a rating row (keyed by avatarId=avRated)
+        TeamAvatarRating ratedRating = new TeamAvatarRating();
+        ratedRating.setAvatarId(avRated);
+        ratedRating.setPoints(9);
+        ratedRating.setSetsWon(6);
+        ratedRating.setSetsLost(2);
+        ratedRating.setBallsWon(150);
+        ratedRating.setBallsLost(80);
+        ratedRating.setSetQuotient(3.0);
+        ratedRating.setBallQuotient(1.875);
+        ratedRating.setWithoutAssessment(false);
+        ratedRating.setUpdatedAt(java.time.LocalDateTime.now());
+
+        // avUnrated has no rating row
+        when(teamAvatarRatingRepository.findByPhaseId(FROM_PHASE_ID))
+                .thenReturn(List.of(ratedRating));
+
+        // Act
+        List<TeamAvatarProposal> proposals = service.proposeTransition(TO_PHASE_ID);
+
+        assertThat(proposals).hasSize(2);
+
+        // Rated team: rating fields populated
+        TeamAvatarProposal pRated =
+                proposals.stream()
+                        .filter(p -> p.teamId().equals(tmRated))
+                        .findFirst()
+                        .orElseThrow();
+        assertThat(pRated.ratingPoints()).as("rated: ratingPoints").isEqualTo(9);
+        assertThat(pRated.setsWon()).as("rated: setsWon").isEqualTo(6);
+        assertThat(pRated.setsLost()).as("rated: setsLost").isEqualTo(2);
+        assertThat(pRated.ballsWon()).as("rated: ballsWon").isEqualTo(150);
+        assertThat(pRated.ballsLost()).as("rated: ballsLost").isEqualTo(80);
+        assertThat(pRated.withoutAssessment()).as("rated: withoutAssessment").isFalse();
+
+        // Unrated team (no rating row): all rating fields null (AC5b)
+        TeamAvatarProposal pUnrated =
+                proposals.stream()
+                        .filter(p -> p.teamId().equals(tmUnrated))
+                        .findFirst()
+                        .orElseThrow();
+        assertThat(pUnrated.ratingPoints()).as("unrated: ratingPoints null").isNull();
+        assertThat(pUnrated.setsWon()).as("unrated: setsWon null").isNull();
+        assertThat(pUnrated.setsLost()).as("unrated: setsLost null").isNull();
+        assertThat(pUnrated.ballsWon()).as("unrated: ballsWon null").isNull();
+        assertThat(pUnrated.ballsLost()).as("unrated: ballsLost null").isNull();
+        assertThat(pUnrated.withoutAssessment()).as("unrated: withoutAssessment null").isNull();
+    }
+
+    /**
+     * AC-TEST-RATING-FIELDS-WITHOUT-ASSESSMENT-RED (E66S03 AC1/AC5a): Phase-2+ proposal for a team
+     * whose rating row has {@code withoutAssessment=true} carries the flag as {@code true}.
+     *
+     * <p>DEC-22: RED-first.
+     *
+     * @see <a href="E66S03">E66S03 — AC5a: withoutAssessment-flag team clearly marked</a>
+     */
+    @Test
+    @DisplayName(
+            "proposeTransition — Phase 2+ — withoutAssessment=true team carries flag"
+                    + " (E66S03 AC-TEST-RATING-FIELDS-WITHOUT-ASSESSMENT-RED)")
+    void proposeTransition_phase2Plus_withoutAssessment_flagged() throws Exception {
+        Phase toPhase = phaseWithSortType(TO_PHASE_ID, 2, "team_number", 1);
+        Phase fromPhase = phase(FROM_PHASE_ID, 1);
+        Tournament tournament =
+                tournamentWithDraftJson(TOURNAMENT_ID, buildDraftJson(1, "team_number"));
+
+        when(phaseRepository.findById(TO_PHASE_ID)).thenReturn(Optional.of(toPhase));
+        when(phaseRepository.findByTournamentIdAndSequenceNumber(TOURNAMENT_ID, 1))
+                .thenReturn(Optional.of(fromPhase));
+        when(tournamentRepository.findById(TOURNAMENT_ID)).thenReturn(Optional.of(tournament));
+
+        UUID avId = UUID.randomUUID();
+        UUID tmId = UUID.randomUUID();
+
+        when(teamAvatarRepository.findByPhaseId(FROM_PHASE_ID))
+                .thenReturn(List.of(avatar(avId, FROM_PHASE_ID, tmId, 1, 1)));
+        when(teamRepository.findById(tmId)).thenReturn(Optional.of(teamWithNumber(tmId, 3)));
+
+        TeamAvatarRating waRating = new TeamAvatarRating();
+        waRating.setAvatarId(avId);
+        waRating.setPoints(0);
+        waRating.setSetsWon(0);
+        waRating.setSetsLost(0);
+        waRating.setBallsWon(0);
+        waRating.setBallsLost(0);
+        waRating.setSetQuotient(0.0);
+        waRating.setBallQuotient(0.0);
+        waRating.setWithoutAssessment(true); // ← the tested flag
+        waRating.setUpdatedAt(java.time.LocalDateTime.now());
+
+        when(teamAvatarRatingRepository.findByPhaseId(FROM_PHASE_ID)).thenReturn(List.of(waRating));
+
+        List<TeamAvatarProposal> proposals = service.proposeTransition(TO_PHASE_ID);
+        assertThat(proposals).hasSize(1);
+        assertThat(proposals.get(0).withoutAssessment())
+                .as("withoutAssessment flag must be propagated to proposal")
+                .isTrue();
+    }
+
+    /**
+     * AC-TEST-RATING-FIELDS-PHASE1-NULL-RED (E66S03 AC1/AC4): Phase-1 proposals have null rating
+     * fields — no previous-phase rating exists for Phase 1.
+     *
+     * <p>DEC-22: RED-first.
+     *
+     * @see <a href="E66S03">E66S03 — AC4: Phase 1 pane omits basis without error</a>
+     */
+    @Test
+    @DisplayName(
+            "proposeTransition — Phase 1 — rating fields are null (E66S03"
+                    + " AC-TEST-RATING-FIELDS-PHASE1-NULL-RED)")
+    void proposeTransition_phase1_ratingFieldsNull() throws Exception {
+        UUID phase1Id = UUID.randomUUID();
+        Phase toPhase = phase(phase1Id, 1);
+        Tournament tournament =
+                tournamentWithDraftJson(TOURNAMENT_ID, buildDraftJsonPhase1(1, "team_number"));
+
+        when(phaseRepository.findById(phase1Id)).thenReturn(Optional.of(toPhase));
+        when(tournamentRepository.findById(TOURNAMENT_ID)).thenReturn(Optional.of(tournament));
+
+        UUID teamId = UUID.randomUUID();
+        Team t = teamWithNumber(teamId, 1);
+        when(teamRepository.findByTournamentId(TOURNAMENT_ID)).thenReturn(List.of(t));
+
+        List<TeamAvatarProposal> proposals = service.proposeTransition(phase1Id);
+        assertThat(proposals).hasSize(1);
+        TeamAvatarProposal p = proposals.get(0);
+        // AC4: Phase 1 has no previous-phase rating — all rating fields must be null
+        assertThat(p.ratingPoints()).as("Phase-1 ratingPoints null").isNull();
+        assertThat(p.setsWon()).as("Phase-1 setsWon null").isNull();
+        assertThat(p.setsLost()).as("Phase-1 setsLost null").isNull();
+        assertThat(p.ballsWon()).as("Phase-1 ballsWon null").isNull();
+        assertThat(p.ballsLost()).as("Phase-1 ballsLost null").isNull();
+        assertThat(p.withoutAssessment()).as("Phase-1 withoutAssessment null").isNull();
+    }
+
+    // =========================================================================
     // E51S13 — sortType population (RED-first per DEC-22 Iron Law)
     // =========================================================================
 

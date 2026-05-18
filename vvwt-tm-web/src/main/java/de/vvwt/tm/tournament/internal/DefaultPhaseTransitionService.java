@@ -162,8 +162,9 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
         Optional<Phase> fromPhaseOpt = requireFromPhase(toPhase);
         if (fromPhaseOpt.isEmpty()) {
             // Phase-1-Branch (E48S18): source is tournament.Teams where participate=true
+            // E66S03 AC4: Phase 1 has no previous-phase rating → pass empty rating map
             List<RankedTeamEntry> ranked = rankPhase1Teams(tournament, toSection);
-            return buildProposals(ranked, toSection);
+            return buildProposals(ranked, toSection, java.util.Collections.emptyMap());
         }
 
         // Phase N+1 branch: use fromPhase TeamAvatars (E48S07, E66S01 AC3/AC6)
@@ -171,9 +172,12 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
         List<TeamAvatar> fromAvatars = teamAvatarRepository.findByPhaseId(fromPhase.getId());
         // E48S20: build Team lookup map for display-field population (avoid N+1 per avatar)
         Map<UUID, Team> teamById = buildTeamLookup(fromAvatars);
+        // E66S03: build teamId-keyed rating map for source-pane rating-basis population (AC2/AC3)
+        Map<UUID, TeamAvatarRating> ratingsByTeamId =
+                buildRatingsByTeamId(fromAvatars, fromPhase.getId());
         List<RankedTeamEntry> ranked =
                 rankPhase2PlusTeams(fromAvatars, toSection, teamById, fromPhase.getId());
-        return buildProposals(ranked, toSection);
+        return buildProposals(ranked, toSection, ratingsByTeamId);
     }
 
     // -------------------------------------------------------------------------
@@ -437,13 +441,23 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
      * <p>AC3 (E66S01): Phase 2+ now honors {@code distributionMode} from the draft section because
      * this method reads {@code toSection.getDistributionMode()} for all callers.
      *
+     * <p>E66S03 AC2/AC3/AC5: populates rating-basis fields from {@code ratingsByTeamId}. For each
+     * proposal, looks up the rating by teamId. If a rating row exists, the points/setsWon/setsLost/
+     * ballsWon/ballsLost/withoutAssessment fields are populated. If no rating row exists (null
+     * lookup result), all rating fields are null (AC5b — "no rating row" state). Phase-1 callers
+     * pass an empty map so all rating fields are null (AC4).
+     *
      * @param ranked the flat ranked list; index 0 = highest-ranked team
      * @param toSection the draft section for the target phase (provides groupCount,
      *     distributionMode, sortType)
-     * @return list of proposals with target (groupNumber, groupPosition) assigned; never null
+     * @param ratingsByTeamId map from teamId to the previous-phase rating (empty for Phase 1)
+     * @return list of proposals with target (groupNumber, groupPosition) and rating basis assigned;
+     *     never null
      */
     private List<TeamAvatarProposal> buildProposals(
-            List<RankedTeamEntry> ranked, DraftSection toSection) {
+            List<RankedTeamEntry> ranked,
+            DraftSection toSection,
+            Map<UUID, TeamAvatarRating> ratingsByTeamId) {
         int teamCount = ranked.size();
         int groupCount = toSection.getGroupCount();
         String distributionMode = toSection.getDistributionMode();
@@ -456,6 +470,16 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
         for (int i = 0; i < teamCount; i++) {
             RankedTeamEntry entry = ranked.get(i);
             Team2AvatarSlot slot = slots.get(i);
+
+            // E66S03 AC2/AC3/AC5: populate rating-basis fields from previous-phase rating
+            TeamAvatarRating rating = ratingsByTeamId.get(entry.teamId());
+            Integer ratingPoints = rating != null ? rating.getPoints() : null;
+            Integer setsWon = rating != null ? rating.getSetsWon() : null;
+            Integer setsLost = rating != null ? rating.getSetsLost() : null;
+            Integer ballsWon = rating != null ? rating.getBallsWon() : null;
+            Integer ballsLost = rating != null ? rating.getBallsLost() : null;
+            Boolean withoutAssessment = rating != null ? rating.isWithoutAssessment() : null;
+
             proposals.add(
                     new TeamAvatarProposal(
                             entry.teamId(),
@@ -465,10 +489,52 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
                             slot.groupPosition(),
                             entry.sourceGroupNumber(),
                             entry.sourceGroupPosition(),
-                            sortType));
+                            sortType,
+                            ratingPoints,
+                            setsWon,
+                            setsLost,
+                            ballsWon,
+                            ballsLost,
+                            withoutAssessment));
         }
 
         return proposals;
+    }
+
+    /**
+     * Builds a map from teamId to the team's previous-phase rating, using the from-phase avatar
+     * list as the join key (avatar carries both avatarId and teamId).
+     *
+     * <p>E66S03 AC2/AC5: required to populate the rating-basis fields on proposals. The rating
+     * repository returns ratings keyed by avatarId; this method converts the key to teamId via the
+     * avatar join so that {@link #buildProposals} can look up by teamId.
+     *
+     * <p>Teams with no rating row are absent from the result map; their proposal will carry null
+     * rating fields (E66S03 AC5b).
+     *
+     * @param fromAvatars the previous-phase avatars (carry both avatarId and teamId)
+     * @param fromPhaseId the phase id for the bulk rating load
+     * @return map from teamId to TeamAvatarRating; never null
+     */
+    private Map<UUID, TeamAvatarRating> buildRatingsByTeamId(
+            List<TeamAvatar> fromAvatars, UUID fromPhaseId) {
+        List<TeamAvatarRating> ratingsList = teamAvatarRatingRepository.findByPhaseId(fromPhaseId);
+        Map<UUID, TeamAvatarRating> ratingsByAvatarId =
+                ratingsList.stream()
+                        .collect(
+                                Collectors.toMap(
+                                        TeamAvatarRating::getAvatarId, Function.identity()));
+        Map<UUID, TeamAvatarRating> ratingsByTeamId = new HashMap<>(fromAvatars.size() * 2);
+        for (TeamAvatar av : fromAvatars) {
+            if (av.getTeamId() == null) {
+                continue; // avatar not yet assigned (DEC-59 Clause B — teamId=NULL at apply-time)
+            }
+            TeamAvatarRating rating = ratingsByAvatarId.get(av.getId());
+            if (rating != null) {
+                ratingsByTeamId.put(av.getTeamId(), rating);
+            }
+        }
+        return ratingsByTeamId;
     }
 
     // -------------------------------------------------------------------------

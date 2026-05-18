@@ -21,8 +21,8 @@ import org.junit.jupiter.api.Test;
  * <p>Covers:
  *
  * <ul>
- *   <li>AC-TEST-DTO-SORTTYPE-FIELD-EXISTS-RED — {@link TeamAvatarProposal} has 8 fields including
- *       {@code sortType}.
+ *   <li>AC-TEST-DTO-SORTTYPE-FIELD-EXISTS-RED — {@link TeamAvatarProposal} has 14 fields including
+ *       {@code sortType} and the 6 new E66S03 rating-basis fields.
  *   <li>AC-IMPL-DTO-SORTTYPE-NULLABLE — {@code sortType} is {@link String} (nullable); {@link
  *       TeamAvatarProposal#forCommit} sets it to {@code null}.
  *   <li>AC-IMPL-DEC-9-NO-UUID-IN-DOM — {@code sortType} is a domain string, not a UUID.
@@ -37,28 +37,39 @@ import org.junit.jupiter.api.Test;
 class TeamAvatarProposalSortTypeTest {
 
     /**
-     * AC-TEST-DTO-SORTTYPE-FIELD-EXISTS-RED: {@link TeamAvatarProposal} record has exactly 8
-     * components (the 7 existing ones + {@code sortType}).
+     * AC-TEST-DTO-SORTTYPE-FIELD-EXISTS-RED: {@link TeamAvatarProposal} record has exactly 14
+     * components (the 8 fields from E51S13 + 6 new rating-basis fields from E66S03: ratingPoints,
+     * setsWon, setsLost, ballsWon, ballsLost, withoutAssessment).
      *
      * <p>Verified via reflection so the test is self-contained and does not require compilation of
-     * the new field. Before the fix, the record has 7 components → assertion fails (RED).
+     * the new fields. Updated from 8→14 by E66S03.
      */
     @Test
     @DisplayName(
-            "TeamAvatarProposal has 8 record components including sortType"
-                    + " (AC-TEST-DTO-SORTTYPE-FIELD-EXISTS-RED)")
+            "TeamAvatarProposal has 14 record components including sortType and E66S03 rating"
+                    + " fields (AC-TEST-DTO-SORTTYPE-FIELD-EXISTS-RED)")
     void teamAvatarProposal_has8Components_includingSortType() {
         RecordComponent[] components = TeamAvatarProposal.class.getRecordComponents();
         assertThat(components)
                 .as(
-                        "TeamAvatarProposal must have exactly 8 record components (7 existing +"
-                                + " sortType)")
-                .hasSize(8);
+                        "TeamAvatarProposal must have exactly 14 record components (8 from E51S13 +"
+                                + " 6 rating-basis fields from E66S03)")
+                .hasSize(14);
         String[] names =
                 Arrays.stream(components).map(RecordComponent::getName).toArray(String[]::new);
         assertThat(names)
                 .as("TeamAvatarProposal must contain a 'sortType' component")
                 .contains("sortType");
+        // E66S03: rating-basis fields must also be present
+        assertThat(names)
+                .as("TeamAvatarProposal must contain E66S03 rating-basis components")
+                .contains(
+                        "ratingPoints",
+                        "setsWon",
+                        "setsLost",
+                        "ballsWon",
+                        "ballsLost",
+                        "withoutAssessment");
     }
 
     /**
