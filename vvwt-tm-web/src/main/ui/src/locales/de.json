@@ -433,6 +433,8 @@
     "sizeLabel": "{size} KB",
     "replaceConfirm": "Bestehende Vorlage ersetzen?",
     "createCertificatesButton": "Urkunden erstellen",
+    "standardTemplateDefault": "Es ist keine eigene Vorlage hochgeladen. Für die Urkunden-Erstellung wird automatisch die Standard-Vorlage verwendet.",
+    "generationNotAvailable": "Die Urkunden-Erstellung ist verfügbar, sobald das Turnier abgeschlossen ist.",
     "error": {
       "noTournament": "Kein Turnier ausgewählt."
     }

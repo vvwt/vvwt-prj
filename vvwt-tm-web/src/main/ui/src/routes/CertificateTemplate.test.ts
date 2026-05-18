@@ -105,3 +105,45 @@ describe('CertificateTemplate.svelte — E52S02: button click navigates to /cert
     expect(source).toContain('/certificates');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E67S02 — Standard-template default messaging + generation discoverability
+// AC1: no-template empty-state conveys standard template is active (positive default)
+// AC3: generation path discoverable; non-COMPLETED tournament shows "not yet available" notice
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('CertificateTemplate.svelte — E67S02 AC1: standard-template default messaging (AC-CERT-STANDARD-DEFAULT-MSG-RED)', () => {
+  it('CertificateTemplate.svelte source contains certificateTemplate.standardTemplateDefault i18n key', async () => {
+    // AC-CERT-STANDARD-DEFAULT-MSG-RED: no-template empty-state must use standardTemplateDefault key
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './CertificateTemplate.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain('certificateTemplate.standardTemplateDefault');
+  });
+});
+
+describe('CertificateTemplate.svelte — E67S02 AC3: generation-not-available notice for non-COMPLETED (AC-CERT-GEN-NOT-AVAILABLE-MSG-RED)', () => {
+  it('CertificateTemplate.svelte source contains certificateTemplate.generationNotAvailable i18n key', async () => {
+    // AC-CERT-GEN-NOT-AVAILABLE-MSG-RED: non-COMPLETED tournament must show generationNotAvailable key
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './CertificateTemplate.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain('certificateTemplate.generationNotAvailable');
+  });
+
+  it('CertificateTemplate.svelte source gates generationNotAvailable notice on non-COMPLETED status', async () => {
+    // AC-CERT-GEN-NOT-AVAILABLE-MSG-RED: message must appear inside a non-COMPLETED conditional
+    // The COMPLETED check must appear before the generationNotAvailable reference
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './CertificateTemplate.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    const completedIdx = source.indexOf("!== 'COMPLETED'");
+    const msgIdx = source.indexOf('generationNotAvailable');
+    expect(completedIdx).toBeGreaterThan(-1);
+    expect(msgIdx).toBeGreaterThan(-1);
+    expect(completedIdx).toBeLessThan(msgIdx);
+  });
+});
