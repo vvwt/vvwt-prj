@@ -25,7 +25,7 @@
    * E07S06 additions:
    *   - After initial load: connect to WebSocket using device token (AC1)
    *   - Handle MATCH_RESULT_CHANGED → refresh matches + standings (AC2, AC3)
-   *   - Handle LAP_ADVANCED → refresh matches for new lap (AC4)
+   *   - Handle LAP_ADVANCED → refresh phase overview (currentLap) + matches (AC4; E65S04 AC3 fix)
    *   - Handle PHASE_STATUS_CHANGED → full reload (AC5)
    *   - Reconnect with exponential backoff; fallback to polling after 5 failures (AC7, AC9)
    *   - Show ConnectionStatus indicator (AC7)
@@ -167,16 +167,28 @@
   }
 
   /**
-   * Refresh matches for the new lap after a LAP_ADVANCED event (AC4).
+   * Refresh phase overview AND matches after a LAP_ADVANCED event (E65S04 AC3).
+   *
+   * Root cause of the bug (E65S04 AC2): the previous implementation only refreshed
+   * matchesData. phaseData.currentLap was not updated, so the active-round highlight
+   * (CourtGrid `class:round-row--active={lap === currentLap}`) stayed on the previous
+   * lap after the tournament advanced. Fetching phaseData in the same call as matches
+   * ensures currentLap and the match grid advance together.
    */
-  async function refreshMatches(): Promise<void> {
+  async function refreshMatchesAndPhase(): Promise<void> {
     if (!activeToken) return;
     try {
-      matchesData = await fetchMatches(activeToken);
+      const [overview, matches] = await Promise.all([
+        fetchPhaseOverview(activeToken),
+        fetchMatches(activeToken),
+      ]);
+      phaseData = overview;
+      matchesData = matches;
     } catch (err) {
       if (err instanceof UnauthorizedError) {
         window.location.href = '/display/register';
       }
+      // Other errors: silently ignore — data stays at last known state (AC5)
     }
   }
 
@@ -203,8 +215,8 @@
         void refreshMatchesAndStandings();
         break;
       case EVENT_TYPE_LAP_ADVANCED:
-        // AC4: refresh match grid for the new lap
-        void refreshMatches();
+        // E65S04 AC3: refresh phase overview (currentLap) AND match grid together
+        void refreshMatchesAndPhase();
         break;
       case EVENT_TYPE_PHASE_STATUS_CHANGED:
         // AC5: phase transition → full reload
