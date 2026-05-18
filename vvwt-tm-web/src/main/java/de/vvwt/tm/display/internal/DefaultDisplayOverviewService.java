@@ -278,12 +278,12 @@ public class DefaultDisplayOverviewService implements DisplayOverviewService {
     /**
      * {@inheritDoc}
      *
-     * <p>Loads all TeamAvatars and their ratings for the active phase in bulk, then ranks each group
-     * using the shared {@link PlacementComparator} (DEC-77 D-3 / D-6): points DESC → setQuotient
-     * DESC → ballQuotient DESC → groupPosition ASC, withoutAssessment last. Avatars with no rating
-     * row are treated as unrated (rank last within their group, ordered by groupPosition ASC). The
-     * same comparator is used by the phase-transition proposal computation so the two screens cannot
-     * disagree (AC3 — no-divergence guarantee per DEC-77 D-6).
+     * <p>Loads all TeamAvatars and their ratings for the active phase in bulk, then ranks each
+     * group using the shared {@link PlacementComparator} (DEC-77 D-3 / D-6): points DESC →
+     * setQuotient DESC → ballQuotient DESC → groupPosition ASC, withoutAssessment last. Avatars
+     * with no rating row are treated as unrated (rank last within their group, ordered by
+     * groupPosition ASC). The same comparator is used by the phase-transition proposal computation
+     * so the two screens cannot disagree (AC3 — no-divergence guarantee per DEC-77 D-6).
      *
      * <p>DTO output fields for a team with no rating row default to zero via {@link #zeroRating()}.
      */
@@ -297,11 +297,12 @@ public class DefaultDisplayOverviewService implements DisplayOverviewService {
 
         // Bulk-load all ratings for the phase — single query instead of N per-avatar lookups.
         // Used both for sorting (PlacementComparator) and for populating DTO output fields.
-        List<TeamAvatarRating> allRatings =
-                teamAvatarRatingRepository.findByPhaseId(phase.getId());
+        List<TeamAvatarRating> allRatings = teamAvatarRatingRepository.findByPhaseId(phase.getId());
         Map<UUID, TeamAvatarRating> ratingsByAvatarId =
                 allRatings.stream()
-                        .collect(Collectors.toMap(TeamAvatarRating::getAvatarId, Function.identity()));
+                        .collect(
+                                Collectors.toMap(
+                                        TeamAvatarRating::getAvatarId, Function.identity()));
 
         // Shared placement comparator (DEC-77 D-3 / D-6) — same as phase-transition sort.
         // Avatars absent from the ratings map are treated as unrated (withoutAssessment=true).

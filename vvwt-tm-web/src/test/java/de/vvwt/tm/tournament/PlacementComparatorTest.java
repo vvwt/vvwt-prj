@@ -4,8 +4,6 @@ package de.vvwt.tm.tournament;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import de.vvwt.tm.tournament.TeamAvatar;
-import de.vvwt.tm.tournament.TeamAvatarRating;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.UUID;

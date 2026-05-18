@@ -41,7 +41,8 @@ import java.util.UUID;
  * @see TeamSortCalculator
  * @see <a href="DEC-77">DEC-77 D-3 — placement comparator definition</a>
  * @see <a href="DEC-77">DEC-77 D-6 — Display standings must use this comparator</a>
- * @see <a href="DEC-35">DEC-35 — impl in .internal (service/repo impls; comparator utility exempt)</a>
+ * @see <a href="DEC-35">DEC-35 — impl in .internal (service/repo impls; comparator utility
+ *     exempt)</a>
  * @see <a href="E66S01">E66S01 — AC5 (introduced)</a>
  * @see <a href="E66S04">E66S04 — AC3 (moved to public package for Display overview reuse)</a>
  */

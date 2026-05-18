@@ -622,9 +622,9 @@ class DefaultDisplayOverviewServiceTest {
         // groupPosition 1 (ta1 / "Team Pos1") must rank at position 1 per DEC-77 D-3
         assertThat(rankings.get(0).teamName())
                 .as(
-                        "AC1 no-divergence: tied-on-quotients teams must be ordered by groupPosition"
-                                + " ASC (DEC-77 D-3 4th tie-break); lower groupPosition=1 ranks"
-                                + " first")
+                        "AC1 no-divergence: tied-on-quotients teams must be ordered by"
+                            + " groupPosition ASC (DEC-77 D-3 4th tie-break); lower groupPosition=1"
+                            + " ranks first")
                 .isEqualTo("Team Pos1");
         assertThat(rankings.get(0).position()).isEqualTo(1);
         assertThat(rankings.get(1).teamName()).isEqualTo("Team Pos2");
@@ -653,8 +653,10 @@ class DefaultDisplayOverviewServiceTest {
         Device device = buildDisplayDevice(tenantId);
         Tournament tournament = buildTournament(tournamentId, "ACTIVE", 2);
         Phase phase = buildPhase(phaseId, tenantId, tournamentId, "Phase", "ACTIVE", 1, 1);
-        TeamAvatar taAssessed = buildAvatarWithGroupPos(avatarIdAssessed, phaseId, 1, 1, teamIdAssessed);
-        TeamAvatar taUnrated = buildAvatarWithGroupPos(avatarIdUnrated, phaseId, 1, 2, teamIdUnrated);
+        TeamAvatar taAssessed =
+                buildAvatarWithGroupPos(avatarIdAssessed, phaseId, 1, 1, teamIdAssessed);
+        TeamAvatar taUnrated =
+                buildAvatarWithGroupPos(avatarIdUnrated, phaseId, 1, 2, teamIdUnrated);
         Team teamAssessed = buildTeam(teamIdAssessed, tournamentId, "Assessed Team");
         Team teamUnrated = buildTeam(teamIdUnrated, tournamentId, "Unrated Team");
 
@@ -801,8 +803,8 @@ class DefaultDisplayOverviewServiceTest {
     }
 
     /**
-     * Builds a {@link TeamAvatar} with an explicit {@code groupPosition} (E66S04 — needed for
-     * AC1 no-divergence tests where groupPosition tie-break is verified).
+     * Builds a {@link TeamAvatar} with an explicit {@code groupPosition} (E66S04 — needed for AC1
+     * no-divergence tests where groupPosition tie-break is verified).
      */
     private TeamAvatar buildAvatarWithGroupPos(
             UUID id, UUID phaseId, int groupNumber, int groupPosition, UUID teamId) {
