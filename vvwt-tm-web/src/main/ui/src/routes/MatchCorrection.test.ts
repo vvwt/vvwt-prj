@@ -319,3 +319,92 @@ describe('MatchCorrection.svelte — source checks (E48S26 governance)', () => {
         expect(source).not.toContain('AC-FE-PHASELIST-CORRECTION-LINKS');
     });
 });
+
+// ── E66S05 Source checks: team identification in headers and dialog ────────────
+//
+// DEC-22 RED-first source-inspection tests authored BEFORE the production change.
+// The source-inspection pattern is used because @testing-library/svelte render()
+// is not available in this project's Vitest+jsdom environment for Svelte 5 components
+// (pre-existing gap, see notes in E48S27 block above).
+//
+// AC2: column headers in the score-input table must show "Nr. {teamNumber} — {teamName}"
+// AC3: same identification in the confirmation dialog table
+// AC4: graceful fallback key present in de.json (never "undefined", never blank)
+// AC5: no teamId UUID rendered; i18n via de.json canonical fallback-aware pattern
+
+describe('MatchCorrection.svelte — E66S05 team identification (AC-TEST-E66S05-TEAM-HEADER-RED)', () => {
+    const __dirname_e66 = path.dirname(new URL(import.meta.url).pathname);
+    const corrSource = fs.readFileSync(
+        path.resolve(__dirname_e66, './MatchCorrection.svelte'),
+        'utf8'
+    );
+    const storeSource = fs.readFileSync(
+        path.resolve(__dirname_e66, '../stores/correctionStore.ts'),
+        'utf8'
+    );
+    const deJsonSource = fs.readFileSync(
+        path.resolve(__dirname_e66, '../locales/de.json'),
+        'utf8'
+    );
+
+    // AC2 — score-input table column headers use team label variable (not bare i18n keys)
+    it('AC2: MatchCorrection.svelte renders team1Label and team2Label derived from teamNumber+teamName', () => {
+        // The component must declare label state variables (team1Label / team2Label)
+        // computed from the match's team1Number, team2Number, team1Name, team2Name.
+        // We check for the variable references in the template.
+        expect(corrSource).toContain('team1Label');
+        expect(corrSource).toContain('team2Label');
+    });
+
+    it('AC2: MatchCorrection.svelte uses team1Label in the sets-table column header', () => {
+        // The sets-table <th> must reference team1Label, not the bare i18n key correction.team1Points
+        const tableSection = corrSource.match(/correction__sets-table[\s\S]*?<\/table>/);
+        expect(tableSection, 'sets table section not found in source').toBeTruthy();
+        expect(tableSection![0]).toContain('team1Label');
+    });
+
+    it('AC2: MatchCorrection.svelte uses team2Label in the sets-table column header', () => {
+        const tableSection = corrSource.match(/correction__sets-table[\s\S]*?<\/table>/);
+        expect(tableSection, 'sets table section not found in source').toBeTruthy();
+        expect(tableSection![0]).toContain('team2Label');
+    });
+
+    // AC3 — confirmation dialog table uses same team labels
+    it('AC3: MatchCorrection.svelte uses team1Label in the confirmation dialog table header', () => {
+        const dialogSection = corrSource.match(/correction__confirm-table[\s\S]*?<\/table>/);
+        expect(dialogSection, 'confirm table section not found in source').toBeTruthy();
+        expect(dialogSection![0]).toContain('team1Label');
+    });
+
+    it('AC3: MatchCorrection.svelte uses team2Label in the confirmation dialog table header', () => {
+        const dialogSection = corrSource.match(/correction__confirm-table[\s\S]*?<\/table>/);
+        expect(dialogSection, 'confirm table section not found in source').toBeTruthy();
+        expect(dialogSection![0]).toContain('team2Label');
+    });
+
+    // AC4 — fallback key: de.json must define correction.teamFallback (used when no team assigned)
+    it('AC4: de.json defines correction.teamFallback for graceful no-team fallback', () => {
+        expect(deJsonSource).toContain('teamFallback');
+    });
+
+    // AC5 — no teamId UUID rendered (structural: source must not pass teamId to DOM)
+    it('AC5: MatchCorrection.svelte does not render teamId values in the DOM', () => {
+        // teamId UUID must not appear as a rendered text node — only structural use is fine
+        // Structural check: source must not bind `teamId` to any text interpolation
+        expect(corrSource).not.toMatch(/\{[^}]*teamId[^}]*\}/);
+    });
+
+    // AC5 — i18n pattern: de.json must define "Nr." label via a key
+    it('AC5: de.json defines correction.teamNumberPrefix for the "Nr." label', () => {
+        expect(deJsonSource).toContain('teamNumberPrefix');
+    });
+
+    // Store interface: correctionStore.ts must expose team1Number and team2Number on MatchSummary
+    it('correctionStore.ts MatchSummary interface exposes team1Number (nullable integer)', () => {
+        expect(storeSource).toContain('team1Number');
+    });
+
+    it('correctionStore.ts MatchSummary interface exposes team2Number (nullable integer)', () => {
+        expect(storeSource).toContain('team2Number');
+    });
+});

@@ -19,6 +19,10 @@ export interface MatchSummary {
     fieldNumber: number | null;
     team1Name: string;
     team2Name: string;
+    /** Human-readable team number for team 1. Null when no team is assigned to this slot (E66S05). */
+    team1Number: number | null;
+    /** Human-readable team number for team 2. Null when no team is assigned to this slot (E66S05). */
+    team2Number: number | null;
     setScores: SetScore[];
 }
 

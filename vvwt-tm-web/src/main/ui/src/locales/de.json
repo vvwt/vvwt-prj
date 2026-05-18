@@ -579,6 +579,8 @@
     "setIndex": "Satz",
     "team1Points": "Team 1 Punkte",
     "team2Points": "Team 2 Punkte",
+    "teamNumberPrefix": "Nr.",
+    "teamFallback": "Nicht zugewiesen",
     "addSetRow": "+ Satz hinzufügen",
     "removeSetRow": "Letzten Satz entfernen",
     "reasonLabel": "Begründung (optional)",
