@@ -19,8 +19,8 @@ import org.junit.jupiter.api.Test;
  * Unit tests for {@link GroupPlacementSortCalculator} (E66S01 AC4, DEC-77 D-2/D-3, DEC-22).
  *
  * <p>Updated from E58S03: uses the new {@code rank(...)} interface returning a flat ranked list.
- * DEC-77 D-2: group_placement = group-major (all of G1 in placement order, then G2, ...).
- * DEC-77 D-3: placement comparator.
+ * DEC-77 D-2: group_placement = group-major (all of G1 in placement order, then G2, ...). DEC-77
+ * D-3: placement comparator.
  *
  * @see GroupPlacementSortCalculator
  * @see TeamSortCalculator
@@ -56,16 +56,18 @@ class GroupPlacementSortCalculatorTest {
 
         // G1: av1 (80pts rank-1), av2 (30pts rank-2)
         // G2: av3 (70pts rank-1), av4 (10pts rank-2)
-        Map<UUID, TeamAvatarRating> ratings = Map.of(
-                av1.getId(), rating(av1.getId(), 80, 1.0, 1.0, false),
-                av2.getId(), rating(av2.getId(), 30, 1.0, 1.0, false),
-                av3.getId(), rating(av3.getId(), 70, 1.0, 1.0, false),
-                av4.getId(), rating(av4.getId(), 10, 1.0, 1.0, false));
-        Map<UUID, Team> teamById = Map.of(
-                t1, team(t1, 1, "T1"),
-                t2, team(t2, 2, "T2"),
-                t3, team(t3, 3, "T3"),
-                t4, team(t4, 4, "T4"));
+        Map<UUID, TeamAvatarRating> ratings =
+                Map.of(
+                        av1.getId(), rating(av1.getId(), 80, 1.0, 1.0, false),
+                        av2.getId(), rating(av2.getId(), 30, 1.0, 1.0, false),
+                        av3.getId(), rating(av3.getId(), 70, 1.0, 1.0, false),
+                        av4.getId(), rating(av4.getId(), 10, 1.0, 1.0, false));
+        Map<UUID, Team> teamById =
+                Map.of(
+                        t1, team(t1, 1, "T1"),
+                        t2, team(t2, 2, "T2"),
+                        t3, team(t3, 3, "T3"),
+                        t4, team(t4, 4, "T4"));
 
         List<RankedTeamEntry> ranked =
                 calculator.rank(List.of(av1, av2, av3, av4), ratings, teamById);
@@ -85,18 +87,21 @@ class GroupPlacementSortCalculatorTest {
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("rank() within each source group uses DEC-77 D-3 comparator (ballQuotient tiebreak)")
+    @DisplayName(
+            "rank() within each source group uses DEC-77 D-3 comparator (ballQuotient tiebreak)")
     void rank_placementComparator_ballQuotientTiebreak() {
         UUID t1 = UUID.randomUUID(), t2 = UUID.randomUUID();
         TeamAvatar av1 = avatar(1, 1, t1); // points=10, setQ=1.5, ballQ=3.0
         TeamAvatar av2 = avatar(1, 2, t2); // points=10, setQ=1.5, ballQ=2.0
 
-        Map<UUID, TeamAvatarRating> ratings = Map.of(
-                av1.getId(), rating(av1.getId(), 10, 1.5, 3.0, false),
-                av2.getId(), rating(av2.getId(), 10, 1.5, 2.0, false));
-        Map<UUID, Team> teamById = Map.of(
-                t1, team(t1, 1, "T1"),
-                t2, team(t2, 2, "T2"));
+        Map<UUID, TeamAvatarRating> ratings =
+                Map.of(
+                        av1.getId(), rating(av1.getId(), 10, 1.5, 3.0, false),
+                        av2.getId(), rating(av2.getId(), 10, 1.5, 2.0, false));
+        Map<UUID, Team> teamById =
+                Map.of(
+                        t1, team(t1, 1, "T1"),
+                        t2, team(t2, 2, "T2"));
 
         List<RankedTeamEntry> ranked = calculator.rank(List.of(av1, av2), ratings, teamById);
 

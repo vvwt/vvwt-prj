@@ -14,6 +14,7 @@ import de.vvwt.tm.tournament.TeamRepository;
 import de.vvwt.tm.web.internal.dto.MatchSummaryResponse;
 import de.vvwt.tm.web.internal.dto.MatchSummaryResponse.SetScoreDto;
 import de.vvwt.tm.web.internal.dto.TeamAvatarAssignment;
+import de.vvwt.tm.web.internal.dto.TransitionSettingsRequest;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -23,6 +24,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -145,6 +147,40 @@ public class PhaseTransitionController {
                         .collect(Collectors.toList());
         phaseTransitionService.commitTransition(phaseId, domainAssignments);
         return ResponseEntity.ok().build();
+    }
+
+    // -------------------------------------------------------------------------
+    // PUT /api/phases/{phaseId}/transition-settings
+    // (E66S02 — update sortType + distributionMode; re-compute proposal)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Updates the {@code sortType} and {@code distributionMode} of the target PREPARED phase's
+     * {@link de.vvwt.tm.tournament.draft.DraftSection} and returns the re-computed proposal.
+     *
+     * <p>Invalidation-neutral (AC6): only the team-assignment proposal is re-computed. Matches,
+     * phase status, and all other phases are unchanged.
+     *
+     * <p>Membership validation (AC5): both keys are validated against their registries before
+     * persistence. Unknown key → 400 (via {@link de.vvwt.tm.web.GlobalExceptionHandler} mapping
+     * {@code IllegalArgumentException} → 400).
+     *
+     * <p>Phase guard (AC4): target phase must be {@code PREPARED}. Non-PREPARED → 409 (via {@link
+     * de.vvwt.tm.web.GlobalExceptionHandler} mapping {@link
+     * de.vvwt.tm.tournament.exceptions.ConflictException} → 409).
+     *
+     * @param phaseId the UUID of the target (PREPARED) phase
+     * @param body the new sortType and distributionMode registry keys
+     * @return 200 OK with the recomputed proposal list; 400 if keys are unknown; 409 if not
+     *     PREPARED
+     */
+    @PutMapping("/{phaseId}/transition-settings")
+    public ResponseEntity<List<TeamAvatarProposal>> updateSortAndDistribution(
+            @PathVariable("phaseId") UUID phaseId, @RequestBody TransitionSettingsRequest body) {
+        List<TeamAvatarProposal> proposals =
+                phaseTransitionService.updateSortAndDistribution(
+                        phaseId, body.sortType(), body.distributionMode());
+        return ResponseEntity.ok(proposals);
     }
 
     // -------------------------------------------------------------------------

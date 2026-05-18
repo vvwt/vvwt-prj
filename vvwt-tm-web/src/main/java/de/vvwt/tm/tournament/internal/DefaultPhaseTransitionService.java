@@ -171,7 +171,8 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
         List<TeamAvatar> fromAvatars = teamAvatarRepository.findByPhaseId(fromPhase.getId());
         // E48S20: build Team lookup map for display-field population (avoid N+1 per avatar)
         Map<UUID, Team> teamById = buildTeamLookup(fromAvatars);
-        List<RankedTeamEntry> ranked = rankPhase2PlusTeams(fromAvatars, toSection, teamById, fromPhase.getId());
+        List<RankedTeamEntry> ranked =
+                rankPhase2PlusTeams(fromAvatars, toSection, teamById, fromPhase.getId());
         return buildProposals(ranked, toSection);
     }
 
@@ -437,8 +438,8 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
      * this method reads {@code toSection.getDistributionMode()} for all callers.
      *
      * @param ranked the flat ranked list; index 0 = highest-ranked team
-     * @param toSection the draft section for the target phase (provides groupCount, distributionMode,
-     *     sortType)
+     * @param toSection the draft section for the target phase (provides groupCount,
+     *     distributionMode, sortType)
      * @return list of proposals with target (groupNumber, groupPosition) assigned; never null
      */
     private List<TeamAvatarProposal> buildProposals(
@@ -468,6 +469,168 @@ public class DefaultPhaseTransitionService implements PhaseTransitionService {
         }
 
         return proposals;
+    }
+
+    // -------------------------------------------------------------------------
+    // updateSortAndDistribution — DEC-77 D-5 (E66S02 AC4, AC5, AC6)
+    // -------------------------------------------------------------------------
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>E66S02 AC4: persists sortType and distributionMode into the target PREPARED phase's
+     * DraftSection and no other section.
+     *
+     * <p>E66S02 AC5: validates sortType against {@link TeamSortCalculatorRegistry} and
+     * distributionMode against {@link Team2AvatarDistributorRegistry} before any persistence.
+     *
+     * <p>E66S02 AC6: invalidation-neutral — only re-computes the team-assignment proposal; does not
+     * reset the phase, re-trigger match generation, or change any other phase's data or status. No
+     * {@code teamId} is written to avatar slots (DEC-59 Clause C).
+     *
+     * @throws de.vvwt.tm.tournament.exceptions.ConflictException if phase is not {@code PREPARED}
+     * @throws IllegalArgumentException if sortType or distributionMode is not registered
+     */
+    @Override
+    @Transactional
+    public List<TeamAvatarProposal> updateSortAndDistribution(
+            UUID toPhaseId, String sortType, String distributionMode) {
+
+        Phase toPhase = requirePhase(toPhaseId);
+
+        // AC4 guard: only PREPARED phases may have their sort/distribution changed
+        if (!"PREPARED".equals(toPhase.getStatus())) {
+            throw new de.vvwt.tm.tournament.exceptions.ConflictException(
+                    "updateSortAndDistribution rejected: phase "
+                            + toPhaseId
+                            + " is in status '"
+                            + toPhase.getStatus()
+                            + "' but must be PREPARED (DEC-77 D-5, E66S02 AC4)");
+        }
+
+        // AC5 / DEC-73 D-6: validate sortType and distributionMode against registries
+        // The registry.get() call throws IllegalArgumentException for unknown keys.
+        sortRegistry.get(sortType); // throws if not registered
+        distributorRegistry.get(distributionMode); // throws if not registered
+
+        // AC4: load tournament and persist the updated section
+        tournamentRepository.findByIdForUpdate(toPhase.getTournamentId());
+        Tournament tournament = requireTournament(toPhase.getTournamentId());
+        persistSectionFields(tournament, toPhase.getSequenceNumber(), sortType, distributionMode);
+
+        // AC6: return recomputed proposal (re-reads draft_json from the saved tournament)
+        // proposeTransition reads a fresh tournament from the repo → sees the new values
+        return proposeTransition(toPhaseId);
+    }
+
+    /**
+     * Mutates the {@code draft_json} of the given tournament by updating the {@code sortType} and
+     * {@code distributionMode} of the {@link de.vvwt.tm.tournament.draft.DraftSection} whose {@code
+     * sectionNumber} matches {@code sequenceNumber}.
+     *
+     * <p>Only the matching section is modified; all other sections and all other fields within the
+     * matching section are preserved verbatim (AC4, E66S02).
+     *
+     * <p>The updated tournament is persisted via {@link TournamentRepository#save(Tournament)}.
+     *
+     * @param tournament the tournament whose draft_json to update
+     * @param sequenceNumber the phase sequence number — used to identify the target section
+     * @param newSortType the new sortType registry key
+     * @param newDistributionMode the new distributionMode registry key
+     * @throws IllegalArgumentException if draft_json is null/blank or unparseable, or if no section
+     *     with the given sequenceNumber exists
+     */
+    private void persistSectionFields(
+            Tournament tournament,
+            int sequenceNumber,
+            String newSortType,
+            String newDistributionMode) {
+
+        DraftConfig draftConfig = parseDraftConfig(tournament);
+
+        // Rebuild the sections list with only the target section updated
+        List<de.vvwt.tm.tournament.draft.DraftSection> updatedSections =
+                new java.util.ArrayList<>(draftConfig.getSections().size());
+        boolean found = false;
+        for (de.vvwt.tm.tournament.draft.DraftSection section : draftConfig.getSections()) {
+            if (section.getSectionNumber() == sequenceNumber) {
+                // Replace sortType and distributionMode; all other fields stay verbatim (AC4)
+                updatedSections.add(
+                        new de.vvwt.tm.tournament.draft.DraftSection(
+                                section.getSectionNumber(),
+                                newSortType,
+                                section.getGroupCount(),
+                                section.getGameMode(),
+                                section.getLapBreakTimeMinutes(),
+                                section.getSectionBreakTimeMinutes(),
+                                section.getLapTimeMinutes(),
+                                section.getSetQuantity(),
+                                section.getBreaks(),
+                                newDistributionMode));
+                found = true;
+            } else {
+                updatedSections.add(section);
+            }
+        }
+
+        if (!found) {
+            throw new IllegalArgumentException(
+                    "No DraftSection found for sectionNumber="
+                            + sequenceNumber
+                            + " in tournamentId="
+                            + tournament.getId()
+                            + " (E66S02 AC4)");
+        }
+
+        DraftConfig updatedConfig = new DraftConfig(updatedSections);
+        String updatedJson;
+        try {
+            updatedJson = objectMapper.writeValueAsString(updatedConfig);
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Failed to serialize updated DraftConfig for tournamentId="
+                            + tournament.getId()
+                            + ": "
+                            + e.getMessage(),
+                    e);
+        }
+
+        tournament.setDraftJson(updatedJson);
+        tournamentRepository.save(tournament);
+
+        log.debug(
+                "[E66S02] persistSectionFields: tournamentId={}, sectionNumber={}, sortType={},"
+                        + " distributionMode={}",
+                tournament.getId(),
+                sequenceNumber,
+                newSortType,
+                newDistributionMode);
+    }
+
+    /**
+     * Parses the tournament's {@code draft_json} into a {@link DraftConfig}.
+     *
+     * @throws IllegalArgumentException if {@code draft_json} is null, blank, or unparseable
+     */
+    private DraftConfig parseDraftConfig(Tournament tournament) {
+        String json = tournament.getDraftJson();
+        if (json == null || json.isBlank()) {
+            throw new IllegalArgumentException(
+                    "draft_json is null or blank for tournamentId="
+                            + tournament.getId()
+                            + " (AC-ERROR-HANDLING-DRAFT-JSON-NULL)");
+        }
+        try {
+            return objectMapper.readValue(json, DraftConfig.class);
+        } catch (Exception e) {
+            throw new IllegalArgumentException(
+                    "Failed to parse draft_json for tournamentId="
+                            + tournament.getId()
+                            + ": "
+                            + e.getMessage()
+                            + " (AC-ERROR-HANDLING-DRAFT-JSON-NULL)",
+                    e);
+        }
     }
 
     // -------------------------------------------------------------------------

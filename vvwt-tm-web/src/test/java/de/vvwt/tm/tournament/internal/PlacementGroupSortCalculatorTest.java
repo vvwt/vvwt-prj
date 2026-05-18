@@ -43,7 +43,9 @@ class PlacementGroupSortCalculatorTest {
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("rank() with 2 groups/2 each: rank-1 from G1, rank-1 from G2, rank-2 from G1, rank-2 from G2")
+    @DisplayName(
+            "rank() with 2 groups/2 each: rank-1 from G1, rank-1 from G2, rank-2 from G1, rank-2"
+                    + " from G2")
     void rank_twoGroupsTwoEach_rankMajorInterleaving() {
         UUID t1 = UUID.randomUUID(), t2 = UUID.randomUUID();
         UUID t3 = UUID.randomUUID(), t4 = UUID.randomUUID();
@@ -53,16 +55,18 @@ class PlacementGroupSortCalculatorTest {
         TeamAvatar av3 = avatar(2, 1, t3); // G2
         TeamAvatar av4 = avatar(2, 2, t4); // G2
 
-        Map<UUID, TeamAvatarRating> ratings = Map.of(
-                av1.getId(), rating(av1.getId(), 50, 1.0, 1.0, false),
-                av2.getId(), rating(av2.getId(), 30, 1.0, 1.0, false),
-                av3.getId(), rating(av3.getId(), 80, 1.0, 1.0, false),
-                av4.getId(), rating(av4.getId(), 10, 1.0, 1.0, false));
-        Map<UUID, Team> teamById = Map.of(
-                t1, team(t1, 1, "T1"),
-                t2, team(t2, 2, "T2"),
-                t3, team(t3, 3, "T3"),
-                t4, team(t4, 4, "T4"));
+        Map<UUID, TeamAvatarRating> ratings =
+                Map.of(
+                        av1.getId(), rating(av1.getId(), 50, 1.0, 1.0, false),
+                        av2.getId(), rating(av2.getId(), 30, 1.0, 1.0, false),
+                        av3.getId(), rating(av3.getId(), 80, 1.0, 1.0, false),
+                        av4.getId(), rating(av4.getId(), 10, 1.0, 1.0, false));
+        Map<UUID, Team> teamById =
+                Map.of(
+                        t1, team(t1, 1, "T1"),
+                        t2, team(t2, 2, "T2"),
+                        t3, team(t3, 3, "T3"),
+                        t4, team(t4, 4, "T4"));
 
         List<RankedTeamEntry> ranked =
                 calculator.rank(List.of(av1, av2, av3, av4), ratings, teamById);
@@ -86,12 +90,14 @@ class PlacementGroupSortCalculatorTest {
         TeamAvatar av1 = avatar(1, 1, t1); // setQ=2.0
         TeamAvatar av2 = avatar(1, 2, t2); // setQ=1.0
 
-        Map<UUID, TeamAvatarRating> ratings = Map.of(
-                av1.getId(), rating(av1.getId(), 10, 2.0, 1.0, false),
-                av2.getId(), rating(av2.getId(), 10, 1.0, 1.0, false));
-        Map<UUID, Team> teamById = Map.of(
-                t1, team(t1, 1, "T1"),
-                t2, team(t2, 2, "T2"));
+        Map<UUID, TeamAvatarRating> ratings =
+                Map.of(
+                        av1.getId(), rating(av1.getId(), 10, 2.0, 1.0, false),
+                        av2.getId(), rating(av2.getId(), 10, 1.0, 1.0, false));
+        Map<UUID, Team> teamById =
+                Map.of(
+                        t1, team(t1, 1, "T1"),
+                        t2, team(t2, 2, "T2"));
 
         List<RankedTeamEntry> ranked = calculator.rank(List.of(av1, av2), ratings, teamById);
 

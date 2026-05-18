@@ -36,6 +36,7 @@
   import {
     fetchProposal,
     commitTransition,
+    updateSortAndDistribution,
     sourceLabelBySortType,
     type TeamAvatarSlot,
     type TeamAvatarAssignment,
@@ -63,6 +64,21 @@
   let draggingIndex = $state<number | null>(null);
   let dragOverIndex = $state<number | null>(null);
 
+  // E66S02: sort/distribution selectors (AC2, AC3, AC7)
+  // Derived from the first slot's sortType once proposals are loaded.
+  let currentSortType = $state<string>('team_number');
+  let currentDistributionMode = $state<string>('sequential');
+  let settingsError = $state<string | null>(null);
+
+  /**
+   * True when the target phase is Phase 1 (no previous phase).
+   * Detected from slot data: Phase-1 proposals always have sourceGroupNumber === null for all teams.
+   * AC2: sort selector is disabled for Phase-1 (sortType is fixed to "team_number").
+   */
+  const isPhase1 = $derived(
+    slots.length > 0 && slots.every(s => s.sourceGroupNumber === null)
+  );
+
   // ── Lifecycle ──────────────────────────────────────────────────────────────
   onMount(async () => {
     const titleKey = pageTitleKey ?? 'phaseTransition.pageTitle';
@@ -87,10 +103,34 @@
     error = null;
     try {
       slots = await fetchProposal(phaseId);
+      // E66S02: extract current sortType/distributionMode from first slot for selector initial state.
+      // All slots in a proposal share the same sortType (from the target DraftSection).
+      if (slots.length > 0 && slots[0].sortType != null) {
+        currentSortType = slots[0].sortType;
+      }
+      // distributionMode is not in TeamAvatarSlot (server returns sortType only).
+      // The initial distributionMode defaults to 'sequential'; the selector reflects the
+      // server-persisted value only after the first updateSortAndDistribution call.
     } catch (e: unknown) {
       error = e instanceof Error ? e.message : get(_)('phaseTransition.errorBanner');
     } finally {
       loading = false;
+    }
+  }
+
+  // E66S02 AC3: handler for sort/distribution selector change
+  async function handleSettingsChange(
+    newSortType: string,
+    newDistributionMode: string
+  ): Promise<void> {
+    settingsError = null;
+    try {
+      const newSlots = await updateSortAndDistribution(phaseId, newSortType, newDistributionMode);
+      slots = newSlots;
+      currentSortType = newSortType;
+      currentDistributionMode = newDistributionMode;
+    } catch (e: unknown) {
+      settingsError = e instanceof Error ? e.message : get(_)('phaseTransition.errorBanner');
     }
   }
 
@@ -233,6 +273,54 @@
     {#if slots.length === 0}
       <p class="phase-transition__empty">Keine Zuordnung vorhanden.</p>
     {:else}
+      <!-- E66S02 AC2, AC3, AC7: sort/distribution selectors (only in transition mode, not prepare) -->
+      {#if commitEndpoint === undefined}
+        <div class="phase-transition__settings">
+          {#if settingsError}
+            <div class="phase-transition__error-banner phase-transition__error-banner--settings">
+              {settingsError}
+            </div>
+          {/if}
+          <div class="phase-transition__settings-row">
+            <!-- Sort-type selector (AC2: disabled for Phase-1) -->
+            <label class="phase-transition__settings-label" for="sortTypeSelect">
+              {$_('phaseTransition.sortTypeLabel', { default: 'Sortiermodus' })}
+            </label>
+            <select
+              id="sortTypeSelect"
+              class="phase-transition__settings-select"
+              disabled={isPhase1}
+              value={currentSortType}
+              onchange={(e) => {
+                const el = e.currentTarget as HTMLSelectElement;
+                handleSettingsChange(el.value, currentDistributionMode);
+              }}
+            >
+              <option value="team_number">{$_('phaseTransition.sortType.team_number', { default: 'Mannschaftsnummer' })}</option>
+              <option value="placement_group">{$_('phaseTransition.sortType.placement_group', { default: 'Platzierung in Gruppe' })}</option>
+              <option value="group_placement">{$_('phaseTransition.sortType.group_placement', { default: 'Gruppe nach Platzierung' })}</option>
+            </select>
+
+            <!-- Distribution-mode selector (always enabled) -->
+            <label class="phase-transition__settings-label" for="distributionModeSelect">
+              {$_('phaseTransition.distributionModeLabel', { default: 'Verteilungsmodus' })}
+            </label>
+            <select
+              id="distributionModeSelect"
+              class="phase-transition__settings-select"
+              value={currentDistributionMode}
+              onchange={(e) => {
+                const el = e.currentTarget as HTMLSelectElement;
+                handleSettingsChange(currentSortType, el.value);
+              }}
+            >
+              <option value="sequential">{$_('phaseTransition.distributionMode.sequential', { default: 'Sequenziell' })}</option>
+              <option value="round_robin">{$_('phaseTransition.distributionMode.round_robin', { default: 'Round-Robin' })}</option>
+            </select>
+          </div>
+        </div>
+      {/if}
+
       <!-- E48S20: Two-pane layout: source (left, read-only) + target (right, interactive) -->
       <div class="phase-transition__panes">
 
@@ -517,5 +605,42 @@
 
   .btn--secondary:hover:not(:disabled) {
     background: #d5dbdb;
+  }
+
+  /* E66S02: sort/distribution settings controls */
+  .phase-transition__settings {
+    margin-bottom: 1rem;
+  }
+
+  .phase-transition__error-banner--settings {
+    margin-bottom: 0.5rem;
+  }
+
+  .phase-transition__settings-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+  }
+
+  .phase-transition__settings-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #2c3e50;
+  }
+
+  .phase-transition__settings-select {
+    font-size: 0.9rem;
+    padding: 0.3rem 0.5rem;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+  }
+
+  .phase-transition__settings-select:disabled {
+    background: #f5f5f5;
+    color: #888;
+    cursor: not-allowed;
   }
 </style>

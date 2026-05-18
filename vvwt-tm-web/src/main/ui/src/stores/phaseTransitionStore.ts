@@ -129,6 +129,39 @@ export async function fetchProposal(phaseId: string): Promise<TeamAvatarSlot[]> 
 }
 
 /**
+ * Updates the sortType and distributionMode of the target PREPARED phase's DraftSection
+ * and returns the re-computed team-assignment proposal (E66S02 AC3, AC4, AC5, AC6).
+ *
+ * PUT /api/phases/{phaseId}/transition-settings
+ * Body: JSON object {sortType, distributionMode}
+ *
+ * Invalidation-neutral: only the proposal is recomputed. Matches and phase status are
+ * unchanged (AC6).
+ *
+ * @param phaseId the UUID of the target (PREPARED) phase
+ * @param sortType the new sort-type registry key
+ * @param distributionMode the new distribution-mode registry key
+ * @returns recomputed list of proposals
+ * @throws Error when the server returns a non-2xx status
+ */
+export async function updateSortAndDistribution(
+    phaseId: string,
+    sortType: string,
+    distributionMode: string,
+): Promise<TeamAvatarSlot[]> {
+    const res = await apiFetch(`/api/phases/${phaseId}/transition-settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sortType, distributionMode }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { message?: string }).message ?? `HTTP ${res.status}`);
+    }
+    return res.json() as Promise<TeamAvatarSlot[]>;
+}
+
+/**
  * Commits the (admin-corrected) team assignment for the target phase.
  *
  * POST {commitEndpointOverride} (default: /api/phases/{phaseId}/transition-commit)

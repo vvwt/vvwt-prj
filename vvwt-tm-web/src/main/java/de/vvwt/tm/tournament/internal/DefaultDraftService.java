@@ -719,9 +719,7 @@ public class DefaultDraftService implements DraftService {
             // Registry dispatch: get the distributor for the given mode key (AC4, E58S02).
             // Membership was validated at apply/saveDraft entry — IAE here indicates a bug.
             List<Team2AvatarSlot> slots =
-                    distributorRegistry
-                            .get(distributionMode)
-                            .distribute(teamCount, groupCount);
+                    distributorRegistry.get(distributionMode).distribute(teamCount, groupCount);
 
             List<TeamAvatar> avatars = new ArrayList<>(teamCount);
             for (Team2AvatarSlot slot : slots) {

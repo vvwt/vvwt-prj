@@ -6,9 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import de.vvwt.tm.tournament.TeamAvatar;
 import de.vvwt.tm.tournament.TeamAvatarRating;
-import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -39,7 +37,11 @@ class PlacementComparatorTest {
         TeamAvatar avA = avatar(idA, 1, 1);
         TeamAvatar avB = avatar(idB, 1, 2);
         Map<UUID, TeamAvatarRating> ratings =
-                Map.of(idA, rating(idA, 20, 1.0, 1.0, false), idB, rating(idB, 10, 1.0, 1.0, false));
+                Map.of(
+                        idA,
+                        rating(idA, 20, 1.0, 1.0, false),
+                        idB,
+                        rating(idB, 10, 1.0, 1.0, false));
 
         Comparator<TeamAvatar> cmp = PlacementComparator.forRatings(ratings);
         // avA (20 pts) ranks before avB (10 pts) → cmp(avA, avB) < 0
@@ -58,7 +60,11 @@ class PlacementComparatorTest {
         TeamAvatar avA = avatar(idA, 1, 1);
         TeamAvatar avB = avatar(idB, 1, 2);
         Map<UUID, TeamAvatarRating> ratings =
-                Map.of(idA, rating(idA, 10, 2.0, 1.0, false), idB, rating(idB, 10, 1.0, 1.0, false));
+                Map.of(
+                        idA,
+                        rating(idA, 10, 2.0, 1.0, false),
+                        idB,
+                        rating(idB, 10, 1.0, 1.0, false));
 
         Comparator<TeamAvatar> cmp = PlacementComparator.forRatings(ratings);
         assertThat(cmp.compare(avA, avB)).isLessThan(0); // avA better setQuotient
@@ -76,7 +82,11 @@ class PlacementComparatorTest {
         TeamAvatar avA = avatar(idA, 1, 1);
         TeamAvatar avB = avatar(idB, 1, 2);
         Map<UUID, TeamAvatarRating> ratings =
-                Map.of(idA, rating(idA, 10, 1.5, 3.0, false), idB, rating(idB, 10, 1.5, 2.0, false));
+                Map.of(
+                        idA,
+                        rating(idA, 10, 1.5, 3.0, false),
+                        idB,
+                        rating(idB, 10, 1.5, 2.0, false));
 
         Comparator<TeamAvatar> cmp = PlacementComparator.forRatings(ratings);
         assertThat(cmp.compare(avA, avB)).isLessThan(0); // avA better ballQuotient
@@ -94,7 +104,11 @@ class PlacementComparatorTest {
         TeamAvatar avA = avatar(idA, 1, 1); // groupPosition=1
         TeamAvatar avB = avatar(idB, 1, 2); // groupPosition=2
         Map<UUID, TeamAvatarRating> ratings =
-                Map.of(idA, rating(idA, 10, 1.5, 2.0, false), idB, rating(idB, 10, 1.5, 2.0, false));
+                Map.of(
+                        idA,
+                        rating(idA, 10, 1.5, 2.0, false),
+                        idB,
+                        rating(idB, 10, 1.5, 2.0, false));
 
         Comparator<TeamAvatar> cmp = PlacementComparator.forRatings(ratings);
         assertThat(cmp.compare(avA, avB)).isLessThan(0); // lower pos = better
@@ -145,8 +159,7 @@ class PlacementComparatorTest {
         UUID idA = UUID.randomUUID(), idB = UUID.randomUUID();
         TeamAvatar avA = avatar(idA, 1, 1); // has rating
         TeamAvatar avB = avatar(idB, 1, 2); // NO rating
-        Map<UUID, TeamAvatarRating> ratings =
-                Map.of(idA, rating(idA, 5, 1.0, 1.0, false));
+        Map<UUID, TeamAvatarRating> ratings = Map.of(idA, rating(idA, 5, 1.0, 1.0, false));
         // avB has no entry in ratings map
 
         Comparator<TeamAvatar> cmp = PlacementComparator.forRatings(ratings);
@@ -167,7 +180,11 @@ class PlacementComparatorTest {
     }
 
     private static TeamAvatarRating rating(
-            UUID avatarId, int points, double setQuotient, double ballQuotient, boolean withoutAssessment) {
+            UUID avatarId,
+            int points,
+            double setQuotient,
+            double ballQuotient,
+            boolean withoutAssessment) {
         TeamAvatarRating r = new TeamAvatarRating();
         r.setAvatarId(avatarId);
         r.setPoints(points);
