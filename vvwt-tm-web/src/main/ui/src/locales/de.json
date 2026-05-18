@@ -541,7 +541,11 @@
     "distributionMode": {
       "sequential": "Sequenziell",
       "round_robin": "Round-Robin"
-    }
+    },
+    "ratingPoints": "Pkt.",
+    "ratingSets": "Sätze",
+    "ratingBalls": "Bälle",
+    "ratingWithoutAssessment": "ohne Wertung"
   },
   "matchOverview": {
     "pageTitle": "Spiele der Phase",

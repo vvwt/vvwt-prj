@@ -328,6 +328,125 @@ describe('phaseTransitionStore — no "undefined" rendering for any slot (AC-TES
     });
 });
 
+// ── E66S03: rating fields mapped correctly in TeamAvatarSlot ─────────────────
+
+/**
+ * E66S03 AC2/AC3/AC5: TeamAvatarSlot type accepts nullable rating fields.
+ * Verifies that the slot interface carries the 6 new fields correctly from a JSON-like payload.
+ */
+describe('phaseTransitionStore — TeamAvatarSlot rating fields (E66S03)', () => {
+    it('slot with all rating fields populated carries them correctly', () => {
+        // Simulate what fetchProposal would deserialize from the server JSON.
+        // TypeScript type check: assigning a full-rating slot to TeamAvatarSlot.
+        const slot: import('./phaseTransitionStore.js').TeamAvatarSlot = {
+            teamId: 'uuid-r1',
+            teamNumber: 7,
+            teamDescription: 'TSV Rated',
+            groupNumber: 1,
+            groupPosition: 1,
+            sourceGroupNumber: 1,
+            sourceGroupPosition: 2,
+            sortType: 'placement_group',
+            ratingPoints: 6,
+            setsWon: 2,
+            setsLost: 0,
+            ballsWon: 50,
+            ballsLost: 30,
+            withoutAssessment: false,
+        };
+        expect(slot.ratingPoints).toBe(6);
+        expect(slot.setsWon).toBe(2);
+        expect(slot.setsLost).toBe(0);
+        expect(slot.ballsWon).toBe(50);
+        expect(slot.ballsLost).toBe(30);
+        expect(slot.withoutAssessment).toBe(false);
+    });
+
+    it('slot with null rating fields (no rating row) carries null correctly (AC5b)', () => {
+        const slot: import('./phaseTransitionStore.js').TeamAvatarSlot = {
+            teamId: 'uuid-r2',
+            teamNumber: 8,
+            teamDescription: 'TSV Unrated',
+            groupNumber: 1,
+            groupPosition: 2,
+            sourceGroupNumber: 2,
+            sourceGroupPosition: 1,
+            sortType: 'placement_group',
+            ratingPoints: null,
+            setsWon: null,
+            setsLost: null,
+            ballsWon: null,
+            ballsLost: null,
+            withoutAssessment: null,
+        };
+        expect(slot.ratingPoints).toBeNull();
+        expect(slot.setsWon).toBeNull();
+        expect(slot.setsLost).toBeNull();
+        expect(slot.ballsWon).toBeNull();
+        expect(slot.ballsLost).toBeNull();
+        expect(slot.withoutAssessment).toBeNull();
+    });
+
+    it('slot with withoutAssessment=true carries flag correctly (AC5a)', () => {
+        const slot: import('./phaseTransitionStore.js').TeamAvatarSlot = {
+            teamId: 'uuid-r3',
+            teamNumber: 9,
+            teamDescription: 'TSV Flagged',
+            groupNumber: 2,
+            groupPosition: 1,
+            sourceGroupNumber: 1,
+            sourceGroupPosition: 3,
+            sortType: 'group_placement',
+            ratingPoints: 3,
+            setsWon: 1,
+            setsLost: 1,
+            ballsWon: 40,
+            ballsLost: 40,
+            withoutAssessment: true,
+        };
+        expect(slot.withoutAssessment).toBe(true);
+        // Flag is the "not assessed" state regardless of score presence
+        expect(slot.ratingPoints).toBe(3);
+    });
+
+    it('Phase-1 slot has all rating fields null (AC4)', () => {
+        const slot: import('./phaseTransitionStore.js').TeamAvatarSlot = {
+            teamId: 'uuid-p1',
+            teamNumber: 1,
+            teamDescription: 'TSV Phase1',
+            groupNumber: 1,
+            groupPosition: 1,
+            sourceGroupNumber: null,
+            sourceGroupPosition: null,
+            sortType: 'team_number',
+            ratingPoints: null,
+            setsWon: null,
+            setsLost: null,
+            ballsWon: null,
+            ballsLost: null,
+            withoutAssessment: null,
+        };
+        // Phase 1: sortType='team_number' and all rating fields null → no rating expected
+        expect(slot.sortType).toBe('team_number');
+        expect(slot.ratingPoints).toBeNull();
+        expect(slot.withoutAssessment).toBeNull();
+    });
+
+    it('de.json contains E66S03 rating i18n keys', () => {
+        const pt = (deMessages as unknown as Record<string, Record<string, string>>).phaseTransition;
+        expect(pt).toHaveProperty('ratingPoints');
+        expect(pt.ratingPoints).toBeTypeOf('string');
+        expect(pt.ratingPoints.length).toBeGreaterThan(0);
+        expect(pt).toHaveProperty('ratingSets');
+        expect(pt.ratingSets).toBeTypeOf('string');
+        expect(pt).toHaveProperty('ratingBalls');
+        expect(pt.ratingBalls).toBeTypeOf('string');
+        expect(pt).toHaveProperty('ratingWithoutAssessment');
+        expect(pt.ratingWithoutAssessment).toBeTypeOf('string');
+        expect(pt.ratingWithoutAssessment.length).toBeGreaterThan(0);
+    });
+});
+
 /**
  * AC-TEST-HASSOURCESLOT-DELETED-RED (E51S13):
  * hasSourceSlot must NOT be exported from phaseTransitionStore after this story.

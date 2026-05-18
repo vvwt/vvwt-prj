@@ -7,11 +7,13 @@ import { apiFetch } from '../lib/api.js';
 /**
  * A single team-to-(group, position) slot as returned by the proposal endpoint.
  *
- * Matches the shape of E51S13 TeamAvatarProposal Java record (8 fields):
+ * Matches the shape of E66S03 TeamAvatarProposal Java record (14 fields):
  *   record TeamAvatarProposal(UUID teamId, int teamNumber, String teamDescription,
  *                             int groupNumber, int groupPosition,
  *                             Integer sourceGroupNumber, Integer sourceGroupPosition,
- *                             String sortType)
+ *                             String sortType,
+ *                             Integer ratingPoints, Integer setsWon, Integer setsLost,
+ *                             Integer ballsWon, Integer ballsLost, Boolean withoutAssessment)
  *
  * DEC-9: structural identity is (groupNumber, groupPosition); teamId is the internal swap-key
  * (must NEVER be rendered in DOM per DEC-9).
@@ -20,6 +22,9 @@ import { apiFetch } from '../lib/api.js';
  * E51S13: sortType is the canonical domain trigger for source-pane label rendering. Nullable for
  *   backward-compat (e.g., legacy proposals without sortType). Value is a domain String
  *   (e.g., "team_number"), NOT a UUID — DEC-9 invariant preserved (AC-IMPL-DEC-9-NO-UUID-IN-DOM).
+ * E66S03: rating-basis fields for source-pane display (DEC-77 D-3 comparator inputs). All nullable:
+ *   null means no rating row at all (AC5b). withoutAssessment=null (no row) and =true (flag set)
+ *   both indicate "not assessed" — frontend renders "ohne Wertung" for both states (AC5).
  */
 export interface TeamAvatarSlot {
     /** Team UUID (string on the JSON wire). Internal swap-key — NEVER render in DOM (DEC-9). */
@@ -43,6 +48,37 @@ export interface TeamAvatarSlot {
      * Value is a domain String, NOT a UUID (DEC-9, AC-IMPL-DEC-9-NO-UUID-IN-DOM, E51S13).
      */
     sortType: string | null;
+    /**
+     * Team's points from the previous phase (DEC-77 D-3 comparator input 1).
+     * Null for Phase 1 or when the team has no rating row (E66S03 AC4/AC5b).
+     */
+    ratingPoints: number | null;
+    /**
+     * Team's sets won from the previous phase (DEC-77 D-3 comparator input 2, numerator).
+     * Null for Phase 1 or when the team has no rating row (E66S03 AC4/AC5b).
+     */
+    setsWon: number | null;
+    /**
+     * Team's sets lost from the previous phase (DEC-77 D-3 comparator input 2, denominator).
+     * Null for Phase 1 or when the team has no rating row (E66S03 AC4/AC5b).
+     */
+    setsLost: number | null;
+    /**
+     * Team's balls won from the previous phase (DEC-77 D-3 comparator input 3, numerator).
+     * Null for Phase 1 or when the team has no rating row (E66S03 AC4/AC5b).
+     */
+    ballsWon: number | null;
+    /**
+     * Team's balls lost from the previous phase (DEC-77 D-3 comparator input 3, denominator).
+     * Null for Phase 1 or when the team has no rating row (E66S03 AC4/AC5b).
+     */
+    ballsLost: number | null;
+    /**
+     * True if the team's rating has the withoutAssessment flag set (ranked last regardless of
+     * scores, DEC-77 D-3). Null if the team has no rating row at all (E66S03 AC5). Both null
+     * and true are "not-assessed" states — frontend renders "ohne Wertung" for both (AC5).
+     */
+    withoutAssessment: boolean | null;
 }
 
 /**

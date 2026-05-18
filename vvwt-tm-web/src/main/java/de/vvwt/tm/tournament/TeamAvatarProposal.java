@@ -36,6 +36,18 @@ import java.util.UUID;
  *       {@code "team_number"}, {@code "placement_group"}, {@code "group_placement"}). Nullable for
  *       backward-compat with commit-path callers (see {@link #forCommit}). Used by the frontend to
  *       drive source-pane label rendering without data-presence heuristics (E51S13, DEC-9).
+ *   <li>{@link #ratingPoints} — the team's points from the previous phase (DEC-77 D-3 comparator
+ *       input 1). {@code null} for Phase-1 proposals or when the team has no rating row (E66S03).
+ *   <li>{@link #setsWon} / {@link #setsLost} — the team's sets won/lost from the previous phase
+ *       (DEC-77 D-3 comparator input 2 — the set figures from which {@code setQuotient} derives).
+ *       {@code null} for Phase-1 proposals or when the team has no rating row (E66S03).
+ *   <li>{@link #ballsWon} / {@link #ballsLost} — the team's balls won/lost from the previous phase
+ *       (DEC-77 D-3 comparator input 3 — the ball figures from which {@code ballQuotient} derives).
+ *       {@code null} for Phase-1 proposals or when the team has no rating row (E66S03).
+ *   <li>{@link #withoutAssessment} — {@code true} if the team's rating row has the {@code
+ *       withoutAssessment} flag set (team ranked last regardless of scores, DEC-77 D-3); {@code
+ *       null} if the team has no rating row at all (E66S03 AC5). Both null and true are
+ *       "not-assessed" states for frontend rendering purposes — see E66S03 AC5.
  * </ul>
  *
  * <h2>DEC-9 note</h2>
@@ -62,15 +74,24 @@ import java.util.UUID;
  * @param sourceGroupPosition team's position in previous phase (null for Phase 1)
  * @param sortType domain sortType string from the target DraftSection (null for commit-path); a
  *     domain String value, NOT a UUID (AC-IMPL-DEC-9-NO-UUID-IN-DOM)
+ * @param ratingPoints team's points from the previous phase (null for Phase 1 or no rating row)
+ * @param setsWon team's sets won from the previous phase (null for Phase 1 or no rating row)
+ * @param setsLost team's sets lost from the previous phase (null for Phase 1 or no rating row)
+ * @param ballsWon team's balls won from the previous phase (null for Phase 1 or no rating row)
+ * @param ballsLost team's balls lost from the previous phase (null for Phase 1 or no rating row)
+ * @param withoutAssessment true if team's rating has the withoutAssessment flag; null if no rating
+ *     row (E66S03 AC5 — both null and true are "not-assessed" states)
  * @see PhaseTransitionService
  * @see <a href="DEC-9">DEC-9 — TeamAvatar structural identity; UUIDs must not surface in organizer
  *     UI</a>
  * @see <a href="DEC-40">DEC-40 Clause B 2026-04-27 clarification — bounded-context-owned
  *     query-shape DTOs</a>
+ * @see <a href="DEC-77">DEC-77 D-3 — placement comparator inputs surfaced by E66S03</a>
  * @see <a href="E48S07">E48S07 — Drag&amp;Drop Phase-Transition Backend</a>
  * @see <a href="E48S20">E48S20 — DTO widening: display fields + source-slot fields</a>
  * @see <a href="E51S13">E51S13 — Bug 2a sortType-driven source-pane label (replaces hasSourceSlot
  *     heuristic)</a>
+ * @see <a href="E66S03">E66S03 — rating-basis fields for source-pane display</a>
  */
 public record TeamAvatarProposal(
         UUID teamId,
@@ -80,7 +101,13 @@ public record TeamAvatarProposal(
         int groupPosition,
         Integer sourceGroupNumber,
         Integer sourceGroupPosition,
-        String sortType) {
+        String sortType,
+        Integer ratingPoints,
+        Integer setsWon,
+        Integer setsLost,
+        Integer ballsWon,
+        Integer ballsLost,
+        Boolean withoutAssessment) {
 
     /**
      * Compact factory for commit-path construction (controller → service).
@@ -102,6 +129,19 @@ public record TeamAvatarProposal(
      */
     public static TeamAvatarProposal forCommit(UUID teamId, int groupNumber, int groupPosition) {
         return new TeamAvatarProposal(
-                teamId, 0, null, groupNumber, groupPosition, null, null, null);
+                teamId,
+                0,
+                null,
+                groupNumber,
+                groupPosition,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
     }
 }

@@ -20,6 +20,11 @@
    *   {@code sourceLabelBySortType}. This fixes "Gruppe undefined, Platz undefined"
    *   for Phase-1 teams.
    *
+   * E66S03: Source pane extended with rating-basis columns (Pkt., Sätze, Bälle) and an
+   *   "ohne Wertung" badge for teams with withoutAssessment=true or no rating row (null).
+   *   For Phase 1 (sortType="team_number") all rating fields are null → columns show empty (AC4).
+   *   AC6: source-pane rows rendered in E66S01 order (sourcePaneSlots sorted by teamNumber).
+   *
    * DEC-9: teamId UUID must NOT appear in DOM. Organizer-facing labels: teamNumber + teamDescription.
    * teamId is retained in slots array as the internal swap-key for the commit payload.
    *
@@ -332,14 +337,43 @@
               <tr>
                 <th>{$_('phaseTransition.teamColumnHeading')}</th>
                 <th>{$_('phaseTransition.sourcePaneHeading')}</th>
+                <th class="phase-transition__rating-col">{$_('phaseTransition.ratingPoints')}</th>
+                <th class="phase-transition__rating-col">{$_('phaseTransition.ratingSets')}</th>
+                <th class="phase-transition__rating-col">{$_('phaseTransition.ratingBalls')}</th>
               </tr>
             </thead>
             <tbody>
               {#each sourcePaneSlots as slot (slot.teamId)}
                 <!-- Source pane is read-only: no draggable, no dragstart (AC-TEST-FRONTEND-SOURCE-PANE-NOT-DROP-TARGET-RED) -->
                 <tr class="phase-transition__source-row" role="row">
-                  <td class="phase-transition__team-label">{slot.teamDescription}</td>
+                  <td class="phase-transition__team-label">
+                    {slot.teamDescription}
+                    <!--
+                      E66S03 AC5: "ohne Wertung" badge for two "not assessed" states:
+                        1. withoutAssessment=true  — rating row exists but flagged (ranked last)
+                        2. withoutAssessment=null AND sortType≠'team_number' — Phase 2+ team has no
+                           rating row at all (AC5b). Phase 1 teams also have null but are excluded
+                           because their sortType='team_number' (no rating expected, AC4).
+                    -->
+                    {#if slot.withoutAssessment === true || (slot.withoutAssessment === null && slot.sortType !== 'team_number')}
+                      <span class="phase-transition__ohne-wertung">{$_('phaseTransition.ratingWithoutAssessment')}</span>
+                    {/if}
+                  </td>
                   <td class="phase-transition__source-slot-label">{sourceLabel(slot)}</td>
+                  <!-- E66S03 AC2/AC3: rating basis columns (null → empty for Phase 1, AC4) -->
+                  <td class="phase-transition__rating-col">
+                    {slot.ratingPoints !== null ? slot.ratingPoints : ''}
+                  </td>
+                  <td class="phase-transition__rating-col">
+                    {#if slot.setsWon !== null && slot.setsLost !== null}
+                      {slot.setsWon}:{slot.setsLost}
+                    {/if}
+                  </td>
+                  <td class="phase-transition__rating-col">
+                    {#if slot.ballsWon !== null && slot.ballsLost !== null}
+                      {slot.ballsWon}:{slot.ballsLost}
+                    {/if}
+                  </td>
                 </tr>
               {/each}
             </tbody>
@@ -498,6 +532,28 @@
 
   .phase-transition__source-slot-label {
     color: #555;
+    white-space: nowrap;
+  }
+
+  /* E66S03: rating basis columns (compact, right-aligned numbers) */
+  .phase-transition__rating-col {
+    text-align: right;
+    white-space: nowrap;
+    color: #444;
+    min-width: 3.5rem;
+  }
+
+  /* E66S03 AC5: "ohne Wertung" inline badge */
+  .phase-transition__ohne-wertung {
+    display: inline-block;
+    margin-left: 0.4rem;
+    padding: 0.1rem 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: #f0ad4e;
+    color: #fff;
+    border-radius: 3px;
+    vertical-align: middle;
     white-space: nowrap;
   }
 
