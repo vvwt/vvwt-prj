@@ -257,6 +257,59 @@ class ScoreFieldLayoutIT {
     }
 
     // =========================================================================
+    // AC7 (E65S05): polling mechanism — structural governance markers
+    // =========================================================================
+
+    @Test
+    @DisplayName(
+            "AC7 (E65S05 — polling constant): rendered field page inline script declares"
+                    + " POLL_INTERVAL_MS constant (structural governance marker for auto-advance"
+                    + " polling mechanism)")
+    void fieldPage_inlineScriptDeclaresPollingConstant() throws Exception {
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/field/1"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as(
+                        "Rendered field page must contain POLL_INTERVAL_MS constant in inline"
+                                + " script (AC7 E65S05: polling auto-advance mechanism present)")
+                .contains("POLL_INTERVAL_MS");
+    }
+
+    @Test
+    @DisplayName(
+            "AC7 (E65S05 — startPolling function): rendered field page inline script declares"
+                + " startPolling function (structural governance marker for auto-advance polling)")
+    void fieldPage_inlineScriptDeclaresStartPolling() throws Exception {
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/field/1"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as(
+                        "Rendered field page must contain startPolling function in inline script"
+                                + " (AC7 E65S05: polling mechanism implemented)")
+                .contains("startPolling");
+    }
+
+    @Test
+    @DisplayName(
+            "AC7 (E65S05 — stopPolling function): rendered field page inline script declares"
+                + " stopPolling function (structural governance marker for auto-advance polling)")
+    void fieldPage_inlineScriptDeclaresStopPolling() throws Exception {
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/field/1"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as(
+                        "Rendered field page must contain stopPolling function in inline script"
+                                + " (AC7 E65S05: polling mechanism implemented)")
+                .contains("stopPolling");
+    }
+
+    // =========================================================================
     // Test configuration
     // =========================================================================
 
