@@ -156,8 +156,31 @@ public class DefaultCertificateAssembler implements CertificateAssembler {
         }
 
         if (ratingByAvatarId.isEmpty()) {
-            // No ratings exist — no matches played yet
-            return Collections.emptyList();
+            // No ratings — this is expected for a Siegerehrung (award-ceremony) phase which has
+            // zero matches by design (AwardCeremonyMatchGenerator returns empty match list).
+            // Fix (E12S09 AC2): derive placement from the TeamAvatar group positions instead of
+            // from ratings. The Siegerehrung phase has a single group and groupPosition 1..N
+            // maps directly to places 1..N (DEC-9 structural identity, operator-confirmed
+            // 2026-05-17). If no avatar has an assigned team, the tournament is not yet ready
+            // for certificate generation (AC4: legitimate 400 preserved).
+            List<TeamAvatar> assignedAvatars = new ArrayList<>();
+            for (TeamAvatar avatar : avatars) {
+                if (avatar.getTeamId() != null) {
+                    assignedAvatars.add(avatar);
+                }
+            }
+            if (assignedAvatars.isEmpty()) {
+                // No teams assigned to any avatar slot — not ready (AC4)
+                return Collections.emptyList();
+            }
+            // Sort by groupPosition ascending: groupPosition 1 = place 1, 2 = place 2, …
+            assignedAvatars.sort(Comparator.comparingInt(TeamAvatar::getGroupPosition));
+            List<AvatarPlacement> result = new ArrayList<>();
+            for (int i = 0; i < assignedAvatars.size(); i++) {
+                TeamAvatar avatar = assignedAvatars.get(i);
+                result.add(new AvatarPlacement(i + 1, avatar.getTeamId(), avatar.getId()));
+            }
+            return result;
         }
 
         // Sort avatars by DEC-33 rating order (only those with ratings)
