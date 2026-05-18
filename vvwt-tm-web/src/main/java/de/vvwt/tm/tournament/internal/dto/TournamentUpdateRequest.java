@@ -59,4 +59,15 @@ public record TournamentUpdateRequest(
          * {@code null} means "no change" (matches the nullable-field convention of other fields in
          * this record). E51S07 AC-IMPL-TOURNAMENT-FORM-CHECKBOX.
          */
-        Boolean optimize) {}
+        Boolean optimize,
+
+        /**
+         * Organizer name for the tournament. Applied if not {@code null}. {@code null} means "no
+         * change" (nullable-field convention). A non-null, non-blank value overwrites the stored
+         * {@code tournament.organizer} column — intentional reversal of E46S01's write-once
+         * handling (E68S01).
+         *
+         * @see <a href="E68S01">E68S01 — Organizer as editable field</a>
+         * @see <a href="E46S01">E46S01 — Original write-once snapshot logic (reversed here)</a>
+         */
+        String organizer) {}

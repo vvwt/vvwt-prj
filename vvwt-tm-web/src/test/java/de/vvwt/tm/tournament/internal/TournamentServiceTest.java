@@ -228,7 +228,8 @@ class TournamentServiceTest {
                         VALID_GENERATOR,
                         null,
                         null,
-                        null); // E53S05: seedMannschaftsfoto = null
+                        null, // E53S05: seedMannschaftsfoto = null
+                        null); // E68S01: organizer = null
 
         assertThat(result.getId()).as("UUID must be generated").isNotNull();
         assertThat(result.getStatus()).isEqualTo("DRAFT");
@@ -252,7 +253,8 @@ class TournamentServiceTest {
                                         VALID_GENERATOR,
                                         null,
                                         null,
-                                        null)) // E53S05: seedMannschaftsfoto = null
+                                        null, // E53S05: seedMannschaftsfoto = null
+                                        null)) // E68S01: organizer = null
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -281,7 +283,8 @@ class TournamentServiceTest {
                                         null,
                                         null,
                                         null,
-                                        null))
+                                        null,
+                                        null)) // E68S01: organizer = null
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("ACTIVE");
     }
@@ -307,7 +310,8 @@ class TournamentServiceTest {
                         VALID_VALIDATION,
                         VALID_GENERATOR,
                         null,
-                        null);
+                        null,
+                        null); // E68S01: organizer = null
 
         assertThat(result.getDescription()).isEqualTo("Updated Name");
     }

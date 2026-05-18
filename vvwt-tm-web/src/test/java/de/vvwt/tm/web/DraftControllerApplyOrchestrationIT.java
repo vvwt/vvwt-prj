@@ -190,7 +190,8 @@ class DraftControllerApplyOrchestrationIT {
                             "roundRobin",
                             null, // plannedStartTime
                             null, // optimize
-                            null) // seedMannschaftsfoto
+                            null, // seedMannschaftsfoto
+                            null) // E68S01: organizer = null
                     .getId();
         } finally {
             tenantBinder.unbind();

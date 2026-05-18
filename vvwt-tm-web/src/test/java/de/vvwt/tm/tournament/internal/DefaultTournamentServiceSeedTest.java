@@ -163,7 +163,8 @@ class DefaultTournamentServiceSeedTest {
                 "roundRobin",
                 null,
                 null,
-                null); // E53S05: seedMannschaftsfoto = null → seeding (lenient stub)
+                null, // E53S05: seedMannschaftsfoto = null
+                null); // E68S01: organizer = null → seeding (lenient stub)
 
         ArgumentCaptor<Team> teamCaptor = ArgumentCaptor.forClass(Team.class);
         verify(teamRepository, org.mockito.Mockito.times(teamCount)).save(teamCaptor.capture());
@@ -195,7 +196,8 @@ class DefaultTournamentServiceSeedTest {
                 "roundRobin",
                 null,
                 null,
-                null); // E53S05: seedMannschaftsfoto = null
+                null, // E53S05: seedMannschaftsfoto = null
+                null); // E68S01: organizer = null
 
         ArgumentCaptor<Team> captor = ArgumentCaptor.forClass(Team.class);
         verify(teamRepository, org.mockito.Mockito.times(teamCount)).save(captor.capture());
@@ -227,7 +229,8 @@ class DefaultTournamentServiceSeedTest {
                 "roundRobin",
                 null,
                 null,
-                null); // E53S05: seedMannschaftsfoto = null
+                null, // E53S05: seedMannschaftsfoto = null
+                null); // E68S01: organizer = null
 
         ArgumentCaptor<Team> captor = ArgumentCaptor.forClass(Team.class);
         verify(teamRepository, org.mockito.Mockito.times(teamCount)).save(captor.capture());
@@ -257,7 +260,8 @@ class DefaultTournamentServiceSeedTest {
                 "roundRobin",
                 null,
                 null,
-                null); // E53S05: seedMannschaftsfoto = null
+                null, // E53S05: seedMannschaftsfoto = null
+                null); // E68S01: organizer = null
 
         ArgumentCaptor<Team> captor = ArgumentCaptor.forClass(Team.class);
         verify(teamRepository, org.mockito.Mockito.times(100)).save(captor.capture());
@@ -293,7 +297,8 @@ class DefaultTournamentServiceSeedTest {
                 "roundRobin",
                 null,
                 null,
-                null); // E53S05: seedMannschaftsfoto = null
+                null, // E53S05: seedMannschaftsfoto = null
+                null); // E68S01: organizer = null
 
         ArgumentCaptor<Team> captor = ArgumentCaptor.forClass(Team.class);
         verify(teamRepository, org.mockito.Mockito.times(2)).save(captor.capture());
@@ -330,7 +335,8 @@ class DefaultTournamentServiceSeedTest {
                 "roundRobin",
                 null,
                 null,
-                null); // E53S05: seedMannschaftsfoto = null
+                null, // E53S05: seedMannschaftsfoto = null
+                null); // E68S01: organizer = null
 
         verify(messageSource, atLeastOnce())
                 .getMessage(eq("team.defaultLabel"), isNull(), eq("Mannschaft"), any(Locale.class));
@@ -360,7 +366,8 @@ class DefaultTournamentServiceSeedTest {
                 "roundRobin",
                 null,
                 null,
-                null); // E53S05: seedMannschaftsfoto = null
+                null, // E53S05: seedMannschaftsfoto = null
+                null); // E68S01: organizer = null
 
         // Verify MessageSource was called with a German locale
         ArgumentCaptor<Locale> localeCaptor = ArgumentCaptor.forClass(Locale.class);
@@ -397,7 +404,8 @@ class DefaultTournamentServiceSeedTest {
                 "roundRobin",
                 null,
                 null,
-                null); // E53S05: seedMannschaftsfoto = null
+                null, // E53S05: seedMannschaftsfoto = null
+                null); // E68S01: organizer = null
 
         ArgumentCaptor<Locale> localeCaptor = ArgumentCaptor.forClass(Locale.class);
         verify(messageSource, atLeastOnce())
@@ -438,7 +446,8 @@ class DefaultTournamentServiceSeedTest {
                                         "roundRobin",
                                         null,
                                         null,
-                                        null)) // E53S05: seedMannschaftsfoto = null
+                                        null, // E53S05: seedMannschaftsfoto = null
+                                        null)) // E68S01: organizer = null
                 .isInstanceOf(DataAccessException.class);
     }
 
@@ -463,7 +472,8 @@ class DefaultTournamentServiceSeedTest {
                 "roundRobin",
                 null,
                 null,
-                null); // E53S05: seedMannschaftsfoto = null
+                null, // E53S05: seedMannschaftsfoto = null
+                null); // E68S01: organizer = null
 
         ArgumentCaptor<Tournament> tCaptor = ArgumentCaptor.forClass(Tournament.class);
         verify(tournamentRepository).save(tCaptor.capture());

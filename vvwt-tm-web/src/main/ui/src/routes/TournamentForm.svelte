@@ -30,6 +30,7 @@
     type TournamentRules,
     type TournamentCreateRequest,
   } from '../stores/tournamentStore.js';
+  import { getSettings } from '../stores/settingsStore.js';
   import { getGeneratorList, type MatchGeneratorInfo } from '../stores/generatorStore.js';
   import {
     filterNonLastPhaseGenerators,
@@ -56,6 +57,7 @@
   let matchGeneratorId = $state('');
   let optimize = $state(true); // E51S07: default true per DEC-55 D-5
   let seedMannschaftsfoto = $state(true); // E53S05: default true — Vorbelegung checked by default
+  let organizer = $state(''); // E68S01: organizer name — pre-filled on mount
 
   let rules = $state<TournamentRules | null>(null);
   let generators = $state<MatchGeneratorInfo[]>([]); // E58S05 AC2/AC5: shared generator list
@@ -104,6 +106,12 @@
         setValidationRuleId = t.setValidationRuleId;
         matchGeneratorId = t.matchGeneratorId;
         optimize = t.optimize ?? true;  // E51S07: load optimize from tournament; default true
+        // E68S01 AC2: pre-fill organizer from stored tournament value
+        organizer = t.organizer ?? '';
+      } else {
+        // E68S01 AC1: pre-fill organizer from tenant display_name for create form
+        const settings = await getSettings();
+        organizer = settings.organizerDefault;
       }
     } catch (e: unknown) {
       saveError = e instanceof Error ? e.message : String(e);
@@ -140,6 +148,7 @@
           matchGeneratorId,
           plannedStartTime: plannedStartTime.trim() ? plannedStartTime.trim() : null,  // E08S05 AC4
           optimize,  // E51S07: pass optimize field
+          organizer: organizer.trim() || null,  // E68S01: pass organizer (null = no change if blank)
         });
       } else {
         const req: TournamentCreateRequest = {
@@ -154,6 +163,7 @@
           plannedStartTime: plannedStartTime.trim() ? plannedStartTime.trim() : null,  // E48S14
           optimize,  // E51S07: pass optimize field
           seedMannschaftsfoto,  // E53S05: pass Vorbelegung flag
+          organizer: organizer.trim() || null,  // E68S01: pass organizer; null → server default
         };
         await createTournament(req);
       }
@@ -196,6 +206,15 @@
         <input id="description" type="text" bind:value={description} required />
         {#if fieldErrors['description']}
           <span class="form__field-error">{fieldErrors['description']}</span>
+        {/if}
+      </div>
+
+      <!-- Organizer (E68S01 AC1/AC2: required, pre-filled with tenant display_name or stored value) -->
+      <div class="form__field">
+        <label for="organizer">{$_('tournamentForm.fields.organizer', { default: 'Veranstalter' })}</label>
+        <input id="organizer" type="text" bind:value={organizer} required />
+        {#if fieldErrors['organizer']}
+          <span class="form__field-error">{fieldErrors['organizer']}</span>
         {/if}
       </div>
 

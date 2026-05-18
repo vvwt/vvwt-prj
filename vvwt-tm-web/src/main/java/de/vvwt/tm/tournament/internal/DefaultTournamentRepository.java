@@ -70,7 +70,7 @@ public class DefaultTournamentRepository implements TournamentRepository {
             "UPDATE tournament SET description=?, match_format=?, scoring_rule_id=?,"
                     + " set_validation_rule_id=?, match_generator_id=?, status=?,"
                     + " appointment=?, field_count=?, team_count=?, planned_start_time=?,"
-                    + " draft_json=? WHERE id=?";
+                    + " draft_json=?, organizer=? WHERE id=?";
 
     private static final String SELECT_BY_ID = "SELECT * FROM tournament WHERE id=?";
 
@@ -93,17 +93,21 @@ public class DefaultTournamentRepository implements TournamentRepository {
      * <p>Inserts if new (no existing row with this id), updates otherwise.
      *
      * <p><b>E46S01 snapshot-at-INSERT (AC-INSERT-SNAPSHOT-FROM-TENANTS-DB):</b> On the INSERT path,
-     * this method reads {@code display_name} from the per-tenant {@code tenants} table via {@link
-     * #SELECT_TENANT_DISPLAY_NAME} and populates {@code tournament.organizer} with the result. The
-     * SELECT runs on the same {@link JdbcTemplate} as the INSERT (intra-DB, no cross-module call).
-     * If the {@code tenants} table has no row — a DEC-5 invariant violation — an {@link
-     * IllegalStateException} is thrown before the INSERT executes. On the UPDATE path, {@code
-     * organizer} is NOT included in the SET clause ({@link #UPDATE_SQL}) — the snapshot value is
-     * immutable once stored.
+     * if {@code tournament.organizer} is {@code null}, this method reads {@code display_name} from
+     * the per-tenant {@code tenants} table via {@link #SELECT_TENANT_DISPLAY_NAME} and uses it as
+     * the organizer. If {@code tournament.organizer} is non-null (i.e., the caller supplied a
+     * value), that value is used directly — no snapshot SELECT is needed. The SELECT runs on the
+     * same {@link JdbcTemplate} as the INSERT (intra-DB, no cross-module call). If the {@code
+     * tenants} table has no row and the organizer is null — a DEC-5 invariant violation — an {@link
+     * IllegalStateException} is thrown before the INSERT executes.
      *
-     * @throws IllegalStateException if the INSERT path is taken and the {@code tenants} table
-     *     contains no row (missing-tenants-row fail-fast per
-     *     AC-INSERT-MISSING-TENANTS-ROW-FAIL-FAST)
+     * <p><b>E68S01:</b> On the UPDATE path, {@code organizer} IS now included in the SET clause
+     * ({@link #UPDATE_SQL}) — the write-once handling of E46S01 is intentionally reversed.
+     *
+     * @throws IllegalStateException if the INSERT path is taken, {@code tournament.organizer} is
+     *     {@code null}, and the {@code tenants} table contains no row (missing-tenants-row
+     *     fail-fast per AC-INSERT-MISSING-TENANTS-ROW-FAIL-FAST)
+     * @see <a href="E68S01">E68S01 — Organizer as editable field (reverses E46S01 write-once)</a>
      */
     @Override
     public Tournament save(Tournament tournament) {
@@ -111,6 +115,7 @@ public class DefaultTournamentRepository implements TournamentRepository {
         boolean exists = count != null && count > 0;
 
         if (exists) {
+            // E68S01: organizer is now mutable — include in UPDATE SET clause.
             jdbc.update(
                     UPDATE_SQL,
                     tournament.getDescription(),
@@ -124,16 +129,22 @@ public class DefaultTournamentRepository implements TournamentRepository {
                     tournament.getTeamCount(),
                     tournament.getPlannedStartTime(),
                     tournament.getDraftJson(),
+                    tournament.getOrganizer(),
                     tournament.getId());
         } else {
-            // E46S01: snapshot-at-INSERT — read organizer from tenants.display_name (intra-DB)
-            List<String> displayNames = jdbc.queryForList(SELECT_TENANT_DISPLAY_NAME, String.class);
-            if (displayNames.isEmpty()) {
-                throw new IllegalStateException(
-                        "INSERT requires tenants row: no row found in tenants table"
-                                + " — per-tenant invariant violated (DEC-5)");
+            // E46S01: snapshot-at-INSERT — use supplied organizer if present, otherwise fall back
+            // to tenants.display_name snapshot (backward compat for callers that omit the field).
+            String organizer = tournament.getOrganizer();
+            if (organizer == null) {
+                List<String> displayNames =
+                        jdbc.queryForList(SELECT_TENANT_DISPLAY_NAME, String.class);
+                if (displayNames.isEmpty()) {
+                    throw new IllegalStateException(
+                            "INSERT requires tenants row: no row found in tenants table"
+                                    + " — per-tenant invariant violated (DEC-5)");
+                }
+                organizer = displayNames.get(0);
             }
-            String organizer = displayNames.get(0);
 
             jdbc.update(
                     INSERT_SQL,

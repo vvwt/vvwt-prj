@@ -22,6 +22,7 @@ export interface Tournament {
     createdAt: string;
     plannedStartTime: string | null;  // HH:mm LocalTime or null (E08S05 AC1)
     optimize: boolean;  // E51S07: slot-optimization flag (DEC-55 D-5)
+    organizer: string | null;  // E68S01: organizer name (mutable, was write-once in E46S01)
 }
 
 /** Available rule options returned by GET /api/scoring/rules. */
@@ -45,6 +46,7 @@ export interface TournamentCreateRequest {
     plannedStartTime?: string | null;  // HH:mm or null (E48S14)
     optimize?: boolean | null;  // E51S07: slot-optimization flag; null → server default (true)
     seedMannschaftsfoto?: boolean | null;  // E53S05: Vorbelegung flag; null → server default (true)
+    organizer?: string | null;  // E68S01: organizer name; null → server derives from tenant display_name
 }
 
 /** Request body for PUT /api/tournaments/{id}. Null means "do not change". */
@@ -59,6 +61,7 @@ export interface TournamentUpdateRequest {
     matchGeneratorId?: string | null;
     plannedStartTime?: string | null;  // HH:mm or null to clear (E08S05 AC1)
     optimize?: boolean | null;  // E51S07: slot-optimization flag; null → no change
+    organizer?: string | null;  // E68S01: organizer name; null → no change
 }
 
 // ─────────────────────────────────────────────────────────────────

@@ -5,6 +5,7 @@ package de.vvwt.tm.tournament.internal.dto;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
@@ -27,6 +28,7 @@ import java.time.LocalTime;
  * @see <a href="E48S14">E48S14 — Bug-fix: plannedStartTime missing in CREATE path</a>
  * @see <a href="E51S07">E51S07 — AC-IMPL-TOURNAMENT-FORM-CHECKBOX (optimize field)</a>
  * @see <a href="E53S05">E53S05 — Mannschaftsfoto Vorbelegung (seedMannschaftsfoto field)</a>
+ * @see <a href="E68S01">E68S01 — Organizer as editable field on tournament form</a>
  */
 public record TournamentCreateRequest(
 
@@ -99,4 +101,22 @@ public record TournamentCreateRequest(
          * @see de.vvwt.tm.tournament.activity.ActivityTypeService
          * @see <a href="E53S05">E53S05 — AC1: Mannschaftsfoto Vorbelegung</a>
          */
-        Boolean seedMannschaftsfoto) {}
+        Boolean seedMannschaftsfoto,
+
+        /**
+         * Organizer name for the tournament (required). Displayed as the certificate subtitle via
+         * {@code {{tom_organizer}}} (E46S03). The create form pre-fills this with the
+         * organization's current display name; the operator may change it before saving.
+         *
+         * <p>{@code null} → service falls back to the tenant's {@code display_name} snapshot
+         * (preserving the E46S01 INSERT-snapshot behavior for API callers that omit this field).
+         *
+         * <p>E68S01: organizer is now mutable — intentional reversal of E46S01's write-once
+         * handling. When provided (non-{@code null}), the value must not be blank (AC5). When
+         * {@code null}, the server derives it from the tenant snapshot.
+         *
+         * @see <a href="E68S01">E68S01 — Organizer as editable field</a>
+         * @see <a href="E46S01">E46S01 — Original snapshot-at-INSERT logic</a>
+         */
+        @Pattern(regexp = ".*\\S.*", message = "organizer must not be blank when provided")
+                String organizer) {}

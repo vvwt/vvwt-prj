@@ -91,7 +91,8 @@ class TournamentPhasesControllerE51S07IT {
                                     "roundRobin",
                                     null,
                                     null,
-                                    null) // E53S05: seedMannschaftsfoto = null
+                                    null, // E53S05: seedMannschaftsfoto = null
+                                    null) // E68S01: organizer = null
                             .getId();
         } finally {
             tenantContextBinder.unbind();

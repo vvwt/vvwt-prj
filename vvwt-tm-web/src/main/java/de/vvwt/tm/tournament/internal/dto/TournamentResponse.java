@@ -22,6 +22,7 @@ import java.util.UUID;
  * @see <a href="DEC-22">DEC-22 — TDD reconstruction-in-place</a>
  * @see <a href="E21S02">E21S02 — Tournament aggregate reconstruction</a>
  * @see <a href="E51S07">E51S07 — AC-IMPL-TOURNAMENT-FORM-CHECKBOX (optimize field)</a>
+ * @see <a href="E68S01">E68S01 — Organizer as editable field</a>
  */
 public record TournamentResponse(
         UUID id,
@@ -36,7 +37,8 @@ public record TournamentResponse(
         String matchGeneratorId,
         LocalDateTime createdAt,
         LocalTime plannedStartTime,
-        boolean optimize) {
+        boolean optimize,
+        String organizer) {
 
     /**
      * Maps a {@link Tournament} domain entity to a {@link TournamentResponse} DTO.
@@ -58,6 +60,7 @@ public record TournamentResponse(
                 t.getMatchGeneratorId(),
                 t.getCreatedAt(),
                 t.getPlannedStartTime(),
-                t.isOptimize());
+                t.isOptimize(),
+                t.getOrganizer());
     }
 }

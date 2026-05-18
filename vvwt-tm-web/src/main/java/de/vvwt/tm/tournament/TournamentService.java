@@ -85,6 +85,8 @@ public interface TournamentService {
      * @param seedMannschaftsfoto {@code true} (or {@code null} → default {@code true}) seeds a
      *     Mannschaftsfoto {@link de.vvwt.tm.tournament.activity.ActivityType} with {@code
      *     FIRST_FREE_ROUND} assignment rule; {@code false} skips seeding (E53S05 AC1)
+     * @param organizer organizer name to store; {@code null} → fall back to tenant display_name
+     *     snapshot (E46S01 backward compat); when non-null, stored as-is (E68S01)
      * @return the persisted tournament (never {@code null})
      * @throws IllegalArgumentException if any bean ID is not registered or matchFormat is invalid
      */
@@ -99,7 +101,8 @@ public interface TournamentService {
             String matchGeneratorId,
             LocalTime plannedStartTime,
             Boolean optimize,
-            Boolean seedMannschaftsfoto);
+            Boolean seedMannschaftsfoto,
+            String organizer);
 
     // -------------------------------------------------------------------------
     // AC4 — Update tournament
@@ -118,6 +121,8 @@ public interface TournamentService {
      * @param setValidationRuleId new set validation rule ID (applied if not {@code null})
      * @param matchGeneratorId new match generator ID (applied if not {@code null})
      * @param plannedStartTime new planned start time (always applied; {@code null} means clear)
+     * @param organizer new organizer name (applied if not {@code null}; {@code null} means no
+     *     change — nullable-field convention; E68S01: intentional reversal of E46S01 write-once)
      * @return the updated tournament (never {@code null})
      * @throws NoSuchElementException if the tournament does not exist for the current tenant
      * @throws ConflictException if the tournament is not in DRAFT status (AC4)
@@ -134,7 +139,8 @@ public interface TournamentService {
             String setValidationRuleId,
             String matchGeneratorId,
             LocalTime plannedStartTime,
-            Boolean optimize);
+            Boolean optimize,
+            String organizer);
 
     // -------------------------------------------------------------------------
     // AC5 — Delete tournament

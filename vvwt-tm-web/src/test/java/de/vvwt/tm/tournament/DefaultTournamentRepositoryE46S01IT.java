@@ -21,7 +21,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
- * DAO integration tests for E46S01 snapshot-at-INSERT logic in {@link DefaultTournamentRepository}.
+ * DAO integration tests for E46S01 snapshot-at-INSERT logic and E68S01 mutable-organizer logic in
+ * {@link DefaultTournamentRepository}.
  *
  * <h2>RED state</h2>
  *
@@ -29,6 +30,15 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * tournament} table (no V2 migration) and the snapshot SELECT logic was not present in {@link
  * DefaultTournamentRepository#save(Tournament)} — causing both compile error (missing {@code
  * organizer} column assertion) and runtime failure — satisfying the DEC-22 Iron Law.
+ *
+ * <h2>E68S01 reversal note (AC7)</h2>
+ *
+ * <p>The test {@code update_doesNotReSnapshot_organizerRemains()} previously asserted that
+ * organizer was IMMUTABLE on UPDATE (E46S01 write-once). E68S01 intentionally reverses this
+ * behavior: organizer is now mutable and the UPDATE SQL includes {@code organizer=?}. The test is
+ * updated accordingly — the old assertion was not a trustworthy oracle per DEC-22 reconstruction
+ * intent. A new test {@code update_organizer_updatedToEntityValue()} asserts the new mutable
+ * behavior.
  *
  * <h2>DEC-26 three-rule compliance (per DEC-46 scope extension)</h2>
  *
@@ -48,9 +58,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * <h2>Named algebraic invariants (DEC-41 §observable-form)</h2>
  *
  * <ul>
- *   <li>{@code organizer == tenants.display_name AT INSERT TIME}
- *   <li>{@code organizer is immutable on UPDATE}
- *   <li>{@code INSERT requires tenants row to exist}
+ *   <li>{@code organizer == tenants.display_name AT INSERT TIME} (when not explicitly supplied)
+ *   <li>{@code organizer == tournament.organizer AT INSERT TIME} (when explicitly supplied, E68S01)
+ *   <li>{@code organizer IS mutable on UPDATE} (E68S01 reversal of E46S01 write-once)
+ *   <li>{@code INSERT requires tenants row to exist} (when organizer not explicitly supplied)
  * </ul>
  *
  * <h2>Same-package DEC-36 exemption</h2>
@@ -66,8 +77,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * @see <a href="DEC-41">DEC-41 — observable-form classification</a>
  * @see <a href="DEC-46">DEC-46 — DAO IT scope extension to all vvwt-prj modules</a>
  * @see <a href="E46S01">E46S01 — Data foundation for certificate i18n + organizer</a>
+ * @see <a href="E68S01">E68S01 — Organizer as editable field (reverses E46S01 write-once)</a>
  */
-@DisplayName("DefaultTournamentRepository — E46S01 snapshot-at-INSERT DAO IT")
+@DisplayName(
+        "DefaultTournamentRepository — E46S01 snapshot-at-INSERT / E68S01 mutable-organizer DAO IT")
 class DefaultTournamentRepositoryE46S01IT {
 
     private DataSource dataSource;
@@ -127,13 +140,15 @@ class DefaultTournamentRepositoryE46S01IT {
     }
 
     // =========================================================================
-    // AC-UPDATE-DOES-NOT-RE-SNAPSHOT
-    // Invariant: organizer is immutable on UPDATE
+    // AC-UPDATE-ORGANIZER-MUTABLE (E68S01 reversal of E46S01 write-once)
+    // Invariant: organizer IS mutable on UPDATE — updated to tournament entity's value
     // =========================================================================
 
     @Test
-    @DisplayName("save() UPDATE: organizer column NOT re-snapshotted (immutable on UPDATE)")
-    void update_doesNotReSnapshot_organizerRemains() {
+    @DisplayName(
+            "save() UPDATE: organizer updated to tournament entity value (E68S01 — reverses"
+                    + " E46S01 write-once; was: 'immutable on UPDATE')")
+    void update_organizer_updatedToEntityValue() {
         // GIVEN — pre-existing tournament row with organizer = "Original Club" (Rule 3)
         UUID tournamentId = UUID.randomUUID();
         var tournamentCols = new LinkedHashMap<String, Object>();
@@ -150,26 +165,63 @@ class DefaultTournamentRepositoryE46S01IT {
         tournamentCols.put("organizer", "Original Club");
         TenantDaoTestSupport.insertDirectly(dataSource, "tournament", tournamentCols);
 
-        // Seed tenants row with DIFFERENT display_name — must NOT override organizer on UPDATE
-        UUID tenantId = UUID.randomUUID();
-        TenantDaoTestSupport.insertDirectly(
-                dataSource, "tenants", buildTenantsRow(tenantId, "Renamed Club"));
-
         Tournament tournament = buildTournament(tournamentId, locationId);
         tournament.setDescription("Updated description");
+        // E68S01: set a NEW organizer value on the entity — must be persisted on UPDATE
+        tournament.setOrganizer("New Organizer Name");
 
         // WHEN — save triggers UPDATE branch (id already present)
         repository.save(tournament);
 
-        // THEN — organizer must still be "Original Club" (Rule 2: assertj-db)
+        // THEN — organizer must be "New Organizer Name" (Rule 2: assertj-db)
         Table table = assertDb.table("tournament").build();
         var rows = table.getRowsList();
         assertThat(rows).as("still exactly one tournament row after UPDATE").hasSize(1);
 
         Object organizer = rows.get(0).getColumnValue("ORGANIZER").getValue();
         assertThat(organizer)
-                .as("organizer must remain 'Original Club' after UPDATE — NOT 'Renamed Club'")
-                .isEqualTo("Original Club");
+                .as(
+                        "organizer must be updated to 'New Organizer Name' on UPDATE (E68S01:"
+                                + " mutable field — reverses E46S01 write-once)")
+                .isEqualTo("New Organizer Name");
+    }
+
+    // =========================================================================
+    // AC-INSERT-EXPLICIT-ORGANIZER (E68S01)
+    // Invariant: when tournament.organizer is non-null on INSERT, it is used directly
+    //            without consulting tenants.display_name
+    // =========================================================================
+
+    @Test
+    @DisplayName(
+            "save() INSERT: explicit organizer on entity used directly (no tenants snapshot needed,"
+                    + " E68S01 AC1)")
+    void insertExplicitOrganizer_usedDirectly_noTenantSnapshotNeeded() {
+        // GIVEN — seed tenants row so INSERT does not fail-fast (it would only be consulted if
+        // tournament.organizer == null; here it is non-null so the snapshot SELECT is skipped)
+        UUID tenantId = UUID.randomUUID();
+        TenantDaoTestSupport.insertDirectly(
+                dataSource, "tenants", buildTenantsRow(tenantId, "Tenant Display Name"));
+
+        UUID tournamentId = UUID.randomUUID();
+        Tournament tournament = buildTournament(tournamentId, locationId);
+        // E68S01: supply organizer explicitly — must be stored as-is
+        tournament.setOrganizer("Explicitly Supplied Organizer");
+
+        // WHEN — save triggers INSERT branch (id not present)
+        repository.save(tournament);
+
+        // THEN — organizer must equal the explicitly supplied value (Rule 2: assertj-db)
+        Table table = assertDb.table("tournament").build();
+        var rows = table.getRowsList();
+        assertThat(rows).as("exactly one tournament row must exist after INSERT").hasSize(1);
+
+        Object organizer = rows.get(0).getColumnValue("ORGANIZER").getValue();
+        assertThat(organizer)
+                .as(
+                        "organizer must equal the explicitly supplied value, NOT"
+                                + " tenants.display_name (E68S01 AC1)")
+                .isEqualTo("Explicitly Supplied Organizer");
     }
 
     // =========================================================================

@@ -104,7 +104,8 @@
       "scoringRuleId": "Wertungsregel",
       "setValidationRuleId": "Satzregel",
       "matchGeneratorId": "Spielgenerator",
-      "plannedStartTime": "Geplante Startzeit (optional, HH:mm)"
+      "plannedStartTime": "Geplante Startzeit (optional, HH:mm)",
+      "organizer": "Veranstalter"
     }
   },
   "draft": {

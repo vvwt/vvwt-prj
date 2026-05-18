@@ -80,7 +80,7 @@ import org.springframework.test.context.ActiveProfiles;
         classes = de.vvwt.tm.TournamentManagerApplication.class)
 @Import({WebModuleTestConfig.class, TournamentControllerIT.TestAdminCredentials.class})
 @ActiveProfiles("test")
-@DisplayName("TournamentController IT — E21S02 AC-REST-IT (2-test minimalist)")
+@DisplayName("TournamentController IT — E21S02 AC-REST-IT + E68S01 organizer")
 class TournamentControllerIT {
 
     private static final String ADMIN_USER = "admin";
@@ -122,7 +122,8 @@ class TournamentControllerIT {
                         "roundRobin",
                         null,
                         null,
-                        null); // E53S05: seedMannschaftsfoto = null
+                        null, // E53S05: seedMannschaftsfoto = null
+                        null); // E68S01: organizer = null → server derives from tenant display_name
 
         ResponseEntity<TournamentResponse> response =
                 authed.postForEntity(
@@ -173,7 +174,8 @@ class TournamentControllerIT {
                         "roundRobin",
                         null,
                         null,
-                        null); // E53S05: seedMannschaftsfoto = null
+                        null, // E53S05: seedMannschaftsfoto = null
+                        null); // E68S01: organizer = null
 
         ResponseEntity<String> response =
                 restTemplate.postForEntity(
@@ -264,7 +266,8 @@ class TournamentControllerIT {
                         "roundRobin",
                         null,
                         null,
-                        null); // E53S05: seedMannschaftsfoto = null
+                        null, // E53S05: seedMannschaftsfoto = null
+                        null); // E68S01: organizer = null
 
         ResponseEntity<TournamentResponse> createResponse =
                 authed.postForEntity(
@@ -429,6 +432,243 @@ class TournamentControllerIT {
         } finally {
             tenantBinder.unbind();
         }
+    }
+
+    // =========================================================================
+    // E68S01: organizer persisted on CREATE (AC1 + AC7)
+    // =========================================================================
+
+    /**
+     * E68S01 AC1 + AC7 RED-first: POST with {@code organizer="Custom Organizer"} → 201; assertj-db
+     * verifies organizer column in tournament row.
+     *
+     * <p>RED before E68S01: {@code TournamentCreateRequest} lacks {@code organizer} field → backend
+     * ignores it → organizer is derived from tenant display_name → assertion on "Custom Organizer"
+     * FAILS. GREEN after: all layers wire the field → organizer persisted as supplied.
+     */
+    @Test
+    @DisplayName(
+            "E68S01 AC1+AC7: POST with organizer='Custom Organizer' → 201; assertj-db verifies"
+                    + " organizer column persisted")
+    void createWithOrganizer_persistsOrganizer() throws Exception {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("description", "E68S01 IT Create With Organizer");
+        body.put("appointment", null);
+        body.put("teamCount", 4);
+        body.put("fieldCount", 2);
+        body.put("matchFormat", "BEST_OF_3");
+        body.put("scoringRuleId", "setPoints");
+        body.put("setValidationRuleId", "standardVolleyball");
+        body.put("matchGeneratorId", "roundRobin");
+        body.put("plannedStartTime", null);
+        body.put("optimize", null);
+        body.put("seedMannschaftsfoto", null);
+        body.put("organizer", "Custom Organizer"); // E68S01: explicit organizer
+
+        ResponseEntity<TournamentResponse> createResponse =
+                authed.postForEntity(
+                        new URI(baseUrl + "/api/tournaments"), body, TournamentResponse.class);
+
+        assertThat(createResponse.getStatusCode())
+                .as("POST must return 201 Created")
+                .isEqualTo(HttpStatus.CREATED);
+        assertThat(createResponse.getBody()).isNotNull();
+        UUID newId = createResponse.getBody().id();
+
+        // Verify organizer in response body
+        assertThat(createResponse.getBody().organizer())
+                .as("E68S01 AC1: response must contain the supplied organizer")
+                .isEqualTo("Custom Organizer");
+
+        // DEC-26 Rule 2 — assertj-db independent verifier
+        tenantBinder.bindDefaultTenant();
+        try {
+            AssertDbConnection assertDb = AssertDbConnectionFactory.of(dataSource).create();
+            Table tournamentTable = assertDb.table("tournament").build();
+            Object organizer =
+                    tournamentTable.getRowsList().stream()
+                            .filter(row -> newId.equals(row.getColumnValue("ID").getValue()))
+                            .findFirst()
+                            .map(row -> row.getColumnValue("ORGANIZER").getValue())
+                            .orElse(null);
+            assertThat(organizer)
+                    .as(
+                            "E68S01 AC1: tournament.organizer column must equal 'Custom Organizer'"
+                                    + " (assertj-db)")
+                    .isEqualTo("Custom Organizer");
+        } finally {
+            tenantBinder.unbind();
+        }
+    }
+
+    // =========================================================================
+    // E68S01: organizer updated via PUT (AC2 + AC7)
+    // =========================================================================
+
+    /**
+     * E68S01 AC2 + AC7 RED-first: PUT with {@code organizer="Updated Organizer"} → 200; assertj-db
+     * verifies organizer column updated in tournament row.
+     *
+     * <p>RED before E68S01: {@code TournamentUpdateRequest} lacks {@code organizer} → backend
+     * ignores it → organizer unchanged → assertion on "Updated Organizer" FAILS. GREEN after: all
+     * layers wire the field → organizer updated.
+     */
+    @Test
+    @DisplayName(
+            "E68S01 AC2+AC7: PUT with organizer='Updated Organizer' → 200; assertj-db verifies"
+                    + " organizer column updated")
+    void updateWithOrganizer_updatesOrganizer() throws Exception {
+        // First create a tournament
+        Map<String, Object> createBody = new LinkedHashMap<>();
+        createBody.put("description", "E68S01 IT Update Organizer Tournament");
+        createBody.put("appointment", null);
+        createBody.put("teamCount", 4);
+        createBody.put("fieldCount", 2);
+        createBody.put("matchFormat", "BEST_OF_3");
+        createBody.put("scoringRuleId", "setPoints");
+        createBody.put("setValidationRuleId", "standardVolleyball");
+        createBody.put("matchGeneratorId", "roundRobin");
+        createBody.put("plannedStartTime", null);
+        createBody.put("organizer", "Initial Organizer");
+
+        ResponseEntity<TournamentResponse> createResponse =
+                authed.postForEntity(
+                        new URI(baseUrl + "/api/tournaments"),
+                        createBody,
+                        TournamentResponse.class);
+
+        assertThat(createResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        UUID newId = createResponse.getBody().id();
+
+        // Now update the organizer via PUT
+        Map<String, Object> updateBody = new LinkedHashMap<>();
+        updateBody.put("description", "E68S01 IT Update Organizer Tournament");
+        updateBody.put("teamCount", 4);
+        updateBody.put("fieldCount", 2);
+        updateBody.put("matchFormat", "BEST_OF_3");
+        updateBody.put("scoringRuleId", "setPoints");
+        updateBody.put("setValidationRuleId", "standardVolleyball");
+        updateBody.put("matchGeneratorId", "roundRobin");
+        updateBody.put("organizer", "Updated Organizer"); // E68S01: update organizer
+
+        ResponseEntity<TournamentResponse> updateResponse =
+                authed.exchange(
+                        new URI(baseUrl + "/api/tournaments/" + newId),
+                        org.springframework.http.HttpMethod.PUT,
+                        new org.springframework.http.HttpEntity<>(updateBody),
+                        TournamentResponse.class);
+
+        assertThat(updateResponse.getStatusCode())
+                .as("PUT must return 200 OK")
+                .isEqualTo(HttpStatus.OK);
+        assertThat(updateResponse.getBody()).isNotNull();
+        assertThat(updateResponse.getBody().organizer())
+                .as("E68S01 AC2: response must contain the updated organizer")
+                .isEqualTo("Updated Organizer");
+
+        // DEC-26 Rule 2 — assertj-db independent verifier
+        tenantBinder.bindDefaultTenant();
+        try {
+            AssertDbConnection assertDb = AssertDbConnectionFactory.of(dataSource).create();
+            Table tournamentTable = assertDb.table("tournament").build();
+            Object organizer =
+                    tournamentTable.getRowsList().stream()
+                            .filter(row -> newId.equals(row.getColumnValue("ID").getValue()))
+                            .findFirst()
+                            .map(row -> row.getColumnValue("ORGANIZER").getValue())
+                            .orElse(null);
+            assertThat(organizer)
+                    .as(
+                            "E68S01 AC2: tournament.organizer column must equal 'Updated Organizer'"
+                                    + " after PUT (assertj-db)")
+                    .isEqualTo("Updated Organizer");
+        } finally {
+            tenantBinder.unbind();
+        }
+    }
+
+    // =========================================================================
+    // E68S01: blank organizer rejected (AC5 + AC7)
+    // =========================================================================
+
+    /**
+     * E68S01 AC5 + AC7 RED-first: POST with blank {@code organizer} → 400 validation error.
+     *
+     * <p>The organizer field has {@code @NotBlank} on the DTO — blank/whitespace must be rejected
+     * by bean validation with HTTP 400.
+     */
+    @Test
+    @DisplayName("E68S01 AC5+AC7: POST with blank organizer → 400 validation error")
+    void createWithBlankOrganizer_returns400() throws Exception {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("description", "E68S01 IT Blank Organizer");
+        body.put("appointment", null);
+        body.put("teamCount", 4);
+        body.put("fieldCount", 2);
+        body.put("matchFormat", "BEST_OF_3");
+        body.put("scoringRuleId", "setPoints");
+        body.put("setValidationRuleId", "standardVolleyball");
+        body.put("matchGeneratorId", "roundRobin");
+        body.put("plannedStartTime", null);
+        body.put("organizer", "   "); // blank (whitespace-only)
+
+        ResponseEntity<String> response =
+                authed.postForEntity(new URI(baseUrl + "/api/tournaments"), body, String.class);
+
+        assertThat(response.getStatusCode())
+                .as("E68S01 AC5: POST with blank organizer must return 400")
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    // =========================================================================
+    // E68S01: end-to-end certificate — organizer in response (AC3 + AC7)
+    // =========================================================================
+
+    /**
+     * E68S01 AC3 + AC7: a tournament created with organizer="Certificate Organizer" returns that
+     * value in the GET response (which is the same value the certificate rendering binds to {@code
+     * {{tom_organizer}}} via the {@code TournamentResponse.organizer()} field).
+     *
+     * <p>The certificate-rendering code itself is not changed by this story (out of scope per AC3).
+     * This test confirms the persisted value round-trips through the API response, which is the
+     * source of truth the certificate template uses.
+     */
+    @Test
+    @DisplayName(
+            "E68S01 AC3+AC7: tournament saved with organizer='Certificate Organizer' returns that"
+                    + " value in GET (end-to-end certificate chain)")
+    void createWithOrganizer_getReflectsOrganizerForCertificate() throws Exception {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("description", "E68S01 IT Certificate Organizer E2E");
+        body.put("appointment", null);
+        body.put("teamCount", 4);
+        body.put("fieldCount", 2);
+        body.put("matchFormat", "BEST_OF_3");
+        body.put("scoringRuleId", "setPoints");
+        body.put("setValidationRuleId", "standardVolleyball");
+        body.put("matchGeneratorId", "roundRobin");
+        body.put("plannedStartTime", null);
+        body.put("organizer", "Certificate Organizer");
+
+        ResponseEntity<TournamentResponse> createResponse =
+                authed.postForEntity(
+                        new URI(baseUrl + "/api/tournaments"), body, TournamentResponse.class);
+
+        assertThat(createResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        UUID newId = createResponse.getBody().id();
+
+        // GET the tournament and verify organizer is returned
+        ResponseEntity<TournamentResponse> getResponse =
+                authed.getForEntity(
+                        new URI(baseUrl + "/api/tournaments/" + newId), TournamentResponse.class);
+
+        assertThat(getResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(getResponse.getBody()).isNotNull();
+        assertThat(getResponse.getBody().organizer())
+                .as(
+                        "E68S01 AC3: GET must return organizer='Certificate Organizer' — value"
+                                + " the certificate template binds to {{tom_organizer}}")
+                .isEqualTo("Certificate Organizer");
     }
 
     // =========================================================================
