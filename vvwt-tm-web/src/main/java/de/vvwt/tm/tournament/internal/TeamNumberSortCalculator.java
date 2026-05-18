@@ -41,10 +41,12 @@ class TeamNumberSortCalculator extends AbstractAssignmentProposalCalculator {
     /**
      * {@inheritDoc}
      *
-     * <p>Sorts avatars by their team's {@code teamNumber} ascending. Returns a flat ranked list — no
-     * group/position distribution is applied (that is the distributor's responsibility, DEC-77 D-1).
+     * <p>Sorts avatars by their team's {@code teamNumber} ascending. Returns a flat ranked list —
+     * no group/position distribution is applied (that is the distributor's responsibility, DEC-77
+     * D-1).
      *
-     * <p>Ratings are not used for {@code team_number} ranking (sort is by registration number only).
+     * <p>Ratings are not used for {@code team_number} ranking (sort is by registration number
+     * only).
      */
     @Override
     public List<RankedTeamEntry> rank(
@@ -54,8 +56,7 @@ class TeamNumberSortCalculator extends AbstractAssignmentProposalCalculator {
         // Sort avatars by teamNumber ASC
         List<TeamAvatar> sorted = new ArrayList<>(fromAvatars);
         sorted.sort(
-                Comparator.comparingInt(
-                        av -> requireTeamForDisplay(av, teamById).getTeamNumber()));
+                Comparator.comparingInt(av -> requireTeamForDisplay(av, teamById).getTeamNumber()));
 
         List<RankedTeamEntry> ranked = new ArrayList<>(sorted.size());
         for (TeamAvatar av : sorted) {

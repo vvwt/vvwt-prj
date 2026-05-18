@@ -50,10 +50,11 @@ class TeamNumberSortCalculatorTest {
         TeamAvatar av3 = avatar(2, 1, t3);
 
         // t1=num3, t2=num1, t3=num2
-        Map<UUID, Team> teamById = Map.of(
-                t1, team(t1, 3, "Team3"),
-                t2, team(t2, 1, "Team1"),
-                t3, team(t3, 2, "Team2"));
+        Map<UUID, Team> teamById =
+                Map.of(
+                        t1, team(t1, 3, "Team3"),
+                        t2, team(t2, 1, "Team1"),
+                        t3, team(t3, 2, "Team2"));
 
         List<RankedTeamEntry> ranked = calculator.rank(List.of(av1, av2, av3), Map.of(), teamById);
 

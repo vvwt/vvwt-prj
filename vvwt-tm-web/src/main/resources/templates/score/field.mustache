@@ -18,6 +18,9 @@
     <style>
         /*
          * E61S01 — Redesigned score entry page styles.
+         * E65S06 — Layout refinements: bigger header team names; swap control at top;
+         *          bigger footer text; parenthesised version; §13 link; bigger score inputs
+         *          with spinner suppressed; symmetric three-zone header; aligned score boxes.
          * iOS 9 Safari compatible: no flexbox/grid quirks, no CSS container queries.
          * DEC-19: scoring tablet surface; Mustache + ES5 only.
          */
@@ -31,31 +34,66 @@
             color: #eee;
             text-align: center;
         }
-        /* AC2: field-page header — match identity (teams + round/set) */
+        /* AC2 (E61S01): field-page header — match identity (teams + round/set)
+         * AC7 (E65S06): three-zone symmetric layout — team1 | vs | team2 */
         #field-header {
             background: #16163a;
             border-bottom: 1px solid #333;
             padding: 10px 16px;
             min-height: 48px;
         }
+        /*
+         * AC7 (E65S06): Three-zone header bar using display:table layout.
+         * iOS 9 Safari supports display:table/table-cell reliably (flexbox has quirks
+         * with flex-grow on WebKit 600; table layout is fully reliable).
+         */
         #header-teams {
-            display: block;
-            font-size: 1.1em;
+            display: table;
+            width: 100%;
+            table-layout: fixed;
+        }
+        /* AC1 (E65S06): team name zones — larger font than before (was 1.1em) */
+        #header-team1,
+        #header-team2 {
+            display: table-cell;
+            width: 42%;
+            font-size: 1.3em;
             font-weight: bold;
             color: #f0f0f0;
+            vertical-align: middle;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        #header-team1 {
+            text-align: left;
+        }
+        #header-team2 {
+            text-align: right;
+        }
+        /* AC7 (E65S06): centred "vs." cell — stays horizontally centred regardless
+         * of team-name lengths because all three cells are table-cells of fixed width */
+        #header-vs {
+            display: table-cell;
+            width: 16%;
+            font-size: 0.9em;
+            font-weight: normal;
+            color: #888;
+            text-align: center;
+            vertical-align: middle;
+            white-space: nowrap;
         }
         #header-round-set {
             display: block;
             font-size: 0.8em;
             color: #888;
-            margin-top: 2px;
+            margin-top: 4px;
         }
         #page-wrapper {
-            padding: 16px 16px 120px;
+            padding: 16px 16px 140px;
             max-width: 540px;
             margin: 0 auto;
         }
-        /* AC8: global error banner.
+        /* AC8 (E61S01): global error banner.
          * E49S03 M-C: initial hide via inline style="display:none" on the element. */
         #error-banner {
             background: #c0392b;
@@ -72,50 +110,92 @@
             margin-bottom: 20px;
             min-height: 1.4em;
         }
-        /* AC9: no-match panel.
+        /* AC9 (E61S01): no-match panel.
          * E49S03 M-C: initial hide via inline style="display:none". */
         #no-match-panel {
             padding: 32px 16px;
             color: #666;
             font-size: 1em;
         }
-        /* AC3, AC5: match display panel */
+        /* AC2 (E65S06): swap control — horizontally centred, text-width only, above score area */
+        #swap-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            font-size: 0.95em;
+            background: #444466;
+            color: #ccc;
+            border: 1px solid #555;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 0 auto 16px;
+        }
+        /* match display panel */
         #match-panel {
         }
-        /* AC5: score entry area — single field per team */
+        /* AC5 (E61S01): score entry area — single field per team */
         #score-area {
             margin-bottom: 28px;
         }
+        /*
+         * AC8 (E65S06): Score columns — display:table/table-cell to align both score
+         * boxes at the same vertical height even when one team-name label wraps onto
+         * more lines than the other.
+         * table-layout:fixed + equal widths guarantee both cells always sit at the
+         * same baseline regardless of label line count.
+         */
+        #score-columns {
+            display: table;
+            width: 100%;
+            table-layout: fixed;
+        }
         .score-col {
-            display: inline-block;
-            width: 45%;
+            display: table-cell;
+            width: 50%;
             vertical-align: top;
+            padding: 0 4px;
         }
         .score-col-label {
-            font-size: 0.8em;
+            font-size: 0.85em;
             color: #888;
             margin-bottom: 8px;
+            min-height: 2.4em;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
-        /* AC5: single large editable score input (replaces separate display + small input) */
+        /*
+         * AC6 (E65S06): Larger score input; native number-spinner suppressed.
+         * -webkit-appearance: none / -moz-appearance: textfield suppress the
+         * native +/- spinner controls on Chrome (webkit) and Firefox (moz).
+         * The custom +/- buttons replace the spinner (operator may veto per Brief D-7).
+         */
         .score-input {
             display: block;
             width: 90%;
             margin: 0 auto 10px;
-            font-size: 3.5em;
+            font-size: 4em;
             font-weight: bold;
             text-align: center;
-            padding: 12px 4px;
+            padding: 14px 4px;
             background: #2d2d54;
             color: #fff;
             border: 2px solid #444;
             border-radius: 8px;
+            -webkit-appearance: none;
+            -moz-appearance: textfield;
+            appearance: none;
         }
-        /* AC3, AC9: +/- buttons */
+        /* Remove inner spinner arrows (Webkit) */
+        .score-input::-webkit-inner-spin-button,
+        .score-input::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        /* AC6 (E65S06): +/- buttons — sized to stay flush with score input edges */
         .btn-plus, .btn-minus {
             display: inline-block;
             width: 44%;
-            padding: 10px 0;
-            font-size: 1.4em;
+            padding: 12px 0;
+            font-size: 1.6em;
             font-weight: bold;
             border: none;
             border-radius: 4px;
@@ -124,7 +204,7 @@
         }
         .btn-plus  { background: #27ae60; color: #fff; }
         .btn-minus { background: #7f8c8d; color: #fff; }
-        /* AC5: confirm button */
+        /* AC5 (E61S01): confirm button */
         #confirm-btn {
             display: block;
             width: 90%;
@@ -137,13 +217,13 @@
             border-radius: 6px;
             cursor: pointer;
         }
-        /* AC11: queue status pill */
+        /* queue status pill */
         #queue-status {
             font-size: 0.75em;
             color: #888;
             margin-bottom: 12px;
         }
-        /* AC5: confirmation dialog overlay */
+        /* AC5 (E61S01): confirmation dialog overlay */
         #confirm-dialog {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -186,20 +266,7 @@
         }
         #confirm-yes-btn { background: #27ae60; color: #fff; }
         #confirm-no-btn  { background: #555; color: #eee; }
-        /* AC1 (E61S03): swap control button */
-        #swap-btn {
-            display: block;
-            width: 90%;
-            margin: 0 auto 20px;
-            padding: 10px 0;
-            font-size: 0.95em;
-            background: #444466;
-            color: #ccc;
-            border: 1px solid #555;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-        /* AC3, AC4: bottom bar — fixed at page bottom */
+        /* AC3 (E61S01), AC4 (E61S01): bottom bar — fixed at page bottom */
         #bottom-bar {
             position: fixed;
             bottom: 0;
@@ -209,60 +276,90 @@
             background: #0e0e22;
             border-top: 1px solid #222;
         }
-        /* AC3: bottom-left wordmark */
+        /* AC3 (E65S06): bottom-left "Scoring Tablet" wordmark — larger than before (was 0.7em) */
         #bottom-wordmark {
             position: absolute;
             left: 16px;
-            bottom: 8px;
-            font-size: 0.7em;
+            bottom: 28px;
+            font-size: 0.85em;
             color: #555;
             white-space: nowrap;
         }
         #bottom-wordmark img.icon-o {
-            width: 10px;
-            height: 10px;
+            width: 12px;
+            height: 12px;
             vertical-align: middle;
         }
-        /* AC4: bottom-centre field number */
+        /* AC4 (E65S06): bottom-centre field number — larger than before (was 0.75em → 0.9em) */
         #bottom-field-number {
             display: inline-block;
-            font-size: 0.75em;
+            font-size: 0.9em;
             color: #555;
         }
-        /* Version info */
+        /* AC4 (E65S06): version stays at its current small size — NOT enlarged per story note */
         #version-info {
             font-size: 0.6em;
             color: #3a3a5a;
             display: block;
             margin-top: 2px;
         }
+        /*
+         * AC5 (E65S06): §13 AGPL source-code link — bottom-right of footer.
+         * Same plain-link pattern as E59S03 on register.mustache / hello.mustache.
+         */
+        #bottom-source-link {
+            position: absolute;
+            right: 16px;
+            bottom: 28px;
+            font-size: 0.6em;
+            color: #3a3a5a;
+            white-space: nowrap;
+        }
+        #bottom-source-link a {
+            color: #3a3a5a;
+        }
     </style>
 </head>
 <body>
-    <!-- AC2: field-page header — match identity (teams + round/set), populated by JS -->
+    <!-- AC2 (E61S01): field-page header — match identity (teams + round/set), populated by JS
+         AC7 (E65S06): Three-zone symmetric layout — team1 | vs | team2
+         The three inner spans are each populated individually by applySwap() in the inline script. -->
     <div id="field-header">
-        <span id="header-teams"></span>
+        <div id="header-teams">
+            <span id="header-team1"></span>
+            <span id="header-vs"></span>
+            <span id="header-team2"></span>
+        </div>
         <span id="header-round-set"></span>
+    </div>
+
+    <!--
+        AC2 (E65S06): Swap control at the top of the page — directly below the header bar,
+        horizontally centred, only as wide as its label text. Placed OUTSIDE #match-panel
+        so it is always visible (above the score area) whenever the page is loaded.
+    -->
+    <div style="text-align: center; padding-top: 12px;">
+        <button id="swap-btn" type="button">{{msgSwapLabel}}</button>
     </div>
 
     <div id="page-wrapper">
 
-        <!-- AC8: global error banner.
+        <!-- AC8 (E61S01): global error banner.
              E49S03 M-C: inline style="display:none" for vvwtShow compatibility. -->
         <div id="error-banner" style="display:none"></div>
 
         <!-- Status / loading line -->
         <div id="status-msg">{{msgLoading}}</div>
 
-        <!-- AC11: score queue status.
+        <!-- queue status.
              E49S03 M-C: inline style="display:none" for vvwtShow compatibility. -->
         <div id="queue-status" style="display:none"></div>
 
-        <!-- AC9: no-match panel — shown when no active match on this field.
+        <!-- AC9 (E61S01): no-match panel — shown when no active match on this field.
              E49S03 M-C: inline style="display:none" for vvwtShow compatibility. -->
         <div id="no-match-panel" style="display:none">{{msgNoMatch}}</div>
 
-        <!-- AC5: match display + score entry panel.
+        <!-- AC5 (E61S01): match display + score entry panel.
              E49S03 M-C: inline style="display:none" for vvwtShow compatibility. -->
         <div id="match-panel" style="display:none">
 
@@ -271,42 +368,45 @@
                 {{msgRefereeLabel}}: <span id="referee-name"></span>
             </div>
 
-            <!-- AC5: score entry area — single editable field per team -->
+            <!-- AC5 (E61S01): score entry area — single editable field per team
+                 AC8 (E65S06): #score-columns uses table layout to keep both score boxes at the
+                 same vertical height regardless of team-name label line count. -->
             <div id="score-area">
-                <!-- Team 1 column -->
-                <div class="score-col" id="col-team1">
-                    <div class="score-col-label" id="label-team1"></div>
-                    <!-- AC5: single large editable input (replaces score-display + small input) -->
-                    <input class="score-input" id="input-team1" type="number" min="0" max="99"
-                           value="0">
-                    <!-- AC9: +/- buttons operate on input-team1 -->
-                    <button class="btn-plus"  id="plus-team1"  type="button">{{msgPlusLabel}}</button>
-                    <button class="btn-minus" id="minus-team1" type="button">{{msgMinusLabel}}</button>
-                </div>
+                <div id="score-columns">
+                    <!-- Team 1 column -->
+                    <div class="score-col" id="col-team1">
+                        <div class="score-col-label" id="label-team1"></div>
+                        <!-- AC5: single large editable input (replaces score-display + small input)
+                             AC6 (E65S06): native spinner suppressed via CSS (see .score-input) -->
+                        <input class="score-input" id="input-team1" type="number" min="0" max="99"
+                               value="0">
+                        <!-- +/- buttons operate on input-team1 -->
+                        <button class="btn-plus"  id="plus-team1"  type="button">{{msgPlusLabel}}</button>
+                        <button class="btn-minus" id="minus-team1" type="button">{{msgMinusLabel}}</button>
+                    </div>
 
-                <!-- Team 2 column -->
-                <div class="score-col" id="col-team2">
-                    <div class="score-col-label" id="label-team2"></div>
-                    <!-- AC5: single large editable input (replaces score-display + small input) -->
-                    <input class="score-input" id="input-team2" type="number" min="0" max="99"
-                           value="0">
-                    <!-- AC9: +/- buttons operate on input-team2 -->
-                    <button class="btn-plus"  id="plus-team2"  type="button">{{msgPlusLabel}}</button>
-                    <button class="btn-minus" id="minus-team2" type="button">{{msgMinusLabel}}</button>
+                    <!-- Team 2 column -->
+                    <div class="score-col" id="col-team2">
+                        <div class="score-col-label" id="label-team2"></div>
+                        <!-- AC5: single large editable input (replaces score-display + small input)
+                             AC6 (E65S06): native spinner suppressed via CSS (see .score-input) -->
+                        <input class="score-input" id="input-team2" type="number" min="0" max="99"
+                               value="0">
+                        <!-- +/- buttons operate on input-team2 -->
+                        <button class="btn-plus"  id="plus-team2"  type="button">{{msgPlusLabel}}</button>
+                        <button class="btn-minus" id="minus-team2" type="button">{{msgMinusLabel}}</button>
+                    </div>
                 </div>
             </div><!-- /#score-area -->
 
-            <!-- AC5: confirm set result button -->
+            <!-- AC5 (E61S01): confirm set result button -->
             <button id="confirm-btn" type="button">{{msgConfirmHeading}}</button>
-
-            <!-- AC1 (E61S03): manual swap control — swaps on-screen left/right team positions -->
-            <button id="swap-btn" type="button">{{msgSwapLabel}}</button>
 
         </div><!-- /#match-panel -->
 
     </div><!-- /#page-wrapper -->
 
-    <!-- AC5: confirmation dialog overlay.
+    <!-- AC5 (E61S01): confirmation dialog overlay.
          E49S03 M-C: inline style="display:none" for vvwtShow compatibility. -->
     <div id="confirm-dialog" style="display:none">
         <div id="confirm-dialog-box">
@@ -318,13 +418,25 @@
         </div>
     </div>
 
-    <!-- AC3, AC4: bottom bar — fixed at page bottom -->
+    <!-- AC3 (E61S01), AC4 (E61S01): bottom bar — fixed at page bottom -->
     <div id="bottom-bar">
-        <!-- AC3: bottom-left "Scoring Tablet" wordmark — letter 'o' as vvw-icon-blue.svg inline -->
-        <div id="bottom-wordmark">Sc<img src="/score/vvw-icon-blue.svg" alt="o" class="icon-o">ring Tablet &nbsp;{{versionLabel}}: {{appVersion}}</div>
-        <!-- AC4: bottom-centre field number — "Feld {n}" using existing i18n key (AC7) -->
+        <!-- AC3 (E65S06): bottom-left "Scoring Tablet" wordmark — letter 'o' as vvw-icon-blue.svg
+             Font size increased from 0.7em to 0.85em per AC3 (L3 — larger footer text). -->
+        <div id="bottom-wordmark">Sc<img src="/score/vvw-icon-blue.svg" alt="o" class="icon-o">ring Tablet</div>
+        <!-- AC4 (E65S06): bottom-centre field number — somewhat larger (was 0.75em → 0.9em per L3).
+             Version shown in parentheses per AC4 (L4). The version text is NOT enlarged. -->
         <div id="bottom-field-number">{{msgFieldLabel}} {{fieldNumber}}</div>
-        <span id="version-info"></span>
+        <!-- AC4 (E65S06): version in parentheses, at original small size (not enlarged) -->
+        <span id="version-info">({{versionLabel}}: {{appVersion}})</span>
+        <!--
+            AC5 (E65S06): AGPL §13 source-code offer — plain static link at bottom-right.
+            Same link text and target as E59S03 on register.mustache / hello.mustache (DEC-75).
+            No new JavaScript introduced (DEC-19).
+        -->
+        <div id="bottom-source-link">
+            Source code (AGPL-3.0-or-later):
+            <a href="https://github.com/vvwt/vvwt-prj">https://github.com/vvwt/vvwt-prj</a>
+        </div>
     </div>
 
     <!--
@@ -336,39 +448,42 @@
 
     <!--
         E61S01 inline ES5 score-entry logic — redesigned.
-        E61S03 — team-position swap logic added.
-        E65S03 — swap extended: each column now fully follows the team (name, score, +/-).
-        E65S05 — auto-advance polling: when no active match, poll every POLL_INTERVAL_MS ms;
-                 stop polling when a match is found (AC2, AC3). Polling uses window.setInterval /
-                 window.clearInterval (ES5, iOS 9 safe). AC5: poll continues on network error so
-                 once connectivity returns the next interval fires and loads the correct match.
-        AC1:  Logo lockup removed (E61S01); swap control button added (E61S03).
-        AC2:  Header shows active match identity (teams + round/set) — JS-populated.
-              E65S03: displayed score in each column follows the team (AC2, AC3).
-        AC3:  Bottom-left wordmark rendered in template.
-        AC4:  Bottom-centre field number rendered in template.
-        AC5:  Single editable score input per team; +/- buttons operate on it.
-        AC6:  When no active match, header spans are empty (no stale text).
-        AC7:  All strings from i18n message keys (incl. score.field.swap.label, E61S03 AC8).
-        AC8:  ECMAScript 5 only (DEC-19).
-        AC9:  +/- buttons increment/decrement the single score input.
+        E61S03 — Team-position swap added (AC1–AC10).
+        E65S05 — Auto-advance polling added (AC1–AC8):
+                 When no active match found, poll every POLL_INTERVAL_MS ms until a match
+                 appears (tournament advances to next round). Uses window.setInterval /
+                 window.clearInterval (ES5 — iOS 9 safe). stopPolling() is called as soon
+                 as renderMatch() is entered so the tablet never continues polling while a
+                 match is displayed. AC5: polling also continues on network errors so once
+                 connectivity returns the next interval fires and loads the correct match.
+        E65S06 — Layout refinements (AC1–AC12):
+                 AC1: header team names larger (CSS only).
+                 AC2: swap control moved to top of page (HTML structure change; #swap-btn
+                      is now OUTSIDE #match-panel, always visible above the score area).
+                 AC3: footer text larger (CSS only).
+                 AC4: version in parentheses (template change only).
+                 AC5: §13 source-code link added to footer (template change only).
+                 AC6: score inputs larger + native spinner suppressed (CSS only).
+                 AC7: header restructured to three-zone layout — #header-team1 / #header-vs /
+                      #header-team2; applySwap() updated to set each element individually.
+                 AC8: score-box alignment via table layout (CSS only; #score-columns wrapper).
+                 AC9: long-name robustness via word-wrap + min-height CSS (no JS change).
+        DEC-19 constraint: ECMAScript 5 only.
+        Relies on helpers from /score/assets/vvwt-tablet.js (must load first):
+          vvwtFetch, vvwtSetText, vvwtShow, vvwtHide, vvwtQuery
         E61S03 swap model: effectiveSwap = (deterministicSwap(setIndex, isTiebreak, pts) + swapOffset) % 2.
         deterministicSwap = setIndex%2 XOR tiebreak-8-point-switch. swapOffset from localStorage.
         E65S03 currentSwap: applySwap() sets currentSwap=swap; updateScoreDisplay() and +/- handlers
         route to score1 or score2 based on currentSwap. AC4: score1/score2 payload mapping is team-fixed.
+        E65S06 applySwap: sets elHeaderTeam1, elHeaderVs, elHeaderTeam2 individually (three-zone header).
         DEC-19: ECMAScript 5 only — var, named functions, no arrow/class/template literals.
     -->
     <script>
     /* =========================================================================
        E61S01 — Score-entry page ES5 inline script (redesigned).
        E61S03 — Team-position swap added (AC1–AC10).
-       E65S05 — Auto-advance polling added (AC1–AC8):
-                When no active match found, poll every POLL_INTERVAL_MS ms until a match
-                appears (tournament advances to next round). Uses window.setInterval /
-                window.clearInterval (ES5 — iOS 9 safe). stopPolling() is called as soon
-                as renderMatch() is entered so the tablet never continues polling while a
-                match is displayed. AC5: polling also continues on network errors so once
-                connectivity returns the next interval fires and loads the correct match.
+       E65S05 — Auto-advance polling added (AC1–AC8).
+       E65S06 — Layout refinements: applySwap() updated for three-zone header (AC7).
        DEC-19 constraint: ECMAScript 5 only.
        Relies on helpers from /score/assets/vvwt-tablet.js (must load first):
          vvwtFetch, vvwtSetText, vvwtShow, vvwtHide, vvwtQuery
@@ -418,7 +533,7 @@
      */
     var currentSwap          = 0;
 
-    /* AC11: offline score queue — array of {matchId, setIndex, team1Points, team2Points} */
+    /* offline score queue — array of {matchId, setIndex, team1Points, team2Points} */
     var scoreQueue           = [];
 
     /*
@@ -502,7 +617,7 @@
      * - Per-set alternation: setIndex % 2.
      * - Tiebreak 8-point switch: if isTiebreak AND max(t1Points, t2Points) >= TIEBREAK_SWAP_THRESHOLD,
      *   flip the alternation (XOR with 1).
-     * This is a pure function — recomputed on every render and page reload (AC3, AC6).
+     * This is a pure function — recomputed on every render and page reload.
      */
     function deterministicSwap(setIndex, isTiebreak, t1Points, t2Points) {
         var base = setIndex % 2;
@@ -529,19 +644,25 @@
     var elQueueStatus    = vvwtQuery('#queue-status');
     var elNoMatchPanel   = vvwtQuery('#no-match-panel');
     var elMatchPanel     = vvwtQuery('#match-panel');
-    /* AC2: header identity spans */
+    /*
+     * AC7 (E65S06): Three separate header element references.
+     * elHeaderTeams (the container div) is kept for backward compatibility with clearHeader().
+     */
     var elHeaderTeams    = vvwtQuery('#header-teams');
+    var elHeaderTeam1    = vvwtQuery('#header-team1');
+    var elHeaderVs       = vvwtQuery('#header-vs');
+    var elHeaderTeam2    = vvwtQuery('#header-team2');
     var elHeaderRoundSet = vvwtQuery('#header-round-set');
     /* Referee row */
     var elRefereeRow     = vvwtQuery('#referee-row');
     var elRefereeName    = vvwtQuery('#referee-name');
-    /* AC5: score column labels */
+    /* score column labels */
     var elLabelTeam1     = vvwtQuery('#label-team1');
     var elLabelTeam2     = vvwtQuery('#label-team2');
-    /* AC5: single score inputs */
+    /* single score inputs */
     var elInputTeam1     = vvwtQuery('#input-team1');
     var elInputTeam2     = vvwtQuery('#input-team2');
-    /* AC9: +/- buttons */
+    /* +/- buttons */
     var elPlusTeam1      = vvwtQuery('#plus-team1');
     var elMinusTeam1     = vvwtQuery('#minus-team1');
     var elPlusTeam2      = vvwtQuery('#plus-team2');
@@ -552,11 +673,11 @@
     var elConfirmScore   = vvwtQuery('#confirm-dialog-score');
     var elConfirmYesBtn  = vvwtQuery('#confirm-yes-btn');
     var elConfirmNoBtn   = vvwtQuery('#confirm-no-btn');
-    /* AC1 (E61S03): swap control button */
+    /* AC2 (E65S06): swap control is now above #match-panel, outside the match section */
     var elSwapBtn        = vvwtQuery('#swap-btn');
 
     /* -------------------------------------------------------------------------
-       AC10: Token storage helpers (same pattern as register.mustache)
+       Token storage helpers (same pattern as register.mustache)
        --------------------------------------------------------------------- */
 
     function localStorageGet(key) {
@@ -604,7 +725,7 @@
     }
 
     /* -------------------------------------------------------------------------
-       AC5: Partial score broadcast
+       Partial score broadcast
        --------------------------------------------------------------------- */
 
     function sendPartialScore() {
@@ -634,7 +755,8 @@
     }
 
     /* -------------------------------------------------------------------------
-       AC9: +/- button and input handlers — operate on single score input
+       +/- button and input handlers — operate on single score input
+       AC3 (E65S03): swap-aware handlers route to team1/team2 score based on currentSwap.
        --------------------------------------------------------------------- */
 
     function clamp(val) {
@@ -643,14 +765,6 @@
         return val;
     }
 
-    /*
-     * AC3 (E65S03): +/- handlers and input-change handlers are swap-aware.
-     * Each on-screen column's controls modify the score of the team shown in
-     * that column. When currentSwap === 1 the left column (col-team1 controls)
-     * belongs to team2, and the right column (col-team2 controls) belongs to team1.
-     * AC4 invariant: score1 always holds team1's points, score2 team2's points;
-     * the payload mapping in sendPartialScore() and submitSetResult() is team-fixed.
-     */
     if (elPlusTeam1) {
         elPlusTeam1.onclick = function () {
             if (currentSwap === 1) { score2 = clamp(score2 + 1); }
@@ -707,7 +821,7 @@
     /* -------------------------------------------------------------------------
        AC1, AC4 (E61S03): Swap button handler — relative toggle.
        Increments the persisted swap offset (mod 2) and re-applies the visual swap
-       to the currently shown match without reloading. Score bindings unchanged (AC5).
+       to the currently shown match without reloading. Score bindings unchanged.
        --------------------------------------------------------------------- */
 
     if (elSwapBtn) {
@@ -720,10 +834,11 @@
 
     /*
      * AC2, AC3, AC4, AC5, AC6 (E61S03): Apply the visual swap to the displayed match.
-     * AC2, AC3 (E65S03): Extended — now also updates the displayed score values so
-     * each column shows the score of the team it displays, and records the swap state
-     * in currentSwap for the +/- handlers and updateScoreDisplay() to consult.
-     * team1Name and team2Name are the authoritative names from the API (never swapped in storage).
+     * AC2, AC3 (E65S03): Extended — updates displayed score values so each column shows
+     * the score of the team displayed in that column; records swap state in currentSwap.
+     * AC7 (E65S06): Updated for three-zone header — sets #header-team1, #header-vs, and
+     * #header-team2 individually. The "vs." separator is set from MSG_VS_LABEL (always
+     * centred by CSS table-cell layout). Left/right team name routing depends on swap state.
      * AC4 invariant: score1/score2 remain team-fixed; the swap is presentation-only.
      */
     function applySwap(setIndex, isTiebreak, t1Points, t2Points) {
@@ -735,11 +850,16 @@
         var leftName  = (swap === 1) ? currentTeam2Name : currentTeam1Name;
         var rightName = (swap === 1) ? currentTeam1Name : currentTeam2Name;
 
-        /* AC2: update header — left vs right ordering */
-        if (elHeaderTeams) {
-            vvwtSetText(elHeaderTeams, leftName + ' ' + MSG_VS_LABEL + ' ' + rightName);
-        }
-        /* Update column labels */
+        /*
+         * AC7 (E65S06): Update three-zone symmetric header.
+         * Each zone is a separate element; the "vs." centre zone stays centred
+         * regardless of left/right name lengths (CSS display:table fixed layout).
+         */
+        if (elHeaderTeam1) { vvwtSetText(elHeaderTeam1, leftName); }
+        if (elHeaderVs)    { vvwtSetText(elHeaderVs,    MSG_VS_LABEL); }
+        if (elHeaderTeam2) { vvwtSetText(elHeaderTeam2, rightName); }
+
+        /* Update score-area column labels */
         vvwtSetText(elLabelTeam1, leftName);
         vvwtSetText(elLabelTeam2, rightName);
 
@@ -752,7 +872,7 @@
     var currentTeam2Name = '';
 
     /* -------------------------------------------------------------------------
-       AC5, AC7: Confirm dialog
+       Confirm dialog
        --------------------------------------------------------------------- */
 
     if (elConfirmBtn) {
@@ -778,7 +898,7 @@
     }
 
     /* -------------------------------------------------------------------------
-       AC7, AC11: Set result submission with offline queue
+       Set result submission with offline queue
        --------------------------------------------------------------------- */
 
     function submitSetResult(t1, t2) {
@@ -863,17 +983,19 @@
     }
 
     /* -------------------------------------------------------------------------
-       AC2: Populate header with match identity
+       Populate header with match identity
        --------------------------------------------------------------------- */
 
     function clearHeader() {
-        /* AC6: when no active match, header shows no team/round/set values */
-        if (elHeaderTeams)    { vvwtSetText(elHeaderTeams, ''); }
+        /* AC6 (E61S01): when no active match, header shows no team/round/set values */
+        if (elHeaderTeam1)    { vvwtSetText(elHeaderTeam1, ''); }
+        if (elHeaderVs)       { vvwtSetText(elHeaderVs, ''); }
+        if (elHeaderTeam2)    { vvwtSetText(elHeaderTeam2, ''); }
         if (elHeaderRoundSet) { vvwtSetText(elHeaderRoundSet, ''); }
     }
 
     /* -------------------------------------------------------------------------
-       AC1, AC4: Load and display the active match
+       Load and display the active match
        --------------------------------------------------------------------- */
 
     function loadMatch() {
@@ -970,17 +1092,18 @@
             vvwtHide(elRefereeRow);
         }
 
-        /* AC5: update single score inputs */
+        /* update single score inputs */
         updateScoreDisplay();
 
         /*
          * AC2, AC3, AC4, AC6 (E61S03): Apply the visual team-position swap.
+         * AC7 (E65S06): applySwap() now updates three separate header elements.
          * Deterministic component recomputed from current set, tiebreak status, and points.
          * Combined with persisted manual-swap offset loaded from localStorage.
          */
         applySwap(currentSetIndex, currentIsTiebreak, currentTeam1Points, currentTeam2Points);
 
-        /* Retry any queued submissions (AC11) */
+        /* Retry any queued submissions */
         if (scoreQueue.length > 0) {
             var queued = scoreQueue.shift();
             submitSetResult(queued.team1Points, queued.team2Points);

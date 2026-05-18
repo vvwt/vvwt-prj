@@ -13,8 +13,8 @@ import java.util.List;
  * AC7).
  *
  * <p>The distributor operates on the abstract rank index: slot {@code i} is the target placement
- * for the team at rank {@code i} in the caller's flat ranked list. The distributor does not need the
- * team identities — it only needs the total count and the target group count (DEC-77 D-1).
+ * for the team at rank {@code i} in the caller's flat ranked list. The distributor does not need
+ * the team identities — it only needs the total count and the target group count (DEC-77 D-1).
  *
  * <p>DEC-58 Clause A + DEC-72: public interface in the bounded-context root package {@code
  * de.vvwt.tm.tournament}; implementations live in {@code de.vvwt.tm.tournament.internal} (DEC-35).
@@ -41,8 +41,8 @@ public interface Team2AvatarDistributor {
     String getKeyId();
 
     /**
-     * Distributes {@code teamCount} ranked positions across {@code groupCount} groups and returns one
-     * {@link Team2AvatarSlot} per rank position.
+     * Distributes {@code teamCount} ranked positions across {@code groupCount} groups and returns
+     * one {@link Team2AvatarSlot} per rank position.
      *
      * <p>The returned list has {@code teamCount} elements. Element at index {@code i} is the target
      * slot for the team at rank {@code i} in the caller's flat ranked list. Each slot carries only

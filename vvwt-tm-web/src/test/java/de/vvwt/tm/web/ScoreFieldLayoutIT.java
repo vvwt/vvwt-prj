@@ -310,6 +310,118 @@ class ScoreFieldLayoutIT {
     }
 
     // =========================================================================
+    // AC5 (E65S06): AGPL §13 source-code link present
+    // =========================================================================
+
+    @Test
+    @DisplayName(
+            "AC5 (E65S06 — §13 link): rendered field page contains AGPL §13 source-code link"
+                    + " with GitHub URL (governance: DEC-75 / DEC-76)")
+    void fieldPage_containsAgplSourceCodeLink() throws Exception {
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/field/1"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        String body = response.getBody();
+
+        assertThat(body)
+                .as(
+                        "Rendered field page must contain AGPL source-code offer text"
+                                + " (AC5 E65S06: §13 link — DEC-75/DEC-76)")
+                .contains("Source code (AGPL");
+        assertThat(body)
+                .as(
+                        "Rendered field page must contain GitHub repository URL"
+                                + " (AC5 E65S06: §13 link — DEC-75/DEC-76)")
+                .contains("https://github.com/vvwt/vvwt-prj");
+    }
+
+    // =========================================================================
+    // AC2 (E65S06): swap control appears before match-panel in DOM
+    // =========================================================================
+
+    @Test
+    @DisplayName(
+            "AC2 (E65S06 — swap placement): swap-btn element appears before match-panel in DOM"
+                    + " (swap control moved above score area)")
+    void fieldPage_swapControlAppearsBeforeMatchPanel() throws Exception {
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/field/1"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        String body = response.getBody();
+
+        assertThat(body)
+                .as("Rendered field page must contain swap-btn element (AC2 E65S06)")
+                .contains("id=\"swap-btn\"");
+        assertThat(body)
+                .as("Rendered field page must contain match-panel element (AC2 E65S06)")
+                .contains("id=\"match-panel\"");
+
+        int swapIdx = body.indexOf("id=\"swap-btn\"");
+        int matchIdx = body.indexOf("id=\"match-panel\"");
+        assertThat(swapIdx)
+                .as(
+                        "swap-btn must appear before match-panel in DOM"
+                                + " (AC2 E65S06: swap control above score area)")
+                .isLessThan(matchIdx);
+    }
+
+    // =========================================================================
+    // AC7 (E65S06): symmetric three-zone header structure
+    // =========================================================================
+
+    @Test
+    @DisplayName(
+            "AC7 (E65S06 — three-zone header): rendered field page contains header-team1,"
+                    + " header-vs, header-team2 elements (symmetric header layout)")
+    void fieldPage_containsThreeZoneSymmetricHeader() throws Exception {
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/field/1"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        String body = response.getBody();
+
+        assertThat(body)
+                .as(
+                        "Rendered field page must contain header-team1 element"
+                                + " (AC7 E65S06: left zone of symmetric header)")
+                .contains("id=\"header-team1\"");
+        assertThat(body)
+                .as(
+                        "Rendered field page must contain header-vs element"
+                                + " (AC7 E65S06: centre zone of symmetric header)")
+                .contains("id=\"header-vs\"");
+        assertThat(body)
+                .as(
+                        "Rendered field page must contain header-team2 element"
+                                + " (AC7 E65S06: right zone of symmetric header)")
+                .contains("id=\"header-team2\"");
+    }
+
+    // =========================================================================
+    // AC6 (E65S06): score inputs have native spinner suppressed
+    // =========================================================================
+
+    @Test
+    @DisplayName(
+            "AC6 (E65S06 — spinner suppression): rendered field page CSS suppresses native"
+                    + " number-input spinner (-webkit-appearance:none / appearance:none)")
+    void fieldPage_scoreInputHasSpinnerSuppression() throws Exception {
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/field/1"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        String body = response.getBody();
+
+        assertThat(body)
+                .as(
+                        "Rendered field page CSS must contain appearance:none rule to suppress"
+                                + " native spinner (AC6 E65S06: -webkit-appearance / appearance)")
+                .containsAnyOf("-webkit-appearance: none", "appearance: none", "appearance:none");
+    }
+
+    // =========================================================================
     // Test configuration
     // =========================================================================
 

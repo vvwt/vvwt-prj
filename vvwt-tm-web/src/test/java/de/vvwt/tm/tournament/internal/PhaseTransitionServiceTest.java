@@ -480,8 +480,7 @@ class PhaseTransitionServiceTest {
      * i=2 → G1p2, i=3 → G2p2.
      */
     @Test
-    @DisplayName(
-            "proposeTransition — Phase 2+ — distributionMode=round_robin honored (E66S01 AC3)")
+    @DisplayName("proposeTransition — Phase 2+ — distributionMode=round_robin honored (E66S01 AC3)")
     void proposeTransition_phase2Plus_roundRobinDistributionMode_honored() throws Exception {
         // Given: Phase 2+ with sortType=team_number, distributionMode=round_robin
         Phase toPhase = phaseWithSortType(TO_PHASE_ID, 2, "team_number", 2);
@@ -489,7 +488,8 @@ class PhaseTransitionServiceTest {
         // Build draft_json with distributionMode=round_robin
         Tournament tournament =
                 tournamentWithDraftJson(
-                        TOURNAMENT_ID, buildDraftJsonWithDistributionMode(2, "team_number", "round_robin"));
+                        TOURNAMENT_ID,
+                        buildDraftJsonWithDistributionMode(2, "team_number", "round_robin"));
 
         when(phaseRepository.findById(TO_PHASE_ID)).thenReturn(Optional.of(toPhase));
         when(phaseRepository.findByTournamentIdAndSequenceNumber(TOURNAMENT_ID, 1))
@@ -1101,8 +1101,8 @@ class PhaseTransitionServiceTest {
     }
 
     /**
-     * Builds a draft_json for Phase 2 with the given distributionMode on the section 2 entry.
-     * Used for AC3 distributionMode tests.
+     * Builds a draft_json for Phase 2 with the given distributionMode on the section 2 entry. Used
+     * for AC3 distributionMode tests.
      */
     private String buildDraftJsonWithDistributionMode(
             int groupCount, String sortType, String distributionMode) {

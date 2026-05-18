@@ -49,8 +49,8 @@ class GroupPlacementSortCalculator extends AbstractAssignmentProposalCalculator 
      * {@inheritDoc}
      *
      * <p>Emits all teams from source group 1 (in DEC-77 D-3 placement order), then all from source
-     * group 2, and so on (group-major ordering). Source groups are visited in ascending group-number
-     * order.
+     * group 2, and so on (group-major ordering). Source groups are visited in ascending
+     * group-number order.
      */
     @Override
     public List<RankedTeamEntry> rank(

@@ -18,11 +18,11 @@ import org.springframework.stereotype.Component;
  * {@link de.vvwt.tm.tournament.TeamSortCalculator} implementation for the {@code "placement_group"}
  * sort mode.
  *
- * <p>DEC-77 D-2: rank-major (placement-first then source group): rank-1 of every source group,
- * then rank-2 of every source group, and so on. Within each rank tier, source groups appear in
- * ascending group-number order. Rank/placement order is defined by the DEC-77 D-3 comparator
- * ({@link PlacementComparator}): points DESC → setQuotient DESC → ballQuotient DESC → groupPosition
- * ASC, withoutAssessment last.
+ * <p>DEC-77 D-2: rank-major (placement-first then source group): rank-1 of every source group, then
+ * rank-2 of every source group, and so on. Within each rank tier, source groups appear in ascending
+ * group-number order. Rank/placement order is defined by the DEC-77 D-3 comparator ({@link
+ * PlacementComparator}): points DESC → setQuotient DESC → ballQuotient DESC → groupPosition ASC,
+ * withoutAssessment last.
  *
  * <p>Returns a flat ordered list — no distribution is applied (DEC-77 D-1). Distribution is the
  * responsibility of {@link de.vvwt.tm.tournament.Team2AvatarDistributor}.
@@ -48,8 +48,8 @@ class PlacementGroupSortCalculator extends AbstractAssignmentProposalCalculator 
     /**
      * {@inheritDoc}
      *
-     * <p>Interleaves source groups rank-major: rank-1 from all groups (ascending group number), then
-     * rank-2, etc. Within each source group, teams are ranked by the DEC-77 D-3 placement
+     * <p>Interleaves source groups rank-major: rank-1 from all groups (ascending group number),
+     * then rank-2, etc. Within each source group, teams are ranked by the DEC-77 D-3 placement
      * comparator.
      */
     @Override

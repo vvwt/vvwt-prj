@@ -15,8 +15,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for {@link RoundRobinTeam2AvatarDistributor} (AC3, AC8, DEC-22).
  *
- * <p>E66S01: updated to the new {@code distribute(int teamCount, int groupCount)} interface
- * (DEC-77 D-1). Same-package test: MAY white-box against implementation class per DEC-36.
+ * <p>E66S01: updated to the new {@code distribute(int teamCount, int groupCount)} interface (DEC-77
+ * D-1). Same-package test: MAY white-box against implementation class per DEC-36.
  *
  * <p>Round-Robin algorithm: distribute one team per group before advancing position. targetGroup =
  * (i % groupCount) + 1 targetPosition = (i / groupCount) + 1
