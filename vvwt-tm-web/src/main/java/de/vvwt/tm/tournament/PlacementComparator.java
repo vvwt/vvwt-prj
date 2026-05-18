@@ -1,9 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
 // SPDX-License-Identifier: AGPL-3.0-or-later
-package de.vvwt.tm.tournament.internal;
+package de.vvwt.tm.tournament;
 
-import de.vvwt.tm.tournament.TeamAvatar;
-import de.vvwt.tm.tournament.TeamAvatarRating;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.UUID;
@@ -25,20 +23,29 @@ import java.util.UUID;
  * An avatar with no rating entry in the map is treated as unrated (same as {@code
  * withoutAssessment=true}).
  *
- * <p>This comparator is shared by all three {@link de.vvwt.tm.tournament.TeamSortCalculator}
- * implementations that need placement-ordered sorting ({@code placement_group}, {@code
- * group_placement}), and is reused for the Display Overview standings (DEC-77 D-6).
+ * <p>This comparator is the single source of truth for "what ranks higher" (DEC-77 D-6). It is
+ * shared by:
  *
- * <p>Internal class per DEC-35. Not a Spring bean (stateful factory pattern). Not a public
- * interface (not a primary-port Spring service — excluded from DEC-58 Clause A by Clause D
- * comparator-utility shape).
+ * <ul>
+ *   <li>The phase-transition proposal computation ({@link de.vvwt.tm.tournament.TeamSortCalculator}
+ *       implementations {@code placement_group} and {@code group_placement}).
+ *   <li>The Display Overview group-standings panel ({@link
+ *       de.vvwt.tm.display.internal.DefaultDisplayOverviewService#getGroupStandings(String)}).
+ * </ul>
  *
- * @see de.vvwt.tm.tournament.TeamSortCalculator
+ * <p>Declared in the {@code tournament} public root package so all bounded contexts that depend on
+ * {@code tournament} can access it without violating Modulith internal-package boundaries. Not a
+ * Spring bean (stateful factory pattern). Not subject to DEC-58 Clause A (excluded by Clause D —
+ * comparator utility, not a service-shaped primary-port bean).
+ *
+ * @see TeamSortCalculator
  * @see <a href="DEC-77">DEC-77 D-3 — placement comparator definition</a>
- * @see <a href="DEC-35">DEC-35 — impl in .internal</a>
- * @see <a href="E66S01">E66S01 — AC5</a>
+ * @see <a href="DEC-77">DEC-77 D-6 — Display standings must use this comparator</a>
+ * @see <a href="DEC-35">DEC-35 — impl in .internal (service/repo impls; comparator utility exempt)</a>
+ * @see <a href="E66S01">E66S01 — AC5 (introduced)</a>
+ * @see <a href="E66S04">E66S04 — AC3 (moved to public package for Display overview reuse)</a>
  */
-final class PlacementComparator implements Comparator<TeamAvatar> {
+public final class PlacementComparator implements Comparator<TeamAvatar> {
 
     private final Map<UUID, TeamAvatarRating> ratingsByAvatarId;
 
@@ -49,11 +56,11 @@ final class PlacementComparator implements Comparator<TeamAvatar> {
     /**
      * Factory method — creates a {@link PlacementComparator} backed by the given ratings map.
      *
-     * @param ratingsByAvatarId bulk-loaded ratings for the from-phase avatars; must not be {@code
+     * @param ratingsByAvatarId bulk-loaded ratings for the avatars to rank; must not be {@code
      *     null}; may be empty (all avatars treated as unrated)
      * @return a comparator ordering avatars by DEC-77 D-3 placement order (highest rank first)
      */
-    static Comparator<TeamAvatar> forRatings(Map<UUID, TeamAvatarRating> ratingsByAvatarId) {
+    public static Comparator<TeamAvatar> forRatings(Map<UUID, TeamAvatarRating> ratingsByAvatarId) {
         return new PlacementComparator(ratingsByAvatarId);
     }
 

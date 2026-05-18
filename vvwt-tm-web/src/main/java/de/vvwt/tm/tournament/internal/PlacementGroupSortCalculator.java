@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package de.vvwt.tm.tournament.internal;
 
+import de.vvwt.tm.tournament.PlacementComparator;
 import de.vvwt.tm.tournament.RankedTeamEntry;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamAvatar;

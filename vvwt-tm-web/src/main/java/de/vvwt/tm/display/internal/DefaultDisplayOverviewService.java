@@ -15,6 +15,7 @@ import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.MatchState;
 import de.vvwt.tm.tournament.Phase;
 import de.vvwt.tm.tournament.PhaseRepository;
+import de.vvwt.tm.tournament.PlacementComparator;
 import de.vvwt.tm.tournament.SetResult;
 import de.vvwt.tm.tournament.SetResultRepository;
 import de.vvwt.tm.tournament.Team;
@@ -27,6 +28,7 @@ import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.exceptions.UnauthorizedException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -267,9 +269,14 @@ public class DefaultDisplayOverviewService implements DisplayOverviewService {
     /**
      * {@inheritDoc}
      *
-     * <p>Loads all TeamAvatars for the active phase, resolves their TeamAvatarRating rows (zero
-     * default when absent per AC-GROUP-STANDINGS-ZERO-RATING-FALLBACK), sorts per D-33, and assigns
-     * 1-based positions within each group.
+     * <p>Loads all TeamAvatars and their ratings for the active phase in bulk, then ranks each group
+     * using the shared {@link PlacementComparator} (DEC-77 D-3 / D-6): points DESC → setQuotient
+     * DESC → ballQuotient DESC → groupPosition ASC, withoutAssessment last. Avatars with no rating
+     * row are treated as unrated (rank last within their group, ordered by groupPosition ASC). The
+     * same comparator is used by the phase-transition proposal computation so the two screens cannot
+     * disagree (AC3 — no-divergence guarantee per DEC-77 D-6).
+     *
+     * <p>DTO output fields for a team with no rating row default to zero via {@link #zeroRating()}.
      */
     @Override
     @Transactional(readOnly = true)
@@ -278,6 +285,18 @@ public class DefaultDisplayOverviewService implements DisplayOverviewService {
         Phase phase = resolveActiveOrPreviewPhase();
 
         List<TeamAvatar> avatars = teamAvatarRepository.findByPhaseId(phase.getId());
+
+        // Bulk-load all ratings for the phase — single query instead of N per-avatar lookups.
+        // Used both for sorting (PlacementComparator) and for populating DTO output fields.
+        List<TeamAvatarRating> allRatings =
+                teamAvatarRatingRepository.findByPhaseId(phase.getId());
+        Map<UUID, TeamAvatarRating> ratingsByAvatarId =
+                allRatings.stream()
+                        .collect(Collectors.toMap(TeamAvatarRating::getAvatarId, Function.identity()));
+
+        // Shared placement comparator (DEC-77 D-3 / D-6) — same as phase-transition sort.
+        // Avatars absent from the ratings map are treated as unrated (withoutAssessment=true).
+        Comparator<TeamAvatar> placementOrder = PlacementComparator.forRatings(ratingsByAvatarId);
 
         // Group avatars by groupNumber
         Map<Integer, List<TeamAvatar>> avatarsByGroup =
@@ -291,25 +310,18 @@ public class DefaultDisplayOverviewService implements DisplayOverviewService {
                 avatarsByGroup.entrySet().stream()
                         .sorted(Map.Entry.comparingByKey())
                         .collect(Collectors.toList())) {
-            List<TeamAvatar> groupAvatars = entry.getValue();
+            List<TeamAvatar> groupAvatars = new ArrayList<>(entry.getValue());
 
-            // Build (avatar, rating) pairs with zero-default fallback
-            List<AvatarWithRating> ranked = new ArrayList<>();
-            for (TeamAvatar ta : groupAvatars) {
-                TeamAvatarRating rating =
-                        teamAvatarRatingRepository.findById(ta.getId()).orElseGet(this::zeroRating);
-                ranked.add(new AvatarWithRating(ta, rating));
-            }
-
-            // Sort per D-33 using TeamAvatarRating.compareTo
-            ranked.sort((a, b) -> a.rating().compareTo(b.rating()));
+            // Sort using the shared DEC-77 D-3 placement comparator (AC2, AC3)
+            groupAvatars.sort(placementOrder);
 
             List<DisplayGroupStandingsResponse.TeamRanking> rankings = new ArrayList<>();
-            for (int i = 0; i < ranked.size(); i++) {
-                AvatarWithRating ar = ranked.get(i);
-                Optional<Team> team = teamRepository.findById(ar.avatar().getTeamId());
+            for (int i = 0; i < groupAvatars.size(); i++) {
+                TeamAvatar ta = groupAvatars.get(i);
+                Optional<Team> team = teamRepository.findById(ta.getTeamId());
                 String teamName = team.map(Team::getDescription).orElse("?");
-                TeamAvatarRating r = ar.rating();
+                // Rating may be absent for unrated teams — default to zero for DTO output fields
+                TeamAvatarRating r = ratingsByAvatarId.getOrDefault(ta.getId(), zeroRating());
                 rankings.add(
                         new DisplayGroupStandingsResponse.TeamRanking(
                                 i + 1, // 1-indexed position
@@ -512,14 +524,6 @@ public class DefaultDisplayOverviewService implements DisplayOverviewService {
         r.setBallQuotient(0.0);
         return r;
     }
-
-    /**
-     * Internal value type pairing a TeamAvatar slot with its rating (for D-33 sorting).
-     *
-     * @param avatar the TeamAvatar slot
-     * @param rating the TeamAvatarRating (possibly zero-default)
-     */
-    private record AvatarWithRating(TeamAvatar avatar, TeamAvatarRating rating) {}
 
     /**
      * Returns {@code true} if the given phase status is {@code PENDING} or {@code PREPARED}.
