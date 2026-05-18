@@ -105,6 +105,11 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    /* E66S06 AC5/AC6: explicit dark colour for playing-team names — demonstrably darker than
+     * the body-inherited #2c3e50 (RGB 44,62,80; contrast 10.6:1 vs #fff).
+     * #1a1a1a = RGB(26,26,26); contrast 18.1:1 vs #ffffff — exceeds WCAG 2.1 AA 4.5:1.
+     * Guaranteed on venue projectors regardless of browser user-agent default. */
+    color: #1a1a1a;
   }
 
   .match-row__team--a {
@@ -132,7 +137,11 @@
 
   .match-row__referee {
     font-size: 0.75rem;
-    color: #888;
+    /* E66S06 AC5/AC6: referee line is visually subordinate (lighter than playing-team #1a1a1a)
+     * but meets WCAG 2.1 AA 4.5:1 vs #ffffff background.
+     * #666666 = RGB(102,102,102); contrast 5.74:1 vs #ffffff ≥ 4.5:1 ✓.
+     * Changed from #888 (RGB 136,136,136; contrast 3.54:1 — failed WCAG AA for normal text). */
+    color: #666666;
     margin-top: 0.1rem;
     display: flex;
     align-items: center;

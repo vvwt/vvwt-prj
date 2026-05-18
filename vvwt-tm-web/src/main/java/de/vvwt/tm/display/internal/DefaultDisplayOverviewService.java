@@ -248,6 +248,15 @@ public class DefaultDisplayOverviewService implements DisplayOverviewService {
 
             String displayStatus = mapMatchStatus(m.getMatchState());
 
+            // E66S06 AC3: resolve referee team name from Match.refereeTeamId via teamById.
+            // Match.refereeTeamId is a direct FK to team(id) per V1__initial_schema.sql:206.
+            // Null when no referee has been assigned (AC2: show nothing in that case).
+            String refereeTeamName = null;
+            if (m.getRefereeTeamId() != null) {
+                Team refereeTeam = teamById.get(m.getRefereeTeamId());
+                refereeTeamName = refereeTeam != null ? refereeTeam.getDescription() : null;
+            }
+
             entries.add(
                     new DisplayMatchesResponse.MatchEntry(
                             m.getId(),
@@ -257,7 +266,7 @@ public class DefaultDisplayOverviewService implements DisplayOverviewService {
                             teamBName,
                             setEntries,
                             displayStatus,
-                            null)); // referee team not tracked in this service scope
+                            refereeTeamName)); // E66S06 AC3: resolved from Match.refereeTeamId
         }
 
         // Response lap = currentLap (active-round marker); explicit-lap calls also return
