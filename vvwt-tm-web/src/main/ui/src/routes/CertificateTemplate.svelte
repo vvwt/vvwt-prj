@@ -284,11 +284,16 @@
           <dd>{$_('certificateTemplate.sizeLabel', { values: { size: formatSize(metadata.fileSizeBytes) } })}</dd>
         </dl>
       {:else}
-        <!-- No template -->
-        <p class="cert-template__no-template">{$_('certificateTemplate.noTemplate')}</p>
+        <!-- No custom template — positive standard-template default (E67S02 AC1) -->
+        <p class="cert-template__standard-default">{$_('certificateTemplate.standardTemplateDefault')}</p>
       {/if}
 
-      <!-- Upload area (AC1) -->
+      <!-- Generation discoverability (E67S02 AC3): show notice when tournament is not yet COMPLETED -->
+      {#if tournamentStatus !== null && tournamentStatus !== 'COMPLETED'}
+        <p class="cert-template__generation-notice">{$_('certificateTemplate.generationNotAvailable')}</p>
+      {/if}
+
+      <!-- Upload area (AC2: optional custom-template upload) -->
       <div class="cert-template__upload">
         <!-- Hidden file input -->
         <input
@@ -450,6 +455,21 @@
   .cert-template__no-template {
     font-size: 0.9rem;
     color: #aaa;
+    font-style: italic;
+    margin: 0 0 1rem 0;
+  }
+
+  /* E67S02: standard-template default notice (positive framing) */
+  .cert-template__standard-default {
+    font-size: 0.9rem;
+    color: #2c7a2c;
+    margin: 0 0 1rem 0;
+  }
+
+  /* E67S02: generation-not-available notice for non-COMPLETED tournaments */
+  .cert-template__generation-notice {
+    font-size: 0.85rem;
+    color: #7f8c8d;
     font-style: italic;
     margin: 0 0 1rem 0;
   }

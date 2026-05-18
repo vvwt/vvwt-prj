@@ -134,7 +134,8 @@ class DefaultCertificateAssemblerTest {
      * @param groupPosition 1-based position within the single group (DEC-9)
      */
     private static TeamAvatar makeAvatarAt(UUID avatarId, UUID teamId, int groupPosition) {
-        return new TeamAvatar(avatarId, TOURNAMENT_ID, PHASE_ID, 1, groupPosition, teamId, null, null);
+        return new TeamAvatar(
+                avatarId, TOURNAMENT_ID, PHASE_ID, 1, groupPosition, teamId, null, null);
     }
 
     /**
