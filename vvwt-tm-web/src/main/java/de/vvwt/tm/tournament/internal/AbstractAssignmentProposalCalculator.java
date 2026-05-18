@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package de.vvwt.tm.tournament.internal;
 
+import de.vvwt.tm.tournament.RankedTeamEntry;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamAvatar;
-import de.vvwt.tm.tournament.TeamAvatarProposal;
 import de.vvwt.tm.tournament.TeamAvatarRating;
 import de.vvwt.tm.tournament.TeamSortCalculator;
 import java.util.Map;
@@ -13,16 +13,13 @@ import java.util.UUID;
 /**
  * Abstract base for {@link TeamSortCalculator} implementations.
  *
- * <p>Provides shared proposal-calculation helpers to the three concrete sort-mode implementations:
+ * <p>Provides shared helpers to the three concrete sort-mode implementations:
  *
  * <ul>
  *   <li>{@link #requireTeamForDisplay(TeamAvatar, Map)} — resolves the {@link Team} aggregate for a
  *       given avatar (throws {@link IllegalStateException} on missing data).
- *   <li>{@link #buildProposal(TeamAvatar, Team, int, int, String)} — constructs a {@link
- *       TeamAvatarProposal} with {@code teamId=null} (DEC-59 Clause C / AC10 — teamId is written
- *       only by the operator-confirmation handler).
- *   <li>{@link #getPointsOrMin(UUID, Map)} — look up ratings by avatarId, fallback to {@link
- *       Integer#MIN_VALUE} for unrated avatars.
+ *   <li>{@link #buildEntry(TeamAvatar, Team)} — constructs a {@link RankedTeamEntry} from an avatar
+ *       and its resolved Team, carrying source-phase structural coordinates.
  * </ul>
  *
  * <p>Placed in the internal package per DEC-35 (abstract base class, not a public surface type).
@@ -31,7 +28,9 @@ import java.util.UUID;
  * @see <a href="DEC-35">DEC-35 — impl in .internal</a>
  * @see <a href="DEC-59">DEC-59 — operator-confirmation workflow; teamId not set by calculator</a>
  * @see <a href="DEC-73">DEC-73 D-3 — AbstractAssignmentProposalCalculator base</a>
+ * @see <a href="DEC-77">DEC-77 D-1 — flat ranked list output</a>
  * @see <a href="E58S03">E58S03 — AC3</a>
+ * @see <a href="E66S01">E66S01 — AC2, AC7 (updated to flat ranked list)</a>
  */
 abstract class AbstractAssignmentProposalCalculator implements TeamSortCalculator {
 
@@ -58,55 +57,22 @@ abstract class AbstractAssignmentProposalCalculator implements TeamSortCalculato
     }
 
     /**
-     * Constructs a {@link TeamAvatarProposal} for a Phase-2+ slot assignment.
+     * Constructs a {@link RankedTeamEntry} for a Phase-2+ avatar.
      *
-     * <p>{@code teamId} is passed through from the previous-phase avatar ({@code
-     * fromAvatar.getTeamId()}) — this is the team identity that the calculator proposes to assign
-     * to the target slot. Per AC10 / DEC-59 Clause C, the {@link TeamSortCalculator} does NOT write
-     * teamId to the database; that write is the exclusive responsibility of the
-     * operator-confirmation handler ({@code commitTransition}). The proposal is a read-only DTO
-     * that carries the proposed teamId so the operator can review and confirm.
+     * <p>Carries the avatar's {@code teamId} (for proposal-building) and the source-phase structural
+     * coordinates ({@code sourceGroupNumber}, {@code sourceGroupPosition}) as informational display
+     * fields. Per AC7 / DEC-59 Clause C, no teamId is written to the database by the calculator.
      *
-     * @param fromAvatar the previous-phase avatar (source of teamId and structural identity fields)
+     * @param fromAvatar the predecessor-phase avatar (source of teamId and structural identity)
      * @param team the resolved Team for display fields
-     * @param targetGroup target group number in the next phase (1-based)
-     * @param targetPosition target position within the group (1-based)
-     * @param sortType the sortType string from the target DraftSection
-     * @return a new proposal carrying the from-avatar's teamId (non-null when data is consistent)
+     * @return a {@link RankedTeamEntry} carrying the from-avatar's identity and display fields
      */
-    protected TeamAvatarProposal buildProposal(
-            TeamAvatar fromAvatar,
-            Team team,
-            int targetGroup,
-            int targetPosition,
-            String sortType) {
-        // Pass through fromAvatar.teamId — the calculator does NOT write teamId to DB (AC10).
-        // The teamId in the proposal DTO allows the operator-confirmation handler to identify
-        // which team gets which slot when the operator confirms (commitTransition, DEC-59 Clause
-        // C).
-        return new TeamAvatarProposal(
+    protected RankedTeamEntry buildEntry(TeamAvatar fromAvatar, Team team) {
+        return new RankedTeamEntry(
                 fromAvatar.getTeamId(),
                 team.getTeamNumber(),
                 team.getDescription(),
-                targetGroup,
-                targetPosition,
                 fromAvatar.getGroupNumber(),
-                fromAvatar.getGroupPosition(),
-                sortType);
-    }
-
-    /**
-     * Returns the avatar's rating points, or {@link Integer#MIN_VALUE} if no rating exists.
-     *
-     * <p>Used for sorting by descending points (higher points = better placement = lower position
-     * number) in {@code placement_group} and {@code group_placement} modes.
-     *
-     * @param avatarId the avatar UUID to look up
-     * @param ratingsByAvatarId pre-loaded ratings map (bulk-loaded via {@code findByPhaseId})
-     * @return the avatar's points, or {@link Integer#MIN_VALUE} if not found
-     */
-    protected int getPointsOrMin(UUID avatarId, Map<UUID, TeamAvatarRating> ratingsByAvatarId) {
-        TeamAvatarRating rating = ratingsByAvatarId.get(avatarId);
-        return rating != null ? rating.getPoints() : Integer.MIN_VALUE;
+                fromAvatar.getGroupPosition());
     }
 }

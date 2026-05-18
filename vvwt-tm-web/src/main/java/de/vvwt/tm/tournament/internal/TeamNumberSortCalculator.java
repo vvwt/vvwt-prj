@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package de.vvwt.tm.tournament.internal;
 
+import de.vvwt.tm.tournament.RankedTeamEntry;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamAvatar;
-import de.vvwt.tm.tournament.TeamAvatarProposal;
 import de.vvwt.tm.tournament.TeamAvatarRating;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -16,18 +17,17 @@ import org.springframework.stereotype.Component;
  * {@link de.vvwt.tm.tournament.TeamSortCalculator} implementation for the {@code "team_number"}
  * sort mode.
  *
- * <p>Round-Robin distribution: avatars sorted by (group_number, group_position) ascending
- * (repository contract) are distributed across {@code groupCount} groups in round-robin order.
- * Avatar at index i (0-indexed) goes to group {@code (i % groupCount) + 1} with position {@code (i
- * / groupCount) + 1}.
- *
- * <p>Extracted from {@code DefaultPhaseTransitionService.computeTeamNumber} (E58S03 AC5). Behaviour
- * is identical to the original switch-case branch.
+ * <p>DEC-77 D-2: ranks teams by team registration number ({@code teamNumber}) ascending. For Phase
+ * 2+, the avatars are sorted by the {@code teamNumber} of their corresponding {@link Team} entity
+ * (looked up via {@code teamById}). The result is a flat ordered list — the distribution across
+ * groups is performed separately by {@link de.vvwt.tm.tournament.Team2AvatarDistributor}.
  *
  * @see de.vvwt.tm.tournament.TeamSortCalculator
  * @see AbstractAssignmentProposalCalculator
  * @see <a href="DEC-73">DEC-73 D-3 — TeamSortCalculator strategy</a>
- * @see <a href="E58S03">E58S03 — AC4, AC5, AC8</a>
+ * @see <a href="DEC-77">DEC-77 D-2 — team_number: ascending by registration number</a>
+ * @see <a href="E58S03">E58S03 — AC4, AC5, AC8 (original)</a>
+ * @see <a href="E66S01">E66S01 — AC4 (updated to flat ranked list)</a>
  */
 @Component("tmTeamNumberSortCalculator")
 class TeamNumberSortCalculator extends AbstractAssignmentProposalCalculator {
@@ -38,23 +38,30 @@ class TeamNumberSortCalculator extends AbstractAssignmentProposalCalculator {
         return "team_number";
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Sorts avatars by their team's {@code teamNumber} ascending. Returns a flat ranked list — no
+     * group/position distribution is applied (that is the distributor's responsibility, DEC-77 D-1).
+     *
+     * <p>Ratings are not used for {@code team_number} ranking (sort is by registration number only).
+     */
     @Override
-    public List<TeamAvatarProposal> sortTeams(
+    public List<RankedTeamEntry> rank(
             List<TeamAvatar> fromAvatars,
             Map<UUID, TeamAvatarRating> ratingsByAvatarId,
-            Map<UUID, Team> teamById,
-            int groupCount,
-            String sortType) {
-        // fromAvatars is already ordered by group_number, group_position (repository contract)
-        List<TeamAvatarProposal> proposals = new ArrayList<>(fromAvatars.size());
-        for (int i = 0; i < fromAvatars.size(); i++) {
-            TeamAvatar av = fromAvatars.get(i);
+            Map<UUID, Team> teamById) {
+        // Sort avatars by teamNumber ASC
+        List<TeamAvatar> sorted = new ArrayList<>(fromAvatars);
+        sorted.sort(
+                Comparator.comparingInt(
+                        av -> requireTeamForDisplay(av, teamById).getTeamNumber()));
+
+        List<RankedTeamEntry> ranked = new ArrayList<>(sorted.size());
+        for (TeamAvatar av : sorted) {
             Team team = requireTeamForDisplay(av, teamById);
-            int targetGroup = (i % groupCount) + 1;
-            int targetPosition = (i / groupCount) + 1;
-            proposals.add(buildProposal(av, team, targetGroup, targetPosition, sortType));
+            ranked.add(buildEntry(av, team));
         }
-        return proposals;
+        return ranked;
     }
 }

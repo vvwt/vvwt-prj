@@ -5,10 +5,11 @@ package de.vvwt.tm.tournament.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import de.vvwt.tm.tournament.RankedTeamEntry;
 import de.vvwt.tm.tournament.Team;
 import de.vvwt.tm.tournament.TeamAvatar;
-import de.vvwt.tm.tournament.TeamAvatarProposal;
 import de.vvwt.tm.tournament.TeamAvatarRating;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -17,6 +18,10 @@ import org.junit.jupiter.api.Test;
 /**
  * RED-first unit tests for {@link AbstractAssignmentProposalCalculator} (AC3, AC8, DEC-22).
  *
+ * <p>Updated from E58S03: tests use the new {@code rank(...)} interface returning {@link
+ * RankedTeamEntry} and the {@code buildEntry} helper instead of old {@code buildProposal} /
+ * {@code getPointsOrMin} / {@code sortTeams} (E66S01 AC2, AC7).
+ *
  * <p>Same-package test: MAY white-box against the abstract base class per DEC-36 (same-package test
  * typing rule).
  *
@@ -24,6 +29,7 @@ import org.junit.jupiter.api.Test;
  * @see <a href="DEC-22">DEC-22 — TDD Iron Law (RED-first)</a>
  * @see <a href="DEC-36">DEC-36 — same-package test typing rule</a>
  * @see <a href="E58S03">E58S03 — AC3</a>
+ * @see <a href="E66S01">E66S01 — AC2, AC7 (updated to flat ranked list)</a>
  */
 class AbstractAssignmentProposalCalculatorTest {
 
@@ -35,14 +41,11 @@ class AbstractAssignmentProposalCalculatorTest {
         }
 
         @Override
-        public java.util.List<de.vvwt.tm.tournament.TeamAvatarProposal> sortTeams(
-                java.util.List<de.vvwt.tm.tournament.TeamAvatar> fromAvatars,
-                java.util.Map<java.util.UUID, de.vvwt.tm.tournament.TeamAvatarRating>
-                        ratingsByAvatarId,
-                java.util.Map<java.util.UUID, de.vvwt.tm.tournament.Team> teamById,
-                int groupCount,
-                String sortType) {
-            return java.util.List.of();
+        public List<RankedTeamEntry> rank(
+                List<TeamAvatar> fromAvatars,
+                Map<UUID, TeamAvatarRating> ratingsByAvatarId,
+                Map<UUID, Team> teamById) {
+            return List.of();
         }
     }
 
@@ -78,12 +81,12 @@ class AbstractAssignmentProposalCalculatorTest {
     }
 
     // -------------------------------------------------------------------------
-    // AC3: buildProposal helper
+    // AC2/AC7: buildEntry helper (E66S01 — replaces old buildProposal)
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("buildProposal constructs TeamAvatarProposal with correct fields")
-    void buildProposal_validInputs_returnsCorrectProposal() {
+    @DisplayName("buildEntry constructs RankedTeamEntry with correct fields (E66S01 AC2, AC7)")
+    void buildEntry_validInputs_returnsCorrectEntry() {
         UUID teamId = UUID.randomUUID();
         TeamAvatar fromAvatar = avatarWithTeamId(teamId);
         fromAvatar.setGroupNumber(2);
@@ -92,49 +95,15 @@ class AbstractAssignmentProposalCalculatorTest {
         team.setTeamNumber(7);
         team.setDescription("Test Team");
 
-        TeamAvatarProposal proposal =
-                calculator.buildProposal(fromAvatar, team, 1, 2, "team_number");
+        RankedTeamEntry entry = calculator.buildEntry(fromAvatar, team);
 
-        // AC10: teamId is passed through from fromAvatar (calculator does NOT write to DB);
-        // the teamId in the proposal DTO allows the operator-confirmation handler to identify
-        // which team gets which slot when the operator confirms (commitTransition, DEC-59 Clause C)
-        assertThat(proposal.teamId()).isEqualTo(teamId);
-        assertThat(proposal.teamNumber()).isEqualTo(7);
-        assertThat(proposal.teamDescription()).isEqualTo("Test Team");
-        assertThat(proposal.groupNumber()).isEqualTo(1);
-        assertThat(proposal.groupPosition()).isEqualTo(2);
-        assertThat(proposal.sourceGroupNumber()).isEqualTo(2);
-        assertThat(proposal.sourceGroupPosition()).isEqualTo(3);
-        assertThat(proposal.sortType()).isEqualTo("team_number");
-    }
-
-    // -------------------------------------------------------------------------
-    // AC3: getPointsOrMin helper
-    // -------------------------------------------------------------------------
-
-    @Test
-    @DisplayName("getPointsOrMin returns points when rating exists")
-    void getPointsOrMin_ratingExists_returnsPoints() {
-        UUID avatarId = UUID.randomUUID();
-        TeamAvatarRating rating = new TeamAvatarRating();
-        rating.setAvatarId(avatarId);
-        rating.setPoints(42);
-        Map<UUID, TeamAvatarRating> ratingsMap = Map.of(avatarId, rating);
-
-        int points = calculator.getPointsOrMin(avatarId, ratingsMap);
-
-        assertThat(points).isEqualTo(42);
-    }
-
-    @Test
-    @DisplayName("getPointsOrMin returns Integer.MIN_VALUE when no rating")
-    void getPointsOrMin_noRating_returnsMinValue() {
-        UUID avatarId = UUID.randomUUID();
-        Map<UUID, TeamAvatarRating> emptyMap = Map.of();
-
-        int points = calculator.getPointsOrMin(avatarId, emptyMap);
-
-        assertThat(points).isEqualTo(Integer.MIN_VALUE);
+        // AC7: teamId is passed through from fromAvatar (calculator does NOT write to DB)
+        assertThat(entry.teamId()).isEqualTo(teamId);
+        assertThat(entry.teamNumber()).isEqualTo(7);
+        assertThat(entry.description()).isEqualTo("Test Team");
+        // AC2: source-phase structural coordinates carried
+        assertThat(entry.sourceGroupNumber()).isEqualTo(2);
+        assertThat(entry.sourceGroupPosition()).isEqualTo(3);
     }
 
     // -------------------------------------------------------------------------

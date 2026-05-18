@@ -157,16 +157,15 @@ class DraftServiceTest {
         de.vvwt.tm.tournament.Team2AvatarDistributor sequentialDistributor =
                 org.mockito.Mockito.mock(de.vvwt.tm.tournament.Team2AvatarDistributor.class);
         lenient()
-                .when(sequentialDistributor.distribute(any(), anyInt()))
+                .when(sequentialDistributor.distribute(anyInt(), anyInt()))
                 .thenAnswer(
                         invocation -> {
-                            java.util.List<de.vvwt.tm.tournament.Team> teams =
-                                    invocation.getArgument(0);
+                            int n = invocation.getArgument(0);
                             int groupCount = invocation.getArgument(1);
-                            // Simple sequential logic for test stubs
+                            // Simple sequential logic for test stubs (E66S01: int teamCount, not
+                            // List<Team>)
                             java.util.List<de.vvwt.tm.tournament.Team2AvatarSlot> slots =
                                     new java.util.ArrayList<>();
-                            int n = teams.size();
                             int ppg = (n + groupCount - 1) / groupCount;
                             if (ppg == 0) ppg = 1;
                             for (int i = 0; i < n; i++) {

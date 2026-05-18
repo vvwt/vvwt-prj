@@ -721,7 +721,7 @@ public class DefaultDraftService implements DraftService {
             List<Team2AvatarSlot> slots =
                     distributorRegistry
                             .get(distributionMode)
-                            .distribute(participatingTeams, groupCount);
+                            .distribute(teamCount, groupCount);
 
             List<TeamAvatar> avatars = new ArrayList<>(teamCount);
             for (Team2AvatarSlot slot : slots) {
