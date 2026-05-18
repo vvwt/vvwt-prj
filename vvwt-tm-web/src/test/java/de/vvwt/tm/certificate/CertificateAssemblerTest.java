@@ -282,10 +282,13 @@ class CertificateAssemblerTest {
     }
 
     @Test
-    @DisplayName("computePlacementOrder: returns empty when no ratings (AC-INTERFACE-CREATED)")
-    void computePlacementOrder_returnsEmpty_whenNoRatings() {
+    @DisplayName(
+            "computePlacementOrder: returns empty when no ratings and no assigned team"
+                    + " (AC-INTERFACE-CREATED, amended E12S09 AC4)")
+    void computePlacementOrder_returnsEmpty_whenNoRatingsAndNoAssignedTeam() {
+        // null teamId = no team assigned to this avatar slot — genuinely not ready (AC4)
         Phase phase = makePhase(PHASE_ID, 1);
-        TeamAvatar av = makeAvatar(AVATAR_A_ID, TEAM_A_ID, PHASE_ID);
+        TeamAvatar av = makeAvatar(AVATAR_A_ID, null, PHASE_ID);
         when(teamAvatarRepository.findByPhaseId(PHASE_ID)).thenReturn(List.of(av));
         when(teamAvatarRatingRepository.findById(AVATAR_A_ID)).thenReturn(Optional.empty());
 

@@ -46,16 +46,26 @@ public interface CertificateAssembler {
     /**
      * Computes the certificate placement list for the given final phase.
      *
-     * <p>Returns an empty list if the phase has no {@link de.vvwt.tm.tournament.TeamAvatarRating}s
-     * — this signals that no matches have been played yet.
+     * <p>For phases that have {@link de.vvwt.tm.tournament.TeamAvatarRating}s (match-played phases):
+     * placement is sorted by {@link de.vvwt.tm.tournament.TeamAvatarRating#compareTo} (points DESC,
+     * setQuotient DESC, ballQuotient DESC, isWithoutAssessment last) per DEC-33. Placement ordinals
+     * are 1-based.
      *
-     * <p>Placement ordering follows the named algebraic invariant: result is sorted by {@link
-     * de.vvwt.tm.tournament.TeamAvatarRating#compareTo} (points DESC, setQuotient DESC,
-     * ballQuotient DESC, isWithoutAssessment last) per DEC-33. Placement ordinals are 1-based.
+     * <p>For phases with no ratings (e.g. a Siegerehrung / award-ceremony phase that has zero
+     * matches by design — E12S09 fix): placement is derived from each {@link
+     * de.vvwt.tm.tournament.TeamAvatar}'s {@code groupPosition} (DEC-9 structural identity).
+     * groupPosition 1..N maps directly to places 1..N within the single group. This fixes the false
+     * HTTP 400 "no game results" for fully completed tournaments whose final phase is a Siegerehrung
+     * phase.
+     *
+     * <p>Returns an empty list only when the final phase has no avatars with an assigned team
+     * ({@code teamId == null} for all avatars) — this signals that team assignment has not been
+     * completed yet (AC4 legitimate error case preserved).
      *
      * @param tournamentId the tournament UUID
      * @param finalPhase the phase to compute standings from
-     * @return ordered list of AvatarPlacement tuples, placement = index + 1
+     * @return ordered list of AvatarPlacement tuples, placement = index + 1; empty iff no teams
+     *     have been assigned to the final phase's avatar slots
      */
     List<AvatarPlacement> computePlacementOrder(UUID tournamentId, Phase finalPhase);
 
