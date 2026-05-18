@@ -37,6 +37,7 @@
     uploadPhoto,
     deletePhoto,
     getPhotoUrl,
+    PhotoUploadError,
   } from '../stores/photoStore.js';
 
   // ── Props ────────────────────────────────────────────────────────────────
@@ -177,7 +178,14 @@
       setHasPhoto(team.id, true);
       photoBust = { ...photoBust, [team.id]: Date.now() };
     } catch (e: unknown) {
-      setError(team.id, e instanceof Error ? e.message : $_('photos.uploadError'));
+      // AC4 (E12S08): when the server returns a photo-specific messageKey (e.g.
+      // error.photo.tooLarge), resolve it through the i18n layer so the error is shown
+      // in German with the correct message. Fall back to the raw message or generic key.
+      if (e instanceof PhotoUploadError && e.messageKey) {
+        setError(team.id, $_(e.messageKey, { default: e.message }));
+      } else {
+        setError(team.id, e instanceof Error ? e.message : $_('photos.uploadError'));
+      }
     } finally {
       setUploading(team.id, false);
     }

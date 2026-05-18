@@ -487,18 +487,36 @@ public class GlobalExceptionHandler {
      * Maps Spring's {@link MaxUploadSizeExceededException} to HTTP 413 Payload Too Large.
      *
      * <p>Spring throws this exception before the controller is reached when the multipart size
-     * limit is exceeded. Migrated from the deleted legacy {@code
+     * limit is exceeded. Routes to a domain-specific i18n key based on the request URI:
+     *
+     * <ul>
+     *   <li>{@code /api/photo/**} paths → {@code error.photo.tooLarge} (E12S08 AC3/AC4)
+     *   <li>All other paths → {@code error.audio.tooLarge} (original audio-upload behaviour,
+     *       preserved verbatim)
+     * </ul>
+     *
+     * <p>Migrated from the deleted legacy {@code
      * de.vvwt.tm.infrastructure.web.GlobalExceptionHandler} during E21S13 cutover (DEC-22 refactor
-     * phase — behavior-preserving).
+     * phase — behavior-preserving). Path-aware routing added by E12S08 to fix the root cause of
+     * HTTP 413 on the Mannschaftsfotos page showing a bare audio-domain error message.
+     *
+     * @since E12S08 (path-aware routing)
      */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ApiErrorResponse> handleMaxUploadSizeExceeded(
             MaxUploadSizeExceededException ex, HttpServletRequest request) {
-        log.debug("[tm-web] MaxUploadSizeExceededException: {}", ex.getMessage());
+        log.debug(
+                "[tm-web] MaxUploadSizeExceededException on {}: {}",
+                request.getRequestURI(),
+                ex.getMessage());
+        String messageKey =
+                request.getRequestURI().startsWith("/api/photo/")
+                        ? "error.photo.tooLarge"
+                        : "error.audio.tooLarge";
         return buildResponse(
                 HttpStatus.CONTENT_TOO_LARGE,
                 "File size exceeds the maximum allowed limit.",
-                "error.audio.tooLarge",
+                messageKey,
                 request);
     }
 

@@ -405,8 +405,8 @@ class DefaultPhotoStorageServiceTest {
     @DisplayName("PhotoStorageConfig: getter/setter pairs and defaults preserved")
     void photoStorageConfigGetterSetterPreserved() {
         PhotoStorageConfig cfg = new PhotoStorageConfig();
-        // Default maxSizeBytes = 5 MB
-        assertThat(cfg.getMaxSizeBytes()).isEqualTo(5L * 1024 * 1024);
+        // Default maxSizeBytes = 25 MB (E12S08 AC5: raised from 5 MB to accommodate phone photos)
+        assertThat(cfg.getMaxSizeBytes()).isEqualTo(25L * 1024 * 1024);
         // setDataDir / getDataDir round-trip
         cfg.setDataDir("/tmp/photos");
         assertThat(cfg.getDataDir()).isEqualTo("/tmp/photos");

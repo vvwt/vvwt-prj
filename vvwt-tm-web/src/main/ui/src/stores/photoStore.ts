@@ -6,6 +6,26 @@ export interface PhotoMetadata {
     uploadedAt: string;
 }
 
+/**
+ * Upload error with an optional i18n message key from the server's ApiErrorResponse.
+ *
+ * When the server returns a JSON body with a {@code messageKey} field (e.g.
+ * {@code "error.photo.tooLarge"}), the error carries that key so the caller can resolve it
+ * through the svelte-i18n layer instead of displaying the English {@code message} field.
+ *
+ * E12S08 AC4: over-limit errors must reach the organiser through the i18n layer, in German,
+ * stating the maximum allowed photo size.
+ */
+export class PhotoUploadError extends Error {
+    readonly messageKey: string | undefined;
+
+    constructor(message: string, messageKey?: string) {
+        super(message);
+        this.name = 'PhotoUploadError';
+        this.messageKey = messageKey;
+    }
+}
+
 // ---------------------------------------------------------------------------
 // getPhotoUrl — construct URL for <img src>
 // ---------------------------------------------------------------------------
@@ -68,17 +88,22 @@ export function uploadPhoto(
                 try {
                     resolve(JSON.parse(xhr.responseText) as PhotoMetadata);
                 } catch {
-                    reject(new Error('Invalid response from server'));
+                    reject(new PhotoUploadError('Invalid response from server'));
                 }
             } else {
                 let msg = `HTTP ${xhr.status}`;
+                let messageKey: string | undefined;
                 try {
-                    const body = JSON.parse(xhr.responseText) as { message?: string };
+                    const body = JSON.parse(xhr.responseText) as {
+                        message?: string;
+                        messageKey?: string;
+                    };
+                    if (body.messageKey) messageKey = body.messageKey;
                     if (body.message) msg = body.message;
                 } catch {
                     /* ignore parse error */
                 }
-                reject(new Error(msg));
+                reject(new PhotoUploadError(msg, messageKey));
             }
         });
 

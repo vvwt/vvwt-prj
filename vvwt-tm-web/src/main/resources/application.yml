@@ -54,14 +54,21 @@ spring:
     enabled: false
 
   # ---------------------------------------------------------------------------
-  # Multipart upload limits — audio file upload (E11S01 AC7)
-  # Default: 10 MB max file and request size.
-  # Override via TM_AUDIO_MAX_FILE_SIZE env var or -Dspring.servlet.multipart.max-file-size.
+  # Multipart upload limits (E11S01 AC7 audio, E12S08 AC2/AC5 photo)
+  # The Spring multipart cap is set to the maximum of all upload limits so that no
+  # upload path is silently capped by the servlet layer before the domain layer runs.
+  # Override via TM_PHOTOS_MAX_FILE_SIZE (takes precedence — photo uploads are larger).
+  # Audio domain cap remains separate at the service layer (TM_AUDIO_MAX_FILE_SIZE).
+  # Default: 26214400 bytes (25 MB) per E12S08 AC5.
+  # TM_PHOTOS_MAX_FILE_SIZE controls BOTH this Spring multipart cap AND the photo domain
+  # cap (tm.photos.max-size-bytes below). Specify as raw bytes (e.g. 52428800 for 50 MB).
+  # Spring DataSize accepts both raw-bytes and "50MB" notation for this property, but the
+  # domain cap only accepts raw bytes — use raw bytes to keep both layers in sync.
   # ---------------------------------------------------------------------------
   servlet:
     multipart:
-      max-file-size: ${TM_AUDIO_MAX_FILE_SIZE:10MB}
-      max-request-size: ${TM_AUDIO_MAX_FILE_SIZE:10MB}
+      max-file-size: ${TM_PHOTOS_MAX_FILE_SIZE:26214400}
+      max-request-size: ${TM_PHOTOS_MAX_FILE_SIZE:26214400}
 
 # ---------------------------------------------------------------------------
 # Device registration limits (E07S02 AC2)
@@ -104,15 +111,19 @@ tm:
   audio:
     data-dir: ${TM_AUDIO_DATA_DIR:${tm.data.dir}/audio}
   # ---------------------------------------------------------------------------
-  # Team photo storage (E12S02)
+  # Team photo storage (E12S02, E12S08)
   # DEC-15: files stored outside the jlink archive in a user-writable data directory.
   # Default: ${tm.data.dir}/photos (DEC-68 clause 2)
   # Override: export TM_PHOTOS_DATA_DIR=/your/path or -Dtm.photos.data-dir=/your/path
-  # Max upload size enforced at service layer (5 MB default per AC7).
+  # Max upload size enforced at both layers (E12S08 AC2/AC5):
+  #   - Spring multipart layer: spring.servlet.multipart.max-file-size (see above)
+  #   - Photo domain layer: tm.photos.max-size-bytes (here)
+  # Both are controlled by TM_PHOTOS_MAX_FILE_SIZE (raw bytes, e.g. 52428800 for 50 MB).
+  # Default: 26214400 bytes (25 MB). Set TM_PHOTOS_MAX_FILE_SIZE to change both layers.
   # ---------------------------------------------------------------------------
   photos:
     data-dir: ${TM_PHOTOS_DATA_DIR:${tm.data.dir}/photos}
-    max-size-bytes: ${TM_PHOTOS_MAX_SIZE_BYTES:5242880}
+    max-size-bytes: ${TM_PHOTOS_MAX_FILE_SIZE:26214400}
   # ---------------------------------------------------------------------------
   # Certificate template storage (E12S04)
   # DEC-15: files stored outside the jlink archive in a user-writable data directory.

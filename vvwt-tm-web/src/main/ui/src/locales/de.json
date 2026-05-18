@@ -399,6 +399,7 @@
     "noPhotoLabel": "Kein Foto",
     "uploadError": "Fehler beim Hochladen.",
     "uploadFormatError": "Nur JPEG- und PNG-Dateien sind erlaubt.",
+    "uploadSizeError": "Das Foto ist zu groß. Die maximale Dateigröße beträgt 25 MB.",
     "deleteError": "Fehler beim Löschen.",
     "error": {
       "noTournament": "Kein Turnier ausgewählt."
