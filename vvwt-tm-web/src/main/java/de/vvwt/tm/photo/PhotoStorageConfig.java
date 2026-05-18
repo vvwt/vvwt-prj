@@ -50,10 +50,13 @@ public class PhotoStorageConfig {
     /**
      * Maximum allowed photo upload size in bytes.
      *
-     * <p>Uploads exceeding this limit are rejected with {@link PhotoSizeException}. Default: 5 MB
-     * (5242880 bytes). Override via {@code -Dtm.photos.max-size-bytes}.
+     * <p>Uploads exceeding this limit are rejected with {@link PhotoSizeException}. Default: 25 MB
+     * (26214400 bytes) per E12S08 AC2/AC5 — raised from 5 MB to accommodate typical phone and
+     * camera photos. Override via the {@code TM_PHOTOS_MAX_FILE_SIZE} environment variable (which
+     * maps to the Spring property {@code tm.photos.max-size-bytes}) or via {@code
+     * -Dtm.photos.max-size-bytes}.
      */
-    private long maxSizeBytes = 5L * 1024 * 1024;
+    private long maxSizeBytes = 25L * 1024 * 1024;
 
     public String getDataDir() {
         return dataDir;
