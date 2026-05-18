@@ -227,6 +227,8 @@ class CertificateRenderControllerSliceTest {
                 .thenReturn(List.of(teamPlacement));
         when(locationDisplayResolver.resolveLocationDisplayName()).thenReturn("Test Location");
         when(certificateAssembler.buildSvgRows(any(), any(), any())).thenReturn(List.of(svgRow));
+        when(certificateAssembler.buildSvgRows(any(), any(), any(), any()))
+                .thenReturn(List.of(svgRow));
         when(certificateAssembler.renderSvgTemplate(any(), any()))
                 .thenReturn("<svg><text>Test</text></svg>");
         when(tenantContext.current()).thenReturn(UUID.randomUUID());
@@ -263,6 +265,8 @@ class CertificateRenderControllerSliceTest {
                 .thenReturn(List.of(teamPlacement));
         when(locationDisplayResolver.resolveLocationDisplayName()).thenReturn("Test Location");
         when(certificateAssembler.buildHtmlRows(any(), any(), any())).thenReturn(List.of(htmlRow));
+        when(certificateAssembler.buildHtmlRows(any(), any(), any(), any()))
+                .thenReturn(List.of(htmlRow));
         when(certificateAssembler.toMustacheMap(any())).thenReturn(tomLabelStubMap);
         when(tenantContext.current()).thenReturn(UUID.randomUUID());
 
@@ -295,6 +299,8 @@ class CertificateRenderControllerSliceTest {
                 .thenReturn(List.of(teamPlacement));
         when(locationDisplayResolver.resolveLocationDisplayName()).thenReturn("Test Location");
         when(certificateAssembler.buildSvgRows(any(), any(), any())).thenReturn(List.of(svgRow));
+        when(certificateAssembler.buildSvgRows(any(), any(), any(), any()))
+                .thenReturn(List.of(svgRow));
         when(certificateAssembler.renderSvgTemplate(any(), any())).thenReturn("<svg></svg>");
         when(tenantContext.current()).thenReturn(UUID.randomUUID());
 
@@ -322,6 +328,8 @@ class CertificateRenderControllerSliceTest {
                 .thenReturn(List.of(teamPlacement));
         when(locationDisplayResolver.resolveLocationDisplayName()).thenReturn("Test Location");
         when(certificateAssembler.buildHtmlRows(any(), any(), any())).thenReturn(List.of(htmlRow));
+        when(certificateAssembler.buildHtmlRows(any(), any(), any(), any()))
+                .thenReturn(List.of(htmlRow));
         when(certificateAssembler.toMustacheMap(any())).thenReturn(tomLabelStubMap);
         when(tenantContext.current()).thenReturn(UUID.randomUUID());
 
@@ -352,6 +360,8 @@ class CertificateRenderControllerSliceTest {
                 .thenReturn(List.of(teamPlacement));
         when(locationDisplayResolver.resolveLocationDisplayName()).thenReturn("Test Location");
         when(certificateAssembler.buildHtmlRows(any(), any(), any())).thenReturn(List.of(htmlRow));
+        when(certificateAssembler.buildHtmlRows(any(), any(), any(), any()))
+                .thenReturn(List.of(htmlRow));
         when(certificateAssembler.toMustacheMap(any())).thenReturn(tomLabelStubMap);
         when(tenantContext.current()).thenReturn(UUID.randomUUID());
 
@@ -387,6 +397,8 @@ class CertificateRenderControllerSliceTest {
                 .thenReturn(List.of(teamPlacement));
         when(locationDisplayResolver.resolveLocationDisplayName()).thenReturn("Test Location");
         when(certificateAssembler.buildHtmlRows(any(), any(), any())).thenReturn(List.of(htmlRow));
+        when(certificateAssembler.buildHtmlRows(any(), any(), any(), any()))
+                .thenReturn(List.of(htmlRow));
         when(certificateAssembler.toMustacheMap(any())).thenReturn(tomLabelStubMap);
         when(tenantContext.current()).thenReturn(UUID.randomUUID());
 
@@ -454,6 +466,8 @@ class CertificateRenderControllerSliceTest {
                 .thenReturn(List.of(teamPlacement));
         when(locationDisplayResolver.resolveLocationDisplayName()).thenReturn("Test Location");
         when(certificateAssembler.buildSvgRows(any(), any(), any())).thenReturn(List.of(svgRow));
+        when(certificateAssembler.buildSvgRows(any(), any(), any(), any()))
+                .thenReturn(List.of(svgRow));
         when(certificateAssembler.renderSvgTemplate(any(), any()))
                 .thenThrow(new MustacheException("template variable missing: {{teamName}}"));
         when(tenantContext.current()).thenReturn(UUID.randomUUID());

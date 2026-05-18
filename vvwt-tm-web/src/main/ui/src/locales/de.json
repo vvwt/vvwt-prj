@@ -447,6 +447,13 @@
     "generateButton": "Öffnen",
     "missingPhotosWarning": "{count} von {total} Teams ohne Foto — Urkunden werden mit Platzhalter erstellt.",
     "missingPlacementWarning": "Platzierungsdaten nicht vollständig — bitte Ergebnisse prüfen.",
+    "overrides": {
+      "hint": "Optionale Angaben für diesen Druckvorgang (werden nicht gespeichert):",
+      "organizerLabel": "Veranstalter",
+      "organizerPlaceholder": "Standard: gespeicherter Veranstalter",
+      "venueLabel": "Veranstaltungsort",
+      "venuePlaceholder": "Standard: aktueller Standort"
+    },
     "error": {
       "noTournament": "Kein Turnier ausgewählt.",
       "loadTeams": "Fehler beim Laden der Teams.",

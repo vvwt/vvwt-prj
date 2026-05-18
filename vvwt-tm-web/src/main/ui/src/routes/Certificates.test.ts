@@ -174,3 +174,77 @@ describe('de.json — E52S02: exact rename touch surface (AC-IMPL-RENAME-TOUCH-S
     expect(t).not.toHaveProperty('certificateTemplateButton');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E68S02 — AC7: i18n keys for override fields present in de.json
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('de.json — E68S02: certificates.overrides i18n keys (AC7)', () => {
+  it('de.json certificates.overrides namespace exists', () => {
+    const msgs = deMessages as Messages;
+    const c = msgs.certificates as Record<string, unknown>;
+    expect(c).toHaveProperty('overrides');
+  });
+
+  it('de.json certificates.overrides has organizerLabel', () => {
+    const msgs = deMessages as Messages;
+    const c = msgs.certificates as Record<string, unknown>;
+    const overrides = c.overrides as Record<string, string>;
+    expect(overrides).toHaveProperty('organizerLabel');
+    expect(typeof overrides.organizerLabel).toBe('string');
+  });
+
+  it('de.json certificates.overrides has venueLabel', () => {
+    const msgs = deMessages as Messages;
+    const c = msgs.certificates as Record<string, unknown>;
+    const overrides = c.overrides as Record<string, string>;
+    expect(overrides).toHaveProperty('venueLabel');
+    expect(typeof overrides.venueLabel).toBe('string');
+  });
+
+  it('de.json certificates.overrides has hint', () => {
+    const msgs = deMessages as Messages;
+    const c = msgs.certificates as Record<string, unknown>;
+    const overrides = c.overrides as Record<string, string>;
+    expect(overrides).toHaveProperty('hint');
+    expect(typeof overrides.hint).toBe('string');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E68S02 — AC2 AC3: Certificates.svelte references override query params
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Certificates.svelte — E68S02: override params appended to print URL (AC2 AC3)', () => {
+  it('Certificates.svelte source references organizerOverride query param', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './Certificates.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain('organizerOverride');
+  });
+
+  it('Certificates.svelte source references venueOverride query param', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './Certificates.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain('venueOverride');
+  });
+
+  it('Certificates.svelte source fetches /api/certificate/print-defaults/ for pre-fill (AC1)', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './Certificates.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain('/api/certificate/print-defaults/');
+  });
+
+  it('Certificates.svelte source has buildOverrideParams helper (AC2 AC3)', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = path.resolve(__dirname, './Certificates.svelte');
+    const source = fs.readFileSync(src, 'utf8');
+    expect(source).toContain('buildOverrideParams');
+  });
+});

@@ -210,12 +210,21 @@ public class DefaultCertificateAssembler implements CertificateAssembler {
     @Override
     public List<CertificatePlacementRow> buildSvgRows(
             Tournament tournament, List<AvatarPlacement> placements, String locationDisplayName) {
+        return buildSvgRows(tournament, placements, locationDisplayName, null);
+    }
+
+    @Override
+    public List<CertificatePlacementRow> buildSvgRows(
+            Tournament tournament,
+            List<AvatarPlacement> placements,
+            String locationDisplayName,
+            String organizerOverride) {
         List<Team> teams = teamRepository.findByTournamentId(tournament.getId());
         Map<UUID, Team> teamById = buildTeamMap(teams);
 
         String tournamentName =
                 tournament.getDescription() != null ? tournament.getDescription() : "";
-        String organizer = tournament.getOrganizer() != null ? tournament.getOrganizer() : "";
+        String organizer = resolveOrganizer(tournament, organizerOverride);
 
         List<CertificatePlacementRow> rows = new ArrayList<>();
         for (AvatarPlacement ap : placements) {
@@ -243,12 +252,21 @@ public class DefaultCertificateAssembler implements CertificateAssembler {
     @Override
     public List<CertificatePlacementRow> buildHtmlRows(
             Tournament tournament, List<AvatarPlacement> placements, String locationDisplayName) {
+        return buildHtmlRows(tournament, placements, locationDisplayName, null);
+    }
+
+    @Override
+    public List<CertificatePlacementRow> buildHtmlRows(
+            Tournament tournament,
+            List<AvatarPlacement> placements,
+            String locationDisplayName,
+            String organizerOverride) {
         List<Team> teams = teamRepository.findByTournamentId(tournament.getId());
         Map<UUID, Team> teamById = buildTeamMap(teams);
 
         String tournamentName =
                 tournament.getDescription() != null ? tournament.getDescription() : "";
-        String organizer = tournament.getOrganizer() != null ? tournament.getOrganizer() : "";
+        String organizer = resolveOrganizer(tournament, organizerOverride);
 
         List<CertificatePlacementRow> rows = new ArrayList<>();
         for (AvatarPlacement ap : placements) {
@@ -441,6 +459,25 @@ public class DefaultCertificateAssembler implements CertificateAssembler {
      */
     private Locale resolveLocaleForRow(CertificatePlacementRow row) {
         return Locale.GERMAN;
+    }
+
+    /**
+     * Resolves the effective organizer name for a certificate row (E68S02 AC5 AC6).
+     *
+     * <p>When {@code organizerOverride} is non-null and non-blank (after trimming), the override is
+     * returned verbatim. Otherwise the stored {@code tournament.getOrganizer()} is returned (null →
+     * empty string). This guarantees the certificate never shows an empty organizer line caused by
+     * a blank override (AC6).
+     *
+     * @param tournament the tournament entity
+     * @param organizerOverride caller-supplied ephemeral override; null or blank → stored value
+     * @return the effective organizer string; never null
+     */
+    private String resolveOrganizer(Tournament tournament, String organizerOverride) {
+        if (organizerOverride != null && !organizerOverride.isBlank()) {
+            return organizerOverride;
+        }
+        return tournament.getOrganizer() != null ? tournament.getOrganizer() : "";
     }
 
     private String buildDateString(Tournament tournament, Locale locale) {
