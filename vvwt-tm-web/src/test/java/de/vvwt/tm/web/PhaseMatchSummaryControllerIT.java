@@ -180,6 +180,84 @@ class PhaseMatchSummaryControllerIT {
     }
 
     // =========================================================================
+    // AC-TEST-E66S05-TEAM-NUMBER-RED: team numbers in MatchSummaryResponse
+    // (DEC-22 RED-first — this test must fail before the production change
+    //  that adds team1Number / team2Number to MatchSummaryResponse)
+    // =========================================================================
+
+    @Test
+    @DisplayName(
+            "AC-TEST-E66S05-TEAM-NUMBER-RED: GET /api/phases/{phaseId}/matches includes"
+                    + " team1Number and team2Number resolved from Team.teamNumber")
+    void getPhaseMatches_withTeamsAssigned_returnsTeamNumbers() throws Exception {
+        tenantBinder.bindDefaultTenant();
+        seedActivePhaseWithMatchAndSetResults();
+        tenantBinder.unbind();
+
+        ResponseEntity<String> response =
+                authed.exchange(
+                        new URI(baseUrl + "/api/phases/" + phaseId + "/matches"),
+                        HttpMethod.GET,
+                        null,
+                        String.class);
+
+        assertThat(response.getStatusCode())
+                .as("GET phase matches must return 200")
+                .isEqualTo(HttpStatus.OK);
+
+        String body = response.getBody();
+        assertThat(body).isNotNull();
+
+        List<MatchSummaryResponse> matches =
+                objectMapper.readValue(body, new TypeReference<List<MatchSummaryResponse>>() {});
+
+        assertThat(matches).hasSize(1);
+        MatchSummaryResponse summary = matches.get(0);
+
+        // AC-TEST-E66S05-TEAM-NUMBER-RED: team numbers resolved from Team.teamNumber
+        // team1 seeded with teamNumber=1, team2 with teamNumber=2 (see setUp → team inserts)
+        assertThat(summary.team1Number())
+                .as("team1Number must be 1 (from Team.teamNumber for team1)")
+                .isEqualTo(1);
+        assertThat(summary.team2Number())
+                .as("team2Number must be 2 (from Team.teamNumber for team2)")
+                .isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName(
+            "AC-TEST-E66S05-TEAM-NUMBER-NULL-FALLBACK-RED: avatar with null teamId returns"
+                    + " null teamNumber (graceful fallback — not a crash)")
+    void getPhaseMatches_avatarWithNullTeamId_returnsNullTeamNumbers() throws Exception {
+        tenantBinder.bindDefaultTenant();
+        seedActivePhaseWithMatchNullTeamId();
+        tenantBinder.unbind();
+
+        ResponseEntity<String> response =
+                authed.exchange(
+                        new URI(baseUrl + "/api/phases/" + phaseId + "/matches"),
+                        HttpMethod.GET,
+                        null,
+                        String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        String body = response.getBody();
+        List<MatchSummaryResponse> matches =
+                objectMapper.readValue(body, new TypeReference<List<MatchSummaryResponse>>() {});
+
+        assertThat(matches).hasSize(1);
+        MatchSummaryResponse summary = matches.get(0);
+
+        // When teamId is null, teamNumber fallback must be null (no team assigned yet)
+        assertThat(summary.team1Number())
+                .as("team1Number must be null when avatar has no team assigned")
+                .isNull();
+        assertThat(summary.team2Number())
+                .as("team2Number must be null when avatar has no team assigned")
+                .isNull();
+    }
+
+    // =========================================================================
     // Security: unauthenticated GET → 401 (AC-SEC-MATCHLIST-ADMIN-AUTH)
     // =========================================================================
 

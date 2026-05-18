@@ -218,6 +218,8 @@ public class PhaseTransitionController {
     private MatchSummaryResponse toMatchSummaryResponse(Match match) {
         String team1Name = resolveTeamName(match.getMemberAvatar1Id());
         String team2Name = resolveTeamName(match.getMemberAvatar2Id());
+        Integer team1Number = resolveTeamNumber(match.getMemberAvatar1Id());
+        Integer team2Number = resolveTeamNumber(match.getMemberAvatar2Id());
         List<SetScoreDto> setScores = resolveSetScores(match.getId());
         return new MatchSummaryResponse(
                 match.getId(),
@@ -226,6 +228,8 @@ public class PhaseTransitionController {
                 match.getFieldNumber(),
                 team1Name,
                 team2Name,
+                team1Number,
+                team2Number,
                 setScores);
     }
 
@@ -252,6 +256,34 @@ public class PhaseTransitionController {
                 .map(t -> t.getDescription())
                 .filter(d -> d != null && !d.isBlank())
                 .orElse(UNKNOWN_TEAM);
+    }
+
+    /**
+     * Resolves a human-readable team number via the two-hop join: TeamAvatar → Team.teamNumber.
+     *
+     * <p>Returns {@code null} (not a fallback integer) when: the avatarId is null, the TeamAvatar
+     * record is absent, or the avatar's teamId is null / Team record is absent. A {@code null}
+     * result signals "no team assigned" to the frontend, which must render a graceful fallback
+     * label (AC4 of E66S05 — never "undefined", never blank).
+     *
+     * <p>No team UUID is exposed in the return value (DEC-9).
+     *
+     * @param avatarId the UUID of the TeamAvatar slot (nullable)
+     * @return the team number, or {@code null} when no team is assigned to this avatar
+     */
+    private Integer resolveTeamNumber(UUID avatarId) {
+        if (avatarId == null) {
+            return null;
+        }
+        Optional<TeamAvatar> avatarOpt = teamAvatarRepository.findById(avatarId);
+        if (avatarOpt.isEmpty()) {
+            return null;
+        }
+        UUID teamId = avatarOpt.get().getTeamId();
+        if (teamId == null) {
+            return null;
+        }
+        return teamRepository.findById(teamId).map(t -> t.getTeamNumber()).orElse(null);
     }
 
     /**

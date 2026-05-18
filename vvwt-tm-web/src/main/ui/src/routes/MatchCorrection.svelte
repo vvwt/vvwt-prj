@@ -18,6 +18,12 @@
    * Entry point: PhaseList.svelte "Korrigieren" link per match row (phase ACTIVE only).
    *
    * E47 shell: registers title + back-arrow via pageHeader store.
+   *
+   * E66S05: column headers in the score-input table and the confirmation dialog now
+   * show "Nr. {teamNumber} — {teamName}" instead of the generic "Team 1 / Team 2"
+   * labels, using team1Label / team2Label derived from the preloaded match data.
+   * When no team is assigned (teamNumber is null), the label degrades gracefully to
+   * the correction.teamFallback i18n key — never "undefined", never blank.
    */
   import { onMount, onDestroy } from 'svelte';
   import { get } from 'svelte/store';
@@ -62,6 +68,18 @@
 
   /** Whether the confirmation dialog is visible (Brief Q-6 deliberate-action UX). */
   let showConfirm = $state(false);
+
+  /**
+   * Team labels for the two sides of the match (E66S05 AC2 / AC3).
+   *
+   * Format when team is assigned: "Nr. {teamNumber} — {teamName}"
+   * Format when no team assigned (teamNumber is null): correction.teamFallback i18n value
+   *
+   * Populated from the preloaded match data; updated after each successful preload.
+   * Never "undefined" — guaranteed to be a non-empty string.
+   */
+  let team1Label = $state<string>('');
+  let team2Label = $state<string>('');
 
   // ── Lifecycle ─────────────────────────────────────────────────
 
@@ -114,11 +132,36 @@
         team1Points: s.team1Points,
         team2Points: s.team2Points,
       }));
+      // E66S05 AC2/AC3: resolve team labels from teamNumber + teamName.
+      // Graceful fallback per AC4: when teamNumber is null (no team assigned),
+      // show correction.teamFallback — never "undefined", never blank.
+      team1Label = buildTeamLabel(found.team1Number, found.team1Name);
+      team2Label = buildTeamLabel(found.team2Number, found.team2Name);
     } catch (e: unknown) {
       preloadError = e instanceof Error ? e.message : get(_)('correction.preloadError');
     } finally {
       preloading = false;
     }
+  }
+
+  /**
+   * Builds the display label for one side of a match (E66S05 AC2/AC4).
+   *
+   * - When teamNumber is non-null: returns "Nr. {teamNumber} — {teamName}"
+   *   using the correction.teamNumberPrefix i18n key for the "Nr." prefix.
+   * - When teamNumber is null (no team assigned): returns correction.teamFallback.
+   *
+   * The teamId UUID is never included in the output (DEC-9).
+   *
+   * @param teamNumber the human-readable team number, or null if unassigned
+   * @param teamName the team display name (e.g. "Alpha FC")
+   */
+  function buildTeamLabel(teamNumber: number | null, teamName: string): string {
+    if (teamNumber === null) {
+      return get(_)('correction.teamFallback', { default: '–' });
+    }
+    const prefix = get(_)('correction.teamNumberPrefix', { default: 'Nr.' });
+    return `${prefix} ${teamNumber} — ${teamName}`;
   }
 
   // ── Helpers ───────────────────────────────────────────────────
@@ -213,8 +256,8 @@
         <thead>
           <tr>
             <th>{$_('correction.setIndex')}</th>
-            <th>{$_('correction.team1Points')}</th>
-            <th>{$_('correction.team2Points')}</th>
+            <th data-testid="team1-header">{team1Label}</th>
+            <th data-testid="team2-header">{team2Label}</th>
           </tr>
         </thead>
         <tbody>
@@ -227,7 +270,7 @@
                   type="number"
                   min="0"
                   value={set.team1Points}
-                  aria-label="{$_('correction.team1Points')} {i + 1}"
+                  aria-label="{team1Label} {$_('correction.setIndex')} {i + 1}"
                   oninput={(e) => updateSet(i, 'team1Points', (e.target as HTMLInputElement).value)}
                   data-testid="team1-points-{i}"
                 />
@@ -238,7 +281,7 @@
                   type="number"
                   min="0"
                   value={set.team2Points}
-                  aria-label="{$_('correction.team2Points')} {i + 1}"
+                  aria-label="{team2Label} {$_('correction.setIndex')} {i + 1}"
                   oninput={(e) => updateSet(i, 'team2Points', (e.target as HTMLInputElement).value)}
                   data-testid="team2-points-{i}"
                 />
@@ -300,8 +343,8 @@
             <thead>
               <tr>
                 <th>{$_('correction.setIndex')}</th>
-                <th>{$_('correction.team1Points')}</th>
-                <th>{$_('correction.team2Points')}</th>
+                <th data-testid="confirm-team1-header">{team1Label}</th>
+                <th data-testid="confirm-team2-header">{team2Label}</th>
               </tr>
             </thead>
             <tbody>
