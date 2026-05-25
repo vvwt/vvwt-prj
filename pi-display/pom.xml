@@ -83,7 +83,7 @@
                         </configuration>
                     </execution>
 
-                    <!-- 2. bats: run the shell test suite -->
+                    <!-- 2. bats: run the build-image shell test suite (E69S01) -->
                     <execution>
                         <id>bats-pi-display</id>
                         <phase>integration-test</phase>
@@ -94,6 +94,22 @@
                             <executable>bats</executable>
                             <arguments>
                                 <argument>${project.basedir}/src/test/sh/build-image.bats</argument>
+                            </arguments>
+                            <workingDirectory>${project.basedir}</workingDirectory>
+                        </configuration>
+                    </execution>
+
+                    <!-- 3. bats: run the operator-runbook README content tests (E69S02) -->
+                    <execution>
+                        <id>bats-pi-display-readme</id>
+                        <phase>integration-test</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>bats</executable>
+                            <arguments>
+                                <argument>${project.basedir}/src/test/sh/readme.bats</argument>
                             </arguments>
                             <workingDirectory>${project.basedir}</workingDirectory>
                         </configuration>
