@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+  SPDX-License-Identifier: AGPL-3.0-or-later
+
+  pi-display/pom.xml — Maven module for the Raspberry Pi kiosk display provisioning.
+
+  This module has no Java sources (packaging=pom). It binds shellcheck and bats-core
+  invocations to the Maven integration-test phase via exec-maven-plugin so that
+  mvn verify from the project root exercises the pi-display shell-test surface
+  as part of the canonical DEC-54 build gate.
+
+  Related DECs: DEC-10 (Maven multi-module structure), DEC-22 (TDD / RED-first),
+                DEC-54 (mvn verify canonical build gate), DEC-75 (AGPL-3.0-or-later),
+                DEC-3 (open-source only — exec-maven-plugin Apache-2.0, shellcheck GPL-3.0,
+                bats MIT, all AGPL-forward-compatible per FSF matrix).
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>de.vvwt</groupId>
+        <artifactId>vvwt-prj</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>pi-display</artifactId>
+    <packaging>pom</packaging>
+
+    <name>vvwt-prj — Pi Display Provisioning</name>
+    <description>
+        Raspberry Pi kiosk display provisioning module.
+        Contains build-image.sh (FullPageOS 0.14.0 overlay wrapper) and its bats test suite.
+        No Java sources. Shell tests are bound to the Maven integration-test phase via
+        exec-maven-plugin so that mvn verify covers this surface per DEC-54.
+    </description>
+
+    <!--
+        No &lt;dependencies&gt; block — this module has no Java code.
+        shellcheck and bats are host tools invoked by exec-maven-plugin.
+        Dependency licenses (informational, verified AGPL-forward-compatible per FSF matrix):
+          - exec-maven-plugin 3.5.0: Apache-2.0
+          - shellcheck 0.9.0:        GPL-3.0
+          - bats-core 1.x / 1.13.0:  MIT (npm bats)
+    -->
+
+    <build>
+        <plugins>
+            <!--
+                exec-maven-plugin bound to the integration-test phase.
+                Two executions:
+                  1. shellcheck — lint all authored shell files under pi-display/
+                  2. bats       — run the bats test suite
+                Both executions use fail=true (default for exec:exec) so a non-zero exit
+                propagates to non-zero mvn verify, satisfying DEC-54 §"Verdict semantics"
+                binary-on-exit invariant.
+
+                The plugin version is inherited from parent POM
+                &lt;exec-maven-plugin.version&gt; (3.5.0 as of E69S01).
+            -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>${exec-maven-plugin.version}</version>
+                <executions>
+
+                    <!-- 1. shellcheck: lint build-image.sh and any future shell files -->
+                    <execution>
+                        <id>shellcheck-pi-display</id>
+                        <phase>integration-test</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>shellcheck</executable>
+                            <arguments>
+                                <argument>${project.basedir}/build-image.sh</argument>
+                            </arguments>
+                            <workingDirectory>${project.basedir}</workingDirectory>
+                        </configuration>
+                    </execution>
+
+                    <!-- 2. bats: run the shell test suite -->
+                    <execution>
+                        <id>bats-pi-display</id>
+                        <phase>integration-test</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>bats</executable>
+                            <arguments>
+                                <argument>${project.basedir}/src/test/sh/build-image.bats</argument>
+                            </arguments>
+                            <workingDirectory>${project.basedir}</workingDirectory>
+                        </configuration>
+                    </execution>
+
+                </executions>
+            </plugin>
+
+            <!--
+                Disable maven-surefire-plugin for this pom-packaging module (no Java tests).
+                Without this, the default lifecycle binding runs surefire on nothing and
+                emits a warning. Explicit skip is cleaner.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+
+        </plugins>
+    </build>
+
+</project>
