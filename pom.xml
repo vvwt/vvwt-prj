@@ -39,6 +39,11 @@
 
         <!-- Tournament Manager modules (E02+) — DEC-10, DEC-7 -->
         <module>vvwt-tm-web</module>
+
+        <!-- Pi display kiosk provisioning (E69+) — DEC-10, DEC-75.
+             packaging=pom, no Java; shellcheck+bats bound to integration-test via exec-maven-plugin.
+             Position after vvwt-tm-web: no ordering constraint (no Java deps on either side). -->
+        <module>pi-display</module>
     </modules>
 
     <!-- ===================================================================
