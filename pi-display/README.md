@@ -381,7 +381,15 @@ informational output; errors are distinguished by non-zero exit or explicit
 (iii) The bats assertions pass on your local checkout:
 `mvn -pl pi-display -am verify` reports `BUILD SUCCESS`.
 
-### Actual outcome (fill in)
+### Actual outcome — E69S03 attest (2026-05-27 19:02) — gap event
+
+(i) .img produced: No — build failed before image production.
+
+(ii) Error output: `build_dist: line 4: .../FullPageOS/src/custompios_path: No such file or directory` — `CUSTOM_PI_OS_PATH=` — `/build_custom_os: not found`. **Resolved by E69S04** (argument to `update-custompios-paths` corrected from `FullPageOS` to `FullPageOS/src`).
+
+(iii) mvn verify: BUILD SUCCESS (bats tests pass; full Docker build not run in CI).
+
+### Actual outcome — E69S04 post-fix re-attestation (fill in)
 
 (i) .img produced: ___________________________________________
 
