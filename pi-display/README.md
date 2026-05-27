@@ -27,14 +27,34 @@ setup.
 
 ### Prerequisites
 
-Before building an image you need a Linux host (or macOS with Docker) with:
+Before building an image you need a Linux host with:
 
 - **Docker** — FullPageOS uses Docker internally for the build environment.
+  On Debian/Ubuntu: `sudo apt-get install docker.io`.
+  **`podman` + `podman-docker`** is a supported substitute on Linux hosts where
+  Docker is not installed — the `podman-docker` package provides a `docker` shim
+  that satisfies the pre-flight check. Note: **`sudo` invocation is still required**
+  (the script does not auto-elevate; see "Run with sudo" below).
 - **`qemu-user-static`** — installed on the Docker host for ARM emulation.
   On Debian/Ubuntu: `sudo apt-get install qemu-user-static`.
-- A working internet connection — the build fetches the FullPageOS 0.14.0 release
-  tarball and installs packages inside the image.
-- `git` — to clone `vvwt-prj`.
+- **`wget`** — for downloading the Raspbian base image required by the FullPageOS
+  build pipeline. On Debian/Ubuntu: `sudo apt-get install wget`.
+- **`sudo`** — the script must be invoked with `sudo` (see "Run with sudo" below).
+  On Debian/Ubuntu: `sudo apt-get install sudo`.
+- **Kernel loop-module support** — `sudo modprobe loop` must succeed on the host.
+  Required by the CustomPiOS `mount_image` step inside the Docker build.
+  Standard on Linux kernel installations; may need activation in some containers.
+- A working **internet connection** — the build clones FullPageOS 0.14.0,
+  clones CustomPiOS, downloads the Raspbian base image, and installs packages.
+  CustomPiOS is cloned automatically by the script; the operator does not need
+  to clone it manually — only outbound internet access to GitHub is required.
+- **`git`** — to clone `vvwt-prj` and for the FullPageOS / CustomPiOS clones.
+  On Debian/Ubuntu: `sudo apt-get install git`.
+
+**Run with sudo:** invoke the script as `sudo ./build-image.sh --server-url=…`
+The script does not auto-elevate internally — this preserves principle-of-least-privilege
+and the operator's audit visibility into elevation. If you run without sudo, the build
+fails fast at the `build_dist` step with an actionable message.
 
 The upstream FullPageOS README at
 <https://github.com/guysoft/FullPageOS> documents the exact Docker build
@@ -45,14 +65,14 @@ procedure in detail; consult it if the build environment needs further tuning.
 From the `vvwt-prj/pi-display/` directory:
 
 ```bash
-# Recommended: full image build with kiosk URL pre-baked
-./build-image.sh --server-url=https://your-tm-host/
+# Recommended: full image build with kiosk URL pre-baked (requires sudo)
+sudo ./build-image.sh --server-url=https://your-tm-host/
 
 # Dry-run: exercise overlay logic without fetching FullPageOS or building an image
-./build-image.sh --dry-run --server-url=https://your-tm-host/
+sudo ./build-image.sh --dry-run --server-url=https://your-tm-host/
 
 # Show all options
-./build-image.sh --help
+sudo ./build-image.sh --help
 ```
 
 The `--server-url` argument bakes the TM Display URL into `/boot/fullpageos.txt`
@@ -60,10 +80,14 @@ inside the image so Chromium opens it automatically on first boot.
 
 ### Expected output
 
-A successful build places a `.img` file under the `build/` subdirectory created
-by the FullPageOS build system (typically
-`build/image_YYYY-MM-DD-fullpageos.img` or similar). The exact path is printed
+A successful build places a `.img` file under the `src/workspace/` subdirectory
+of the FullPageOS clone that `build-image.sh` creates in a temporary directory
+(typically printed at the end of the build as
+`${WORK_DIR}/FullPageOS/src/workspace/*.img`). The exact path is printed
 at the end of a successful build.
+
+This path follows the CustomPiOS convention: `BASE_WORKSPACE=${DIST_PATH}/workspace`
+where `DIST_PATH` is the FullPageOS `src/` directory.
 
 Approximate image size: ~2-3 GB (uncompressed). A 16 GB SD card provides ample
 headroom.
@@ -309,6 +333,69 @@ The following limitations are documented as-is for this release (FullPageOS
    to the TM server. The server-side device token (assigned during the Boot &
    Verify step) is the sole means of distinguishing display devices. If the SD
    card is replaced or the token is lost, the device must be re-registered.
+
+---
+
+## Image-Build Attestation
+
+Perform this scenario on your **Linux build host** before declaring the
+single-command image build working. Record the actual outcome next to the
+expected outcome. If any gap is observed, **stop and open a new story per
+the E69S01 Brief D-7-b precedent** — do not author inline systemd drop-ins,
+container-driver shims, or any other in-runbook fix here.
+
+### Preparation
+
+Install all prerequisites listed in the Prerequisites section above. Verify:
+
+- Docker (or `podman+podman-docker`) is installed and the daemon is running.
+- `qemu-user-static`, `wget`, `sudo`, and `git` are present.
+- `sudo modprobe loop` succeeds.
+- Outbound internet access to GitHub (`github.com`) is available.
+
+Also verify the bats test suite passes on your checkout:
+
+```bash
+mvn -pl pi-display -am verify
+```
+
+Expected: `BUILD SUCCESS`.
+
+### Action
+
+From the `vvwt-prj/pi-display/` directory:
+
+```bash
+sudo ./build-image.sh --server-url=https://your-tm-host/
+```
+
+### Expected outcome at FullPageOS 0.14.0
+
+(i) A `.img` file is produced under `${WORK_DIR}/FullPageOS/src/workspace/`
+(the exact path is printed at the end of the build).
+
+(ii) Zero error output is emitted during the build (Docker build log may contain
+informational output; errors are distinguished by non-zero exit or explicit
+`ERROR:` lines).
+
+(iii) The bats assertions pass on your local checkout:
+`mvn -pl pi-display -am verify` reports `BUILD SUCCESS`.
+
+### Actual outcome (fill in)
+
+(i) .img produced: ___________________________________________
+
+(ii) Error output: ___________________________________________
+
+(iii) mvn verify: ___________________________________________
+
+### Escalation
+
+If the operator observes a gap between the expected and actual outcome,
+**stop and open a new story per the E69S01 Brief D-7-b precedent** — do not
+author inline systemd drop-ins, container-driver shims, or any other
+in-runbook fix here. The new story follows the same Bug-Triage Flow as E69S03
+(root cause established empirically before authoring acceptance criteria).
 
 ---
 
