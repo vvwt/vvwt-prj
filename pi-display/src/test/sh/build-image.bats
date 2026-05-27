@@ -353,9 +353,11 @@ FIXTURE_DIR="$(dirname "$BATS_TEST_FILENAME")/fixtures/fullpageos-src"
 #
 # Static source inspection only — no Docker, no sudo, no live wget required.
 @test "E69S06 AC2: wget invocation uses pinned Bookworm .com URL (downloads.raspberrypi.com/raspios_lite_armhf/images/raspios_lite_armhf-2025-05-13)" {
-    # The regex anchors to wget on the non-comment invocation line and the .com pin path token.
-    # Exclude comment lines (starting with #) so only the executable wget line is matched.
-    run bash -c "grep -v '^[[:space:]]*#' \"${BUILD_SCRIPT}\" | grep -qE 'wget.*downloads\.raspberrypi\.com/raspios_lite_armhf/images/raspios_lite_armhf-2025-05-13'"
+    # The regex anchors to https:// immediately before the pin token, matching the URL line
+    # of the wget command (which may span multiple lines via shell line-continuation).
+    # Exclude comment lines (starting with #) so only the executable URL line is matched.
+    # AC2 specifies: "a regex that includes wget or https:// immediately before the pin token"
+    run bash -c "grep -v '^[[:space:]]*#' \"${BUILD_SCRIPT}\" | grep -qE 'https://downloads\.raspberrypi\.com/raspios_lite_armhf/images/raspios_lite_armhf-2025-05-13'"
     [ "$status" -eq 0 ]
 }
 

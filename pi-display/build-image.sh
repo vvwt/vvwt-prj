@@ -315,10 +315,19 @@ echo "INFO: Running update-custompios-paths to set up CustomPiOS symlinks..."
 
 # E69S03 RCA #5: Download Raspbian base image (required by FullPageOS build_dist).
 # FullPageOS BASE_IMAGE_PATH=${DIST_PATH}/image; build_dist expects a Raspbian zip there.
+# E69S06 RCA #10: URL pinned to 2025-05-13-raspios-bookworm-armhf-lite — the last Bookworm
+# armhf-lite release before the RaspiOS Bookworm→Trixie transition. FullPageOS 0.14.0
+# (tagged 2025-07-14) hardcodes 'chromium-browser' (Bookworm-era name) in its chroot
+# start_chroot_script:41; in Debian Trixie the package was renamed to plain 'chromium'.
+# The unpinned _latest redirect now lands on a Trixie image → chroot apt-install fails.
+# Pin target: last Bookworm before transition; HTTP 200 verified 2026-05-27 at .com archive.
+# Future tag-bump stories update this pin in lockstep per E69S01 Brief D-9.
+# --trust-server-names removed: was needed for _latest redirect Content-Disposition;
+# with a direct URL there is no redirect chain — the flag is semantically moot.
 echo "INFO: Downloading Raspbian base image (this may take several minutes)..."
 mkdir -p "${WORK_DIR}/FullPageOS/src/image"
-wget -c --trust-server-names \
-    'https://downloads.raspberrypi.org/raspios_lite_armhf_latest' \
+wget -c \
+    'https://downloads.raspberrypi.com/raspios_lite_armhf/images/raspios_lite_armhf-2025-05-13/2025-05-13-raspios-bookworm-armhf-lite.img.xz' \
     -P "${WORK_DIR}/FullPageOS/src/image/"
 
 # E69S03 RCA #1: Apply vvwt-display overlay at the CustomPiOS-canonical path.
