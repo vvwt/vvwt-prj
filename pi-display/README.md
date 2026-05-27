@@ -50,6 +50,12 @@ Before building an image you need a Linux host with:
   to clone it manually — only outbound internet access to GitHub is required.
 - **`git`** — to clone `vvwt-prj` and for the FullPageOS / CustomPiOS clones.
   On Debian/Ubuntu: `sudo apt-get install git`.
+- **Python packages required by the FullPageOS / CustomPiOS Python build scripts:
+  `python3-git`** (GitPython) **+ `python3-yaml`** (PyYAML). On Debian/Ubuntu:
+  `sudo apt-get install python3-git python3-yaml`. On other distros: install the
+  equivalents that provide the `git` and `yaml` Python modules (the script's
+  pre-flight check verifies the Python imports, not specific apt package names —
+  distro-portable by design).
 
 **Run with sudo:** invoke the script as `sudo ./build-image.sh --server-url=…`
 The script does not auto-elevate internally — this preserves principle-of-least-privilege
@@ -396,6 +402,25 @@ informational output; errors are distinguished by non-zero exit or explicit
 (ii) Error output: ___________________________________________
 
 (iii) mvn verify: ___________________________________________
+
+### Actual outcome — E69S05 post-fix re-attestation (fill in)
+
+**Preparation:** Ensure `python3-git` and `python3-yaml` are installed (see Prerequisites above).
+If validating the pre-flight check itself, temporarily remove one or both packages and verify
+the script exits non-zero at pre-flight time with the actionable English error message, naming
+the missing module and the apt-install remedy hint. Reinstall before running the full build.
+
+(i) .img produced: ___________________________________________
+
+(ii) Error output: ___________________________________________
+
+(iii) mvn verify: ___________________________________________
+
+**Escalation:** If after installing `python3-git` + `python3-yaml` the build still fails inside
+the FullPageOS chroot with a Python `ModuleNotFoundError` for a different module, **stop and open
+a new story per the E69S03 AC5 Escalation-Clause** — the new story follows the same Bug-Triage
+Flow (root cause established empirically before authoring acceptance criteria). Do not author inline
+fixes here.
 
 ### Escalation
 

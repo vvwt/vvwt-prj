@@ -292,3 +292,50 @@ FIXTURE_DIR="$(dirname "$BATS_TEST_FILENAME")/fixtures/fullpageos-src"
     run grep -qE 'update-custompios-paths.*FullPageOS/src' "${BUILD_SCRIPT}"
     [ "$status" -eq 0 ]
 }
+
+# ─── E69S05 AC2: static source-grep — per-dep Python import pre-flight checks ──
+# Verifies build-image.sh contains separate per-dep python3 -c invocations for
+# both python3-git (import git) and python3-yaml (import yaml).
+#
+# RED state (pre-story, E69S04-delivered script at HEAD 1bb733e8):
+#   No python3 -c invocations exist in the script → both greps FAIL.
+# GREEN state (after E69S05 fix):
+#   Both invocations are present → both greps PASS.
+#
+# Static source inspection only — no live Python invocation, no Docker, no sudo.
+
+@test "E69S05 AC2: build-image.sh source contains python3 -c 'import git' per-dep pre-flight invocation" {
+    # Match the per-dep invocation line for python3-git.
+    # Regex requires python3 -c adjacent to the import-name token (executable line, not comment).
+    run grep -qE "python3 -c 'import git'" "${BUILD_SCRIPT}"
+    [ "$status" -eq 0 ]
+}
+
+@test "E69S05 AC2: build-image.sh source contains python3 -c 'import yaml' per-dep pre-flight invocation" {
+    # Match the per-dep invocation line for python3-yaml.
+    run grep -qE "python3 -c 'import yaml'" "${BUILD_SCRIPT}"
+    [ "$status" -eq 0 ]
+}
+
+# ─── E69S05 AC3: collect-and-exit guard pattern ───────────────────────────────
+# Verifies build-image.sh uses a collect-and-exit guard so both dep checks run
+# even when the first dep is absent (set -euo pipefail short-circuit prevention).
+#
+# RED state: no MISSING_PYTHON (or equivalent guard-pattern token) in script → FAILS.
+# GREEN state: guard flag present → PASSES.
+
+@test "E69S05 AC3: build-image.sh source contains collect-and-exit guard flag (MISSING_PYTHON)" {
+    # The guard flag name is the literal chosen by Delivery per AC3 AC-contract.
+    run grep -q 'MISSING_PYTHON' "${BUILD_SCRIPT}"
+    [ "$status" -eq 0 ]
+}
+
+@test "E69S05 AC3: build-image.sh source contains apt-get install python3-git remedy hint" {
+    run grep -q 'apt-get install python3-git' "${BUILD_SCRIPT}"
+    [ "$status" -eq 0 ]
+}
+
+@test "E69S05 AC3: build-image.sh source contains apt-get install python3-yaml remedy hint" {
+    run grep -q 'apt-get install python3-yaml' "${BUILD_SCRIPT}"
+    [ "$status" -eq 0 ]
+}

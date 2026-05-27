@@ -197,6 +197,33 @@ if [ "${DRY_RUN}" != "true" ]; then
         exit 1
     fi
 
+    # E69S05: Python dep pre-flight — collect-and-exit guard pattern (AC2, AC3)
+    # Each dep is checked in its own python3 -c invocation so both missing deps are
+    # reported even when the first fails (set -euo pipefail short-circuit prevention).
+    # The || guard makes each check compound always-succeed; MISSING_PYTHON=true
+    # triggers a deferred exit after both checks have run.
+    MISSING_PYTHON=false
+    if ! python3 -c 'import git' 2>/dev/null; then
+        echo "ERROR: Python module 'git' (GitPython) is not installed." >&2
+        echo "       Required by FullPageOS/CustomPiOS execution_order.py at module-load time." >&2
+        echo "       On Debian/Ubuntu: sudo apt-get install python3-git" >&2
+        echo "       Or your distro's equivalent that provides the 'git' Python module." >&2
+        MISSING_PYTHON=true
+    fi
+    if ! python3 -c 'import yaml' 2>/dev/null; then
+        echo "ERROR: Python module 'yaml' (PyYAML) is not installed." >&2
+        echo "       Required by FullPageOS/CustomPiOS execution_order.py at module-load time." >&2
+        echo "       On Debian/Ubuntu: sudo apt-get install python3-yaml" >&2
+        echo "       Or your distro's equivalent that provides the 'yaml' Python module." >&2
+        MISSING_PYTHON=true
+    fi
+    if [ "${MISSING_PYTHON}" = "true" ]; then
+        echo "" >&2
+        echo "       Install the above Python packages before running a full image build." >&2
+        echo "       See pi-display/README.md Prerequisites for details." >&2
+        exit 1
+    fi
+
     # Tag existence check — only in non-dry-run mode (AC7(iii))
     echo "INFO: Verifying FullPageOS tag '${FULLPAGEOS_TAG}' exists upstream..."
     if ! git ls-remote --tags "${FULLPAGEOS_REPO}" "refs/tags/${FULLPAGEOS_TAG}" | grep -q "${FULLPAGEOS_TAG}"; then
