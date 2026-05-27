@@ -339,3 +339,45 @@ FIXTURE_DIR="$(dirname "$BATS_TEST_FILENAME")/fixtures/fullpageos-src"
     run grep -q 'apt-get install python3-yaml' "${BUILD_SCRIPT}"
     [ "$status" -eq 0 ]
 }
+
+# ─── E69S06 AC2: static source-grep — RaspiOS base-image URL pinned to Bookworm 2025-05-13 ──
+# Verifies build-image.sh wget invocation uses the pinned .com archive URL for the last
+# Bookworm armhf-lite release (2025-05-13), not the unpinned _latest redirect.
+#
+# RED state (pre-story, post-E69S04-delivered script):
+#   Line 294: 'https://downloads.raspberrypi.org/raspios_lite_armhf_latest'
+#   → grep for .com pin token FAILS (no match on invocation line).
+# GREEN state (after E69S06 fix):
+#   Line 294: 'https://downloads.raspberrypi.com/raspios_lite_armhf/images/raspios_lite_armhf-2025-05-13/...'
+#   → grep PASSES (pin token present on invocation line).
+#
+# Static source inspection only — no Docker, no sudo, no live wget required.
+@test "E69S06 AC2: wget invocation uses pinned Bookworm .com URL (downloads.raspberrypi.com/raspios_lite_armhf/images/raspios_lite_armhf-2025-05-13)" {
+    # The regex anchors to https:// immediately before the pin token, matching the URL line
+    # of the wget command (which may span multiple lines via shell line-continuation).
+    # Exclude comment lines (starting with #) so only the executable URL line is matched.
+    # AC2 specifies: "a regex that includes wget or https:// immediately before the pin token"
+    run bash -c "grep -v '^[[:space:]]*#' \"${BUILD_SCRIPT}\" | grep -qE 'https://downloads\.raspberrypi\.com/raspios_lite_armhf/images/raspios_lite_armhf-2025-05-13'"
+    [ "$status" -eq 0 ]
+}
+
+# ─── E69S06 AC3: static source-grep — --trust-server-names absent from wget invocation line ──
+# Verifies build-image.sh wget invocation does NOT carry --trust-server-names.
+# The flag was needed for the _latest redirect's Content-Disposition header;
+# with a direct pinned URL there is no redirect chain and the flag is semantically moot.
+#
+# RED state (pre-story, post-E69S04-delivered script):
+#   wget -c --trust-server-names 'https://downloads.raspberrypi.org/...'
+#   → the grep FINDS --trust-server-names on a wget line → assertion (which checks for absence) FAILS.
+# GREEN state (after E69S06 fix):
+#   wget -c 'https://downloads.raspberrypi.com/...'
+#   → no --trust-server-names on any wget invocation line → assertion PASSES.
+#
+# Static source inspection only — no Docker, no sudo, no live wget required.
+@test "E69S06 AC3: wget invocation does not carry --trust-server-names flag" {
+    # Exclude comment lines; check that no wget invocation line contains --trust-server-names.
+    run bash -c "grep -v '^[[:space:]]*#' \"${BUILD_SCRIPT}\" | grep 'wget' | grep -q -- '--trust-server-names'"
+    # The above command exits 0 if --trust-server-names IS present on a wget line.
+    # We assert it is NOT present, so we expect non-zero (flag absent).
+    [ "$status" -ne 0 ]
+}

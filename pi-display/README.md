@@ -57,6 +57,13 @@ Before building an image you need a Linux host with:
   pre-flight check verifies the Python imports, not specific apt package names —
   distro-portable by design).
 
+> **Note — RaspiOS base image pin:** `build-image.sh` downloads
+> `2025-05-13-raspios-bookworm-armhf-lite` (the last Bookworm armhf-lite release
+> before the RaspiOS Bookworm→Trixie transition) because FullPageOS 0.14.0's
+> chroot scripts hardcode Bookworm-era package names (`chromium-browser`).
+> Tag-bump stories per E69S01 Brief D-9 will update this pin in lockstep with
+> FullPageOS tag bumps.
+
 **Run with sudo:** invoke the script as `sudo ./build-image.sh --server-url=…`
 The script does not auto-elevate internally — this preserves principle-of-least-privilege
 and the operator's audit visibility into elevation. If you run without sudo, the build
@@ -421,6 +428,14 @@ the FullPageOS chroot with a Python `ModuleNotFoundError` for a different module
 a new story per the E69S03 AC5 Escalation-Clause** — the new story follows the same Bug-Triage
 Flow (root cause established empirically before authoring acceptance criteria). Do not author inline
 fixes here.
+
+### Actual outcome — E69S06 post-fix re-attestation (fill in)
+
+(i) .img produced: ___________________________________________
+
+(ii) Error output: ___________________________________________
+
+(iii) mvn verify: BUILD SUCCESS (bats tests pass; full Docker build not run in CI).
 
 ### Escalation
 
