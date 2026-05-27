@@ -422,6 +422,135 @@ class ScoreFieldLayoutIT {
     }
 
     // =========================================================================
+    // AC1 (E65S07): relaxed poll interval — POLL_INTERVAL_MS must NOT be 5000
+    // =========================================================================
+
+    /**
+     * AC1 (E65S07): The between-match poll interval must be relaxed so the auto-advance latency
+     * bound is ≤60 s (AC1). The E65S05 value of 5000 ms (5 s) must no longer be used.
+     *
+     * <p>DEC-22 Iron Law: written RED-first against E65S06 implementation that still declares
+     * {@code POLL_INTERVAL_MS = 5000}. Fails until E65S07 changes the value.
+     */
+    @Test
+    @DisplayName(
+            "AC1 (E65S07 — relaxed interval): POLL_INTERVAL_MS is NOT 5000"
+                    + " (auto-advance latency relaxed to ≤60 s — E65S07)")
+    void fieldPage_pollIntervalIsNotFiveSeconds() throws Exception {
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/field/1"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as(
+                        "Rendered field page POLL_INTERVAL_MS must NOT be 5000"
+                                + " (AC1 E65S07: relaxed auto-advance latency ≤60 s"
+                                + " — the 5-second E65S05 value has been replaced)")
+                .doesNotContainPattern("POLL_INTERVAL_MS\\s*=\\s*5000");
+    }
+
+    // =========================================================================
+    // AC2 (E65S07): visibility guard — isPageHidden / document.hidden in script
+    // =========================================================================
+
+    /**
+     * AC2 (E65S07): While the field page is hidden (screen locked, tab backgrounded), no polling
+     * requests must be issued. The implementation must use the Page Visibility API ({@code
+     * document.hidden} / {@code document.webkitHidden} vendor-prefix fallback).
+     *
+     * <p>Test surface: rendered-HTML / inline-script source inspection. The runtime behaviour
+     * (polling actually pausing) is attested in the impl-report per AC7.
+     *
+     * <p>DEC-22 Iron Law: written RED-first against E65S06 implementation that has no visibility
+     * check. Fails until E65S07 adds the Page Visibility guard.
+     */
+    @Test
+    @DisplayName(
+            "AC2 (E65S07 — visibility guard): inline script references document.hidden or"
+                    + " webkitHidden for Page Visibility API (AC2: no polling when page hidden)")
+    void fieldPage_inlineScriptDeclaresVisibilityGuard() throws Exception {
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/field/1"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as(
+                        "Rendered field page inline script must reference 'document.hidden'"
+                                + " or 'webkitHidden' for Page Visibility API"
+                                + " (AC2 E65S07: polling paused when page hidden — DEC-19"
+                                + " feature-detection with vendor-prefix fallback)")
+                .containsAnyOf("document.hidden", "webkitHidden");
+    }
+
+    // =========================================================================
+    // AC3 (E65S07): idle-timeout — IDLE_TIMEOUT_MS constant in script
+    // =========================================================================
+
+    /**
+     * AC3 (E65S07): After an extended no-match / waiting state, the tablet stops polling and shows
+     * a clearly labelled tap-to-refresh control. The implementation uses a named {@code
+     * IDLE_TIMEOUT_MS} constant for the threshold.
+     *
+     * <p>DEC-22 Iron Law: written RED-first against E65S06 implementation that has no idle timeout.
+     * Fails until E65S07 adds the constant.
+     */
+    @Test
+    @DisplayName(
+            "AC3 (E65S07 — idle timeout constant): inline script declares IDLE_TIMEOUT_MS"
+                    + " constant (structural governance marker for idle-timeout mechanism)")
+    void fieldPage_inlineScriptDeclaresIdleTimeoutConstant() throws Exception {
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/field/1"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as(
+                        "Rendered field page inline script must declare IDLE_TIMEOUT_MS constant"
+                                + " (AC3 E65S07: idle-timeout threshold named constant required)")
+                .contains("IDLE_TIMEOUT_MS");
+    }
+
+    // =========================================================================
+    // AC3 (E65S07): tap-to-refresh button present in HTML
+    // =========================================================================
+
+    /**
+     * AC3 (E65S07): When the idle timeout fires, the tablet shows a clearly labelled "tap to
+     * refresh" control (AC3). The control must be present in the rendered HTML.
+     *
+     * <p>DEC-22 Iron Law: written RED-first against E65S06 template that has no tap-to-refresh
+     * button. Fails until E65S07 adds the element.
+     */
+    @Test
+    @DisplayName(
+            "AC3 (E65S07 — tap-to-refresh button): rendered field page contains"
+                    + " tap-to-refresh-btn element (idle-timeout manual resume control)")
+    void fieldPage_containsTapToRefreshButton() throws Exception {
+        ResponseEntity<String> response =
+                restTemplate.getForEntity(new URI(baseUrl + "/score/field/1"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        String body = response.getBody();
+
+        assertThat(body)
+                .as(
+                        "Rendered field page must contain tap-to-refresh-btn element"
+                                + " (AC3 E65S07: tap-to-refresh manual resume control)")
+                .contains("id=\"tap-to-refresh-btn\"");
+        assertThat(body)
+                .as(
+                        "Rendered field page must contain tap-to-refresh-panel wrapper element"
+                                + " (AC3 E65S07: panel hidden initially, shown on idle timeout)")
+                .contains("id=\"tap-to-refresh-panel\"");
+        // The tap-to-refresh label must not be an unresolved Mustache placeholder
+        assertThat(body)
+                .as(
+                        "Tap-to-refresh button must have a resolved i18n label (AC3 E65S07:"
+                                + " msgTapToRefresh must be resolved from messages.properties)")
+                .doesNotContain("{{msgTapToRefresh}}");
+    }
+
+    // =========================================================================
     // Test configuration
     // =========================================================================
 

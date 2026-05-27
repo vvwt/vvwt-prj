@@ -249,6 +249,9 @@ public class ScoreController {
         model.addAttribute("appVersion", appVersion);
         // AC1/AC8 (E61S03): swap control label
         model.addAttribute("msgSwapLabel", msg("score.field.swap.label", "Swap sides", locale));
+        // AC3 (E65S07): tap-to-refresh label (shown when idle-timeout fires)
+        model.addAttribute(
+                "msgTapToRefresh", msg("score.field.tap.to.refresh", "Tap to refresh", locale));
 
         return "score/field";
     }

@@ -162,7 +162,9 @@ class ScoreControllerSliceTest {
                     "versionLabel",
                     "appVersion",
                     // AC1/AC8 (E61S03): swap control label added
-                    "msgSwapLabel");
+                    "msgSwapLabel",
+                    // AC3 (E65S07): tap-to-refresh label added
+                    "msgTapToRefresh");
 
     @Test
     @DisplayName("AC-MODEL-ATTRIBUTE-PARITY: helloWorld model contains exactly the legacy key set")
