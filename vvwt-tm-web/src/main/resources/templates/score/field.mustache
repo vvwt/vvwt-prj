@@ -21,6 +21,8 @@
          * E65S06 — Layout refinements: bigger header team names; swap control at top;
          *          bigger footer text; parenthesised version; §13 link; bigger score inputs
          *          with spinner suppressed; symmetric three-zone header; aligned score boxes.
+         * E65S07 — Battery hardening: relaxed poll interval (30 s), Page Visibility API guard
+         *          (no polling when hidden), idle-timeout (30 min) with tap-to-refresh control.
          * iOS 9 Safari compatible: no flexbox/grid quirks, no CSS container queries.
          * DEC-19: scoring tablet surface; Mustache + ES5 only.
          */
@@ -116,6 +118,25 @@
             padding: 32px 16px;
             color: #666;
             font-size: 1em;
+        }
+        /*
+         * AC3 (E65S07): tap-to-refresh panel — hidden initially; shown when idle-timeout fires.
+         * The tap-to-refresh button has prominent styling so the operator can easily see and
+         * tap it to resume polling after an extended phase pause.
+         */
+        #tap-to-refresh-panel {
+            padding: 24px 16px;
+            text-align: center;
+        }
+        #tap-to-refresh-btn {
+            display: inline-block;
+            padding: 14px 28px;
+            font-size: 1em;
+            background: #2c2c5a;
+            color: #ccc;
+            border: 1px solid #555;
+            border-radius: 6px;
+            cursor: pointer;
         }
         /* AC2 (E65S06): swap control — horizontally centred, text-width only, above score area */
         #swap-btn {
@@ -359,6 +380,16 @@
              E49S03 M-C: inline style="display:none" for vvwtShow compatibility. -->
         <div id="no-match-panel" style="display:none">{{msgNoMatch}}</div>
 
+        <!--
+            AC3 (E65S07): tap-to-refresh panel — hidden initially; shown when idle-timeout fires
+            (IDLE_TIMEOUT_MS elapsed in no-match/waiting state). The operator taps this button
+            to resume polling after an extended phase pause. Initially hidden (display:none).
+            E49S03 M-C pattern: inline style="display:none" for vvwtShow compatibility.
+        -->
+        <div id="tap-to-refresh-panel" style="display:none">
+            <button id="tap-to-refresh-btn" type="button">{{msgTapToRefresh}}</button>
+        </div>
+
         <!-- AC5 (E61S01): match display + score entry panel.
              E49S03 M-C: inline style="display:none" for vvwtShow compatibility. -->
         <div id="match-panel" style="display:none">
@@ -456,6 +487,21 @@
                  as renderMatch() is entered so the tablet never continues polling while a
                  match is displayed. AC5: polling also continues on network errors so once
                  connectivity returns the next interval fires and loads the correct match.
+        E65S07 — Battery hardening (AC1–AC8):
+                 AC1: POLL_INTERVAL_MS relaxed from 5000 ms to 30000 ms (30 s). Auto-advance
+                      latency bound ≤60 s still met (at most one 30 s interval before advancing).
+                 AC2: Page Visibility API guard — isPageHidden() checks document.hidden /
+                      document.webkitHidden (vendor-prefix for iOS 9 Safari). visibilitychange
+                      (+webkitvisibilitychange fallback) event: hidden → stopPolling +
+                      stopIdleTimeout; visible → resume polling + idle timer if not in idle state.
+                 AC3: Idle-timeout — IDLE_TIMEOUT_MS = 1800000 ms (30 min). After this long in
+                      the no-match/waiting state, stopPolling() fires, tap-to-refresh panel shown.
+                      Tapping calls loadMatch() directly; if a match is now available it is shown;
+                      otherwise waiting state re-entered (polling + idle timer restart).
+                 AC4: idleTimeoutFired flag guards startPolling() — auto-advance via polling remains
+                      primary path; AC3 manual tap is the recovery surface AFTER idle fires.
+                 AC5: Network errors do not set idleTimeoutFired — polling continues (same as E65S05).
+                 AC6: ES5 only. Feature detection for Page Visibility API with vendor-prefix fallback.
         E65S06 — Layout refinements (AC1–AC12):
                  AC1: header team names larger (CSS only).
                  AC2: swap control moved to top of page (HTML structure change; #swap-btn
@@ -484,6 +530,8 @@
        E61S03 — Team-position swap added (AC1–AC10).
        E65S05 — Auto-advance polling added (AC1–AC8).
        E65S06 — Layout refinements: applySwap() updated for three-zone header (AC7).
+       E65S07 — Battery hardening: relaxed poll interval (30 s), Page Visibility API guard,
+                idle-timeout (30 min) with tap-to-refresh manual resume control.
        DEC-19 constraint: ECMAScript 5 only.
        Relies on helpers from /score/assets/vvwt-tablet.js (must load first):
          vvwtFetch, vvwtSetText, vvwtShow, vvwtHide, vvwtQuery
@@ -537,30 +585,76 @@
     var scoreQueue           = [];
 
     /*
-     * AC2, AC3 (E65S05): Auto-advance polling state.
-     * POLL_INTERVAL_MS — how often to re-query the match API while in the no-match/waiting state.
-     * pollIntervalId   — handle returned by window.setInterval; null when polling is not active.
-     * Polling starts when the field page finds no active match (204 / null data or connectivity
-     * restored after error). Polling stops as soon as renderMatch() is called with a real match.
-     * DEC-19: window.setInterval and window.clearInterval are ES3/ES5 standard (iOS 9 safe).
+     * AC1, AC2, AC3 (E65S07): Battery-aware polling state.
+     *
+     * POLL_INTERVAL_MS — relaxed from 5000 ms (E65S05) to 30000 ms (30 s).
+     *   AC1: auto-advance latency bound ≤60 s is still met (at most one 30 s interval).
+     *   This alone reduces the poll frequency 6× vs E65S05.
+     *
+     * IDLE_TIMEOUT_MS — after this long in the no-match/waiting state without a match appearing,
+     *   polling stops and the tap-to-refresh panel is shown (AC3). 1800000 ms = 30 min.
+     *   Long enough that normal between-round waits (typically < 15 min) never trigger it.
+     *   Designed for phase pauses of an hour or more.
+     *
+     * pollIntervalId  — handle returned by window.setInterval; null when polling is not active.
+     * idleTimeoutId   — handle returned by window.setTimeout for the idle timeout; null when not armed.
+     * idleTimeoutFired — true once the idle timeout fires; guards startPolling() so polling does
+     *   not restart automatically while the tablet is in the manual-resume state (AC4).
+     *
+     * DEC-19: window.setInterval, window.clearInterval, window.setTimeout, window.clearTimeout
+     *   are ES3/ES5 standard (iOS 9 safe).
      */
-    var POLL_INTERVAL_MS = 5000;
-    var pollIntervalId   = null;
+    var POLL_INTERVAL_MS  = 30000;
+    var IDLE_TIMEOUT_MS   = 1800000;
+    var pollIntervalId    = null;
+    var idleTimeoutId     = null;
+    var idleTimeoutFired  = false;
 
     /* -------------------------------------------------------------------------
-       AC2, AC3 (E65S05): Polling helpers — auto-advance to next-round match.
-       startPolling() — starts the interval if not already running (idempotent).
-       stopPolling()  — clears the interval if running (idempotent).
-       Called from loadMatch() and renderMatch() to manage the polling lifecycle.
+       AC2, AC3 (E65S05/E65S07): Polling and idle-timeout helpers.
+       startPolling()      — starts interval if not already running and page is visible (idempotent).
+       stopPolling()       — clears interval (idempotent). Does NOT stop idle timer.
+       startIdleTimeout()  — arms idle timeout if not already armed.
+       stopIdleTimeout()   — cancels idle timeout if running (idempotent).
+       isPageHidden()      — AC2 (E65S07): Page Visibility API with vendor-prefix fallback (iOS 9).
        DEC-19: var + named functions only; no arrow functions, class, or template literals.
+       Feature detection for document.hidden / document.webkitHidden per DEC-19 (AC6 E65S07).
        --------------------------------------------------------------------- */
 
     /*
-     * Start the no-match polling interval. Idempotent: a second call while the
-     * interval is already running is a no-op (the existing pollIntervalId guard
-     * prevents duplicate setInterval calls).
+     * AC2 (E65S07): Returns true if the document is hidden (screen locked, tab backgrounded,
+     * browser minimized). Uses the Page Visibility API with vendor-prefix fallback for iOS 9 Safari
+     * (webkitHidden). If neither property exists (very old browser without Page Visibility support),
+     * returns false so polling runs unconditionally — safe conservative fallback.
+     * DEC-19: feature detection via 'in' operator (ES5 safe).
+     */
+    function isPageHidden() {
+        if ('hidden' in document) {
+            return document.hidden;
+        }
+        if ('webkitHidden' in document) {
+            return document.webkitHidden;
+        }
+        /* Page Visibility API not available — assume visible (safe fallback) */
+        return false;
+    }
+
+    /*
+     * AC2, AC3 (E65S05/E65S07): Start the no-match polling interval.
+     * Idempotent: a second call while polling is already running is a no-op.
+     * AC4 (E65S07): Guards on idleTimeoutFired — if the idle timeout has already fired,
+     * polling must NOT restart automatically; the operator must tap the tap-to-refresh button.
+     * AC2 (E65S07): Also guards on isPageHidden() — no polling while page is hidden.
      */
     function startPolling() {
+        if (idleTimeoutFired) {
+            /* Idle timeout has fired — operator must tap tap-to-refresh to resume (AC3/AC4) */
+            return;
+        }
+        if (isPageHidden()) {
+            /* Page is hidden — polling paused until page becomes visible again (AC2) */
+            return;
+        }
         if (!pollIntervalId) {
             pollIntervalId = window.setInterval(function () {
                 loadMatch();
@@ -569,13 +663,44 @@
     }
 
     /*
-     * Stop the no-match polling interval. Idempotent: safe to call even when
-     * polling is not active (pollIntervalId null check prevents double-clear).
+     * Stop the no-match polling interval. Idempotent: safe to call even when polling
+     * is not active. Does NOT stop the idle timeout (stopIdleTimeout() is separate).
      */
     function stopPolling() {
         if (pollIntervalId) {
             window.clearInterval(pollIntervalId);
             pollIntervalId = null;
+        }
+    }
+
+    /*
+     * AC3 (E65S07): Arm the idle timeout. Idempotent — if already armed, does nothing
+     * (prevents double-arming). After IDLE_TIMEOUT_MS ms in the no-match/waiting state,
+     * polling stops and the tap-to-refresh panel is shown.
+     */
+    function startIdleTimeout() {
+        if (idleTimeoutId) {
+            /* Already armed — do not reset the running timer */
+            return;
+        }
+        idleTimeoutId = window.setTimeout(function () {
+            idleTimeoutId = null;
+            idleTimeoutFired = true;
+            stopPolling();
+            /* Hide the no-match panel; show tap-to-refresh panel */
+            vvwtHide(elNoMatchPanel);
+            if (elTapToRefreshPanel) { vvwtShow(elTapToRefreshPanel); }
+        }, IDLE_TIMEOUT_MS);
+    }
+
+    /*
+     * AC3 (E65S07): Cancel the idle timeout if it is running. Idempotent.
+     * Called when a match is found (renderMatch) or when the page goes hidden.
+     */
+    function stopIdleTimeout() {
+        if (idleTimeoutId) {
+            window.clearTimeout(idleTimeoutId);
+            idleTimeoutId = null;
         }
     }
 
@@ -674,7 +799,12 @@
     var elConfirmYesBtn  = vvwtQuery('#confirm-yes-btn');
     var elConfirmNoBtn   = vvwtQuery('#confirm-no-btn');
     /* AC2 (E65S06): swap control is now above #match-panel, outside the match section */
-    var elSwapBtn        = vvwtQuery('#swap-btn');
+    var elSwapBtn              = vvwtQuery('#swap-btn');
+    /*
+     * AC3 (E65S07): tap-to-refresh panel and button — hidden initially; shown when idle timeout fires.
+     */
+    var elTapToRefreshPanel    = vvwtQuery('#tap-to-refresh-panel');
+    var elTapToRefreshBtn      = vvwtQuery('#tap-to-refresh-btn');
 
     /* -------------------------------------------------------------------------
        Token storage helpers (same pattern as register.mustache)
@@ -830,6 +960,66 @@
             saveSwapOffset(1 - current);
             applySwap(currentSetIndex, currentIsTiebreak, currentTeam1Points, currentTeam2Points);
         };
+    }
+
+    /* -------------------------------------------------------------------------
+       AC3 (E65S07): Tap-to-refresh button handler.
+       When the operator taps the button after idle-timeout has fired:
+       - Reset idleTimeoutFired flag so startPolling() is allowed again.
+       - Hide tap-to-refresh panel; show no-match panel (loading state restored).
+       - Call loadMatch() directly: if a match is now available it is shown;
+         otherwise the no-match/waiting state is re-entered and polling + idle timer restart.
+       DEC-19: ES5 named event handler assignment.
+       --------------------------------------------------------------------- */
+
+    if (elTapToRefreshBtn) {
+        elTapToRefreshBtn.onclick = function () {
+            idleTimeoutFired = false;
+            if (elTapToRefreshPanel) { vvwtHide(elTapToRefreshPanel); }
+            vvwtShow(elNoMatchPanel);
+            loadMatch();
+        };
+    }
+
+    /* -------------------------------------------------------------------------
+       AC2 (E65S07): Page Visibility API — pause polling when hidden, resume when visible.
+       Registers both 'visibilitychange' and 'webkitvisibilitychange' for iOS 9 Safari.
+       DEC-19: document.addEventListener is ES5/DOM2 (iOS 9 Safari compatible).
+       --------------------------------------------------------------------- */
+
+    function onVisibilityChange() {
+        if (isPageHidden()) {
+            /*
+             * Page is hidden: stop polling and idle timer to save battery.
+             * When the page becomes visible again we will decide whether to resume
+             * based on the idleTimeoutFired state.
+             */
+            stopPolling();
+            stopIdleTimeout();
+        } else {
+            /*
+             * Page has become visible.
+             * If a match is currently displayed (currentMatchId non-null), polling is not
+             * active anyway — nothing to resume.
+             * If we are in the manual-resume state (idleTimeoutFired), show tap-to-refresh
+             * panel and wait for operator tap — do NOT auto-restart polling.
+             * Otherwise resume polling and re-arm idle timer.
+             */
+            if (currentMatchId === null && !idleTimeoutFired) {
+                startPolling();
+                startIdleTimeout();
+            } else if (currentMatchId === null && idleTimeoutFired) {
+                /* Make sure tap-to-refresh panel is visible */
+                vvwtHide(elNoMatchPanel);
+                if (elTapToRefreshPanel) { vvwtShow(elTapToRefreshPanel); }
+            }
+        }
+    }
+
+    /* Register for standard + vendor-prefix visibility events (DEC-19 iOS 9 fallback) */
+    if (document.addEventListener) {
+        document.addEventListener('visibilitychange', onVisibilityChange, false);
+        document.addEventListener('webkitvisibilitychange', onVisibilityChange, false);
     }
 
     /*
@@ -1021,11 +1211,17 @@
                     /*
                      * AC3 (E65S05): No active match on this field — enter waiting/idle state
                      * and start polling so the tablet advances automatically when the phase
-                     * advances to the next round. startPolling() is idempotent.
+                     * advances to the next round.
+                     * AC4 (E65S07): startPolling() guards on idleTimeoutFired — if idle timeout
+                     * has already fired, polling will not restart; operator must tap to resume.
                      */
                     currentMatchId = null;
-                    vvwtShow(elNoMatchPanel);
-                    startPolling();
+                    if (!idleTimeoutFired) {
+                        vvwtShow(elNoMatchPanel);
+                        startPolling();
+                        startIdleTimeout();
+                    }
+                    /* If idleTimeoutFired, tap-to-refresh panel is already shown — no change. */
                     return;
                 }
                 renderMatch(data);
@@ -1038,20 +1234,27 @@
                 } else if (err && err.indexOf('204') !== -1) {
                     /*
                      * AC3 (E65S05): 204 No Content = no match for this field — waiting state.
-                     * Start polling; the next interval will detect when a match appears.
+                     * AC4 (E65S07): guard on idleTimeoutFired before starting polling.
                      */
                     currentMatchId = null;
                     vvwtSetText(elStatusMsg, '');
-                    vvwtShow(elNoMatchPanel);
-                    startPolling();
+                    if (!idleTimeoutFired) {
+                        vvwtShow(elNoMatchPanel);
+                        startPolling();
+                        startIdleTimeout();
+                    }
                 } else {
                     /*
-                     * AC5 (E65S05): Network error — start polling so once connectivity returns
-                     * the round-tracking mechanism fires and shows the correct current match.
+                     * AC5 (E65S05/E65S07): Network error — start polling so once connectivity
+                     * returns the round-tracking mechanism fires and shows the correct match.
                      * Error banner remains visible; poll fires silently in the background.
+                     * AC5 (E65S07): Network errors do not set idleTimeoutFired — the idle timer
+                     * continues running independently. Polling resumes once connectivity returns.
                      */
                     showError(MSG_ERROR_NET);
-                    startPolling();
+                    if (!idleTimeoutFired) {
+                        startPolling();
+                    }
                 }
             }
         );
@@ -1059,10 +1262,15 @@
 
     function renderMatch(data) {
         /*
-         * AC2 (E65S05): A match was found — stop polling. The tablet is now displaying
-         * the correct next-round match without a manual reload. stopPolling() is idempotent.
+         * AC2 (E65S05): A match was found — stop polling.
+         * AC3 (E65S07): Also stop idle timeout and reset idleTimeoutFired so a subsequent
+         * no-match entry will start a fresh idle-timeout cycle.
+         * Hide tap-to-refresh panel in case it was showing (AC3 E65S07).
          */
         stopPolling();
+        stopIdleTimeout();
+        idleTimeoutFired = false;
+        if (elTapToRefreshPanel) { vvwtHide(elTapToRefreshPanel); }
 
         currentMatchId      = data.matchId  || null;
         currentSetIndex     = data.setIndex || 0;
