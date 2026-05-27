@@ -284,7 +284,7 @@ git clone \
     "${WORK_DIR}/CustomPiOS"
 
 echo "INFO: Running update-custompios-paths to set up CustomPiOS symlinks..."
-"${WORK_DIR}/CustomPiOS/src/update-custompios-paths" "${WORK_DIR}/FullPageOS"
+"${WORK_DIR}/CustomPiOS/src/update-custompios-paths" "${WORK_DIR}/FullPageOS/src"
 
 # E69S03 RCA #5: Download Raspbian base image (required by FullPageOS build_dist).
 # FullPageOS BASE_IMAGE_PATH=${DIST_PATH}/image; build_dist expects a Raspbian zip there.

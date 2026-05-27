@@ -271,3 +271,24 @@ FIXTURE_DIR="$(dirname "$BATS_TEST_FILENAME")/fixtures/fullpageos-src"
     run bash -c "grep -n 'git clone' '${BUILD_SCRIPT}' | grep 'sudo'"
     [ "$status" -ne 0 ]
 }
+
+# ─── E69S04 AC2: static source-grep — update-custompios-paths arg has FullPageOS/src suffix ──
+# Verifies build-image.sh passes WORK_DIR/FullPageOS/src (not WORK_DIR/FullPageOS) to
+# update-custompios-paths, so build_dist reads custompios_path from the correct directory.
+#
+# RED state (pre-story, E69S03-delivered script at HEAD f3549557):
+#   Line 287: "${WORK_DIR}/CustomPiOS/src/update-custompios-paths" "${WORK_DIR}/FullPageOS"
+#   → grep for FullPageOS/src suffix FAILS (no match).
+# GREEN state (after E69S04 fix):
+#   Line 287: "${WORK_DIR}/CustomPiOS/src/update-custompios-paths" "${WORK_DIR}/FullPageOS/src"
+#   → grep PASSES (suffix present).
+#
+# Static source inspection only — no Docker, no sudo, no live git clone required.
+@test "E69S04 AC2: update-custompios-paths invocation passes FullPageOS/src suffix as argument" {
+    # Match the update-custompios-paths line with the corrected FullPageOS/src argument.
+    # The regex verifies the invocation line carries FullPageOS/src (not plain FullPageOS)
+    # as the positional argument, matching the upstream canonical invocation contract.
+    # Static source inspection only — no Docker, no sudo, no live git clone required.
+    run grep -qE 'update-custompios-paths.*FullPageOS/src' "${BUILD_SCRIPT}"
+    [ "$status" -eq 0 ]
+}
