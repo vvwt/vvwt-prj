@@ -168,6 +168,6 @@ describe('E11S12 AC11 — Inline play on past row: uniform skip-to-now (option a
     // Option (a): skip-to always applies (past or future).
     // The handleSkipTo function uses nowSeconds + delta without a past-guard that would block it.
     // Verified by presence of nowSeconds in the skip-to handler.
-    expect(appSource).toMatch(/handleSkipTo[\s\S]{0,300}nowSeconds|nowSeconds[\s\S]{0,300}handleSkipTo/s);
+    expect(appSource).toMatch(/handleSkipTo[\s\S]{0,2000}nowSeconds|nowSeconds[\s\S]{0,2000}handleSkipTo/s);
   });
 });

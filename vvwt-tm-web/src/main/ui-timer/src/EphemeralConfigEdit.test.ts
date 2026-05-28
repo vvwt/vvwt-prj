@@ -90,21 +90,21 @@ describe('E11S12 AC6 — Intra-phase break inline-edit (ADDITIONAL BREAK rows)',
 // ── AC7: Edits are ephemeral (no saveDraft call) ──────────────────────────────
 
 describe('E11S12 AC7 — Inline edits are ephemeral: no saveDraft call', () => {
-  it('NEGATIVE: App.svelte does not call saveDraft in the inline-edit handler paths', () => {
-    // The phase-config update handler and break update handler must not call saveDraft.
-    expect(appSource).not.toMatch(/saveDraft/);
+  it('NEGATIVE: App.svelte does not invoke saveDraft() in the inline-edit handler paths', () => {
+    // Match only actual method invocations saveDraft( — not comments mentioning it.
+    expect(appSource).not.toMatch(/saveDraft\s*\(/);
   });
 
-  it('NEGATIVE: PhaseConfigRow.svelte does not call saveDraft', () => {
-    expect(phaseConfigSource).not.toMatch(/saveDraft/);
+  it('NEGATIVE: PhaseConfigRow.svelte does not invoke saveDraft()', () => {
+    expect(phaseConfigSource).not.toMatch(/saveDraft\s*\(/);
   });
 
-  it('NEGATIVE: ScheduleRow.svelte does not call saveDraft', () => {
-    expect(rowSource).not.toMatch(/saveDraft/);
+  it('NEGATIVE: ScheduleRow.svelte does not invoke saveDraft()', () => {
+    expect(rowSource).not.toMatch(/saveDraft\s*\(/);
   });
 
-  it('NEGATIVE: timelineRecompute.ts does not call saveDraft', () => {
-    expect(timelineSource).not.toMatch(/saveDraft/);
+  it('NEGATIVE: timelineRecompute.ts does not invoke saveDraft()', () => {
+    expect(timelineSource).not.toMatch(/saveDraft\s*\(/);
   });
 });
 

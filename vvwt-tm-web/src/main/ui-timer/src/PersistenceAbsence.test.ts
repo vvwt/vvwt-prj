@@ -17,13 +17,15 @@ const sources: Record<string, string> = {
 
 describe('E11S12 AC13 — Persistence-absence: no saveDraft or backend write in inline-edit path', () => {
   for (const [filename, source] of Object.entries(sources)) {
-    it(`NEGATIVE: ${filename} does not call saveDraft`, () => {
-      expect(source).not.toMatch(/saveDraft/);
+    it(`NEGATIVE: ${filename} does not invoke saveDraft()`, () => {
+      // Match only actual method invocations saveDraft( — not comments mentioning it.
+      expect(source).not.toMatch(/saveDraft\s*\(/);
     });
 
-    it(`NEGATIVE: ${filename} does not call DraftService`, () => {
-      // No reference to DraftService (Java class) — ephemeral FE-only logic.
-      expect(source).not.toMatch(/DraftService/);
+    it(`NEGATIVE: ${filename} does not invoke DraftService methods`, () => {
+      // No method invocation on DraftService — ephemeral FE-only logic.
+      // Matches .saveDraft( or DraftService.saveDraft( etc. but not algorithm-origin comments.
+      expect(source).not.toMatch(/DraftService\s*\.\s*\w+\s*\(/);
     });
 
     it(`NEGATIVE: ${filename} does not POST to draft or schedule write endpoints`, () => {
