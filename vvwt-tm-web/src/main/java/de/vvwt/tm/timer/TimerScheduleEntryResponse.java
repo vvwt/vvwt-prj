@@ -49,10 +49,20 @@ public class TimerScheduleEntryResponse {
 
     // ── Shared time fields ────────────────────────────────────────────────────
 
-    /** Wall-clock start time in {@code "HH:mm"} format. {@code null} if no start time set. */
+    /**
+     * Operator-planned venue wall-clock ("Hallenuhr") start time in {@code "HH:mm"} format; {@code
+     * null} if no start time is set. This value is NOT a device-clock value — it is produced
+     * directly from {@code tournament.getPlannedStartTime()} in the venue domain. Timer SPA
+     * consumers must compare it against the venue-adjusted "now" (device + offset), not against the
+     * raw device clock. See E11S09 AC1/AC2/AC5 and {@code DefaultTimerDataService.java:202}.
+     */
     private String startTime;
 
-    /** Wall-clock end time in {@code "HH:mm"} format. {@code null} if no start time set. */
+    /**
+     * Operator-planned venue wall-clock ("Hallenuhr") end time in {@code "HH:mm"} format; {@code
+     * null} if no start time is set. Same domain as {@link #startTime} — this is a venue wall-clock
+     * value, not a device-clock value. See E11S09 AC5.
+     */
     private String endTime;
 
     /** Default constructor for Jackson. */

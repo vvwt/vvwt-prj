@@ -55,11 +55,14 @@ describe('resolveEffectiveTime', () => {
     expect(result).toBe(T_09_30);
   });
 
-  it('returns server time + clock offset when no override', () => {
+  it('returns raw server venue-clock time without applying clock offset (AC1, AC2, AC12)', () => {
+    // schedule startTime is already in Hallenuhr (venue) domain; no offset shift needed.
+    // E11S09 math fix: resolveEffectiveTime must return parseTimeToSeconds(entry.startTime)
+    // directly — clockOffsetSeconds is consumed only by nowSeconds(), not by the schedule side.
     const overrides = new Map<number, number>();
-    // 09:00 with +600s offset → 09:10 = 33000s
+    // 09:00 in venue domain = 32400s regardless of device offset
     const result = resolveEffectiveTime(ROUND_ENTRY, 0, overrides, 600);
-    expect(result).toBe(9 * 3600 + 10 * 60); // 09:10
+    expect(result).toBe(9 * 3600); // 09:00 = 32400s (NOT 09:10 = 33000s — old inverted model)
   });
 
   it('returns null when no server time and no override', () => {

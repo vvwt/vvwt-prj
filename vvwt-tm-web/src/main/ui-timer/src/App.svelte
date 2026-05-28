@@ -45,6 +45,7 @@
     InvalidTimerUrlError,
     NoActiveTournamentError,
     NoScheduleConfiguredError,
+    formatTimeSeconds,
     type TimerData,
   } from './lib/timerApi.js';
   import { TimerWsClient } from './lib/timerWs.js';
@@ -97,6 +98,24 @@
   // ── E11S04: Countdown tick interval ───────────────────────────────────────
   let tickInterval: ReturnType<typeof setInterval> | null = null;
 
+  // ── E11S09: Hallenuhr-now display (AC7) ────────────────────────────────────
+  /** Current Hallenuhr (venue) time as "HH:MM", refreshed at 1 Hz. */
+  let hallenuhrzeitNow = $state('--:--');
+  /** Interval handle for Hallenuhr-now refresh (1 Hz). */
+  let hallenuhrzeitInterval: ReturnType<typeof setInterval> | null = null;
+
+  /**
+   * Computes and stores the current Hallenuhr-clock time (device + offset).
+   * Called on mount and every second by hallenuhrzeitInterval.
+   */
+  function updateHallenuhrzeitNow(): void {
+    const d = new Date();
+    const deviceSecs =
+      d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds();
+    const venueSecs = ((deviceSecs + clockOffsetSeconds) % 86400 + 86400) % 86400;
+    hallenuhrzeitNow = formatTimeSeconds(venueSecs);
+  }
+
   let tournamentId: string | null = null;
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -107,6 +126,10 @@
       errorType = 'invalid-url';
       appState = 'error';
     }
+    // AC7/E11S09: start Hallenuhr-now refresh at 1 Hz immediately on mount,
+    // visible across all transport states including before clock sync completes.
+    updateHallenuhrzeitNow();
+    hallenuhrzeitInterval = setInterval(updateHallenuhrzeitNow, 1000);
   });
 
   onDestroy(() => {
@@ -117,12 +140,19 @@
       wsClient.disconnect();
       wsClient = null;
     }
+    // AC7/E11S09: stop Hallenuhr-now refresh
+    if (hallenuhrzeitInterval !== null) {
+      clearInterval(hallenuhrzeitInterval);
+      hallenuhrzeitInterval = null;
+    }
   });
 
   // ── Clock sync handler (AC2/E11S03) ───────────────────────────────────────
 
   async function handleClockSyncConfirm(offset: number): Promise<void> {
     clockOffsetSeconds = offset;
+    // AC7/E11S09: refresh Hallenuhr-now immediately when offset is confirmed
+    updateHallenuhrzeitNow();
     appState = 'loading';
     await loadTimerData();
   }
@@ -375,6 +405,23 @@
     if (snapshot.doneIndices.has(i)) return 'done';
     return 'upcoming';
   }
+
+  // ── AC8/E11S09: Next-upcoming index ────────────────────────────────────────
+
+  /**
+   * Returns the index of the earliest future schedule entry (the "next" event),
+   * or -1 if none. Used to pass isNext=true to the corresponding ScheduleRow.
+   *
+   * The next event is the one with the lowest future effective time — which
+   * corresponds to snapshot.activeEventIndex when no event is currently playing
+   * (playingIndex === -1) OR to the entry after the currently playing one.
+   * In both cases, snapshot.activeEventIndex already points to the correct entry.
+   */
+  function getNextUpcomingIndex(): number {
+    if (!snapshot || snapshot.activeEventIndex === -1) return -1;
+    // activeEventIndex = the index of the next-to-fire event (the "next" row)
+    return snapshot.activeEventIndex;
+  }
 </script>
 
 <!-- E44S02 AC5: VVW brand lockup — header strip with speaking alt per Brief Q-4 -->
@@ -473,6 +520,12 @@
       </div>
     {/if}
 
+    <!-- AC7/E11S09: Permanently visible Hallenuhr-now reading (venue clock = device + Δ) -->
+    <div class="timer-app__hallenuhrzeit-bar">
+      <span class="timer-app__hallenuhrzeit-label">{$_('timer.hallenuhrzeitNow.label')}</span>
+      <span class="timer-app__hallenuhrzeit-value">{hallenuhrzeitNow}</span>
+    </div>
+
     <!-- E11S04: AC2 (Countdown) + AC6 (Round counter) + AC5 (Transport controls) -->
     <div class="timer-app__controls-bar">
       <!-- AC6: Round counter -->
@@ -503,7 +556,7 @@
         <thead>
           <tr>
             <th class="timer-app__col-label">{$_('timer.schedule.roundLabel')}</th>
-            <th class="timer-app__col-time">{$_('timer.clockSync.prompt')}</th>
+            <th class="timer-app__col-time">{$_('timer.schedule.hallenuhrzeitHeader')}</th>
             <th class="timer-app__col-status">Status</th>
           </tr>
         </thead>
@@ -517,6 +570,7 @@
               overrideTimeSeconds={timeOverrides.get(i) ?? null}
               onTimeEdit={handleTimeEdit}
               status={getEntryStatus(i)}
+              isNext={i === getNextUpcomingIndex()}
             />
           {/each}
         </tbody>
@@ -666,6 +720,31 @@
     font-size: 0.85rem;
     flex-shrink: 0;
     text-align: center;
+  }
+
+  /* ── Hallenuhr-now bar (AC7/E11S09) ─────────────────────────────────────── */
+
+  .timer-app__hallenuhrzeit-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.4rem;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e0e0e0;
+    padding: 0.25rem 1rem;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+  }
+
+  .timer-app__hallenuhrzeit-label {
+    color: #666;
+  }
+
+  .timer-app__hallenuhrzeit-value {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: #2c3e50;
+    letter-spacing: 0.03em;
   }
 
   /* ── Controls bar (AC2, AC5, AC6 / E11S04) ─────────────────────────────── */
