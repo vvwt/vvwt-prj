@@ -381,3 +381,55 @@ FIXTURE_DIR="$(dirname "$BATS_TEST_FILENAME")/fixtures/fullpageos-src"
     # We assert it is NOT present, so we expect non-zero (flag absent).
     [ "$status" -ne 0 ]
 }
+
+# ─── E69S07 AC2: static source-grep — full E69S01-AC3-symmetric CustomPiOS tag-pin pattern ───
+# Verifies build-image.sh contains all six anchors of the full symmetric pin pattern:
+# (a) PINNED_CUSTOMPIOS_TAG constant declaration
+# (b) CUSTOMPIOS_TAG mutable variable initialised to pinned tag
+# (c) --custompios-tag=TAG CLI flag parsing arm
+# (d) --override-customos-tag-confirmation flag parsing arm
+# (e) runtime validation block refusing CUSTOMPIOS_TAG != PINNED_CUSTOMPIOS_TAG without override
+# (f) --branch "${CUSTOMPIOS_TAG}" in git clone for CustomPiOS
+#
+# Each assertion is RED against the pre-story script (which has none of these tokens)
+# and GREEN after the fix. Static source inspection only — no live git clone, no Docker.
+#
+# RED state (pre-story, post-E69S06 HEAD):
+#   CustomPiOS clone: git clone --depth 1 "${CUSTOMPIOS_REPO}" "${WORK_DIR}/CustomPiOS"
+#   No PINNED_CUSTOMPIOS_TAG constant, no CUSTOMPIOS_TAG variable, no --custompios-tag flag.
+# GREEN state (after E69S07 fix):
+#   All six anchors present on executable lines (not comment-only lines).
+
+@test "E69S07 AC2(a): build-image.sh declares PINNED_CUSTOMPIOS_TAG constant set to '1.5.0'" {
+    # Match the readonly/= declaration line (not a comment).
+    run bash -c "grep -v '^[[:space:]]*#' \"${BUILD_SCRIPT}\" | grep -qE 'PINNED_CUSTOMPIOS_TAG[[:space:]]*=.*1\.5\.0'"
+    [ "$status" -eq 0 ]
+}
+
+@test "E69S07 AC2(b): build-image.sh declares CUSTOMPIOS_TAG mutable variable initialised to PINNED_CUSTOMPIOS_TAG" {
+    # Match the mutable variable initialisation (not a comment line).
+    run bash -c "grep -v '^[[:space:]]*#' \"${BUILD_SCRIPT}\" | grep -qE 'CUSTOMPIOS_TAG=.*PINNED_CUSTOMPIOS_TAG'"
+    [ "$status" -eq 0 ]
+}
+
+@test "E69S07 AC2(c): build-image.sh argument-parsing block contains --custompios-tag= arm" {
+    run bash -c "grep -v '^[[:space:]]*#' \"${BUILD_SCRIPT}\" | grep -q -- '--custompios-tag='"
+    [ "$status" -eq 0 ]
+}
+
+@test "E69S07 AC2(d): build-image.sh argument-parsing block contains --override-customos-tag-confirmation arm" {
+    run bash -c "grep -v '^[[:space:]]*#' \"${BUILD_SCRIPT}\" | grep -q -- '--override-customos-tag-confirmation'"
+    [ "$status" -eq 0 ]
+}
+
+@test "E69S07 AC2(e): build-image.sh contains runtime validation block referencing CUSTOMPIOS_TAG and PINNED_CUSTOMPIOS_TAG" {
+    # The validation block must reference both variables in a condition (not just a comment).
+    run bash -c "grep -v '^[[:space:]]*#' \"${BUILD_SCRIPT}\" | grep -q 'CUSTOMPIOS_TAG.*PINNED_CUSTOMPIOS_TAG\|PINNED_CUSTOMPIOS_TAG.*CUSTOMPIOS_TAG'"
+    [ "$status" -eq 0 ]
+}
+
+@test "E69S07 AC2(f): CustomPiOS git clone uses --branch with CUSTOMPIOS_TAG" {
+    # The git clone command for CustomPiOS must include --branch and CUSTOMPIOS_TAG.
+    run bash -c "grep -v '^[[:space:]]*#' \"${BUILD_SCRIPT}\" | grep -q -- '--branch.*CUSTOMPIOS_TAG\|CUSTOMPIOS_TAG.*--branch'"
+    [ "$status" -eq 0 ]
+}

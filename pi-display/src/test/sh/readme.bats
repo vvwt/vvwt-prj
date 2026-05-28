@@ -82,3 +82,21 @@ README="${BATS_TEST_FILENAME%/src/test/sh/*}/README.md"
     run grep -q 'nano /etc/systemd' "${README}"
     [ "$status" -ne 0 ]
 }
+
+# ─── E69S07 AC3: readme.bats content-anchor for CustomPiOS 1.5.0 pin Note ────
+# Verifies README.md contains a triple-anchored token set for the CustomPiOS pin Note:
+# (i) 'CustomPiOS' AND '1.5.0' AND 'libconfig9' — each required in the README.
+#
+# Per AC3 spec: assertion fails RED against pre-story README (no CustomPiOS pin Note);
+# passes GREEN after the fix. Routes to readme.bats per E69S06 AC6 routing precedent.
+# Static content inspection only.
+
+@test "E69S07 AC3(i): README.md contains CustomPiOS pin Note anchor — 'CustomPiOS' present with '1.5.0'" {
+    run bash -c "grep -q 'CustomPiOS' \"${README}\" && grep -q '1\.5\.0' \"${README}\""
+    [ "$status" -eq 0 ]
+}
+
+@test "E69S07 AC3(ii): README.md contains CustomPiOS pin Note anchor — 'libconfig9' present" {
+    run grep -q 'libconfig9' "${README}"
+    [ "$status" -eq 0 ]
+}
