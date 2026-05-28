@@ -144,3 +144,47 @@ describe('E11S11 AC8 — Auto-scroll does not interfere with operator manual scr
     expect(source).toMatch(/getBoundingClientRect|IntersectionObserver/);
   });
 });
+
+// ── AC15/E11S13: Schedule column-width regression fix ────────────────────────
+
+/**
+ * AC15/E11S13 — Fresh Q-1a RED-first test for column-width regression.
+ *
+ * Story-author-time fresh-audit: no prior TDD-authored test asserts schedule-container
+ * width or column-alignment (LayoutConsolidation.test.ts E11S11 tests cover overflow-y:auto,
+ * sticky positioning, and grid layout — not container width). Per AC15, a fresh Q-1a
+ * RED-first source-inspection test is required.
+ *
+ * RED attestation: on pre-fix code (E11S12 era) the .timer-app__schedule-container rule
+ * does NOT contain `width: 100%` → the test below fails (assert fails on absent property).
+ * GREEN attestation: after adding `width: 100%` in E11S13, the test passes.
+ */
+describe('E11S13 AC15 — Schedule table fills full container width (column-width regression fix)', () => {
+  it('AC15-POSITIVE: App.svelte CSS .timer-app__schedule-container declares width: 100% (AC5/E11S13)', () => {
+    // RED-first: this test FAILs on pre-fix E11S12-era code (no width: 100% in container rule).
+    // This test PASSes on post-fix E11S13 code (width: 100% added to container rule).
+    // We extract the .timer-app__schedule-container CSS block and verify it contains width: 100%.
+    const styleMatch = source.match(/<style[^>]*>([\s\S]*?)<\/style>/g);
+    expect(styleMatch, 'No <style> block found in App.svelte').toBeTruthy();
+    // Combine all style blocks
+    const allStyles = styleMatch!.join('\n');
+    // Find the schedule-container rule block
+    const containerRuleMatch = allStyles.match(/\.timer-app__schedule-container\s*\{([^}]*)\}/);
+    expect(containerRuleMatch, '.timer-app__schedule-container rule not found in App.svelte styles').toBeTruthy();
+    const containerRuleBody = containerRuleMatch![1];
+    // The rule must contain width: 100%
+    expect(containerRuleBody).toMatch(/width\s*:\s*100%/);
+  });
+
+  it('AC15-POSITIVE: App.svelte CSS .timer-app__schedule has width: 100% (table fills container)', () => {
+    // The schedule TABLE itself must also declare width: 100% so it fills the container.
+    // (This was already present in E11S11; verify it was not accidentally removed.)
+    const styleMatch = source.match(/<style[^>]*>([\s\S]*?)<\/style>/g);
+    expect(styleMatch, 'No <style> block found in App.svelte').toBeTruthy();
+    const allStyles = styleMatch!.join('\n');
+    const tableRuleMatch = allStyles.match(/\.timer-app__schedule\s*\{([^}]*)\}/);
+    expect(tableRuleMatch, '.timer-app__schedule rule not found in App.svelte styles').toBeTruthy();
+    const tableRuleBody = tableRuleMatch![1];
+    expect(tableRuleBody).toMatch(/width\s*:\s*100%/);
+  });
+});

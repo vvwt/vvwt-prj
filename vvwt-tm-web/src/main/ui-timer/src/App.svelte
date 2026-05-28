@@ -4,7 +4,7 @@
 -->
 <script lang="ts">
   /**
-   * Root component for the Timer SPA (E11S03 + E11S04 + E11S05 + E11S09 + E11S10 + E11S11 + E11S12).
+   * Root component for the Timer SPA (E11S03 + E11S04 + E11S05 + E11S09 + E11S10 + E11S11 + E11S12 + E11S13).
    *
    * E11S03 lifecycle (retained):
    *   1. Mount: extract tournamentId from URL pathname (AC1/E11S03, AC5/E11S03)
@@ -55,6 +55,12 @@
    *   - Inline-edit validation (AC9).
    *   - WS-driven reload resets ephemeral state (AC10).
    *   - Skip-to past row: option (a) uniform skip-to-now (AC11).
+   *
+   * E11S13 bug-triage fixes (AC1–AC19):
+   *   - Audio activate-fire uses playingIndex instead of activeEventIndex (AC1–AC4, AC10).
+   *   - Schedule table width: 100% on container (AC5, AC6).
+   *   - Removed .schedule-row--next + isNext prop + getNextUpcomingIndex (AC7–AC9).
+   *   - .schedule-row--playing gains left-border stripe matching operator mental model (AC9).
    */
   import { onMount, onDestroy } from 'svelte';
   import { _ } from 'svelte-i18n';
@@ -444,8 +450,11 @@
         }
       }
 
-      // Fire activate event for the new active entry
-      const entry = effectiveSchedule()[activeEventIndex];
+      // Fire activate event for the entry that just started playing (AC1/E11S13).
+      // Uses playingIndex (the just-started entry) instead of activeEventIndex
+      // (the next-upcoming entry) — fixes the one-ahead audio offset (Symptom 1).
+      // existing if (entry) guard handles playingIndex === -1 silently (AC10/E11S13).
+      const entry = effectiveSchedule()[playingIndex];
       if (entry) {
         const activateEvent = getAudioEventOnActivate(entry);
         if (activateEvent.type === 'START_SOUND') {
@@ -614,17 +623,6 @@
     if (snapshot.playingIndex === i) return 'playing';
     if (snapshot.doneIndices.has(i)) return 'done';
     return 'upcoming';
-  }
-
-  // ── AC8/E11S09: Next-upcoming index ────────────────────────────────────────
-
-  /**
-   * Returns the index of the earliest future schedule entry (the "next" event),
-   * or -1 if none. Used to pass isNext=true to the corresponding ScheduleRow.
-   */
-  function getNextUpcomingIndex(): number {
-    if (!snapshot || snapshot.activeEventIndex === -1) return -1;
-    return snapshot.activeEventIndex;
   }
 
   // ── E11S11 AC7/AC8: Schedule row DOM ref registration ─────────────────────
@@ -877,7 +875,6 @@
                 overrideTimeSeconds={timeOverrides.get(i) ?? null}
                 onTimeEdit={handleTimeEdit}
                 status={getEntryStatus(i)}
-                isNext={i === getNextUpcomingIndex()}
                 onInlinePlay={entry.type === 'ROUND' || (entry.type === 'BREAK' && entry.breakType === 'REGULAR') ? handleSkipTo : undefined}
                 onInlinePause={entry.type === 'ROUND' || (entry.type === 'BREAK' && entry.breakType === 'REGULAR') ? handlePause : undefined}
                 onInlineStop={entry.type === 'ROUND' || (entry.type === 'BREAK' && entry.breakType === 'REGULAR') ? handleStop : undefined}
@@ -1109,6 +1106,9 @@
 
   .timer-app__schedule-container {
     flex: 1;
+    /* AC5/E11S13: explicit width: 100% ensures the container (and thus the table) fills
+       the full available page width — fixes column-width regression from E11S11. */
+    width: 100%;
     /* AC6: overflow-y: auto — scroll within container */
     overflow-y: auto;
     /* AC10: prevent horizontal overflow (long schedules, narrow viewport) */

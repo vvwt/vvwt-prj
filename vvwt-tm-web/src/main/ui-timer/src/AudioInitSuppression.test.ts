@@ -40,6 +40,69 @@ describe('E11S10 AC13 — Audio-fire init-suppression (source-inspection, RED-fi
   });
 });
 
+// ── AC13/E11S13: Audio activate-fire playingIndex correction ──────────────────
+
+describe('E11S13 AC13 — Audio activate-fire uses playingIndex (REFACTOR Phase-3, source-inspection)', () => {
+  const source = readAppSvelte();
+
+  /**
+   * RED-on-old attestation (AC13/E11S13):
+   *   Pre-fix code (E11S12 era, App.svelte:448): `effectiveSchedule()[activeEventIndex]`
+   *   → test AC13-ACTIVATE-INDEX-POSITIVE fails (asserts playingIndex usage — absent)
+   *   → test AC13-ACTIVATE-WRONG-NEGATIVE passes (but we need the inverse on post-fix)
+   *
+   *   Post-fix code (E11S13): `effectiveSchedule()[playingIndex]`
+   *   → test AC13-ACTIVATE-INDEX-POSITIVE passes
+   *   → test AC13-ACTIVATE-INDEX-NEGATIVE passes (activeEventIndex not used for activate lookup)
+   */
+
+  it('AC13-ACTIVATE-INDEX-POSITIVE: onTick activate-fire looks up entry via playingIndex (AC1/E11S13)', () => {
+    // After the fix, the activate-fire block uses effectiveSchedule()[playingIndex].
+    // This test FAILs on pre-fix code (activate used activeEventIndex, not playingIndex).
+    // This test PASSes on post-fix code.
+    const onTickMatch = source.match(/function\s+onTick\s*\(\s*\)\s*:\s*void\s*\{([\s\S]*?)(?=\n  function|\n  \/\/\s*──)/);
+    expect(onTickMatch, 'onTick function not found in App.svelte').toBeTruthy();
+    if (onTickMatch) {
+      const onTickBody = onTickMatch[1];
+      // The activate-fire entry lookup must use playingIndex
+      expect(onTickBody).toMatch(/effectiveSchedule\s*\(\s*\)\s*\[\s*playingIndex\s*\]/);
+    }
+  });
+
+  it('AC13-ACTIVATE-INDEX-NEGATIVE: onTick activate-fire MUST NOT look up entry via activeEventIndex (AC1/E11S13)', () => {
+    // After the fix, the activate lookup no longer uses activeEventIndex as the entry key.
+    // The gate condition (activeEventIndex !== lastFiredActiveIndex) still uses activeEventIndex —
+    // only the entry LOOKUP must not. We verify the lookup pattern is absent.
+    // This test FAILs on pre-fix code (which has effectiveSchedule()[activeEventIndex] for activate).
+    // This test PASSes on post-fix code.
+    const onTickMatch = source.match(/function\s+onTick\s*\(\s*\)\s*:\s*void\s*\{([\s\S]*?)(?=\n  function|\n  \/\/\s*──)/);
+    expect(onTickMatch, 'onTick function not found in App.svelte').toBeTruthy();
+    if (onTickMatch) {
+      const onTickBody = onTickMatch[1];
+      // The activate-fire lookup pattern `effectiveSchedule()[activeEventIndex]` must be absent
+      // in the section after the deactivate block (i.e., for the activate fire).
+      // We look for the comment "Fire activate event" block to scope the check.
+      const activateBlockMatch = onTickBody.match(/Fire activate event[\s\S]*?lastFiredActiveIndex\s*=/);
+      expect(activateBlockMatch, 'Activate-fire block not found in onTick').toBeTruthy();
+      if (activateBlockMatch) {
+        expect(activateBlockMatch[0]).not.toMatch(/effectiveSchedule\s*\(\s*\)\s*\[\s*activeEventIndex\s*\]/);
+      }
+    }
+  });
+
+  it('AC11-DEACTIVATE-PRESERVED: onTick deactivate path still uses lastPlayingIndex (AC2/E11S13)', () => {
+    // The deactivate path is unchanged: it must still reference lastPlayingIndex for the entry lookup.
+    // This test verifies the deactivate path was NOT inadvertently changed.
+    const onTickMatch = source.match(/function\s+onTick\s*\(\s*\)\s*:\s*void\s*\{([\s\S]*?)(?=\n  function|\n  \/\/\s*──)/);
+    expect(onTickMatch, 'onTick function not found in App.svelte').toBeTruthy();
+    if (onTickMatch) {
+      const onTickBody = onTickMatch[1];
+      // The deactivate block must reference effectiveSchedule()[lastPlayingIndex]
+      expect(onTickBody).toMatch(/effectiveSchedule\s*\(\s*\)\s*\[\s*lastPlayingIndex\s*\]/);
+    }
+  });
+});
+
 // ── AC15: Auto-PLAYING after Dialog confirm + countdown-tick coverage ──────────
 
 describe('E11S10 AC15 — Auto-PLAYING after Dialog confirm (source-inspection, RED-first)', () => {
