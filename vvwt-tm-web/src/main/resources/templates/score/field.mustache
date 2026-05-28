@@ -92,7 +92,7 @@
         }
         #page-wrapper {
             padding: 16px 16px 140px;
-            max-width: 540px;
+            max-width: 80vw;
             margin: 0 auto;
         }
         /* AC8 (E61S01): global error banner.
@@ -193,7 +193,7 @@
             display: block;
             width: 90%;
             margin: 0 auto 10px;
-            font-size: 4em;
+            font-size: 8em;
             font-weight: bold;
             text-align: center;
             padding: 14px 4px;
@@ -216,7 +216,7 @@
             display: inline-block;
             width: 44%;
             padding: 12px 0;
-            font-size: 1.6em;
+            font-size: 3em;
             font-weight: bold;
             border: none;
             border-radius: 4px;
@@ -229,7 +229,7 @@
         #confirm-btn {
             display: block;
             width: 90%;
-            margin: 0 auto 20px;
+            margin: 4em auto 20px;
             padding: 14px 0;
             font-size: 1.1em;
             background: #2980b9;
@@ -301,7 +301,7 @@
         #bottom-wordmark {
             position: absolute;
             left: 16px;
-            bottom: 28px;
+            bottom: 8px;
             font-size: 0.85em;
             color: #555;
             white-space: nowrap;
@@ -321,8 +321,7 @@
         #version-info {
             font-size: 0.6em;
             color: #3a3a5a;
-            display: block;
-            margin-top: 2px;
+            margin-left: 1em;
         }
         /*
          * AC5 (E65S06): §13 AGPL source-code link — bottom-right of footer.
@@ -331,7 +330,7 @@
         #bottom-source-link {
             position: absolute;
             right: 16px;
-            bottom: 28px;
+            bottom: 12px;
             font-size: 0.6em;
             color: #3a3a5a;
             white-space: nowrap;
@@ -406,7 +405,6 @@
                 <div id="score-columns">
                     <!-- Team 1 column -->
                     <div class="score-col" id="col-team1">
-                        <div class="score-col-label" id="label-team1"></div>
                         <!-- AC5: single large editable input (replaces score-display + small input)
                              AC6 (E65S06): native spinner suppressed via CSS (see .score-input) -->
                         <input class="score-input" id="input-team1" type="number" min="0" max="99"
@@ -414,11 +412,11 @@
                         <!-- +/- buttons operate on input-team1 -->
                         <button class="btn-plus"  id="plus-team1"  type="button">{{msgPlusLabel}}</button>
                         <button class="btn-minus" id="minus-team1" type="button">{{msgMinusLabel}}</button>
+                        <div class="score-col-label" id="label-team1"></div>
                     </div>
 
                     <!-- Team 2 column -->
                     <div class="score-col" id="col-team2">
-                        <div class="score-col-label" id="label-team2"></div>
                         <!-- AC5: single large editable input (replaces score-display + small input)
                              AC6 (E65S06): native spinner suppressed via CSS (see .score-input) -->
                         <input class="score-input" id="input-team2" type="number" min="0" max="99"
@@ -426,6 +424,7 @@
                         <!-- +/- buttons operate on input-team2 -->
                         <button class="btn-plus"  id="plus-team2"  type="button">{{msgPlusLabel}}</button>
                         <button class="btn-minus" id="minus-team2" type="button">{{msgMinusLabel}}</button>
+                        <div class="score-col-label" id="label-team2"></div>
                     </div>
                 </div>
             </div><!-- /#score-area -->
@@ -453,12 +452,13 @@
     <div id="bottom-bar">
         <!-- AC3 (E65S06): bottom-left "Scoring Tablet" wordmark — letter 'o' as vvw-icon-blue.svg
              Font size increased from 0.7em to 0.85em per AC3 (L3 — larger footer text). -->
-        <div id="bottom-wordmark">Sc<img src="/score/vvw-icon-blue.svg" alt="o" class="icon-o">ring Tablet</div>
+        <div id="bottom-wordmark">Sc<img src="/score/vvw-icon-blue.svg" alt="o" class="icon-o">ring Tablet
+            <!-- AC4 (E65S06): version in parentheses, at original small size (not enlarged) -->
+            <span id="version-info">({{versionLabel}}: {{appVersion}})</span>
+        </div>
         <!-- AC4 (E65S06): bottom-centre field number — somewhat larger (was 0.75em → 0.9em per L3).
              Version shown in parentheses per AC4 (L4). The version text is NOT enlarged. -->
         <div id="bottom-field-number">{{msgFieldLabel}} {{fieldNumber}}</div>
-        <!-- AC4 (E65S06): version in parentheses, at original small size (not enlarged) -->
-        <span id="version-info">({{versionLabel}}: {{appVersion}})</span>
         <!--
             AC5 (E65S06): AGPL §13 source-code offer — plain static link at bottom-right.
             Same link text and target as E59S03 on register.mustache / hello.mustache (DEC-75).
