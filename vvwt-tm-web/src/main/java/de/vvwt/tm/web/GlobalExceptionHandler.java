@@ -578,8 +578,9 @@ public class GlobalExceptionHandler {
      * {@code messageKey} (i.e., {@code "NO_SCHEDULE_CONFIGURED"}).
      *
      * <p>Thrown by {@link de.vvwt.tm.timer.internal.DefaultTimerDataService} when a tournament has
-     * no operator-configured DraftConfig or the configured schedule is invalid. The timer UI displays
-     * a dedicated "no schedule" error state when this code is received (E11S10, AC11, AC12).
+     * no operator-configured DraftConfig or the configured schedule is invalid. The timer UI
+     * displays a dedicated "no schedule" error state when this code is received (E11S10, AC11,
+     * AC12).
      *
      * @since E11S10
      */

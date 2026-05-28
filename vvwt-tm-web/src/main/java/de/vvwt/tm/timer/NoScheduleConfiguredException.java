@@ -29,11 +29,7 @@ public class NoScheduleConfiguredException extends RuntimeException {
      * @param reason a developer-readable reason (not exposed to clients)
      */
     public NoScheduleConfiguredException(UUID tournamentId, String reason) {
-        super(
-                "Tournament "
-                        + tournamentId
-                        + " has no usable schedule configuration: "
-                        + reason);
+        super("Tournament " + tournamentId + " has no usable schedule configuration: " + reason);
         this.errorCode = "NO_SCHEDULE_CONFIGURED";
     }
 

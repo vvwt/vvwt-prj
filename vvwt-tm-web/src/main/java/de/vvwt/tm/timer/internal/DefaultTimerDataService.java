@@ -61,10 +61,10 @@ import org.springframework.transaction.annotation.Transactional;
  * values instead of the previously hardcoded {@code DEFAULT_LAP_TIME_MINUTES=15} / {@code
  * DEFAULT_LAP_BREAK_MINUTES=5} constants.
  *
- * <p>Strategy-i (per-phase loop): calls {@link TimelineCalculationService#calculate} once per
- * phase with {@code sectionBreakMinutes=0}, then manually appends {@link
- * TimelineEntryType#SECTION_BREAK} entries between consecutive phases using each section's own
- * {@link DraftSection#getSectionBreakTimeMinutes()} value. This mirrors {@code
+ * <p>Strategy-i (per-phase loop): calls {@link TimelineCalculationService#calculate} once per phase
+ * with {@code sectionBreakMinutes=0}, then manually appends {@link TimelineEntryType#SECTION_BREAK}
+ * entries between consecutive phases using each section's own {@link
+ * DraftSection#getSectionBreakTimeMinutes()} value. This mirrors {@code
  * DefaultDraftService.buildTimeline} without creating a shared interface crossing module boundaries
  * (DEC-35/DEC-58). Delivery option (b) per Story Notes §Timeline-math-architecture.
  *
@@ -440,8 +440,8 @@ public class DefaultTimerDataService implements TimerDataService {
      *
      * <p>E11S10: uses {@link DraftSection#getLapTimeMinutes()} and {@link
      * DraftSection#getLapBreakTimeMinutes()} from the operator-configured draft instead of the
-     * previously hardcoded {@code DEFAULT_LAP_TIME_MINUTES=15} / {@code DEFAULT_LAP_BREAK_MINUTES=5}
-     * constants.
+     * previously hardcoded {@code DEFAULT_LAP_TIME_MINUTES=15} / {@code
+     * DEFAULT_LAP_BREAK_MINUTES=5} constants.
      *
      * <p>Phase-to-section matching: phases sorted by sequenceNumber, sections sorted by
      * sectionNumber. Sections are matched by index. If draftConfig has fewer sections than phases,
@@ -536,7 +536,8 @@ public class DefaultTimerDataService implements TimerDataService {
      * section's own {@link DraftSection#getSectionBreakTimeMinutes()} (AC7).
      *
      * <p>This mirrors {@code DefaultDraftService.buildTimeline} (Strategy-i) without creating a
-     * shared cross-module interface. Delivery option (b) per Story Notes §Timeline-math-architecture.
+     * shared cross-module interface. Delivery option (b) per Story Notes
+     * §Timeline-math-architecture.
      *
      * @param startTime tournament start time (must not be null)
      * @param phaseConfigs matching PhaseConfig list

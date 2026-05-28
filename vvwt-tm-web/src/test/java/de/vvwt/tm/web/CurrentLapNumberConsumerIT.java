@@ -186,6 +186,13 @@ class CurrentLapNumberConsumerIT {
                         3,
                         4);
         tournament.setLocationId(defaultLocationId);
+        // E11S10: DefaultTimerDataService now loads DraftConfig from draftJson when phases exist.
+        // Provide a minimal valid DraftConfig so the timer endpoint returns 200 (not 404).
+        tournament.setDraftJson(
+                "{\"sections\":[{\"sectionNumber\":1,\"lapTimeMinutes\":10"
+                        + ",\"lapBreakTimeMinutes\":5,\"sectionBreakTimeMinutes\":0"
+                        + ",\"groupCount\":1,\"gameMode\":\"roundRobin\",\"setQuantity\":1"
+                        + ",\"sortType\":\"team_number\"}]}");
         tournamentRepository.save(tournament);
 
         // ACTIVE phase, lap 1 running (DEC-65 D-2: currentLapNumber == 1)

@@ -89,6 +89,7 @@ class DefaultTimerDataServiceTest {
     @Mock private TimelineCalculationService timelineCalculationService;
     @Mock private AudioStorageService audioStorageService;
     @Mock private TenantContext tenantContext;
+
     /** E11S10 AC14: ObjectMapper mock added for DraftConfig deserialization (DEC-22 REFACTOR). */
     @Mock private ObjectMapper objectMapper;
 
@@ -148,8 +149,7 @@ class DefaultTimerDataServiceTest {
      */
     private DraftConfig singleSectionDraft(int lapTimeMinutes) {
         DraftSection section =
-                new DraftSection(
-                        1, "team_number", 1, "roundRobin", 5, 0, lapTimeMinutes, 1, null);
+                new DraftSection(1, "team_number", 1, "roundRobin", 5, 0, lapTimeMinutes, 1, null);
         return new DraftConfig(List.of(section));
     }
 
@@ -162,7 +162,16 @@ class DefaultTimerDataServiceTest {
      */
     private DraftConfig twoSectionDraft(int sec1LapTime, int sec1SectionBreak, int sec2LapTime) {
         DraftSection s1 =
-                new DraftSection(1, "team_number", 1, "roundRobin", 5, sec1SectionBreak, sec1LapTime, 1, null);
+                new DraftSection(
+                        1,
+                        "team_number",
+                        1,
+                        "roundRobin",
+                        5,
+                        sec1SectionBreak,
+                        sec1LapTime,
+                        1,
+                        null);
         DraftSection s2 =
                 new DraftSection(2, "team_number", 1, "awardCeremony", 0, 0, sec2LapTime, 1, null);
         return new DraftConfig(List.of(s1, s2));
@@ -175,8 +184,8 @@ class DefaultTimerDataServiceTest {
      * with all 11 fields populated.
      *
      * <p>E11S10 AC14 (DEC-22 REFACTOR fail-on-old): DraftConfig with {@code lapTimeMinutes=10} is
-     * supplied — the pre-fix code (DEFAULT_LAP_TIME_MINUTES=15) would have ignored this and used 15,
-     * but the ObjectMapper was not injected at all, so this test would FAIL pre-fix (mock not
+     * supplied — the pre-fix code (DEFAULT_LAP_TIME_MINUTES=15) would have ignored this and used
+     * 15, but the ObjectMapper was not injected at all, so this test would FAIL pre-fix (mock not
      * configured → NPE on objectMapper.readValue). POST-fix, the mock is consulted and returns the
      * 10-minute DraftConfig — test PASSES.
      */
@@ -414,11 +423,12 @@ class DefaultTimerDataServiceTest {
     // ── AC11: DraftConfig absent (draftJson null/blank) ───────────────────────
 
     /**
-     * AC11: When draftJson is null (not configured), buildTimerData MUST throw
-     * {@link NoScheduleConfiguredException} for a tournament that has phases.
+     * AC11: When draftJson is null (not configured), buildTimerData MUST throw {@link
+     * NoScheduleConfiguredException} for a tournament that has phases.
      *
      * <p>Consistent with E11S03 error states: the timer frontend displays a "no-schedule" error.
-     * Tests FAIL on pre-fix code (no such exception thrown; NPE on objectMapper) and PASS after fix.
+     * Tests FAIL on pre-fix code (no such exception thrown; NPE on objectMapper) and PASS after
+     * fix.
      */
     @Test
     void buildTimerData_throwsNoScheduleConfiguredExceptionWhenDraftJsonNull() {
@@ -437,13 +447,15 @@ class DefaultTimerDataServiceTest {
         // Act + Assert
         assertThatThrownBy(() -> service.buildTimerData(tournamentId))
                 .isInstanceOf(NoScheduleConfiguredException.class)
-                .satisfies(ex -> assertThat(((NoScheduleConfiguredException) ex).getErrorCode())
-                        .isEqualTo("NO_SCHEDULE_CONFIGURED"));
+                .satisfies(
+                        ex ->
+                                assertThat(((NoScheduleConfiguredException) ex).getErrorCode())
+                                        .isEqualTo("NO_SCHEDULE_CONFIGURED"));
     }
 
     /**
-     * AC11 (blank): draftJson blank string → same as absent — throws
-     * {@link NoScheduleConfiguredException}.
+     * AC11 (blank): draftJson blank string → same as absent — throws {@link
+     * NoScheduleConfiguredException}.
      */
     @Test
     void buildTimerData_throwsNoScheduleConfiguredExceptionWhenDraftJsonBlank() {
@@ -473,7 +485,8 @@ class DefaultTimerDataServiceTest {
      * lapTimeMinutes from config not validated) and PASS after fix.
      */
     @Test
-    void buildTimerData_throwsNoScheduleConfiguredExceptionWhenLapTimeMinutesZero() throws Exception {
+    void buildTimerData_throwsNoScheduleConfiguredExceptionWhenLapTimeMinutesZero()
+            throws Exception {
         // Arrange: phase has 1 lap, DraftConfig has lapTimeMinutes=0 (invalid)
         Tournament tournament = activeTournament();
         tournament.setPlannedStartTime(LocalTime.of(9, 0));
@@ -499,8 +512,8 @@ class DefaultTimerDataServiceTest {
     }
 
     /**
-     * AC12 (fewer sections): DraftConfig has fewer sections than phases → throws
-     * {@link NoScheduleConfiguredException}.
+     * AC12 (fewer sections): DraftConfig has fewer sections than phases → throws {@link
+     * NoScheduleConfiguredException}.
      */
     @Test
     void buildTimerData_throwsNoScheduleConfiguredExceptionWhenSectionCountLessThanPhaseCount()
@@ -563,11 +576,21 @@ class DefaultTimerDataServiceTest {
         // Then Strategy-i appends a SECTION_BREAK 09:10–09:20 (10 min)
         // Then phase 2 produces a MATCH_ROUND entry 09:20–09:30
         TimelineEntry phase1Round =
-                new TimelineEntry(1, 1, TimelineEntryType.MATCH_ROUND,
-                        LocalTime.of(9, 0), LocalTime.of(9, 10), null);
+                new TimelineEntry(
+                        1,
+                        1,
+                        TimelineEntryType.MATCH_ROUND,
+                        LocalTime.of(9, 0),
+                        LocalTime.of(9, 10),
+                        null);
         TimelineEntry phase2Round =
-                new TimelineEntry(2, 1, TimelineEntryType.MATCH_ROUND,
-                        LocalTime.of(9, 20), LocalTime.of(9, 30), null);
+                new TimelineEntry(
+                        2,
+                        1,
+                        TimelineEntryType.MATCH_ROUND,
+                        LocalTime.of(9, 20),
+                        LocalTime.of(9, 30),
+                        null);
 
         when(tournamentRepository.findById(tournamentId)).thenReturn(Optional.of(tournament));
         when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(p1, p2));
@@ -586,7 +609,8 @@ class DefaultTimerDataServiceTest {
         // Act
         TimerDataResponse response = service.buildTimerData(tournamentId);
 
-        // Assert: schedule contains a SECTION_BREAK (type=BREAK, breakType=ADDITIONAL) between phases
+        // Assert: schedule contains a SECTION_BREAK (type=BREAK, breakType=ADDITIONAL) between
+        // phases
         // The schedule should be: round(phase1), SECTION_BREAK, round(phase2)
         assertThat(response.getSchedule()).hasSize(3);
         assertThat(response.getSchedule().get(0).getType()).isEqualTo("ROUND");
