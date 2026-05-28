@@ -17,6 +17,33 @@ export interface TimerScheduleEntry {
   endTime?: string | null;
 }
 
+/**
+ * Per-break config entry in a phase's config sub-block (E11S14 AC1, AC5).
+ * Mirrors TimerBreakConfigEntryResponse.java.
+ */
+export interface TimerBreakConfigEntry {
+  /** Duration in minutes. */
+  durationMinutes: number;
+  /** Optional operator-configured label. May be null. */
+  label: string | null;
+}
+
+/**
+ * Operator-configured per-phase parameters sub-block (E11S14 AC1).
+ * Mirrors TimerPhaseConfigResponse.java.
+ * null on TimerPhase when the DraftConfig section is unavailable for this phase (AC13/AC15).
+ */
+export interface TimerPhaseConfig {
+  /** Lap duration in minutes. */
+  lapTimeMinutes: number;
+  /** Break between laps in minutes. */
+  lapBreakTimeMinutes: number;
+  /** Section break after this phase in minutes. */
+  sectionBreakTimeMinutes: number;
+  /** Intra-phase breaks (INTRA_PHASE_BREAK entries). */
+  breaks: TimerBreakConfigEntry[];
+}
+
 /** Per-phase structural summary. */
 export interface TimerPhase {
   /** 1-based phase number. */
@@ -27,6 +54,12 @@ export interface TimerPhase {
   status: string;
   /** Number of laps in this phase. */
   lapCount: number;
+  /**
+   * Operator-configured per-phase parameters (E11S14 AC1).
+   * null when the DraftConfig does not have a matching section (AC13/AC15).
+   * The Timer SPA hides PhaseConfigRow for phases with null config (AC13 fallback option b).
+   */
+  config?: TimerPhaseConfig | null;
 }
 
 /** Audio file URLs per category (null when no file is uploaded). */

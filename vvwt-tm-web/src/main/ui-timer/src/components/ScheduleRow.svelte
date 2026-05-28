@@ -111,7 +111,8 @@
   // ── AC6: Inline break edit state ──────────────────────────────────────────
 
   let breakDurationInput = $state(ephemeralBreakConfig ? String(ephemeralBreakConfig.durationMinutes) : '');
-  let breakLabelInput = $state(ephemeralBreakConfig?.label ?? entry.label ?? '');
+  // E11S14 AC14: when entry.label is 'PHASE_BREAK' (stable key, not a user label), init to ''
+  let breakLabelInput = $state(ephemeralBreakConfig?.label ?? (entry.label === 'PHASE_BREAK' ? '' : (entry.label ?? '')));
   let breakDurationError = $state('');
 
   // ── Derived display values ─────────────────────────────────────────────────
@@ -141,6 +142,11 @@
 
   /**
    * Human-readable label for the entry (uses ephemeral label for ADDITIONAL BREAK if overridden).
+   *
+   * E11S14 AC10/AC18: ADDITIONAL BREAK entries carrying label='PHASE_BREAK' (the stable
+   * non-i18n discriminator key emitted by DefaultTimerDataService for SECTION_BREAK entries)
+   * must render as the i18n "Phasen-Pause" string, not as the raw key.
+   * All other ADDITIONAL BREAK entries without a user label fall back to "Zusatzpause".
    */
   const entryLabel = $derived((): string => {
     if (entry.type === 'ROUND') {
@@ -152,8 +158,12 @@
     if (entry.breakType === 'REGULAR') {
       return entry.label ?? $_('timer.schedule.breakRegular');
     }
-    // ADDITIONAL BREAK: use ephemeral label if set
-    return (ephemeralBreakConfig?.label ?? entry.label) ?? $_('timer.schedule.breakAdditional');
+    // ADDITIONAL BREAK: check for PHASE_BREAK stable key first (E11S14 AC10)
+    if (entry.label === 'PHASE_BREAK') {
+      return $_('timer.schedule.phasenPause');
+    }
+    // INTRA_PHASE_BREAK: use ephemeral label if set, then entry label, then "Zusatzpause"
+    return (ephemeralBreakConfig?.label ?? entry.label) || $_('timer.schedule.breakAdditional');
   });
 
   /**

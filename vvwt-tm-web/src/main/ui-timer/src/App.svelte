@@ -277,6 +277,8 @@
       const data = await fetchTimerData(tournamentId);
       timerData = data;
       timeOverrides = new Map();
+      // E11S14 AC4/AC5: pre-populate break config from backend values on initial load
+      ephemeralBreakConfig = buildInitialBreakConfigFull(data);
       appState = 'loaded';
       // E11S04: preload audio files after data loaded (AC1)
       audioEngine.preload(data.audio.startUrl, data.audio.endUrl, data.audio.pauseUrl);
@@ -377,8 +379,9 @@
       timerData = data;
       timeOverrides = new Map();
       // AC10/E11S12: WS-driven reload resets ephemeral state
+      // E11S14 AC4/AC5: re-populate break config from freshly reloaded backend values
       ephemeralPhaseConfig = new Map();
-      ephemeralBreakConfig = new Map();
+      ephemeralBreakConfig = buildInitialBreakConfigFull(data);
       audioEngine.preload(data.audio.startUrl, data.audio.endUrl, data.audio.pauseUrl);
       refreshSnapshot();
     } catch {
@@ -611,6 +614,62 @@
     if (appState === 'loaded') refreshSnapshot();
   }
 
+  // ── E11S14 AC4/AC5: Initial break config pre-population ───────────────────
+
+  /**
+   * E11S14 AC4/AC5: Builds the initial ephemeralBreakConfig map from the loaded TimerData.
+   *
+   * For each ADDITIONAL BREAK entry in the schedule:
+   *  - SECTION_BREAK (label === 'PHASE_BREAK'): pre-populate durationMinutes from the
+   *    preceding phase's config.sectionBreakTimeMinutes (AC4).
+   *  - INTRA_PHASE_BREAK (other ADDITIONAL BREAK): pre-populate durationMinutes and label
+   *    from the per-phase config breaks list, matched by position within the phase (AC5).
+   *
+   * This replaces the previous empty ephemeralBreakConfig = new Map() so that the inline
+   * Dauer and Bezeichnung inputs show operator-configured values on page load.
+   */
+  function buildInitialBreakConfigFull(data: TimerData): Map<number, EphemeralBreakConfig> {
+    const result = new Map<number, EphemeralBreakConfig>();
+    const intraBreakIndexByPhase = new Map<number, number>();
+    let lastPhaseNum = 0;
+
+    for (let i = 0; i < data.schedule.length; i++) {
+      const entry = data.schedule[i];
+      if (!entry) continue;
+
+      if (entry.type === 'ROUND') {
+        lastPhaseNum = entry.phaseNumber ?? lastPhaseNum;
+        continue;
+      }
+
+      if (entry.type !== 'BREAK' || entry.breakType !== 'ADDITIONAL') continue;
+
+      if (entry.label === 'PHASE_BREAK') {
+        // AC4: SECTION_BREAK — use preceding phase's sectionBreakTimeMinutes
+        const phaseConfig = data.phases.find(p => p.phaseNumber === lastPhaseNum)?.config;
+        if (phaseConfig && phaseConfig.sectionBreakTimeMinutes > 0) {
+          result.set(i, { durationMinutes: phaseConfig.sectionBreakTimeMinutes });
+        }
+      } else {
+        // AC5: INTRA_PHASE_BREAK — use config.breaks[position within phase]
+        const phaseConfig = data.phases.find(p => p.phaseNumber === lastPhaseNum)?.config;
+        if (phaseConfig) {
+          const idx = intraBreakIndexByPhase.get(lastPhaseNum) ?? 0;
+          const breakCfg = phaseConfig.breaks[idx];
+          if (breakCfg) {
+            result.set(i, {
+              durationMinutes: breakCfg.durationMinutes,
+              label: breakCfg.label ?? undefined,
+            });
+          }
+          intraBreakIndexByPhase.set(lastPhaseNum, idx + 1);
+        }
+      }
+    }
+
+    return result;
+  }
+
   // ── Audio engine state (AC8/E11S04) ───────────────────────────────────────
 
   const audioState = $derived(audioEngine.getState());
@@ -671,29 +730,27 @@
 
   /**
    * Determines the initial phase config to pass to PhaseConfigRow.
-   * Uses ephemeral override if present, else derives from schedule.
+   *
+   * E11S14 AC2/AC3: Uses ephemeral override if present, else reads from the
+   * per-phase config sub-block delivered by the backend (AC1). The previous
+   * lap-time delta-derivation from schedule start/end is removed (AC3 confirms
+   * backend value is reliably present).
+   *
+   * E11S14 AC13 fallback option (b): when timerData.phases has no matching phase
+   * entry or the phase's config sub-block is null, PhaseConfigRow is hidden entirely
+   * (the caller guards with getPhaseConfig(phaseNumber) != null before rendering).
    */
-  function getInitialPhaseConfig(phaseNumber: number): EphemeralPhaseConfig {
+  function getInitialPhaseConfig(phaseNumber: number): EphemeralPhaseConfig | null {
     const override = ephemeralPhaseConfig.get(phaseNumber);
     if (override) return override;
-    // Derive from effective schedule
-    const roundEntries = effectiveSchedule().filter(
-      e => e.type === 'ROUND' && e.phaseNumber === phaseNumber
-    );
-    let lapTimeMinutes = 15;
-    if (roundEntries.length > 0) {
-      const first = roundEntries[0];
-      if (first.startTime && first.endTime) {
-        const s = first.startTime.split(':').map(Number);
-        const e = first.endTime.split(':').map(Number);
-        if (s.length >= 2 && e.length >= 2) {
-          const sSecs = s[0] * 3600 + s[1] * 60 + (s[2] ?? 0);
-          const eSecs = e[0] * 3600 + e[1] * 60 + (e[2] ?? 0);
-          if (eSecs > sSecs) lapTimeMinutes = (eSecs - sSecs) / 60;
-        }
-      }
-    }
-    return { lapTimeMinutes, lapBreakTimeMinutes: 0, sectionBreakTimeMinutes: 0 };
+    // Read from backend-delivered per-phase config (E11S14 AC1)
+    const phase = timerData?.phases.find(p => p.phaseNumber === phaseNumber);
+    if (!phase?.config) return null; // AC13 option (b): hide PhaseConfigRow when config absent
+    return {
+      lapTimeMinutes: phase.config.lapTimeMinutes,
+      lapBreakTimeMinutes: phase.config.lapBreakTimeMinutes,
+      sectionBreakTimeMinutes: phase.config.sectionBreakTimeMinutes,
+    };
   }
 
   /**
@@ -855,14 +912,21 @@
               The PhaseConfigRow is a table row rendered before the round row.
             -->
             {#if entry.type === 'ROUND' && getFirstRoundIndexForPhase(entry.phaseNumber ?? 0) === i}
-              <PhaseConfigRow
-                phaseNumber={entry.phaseNumber ?? 0}
-                lapTimeMinutes={getInitialPhaseConfig(entry.phaseNumber ?? 0).lapTimeMinutes}
-                lapBreakTimeMinutes={getInitialPhaseConfig(entry.phaseNumber ?? 0).lapBreakTimeMinutes}
-                sectionBreakTimeMinutes={getInitialPhaseConfig(entry.phaseNumber ?? 0).sectionBreakTimeMinutes}
-                isLastPhase={(entry.phaseNumber ?? 0) === lastPhaseNumber()}
-                onUpdate={(cfg) => handleInlinePhaseConfigUpdate(entry.phaseNumber ?? 0, cfg)}
-              />
+              <!--
+                E11S14 AC13 fallback option (b): hide PhaseConfigRow when per-phase config
+                is absent (null config sub-block from backend). getInitialPhaseConfig returns
+                null in that case — no row rendered, no hardcoded placeholder shown.
+                E11S14 AC8: sectionBreakTimeMinutes prop no longer passed (AC6/AC7 removal).
+              -->
+              {#if getInitialPhaseConfig(entry.phaseNumber ?? 0) !== null}
+                <PhaseConfigRow
+                  phaseNumber={entry.phaseNumber ?? 0}
+                  lapTimeMinutes={getInitialPhaseConfig(entry.phaseNumber ?? 0)!.lapTimeMinutes}
+                  lapBreakTimeMinutes={getInitialPhaseConfig(entry.phaseNumber ?? 0)!.lapBreakTimeMinutes}
+                  isLastPhase={(entry.phaseNumber ?? 0) === lastPhaseNumber()}
+                  onUpdate={(cfg) => handleInlinePhaseConfigUpdate(entry.phaseNumber ?? 0, cfg)}
+                />
+              {/if}
             {/if}
 
             <!-- AC7/AC8: use:registerRow registers the row element for auto-scroll visibility check -->

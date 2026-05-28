@@ -11,8 +11,16 @@ export interface EphemeralPhaseConfig {
   lapTimeMinutes: number;
   /** Break between laps in minutes (must be >= 0). */
   lapBreakTimeMinutes: number;
-  /** Section break after this phase in minutes (must be >= 0; ignored for last phase). */
-  sectionBreakTimeMinutes: number;
+  /**
+   * Section break after this phase in minutes (must be >= 0; ignored for last phase).
+   *
+   * E11S14 AC6: PhaseConfigRow no longer manages this value (PHASEN-PAUSE input removed).
+   * The section break is now edited on the dedicated SECTION_BREAK schedule row. PhaseConfigRow
+   * omits this field from its onUpdate call; the timeline recompute reads it from the
+   * ephemeralBreakConfig for the SECTION_BREAK entry instead. Optional here so PhaseConfigRow
+   * does not need to pass a placeholder value.
+   */
+  sectionBreakTimeMinutes?: number;
 }
 
 /** Per-break-entry ephemeral config override (AC6 — ADDITIONAL breaks). */
@@ -175,7 +183,7 @@ export function recomputeSchedule(
             if (s !== null && e !== null && e > s) {
               breakSecs = e - s;
             } else {
-              breakSecs = minutesToSeconds(cfg.sectionBreakTimeMinutes);
+              breakSecs = minutesToSeconds(cfg.sectionBreakTimeMinutes ?? 0);
             }
           } else {
             breakSecs = minutesToSeconds(cfg.sectionBreakTimeMinutes);

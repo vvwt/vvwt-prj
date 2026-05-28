@@ -8,9 +8,11 @@ import de.vvwt.tm.timer.InvalidTimerUrlException;
 import de.vvwt.tm.timer.NoActiveTournamentException;
 import de.vvwt.tm.timer.NoScheduleConfiguredException;
 import de.vvwt.tm.timer.TimerAudioResponse;
+import de.vvwt.tm.timer.TimerBreakConfigEntryResponse;
 import de.vvwt.tm.timer.TimerBreakType;
 import de.vvwt.tm.timer.TimerDataResponse;
 import de.vvwt.tm.timer.TimerDataService;
+import de.vvwt.tm.timer.TimerPhaseConfigResponse;
 import de.vvwt.tm.timer.TimerPhaseResponse;
 import de.vvwt.tm.timer.TimerScheduleEntryResponse;
 import de.vvwt.tm.timer.audio.AudioCategory;
@@ -28,6 +30,7 @@ import de.vvwt.tm.tournament.TimelineEntry;
 import de.vvwt.tm.tournament.TimelineEntryType;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.draft.DraftBreak;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftSection;
 import java.io.InputStream;
@@ -109,6 +112,14 @@ public class DefaultTimerDataService implements TimerDataService {
     /** Tournament statuses that are accessible via the timer (PLANNED, ACTIVE, COMPLETED). */
     private static final Set<String> TIMER_ACCESSIBLE_STATUSES =
             Set.of("PLANNED", "ACTIVE", "COMPLETED");
+
+    /**
+     * Stable non-i18n key emitted in the {@code label} field of SECTION_BREAK schedule entries
+     * (E11S14 AC9). The Timer SPA maps this to the i18n-localized "Phasen-Pause" string (AC10).
+     * INTRA_PHASE_BREAK entries continue to use {@link
+     * de.vvwt.tm.tournament.draft.DraftBreak#getLabel()}.
+     */
+    static final String SECTION_BREAK_STABLE_KEY = "PHASE_BREAK";
 
     private final TournamentRepository tournamentRepository;
     private final PhaseRepository phaseRepository;
@@ -228,17 +239,39 @@ public class DefaultTimerDataService implements TimerDataService {
         List<TimerScheduleEntryResponse> schedule =
                 buildSchedule(timeline, hasStartTime, phases, allBreaks, maxLapByPhaseIndex);
 
-        // ── Step 8: Build phase summaries ─────────────────────────────────────
+        // ── Step 8: Build phase summaries (with per-phase config AC1) ────────
+
+        // Sort sections for per-phase config matching (same order as buildPhaseConfigs)
+        List<DraftSection> configSections = new ArrayList<>(draftConfig.getSections());
+        configSections.sort(java.util.Comparator.comparingInt(DraftSection::getSectionNumber));
 
         List<TimerPhaseResponse> phaseSummaries = new ArrayList<>();
         for (int i = 0; i < phases.size(); i++) {
             Phase phase = phases.get(i);
-            phaseSummaries.add(
+            TimerPhaseResponse phaseResp =
                     new TimerPhaseResponse(
                             phase.getSequenceNumber(),
                             phase.getDescription(),
                             phase.getStatus(),
-                            maxLapByPhaseIndex[i]));
+                            maxLapByPhaseIndex[i]);
+            // AC1: attach per-phase config sub-block; null when section unavailable (AC15 path (a))
+            if (i < configSections.size()) {
+                DraftSection sec = configSections.get(i);
+                List<TimerBreakConfigEntryResponse> breakEntries = new ArrayList<>();
+                for (DraftBreak b : sec.getBreaks()) {
+                    breakEntries.add(
+                            new TimerBreakConfigEntryResponse(
+                                    b.getDurationMinutes(), b.getLabel()));
+                }
+                phaseResp.setConfig(
+                        new TimerPhaseConfigResponse(
+                                sec.getLapTimeMinutes(),
+                                sec.getLapBreakTimeMinutes(),
+                                sec.getSectionBreakTimeMinutes(),
+                                Collections.unmodifiableList(breakEntries)));
+            }
+            // If i >= configSections.size() → config stays null (AC15 partial-DraftConfig fallback)
+            phaseSummaries.add(phaseResp);
         }
 
         // ── Step 9: Determine current position (AC5) ──────────────────────────
@@ -379,9 +412,13 @@ public class DefaultTimerDataService implements TimerDataService {
                                         end));
                 case SECTION_BREAK ->
                         // AC-BREAK-TYPE-MAPPING: SECTION_BREAK → ADDITIONAL
+                        // AC9 (E11S14): emit stable non-i18n key so FE can distinguish Phasen-Pause
                         schedule.add(
                                 TimerScheduleEntryResponse.breakEntry(
-                                        TimerBreakType.ADDITIONAL.name(), null, start, end));
+                                        TimerBreakType.ADDITIONAL.name(),
+                                        SECTION_BREAK_STABLE_KEY,
+                                        start,
+                                        end));
             }
         }
         return schedule;

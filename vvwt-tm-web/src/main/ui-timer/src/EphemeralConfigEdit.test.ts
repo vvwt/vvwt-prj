@@ -32,8 +32,11 @@ describe('E11S12 AC5 — Phase-config row above Round 1 of each phase', () => {
     expect(phaseConfigSource).toMatch(/lapBreakTimeMinutes\s*:/);
   });
 
-  it('POSITIVE: PhaseConfigRow.svelte accepts sectionBreakTimeMinutes prop', () => {
-    expect(phaseConfigSource).toMatch(/sectionBreakTimeMinutes\s*:/);
+  it('NEGATIVE: PhaseConfigRow.svelte does NOT accept sectionBreakTimeMinutes prop (E11S14 AC6/AC7 removal)', () => {
+    // E11S14 AC17: REFACTOR Phase-3 — the sectionBreakTimeMinutes prop was removed from
+    // PhaseConfigRow.svelte (AC6); this test now asserts its absence.
+    // FAILS against pre-fix PhaseConfigRow (which had the prop); PASSES after removal.
+    expect(phaseConfigSource).not.toMatch(/sectionBreakTimeMinutes\s*:/);
   });
 
   it('POSITIVE: PhaseConfigRow.svelte accepts isLastPhase boolean prop', () => {

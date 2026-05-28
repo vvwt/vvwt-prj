@@ -16,6 +16,7 @@ import de.vvwt.tm.timer.NoActiveTournamentException;
 import de.vvwt.tm.timer.NoScheduleConfiguredException;
 import de.vvwt.tm.timer.TimerAudioResponse;
 import de.vvwt.tm.timer.TimerDataResponse;
+import de.vvwt.tm.timer.TimerPhaseConfigResponse;
 import de.vvwt.tm.timer.audio.AudioCategory;
 import de.vvwt.tm.timer.audio.AudioStorageService;
 import de.vvwt.tm.tournament.Match;
@@ -28,6 +29,7 @@ import de.vvwt.tm.tournament.TimelineEntry;
 import de.vvwt.tm.tournament.TimelineEntryType;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.draft.DraftBreak;
 import de.vvwt.tm.tournament.draft.DraftConfig;
 import de.vvwt.tm.tournament.draft.DraftSection;
 import java.io.ByteArrayInputStream;
@@ -543,6 +545,202 @@ class DefaultTimerDataServiceTest {
     }
 
     // ── AC7: SECTION_BREAK per DraftSection.sectionBreakTimeMinutes ──────────
+
+    // ── AC16: Per-phase config sub-block in TimerPhaseResponse ───────────────
+
+    /**
+     * AC16 (DEC-22 REFACTOR Phase-3): {@code TimerDataResponse.phases[0].getConfig()} returns a
+     * non-null {@link TimerPhaseConfigResponse} populated from the {@link DraftSection} values.
+     *
+     * <p>FAIL-ON-OLD: pre-fix {@link de.vvwt.tm.timer.TimerPhaseResponse} has no {@code config}
+     * field → compilation would fail / NPE at {@code getConfig()} → test FAILs against old code.
+     * PASS after fix: config field populated with section's lap/break values.
+     *
+     * <p>DEC-22 REFACTOR Phase-3: this test is written against TDD-authored test infrastructure
+     * (the existing singleSectionDraft helper); updated assertions demonstrate fail-on-old.
+     */
+    @Test
+    void buildTimerData_populatesPerPhaseConfigInTimerPhaseResponse() throws Exception {
+        // Arrange: tournament with one phase, DraftSection with non-zero lapBreak/sectionBreak
+        Tournament tournament = activeTournament();
+        tournament.setPlannedStartTime(LocalTime.of(9, 0));
+        tournament.setDraftJson("{}"); // actual parsing is mocked
+
+        Phase p1 = phase(1, 1);
+
+        // AC16 fail-on-old: lapBreakTimeMinutes=3 (NOT 0 hardcoded), sectionBreakTimeMinutes=5
+        DraftSection section =
+                new DraftSection(1, "team_number", 1, "roundRobin", 3, 5, 10, 1, null);
+        DraftConfig draft = new DraftConfig(List.of(section));
+
+        Match m1 = matchWithLap(p1.getId(), 1);
+        TimelineEntry roundEntry =
+                new TimelineEntry(
+                        1,
+                        1,
+                        TimelineEntryType.MATCH_ROUND,
+                        LocalTime.of(9, 0),
+                        LocalTime.of(9, 10),
+                        null);
+
+        when(tournamentRepository.findById(tournamentId)).thenReturn(Optional.of(tournament));
+        when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(p1));
+        when(matchRepository.findByPhaseId(p1.getId())).thenReturn(List.of(m1));
+        when(phaseBreakRepository.findByPhaseId(p1.getId())).thenReturn(Collections.emptyList());
+        when(objectMapper.readValue(anyString(), eq(DraftConfig.class))).thenReturn(draft);
+        when(timelineCalculationService.calculate(any(), any(), eq(0)))
+                .thenReturn(List.of(roundEntry));
+        when(audioStorageService.stream(eq(tournamentId), any())).thenReturn(Optional.empty());
+
+        // Act
+        TimerDataResponse response = service.buildTimerData(tournamentId);
+
+        // Assert: phases list contains one entry with non-null config
+        assertThat(response.getPhases()).hasSize(1);
+        TimerPhaseConfigResponse config = response.getPhases().get(0).getConfig();
+        assertThat(config).isNotNull(); // FAIL-ON-OLD: no config field pre-fix
+        assertThat(config.getLapTimeMinutes()).isEqualTo(10);
+        assertThat(config.getLapBreakTimeMinutes()).isEqualTo(3);
+        assertThat(config.getSectionBreakTimeMinutes()).isEqualTo(5);
+        assertThat(config.getBreaks()).isNotNull();
+        assertThat(config.getBreaks()).isEmpty();
+    }
+
+    /**
+     * AC16 with intra-phase breaks: config sub-block carries the {@code breaks} list from {@link
+     * DraftSection#getBreaks()} for INTRA_PHASE_BREAK entries.
+     *
+     * <p>FAIL-ON-OLD: same as above — no config field pre-fix.
+     */
+    @Test
+    void buildTimerData_populatesPerPhaseConfigBreaksList() throws Exception {
+        // Arrange: DraftSection with one intra-phase break
+        Tournament tournament = activeTournament();
+        tournament.setPlannedStartTime(LocalTime.of(9, 0));
+        tournament.setDraftJson("{}");
+
+        Phase p1 = phase(1, 1);
+        DraftBreak draftBreak = new DraftBreak(1, 7, "Mittagspause");
+        DraftSection section =
+                new DraftSection(
+                        1, "team_number", 1, "roundRobin", 3, 0, 10, 1, List.of(draftBreak));
+        DraftConfig draft = new DraftConfig(List.of(section));
+
+        Match m1 = matchWithLap(p1.getId(), 2); // 2 laps so break after lap 1 is valid
+        Match m2 = matchWithLap(p1.getId(), 1);
+        TimelineEntry roundEntry =
+                new TimelineEntry(
+                        1,
+                        1,
+                        TimelineEntryType.MATCH_ROUND,
+                        LocalTime.of(9, 0),
+                        LocalTime.of(9, 10),
+                        null);
+
+        when(tournamentRepository.findById(tournamentId)).thenReturn(Optional.of(tournament));
+        when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(p1));
+        when(matchRepository.findByPhaseId(p1.getId())).thenReturn(List.of(m1, m2));
+        when(phaseBreakRepository.findByPhaseId(p1.getId())).thenReturn(Collections.emptyList());
+        when(objectMapper.readValue(anyString(), eq(DraftConfig.class))).thenReturn(draft);
+        when(timelineCalculationService.calculate(any(), any(), eq(0)))
+                .thenReturn(List.of(roundEntry));
+        when(audioStorageService.stream(eq(tournamentId), any())).thenReturn(Optional.empty());
+
+        // Act
+        TimerDataResponse response = service.buildTimerData(tournamentId);
+
+        // Assert: config.breaks contains one entry
+        assertThat(response.getPhases()).hasSize(1);
+        TimerPhaseConfigResponse config = response.getPhases().get(0).getConfig();
+        assertThat(config).isNotNull();
+        assertThat(config.getBreaks()).hasSize(1);
+        assertThat(config.getBreaks().get(0).getDurationMinutes()).isEqualTo(7);
+        assertThat(config.getBreaks().get(0).getLabel()).isEqualTo("Mittagspause");
+    }
+
+    // ── AC18 backend: SECTION_BREAK emits stable "PHASE_BREAK" label ─────────
+
+    /**
+     * AC18 backend (DEC-22 REFACTOR Phase-3): {@code mapTimelineToSchedule} emits {@code
+     * "PHASE_BREAK"} as the label for {@link TimelineEntryType#SECTION_BREAK} entries.
+     *
+     * <p>FAIL-ON-OLD: pre-fix code emits {@code null} for SECTION_BREAK label → assertion fails.
+     * PASS after fix: SECTION_BREAK label equals {@code "PHASE_BREAK"}.
+     */
+    @Test
+    void buildTimerData_emitsPhaseBreakLabelForSectionBreak() throws Exception {
+        // Arrange: tournament with start time; timeline produces a SECTION_BREAK entry
+        Tournament tournament = activeTournament();
+        tournament.setPlannedStartTime(LocalTime.of(9, 0));
+        tournament.setDraftJson("{}");
+
+        Phase p1 = phase(1, 0);
+        p1.setStatus("COMPLETED");
+        Phase p2 = phase(2, 0);
+        p2.setStatus("ACTIVE");
+        Match m1 = matchWithLap(p1.getId(), 1);
+        Match m2 = matchWithLap(p2.getId(), 1);
+
+        DraftConfig draft = twoSectionDraft(10, 10, 10);
+
+        TimelineEntry sectionBreakEntry =
+                new TimelineEntry(
+                        1,
+                        0,
+                        TimelineEntryType.SECTION_BREAK,
+                        LocalTime.of(9, 10),
+                        LocalTime.of(9, 20),
+                        null);
+        TimelineEntry phase2Round =
+                new TimelineEntry(
+                        2,
+                        1,
+                        TimelineEntryType.MATCH_ROUND,
+                        LocalTime.of(9, 20),
+                        LocalTime.of(9, 30),
+                        null);
+
+        when(tournamentRepository.findById(tournamentId)).thenReturn(Optional.of(tournament));
+        when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(p1, p2));
+        when(matchRepository.findByPhaseId(p1.getId())).thenReturn(List.of(m1));
+        when(matchRepository.findByPhaseId(p2.getId())).thenReturn(List.of(m2));
+        when(phaseBreakRepository.findByPhaseId(p1.getId())).thenReturn(Collections.emptyList());
+        when(phaseBreakRepository.findByPhaseId(p2.getId())).thenReturn(Collections.emptyList());
+        when(objectMapper.readValue(anyString(), eq(DraftConfig.class))).thenReturn(draft);
+        // Strategy-i: phase 1 timeline returns sectionBreakEntry inline;
+        // Strategy-i then appends SECTION_BREAK from draftConfig manually.
+        // We model this: phase 1 call returns just sectionBreakEntry (as a SECTION_BREAK)
+        // so the service's mapTimelineToSchedule processes it.
+        TimelineEntry phase1Round =
+                new TimelineEntry(
+                        1,
+                        1,
+                        TimelineEntryType.MATCH_ROUND,
+                        LocalTime.of(9, 0),
+                        LocalTime.of(9, 10),
+                        null);
+        when(timelineCalculationService.calculate(eq(LocalTime.of(9, 0)), any(), eq(0)))
+                .thenReturn(List.of(phase1Round));
+        when(timelineCalculationService.calculate(eq(LocalTime.of(9, 20)), any(), eq(0)))
+                .thenReturn(List.of(phase2Round));
+        when(audioStorageService.stream(eq(tournamentId), any())).thenReturn(Optional.empty());
+
+        // Act
+        TimerDataResponse response = service.buildTimerData(tournamentId);
+
+        // Assert: the schedule contains a SECTION_BREAK (ADDITIONAL break) with label="PHASE_BREAK"
+        // The Strategy-i code in DefaultTimerDataService appends the SECTION_BREAK itself (not via
+        // timeline) and passes it through mapTimelineToSchedule-equivalent code.
+        // The SECTION_BREAK entry is produced by buildTimelineStrategyI and then mapped.
+        assertThat(response.getSchedule())
+                .anySatisfy(
+                        entry -> {
+                            assertThat(entry.getType()).isEqualTo("BREAK");
+                            assertThat(entry.getBreakType()).isEqualTo("ADDITIONAL");
+                            assertThat(entry.getLabel())
+                                    .isEqualTo("PHASE_BREAK"); // FAIL-ON-OLD: was null
+                        });
+    }
 
     /**
      * AC7: Strategy-i per-phase loop appends SECTION_BREAK entries between consecutive phases using
