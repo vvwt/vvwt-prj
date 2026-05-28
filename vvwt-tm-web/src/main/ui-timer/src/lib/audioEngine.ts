@@ -17,6 +17,16 @@ export interface AudioEngineState {
  *
  * Designed to be testable: accepts an optional element-factory function so
  * tests can inject mock HTMLAudioElement instances.
+ *
+ * Queue semantics (E11S15):
+ * - play(category) plays immediately when nothing is playing (AC1).
+ * - play(category) queues when another sound is in progress (AC2).
+ * - Queue drains on the playing element's `ended` DOM event (AC3).
+ * - `error` events also drain the queue so a broken file does not freeze it (AC11).
+ * - stopAll() clears the entire queue and stops the current sound (AC5).
+ * - stopPauseMusic() prunes queued PAUSE-category entries and stops in-progress PAUSE (AC6).
+ * - pauseAll() pauses the current element; queue is unchanged (AC7).
+ * - resumeAll() resumes the paused element; queue drain continues on ended (AC8).
  */
 export class AudioEngine {
   private elements: Partial<Record<AudioCategory, HTMLAudioElement>> = {};
@@ -25,6 +35,26 @@ export class AudioEngine {
     END: 'idle',
     PAUSE: 'idle',
   };
+
+  // ── Queue state (E11S15) ──────────────────────────────────────────────────
+
+  /**
+   * The element currently being played by the queue machinery.
+   * null when the engine is idle (nothing playing or in-progress).
+   */
+  private currentlyPlaying: HTMLAudioElement | null = null;
+
+  /**
+   * The AudioCategory of the currently-playing element.
+   * Used by stopPauseMusic() to check if the in-progress sound is PAUSE.
+   */
+  private currentlyPlayingCategory: AudioCategory | null = null;
+
+  /**
+   * Plain FIFO queue of AudioCategory entries waiting to be played.
+   * The head is shifted when the currentlyPlaying element ends (or errors).
+   */
+  private playQueue: AudioCategory[] = [];
 
   /**
    * Factory used to create HTMLAudioElement instances.
@@ -111,15 +141,49 @@ export class AudioEngine {
 
   /**
    * Plays the sound for a given category.
-   * - Rewinds to the start before playing (allows re-triggering).
-   * - No-op if the element is not present or not loaded (AC8 resilience).
+   *
+   * Queue semantics (E11S15):
+   * - If nothing is currently playing, plays immediately (AC1).
+   * - If another sound is playing, appends this category to the FIFO queue (AC2).
+   * - The queue drains automatically when the playing element's `ended` event fires (AC3).
+   * - No-op if the element is not present (AC8 resilience).
    *
    * @param category  Which audio category to play
    */
   play(category: AudioCategory): void {
     const el = this.elements[category];
-    if (!el) return;
+    if (!el) return; // no element for this category → silent no-op (AC8)
+
+    if (this.currentlyPlaying === null) {
+      // Engine is idle — play immediately (AC1)
+      this._startPlay(category, el);
+    } else {
+      // Another sound is in progress — append to FIFO queue (AC2)
+      this.playQueue.push(category);
+    }
+  }
+
+  /**
+   * Internal: begins playback of `category` and registers drain listeners.
+   * Called by play() (immediate path) and _drainQueue() (deferred path).
+   *
+   * Registers { once: true } listeners for both `ended` and `error` on the element
+   * so that either event advances the queue (AC3, AC11).
+   */
+  private _startPlay(category: AudioCategory, el: HTMLAudioElement): void {
+    this.currentlyPlaying = el;
+    this.currentlyPlayingCategory = category;
+
+    // Rewind before playing (consistent with pre-E11S15 behaviour)
     el.currentTime = 0;
+
+    // Register drain listeners — { once: true } prevents double-drain
+    const drainHandler = () => {
+      this._drainQueue();
+    };
+    el.addEventListener('ended', drainHandler, { once: true });
+    el.addEventListener('error', drainHandler, { once: true });
+
     el.play().catch(() => {
       // Play promise rejection (e.g., blocked by browser policy) → silently ignore.
       // The AudioContext user gesture is handled by ClockSyncDialog.
@@ -127,20 +191,61 @@ export class AudioEngine {
   }
 
   /**
-   * Stops the pause music (called when a regular break ends, AC4).
-   * - Sets currentTime to 0 and pauses (cuts off cleanly).
-   * - No-op if element is not present.
+   * Internal: advances the queue after the playing element ends (or errors).
+   * Clears `currentlyPlaying`; shifts the head of the queue if non-empty and plays it.
+   */
+  private _drainQueue(): void {
+    this.currentlyPlaying = null;
+    this.currentlyPlayingCategory = null;
+
+    if (this.playQueue.length === 0) {
+      return; // queue empty → engine returns to idle
+    }
+
+    const next = this.playQueue.shift()!;
+    const el = this.elements[next];
+    if (!el) {
+      // Element not loaded for this category → skip and drain further
+      this._drainQueue();
+      return;
+    }
+    this._startPlay(next, el);
+  }
+
+  /**
+   * Stops the pause music and prunes queued PAUSE-category entries (E11S15 AC6).
+   *
+   * - If PAUSE is currently playing: stops it, clears currentlyPlaying, drains the queue
+   *   (the next non-PAUSE entry, if any, begins playing immediately).
+   * - Removes any PAUSE-category entries from the queue regardless.
+   * - START and END queued entries are unaffected.
+   * - No-op if there is no PAUSE element or nothing PAUSE-related is active (AC12).
    */
   stopPauseMusic(): void {
-    const el = this.elements['PAUSE'];
-    if (!el) return;
-    el.pause();
-    el.currentTime = 0;
+    // Prune queued PAUSE entries (AC6)
+    this.playQueue = this.playQueue.filter(cat => cat !== 'PAUSE');
+
+    // Stop in-progress PAUSE if it is the currently-playing element (AC6)
+    const pauseEl = this.elements['PAUSE'];
+    if (pauseEl && this.currentlyPlayingCategory === 'PAUSE') {
+      pauseEl.pause();
+      pauseEl.currentTime = 0;
+      this.currentlyPlaying = null;
+      this.currentlyPlayingCategory = null;
+      // Drain next entry (START or END) if queued
+      this._drainQueue();
+    } else if (pauseEl) {
+      // PAUSE element exists but is not currently playing → just stop/rewind it silently
+      pauseEl.pause();
+      pauseEl.currentTime = 0;
+    }
   }
 
   /**
    * Pauses all currently-playing audio (transport Pause, AC5).
    * - Pauses all three elements (only the actively playing one will have effect).
+   * - Queue is NOT affected (AC7). The paused element does not fire `ended`,
+   *   so the drain is naturally suspended until the element resumes.
    */
   pauseAll(): void {
     for (const el of Object.values(this.elements)) {
@@ -151,10 +256,9 @@ export class AudioEngine {
   }
 
   /**
-   * Resumes the last-playing element if it was paused by pauseAll() (transport Play, AC5).
-   * Note: This is a simple resume; the engine does not track which element was playing.
-   * In practice, after a Pause + Play, the countdown engine re-evaluates the active event
-   * and calls play() on the appropriate category, which rewinds and plays fresh.
+   * Resumes the last-playing element if it was paused by pauseAll() (transport Play, AC5/AC8).
+   * - Queue is NOT affected. When the resumed element eventually fires `ended`, the drain
+   *   proceeds per normal (AC8).
    */
   resumeAll(): void {
     for (const el of Object.values(this.elements)) {
@@ -165,9 +269,17 @@ export class AudioEngine {
   }
 
   /**
-   * Stops all audio (transport Stop, AC5).
+   * Stops all audio and clears the entire playback queue (transport Stop, AC5).
+   * - After stopAll(), no audio is playing AND no queued entries remain.
+   * - A subsequent play() call plays immediately (engine is idle, AC1).
    */
   stopAll(): void {
+    // Clear the queue first (AC5) — before stopping the current element to prevent
+    // any drain listener from replaying a queued entry
+    this.playQueue = [];
+    this.currentlyPlaying = null;
+    this.currentlyPlayingCategory = null;
+
     for (const el of Object.values(this.elements)) {
       if (el) {
         el.pause();
