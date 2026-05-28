@@ -82,9 +82,15 @@
   /** Snapshot of the countdown engine, updated on every tick. */
   let snapshot = $state<CountdownSnapshot | null>(null);
   /** Index of the last event for which an audio event was fired (to avoid re-firing). */
-  let lastFiredActiveIndex = $state<number>(-2);
+  let lastFiredActiveIndex = $state<number>(-1);
   /** Index of the last "playing" entry for which deactivate audio was fired. */
-  let lastPlayingIndex = $state<number>(-2);
+  let lastPlayingIndex = $state<number>(-1);
+  /**
+   * E11S10 AC13: init-suppression flag — set true when the audio engine transitions to PLAYING.
+   * onTick() skips audio firing on the very first tick after engine start, then clears this flag.
+   * Replaces the -2 sentinel on lastFiredActiveIndex which caused spurious audio on first tick.
+   */
+  let audioEngineJustStarted = $state<boolean>(false);
 
   // ── E11S05: WebSocket client + status ─────────────────────────────────────
   /** 'connected' | 'disconnected' — drives the disconnect banner (AC4/E11S05). */
@@ -155,6 +161,15 @@
     updateHallenuhrzeitNow();
     appState = 'loading';
     await loadTimerData();
+    // E11S10 AC15: auto-start countdown after dialog confirm — the user gesture already
+    // unlocked the Web Audio API; begin PLAYING so countdown ticks from confirm onward.
+    if (appState === 'loaded') {
+      transportState = 'PLAYING';
+      lastFiredActiveIndex = -1;
+      lastPlayingIndex = -1;
+      audioEngineJustStarted = true;
+      startTick();
+    }
   }
 
   // ── Data loading (AC5/E11S03) ──────────────────────────────────────────────
@@ -221,8 +236,8 @@
     if (appState !== 'loaded') return;
     await loadTimerDataSilent();
     // Reset audio event tracking so events fire again from the new position
-    lastFiredActiveIndex = -2;
-    lastPlayingIndex = -2;
+    lastFiredActiveIndex = -1;
+    lastPlayingIndex = -1;
   }
 
   /**
@@ -295,6 +310,9 @@
   /**
    * Countdown tick: called every 250ms when PLAYING.
    * Refreshes snapshot, fires audio events when events trigger.
+   *
+   * E11S10 AC13: audioEngineJustStarted suppresses audio on the very first tick after engine start.
+   * This prevents spurious sound on init (replaces the -2 sentinel pattern).
    */
   function onTick(): void {
     if (!timerData || transportState !== 'PLAYING') return;
@@ -302,13 +320,21 @@
     refreshSnapshot();
     if (!snapshot) return;
 
+    // E11S10 AC13: suppress audio on first tick after engine start; clear flag for subsequent ticks
+    if (audioEngineJustStarted) {
+      audioEngineJustStarted = false;
+      lastFiredActiveIndex = snapshot.activeEventIndex;
+      lastPlayingIndex = snapshot.playingIndex;
+      return;
+    }
+
     const { activeEventIndex, playingIndex } = snapshot;
 
     // Fire audio on new active event (AC3/E11S04)
     if (activeEventIndex !== lastFiredActiveIndex && activeEventIndex !== -1) {
       // The entry just before activeEventIndex is transitioning from playing → done
       // If there was a previous playing entry, fire its deactivate event
-      if (lastPlayingIndex !== -2 && lastPlayingIndex !== playingIndex) {
+      if (lastPlayingIndex !== -1 && lastPlayingIndex !== playingIndex) {
         const prevEntry = timerData.schedule[lastPlayingIndex];
         if (prevEntry) {
           const deactivateEvent = getAudioEventOnDeactivate(prevEntry);
@@ -363,8 +389,9 @@
       pausedAt = null;
     }
     transportState = 'PLAYING';
-    lastFiredActiveIndex = -2; // allow re-triggering events
-    lastPlayingIndex = -2;
+    lastFiredActiveIndex = -1; // reset — first tick will sync via audioEngineJustStarted
+    lastPlayingIndex = -1;
+    audioEngineJustStarted = true; // E11S10 AC13: suppress audio on first tick after start
     refreshSnapshot();
     startTick();
   }
@@ -387,8 +414,9 @@
     pausedAt = null;
     stopTick();
     audioEngine.stopAll();
-    lastFiredActiveIndex = -2;
-    lastPlayingIndex = -2;
+    lastFiredActiveIndex = -1;
+    lastPlayingIndex = -1;
+    audioEngineJustStarted = false;
     refreshSnapshot();
   }
 

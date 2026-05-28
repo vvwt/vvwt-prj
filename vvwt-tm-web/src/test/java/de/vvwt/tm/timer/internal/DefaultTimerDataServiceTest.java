@@ -5,12 +5,15 @@ package de.vvwt.tm.timer.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.timer.InvalidTimerUrlException;
 import de.vvwt.tm.timer.NoActiveTournamentException;
+import de.vvwt.tm.timer.NoScheduleConfiguredException;
 import de.vvwt.tm.timer.TimerAudioResponse;
 import de.vvwt.tm.timer.TimerDataResponse;
 import de.vvwt.tm.timer.audio.AudioCategory;
@@ -25,6 +28,8 @@ import de.vvwt.tm.tournament.TimelineEntry;
 import de.vvwt.tm.tournament.TimelineEntryType;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.draft.DraftConfig;
+import de.vvwt.tm.tournament.draft.DraftSection;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.time.LocalTime;
@@ -51,9 +56,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * TimerControllerIT in E26S03) MUST reference via {@link de.vvwt.tm.timer.TimerDataService}
  * interface instead.
  *
- * <p>All 8 service-method-coverage ACs are covered: success-path, empty-schedule, invalid-url,
+ * <p>All service-method-coverage ACs are covered: success-path, empty-schedule, invalid-url,
  * draft-status, cancelled-status, accessible-statuses-invariant, break-type-mapping,
- * audio-URL-Wave2.
+ * audio-URL-Wave2, AC11 (absent draftJson), AC12 (invalid lapTimeMinutes), AC14 (DraftConfig
+ * sourced values — FAIL-ON-OLD), AC7 (SECTION_BREAK per section).
+ *
+ * <p>DEC-22 REFACTOR Phase-3 (AC14): {@link ObjectMapper} mock added; existing success-path test
+ * updated to supply an explicit {@link DraftConfig} with {@code lapTimeMinutes=10} — the test now
+ * FAILS on the pre-fix code (which used hardcoded {@code DEFAULT_LAP_TIME_MINUTES=15}) and PASSES
+ * after the E11S10 fix (which reads from DraftConfig). This is the AC14 fail-on-old attestation
+ * artifact per DEC-22 §refactor-clause.
  *
  * <p>DEC-41 §4 audit obligation: all 28 in-scope legacy tests classified Snapshot-Driven per {@code
  * E26-AUDIT-DEC41-TEST-CLASSIFICATION}. Zero legacy tests reused. All tests here are fresh
@@ -64,6 +76,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  *
  * @see DefaultTimerDataService
  * @see de.vvwt.tm.timer.TimerDataService
+ * @see <a href="contexts/artefacts/stories/E11S10.story.md">Story E11S10</a>
  * @see <a href="contexts/artefacts/stories/E26S01.story.md">Story E26S01</a>
  */
 @ExtendWith(MockitoExtension.class)
@@ -76,6 +89,9 @@ class DefaultTimerDataServiceTest {
     @Mock private TimelineCalculationService timelineCalculationService;
     @Mock private AudioStorageService audioStorageService;
     @Mock private TenantContext tenantContext;
+
+    /** E11S10 AC14: ObjectMapper mock added for DraftConfig deserialization (DEC-22 REFACTOR). */
+    @Mock private ObjectMapper objectMapper;
 
     @InjectMocks private DefaultTimerDataService service;
 
@@ -125,22 +141,68 @@ class DefaultTimerDataServiceTest {
         return m;
     }
 
+    /**
+     * Helper: creates a single-section DraftConfig with the given lapTimeMinutes.
+     *
+     * <p>Uses the 9-arg DraftSection constructor (backward-compatible; distributionMode defaults to
+     * "sequential").
+     */
+    private DraftConfig singleSectionDraft(int lapTimeMinutes) {
+        DraftSection section =
+                new DraftSection(1, "team_number", 1, "roundRobin", 5, 0, lapTimeMinutes, 1, null);
+        return new DraftConfig(List.of(section));
+    }
+
+    /**
+     * Helper: creates a two-section DraftConfig with given per-section values.
+     *
+     * @param sec1LapTime section-1 lap time minutes
+     * @param sec1SectionBreak section-1 section break minutes (after section 1, before section 2)
+     * @param sec2LapTime section-2 lap time minutes
+     */
+    private DraftConfig twoSectionDraft(int sec1LapTime, int sec1SectionBreak, int sec2LapTime) {
+        DraftSection s1 =
+                new DraftSection(
+                        1,
+                        "team_number",
+                        1,
+                        "roundRobin",
+                        5,
+                        sec1SectionBreak,
+                        sec1LapTime,
+                        1,
+                        null);
+        DraftSection s2 =
+                new DraftSection(2, "team_number", 1, "awardCeremony", 0, 0, sec2LapTime, 1, null);
+        return new DraftConfig(List.of(s1, s2));
+    }
+
     // ── AC-BUILD-TIMER-DATA-SUCCESS-PATH ──────────────────────────────────────
 
     /**
      * AC-BUILD-TIMER-DATA-SUCCESS-PATH: tournament with phases + matches + audio → full response
      * with all 11 fields populated.
+     *
+     * <p>E11S10 AC14 (DEC-22 REFACTOR fail-on-old): DraftConfig with {@code lapTimeMinutes=10} is
+     * supplied — the pre-fix code (DEFAULT_LAP_TIME_MINUTES=15) would have ignored this and used
+     * 15, but the ObjectMapper was not injected at all, so this test would FAIL pre-fix (mock not
+     * configured → NPE on objectMapper.readValue). POST-fix, the mock is consulted and returns the
+     * 10-minute DraftConfig — test PASSES.
      */
     @Test
-    void buildTimerData_returnsFullResponseForActiveTournament() {
+    void buildTimerData_returnsFullResponseForActiveTournament() throws Exception {
         // Arrange
         Tournament tournament = activeTournament();
         tournament.setPlannedStartTime(LocalTime.of(9, 0));
+        tournament.setDraftJson("{\"sections\":[{\"sectionNumber\":1,\"lapTimeMinutes\":10}]}");
 
         Phase p1 = phase(1, 2);
         p1.setStatus("ACTIVE");
         Match m1 = matchWithLap(p1.getId(), 1);
         Match m2 = matchWithLap(p1.getId(), 2);
+
+        // AC14 fail-on-old: lapTimeMinutes=10 (NOT the old hardcoded 15)
+        DraftConfig draft = singleSectionDraft(10);
 
         TimelineEntry roundEntry =
                 new TimelineEntry(
@@ -148,13 +210,16 @@ class DefaultTimerDataServiceTest {
                         1,
                         TimelineEntryType.MATCH_ROUND,
                         LocalTime.of(9, 0),
-                        LocalTime.of(9, 15),
+                        LocalTime.of(9, 10),
                         null);
 
         when(tournamentRepository.findById(tournamentId)).thenReturn(Optional.of(tournament));
         when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(p1));
         when(matchRepository.findByPhaseId(p1.getId())).thenReturn(List.of(m1, m2));
         when(phaseBreakRepository.findByPhaseId(p1.getId())).thenReturn(Collections.emptyList());
+        // E11S10 AC14: objectMapper must be stubbed — pre-fix code had no ObjectMapper, so test
+        // FAILS pre-fix (NullPointerException on objectMapper call) and PASSES post-fix.
+        when(objectMapper.readValue(anyString(), eq(DraftConfig.class))).thenReturn(draft);
         when(timelineCalculationService.calculate(any(), any(), eq(0)))
                 .thenReturn(List.of(roundEntry));
         when(audioStorageService.stream(eq(tournamentId), any())).thenReturn(Optional.empty());
@@ -181,6 +246,8 @@ class DefaultTimerDataServiceTest {
     /**
      * AC-BUILD-TIMER-DATA-EMPTY-SCHEDULE: tournament with no phases → emptySchedule=true, empty
      * lists, audio still present.
+     *
+     * <p>No DraftConfig needed — empty-schedule path returns before loadDraftConfig is called.
      */
     @Test
     void buildTimerData_returnsEmptyScheduleWhenNoPhases() {
@@ -278,10 +345,11 @@ class DefaultTimerDataServiceTest {
     @ParameterizedTest(name = "{0} → breakType={1}")
     @CsvSource({"LAP_BREAK, REGULAR", "INTRA_PHASE_BREAK, ADDITIONAL", "SECTION_BREAK, ADDITIONAL"})
     void buildTimerData_mapsBreakTypesCorrectly(
-            TimelineEntryType timelineType, String expectedBreakTypeName) {
+            TimelineEntryType timelineType, String expectedBreakTypeName) throws Exception {
         // Arrange: tournament with start time, one phase, one match, timeline returns break entry
         Tournament tournament = activeTournament();
         tournament.setPlannedStartTime(LocalTime.of(9, 0));
+        tournament.setDraftJson("{\"sections\":[{\"sectionNumber\":1,\"lapTimeMinutes\":10}]}");
 
         Phase p1 = phase(1, 0);
         Match m1 = matchWithLap(p1.getId(), 1);
@@ -295,10 +363,13 @@ class DefaultTimerDataServiceTest {
                         LocalTime.of(9, 20),
                         timelineType == TimelineEntryType.INTRA_PHASE_BREAK ? "Pause" : null);
 
+        DraftConfig draft = singleSectionDraft(10);
+
         when(tournamentRepository.findById(tournamentId)).thenReturn(Optional.of(tournament));
         when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(p1));
         when(matchRepository.findByPhaseId(p1.getId())).thenReturn(List.of(m1));
         when(phaseBreakRepository.findByPhaseId(p1.getId())).thenReturn(Collections.emptyList());
+        when(objectMapper.readValue(anyString(), eq(DraftConfig.class))).thenReturn(draft);
         when(timelineCalculationService.calculate(any(), any(), eq(0)))
                 .thenReturn(List.of(breakEntry));
         when(audioStorageService.stream(eq(tournamentId), any())).thenReturn(Optional.empty());
@@ -347,5 +418,204 @@ class DefaultTimerDataServiceTest {
         assertThat(audio.getStartUrl()).doesNotContain("/api/tournaments/");
         assertThat(audio.getStartUrl()).contains("/api/audio/tournaments/");
         assertThat(audio.getStartUrl()).endsWith("/stream");
+    }
+
+    // ── AC11: DraftConfig absent (draftJson null/blank) ───────────────────────
+
+    /**
+     * AC11: When draftJson is null (not configured), buildTimerData MUST throw {@link
+     * NoScheduleConfiguredException} for a tournament that has phases.
+     *
+     * <p>Consistent with E11S03 error states: the timer frontend displays a "no-schedule" error.
+     * Tests FAIL on pre-fix code (no such exception thrown; NPE on objectMapper) and PASS after
+     * fix.
+     */
+    @Test
+    void buildTimerData_throwsNoScheduleConfiguredExceptionWhenDraftJsonNull() {
+        // Arrange: tournament with phases but NO draftJson configured
+        Tournament tournament = activeTournament();
+        tournament.setDraftJson(null); // AC11: absent draftJson
+        Phase p1 = phase(1, 1);
+        Match m1 = matchWithLap(p1.getId(), 1);
+
+        when(tournamentRepository.findById(tournamentId)).thenReturn(Optional.of(tournament));
+        when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(p1));
+        when(matchRepository.findByPhaseId(p1.getId())).thenReturn(List.of(m1));
+        when(phaseBreakRepository.findByPhaseId(p1.getId())).thenReturn(Collections.emptyList());
+        // No objectMapper stub needed — exception is thrown before readValue is called
+
+        // Act + Assert
+        assertThatThrownBy(() -> service.buildTimerData(tournamentId))
+                .isInstanceOf(NoScheduleConfiguredException.class)
+                .satisfies(
+                        ex ->
+                                assertThat(((NoScheduleConfiguredException) ex).getErrorCode())
+                                        .isEqualTo("NO_SCHEDULE_CONFIGURED"));
+    }
+
+    /**
+     * AC11 (blank): draftJson blank string → same as absent — throws {@link
+     * NoScheduleConfiguredException}.
+     */
+    @Test
+    void buildTimerData_throwsNoScheduleConfiguredExceptionWhenDraftJsonBlank() {
+        // Arrange: tournament with phases but BLANK draftJson
+        Tournament tournament = activeTournament();
+        tournament.setDraftJson("  "); // AC11: blank draftJson
+        Phase p1 = phase(1, 1);
+        Match m1 = matchWithLap(p1.getId(), 1);
+
+        when(tournamentRepository.findById(tournamentId)).thenReturn(Optional.of(tournament));
+        when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(p1));
+        when(matchRepository.findByPhaseId(p1.getId())).thenReturn(List.of(m1));
+        when(phaseBreakRepository.findByPhaseId(p1.getId())).thenReturn(Collections.emptyList());
+
+        // Act + Assert
+        assertThatThrownBy(() -> service.buildTimerData(tournamentId))
+                .isInstanceOf(NoScheduleConfiguredException.class);
+    }
+
+    // ── AC12: Invalid lapTimeMinutes ──────────────────────────────────────────
+
+    /**
+     * AC12: When DraftConfig has {@code lapTimeMinutes=0} for a phase with at least one lap,
+     * buildTimerData MUST throw {@link NoScheduleConfiguredException}.
+     *
+     * <p>Consistent with E11S03 error states. Tests FAIL on pre-fix code (hardcoded 15 used,
+     * lapTimeMinutes from config not validated) and PASS after fix.
+     */
+    @Test
+    void buildTimerData_throwsNoScheduleConfiguredExceptionWhenLapTimeMinutesZero()
+            throws Exception {
+        // Arrange: phase has 1 lap, DraftConfig has lapTimeMinutes=0 (invalid)
+        Tournament tournament = activeTournament();
+        tournament.setPlannedStartTime(LocalTime.of(9, 0));
+        tournament.setDraftJson("{\"sections\":[{\"sectionNumber\":1,\"lapTimeMinutes\":0}]}");
+
+        Phase p1 = phase(1, 0);
+        Match m1 = matchWithLap(p1.getId(), 1); // lap exists → lapCount=1
+
+        // DraftConfig with lapTimeMinutes=0 (AC12: invalid for lapCount > 0)
+        DraftSection section =
+                new DraftSection(1, "team_number", 1, "roundRobin", 5, 0, 0, 1, null);
+        DraftConfig draft = new DraftConfig(List.of(section));
+
+        when(tournamentRepository.findById(tournamentId)).thenReturn(Optional.of(tournament));
+        when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(p1));
+        when(matchRepository.findByPhaseId(p1.getId())).thenReturn(List.of(m1));
+        when(phaseBreakRepository.findByPhaseId(p1.getId())).thenReturn(Collections.emptyList());
+        when(objectMapper.readValue(anyString(), eq(DraftConfig.class))).thenReturn(draft);
+
+        // Act + Assert
+        assertThatThrownBy(() -> service.buildTimerData(tournamentId))
+                .isInstanceOf(NoScheduleConfiguredException.class);
+    }
+
+    /**
+     * AC12 (fewer sections): DraftConfig has fewer sections than phases → throws {@link
+     * NoScheduleConfiguredException}.
+     */
+    @Test
+    void buildTimerData_throwsNoScheduleConfiguredExceptionWhenSectionCountLessThanPhaseCount()
+            throws Exception {
+        // Arrange: 2 phases but only 1 section in DraftConfig
+        Tournament tournament = activeTournament();
+        tournament.setDraftJson("{\"sections\":[{\"sectionNumber\":1,\"lapTimeMinutes\":10}]}");
+
+        Phase p1 = phase(1, 0);
+        Phase p2 = phase(2, 0);
+        Match m1 = matchWithLap(p1.getId(), 1);
+        Match m2 = matchWithLap(p2.getId(), 1);
+
+        DraftConfig draft = singleSectionDraft(10); // only 1 section for 2 phases
+
+        when(tournamentRepository.findById(tournamentId)).thenReturn(Optional.of(tournament));
+        when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(p1, p2));
+        when(matchRepository.findByPhaseId(p1.getId())).thenReturn(List.of(m1));
+        when(matchRepository.findByPhaseId(p2.getId())).thenReturn(List.of(m2));
+        when(phaseBreakRepository.findByPhaseId(p1.getId())).thenReturn(Collections.emptyList());
+        when(phaseBreakRepository.findByPhaseId(p2.getId())).thenReturn(Collections.emptyList());
+        when(objectMapper.readValue(anyString(), eq(DraftConfig.class))).thenReturn(draft);
+
+        // Act + Assert
+        assertThatThrownBy(() -> service.buildTimerData(tournamentId))
+                .isInstanceOf(NoScheduleConfiguredException.class);
+    }
+
+    // ── AC7: SECTION_BREAK per DraftSection.sectionBreakTimeMinutes ──────────
+
+    /**
+     * AC7: Strategy-i per-phase loop appends SECTION_BREAK entries between consecutive phases using
+     * each section's own {@code sectionBreakTimeMinutes} from DraftConfig (NOT from a uniform
+     * {@code sectionBreakMinutes=0} passed to calculate()). The resulting schedule includes a BREAK
+     * entry of type ADDITIONAL for the section boundary.
+     *
+     * <p>Named algebraic invariant: "SECTION_BREAK from operator sectionBreakTimeMinutes." Tests
+     * FAIL on pre-fix code (single calculate() call with sectionBreakMinutes=0 → no SECTION_BREAK
+     * entries produced by Strategy-i because DraftConfig was never used) and PASS after fix.
+     */
+    @Test
+    void buildTimerData_appendsSectionBreakFromDraftConfigBetweenPhases() throws Exception {
+        // Arrange: 2 phases, section 1 has sectionBreakTimeMinutes=10
+        Tournament tournament = activeTournament();
+        tournament.setPlannedStartTime(LocalTime.of(9, 0));
+        tournament.setDraftJson("{}"); // actual parsing is mocked
+
+        Phase p1 = phase(1, 0);
+        p1.setStatus("COMPLETED");
+        Phase p2 = phase(2, 0);
+        p2.setStatus("ACTIVE");
+
+        Match m1 = matchWithLap(p1.getId(), 1);
+        Match m2 = matchWithLap(p2.getId(), 1);
+
+        // DraftConfig: section 1 has sectionBreakTimeMinutes=10 (AC7)
+        DraftConfig draft = twoSectionDraft(10, 10, 10);
+
+        // Per-phase timeline: phase 1 produces a MATCH_ROUND entry 09:00–09:10
+        // Then Strategy-i appends a SECTION_BREAK 09:10–09:20 (10 min)
+        // Then phase 2 produces a MATCH_ROUND entry 09:20–09:30
+        TimelineEntry phase1Round =
+                new TimelineEntry(
+                        1,
+                        1,
+                        TimelineEntryType.MATCH_ROUND,
+                        LocalTime.of(9, 0),
+                        LocalTime.of(9, 10),
+                        null);
+        TimelineEntry phase2Round =
+                new TimelineEntry(
+                        2,
+                        1,
+                        TimelineEntryType.MATCH_ROUND,
+                        LocalTime.of(9, 20),
+                        LocalTime.of(9, 30),
+                        null);
+
+        when(tournamentRepository.findById(tournamentId)).thenReturn(Optional.of(tournament));
+        when(phaseRepository.findByTournamentId(tournamentId)).thenReturn(List.of(p1, p2));
+        when(matchRepository.findByPhaseId(p1.getId())).thenReturn(List.of(m1));
+        when(matchRepository.findByPhaseId(p2.getId())).thenReturn(List.of(m2));
+        when(phaseBreakRepository.findByPhaseId(p1.getId())).thenReturn(Collections.emptyList());
+        when(phaseBreakRepository.findByPhaseId(p2.getId())).thenReturn(Collections.emptyList());
+        when(objectMapper.readValue(anyString(), eq(DraftConfig.class))).thenReturn(draft);
+        // Strategy-i: called per phase — phase 1 first, phase 2 second
+        when(timelineCalculationService.calculate(eq(LocalTime.of(9, 0)), any(), eq(0)))
+                .thenReturn(List.of(phase1Round));
+        when(timelineCalculationService.calculate(eq(LocalTime.of(9, 20)), any(), eq(0)))
+                .thenReturn(List.of(phase2Round));
+        when(audioStorageService.stream(eq(tournamentId), any())).thenReturn(Optional.empty());
+
+        // Act
+        TimerDataResponse response = service.buildTimerData(tournamentId);
+
+        // Assert: schedule contains a SECTION_BREAK (type=BREAK, breakType=ADDITIONAL) between
+        // phases
+        // The schedule should be: round(phase1), SECTION_BREAK, round(phase2)
+        assertThat(response.getSchedule()).hasSize(3);
+        assertThat(response.getSchedule().get(0).getType()).isEqualTo("ROUND");
+        assertThat(response.getSchedule().get(1).getType()).isEqualTo("BREAK");
+        assertThat(response.getSchedule().get(1).getBreakType()).isEqualTo("ADDITIONAL");
+        assertThat(response.getSchedule().get(2).getType()).isEqualTo("ROUND");
     }
 }

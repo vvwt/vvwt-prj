@@ -11,6 +11,7 @@ import de.vvwt.tm.photo.PhotoSizeException;
 import de.vvwt.tm.photo.PhotoStorageException;
 import de.vvwt.tm.timer.InvalidTimerUrlException;
 import de.vvwt.tm.timer.NoActiveTournamentException;
+import de.vvwt.tm.timer.NoScheduleConfiguredException;
 import de.vvwt.tm.timer.audio.AudioFormatException;
 import de.vvwt.tm.timer.audio.AudioSizeLimitException;
 import de.vvwt.tm.timer.audio.AudioStorageException;
@@ -569,6 +570,24 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleNoActiveTournament(
             NoActiveTournamentException ex, HttpServletRequest request) {
         log.debug("[tm-web] NoActiveTournamentException: {}", ex.getMessage());
+        return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage(), ex.getErrorCode(), request);
+    }
+
+    /**
+     * Maps {@link NoScheduleConfiguredException} to HTTP 404 with the exception's error code as the
+     * {@code messageKey} (i.e., {@code "NO_SCHEDULE_CONFIGURED"}).
+     *
+     * <p>Thrown by {@link de.vvwt.tm.timer.internal.DefaultTimerDataService} when a tournament has
+     * no operator-configured DraftConfig or the configured schedule is invalid. The timer UI
+     * displays a dedicated "no schedule" error state when this code is received (E11S10, AC11,
+     * AC12).
+     *
+     * @since E11S10
+     */
+    @ExceptionHandler(NoScheduleConfiguredException.class)
+    public ResponseEntity<ApiErrorResponse> handleNoScheduleConfigured(
+            NoScheduleConfiguredException ex, HttpServletRequest request) {
+        log.debug("[tm-web] NoScheduleConfiguredException: {}", ex.getMessage());
         return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage(), ex.getErrorCode(), request);
     }
 
