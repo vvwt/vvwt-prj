@@ -64,6 +64,25 @@
       "disconnected": "Verbindung unterbrochen – lokaler Zeitplan aktiv",
       "reconnecting": "Verbindungsversuch…",
       "connected": "Verbunden"
+    },
+    "inline": {
+      "play": "Zu diesem Zeitpunkt springen",
+      "pause": "Pausieren",
+      "stop": "Stoppen"
+    },
+    "phaseConfig": {
+      "label": "Phasen-Konfiguration Phase",
+      "lapTime": "Lap-Zeit (min)",
+      "lapBreak": "Lap-Pause (min)",
+      "sectionBreak": "Phasen-Pause (min)",
+      "minutes": "min",
+      "lastPhaseNoSectionBreak": "Keine Phasen-Pause nach der letzten Phase",
+      "errorLapTime": "Lap-Zeit muss größer als 0 sein",
+      "errorNegative": "Wert darf nicht negativ sein"
+    },
+    "inlineBreak": {
+      "duration": "Dauer (min)",
+      "label": "Bezeichnung"
     }
   }
 }

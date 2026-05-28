@@ -14,12 +14,18 @@
    * Time editing (AC4): tapping/clicking the time cell opens an inline HH:MM:SS input.
    * Confirming sets an override time for this entry. An asterisk (*) marks edited rows.
    *
-   * AC4: "Edited times override the calculated time for that event."
-   * AC4: "A visual indicator distinguishes edited from calculated times."
+   * E11S12 additions:
+   * - AC1: Inline play/pause/stop micro-controls for ROUND and REGULAR-BREAK rows.
+   *   ADDITIONAL-BREAK rows do NOT render inline controls.
+   * - AC2: Inline play icon colour saturation: bright green when isAudioActive=true,
+   *   pale green otherwise. Class: inline-play--active.
+   * - AC3: Inline play triggers handleSkipTo(entryIndex) → skip-to this row.
+   * - AC6: ADDITIONAL BREAK rows expose duration and label inline edit inputs.
    */
   import { _ } from 'svelte-i18n';
   import { formatTimeSeconds, parseTimeToSeconds } from '../lib/timerApi.js';
   import type { TimerScheduleEntry } from '../lib/timerApi.js';
+  import type { EphemeralBreakConfig } from '../lib/timelineRecompute.js';
 
   interface ScheduleRowProps {
     entry: TimerScheduleEntry;
@@ -44,6 +50,27 @@
      * Triggers a subtle visual accent distinguishing it from later upcoming rows.
      */
     isNext?: boolean;
+    /**
+     * E11S12 AC1/AC2: Inline transport controls — provided for ROUND and REGULAR-BREAK rows.
+     * Absent / undefined → no inline controls rendered (ADDITIONAL-BREAK rows).
+     */
+    onInlinePlay?: (entryIndex: number) => void;
+    onInlinePause?: () => void;
+    onInlineStop?: () => void;
+    /**
+     * E11S12 AC2: True when audio playback is currently active for this row.
+     * Drives the inline play icon colour saturation (bright green vs pale green).
+     */
+    isAudioActive?: boolean;
+    /**
+     * E11S12 AC6: Ephemeral break config override for ADDITIONAL BREAK rows.
+     * null/undefined when no override is set.
+     */
+    ephemeralBreakConfig?: EphemeralBreakConfig | null;
+    /**
+     * E11S12 AC6: Called when the operator saves an inline break edit.
+     */
+    onBreakEdit?: (entryIndex: number, cfg: EphemeralBreakConfig) => void;
   }
 
   let {
@@ -55,13 +82,43 @@
     onTimeEdit,
     status,
     isNext = false,
+    onInlinePlay,
+    onInlinePause,
+    onInlineStop,
+    isAudioActive = false,
+    ephemeralBreakConfig = null,
+    onBreakEdit,
   }: ScheduleRowProps = $props();
 
-  // ── Editing state ──────────────────────────────────────────────────────────
+  // ── Computed: whether to show inline transport controls (AC1) ─────────────
+
+  /**
+   * AC1: Inline controls rendered for ROUND rows and REGULAR BREAK rows.
+   * ADDITIONAL BREAK rows do NOT get inline controls.
+   */
+  const showInlineControls = $derived(
+    onInlinePlay !== undefined &&
+    (entry.type === 'ROUND' || (entry.type === 'BREAK' && entry.breakType === 'REGULAR'))
+  );
+
+  /**
+   * AC6: Inline break edit rendered for ADDITIONAL BREAK rows.
+   */
+  const showBreakEdit = $derived(
+    entry.type === 'BREAK' && entry.breakType === 'ADDITIONAL' && onBreakEdit !== undefined
+  );
+
+  // ── Time editing state ──────────────────────────────────────────────────────
 
   let editing = $state(false);
   let editInput = $state('');
   let editError = $state('');
+
+  // ── AC6: Inline break edit state ──────────────────────────────────────────
+
+  let breakDurationInput = $state(ephemeralBreakConfig ? String(ephemeralBreakConfig.durationMinutes) : '');
+  let breakLabelInput = $state(ephemeralBreakConfig?.label ?? entry.label ?? '');
+  let breakDurationError = $state('');
 
   // ── Derived display values ─────────────────────────────────────────────────
 
@@ -89,7 +146,7 @@
   const isEdited = $derived(overrideTimeSeconds !== null);
 
   /**
-   * Human-readable label for the entry.
+   * Human-readable label for the entry (uses ephemeral label for ADDITIONAL BREAK if overridden).
    */
   const entryLabel = $derived((): string => {
     if (entry.type === 'ROUND') {
@@ -101,7 +158,8 @@
     if (entry.breakType === 'REGULAR') {
       return entry.label ?? $_('timer.schedule.breakRegular');
     }
-    return entry.label ?? $_('timer.schedule.breakAdditional');
+    // ADDITIONAL BREAK: use ephemeral label if set
+    return (ephemeralBreakConfig?.label ?? entry.label) ?? $_('timer.schedule.breakAdditional');
   });
 
   /**
@@ -121,7 +179,7 @@
    */
   const typeClass = $derived(entry.type === 'BREAK' ? 'schedule-row--break' : '');
 
-  // ── Editing handlers ───────────────────────────────────────────────────────
+  // ── Time editing handlers ──────────────────────────────────────────────────
 
   function startEdit(): void {
     // Pre-fill with the currently shown time.
@@ -156,12 +214,107 @@
     if (event.key === 'Enter') saveEdit();
     if (event.key === 'Escape') cancelEdit();
   }
+
+  // ── AC6: Inline break edit handlers ───────────────────────────────────────
+
+  function saveBreakEdit(): void {
+    breakDurationError = '';
+    const dur = parseFloat(breakDurationInput);
+    if (isNaN(dur) || dur <= 0) {
+      breakDurationError = $_('timer.phaseConfig.errorLapTime');
+      return;
+    }
+    onBreakEdit?.(entryIndex, {
+      durationMinutes: dur,
+      label: breakLabelInput.trim() || undefined,
+    });
+  }
+
+  function handleBreakKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter') {
+      saveBreakEdit();
+      (event.currentTarget as HTMLElement).blur();
+    }
+  }
+
+  // ── AC1/AC3: Inline transport handlers ────────────────────────────────────
+
+  function handleInlinePlayClick(): void {
+    onInlinePlay?.(entryIndex);
+  }
+
+  function handleInlinePauseClick(): void {
+    onInlinePause?.();
+  }
+
+  function handleInlineStopClick(): void {
+    onInlineStop?.();
+  }
 </script>
 
 <tr class="schedule-row {statusClass} {typeClass}" aria-current={status === 'playing' ? 'true' : undefined}>
   <!-- Entry label column -->
   <td class="schedule-row__label">
-    {entryLabel()}
+    <div class="schedule-row__label-content">
+      <span>{entryLabel()}</span>
+
+      <!-- E11S12 AC1: Inline transport controls (ROUND + REGULAR BREAK only) -->
+      {#if showInlineControls}
+        <div class="schedule-row__inline-controls" role="group" aria-label={$_('timer.transport.label')}>
+          <!-- AC2: inline play icon — bright green when isAudioActive, pale green otherwise -->
+          <button
+            class="inline-ctrl inline-ctrl--play"
+            class:inline-play--active={isAudioActive}
+            onclick={handleInlinePlayClick}
+            title={$_('timer.inline.play')}
+            aria-label={$_('timer.inline.play')}
+          >▶</button>
+          <button
+            class="inline-ctrl inline-ctrl--pause"
+            onclick={handleInlinePauseClick}
+            title={$_('timer.inline.pause')}
+            aria-label={$_('timer.inline.pause')}
+          >⏸</button>
+          <button
+            class="inline-ctrl inline-ctrl--stop"
+            onclick={handleInlineStopClick}
+            title={$_('timer.inline.stop')}
+            aria-label={$_('timer.inline.stop')}
+          >⏹</button>
+        </div>
+      {/if}
+
+      <!-- E11S12 AC6: Inline break duration/label edit (ADDITIONAL BREAK only) -->
+      {#if showBreakEdit}
+        <div class="schedule-row__break-edit">
+          <input
+            class="schedule-row__break-input"
+            class:schedule-row__break-input--error={breakDurationError !== ''}
+            type="number"
+            min="0.5"
+            step="0.5"
+            placeholder={$_('timer.inlineBreak.duration')}
+            bind:value={breakDurationInput}
+            onblur={saveBreakEdit}
+            onkeydown={handleBreakKeydown}
+            aria-label={$_('timer.inlineBreak.duration')}
+            aria-invalid={breakDurationError !== '' ? 'true' : undefined}
+          />
+          <input
+            class="schedule-row__break-label-input"
+            type="text"
+            placeholder={$_('timer.inlineBreak.label')}
+            bind:value={breakLabelInput}
+            onblur={saveBreakEdit}
+            onkeydown={handleBreakKeydown}
+            aria-label={$_('timer.inlineBreak.label')}
+          />
+          {#if breakDurationError}
+            <span class="schedule-row__break-error" role="alert">{breakDurationError}</span>
+          {/if}
+        </div>
+      {/if}
+    </div>
   </td>
 
   <!-- Time column (editable) -->
@@ -260,6 +413,107 @@
 
   .schedule-row__label {
     color: #333;
+  }
+
+  /* E11S12: label cell now wraps label text + inline controls */
+  .schedule-row__label-content {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  /* E11S12 AC1: Inline transport controls */
+  .schedule-row__inline-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    margin-left: 0.25rem;
+  }
+
+  .inline-ctrl {
+    width: 1.4rem;
+    height: 1.4rem;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.55rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.12s, opacity 0.12s;
+    padding: 0;
+    line-height: 1;
+  }
+
+  /* AC2: Inline play icon — pale green default, bright green when audio active */
+  .inline-ctrl--play {
+    /* Pale green (desaturated) — inactive */
+    background: #a8d5a2;
+    color: #fff;
+  }
+
+  .inline-ctrl--play.inline-play--active {
+    /* Bright green — audio currently playing for this row */
+    background: #27ae60;
+    color: #fff;
+  }
+
+  .inline-ctrl--play:hover {
+    background: #27ae60;
+    opacity: 0.9;
+  }
+
+  .inline-ctrl--pause {
+    background: #f0c060;
+    color: #fff;
+  }
+
+  .inline-ctrl--pause:hover {
+    background: #f39c12;
+  }
+
+  .inline-ctrl--stop {
+    background: #e8a09a;
+    color: #fff;
+  }
+
+  .inline-ctrl--stop:hover {
+    background: #c0392b;
+  }
+
+  /* E11S12 AC6: Inline break edit controls */
+  .schedule-row__break-edit {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+    margin-left: 0.25rem;
+  }
+
+  .schedule-row__break-input {
+    width: 4.5rem;
+    font-size: 0.85rem;
+    padding: 0.15rem 0.3rem;
+    border: 1px solid #b0bec5;
+    border-radius: 3px;
+  }
+
+  .schedule-row__break-input--error {
+    border-color: #e53935;
+  }
+
+  .schedule-row__break-label-input {
+    width: 8rem;
+    font-size: 0.85rem;
+    padding: 0.15rem 0.3rem;
+    border: 1px solid #b0bec5;
+    border-radius: 3px;
+  }
+
+  .schedule-row__break-error {
+    font-size: 0.75rem;
+    color: #c0392b;
   }
 
   .schedule-row__time {
