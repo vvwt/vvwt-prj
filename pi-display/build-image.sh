@@ -26,6 +26,7 @@
 # Upstream: https://github.com/guysoft/FullPageOS  (GPL-3.0)
 # CustomPiOS: https://github.com/guysoft/CustomPiOS  (GPL-3.0)
 # Pinned tag: 0.14.0 (overrideable with --fullpageos-tag + --override-tag-confirmation)
+# CustomPiOS pinned tag: 1.5.0 (overrideable with --custompios-tag + --override-customos-tag-confirmation)
 #
 # AGPL forward-compatibility note:
 # FullPageOS and CustomPiOS are licensed under GPL-3.0. AGPL-3.0-or-later is
@@ -61,9 +62,16 @@
 #   --fullpageos-tag=TAG        Override the pinned FullPageOS tag (default: 0.14.0).
 #                               Intended for tag-bump stories — NOT for casual operator use.
 #                               Requires --override-tag-confirmation to prevent accidents.
-#   --override-tag-confirmation Explicit confirmation that an unpinned tag is intentional.
-#                               Required when --fullpageos-tag is set to a value other than
-#                               the pinned tag (0.14.0).
+#   --override-tag-confirmation Explicit confirmation that an unpinned FullPageOS tag is
+#                               intentional. Required when --fullpageos-tag is set to a
+#                               value other than the pinned tag (0.14.0).
+#   --custompios-tag=TAG        Override the pinned CustomPiOS tag (default: 1.5.0).
+#                               Intended for tag-bump stories — NOT for casual operator use.
+#                               Requires --override-customos-tag-confirmation to prevent accidents.
+#   --override-customos-tag-confirmation
+#                               Explicit confirmation that an unpinned CustomPiOS tag is
+#                               intentional. Required when --custompios-tag is set to a
+#                               value other than the pinned tag (1.5.0).
 #   --output-dir=DIR            In --dry-run mode: directory to write overlay files to.
 #                               Defaults to a temporary directory when not specified.
 #
@@ -89,6 +97,12 @@ set -euo pipefail
 # ─── Constants ────────────────────────────────────────────────────────────────
 
 readonly PINNED_TAG="0.14.0"
+# E69S07 RCA #11: Pin CustomPiOS to tag 1.5.0 — the latest CustomPiOS release (2024-10-25).
+# At 1.5.0 the GPU-acceleration block in src/modules/gui/start_chroot_script installs
+# libconfig9 (which Raspbian Bookworm armhf HAS). Devel HEAD installs libconfig11 (which
+# Bookworm armhf does NOT have). Tag-bump stories per E69S01 Brief D-9 update this pin
+# in lockstep with FullPageOS tag bumps.
+readonly PINNED_CUSTOMPIOS_TAG="1.5.0"
 readonly FULLPAGEOS_REPO="https://github.com/guysoft/FullPageOS.git"
 readonly CUSTOMPIOS_REPO="https://github.com/guysoft/CustomPiOS.git"
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
@@ -106,6 +120,8 @@ DRY_RUN=false
 SERVER_URL=""
 FULLPAGEOS_TAG="${PINNED_TAG}"
 OVERRIDE_TAG_CONFIRMATION=false
+CUSTOMPIOS_TAG="${PINNED_CUSTOMPIOS_TAG}"
+OVERRIDE_CUSTOMOS_TAG_CONFIRMATION=false
 OUTPUT_DIR=""
 
 for arg in "$@"; do
@@ -126,6 +142,12 @@ for arg in "$@"; do
         --override-tag-confirmation)
             OVERRIDE_TAG_CONFIRMATION=true
             ;;
+        --custompios-tag=*)
+            CUSTOMPIOS_TAG="${arg#--custompios-tag=}"
+            ;;
+        --override-customos-tag-confirmation)
+            OVERRIDE_CUSTOMOS_TAG_CONFIRMATION=true
+            ;;
         --output-dir=*)
             OUTPUT_DIR="${arg#--output-dir=}"
             ;;
@@ -137,12 +159,24 @@ for arg in "$@"; do
     esac
 done
 
-# ─── Validation: tag-pin enforcement (AC3, AC4(e)) ───────────────────────────
+# ─── Validation: FullPageOS tag-pin enforcement (AC3, AC4(e)) ────────────────
 
 if [ "${FULLPAGEOS_TAG}" != "${PINNED_TAG}" ] && [ "${OVERRIDE_TAG_CONFIRMATION}" != "true" ]; then
     echo "ERROR: --fullpageos-tag '${FULLPAGEOS_TAG}' differs from the pinned tag '${PINNED_TAG}'." >&2
     echo "       This override is intended for tag-bump stories, not for casual operator use." >&2
     echo "       To proceed, add --override-tag-confirmation to your command." >&2
+    exit 1
+fi
+
+# ─── Validation: CustomPiOS tag-pin enforcement (E69S07 RCA #11, AC2(e)) ─────
+# Mirrors the existing FULLPAGEOS_TAG validation block verbatim (full E69S01-AC3-symmetric
+# pattern). Refuses any CUSTOMPIOS_TAG != PINNED_CUSTOMPIOS_TAG without explicit
+# --override-customos-tag-confirmation, and exits before any network call.
+if [ "${CUSTOMPIOS_TAG}" != "${PINNED_CUSTOMPIOS_TAG}" ] && [ "${OVERRIDE_CUSTOMOS_TAG_CONFIRMATION}" != "true" ]; then
+    echo "ERROR: --custompios-tag '${CUSTOMPIOS_TAG}' differs from the pinned tag '${PINNED_CUSTOMPIOS_TAG}'." >&2
+    echo "       This override is intended for tag-bump stories, not for casual operator use." >&2
+    echo "       To proceed, add --override-customos-tag-confirmation to your command." >&2
+    echo "       See https://github.com/guysoft/CustomPiOS/releases for available tags." >&2
     exit 1
 fi
 
@@ -205,14 +239,18 @@ if [ "${DRY_RUN}" != "true" ]; then
     MISSING_PYTHON=false
     if ! python3 -c 'import git' 2>/dev/null; then
         echo "ERROR: Python module 'git' (GitPython) is not installed." >&2
-        echo "       Required by FullPageOS/CustomPiOS execution_order.py at module-load time." >&2
+        echo "       CustomPiOS 1.5.0 (currently pinned) does NOT require it at script-load time," >&2
+        echo "       but this pre-flight check is a precautionary guard against future CustomPiOS" >&2
+        echo "       tag bumps that may reintroduce the requirement (devel HEAD does)." >&2
         echo "       On Debian/Ubuntu: sudo apt-get install python3-git" >&2
         echo "       Or your distro's equivalent that provides the 'git' Python module." >&2
         MISSING_PYTHON=true
     fi
     if ! python3 -c 'import yaml' 2>/dev/null; then
         echo "ERROR: Python module 'yaml' (PyYAML) is not installed." >&2
-        echo "       Required by FullPageOS/CustomPiOS execution_order.py at module-load time." >&2
+        echo "       CustomPiOS 1.5.0 (currently pinned) does NOT require it at script-load time," >&2
+        echo "       but this pre-flight check is a precautionary guard against future CustomPiOS" >&2
+        echo "       tag bumps that may reintroduce the requirement (devel HEAD does)." >&2
         echo "       On Debian/Ubuntu: sudo apt-get install python3-yaml" >&2
         echo "       Or your distro's equivalent that provides the 'yaml' Python module." >&2
         MISSING_PYTHON=true
@@ -230,6 +268,20 @@ if [ "${DRY_RUN}" != "true" ]; then
         echo "ERROR: FullPageOS tag '${FULLPAGEOS_TAG}' does not exist at ${FULLPAGEOS_REPO}" >&2
         echo "       Check the upstream releases: https://github.com/guysoft/FullPageOS/releases" >&2
         exit 1
+    fi
+
+    # E69S07 RCA #11: CustomPiOS tag-existence check — mirrors FullPageOS pattern above.
+    # Only runs when --override-customos-tag-confirmation was passed (i.e., CUSTOMPIOS_TAG
+    # is not the pinned default), since the pinned 1.5.0 tag is known-good. For the
+    # default pin, no network check is needed — it is pre-verified. The tag-existence
+    # check is an operator-attestation concern per AC4 (network call outside mvn verify scope).
+    if [ "${OVERRIDE_CUSTOMOS_TAG_CONFIRMATION}" = "true" ]; then
+        echo "INFO: Verifying CustomPiOS tag '${CUSTOMPIOS_TAG}' exists upstream..."
+        if ! git ls-remote --tags "${CUSTOMPIOS_REPO}" "refs/tags/${CUSTOMPIOS_TAG}" | grep -q "${CUSTOMPIOS_TAG}"; then
+            echo "ERROR: CustomPiOS tag '${CUSTOMPIOS_TAG}' does not exist at ${CUSTOMPIOS_REPO}" >&2
+            echo "       Check the upstream releases: https://github.com/guysoft/CustomPiOS/releases" >&2
+            exit 1
+        fi
     fi
 fi
 
@@ -304,8 +356,12 @@ git clone \
 # E69S03 RCA #3+#4: Clone CustomPiOS as a sibling (required by FullPageOS build_dist).
 # FullPageOS's build_dist resolves CUSTOM_PI_OS_PATH via src/custompios_path, which
 # is written by update-custompios-paths when both repos are cloned as siblings.
-echo "INFO: Cloning CustomPiOS (required sibling for FullPageOS build_dist)..."
+# E69S07 RCA #11: Pin CustomPiOS clone to tag ${CUSTOMPIOS_TAG} (default: 1.5.0) via
+# --branch. At 1.5.0 the GUI module installs libconfig9 (Bookworm armhf has it); devel
+# HEAD installs libconfig11 (Bookworm armhf does NOT have it). See PINNED_CUSTOMPIOS_TAG.
+echo "INFO: Cloning CustomPiOS at tag ${CUSTOMPIOS_TAG}..."
 git clone \
+    --branch "${CUSTOMPIOS_TAG}" \
     --depth 1 \
     "${CUSTOMPIOS_REPO}" \
     "${WORK_DIR}/CustomPiOS"

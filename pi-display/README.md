@@ -50,12 +50,19 @@ Before building an image you need a Linux host with:
   to clone it manually — only outbound internet access to GitHub is required.
 - **`git`** — to clone `vvwt-prj` and for the FullPageOS / CustomPiOS clones.
   On Debian/Ubuntu: `sudo apt-get install git`.
-- **Python packages required by the FullPageOS / CustomPiOS Python build scripts:
-  `python3-git`** (GitPython) **+ `python3-yaml`** (PyYAML). On Debian/Ubuntu:
-  `sudo apt-get install python3-git python3-yaml`. On other distros: install the
-  equivalents that provide the `git` and `yaml` Python modules (the script's
-  pre-flight check verifies the Python imports, not specific apt package names —
-  distro-portable by design).
+- **Python packages: `python3-git`** (GitPython) **+ `python3-yaml`** (PyYAML).
+  On Debian/Ubuntu: `sudo apt-get install python3-git python3-yaml`. On other
+  distros: install the equivalents that provide the `git` and `yaml` Python
+  modules (the script's pre-flight check verifies the Python imports, not
+  specific apt package names — distro-portable by design).
+
+> **Note — Python deps pre-flight (E69S05/E69S07).** The script checks for
+> `python3-git` and `python3-yaml` before starting the full build as a
+> precautionary guard against future CustomPiOS tag bumps that may reintroduce
+> these requirements (CustomPiOS devel HEAD currently imports GitPython and
+> PyYAML at module-load time). CustomPiOS 1.5.0 (currently pinned) does NOT
+> require them at script-load time. The check is retained as a defensive guard;
+> install both packages to pass it regardless.
 
 > **Note — RaspiOS base image pin:** `build-image.sh` downloads
 > `2025-05-13-raspios-bookworm-armhf-lite` (the last Bookworm armhf-lite release
@@ -63,6 +70,16 @@ Before building an image you need a Linux host with:
 > chroot scripts hardcode Bookworm-era package names (`chromium-browser`).
 > Tag-bump stories per E69S01 Brief D-9 will update this pin in lockstep with
 > FullPageOS tag bumps.
+
+> **Note — CustomPiOS pin (E69S07).** CustomPiOS is pinned to tag `1.5.0`
+> (released 2024-10-25; the latest CustomPiOS release). At 1.5.0 the
+> GPU-acceleration package list in `src/modules/gui/start_chroot_script`
+> installs `libconfig9` (which Raspbian Bookworm armhf has) rather than devel
+> HEAD's `libconfig11` (which Bookworm armhf does NOT). Tag-bump stories per
+> E69S01 Brief D-9 will update this pin alongside FullPageOS tag bumps. The
+> script enforces the pin via the `--override-customos-tag-confirmation` flag
+> (symmetric to the existing `--override-tag-confirmation` for FullPageOS); see
+> `./build-image.sh --help`.
 
 **Run with sudo:** invoke the script as `sudo ./build-image.sh --server-url=…`
 The script does not auto-elevate internally — this preserves principle-of-least-privilege
@@ -436,6 +453,25 @@ fixes here.
 (ii) Error output: ___________________________________________
 
 (iii) mvn verify: BUILD SUCCESS (bats tests pass; full Docker build not run in CI).
+
+### Actual outcome — E69S07 post-fix re-attestation (fill in)
+
+**Preparation:** Ensure CustomPiOS 1.5.0 is used by the build (default; no override flag needed).
+If validating the pin enforcement itself, run with `--custompios-tag=devel` (without
+`--override-customos-tag-confirmation`) and verify the script exits non-zero before any
+network call with an actionable English error message naming the unpinned tag and the
+override-confirmation flag. To test with a custom tag, add `--override-customos-tag-confirmation`.
+
+(i) .img produced: ___________________________________________
+
+(ii) Error output: ___________________________________________
+
+(iii) mvn verify: BUILD SUCCESS (bats tests pass; full Docker build not run in CI).
+
+**Escalation:** If after the E69S07 fix the build fails inside the FullPageOS chroot at a
+different apt-install step, **stop and open a new story per the E69S03 AC5 Escalation-Clause**.
+The next story follows the same Bug-Triage Flow (root cause established empirically before
+authoring acceptance criteria).
 
 ### Escalation
 
