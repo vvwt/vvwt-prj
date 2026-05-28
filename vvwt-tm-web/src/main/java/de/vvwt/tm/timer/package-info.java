@@ -23,6 +23,13 @@
  *       PhaseBreakRepository}, {@code PhaseBreakConfig}, {@code PhaseConfig}, {@code
  *       TimelineCalculationService}, {@code TimelineEntry}, {@code TimelineEntryType} — all at
  *       {@code de.vvwt.tm.tournament.*} root.
+ *   <li>{@code tournament::draft} — {@code DefaultTimerDataService} reads the operator-configured
+ *       {@link de.vvwt.tm.tournament.draft.DraftConfig} (and its nested {@link
+ *       de.vvwt.tm.tournament.draft.DraftSection} value objects) from
+ *       {@code Tournament#getDraftJson()} to extract per-section {@code lapTimeMinutes}, {@code
+ *       lapBreakTimeMinutes}, and {@code sectionBreakTimeMinutes} for timeline computation (E11S10
+ *       AC5–AC8). The {@code tournament::draft} named interface was defined for cross-module
+ *       consumption (E33S04 + DEC-35); this is the first consumer outside the {@code web} module.
  * </ul>
  *
  * <p>{@code tournament::exceptions} is NOT included. Empirical inspection of legacy {@code
@@ -41,5 +48,6 @@
  *
  * @since E26S01
  */
-@org.springframework.modulith.ApplicationModule(allowedDependencies = {"tournament", "tenant"})
+@org.springframework.modulith.ApplicationModule(
+        allowedDependencies = {"tournament", "tournament::draft", "tenant"})
 package de.vvwt.tm.timer;

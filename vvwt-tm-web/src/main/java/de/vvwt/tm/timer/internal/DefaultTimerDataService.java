@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package de.vvwt.tm.timer.internal;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.timer.InvalidTimerUrlException;
 import de.vvwt.tm.timer.NoActiveTournamentException;
+import de.vvwt.tm.timer.NoScheduleConfiguredException;
 import de.vvwt.tm.timer.TimerAudioResponse;
 import de.vvwt.tm.timer.TimerBreakType;
 import de.vvwt.tm.timer.TimerDataResponse;
@@ -26,6 +28,8 @@ import de.vvwt.tm.tournament.TimelineEntry;
 import de.vvwt.tm.tournament.TimelineEntryType;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.draft.DraftConfig;
+import de.vvwt.tm.tournament.draft.DraftSection;
 import java.io.InputStream;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -37,6 +41,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,19 +53,25 @@ import org.springframework.transaction.annotation.Transactional;
  * services. Canonical FQN: {@code de.vvwt.tm.timer.internal.DefaultTimerDataService} per DEC-35
  * (implementation in {@code .internal}; naming canon {@code Default*Service}).
  *
- * <h2>6-arg constructor (C-3 signature-preservation)</h2>
+ * <h2>E11S10 — Timeline math from operator-configured DraftConfig (AC5–AC8, AC11, AC12)</h2>
  *
- * <p>Constructor parameter order preserved verbatim from legacy timer data service (formerly at
- * domain.timer, reconstructed as {@link de.vvwt.tm.timer.TimerDataService}):
+ * <p>This implementation loads the operator-configured {@link DraftConfig} from {@link
+ * Tournament#getDraftJson()} and uses per-section {@link DraftSection#getLapTimeMinutes()}, {@link
+ * DraftSection#getLapBreakTimeMinutes()}, and {@link DraftSection#getSectionBreakTimeMinutes()}
+ * values instead of the previously hardcoded {@code DEFAULT_LAP_TIME_MINUTES=15} / {@code
+ * DEFAULT_LAP_BREAK_MINUTES=5} constants.
  *
- * <ol>
- *   <li>{@link TournamentRepository}
- *   <li>{@link PhaseRepository}
- *   <li>{@link MatchRepository}
- *   <li>{@link PhaseBreakRepository}
- *   <li>{@link TimelineCalculationService}
- *   <li>{@link AudioStorageService}
- * </ol>
+ * <p>Strategy-i (per-phase loop): calls {@link TimelineCalculationService#calculate} once per
+ * phase with {@code sectionBreakMinutes=0}, then manually appends {@link
+ * TimelineEntryType#SECTION_BREAK} entries between consecutive phases using each section's own
+ * {@link DraftSection#getSectionBreakTimeMinutes()} value. This mirrors {@code
+ * DefaultDraftService.buildTimeline} without creating a shared interface crossing module boundaries
+ * (DEC-35/DEC-58). Delivery option (b) per Story Notes §Timeline-math-architecture.
+ *
+ * <p>Error handling (AC11, AC12): when {@code tournament.draftJson} is absent/null, or when any
+ * configured {@code lapTimeMinutes ≤ 0} for a non-zero-lap phase, or when the phase count and
+ * section count are inconsistent, throws {@link NoScheduleConfiguredException} — consistent with
+ * E11S03 error states.
  *
  * <h2>Break type mapping (AC3)</h2>
  *
@@ -71,31 +83,26 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <h2>Wave-2 audio URL construction (AC-AUDIO-URL-CONSTRUCTION-WAVE2)</h2>
  *
- * <p>URL pattern: {@code /api/audio/tournaments/{tournamentId}/{category}/stream}. Replaces legacy
- * pattern {@code /api/tournaments/{tournamentId}/audio/{category}/stream}.
+ * <p>URL pattern: {@code /api/audio/tournaments/{tournamentId}/{category}/stream}.
  *
  * <h2>DEC compliance</h2>
  *
  * <ul>
- *   <li>DEC-22 TDD Iron Law: RED-first tests in {@code DefaultTimerDataServiceTest} (same-package
- *       per DEC-36) written before this implementation
- *   <li>DEC-35: interface {@code TimerDataService} in public package; impl in {@code .internal}
+ *   <li>DEC-22: REFACTOR Phase-3 on TDD-authored {@code DefaultTimerDataServiceTest} (AC14)
+ *   <li>DEC-35: interface in public package; impl in {@code .internal}
  *   <li>DEC-36: cross-package consumers reference {@code TimerDataService}, not this class
- *   <li>DEC-41 §4: all 28 in-scope legacy tests Snapshot-Driven per
- *       E26-AUDIT-DEC41-TEST-CLASSIFICATION; no legacy test reuse; fresh RED-first tests only
+ *   <li>DEC-54: {@code mvn verify} exit-zero is the QA gate
+ *   <li>DEC-76: SPDX header present
  * </ul>
  *
  * @see TimerDataService
+ * @see <a href="contexts/artefacts/stories/E11S10.story.md">Story E11S10</a>
  * @see <a href="contexts/artefacts/stories/E26S01.story.md">Story E26S01</a>
  */
 @Service
 public class DefaultTimerDataService implements TimerDataService {
 
-    /** Default lap time in minutes. */
-    static final int DEFAULT_LAP_TIME_MINUTES = 15;
-
-    /** Default lap break time in minutes. */
-    static final int DEFAULT_LAP_BREAK_MINUTES = 5;
+    private static final Logger log = LoggerFactory.getLogger(DefaultTimerDataService.class);
 
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
 
@@ -110,9 +117,10 @@ public class DefaultTimerDataService implements TimerDataService {
     private final TimelineCalculationService timelineCalculationService;
     private final AudioStorageService audioStorageService;
     private final TenantContext tenantContext;
+    private final ObjectMapper objectMapper;
 
     /**
-     * 6-arg constructor preserved verbatim per C-3 signature-preservation.
+     * Constructor. {@link ObjectMapper} added (E11S10) for DraftConfig deserialization.
      *
      * <p>All tournament repos and {@link TimelineCalculationService} are from {@code
      * de.vvwt.tm.tournament.*} root. {@link AudioStorageService} is from {@code
@@ -125,7 +133,8 @@ public class DefaultTimerDataService implements TimerDataService {
             PhaseBreakRepository phaseBreakRepository,
             TimelineCalculationService timelineCalculationService,
             AudioStorageService audioStorageService,
-            TenantContext tenantContext) {
+            TenantContext tenantContext,
+            ObjectMapper objectMapper) {
         this.tournamentRepository = tournamentRepository;
         this.phaseRepository = phaseRepository;
         this.matchRepository = matchRepository;
@@ -133,6 +142,7 @@ public class DefaultTimerDataService implements TimerDataService {
         this.timelineCalculationService = timelineCalculationService;
         this.audioStorageService = audioStorageService;
         this.tenantContext = tenantContext;
+        this.objectMapper = objectMapper;
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -140,13 +150,15 @@ public class DefaultTimerDataService implements TimerDataService {
     /**
      * Builds the timer data response for the given tournament.
      *
-     * <p>Loads tournament, phases, matches, phase breaks, computes timeline, and assembles audio
-     * URLs into a single {@link TimerDataResponse}.
+     * <p>Loads tournament, phases, matches, phase breaks, DraftConfig, computes timeline, and
+     * assembles audio URLs into a single {@link TimerDataResponse}.
      *
      * @param tournamentId the tournament UUID (must belong to the active tenant per DEC-5)
      * @return the assembled timer data response; never {@code null}
      * @throws InvalidTimerUrlException if the tournament does not exist for the active tenant
      * @throws NoActiveTournamentException if the tournament is in DRAFT or CANCELLED status
+     * @throws NoScheduleConfiguredException if draftJson is absent or contains invalid values
+     *     (AC11, AC12)
      */
     @Override
     @Transactional(readOnly = true)
@@ -193,25 +205,30 @@ public class DefaultTimerDataService implements TimerDataService {
             allBreaks.addAll(phaseBreakRepository.findByPhaseId(phase.getId()));
         }
 
-        // ── Step 4: Build PhaseConfigs for timeline ───────────────────────────
+        // ── Step 4: Load DraftConfig (AC5–AC8, AC11, AC12) ───────────────────
 
-        List<PhaseConfig> phaseConfigs = buildPhaseConfigs(phases, allBreaks, maxLapByPhaseIndex);
+        DraftConfig draftConfig = loadDraftConfig(tournament);
 
-        // ── Step 5: Compute timeline ──────────────────────────────────────────
+        // ── Step 5: Build PhaseConfigs for timeline ───────────────────────────
+
+        List<PhaseConfig> phaseConfigs =
+                buildPhaseConfigs(phases, allBreaks, maxLapByPhaseIndex, draftConfig);
+
+        // ── Step 6: Compute timeline using Strategy-i ─────────────────────────
 
         LocalTime startTime = tournament.getPlannedStartTime();
         boolean hasStartTime = (startTime != null);
         List<TimelineEntry> timeline =
                 hasStartTime
-                        ? timelineCalculationService.calculate(startTime, phaseConfigs, 0)
+                        ? buildTimelineStrategyI(startTime, phaseConfigs, draftConfig)
                         : Collections.emptyList();
 
-        // ── Step 6: Map timeline entries → schedule entries ───────────────────
+        // ── Step 7: Map timeline entries → schedule entries ───────────────────
 
         List<TimerScheduleEntryResponse> schedule =
                 buildSchedule(timeline, hasStartTime, phases, allBreaks, maxLapByPhaseIndex);
 
-        // ── Step 7: Build phase summaries ─────────────────────────────────────
+        // ── Step 8: Build phase summaries ─────────────────────────────────────
 
         List<TimerPhaseResponse> phaseSummaries = new ArrayList<>();
         for (int i = 0; i < phases.size(); i++) {
@@ -224,7 +241,7 @@ public class DefaultTimerDataService implements TimerDataService {
                             maxLapByPhaseIndex[i]));
         }
 
-        // ── Step 8: Determine current position (AC5) ──────────────────────────
+        // ── Step 9: Determine current position (AC5) ──────────────────────────
 
         int currentPhaseNumber = 0;
         int currentLapNumber = 0;
@@ -236,11 +253,11 @@ public class DefaultTimerDataService implements TimerDataService {
             }
         }
 
-        // ── Step 9: Build audio URLs (AC4) ────────────────────────────────────
+        // ── Step 10: Build audio URLs (AC4) ───────────────────────────────────
 
         TimerAudioResponse audio = buildAudioResponse(tournamentId);
 
-        // ── Step 10: Assemble response ────────────────────────────────────────
+        // ── Step 11: Assemble response ────────────────────────────────────────
 
         TimerDataResponse response = new TimerDataResponse();
         response.setTournamentName(tournament.getDescription());
@@ -258,6 +275,37 @@ public class DefaultTimerDataService implements TimerDataService {
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
+
+    /**
+     * Loads the {@link DraftConfig} from {@link Tournament#getDraftJson()}.
+     *
+     * <p>AC11: when {@code draftJson} is absent/null → throws {@link
+     * NoScheduleConfiguredException}.
+     *
+     * @param tournament the tournament entity
+     * @return deserialized DraftConfig; never {@code null}
+     * @throws NoScheduleConfiguredException if draftJson is absent/null or cannot be parsed (AC11)
+     */
+    private DraftConfig loadDraftConfig(Tournament tournament) {
+        String json = tournament.getDraftJson();
+        if (json == null || json.isBlank()) {
+            // AC11: no draft configured → consistent error state
+            log.warn(
+                    "Timer data requested for tournament {} but draftJson is absent"
+                            + " — no schedule can be computed (AC11)",
+                    tournament.getId());
+            throw new NoScheduleConfiguredException(tournament.getId());
+        }
+        try {
+            return objectMapper.readValue(json, DraftConfig.class);
+        } catch (Exception e) {
+            log.warn(
+                    "Timer data: failed to parse draftJson for tournament {} — {}",
+                    tournament.getId(),
+                    e.getMessage());
+            throw new NoScheduleConfiguredException(tournament.getId());
+        }
+    }
 
     /** Builds a response for the "no phases" case (AC-BUILD-TIMER-DATA-EMPTY-SCHEDULE). */
     private TimerDataResponse buildEmptyScheduleResponse(Tournament tournament) {
@@ -386,19 +434,73 @@ public class DefaultTimerDataService implements TimerDataService {
         return schedule;
     }
 
-    /** Builds {@link PhaseConfig} objects for timeline calculation. */
+    /**
+     * Builds {@link PhaseConfig} objects for timeline calculation using operator-configured
+     * DraftConfig values (AC5, AC6, AC8).
+     *
+     * <p>E11S10: uses {@link DraftSection#getLapTimeMinutes()} and {@link
+     * DraftSection#getLapBreakTimeMinutes()} from the operator-configured draft instead of the
+     * previously hardcoded {@code DEFAULT_LAP_TIME_MINUTES=15} / {@code DEFAULT_LAP_BREAK_MINUTES=5}
+     * constants.
+     *
+     * <p>Phase-to-section matching: phases sorted by sequenceNumber, sections sorted by
+     * sectionNumber. Sections are matched by index. If draftConfig has fewer sections than phases,
+     * throws {@link NoScheduleConfiguredException} (AC12).
+     *
+     * <p>AC12: if any matched section has {@code lapTimeMinutes ≤ 0} for a phase with {@code
+     * lapCount > 0}, throws {@link NoScheduleConfiguredException}.
+     *
+     * @param phases sorted phases (by sequenceNumber)
+     * @param allBreaks all phase breaks
+     * @param maxLapByPhaseIndex max lap number per phase index
+     * @param draftConfig the operator-configured draft
+     * @return list of PhaseConfig in phase order
+     */
     private List<PhaseConfig> buildPhaseConfigs(
-            List<Phase> phases, List<PhaseBreak> allBreaks, int[] maxLapByPhaseIndex) {
+            List<Phase> phases,
+            List<PhaseBreak> allBreaks,
+            int[] maxLapByPhaseIndex,
+            DraftConfig draftConfig) {
         // Build lookup: phaseId → PhaseBreaks
         Map<UUID, List<PhaseBreak>> breaksByPhase = new HashMap<>();
         for (PhaseBreak pb : allBreaks) {
             breaksByPhase.computeIfAbsent(pb.getPhaseId(), k -> new ArrayList<>()).add(pb);
         }
 
+        // Sort sections by sectionNumber (ascending)
+        List<DraftSection> sections = new ArrayList<>(draftConfig.getSections());
+        sections.sort(java.util.Comparator.comparingInt(DraftSection::getSectionNumber));
+
         List<PhaseConfig> configs = new ArrayList<>();
         for (int i = 0; i < phases.size(); i++) {
             Phase phase = phases.get(i);
             int lapCount = maxLapByPhaseIndex[i];
+
+            // AC12: If we have fewer sections than phases, the draft is inconsistent
+            if (i >= sections.size()) {
+                log.warn(
+                        "Timer data: phase {} (sequenceNumber={}) has no matching DraftSection"
+                                + " — draftConfig has {} sections but {} phases (AC12)",
+                        phase.getId(),
+                        phase.getSequenceNumber(),
+                        sections.size(),
+                        phases.size());
+                throw new NoScheduleConfiguredException(phase.getTournamentId());
+            }
+
+            DraftSection section = sections.get(i);
+
+            // AC12: lapTimeMinutes must be > 0 for phases with actual laps
+            if (lapCount > 0 && section.getLapTimeMinutes() <= 0) {
+                log.warn(
+                        "Timer data: section {} has lapTimeMinutes={} <= 0 for phase with"
+                                + " lapCount={} — invalid DraftConfig (AC12)",
+                        section.getSectionNumber(),
+                        section.getLapTimeMinutes(),
+                        lapCount);
+                throw new NoScheduleConfiguredException(phase.getTournamentId());
+            }
+
             List<PhaseBreak> phaseBreaks =
                     breaksByPhase.getOrDefault(phase.getId(), Collections.emptyList());
             List<PhaseBreakConfig> breakConfigs = new ArrayList<>();
@@ -407,15 +509,82 @@ public class DefaultTimerDataService implements TimerDataService {
                         new PhaseBreakConfig(
                                 pb.getAfterLapNumber(), pb.getDurationMinutes(), pb.getLabel()));
             }
+
+            // Use operator-configured values (AC5, AC6) — NOT hardcoded defaults.
+            // lapTimeMinutes: from DraftSection (AC5).
+            // lapBreakMinutes: from DraftSection (AC6).
+            // AC8 regression guard: phaseBreaks already contain intra-phase break configs.
+            // For lapCount=0 (e.g., Siegerehrung), lapTimeMinutes is ignored by the engine but
+            // PhaseConfig requires lapTimeMinutes > 0 when lapCount > 0; use section value (>0
+            // per DraftSection validation) when lapCount>0, else use 1 as a safe sentinel.
+            int lapTime = lapCount > 0 ? section.getLapTimeMinutes() : 1;
             configs.add(
                     new PhaseConfig(
                             phase.getSequenceNumber(),
                             lapCount,
-                            DEFAULT_LAP_TIME_MINUTES,
-                            DEFAULT_LAP_BREAK_MINUTES,
+                            lapTime,
+                            section.getLapBreakTimeMinutes(),
                             breakConfigs));
         }
         return configs;
+    }
+
+    /**
+     * Computes the timeline using Strategy-i: per-phase calls to {@link
+     * TimelineCalculationService#calculate} with {@code sectionBreakMinutes=0}, then manually
+     * appends {@link TimelineEntryType#SECTION_BREAK} entries between consecutive phases using each
+     * section's own {@link DraftSection#getSectionBreakTimeMinutes()} (AC7).
+     *
+     * <p>This mirrors {@code DefaultDraftService.buildTimeline} (Strategy-i) without creating a
+     * shared cross-module interface. Delivery option (b) per Story Notes §Timeline-math-architecture.
+     *
+     * @param startTime tournament start time (must not be null)
+     * @param phaseConfigs matching PhaseConfig list
+     * @param draftConfig the operator-configured draft (for sectionBreakTimeMinutes)
+     * @return ordered timeline entries including SECTION_BREAK entries between phases
+     */
+    private List<TimelineEntry> buildTimelineStrategyI(
+            LocalTime startTime, List<PhaseConfig> phaseConfigs, DraftConfig draftConfig) {
+        List<DraftSection> sections = new ArrayList<>(draftConfig.getSections());
+        sections.sort(java.util.Comparator.comparingInt(DraftSection::getSectionNumber));
+
+        List<TimelineEntry> result = new ArrayList<>();
+        LocalTime cursor = startTime;
+
+        for (int i = 0; i < phaseConfigs.size(); i++) {
+            PhaseConfig phaseConfig = phaseConfigs.get(i);
+            boolean isLastPhase = (i == phaseConfigs.size() - 1);
+
+            // Call calculate() per phase with sectionBreakMinutes=0 (Strategy-i)
+            List<TimelineEntry> phaseEntries =
+                    timelineCalculationService.calculate(cursor, List.of(phaseConfig), 0);
+            result.addAll(phaseEntries);
+
+            // Advance cursor to end of last entry in this phase (if any)
+            if (!phaseEntries.isEmpty()) {
+                cursor = phaseEntries.get(phaseEntries.size() - 1).endTime();
+            }
+
+            // AC7: Append SECTION_BREAK entry between consecutive phases
+            if (!isLastPhase && i < sections.size()) {
+                DraftSection section = sections.get(i);
+                int sectionBreakMinutes = section.getSectionBreakTimeMinutes();
+                if (sectionBreakMinutes > 0) {
+                    LocalTime sectionBreakEnd = cursor.plusMinutes(sectionBreakMinutes);
+                    result.add(
+                            new TimelineEntry(
+                                    phaseConfig.phaseNumber(),
+                                    0,
+                                    TimelineEntryType.SECTION_BREAK,
+                                    cursor,
+                                    sectionBreakEnd,
+                                    null));
+                    cursor = sectionBreakEnd;
+                }
+            }
+        }
+
+        return result;
     }
 
     /** Builds the audio response by checking which categories have files uploaded (AC4). */
@@ -431,8 +600,7 @@ public class DefaultTimerDataService implements TimerDataService {
      * file has been uploaded.
      *
      * <p>AC-AUDIO-URL-CONSTRUCTION-WAVE2: URL pattern is {@code
-     * /api/audio/tournaments/{tournamentId}/{category}/stream} (Wave-2-aligned). Replaces legacy
-     * {@code /api/tournaments/{tournamentId}/audio/{category}/stream}.
+     * /api/audio/tournaments/{tournamentId}/{category}/stream} (Wave-2-aligned).
      *
      * <p>@SuppressWarnings("try"): the try-with-resources block intentionally opens and immediately
      * closes the stream to verify real file access (DEC-29).
