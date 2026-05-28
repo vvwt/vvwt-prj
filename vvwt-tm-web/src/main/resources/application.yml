@@ -156,6 +156,7 @@ tm:
       display-name: ${TM_BOOTSTRAP_DEFAULT_TENANT_DISPLAY_NAME:ToM Tournament Manager (LAN)}
       language: ${TM_BOOTSTRAP_DEFAULT_TENANT_LANGUAGE:de}
   slotopt:
+    scorer: balanced
     fallback:
       # Number of courts (fields) available per lap for slot assignment.
       # Used by PhaseToRawPhaseDefMapper and FallbackSlotOptimizationClient.
