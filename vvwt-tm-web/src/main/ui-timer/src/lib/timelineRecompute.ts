@@ -1,17 +1,5 @@
 // SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
 // SPDX-License-Identifier: AGPL-3.0-or-later
-
-/**
- * FE-port of the schedule timeline recompute logic (E11S12 AC8 path (a)).
- *
- * Recomputes effective wall-clock start/end times for all schedule entries
- * based on ephemeral per-phase config overrides and ephemeral intra-phase
- * break overrides. Mutates ONLY startTime / endTime — all other fields
- * (type, phaseNumber, lapNumber, breakType, label) are preserved verbatim.
- *
- * No saveDraft call; no backend interaction. Ephemeral only (AC7).
- */
-
 import { parseTimeToSeconds, formatTimeSeconds } from './timerApi.js';
 import type { TimerScheduleEntry } from './timerApi.js';
 

@@ -1,13 +1,5 @@
 // SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
 // SPDX-License-Identifier: AGPL-3.0-or-later
-/**
- * Persistence-absence regression test (E11S12 AC13).
- *
- * Source-inspects all modified/created files to assert that the inline-edit
- * handler path contains NO call to `DraftService.saveDraft`, `saveDraft`,
- * or any backend write endpoint — enforcing AC7's ephemeral invariant at
- * build time.
- */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
