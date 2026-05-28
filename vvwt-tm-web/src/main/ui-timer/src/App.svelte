@@ -4,7 +4,7 @@
 -->
 <script lang="ts">
   /**
-   * Root component for the Timer SPA (E11S03 + E11S04 + E11S05 + E11S09 + E11S10 + E11S11).
+   * Root component for the Timer SPA (E11S03 + E11S04 + E11S05 + E11S09 + E11S10 + E11S11 + E11S12).
    *
    * E11S03 lifecycle (retained):
    *   1. Mount: extract tournamentId from URL pathname (AC1/E11S03, AC5/E11S03)
@@ -43,6 +43,18 @@
    *   - Scrollable schedule container below the sticky header.
    *   - Auto-scroll to playing row on playingIndex change (smooth, option-b: only when not visible).
    *   - Responsive: @media (max-width: 640px) collapses to single column (AC11).
+   *
+   * E11S12 additions (AC1–AC17):
+   *   - Inline play/pause/stop micro-controls per ROUND and REGULAR-BREAK row (AC1).
+   *   - Audio-activity indicator via inline-play colour saturation (AC2).
+   *   - Manual time-shift via inline play "skip-to" using timeOverrides Map (AC3, AC4).
+   *   - Phase-config strip above first ROUND of each phase (AC5).
+   *   - ADDITIONAL BREAK inline duration/label edit (AC6).
+   *   - Ephemeral edits — no saveDraft, no persistence (AC7).
+   *   - FE-port timeline recompute on edit (AC8, path (a)).
+   *   - Inline-edit validation (AC9).
+   *   - WS-driven reload resets ephemeral state (AC10).
+   *   - Skip-to past row: option (a) uniform skip-to-now (AC11).
    */
   import { onMount, onDestroy } from 'svelte';
   import { _ } from 'svelte-i18n';
@@ -54,18 +66,27 @@
     NoScheduleConfiguredError,
     formatTimeSeconds,
     type TimerData,
+    type TimerScheduleEntry,
   } from './lib/timerApi.js';
   import { TimerWsClient } from './lib/timerWs.js';
   import {
     buildSnapshot,
     getAudioEventOnActivate,
     getAudioEventOnDeactivate,
+    nowSeconds,
     type TransportState,
     type CountdownSnapshot,
   } from './lib/countdownEngine.js';
   import { AudioEngine } from './lib/audioEngine.js';
+  import {
+    recomputeSchedule,
+    hasEphemeralOverrides,
+    type EphemeralPhaseConfig,
+    type EphemeralBreakConfig,
+  } from './lib/timelineRecompute.js';
   import ClockSyncDialog from './components/ClockSyncDialog.svelte';
   import ScheduleRow from './components/ScheduleRow.svelte';
+  import PhaseConfigRow from './components/PhaseConfigRow.svelte';
   import Countdown from './components/Countdown.svelte';
   import TransportControls from './components/TransportControls.svelte';
   import RoundCounter from './components/RoundCounter.svelte';
@@ -163,6 +184,36 @@
   });
 
   let tournamentId: string | null = null;
+
+  // ── E11S12: Ephemeral per-phase config state ───────────────────────────────
+
+  /**
+   * AC5/AC7/E11S12: Per-phase ephemeral config overrides.
+   * Keyed by phaseNumber. Edits live in client state only — no saveDraft call.
+   * Reset on WS-driven loadTimerDataSilent (AC10).
+   */
+  let ephemeralPhaseConfig = $state(new Map<number, EphemeralPhaseConfig>());
+
+  /**
+   * AC6/AC7/E11S12: Per-entry ephemeral break config for ADDITIONAL BREAK rows.
+   * Keyed by entry index. Ephemeral only.
+   * Reset on WS-driven loadTimerDataSilent (AC10).
+   */
+  let ephemeralBreakConfig = $state(new Map<number, EphemeralBreakConfig>());
+
+  /**
+   * AC8/E11S12: Effective schedule — recomputed from timerData.schedule when
+   * ephemeral overrides are present; otherwise equals timerData.schedule verbatim.
+   *
+   * Used by the countdown engine, schedule table, and PhaseConfigRow insertion logic.
+   */
+  const effectiveSchedule = $derived((): readonly TimerScheduleEntry[] => {
+    if (!timerData) return [];
+    if (!hasEphemeralOverrides(ephemeralPhaseConfig, ephemeralBreakConfig)) {
+      return timerData.schedule;
+    }
+    return recomputeSchedule(timerData.schedule, ephemeralPhaseConfig, ephemeralBreakConfig);
+  });
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
@@ -271,6 +322,7 @@
   /**
    * AC2/E11S05: Lap advanced — reload schedule and reset audio event tracking.
    * The countdown engine continues; the schedule reload updates the display.
+   * AC10/E11S12: also reset ephemeral config state.
    */
   async function handleWsLapAdvanced(): Promise<void> {
     if (appState !== 'loaded') return;
@@ -282,6 +334,7 @@
 
   /**
    * AC3/E11S05: Phase status changed — reload full schedule.
+   * AC10/E11S12: also reset ephemeral config state.
    */
   async function handleWsPhaseChanged(): Promise<void> {
     if (appState !== 'loaded') return;
@@ -309,6 +362,7 @@
   /**
    * Silently reload timer data without changing appState (used for WS-triggered reloads).
    * Does not reset wsClient — only refreshes schedule and audio config.
+   * AC10/E11S12: resets timeOverrides AND ephemeral config state.
    */
   async function loadTimerDataSilent(): Promise<void> {
     if (!tournamentId) return;
@@ -316,6 +370,9 @@
       const data = await fetchTimerData(tournamentId);
       timerData = data;
       timeOverrides = new Map();
+      // AC10/E11S12: WS-driven reload resets ephemeral state
+      ephemeralPhaseConfig = new Map();
+      ephemeralBreakConfig = new Map();
       audioEngine.preload(data.audio.startUrl, data.audio.endUrl, data.audio.pauseUrl);
       refreshSnapshot();
     } catch {
@@ -335,11 +392,12 @@
 
   /**
    * Refreshes the countdown snapshot from the engine using current state.
+   * Uses effectiveSchedule (AC8/E11S12) so recomputed times are reflected.
    */
   function refreshSnapshot(): void {
     if (!timerData) return;
     snapshot = buildSnapshot(
-      timerData.schedule,
+      effectiveSchedule() as TimerScheduleEntry[],
       timeOverrides,
       clockOffsetSeconds,
       transportState,
@@ -375,7 +433,7 @@
       // The entry just before activeEventIndex is transitioning from playing → done
       // If there was a previous playing entry, fire its deactivate event
       if (lastPlayingIndex !== -1 && lastPlayingIndex !== playingIndex) {
-        const prevEntry = timerData.schedule[lastPlayingIndex];
+        const prevEntry = effectiveSchedule()[lastPlayingIndex];
         if (prevEntry) {
           const deactivateEvent = getAudioEventOnDeactivate(prevEntry);
           if (deactivateEvent.type === 'END_SOUND') {
@@ -387,7 +445,7 @@
       }
 
       // Fire activate event for the new active entry
-      const entry = timerData.schedule[activeEventIndex];
+      const entry = effectiveSchedule()[activeEventIndex];
       if (entry) {
         const activateEvent = getAudioEventOnActivate(entry);
         if (activateEvent.type === 'START_SOUND') {
@@ -457,6 +515,93 @@
     refreshSnapshot();
   }
 
+  // ── E11S12 AC1/AC3: Inline transport handlers ────────────────────────────
+
+  /**
+   * AC3/E11S12: "Skip to" handler — clicking the inline play of a row shifts
+   * the schedule so this row's effective time becomes HallenuhrNow.
+   *
+   * Implementation:
+   * - Compute HallenuhrNow = nowSeconds(clockOffsetSeconds).
+   * - Compute the row's current effective time from effectiveSchedule[rowIndex].startTime.
+   * - Compute delta = HallenuhrNow − rowEffective.
+   * - Apply timeOverrides for this row and all subsequent rows: override[i] = effective[i] + delta.
+   *   This shifts THIS row to exactly now, and all subsequent rows by the same delta.
+   *
+   * AC4: WS-driven loadTimerDataSilent wipes timeOverrides → manual shift is ephemeral.
+   * AC11: Works uniformly for past rows too (option (a) — uniform skip-to-now).
+   *
+   * The engine stays PLAYING (no transport-state change).
+   */
+  function handleSkipTo(rowIndex: number): void {
+    if (!timerData) return;
+    const sched = effectiveSchedule();
+    if (rowIndex < 0 || rowIndex >= sched.length) return;
+
+    const rowEntry = sched[rowIndex];
+    if (!rowEntry?.startTime) return;
+
+    // Parse the row's effective start time
+    let rowEffective: number;
+    const override = timeOverrides.get(rowIndex);
+    if (override !== undefined) {
+      rowEffective = override;
+    } else {
+      // Direct parse of the start time string (inline — avoids dynamic import)
+      const parts = rowEntry.startTime.split(':').map(Number);
+      if (parts.length < 2 || parts.some(isNaN)) return;
+      rowEffective = parts[0] * 3600 + parts[1] * 60 + (parts[2] ?? 0);
+    }
+
+    const hallenuhrzeitNowSecs = nowSeconds(clockOffsetSeconds);
+    const delta = hallenuhrzeitNowSecs - rowEffective;
+
+    // Apply delta to this row and all subsequent rows
+    const newOverrides = new Map(timeOverrides);
+    for (let i = rowIndex; i < sched.length; i++) {
+      const entry = sched[i];
+      if (!entry) continue;
+      let baseTime: number;
+      const existingOverride = timeOverrides.get(i);
+      if (existingOverride !== undefined) {
+        baseTime = existingOverride;
+      } else if (entry.startTime) {
+        const parts = entry.startTime.split(':').map(Number);
+        if (parts.length < 2 || parts.some(isNaN)) continue;
+        baseTime = parts[0] * 3600 + parts[1] * 60 + (parts[2] ?? 0);
+      } else {
+        continue;
+      }
+      newOverrides.set(i, baseTime + delta);
+    }
+    timeOverrides = newOverrides;
+    if (appState === 'loaded') refreshSnapshot();
+  }
+
+  // ── E11S12 AC5: Phase config update handler ───────────────────────────────
+
+  /**
+   * AC5/AC8/E11S12: Called when the operator commits a phase config edit.
+   * Updates the ephemeral phase config map → triggers effectiveSchedule recompute.
+   * No saveDraft call (AC7).
+   */
+  function handleInlinePhaseConfigUpdate(phaseNumber: number, cfg: EphemeralPhaseConfig): void {
+    ephemeralPhaseConfig = new Map(ephemeralPhaseConfig).set(phaseNumber, cfg);
+    if (appState === 'loaded') refreshSnapshot();
+  }
+
+  // ── E11S12 AC6: Break config update handler ───────────────────────────────
+
+  /**
+   * AC6/AC8/E11S12: Called when the operator commits a break inline edit.
+   * Updates the ephemeral break config map → triggers effectiveSchedule recompute.
+   * No saveDraft call (AC7).
+   */
+  function handleInlineBreakUpdate(entryIndex: number, cfg: EphemeralBreakConfig): void {
+    ephemeralBreakConfig = new Map(ephemeralBreakConfig).set(entryIndex, cfg);
+    if (appState === 'loaded') refreshSnapshot();
+  }
+
   // ── Audio engine state (AC8/E11S04) ───────────────────────────────────────
 
   const audioState = $derived(audioEngine.getState());
@@ -498,6 +643,73 @@
         scheduleRowEls = updated;
       },
     };
+  }
+
+  // ── E11S12 AC2: Audio-activity indicator ──────────────────────────────────
+
+  /**
+   * AC2/E11S12: Returns true when audio playback is currently active for the given row.
+   * Condition: snapshot.playingIndex === rowIndex AND the row is audio-capable
+   * (ROUND or REGULAR BREAK).
+   */
+  function isRowAudioActive(entry: TimerScheduleEntry, rowIndex: number): boolean {
+    if (!snapshot) return false;
+    if (snapshot.playingIndex !== rowIndex) return false;
+    return entry.type === 'ROUND' || (entry.type === 'BREAK' && entry.breakType === 'REGULAR');
+  }
+
+  // ── E11S12 AC5: Phase metadata helpers ─────────────────────────────────────
+
+  /**
+   * Returns a Set of phaseNumbers that are the "last" phase (the highest-numbered active phase).
+   * Used to disable sectionBreakTimeMinutes input for the last phase (AC5).
+   */
+  const lastPhaseNumber = $derived((): number => {
+    if (!timerData) return 0;
+    const phases = timerData.phases.filter(p => p.phaseNumber > 0);
+    if (phases.length === 0) return 0;
+    return Math.max(...phases.map(p => p.phaseNumber));
+  });
+
+  /**
+   * Determines the initial phase config to pass to PhaseConfigRow.
+   * Uses ephemeral override if present, else derives from schedule.
+   */
+  function getInitialPhaseConfig(phaseNumber: number): EphemeralPhaseConfig {
+    const override = ephemeralPhaseConfig.get(phaseNumber);
+    if (override) return override;
+    // Derive from effective schedule
+    const roundEntries = effectiveSchedule().filter(
+      e => e.type === 'ROUND' && e.phaseNumber === phaseNumber
+    );
+    let lapTimeMinutes = 15;
+    if (roundEntries.length > 0) {
+      const first = roundEntries[0];
+      if (first.startTime && first.endTime) {
+        const s = first.startTime.split(':').map(Number);
+        const e = first.endTime.split(':').map(Number);
+        if (s.length >= 2 && e.length >= 2) {
+          const sSecs = s[0] * 3600 + s[1] * 60 + (s[2] ?? 0);
+          const eSecs = e[0] * 3600 + e[1] * 60 + (e[2] ?? 0);
+          if (eSecs > sSecs) lapTimeMinutes = (eSecs - sSecs) / 60;
+        }
+      }
+    }
+    return { lapTimeMinutes, lapBreakTimeMinutes: 0, sectionBreakTimeMinutes: 0 };
+  }
+
+  /**
+   * Returns the first ROUND entry index for a given phaseNumber.
+   * Used to determine where to insert PhaseConfigRow above.
+   */
+  function getFirstRoundIndexForPhase(phaseNumber: number): number {
+    const sched = effectiveSchedule();
+    for (let i = 0; i < sched.length; i++) {
+      if (sched[i].type === 'ROUND' && sched[i].phaseNumber === phaseNumber) {
+        return i;
+      }
+    }
+    return -1;
   }
 </script>
 
@@ -639,7 +851,22 @@
           </tr>
         </thead>
         <tbody>
-          {#each timerData.schedule as entry, i (i)}
+          {#each effectiveSchedule() as entry, i (i)}
+            <!--
+              E11S12 AC5: Insert PhaseConfigRow above the first ROUND of each phase.
+              The PhaseConfigRow is a table row rendered before the round row.
+            -->
+            {#if entry.type === 'ROUND' && getFirstRoundIndexForPhase(entry.phaseNumber ?? 0) === i}
+              <PhaseConfigRow
+                phaseNumber={entry.phaseNumber ?? 0}
+                lapTimeMinutes={getInitialPhaseConfig(entry.phaseNumber ?? 0).lapTimeMinutes}
+                lapBreakTimeMinutes={getInitialPhaseConfig(entry.phaseNumber ?? 0).lapBreakTimeMinutes}
+                sectionBreakTimeMinutes={getInitialPhaseConfig(entry.phaseNumber ?? 0).sectionBreakTimeMinutes}
+                isLastPhase={(entry.phaseNumber ?? 0) === lastPhaseNumber()}
+                onUpdate={(cfg) => handleInlinePhaseConfigUpdate(entry.phaseNumber ?? 0, cfg)}
+              />
+            {/if}
+
             <!-- AC7/AC8: use:registerRow registers the row element for auto-scroll visibility check -->
             <tr use:registerRow={i}>
               <ScheduleRow
@@ -651,6 +878,12 @@
                 onTimeEdit={handleTimeEdit}
                 status={getEntryStatus(i)}
                 isNext={i === getNextUpcomingIndex()}
+                onInlinePlay={entry.type === 'ROUND' || (entry.type === 'BREAK' && entry.breakType === 'REGULAR') ? handleSkipTo : undefined}
+                onInlinePause={entry.type === 'ROUND' || (entry.type === 'BREAK' && entry.breakType === 'REGULAR') ? handlePause : undefined}
+                onInlineStop={entry.type === 'ROUND' || (entry.type === 'BREAK' && entry.breakType === 'REGULAR') ? handleStop : undefined}
+                isAudioActive={isRowAudioActive(entry, i)}
+                ephemeralBreakConfig={ephemeralBreakConfig.get(i) ?? null}
+                onBreakEdit={entry.type === 'BREAK' && entry.breakType === 'ADDITIONAL' ? handleInlineBreakUpdate : undefined}
               />
             </tr>
           {/each}
