@@ -65,13 +65,19 @@
 #   --override-tag-confirmation Explicit confirmation that an unpinned FullPageOS tag is
 #                               intentional. Required when --fullpageos-tag is set to a
 #                               value other than the pinned tag (0.14.0).
-#   --custompios-tag=TAG        Override the pinned CustomPiOS tag (default: 1.5.0).
-#                               Intended for tag-bump stories — NOT for casual operator use.
-#                               Requires --override-customos-tag-confirmation to prevent accidents.
+#   --custompios-tag=TAG        Override the pinned CustomPiOS commit sha
+#                               (default: 27ff1d372294d51ac186fb1ac17ac6221bac6833
+#                               (devel-HEAD commit-sha pin per E69S08; see README for
+#                               tag-vs-sha rationale)). Intended for tag-bump stories
+#                               — NOT for casual operator use. Requires
+#                               --override-customos-tag-confirmation to prevent accidents.
 #   --override-customos-tag-confirmation
 #                               Explicit confirmation that an unpinned CustomPiOS tag is
 #                               intentional. Required when --custompios-tag is set to a
-#                               value other than the pinned tag (1.5.0).
+#                               value other than the pinned sha
+#                               (27ff1d372294d51ac186fb1ac17ac6221bac6833
+#                               (devel-HEAD commit-sha pin per E69S08; see README for
+#                               tag-vs-sha rationale)).
 #   --output-dir=DIR            In --dry-run mode: directory to write overlay files to.
 #                               Defaults to a temporary directory when not specified.
 #
@@ -97,12 +103,18 @@ set -euo pipefail
 # ─── Constants ────────────────────────────────────────────────────────────────
 
 readonly PINNED_TAG="0.14.0"
-# E69S07 RCA #11: Pin CustomPiOS to tag 1.5.0 — the latest CustomPiOS release (2024-10-25).
-# At 1.5.0 the GPU-acceleration block in src/modules/gui/start_chroot_script installs
-# libconfig9 (which Raspbian Bookworm armhf HAS). Devel HEAD installs libconfig11 (which
-# Bookworm armhf does NOT have). Tag-bump stories per E69S01 Brief D-9 update this pin
-# in lockstep with FullPageOS tag bumps.
-readonly PINNED_CUSTOMPIOS_TAG="1.5.0"
+# E69S08 RCA #12: Pin CustomPiOS to devel-HEAD commit sha (2026-05-22 14:47 UTC).
+# No CustomPiOS release tag has BOTH fixes simultaneously:
+#   - /sys bind-mount fix (commit 7e484b3, 2024-12-14) needed by Bookworm initramfs-tools
+#     (MODULES=dep queries sysfs; absent in tag 1.5.0 → mkinitramfs aborts chroot build)
+#   - libconfig9 package name (Bookworm armhf has libconfig9; devel HEAD since commit
+#     c298127 (2025-12-15) uses libconfig11 which Bookworm armhf does NOT have)
+# Path C (user choice 2026-05-28): pin to specific devel-HEAD sha that has /sys-mount;
+# reverse c298127's libconfig rename via build-time sed-patch (AC3(ii)).
+# Clone mechanism: two-step git clone + git -C checkout (--branch accepts only refnames).
+# D-7: when CustomPiOS cuts a release tag >= 1.6.0 with both fixes, follow-up tag-bump
+# story per E69S01 Brief D-9 returns to tag-pin semantics.
+readonly PINNED_CUSTOMPIOS_TAG="27ff1d372294d51ac186fb1ac17ac6221bac6833"
 readonly FULLPAGEOS_REPO="https://github.com/guysoft/FullPageOS.git"
 readonly CUSTOMPIOS_REPO="https://github.com/guysoft/CustomPiOS.git"
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
@@ -272,15 +284,22 @@ if [ "${DRY_RUN}" != "true" ]; then
 
     # E69S07 RCA #11: CustomPiOS tag-existence check — mirrors FullPageOS pattern above.
     # Only runs when --override-customos-tag-confirmation was passed (i.e., CUSTOMPIOS_TAG
-    # is not the pinned default), since the pinned 1.5.0 tag is known-good. For the
-    # default pin, no network check is needed — it is pre-verified. The tag-existence
-    # check is an operator-attestation concern per AC4 (network call outside mvn verify scope).
+    # is not the pinned default), since the pinned sha is known-good. For the default pin,
+    # no network check is needed — it is pre-verified. The tag-existence check is an
+    # operator-attestation concern per AC4 (network call outside mvn verify scope).
+    # E69S08 AC3(i): sha-format detection guard — if CUSTOMPIOS_TAG matches ^[0-9a-f]{40}$
+    # (40-char lowercase hex), it is a commit-sha pin (not a release tag); skip the
+    # ls-remote tag-existence check (a sha cannot be validated via ls-remote --tags).
     if [ "${OVERRIDE_CUSTOMOS_TAG_CONFIRMATION}" = "true" ]; then
-        echo "INFO: Verifying CustomPiOS tag '${CUSTOMPIOS_TAG}' exists upstream..."
-        if ! git ls-remote --tags "${CUSTOMPIOS_REPO}" "refs/tags/${CUSTOMPIOS_TAG}" | grep -q "${CUSTOMPIOS_TAG}"; then
-            echo "ERROR: CustomPiOS tag '${CUSTOMPIOS_TAG}' does not exist at ${CUSTOMPIOS_REPO}" >&2
-            echo "       Check the upstream releases: https://github.com/guysoft/CustomPiOS/releases" >&2
-            exit 1
+        if printf '%s' "${CUSTOMPIOS_TAG}" | grep -qE '^[0-9a-f]{40}$'; then
+            echo "INFO: Skipping tag-existence check; CUSTOMPIOS_TAG '${CUSTOMPIOS_TAG}' is a commit-sha pin (not a release tag)."
+        else
+            echo "INFO: Verifying CustomPiOS tag '${CUSTOMPIOS_TAG}' exists upstream..."
+            if ! git ls-remote --tags "${CUSTOMPIOS_REPO}" "refs/tags/${CUSTOMPIOS_TAG}" | grep -q "${CUSTOMPIOS_TAG}"; then
+                echo "ERROR: CustomPiOS tag '${CUSTOMPIOS_TAG}' does not exist at ${CUSTOMPIOS_REPO}" >&2
+                echo "       Check the upstream releases: https://github.com/guysoft/CustomPiOS/releases" >&2
+                exit 1
+            fi
         fi
     fi
 fi
@@ -356,15 +375,36 @@ git clone \
 # E69S03 RCA #3+#4: Clone CustomPiOS as a sibling (required by FullPageOS build_dist).
 # FullPageOS's build_dist resolves CUSTOM_PI_OS_PATH via src/custompios_path, which
 # is written by update-custompios-paths when both repos are cloned as siblings.
-# E69S07 RCA #11: Pin CustomPiOS clone to tag ${CUSTOMPIOS_TAG} (default: 1.5.0) via
-# --branch. At 1.5.0 the GUI module installs libconfig9 (Bookworm armhf has it); devel
-# HEAD installs libconfig11 (Bookworm armhf does NOT have it). See PINNED_CUSTOMPIOS_TAG.
-echo "INFO: Cloning CustomPiOS at tag ${CUSTOMPIOS_TAG}..."
+# E69S08 RCA #12: PINNED_CUSTOMPIOS_TAG is a commit sha (not a release tag).
+# --branch accepts only refnames (tags/branches), NOT commit shas. Two-step mechanism:
+# 1. git clone (no --branch; clones default branch to bootstrap the repo)
+# 2. git -C CustomPiOS fetch --depth 1 origin <sha> to fetch the specific commit
+# 3. git -C CustomPiOS checkout FETCH_HEAD to set the working tree to the pinned sha
+# This ensures the cloned tree is at exactly PINNED_CUSTOMPIOS_TAG regardless of
+# whether the default branch head matches the sha.
+echo "INFO: Cloning CustomPiOS and checking out commit sha ${CUSTOMPIOS_TAG}..."
 git clone \
-    --branch "${CUSTOMPIOS_TAG}" \
     --depth 1 \
     "${CUSTOMPIOS_REPO}" \
     "${WORK_DIR}/CustomPiOS"
+git -C "${WORK_DIR}/CustomPiOS" fetch --depth 1 origin "${CUSTOMPIOS_TAG}"
+git -C "${WORK_DIR}/CustomPiOS" checkout "${CUSTOMPIOS_TAG}"
+
+# E69S08 AC3(ii): Pre-patch sanity check — verify exactly one occurrence of libconfig11
+# in gui/start_chroot_script before applying the sed-patch. If the count != 1, the
+# upstream sha content has diverged from Discovery-review-time observation; escalate.
+libconfig11_count="$(grep -c 'libconfig11' "${WORK_DIR}/CustomPiOS/src/modules/gui/start_chroot_script" || true)"
+if [ "${libconfig11_count}" != "1" ]; then
+    echo "ERROR: libconfig11 occurrence count != 1 at pinned CustomPiOS sha; sed-patch may have collateral matches." >&2
+    echo "       Sha-bump story must re-audit per Brief D-6/D-7." >&2
+    echo "       Found: ${libconfig11_count} occurrence(s) in src/modules/gui/start_chroot_script." >&2
+    exit 1
+fi
+# E69S08 AC3(ii): Apply libconfig sed-patch — reverse c298127's libconfig11→libconfig9 rename.
+# Verbatim reversal of upstream commit c298127 (2025-12-15, "Upgrade libconfig9 to libgonfig11
+# for Debian Trixie"). Raspbian Bookworm armhf ships libconfig9 but NOT libconfig11.
+echo "INFO: Applying libconfig11→libconfig9 sed-patch to CustomPiOS gui/start_chroot_script..."
+sed -i 's/libconfig11/libconfig9/' "${WORK_DIR}/CustomPiOS/src/modules/gui/start_chroot_script"
 
 echo "INFO: Running update-custompios-paths to set up CustomPiOS symlinks..."
 "${WORK_DIR}/CustomPiOS/src/update-custompios-paths" "${WORK_DIR}/FullPageOS/src"
