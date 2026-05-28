@@ -4,7 +4,7 @@
 -->
 <script lang="ts">
   /**
-   * Root component for the Timer SPA (E11S03 + E11S04 + E11S05).
+   * Root component for the Timer SPA (E11S03 + E11S04 + E11S05 + E11S09 + E11S10 + E11S11).
    *
    * E11S03 lifecycle (retained):
    *   1. Mount: extract tournamentId from URL pathname (AC1/E11S03, AC5/E11S03)
@@ -22,7 +22,7 @@
    *   - Countdown engine — local, no server polling (AC2/E11S04, D-6)
    *   - Automatic audio playback at schedule events (AC3/E11S04)
    *   - Pause music behavior (AC4/E11S04)
-   *   - Transport controls: Play/Pause/Stop (AC5/E11S04)
+   *   - Transport controls: Play / Pause / Stop (AC5/E11S04)
    *   - Round counter (AC6/E11S04)
    *   - Manual time override integration with countdown (AC7/E11S04)
    *   - Audio error warnings (AC8/E11S04)
@@ -36,6 +36,13 @@
    *   - Initial connection error → local-only mode with disconnect indicator (AC6/E11S05)
    *
    * Note: ClockSyncDialog provides the user gesture needed to unlock Web Audio API.
+   *
+   * E11S11 layout consolidation (AC1-AC11):
+   *   - Two-column sticky header strip: left = tournament name (top) + Hallenuhr-Now (bottom);
+   *     right = main display block (RoundCounter + Countdown + TransportControls), spanning both rows.
+   *   - Scrollable schedule container below the sticky header.
+   *   - Auto-scroll to playing row on playingIndex change (smooth, option-b: only when not visible).
+   *   - Responsive: @media (max-width: 640px) collapses to single column (AC11).
    */
   import { onMount, onDestroy } from 'svelte';
   import { _ } from 'svelte-i18n';
@@ -121,6 +128,39 @@
     const venueSecs = ((deviceSecs + clockOffsetSeconds) % 86400 + 86400) % 86400;
     hallenuhrzeitNow = formatTimeSeconds(venueSecs);
   }
+
+  // ── E11S11: Auto-scroll — DOM refs for schedule container and rows ─────────
+  /** AC6/E11S11: Bind to the scrollable schedule container element. */
+  let scheduleContainerEl: HTMLElement | null = null;
+  /**
+   * AC7/AC8/E11S11: Map from schedule entry index to the corresponding row wrapper element.
+   * Each entry's wrapper <tr> is registered via registerRowEl.
+   * Used by the $effect to check visibility and scroll to the playing row.
+   */
+  let scheduleRowEls: Map<number, HTMLElement> = new Map();
+
+  /**
+   * E11S11 AC7/AC8: Auto-scroll to playing row when playingIndex changes.
+   * Strategy: option (b) — fires only when the playing row is NOT visible
+   * in the scroll container (getBoundingClientRect check).
+   * Smooth scroll per Brief Q-3.
+   */
+  $effect(() => {
+    const idx = snapshot?.playingIndex ?? -1;
+    if (idx === -1) return;
+    const rowEl = scheduleRowEls.get(idx);
+    if (!rowEl || !scheduleContainerEl) return;
+
+    // AC8 option (b): check visibility via getBoundingClientRect
+    const containerRect = scheduleContainerEl.getBoundingClientRect();
+    const rowRect = rowEl.getBoundingClientRect();
+    const isVisible =
+      rowRect.top >= containerRect.top && rowRect.bottom <= containerRect.bottom;
+
+    if (!isVisible) {
+      rowEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  });
 
   let tournamentId: string | null = null;
 
@@ -383,9 +423,6 @@
   function handlePlay(): void {
     if (transportState === 'PAUSED') {
       // Resume from frozen position
-      // Adjust clockOffsetSeconds to account for paused time
-      // (we do NOT adjust; instead, just clear pausedAt and keep offset as-is;
-      //  the countdown will resume from current real time which may differ from pausedAt)
       pausedAt = null;
     }
     transportState = 'PLAYING';
@@ -439,16 +476,28 @@
   /**
    * Returns the index of the earliest future schedule entry (the "next" event),
    * or -1 if none. Used to pass isNext=true to the corresponding ScheduleRow.
-   *
-   * The next event is the one with the lowest future effective time — which
-   * corresponds to snapshot.activeEventIndex when no event is currently playing
-   * (playingIndex === -1) OR to the entry after the currently playing one.
-   * In both cases, snapshot.activeEventIndex already points to the correct entry.
    */
   function getNextUpcomingIndex(): number {
     if (!snapshot || snapshot.activeEventIndex === -1) return -1;
-    // activeEventIndex = the index of the next-to-fire event (the "next" row)
     return snapshot.activeEventIndex;
+  }
+
+  // ── E11S11 AC7/AC8: Schedule row DOM ref registration ─────────────────────
+
+  /**
+   * Svelte action: registers a schedule row's DOM element in the scheduleRowEls map.
+   * Called via use:registerRow={i} on the row wrapper element.
+   * Returns cleanup function to remove on destroy.
+   */
+  function registerRow(node: HTMLElement, i: number): { destroy(): void } {
+    scheduleRowEls = new Map(scheduleRowEls).set(i, node);
+    return {
+      destroy() {
+        const updated = new Map(scheduleRowEls);
+        updated.delete(i);
+        scheduleRowEls = updated;
+      },
+    };
   }
 </script>
 
@@ -497,28 +546,12 @@
 
   {:else if appState === 'loaded' && timerData !== null}
     <!--
-      E11S03 + E11S04: Full timer view with countdown engine and transport controls.
+      E11S03 + E11S04 + E11S11: Full timer view.
+      Layout: sticky two-column header strip + scrollable schedule below.
     -->
 
-    <!-- AC5/E11S03: Tournament name + current phase header -->
-    <header class="timer-app__header">
-      <h1 class="timer-app__tournament-name">{timerData.tournamentName}</h1>
-      {#if timerData.currentPhaseNumber > 0}
-        <p class="timer-app__current-phase">
-          {$_('timer.header.phase')} {timerData.currentPhaseNumber}
-          {#if currentPhaseDescription()}
-            — {currentPhaseDescription()}
-          {/if}
-          {#if timerData.currentLapNumber > 0}
-            | {$_('timer.header.lap')} {timerData.currentLapNumber}
-          {/if}
-        </p>
-      {/if}
-    </header>
-
-    <!-- E11S04: AC8 — Audio warning banners -->
+    <!-- E11S04: AC8 — Audio warning banners (above sticky header) -->
     {#if audioHasAnyUrl}
-      <!-- At least one audio category is configured; show per-category errors -->
       {#if audioState.statusStart === 'error'}
         <div class="timer-app__audio-warning" role="alert">
           {$_('timer.audio.warningStart')}
@@ -548,38 +581,55 @@
       </div>
     {/if}
 
-    <!-- AC7/E11S09: Permanently visible Hallenuhr-now reading (venue clock = device + Δ) -->
-    <div class="timer-app__hallenuhrzeit-bar">
-      <span class="timer-app__hallenuhrzeit-label">{$_('timer.hallenuhrzeitNow.label')}</span>
-      <span class="timer-app__hallenuhrzeit-value">{hallenuhrzeitNow}</span>
-    </div>
+    <!--
+      E11S11 AC1-AC5: Two-column sticky header strip.
+      Left:  [top]    tournament name (AC1)
+             [bottom] Hallenuhr-Now reading (AC3)
+      Right: [span 2] main display block (AC2 + AC4 height-invariant)
+    -->
+    <div class="timer-app__sticky-header">
+      <!-- Left column: tournament name + Hallenuhr-Now (AC1, AC3) -->
+      <div class="timer-app__header-left">
+        <h1 class="timer-app__tournament-name">{timerData.tournamentName}</h1>
+        <!-- AC3: Hallenuhr-Now under tournament name, left column (E11S09 behaviour preserved) -->
+        <div class="timer-app__hallenuhrzeit">
+          <span class="timer-app__hallenuhrzeit-label">{$_('timer.hallenuhrzeitNow.label')}</span>
+          <span class="timer-app__hallenuhrzeit-value">{hallenuhrzeitNow}</span>
+        </div>
+      </div>
 
-    <!-- E11S04: AC2 (Countdown) + AC6 (Round counter) + AC5 (Transport controls) -->
-    <div class="timer-app__controls-bar">
-      <!-- AC6: Round counter -->
-      {#if snapshot}
-        <RoundCounter
-          currentRound={snapshot.currentRound}
-          totalRounds={snapshot.totalRounds}
+      <!-- Right column: main display block, spans both rows (AC2 + AC4) -->
+      <div class="timer-app__main-display">
+        <!-- AC6/E11S04: Round counter -->
+        {#if snapshot}
+          <RoundCounter
+            currentRound={snapshot.currentRound}
+            totalRounds={snapshot.totalRounds}
+          />
+        {/if}
+
+        <!-- AC2/E11S04: Countdown display -->
+        {#if snapshot}
+          <Countdown {snapshot} />
+        {/if}
+
+        <!-- AC5/E11S04: Transport controls -->
+        <TransportControls
+          {transportState}
+          onPlay={handlePlay}
+          onPause={handlePause}
+          onStop={handleStop}
         />
-      {/if}
-
-      <!-- AC2: Countdown display -->
-      {#if snapshot}
-        <Countdown {snapshot} />
-      {/if}
-
-      <!-- AC5: Transport controls -->
-      <TransportControls
-        {transportState}
-        onPlay={handlePlay}
-        onPause={handlePause}
-        onStop={handleStop}
-      />
+      </div>
     </div>
 
-    <!-- AC3/E11S03: Schedule table with AC7/E11S04 overrides -->
-    <div class="timer-app__schedule-container">
+    <!-- AC6/E11S11: Scrollable schedule container -->
+    <!-- AC9: empty schedule → empty tbody renders without collapse -->
+    <!-- AC10: overflow-y: auto handles >= 40 rows; overflow-x: hidden prevents horizontal overflow -->
+    <div
+      class="timer-app__schedule-container"
+      bind:this={scheduleContainerEl}
+    >
       <table class="timer-app__schedule">
         <thead>
           <tr>
@@ -590,16 +640,19 @@
         </thead>
         <tbody>
           {#each timerData.schedule as entry, i (i)}
-            <ScheduleRow
-              {entry}
-              entryIndex={i}
-              {clockOffsetSeconds}
-              hasStartTime={timerData.hasStartTime}
-              overrideTimeSeconds={timeOverrides.get(i) ?? null}
-              onTimeEdit={handleTimeEdit}
-              status={getEntryStatus(i)}
-              isNext={i === getNextUpcomingIndex()}
-            />
+            <!-- AC7/AC8: use:registerRow registers the row element for auto-scroll visibility check -->
+            <tr use:registerRow={i}>
+              <ScheduleRow
+                {entry}
+                entryIndex={i}
+                {clockOffsetSeconds}
+                hasStartTime={timerData.hasStartTime}
+                overrideTimeSeconds={timeOverrides.get(i) ?? null}
+                onTimeEdit={handleTimeEdit}
+                status={getEntryStatus(i)}
+                isNext={i === getNextUpcomingIndex()}
+              />
+            </tr>
           {/each}
         </tbody>
       </table>
@@ -697,27 +750,6 @@
     background: #1a6eae;
   }
 
-  /* ── Header (AC5/E11S03) ─────────────────────────────────────────────────── */
-
-  .timer-app__header {
-    background: #2c3e50;
-    color: #fff;
-    padding: 1rem 1.5rem;
-    flex-shrink: 0;
-  }
-
-  .timer-app__tournament-name {
-    margin: 0;
-    font-size: 1.3rem;
-    font-weight: 700;
-  }
-
-  .timer-app__current-phase {
-    margin: 0.25rem 0 0;
-    font-size: 0.95rem;
-    opacity: 0.8;
-  }
-
   /* ── Audio warnings (AC8/E11S04) ─────────────────────────────────────────── */
 
   .timer-app__audio-warning {
@@ -750,52 +782,108 @@
     text-align: center;
   }
 
-  /* ── Hallenuhr-now bar (AC7/E11S09) ─────────────────────────────────────── */
+  /* ── E11S11 AC1-AC5: Two-column sticky header strip ─────────────────────── */
 
-  .timer-app__hallenuhrzeit-bar {
+  .timer-app__sticky-header {
+    /* AC5: sticky at top of viewport during schedule scroll */
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #2c3e50;
+    color: #fff;
+    flex-shrink: 0;
+
+    /* AC4: CSS grid — 2 columns, right column spans 2 rows (height invariant) */
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+  }
+
+  /* Left column: tournament name + Hallenuhr-Now stacked */
+  .timer-app__header-left {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0.75rem 1.25rem;
+    gap: 0.3rem;
+    min-width: 0;
+  }
+
+  /* AC1: tournament name heading — visual identity preserved per AC16 */
+  .timer-app__tournament-name {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* AC3: Hallenuhr-Now display under tournament name, left column */
+  .timer-app__hallenuhrzeit {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
     gap: 0.4rem;
-    background: #f8f9fa;
-    border-bottom: 1px solid #e0e0e0;
-    padding: 0.25rem 1rem;
     font-size: 0.85rem;
-    flex-shrink: 0;
   }
 
   .timer-app__hallenuhrzeit-label {
-    color: #666;
+    color: rgba(255, 255, 255, 0.7);
   }
 
   .timer-app__hallenuhrzeit-value {
     font-weight: 600;
     font-variant-numeric: tabular-nums;
-    color: #2c3e50;
     letter-spacing: 0.03em;
   }
 
-  /* ── Controls bar (AC2, AC5, AC6 / E11S04) ─────────────────────────────── */
-
-  .timer-app__controls-bar {
+  /* AC2 + AC4: main display block, right column, spans both rows */
+  .timer-app__main-display {
+    grid-column: 2;
+    /* AC4: grid-row: span 2 encodes height(left-top) + height(left-bottom) = height(right) */
+    grid-row: span 2;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 1rem;
-    background: #fff;
-    border-bottom: 1px solid #e8ecf0;
+    gap: 0.75rem;
     padding: 0.5rem 1rem;
-    flex-shrink: 0;
+    background: #34495e;
     flex-wrap: wrap;
   }
 
-  /* ── Schedule table (AC3/E11S03) ─────────────────────────────────────────── */
+  /* AC11: Responsive narrow-viewport degradation (breakpoint 640px) */
+  @media (max-width: 640px) {
+    .timer-app__sticky-header {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto auto;
+    }
+
+    .timer-app__header-left {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .timer-app__main-display {
+      grid-column: 1;
+      /* AC11: on narrow viewport, main display no longer spans both rows */
+      grid-row: auto;
+    }
+  }
+
+  /* ── AC6/E11S11: Scrollable schedule container ─────────────────────────── */
 
   .timer-app__schedule-container {
     flex: 1;
+    /* AC6: overflow-y: auto — scroll within container */
     overflow-y: auto;
+    /* AC10: prevent horizontal overflow (long schedules, narrow viewport) */
+    overflow-x: hidden;
     padding: 1rem;
   }
+
+  /* ── Schedule table (AC3/E11S03) ─────────────────────────────────────────── */
 
   .timer-app__schedule {
     width: 100%;
