@@ -7,8 +7,11 @@
    * Inline per-phase config editor (E11S12 AC5).
    *
    * Renders a config strip above the first ROUND row of each phase, exposing
-   * lapTimeMinutes, lapBreakTimeMinutes, and sectionBreakTimeMinutes as
-   * inline-editable numeric inputs.
+   * lapTimeMinutes and lapBreakTimeMinutes as inline-editable numeric inputs.
+   *
+   * E11S14 AC6/AC7: sectionBreakTimeMinutes prop and PHASEN-PAUSE (MIN) input
+   * have been removed. The section-break duration is now edited directly on the
+   * dedicated SECTION_BREAK schedule row (Phasen-Pause row) per AC4/AC8.
    *
    * Edits are ephemeral — no saveDraft call, no backend interaction (AC7).
    * On blur or Enter, fires onUpdate with the new values.
@@ -20,8 +23,7 @@
     phaseNumber: number;
     lapTimeMinutes: number;
     lapBreakTimeMinutes: number;
-    sectionBreakTimeMinutes: number;
-    /** True for the last phase — sectionBreakTimeMinutes has no effect (AC5). */
+    /** True for the last phase — retained for external compat but unused since AC6 removal. */
     isLastPhase: boolean;
     onUpdate: (cfg: EphemeralPhaseConfig) => void;
   }
@@ -30,7 +32,6 @@
     phaseNumber,
     lapTimeMinutes,
     lapBreakTimeMinutes,
-    sectionBreakTimeMinutes,
     isLastPhase,
     onUpdate,
   }: PhaseConfigRowProps = $props();
@@ -39,22 +40,18 @@
 
   let lapTimeInput = $state(String(lapTimeMinutes));
   let lapBreakInput = $state(String(lapBreakTimeMinutes));
-  let sectionBreakInput = $state(String(sectionBreakTimeMinutes));
 
   let lapTimeError = $state('');
   let lapBreakError = $state('');
-  let sectionBreakError = $state('');
 
   // ── Validation and commit ──────────────────────────────────────────────────
 
   function validateAndCommit(): void {
     const lapTime = parseFloat(lapTimeInput);
     const lapBreak = parseFloat(lapBreakInput);
-    const sectionBreak = parseFloat(sectionBreakInput);
 
     lapTimeError = '';
     lapBreakError = '';
-    sectionBreakError = '';
 
     let valid = true;
 
@@ -66,23 +63,19 @@
       lapBreakError = $_('timer.phaseConfig.errorNegative');
       valid = false;
     }
-    if (!isLastPhase && (isNaN(sectionBreak) || sectionBreak < 0)) {
-      sectionBreakError = $_('timer.phaseConfig.errorNegative');
-      valid = false;
-    }
 
     if (!valid) return;
 
     onUpdate({
       lapTimeMinutes: lapTime,
       lapBreakTimeMinutes: lapBreak,
-      sectionBreakTimeMinutes: isLastPhase ? 0 : sectionBreak,
+      // E11S14 AC6: sectionBreakTimeMinutes omitted — section break is now managed
+      // via the dedicated SECTION_BREAK schedule row (Phasen-Pause) per AC4/AC8.
     });
   }
 
   function handleLapTimeBlur(): void { validateAndCommit(); }
   function handleLapBreakBlur(): void { validateAndCommit(); }
-  function handleSectionBreakBlur(): void { validateAndCommit(); }
 
   function handleKeydown(event: KeyboardEvent): void {
     if (event.key === 'Enter') {
@@ -141,34 +134,6 @@
         {/if}
       </div>
 
-      <!-- Section break (disabled for last phase) -->
-      <div class="phase-config-row__field">
-        <label
-          class="phase-config-row__label"
-          class:phase-config-row__label--disabled={isLastPhase}
-          for="section-break-{phaseNumber}"
-        >
-          {$_('timer.phaseConfig.sectionBreak')}
-        </label>
-        <input
-          id="section-break-{phaseNumber}"
-          class="phase-config-row__input"
-          class:phase-config-row__input--error={sectionBreakError !== ''}
-          type="number"
-          min="0"
-          step="0.5"
-          disabled={isLastPhase}
-          title={isLastPhase ? $_('timer.phaseConfig.lastPhaseNoSectionBreak') : undefined}
-          bind:value={sectionBreakInput}
-          onblur={handleSectionBreakBlur}
-          onkeydown={handleKeydown}
-          aria-label="{$_('timer.phaseConfig.sectionBreak')} ({$_('timer.phaseConfig.minutes')})"
-          aria-invalid={sectionBreakError !== '' ? 'true' : undefined}
-        />
-        {#if sectionBreakError}
-          <span class="phase-config-row__error" role="alert">{sectionBreakError}</span>
-        {/if}
-      </div>
     </div>
   </td>
 </tr>
