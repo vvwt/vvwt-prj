@@ -71,15 +71,16 @@ Before building an image you need a Linux host with:
 > Tag-bump stories per E69S01 Brief D-9 will update this pin in lockstep with
 > FullPageOS tag bumps.
 
-> **Note — CustomPiOS pin (E69S07).** CustomPiOS is pinned to tag `1.5.0`
-> (released 2024-10-25; the latest CustomPiOS release). At 1.5.0 the
-> GPU-acceleration package list in `src/modules/gui/start_chroot_script`
-> installs `libconfig9` (which Raspbian Bookworm armhf has) rather than devel
-> HEAD's `libconfig11` (which Bookworm armhf does NOT). Tag-bump stories per
-> E69S01 Brief D-9 will update this pin alongside FullPageOS tag bumps. The
-> script enforces the pin via the `--override-customos-tag-confirmation` flag
-> (symmetric to the existing `--override-tag-confirmation` for FullPageOS); see
-> `./build-image.sh --help`.
+> **CustomPiOS pin (E69S07 + E69S08).** CustomPiOS is pinned to a specific
+> devel-HEAD commit sha (`27ff1d372294d51ac186fb1ac17ac6221bac6833`, snapshot
+> 2026-05-22 14:47 UTC) — NOT a release tag. No release tag exists with both
+> the chroot /sys-bind-mount fix (commit `7e484b3`, 2024-12-14, post-1.5.0)
+> AND libconfig9 (replaced by libconfig11 in commit `c298127`, 2025-12-15, for
+> Debian Trixie). The pinned sha has /sys-mount; libconfig11 is reverse-mapped
+> to libconfig9 via build-time sed-patch (Raspbian Bookworm armhf ships
+> libconfig9). When CustomPiOS cuts a release tag >= 1.6.0 with both fixes, a
+> tag-bump story per E69S01 Brief D-9 + E69S08 D-7 will return to tag-pin
+> semantics.
 
 **Run with sudo:** invoke the script as `sudo ./build-image.sh --server-url=…`
 The script does not auto-elevate internally — this preserves principle-of-least-privilege
@@ -470,6 +471,28 @@ override-confirmation flag. To test with a custom tag, add `--override-customos-
 
 **Escalation:** If after the E69S07 fix the build fails inside the FullPageOS chroot at a
 different apt-install step, **stop and open a new story per the E69S03 AC5 Escalation-Clause**.
+The next story follows the same Bug-Triage Flow (root cause established empirically before
+authoring acceptance criteria).
+
+### Actual outcome — E69S08 post-fix re-attestation (fill in)
+
+**Preparation:** Ensure CustomPiOS is fetched at the pinned sha
+`27ff1d372294d51ac186fb1ac17ac6221bac6833` (default; no override flag needed).
+If validating the sha-format detection guard itself, run with
+`--custompios-tag=some-sha-format-string --override-customos-tag-confirmation` and
+verify the script emits the `Skipping tag-existence check` INFO message. To verify
+the full build path, run with `sudo ./build-image.sh --server-url=...` and observe
+that the FullPageOS chroot's `initramfs-tools` postinstall step succeeds (no
+`mkinitramfs: MODULES dep requires mounted sysfs on /sys` error).
+
+(i) .img produced: ___________________________________________
+
+(ii) Error output: ___________________________________________
+
+(iii) mvn verify: BUILD SUCCESS (bats tests pass; full Docker build not run in CI).
+
+**Escalation:** If after the E69S08 fix the build fails inside the FullPageOS chroot at a
+different step, **stop and open a new story per the E69S03 AC5 Escalation-Clause**.
 The next story follows the same Bug-Triage Flow (root cause established empirically before
 authoring acceptance criteria).
 

@@ -400,9 +400,12 @@ FIXTURE_DIR="$(dirname "$BATS_TEST_FILENAME")/fixtures/fullpageos-src"
 # GREEN state (after E69S07 fix):
 #   All six anchors present on executable lines (not comment-only lines).
 
-@test "E69S07 AC2(a): build-image.sh declares PINNED_CUSTOMPIOS_TAG constant set to '1.5.0'" {
-    # Match the readonly/= declaration line (not a comment).
-    run bash -c "grep -v '^[[:space:]]*#' \"${BUILD_SCRIPT}\" | grep -qE 'PINNED_CUSTOMPIOS_TAG[[:space:]]*=.*1\.5\.0'"
+@test "E69S07 AC2(a) [amended E69S08]: build-image.sh declares PINNED_CUSTOMPIOS_TAG constant set to exact sha 27ff1d372294d51ac186fb1ac17ac6221bac6833" {
+    # E69S08: updated from 1\.5\.0 literal to exact 40-char sha per Brief NF-2 resolution.
+    # Format-only regex [0-9a-f]{40} is NOT acceptable — exact sha required to catch typos.
+    # RED (pre-E69S08 script): PINNED_CUSTOMPIOS_TAG=...1.5.0 → exact-sha pattern FAILS.
+    # GREEN (post-E69S08 script): exact sha present on non-comment declaration line.
+    run bash -c "grep -v '^[[:space:]]*#' \"${BUILD_SCRIPT}\" | grep -qE 'PINNED_CUSTOMPIOS_TAG[[:space:]]*=.*27ff1d372294d51ac186fb1ac17ac6221bac6833'"
     [ "$status" -eq 0 ]
 }
 
@@ -428,8 +431,56 @@ FIXTURE_DIR="$(dirname "$BATS_TEST_FILENAME")/fixtures/fullpageos-src"
     [ "$status" -eq 0 ]
 }
 
-@test "E69S07 AC2(f): CustomPiOS git clone uses --branch with CUSTOMPIOS_TAG" {
-    # The git clone command for CustomPiOS must include --branch and CUSTOMPIOS_TAG.
-    run bash -c "grep -v '^[[:space:]]*#' \"${BUILD_SCRIPT}\" | grep -q -- '--branch.*CUSTOMPIOS_TAG\|CUSTOMPIOS_TAG.*--branch'"
+@test "E69S07 AC2(f) [amended E69S08]: CustomPiOS checkout uses two-step git -C ... checkout with CUSTOMPIOS_TAG" {
+    # E69S08: updated from --branch.*CUSTOMPIOS_TAG pattern to git -C.*checkout.*CUSTOMPIOS_TAG.
+    # --branch accepts only refnames (not commit shas); E69S08 switches to two-step clone+checkout.
+    # RED (pre-E69S08 script): git clone --branch "${CUSTOMPIOS_TAG}" → git -C.*checkout pattern FAILS.
+    # GREEN (post-E69S08 script): git -C "${WORK_DIR}/CustomPiOS" checkout "${CUSTOMPIOS_TAG}" present.
+    run bash -c "grep -v '^[[:space:]]*#' \"${BUILD_SCRIPT}\" | grep -q 'git -C.*checkout.*CUSTOMPIOS_TAG\|CUSTOMPIOS_TAG.*git -C.*checkout'"
+    [ "$status" -eq 0 ]
+}
+
+# ─── E69S08 AC2(II): five new bats assertions (RED-first against pre-story script) ──────
+# RED state (pre-E69S08 script, post-E69S07 HEAD): none of the new patterns present.
+# GREEN state (after E69S08 fix): all five patterns present on executable lines.
+
+@test "E69S08 AC2(II)(a): build-image.sh contains sha-format detection guard [0-9a-f]{40} pattern" {
+    # E69S08 AC3(i): sha-format guard around the ls-remote block; skip when CUSTOMPIOS_TAG
+    # matches ^[0-9a-f]{40}$ (commit-sha pin, not a release tag).
+    # RED: pre-story script has no such guard → pattern absent → FAILS.
+    # GREEN: post-E69S08 script has the grep -qE '^[0-9a-f]{40}$' check on an executable line.
+    run bash -c "grep -v '^[[:space:]]*#' \"${BUILD_SCRIPT}\" | grep -qE '\[0-9a-f\]\{40\}'"
+    [ "$status" -eq 0 ]
+}
+
+@test "E69S08 AC2(II)(b): build-image.sh contains two-step git -C CustomPiOS checkout invocation" {
+    # E69S08: the clone+checkout mechanism; git -C ... CustomPiOS ... checkout on executable line.
+    # RED: pre-story script uses --branch → no git -C.*checkout → FAILS.
+    # GREEN: post-E69S08 script has git -C "${WORK_DIR}/CustomPiOS" checkout on an executable line.
+    run bash -c "grep -v '^[[:space:]]*#' \"${BUILD_SCRIPT}\" | grep -qE 'git -C.*CustomPiOS.*checkout|git -C.*checkout.*CustomPiOS'"
+    [ "$status" -eq 0 ]
+}
+
+@test "E69S08 AC2(II)(c): build-image.sh contains sed-patch invocation sed -i 's/libconfig11/libconfig9/'" {
+    # E69S08 AC3(ii): the libconfig sed-patch reversal on an executable line.
+    # RED: pre-story script has no sed -i libconfig → FAILS.
+    # GREEN: post-E69S08 script has sed -i 's/libconfig11/libconfig9/' on an executable line.
+    run bash -c "grep -v '^[[:space:]]*#' \"${BUILD_SCRIPT}\" | grep -q \"sed -i 's/libconfig11/libconfig9/'\""
+    [ "$status" -eq 0 ]
+}
+
+@test "E69S08 AC2(II)(d): build-image.sh contains pre-patch grep-count sanity check on start_chroot_script" {
+    # E69S08 AC3(ii): pre-patch sanity check grep -c libconfig11 ... start_chroot_script + exit-1 branch.
+    # RED: pre-story script has no such check → FAILS.
+    # GREEN: post-E69S08 script has grep -c.*libconfig11.*start_chroot_script on an executable line.
+    run bash -c "grep -v '^[[:space:]]*#' \"${BUILD_SCRIPT}\" | grep -qE 'grep -c.*libconfig11.*start_chroot_script|grep -c.*start_chroot_script.*libconfig11'"
+    [ "$status" -eq 0 ]
+}
+
+@test "E69S08 AC2(II)(e): build-image.sh contains INFO-emit for sha-format-skip case ('Skipping tag-existence check')" {
+    # E69S08 AC3(i): the INFO message emitted when CUSTOMPIOS_TAG is a commit-sha pin.
+    # RED: pre-story script has no such message → FAILS.
+    # GREEN: post-E69S08 script has echo ... Skipping tag-existence check on an executable line.
+    run bash -c "grep -v '^[[:space:]]*#' \"${BUILD_SCRIPT}\" | grep -q 'Skipping tag-existence check'"
     [ "$status" -eq 0 ]
 }
