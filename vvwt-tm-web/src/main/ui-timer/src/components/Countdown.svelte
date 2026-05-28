@@ -19,7 +19,12 @@
   let { snapshot }: CountdownProps = $props();
 </script>
 
+<!-- AC6/E11S09: visible label near countdown numerals so sighted users see what the
+     countdown counts toward. The existing aria-label continues to serve screen readers;
+     the <p> below provides the same orientation visually. Per AC6 the timer.countdown.label
+     key may be reused for both — duplication is acceptable per the story. -->
 <div class="countdown" aria-live="off" aria-label={$_('timer.countdown.label')}>
+  <p class="countdown__target-label">{$_('timer.countdown.label')}</p>
   <span class="countdown__display" class:countdown__display--done={snapshot.activeEventIndex === -1}>
     {snapshot.countdownDisplay}
   </span>
@@ -34,6 +39,14 @@
     flex-direction: column;
     align-items: center;
     padding: 0.75rem 1rem;
+  }
+
+  /* AC6/E11S09: visible label identifying the countdown target */
+  .countdown__target-label {
+    font-size: 0.8rem;
+    color: #666;
+    margin: 0 0 0.25rem;
+    text-align: center;
   }
 
   .countdown__display {

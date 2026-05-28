@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { parseTimeToSeconds, applyClockOffset, formatTimeSeconds } from './timerApi.js';
+import { parseTimeToSeconds, formatTimeSeconds } from './timerApi.js';
 import type { TimerScheduleEntry } from './timerApi.js';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -40,27 +40,34 @@ export interface CountdownSnapshot {
 /**
  * Resolves the effective start time in seconds-since-midnight for a schedule entry.
  *
- * Priority: user override > server time + clock offset > null (no time).
+ * Priority: user override > server time (venue wall-clock domain) > null (no time).
+ *
+ * E11S09 math fix (AC1, AC2, AC12): schedule {@code startTime} values are already in the
+ * Hallenuhr (venue wall-clock) domain — {@code DefaultTimerDataService} emits them directly
+ * from {@code tournament.getPlannedStartTime()}. The clock offset must NOT be applied to
+ * the schedule side; it is applied only to the device-side via {@code nowSeconds(offset)}.
+ * Applying the offset here produced a double-shift that made every event fire late by the
+ * full offset amount.
  *
  * @param entry        Schedule entry from the server response
  * @param entryIndex   Index in the schedule array
  * @param overrides    Map of entryIndex → user-override time in seconds-since-midnight (AC7)
- * @param clockOffsetSeconds  Venue clock minus device clock (from ClockSyncDialog)
- * @returns Effective time in seconds-since-midnight, or null if no time is available
+ * @param _clockOffsetSeconds  Unused after E11S09 fix — retained for API compatibility
+ * @returns Effective time in seconds-since-midnight (venue domain), or null if no time is available
  */
 export function resolveEffectiveTime(
   entry: TimerScheduleEntry,
   entryIndex: number,
   overrides: ReadonlyMap<number, number>,
-  clockOffsetSeconds: number
+  _clockOffsetSeconds: number
 ): number | null {
   // AC7: user override takes priority
   const override = overrides.get(entryIndex);
   if (override !== undefined) return override;
 
-  // Server-provided time with clock offset applied
+  // Server-provided time: already in venue wall-clock domain — return verbatim
   if (entry.startTime) {
-    return parseTimeToSeconds(applyClockOffset(entry.startTime, clockOffsetSeconds));
+    return parseTimeToSeconds(entry.startTime);
   }
 
   return null;
@@ -68,13 +75,19 @@ export function resolveEffectiveTime(
 
 /**
  * Resolves the effective end time for a schedule entry (used for break audio stop).
+ *
+ * E11S09 math fix (AC1, AC12): same domain correction as resolveEffectiveTime — endTime is
+ * also in the venue wall-clock domain and must NOT have the clock offset applied to it.
+ *
+ * @param entry        Schedule entry from the server response
+ * @param _clockOffsetSeconds  Unused after E11S09 fix — retained for API compatibility
  */
 export function resolveEffectiveEndTime(
   entry: TimerScheduleEntry,
-  clockOffsetSeconds: number
+  _clockOffsetSeconds: number
 ): number | null {
   if (entry.endTime) {
-    return parseTimeToSeconds(applyClockOffset(entry.endTime, clockOffsetSeconds));
+    return parseTimeToSeconds(entry.endTime);
   }
   return null;
 }

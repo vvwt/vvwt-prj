@@ -18,14 +18,18 @@
    * AC4: "A visual indicator distinguishes edited from calculated times."
    */
   import { _ } from 'svelte-i18n';
-  import { applyClockOffset, formatTimeSeconds, parseTimeToSeconds } from '../lib/timerApi.js';
+  import { formatTimeSeconds, parseTimeToSeconds } from '../lib/timerApi.js';
   import type { TimerScheduleEntry } from '../lib/timerApi.js';
 
   interface ScheduleRowProps {
     entry: TimerScheduleEntry;
     /** Index of this entry in the schedule array (used as key for overrides). */
     entryIndex: number;
-    /** Clock offset in seconds (venue − device). Applied to server-provided times. */
+    /**
+     * Clock offset in seconds (venue − device).
+     * AC3/E11S09: no longer applied to the schedule display (startTime is Hallenuhr-domain);
+     * retained in the props interface for backward compatibility — callers may still pass it.
+     */
     clockOffsetSeconds: number;
     /** Whether the server response has wall-clock times. */
     hasStartTime: boolean;
@@ -35,6 +39,11 @@
     onTimeEdit: (entryIndex: number, newTimeSeconds: number) => void;
     /** Status of this entry. */
     status: 'upcoming' | 'playing' | 'done';
+    /**
+     * AC8/E11S09: Whether this entry is the earliest upcoming (next-to-fire) row.
+     * Triggers a subtle visual accent distinguishing it from later upcoming rows.
+     */
+    isNext?: boolean;
   }
 
   let {
@@ -45,6 +54,7 @@
     overrideTimeSeconds,
     onTimeEdit,
     status,
+    isNext = false,
   }: ScheduleRowProps = $props();
 
   // ── Editing state ──────────────────────────────────────────────────────────
@@ -56,7 +66,11 @@
   // ── Derived display values ─────────────────────────────────────────────────
 
   /**
-   * The displayed time string: override > server time (with offset) > placeholder.
+   * The displayed time string: override > server venue-clock time verbatim > placeholder.
+   *
+   * AC3/E11S09: schedule {@code startTime} is already in the Hallenuhr (venue) domain;
+   * display it verbatim — do NOT apply the clock offset here. The offset is consumed
+   * only by the countdown engine's {@code nowSeconds()} on the device side.
    */
   const displayTime = $derived((): string => {
     if (overrideTimeSeconds !== null) {
@@ -65,7 +79,8 @@
     if (!hasStartTime || !entry.startTime) {
       return $_('timer.schedule.noTime');
     }
-    return applyClockOffset(entry.startTime, clockOffsetSeconds);
+    // AC3: return Hallenuhr time verbatim (already in venue domain)
+    return entry.startTime;
   });
 
   /**
@@ -91,11 +106,14 @@
 
   /**
    * CSS class modifier for the row status.
+   * AC8/E11S09: adds schedule-row--next for the earliest upcoming row (isNext=true),
+   * only when the row is not already playing or done.
    */
   const statusClass = $derived(
     status === 'playing' ? 'schedule-row--playing'
       : status === 'done' ? 'schedule-row--done'
-        : ''
+        : isNext ? 'schedule-row--next'
+          : ''
   );
 
   /**
@@ -106,11 +124,12 @@
   // ── Editing handlers ───────────────────────────────────────────────────────
 
   function startEdit(): void {
-    // Pre-fill with the currently shown time
+    // Pre-fill with the currently shown time.
+    // AC3/E11S09: startTime is already Hallenuhr-domain — pre-fill verbatim (no offset).
     const shown = overrideTimeSeconds !== null
       ? formatTimeSeconds(overrideTimeSeconds)
       : (hasStartTime && entry.startTime)
-        ? applyClockOffset(entry.startTime, clockOffsetSeconds)
+        ? entry.startTime
         : '';
     editInput = shown;
     editError = '';
@@ -215,6 +234,14 @@
 
   .schedule-row--done {
     opacity: 0.5;
+  }
+
+  /* AC8/E11S09: subtle visual accent for the next-upcoming row (earliest future event).
+     Less dominant than --playing (which uses a blue fill + bold); just a left border
+     accent and a very slight tint to signal "this fires next". */
+  .schedule-row--next {
+    border-left: 3px solid #2980b9;
+    background: #f5faff;
   }
 
   .schedule-row--break td {

@@ -27,7 +27,8 @@
       "editedIndicator": "*",
       "noTime": "—",
       "phase": "Phase",
-      "editTimeHint": "Uhrzeit anpassen (HH:MM:SS)"
+      "editTimeHint": "Uhrzeit anpassen (HH:MM:SS)",
+      "hallenuhrzeitHeader": "Hallenuhr-Zeit"
     },
     "error": {
       "network": "Netzwerkfehler beim Laden der Daten.",
@@ -39,6 +40,9 @@
     "countdown": {
       "label": "Countdown bis zum nächsten Ereignis",
       "finished": "Zeitplan abgeschlossen"
+    },
+    "hallenuhrzeitNow": {
+      "label": "Hallenuhr"
     },
     "transport": {
       "label": "Wiedergabesteuerung",
