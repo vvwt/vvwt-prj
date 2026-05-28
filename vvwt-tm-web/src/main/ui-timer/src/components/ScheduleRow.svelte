@@ -46,11 +46,6 @@
     /** Status of this entry. */
     status: 'upcoming' | 'playing' | 'done';
     /**
-     * AC8/E11S09: Whether this entry is the earliest upcoming (next-to-fire) row.
-     * Triggers a subtle visual accent distinguishing it from later upcoming rows.
-     */
-    isNext?: boolean;
-    /**
      * E11S12 AC1/AC2: Inline transport controls — provided for ROUND and REGULAR-BREAK rows.
      * Absent / undefined → no inline controls rendered (ADDITIONAL-BREAK rows).
      */
@@ -81,7 +76,6 @@
     overrideTimeSeconds,
     onTimeEdit,
     status,
-    isNext = false,
     onInlinePlay,
     onInlinePause,
     onInlineStop,
@@ -164,14 +158,13 @@
 
   /**
    * CSS class modifier for the row status.
-   * AC8/E11S09: adds schedule-row--next for the earliest upcoming row (isNext=true),
-   * only when the row is not already playing or done.
+   * AC7/E11S13: schedule-row--next removed entirely; only playing and done classes remain.
+   * The playing row gets a left-border stripe (AC9/E11S13) via .schedule-row--playing CSS.
    */
   const statusClass = $derived(
     status === 'playing' ? 'schedule-row--playing'
       : status === 'done' ? 'schedule-row--done'
-        : isNext ? 'schedule-row--next'
-          : ''
+        : ''
   );
 
   /**
@@ -380,21 +373,16 @@
     background: #f7f9fb;
   }
 
+  /* AC9/E11S13: left-border stripe on the playing row matches operator's "blue stripe = current row"
+     mental model. .schedule-row--next removed entirely (AC7/E11S13). */
   .schedule-row--playing {
     background: #eaf6ff;
     font-weight: 600;
+    border-left: 3px solid #2980b9;
   }
 
   .schedule-row--done {
     opacity: 0.5;
-  }
-
-  /* AC8/E11S09: subtle visual accent for the next-upcoming row (earliest future event).
-     Less dominant than --playing (which uses a blue fill + bold); just a left border
-     accent and a very slight tint to signal "this fires next". */
-  .schedule-row--next {
-    border-left: 3px solid #2980b9;
-    background: #f5faff;
   }
 
   .schedule-row--break td {
