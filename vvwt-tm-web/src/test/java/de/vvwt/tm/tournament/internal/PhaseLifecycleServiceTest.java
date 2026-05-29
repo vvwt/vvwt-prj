@@ -12,6 +12,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.MatchLockdownService;
 import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.Phase;
@@ -69,6 +70,7 @@ class PhaseLifecycleServiceTest {
     @Mock private MatchLockdownService matchLockdownService;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private TournamentLifecycleSupport tournamentLifecycleSupport;
+    @Mock private TenantContext tenantContext;
 
     private DefaultPhaseLifecycleService service;
 
@@ -81,6 +83,8 @@ class PhaseLifecycleServiceTest {
         // E51S18 GREEN: ObjectMapper injected for isSiegerehrungPhase() Clause F guard
         // E48S24 GREEN: TournamentLifecycleSupport injected for D-1b isLastPhase predicate
         ObjectMapper objectMapper = new ObjectMapper();
+        // E65S08: tenantContext.current() returns a stable UUID for event publication
+        lenient().when(tenantContext.current()).thenReturn(UUID.randomUUID());
         service =
                 new DefaultPhaseLifecycleService(
                         tournamentRepository,
@@ -89,7 +93,8 @@ class PhaseLifecycleServiceTest {
                         matchLockdownService,
                         eventPublisher,
                         objectMapper,
-                        tournamentLifecycleSupport);
+                        tournamentLifecycleSupport,
+                        tenantContext);
 
         tournamentId = UUID.randomUUID();
         phaseId = UUID.randomUUID();
