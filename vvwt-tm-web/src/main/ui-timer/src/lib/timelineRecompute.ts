@@ -68,7 +68,7 @@ function secsToHHMM(secs: number): string {
 export function recomputeSchedule(
   schedule: TimerScheduleEntry[],
   ephemeralPhaseConfig: ReadonlyMap<number, EphemeralPhaseConfig>,
-  ephemeralBreakConfig: ReadonlyMap<number, EphemeralBreakConfig>,
+  userEditedBreakConfig: ReadonlyMap<number, EphemeralBreakConfig>,
 ): TimerScheduleEntry[] {
   if (schedule.length === 0) return [];
 
@@ -170,8 +170,8 @@ export function recomputeSchedule(
         result.push({ ...entry, startTime, endTime });
         cursor = cursor + breakSecs;
       } else {
-        // ADDITIONAL break: use ephemeral override if present, else original duration
-        const breakOverride = ephemeralBreakConfig.get(i);
+        // ADDITIONAL break: use user-edited override if present, else original duration
+        const breakOverride = userEditedBreakConfig.get(i);
         let breakSecs: number;
         if (breakOverride) {
           breakSecs = minutesToSeconds(breakOverride.durationMinutes);
@@ -205,12 +205,20 @@ export function recomputeSchedule(
 }
 
 /**
- * Returns true if ephemeral config maps are both empty (no overrides).
- * Used to skip recompute when no operator edits have been made.
+ * Returns true if operator-authored edits are present (phase config or break config).
+ *
+ * E11S16 AC2: Only checks user-edit maps, NOT the baseline pre-population map
+ * (ephemeralBreakConfig). The baseline pre-population map is used for display
+ * only (ScheduleRow input values) and does NOT constitute an operator override.
+ * This ensures effectiveSchedule() passes through backend schedule verbatim on
+ * fresh page load when no inline edits have been made.
+ *
+ * @param ephemeralPhaseConfig User-edited phase config overrides (set by handleInlinePhaseConfigUpdate)
+ * @param userEditedBreakConfig User-edited break config overrides (set by handleInlineBreakUpdate)
  */
 export function hasEphemeralOverrides(
   ephemeralPhaseConfig: ReadonlyMap<number, EphemeralPhaseConfig>,
-  ephemeralBreakConfig: ReadonlyMap<number, EphemeralBreakConfig>,
+  userEditedBreakConfig: ReadonlyMap<number, EphemeralBreakConfig>,
 ): boolean {
-  return ephemeralPhaseConfig.size > 0 || ephemeralBreakConfig.size > 0;
+  return ephemeralPhaseConfig.size > 0 || userEditedBreakConfig.size > 0;
 }

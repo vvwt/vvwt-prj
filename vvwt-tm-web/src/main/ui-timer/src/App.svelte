@@ -203,22 +203,40 @@
   /**
    * AC6/AC7/E11S12: Per-entry ephemeral break config for ADDITIONAL BREAK rows.
    * Keyed by entry index. Ephemeral only.
-   * Reset on WS-driven loadTimerDataSilent (AC10).
+   *
+   * E11S16 AC2: This map is the "baseline-display" map — pre-populated from backend
+   * values by buildInitialBreakConfigFull() on page load and WS reload (E11S14 AC4/AC5),
+   * and also updated when the operator commits an inline break edit so that ScheduleRow
+   * inputs show the edited value. It is NOT used as the recompute trigger — only
+   * userEditedBreakConfig drives recompute.
    */
   let ephemeralBreakConfig = $state(new Map<number, EphemeralBreakConfig>());
 
   /**
+   * E11S16 AC2: Per-entry user-edited break config — populated ONLY when the operator
+   * commits an inline break edit (handleInlineBreakUpdate). This is the map that
+   * hasEphemeralOverrides and recomputeSchedule use, ensuring that baseline
+   * pre-population alone does NOT trigger recompute on fresh page load.
+   * Reset on WS-driven loadTimerDataSilent (AC8a).
+   */
+  let userEditedBreakConfig = $state(new Map<number, EphemeralBreakConfig>());
+
+  /**
    * AC8/E11S12: Effective schedule — recomputed from timerData.schedule when
-   * ephemeral overrides are present; otherwise equals timerData.schedule verbatim.
+   * operator-authored edits are present; otherwise equals timerData.schedule verbatim.
+   *
+   * E11S16 AC2: hasEphemeralOverrides now checks ephemeralPhaseConfig and
+   * userEditedBreakConfig (NOT ephemeralBreakConfig). This prevents baseline
+   * pre-population of break display values from triggering recompute.
    *
    * Used by the countdown engine, schedule table, and PhaseConfigRow insertion logic.
    */
   const effectiveSchedule = $derived((): readonly TimerScheduleEntry[] => {
     if (!timerData) return [];
-    if (!hasEphemeralOverrides(ephemeralPhaseConfig, ephemeralBreakConfig)) {
+    if (!hasEphemeralOverrides(ephemeralPhaseConfig, userEditedBreakConfig)) {
       return timerData.schedule;
     }
-    return recomputeSchedule(timerData.schedule, ephemeralPhaseConfig, ephemeralBreakConfig);
+    return recomputeSchedule(timerData.schedule, ephemeralPhaseConfig, userEditedBreakConfig);
   });
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -277,8 +295,10 @@
       const data = await fetchTimerData(tournamentId);
       timerData = data;
       timeOverrides = new Map();
-      // E11S14 AC4/AC5: pre-populate break config from backend values on initial load
+      // E11S14 AC4/AC5: pre-populate baseline break config from backend values on initial load.
+      // E11S16 AC2: userEditedBreakConfig is reset to empty — no user edits have been made yet.
       ephemeralBreakConfig = buildInitialBreakConfigFull(data);
+      userEditedBreakConfig = new Map();
       appState = 'loaded';
       // E11S04: preload audio files after data loaded (AC1)
       audioEngine.preload(data.audio.startUrl, data.audio.endUrl, data.audio.pauseUrl);
@@ -380,7 +400,9 @@
       timeOverrides = new Map();
       // AC10/E11S12: WS-driven reload resets ephemeral state
       // E11S14 AC4/AC5: re-populate break config from freshly reloaded backend values
+      // E11S16 AC8a: wipe userEditedBreakConfig — in-flight edits do NOT survive WS reload
       ephemeralPhaseConfig = new Map();
+      userEditedBreakConfig = new Map();
       ephemeralBreakConfig = buildInitialBreakConfigFull(data);
       audioEngine.preload(data.audio.startUrl, data.audio.endUrl, data.audio.pauseUrl);
       refreshSnapshot();
@@ -606,11 +628,14 @@
 
   /**
    * AC6/AC8/E11S12: Called when the operator commits a break inline edit.
-   * Updates the ephemeral break config map → triggers effectiveSchedule recompute.
-   * No saveDraft call (AC7).
+   * Updates both break config maps:
+   *  - ephemeralBreakConfig (display map): so ScheduleRow input shows the edited value.
+   *  - userEditedBreakConfig (user-edit map, E11S16 AC2): triggers effectiveSchedule recompute.
+   * No saveDraft call (AC7 / AC14).
    */
   function handleInlineBreakUpdate(entryIndex: number, cfg: EphemeralBreakConfig): void {
     ephemeralBreakConfig = new Map(ephemeralBreakConfig).set(entryIndex, cfg);
+    userEditedBreakConfig = new Map(userEditedBreakConfig).set(entryIndex, cfg);
     if (appState === 'loaded') refreshSnapshot();
   }
 

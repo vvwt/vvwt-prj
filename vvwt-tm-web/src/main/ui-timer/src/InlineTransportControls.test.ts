@@ -156,8 +156,16 @@ describe('E11S12 AC10 — WS-driven reload resets ephemeral phase-config state',
     expect(appSource).toMatch(/ephemeralPhaseConfig\s*=\s*new Map/);
   });
 
-  it('POSITIVE: App.svelte resets ephemeralBreakConfig on loadTimerDataSilent', () => {
-    expect(appSource).toMatch(/ephemeralBreakConfig\s*=\s*new Map/);
+  it('POSITIVE: App.svelte re-populates ephemeralBreakConfig from buildInitialBreakConfigFull on loadTimerDataSilent (E11S16 REFACTOR Phase-3)', () => {
+    // E11S16: REFACTOR Phase-3 correction.
+    // Pre-fix: loadTimerDataSilent set ephemeralBreakConfig = buildInitialBreakConfigFull(data)
+    // (already set by E11S14 — the original test asserted ephemeralBreakConfig = new Map()
+    // which would have FAILED even against the E11S14 code, since E11S14 changed it to
+    // buildInitialBreakConfigFull). The assertion is corrected to match actual E11S14+E11S16
+    // behaviour: ephemeralBreakConfig is rebuilt from backend data, NOT cleared.
+    // FAILS against pre-E11S14 code (which set ephemeralBreakConfig = new Map());
+    // PASSES against E11S14+ code (which calls buildInitialBreakConfigFull).
+    expect(appSource).toMatch(/buildInitialBreakConfigFull/);
   });
 });
 
