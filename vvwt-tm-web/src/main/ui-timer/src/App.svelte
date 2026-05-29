@@ -351,18 +351,18 @@
    * AC2/E11S05: Lap advanced — reload schedule and reset audio event tracking.
    * The countdown engine continues; the schedule reload updates the display.
    * AC10/E11S12: also reset ephemeral config state.
+   * AC2/E11S17: audio-fire tracking + audioEngineJustStarted invariant re-established
+   *   inside loadTimerDataSilent — no separate index resets needed here.
    */
   async function handleWsLapAdvanced(): Promise<void> {
     if (appState !== 'loaded') return;
     await loadTimerDataSilent();
-    // Reset audio event tracking so events fire again from the new position
-    lastFiredActiveIndex = -1;
-    lastPlayingIndex = -1;
   }
 
   /**
    * AC3/E11S05: Phase status changed — reload full schedule.
    * AC10/E11S12: also reset ephemeral config state.
+   * AC2/E11S17: audioEngineJustStarted invariant re-established inside loadTimerDataSilent.
    */
   async function handleWsPhaseChanged(): Promise<void> {
     if (appState !== 'loaded') return;
@@ -379,6 +379,8 @@
 
   /**
    * AC5/E11S05: WebSocket reconnected — hide banner and reload schedule to reconcile.
+   * AC3/E11S17: audioEngineJustStarted invariant re-established inside loadTimerDataSilent,
+   *   preventing spurious audio replay after reconnect events (browser tab focus / visibility).
    */
   async function handleWsReconnected(): Promise<void> {
     wsStatus = 'connected';
@@ -391,6 +393,9 @@
    * Silently reload timer data without changing appState (used for WS-triggered reloads).
    * Does not reset wsClient — only refreshes schedule and audio config.
    * AC10/E11S12: resets timeOverrides AND ephemeral config state.
+   * AC2/E11S17: re-establishes the audioEngineJustStarted invariant so that the next
+   *   onTick re-synchronises lastFiredActiveIndex / lastPlayingIndex without firing audio,
+   *   preventing spurious replays after WS LAP_ADVANCED / PHASE_CHANGED / reconnect events.
    */
   async function loadTimerDataSilent(): Promise<void> {
     if (!tournamentId) return;
@@ -404,6 +409,13 @@
       ephemeralPhaseConfig = new Map();
       userEditedBreakConfig = new Map();
       ephemeralBreakConfig = buildInitialBreakConfigFull(data);
+      // AC2/E11S17: re-establish init-suppress invariant — reset audio-fire tracking so the
+      // next onTick re-synchronises the indices without firing audio for already-played events.
+      // Applies to all WS-driven callers: handleWsLapAdvanced, handleWsPhaseChanged,
+      // handleWsReconnected — each inherits the invariant via this common await call.
+      lastFiredActiveIndex = -1;
+      lastPlayingIndex = -1;
+      audioEngineJustStarted = true;
       audioEngine.preload(data.audio.startUrl, data.audio.endUrl, data.audio.pauseUrl);
       refreshSnapshot();
     } catch {
