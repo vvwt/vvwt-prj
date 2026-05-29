@@ -3,6 +3,7 @@
 package de.vvwt.tm.tournament.internal;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.vvwt.tm.tenant.TenantContext;
 import de.vvwt.tm.tournament.MatchLockdownService;
 import de.vvwt.tm.tournament.MatchRepository;
 import de.vvwt.tm.tournament.Phase;
@@ -79,8 +80,8 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>{@link #forceComplete(UUID)} delegates to {@link MatchLockdownService} for match bulk-cancel —
  * reusing E48S04 logic without duplication (AC-IMPL-FORCE-COMPLETE-REUSES-LOCKDOWN).
  *
- * <p>{@link PhaseStatusChangedEvent} is published on every successful status change
- * (AC-IMPL-PUBLISH-PHASE-STATUS-EVENT).
+ * <p>{@link PhaseStatusChangedEvent} is published on every status change
+ * (AC-IMPL-PUBLISH-PHASE-STATUS-EVENT). tenantId from E65S08 fix (was null).
  *
  * @see PhaseLifecycleService
  * @see MatchLockdownService
@@ -175,6 +176,9 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
      */
     private final TournamentLifecycleSupport tournamentLifecycleSupport;
 
+    /** Current tenant identifier for {@link PhaseStatusChangedEvent} (E65S08 fix). */
+    private final TenantContext tenantContext;
+
     public DefaultPhaseLifecycleService(
             TournamentRepository tournamentRepository,
             PhaseRepository phaseRepository,
@@ -182,7 +186,8 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
             MatchLockdownService matchLockdownService,
             ApplicationEventPublisher eventPublisher,
             ObjectMapper objectMapper,
-            TournamentLifecycleSupport tournamentLifecycleSupport) {
+            TournamentLifecycleSupport tournamentLifecycleSupport,
+            TenantContext tenantContext) {
         this.tournamentRepository = tournamentRepository;
         this.phaseRepository = phaseRepository;
         this.matchRepository = matchRepository;
@@ -190,6 +195,7 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
         this.eventPublisher = eventPublisher;
         this.objectMapper = objectMapper;
         this.tournamentLifecycleSupport = tournamentLifecycleSupport;
+        this.tenantContext = tenantContext;
     }
 
     // =========================================================================
@@ -304,7 +310,7 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
         eventPublisher.publishEvent(
                 new PhaseStatusChangedEvent(
                         this,
-                        null, // tenantId — resolved by DomainEventBridge via TenantContext
+                        tenantContext.current(), // E65S08: supply tenantId from TenantContext
                         phase.getTournamentId(),
                         phaseId,
                         previous,
@@ -364,7 +370,7 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
         eventPublisher.publishEvent(
                 new PhaseStatusChangedEvent(
                         this,
-                        null, // tenantId — resolved by DomainEventBridge via TenantContext
+                        tenantContext.current(), // E65S08: supply tenantId from TenantContext
                         phase.getTournamentId(),
                         phaseId,
                         previous,
@@ -469,7 +475,7 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
         eventPublisher.publishEvent(
                 new PhaseStatusChangedEvent(
                         this,
-                        null, // tenantId — resolved by DomainEventBridge via TenantContext
+                        tenantContext.current(), // E65S08: supply tenantId from TenantContext
                         phase.getTournamentId(),
                         phaseId,
                         previous,
@@ -547,7 +553,12 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
 
         eventPublisher.publishEvent(
                 new PhaseStatusChangedEvent(
-                        this, null, phase.getTournamentId(), phaseId, previous, "COMPLETED"));
+                        this,
+                        tenantContext.current(), // E65S08: supply tenantId from TenantContext
+                        phase.getTournamentId(),
+                        phaseId,
+                        previous,
+                        "COMPLETED"));
 
         log.debug("[E48S06] Phase {} transitioned {} → COMPLETED", phaseId, previous);
         return saved;
@@ -592,7 +603,12 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
 
         eventPublisher.publishEvent(
                 new PhaseStatusChangedEvent(
-                        this, null, phase.getTournamentId(), phaseId, previous, "COMPLETED"));
+                        this,
+                        tenantContext.current(), // E65S08: supply tenantId from TenantContext
+                        phase.getTournamentId(),
+                        phaseId,
+                        previous,
+                        "COMPLETED"));
 
         log.debug(
                 "[E48S06] Phase {} force-completed (Notabschluss): {} → COMPLETED",
