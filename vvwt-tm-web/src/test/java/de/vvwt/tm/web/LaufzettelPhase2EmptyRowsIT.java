@@ -50,8 +50,8 @@ import org.springframework.test.context.ActiveProfiles;
  *   <li>AC-TEST-GREEN-AFTER-FIX: (same IT, GREEN after production fix)
  *   <li>AC-TEST-SINGLE-TEAM-ENDPOINT-PARITY: singleTeamSchedule row count matches allTeamSchedules
  *       row count for the same team
- *   <li>AC-TEST-NO-MATCH-FALLBACK-UNCHANGED: Phase 1 COMPLETED + Phase 2 ACTIVE but Phase-2
- *       matches have lapNumber==null → laufzettel-no-matches template rendered
+ *   <li>AC-TEST-NO-MATCH-FALLBACK-UNCHANGED: Phase 1 COMPLETED + Phase 2 ACTIVE but Phase-2 matches
+ *       have lapNumber==null → laufzettel-no-matches template rendered
  * </ul>
  *
  * @see de.vvwt.tm.print.internal.DefaultLaufzettelAssembler
@@ -116,10 +116,10 @@ class LaufzettelPhase2EmptyRowsIT {
     // =========================================================================
 
     /**
-     * AC-TEST-RED-FIRST-SYMPTOM (E53S10): Phase 1 COMPLETED + Phase 2 ACTIVE
-     * (sequenceNumber=2), {@code plannedStartTime != null} (triggers {@code assembleWithTimeline}
-     * path), 2 teams, Phase-2 matches with non-null lapNumber AND non-null fieldNumber, Phase-2
-     * {@code TeamAvatar.teamId} populated.
+     * AC-TEST-RED-FIRST-SYMPTOM (E53S10): Phase 1 COMPLETED + Phase 2 ACTIVE (sequenceNumber=2),
+     * {@code plannedStartTime != null} (triggers {@code assembleWithTimeline} path), 2 teams,
+     * Phase-2 matches with non-null lapNumber AND non-null fieldNumber, Phase-2 {@code
+     * TeamAvatar.teamId} populated.
      *
      * <p>The {@code GET /print/tournaments/{tid}/team-schedules} (Sammeldruck) endpoint is
      * asserted: for every team's {@code <section>}, the rendered HTML must contain ≥
@@ -128,18 +128,18 @@ class LaufzettelPhase2EmptyRowsIT {
      *
      * <p>RED on HEAD before fix: {@code buildPhaseConfigs} assigns {@code PhaseConfig.phaseNumber}
      * positionally (1 for the single filtered phase), but {@code assembleWithTimeline} keys the
-     * lookup map by {@code phase.getSequenceNumber()} (2). The lookup returns {@code null} →
-     * {@code continue} → 0 rows appended per team.
+     * lookup map by {@code phase.getSequenceNumber()} (2). The lookup returns {@code null} → {@code
+     * continue} → 0 rows appended per team.
      *
      * <p>GREEN after fix (AC-TEST-GREEN-AFTER-FIX): the same assertion passes because the
-     * divergence is eliminated at the {@code buildPhaseConfigs} site (Shape a: use
-     * {@code phase.getSequenceNumber()} instead of positional {@code seqNumber}).
+     * divergence is eliminated at the {@code buildPhaseConfigs} site (Shape a: use {@code
+     * phase.getSequenceNumber()} instead of positional {@code seqNumber}).
      *
      * <p>AC-TEST-FIXTURE-REACHABILITY-ATTESTATION: confirmed via existing {@code PrintControllerIT}
      * pattern. The {@code @SpringBootTest(RANDOM_PORT)} + tenant-scoped H2 + direct JDBC seed +
-     * {@code TenantContextTestSupport.Binder} pattern is established and reachable from this module.
-     * The fixture does NOT mock the assembler; the production {@code DefaultLaufzettelAssembler} is
-     * exercised end-to-end via the HTTP endpoint.
+     * {@code TenantContextTestSupport.Binder} pattern is established and reachable from this
+     * module. The fixture does NOT mock the assembler; the production {@code
+     * DefaultLaufzettelAssembler} is exercised end-to-end via the HTTP endpoint.
      *
      * @since E53S10; AC-TEST-RED-FIRST-SYMPTOM (DEC-22 Pattern B)
      */
