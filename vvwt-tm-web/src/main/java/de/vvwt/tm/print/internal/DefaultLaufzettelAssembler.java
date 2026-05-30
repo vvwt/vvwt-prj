@@ -590,7 +590,6 @@ public class DefaultLaufzettelAssembler implements LaufzettelAssembler {
             Map<UUID, Integer> lapBreakByPhase) {
 
         List<PhaseConfig> configs = new ArrayList<>();
-        int seqNumber = 1;
         for (Phase phase : phases) {
             UUID phaseId = phase.getId();
             int lapCount = maxLapByPhase.getOrDefault(phaseId, 0);
@@ -614,8 +613,18 @@ public class DefaultLaufzettelAssembler implements LaufzettelAssembler {
                                 pb.getAfterLapNumber(), pb.getDurationMinutes(), pb.getLabel()));
             }
 
-            configs.add(new PhaseConfig(seqNumber, lapCount, lapTime, lapBreak, breakConfigs));
-            seqNumber++;
+            // E53S10 fix (AC-GOV-FIX-SCOPE-MINIMAL, Shape a): source PhaseConfig.phaseNumber
+            // from phase.getSequenceNumber() — the domain sequence number — rather than a
+            // positional counter. Before this fix, buildPhaseConfigs numbered configs 1,2,3,…
+            // positionally, but assembleWithTimeline keyed phaseBySeqNumber on
+            // phase.getSequenceNumber(). After the ACTIVE-filter in PrintController (E53S02),
+            // a single non-first ACTIVE phase (e.g. Phase 2) produced PhaseConfig.phaseNumber=1
+            // (positional) vs phase.getSequenceNumber()=2 → phaseBySeqNumber.get(1)=null →
+            // every TimelineEntry hit continue → 0 rows rendered. Using getSequenceNumber()
+            // keeps PhaseConfig.phaseNumber semantically aligned with the domain concept.
+            configs.add(
+                    new PhaseConfig(
+                            phase.getSequenceNumber(), lapCount, lapTime, lapBreak, breakConfigs));
         }
         return configs;
     }
