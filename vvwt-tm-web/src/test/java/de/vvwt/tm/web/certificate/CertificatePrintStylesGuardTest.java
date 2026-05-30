@@ -13,20 +13,20 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * RED-first guard test for the {@code @media print} block in
- * {@code certificate/_certificate_styles.mustache} (E12S11 AC2).
+ * RED-first guard test for the {@code @media print} block in {@code
+ * certificate/_certificate_styles.mustache} (E12S11 AC2).
  *
  * <p>This test was committed RED — before the CSS fix — as required by the DEC-22 Iron Law. The
  * pre-story {@code @media print} block (lines 146–151) contains only {@code body}, {@code .stage},
  * {@code .page} box-shadow/border-radius overrides, and {@code @page size}: it lacks the
- * fixed-dimension {@code .page} dimensions, the print-safe {@code body} override, and the
- * {@code .page:last-child} page-break guard that this test asserts. Therefore this test FAILS RED
- * against the unmodified template.
+ * fixed-dimension {@code .page} dimensions, the print-safe {@code body} override, and the {@code
+ * .page:last-child} page-break guard that this test asserts. Therefore this test FAILS RED against
+ * the unmodified template.
  *
  * <p>After the fix lands (adding {@code width: 297mm; height: 210mm; aspect-ratio: auto; padding:
  * 12mm 18mm 10mm} to the {@code .page} print rule, overriding {@code body} to {@code display:
- * block; min-height: 0}, and adding {@code .page:last-child { page-break-after: auto }}), this
- * test turns GREEN.
+ * block; min-height: 0}, and adding {@code .page:last-child { page-break-after: auto }}), this test
+ * turns GREEN.
  *
  * <h2>AC2 assertions (DEC-22 RED-first, E12S11)</h2>
  *
@@ -52,7 +52,8 @@ import org.junit.jupiter.api.Test;
  * @see <a href="DEC-75">DEC-75 §D6 — SPDX AGPL-3.0-or-later header</a>
  * @since E12S11
  */
-@DisplayName("E12S11 AC2 — @media print guard: fixed-dim .page + print-safe body + :last-child break")
+@DisplayName(
+        "E12S11 AC2 — @media print guard: fixed-dim .page + print-safe body + :last-child break")
 class CertificatePrintStylesGuardTest {
 
     private static final String TEMPLATE_CLASSPATH =
@@ -89,7 +90,9 @@ class CertificatePrintStylesGuardTest {
                     }
                 }
             }
-            assertThat(end).as("@media print block must have a matching closing brace").isGreaterThan(start);
+            assertThat(end)
+                    .as("@media print block must have a matching closing brace")
+                    .isGreaterThan(start);
             return content.substring(start, end);
         }
     }
@@ -108,21 +111,21 @@ class CertificatePrintStylesGuardTest {
         // Extract the .page { ... } rule within @media print
         // We look for .page { ... } (without :last-child qualifier)
         String pageRuleContent = extractRuleContent(block, "\\.page\\s*\\{");
-        assertThat(pageRuleContent)
-                .as("@media print .page rule content")
-                .isNotNull();
+        assertThat(pageRuleContent).as("@media print .page rule content").isNotNull();
 
         // (a1) width in fixed-dimension units (mm, cm, in, vh, vw)
         assertThat(pageRuleContent)
-                .as("@media print .page must declare width in fixed-dimension units (mm/cm/in/vh/vw)")
-                .containsPattern(
-                        "width\\s*:\\s*\\d+(?:\\.\\d+)?(?:mm|cm|in|vh|vw)");
+                .as(
+                        "@media print .page must declare width in fixed-dimension units"
+                                + " (mm/cm/in/vh/vw)")
+                .containsPattern("width\\s*:\\s*\\d+(?:\\.\\d+)?(?:mm|cm|in|vh|vw)");
 
         // (a2) height in fixed-dimension units
         assertThat(pageRuleContent)
-                .as("@media print .page must declare height in fixed-dimension units (mm/cm/in/vh/vw)")
-                .containsPattern(
-                        "height\\s*:\\s*\\d+(?:\\.\\d+)?(?:mm|cm|in|vh|vw)");
+                .as(
+                        "@media print .page must declare height in fixed-dimension units"
+                                + " (mm/cm/in/vh/vw)")
+                .containsPattern("height\\s*:\\s*\\d+(?:\\.\\d+)?(?:mm|cm|in|vh|vw)");
 
         // (a3) aspect-ratio: auto
         assertThat(pageRuleContent)
@@ -135,7 +138,9 @@ class CertificatePrintStylesGuardTest {
                 .containsPattern("padding\\s*:");
 
         assertThat(pageRuleContent)
-                .as("@media print .page padding must NOT use container-query units (cqh/cqw/cqi/cqb)")
+                .as(
+                        "@media print .page padding must NOT use container-query units"
+                                + " (cqh/cqw/cqi/cqb)")
                 .doesNotContainPattern("padding\\s*:[^;]*(?:cqh|cqw|cqi|cqb)");
     }
 
@@ -144,15 +149,12 @@ class CertificatePrintStylesGuardTest {
     // =========================================================================
 
     @Test
-    @DisplayName(
-            "AC2(b): @media print body rule overrides display to block and min-height to 0")
+    @DisplayName("AC2(b): @media print body rule overrides display to block and min-height to 0")
     void mediaPrint_bodyRule_hasPrintSafeOverrides() throws IOException {
         String block = readMediaPrintBlock();
 
         String bodyRuleContent = extractRuleContent(block, "body\\s*\\{");
-        assertThat(bodyRuleContent)
-                .as("@media print body rule content")
-                .isNotNull();
+        assertThat(bodyRuleContent).as("@media print body rule content").isNotNull();
 
         // (b1) display: block (overrides screen-mode display: flex)
         assertThat(bodyRuleContent)
@@ -189,8 +191,8 @@ class CertificatePrintStylesGuardTest {
     // =========================================================================
 
     /**
-     * Extracts the content (between braces) of the FIRST CSS rule whose selector matches
-     * {@code selectorPattern} within the given {@code cssBlock}.
+     * Extracts the content (between braces) of the FIRST CSS rule whose selector matches {@code
+     * selectorPattern} within the given {@code cssBlock}.
      *
      * @return rule content (between the outer braces, exclusive), or {@code null} if not found
      */
