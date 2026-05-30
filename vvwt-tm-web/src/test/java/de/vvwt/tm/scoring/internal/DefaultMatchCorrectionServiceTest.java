@@ -32,10 +32,12 @@ import de.vvwt.tm.tournament.TeamAvatarRatingRepository;
 import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
+import de.vvwt.tm.tournament.exceptions.IncompleteCorrectionException;
 import de.vvwt.tm.tournament.exceptions.MatchStateGuardException;
 import de.vvwt.tm.tournament.exceptions.PhaseStateGuardException;
 import de.vvwt.tm.tournament.exceptions.StandoffFormatMismatchException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -44,6 +46,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -520,7 +524,8 @@ class DefaultMatchCorrectionServiceTest {
                     + " FINISHED_WINNER1 correction")
     void finishedW1Correction_lockAcquiredOnce() {
         // tournament status ACTIVE, phase ACTIVE, match FINISHED_WINNER1
-        MatchCorrectionInput input = correctionInput(List.of(new SetScoreCorrection(0, 25, 10)));
+        // 2-set terminal submit (BEST_OF_3 requires 2 wins for terminal — E48S28 guard)
+        MatchCorrectionInput input = terminalCorrectionInput();
 
         // Set up aggregate after setResultRepository.findByMatchId for cascade
         when(setResultRepository.findByMatchId(MATCH_ID))
@@ -547,12 +552,15 @@ class DefaultMatchCorrectionServiceTest {
             "AC-AUDIT-LOG-ADMIN: correction for FINISHED match writes audit_log with"
                     + " sourceType=ADMIN")
     void finishedW1Correction_auditLogWritten_adminSourceType() {
+        // 2-set terminal submit (E48S28 ONCHECK guard — BEST_OF_3 requires 2 wins for terminal)
         MatchCorrectionInput input =
                 new MatchCorrectionInput(
                         MATCH_ID,
                         TOURNAMENT_ID,
                         PHASE_ID,
-                        List.of(new SetScoreCorrection(0, 25, 10)),
+                        List.of(
+                                new SetScoreCorrection(0, 25, 10),
+                                new SetScoreCorrection(1, 25, 15)),
                         "admin",
                         "Correction reason");
 
@@ -567,13 +575,23 @@ class DefaultMatchCorrectionServiceTest {
                                         10,
                                         SetState.WINNER1.getLegacyCode(),
                                         LocalDateTime.now(),
+                                        LocalDateTime.now()),
+                                new SetResult(
+                                        MATCH_ID,
+                                        1,
+                                        PHASE_ID,
+                                        25,
+                                        15,
+                                        SetState.WINNER1.getLegacyCode(),
+                                        LocalDateTime.now(),
                                         LocalDateTime.now())));
 
         service.correctMatchSets(input);
 
+        // 2 sets submitted → 2 audit_log entries (one per set); verify at least one
         ArgumentCaptor<AuditLogEntry> captor = ArgumentCaptor.forClass(AuditLogEntry.class);
-        verify(auditLogRepository, times(1)).save(captor.capture());
-        AuditLogEntry entry = captor.getValue();
+        verify(auditLogRepository, times(2)).save(captor.capture());
+        AuditLogEntry entry = captor.getAllValues().get(0);
         assertThat(entry.getSourceType()).isEqualTo("ADMIN");
         assertThat(entry.getMatchId()).isEqualTo(MATCH_ID);
     }
@@ -705,7 +723,8 @@ class DefaultMatchCorrectionServiceTest {
                                         LocalDateTime.now(),
                                         LocalDateTime.now())));
 
-        service.correctMatchSets(correctionInput(List.of(new SetScoreCorrection(0, 25, 10))));
+        // 2-set terminal submit (E48S28 ONCHECK guard — must be terminal for BEST_OF_3)
+        service.correctMatchSets(terminalCorrectionInput());
 
         // After all matches in lap 1 are terminal → currentLapNumber must be 2
         assertThat(phase.getCurrentLapNumber()).isEqualTo(2);
@@ -779,7 +798,8 @@ class DefaultMatchCorrectionServiceTest {
                                         LocalDateTime.now(),
                                         LocalDateTime.now())));
 
-        service.correctMatchSets(correctionInput(List.of(new SetScoreCorrection(0, 25, 10))));
+        // 2-set terminal submit (E48S28 ONCHECK guard — must be terminal for BEST_OF_3)
+        service.correctMatchSets(terminalCorrectionInput());
 
         // Incomplete lap → no advance
         assertThat(phase.getCurrentLapNumber()).isEqualTo(1);
@@ -879,9 +899,8 @@ class DefaultMatchCorrectionServiceTest {
                                         LocalDateTime.now(),
                                         LocalDateTime.now())));
 
-        MatchCorrectionResult result =
-                service.correctMatchSets(
-                        correctionInput(List.of(new SetScoreCorrection(0, 25, 10))));
+        // 2-set terminal submit (E48S28 ONCHECK guard — must be terminal for BEST_OF_3)
+        MatchCorrectionResult result = service.correctMatchSets(terminalCorrectionInput());
 
         // Last-lap finalization → sentinel 0 (DEC-74 D-4)
         assertThat(phase.getCurrentLapNumber()).isEqualTo(0);
@@ -966,7 +985,8 @@ class DefaultMatchCorrectionServiceTest {
                                         LocalDateTime.now(),
                                         LocalDateTime.now())));
 
-        service.correctMatchSets(correctionInput(List.of(new SetScoreCorrection(0, 25, 10))));
+        // 2-set terminal submit (E48S28 ONCHECK guard)
+        service.correctMatchSets(terminalCorrectionInput());
 
         // currentLapNumber must remain 3 — no backward regression
         assertThat(phase.getCurrentLapNumber()).isEqualTo(3);
@@ -1054,7 +1074,8 @@ class DefaultMatchCorrectionServiceTest {
                                         LocalDateTime.now(),
                                         LocalDateTime.now())));
 
-        service.correctMatchSets(correctionInput(List.of(new SetScoreCorrection(0, 25, 10))));
+        // 2-set terminal submit (E48S28 ONCHECK guard)
+        service.correctMatchSets(terminalCorrectionInput());
 
         // guard (b) lapNumber(3) != currentLapNumber(1) → advance must NOT fire
         assertThat(phase.getCurrentLapNumber()).isEqualTo(1);
@@ -1146,7 +1167,8 @@ class DefaultMatchCorrectionServiceTest {
                                         LocalDateTime.now(),
                                         LocalDateTime.now())));
 
-        service.correctMatchSets(correctionInput(List.of(new SetScoreCorrection(0, 25, 10))));
+        // 2-set terminal submit (E48S28 ONCHECK guard)
+        service.correctMatchSets(terminalCorrectionInput());
 
         // guard (a): lapNumber is null → no advance, no error
         assertThat(phase.getCurrentLapNumber()).isEqualTo(1);
@@ -1199,7 +1221,8 @@ class DefaultMatchCorrectionServiceTest {
                                         LocalDateTime.now(),
                                         LocalDateTime.now())));
 
-        service.correctMatchSets(correctionInput(List.of(new SetScoreCorrection(0, 25, 10))));
+        // 2-set terminal submit (E48S28 ONCHECK guard)
+        service.correctMatchSets(terminalCorrectionInput());
 
         // Guard (b): lapNumber=2 != currentLapNumber=0 → no advance
         assertThat(phase.getCurrentLapNumber()).isEqualTo(0);
@@ -1288,7 +1311,8 @@ class DefaultMatchCorrectionServiceTest {
                         LocalDateTime.now());
         when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(enabledMatch));
 
-        MatchCorrectionInput input = correctionInput(List.of(new SetScoreCorrection(0, 25, 10)));
+        // 2-set terminal submit (E48S28 ONCHECK guard — BEST_OF_3 requires 2 wins for terminal)
+        MatchCorrectionInput input = terminalCorrectionInput();
 
         when(setResultRepository.findByMatchId(MATCH_ID))
                 .thenReturn(
@@ -1322,14 +1346,16 @@ class DefaultMatchCorrectionServiceTest {
                     + " save() does not throw (async-after-commit — file IO off request path)")
     void d9_auditSaveCalledAndCorrectionCompletesNormally() {
         // Arrange — save() returns entry (default stub in setUp)
-        MatchCorrectionInput input = correctionInput(List.of(new SetScoreCorrection(0, 25, 10)));
+        // 2-set terminal submit (E48S28 ONCHECK guard)
+        MatchCorrectionInput input = terminalCorrectionInput();
 
         // Act — must not throw
         MatchCorrectionResult result = service.correctMatchSets(input);
 
         // Assert — correction result is present; save() was invoked with correct tournamentId
+        // (2 sets submitted → 2 audit entries — atLeastOnce to avoid brittleness on set count)
         assertThat(result).isNotNull();
-        verify(auditLogRepository)
+        verify(auditLogRepository, org.mockito.Mockito.atLeastOnce())
                 .save(
                         org.mockito.ArgumentMatchers.argThat(
                                 e -> TOURNAMENT_ID.equals(e.getTournamentId())));
@@ -1343,7 +1369,350 @@ class DefaultMatchCorrectionServiceTest {
         return new MatchCorrectionInput(MATCH_ID, TOURNAMENT_ID, PHASE_ID, sets, "admin", null);
     }
 
+    /**
+     * Helper: builds a terminal-resolving correction input for a BEST_OF_3 tournament.
+     *
+     * <p>Submits 2 sets won by team1 (25-10 each) — {@code FINISHED_WINNER1} for BEST_OF_3. Used in
+     * tests that need to bypass the E48S28 ONCHECK pre-write guard to reach the cascade logic.
+     */
+    private MatchCorrectionInput terminalCorrectionInput() {
+        return correctionInput(
+                List.of(new SetScoreCorrection(0, 25, 10), new SetScoreCorrection(1, 25, 15)));
+    }
+
     private static int anyInt() {
         return org.mockito.ArgumentMatchers.anyInt();
+    }
+
+    // -----------------------------------------------------------------------
+    // E48S28 — Pre-write ONCHECK guard (AC-TEST-CORRECTION-REJECTS-EMPTY-SUBMIT-RED,
+    // AC-TEST-CORRECTION-REJECTS-PARTIAL-NON-WINNING-RED,
+    // AC-TEST-CORRECTION-ACCEPTS-TERMINAL-RESOLVING-SUBMIT-GREEN-REGRESSION,
+    // AC-TEST-CONTROLLER-IT-CANCELED-PATH-PRESERVED-GREEN-REGRESSION,
+    // AC-TEST-DEC74-LAP-ADVANCE-PRESERVED-GREEN-REGRESSION)
+    // RED-first per DEC-22 Iron Law. Guard fires BEFORE lock acquisition (AC-GOV-DEC37).
+    // -----------------------------------------------------------------------
+
+    /**
+     * AC-TEST-CORRECTION-REJECTS-EMPTY-SUBMIT-RED — RED-first TDD (E48S28, DEC-22).
+     *
+     * <p>Given an OPEN match in an ACTIVE phase with a BEST_OF_3 tournament, an empty submit
+     * (sets=empty list) must throw {@link IncompleteCorrectionException} before any DB write. The
+     * DEC-37 per-tournament lock must NOT be acquired, no {@code set_result} rows written, no
+     * {@code match_outcome} written, no {@code audit_log} written, no {@code
+     * MatchResultChangedEvent} published.
+     *
+     * <p>Test FAILS on {@code staging} HEAD (current code writes ONCHECK to DB).
+     */
+    @Test
+    @DisplayName(
+            "AC-TEST-CORRECTION-REJECTS-EMPTY-SUBMIT-RED: empty submit on BEST_OF_3 OPEN match →"
+                    + " IncompleteCorrectionException, no DB write, no event (E48S28)")
+    void emptySubmit_openMatch_bestOf3_throwsIncompleteCorrectionException() {
+        // OPEN match in ACTIVE BEST_OF_3 phase
+        Match openMatch =
+                new Match(
+                        MATCH_ID,
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        MatchState.OPEN.getLegacyCode(),
+                        3,
+                        1,
+                        1,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
+        when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(openMatch));
+
+        // Empty sets list — submitted (0,0,0) = ONCHECK for every format
+        MatchCorrectionInput input = correctionInput(Collections.emptyList());
+
+        assertThatThrownBy(() -> service.correctMatchSets(input))
+                .isInstanceOf(IncompleteCorrectionException.class);
+
+        // DEC-37: lock MUST NOT be acquired
+        verify(tournamentRepository, never()).findByIdForUpdate(any());
+        // No DB writes
+        verify(setResultRepository, never()).insert(any());
+        verify(setResultRepository, never()).update(any());
+        verify(matchOutcomeRepository, never()).save(any());
+        verify(auditLogRepository, never()).save(any());
+        verify(matchRepository, never()).save(any());
+        // No event published (Brief D-2 invariant)
+        verify(eventPublisher, never()).publishEvent(any(ApplicationEvent.class));
+    }
+
+    /**
+     * AC-TEST-CORRECTION-REJECTS-EMPTY-SUBMIT-RED — variant with ENABLED match (Nacherfassung
+     * path).
+     *
+     * <p>The guard applies regardless of the initial match state (OPEN, ENABLED, FINISHED_*) — what
+     * matters is the submitted sets producing ONCHECK.
+     */
+    @Test
+    @DisplayName(
+            "AC-TEST-CORRECTION-REJECTS-EMPTY-SUBMIT-RED: empty submit on ENABLED match →"
+                    + " IncompleteCorrectionException, no lock (E48S28)")
+    void emptySubmit_enabledMatch_throwsIncompleteCorrectionException() {
+        Match enabledMatch =
+                new Match(
+                        MATCH_ID,
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        MatchState.ENABLED.getLegacyCode(),
+                        3,
+                        1,
+                        1,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
+        when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(enabledMatch));
+
+        MatchCorrectionInput input = correctionInput(Collections.emptyList());
+
+        assertThatThrownBy(() -> service.correctMatchSets(input))
+                .isInstanceOf(IncompleteCorrectionException.class);
+
+        verify(tournamentRepository, never()).findByIdForUpdate(any());
+        verify(setResultRepository, never()).insert(any());
+        verify(setResultRepository, never()).update(any());
+        verify(auditLogRepository, never()).save(any());
+        verify(eventPublisher, never()).publishEvent(any(ApplicationEvent.class));
+    }
+
+    /**
+     * Returns all ONCHECK-producing input tuples for each {@link de.vvwt.tm.tournament.MatchFormat}
+     * constant, as required by AC-TEST-CORRECTION-REJECTS-PARTIAL-NON-WINNING-RED.
+     *
+     * <p>The canonical closure: for each format, iterate all {@code (t1, t2)} with {@code t1 + t2 =
+     * setsPlayed} from 0 to {@code maxSets}, and collect those for which {@code
+     * MatchFormat.deriveMatchState(t1, t2, setsPlayed) == MatchState.ONCHECK}.
+     */
+    static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments>
+            oncheckTuplesProvider() {
+        java.util.stream.Stream.Builder<org.junit.jupiter.params.provider.Arguments> builder =
+                java.util.stream.Stream.builder();
+        for (de.vvwt.tm.tournament.MatchFormat format :
+                de.vvwt.tm.tournament.MatchFormat.values()) {
+            int maxSets = format.getMaxSets();
+            for (int setsPlayed = 0; setsPlayed <= maxSets; setsPlayed++) {
+                for (int t1 = 0; t1 <= setsPlayed; t1++) {
+                    int t2 = setsPlayed - t1;
+                    try {
+                        if (format.deriveMatchState(t1, t2, setsPlayed)
+                                == de.vvwt.tm.tournament.MatchState.ONCHECK) {
+                            // Build a list of SetScoreCorrection entries that produce this tuple.
+                            // t1 sets won by team1 (team1Points > team2Points),
+                            // t2 sets won by team2 (team2Points > team1Points).
+                            List<SetScoreCorrection> sets = new ArrayList<>();
+                            int setIdx = 0;
+                            for (int i = 0; i < t1; i++) {
+                                sets.add(new SetScoreCorrection(setIdx++, 25, 10));
+                            }
+                            for (int i = 0; i < t2; i++) {
+                                sets.add(new SetScoreCorrection(setIdx++, 10, 25));
+                            }
+                            builder.add(
+                                    org.junit.jupiter.params.provider.Arguments.of(
+                                            format, t1, t2, setsPlayed, sets));
+                        }
+                    } catch (IllegalArgumentException ignored) {
+                        // skip invalid argument combinations
+                    }
+                }
+            }
+        }
+        return builder.build();
+    }
+
+    /**
+     * AC-TEST-CORRECTION-REJECTS-PARTIAL-NON-WINNING-RED — RED-first parameterized test (E48S28,
+     * DEC-22).
+     *
+     * <p>For every {@link de.vvwt.tm.tournament.MatchFormat} constant and every ONCHECK-producing
+     * input tuple (computed via {@link #oncheckTuplesProvider()}), the guard must throw {@link
+     * IncompleteCorrectionException} before any DB write, with no DEC-37 lock acquired and no
+     * event.
+     *
+     * <p>Tests FAIL on {@code staging} HEAD.
+     */
+    @ParameterizedTest(name = "format={0} t1={1} t2={2} setsPlayed={3}")
+    @MethodSource("oncheckTuplesProvider")
+    @DisplayName(
+            "AC-TEST-CORRECTION-REJECTS-PARTIAL-NON-WINNING-RED: all ONCHECK tuples →"
+                    + " IncompleteCorrectionException, no lock, no event (E48S28)")
+    void partialNonWinningSubmit_allONCHECKTuples_throwsIncompleteCorrectionException(
+            de.vvwt.tm.tournament.MatchFormat format,
+            int t1Sets,
+            int t2Sets,
+            int setsPlayed,
+            List<SetScoreCorrection> setCorrections) {
+        // Arrange: use a tournament with the given format
+        Tournament tournamentForFormat =
+                new Tournament(
+                        TOURNAMENT_ID,
+                        "Test tournament",
+                        format.name(),
+                        "setPoints",
+                        "standardVolleyball",
+                        "roundRobin",
+                        "ACTIVE",
+                        LocalDateTime.now(),
+                        null,
+                        2,
+                        4);
+        when(tournamentRepository.findById(TOURNAMENT_ID))
+                .thenReturn(Optional.of(tournamentForFormat));
+
+        Match openMatch =
+                new Match(
+                        MATCH_ID,
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        MatchState.OPEN.getLegacyCode(),
+                        format.getMaxSets(),
+                        1,
+                        1,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
+        when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(openMatch));
+
+        MatchCorrectionInput input = correctionInput(setCorrections);
+
+        // Equal-wins tuples on non-tie formats are also caught by the existing standoff guard
+        // (fires before ONCHECK guard). Both are valid pre-write rejections.
+        assertThatThrownBy(() -> service.correctMatchSets(input))
+                .as(
+                        "format=%s t1=%d t2=%d setsPlayed=%d should be rejected pre-write (ONCHECK"
+                                + " or standoff guard)",
+                        format, t1Sets, t2Sets, setsPlayed)
+                .isInstanceOfAny(
+                        IncompleteCorrectionException.class, StandoffFormatMismatchException.class);
+
+        // DEC-37: NO lock acquired (both guards fire before lock)
+        verify(tournamentRepository, never()).findByIdForUpdate(any());
+        // No DB writes (neither guard performs DB writes)
+        verify(setResultRepository, never()).insert(any());
+        verify(setResultRepository, never()).update(any());
+        verify(auditLogRepository, never()).save(any());
+        // No event (Brief D-2)
+        verify(eventPublisher, never()).publishEvent(any(ApplicationEvent.class));
+    }
+
+    /**
+     * AC-TEST-CORRECTION-ACCEPTS-TERMINAL-RESOLVING-SUBMIT-GREEN-REGRESSION — GREEN regression.
+     *
+     * <p>A terminal-resolving submit (BEST_OF_3, team1 wins 2-0) must NOT throw any guard exception
+     * and must proceed to update match state to FINISHED_WINNER1.
+     */
+    @Test
+    @DisplayName(
+            "AC-TEST-CORRECTION-ACCEPTS-TERMINAL-RESOLVING-SUBMIT-GREEN-REGRESSION: 2-0 on"
+                    + " BEST_OF_3 → success, match state updated, MatchResultChangedEvent emitted"
+                    + " (E48S28)")
+    void terminalResolvingSubmit_bestOf3_twoZero_succeeds() {
+        // OPEN match in ACTIVE BEST_OF_3 phase
+        Match openMatch =
+                new Match(
+                        MATCH_ID,
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        MatchState.OPEN.getLegacyCode(),
+                        3,
+                        1,
+                        1,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
+        when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(openMatch));
+
+        // Submit 2 sets: team1 wins both → FINISHED_WINNER1
+        List<SetScoreCorrection> sets =
+                List.of(new SetScoreCorrection(0, 25, 10), new SetScoreCorrection(1, 25, 15));
+        MatchCorrectionInput input = correctionInput(sets);
+
+        // setResultRepository.findByMatchId returns the 2 winner1 sets (for deriveMatchState)
+        when(setResultRepository.findByMatchId(MATCH_ID))
+                .thenReturn(
+                        List.of(
+                                new SetResult(
+                                        MATCH_ID,
+                                        0,
+                                        PHASE_ID,
+                                        25,
+                                        10,
+                                        SetState.WINNER1.getLegacyCode(),
+                                        LocalDateTime.now(),
+                                        LocalDateTime.now()),
+                                new SetResult(
+                                        MATCH_ID,
+                                        1,
+                                        PHASE_ID,
+                                        25,
+                                        15,
+                                        SetState.WINNER1.getLegacyCode(),
+                                        LocalDateTime.now(),
+                                        LocalDateTime.now())));
+
+        // Must not throw
+        MatchCorrectionResult result = service.correctMatchSets(input);
+
+        assertThat(result).isNotNull();
+        assertThat(result.auditOnly()).isFalse();
+        // Lock WAS acquired (valid path)
+        verify(tournamentRepository).findByIdForUpdate(TOURNAMENT_ID);
+        // Event WAS published
+        verify(eventPublisher).publishEvent(any());
+    }
+
+    /**
+     * AC-TEST-CONTROLLER-IT-CANCELED-PATH-PRESERVED-GREEN-REGRESSION — GREEN regression.
+     *
+     * <p>A submit on a CANCELED match (audit-only path) with arbitrary set values must NOT trigger
+     * the ONCHECK guard and must return {@code auditOnly=true} and NOT acquire the DEC-37 lock.
+     */
+    @Test
+    @DisplayName(
+            "AC-TEST-CONTROLLER-IT-CANCELED-PATH-PRESERVED-GREEN-REGRESSION: CANCELED match →"
+                    + " audit-only path unaffected by ONCHECK guard (E48S28)")
+    void canceledMatch_emptyOrPartialSets_auditOnlyNotBlocked() {
+        Match canceledMatch =
+                new Match(
+                        MATCH_ID,
+                        TOURNAMENT_ID,
+                        PHASE_ID,
+                        AVATAR1_ID,
+                        AVATAR2_ID,
+                        MatchState.CANCELED.getLegacyCode(),
+                        3,
+                        1,
+                        1,
+                        null,
+                        null,
+                        null,
+                        LocalDateTime.now());
+        when(matchRepository.findById(MATCH_ID)).thenReturn(Optional.of(canceledMatch));
+
+        // Empty sets → would be ONCHECK for normal path, but CANCELED bypasses guard
+        MatchCorrectionInput input = correctionInput(Collections.emptyList());
+
+        MatchCorrectionResult result = service.correctMatchSets(input);
+
+        assertThat(result.auditOnly()).isTrue();
+        // DEC-37: CANCELED path must NOT acquire lock
+        verify(tournamentRepository, never()).findByIdForUpdate(any());
     }
 }

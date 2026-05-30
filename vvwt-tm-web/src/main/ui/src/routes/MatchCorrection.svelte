@@ -215,7 +215,14 @@
       resultState = result.newMatchState;
       resultAuditOnly = result.auditOnly;
     } catch (e: unknown) {
-      submitError = e instanceof Error ? e.message : get(_)('correction.submitError');
+      // Prefer the i18n-resolved message when the server supplies a messageKey (E48S28,
+      // AC-ERR-OPERATOR-FACING-MESSAGE). Falls back to e.message (raw server message),
+      // then the generic correction.submitError key if no message is available at all.
+      const apiError = (e as { apiError?: { messageKey?: string } })?.apiError;
+      const messageKey = apiError?.messageKey;
+      submitError = messageKey
+        ? get(_)(messageKey, { default: e instanceof Error ? e.message : get(_)('correction.submitError') })
+        : (e instanceof Error ? e.message : get(_)('correction.submitError'));
     } finally {
       submitting = false;
     }
