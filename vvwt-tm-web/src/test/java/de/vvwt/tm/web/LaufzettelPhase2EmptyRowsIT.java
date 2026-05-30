@@ -150,7 +150,8 @@ class LaufzettelPhase2EmptyRowsIT {
     void allTeamSchedules_phase1Completed_phase2Active_withTime_rendersDataRows() throws Exception {
         // Arrange: tournament with plannedStartTime (triggers assembleWithTimeline path),
         // Phase 1 = COMPLETED (sequenceNumber=1), Phase 2 = ACTIVE (sequenceNumber=2)
-        UUID tid = seedTournamentPhase1CompletedPhase2Active(/* lapNumber= */ 1, /* fieldNumber= */ 1);
+        UUID tid =
+                seedTournamentPhase1CompletedPhase2Active(/* lapNumber= */ 1, /* fieldNumber= */ 1);
 
         // Act: GET Sammeldruck endpoint
         ResponseEntity<String> response =
@@ -221,7 +222,8 @@ class LaufzettelPhase2EmptyRowsIT {
                     + " count for same team — E53S10")
     void singleTeamSchedule_rowCount_matchesSammeldruckRowCount() throws Exception {
         // Arrange: same fixture as the symptom test
-        UUID tid = seedTournamentPhase1CompletedPhase2Active(/* lapNumber= */ 1, /* fieldNumber= */ 1);
+        UUID tid =
+                seedTournamentPhase1CompletedPhase2Active(/* lapNumber= */ 1, /* fieldNumber= */ 1);
 
         // Get the team ID of the first team (team_number=1)
         tenantBinder.bindDefaultTenant();
@@ -278,9 +280,9 @@ class LaufzettelPhase2EmptyRowsIT {
     // =========================================================================
 
     /**
-     * AC-TEST-NO-MATCH-FALLBACK-UNCHANGED (E53S10): Phase 1 COMPLETED + Phase 2 ACTIVE but
-     * Phase-2 matches all have {@code lapNumber == null} → {@code hasAnyMatches(phases)} returns
-     * {@code false} → the {@code print/laufzettel-no-matches} template is rendered.
+     * AC-TEST-NO-MATCH-FALLBACK-UNCHANGED (E53S10): Phase 1 COMPLETED + Phase 2 ACTIVE but Phase-2
+     * matches all have {@code lapNumber == null} → {@code hasAnyMatches(phases)} returns {@code
+     * false} → the {@code print/laufzettel-no-matches} template is rendered.
      *
      * <p>Confirms the E53S02 empty-state path is not collaterally damaged by the fix.
      *
@@ -296,7 +298,9 @@ class LaufzettelPhase2EmptyRowsIT {
     void allTeamSchedules_phase2Active_nullLapNumber_rendersNoMatchesFallback() throws Exception {
         // Arrange: same Phase-1-COMPLETED / Phase-2-ACTIVE structure, but matches have
         // lapNumber=null (hasAnyMatches predicate → false → laufzettel-no-matches template)
-        UUID tid = seedTournamentPhase1CompletedPhase2Active(/* lapNumber= */ null, /* fieldNumber= */ null);
+        UUID tid =
+                seedTournamentPhase1CompletedPhase2Active(
+                        /* lapNumber= */ null, /* fieldNumber= */ null);
 
         // Act
         ResponseEntity<String> response =
@@ -317,8 +321,7 @@ class LaufzettelPhase2EmptyRowsIT {
         // when the no-matches template is active.
         String body = response.getBody();
         assertThat(body)
-                .as(
-                        "AC-TEST-NO-MATCH-FALLBACK-UNCHANGED: response body must not be null/blank")
+                .as("AC-TEST-NO-MATCH-FALLBACK-UNCHANGED: response body must not be null/blank")
                 .isNotBlank();
         // The no-matches template renders a heading. Its presence in the body signals correct
         // routing. We look for a substring that is stable across i18n value changes: the
@@ -354,6 +357,7 @@ class LaufzettelPhase2EmptyRowsIT {
 
     /**
      * Seeds a tournament with:
+     *
      * <ul>
      *   <li>{@code plannedStartTime = LocalTime.of(9, 0)} → triggers {@code assembleWithTimeline}
      *   <li>Phase 1: status=COMPLETED, sequenceNumber=1
@@ -444,7 +448,8 @@ class LaufzettelPhase2EmptyRowsIT {
                     "E53S10-TeamBeta",
                     true);
 
-            // Phase-2 avatars with teamId populated (operator-confirmation workflow path per DEC-59)
+            // Phase-2 avatars with teamId populated (operator-confirmation workflow path per
+            // DEC-59)
             UUID avatar1Id = UUID.randomUUID();
             UUID avatar2Id = UUID.randomUUID();
             jdbcTemplate.update(
@@ -534,5 +539,4 @@ class LaufzettelPhase2EmptyRowsIT {
             return () -> hash;
         }
     }
-
 }
