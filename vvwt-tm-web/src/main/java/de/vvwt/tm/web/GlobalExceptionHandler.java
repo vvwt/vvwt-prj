@@ -18,6 +18,7 @@ import de.vvwt.tm.timer.audio.AudioStorageException;
 import de.vvwt.tm.tournament.ApiErrorResponse;
 import de.vvwt.tm.tournament.exceptions.ConflictException;
 import de.vvwt.tm.tournament.exceptions.ForbiddenException;
+import de.vvwt.tm.tournament.exceptions.IncompleteCorrectionException;
 import de.vvwt.tm.tournament.exceptions.MatchCanceledException;
 import de.vvwt.tm.tournament.exceptions.MatchStateGuardException;
 import de.vvwt.tm.tournament.exceptions.PhaseStateGuardException;
@@ -220,6 +221,33 @@ public class GlobalExceptionHandler {
                 HttpStatus.UNPROCESSABLE_CONTENT,
                 ex.getMessage(),
                 "error.correction.standoff-format-mismatch",
+                request);
+    }
+
+    /**
+     * Maps {@link IncompleteCorrectionException} to HTTP 422 Unprocessable Content (E48S28,
+     * AC-TEST-CORRECTION-REJECTS-EMPTY-SUBMIT-RED).
+     *
+     * <p>Submitted set scores would derive to {@code MatchState.ONCHECK} — a non-terminal result
+     * that must be rejected pre-write. The messageKey {@code error.correction.incomplete-result}
+     * enables localised error display in the correction form (AC-ERR-OPERATOR-FACING-MESSAGE).
+     *
+     * <p>Per DEC-37 Clause B: the per-tournament pessimistic lock is NOT acquired before this guard
+     * fires — no DB state changes occur when this exception is thrown
+     * (AC-GOV-DEC37-LOCK-SEMANTICS-PRESERVED).
+     *
+     * @see IncompleteCorrectionException
+     * @see <a href="DEC-37">DEC-37 Clause B — lock must NOT be acquired for rejected submits</a>
+     * @see <a href="E48S28">E48S28 — Bug-Triage: pre-write ONCHECK guard</a>
+     */
+    @ExceptionHandler(IncompleteCorrectionException.class)
+    public ResponseEntity<ApiErrorResponse> handleIncompleteCorrection(
+            IncompleteCorrectionException ex, HttpServletRequest request) {
+        log.debug("[tm-web] IncompleteCorrectionException: {}", ex.getMessage());
+        return buildResponse(
+                HttpStatus.UNPROCESSABLE_CONTENT,
+                ex.getMessage(),
+                "error.correction.incomplete-result",
                 request);
     }
 

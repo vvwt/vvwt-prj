@@ -27,6 +27,7 @@ import de.vvwt.tm.tournament.TeamAvatarRepository;
 import de.vvwt.tm.tournament.Tournament;
 import de.vvwt.tm.tournament.TournamentRepository;
 import de.vvwt.tm.tournament.events.MatchResultChangedEvent;
+import de.vvwt.tm.tournament.exceptions.IncompleteCorrectionException;
 import de.vvwt.tm.tournament.exceptions.MatchStateGuardException;
 import de.vvwt.tm.tournament.exceptions.PhaseStateGuardException;
 import de.vvwt.tm.tournament.exceptions.StandoffFormatMismatchException;
@@ -57,8 +58,9 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>DEC-35 — implementation in {@code de.vvwt.tm.scoring.internal}; interface in {@code
  *       de.vvwt.tm.scoring}
  *   <li>DEC-37 Clause B — {@code tournamentRepository.findByIdForUpdate(tournamentId)} is the FIRST
- *       action for non-CANCELED paths; CANCELED audit-only path skips the lock; the lap-advance
- *       write is co-committed inside the same transaction (no new lock boundary)
+ *       action for non-CANCELED paths AFTER all pre-write guards pass; CANCELED audit-only path
+ *       skips the lock; the lap-advance write is co-committed inside the same transaction (no new
+ *       lock boundary); E48S28 ONCHECK guard fires BEFORE the lock (no lock on rejected submits)
  *   <li>DEC-58 — naming canon: {@code DefaultMatchCorrectionService}
  *   <li>DEC-74 (amends DEC-65 D-3/D-5) — this implementation advances {@code
  *       phase.currentLapNumber} forward-only when the corrected match's {@code lapNumber} equals
@@ -78,6 +80,9 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>{@link MatchStateGuardException} if match is {@code INPROGRESS} or {@code ONCHECK}
  *   <li>Standoff pre-check: if submitted sets produce equal setsWon AND {@code
  *       !format.allowsTies()} → {@link StandoffFormatMismatchException}
+ *   <li><b>ONCHECK pre-write guard (E48S28)</b>: if submitted sets would derive to {@code
+ *       MatchState.ONCHECK} → {@link IncompleteCorrectionException} (HTTP 422). No lock acquired,
+ *       no DB writes, no {@code MatchResultChangedEvent} published.
  * </ol>
  *
  * <h2>CANCELED audit-only path</h2>
@@ -154,6 +159,7 @@ public class DefaultMatchCorrectionService implements MatchCorrectionService {
      *   <li>Phase guard — must be ACTIVE
      *   <li>Match-state guard — must not be INPROGRESS or ONCHECK
      *   <li>Standoff pre-check — equal setsWon on non-tie format → reject
+     *   <li>ONCHECK pre-write guard (E48S28) — submitted sets deriving to ONCHECK → reject
      * </ol>
      *
      * <p><b>DEC-74 lap-advance (Step 10):</b> After the cascade, this method conditionally advances
@@ -174,6 +180,8 @@ public class DefaultMatchCorrectionService implements MatchCorrectionService {
      * @throws MatchStateGuardException if the match is INPROGRESS or ONCHECK
      * @throws StandoffFormatMismatchException if submitted scores would produce STANDOFF on a
      *     non-tie format
+     * @throws IncompleteCorrectionException if submitted scores would derive to ONCHECK (E48S28 —
+     *     pre-write guard; no lock acquired, no DB writes, no event)
      * @throws java.util.NoSuchElementException if the match is not found for the current tenant
      */
     @Override
@@ -296,8 +304,50 @@ public class DefaultMatchCorrectionService implements MatchCorrectionService {
         }
 
         // -----------------------------------------------------------------------
-        // DEC-37 Clause B — FIRST action: acquire per-tournament pessimistic DB lock
-        // (Lock acquired ONCE for the entire batch — AC-NACHERFASSUNG single-lock invariant)
+        // Guard Step 5 — ONCHECK pre-write guard (E48S28, AC-GOV-DEC37-LOCK-SEMANTICS-PRESERVED)
+        // Compute the match state that would result from the submitted set scores alone.
+        // If the result is ONCHECK, reject pre-write: no lock, no DB write, no event.
+        // Guard fires BEFORE findByIdForUpdate — no pessimistic lock on rejected submits.
+        // -----------------------------------------------------------------------
+        int submittedT1SetsWon = 0;
+        int submittedT2SetsWon = 0;
+        for (SetScoreCorrection s : input.sets()) {
+            if (s.team1Points() > s.team2Points()) {
+                submittedT1SetsWon++;
+            } else if (s.team2Points() > s.team1Points()) {
+                submittedT2SetsWon++;
+            }
+        }
+        int submittedSetCount = input.sets().size();
+        MatchState submittedDerivedState =
+                format.deriveMatchState(submittedT1SetsWon, submittedT2SetsWon, submittedSetCount);
+        if (submittedDerivedState == MatchState.ONCHECK) {
+            log.debug(
+                    "[correction] ONCHECK guard rejected submit: t1SetsWon={} t2SetsWon={}"
+                            + " setsPlayed={} format={} matchId={} correlationId={}",
+                    submittedT1SetsWon,
+                    submittedT2SetsWon,
+                    submittedSetCount,
+                    format.name(),
+                    input.matchId(),
+                    correlationId);
+            throw new IncompleteCorrectionException(
+                    "Submitted set scores do not constitute a complete match result"
+                            + " (would derive to ONCHECK). matchId="
+                            + input.matchId()
+                            + " format="
+                            + format.name()
+                            + " submittedSets="
+                            + submittedSetCount
+                            + " correlationId="
+                            + correlationId,
+                    submittedSetCount);
+        }
+
+        // -----------------------------------------------------------------------
+        // DEC-37 Clause B — FIRST action after all pre-write guards: acquire per-tournament
+        // pessimistic DB lock (Lock acquired ONCE for the entire batch —
+        // AC-NACHERFASSUNG single-lock invariant)
         // -----------------------------------------------------------------------
         Tournament tournament = tournamentRepository.findByIdForUpdate(input.tournamentId());
 

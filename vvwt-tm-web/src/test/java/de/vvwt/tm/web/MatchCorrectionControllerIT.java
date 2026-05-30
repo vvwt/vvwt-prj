@@ -546,6 +546,99 @@ class MatchCorrectionControllerIT {
     }
 
     // =========================================================================
+    // E48S28: ONCHECK-producing input → 422 + persistence unchanged
+    // (AC-TEST-CONTROLLER-IT-REJECT-MAPS-TO-4XX-RED)
+    // =========================================================================
+
+    /**
+     * AC-TEST-CONTROLLER-IT-REJECT-MAPS-TO-4XX-RED — RED-first IT (E48S28).
+     *
+     * <p>A correction submit whose set-score aggregate would derive to {@code MatchState.ONCHECK}
+     * (here: an empty set list → ONCHECK for every format) is rejected with HTTP 422 Unprocessable
+     * Content. The response body carries the {@code error.correction.incomplete-result} messageKey.
+     * Persistence is unchanged: {@code match.state} remains at its pre-correction value, {@code
+     * set_result} has zero new rows, and {@code match_outcome} has zero rows.
+     *
+     * <p>Per DEC-37 Clause B: no per-tournament pessimistic lock is acquired for a rejected submit.
+     * The pre-write guard fires before {@code tournamentRepository.findByIdForUpdate}.
+     *
+     * <p>DEC-26 independent persistence verifier: direct JDBC via {@link JdbcTemplate} — not DAO
+     * reads. Migration path: {@code V1__initial_schema.sql} column names cited inline.
+     *
+     * @see de.vvwt.tm.tournament.exceptions.IncompleteCorrectionException
+     * @see <a href="DEC-37">DEC-37 Clause B — lock must NOT be acquired for rejected submits</a>
+     * @see <a href="E48S28">E48S28 — Bug-Triage: pre-write ONCHECK guard</a>
+     */
+    @Test
+    @DisplayName(
+            "AC-TEST-CONTROLLER-IT-REJECT-MAPS-TO-4XX-RED: empty-set correction → 422"
+                    + " + persistence unchanged (E48S28)")
+    void oncheckProducingCorrection_emptySetList_returns422AndPersistenceUnchanged()
+            throws Exception {
+        tenantBinder.bindDefaultTenant();
+        // Seed a FINISHED_WINNER1 match in an ACTIVE phase (state code 20 per MatchState enum).
+        // V1__initial_schema.sql column: match.state
+        seedActivePhaseWithFinishedMatch(MatchState.FINISHED_WINNER1);
+        tenantBinder.unbind();
+
+        // Empty sets list → deriveMatchState(0, 0, 0) = ONCHECK for BEST_OF_3.
+        MatchCorrectionRequest request =
+                new MatchCorrectionRequest(tournamentId, phaseId, List.of(), null);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<MatchCorrectionRequest> entity = new HttpEntity<>(request, headers);
+
+        ResponseEntity<String> response =
+                authed.exchange(
+                        new URI(baseUrl + "/api/matches/" + matchId + "/correction"),
+                        HttpMethod.POST,
+                        entity,
+                        String.class);
+
+        assertThat(response.getStatusCode().value())
+                .as("ONCHECK-producing correction must return 422 Unprocessable Content")
+                .isEqualTo(422);
+
+        assertThat(response.getBody())
+                .as("error body must contain the incomplete-result messageKey")
+                .contains("error.correction.incomplete-result");
+
+        // DEC-26 independent persistence verifier — direct JDBC (not DAO reads)
+        tenantBinder.bindDefaultTenant();
+
+        // V1__initial_schema.sql: match.state — must remain FINISHED_WINNER1 (code 20)
+        Integer matchStateCode =
+                jdbcTemplate.queryForObject(
+                        "SELECT state FROM match WHERE id = ?", Integer.class, matchId.toString());
+        assertThat(matchStateCode)
+                .as("match.state must be unchanged (FINISHED_WINNER1 = 20) after rejected submit")
+                .isEqualTo(MatchState.FINISHED_WINNER1.getLegacyCode());
+
+        // V1__initial_schema.sql: set_result.match_id — must be zero rows for the match
+        Integer setResultCount =
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM set_result WHERE match_id = ?",
+                        Integer.class,
+                        matchId.toString());
+        assertThat(setResultCount)
+                .as("set_result must have zero rows for the match after rejected submit")
+                .isZero();
+
+        // V1__initial_schema.sql: match_outcome.match_id — must be zero rows for the match
+        Integer matchOutcomeCount =
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM match_outcome WHERE match_id = ?",
+                        Integer.class,
+                        matchId.toString());
+        assertThat(matchOutcomeCount)
+                .as("match_outcome must have zero rows for the match after rejected submit")
+                .isZero();
+
+        tenantBinder.unbind();
+    }
+
+    // =========================================================================
     // Fixture helpers
     // =========================================================================
 

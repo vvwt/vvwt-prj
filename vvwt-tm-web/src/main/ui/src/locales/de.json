@@ -611,7 +611,8 @@
       "phase-not-active": "Korrektur nicht möglich: Phase ist nicht aktiv.",
       "match-live-scoring": "Korrektur nicht möglich: Match wird gerade live erfasst.",
       "tournament-not-active": "Korrektur nicht möglich: Turnier ist nicht aktiv.",
-      "standoff-format-mismatch": "Unzulässiges Ergebnis: Unentschieden im gewählten Spielmodus nicht erlaubt."
+      "standoff-format-mismatch": "Unzulässiges Ergebnis: Unentschieden im gewählten Spielmodus nicht erlaubt.",
+      "incomplete-result": "Unvollständiges Ergebnis: Die eingegebenen Sätze ergeben noch kein abgeschlossenes Match."
     }
   },
   "embeddedWorker": {
