@@ -144,9 +144,10 @@
   .footer { display: flex; justify-content: space-between; font-size: 10px; letter-spacing: 1.6px; color: var(--muted); font-weight: 700; flex: 0 0 auto; margin-top: 16px; position: relative; z-index: 2; }
 
   @media print {
-    body { background: white; padding: 0; }
-    .stage { width: 100%; }
-    .page { box-shadow: none; border-radius: 0; }
+    body { background: white; padding: 0; display: block; min-height: 0; align-items: initial; justify-content: initial; }
+    .stage { width: 297mm; }
+    .page { box-shadow: none; border-radius: 0; width: 297mm; height: 210mm; aspect-ratio: auto; padding: 12mm 18mm 10mm; }
+    .page:last-child { page-break-after: auto; break-after: auto; }
     @page { size: A4 landscape; margin: 0; }
   }
 </style>
