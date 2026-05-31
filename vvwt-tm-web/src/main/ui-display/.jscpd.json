@@ -1,0 +1,20 @@
+{
+  "comment": [
+    "E70S02 — jscpd configuration for vvwt-tm-display-ui (display SPA).",
+    "DEC-78 Layer-C DRY-lexical hard-gate. Suppress-with-tracking baseline per DEC-78 §Clause E.",
+    "Threshold: minTokens=100. Tuned empirically 2026-05-31.",
+    "",
+    "Baseline suppression list (pre-existing findings at story E70S02 activation):",
+    "  2 clones at minTokens=100:",
+    "  - App.noPhasePolling.test.ts: 2 internal test-pattern duplications",
+    "",
+    "Recurrent audit: per DEC-78 §Clause G at each E70 Epic close."
+  ],
+  "minTokens": 100,
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist-display/**",
+    "**/target/**",
+    "**/src/App.noPhasePolling.test.ts"
+  ]
+}

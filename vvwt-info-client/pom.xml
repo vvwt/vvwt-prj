@@ -152,6 +152,22 @@
                         </configuration>
                     </execution>
 
+                    <!--
+                        Step 7: jscpd token-duplication detection for info-client SPA.
+                        E70S02 — DEC-78 Layer-C DRY-lexical hard-gate (DEC-54 verify phase).
+                        Per DEC-67 broader reading (DEC-78 §Clause C): build-descriptor coordinate.
+                    -->
+                    <execution>
+                        <id>jscpd-info-client-ui</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>run check-jscpd</arguments>
+                        </configuration>
+                    </execution>
+
                 </executions>
             </plugin>
 

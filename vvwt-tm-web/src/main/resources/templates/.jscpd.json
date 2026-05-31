@@ -1,0 +1,33 @@
+{
+  "comment": [
+    "E70S02 — jscpd configuration for Mustache templates (vvwt-tm-web scoring-tablet + print pages).",
+    "DEC-78 Layer-C DRY-lexical hard-gate. Suppress-with-tracking baseline per DEC-78 §Clause E.",
+    "",
+    "H-3 (DEC-78): jscpd v4.2.4 does not map .mustache extension by default.",
+    "Using formatsExts to map handlebars tokenizer to .mustache files. Empirically verified GO",
+    "on 2026-05-31 during E70S02 delivery. See impl-report E70S02 §H-3.",
+    "",
+    "Threshold: minTokens=100. Tuned empirically 2026-05-31.",
+    "",
+    "Baseline suppression list (pre-existing findings at story E70S02 activation):",
+    "  2 clones at minTokens=100:",
+    "  - score/hello.mustache <-> score/register.mustache: scoring-tablet registration page duplication",
+    "  - print/laufzettel-all.mustache <-> print/laufzettel.mustache: print layout duplication",
+    "",
+    "  RED-first DEC-22 fixture (E70S02):",
+    "  - test-fixtures/jscpd-mustache-fixture-a.mustache <-> test-fixtures/jscpd-mustache-fixture-b.mustache (suppressed)",
+    "",
+    "Recurrent audit: per DEC-78 §Clause G at each E70 Epic close."
+  ],
+  "minTokens": 100,
+  "formatsExts": {
+    "handlebars": ["mustache", "hbs"]
+  },
+  "ignore": [
+    "**/test-fixtures/**",
+    "**/score/hello.mustache",
+    "**/score/register.mustache",
+    "**/print/laufzettel-all.mustache",
+    "**/print/laufzettel.mustache"
+  ]
+}
