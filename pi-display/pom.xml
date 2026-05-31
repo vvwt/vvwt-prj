@@ -50,6 +50,78 @@
     <build>
         <plugins>
             <!--
+                maven-enforcer-plugin — host-prereq enforcement (E69S09 / DEC-79 origin-incident closure).
+
+                Binds to the validate phase (the FIRST Maven lifecycle phase) so that the enforcer
+                rule fires BEFORE the exec-maven-plugin integration-test invocations of shellcheck
+                and bats. On a host missing either tool, the build fails immediately with a clear
+                [ERROR] naming the missing executable — not an opaque "Cannot run program: error=2"
+                from exec-maven-plugin.
+
+                Implementation: uses maven-enforcer-plugin EvaluateBeanshell rule to invoke
+                'which shellcheck' and 'which bats' via Runtime.exec(), evaluating to false
+                (triggering enforcer FAIL) when either tool is absent. BeanShell is bundled with
+                enforcer-rules 3.5.0 (BSF dependency). The plugin version is inherited from parent
+                POM pluginManagement (no <version> tag — DEC-10 / AC7).
+
+                Related DECs: DEC-79 (host-environment-integrity prohibition), DEC-10 (Maven
+                multi-module), DEC-3 (open-source only — maven-enforcer-plugin Apache-2.0).
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>enforce-host-prereqs-pi-display</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <evaluateBeanshell>
+                                    <condition><![CDATA[
+                                        // E69S09/DEC-79: requireExecutable-equivalent guard for shellcheck.
+                                        // Verifies shellcheck is on PATH before integration-test invocations.
+                                        // On a host without shellcheck, exec-maven-plugin emits a confusing
+                                        // "Cannot run program: error=2" — this guard fails fast with an actionable message.
+                                        // DEC-79 Clause A: agents MUST NOT self-install. Operators install; see README.md Host Prerequisites.
+                                        Process p = Runtime.getRuntime().exec(new String[]{"which", "shellcheck"});
+                                        int exit = p.waitFor();
+                                        if (exit != 0) {
+                                            throw new Exception("E69S09/DEC-79: 'shellcheck' not found on PATH. " +
+                                                "Install before running mvn verify on pi-display. " +
+                                                "Debian/Ubuntu: sudo apt install shellcheck | macOS: brew install shellcheck | " +
+                                                "Fedora: sudo dnf install ShellCheck | Arch: sudo pacman -S shellcheck. " +
+                                                "See pi-display/README.md Host Prerequisites section.");
+                                        }
+                                        return true;
+                                    ]]></condition>
+                                </evaluateBeanshell>
+                                <evaluateBeanshell>
+                                    <condition><![CDATA[
+                                        // E69S09/DEC-79: requireExecutable-equivalent guard for bats.
+                                        // DEC-79 Clause A: agents MUST NOT self-install. Operators install; see README.md Host Prerequisites.
+                                        Process p = Runtime.getRuntime().exec(new String[]{"which", "bats"});
+                                        int exit = p.waitFor();
+                                        if (exit != 0) {
+                                            throw new Exception("E69S09/DEC-79: 'bats' not found on PATH. " +
+                                                "Install before running mvn verify on pi-display. " +
+                                                "Debian/Ubuntu: sudo apt install bats | macOS: brew install bats-core | " +
+                                                "npm: npm install -g bats | Fedora: sudo dnf install bats. " +
+                                                "See pi-display/README.md Host Prerequisites section.");
+                                        }
+                                        return true;
+                                    ]]></condition>
+                                </evaluateBeanshell>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
                 exec-maven-plugin bound to the integration-test phase.
                 Two executions:
                   1. shellcheck — lint all authored shell files under pi-display/
@@ -110,6 +182,22 @@
                             <executable>bats</executable>
                             <arguments>
                                 <argument>${project.basedir}/src/test/sh/readme.bats</argument>
+                            </arguments>
+                            <workingDirectory>${project.basedir}</workingDirectory>
+                        </configuration>
+                    </execution>
+
+                    <!-- 4. bats: run the maven-enforcer requireExecutable source-grep assertions (E69S09) -->
+                    <execution>
+                        <id>bats-pi-display-enforcer</id>
+                        <phase>integration-test</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>bats</executable>
+                            <arguments>
+                                <argument>${project.basedir}/src/test/sh/enforcer.bats</argument>
                             </arguments>
                             <workingDirectory>${project.basedir}</workingDirectory>
                         </configuration>

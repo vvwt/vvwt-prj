@@ -23,6 +23,68 @@ setup.
 
 ---
 
+## Host Prerequisites
+
+These are **build-time host prerequisites** required on the operator's machine before
+running `mvn verify` on the `pi-display` module (or `mvn -pl pi-display -am verify`
+from the `vvwt-prj` root).
+
+> **Enforced by Maven:** `maven-enforcer-plugin` validates that `shellcheck` and `bats`
+> are on the host PATH at the `validate` phase (the first Maven lifecycle phase). If
+> either tool is absent, Maven fails immediately with a clear `[ERROR]` message naming
+> the missing tool — before any test or lint invocation. See `pi-display/pom.xml`
+> execution `enforce-host-prereqs-pi-display`.
+>
+> **DEC-79 reminder:** Delivery agents MUST NOT self-install these tools mid-delivery
+> to make ACs pass. On a host where either tool is missing, stop immediately and
+> escalate the Story-Scope gap. Operators install; agents stop and escalate.
+
+### shellcheck
+
+`shellcheck` is the shell script linter invoked by `exec-maven-plugin` at the
+`integration-test` phase to lint `build-image.sh`.
+
+| Package manager | Install command |
+|-----------------|-----------------|
+| Debian/Ubuntu (apt) | `sudo apt install shellcheck` |
+| macOS (Homebrew) | `brew install shellcheck` |
+| Fedora/RHEL (dnf) | `sudo dnf install ShellCheck` |
+| Arch Linux (pacman) | `sudo pacman -S shellcheck` |
+
+Verify installation: `shellcheck --version`
+
+### bats (bats-core)
+
+`bats` is the shell test framework invoked by `exec-maven-plugin` to run the
+`build-image.bats`, `readme.bats`, and `enforcer.bats` test suites.
+
+| Package manager | Install command |
+|-----------------|-----------------|
+| Debian/Ubuntu (apt) | `sudo apt install bats` |
+| macOS (Homebrew) | `brew install bats-core` |
+| npm (any platform) | `npm install -g bats` |
+| Fedora/RHEL (dnf) | `sudo dnf install bats` |
+
+Verify installation: `bats --version`
+
+### Verify both tools are present
+
+```bash
+which shellcheck && shellcheck --version
+which bats && bats --version
+```
+
+Then run the full pi-display build gate:
+
+```bash
+mvn -pl pi-display -am verify
+```
+
+Expected: `BUILD SUCCESS` with `shellcheck`, `bats` (build-image.bats, readme.bats,
+enforcer.bats) all passing.
+
+---
+
 ## Build
 
 ### Prerequisites
@@ -495,6 +557,21 @@ that the FullPageOS chroot's `initramfs-tools` postinstall step succeeds (no
 different step, **stop and open a new story per the E69S03 AC5 Escalation-Clause**.
 The next story follows the same Bug-Triage Flow (root cause established empirically before
 authoring acceptance criteria).
+
+### Actual outcome — E69S09 post-fix re-attestation (fill in)
+
+**Preparation:** Verify `shellcheck` and `bats` are on the build host PATH
+(see Host Prerequisites section above). Run `mvn -pl pi-display -am verify`
+and confirm `enforce-host-prereqs-pi-display` fires at the `validate` phase
+before `exec-maven-plugin` integration-test invocations.
+
+(i) Enforcer validate phase: ___________________________________________
+
+(ii) Error output: ___________________________________________
+
+(iii) mvn verify: ___________________________________________
+
+**Actual outcome (fill in):** ___________________________________________
 
 ### Escalation
 
