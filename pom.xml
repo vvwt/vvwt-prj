@@ -155,6 +155,19 @@
              Apache 2.0 license — OSS-compliant per DEC-3.
              4.11.0: latest stable, supports CSS2.1 cascade + window.getComputedStyle. -->
         <htmlunit.version>4.11.0</htmlunit.version>
+
+        <!-- maven-pmd-plugin: PMD CPD (DRY-lexical hard-gated per DEC-78 Clause C) + E70S01.
+             BSD-style license — OSS-compliant per DEC-3; AGPL-compatible per DEC-75.
+             3.28.0: latest stable with Java 21 support + CPD goal.
+             Configured in <build><plugins> via parent-POM inheritance (DEC-29/DEC-30/DEC-76 precedent). -->
+        <maven-pmd-plugin.version>3.28.0</maven-pmd-plugin.version>
+
+        <!-- CPD baseline suppression file path (E70S01 / DEC-78 Clause E).
+             ${maven.multiModuleProjectDirectory} resolves to the Maven reactor root (the directory
+             where mvn is invoked from — always vvwt-prj/ for a full reactor build).
+             Defined as a property so that the <excludeFromFailureFile> config element in
+             <build><plugins> can be inherited by submodules without ${project.basedir} resolution. -->
+        <cpd.excludeFromFailureFile>${maven.multiModuleProjectDirectory}/cpd-baseline.xml</cpd.excludeFromFailureFile>
     </properties>
 
     <!-- ===================================================================
@@ -522,6 +535,16 @@
                     <version>${spotless-maven-plugin.version}</version>
                 </plugin>
 
+                <!-- maven-pmd-plugin: PMD CPD (DRY-lexical hard-gated per DEC-78 Clause C + E70S01).
+                     Configuration and cpd-check execution are in <build><plugins> (not here) to
+                     ensure execution bindings are inherited by all submodules without merge-truncation.
+                     Version property: maven-pmd-plugin.version (3.28.0) pinned above. -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-pmd-plugin</artifactId>
+                    <version>${maven-pmd-plugin.version}</version>
+                </plugin>
+
             </plugins>
         </pluginManagement>
 
@@ -775,6 +798,65 @@
                             <target>
                                 <mkdir dir="${project.build.directory}/test-tmp"/>
                             </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+                 DEC-78 Clause C + E70S01: PMD Copy-Paste Detector (CPD) activation.
+                 Hard-gated DRY-lexical enforcement project-wide per DEC-78 §Layer-C.
+                 Bound to verify phase via cpd-check goal (maven-pmd-plugin 3.28.0).
+                 minimumTokens=100: conventional default; empirical scan at activation
+                 confirmed ZERO pre-existing findings at this threshold (and at 75/50/30
+                 tokens) — no suppression baseline needed (H-1 observation per E70S01
+                 impl-report.md). Inherited by all submodules via parent-POM inheritance
+                 (DEC-29/DEC-30/DEC-76 precedent). failOnViolation=true ensures non-zero
+                 mvn verify exit on any new duplication per DEC-54.
+                 includeTests=false: test code excluded from DRY-lexical gate per
+                 anti-dogma guidance (test fixtures may intentionally mirror Given/When/Then
+                 structures — false-FAIL risk; suppression baseline handles any edge cases).
+                 License: BSD-style (AGPL-compatible per DEC-75; OSS per DEC-3).
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-pmd-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>cpd-check</id>
+                        <phase>verify</phase>
+                        <goals><goal>cpd-check</goal></goals>
+                        <configuration>
+                            <minimumTokens>100</minimumTokens>
+                            <failOnViolation>true</failOnViolation>
+                            <printFailingErrors>true</printFailingErrors>
+                            <includeTests>false</includeTests>
+                            <!--
+                                 Suppress pre-existing CPD findings at activation (DEC-78 Clause E).
+                                 File: cpd-baseline.xml (project root, committed alongside plugin config).
+                                 Format: comma-separated simple class names per line.
+                                 ${cpd.excludeFromFailureFile}: property defined in <properties> above,
+                                 expands to ${maven.multiModuleProjectDirectory}/cpd-baseline.xml.
+                                 Resolver-chain: property → ${maven.multiModuleProjectDirectory} is the
+                                 reactor root (the directory where mvn is invoked from). Defining via a
+                                 property ensures submodule builds inherit the correct root-relative path
+                                 (${project.basedir} would resolve to each submodule's own basedir, missing
+                                 the file). Staleness audit: per DEC-78 Clause G (at each Operationalization
+                                 Epic close — verify entries still correspond to live code).
+                            -->
+                            <excludeFromFailureFile>${cpd.excludeFromFailureFile}</excludeFromFailureFile>
+                            <!--
+                                 Exclude generated sources from CPD scanning.
+                                 JMH annotation-processor output lands in
+                                 target/generated-sources/annotations/ and contains
+                                 machine-generated benchmark scaffolding code that is
+                                 not first-party authored (DEC-22 JMH carve-out).
+                                 Using excludeRoots (relative to each module basedir)
+                                 is structurally correct — these files are not authored.
+                            -->
+                            <excludeRoots>
+                                <excludeRoot>target/generated-sources</excludeRoot>
+                            </excludeRoots>
                         </configuration>
                     </execution>
                 </executions>
