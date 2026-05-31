@@ -1,0 +1,112 @@
+# PMD CPD suppression baseline for vvwt-prj.
+# Activated by: E70S01 (2026-05-31) per DEC-78 Clause E (suppress-with-tracking).
+# Tool: maven-pmd-plugin 3.28.0 / PMD CPD 7.17.0, minimumTokens=100.
+# Format: comma-separated FQN class names (dot-notation) per non-comment line.
+#         Lines starting with # are comments and are skipped by the plugin.
+#         Each line defines a set of classes whose mutual duplication is suppressed.
+#         A duplication is suppressed when ALL its files belong to the same exclusion set.
+#
+# Pre-existing findings at activation: 13 total
+#   - vvwt-slotopt-worker-lib:    1 finding
+#   - vvwt-slotopt-worker-runtime: 1 finding
+#   - vvwt-info-server:           2 findings
+#   - vvwt-tm-web:                9 findings
+#
+# IMPORTANT: New violations MUST NOT be suppressed here without a
+# Discovery-approved justification citing DEC-78 Clause E.
+# Staleness audit cadence: per DEC-78 Clause G (at each Operationalization Epic close).
+#
+# ─── vvwt-slotopt-worker-lib ─────────────────────────────────────────────────
+#
+# Finding 1: BalancedVarietyScorer <-> VarietyScorer (71 lines / 335 tokens)
+#   Context: Two scorer variants per DEC-63 (BalancedVarietyScorer introduced by E54S07
+#   as alternative to VarietyScorer). Shared 71 lines implement the per-avatar
+#   AvatarRunRatings iteration — identical algorithm, structural parallel by design.
+#   Per DEC-63 Clause B, both implementations are intentional.
+#   Remediation: extract shared iteration into a common helper. Future DRY-cleanup story.
+#   Last verified: 2026-05-31 (E70S01 activation).
+de.vvwt.slotopt.worker.score.BalancedVarietyScorer,de.vvwt.slotopt.worker.score.VarietyScorer
+#
+# ─── vvwt-slotopt-worker-runtime ─────────────────────────────────────────────
+#
+# Finding 2: DefaultDispatcherClient intra-file (14 lines / 100 tokens, lines 104+173)
+#   Context: Three HTTP POST methods sharing identical HttpRequest builder + send +
+#   error-handling pattern. Java HttpClient boilerplate forced by HttpClient API shape.
+#   Remediation: extract private sendPostRequest(URI, body, responseType) helper.
+#   Future DRY-cleanup story.
+#   Last verified: 2026-05-31 (E70S01 activation).
+de.vvwt.slotopt.worker.runtime.internal.DefaultDispatcherClient
+#
+# ─── vvwt-info-server ────────────────────────────────────────────────────────
+#
+# Finding 3: DefaultPublishService intra-file (24 lines / 131 tokens, lines 257+382)
+#   Two tenant+signature verification branches sharing identical lookup+verify+outcome
+#   pattern. Structural parallel in publish and delta-publish code paths.
+#   Remediation: extract common verifyTenantSignature(tenantId, payload, sig) helper.
+#   Future DRY-cleanup story.
+#   Last verified: 2026-05-31 (E70S01 activation).
+de.vvwt.info.publish.internal.DefaultPublishService
+#
+# Finding 4: PublishController intra-file (23 lines / 106 tokens, lines 182+264)
+#   Two error-response switch branches sharing identical sealed-exception mapping pattern.
+#   Remediation: extract shared mapPublishResultToResponse helper. Future DRY-cleanup.
+#   Last verified: 2026-05-31 (E70S01 activation).
+de.vvwt.info.publish.PublishController
+#
+# ─── vvwt-tm-web ─────────────────────────────────────────────────────────────
+#
+# Finding 5: DefaultMatchCorrectionService <-> DefaultScoringService
+#   (32 lines / 216 tokens, line 695 vs 620) — lap-advance logic duplication.
+#   Both paths need the same "advance-lap-if-all-terminal" computation.
+#   Remediation: extract shared lap-advance method. Future DRY-cleanup.
+#   Last verified: 2026-05-31 (E70S01 activation).
+de.vvwt.tm.scoring.internal.DefaultMatchCorrectionService,de.vvwt.tm.scoring.internal.DefaultScoringService
+#
+# Finding 6: SetPointsRule <-> ThreePointMatchRule <-> TwoPointMatchRule
+#   (37 lines / 167 tokens) — match result calculation pattern.
+#   Three scoring-rule implementations sharing result-computation boilerplate.
+#   Remediation: template method or shared abstract base class. Future DRY-cleanup.
+#   Last verified: 2026-05-31 (E70S01 activation).
+de.vvwt.tm.scoring.internal.SetPointsRule,de.vvwt.tm.scoring.internal.ThreePointMatchRule,de.vvwt.tm.scoring.internal.TwoPointMatchRule
+#
+# Finding 7: CertificateRenderController intra-file (28 lines / 152 tokens, lines 201+323)
+#   Two rendering branches sharing header/response-builder pattern.
+#   Remediation: extract common rendering helper. Future DRY-cleanup.
+#   Last verified: 2026-05-31 (E70S01 activation).
+de.vvwt.tm.web.certificate.CertificateRenderController
+#
+# Findings 8+9: DefaultLaufzettelAssembler intra-file
+#   (lines 336+416+468; 10 lines / 143 tokens + 9 lines / 129 tokens)
+#   Multiple assembly methods sharing row-building boilerplate.
+#   Remediation: extract common row-builder helper. Future DRY-cleanup.
+#   Last verified: 2026-05-31 (E70S01 activation).
+de.vvwt.tm.print.internal.DefaultLaufzettelAssembler
+#
+# Finding 10: DefaultCertificateAssembler intra-file (18 lines / 130 tokens, lines 217+259)
+#   Two certificate-field population branches sharing template pattern.
+#   Remediation: extract common field-population method. Future DRY-cleanup.
+#   Last verified: 2026-05-31 (E70S01 activation).
+de.vvwt.tm.certificate.internal.DefaultCertificateAssembler
+#
+# Finding 11: GroupPlacementSortCalculator <-> PlacementGroupSortCalculator
+#   (28 lines / 124 tokens, line 47 in both) — placement comparator logic.
+#   Two sort calculators per DEC-77 sharing ranking comparator implementation.
+#   Remediation: extract shared comparator into abstract base class. Future DRY-cleanup.
+#   Last verified: 2026-05-31 (E70S01 activation).
+de.vvwt.tm.tournament.internal.GroupPlacementSortCalculator,de.vvwt.tm.tournament.internal.PlacementGroupSortCalculator
+#
+# Finding 12: DefaultMatchCorrectionService <-> DefaultScoringService
+#   (68 lines / 103 tokens, lines 122+108) — additional shared scoring logic block.
+#   Part of the same lap-advance / scoring pattern as Finding 5.
+#   Covered by the same exclusion line as Finding 5 (above).
+#   Note: same exclusion line covers both Finding 5 and Finding 12.
+#
+# Finding 13: DefaultActivityScheduleAssembler <-> DefaultLaufzettelAssembler
+#   (22 lines / 120 tokens, line 346 vs 563) — activity row building.
+#   THIS is the origin DRY violation that motivated DEC-78 — the print-schedule drift
+#   between DefaultActivityScheduleAssembler and DefaultLaufzettelAssembler that caused
+#   the 15-minute hardcoded match-duration bug in the 2026-05-31 beta tournament.
+#   Remediation: extract shared activity/match row builder — HIGH PRIORITY.
+#   A separate Bug-Triage/DRY-cleanup story should be authored for this.
+#   Last verified: 2026-05-31 (E70S01 activation).
+de.vvwt.tm.print.internal.DefaultActivityScheduleAssembler,de.vvwt.tm.print.internal.DefaultLaufzettelAssembler

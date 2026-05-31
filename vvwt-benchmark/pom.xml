@@ -58,6 +58,31 @@
     <!-- ===================================================================
          Profiles
          =================================================================== -->
+    <!-- ===================================================================
+         Build: module-level PMD CPD skip (DEC-22 JMH carve-out, DEC-78 §Layer-C).
+         JMH annotation processor generates benchmark boilerplate into
+         target/generated-sources/annotations/ that is not first-party authored code.
+         The generated files (KernelThroughputBenchmark_*_jmhTest.java, etc.) contain
+         intentionally repeated scaffolding patterns that CPD flags but that cannot
+         be suppressed via excludeFromFailureFile (generated class names, not authored).
+         Skipping CPD for this module is correct: DEC-22 §JMH-carve-out explicitly
+         exempts benchmark modules from the TDD Iron Law; DEC-78 §Layer-C applies the
+         same carve-out to DRY-lexical detection. Only first-party authored sources
+         are within DEC-78 scope; generated annotation-processor output is not.
+         E70S01 activation, 2026-05-31.
+         =================================================================== -->
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-pmd-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
     <profiles>
 
         <!-- Benchmark profile gate: compile and shade only when -Pbenchmark is passed -->
