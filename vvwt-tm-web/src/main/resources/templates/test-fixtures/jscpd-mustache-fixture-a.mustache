@@ -1,0 +1,35 @@
+<!--
+  SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+  SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+<!DOCTYPE html>
+<!-- E70S02 — RED-first DEC-22 jscpd Mustache fixture (file A).
+     Intentional near-duplicate of jscpd-mustache-fixture-b.mustache.
+     DO NOT REMOVE — regression guard for the jscpd Mustache gate. -->
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>{{tournamentName}} — Ergebnisse</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .header { background: #003366; color: white; padding: 10px; }
+        .content { margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{tournamentName}}</h1>
+        <p>{{organizer}} — {{venue}}</p>
+    </div>
+    <div class="content">
+        {{#teams}}
+        <div class="team">
+            <h2>{{teamName}}</h2>
+            <p>Gruppe: {{groupNumber}} | Platz: {{placement}}</p>
+        </div>
+        {{/teams}}
+    </div>
+</body>
+</html>

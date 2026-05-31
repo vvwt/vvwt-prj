@@ -10,12 +10,14 @@
     "preview": "vite preview",
     "test": "vitest run",
     "check-kit": "npm ls @sveltejs/kit 2>&1 | grep -c '@sveltejs/kit' | xargs -I{} test {} -eq 0 && echo 'SvelteKit absent (DEC-2 OK)' || (echo 'FAIL: SvelteKit found — DEC-2 violation' && exit 1)",
-    "check-literals": "node scripts/check-inline-literals.mjs"
+    "check-literals": "node scripts/check-inline-literals.mjs",
+    "check-jscpd": "node scripts/check-jscpd.mjs"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@testing-library/svelte": "^5.0.0",
     "@types/node": "^22.0.0",
+    "jscpd": "^4.2.4",
     "jsdom": "^29.0.2",
     "svelte": "^5.55.3",
     "typescript": "^5.8.3",

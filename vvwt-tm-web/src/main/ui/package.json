@@ -8,12 +8,15 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check-jscpd": "node scripts/check-jscpd.mjs",
+    "check-jscpd-mustache": "node ../resources/templates/scripts/check-jscpd-mustache.mjs"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@testing-library/svelte": "^5.2.7",
     "@types/node": "^22.0.0",
+    "jscpd": "^4.2.4",
     "jsdom": "^29.0.2",
     "svelte": "^5.55.3",
     "typescript": "^5.8.3",

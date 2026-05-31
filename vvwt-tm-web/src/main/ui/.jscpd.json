@@ -1,0 +1,37 @@
+{
+  "comment": [
+    "E70S02 — jscpd configuration for vvwt-tm-admin-ui (admin SPA).",
+    "DEC-78 Layer-C DRY-lexical hard-gate. Suppress-with-tracking baseline per DEC-78 §Clause E.",
+    "H-2 (Svelte support): GO — jscpd v4.2.4 parses .svelte natively (typescript + css + markup).",
+    "Threshold: minTokens=100 (~15 average-word lines). Tuned empirically 2026-05-31.",
+    "",
+    "Baseline suppression list (pre-existing findings at story E70S02 activation):",
+    "  7 clones at minTokens=100 in admin SPA src/:",
+    "  - phaseTransitionStore.test.ts: 3 internal test-pattern duplications (test setup boilerplate)",
+    "  - certificateTemplateStore.ts <-> photoStore.ts: store pattern duplication",
+    "  - audioStore.ts <-> photoStore.ts: store pattern duplication",
+    "  - TimerLink.svelte <-> TimerLink.test.ts: Svelte markup echoed in test",
+    "  - MatchCorrection.test.ts <-> MatchOverview.test.ts: test setup pattern",
+    "",
+    "  RED-first DEC-22 fixtures (E70S02):",
+    "  - jscpd-ts-fixture-a.ts <-> jscpd-ts-fixture-b.ts: TypeScript gate fixture (suppressed)",
+    "  - jscpd-svelte-fixture-a.svelte <-> jscpd-svelte-fixture-b.svelte: Svelte gate fixture (suppressed)",
+    "",
+    "Recurrent audit: per DEC-78 §Clause G at each E70 Epic close."
+  ],
+  "minTokens": 100,
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/target/**",
+    "**/src/test-fixtures/**",
+    "**/src/stores/phaseTransitionStore.test.ts",
+    "**/src/stores/certificateTemplateStore.ts",
+    "**/src/stores/photoStore.ts",
+    "**/src/stores/audioStore.ts",
+    "**/src/routes/TimerLink.svelte",
+    "**/src/routes/TimerLink.test.ts",
+    "**/src/routes/MatchCorrection.test.ts",
+    "**/src/routes/MatchOverview.test.ts"
+  ]
+}

@@ -506,6 +506,76 @@
                         </configuration>
                     </execution>
 
+                    <!--
+                        E70S02 — jscpd frontend token-duplication detection (DEC-78 Layer-C DRY-lexical hard-gate).
+                        Per DEC-54: bound to `verify` phase (canonical full-Maven-lifecycle target).
+                        Per DEC-67 broader reading (DEC-78 §Clause C): pure build-descriptor coordinate addition,
+                        no first-party Java code. Wired via the existing frontend-maven-plugin instance
+                        (same precedent as Vite build binding at pom.xml:341–349 per DEC-2 + DEC-54).
+                        jscpd v4.2.4 does not produce non-zero exit on clone detection; the
+                        check-jscpd.mjs wrapper parses jscpd output and exits 1 when unignored clones
+                        are found. See impl-report E70S02 for H-2 (Svelte GO) and H-3 (Mustache GO)
+                        empirical verification and threshold justification.
+
+                        Four executions:
+                          - Step 10: jscpd admin SPA (TS + Svelte)
+                          - Step 11: jscpd display SPA (TS + Svelte)
+                          - Step 12: jscpd timer SPA (TS + Svelte)
+                          - Step 13: jscpd Mustache templates (score/ + print/)
+                    -->
+
+                    <!-- Step 10: jscpd for admin SPA (TS + Svelte) -->
+                    <execution>
+                        <id>jscpd-admin-ui</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <workingDirectory>src/main/ui</workingDirectory>
+                            <arguments>run check-jscpd</arguments>
+                        </configuration>
+                    </execution>
+
+                    <!-- Step 11: jscpd for display SPA (TS + Svelte) -->
+                    <execution>
+                        <id>jscpd-display-ui</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <workingDirectory>src/main/ui-display</workingDirectory>
+                            <arguments>run check-jscpd</arguments>
+                        </configuration>
+                    </execution>
+
+                    <!-- Step 12: jscpd for timer SPA (TS + Svelte) -->
+                    <execution>
+                        <id>jscpd-timer-ui</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <workingDirectory>src/main/ui-timer</workingDirectory>
+                            <arguments>run check-jscpd</arguments>
+                        </configuration>
+                    </execution>
+
+                    <!-- Step 13: jscpd for Mustache templates (via admin SPA package.json) -->
+                    <execution>
+                        <id>jscpd-mustache-templates</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <workingDirectory>src/main/ui</workingDirectory>
+                            <arguments>run check-jscpd-mustache</arguments>
+                        </configuration>
+                    </execution>
+
                 </executions>
             </plugin>
 
