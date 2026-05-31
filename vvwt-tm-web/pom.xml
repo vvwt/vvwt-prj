@@ -707,7 +707,7 @@
                                      for SlotOptimizationDispatcherConfiguration.slotOptWorkerKeyManager).
                                      Validated: custom JRE runs the application, health 200 OK (AC2, AC7) -->
                                 <argument>--add-modules</argument>
-                                <argument>java.base,java.compiler,java.desktop,java.instrument,java.net.http,java.prefs,java.rmi,java.scripting,java.security.jgss,java.sql.rowset,jdk.crypto.ec,jdk.jfr,jdk.management,jdk.net,jdk.unsupported</argument>
+                                <argument>java.base,java.compiler,java.desktop,java.instrument,java.net.http,java.prefs,java.rmi,java.scripting,java.security.jgss,java.sql.rowset,jdk.crypto.ec,jdk.jfr,jdk.localedata,jdk.management,jdk.net,jdk.unsupported</argument>
                                 <!-- Minimize JRE size (AC6) -->
                                 <argument>--strip-debug</argument>
                                 <argument>--no-header-files</argument>
