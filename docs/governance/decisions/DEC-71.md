@@ -1,4 +1,4 @@
-<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-71.md at 8b0c5be3354fe6aa38d9046e7b534ac2d203ed68 2026-05-17 -->
+<!-- Snapshot of outer-repo .gaai/project/contexts/memory/decisions/DEC-71.md at a9543ac7259d46c668b445be69668efa780e40ff 2026-05-31 -->
 ---
 id: DEC-71
 domain: governance
@@ -20,7 +20,8 @@ tags:
   - delivery
   - verdict-integrity
   - dec-54-amendment
-related_to: [DEC-54, DEC-22, DEC-47, DEC-69, DEC-70]
+amended_by: [DEC-79]
+related_to: [DEC-54, DEC-22, DEC-47, DEC-69, DEC-70, DEC-79]
 skills_invoked: [decision-extraction]
 ---
 
