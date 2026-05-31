@@ -44,6 +44,12 @@
              packaging=pom, no Java; shellcheck+bats bound to integration-test via exec-maven-plugin.
              Position after vvwt-tm-web: no ordering constraint (no Java deps on either side). -->
         <module>pi-display</module>
+
+        <!-- Clean Code Principles rubric-behaviour regression fixture suite (E70S05 / DEC-78).
+             packaging=pom, no Java; shell fixtures bound to integration-test via exec-maven-plugin.
+             Fixtures live in outer GAAI repo: .gaai/core/scripts/tests/clean-code/qa-review/.
+             Position after pi-display: no ordering constraint (governance-only, no code deps). -->
+        <module>vvwt-clean-code-fixtures</module>
     </modules>
 
     <!-- ===================================================================

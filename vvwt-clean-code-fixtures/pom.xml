@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+  SPDX-License-Identifier: AGPL-3.0-or-later
+
+  vvwt-clean-code-fixtures/pom.xml — Maven module for the Clean Code Principles
+  rubric-behaviour regression test suite (E70S05 / DEC-78).
+
+  This module has no Java sources (packaging=pom). It binds the qa-review Step 10
+  fixture runner (a shell script) to the Maven integration-test phase via
+  exec-maven-plugin so that mvn verify from the project root exercises the fixture
+  suite as part of the canonical DEC-54 build gate.
+
+  Fixture suite location (outer GAAI repo):
+    .gaai/core/scripts/tests/clean-code/qa-review/run-all.sh
+
+  The exec-maven-plugin resolves the fixture runner relative to the project basedir.
+  Since vvwt-prj and the outer GAAI repo are siblings under NetBeansProjects/,
+  this module resolves the fixture path as:
+    ${project.basedir}/../../../.gaai/core/scripts/tests/clean-code/qa-review/run-all.sh
+
+  Related DECs:
+    DEC-10 (Maven multi-module structure)
+    DEC-22 (TDD / RED-first — rubric-behaviour regression tests per §Authoring-classification)
+    DEC-54 (mvn verify canonical build gate)
+    DEC-67 (plugin-coordinate addition, non-authoring carve-out for pom.xml edits)
+    DEC-75 (AGPL-3.0-or-later)
+    DEC-78 (Clean Code Principles Governance — operationalization Story E70S05)
+    DEC-3  (OSS only — exec-maven-plugin Apache-2.0, AGPL-forward-compatible)
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>de.vvwt</groupId>
+        <artifactId>vvwt-prj</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>vvwt-clean-code-fixtures</artifactId>
+    <packaging>pom</packaging>
+
+    <name>vvwt-prj — Clean Code Fixtures</name>
+    <description>
+        Clean Code Principles rubric-behaviour regression fixture suite (E70S05 / DEC-78).
+        Contains shell fixtures asserting qa-review Step 10 rubric behaviour for:
+          AC1 (a-e): FAIL-maintained fixtures — Wisdom-Frage = YES per principle
+          AC2 (a-e): FAIL-downgraded fixtures — Wisdom-Frage = NO/UNCERTAIN per principle
+          AC3 (a-b): NEGATIVE-CONTRACT fixtures — scope assertions (no Wisdom-Frage on hard-gated; no LSP)
+          AC4 (a-e): ANTI-DOGMA rejection fixtures per §Anti-Patterns Reference
+
+        No Java sources. Shell fixtures are bound to the Maven integration-test phase via
+        exec-maven-plugin so that mvn verify covers this surface per DEC-54.
+
+        Fixture scripts reside in the outer GAAI repo at:
+          .gaai/core/scripts/tests/clean-code/qa-review/
+
+        The exec-maven-plugin resolves them at:
+          ${project.basedir}/../../../.gaai/core/scripts/tests/clean-code/qa-review/run-all.sh
+        (three levels up from vvwt-prj/vvwt-clean-code-fixtures/ → NetBeansProjects/,
+         then into .gaai/core/scripts/tests/clean-code/qa-review/run-all.sh)
+    </description>
+
+    <!--
+        No &lt;dependencies&gt; block — this module has no Java code.
+        exec-maven-plugin is declared in the parent POM at ${exec-maven-plugin.version}.
+        Dependency licenses (informational, verified AGPL-forward-compatible per DEC-75 + FSF matrix):
+          - exec-maven-plugin ${exec-maven-plugin.version}: Apache-2.0
+    -->
+
+    <build>
+        <plugins>
+            <!--
+                exec-maven-plugin bound to the integration-test phase.
+                Executes the qa-review Step 10 rubric-behaviour regression fixture runner.
+                Exit code from run-all.sh propagates to mvn verify (non-zero = BUILD FAILURE).
+                DEC-54: mvn verify non-zero exit is FAIL unconditionally.
+            -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>${exec-maven-plugin.version}</version>
+                <executions>
+
+                    <!-- Run all qa-review Step 10 rubric-behaviour regression fixtures -->
+                    <execution>
+                        <id>clean-code-qa-review-fixtures</id>
+                        <phase>integration-test</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>bash</executable>
+                            <arguments>
+                                <argument>${project.basedir}/run-fixtures.sh</argument>
+                            </arguments>
+                            <workingDirectory>${project.basedir}</workingDirectory>
+                        </configuration>
+                    </execution>
+
+                </executions>
+            </plugin>
+
+            <!--
+                Disable maven-surefire-plugin for this pom-packaging module (no Java tests).
+                Without this, the default lifecycle binding runs surefire on nothing and
+                emits a warning. Explicit skip is cleaner.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+
+        </plugins>
+    </build>
+
+</project>
