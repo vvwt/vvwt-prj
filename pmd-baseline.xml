@@ -1,0 +1,106 @@
+# PMD violation suppression baseline for vvwt-prj.
+# Activated by: E70S03 (2026-05-31) per DEC-78 Clause E (suppress-with-tracking).
+# Tool: maven-pmd-plugin 3.28.0 / PMD 7.17.0.
+# Rules: CyclomaticComplexity (>=10 method, >=80 class), CognitiveComplexity (>=15),
+#        NcssCount (method >=60, class >=500), UnusedFormalParameter, UnusedLocalVariable,
+#        UnusedAssignment, UnusedPrivateField, UnusedPrivateMethod.
+# Format: Java properties file (className=rule1,rule2,...)
+#         Each class entry suppresses violations for the listed rules in that class only.
+#         Suppressed classes: 60 | Violation-entries: 91
+#
+# H-4 first-empirical observation (DEC-78 Hypotheses):
+#   - CyclomaticComplexity: 58 violations (dominant finding)
+#   - CognitiveComplexity: 24 violations
+#   - UnusedFormalParameter: 10 violations (mostly JdbcTemplate mapRow stubs + interface params)
+#   - UnusedLocalVariable: 7 violations
+#   - UnusedPrivateField: 5 violations
+#   - NcssCount: 5 violations
+#   - UnusedAssignment: 1 violation
+#   Total: 110 violations across 60 classes in 5 modules.
+#   The slot-opt algorithm internals (DEC-4/49/55/64) account for some complexity violations
+#   (LehmerCodec, BalancedVarietyScorer, VarietyScorer, DefaultComputeStep).
+#   The TM module dominates (91 violations) reflecting its broader scope.
+#
+# IMPORTANT: New violations MUST NOT be suppressed here without a
+# Discovery-approved justification citing DEC-78 Clause E.
+# Staleness audit cadence: per DEC-78 Clause G (at each Operationalization Epic close).
+#
+# Breakdown by rule family:
+#   CyclomaticComplexity:  53 classes (58 violations)
+#   CognitiveComplexity:   18 classes (24 violations)
+#   NcssCount:              6 classes (5 violations)
+#   UnusedFormalParameter: 11 classes (10 violations)
+#   UnusedLocalVariable:    7 classes (7 violations)
+#   UnusedPrivateField:     5 classes (5 violations)
+#   UnusedAssignment:       1 class  (1 violation)
+#
+
+# vvwt-info-server (4 violations)
+de.vvwt.info.publish.internal.DefaultPublishService=UnusedLocalVariable
+de.vvwt.info.ratelimit.internal.RateLimitFilter=UnusedFormalParameter
+de.vvwt.info.reader.internal.ReaderHandshakeInterceptor=UnusedPrivateField
+de.vvwt.info.registration.internal.DefaultRegistrationService=CyclomaticComplexity
+
+# vvwt-slotopt-dispatcher (6 violations)
+de.vvwt.slotopt.dispatcher.crypto.internal.DefaultJcsCanonicalizer=CyclomaticComplexity
+de.vvwt.slotopt.dispatcher.identity.internal.DefaultKeyRegistrationService=CyclomaticComplexity
+de.vvwt.slotopt.dispatcher.job.internal.DefaultJobService=CyclomaticComplexity
+de.vvwt.slotopt.dispatcher.packet.internal.DefaultPacketDecomposerService=CyclomaticComplexity
+de.vvwt.slotopt.dispatcher.result.internal.DefaultSubmitResultService=CyclomaticComplexity
+
+# vvwt-slotopt-standalone-worker (1 violation)
+de.vvwt.slotopt.standalone.bootstrap.internal.DefaultBootstrapService=CyclomaticComplexity
+
+# vvwt-slotopt-worker-lib (7 violations — slot-opt algorithm per DEC-4/49/55/64)
+de.vvwt.slotopt.worker.codec.LehmerCodec=CyclomaticComplexity
+de.vvwt.slotopt.worker.identity.internal.DefaultWorkerKeyManager=CognitiveComplexity,CyclomaticComplexity
+de.vvwt.slotopt.worker.runtime.internal.DefaultComputeStep=CyclomaticComplexity
+de.vvwt.slotopt.worker.score.BalancedVarietyScorer=CognitiveComplexity,CyclomaticComplexity
+de.vvwt.slotopt.worker.score.VarietyScorer=CognitiveComplexity,CyclomaticComplexity
+
+# vvwt-tm-web (91 violations)
+de.vvwt.tm.auth.internal.AdminCredentialsDao=CyclomaticComplexity
+de.vvwt.tm.certificate.internal.DefaultCertificateAssembler=CognitiveComplexity,CyclomaticComplexity,UnusedFormalParameter
+de.vvwt.tm.certificate.internal.DefaultCertificateTemplateRepository=UnusedFormalParameter
+de.vvwt.tm.certificate.internal.DefaultCertificateTemplateService=UnusedFormalParameter
+de.vvwt.tm.display.internal.DefaultDisplayOverviewService=CyclomaticComplexity,UnusedLocalVariable
+de.vvwt.tm.infoportal.internal.DefaultInfoPortalOptInListener=UnusedPrivateField
+de.vvwt.tm.infoportal.internal.DefaultInfoPortalOptInService=UnusedPrivateField
+de.vvwt.tm.infoportal.internal.DefaultTournamentEventDeltaPublisher=UnusedPrivateField
+de.vvwt.tm.infrastructure.web.DeviceTokenHandshakeInterceptor=CognitiveComplexity,CyclomaticComplexity,UnusedLocalVariable
+de.vvwt.tm.phaselifecycle.internal.DecoratingExecutorWrapper=UnusedLocalVariable
+de.vvwt.tm.print.internal.DefaultActivityScheduleAssembler=CognitiveComplexity,CyclomaticComplexity
+de.vvwt.tm.print.internal.DefaultLaufzettelAssembler=CognitiveComplexity,CyclomaticComplexity,NcssCount
+de.vvwt.tm.scoring.internal.DefaultMatchCorrectionService=CognitiveComplexity,CyclomaticComplexity,NcssCount,UnusedFormalParameter
+de.vvwt.tm.scoring.internal.DefaultScoreEntryService=CognitiveComplexity,CyclomaticComplexity
+de.vvwt.tm.scoring.internal.DefaultScoringService=CognitiveComplexity,CyclomaticComplexity,NcssCount,UnusedAssignment,UnusedLocalVariable
+de.vvwt.tm.scoring.internal.SetPointsRule=CyclomaticComplexity
+de.vvwt.tm.scoring.internal.StandardVolleyballSet=CyclomaticComplexity
+de.vvwt.tm.scoring.internal.ThreePointMatchRule=CognitiveComplexity,CyclomaticComplexity
+de.vvwt.tm.scoring.internal.TwoPointMatchRule=CyclomaticComplexity
+de.vvwt.tm.slotopt.internal.DefaultEmbeddedWorker=CognitiveComplexity,CyclomaticComplexity
+de.vvwt.tm.slotopt.internal.DefaultPhaseToRawPhaseDefMapper=CognitiveComplexity,CyclomaticComplexity
+de.vvwt.tm.slotopt.internal.DefaultSlotOptimizationDispatcherClient=CognitiveComplexity,CyclomaticComplexity
+de.vvwt.tm.slotopt.internal.LapPermutationOptimizer=CyclomaticComplexity
+de.vvwt.tm.slotopt.internal.RoutingSlotOptimizationClient=UnusedFormalParameter
+de.vvwt.tm.tenant.internal.DefaultTenantBootstrapRunner=CyclomaticComplexity
+de.vvwt.tm.tenant.internal.TenantDirectoryHelper=UnusedPrivateField
+de.vvwt.tm.timer.internal.DefaultTimerDataService=CognitiveComplexity,CyclomaticComplexity,NcssCount
+de.vvwt.tm.tournament.MatchFormat=CyclomaticComplexity
+de.vvwt.tm.tournament.activity.internal.DefaultActivityAssignmentService=CyclomaticComplexity
+de.vvwt.tm.tournament.activity.internal.FirstFreeRoundAssigner=CognitiveComplexity,CyclomaticComplexity
+de.vvwt.tm.tournament.draft.DraftSection=CyclomaticComplexity
+de.vvwt.tm.tournament.internal.DefaultDeviceService=CyclomaticComplexity
+de.vvwt.tm.tournament.internal.DefaultDraftService=UnusedFormalParameter
+de.vvwt.tm.tournament.internal.DefaultMatchOutcomeRepository=UnusedFormalParameter
+de.vvwt.tm.tournament.internal.DefaultMatchRepository=UnusedFormalParameter
+de.vvwt.tm.tournament.internal.DefaultPhaseLifecycleService=CognitiveComplexity,CyclomaticComplexity
+de.vvwt.tm.tournament.internal.DefaultPhaseTransitionService=CyclomaticComplexity
+de.vvwt.tm.tournament.internal.DefaultRoundAssignmentService=CognitiveComplexity,CyclomaticComplexity
+de.vvwt.tm.tournament.internal.DefaultSetResultRepository=UnusedFormalParameter
+de.vvwt.tm.tournament.internal.DefaultTimelineCalculationService=CyclomaticComplexity
+de.vvwt.tm.tournament.internal.DefaultTournamentLifecycleSupport=CyclomaticComplexity
+de.vvwt.tm.tournament.internal.DefaultTournamentService=CyclomaticComplexity
+de.vvwt.tm.tournament.internal.RoundRobinMatchGenerator=CognitiveComplexity,CyclomaticComplexity
+de.vvwt.tm.tournament.internal.referee.DefaultRefereeAssigner=CognitiveComplexity,CyclomaticComplexity,NcssCount
+de.vvwt.tm.web.certificate.CertificateRenderController=CyclomaticComplexity

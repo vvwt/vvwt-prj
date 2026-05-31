@@ -157,8 +157,9 @@
         <htmlunit.version>4.11.0</htmlunit.version>
 
         <!-- maven-pmd-plugin: PMD CPD (DRY-lexical hard-gated per DEC-78 Clause C) + E70S01.
+             PMD Complexity + Dead-Code (KISS-structural + YAGNI-code hard-gated per DEC-78 Clause C) + E70S03.
              BSD-style license — OSS-compliant per DEC-3; AGPL-compatible per DEC-75.
-             3.28.0: latest stable with Java 21 support + CPD goal.
+             3.28.0: latest stable with Java 21 support + CPD + pmd-check goals.
              Configured in <build><plugins> via parent-POM inheritance (DEC-29/DEC-30/DEC-76 precedent). -->
         <maven-pmd-plugin.version>3.28.0</maven-pmd-plugin.version>
 
@@ -168,6 +169,18 @@
              Defined as a property so that the <excludeFromFailureFile> config element in
              <build><plugins> can be inherited by submodules without ${project.basedir} resolution. -->
         <cpd.excludeFromFailureFile>${maven.multiModuleProjectDirectory}/cpd-baseline.xml</cpd.excludeFromFailureFile>
+
+        <!-- PMD ruleset path (E70S03 / DEC-78 Clause C).
+             Points to build-config/pmd-ruleset.xml in the project root.
+             ${maven.multiModuleProjectDirectory} ensures the path resolves correctly from
+             any submodule during a full reactor build (avoids ${project.basedir} ambiguity). -->
+        <pmd.ruleset.file>${maven.multiModuleProjectDirectory}/build-config/pmd-ruleset.xml</pmd.ruleset.file>
+
+        <!-- PMD violation baseline suppression file path (E70S03 / DEC-78 Clause E).
+             Suppresses all pre-existing violations at first activation (suppress-with-tracking).
+             Format: PMD failurefile XML (one <violation> entry per suppressed finding).
+             Staleness audit: per DEC-78 Clause G (at each Operationalization Epic close). -->
+        <pmd.failurefile>${maven.multiModuleProjectDirectory}/pmd-baseline.xml</pmd.failurefile>
     </properties>
 
     <!-- ===================================================================
@@ -536,7 +549,8 @@
                 </plugin>
 
                 <!-- maven-pmd-plugin: PMD CPD (DRY-lexical hard-gated per DEC-78 Clause C + E70S01).
-                     Configuration and cpd-check execution are in <build><plugins> (not here) to
+                     PMD Complexity + Dead-Code (KISS-structural + YAGNI-code per DEC-78 Clause C + E70S03).
+                     Configuration and executions are in <build><plugins> (not here) to
                      ensure execution bindings are inherited by all submodules without merge-truncation.
                      Version property: maven-pmd-plugin.version (3.28.0) pinned above. -->
                 <plugin>
@@ -821,6 +835,23 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-pmd-plugin</artifactId>
+                <!--
+                     Plugin-level configuration: applies to ALL maven-pmd-plugin goal invocations,
+                     including the forked lifecycle invocation created by the pmd:check goal.
+                     E70S03: rulesets + shared config defined here so the forked pmd:pmd invocation
+                     (which generates the report that pmd:check validates) uses the correct ruleset.
+                     The pmd-check execution configuration can override/extend as needed.
+                -->
+                <configuration>
+                    <rulesets>
+                        <ruleset>${pmd.ruleset.file}</ruleset>
+                    </rulesets>
+                    <includeTests>false</includeTests>
+                    <excludeRoots>
+                        <excludeRoot>target/generated-sources</excludeRoot>
+                    </excludeRoots>
+                    <excludeFromFailureFile>${pmd.failurefile}</excludeFromFailureFile>
+                </configuration>
                 <executions>
                     <execution>
                         <id>cpd-check</id>
@@ -854,6 +885,49 @@
                                  Using excludeRoots (relative to each module basedir)
                                  is structurally correct — these files are not authored.
                             -->
+                            <excludeRoots>
+                                <excludeRoot>target/generated-sources</excludeRoot>
+                            </excludeRoots>
+                        </configuration>
+                    </execution>
+
+                    <!--
+                         DEC-78 Clause C + E70S03: PMD rule-based checks activation.
+                         Hard-gated KISS-structural + YAGNI-code enforcement per DEC-78 §Layer-C.
+                         Bound to verify phase via pmd-check goal (maven-pmd-plugin 3.28.0).
+                         Rules: CyclomaticComplexity (>= 10), CognitiveComplexity (>= 15),
+                                NcssCount (method >= 60, class >= 500),
+                                UnusedFormalParameter, UnusedLocalVariable, UnusedAssignment,
+                                UnusedPrivateField, UnusedPrivateMethod.
+                         Ruleset: build-config/pmd-ruleset.xml (first-party config — DEC-22 RED-first).
+                         Baseline: pmd-baseline.xml (suppress-with-tracking per DEC-78 Clause E).
+                         includeTests=false: test code excluded from dead-code gate (same rationale
+                         as CPD: test fixtures may have intentionally unused parameters in test-dsl
+                         methods; suppression baseline handles real edge cases if they arise).
+                    -->
+                    <execution>
+                        <id>pmd-check</id>
+                        <phase>verify</phase>
+                        <goals><goal>check</goal></goals>
+                        <configuration>
+                            <failOnViolation>true</failOnViolation>
+                            <printFailingErrors>true</printFailingErrors>
+                            <includeTests>false</includeTests>
+                            <!--
+                                 Project-specific PMD ruleset.
+                                 ${pmd.ruleset.file}: property defined in <properties> above,
+                                 expands to ${maven.multiModuleProjectDirectory}/build-config/pmd-ruleset.xml.
+                            -->
+                            <rulesets>
+                                <ruleset>${pmd.ruleset.file}</ruleset>
+                            </rulesets>
+                            <!--
+                                 Suppress pre-existing PMD findings at activation (DEC-78 Clause E).
+                                 ${pmd.failurefile}: property defined in <properties> above,
+                                 expands to ${maven.multiModuleProjectDirectory}/pmd-baseline.xml.
+                            -->
+                            <failurePriority>5</failurePriority>
+                            <excludeFromFailureFile>${pmd.failurefile}</excludeFromFailureFile>
                             <excludeRoots>
                                 <excludeRoot>target/generated-sources</excludeRoot>
                             </excludeRoots>

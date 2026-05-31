@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
+  SPDX-License-Identifier: AGPL-3.0-or-later
+
+  vvwt-prj/build-config/pmd-ruleset.xml - PMD rule-set for KISS-structural + YAGNI-code
+  hard-gated enforcement (E70S03 / DEC-78 Clause C).
+
+  Activated rule families:
+    1. CyclomaticComplexity (methodReportLevel=10, classReportLevel=80)
+    2. CognitiveComplexity  (reportLevel=15)
+    3. NcssCount            (methodReportLevel=60, classReportLevel=500)
+    4. Dead-Code:
+         - UnusedFormalParameter   (category: bestpractices)
+         - UnusedLocalVariable     (category: bestpractices)
+         - UnusedAssignment        (category: bestpractices)
+         - UnusedPrivateField      (category: bestpractices)
+         - UnusedPrivateMethod     (category: bestpractices)
+
+  Rule source: net.sourceforge.pmd / pmd-java 7.17.0 (bundled with maven-pmd-plugin 3.28.0)
+  Rule categories: category/java/design.xml, category/java/bestpractices.xml
+
+  Threshold rationale (AC6 - see E70S03 impl-report.md):
+    - CyclomaticComplexity: default 10 method, 80 class aggregate. PMD reports >= threshold.
+    - CognitiveComplexity: default 15. Nested-control-flow penalty metric.
+    - NcssCount method: default 60. NcssCount class: default 500.
+    Suppress-with-tracking: pre-existing findings are captured in pmd-baseline.xml per DEC-78 Clause E.
+
+  DEC references:
+    DEC-78: Clean Code Principles Governance (hard-gated KISS-structural + YAGNI-code)
+    DEC-22: RED-first for this rule-set file + per-rule-family fixtures
+    DEC-67: rulesets reference in pom.xml is a build-descriptor coordinate (DEC-78 broader reading)
+    DEC-54: mvn verify canonical build gate
+    DEC-3:  PMD BSD-license, AGPL-compatible per DEC-75
+-->
+<ruleset name="vvwt-pmd-ruleset"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0
+             https://pmd.sourceforge.net/ruleset_2_0_0.xsd">
+
+    <description>
+        vvwt-prj PMD rule-set for KISS-structural and YAGNI-code enforcement.
+        Activated by E70S03 per DEC-78 Clause C (Layer-C hard-gated build gate).
+    </description>
+
+    <!--
+         KISS-structural: Cyclomatic Complexity
+         Category: design
+         Default thresholds: methodReportLevel=10, classReportLevel=80
+         Rationale: Methods with >= 10 decision points are candidates for
+         review per clean-code.rules.md Section Application Discipline Clause 4.
+         Hard-gated: FAIL escalates per DEC-71; no Wisdom-Frage override.
+    -->
+    <rule ref="category/java/design.xml/CyclomaticComplexity">
+        <properties>
+            <property name="methodReportLevel" value="10"/>
+            <property name="classReportLevel" value="80"/>
+        </properties>
+    </rule>
+
+    <!--
+         KISS-structural: Cognitive Complexity
+         Category: design
+         Default threshold: reportLevel=15
+         Rationale: Methods with >= 15 cognitive complexity score are
+         candidates for review. Cognitive complexity better reflects human
+         readability burden than cyclomatic (nested-control penalties).
+    -->
+    <rule ref="category/java/design.xml/CognitiveComplexity">
+        <properties>
+            <property name="reportLevel" value="15"/>
+        </properties>
+    </rule>
+
+    <!--
+         KISS-structural: NCSS Count (Method and Class Size)
+         Category: design
+         Default thresholds: methodReportLevel=60, classReportLevel=500
+    -->
+    <rule ref="category/java/design.xml/NcssCount">
+        <properties>
+            <property name="methodReportLevel" value="60"/>
+            <property name="classReportLevel" value="500"/>
+        </properties>
+    </rule>
+
+    <!--
+         YAGNI-code: Dead Code - UnusedFormalParameter
+         Category: bestpractices
+    -->
+    <rule ref="category/java/bestpractices.xml/UnusedFormalParameter"/>
+
+    <!--
+         YAGNI-code: Dead Code - UnusedLocalVariable
+         Category: bestpractices
+    -->
+    <rule ref="category/java/bestpractices.xml/UnusedLocalVariable"/>
+
+    <!--
+         YAGNI-code: Dead Code - UnusedAssignment
+         Category: bestpractices
+    -->
+    <rule ref="category/java/bestpractices.xml/UnusedAssignment"/>
+
+    <!--
+         YAGNI-code: Dead Code - UnusedPrivateField
+         Category: bestpractices
+    -->
+    <rule ref="category/java/bestpractices.xml/UnusedPrivateField"/>
+
+    <!--
+         YAGNI-code: Dead Code - UnusedPrivateMethod
+         Category: bestpractices
+    -->
+    <rule ref="category/java/bestpractices.xml/UnusedPrivateMethod"/>
+
+</ruleset>
