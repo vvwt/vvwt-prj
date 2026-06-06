@@ -79,11 +79,13 @@ class DefaultCertificateTemplateRepositoryIT {
 
     @BeforeEach
     void setUp() {
-        // DEC-26 Rule 1: schema from production migrations
+        // DEC-26 Rule 1: schema from production migrations (V1 + V2 for E71S02 ratio columns)
         dataSource = TenantDaoTestSupport.freshDataSource();
         TenantDaoTestSupport.applyTournamentSchema(dataSource);
         TenantDaoTestSupport.applyMigration(
                 dataSource, "db/migration/certificate/V1__initial_schema.sql");
+        TenantDaoTestSupport.applyMigration(
+                dataSource, "db/migration/certificate/V2__add_photo_aspect_ratio.sql");
 
         // DEC-26 Rule 2: independent assertj-db verifier
         assertDb = TenantDaoTestSupport.assertDbOf(dataSource);
@@ -262,14 +264,109 @@ class DefaultCertificateTemplateRepositoryIT {
             String format,
             Instant uploadedAt,
             long fileSizeBytes) {
+        insertCertificateTemplateFixture(
+                tournamentId, filename, format, uploadedAt, fileSizeBytes, null, null);
+    }
+
+    /**
+     * Inserts a certificate_template row with optional ratio override — DEC-26 Rule 3 fixture
+     * (E71S02 AC1).
+     */
+    private void insertCertificateTemplateFixture(
+            UUID tournamentId,
+            String filename,
+            String format,
+            Instant uploadedAt,
+            long fileSizeBytes,
+            Integer ratioWidth,
+            Integer ratioHeight) {
         Map<String, Object> cols = new LinkedHashMap<>();
         cols.put("tournament_id", tournamentId);
         cols.put("filename", filename);
         cols.put("format", format);
         cols.put("upload_timestamp", java.sql.Timestamp.from(uploadedAt));
         cols.put("file_size_bytes", fileSizeBytes);
+        cols.put("photo_aspect_ratio_width", ratioWidth);
+        cols.put("photo_aspect_ratio_height", ratioHeight);
         TenantDaoTestSupport.insertDirectly(dataSource, TABLE, cols);
     }
+
+    // -------------------------------------------------------------------------
+    // E71S02 — photo_aspect_ratio_width / photo_aspect_ratio_height column tests
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName(
+            "upsert with ratio override persists width and height — verified via assertj-db (E71S02"
+                    + " AC1, AC5)")
+    void upsert_withRatioOverride_persistsWidthAndHeight() {
+        CertificateTemplateMetadata metadata = sampleMetadataWithRatio(TOURNAMENT_ID, 4, 3);
+
+        repository.upsert(metadata);
+
+        // Rule 2: assertj-db verifies DB state — the new nullable columns must hold the set values
+        Table table = assertDb.table(TABLE).build();
+        assertThat(table).hasNumberOfRows(1);
+        assertThat(table)
+                .row(0)
+                .value("photo_aspect_ratio_width")
+                .isEqualTo(4)
+                .value("photo_aspect_ratio_height")
+                .isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName(
+            "upsert with null ratio override persists NULL in both columns — verified via"
+                    + " assertj-db (E71S02 AC1)")
+    void upsert_withNullRatio_persistsNullInBothColumns() {
+        CertificateTemplateMetadata metadata = sampleMetadata(TOURNAMENT_ID);
+
+        repository.upsert(metadata);
+
+        Table table = assertDb.table(TABLE).build();
+        assertThat(table).hasNumberOfRows(1);
+        assertThat(table)
+                .row(0)
+                .value("photo_aspect_ratio_width")
+                .isNull()
+                .value("photo_aspect_ratio_height")
+                .isNull();
+    }
+
+    @Test
+    @DisplayName(
+            "findByTournamentId returns ratio override when row has ratio set — Rule 3 fixture"
+                    + " (E71S02 AC1 persistence round-trip)")
+    void findByTournamentId_returnsRatioOverride_whenRowHasRatioSet() {
+        Instant now = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
+        insertCertificateTemplateFixture(TOURNAMENT_ID, "tmpl.html", "html", now, 512L, 11, 5);
+
+        Optional<CertificateTemplateMetadata> result = repository.findByTournamentId(TOURNAMENT_ID);
+
+        assertThat(result).isPresent();
+        assertThat(result.get().photoAspectRatioWidth()).isEqualTo(11);
+        assertThat(result.get().photoAspectRatioHeight()).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName(
+            "findByTournamentId returns null ratio when row has no ratio set — Rule 3 fixture"
+                    + " (E71S02 AC2 fallback)")
+    void findByTournamentId_returnsNullRatio_whenNoRatioSet() {
+        Instant now = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
+        insertCertificateTemplateFixture(TOURNAMENT_ID, "tmpl.html", "html", now, 512L, null, null);
+
+        Optional<CertificateTemplateMetadata> result = repository.findByTournamentId(TOURNAMENT_ID);
+
+        assertThat(result).isPresent();
+        assertThat(result.get().photoAspectRatioWidth()).isNull();
+        assertThat(result.get().photoAspectRatioHeight()).isNull();
+    }
+
+    // -------------------------------------------------------------------------
+    // Private fixture helpers (DEC-26 Rule 3) — updated for E71S02
+    // -------------------------------------------------------------------------
 
     private static CertificateTemplateMetadata sampleMetadata(UUID tournamentId) {
         return sampleMetadata(tournamentId, "template.html", "html", 1024L);
@@ -278,6 +375,19 @@ class DefaultCertificateTemplateRepositoryIT {
     private static CertificateTemplateMetadata sampleMetadata(
             UUID tournamentId, String filename, String format, long fileSizeBytes) {
         return new CertificateTemplateMetadata(
-                tournamentId, filename, format, Instant.now(), fileSizeBytes);
+                tournamentId, filename, format, Instant.now(), fileSizeBytes, null, null);
+    }
+
+    /** Creates sample metadata with a photo aspect ratio override (E71S02 AC1). */
+    private static CertificateTemplateMetadata sampleMetadataWithRatio(
+            UUID tournamentId, int ratioWidth, int ratioHeight) {
+        return new CertificateTemplateMetadata(
+                tournamentId,
+                "template.html",
+                "html",
+                Instant.now(),
+                1024L,
+                ratioWidth,
+                ratioHeight);
     }
 }

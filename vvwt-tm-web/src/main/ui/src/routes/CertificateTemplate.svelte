@@ -36,6 +36,14 @@
     type CertificateTemplateVariable,
   } from '../stores/certificateTemplateStore.js';
 
+  // ── E71S02: ratio override state ──────────────────────────────────────────
+  /** Width input string for the optional ratio override (E71S02 AC1). */
+  let ratioWidthInput = $state('');
+  /** Height input string for the optional ratio override (E71S02 AC1). */
+  let ratioHeightInput = $state('');
+  /** Validation error for ratio input (E71S02 AC3). */
+  let ratioError = $state<string | null>(null);
+
   // ── Props ─────────────────────────────────────────────────────────────────
   interface Props {
     params?: { tournamentId?: string };
@@ -122,6 +130,11 @@
     loadError = null;
     try {
       metadata = await getTemplateMetadata(tournamentId);
+      // E71S02 AC1: pre-fill ratio inputs from persisted override (if set)
+      if (metadata?.photoAspectRatioWidth != null && metadata.photoAspectRatioHeight != null) {
+        ratioWidthInput = String(metadata.photoAspectRatioWidth);
+        ratioHeightInput = String(metadata.photoAspectRatioHeight);
+      }
     } catch (e: unknown) {
       loadError = e instanceof Error ? e.message : String(e);
     }
@@ -165,6 +178,37 @@
     }
   }
 
+  /**
+   * Validates ratio inputs (E71S02 AC3).
+   * Returns true when valid (both empty = no override, or both positive integers).
+   */
+  function validateRatioInputs(): boolean {
+    ratioError = null;
+    const wStr = ratioWidthInput.trim();
+    const hStr = ratioHeightInput.trim();
+
+    // Both empty = no override (valid)
+    if (wStr === '' && hStr === '') return true;
+
+    // If one is set, both must be set and positive
+    const w = parseInt(wStr, 10);
+    const h = parseInt(hStr, 10);
+
+    if (isNaN(w) || isNaN(h) || w <= 0 || h <= 0 || String(w) !== wStr || String(h) !== hStr) {
+      ratioError = $_('certificateTemplate.photoAspectRatioError');
+      return false;
+    }
+    return true;
+  }
+
+  /** Parses the ratio inputs and returns [width, height] or [null, null] when no override. */
+  function parseRatioInputs(): [number | null, number | null] {
+    const wStr = ratioWidthInput.trim();
+    const hStr = ratioHeightInput.trim();
+    if (wStr === '' || hStr === '') return [null, null];
+    return [parseInt(wStr, 10), parseInt(hStr, 10)];
+  }
+
   async function handleFileSelected(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
@@ -173,6 +217,11 @@
     // AC7: client-side format validation
     if (!isValidExtension(file)) {
       uploadError = $_('certificateTemplate.uploadError') + ' (nur .html oder .svg erlaubt)';
+      return;
+    }
+
+    // E71S02 AC3: validate ratio inputs before upload
+    if (!validateRatioInputs()) {
       return;
     }
 
@@ -189,9 +238,13 @@
     svgContent = null;  // reset preview on new upload
     previewError = null;
 
+    const [ratioW, ratioH] = parseRatioInputs();
+
     try {
-      metadata = await uploadTemplate(tournamentId, file, (pct) => {
-        uploadProgress = pct;
+      metadata = await uploadTemplate(tournamentId, file, {
+        photoAspectRatioWidth: ratioW,
+        photoAspectRatioHeight: ratioH,
+        onProgress: (pct) => { uploadProgress = pct; },
       });
       // AC6: auto-load preview after upload
       if (metadata) {
@@ -282,6 +335,10 @@
           <dd>{formatDate(metadata.uploadedAt)}</dd>
           <dt>{$_('certificateTemplate.metaFileSize')}</dt>
           <dd>{$_('certificateTemplate.sizeLabel', { values: { size: formatSize(metadata.fileSizeBytes) } })}</dd>
+          {#if metadata.photoAspectRatioWidth != null && metadata.photoAspectRatioHeight != null}
+            <dt>{$_('certificateTemplate.photoAspectRatioCurrentLabel')}</dt>
+            <dd>{metadata.photoAspectRatioWidth}:{metadata.photoAspectRatioHeight}</dd>
+          {/if}
         </dl>
       {:else}
         <!-- No custom template — positive standard-template default (E67S02 AC1) -->
@@ -292,6 +349,44 @@
       {#if tournamentStatus !== null && tournamentStatus !== 'COMPLETED'}
         <p class="cert-template__generation-notice">{$_('certificateTemplate.generationNotAvailable')}</p>
       {/if}
+
+      <!-- E71S02 AC1: optional photo aspect ratio override input -->
+      <div class="cert-template__ratio-section">
+        <label class="cert-template__ratio-label">{$_('certificateTemplate.photoAspectRatioLabel')}</label>
+        <p class="cert-template__ratio-help">{$_('certificateTemplate.photoAspectRatioHelp')}</p>
+        <div class="cert-template__ratio-inputs">
+          <label class="cert-template__ratio-field-label" for="ratio-width-input">
+            {$_('certificateTemplate.photoAspectRatioWidthLabel')}
+          </label>
+          <input
+            id="ratio-width-input"
+            type="number"
+            min="1"
+            step="1"
+            class="cert-template__ratio-input"
+            placeholder={$_('certificateTemplate.photoAspectRatioPlaceholder')}
+            bind:value={ratioWidthInput}
+            disabled={uploading || deleting}
+          />
+          <span class="cert-template__ratio-separator">:</span>
+          <label class="cert-template__ratio-field-label" for="ratio-height-input">
+            {$_('certificateTemplate.photoAspectRatioHeightLabel')}
+          </label>
+          <input
+            id="ratio-height-input"
+            type="number"
+            min="1"
+            step="1"
+            class="cert-template__ratio-input"
+            placeholder={$_('certificateTemplate.photoAspectRatioPlaceholder')}
+            bind:value={ratioHeightInput}
+            disabled={uploading || deleting}
+          />
+        </div>
+        {#if ratioError}
+          <p class="cert-template__error cert-template__error--inline">{ratioError}</p>
+        {/if}
+      </div>
 
       <!-- Upload area (AC2: optional custom-template upload) -->
       <div class="cert-template__upload">
@@ -490,6 +585,59 @@
   .cert-template__meta dd {
     margin: 0;
     color: #2c3e50;
+  }
+
+  /* ── Ratio override input (E71S02) ────────────────────────────────────── */
+
+  .cert-template__ratio-section {
+    margin-bottom: 1rem;
+  }
+
+  .cert-template__ratio-label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #555;
+    margin-bottom: 0.25rem;
+  }
+
+  .cert-template__ratio-help {
+    font-size: 0.8rem;
+    color: #888;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .cert-template__ratio-inputs {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+
+  .cert-template__ratio-field-label {
+    font-size: 0.85rem;
+    color: #555;
+  }
+
+  .cert-template__ratio-input {
+    width: 5rem;
+    padding: 0.3rem 0.5rem;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    text-align: center;
+  }
+
+  .cert-template__ratio-input:focus {
+    outline: none;
+    border-color: #2980b9;
+    box-shadow: 0 0 0 2px rgba(41, 128, 185, 0.2);
+  }
+
+  .cert-template__ratio-separator {
+    font-weight: 600;
+    font-size: 1rem;
+    color: #555;
   }
 
   /* ── Upload area ───────────────────────────────────────────────────────── */

@@ -158,10 +158,16 @@ class CertificateRenderControllerSliceTest {
                         "Test Organizer");
         svgMetadata =
                 new CertificateTemplateMetadata(
-                        TOURNAMENT_ID, "certificate.svg", "svg", Instant.now(), 1024L);
+                        TOURNAMENT_ID, "certificate.svg", "svg", Instant.now(), 1024L, null, null);
         htmlMetadata =
                 new CertificateTemplateMetadata(
-                        TOURNAMENT_ID, "certificate.html", "html", Instant.now(), 1024L);
+                        TOURNAMENT_ID,
+                        "certificate.html",
+                        "html",
+                        Instant.now(),
+                        1024L,
+                        null,
+                        null);
 
         // AC-SLICETEST-FIXTURE-UPDATED-ATOMICALLY (E46S04): stub updated to tom_-prefixed keys
         // matching the 13-key contract from DefaultCertificateTemplateService.VARIABLES (E46S03
