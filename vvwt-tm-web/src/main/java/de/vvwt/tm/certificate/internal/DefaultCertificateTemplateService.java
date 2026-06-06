@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package de.vvwt.tm.certificate.internal;
 
+import de.vvwt.tm.certificate.AspectRatio;
 import de.vvwt.tm.certificate.CertificateTemplateFormatException;
 import de.vvwt.tm.certificate.CertificateTemplateMetadata;
 import de.vvwt.tm.certificate.CertificateTemplateRepository;
@@ -10,6 +11,7 @@ import de.vvwt.tm.certificate.CertificateTemplateSizeException;
 import de.vvwt.tm.certificate.CertificateTemplateStorageConfig;
 import de.vvwt.tm.certificate.CertificateTemplateStorageException;
 import de.vvwt.tm.certificate.CertificateTemplateVariable;
+import de.vvwt.tm.photo.PhotoStorageConfig;
 import de.vvwt.tm.tournament.TournamentRepository;
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,6 +24,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 /**
@@ -50,6 +53,13 @@ import org.springframework.stereotype.Service;
  *
  * <p>Every method validates tournament ownership via {@link TournamentRepository#findById}, which
  * returns empty if the tournament belongs to a different tenant.
+ *
+ * <h2>E71S02 — Per-template aspect ratio override</h2>
+ *
+ * <p>{@link #retrieveEffectiveAspectRatio(UUID)} resolves the crop ratio: per-template override
+ * when set, global default from {@link PhotoStorageConfig} otherwise (AC2 fallback). {@link
+ * #upload(UUID, String, InputStream, long, Integer, Integer)} is the extended upload method that
+ * persists the optional ratio override.
  *
  * @see CertificateTemplateService
  * @see de.vvwt.tm.certificate.CertificateTemplateRepository
@@ -117,25 +127,48 @@ public class DefaultCertificateTemplateService implements CertificateTemplateSer
     /** DEC-35: inject the public interface port, not the concrete implementation. */
     private final CertificateTemplateRepository templateRepository;
 
+    /**
+     * Global default crop aspect ratio source (E71S02 AC2 fallback). {@link PhotoStorageConfig} is
+     * a {@code @ConfigurationProperties} holder — excluded from the DEC-58/DEC-72 interface mandate
+     * per DEC-72 Clause D-ext.
+     */
+    private final PhotoStorageConfig photoStorageConfig;
+
     public DefaultCertificateTemplateService(
             CertificateTemplateStorageConfig config,
             TournamentRepository tournamentRepository,
-            CertificateTemplateRepository templateRepository) {
+            CertificateTemplateRepository templateRepository,
+            @Qualifier("photoModuleStorageConfig") PhotoStorageConfig photoStorageConfig) {
         this.config = config;
         this.tournamentRepository = tournamentRepository;
         this.templateRepository = templateRepository;
+        this.photoStorageConfig = photoStorageConfig;
     }
 
     // -------------------------------------------------------------------------
     // AC1 + AC4 — Upload (and replace)
     // -------------------------------------------------------------------------
 
+    /** Delegates to the extended upload with null ratio (no override). */
     @Override
     public CertificateTemplateMetadata upload(
             UUID tournamentId, String filename, InputStream inputStream, long sizeBytes) {
+        return upload(tournamentId, filename, inputStream, sizeBytes, null, null);
+    }
+
+    /** Stores a certificate template with optional photo aspect ratio override (E71S02 AC1). */
+    @Override
+    public CertificateTemplateMetadata upload(
+            UUID tournamentId,
+            String filename,
+            InputStream inputStream,
+            long sizeBytes,
+            Integer photoAspectRatioWidth,
+            Integer photoAspectRatioHeight) {
         requireTournamentInTenant(tournamentId);
         String ext = validateAndResolveExtension(filename);
         validateSize(sizeBytes, filename);
+        validateRatio(photoAspectRatioWidth, photoAspectRatioHeight);
 
         // AC4: delete the existing template file (if any) before writing the new one.
         // This handles the case where the extension changes (e.g. .html → .svg).
@@ -163,17 +196,25 @@ public class DefaultCertificateTemplateService implements CertificateTemplateSer
 
         CertificateTemplateMetadata metadata =
                 new CertificateTemplateMetadata(
-                        tournamentId, filename, format, uploadedAt, actualSize);
+                        tournamentId,
+                        filename,
+                        format,
+                        uploadedAt,
+                        actualSize,
+                        photoAspectRatioWidth,
+                        photoAspectRatioHeight);
 
         templateRepository.upsert(metadata);
 
         log.info(
                 "[tm-cert] Stored certificate template: tournament={} filename={} format={}"
-                        + " size={}",
+                        + " size={} ratio={}:{}",
                 tournamentId,
                 filename,
                 format,
-                actualSize);
+                actualSize,
+                photoAspectRatioWidth,
+                photoAspectRatioHeight);
 
         return metadata;
     }
@@ -252,6 +293,50 @@ public class DefaultCertificateTemplateService implements CertificateTemplateSer
     }
 
     // -------------------------------------------------------------------------
+    // E71S02 AC2 — Effective aspect ratio resolution
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns the effective crop aspect ratio for team photos for this tournament's certificate
+     * template.
+     *
+     * <p>Resolution order (E71S02 AC2):
+     *
+     * <ol>
+     *   <li>If the tournament's template has non-null {@code photoAspectRatioWidth} and {@code
+     *       photoAspectRatioHeight}: return that override.
+     *   <li>Otherwise: return the global default from {@link PhotoStorageConfig} (i.e. {@code
+     *       tm.photos.crop-aspect-ratio-width} and {@code crop-aspect-ratio-height}, default 11:5
+     *       from E71S01).
+     * </ol>
+     *
+     * <p>If no template exists for the tournament, returns the global default (graceful fallback).
+     *
+     * @param tournamentId tournament UUID (tenant-scoped)
+     * @return the effective {@link AspectRatio} (never null)
+     * @throws NoSuchElementException if tournament not found / wrong tenant
+     */
+    @Override
+    public AspectRatio retrieveEffectiveAspectRatio(UUID tournamentId) {
+        requireTournamentInTenant(tournamentId);
+
+        Optional<CertificateTemplateMetadata> maybeMetadata =
+                templateRepository.findByTournamentId(tournamentId);
+
+        if (maybeMetadata.isPresent()) {
+            CertificateTemplateMetadata meta = maybeMetadata.get();
+            if (meta.photoAspectRatioWidth() != null && meta.photoAspectRatioHeight() != null) {
+                return new AspectRatio(meta.photoAspectRatioWidth(), meta.photoAspectRatioHeight());
+            }
+        }
+
+        // Fallback: global default from tm.photos (E71S01 owned default)
+        return new AspectRatio(
+                photoStorageConfig.getCropAspectRatioWidth(),
+                photoStorageConfig.getCropAspectRatioHeight());
+    }
+
+    // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
 
@@ -316,6 +401,35 @@ public class DefaultCertificateTemplateService implements CertificateTemplateSer
                             + " bytes). Maximum allowed size is "
                             + maxBytes
                             + " bytes.");
+        }
+    }
+
+    /**
+     * Validates the optional photo aspect ratio override (E71S02 AC3).
+     *
+     * <p>Both width and height must be positive when either is provided. Passing both as {@code
+     * null} is valid (no override). Partial null (one null, one non-null) is treated the same as
+     * both null (no override) — only both non-null constitutes an active override.
+     *
+     * @param width width component (null = not set)
+     * @param height height component (null = not set)
+     * @throws CertificateTemplateFormatException if either is zero or negative when provided
+     */
+    private void validateRatio(Integer width, Integer height) {
+        if (width == null && height == null) {
+            return; // no override — valid
+        }
+        // If either is set, both must be positive
+        if (width == null || height == null) {
+            // partial — treat as no override; no validation error
+            return;
+        }
+        if (width <= 0 || height <= 0) {
+            throw new CertificateTemplateFormatException(
+                    "Photo aspect ratio must have positive width and height. Received: "
+                            + width
+                            + ":"
+                            + height);
         }
     }
 

@@ -56,6 +56,34 @@ public interface CertificateTemplateService {
             UUID tournamentId, String filename, InputStream inputStream, long sizeBytes);
 
     /**
+     * Stores a certificate template with an optional per-template photo aspect ratio override
+     * (E71S02 AC1).
+     *
+     * <p>Same as {@link #upload(UUID, String, InputStream, long)}, additionally persisting the
+     * optional crop aspect ratio override. Pass {@code null} for both ratio params to leave the
+     * override unset (falls back to the global default at effective-ratio resolution time).
+     *
+     * @param tournamentId tournament UUID (tenant-scoped per DEC-5)
+     * @param filename original client-provided filename
+     * @param inputStream template file content
+     * @param sizeBytes declared file size in bytes
+     * @param photoAspectRatioWidth width component of the override ratio; null = no override
+     * @param photoAspectRatioHeight height component of the override ratio; null = no override
+     * @return the stored template metadata
+     * @throws java.util.NoSuchElementException if tournament not found / wrong tenant
+     * @throws CertificateTemplateFormatException if format invalid or ratio invalid (zero/negative)
+     * @throws CertificateTemplateSizeException if size exceeds limit
+     * @throws CertificateTemplateStorageException on I/O failure
+     */
+    CertificateTemplateMetadata upload(
+            UUID tournamentId,
+            String filename,
+            InputStream inputStream,
+            long sizeBytes,
+            Integer photoAspectRatioWidth,
+            Integer photoAspectRatioHeight);
+
+    /**
      * Returns the stored template file for the given tournament (AC2).
      *
      * <p>The caller is responsible for closing the returned {@link InputStream}.
@@ -98,6 +126,24 @@ public interface CertificateTemplateService {
      * @return the fixed list of available template variables
      */
     List<CertificateTemplateVariable> listVariables();
+
+    /**
+     * Returns the effective crop aspect ratio for team photos for this tournament's certificate
+     * template (E71S02 AC2).
+     *
+     * <p>Resolution rule: if the tournament's certificate template has a non-null {@code
+     * photoAspectRatioWidth} and {@code photoAspectRatioHeight} override, that override is
+     * returned. Otherwise the global default from {@code tm.photos.crop-aspect-ratio-width} and
+     * {@code tm.photos.crop-aspect-ratio-height} is returned.
+     *
+     * <p>If no certificate template exists for the tournament, the global default is returned
+     * (graceful fallback per AC2).
+     *
+     * @param tournamentId tournament UUID (tenant-scoped per DEC-5)
+     * @return the effective {@link AspectRatio} (never null)
+     * @throws java.util.NoSuchElementException if tournament not found / wrong tenant
+     */
+    AspectRatio retrieveEffectiveAspectRatio(UUID tournamentId);
 
     // -------------------------------------------------------------------------
     // Nested result type

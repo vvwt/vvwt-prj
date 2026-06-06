@@ -7,6 +7,10 @@ export interface CertificateTemplateMetadata {
     format: 'html' | 'svg';
     uploadedAt: string;
     fileSizeBytes: number;
+    /** Width component of the per-template crop aspect ratio override (E71S02 AC1). null = no override. */
+    photoAspectRatioWidth: number | null;
+    /** Height component of the per-template crop aspect ratio override (E71S02 AC1). null = no override. */
+    photoAspectRatioHeight: number | null;
 }
 
 /** Mirrors CertificateTemplateVariableResponse DTO (E12S04 AC6). */
@@ -14,6 +18,12 @@ export interface CertificateTemplateVariable {
     name: string;
     type: string;
     example: string;
+}
+
+/** Effective crop aspect ratio response (E71S02 AC2). */
+export interface EffectiveAspectRatio {
+    width: number;
+    height: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -49,33 +59,57 @@ export async function getTemplateMetadata(
 // ---------------------------------------------------------------------------
 
 /**
- * Uploads (or replaces) the certificate template for a tournament (AC1, AC3).
+ * Options for uploadTemplate (E71S02 AC1 — optional ratio override).
+ */
+export interface UploadTemplateOptions {
+    /** Optional width component of the per-template crop ratio override. Omit to leave unset. */
+    photoAspectRatioWidth?: number | null;
+    /** Optional height component of the per-template crop ratio override. Omit to leave unset. */
+    photoAspectRatioHeight?: number | null;
+    /** Optional progress callback receiving percentage 0–100. */
+    onProgress?: (percent: number) => void;
+}
+
+/**
+ * Uploads (or replaces) the certificate template for a tournament (AC1, AC3, E71S02).
  *
  * Uses XMLHttpRequest to expose upload progress to the caller via the optional
  * `onProgress` callback (mirrors uploadAudio from audioStore.ts).
  *
  * @param tournamentId  UUID of the tournament
  * @param file          The File object from the file picker (.html or .svg)
- * @param onProgress    Optional callback receiving progress percentage 0–100
+ * @param options       Optional upload options (ratio override, progress callback)
  * @returns             CertificateTemplateMetadata returned by the server on success (200)
  * @throws              Error with a user-friendly message on failure
  */
 export function uploadTemplate(
     tournamentId: string,
     file: File,
-    onProgress?: (percent: number) => void,
+    options?: UploadTemplateOptions | ((percent: number) => void),
 ): Promise<CertificateTemplateMetadata> {
+    // Backwards-compatible: options may be a plain progress callback (legacy callers)
+    const opts: UploadTemplateOptions =
+        typeof options === 'function' ? { onProgress: options } : (options ?? {});
+
     return new Promise((resolve, reject) => {
         const formData = new FormData();
         formData.append('file', file, file.name);
 
+        // E71S02 AC1: append optional ratio override params when set
+        if (opts.photoAspectRatioWidth != null) {
+            formData.append('photoAspectRatioWidth', String(opts.photoAspectRatioWidth));
+        }
+        if (opts.photoAspectRatioHeight != null) {
+            formData.append('photoAspectRatioHeight', String(opts.photoAspectRatioHeight));
+        }
+
         const xhr = new XMLHttpRequest();
         xhr.withCredentials = true;   // same-origin basic-auth
 
-        if (onProgress && xhr.upload) {
+        if (opts.onProgress && xhr.upload) {
             xhr.upload.addEventListener('progress', (event) => {
                 if (event.lengthComputable) {
-                    onProgress(Math.round((event.loaded / event.total) * 100));
+                    opts.onProgress!(Math.round((event.loaded / event.total) * 100));
                 }
             });
         }
@@ -110,6 +144,34 @@ export function uploadTemplate(
         xhr.open('POST', `/api/certificate/tournaments/${tournamentId}/template`);
         xhr.send(formData);
     });
+}
+
+// ---------------------------------------------------------------------------
+// getEffectiveAspectRatio — GET /api/certificate/tournaments/{id}/effective-ratio
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns the effective crop aspect ratio for the given tournament's certificate template
+ * (E71S02 AC2).
+ *
+ * Returns the per-template override when set, otherwise the global default from tm.photos.
+ * Never returns null — always resolves to a valid aspect ratio.
+ *
+ * @param tournamentId  UUID of the tournament
+ * @returns             EffectiveAspectRatio with width and height
+ * @throws              Error with message on HTTP error or network failure
+ */
+export async function getEffectiveAspectRatio(
+    tournamentId: string,
+): Promise<EffectiveAspectRatio> {
+    const response = await fetch(
+        `/api/certificate/tournaments/${tournamentId}/effective-ratio`,
+        { credentials: 'same-origin' },
+    );
+    if (!response.ok) {
+        throw new Error(await extractErrorMessage(response));
+    }
+    return response.json() as Promise<EffectiveAspectRatio>;
 }
 
 // ---------------------------------------------------------------------------

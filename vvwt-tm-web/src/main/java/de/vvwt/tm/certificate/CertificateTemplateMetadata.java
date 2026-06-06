@@ -13,6 +13,11 @@ import java.util.UUID;
  * and order are preserved verbatim per AC-RECORD-FIELDS-PRESERVED-METADATA and Brief C-3
  * (signature-preservation).
  *
+ * <p>E71S02: two nullable fields {@code photoAspectRatioWidth} and {@code photoAspectRatioHeight}
+ * added. When both are non-null, they define the per-template crop aspect ratio override; when
+ * either is null, the effective ratio falls back to the global default (see {@link
+ * CertificateTemplateService#retrieveEffectiveAspectRatio(UUID)}).
+ *
  * <p>Consumer chain (per audit (i)):
  *
  * <ul>
@@ -29,6 +34,10 @@ import java.util.UUID;
  * @param format detected file format: {@code "html"} or {@code "svg"}
  * @param uploadedAt timestamp when the template was last uploaded / replaced
  * @param fileSizeBytes file size in bytes (as stored on disk)
+ * @param photoAspectRatioWidth width component of the per-template crop aspect ratio override
+ *     (E71S02 AC1); {@code null} = no override, use the global default from {@code tm.photos}
+ * @param photoAspectRatioHeight height component of the per-template crop aspect ratio override
+ *     (E71S02 AC1); {@code null} = no override, use the global default from {@code tm.photos}
  * @see CertificateTemplateService
  * @see E36S04
  */
@@ -37,4 +46,6 @@ public record CertificateTemplateMetadata(
         String filename,
         String format,
         Instant uploadedAt,
-        long fileSizeBytes) {}
+        long fileSizeBytes,
+        Integer photoAspectRatioWidth,
+        Integer photoAspectRatioHeight) {}

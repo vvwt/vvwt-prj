@@ -132,11 +132,13 @@ public class CertificateTemplateController {
     // -------------------------------------------------------------------------
 
     /**
-     * Uploads (or replaces) the certificate template for the given tournament (AC1, AC4).
+     * Uploads (or replaces) the certificate template for the given tournament (AC1, AC4, E71S02).
      *
-     * <p>Accepts {@code multipart/form-data} with a single {@code file} part. The file must have a
-     * {@code .html} or {@code .svg} extension and must not exceed the configured size limit (AC7).
-     * Returns 200 with the template metadata on success.
+     * <p>Accepts {@code multipart/form-data} with a single {@code file} part and optional {@code
+     * photoAspectRatioWidth} / {@code photoAspectRatioHeight} integer parameters for the
+     * per-template crop aspect ratio override (E71S02 AC1). The file must have a {@code .html} or
+     * {@code .svg} extension and must not exceed the configured size limit (AC7). Returns 200 with
+     * the template metadata on success.
      *
      * <p>If a template already exists for the tournament, the previous template is replaced (AC4).
      *
@@ -145,9 +147,14 @@ public class CertificateTemplateController {
      *
      * @param tournamentId the tournament UUID (path variable)
      * @param file the multipart file to upload
+     * @param photoAspectRatioWidth optional width component of the per-template crop ratio
+     *     override; omit or pass null to leave unset (falls back to global default at render time)
+     * @param photoAspectRatioHeight optional height component of the per-template crop ratio
+     *     override
      * @return 200 with {@link CertificateTemplateMetadataResponse} body
      * @throws NoSuchElementException if tournament not found / wrong tenant (→ 404)
-     * @throws de.vvwt.tm.certificate.CertificateTemplateFormatException on invalid format (→ 400)
+     * @throws de.vvwt.tm.certificate.CertificateTemplateFormatException on invalid format or
+     *     invalid ratio (→ 400)
      * @throws de.vvwt.tm.certificate.CertificateTemplateSizeException on file too large (→ 400)
      * @throws IOException on stream read failure
      */
@@ -156,7 +163,11 @@ public class CertificateTemplateController {
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CertificateTemplateMetadataResponse> upload(
             @PathVariable("tournamentId") UUID tournamentId,
-            @RequestParam("file") MultipartFile file)
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "photoAspectRatioWidth", required = false)
+                    Integer photoAspectRatioWidth,
+            @RequestParam(value = "photoAspectRatioHeight", required = false)
+                    Integer photoAspectRatioHeight)
             throws IOException {
 
         try (InputStream inputStream = file.getInputStream()) {
@@ -167,10 +178,45 @@ public class CertificateTemplateController {
                                     ? file.getOriginalFilename()
                                     : "certificate-template",
                             inputStream,
-                            file.getSize());
+                            file.getSize(),
+                            photoAspectRatioWidth,
+                            photoAspectRatioHeight);
             return ResponseEntity.ok(CertificateTemplateMetadataResponse.from(metadata));
         }
     }
+
+    // -------------------------------------------------------------------------
+    // E71S02 AC2 — GET /api/certificate/tournaments/{tournamentId}/effective-ratio
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns the effective crop aspect ratio for team photos for this tournament's certificate
+     * template (E71S02 AC2).
+     *
+     * <p>Returns the per-template override when set, otherwise the global default from {@code
+     * tm.photos}. This endpoint is consumed by {@code TeamPhotos.svelte} to resolve the crop ratio
+     * before uploading a photo for a tournament that has a custom certificate template.
+     *
+     * @param tournamentId the tournament UUID (path variable)
+     * @return 200 with {@link EffectiveAspectRatioResponse}
+     * @throws NoSuchElementException if tournament not found / wrong tenant (→ 404)
+     */
+    @GetMapping("/api/certificate/tournaments/{tournamentId}/effective-ratio")
+    public ResponseEntity<EffectiveAspectRatioResponse> effectiveAspectRatio(
+            @PathVariable("tournamentId") UUID tournamentId) {
+
+        de.vvwt.tm.certificate.AspectRatio ratio =
+                certificateTemplateService.retrieveEffectiveAspectRatio(tournamentId);
+        return ResponseEntity.ok(new EffectiveAspectRatioResponse(ratio.width(), ratio.height()));
+    }
+
+    /**
+     * Response DTO for the effective crop aspect ratio endpoint (E71S02 AC2).
+     *
+     * @param width width component of the effective crop ratio
+     * @param height height component of the effective crop ratio
+     */
+    public record EffectiveAspectRatioResponse(int width, int height) {}
 
     // -------------------------------------------------------------------------
     // AC2 — GET /api/certificate/tournaments/{tournamentId}/template

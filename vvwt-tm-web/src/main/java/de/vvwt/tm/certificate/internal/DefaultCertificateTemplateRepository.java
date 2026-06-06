@@ -45,6 +45,9 @@ import org.springframework.stereotype.Repository;
  * (per-module, E23S06, DEC-25). The root {@code V15__e12s04_certificate_template.sql} remains on
  * disk during the parallel phase; it is deleted at E23S10 Cutover-2.
  *
+ * <p>E71S02: V2 migration adds two nullable columns {@code photo_aspect_ratio_width} and {@code
+ * photo_aspect_ratio_height} for the per-template crop ratio override (AC1).
+ *
  * @see CertificateTemplateRepository
  * @see de.vvwt.tm.certificate.internal.DefaultCertificateTemplateService
  * @see <a
@@ -79,7 +82,8 @@ public class DefaultCertificateTemplateRepository implements CertificateTemplate
     public Optional<CertificateTemplateMetadata> findByTournamentId(UUID tournamentId) {
         String sql =
                 """
-                SELECT tournament_id, filename, format, upload_timestamp, file_size_bytes
+                SELECT tournament_id, filename, format, upload_timestamp, file_size_bytes,
+                       photo_aspect_ratio_width, photo_aspect_ratio_height
                 FROM certificate_template
                 WHERE tournament_id = ?
                 """;
@@ -99,6 +103,9 @@ public class DefaultCertificateTemplateRepository implements CertificateTemplate
      * tournament it is replaced; otherwise a new row is inserted. This satisfies AC4 (uploading a
      * new template replaces the existing one) without a separate EXISTS check.
      *
+     * <p>E71S02: includes the two nullable ratio columns {@code photo_aspect_ratio_width} and
+     * {@code photo_aspect_ratio_height}.
+     *
      * @param metadata the template metadata to persist
      */
     @Override
@@ -106,9 +113,10 @@ public class DefaultCertificateTemplateRepository implements CertificateTemplate
         String sql =
                 """
                 MERGE INTO certificate_template (tournament_id, filename, format,
-                    upload_timestamp, file_size_bytes)
+                    upload_timestamp, file_size_bytes,
+                    photo_aspect_ratio_width, photo_aspect_ratio_height)
                 KEY (tournament_id)
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """;
         jdbcTemplate.update(
                 sql,
@@ -116,7 +124,9 @@ public class DefaultCertificateTemplateRepository implements CertificateTemplate
                 metadata.filename(),
                 metadata.format(),
                 Timestamp.from(metadata.uploadedAt()),
-                metadata.fileSizeBytes());
+                metadata.fileSizeBytes(),
+                metadata.photoAspectRatioWidth(),
+                metadata.photoAspectRatioHeight());
     }
 
     // -------------------------------------------------------------------------
@@ -142,11 +152,19 @@ public class DefaultCertificateTemplateRepository implements CertificateTemplate
     // -------------------------------------------------------------------------
 
     private CertificateTemplateMetadata mapRow(ResultSet rs, int rowNum) throws SQLException {
+        // photo_aspect_ratio_width / _height are nullable — use getObject to avoid int→0 coercion
+        int rawWidth = rs.getInt("photo_aspect_ratio_width");
+        Integer ratioWidth = rs.wasNull() ? null : rawWidth;
+        int rawHeight = rs.getInt("photo_aspect_ratio_height");
+        Integer ratioHeight = rs.wasNull() ? null : rawHeight;
+
         return new CertificateTemplateMetadata(
                 rs.getObject("tournament_id", UUID.class),
                 rs.getString("filename"),
                 rs.getString("format"),
                 rs.getTimestamp("upload_timestamp").toInstant(),
-                rs.getLong("file_size_bytes"));
+                rs.getLong("file_size_bytes"),
+                ratioWidth,
+                ratioHeight);
     }
 }

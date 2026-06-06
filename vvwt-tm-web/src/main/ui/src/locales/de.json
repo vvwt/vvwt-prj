@@ -443,6 +443,13 @@
     "createCertificatesButton": "Urkunden erstellen",
     "standardTemplateDefault": "Es ist keine eigene Vorlage hochgeladen. Für die Urkunden-Erstellung wird automatisch die Standard-Vorlage verwendet.",
     "generationNotAvailable": "Die Urkunden-Erstellung ist verfügbar, sobald das Turnier abgeschlossen ist.",
+    "photoAspectRatioLabel": "Fotoformat (Seitenverhältnis B:H, z.B. 11:5)",
+    "photoAspectRatioPlaceholder": "Leer lassen für Standard",
+    "photoAspectRatioHelp": "Optionales Seitenverhältnis für den Foto-Zuschnitt dieser Vorlage. Leer lassen, um den globalen Standard zu verwenden.",
+    "photoAspectRatioError": "Ungültiges Seitenverhältnis. Bitte zwei positive Zahlen eingeben, z.B. 11 und 5.",
+    "photoAspectRatioWidthLabel": "Breite",
+    "photoAspectRatioHeightLabel": "Höhe",
+    "photoAspectRatioCurrentLabel": "Aktuelles Seitenverhältnis",
     "error": {
       "noTournament": "Kein Turnier ausgewählt."
     }

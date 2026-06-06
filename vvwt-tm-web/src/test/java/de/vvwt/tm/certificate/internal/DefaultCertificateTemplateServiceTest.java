@@ -63,6 +63,7 @@ class DefaultCertificateTemplateServiceTest {
     private CertificateTemplateStorageConfig config;
     private TournamentRepository tournamentRepo;
     private CertificateTemplateRepository templateRepo;
+    private de.vvwt.tm.photo.PhotoStorageConfig photoConfig;
     private DefaultCertificateTemplateService service;
 
     private static final UUID TOURNAMENT_ID = UUID.randomUUID();
@@ -76,13 +77,20 @@ class DefaultCertificateTemplateServiceTest {
         config.setDataDir(tempDir.toString());
         config.setMaxSizeBytes(2L * 1024 * 1024); // 2 MB
 
+        // E71S02: global default crop ratio for effective-ratio fallback
+        photoConfig = new de.vvwt.tm.photo.PhotoStorageConfig();
+        photoConfig.setCropAspectRatioWidth(11);
+        photoConfig.setCropAspectRatioHeight(5);
+
         // TournamentRepository is a public interface in tournament.* — reference via interface per
         // DEC-36 (cross-package mock)
         tournamentRepo = Mockito.mock(TournamentRepository.class);
         // CertificateTemplateRepository is in certificate.* public package — same module access
         templateRepo = Mockito.mock(CertificateTemplateRepository.class);
 
-        service = new DefaultCertificateTemplateService(config, tournamentRepo, templateRepo);
+        service =
+                new DefaultCertificateTemplateService(
+                        config, tournamentRepo, templateRepo, photoConfig);
 
         // Default: tournament exists and belongs to active tenant
         Tournament tournament = Mockito.mock(Tournament.class);
@@ -103,19 +111,22 @@ class DefaultCertificateTemplateServiceTest {
 
         @Test
         @DisplayName(
-                "Record constructor preserves all 5 fields: tournamentId, filename, format,"
-                        + " uploadedAt, fileSizeBytes")
+                "Record constructor preserves all 7 fields: tournamentId, filename, format,"
+                        + " uploadedAt, fileSizeBytes, photoAspectRatioWidth,"
+                        + " photoAspectRatioHeight (E71S02)")
         void metadataRecord_constructorPreservesAllFields() {
             UUID id = UUID.randomUUID();
             Instant now = Instant.now();
             CertificateTemplateMetadata meta =
-                    new CertificateTemplateMetadata(id, "cert.html", "html", now, 42L);
+                    new CertificateTemplateMetadata(id, "cert.html", "html", now, 42L, null, null);
 
             assertThat(meta.tournamentId()).isEqualTo(id);
             assertThat(meta.filename()).isEqualTo("cert.html");
             assertThat(meta.format()).isEqualTo("html");
             assertThat(meta.uploadedAt()).isEqualTo(now);
             assertThat(meta.fileSizeBytes()).isEqualTo(42L);
+            assertThat(meta.photoAspectRatioWidth()).isNull();
+            assertThat(meta.photoAspectRatioHeight()).isNull();
         }
 
         @Test
@@ -124,9 +135,9 @@ class DefaultCertificateTemplateServiceTest {
             UUID id = UUID.randomUUID();
             Instant now = Instant.now();
             CertificateTemplateMetadata a =
-                    new CertificateTemplateMetadata(id, "f.html", "html", now, 10L);
+                    new CertificateTemplateMetadata(id, "f.html", "html", now, 10L, null, null);
             CertificateTemplateMetadata b =
-                    new CertificateTemplateMetadata(id, "f.html", "html", now, 10L);
+                    new CertificateTemplateMetadata(id, "f.html", "html", now, 10L, null, null);
             assertThat(a).isEqualTo(b);
         }
     }
@@ -310,7 +321,13 @@ class DefaultCertificateTemplateServiceTest {
 
         CertificateTemplateMetadata existingMeta =
                 new CertificateTemplateMetadata(
-                        TOURNAMENT_ID, "old.html", "html", Instant.now(), SAMPLE_HTML.length);
+                        TOURNAMENT_ID,
+                        "old.html",
+                        "html",
+                        Instant.now(),
+                        SAMPLE_HTML.length,
+                        null,
+                        null);
         when(templateRepo.findByTournamentId(TOURNAMENT_ID)).thenReturn(Optional.of(existingMeta));
 
         service.upload(
@@ -458,7 +475,13 @@ class DefaultCertificateTemplateServiceTest {
 
         CertificateTemplateMetadata meta =
                 new CertificateTemplateMetadata(
-                        TOURNAMENT_ID, "cert.html", "html", Instant.now(), SAMPLE_HTML.length);
+                        TOURNAMENT_ID,
+                        "cert.html",
+                        "html",
+                        Instant.now(),
+                        SAMPLE_HTML.length,
+                        null,
+                        null);
         when(templateRepo.findByTournamentId(TOURNAMENT_ID)).thenReturn(Optional.of(meta));
 
         Optional<CertificateTemplateService.TemplateFile> result =
@@ -478,7 +501,13 @@ class DefaultCertificateTemplateServiceTest {
 
         CertificateTemplateMetadata meta =
                 new CertificateTemplateMetadata(
-                        TOURNAMENT_ID, "cert.svg", "svg", Instant.now(), SAMPLE_SVG.length);
+                        TOURNAMENT_ID,
+                        "cert.svg",
+                        "svg",
+                        Instant.now(),
+                        SAMPLE_SVG.length,
+                        null,
+                        null);
         when(templateRepo.findByTournamentId(TOURNAMENT_ID)).thenReturn(Optional.of(meta));
 
         Optional<CertificateTemplateService.TemplateFile> result =
@@ -510,7 +539,7 @@ class DefaultCertificateTemplateServiceTest {
     void retrieveMetadata_returnsMetadataFromRepository() {
         CertificateTemplateMetadata expectedMeta =
                 new CertificateTemplateMetadata(
-                        TOURNAMENT_ID, "cert.html", "html", Instant.now(), 42L);
+                        TOURNAMENT_ID, "cert.html", "html", Instant.now(), 42L, null, null);
         when(templateRepo.findByTournamentId(TOURNAMENT_ID)).thenReturn(Optional.of(expectedMeta));
 
         Optional<CertificateTemplateMetadata> result = service.retrieveMetadata(TOURNAMENT_ID);
@@ -544,7 +573,13 @@ class DefaultCertificateTemplateServiceTest {
 
         CertificateTemplateMetadata meta =
                 new CertificateTemplateMetadata(
-                        TOURNAMENT_ID, "cert.html", "html", Instant.now(), SAMPLE_HTML.length);
+                        TOURNAMENT_ID,
+                        "cert.html",
+                        "html",
+                        Instant.now(),
+                        SAMPLE_HTML.length,
+                        null,
+                        null);
         when(templateRepo.findByTournamentId(TOURNAMENT_ID)).thenReturn(Optional.of(meta));
         when(templateRepo.deleteByTournamentId(TOURNAMENT_ID)).thenReturn(true);
 
@@ -663,5 +698,167 @@ class DefaultCertificateTemplateServiceTest {
 
         assertThatThrownBy(() -> service.delete(unknownId))
                 .isInstanceOf(NoSuchElementException.class);
+    }
+
+    // =========================================================================
+    // E71S02 — Effective aspect ratio resolution (AC2, AC3, AC5)
+    // =========================================================================
+
+    @Nested
+    @DisplayName("E71S02 — retrieveEffectiveAspectRatio")
+    class EffectiveAspectRatioTests {
+
+        @Test
+        @DisplayName("AC2: returns per-template override when override is set")
+        void retrieveEffectiveAspectRatio_returnsOverride_whenOverrideSet() {
+            CertificateTemplateMetadata metaWithRatio =
+                    new CertificateTemplateMetadata(
+                            TOURNAMENT_ID, "t.html", "html", java.time.Instant.now(), 512L, 4, 3);
+            when(templateRepo.findByTournamentId(TOURNAMENT_ID))
+                    .thenReturn(Optional.of(metaWithRatio));
+
+            de.vvwt.tm.certificate.AspectRatio result =
+                    service.retrieveEffectiveAspectRatio(TOURNAMENT_ID);
+
+            assertThat(result.width()).isEqualTo(4);
+            assertThat(result.height()).isEqualTo(3);
+        }
+
+        @Test
+        @DisplayName("AC2: returns global default when no override is set on template")
+        void retrieveEffectiveAspectRatio_returnsGlobalDefault_whenNoOverride() {
+            CertificateTemplateMetadata metaNoRatio =
+                    new CertificateTemplateMetadata(
+                            TOURNAMENT_ID,
+                            "t.html",
+                            "html",
+                            java.time.Instant.now(),
+                            512L,
+                            null,
+                            null);
+            when(templateRepo.findByTournamentId(TOURNAMENT_ID))
+                    .thenReturn(Optional.of(metaNoRatio));
+
+            de.vvwt.tm.certificate.AspectRatio result =
+                    service.retrieveEffectiveAspectRatio(TOURNAMENT_ID);
+
+            // Global default from config = 11:5
+            assertThat(result.width()).isEqualTo(11);
+            assertThat(result.height()).isEqualTo(5);
+        }
+
+        @Test
+        @DisplayName("AC2: returns global default when no template exists")
+        void retrieveEffectiveAspectRatio_returnsGlobalDefault_whenNoTemplate() {
+            when(templateRepo.findByTournamentId(TOURNAMENT_ID)).thenReturn(Optional.empty());
+
+            de.vvwt.tm.certificate.AspectRatio result =
+                    service.retrieveEffectiveAspectRatio(TOURNAMENT_ID);
+
+            assertThat(result.width()).isEqualTo(11);
+            assertThat(result.height()).isEqualTo(5);
+        }
+    }
+
+    // =========================================================================
+    // E71S02 — Upload with ratio override (AC1, AC3)
+    // =========================================================================
+
+    @Nested
+    @DisplayName("E71S02 — Upload with ratio override")
+    class UploadWithRatioTests {
+
+        @Test
+        @DisplayName("AC1: upload with valid ratio override persists ratio in metadata")
+        void upload_withValidRatioOverride_persistsRatioInMetadata(@TempDir java.nio.file.Path dir)
+                throws Exception {
+            config.setDataDir(dir.toString());
+            service =
+                    new DefaultCertificateTemplateService(
+                            config,
+                            tournamentRepo,
+                            templateRepo,
+                            photoStorageConfigWithDefaults(11, 5));
+            byte[] html = "<html><body>cert</body></html>".getBytes();
+            java.io.ByteArrayInputStream stream = new java.io.ByteArrayInputStream(html);
+
+            CertificateTemplateMetadata result =
+                    service.upload(TOURNAMENT_ID, "cert.html", stream, html.length, 4, 3);
+
+            assertThat(result.photoAspectRatioWidth()).isEqualTo(4);
+            assertThat(result.photoAspectRatioHeight()).isEqualTo(3);
+        }
+
+        @Test
+        @DisplayName(
+                "AC3: upload with ratio 0:0 (zero height) throws"
+                        + " CertificateTemplateFormatException")
+        void upload_withZeroRatio_throwsFormatException(@TempDir java.nio.file.Path dir) {
+            config.setDataDir(dir.toString());
+            service =
+                    new DefaultCertificateTemplateService(
+                            config,
+                            tournamentRepo,
+                            templateRepo,
+                            photoStorageConfigWithDefaults(11, 5));
+            byte[] html = "<html/>".getBytes();
+            java.io.ByteArrayInputStream stream = new java.io.ByteArrayInputStream(html);
+
+            assertThatThrownBy(
+                            () ->
+                                    service.upload(
+                                            TOURNAMENT_ID, "cert.html", stream, html.length, 0, 0))
+                    .isInstanceOf(CertificateTemplateFormatException.class);
+        }
+
+        @Test
+        @DisplayName(
+                "AC3: upload with negative ratio width throws CertificateTemplateFormatException")
+        void upload_withNegativeRatioWidth_throwsFormatException(@TempDir java.nio.file.Path dir) {
+            config.setDataDir(dir.toString());
+            service =
+                    new DefaultCertificateTemplateService(
+                            config,
+                            tournamentRepo,
+                            templateRepo,
+                            photoStorageConfigWithDefaults(11, 5));
+            byte[] html = "<html/>".getBytes();
+            java.io.ByteArrayInputStream stream = new java.io.ByteArrayInputStream(html);
+
+            assertThatThrownBy(
+                            () ->
+                                    service.upload(
+                                            TOURNAMENT_ID, "cert.html", stream, html.length, -1, 5))
+                    .isInstanceOf(CertificateTemplateFormatException.class);
+        }
+
+        @Test
+        @DisplayName("AC1: upload with null ratio persists no override (null in metadata)")
+        void upload_withNullRatio_persistsNullRatio(@TempDir java.nio.file.Path dir)
+                throws Exception {
+            config.setDataDir(dir.toString());
+            service =
+                    new DefaultCertificateTemplateService(
+                            config,
+                            tournamentRepo,
+                            templateRepo,
+                            photoStorageConfigWithDefaults(11, 5));
+            byte[] html = "<html><body>cert</body></html>".getBytes();
+            java.io.ByteArrayInputStream stream = new java.io.ByteArrayInputStream(html);
+
+            CertificateTemplateMetadata result =
+                    service.upload(TOURNAMENT_ID, "cert.html", stream, html.length, null, null);
+
+            assertThat(result.photoAspectRatioWidth()).isNull();
+            assertThat(result.photoAspectRatioHeight()).isNull();
+        }
+
+        private de.vvwt.tm.photo.PhotoStorageConfig photoStorageConfigWithDefaults(
+                int width, int height) {
+            de.vvwt.tm.photo.PhotoStorageConfig cfg = new de.vvwt.tm.photo.PhotoStorageConfig();
+            cfg.setCropAspectRatioWidth(width);
+            cfg.setCropAspectRatioHeight(height);
+            return cfg;
+        }
     }
 }

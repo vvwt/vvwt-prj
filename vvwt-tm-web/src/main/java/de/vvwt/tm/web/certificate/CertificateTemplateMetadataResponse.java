@@ -14,7 +14,10 @@ import java.util.UUID;
  *
  * <p>Field names, types, and order are preserved verbatim per AC-C3-SIGNATURE-PRESERVATION (Brief
  * C-3 — DTO JSON wire contract must match legacy). Wire contract: Jackson serializes all five
- * fields to/from JSON using their Java names.
+ * original fields to/from JSON using their Java names.
+ *
+ * <p>E71S02: two nullable fields {@code photoAspectRatioWidth} and {@code photoAspectRatioHeight}
+ * added. Both are null when no per-template override is set.
  *
  * <p>DEC-40 Clause B(a) — field-omission justification: this DTO is a web-internal type (not the
  * {@link de.vvwt.tm.certificate.CertificateTemplateMetadata} domain record directly) because the
@@ -33,12 +36,22 @@ import java.util.UUID;
  * @param format detected file format: {@code "html"} or {@code "svg"}
  * @param uploadedAt timestamp of last upload
  * @param fileSizeBytes file size in bytes
+ * @param photoAspectRatioWidth width component of the per-template crop ratio override (E71S02);
+ *     null when no override is set
+ * @param photoAspectRatioHeight height component of the per-template crop ratio override (E71S02);
+ *     null when no override is set
  * @see CertificateTemplateController
  * @see DEC-40
  * @see E36S06
  */
 public record CertificateTemplateMetadataResponse(
-        UUID tournamentId, String filename, String format, Instant uploadedAt, long fileSizeBytes) {
+        UUID tournamentId,
+        String filename,
+        String format,
+        Instant uploadedAt,
+        long fileSizeBytes,
+        Integer photoAspectRatioWidth,
+        Integer photoAspectRatioHeight) {
 
     /**
      * Factory method: maps domain metadata to a response DTO.
@@ -52,6 +65,8 @@ public record CertificateTemplateMetadataResponse(
                 metadata.filename(),
                 metadata.format(),
                 metadata.uploadedAt(),
-                metadata.fileSizeBytes());
+                metadata.fileSizeBytes(),
+                metadata.photoAspectRatioWidth(),
+                metadata.photoAspectRatioHeight());
     }
 }
