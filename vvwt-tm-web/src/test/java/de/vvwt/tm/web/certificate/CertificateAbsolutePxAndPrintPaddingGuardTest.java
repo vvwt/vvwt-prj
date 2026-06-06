@@ -19,17 +19,17 @@ import org.junit.jupiter.api.Test;
  * <ul>
  *   <li>(a) All absolute-pixel declarations on layout-affecting screen-media selectors are
  *       converted to {@code cqw} equivalents (AC2 part a).
- *   <li>(b) The {@code @media print} {@code .page} {@code padding} mm values are within ±0.05 mm
- *       of the proportional-mirror targets {@code 10.504mm 20.79mm 8.405mm} (AC2 part b).
+ *   <li>(b) The {@code @media print} {@code .page} {@code padding} mm values are within ±0.05 mm of
+ *       the proportional-mirror targets {@code 10.504mm 20.79mm 8.405mm} (AC2 part b).
  *   <li>(c) The existing E12S12 {@link CertificateContainerQueryUnitGuardTest} assertions still
  *       PASS (implicitly verified by the E12S12 test suite — this test confirms only that the
  *       E12S12 structural contract is not broken by E12S13's changes, via the AC2(c) pass-through
  *       listed assertions on properties NOT touched by E12S13).
  * </ul>
  *
- * <p>This test was committed RED (against the pre-E12S13 template at commit {@code 68f7eec6}).
- * At that baseline the screen-media rules still carry absolute-px literals on the listed selectors
- * and the {@code @media print} {@code .page} {@code padding} is {@code 12mm 18mm 10mm}. Therefore
+ * <p>This test was committed RED (against the pre-E12S13 template at commit {@code 68f7eec6}). At
+ * that baseline the screen-media rules still carry absolute-px literals on the listed selectors and
+ * the {@code @media print} {@code .page} {@code padding} is {@code 12mm 18mm 10mm}. Therefore
  * assertions (a) and (b) FAIL RED; assertion (c) is GREEN because E12S12 already ships
  * container-query {@code .page} screen-media padding.
  *
@@ -46,8 +46,7 @@ import org.junit.jupiter.api.Test;
  * @see <a href="DEC-75">DEC-75 §D6 — SPDX AGPL-3.0-or-later header</a>
  * @since E12S13
  */
-@DisplayName(
-        "E12S13 AC2 — absolute-px→cqw guard + print-padding proportional-mirror guard")
+@DisplayName("E12S13 AC2 — absolute-px→cqw guard + print-padding proportional-mirror guard")
 class CertificateAbsolutePxAndPrintPaddingGuardTest {
 
     private static final String TEMPLATE_CLASSPATH =
@@ -58,6 +57,7 @@ class CertificateAbsolutePxAndPrintPaddingGuardTest {
      * screen-media {@code .page} {@code padding: 3.537cqw 7cqw 2.830cqw} fractions.
      */
     private static final double PRINT_PADDING_TOP_TARGET_MM = 10.504; // 3.537% × 297
+
     private static final double PRINT_PADDING_SIDE_TARGET_MM = 20.79; // 7.000% × 297
     private static final double PRINT_PADDING_BOTTOM_TARGET_MM = 8.405; // 2.830% × 297
     private static final double PRINT_PADDING_TOLERANCE_MM = 0.051; // ±0.05 mm, exclusive
@@ -127,12 +127,9 @@ class CertificateAbsolutePxAndPrintPaddingGuardTest {
      */
     private static void assertNoPxOnProperty(
             String ruleBody, String propertyName, String selectorDesc) {
-        assertThat(ruleBody)
-                .as("Rule body for %s must be non-null", selectorDesc)
-                .isNotNull();
+        assertThat(ruleBody).as("Rule body for %s must be non-null", selectorDesc).isNotNull();
         // Extract the value for the target property
-        Pattern propPat =
-                Pattern.compile(Pattern.quote(propertyName) + "\\s*:([^;]+);");
+        Pattern propPat = Pattern.compile(Pattern.quote(propertyName) + "\\s*:([^;]+);");
         Matcher m = propPat.matcher(ruleBody);
         assertThat(m.find())
                 .as(
@@ -379,8 +376,7 @@ class CertificateAbsolutePxAndPrintPaddingGuardTest {
 
         // Extract the padding shorthand: "padding: <top>mm <side>mm <bottom>mm"
         Pattern paddingPat =
-                Pattern.compile(
-                        "padding\\s*:\\s*([\\d.]+)mm\\s+([\\d.]+)mm\\s+([\\d.]+)mm");
+                Pattern.compile("padding\\s*:\\s*([\\d.]+)mm\\s+([\\d.]+)mm\\s+([\\d.]+)mm");
         Matcher m = paddingPat.matcher(pageRule);
         assertThat(m.find())
                 .as(
