@@ -138,6 +138,20 @@
     "cropCancelButton": "Cancel",
     "cropSavingButton": "Saving…",
     "cropLoadError": "Could not load configuration.",
-    "cropTooSmall": "The image is smaller than the target area. The crop will be limited to available pixels."
+    "cropTooSmall": "The image is smaller than the target area. The crop will be limited to available pixels.",
+    "bestShot": {
+      "title": "Select Best Photo",
+      "instruction": "Automatically pre-selected — please review and adjust if needed.",
+      "confirm": "Continue with this photo",
+      "cancel": "Cancel",
+      "scoring": "Analysing photos…",
+      "modelLoading": "Loading analysis tool…",
+      "scoringError": "Automatic analysis not available. Please select manually.",
+      "noFace": "No face detected",
+      "bestLabel": "Suggestion",
+      "candidateLabel": "Candidate {n}",
+      "selectedLabel": "Selected: Candidate {n}",
+      "candidateAlt": "Candidate photo {n}"
+    }
   }
 }

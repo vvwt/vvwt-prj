@@ -411,7 +411,21 @@
     "cropCancelButton": "Abbrechen",
     "cropSavingButton": "Wird gespeichert…",
     "cropLoadError": "Konfiguration konnte nicht geladen werden.",
-    "cropTooSmall": "Das Bild ist kleiner als der Zielbereich. Der Zuschnitt wird auf die verfügbaren Pixel begrenzt."
+    "cropTooSmall": "Das Bild ist kleiner als der Zielbereich. Der Zuschnitt wird auf die verfügbaren Pixel begrenzt.",
+    "bestShot": {
+      "title": "Bestes Foto auswählen",
+      "instruction": "Automatisch ausgewählt: bitte prüfen und ggf. anpassen.",
+      "confirm": "Weiter mit diesem Foto",
+      "cancel": "Abbrechen",
+      "scoring": "Fotos werden bewertet…",
+      "modelLoading": "Analysewerkzeug wird geladen…",
+      "scoringError": "Automatische Bewertung nicht verfügbar. Bitte manuell auswählen.",
+      "noFace": "Kein Gesicht erkannt",
+      "bestLabel": "Vorschlag",
+      "candidateLabel": "Kandidat {n}",
+      "selectedLabel": "Ausgewählt: Kandidat {n}",
+      "candidateAlt": "Kandidatenfoto {n}"
+    }
   },
   "certificateTemplate": {
     "title": "Urkunden-Vorlage",

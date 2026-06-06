@@ -4,13 +4,15 @@
 -->
 <script lang="ts">
   /**
-   * Team photo management view — Story E12S03, extended by E71S01.
+   * Team photo management view — Story E12S03, extended by E71S01, E71S03.
    *
    * AC1 (photo overview): Team list with per-row photo status indicator.
    *         Teams with a photo show a thumbnail; teams without show a placeholder.
    * AC2 (missing count): Summary line shows "X von Y Mannschaften haben ein Foto".
-   * AC3 (upload): Each team row has an upload button. File selection opens the crop step
-   *         (E71S01). After crop confirmation the cropped Blob is uploaded.
+   * AC3 (upload): Each team row has an upload button. File selection:
+   *         - Single file → PhotoCropper (E71S01 crop step, unchanged).
+   *         - Multiple files (≥2) → BestShotPicker (E71S03) for suggestion + manual override,
+   *           then the confirmed candidate enters the PhotoCropper step.
    * AC4 (preview): Clicking a thumbnail opens an inline larger preview.
    * AC5 (replace): Uploading for a team with an existing photo replaces it.
    *         Cache-busted URL ensures the new image is shown.
@@ -25,6 +27,12 @@
    *   - Crop step after file selection using PhotoCropper component.
    *   - cropAspectRatioWidth / cropAspectRatioHeight / cropMaxLongEdge loaded from
    *     GET /api/settings (SettingsController) at mount time (AC3 server-configurable).
+   *
+   * E71S03 additions:
+   *   - Multi-candidate selection (3–7 files) via `multiple` attribute on file inputs.
+   *   - BestShotPicker component shown when ≥2 files selected; provides offline
+   *     MediaPipe scoring + pre-selection with mandatory manual override.
+   *   - Single-file path (PhotoCropper directly) is preserved unchanged.
    *
    * Props:
    *   params.tournamentId — the tournament UUID from the route (#/tournaments/:tournamentId/photos)
@@ -46,6 +54,7 @@
   } from '../stores/photoStore.js';
   import { getSettings } from '../stores/settingsStore.js';
   import PhotoCropper from '../lib/PhotoCropper.svelte';
+  import BestShotPicker from '../lib/BestShotPicker.svelte';
 
   // ── Props ────────────────────────────────────────────────────────────────
   interface Props {
@@ -92,6 +101,16 @@
    */
   let croppingTeam = $state<Team | null>(null);
   let croppingFile = $state<File | null>(null);
+
+  // ── Best-shot picker state (E71S03) ──────────────────────────────────────
+
+  /**
+   * When set, the multi-candidate picker is active for this team.
+   * Shows BestShotPicker with all selected candidate files.
+   * Cleared when the operator confirms a candidate (→ crop step) or cancels.
+   */
+  let bestShotTeam = $state<Team | null>(null);
+  let bestShotCandidates = $state<File[]>([]);
 
   /** Crop config loaded from GET /api/settings (AC3). */
   let cropAspectRatioWidth = $state(11);
@@ -189,23 +208,56 @@
 
   function handleFileSelected(team: Team, event: Event): void {
     const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
+    const files = input.files;
+    if (!files || files.length === 0) return;
 
-    // AC7: client-side format validation (defence in depth — server validates too)
-    const lowerName = file.name.toLowerCase();
-    if (!lowerName.endsWith('.jpg') && !lowerName.endsWith('.jpeg') && !lowerName.endsWith('.png')) {
-      setError(team.id, $_('photos.uploadFormatError'));
-      return;
+    // AC7: client-side format validation for all selected files (defence in depth).
+    for (let i = 0; i < files.length; i++) {
+      const lowerName = files[i].name.toLowerCase();
+      if (!lowerName.endsWith('.jpg') && !lowerName.endsWith('.jpeg') && !lowerName.endsWith('.png')) {
+        setError(team.id, $_('photos.uploadFormatError'));
+        return;
+      }
     }
 
     clearError(team.id);
 
-    // E71S01: open crop step instead of uploading immediately.
-    croppingTeam = team;
-    croppingFile = file;
     // Close preview if open for this team.
     if (previewTeamId === team.id) previewTeamId = null;
+
+    if (files.length >= 2) {
+      // E71S03: open best-shot picker for multi-candidate selection (AC1, AC2).
+      bestShotTeam = team;
+      bestShotCandidates = Array.from(files);
+    } else {
+      // E71S01: single file → open crop step directly.
+      croppingTeam = team;
+      croppingFile = files[0];
+    }
+  }
+
+  /**
+   * Called by BestShotPicker when the operator confirms a candidate (E71S03 AC3).
+   * The confirmed file flows into the E71S01 crop step.
+   */
+  function handleBestShotConfirm(file: File): void {
+    const team = bestShotTeam;
+    bestShotTeam = null;
+    bestShotCandidates = [];
+
+    if (!team) return;
+
+    // Hand off to crop step (AC3: exactly the confirmed candidate enters the crop+save flow).
+    croppingTeam = team;
+    croppingFile = file;
+  }
+
+  /**
+   * Called by BestShotPicker when the operator cancels without selecting.
+   */
+  function handleBestShotCancel(): void {
+    bestShotTeam = null;
+    bestShotCandidates = [];
   }
 
   /**
@@ -300,6 +352,19 @@
       {$_('photos.summary', { values: { withPhoto: teamsWithPhoto, total: totalTeams } })}
     </p>
 
+    <!-- E71S03: Best-shot picker modal (shown when bestShotTeam is set) -->
+    {#if bestShotTeam && bestShotCandidates.length >= 2}
+      <div class="team-photos__crop-overlay" role="dialog" aria-modal="true">
+        <div class="team-photos__crop-modal">
+          <BestShotPicker
+            candidates={bestShotCandidates}
+            onConfirm={handleBestShotConfirm}
+            onCancel={handleBestShotCancel}
+          />
+        </div>
+      </div>
+    {/if}
+
     <!-- E71S01: Crop step modal (shown when croppingTeam is set) -->
     {#if croppingTeam && croppingFile}
       <div class="team-photos__crop-overlay" role="dialog" aria-modal="true">
@@ -360,11 +425,12 @@
 
             <!-- Actions -->
             <div class="photo-row__actions">
-              <!-- Hidden file input (AC3: .jpg/.jpeg/.png filter) -->
+              <!-- Hidden file input (AC3: .jpg/.jpeg/.png filter; E71S03: multiple for candidates) -->
               <input
                 id="file-input-{team.id}"
                 type="file"
                 accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                multiple
                 class="photo-row__file-input"
                 onchange={(e) => handleFileSelected(team, e)}
               />

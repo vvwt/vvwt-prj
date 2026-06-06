@@ -694,6 +694,9 @@
                                         <exclude>**/*.config.ts</exclude>
                                         <exclude>**/*.config.js</exclude>
                                         <exclude>**/handoff/**</exclude>
+                                        <!-- E71S03: MediaPipe WASM JS glue files are third-party (Apache-2.0),
+                                             not first-party source — excluded from SPDX header enforcement (DEC-76 D3). -->
+                                        <exclude>**/public/mediapipe-wasm/**</exclude>
                                     </excludes>
                                 </format>
                             </formats>
