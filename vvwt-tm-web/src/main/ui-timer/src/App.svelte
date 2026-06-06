@@ -79,6 +79,7 @@
     buildSnapshot,
     getAudioEventOnActivate,
     getAudioEventOnDeactivate,
+    resolveEffectiveEndTime,
     nowSeconds,
     type TransportState,
     type CountdownSnapshot,
@@ -125,6 +126,13 @@
    * Replaces the -2 sentinel on lastFiredActiveIndex which caused spurious audio on first tick.
    */
   let audioEngineJustStarted = $state<boolean>(false);
+  /**
+   * E11S18 AC5: one-shot guard for the last ROUND's END sound.
+   * Set true once the last-round END fires (activeEventIndex === -1, playingIndex on ROUND,
+   * endTime elapsed). Prevents the END from re-firing on subsequent ticks (AC5).
+   * Reset to false on PLAY, STOP, and WS-driven reload (same sites as lastFiredActiveIndex).
+   */
+  let lastRoundEndFired = $state<boolean>(false);
 
   // ── E11S05: WebSocket client + status ─────────────────────────────────────
   /** 'connected' | 'disconnected' — drives the disconnect banner (AC4/E11S05). */
@@ -282,6 +290,7 @@
       transportState = 'PLAYING';
       lastFiredActiveIndex = -1;
       lastPlayingIndex = -1;
+      lastRoundEndFired = false;
       audioEngineJustStarted = true;
       startTick();
     }
@@ -413,8 +422,12 @@
       // next onTick re-synchronises the indices without firing audio for already-played events.
       // Applies to all WS-driven callers: handleWsLapAdvanced, handleWsPhaseChanged,
       // handleWsReconnected — each inherits the invariant via this common await call.
+      // E11S18 AC7: reset lastRoundEndFired so a WS reload near tournament end does not
+      // permanently suppress the last-round END (the init-suppress on the next tick prevents
+      // an immediate re-fire; the END fires correctly when endTime is reached again).
       lastFiredActiveIndex = -1;
       lastPlayingIndex = -1;
+      lastRoundEndFired = false;
       audioEngineJustStarted = true;
       audioEngine.preload(data.audio.startUrl, data.audio.endUrl, data.audio.pauseUrl);
       refreshSnapshot();
@@ -508,6 +521,25 @@
     if (playingIndex !== lastPlayingIndex) {
       lastPlayingIndex = playingIndex;
     }
+
+    // E11S18 AC1: Last-round END sound — fired when the schedule is complete
+    // (activeEventIndex === -1) and the playing entry is a ROUND whose endTime has elapsed.
+    // The existing fire block above never fires in this state because its
+    // `&& activeEventIndex !== -1` guard is false once there is no successor entry.
+    // Guard: lastRoundEndFired prevents re-fire on subsequent ticks (AC5).
+    // Guard: transportState === 'PLAYING' is checked at onTick() entry.
+    // Guard: audioEngineJustStarted suppress window handled by early-return above.
+    if (activeEventIndex === -1 && !lastRoundEndFired && playingIndex >= 0) {
+      const playingEntry = effectiveSchedule()[playingIndex];
+      if (playingEntry && playingEntry.type === 'ROUND') {
+        const endTimeSecs = resolveEffectiveEndTime(playingEntry, clockOffsetSeconds);
+        const currentNowSecs = nowSeconds(clockOffsetSeconds);
+        if (endTimeSecs !== null && currentNowSecs >= endTimeSecs) {
+          audioEngine.play('END');
+          lastRoundEndFired = true;
+        }
+      }
+    }
   }
 
   function startTick(): void {
@@ -532,6 +564,7 @@
     transportState = 'PLAYING';
     lastFiredActiveIndex = -1; // reset — first tick will sync via audioEngineJustStarted
     lastPlayingIndex = -1;
+    lastRoundEndFired = false; // E11S18: allow last-round END to fire on re-play
     audioEngineJustStarted = true; // E11S10 AC13: suppress audio on first tick after start
     refreshSnapshot();
     startTick();
@@ -557,6 +590,7 @@
     audioEngine.stopAll();
     lastFiredActiveIndex = -1;
     lastPlayingIndex = -1;
+    lastRoundEndFired = false; // E11S18: reset one-shot guard on STOP
     audioEngineJustStarted = false;
     refreshSnapshot();
   }
