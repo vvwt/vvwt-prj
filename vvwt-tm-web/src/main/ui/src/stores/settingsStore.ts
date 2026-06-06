@@ -10,13 +10,34 @@ import { apiFetch } from '../lib/api.js';
 export interface SettingsResponse {
     /** Tenant display name — used to pre-fill the organizer field on the tournament create form (E68S01 AC1). */
     organizerDefault: string;
+
+    /**
+     * Width component of the global crop aspect ratio (E71S01 AC3).
+     * Together with cropAspectRatioHeight defines the W:H ratio locked in the crop step.
+     * Default: 11 (ratio 11:5). Server-configured, ENV-overridable.
+     */
+    cropAspectRatioWidth: number;
+
+    /**
+     * Height component of the global crop aspect ratio (E71S01 AC3).
+     * Together with cropAspectRatioWidth defines the W:H ratio locked in the crop step.
+     * Default: 5 (ratio 11:5). Server-configured, ENV-overridable.
+     */
+    cropAspectRatioHeight: number;
+
+    /**
+     * Maximum long-edge pixel length after downscale (E71S01 AC3).
+     * Images already smaller are not upscaled.
+     * Default: 2200. Server-configured, ENV-overridable.
+     */
+    cropMaxLongEdge: number;
 }
 
 /**
- * Fetches tenant settings from GET /api/settings (E68S01).
+ * Fetches tenant settings from GET /api/settings (E68S01, E71S01).
  *
- * Used by TournamentForm.svelte to pre-fill the organizer field on the create form with the
- * organization's current display name.
+ * Used by TournamentForm.svelte to pre-fill the organizer field on the create form, and by
+ * TeamPhotos.svelte to load the crop aspect ratio and max long edge for the photo crop step.
  *
  * @throws Error if the request fails
  */

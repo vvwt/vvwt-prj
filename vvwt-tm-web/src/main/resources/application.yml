@@ -124,6 +124,14 @@ tm:
   photos:
     data-dir: ${TM_PHOTOS_DATA_DIR:${tm.data.dir}/photos}
     max-size-bytes: ${TM_PHOTOS_MAX_FILE_SIZE:26214400}
+    # E71S01 AC3 — Crop configuration.
+    # The in-browser crop step locks the crop rectangle to this aspect ratio (W:H).
+    # Default: 11:5. Override via TM_PHOTOS_CROP_ASPECT_RATIO_WIDTH / TM_PHOTOS_CROP_ASPECT_RATIO_HEIGHT.
+    crop-aspect-ratio-width: ${TM_PHOTOS_CROP_ASPECT_RATIO_WIDTH:11}
+    crop-aspect-ratio-height: ${TM_PHOTOS_CROP_ASPECT_RATIO_HEIGHT:5}
+    # Maximum long-edge pixel length after downscale. Images smaller than this are not upscaled.
+    # Default: 2200 px (~214 dpi at near-full A4-landscape). Override via TM_PHOTOS_CROP_MAX_LONG_EDGE.
+    crop-max-long-edge: ${TM_PHOTOS_CROP_MAX_LONG_EDGE:2200}
   # ---------------------------------------------------------------------------
   # Certificate template storage (E12S04)
   # DEC-15: files stored outside the jlink archive in a user-writable data directory.

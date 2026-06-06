@@ -53,11 +53,13 @@ export function getPhotoUrl(tournamentId: string, teamId: string, bust?: number)
  * Uploads (or replaces) the photo for a team in a tournament (AC3, AC5).
  *
  * Uses XMLHttpRequest to expose upload progress to the caller via the optional
- * `onProgress` callback.
+ * `onProgress` callback. Accepts a File or a Blob (E71S01: the cropped Blob from
+ * PhotoCropper is passed here; original File upload path is unchanged — reuse-search NEAR-HIT).
  *
  * @param tournamentId  UUID of the tournament
  * @param teamId        UUID of the team
- * @param file          The File object from the file picker (.jpg, .jpeg, or .png)
+ * @param blob          The File or cropped Blob to upload
+ * @param filename      Filename to send to the server (used for format validation)
  * @param onProgress    Optional callback receiving progress percentage 0–100
  * @returns             PhotoMetadata returned by the server on success (200)
  * @throws              Error with user-friendly message on failure
@@ -65,12 +67,13 @@ export function getPhotoUrl(tournamentId: string, teamId: string, bust?: number)
 export function uploadPhoto(
     tournamentId: string,
     teamId: string,
-    file: File,
+    blob: File | Blob,
+    filename: string,
     onProgress?: (percent: number) => void,
 ): Promise<PhotoMetadata> {
     return new Promise((resolve, reject) => {
         const formData = new FormData();
-        formData.append('file', file, file.name);
+        formData.append('file', blob, filename);
 
         const xhr = new XMLHttpRequest();
         xhr.withCredentials = true;   // same-origin basic-auth
