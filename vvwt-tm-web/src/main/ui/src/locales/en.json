@@ -130,5 +130,14 @@
     "confirmBody": "Please review the values before submitting:",
     "confirmSubmitButton": "Submit now",
     "confirmCancelButton": "Cancel"
+  },
+  "photos": {
+    "cropTitle": "Crop Photo",
+    "cropInstruction": "Select and adjust the crop area. The aspect ratio is locked.",
+    "cropSaveButton": "Apply Crop",
+    "cropCancelButton": "Cancel",
+    "cropSavingButton": "Saving…",
+    "cropLoadError": "Could not load configuration.",
+    "cropTooSmall": "The image is smaller than the target area. The crop will be limited to available pixels."
   }
 }

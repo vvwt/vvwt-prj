@@ -404,7 +404,14 @@
     "deleteError": "Fehler beim Löschen.",
     "error": {
       "noTournament": "Kein Turnier ausgewählt."
-    }
+    },
+    "cropTitle": "Zuschnitt",
+    "cropInstruction": "Bereich auswählen und anpassen. Das Seitenverhältnis ist festgelegt.",
+    "cropSaveButton": "Zuschnitt übernehmen",
+    "cropCancelButton": "Abbrechen",
+    "cropSavingButton": "Wird gespeichert…",
+    "cropLoadError": "Konfiguration konnte nicht geladen werden.",
+    "cropTooSmall": "Das Bild ist kleiner als der Zielbereich. Der Zuschnitt wird auf die verfügbaren Pixel begrenzt."
   },
   "certificateTemplate": {
     "title": "Urkunden-Vorlage",

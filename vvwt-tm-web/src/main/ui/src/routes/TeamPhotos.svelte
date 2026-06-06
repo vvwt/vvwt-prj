@@ -4,13 +4,13 @@
 -->
 <script lang="ts">
   /**
-   * Team photo management view — Story E12S03.
+   * Team photo management view — Story E12S03, extended by E71S01.
    *
    * AC1 (photo overview): Team list with per-row photo status indicator.
    *         Teams with a photo show a thumbnail; teams without show a placeholder.
    * AC2 (missing count): Summary line shows "X von Y Mannschaften haben ein Foto".
-   * AC3 (upload): Each team row has an upload button. File selection triggers immediate
-   *         upload. UI updates without page reload.
+   * AC3 (upload): Each team row has an upload button. File selection opens the crop step
+   *         (E71S01). After crop confirmation the cropped Blob is uploaded.
    * AC4 (preview): Clicking a thumbnail opens an inline larger preview.
    * AC5 (replace): Uploading for a team with an existing photo replaces it.
    *         Cache-busted URL ensures the new image is shown.
@@ -20,6 +20,11 @@
    * AC8 (i18n): All labels and messages from svelte-i18n translation layer.
    * AC9 (security): Admin-only via Spring Security /api/** BasicAuth (E05S02).
    *         No frontend auth code needed — browser credentials are cached.
+   *
+   * E71S01 additions:
+   *   - Crop step after file selection using PhotoCropper component.
+   *   - cropAspectRatioWidth / cropAspectRatioHeight / cropMaxLongEdge loaded from
+   *     GET /api/settings (SettingsController) at mount time (AC3 server-configurable).
    *
    * Props:
    *   params.tournamentId — the tournament UUID from the route (#/tournaments/:tournamentId/photos)
@@ -39,6 +44,8 @@
     getPhotoUrl,
     PhotoUploadError,
   } from '../stores/photoStore.js';
+  import { getSettings } from '../stores/settingsStore.js';
+  import PhotoCropper from '../lib/PhotoCropper.svelte';
 
   // ── Props ────────────────────────────────────────────────────────────────
   interface Props {
@@ -78,6 +85,20 @@
    */
   let previewTeamId = $state<string | null>(null);
 
+  // ── Crop step state (E71S01) ─────────────────────────────────────────────
+
+  /**
+   * When set, the crop step is active for this team. Shows PhotoCropper.
+   */
+  let croppingTeam = $state<Team | null>(null);
+  let croppingFile = $state<File | null>(null);
+
+  /** Crop config loaded from GET /api/settings (AC3). */
+  let cropAspectRatioWidth = $state(11);
+  let cropAspectRatioHeight = $state(5);
+  let cropMaxLongEdge = $state(2200);
+  let cropConfigError = $state<string | null>(null);
+
   // ── Derived counts (AC2) ─────────────────────────────────────────────────
   const totalTeams = $derived(teams.length);
   const teamsWithPhoto = $derived(teams.filter(t => t.hasPhoto).length);
@@ -96,6 +117,18 @@
       loading = false;
       return;
     }
+
+    // Load crop config from server (AC3 — values are server-configured, ENV-overridable).
+    try {
+      const settings = await getSettings();
+      cropAspectRatioWidth = settings.cropAspectRatioWidth;
+      cropAspectRatioHeight = settings.cropAspectRatioHeight;
+      cropMaxLongEdge = settings.cropMaxLongEdge;
+    } catch {
+      // Non-fatal: fall back to defaults (11:5, 2200px) — crop still works.
+      cropConfigError = $_('photos.cropLoadError');
+    }
+
     await loadTeams();
   });
 
@@ -144,7 +177,7 @@
     teams = teams.map(t => t.id === teamId ? { ...t, hasPhoto: value } : t);
   }
 
-  // ── Upload (AC3, AC5) ─────────────────────────────────────────────────────
+  // ── Upload (AC3, AC5) — E71S01: opens crop step first ────────────────────
 
   function handleUploadClick(teamId: string): void {
     const input = document.getElementById(`file-input-${teamId}`) as HTMLInputElement | null;
@@ -154,7 +187,7 @@
     }
   }
 
-  async function handleFileSelected(team: Team, event: Event): Promise<void> {
+  function handleFileSelected(team: Team, event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
@@ -167,20 +200,36 @@
     }
 
     clearError(team.id);
+
+    // E71S01: open crop step instead of uploading immediately.
+    croppingTeam = team;
+    croppingFile = file;
+    // Close preview if open for this team.
+    if (previewTeamId === team.id) previewTeamId = null;
+  }
+
+  /**
+   * Called by PhotoCropper when the operator accepts the crop (AC2 — save cropped Blob).
+   */
+  async function handleCropSave(blob: Blob): Promise<void> {
+    if (!croppingTeam) return;
+    const team = croppingTeam;
+    // Derive filename: use original extension if available, else .jpg (JPEG output).
+    const filename = croppingFile?.name ?? 'photo.jpg';
+
+    croppingTeam = null;
+    croppingFile = null;
+
+    clearError(team.id);
     setUploading(team.id, true);
 
-    // Close preview if open for this team
-    if (previewTeamId === team.id) previewTeamId = null;
-
     try {
-      await uploadPhoto(tournamentId, team.id, file);
-      // AC3/AC5: update local state — set hasPhoto=true + bust cache for thumbnail
+      await uploadPhoto(tournamentId, team.id, blob, filename);
+      // AC3/AC5: update local state — set hasPhoto=true + bust cache for thumbnail.
       setHasPhoto(team.id, true);
       photoBust = { ...photoBust, [team.id]: Date.now() };
     } catch (e: unknown) {
-      // AC4 (E12S08): when the server returns a photo-specific messageKey (e.g.
-      // error.photo.tooLarge), resolve it through the i18n layer so the error is shown
-      // in German with the correct message. Fall back to the raw message or generic key.
+      // AC7: i18n upload errors.
       if (e instanceof PhotoUploadError && e.messageKey) {
         setError(team.id, $_(e.messageKey, { default: e.message }));
       } else {
@@ -189,6 +238,14 @@
     } finally {
       setUploading(team.id, false);
     }
+  }
+
+  /**
+   * Called by PhotoCropper when the operator cancels the crop step.
+   */
+  function handleCropCancel(): void {
+    croppingTeam = null;
+    croppingFile = null;
   }
 
   // ── Delete (AC6) ─────────────────────────────────────────────────────────
@@ -233,10 +290,31 @@
   {:else if loadError}
     <p class="team-photos__error">{loadError}</p>
   {:else}
+
+    {#if cropConfigError}
+      <p class="team-photos__crop-config-error">{cropConfigError}</p>
+    {/if}
+
     <!-- AC2: Missing count summary -->
     <p class="team-photos__summary">
       {$_('photos.summary', { values: { withPhoto: teamsWithPhoto, total: totalTeams } })}
     </p>
+
+    <!-- E71S01: Crop step modal (shown when croppingTeam is set) -->
+    {#if croppingTeam && croppingFile}
+      <div class="team-photos__crop-overlay" role="dialog" aria-modal="true">
+        <div class="team-photos__crop-modal">
+          <PhotoCropper
+            file={croppingFile}
+            ratioWidth={cropAspectRatioWidth}
+            ratioHeight={cropAspectRatioHeight}
+            cropMaxLongEdge={cropMaxLongEdge}
+            onSave={handleCropSave}
+            onCancel={handleCropCancel}
+          />
+        </div>
+      </div>
+    {/if}
 
     {#if teams.length === 0}
       <p class="team-photos__empty">{$_('photos.empty')}</p>
@@ -362,6 +440,35 @@
 
   .team-photos__error {
     color: #c0392b;
+  }
+
+  .team-photos__crop-config-error {
+    font-size: 0.85rem;
+    color: #e67e22;
+    margin-bottom: 0.75rem;
+  }
+
+  /* ── Crop modal overlay ─────────────────────────────────────────────────── */
+
+  .team-photos__crop-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+  }
+
+  .team-photos__crop-modal {
+    background: #fff;
+    border-radius: 8px;
+    padding: 1.5rem;
+    max-width: 680px;
+    width: 100%;
+    max-height: 92vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
   }
 
   /* ── Photo grid ──────────────────────────────────────────────────────────── */

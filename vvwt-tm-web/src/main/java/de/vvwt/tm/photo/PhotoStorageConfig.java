@@ -15,10 +15,16 @@ import org.springframework.stereotype.Component;
  *
  * <p>Bound to the {@code tm.photos} property namespace in {@code application.yml}. The property
  * namespace is unchanged by the rebuild (AC-CONFIG-BINDING-PRESERVED: namespace preserved
- * verbatim). Default {@code maxSizeBytes} = 5 MB preserved.
+ * verbatim). Default {@code maxSizeBytes} = 25 MB preserved.
  *
  * <p>DEC-15: the data directory must be outside the jlink archive (read-only at runtime). Photo
  * files are stored in a user-writable location on the host filesystem.
+ *
+ * <p>E71S01 (AC3): adds three crop-configuration fields. All three are server-configured and
+ * ENV-overridable via the {@code TM_PHOTOS_*} env-var pattern (DEC-68 Clause 3 escape-hatch).
+ * Defaults: aspect ratio 11:5, max long edge 2200 px. The values are exposed to the frontend via
+ * {@link de.vvwt.tm.web.SettingsController} (GET /api/settings), per AC3's mandate to use the
+ * existing settings endpoint (DEC-78 reuse, NOT a new endpoint).
  *
  * <p>Historical provenance: originally E12S02; relocated to this module by E23S01 (Q-1b); rebuilt
  * Q-1a RED-first by E36S01 per DEC-22 Iron Law + DEC-41 §3 hierarchy clause (1).
@@ -29,6 +35,17 @@ import org.springframework.stereotype.Component;
  * tm:
  *   photos:
  *     data-dir: /var/tournament-manager/photos
+ *     crop-aspect-ratio-width: 4
+ *     crop-aspect-ratio-height: 3
+ *     crop-max-long-edge: 1600
+ * </pre>
+ *
+ * <p>Or via environment variables:
+ *
+ * <pre>
+ * TM_PHOTOS_CROP_ASPECT_RATIO_WIDTH=4
+ * TM_PHOTOS_CROP_ASPECT_RATIO_HEIGHT=3
+ * TM_PHOTOS_CROP_MAX_LONG_EDGE=1600
  * </pre>
  *
  * @see PhotoStorageService
@@ -58,6 +75,34 @@ public class PhotoStorageConfig {
      */
     private long maxSizeBytes = 25L * 1024 * 1024;
 
+    /**
+     * Width component of the target crop aspect ratio (E71S01 AC3).
+     *
+     * <p>Together with {@link #cropAspectRatioHeight} this defines the ratio W:H that the
+     * in-browser crop step enforces. Default: 11 (ratio 11:5). Override via the {@code
+     * TM_PHOTOS_CROP_ASPECT_RATIO_WIDTH} environment variable.
+     */
+    private int cropAspectRatioWidth = 11;
+
+    /**
+     * Height component of the target crop aspect ratio (E71S01 AC3).
+     *
+     * <p>Together with {@link #cropAspectRatioWidth} this defines the ratio W:H that the in-browser
+     * crop step enforces. Default: 5 (ratio 11:5). Override via the {@code
+     * TM_PHOTOS_CROP_ASPECT_RATIO_HEIGHT} environment variable.
+     */
+    private int cropAspectRatioHeight = 5;
+
+    /**
+     * Maximum long-edge pixel length after downscale (E71S01 AC3).
+     *
+     * <p>After cropping, the image is downscaled so its longest edge does not exceed this value.
+     * Images already smaller than this limit are NOT upscaled. Default: 2200 px (proven print
+     * quality at ~214 dpi at near-full A4-landscape width). Override via the {@code
+     * TM_PHOTOS_CROP_MAX_LONG_EDGE} environment variable.
+     */
+    private int cropMaxLongEdge = 2200;
+
     public String getDataDir() {
         return dataDir;
     }
@@ -72,5 +117,29 @@ public class PhotoStorageConfig {
 
     public void setMaxSizeBytes(long maxSizeBytes) {
         this.maxSizeBytes = maxSizeBytes;
+    }
+
+    public int getCropAspectRatioWidth() {
+        return cropAspectRatioWidth;
+    }
+
+    public void setCropAspectRatioWidth(int cropAspectRatioWidth) {
+        this.cropAspectRatioWidth = cropAspectRatioWidth;
+    }
+
+    public int getCropAspectRatioHeight() {
+        return cropAspectRatioHeight;
+    }
+
+    public void setCropAspectRatioHeight(int cropAspectRatioHeight) {
+        this.cropAspectRatioHeight = cropAspectRatioHeight;
+    }
+
+    public int getCropMaxLongEdge() {
+        return cropMaxLongEdge;
+    }
+
+    public void setCropMaxLongEdge(int cropMaxLongEdge) {
+        this.cropMaxLongEdge = cropMaxLongEdge;
     }
 }
