@@ -8,6 +8,10 @@ import { defineConfig } from 'vite';
  *
  * base: '/admin/' ensures all generated asset paths (JS, CSS) are prefixed with /admin/,
  * so Spring Boot serves them correctly from classpath:/static/admin/.
+ *
+ * E71S03: Added assetsInclude for .task extension so Vite does not attempt to process
+ * the binary MediaPipe Face Landmarker model file. The WASM files and model are served
+ * from public/ (same-origin, no CDN) per AC4 / DEC-15 / DEC-16.
  */
 export default defineConfig({
   plugins: [svelte()],
@@ -21,6 +25,8 @@ export default defineConfig({
   define: {
     global: 'globalThis',
   },
+  // E71S03: Allow Vite to serve .task (MediaPipe model) and .wasm binary files as static assets.
+  assetsInclude: ['**/*.task', '**/*.wasm'],
   build: {
     outDir: 'dist',
     emptyOutDir: true,
