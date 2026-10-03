@@ -60,12 +60,11 @@ public interface CertificateAssembler {
      * (points DESC, setQuotient DESC, ballQuotient DESC, isWithoutAssessment last) per DEC-33.
      * Placement ordinals are 1-based.
      *
-     * <p>For phases with no ratings (e.g. a Siegerehrung / award-ceremony phase that has zero
-     * matches by design — E12S09 fix): placement is derived from each {@link
-     * de.vvwt.tm.tournament.TeamAvatar}'s {@code groupPosition} (DEC-9 structural identity).
-     * groupPosition 1..N maps directly to places 1..N within the single group. This fixes the false
-     * HTTP 400 "no game results" for fully completed tournaments whose final phase is a
-     * Siegerehrung phase.
+     * <p>For phases with no ratings (e.g. an award-ceremony phase that has zero matches by design —
+     * E12S09 fix): placement is derived from each {@link de.vvwt.tm.tournament.TeamAvatar}'s {@code
+     * groupPosition} (DEC-9 structural identity). groupPosition 1..N maps directly to places 1..N
+     * within the single group. This fixes the false HTTP 400 "no game results" for fully completed
+     * tournaments whose final phase is a award-ceremony phase.
      *
      * <p>Returns an empty list only when the final phase has no avatars with an assigned team
      * ({@code teamId == null} for all avatars) — this signals that team assignment has not been

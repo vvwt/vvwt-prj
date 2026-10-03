@@ -18,7 +18,7 @@
    *  AC11 — tenant-scoped via auth (existing infra)
    *
    * E48S01 extensions:
-   *  AC-FRONTEND-GAMEMODE-DROPDOWN — per-phase gameMode select (roundRobin / siegerehrung)
+   *  AC-FRONTEND-GAMEMODE-DROPDOWN — per-phase gameMode select (roundRobin / awardCeremony)
    *  AC-FRONTEND-PRE-SUBMIT-VALIDATION-MIRROR — validateLastPhase() guards handleApply()
    *
    * E48S16 extensions:
@@ -167,7 +167,7 @@
         breaks: [],
       },
     ];
-    // Auto-set last section to siegerehrung (AC-FRONTEND-GAMEMODE-DROPDOWN, E48S01)
+    // Auto-set last section to awardCeremony (AC-FRONTEND-GAMEMODE-DROPDOWN, E48S01)
     enforceLastSectionAwardCeremony();
     // E58S06 AC3/AC4: normalize non-last phases after structural change (demoted phase fix)
     sections = normalizeNonLastPhaseGameModes(
@@ -179,7 +179,7 @@
     sections = sections
       .filter((_, i) => i !== idx)
       .map((s, i) => ({ ...s, sectionNumber: i + 1 }));
-    // Auto-set last section to siegerehrung after removal (AC-FRONTEND-GAMEMODE-DROPDOWN)
+    // Auto-set last section to awardCeremony after removal (AC-FRONTEND-GAMEMODE-DROPDOWN)
     enforceLastSectionAwardCeremony();
     // E58S06 AC3: normalize non-last phases after structural change
     sections = normalizeNonLastPhaseGameModes(

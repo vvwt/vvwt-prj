@@ -49,7 +49,7 @@ import org.springframework.context.ApplicationEventPublisher;
  *   <li>AC-TEST-PHASE-FORCE-COMPLETE-RED: forceComplete() ACTIVE → COMPLETED + void unfinished
  *       matches; event published
  *   <li>AC-TEST-ACTIVATION-GUARD-SIEGEREHRUNG-PREDICATE-ISOLATED-RED (E51S18): transition() with
- *       siegerehrung gameMode, optimize=true, optimized=false → guard ACCEPTS via Clause F OR-term
+ *       awardCeremony gameMode, optimize=true, optimized=false → guard ACCEPTS via Clause F OR-term
  *       (DEC-59 Clause F); pre-fix: ConflictException; post-fix: succeeds
  * </ul>
  *
@@ -80,7 +80,7 @@ class PhaseLifecycleServiceTest {
 
     @BeforeEach
     void setUp() {
-        // E51S18 GREEN: ObjectMapper injected for isSiegerehrungPhase() Clause F guard
+        // E51S18 GREEN: ObjectMapper injected for isAwardCeremonyPhase() Clause F guard
         // E48S24 GREEN: TournamentLifecycleSupport injected for D-1b isLastPhase predicate
         ObjectMapper objectMapper = new ObjectMapper();
         // E65S08: tenantContext.current() returns a stable UUID for event publication
@@ -310,22 +310,23 @@ class PhaseLifecycleServiceTest {
     /**
      * AC-TEST-ACTIVATION-GUARD-SIEGEREHRUNG-PREDICATE-ISOLATED-RED (E51S18, DEC-59 Clause F).
      *
-     * <p>Verifies the Clause F OR-term: a siegerehrung phase with {@code optimize=true} and {@code
-     * optimized=false} must NOT be rejected by the activation-guard. The guard predicate is tested
-     * IN ISOLATION via {@link DefaultPhaseLifecycleService#transition(UUID, PhaseStatus, String)}.
+     * <p>Verifies the Clause F OR-term: an awardCeremony phase with {@code optimize=true} and
+     * {@code optimized=false} must NOT be rejected by the activation-guard. The guard predicate is
+     * tested IN ISOLATION via {@link DefaultPhaseLifecycleService#transition(UUID, PhaseStatus,
+     * String)}.
      *
      * <p><b>Pre-fix (RED):</b> {@code transition(phaseId, ACTIVE, "start")} throws {@link
      * ConflictException} — original DEC-55 D-6 guard {@code !tournament.optimize OR
      * phase.optimized} evaluates to {@code false} for this synthetic input (optimize=true,
-     * optimized=false, no siegerehrung OR-term).
+     * optimized=false, no awardCeremony OR-term).
      *
-     * <p><b>Post-fix (GREEN):</b> Clause F OR-term {@code OR section.gameMode == "siegerehrung"}
+     * <p><b>Post-fix (GREEN):</b> Clause F OR-term {@code OR section.gameMode == "awardCeremony"}
      * exempts the phase → {@code transition()} succeeds.
      *
      * <p><b>Note on full operational reachability:</b> This AC verifies the guard predicate in
-     * isolation only. Full reachability of siegerehrung → ASSIGNED via real operator-confirmation
-     * depends on the siegerehrung proposal algorithm (out-of-scope per Clause C deferral; follow-up
-     * Story closes the operational round-trip).
+     * isolation only. Full reachability of awardCeremony → ASSIGNED via real operator-confirmation
+     * depends on the awardCeremony proposal algorithm (out-of-scope per Clause C deferral;
+     * follow-up Story closes the operational round-trip).
      *
      * @see DefaultPhaseLifecycleService#transition(UUID, PhaseStatus, String)
      * @see <a href="DEC-59">DEC-59 Clause F — activation-guard gameMode OR-term</a>
@@ -333,11 +334,11 @@ class PhaseLifecycleServiceTest {
      */
     @Test
     @DisplayName(
-            "transition() — siegerehrung ASSIGNED + optimize=true + optimized=false"
+            "transition() — awardCeremony ASSIGNED + optimize=true + optimized=false"
                     + " → guard ACCEPTS via Clause F OR-term (E51S18 DEC-59 Clause F RED)")
     void transition_awardCeremonyPhase_optimizeEnabled_notOptimized_guardAcceptsClauseF() {
-        // Synthetic input: siegerehrung phase, optimize=true, optimized=false, status=ASSIGNED
-        // draft_json with one siegerehrung section (sequenceNumber=1 → section index 0)
+        // Synthetic input: awardCeremony phase, optimize=true, optimized=false, status=ASSIGNED
+        // draft_json with one awardCeremony section (sequenceNumber=1 → section index 0)
         tournament.setOptimize(true);
         tournament.setDraftJson(
                 "{\"sections\":[{\"gameMode\":\"awardCeremony\",\"groupCount\":1}]}");
@@ -349,15 +350,15 @@ class PhaseLifecycleServiceTest {
         when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         // AC-TEST-ACTIVATION-GUARD-SIEGEREHRUNG-PREDICATE-ISOLATED-RED:
-        // Pre-fix: throws ConflictException (no siegerehrung OR-term in guard).
-        // Post-fix: does NOT throw (Clause F OR-term exempts siegerehrung from optimize guard).
+        // Pre-fix: throws ConflictException (no awardCeremony OR-term in guard).
+        // Post-fix: does NOT throw (Clause F OR-term exempts awardCeremony from optimize guard).
         assertThatCode(() -> service.transition(phaseId, PhaseStatus.ACTIVE, "start"))
                 .doesNotThrowAnyException();
     }
 
     // =========================================================================
     // AC-TEST-INIT-ON-ACTIVE-RED (E56S01 DEC-65 D-2)
-    // ASSIGNED→ACTIVE must init currentLapNumber=1 (or 0 for siegerehrung)
+    // ASSIGNED→ACTIVE must init currentLapNumber=1 (or 0 for awardCeremony)
     // RED on current HEAD: no init-hook → currentLapNumber stays 0 after start()
     // =========================================================================
 
@@ -389,7 +390,7 @@ class PhaseLifecycleServiceTest {
         phase.setCurrentLapNumber(0);
         when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
         when(phaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        // Two matches in two laps → lapCount = 2 (non-siegerehrung)
+        // Two matches in two laps → lapCount = 2 (non-awardCeremony)
         de.vvwt.tm.tournament.Match m1 = new de.vvwt.tm.tournament.Match();
         m1.setLapNumber(1);
         de.vvwt.tm.tournament.Match m2 = new de.vvwt.tm.tournament.Match();
@@ -410,24 +411,25 @@ class PhaseLifecycleServiceTest {
     /**
      * AC-ERROR-SIEGEREHRUNG-PHASE (E56S01, DEC-65 D-10 HOW decision).
      *
-     * <p>A siegerehrung phase (vacuous L1+L2, no match rows, {@code lapCount==0} per DEC-59 Clause
-     * F) transitions ASSIGNED→ACTIVE without error. Delivery chose {@code currentLapNumber=0}
-     * (sentinel) at ACTIVE-init because {@code lapCount==0} means no lap 1 exists to run — the
-     * uniform "no lap running" signal of DEC-65 D-1 applies (see execution-plan).
+     * <p>An awardCeremony phase (vacuous L1+L2, no match rows, {@code lapCount==0} per DEC-59
+     * Clause F) transitions ASSIGNED→ACTIVE without error. Delivery chose {@code
+     * currentLapNumber=0} (sentinel) at ACTIVE-init because {@code lapCount==0} means no lap 1
+     * exists to run — the uniform "no lap running" signal of DEC-65 D-1 applies (see
+     * execution-plan).
      *
      * <p><b>GREEN-only test</b> (behaviour from scratch — verifies chosen HOW value).
      *
      * @see DefaultPhaseLifecycleService#start(UUID)
-     * @see <a href="DEC-65">DEC-65 D-10 — siegerehrung HOW decision deferred to operationalizing
+     * @see <a href="DEC-65">DEC-65 D-10 — awardCeremony HOW decision deferred to operationalizing
      *     story</a>
      */
     @Test
     @DisplayName(
-            "start() — siegerehrung phase (lapCount=0) ASSIGNED→ACTIVE"
+            "start() — awardCeremony phase (lapCount=0) ASSIGNED→ACTIVE"
                     + " sets currentLapNumber=0 (sentinel HOW decision)"
                     + " [AC-ERROR-SIEGEREHRUNG-PHASE]")
     void start_awardCeremonyPhase_lapCountZero_setsCurrentLapNumberToSentinel() {
-        // ARRANGE: siegerehrung → no matches (lapCount=0)
+        // ARRANGE: awardCeremony → no matches (lapCount=0)
         Phase phase = assignedPhase();
         phase.setCurrentLapNumber(0);
         when(phaseRepository.findById(phaseId)).thenReturn(Optional.of(phase));
@@ -438,7 +440,7 @@ class PhaseLifecycleServiceTest {
         // ACT — must not throw (AC-ERROR-SIEGEREHRUNG-PHASE requires no error on ACTIVE-transition)
         Phase result = service.start(phaseId);
 
-        // ASSERT — DEC-65 D-10 HOW: sentinel-0 for siegerehrung (lapCount=0)
+        // ASSERT — DEC-65 D-10 HOW: sentinel-0 for awardCeremony (lapCount=0)
         assertThat(result.getCurrentLapNumber()).isEqualTo(0);
         assertThat(result.getStatus()).isEqualTo("ACTIVE");
     }

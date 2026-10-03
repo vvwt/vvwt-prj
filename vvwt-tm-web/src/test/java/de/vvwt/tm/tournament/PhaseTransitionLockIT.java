@@ -148,7 +148,7 @@ class PhaseTransitionLockIT {
                 "COMPLETED",
                 1);
 
-        // toPhase (siegerehrung — no matches generated, keeps test focused on lock + avatar
+        // toPhase (awardCeremony — no matches generated, keeps test focused on lock + avatar
         // persistence)
         // E51S06: status=PREPARED — commitTransition requires PREPARED → ASSIGNED transition
         toPhaseId = UUID.randomUUID();

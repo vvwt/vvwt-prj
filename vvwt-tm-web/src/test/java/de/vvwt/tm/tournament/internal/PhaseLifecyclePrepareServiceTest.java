@@ -76,7 +76,7 @@ class PhaseLifecyclePrepareServiceTest {
 
     @BeforeEach
     void setUp() {
-        // E51S18 GREEN: ObjectMapper injected for isSiegerehrungPhase() Clause F guard
+        // E51S18 GREEN: ObjectMapper injected for isAwardCeremonyPhase() Clause F guard
         // E48S24 GREEN: TournamentLifecycleSupport injected for D-1b isLastPhase predicate
         ObjectMapper objectMapper = new ObjectMapper();
         // E65S08: tenantContext.current() returns a stable UUID for event publication

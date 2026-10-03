@@ -127,7 +127,7 @@ class DefaultCertificateAssemblerTest {
 
     /**
      * Creates a TeamAvatar in group 1 at the given groupPosition (E12S09 — DEC-9 structural
-     * identity for Siegerehrung placement tests).
+     * identity for award-ceremony placement tests).
      *
      * @param avatarId the avatar UUID
      * @param teamId the assigned team UUID (non-null = team assigned)
@@ -361,26 +361,26 @@ class DefaultCertificateAssemblerTest {
     }
 
     // =========================================================================
-    // E12S09: Siegerehrung-phase placement from group positions (AC1/AC2 RED-first)
+    // E12S09: award-ceremony-phase placement from group positions (AC1/AC2 RED-first)
     // =========================================================================
 
     /**
-     * AC1 RED reproduction (DEC-22 Iron Law): given a Siegerehrung-final-phase tournament whose
+     * AC1 RED reproduction (DEC-22 Iron Law): given an award-ceremony-final-phase tournament whose
      * avatars have assigned teams and group positions but ZERO ratings, the pre-fix code returns an
      * empty placement list (false 400). This test documents the RED state and MUST fail against the
      * pre-fix code.
      *
-     * <p>AC2 expected behaviour (post-fix): computePlacementOrder uses the Siegerehrung phase's
+     * <p>AC2 expected behaviour (post-fix): computePlacementOrder uses the award-ceremony phase's
      * TeamAvatar groupPositions — groupPosition 1..N maps directly to places 1..N (single group,
      * DEC-9). The result is non-empty and correctly ordered.
      */
     @Test
     @DisplayName(
-            "computePlacementOrder: Siegerehrung phase — group positions used as placement"
+            "computePlacementOrder: award-ceremony phase — group positions used as placement"
                     + " when no ratings exist (AC1 RED/AC2 GREEN — E12S09 DEC-9)")
-    void computePlacementOrder_siegerehrung_usesGroupPositionWhenNoRatings() {
+    void computePlacementOrder_awardCeremony_usesGroupPositionWhenNoRatings() {
         // Three avatars, all with assigned teams, groupPositions 1, 2, 3 — no ratings
-        Phase phase = makePhase(3); // Phase 3 = Siegerehrung (highest sequenceNumber)
+        Phase phase = makePhase(3); // Phase 3 = award ceremony (highest sequenceNumber)
         TeamAvatar avA = makeAvatarAt(AVATAR_A_ID, TEAM_A_ID, 1); // place 1
         TeamAvatar avB = makeAvatarAt(AVATAR_B_ID, TEAM_B_ID, 2); // place 2
         TeamAvatar avC = makeAvatarAt(AVATAR_C_ID, TEAM_C_ID, 3); // place 3
@@ -405,9 +405,9 @@ class DefaultCertificateAssemblerTest {
 
     @Test
     @DisplayName(
-            "computePlacementOrder: Siegerehrung phase — single team, placement = 1"
+            "computePlacementOrder: award-ceremony phase — single team, placement = 1"
                     + " (AC2 single-team edge case — E12S09)")
-    void computePlacementOrder_siegerehrung_singleTeam_placementOne() {
+    void computePlacementOrder_awardCeremony_singleTeam_placementOne() {
         Phase phase = makePhase(3);
         TeamAvatar avA = makeAvatarAt(AVATAR_A_ID, TEAM_A_ID, 1);
         when(teamAvatarRepository.findByPhaseId(PHASE_ID)).thenReturn(List.of(avA));
@@ -423,9 +423,9 @@ class DefaultCertificateAssemblerTest {
 
     @Test
     @DisplayName(
-            "computePlacementOrder: Siegerehrung phase — avatars with no assigned team return empty"
-                    + " (AC4 error-handling preserved — E12S09)")
-    void computePlacementOrder_siegerehrung_noAssignedTeams_returnsEmpty() {
+            "computePlacementOrder: award-ceremony phase — avatars with no assigned team return"
+                    + " empty (AC4 error-handling preserved — E12S09)")
+    void computePlacementOrder_awardCeremony_noAssignedTeams_returnsEmpty() {
         // Phase exists with avatars but no teams assigned — genuinely not ready
         Phase phase = makePhase(3);
         TeamAvatar avA = makeAvatarAt(AVATAR_A_ID, null, 1); // null teamId = unassigned

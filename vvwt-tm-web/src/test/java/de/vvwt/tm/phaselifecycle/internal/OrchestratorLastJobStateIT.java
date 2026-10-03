@@ -42,7 +42,7 @@ import org.springframework.test.context.ActiveProfiles;
  *
  * <ul>
  *   <li>AC-TEST-LAST-JOB-STATE-HAPPY-PATH-ROUNDROBIN-RED: roundRobin + optimize=true → idle at end.
- *   <li>AC-TEST-LAST-JOB-STATE-SIEGEREHRUNG-IDLE-RED: siegerehrung → idle (no step-B).
+ *   <li>AC-TEST-LAST-JOB-STATE-SIEGEREHRUNG-IDLE-RED: awardCeremony → idle (no step-B).
  *   <li>AC-TEST-LAST-JOB-STATE-OPTIMIZE-FALSE-IDLE-RED: optimize=false → idle (step-B skips L3).
  *   <li>AC-TEST-LAST-JOB-STATE-STEP-A-FAILURE-FAILED-RED: step-A throws → failed persisted by
  *       REQUIRES_NEW failure writer.
@@ -239,17 +239,17 @@ class OrchestratorLastJobStateIT {
     }
 
     /**
-     * AC-TEST-LAST-JOB-STATE-SIEGEREHRUNG-IDLE-RED: siegerehrung → step-A writes 'idle' (no step-B
+     * AC-TEST-LAST-JOB-STATE-SIEGEREHRUNG-IDLE-RED: awardCeremony → step-A writes 'idle' (no step-B
      * enqueued per DEC-66 D-2 row 2 + DEC-59 Clause E).
      */
     @Test
     @DisplayName(
-            "DEC-66 D-2: siegerehrung → last_job_state='idle' after step-A (no step-B)"
+            "DEC-66 D-2: awardCeremony → last_job_state='idle' after step-A (no step-B)"
                     + " (AC-TEST-LAST-JOB-STATE-SIEGEREHRUNG-IDLE-RED)")
     void awardCeremonyLastJobStateIsIdleAfterStepA() {
         tournamentId = insertTournament(true, "awardCeremony");
         phaseId = insertPhase(tournamentId);
-        // No teams needed — siegerehrung produces 0 matches
+        // No teams needed — awardCeremony produces 0 matches
         jobRepository.enqueueJob(new PhaseLifecycleJob(tournamentId, phaseId, "awardCeremony", 1));
 
         jobDrainService.drainNext(tournamentId);
@@ -257,7 +257,7 @@ class OrchestratorLastJobStateIT {
         String lastJobState = queryLastJobState(phaseId);
         assertThat(lastJobState)
                 .as(
-                        "last_job_state must be 'idle' after siegerehrung pipeline"
+                        "last_job_state must be 'idle' after awardCeremony pipeline"
                                 + " (DEC-66 D-2, DEC-59 Clause E)")
                 .isEqualTo("idle");
     }

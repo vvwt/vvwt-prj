@@ -533,7 +533,8 @@ public class DefaultPhaseLifecycleService implements PhaseLifecycleService {
         // [E48S24 D-1b] Auto-promote tournament ACTIVE→COMPLETED as atomic side effect of the
         // LAST phase's ACTIVE→COMPLETED transition via complete() (forceComplete EXCLUDED, T-8).
         // Precedent: E48S22 (DRAFT→PLANNED on apply()). Rationale: under D-10 invariant (E48S01)
-        // the last phase is always Siegerehrung; per DEC-59 D-3 + Clause E Siegerehrung has no
+        // the last phase is always the award ceremony; per DEC-59 D-3 + Clause E the award-ceremony
+        // phase has no
         // matches → complete() always succeeds vacuously → complete() IS the ceremonial
         // tournament-completion gesture [E48S24].
         // isLastPhase() is invoked INSIDE the @Transactional boundary AFTER the per-tournament

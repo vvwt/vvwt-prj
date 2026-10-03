@@ -159,7 +159,7 @@ class DraftControllerIT {
     }
 
     private static DraftSectionRequest sampleSection() {
-        // gameMode=siegerehrung: single-section draft must use siegerehrung as last phase
+        // gameMode=awardCeremony: single-section draft must use awardCeremony as last phase
         // per D-10 invariant (AC-IMPL-LAST-PHASE-INVARIANT, E48S01).
         return new DraftSectionRequest(
                 1, "team_number", 1, "awardCeremony", 0, 0, 15, 1, null, null);
@@ -173,10 +173,10 @@ class DraftControllerIT {
      * Two-section apply request used by the apply test.
      *
      * <p>Section 1 = roundRobin: match generation runs via RoundRobinMatchGenerator (already
-     * registered). Section 2 = siegerehrung: last phase per D-10 invariant
+     * registered). Section 2 = awardCeremony: last phase per D-10 invariant
      * (AC-IMPL-LAST-PHASE-INVARIANT, E48S01); match generation is NOT triggered for phase 2
      * (DefaultDraftService.apply() only generates matches for the first phase). This avoids a
-     * dependency on SiegerehrungMatchGenerator (delivered in E48S02).
+     * dependency on AwardCeremonyMatchGenerator (delivered in E48S02).
      */
     private static DraftRequest applyRequest() {
         var s1 =
@@ -474,7 +474,7 @@ class DraftControllerIT {
     void authenticatedApplyDraft_createsTournamentAndPhaseRow() throws Exception {
         UUID tournamentId = createDraftTournament("IT apply E21S19");
 
-        // applyRequest() uses 2 sections (roundrobin + siegerehrung) — see helper javadoc
+        // applyRequest() uses 2 sections (roundrobin + awardCeremony) — see helper javadoc
         DraftRequest draftRequest = applyRequest();
         ResponseEntity<DraftApplyResponse> applyResponse =
                 authed.postForEntity(
@@ -614,7 +614,7 @@ class DraftControllerIT {
 
     /**
      * AC-TEST-CONTROLLER-IT-PREVIEW-SIEGEREHRUNG-GREEN: POST /api/tournaments/{id}/draft/preview
-     * for a 2-phase config (RoundRobin + Siegerehrung) returns phase 2 with totalMatches=0,
+     * for a 2-phase config (RoundRobin + award ceremony) returns phase 2 with totalMatches=0,
      * totalLaps=0, estimatedTimeMinutes = sectionBreakTimeMinutes (no intra-phase breaks).
      *
      * <h2>Fixture</h2>
@@ -622,7 +622,7 @@ class DraftControllerIT {
      * <ul>
      *   <li>Tournament: 12 teams, fieldCount=3
      *   <li>Phase 1: roundRobin, groupCount=2
-     *   <li>Phase 2: siegerehrung, groupCount=1, sectionBreakTimeMinutes=20, no intra-breaks
+     *   <li>Phase 2: awardCeremony, groupCount=1, sectionBreakTimeMinutes=20, no intra-breaks
      * </ul>
      *
      * <h2>Expected</h2>
@@ -639,7 +639,7 @@ class DraftControllerIT {
      */
     @Test
     @DisplayName(
-            "POST /draft/preview with siegerehrung phase 2 returns totalMatches=0, totalLaps=0"
+            "POST /draft/preview with awardCeremony phase 2 returns totalMatches=0, totalLaps=0"
                     + " (E48S09 AC-TEST-CONTROLLER-IT-PREVIEW-SIEGEREHRUNG-GREEN)")
     void previewDraft_awardCeremonyPhase_returnsZeroMatchesAndLaps() throws Exception {
         UUID tournamentId;
@@ -665,7 +665,7 @@ class DraftControllerIT {
             tenantBinder.unbind();
         }
 
-        // Phase 1: roundRobin, groupCount=2; Phase 2: siegerehrung, sectionBreakTimeMinutes=20
+        // Phase 1: roundRobin, groupCount=2; Phase 2: awardCeremony, sectionBreakTimeMinutes=20
         var phase1 =
                 new DraftSectionRequest(1, "team_number", 2, "roundRobin", 0, 0, 15, 1, null, null);
         var phase2 =
@@ -687,13 +687,13 @@ class DraftControllerIT {
 
         var phase2Preview = response.getBody().sections().get(1);
         assertThat(phase2Preview.totalMatches())
-                .as("siegerehrung phase: totalMatches must be 0")
+                .as("awardCeremony phase: totalMatches must be 0")
                 .isEqualTo(0);
         assertThat(phase2Preview.totalLaps())
-                .as("siegerehrung phase: totalLaps must be 0")
+                .as("awardCeremony phase: totalLaps must be 0")
                 .isEqualTo(0);
         assertThat(phase2Preview.estimatedTimeMinutes())
-                .as("siegerehrung phase: estimatedTimeMinutes = sectionBreakTimeMinutes=20")
+                .as("awardCeremony phase: estimatedTimeMinutes = sectionBreakTimeMinutes=20")
                 .isEqualTo(20);
     }
 
@@ -703,7 +703,7 @@ class DraftControllerIT {
 
     /**
      * AC-TEST-CONTROLLER-IT-PREVIEW-TIMELINE-WIRING: POST /api/tournaments/{id}/draft/preview for a
-     * 2-phase config (RR + Siegerehrung) with a set {@code plannedStartTime} returns a non-empty
+     * 2-phase config (RR + award ceremony) with a set {@code plannedStartTime} returns a non-empty
      * {@code timeline} whose first entry has {@code startTime = "09:00:00"} (or starts with
      * "09:00").
      *
@@ -713,7 +713,7 @@ class DraftControllerIT {
      *   <li>Tournament: field_count=3, team_count=12, plannedStartTime=09:00
      *   <li>Phase 1: roundRobin, groupCount=2, lapTimeMinutes=15, lapBreakTimeMinutes=2,
      *       sectionBreakTimeMinutes=10
-     *   <li>Phase 2: siegerehrung, sectionBreakTimeMinutes=0
+     *   <li>Phase 2: awardCeremony, sectionBreakTimeMinutes=0
      * </ul>
      *
      * <h2>Expected</h2>
@@ -769,7 +769,7 @@ class DraftControllerIT {
         }
 
         // Phase 1: roundRobin, 2 groups, lapTime=15min, lapBreak=2min, sectionBreak=10min
-        // Phase 2: siegerehrung (lapCount=0 → zero-duration marker)
+        // Phase 2: awardCeremony (lapCount=0 → zero-duration marker)
         var phase1 =
                 new DraftSectionRequest(
                         1, "team_number", 2, "roundRobin", 2, 10, 15, 1, null, null);
@@ -884,7 +884,7 @@ class DraftControllerIT {
                 .isEqualTo(HttpStatus.OK);
 
         // GET /draft — must return sections byte-equivalent to the apply payload
-        // applyRequest() has 2 sections: roundRobin (sectionNumber=1) + siegerehrung
+        // applyRequest() has 2 sections: roundRobin (sectionNumber=1) + awardCeremony
         // (sectionNumber=2)
         ResponseEntity<DraftResponse> getResponse =
                 authed.getForEntity(
@@ -905,7 +905,7 @@ class DraftControllerIT {
                 .as("first section gameMode must be roundRobin")
                 .isEqualTo("roundRobin");
         assertThat(getResponse.getBody().sections().get(1).gameMode())
-                .as("second section gameMode must be siegerehrung")
+                .as("second section gameMode must be awardCeremony")
                 .isEqualTo("awardCeremony");
     }
 

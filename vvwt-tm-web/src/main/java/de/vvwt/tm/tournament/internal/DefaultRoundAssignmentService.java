@@ -90,7 +90,7 @@ import org.springframework.stereotype.Service;
  * <h2>Spielart-agnostic guarantee</h2>
  *
  * <p>This class does NOT import or reference {@code RoundRobinMatchGenerator}, {@code
- * SiegerehrungMatchGenerator}, or any {@code Spielart}/{@code gameMode} string. It operates
+ * AwardCeremonyMatchGenerator}, or any {@code Spielart}/{@code gameMode} string. It operates
  * exclusively on {@link Match} objects and repositories.
  *
  * <h2>B-b1 cycle-break (E51S16)</h2>

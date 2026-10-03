@@ -355,9 +355,10 @@ public class DefaultDraftService implements DraftService {
         // AC-IMPL-NO-EVENT-PUBLICATION-IN-S02: no ApplicationEvent published here.
         // AC-IMPL-NO-MATCH-GEN-IN-APPLY: no phasePreparationService.generateMatches() call.
         //
-        // DEC-59 Clause A: N avatars per phase INCLUDING siegerehrung (no skip for siegerehrung).
+        // DEC-59 Clause A: N avatars per phase INCLUDING awardCeremony (no skip for awardCeremony).
         // DEC-59 Clause B: teamId=NULL universally for all phases including Phase 1.
-        // Participating teams always loaded (siegerehrung phases also need N avatars per Clause A).
+        // Participating teams always loaded (awardCeremony phases also need N avatars per Clause
+        // A).
         List<Team> participatingTeams = loadParticipatingTeams(tournamentId);
         if (participatingTeams.isEmpty()) {
             throw new IllegalArgumentException(
@@ -702,7 +703,7 @@ public class DefaultDraftService implements DraftService {
             }
             teamAvatarRepository.saveAll(avatars);
         } else {
-            // Non-siegerehrung phases (Phase 1 and Phase 2+):
+            // Non-awardCeremony phases (Phase 1 and Phase 2+):
             // DEC-59 Clause A: exactly N avatars (N = participatingTeams.size()).
             //   Previous formula: Phase 2+ used groupCount × ceil(N/groupCount) — superseded.
             // DEC-59 Clause B: teamId=NULL for ALL phases including Phase 1.
@@ -918,7 +919,7 @@ public class DefaultDraftService implements DraftService {
      *
      * <ul>
      *   <li>{@code lapCount} = {@code totalLaps} from the computed preview (field-aware formula per
-     *       E48S10); for Siegerehrung phases {@code totalLaps == 0} → single zero-duration marker
+     *       E48S10); for award-ceremony phases {@code totalLaps == 0} → single zero-duration marker
      *       per TimelineCalculationService Javadoc line 44-46
      *   <li>{@code lapTimeMinutes} = {@code section.lapTimeMinutes}
      *   <li>{@code lapBreakMinutes} = {@code section.lapBreakTimeMinutes}
@@ -931,7 +932,7 @@ public class DefaultDraftService implements DraftService {
      * mapping is self-contained and does not cross module boundaries.
      *
      * @param section the draft section to map
-     * @param totalLaps the precomputed total laps for this section (0 for Siegerehrung)
+     * @param totalLaps the precomputed total laps for this section (0 for award ceremony)
      * @param phaseNumber 1-based phase number within the draft
      * @return a {@link PhaseConfig} suitable for {@link TimelineCalculationService#calculate}
      */
@@ -945,7 +946,8 @@ public class DefaultDraftService implements DraftService {
                                                 b.getDurationMinutes(),
                                                 b.getLabel()))
                         .toList();
-        // PhaseConfig requires lapTimeMinutes > 0 when lapCount > 0; for lapCount=0 (Siegerehrung),
+        // PhaseConfig requires lapTimeMinutes > 0 when lapCount > 0; for lapCount=0 (award
+        // ceremony),
         // lapTimeMinutes is ignored by the engine but must pass the constructor validation.
         // Use section.getLapTimeMinutes() which is always > 0 per DraftSection validation.
         return new PhaseConfig(

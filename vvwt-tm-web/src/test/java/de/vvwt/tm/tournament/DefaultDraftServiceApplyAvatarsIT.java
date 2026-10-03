@@ -106,7 +106,7 @@ class DefaultDraftServiceApplyAvatarsIT {
 
     private UUID locationId;
 
-    // Scenario A: 6 participating teams, 2-group Phase 1 + roundRobin Phase 2 + siegerehrung
+    // Scenario A: 6 participating teams, 2-group Phase 1 + roundRobin Phase 2 + awardCeremony
     private UUID tournamentA;
     private List<UUID> participatingTeamIdsA;
 
@@ -316,7 +316,7 @@ class DefaultDraftServiceApplyAvatarsIT {
 
     /**
      * RED-first: given a 3-phase config (Phase 1: 2 groups, Phase 2: 2 groups roundRobin, Phase 3:
-     * siegerehrung), when {@code apply()} is called with 6 participating teams, Phase 2 has the
+     * awardCeremony), when {@code apply()} is called with 6 participating teams, Phase 2 has the
      * structurally-required number of avatars with {@code teamId IS NULL}.
      *
      * <p>Test fails BEFORE the fix (no Phase 2 avatars currently created).
@@ -327,7 +327,7 @@ class DefaultDraftServiceApplyAvatarsIT {
                     + " (AC-TEST-DRAFT-APPLY-PERSISTS-PHASE-2-PLUS-STRUCTURAL-AVATARS-RED)")
     void apply_withThreePhaseConfig_persistsPhase2StructuralAvatarsWithNullTeamId() {
         // 3-phase: Phase 1 (roundRobin, 2 groups), Phase 2 (roundRobin, 2 groups), Phase 3
-        // (siegerehrung)
+        // (awardCeremony)
         DraftConfig config = threePhaseConfig(2, 2);
 
         List<UUID> phaseIds = draftService.apply(tournamentA, config);
@@ -471,7 +471,7 @@ class DefaultDraftServiceApplyAvatarsIT {
 
         // Verify no orphan avatars from previous apply remain.
         // E51S18 DEC-59 Clause A: twoPhaseConfig creates 2 phases × 6 teams = 12 total avatars
-        // (Phase 1 + siegerehrung Phase 2 each get N=6 avatars). The previous 12 avatars from the
+        // (Phase 1 + awardCeremony Phase 2 each get N=6 avatars). The previous 12 avatars from the
         // first apply were deleted by resetPlan() + FK CASCADE; the 12 new avatars from the second
         // apply are the only ones for this tournament.
         Integer totalAvatarsForTournament =
@@ -479,7 +479,7 @@ class DefaultDraftServiceApplyAvatarsIT {
                         "SELECT COUNT(*) FROM team_avatar WHERE tournament_id = ?",
                         Integer.class,
                         tournamentA);
-        // 2 phases × 6 teams = 12 total avatars (DEC-59 Clause A: N per phase incl. siegerehrung)
+        // 2 phases × 6 teams = 12 total avatars (DEC-59 Clause A: N per phase incl. awardCeremony)
         int expectedTotalAvatars = secondPhaseIds.size() * avatarsAfterSecondApply;
         assertThat(totalAvatarsForTournament)
                 .as(
@@ -664,7 +664,7 @@ class DefaultDraftServiceApplyAvatarsIT {
     }
 
     /**
-     * 2-phase DraftConfig: Phase 1 (roundRobin, groupCount groups) + Phase 2 (siegerehrung, 1
+     * 2-phase DraftConfig: Phase 1 (roundRobin, groupCount groups) + Phase 2 (awardCeremony, 1
      * group).
      *
      * @param groupCount number of groups for Phase 1
@@ -681,7 +681,7 @@ class DefaultDraftServiceApplyAvatarsIT {
 
     /**
      * 3-phase DraftConfig: Phase 1 (roundRobin, phase1Groups), Phase 2 (roundRobin, phase2Groups),
-     * Phase 3 (siegerehrung, 1 group).
+     * Phase 3 (awardCeremony, 1 group).
      *
      * @param phase1Groups number of groups for Phase 1
      * @param phase2Groups number of groups for Phase 2

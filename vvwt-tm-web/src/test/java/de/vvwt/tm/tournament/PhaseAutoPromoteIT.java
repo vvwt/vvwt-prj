@@ -68,7 +68,7 @@ import org.springframework.test.context.ActiveProfiles;
  * @see <a href="DEC-37">DEC-37 Clause B — per-tournament pessimistic DB row-lock</a>
  * @see <a href="DEC-38">DEC-38 — @SpringBootTest canon for bounded-context ITs</a>
  * @see <a href="DEC-44">DEC-44 — web-module carve-out (NOT applicable here)</a>
- * @see <a href="DEC-59">DEC-59 Clause E — Siegerehrung as ceremonial tournament-completion
+ * @see <a href="DEC-59">DEC-59 Clause E — award ceremony as ceremonial tournament-completion
  *     gesture</a>
  * @see <a href="E48S24">E48S24 — Atomic tournament-status auto-promote story</a>
  */

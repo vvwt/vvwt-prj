@@ -188,7 +188,7 @@ class DraftServiceTest {
     }
 
     /**
-     * Simple section with siegerehrung gameMode. Use as the last section to satisfy the D-10
+     * Simple section with awardCeremony gameMode. Use as the last section to satisfy the D-10
      * invariant (AC-IMPL-LAST-PHASE-INVARIANT, E48S01).
      */
     private static DraftSection lastSection(int sectionNumber) {
@@ -420,7 +420,7 @@ class DraftServiceTest {
     @Test
     void apply_withOneSection_createsOnePhase() {
         UUID tournamentId = UUID.randomUUID();
-        // Last (and only) section must be siegerehrung per D-10 invariant (E48S01)
+        // Last (and only) section must be awardCeremony per D-10 invariant (E48S01)
         DraftConfig config = new DraftConfig(List.of(lastSection(1)));
 
         // DEC-37 Clause B: first read is findByIdForUpdate (pessimistic lock)
@@ -441,7 +441,7 @@ class DraftServiceTest {
                         LocalDateTime.now());
         when(phaseRepository.save(any(Phase.class))).thenReturn(savedPhase);
 
-        // E51S18 DEC-59 Clause A: siegerehrung now also requires participating teams (N avatars
+        // E51S18 DEC-59 Clause A: awardCeremony now also requires participating teams (N avatars
         // per phase uniformly). Stub one participating team so loadParticipatingTeams() succeeds.
         UUID teamId = UUID.randomUUID();
         when(teamRepository.findByTournamentId(tournamentId))
@@ -475,8 +475,8 @@ class DraftServiceTest {
     @Test
     void apply_withTwoSections_createsTwoPhases() {
         UUID tournamentId = UUID.randomUUID();
-        // Section 1: roundRobin (non-siegerehrung → triggers avatar persistence)
-        // Section 2: last — must be siegerehrung per D-10 invariant (E48S01)
+        // Section 1: roundRobin (non-awardCeremony → triggers avatar persistence)
+        // Section 2: last — must be awardCeremony per D-10 invariant (E48S01)
         DraftConfig config = new DraftConfig(List.of(simpleSection(1), lastSection(2)));
 
         Tournament draftTournament =
@@ -543,7 +543,7 @@ class DraftServiceTest {
                         LocalDateTime.now());
         when(phaseRepository.save(any(Phase.class))).thenReturn(savedPhase);
 
-        // E51S18 DEC-59 Clause A: siegerehrung now also requires participating teams (N avatars
+        // E51S18 DEC-59 Clause A: awardCeremony now also requires participating teams (N avatars
         // per phase uniformly). Stub one participating team so loadParticipatingTeams() succeeds.
         UUID teamId = UUID.randomUUID();
         when(teamRepository.findByTournamentId(tournamentId))
@@ -592,11 +592,11 @@ class DraftServiceTest {
     }
 
     // =========================================================================
-    // preview() — siegerehrung branch (AC-TEST-COMPUTE-PREVIEW-SIEGEREHRUNG-ZERO-RED, E48S09)
+    // preview() — awardCeremony branch (AC-TEST-COMPUTE-PREVIEW-SIEGEREHRUNG-ZERO-RED, E48S09)
     // =========================================================================
 
     /**
-     * AC-TEST-COMPUTE-PREVIEW-SIEGEREHRUNG-ZERO-RED: siegerehrung gameMode → 0 matches, 0 laps, 0
+     * AC-TEST-COMPUTE-PREVIEW-SIEGEREHRUNG-ZERO-RED: awardCeremony gameMode → 0 matches, 0 laps, 0
      * totalMatches; estimatedTimeMinutes = intra-phase breaks + sectionBreakTimeMinutes only.
      *
      * <p>Fixture: gameMode="awardCeremony", groupCount=1, lapTimeMinutes=15,
@@ -604,7 +604,7 @@ class DraftServiceTest {
      *
      * <p>Expected estimatedTimeMinutes = 10 + 5 + 30 = 45 (lapTime=0, interLapBreaks=0).
      *
-     * <p>RED-first per DEC-22 Iron Law (E48S09, Q-1a): written before the siegerehrung branch is
+     * <p>RED-first per DEC-22 Iron Law (E48S09, Q-1a): written before the awardCeremony branch is
      * added to computePreview.
      */
     @Test
@@ -628,17 +628,17 @@ class DraftServiceTest {
 
         assertThat(result.sections()).hasSize(1);
         assertThat(result.sections().get(0).getMatchesPerGroup())
-                .as("siegerehrung → matchesPerGroup = 0")
+                .as("awardCeremony → matchesPerGroup = 0")
                 .isEqualTo(0);
         assertThat(result.sections().get(0).getTotalLaps())
-                .as("siegerehrung → totalLaps = 0")
+                .as("awardCeremony → totalLaps = 0")
                 .isEqualTo(0);
         assertThat(result.sections().get(0).getTotalMatches())
-                .as("siegerehrung → totalMatches = 0")
+                .as("awardCeremony → totalMatches = 0")
                 .isEqualTo(0);
         assertThat(result.sections().get(0).getEstimatedTimeMinutes())
                 .as(
-                        "siegerehrung → estimatedTimeMinutes = intra-breaks(15) + sectionBreak(30)"
+                        "awardCeremony → estimatedTimeMinutes = intra-breaks(15) + sectionBreak(30)"
                                 + " = 45")
                 .isEqualTo(45);
     }
@@ -716,13 +716,13 @@ class DraftServiceTest {
 
     /**
      * AC-TEST-DRAFT-SERVICE-PREVIEW-TIMELINE-POPULATED-RED (E48S12): when {@code plannedStartTime
-     * != null} and the config has 2 phases (RR + Siegerehrung), {@code DraftPreviewResult.timeline}
-     * is non-empty and contains at least one {@code MATCH_ROUND} entry for the RR phase and a
-     * zero-duration {@code MATCH_ROUND} marker for the Siegerehrung phase.
+     * != null} and the config has 2 phases (RR + award ceremony), {@code
+     * DraftPreviewResult.timeline} is non-empty and contains at least one {@code MATCH_ROUND} entry
+     * for the RR phase and a zero-duration {@code MATCH_ROUND} marker for the award-ceremony phase.
      *
-     * <p>Fixture: 12 teams, 1 group (groupCount=1), 2 phases (roundRobin then siegerehrung). For
-     * the RR phase: totalLaps = 15 laps (ceil(66/4) — see field formula). For Siegerehrung:
-     * lapCount=0 → single zero-duration MATCH_ROUND marker.
+     * <p>Fixture: 12 teams, 1 group (groupCount=1), 2 phases (roundRobin then awardCeremony). For
+     * the RR phase: totalLaps = 15 laps (ceil(66/4) — see field formula). For the award-ceremony
+     * phase: lapCount=0 → single zero-duration MATCH_ROUND marker.
      *
      * <p>The service is mocked for the timeline calculation; the test only checks that the service
      * is invoked and its result is reflected in {@code DraftPreviewResult.timeline}.

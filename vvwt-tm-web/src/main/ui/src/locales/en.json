@@ -1,7 +1,7 @@
 {
   "draftConfig": {
     "rundenzeit": {
-      "disabledTooltip": "Lap time has no effect for Siegerehrung phases"
+      "disabledTooltip": "Lap time has no effect for award ceremony phases"
     },
     "errors": {
       "firstPhaseMustBeTeamNumber": "The first phase must use team number sorting."

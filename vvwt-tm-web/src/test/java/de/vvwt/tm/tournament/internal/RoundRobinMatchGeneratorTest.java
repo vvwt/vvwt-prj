@@ -442,7 +442,7 @@ class RoundRobinMatchGeneratorTest extends MatchGeneratorAbstractTest {
     // -------------------------------------------------------------------------
     // AC-TEST-SIEGEREHRUNG-UNCHANGED (regression guard)
     // -------------------------------------------------------------------------
-    // Siegerehrung tests live in SiegerehrungMatchGeneratorTest — no additional test here.
+    // Award-ceremony tests live in AwardCeremonyMatchGeneratorTest — no additional test here.
     // This comment anchors the AC in this test file per story governance.
 
     // -------------------------------------------------------------------------

@@ -549,7 +549,7 @@ class RoundAssignmentServiceIT {
             "AC-TEST-SIEGEREHRUNG-PHASE-NO-L2-INVOKE-RED: phase with 0 matches → L2 is no-op,"
                     + " no exception, no DB writes")
     void assignRoundsAndFields_noMatches_isNoOp() {
-        // Arrange: siegerehrung phase (0 avatars, 0 matches)
+        // Arrange: awardCeremony phase (0 avatars, 0 matches)
         createTournament(3);
         UUID phaseId = createPhase(1);
         // No avatars, no matches inserted
@@ -561,7 +561,7 @@ class RoundAssignmentServiceIT {
         int matchCount =
                 jdbcTemplate.queryForObject(
                         "SELECT COUNT(*) FROM match WHERE phase_id = ?", Integer.class, phaseId);
-        assertThat(matchCount).as("phase has 0 matches after no-op L2 for siegerehrung").isZero();
+        assertThat(matchCount).as("phase has 0 matches after no-op L2 for awardCeremony").isZero();
     }
 
     // ── AC-TEST-MATCH-COORDINATES-PERSISTED-AFTER-L1-L2-RED ─────────────────

@@ -83,7 +83,7 @@ class DefaultRoundAssignmentServiceTest {
                 .hasMessageContaining("fieldCount must be ≥ 1");
     }
 
-    // ── Siegerehrung / empty-phase no-op ───────────────────────────────────────────────────────
+    // ── Award-ceremony / empty-phase no-op ───────────────────────────────────────────────────────
 
     @Test
     void empty_match_list_is_noop() {

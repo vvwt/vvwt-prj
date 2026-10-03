@@ -659,14 +659,14 @@ describe('PhaseList.svelte — ASSIGNED status still shows startButton regressio
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// E51S21 — Befund 2: activateGuardFails siegerehrung carve-out (DEC-59 Clause F)
+// E51S21 — Befund 2: activateGuardFails awardCeremony carve-out (DEC-59 Clause F)
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── AC-TEST-PHASELIST-SIEGEREHRUNG-START-ENABLED-WITH-OPTIMIZE-TRUE-RED ──
-// activateGuardFails must NOT return true for siegerehrung phases.
-// RED-first: FAILS on staging HEAD — no siegerehrung carve-out in the function.
+// activateGuardFails must NOT return true for awardCeremony phases.
+// RED-first: FAILS on staging HEAD — no awardCeremony carve-out in the function.
 
-describe('PhaseList.svelte — activateGuardFails siegerehrung carve-out RED (AC-TEST-PHASELIST-SIEGEREHRUNG-START-ENABLED-WITH-OPTIMIZE-TRUE-RED)', () => {
+describe('PhaseList.svelte — activateGuardFails awardCeremony carve-out RED (AC-TEST-PHASELIST-SIEGEREHRUNG-START-ENABLED-WITH-OPTIMIZE-TRUE-RED)', () => {
     const source = fs.readFileSync(
         path.resolve(__dirname_local, './PhaseList.svelte'),
         'utf8'
@@ -692,7 +692,7 @@ describe('PhaseList.svelte — activateGuardFails siegerehrung carve-out RED (AC
 // ── AC-TEST-PHASELIST-NON-SIEGEREHRUNG-START-DISABLED-WITH-OPTIMIZE-TRUE-OPTIMIZED-FALSE
 // Regression guard: roundRobin phase with optimized=false still gets disabled.
 
-describe('PhaseList.svelte — activateGuardFails still blocks non-siegerehrung unoptimized (regression guard)', () => {
+describe('PhaseList.svelte — activateGuardFails still blocks non-awardCeremony unoptimized (regression guard)', () => {
     const source = fs.readFileSync(
         path.resolve(__dirname_local, './PhaseList.svelte'),
         'utf8'

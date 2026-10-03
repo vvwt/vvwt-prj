@@ -99,7 +99,7 @@ describe('DraftConfig.svelte — AC12: pop() back-button removed (E47S01)', () =
 
 // ─────────────────────────────────────────────────────────────────────────────
 // E48S01 — AC-TEST-FRONTEND-PRE-SUBMIT-VALIDATION-RED
-// Pre-submit validation: last phase must be siegerehrung
+// Pre-submit validation: last phase must be awardCeremony
 // RED-first: these tests FAIL before DraftConfig.svelte adds validateLastPhase()
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -265,7 +265,7 @@ describe('DraftConfig.svelte — AC-TEST-FRONTEND-PHASE-START-TIME-RED (E48S11)'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // E48S09 — AC-TEST-FRONTEND-RUNDENZEIT-DISABLED-RED
-// Rundenzeit input disabled for siegerehrung gameMode sections
+// Rundenzeit input disabled for awardCeremony gameMode sections
 // RED-first per DEC-22: these tests FAIL before DraftConfig.svelte adds the disabled attribute
 // ─────────────────────────────────────────────────────────────────────────────
 
