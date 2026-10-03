@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect } from 'vitest';
+import enMessages from '../locales/en.json';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AC3 — No per-page __header
@@ -635,5 +636,36 @@ describe('DraftConfig.svelte — AC7: single-phase tournament sole phase is last
     // AC7: the last section (si === sections.length - 1) is treated as the last phase
     // This naturally makes a single-section tournament's sole section the last phase
     expect(source).toMatch(/si\s*===?\s*sections\.length\s*-\s*1/);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E58S07 AC1/AC6 — English locale uses the English term "award ceremony"
+// ─────────────────────────────────────────────────────────────────────────────
+
+function collectStringLeaves(node: unknown, keyPath: string, out: Array<[string, string]>): void {
+  if (typeof node === 'string') {
+    out.push([keyPath, node]);
+  } else if (Array.isArray(node)) {
+    node.forEach((child, index) => collectStringLeaves(child, `${keyPath}[${index}]`, out));
+  } else if (node !== null && typeof node === 'object') {
+    for (const [key, child] of Object.entries(node as Record<string, unknown>)) {
+      collectStringLeaves(child, keyPath === '' ? key : `${keyPath}.${key}`, out);
+    }
+  }
+}
+
+describe('en.json — award-ceremony English wording (E58S07 AC1/AC6)', () => {
+  it("en.json draftConfig.rundenzeit.disabledTooltip uses 'award ceremony'", () => {
+    type DraftConfigSection = { rundenzeit: { disabledTooltip: string } };
+    const draftConfig = (enMessages as unknown as Record<string, DraftConfigSection>).draftConfig;
+    expect(draftConfig.rundenzeit.disabledTooltip).toMatch(/award ceremony/i);
+  });
+
+  it('no en.json translation value contains the German domain term', () => {
+    const leaves: Array<[string, string]> = [];
+    collectStringLeaves(enMessages as unknown, '', leaves);
+    const offending = leaves.filter(([, value]) => /siegerehrung/i.test(value));
+    expect(offending).toEqual([]);
   });
 });
