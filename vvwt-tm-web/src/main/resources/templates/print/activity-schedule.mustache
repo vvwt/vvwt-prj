@@ -2,18 +2,8 @@
   SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
   SPDX-License-Identifier: AGPL-3.0-or-later
 -->
-<!DOCTYPE html>
-<html lang="{{locale}}">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{title}}</title>
-    <link rel="stylesheet" href="{{cssPath}}">
-</head>
-<body class="print-body">
-
-{{> print-header}}
-
+{{<print/print-layout}}
+{{$content}}
 <main class="activity-schedule-main">
     <h2 class="activity-schedule-heading">{{heading}}</h2>
 
@@ -63,10 +53,5 @@
     </div>
     {{/hasUnassigned}}
 </main>
-
-<div class="print-footer">
-    <small>v{{appVersion}}</small>
-</div>
-
-</body>
-</html>
+{{/content}}
+{{/print/print-layout}}

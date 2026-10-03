@@ -2,19 +2,10 @@
   SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
   SPDX-License-Identifier: AGPL-3.0-or-later
 -->
-<!DOCTYPE html>
-<html lang="{{locale}}">
-<head>
-    <meta charset="UTF-8">
-    <title>{{title}}</title>
-    <!-- E08S07 AC3, AC6: print stylesheet -- bundled, no CDN (DEC-15) -->
-    <link rel="stylesheet" href="{{cssPath}}">
-</head>
-<body>
-
-    {{! E08S07 AC5: shared print header partial }}
-    {{> print-header}}
-
+{{<print/print-layout}}
+{{$viewportMeta}}{{/viewportMeta}}
+{{$bodyClass}}{{/bodyClass}}
+{{$content}}
     <h2>{{heading}}</h2>
 
     {{! E53S03 AC-TEST-INDEX-GATE-NO-ACTIVE-PHASE-RED: conditional rendering based on linksAvailable }}
@@ -34,10 +25,5 @@
     {{^linksAvailable}}
     <p class="print-empty-state">{{noActivePhaseMessage}}</p>
     {{/linksAvailable}}
-
-    <div class="print-footer">
-        <small>v{{appVersion}}</small>
-    </div>
-
-</body>
-</html>
+{{/content}}
+{{/print/print-layout}}

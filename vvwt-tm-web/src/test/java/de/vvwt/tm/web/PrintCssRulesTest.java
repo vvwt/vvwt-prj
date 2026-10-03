@@ -4,8 +4,15 @@ package de.vvwt.tm.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,8 +37,10 @@ import org.junit.jupiter.api.Test;
  *       page-break-inside: avoid AND break-inside: avoid
  *   <li>AC-TEAM-SECTION-SEPARATOR — {@code .laufzettel-team-section:not(:first-of-type)} has
  *       border-top: 1.5pt solid black with padding-top ≥ 4pt and margin-top ≥ 6pt
- *   <li>AC-NO-FORCED-PAGE-BREAK-SOURCE — {@code laufzettel-all.mustache} does NOT contain {@code
- *       {{> print-page-break}}}
+ *   <li>AC-NO-FORCED-PAGE-BREAK-SOURCE — {@code laufzettel-all.mustache} and the templates it
+ *       includes (partials, parent layout) do NOT contain {@code {{> print-page-break}}}
+ *       (retargeted to the transitive template closure in E70S07, after the schedule markup moved
+ *       into the shared partial {@code print/_laufzettel-schedule.mustache})
  * </ul>
  *
  * <p><strong>DEC-22 TDD compliance:</strong> Tests were authored RED-first against unmodified CSS
@@ -44,8 +53,11 @@ import org.junit.jupiter.api.Test;
 @DisplayName("PrintCssRulesTest — E08S10 Group C + D CSS + Template rule presence")
 class PrintCssRulesTest {
 
+    private static final Pattern TEMPLATE_REFERENCE =
+            Pattern.compile("\\{\\{\\s*[<>]\\s*([\\w./-]+)\\s*\\}\\}");
+
     private static String css;
-    private static String allTeamsTemplate;
+    private static Map<String, String> allTeamsTemplateClosure;
 
     @BeforeAll
     static void loadResources() throws Exception {
@@ -54,13 +66,39 @@ class PrintCssRulesTest {
             assertThat(cssIs).as("print.css must be loadable from classpath").isNotNull();
             css = new String(cssIs.readAllBytes(), StandardCharsets.UTF_8);
         }
-        try (InputStream tmplIs =
-                PrintCssRulesTest.class.getResourceAsStream(
-                        "/templates/print/laufzettel-all.mustache")) {
-            assertThat(tmplIs)
-                    .as("laufzettel-all.mustache must be loadable from classpath")
-                    .isNotNull();
-            allTeamsTemplate = new String(tmplIs.readAllBytes(), StandardCharsets.UTF_8);
+        allTeamsTemplateClosure = loadTemplateClosure("print/laufzettel-all");
+    }
+
+    /**
+     * Loads the named template and, transitively, every template it references via a partial
+     * ({@code {{> name}}}) or a parent layout ({@code {{<name}}}).
+     *
+     * @return template name → template source, in discovery order
+     */
+    private static Map<String, String> loadTemplateClosure(String rootName) throws IOException {
+        Map<String, String> closure = new LinkedHashMap<>();
+        Deque<String> pending = new ArrayDeque<>();
+        pending.add(rootName);
+        while (!pending.isEmpty()) {
+            String name = pending.poll();
+            if (closure.containsKey(name)) {
+                continue;
+            }
+            String source = loadTemplate(name);
+            closure.put(name, source);
+            Matcher matcher = TEMPLATE_REFERENCE.matcher(source);
+            while (matcher.find()) {
+                pending.add(matcher.group(1));
+            }
+        }
+        return closure;
+    }
+
+    private static String loadTemplate(String name) throws IOException {
+        String path = "/templates/" + name + ".mustache";
+        try (InputStream tmplIs = PrintCssRulesTest.class.getResourceAsStream(path)) {
+            assertThat(tmplIs).as("%s must be loadable from classpath", path).isNotNull();
+            return new String(tmplIs.readAllBytes(), StandardCharsets.UTF_8);
         }
     }
 
@@ -231,10 +269,21 @@ class PrintCssRulesTest {
             "AC-NO-FORCED-PAGE-BREAK-SOURCE: laufzettel-all.mustache must NOT contain"
                     + " {{> print-page-break}}")
     void noForcedPageBreakInAllTeamsTemplate() {
-        assertThat(allTeamsTemplate)
+        // Non-vacuity: the guarded schedule markup lives in the shared partial and the document
+        // skeleton in the parent layout — both must be part of the inspected closure (E70S07).
+        assertThat(allTeamsTemplateClosure)
                 .as(
-                        "AC-NO-FORCED-PAGE-BREAK-SOURCE: laufzettel-all.mustache must not contain"
-                                + " the print-page-break partial invocation")
-                .doesNotContain("{{> print-page-break}}");
+                        "AC-NO-FORCED-PAGE-BREAK-SOURCE: the inspected template closure must"
+                                + " include the shared schedule partial and the print layout")
+                .containsKeys("print/_laufzettel-schedule", "print/print-layout");
+        allTeamsTemplateClosure.forEach(
+                (name, source) ->
+                        assertThat(source)
+                                .as(
+                                        "AC-NO-FORCED-PAGE-BREAK-SOURCE: %s.mustache (included by"
+                                                + " laufzettel-all.mustache) must not contain the"
+                                                + " print-page-break partial invocation",
+                                        name)
+                                .doesNotContain("{{> print-page-break}}"));
     }
 }

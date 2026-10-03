@@ -10,9 +10,11 @@
     "Threshold: minTokens=100. Tuned empirically 2026-05-31.",
     "",
     "Baseline suppression list (pre-existing findings at story E70S02 activation):",
-    "  2 clones at minTokens=100:",
+    "  1 clone at minTokens=100:",
     "  - score/hello.mustache <-> score/register.mustache: scoring-tablet registration page duplication",
-    "  - print/laufzettel-all.mustache <-> print/laufzettel.mustache: print layout duplication",
+    "",
+    "  E70S07 (2026-10-04): the former print/laufzettel-all.mustache <-> print/laufzettel.mustache",
+    "  baseline entry was removed by refactoring (shared print layout + schedule partial), DEC-78 §Clause G.",
     "",
     "  RED-first DEC-22 fixture (E70S02):",
     "  - test-fixtures/jscpd-mustache-fixture-a.mustache <-> test-fixtures/jscpd-mustache-fixture-b.mustache (suppressed)",
@@ -26,8 +28,6 @@
   "ignore": [
     "**/test-fixtures/**",
     "**/score/hello.mustache",
-    "**/score/register.mustache",
-    "**/print/laufzettel-all.mustache",
-    "**/print/laufzettel.mustache"
+    "**/score/register.mustache"
   ]
 }
