@@ -2,82 +2,11 @@
   SPDX-FileCopyrightText: Copyright (C) 2026 Thomas Steinke
   SPDX-License-Identifier: AGPL-3.0-or-later
 -->
-<!DOCTYPE html>
-<html lang="{{locale}}">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{title}}</title>
-    <link rel="stylesheet" href="{{cssPath}}">
-</head>
-<body class="print-body">
-
-{{> print-header}}
-
+{{<print/print-layout}}
+{{$content}}
 <main class="laufzettel-main">
-    <h2 class="laufzettel-team-heading">{{heading}}{{#teamName}} — {{teamName}}{{/teamName}}</h2>
-
-    <table class="laufzettel-table">
-        <thead>
-            <tr>
-                <th class="laufzettel-col-round">{{msgColRound}}</th>
-                {{#hasTime}}<th class="laufzettel-col-time">{{msgColTime}}</th>{{/hasTime}}
-                <th class="laufzettel-col-activity">{{msgColActivity}}</th>
-                <th class="laufzettel-col-field">{{msgColField}}</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{#rows}}
-            {{#isPhaseHeader}}
-            <tr class="laufzettel-phase-header">
-                <td colspan="4">{{phaseHeaderName}}</td>
-            </tr>
-            {{/isPhaseHeader}}
-            {{#isBreak}}
-            <tr class="laufzettel-row-break">
-                <td colspan="4" class="laufzettel-break-cell">
-                    {{breakLabel}}{{#breakTimeWindow}} ({{breakTimeWindow}}){{/breakTimeWindow}}
-                </td>
-            </tr>
-            {{/isBreak}}
-            {{#isPlaying}}
-            <tr class="laufzettel-row-playing">
-                <td class="laufzettel-col-round">{{roundNumber}}</td>
-                {{#timeWindow}}<td class="laufzettel-col-time">{{timeWindow}}</td>{{/timeWindow}}
-                {{^timeWindow}}<td class="laufzettel-col-time"></td>{{/timeWindow}}
-                <td class="laufzettel-col-activity">{{msgPlayingVs}} {{opponentName}}</td>
-                <td class="laufzettel-col-field">{{fieldNumber}}</td>
-            </tr>
-            {{/isPlaying}}
-            {{#isRefereeing}}
-            <tr class="laufzettel-row-refereeing">
-                <td class="laufzettel-col-round">{{roundNumber}}</td>
-                {{#timeWindow}}<td class="laufzettel-col-time">{{timeWindow}}</td>{{/timeWindow}}
-                {{^timeWindow}}<td class="laufzettel-col-time"></td>{{/timeWindow}}
-                <td class="laufzettel-col-activity">{{msgReferee}}: {{refereeMatchTeamA}} {{msgVs}} {{refereeMatchTeamB}}</td>
-                <td class="laufzettel-col-field">{{fieldNumber}}</td>
-            </tr>
-            {{/isRefereeing}}
-            {{#isActivity}}
-            <tr class="laufzettel-row-activity">
-                <td class="laufzettel-col-round">{{roundNumber}}</td>
-                {{#timeWindow}}<td class="laufzettel-col-time">{{timeWindow}}</td>{{/timeWindow}}
-                {{^timeWindow}}<td class="laufzettel-col-time"></td>{{/timeWindow}}
-                <td class="laufzettel-col-activity" colspan="2">{{activityName}}</td>
-            </tr>
-            {{/isActivity}}
-            {{#isFree}}
-            <tr class="laufzettel-row-free">
-                <td class="laufzettel-col-round">{{roundNumber}}</td>
-                {{#timeWindow}}<td class="laufzettel-col-time">{{timeWindow}}</td>{{/timeWindow}}
-                {{^timeWindow}}<td class="laufzettel-col-time"></td>{{/timeWindow}}
-                <td class="laufzettel-col-activity" colspan="2">{{msgFree}}</td>
-            </tr>
-            {{/isFree}}
-            {{/rows}}
-        </tbody>
-    </table>
+    {{> print/_laufzettel-schedule}}
 </main>
-
-</body>
-</html>
+{{/content}}
+{{$footer}}{{/footer}}
+{{/print/print-layout}}

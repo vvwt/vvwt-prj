@@ -6,20 +6,24 @@
 <html lang="{{locale}}">
 <head>
     <meta charset="UTF-8">
+    {{$viewportMeta}}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {{/viewportMeta}}
     <title>{{title}}</title>
-    <!-- E08S07 AC3, AC6: print-specific stylesheet — no screen framework, no CDN -->
+    <!-- E08S07 AC3, AC6: print stylesheet — bundled, no CDN (DEC-15) -->
     <link rel="stylesheet" href="{{cssPath}}">
 </head>
-<body>
+<body{{$bodyClass}} class="print-body"{{/bodyClass}}>
 
-    {{! E08S07 AC5: shared print header partial }}
-    {{> print-header}}
+{{> print-header}}
 
-    {{! Page-specific content goes here in concrete page templates }}
+{{$content}}{{/content}}
 
-    <div class="print-footer">
-        <small>v{{appVersion}}</small>
-    </div>
+{{$footer}}
+<div class="print-footer">
+    <small>v{{appVersion}}</small>
+</div>
+{{/footer}}
 
 </body>
 </html>
