@@ -242,8 +242,8 @@ class DefaultDraftServiceApplyEnqueuesJobsIT {
 
         draftApplicationOrchestrator.applyDraft(tournamentId, config);
 
-        // game_mode for phase 1 and 2 must be 'roundRobin'; phase 3 (siegerehrung) must be
-        // 'siegerehrung'
+        // game_mode for phase 1 and 2 must be 'roundRobin'; phase 3 (awardCeremony) must be
+        // 'awardCeremony'
         List<String> gameModes =
                 jdbcTemplate.queryForList(
                         "SELECT game_mode FROM phase_lifecycle_job WHERE tournament_id = ?"

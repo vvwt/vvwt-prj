@@ -190,9 +190,9 @@ class DraftSectionTest {
     }
 
     /**
-     * AC-TEST-DRAFT-SECTION-WHITELIST-RED: validate() accepts siegerehrung as a valid gameMode.
+     * AC-TEST-DRAFT-SECTION-WHITELIST-RED: validate() accepts awardCeremony as a valid gameMode.
      *
-     * <p>Verifies siegerehrung string key is a valid enum constant.
+     * <p>Verifies awardCeremony string key is a valid enum constant.
      *
      * @see <a href="E48S01">E48S01 — gameMode whitelist</a>
      */

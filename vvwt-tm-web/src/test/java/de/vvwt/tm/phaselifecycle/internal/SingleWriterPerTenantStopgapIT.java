@@ -38,7 +38,7 @@ import org.springframework.test.context.ActiveProfiles;
  * no TX rollback on happy-path).
  *
  * <p>DEC-22 Iron Law: RED-first. GREEN state: job completes as COMPLETED, phase status PREPARED,
- * optimized=true (since optimize=true and not siegerehrung).
+ * optimized=true (since optimize=true and not awardCeremony).
  *
  * <p>Authorizing decisions: DEC-22 (RED-first), DEC-44 (NONE web environment), DEC-64 D-12, E55S10
  * AC-ERROR-HANDLING-PRODUCER-NOT-FOUND-STAIR-STEP-ESCALATE Stair 2.
@@ -177,7 +177,7 @@ class SingleWriterPerTenantStopgapIT {
                 .as("job must be COMPLETED after drain with single-writer stopgap")
                 .isEqualTo("COMPLETED");
 
-        // Phase must be PREPARED + optimized=true (optimize=true, non-siegerehrung)
+        // Phase must be PREPARED + optimized=true (optimize=true, non-awardCeremony)
         Integer phaseOptimized =
                 jdbcTemplate.queryForObject(
                         "SELECT optimized FROM phase WHERE id = ?", Integer.class, phaseId);

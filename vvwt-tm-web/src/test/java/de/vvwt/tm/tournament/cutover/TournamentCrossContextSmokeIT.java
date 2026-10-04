@@ -209,7 +209,7 @@ class TournamentCrossContextSmokeIT {
             // E48S17: apply() no longer creates TeamAvatars or matches. Match generation is
             // deferred
             // to the Drag&Drop / prepare() workflow (AC-IMPL-APPLY-NO-PHASE-1-TEAMAVATARS).
-            // Two-section config: section 1 = roundrobin, section 2 = siegerehrung (last phase,
+            // Two-section config: section 1 = roundrobin, section 2 = awardCeremony (last phase,
             // satisfies D-10 invariant per AC-IMPL-LAST-PHASE-INVARIANT, E48S01).
             var section1 =
                     new DraftSectionRequest(

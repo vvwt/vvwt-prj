@@ -184,9 +184,9 @@ class TournamentCutoverSmokeIT {
             // Step 3: Apply draft → start Phase.
             // Two-section config: section 1 = roundrobin (generates matches via
             // RoundRobinMatchGenerator),
-            // section 2 = siegerehrung (last phase, satisfies D-10 invariant per
+            // section 2 = awardCeremony (last phase, satisfies D-10 invariant per
             // AC-IMPL-LAST-PHASE-INVARIANT,
-            // E48S01). Match generation only runs for Phase 1, so no SiegerehrungMatchGenerator
+            // E48S01). Match generation only runs for Phase 1, so no AwardCeremonyMatchGenerator
             // (E48S02)
             // is required here.
             var section1 =

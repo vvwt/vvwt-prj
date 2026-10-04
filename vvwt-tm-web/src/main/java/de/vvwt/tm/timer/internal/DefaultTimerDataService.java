@@ -551,7 +551,7 @@ public class DefaultTimerDataService implements TimerDataService {
             // lapTimeMinutes: from DraftSection (AC5).
             // lapBreakMinutes: from DraftSection (AC6).
             // AC8 regression guard: phaseBreaks already contain intra-phase break configs.
-            // For lapCount=0 (e.g., Siegerehrung), lapTimeMinutes is ignored by the engine but
+            // For lapCount=0 (e.g., award ceremony), lapTimeMinutes is ignored by the engine but
             // PhaseConfig requires lapTimeMinutes > 0 when lapCount > 0; use section value (>0
             // per DraftSection validation) when lapCount>0, else use 1 as a safe sentinel.
             int lapTime = lapCount > 0 ? section.getLapTimeMinutes() : 1;

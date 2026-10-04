@@ -37,7 +37,7 @@ import java.util.UUID;
  * with the enclosing {@code REQUIRES_NEW} transaction in {@code MatchGenJobExecutor}. A failure
  * mid-write rolls back all writes (DEC-37 Clause B; AC-ERROR-HANDLING-NO-PARTIAL-PERSIST).
  *
- * <h2>Siegerehrung / empty-phase handling</h2>
+ * <h2>Award-ceremony / empty-phase handling</h2>
  *
  * <p>If the phase has 0 matches, implementations MUST be a no-op (no exception, no DB writes).
  *

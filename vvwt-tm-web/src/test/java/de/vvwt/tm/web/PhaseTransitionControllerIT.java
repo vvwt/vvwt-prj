@@ -44,7 +44,7 @@ import org.springframework.test.context.ActiveProfiles;
  *   <li>GET /api/phases/{phaseId}/transition-proposal — 200 with proposals; security 401
  *   <li>POST /api/phases/{phaseId}/transition-commit — 200 on success; security 401
  *   <li>AC-TEST-COMMIT-TRANSITION-WITH-MATCHES-RED: roundRobin phase → TeamAvatars persisted
- *   <li>AC-TEST-COMMIT-TRANSITION-SIEGEREHRUNG-RED: siegerehrung → TeamAvatars persisted, no
+ *   <li>AC-TEST-COMMIT-TRANSITION-SIEGEREHRUNG-RED: awardCeremony → TeamAvatars persisted, no
  *       matches
  * </ul>
  *
@@ -97,7 +97,7 @@ class PhaseTransitionControllerIT {
 
     /**
      * Draft JSON with 3 sections: - section 1: team_number, roundRobin - section 2: team_number,
-     * roundRobin (toPhaseRoundRobinId) - section 3: team_number, siegerehrung
+     * roundRobin (toPhaseRoundRobinId) - section 3: team_number, awardCeremony
      * (toAwardCeremonyPhaseId)
      */
     private static final String DRAFT_JSON =
@@ -175,7 +175,7 @@ class PhaseTransitionControllerIT {
                 "PREPARED",
                 0);
 
-        // toPhase for siegerehrung (sequenceNumber=3)
+        // toPhase for awardCeremony (sequenceNumber=3)
         // E51S06: status=PREPARED — commitTransition requires PREPARED → ASSIGNED transition
         toAwardCeremonyPhaseId = UUID.randomUUID();
         jdbcTemplate.update(
@@ -274,7 +274,7 @@ class PhaseTransitionControllerIT {
                 LocalDateTime.now());
 
         // E51S06: structural placeholder avatars in toAwardCeremonyPhaseId (teamId=NULL)
-        // siegerehrung has no matches (no-op generator), so no match INSERT needed here.
+        // awardCeremony has no matches (no-op generator), so no match INSERT needed here.
         avatarToAwardCeremonyId1 = UUID.randomUUID();
         jdbcTemplate.update(
                 "INSERT INTO team_avatar (id, tournament_id, phase_id, team_id, group_number,"
@@ -433,14 +433,14 @@ class PhaseTransitionControllerIT {
 
     @Test
     @DisplayName(
-            "POST transition-commit — siegerehrung phase → 200, TeamAvatars persisted, no Matches"
+            "POST transition-commit — awardCeremony phase → 200, TeamAvatars persisted, no Matches"
                     + " (AC-TEST-COMMIT-TRANSITION-SIEGEREHRUNG-RED)")
     void postTransitionCommit_awardCeremony_returns200AndPersistsAvatarsButNoMatches()
             throws Exception {
-        // DEC-59 Clause C precondition: commitTransition on Phase 3 (siegerehrung) requires
+        // DEC-59 Clause C precondition: commitTransition on Phase 3 (awardCeremony) requires
         // Phase 2 (predecessor, sequenceNumber=2) to be in COMPLETED status.
         // The shared setUp() fixture creates Phase 2 as PREPARED (needed for the roundRobin test).
-        // Update Phase 2 to COMPLETED here so the siegerehrung precondition check passes.
+        // Update Phase 2 to COMPLETED here so the awardCeremony precondition check passes.
         tenantBinder.bindDefaultTenant();
         try {
             jdbcTemplate.update(
@@ -473,7 +473,7 @@ class PhaseTransitionControllerIT {
         ResponseEntity<Void> response = authed.exchange(request, Void.class);
 
         assertThat(response.getStatusCode())
-                .as("POST transition-commit (siegerehrung) must return 200")
+                .as("POST transition-commit (awardCeremony) must return 200")
                 .isEqualTo(HttpStatus.OK);
 
         // DEC-26 Rule 2: verify TeamAvatars persisted
@@ -485,10 +485,10 @@ class PhaseTransitionControllerIT {
                             Integer.class,
                             toAwardCeremonyPhaseId);
             assertThat(avatarCount)
-                    .as("2 TeamAvatars must be persisted for siegerehrung toPhase")
+                    .as("2 TeamAvatars must be persisted for awardCeremony toPhase")
                     .isEqualTo(2);
 
-            // AC-TEST-COMMIT-TRANSITION-SIEGEREHRUNG-RED: no matches for siegerehrung
+            // AC-TEST-COMMIT-TRANSITION-SIEGEREHRUNG-RED: no matches for awardCeremony
             int matchCount =
                     jdbcTemplate.queryForObject(
                             "SELECT COUNT(*) FROM match WHERE phase_id = ?",
@@ -496,7 +496,7 @@ class PhaseTransitionControllerIT {
                             toAwardCeremonyPhaseId);
             assertThat(matchCount)
                     .as(
-                            "No Matches must be created for siegerehrung phase"
+                            "No Matches must be created for awardCeremony phase"
                                     + " (E48S02 no-op generator)")
                     .isEqualTo(0);
         } finally {

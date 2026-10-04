@@ -43,7 +43,7 @@ import org.springframework.test.context.ActiveProfiles;
  * <ol>
  *   <li>Phase 1: roundRobin (optimize=true) → PREPARED, optimized=TRUE
  *   <li>Phase 2: roundRobin (optimize=true) → PREPARED, optimized=TRUE
- *   <li>Phase 3: siegerehrung (optimize=true, but DEC-59 Clause F skips L3) → PREPARED,
+ *   <li>Phase 3: awardCeremony (optimize=true, but DEC-59 Clause F skips L3) → PREPARED,
  *       optimized=FALSE
  * </ol>
  *
@@ -52,7 +52,7 @@ import org.springframework.test.context.ActiveProfiles;
  * times.
  *
  * <p>Authorizing decisions: DEC-22 (RED-first), DEC-44 (NONE), DEC-64 D-3 (per-tournament
- * parallelism), DEC-59 Clause F (siegerehrung skips L3),
+ * parallelism), DEC-59 Clause F (awardCeremony skips L3),
  * AC-TEST-E2E-HAPPY-PATH-MULTI-TOURNAMENT-RED (E55S07).
  *
  * @since E55S07
@@ -153,14 +153,14 @@ class E2eMultiTournamentIT {
 
     /**
      * AC-TEST-E2E-HAPPY-PATH-MULTI-TOURNAMENT-RED: 2 tournaments × 3 phases (roundRobin ×2 +
-     * siegerehrung ×1) run concurrently.
+     * awardCeremony ×1) run concurrently.
      *
      * <p>Asserts:
      *
      * <ul>
      *   <li>All 6 jobs reach status=COMPLETED
      *   <li>roundRobin phases have optimized=TRUE
-     *   <li>siegerehrung phases have optimized=FALSE (DEC-59 Clause F)
+     *   <li>awardCeremony phases have optimized=FALSE (DEC-59 Clause F)
      *   <li>All 6 phases reach status=PREPARED
      *   <li>Parallelism: total elapsed < sequential upper bound (each tournament drains 3 jobs
      *       sequentially within itself, but the two tournaments run in parallel)
@@ -168,7 +168,7 @@ class E2eMultiTournamentIT {
      */
     @Test
     @DisplayName(
-            "E2E: 2 tournaments × 3 phases (2x roundRobin + 1x siegerehrung) complete in parallel"
+            "E2E: 2 tournaments × 3 phases (2x roundRobin + 1x awardCeremony) complete in parallel"
                     + " with correct optimized flags")
     void twoTournamentsWithThreePhasesEachCompleteInParallel() throws Exception {
         // Enqueue all 6 jobs (3 per tournament, in FIFO order)
@@ -237,15 +237,15 @@ class E2eMultiTournamentIT {
         assertPhaseOptimized(phaseIdB1, true, "Phase B1 (roundRobin) must have optimized=TRUE");
         assertPhaseOptimized(phaseIdB2, true, "Phase B2 (roundRobin) must have optimized=TRUE");
 
-        // ── Assert siegerehrung phases: optimized=FALSE (DEC-59 Clause F) ────
+        // ── Assert awardCeremony phases: optimized=FALSE (DEC-59 Clause F) ────
         assertPhaseOptimized(
                 phaseIdA3,
                 false,
-                "Phase A3 (siegerehrung) must have optimized=FALSE per DEC-59 Clause F");
+                "Phase A3 (awardCeremony) must have optimized=FALSE per DEC-59 Clause F");
         assertPhaseOptimized(
                 phaseIdB3,
                 false,
-                "Phase B3 (siegerehrung) must have optimized=FALSE per DEC-59 Clause F");
+                "Phase B3 (awardCeremony) must have optimized=FALSE per DEC-59 Clause F");
 
         // ── Assert all 6 phases PREPARED ─────────────────────────────────────
         assertPhaseStatus(phaseIdA1, "PREPARED", "Phase A1 must be PREPARED");
@@ -338,7 +338,7 @@ class E2eMultiTournamentIT {
                 "PENDING",
                 0,
                 false);
-        // siegerehrung phases typically have no avatars (no match generation)
+        // awardCeremony phases typically have no avatars (no match generation)
         return phaseId;
     }
 

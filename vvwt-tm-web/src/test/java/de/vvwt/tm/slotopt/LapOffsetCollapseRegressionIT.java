@@ -316,7 +316,7 @@ class LapOffsetCollapseRegressionIT {
      */
     @Test
     void optimize_emptyPhase_noOp_noException_E54S03() {
-        // Set up a phase with no matches (siegerehrung-style or just no L1 output)
+        // Set up a phase with no matches (awardCeremony-style or just no L1 output)
         tournamentId = UUID.randomUUID();
         phaseId = UUID.randomUUID();
         setUpTournamentAndPhase(tournamentId, phaseId, true);

@@ -179,7 +179,7 @@ class DraftServiceAutoInvalidationCascadeIT {
             "resetPlan + re-apply enqueues 3 fresh PENDING job rows"
                     + " — AC-TEST-AUTO-INVALIDATION-CASCADE-RED")
     void resetPlanAndReApply_enqueuesFreshJobRows() {
-        // Step 1: first apply — 3 phases with gameMode ROUND_ROBIN / ROUND_ROBIN / SIEGEREHRUNG
+        // Step 1: first apply — 3 phases with gameMode ROUND_ROBIN / ROUND_ROBIN / awardCeremony
         DraftConfig firstConfig = buildThreePhaseDraftConfig("roundRobin");
         List<UUID> firstPhaseIds =
                 draftApplicationOrchestrator.applyDraft(tournamentId, firstConfig);
@@ -207,7 +207,7 @@ class DraftServiceAutoInvalidationCascadeIT {
                 .as("resetPlan must clear phase_lifecycle_job rows (cascade or explicit delete)")
                 .isEqualTo(0);
 
-        // Step 3: re-apply with changed phase-2 gameMode (ROUND_ROBIN instead of SIEGEREHRUNG)
+        // Step 3: re-apply with changed phase-2 gameMode (ROUND_ROBIN instead of awardCeremony)
         DraftConfig secondConfig = buildThreePhaseDraftConfig("roundRobin");
         List<UUID> secondPhaseIds =
                 draftApplicationOrchestrator.applyDraft(tournamentId, secondConfig);

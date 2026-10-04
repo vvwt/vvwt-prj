@@ -399,7 +399,7 @@ class DefaultDraftServiceDistributionModeIT {
 
     /**
      * 2-phase config: Phase 1 ({@code roundRobin}, {@code groupCount} groups, specified {@code
-     * distributionMode}) + Phase 2 (siegerehrung, 1 group).
+     * distributionMode}) + Phase 2 (awardCeremony, 1 group).
      */
     private static DraftConfig singlePhaseConfig(
             String distributionMode, int groupCount, String gameMode) {

@@ -67,7 +67,7 @@ import org.springframework.test.context.ActiveProfiles;
  * @see <a href="DEC-26">DEC-26 — DAO test governance (three rules)</a>
  * @see <a href="DEC-46">DEC-46 — DEC-26 scope extension to all vvwt-prj modules</a>
  * @see <a href="DEC-55">DEC-55 D-1 — Avatar-Erzeugung-Zeitpunkt verschoben auf DraftConfig-Apply;
- *     D-3 step 1 siegerehrung-skip mechanism</a>
+ *     D-3 step 1 awardCeremony-skip mechanism</a>
  * @see <a href="DEC-56">DEC-56 D-3 — L1+L2 always mandatory; matches reference avatar.id not
  *     teamId</a>
  */
@@ -211,21 +211,21 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
      * <h2>Quiescence definition (E51S18 — updated from E51S17)</h2>
      *
      * <p>The pipeline is quiescent when {@code COUNT(PREPARED phases) == totalPhases}. Per DEC-59
-     * Clause E, the siegerehrung phase now reaches {@code PREPARED} via vacuous L1+L2 execution
-     * (per-gameMode {@link de.vvwt.tm.tournament.internal.SiegerehrungMatchGenerator} returns an
+     * Clause E, the awardCeremony phase now reaches {@code PREPARED} via vacuous L1+L2 execution
+     * (per-gameMode {@link de.vvwt.tm.tournament.internal.AwardCeremonyMatchGenerator} returns an
      * empty match list; L2 is invoked as a no-op; {@code PhaseLifecycleService.transition(PENDING →
-     * PREPARED "match-gen-done")} fires per DEC-55 D-4). ALL phases (including siegerehrung) must
+     * PREPARED "match-gen-done")} fires per DEC-55 D-4). ALL phases (including awardCeremony) must
      * eventually reach {@code PREPARED}. Quiescence is declared when {@code totalPhases} are {@code
      * PREPARED}.
      *
      * <h2>E51S17 → E51S18 change</h2>
      *
-     * <p>E51S17 used {@code expectedPrepared = totalPhases - 1} because siegerehrung was guaranteed
-     * to stay {@code PENDING} (no {@code MatchGenJobScheduledEvent} published for it). After DEC-59
-     * Clause E operationalization (E51S18), {@code MatchGenJobScheduledEvent} IS published for all
-     * phases including siegerehrung. The siegerehrung-specific no-op-generator returns an empty
-     * match list, but the lifecycle transitions the same as for non-siegerehrung phases: {@code
-     * PENDING → PREPARED "match-gen-done"}.
+     * <p>E51S17 used {@code expectedPrepared = totalPhases - 1} because awardCeremony was
+     * guaranteed to stay {@code PENDING} (no {@code MatchGenJobScheduledEvent} published for it).
+     * After DEC-59 Clause E operationalization (E51S18), {@code MatchGenJobScheduledEvent} IS
+     * published for all phases including awardCeremony. The awardCeremony-specific no-op-generator
+     * returns an empty match list, but the lifecycle transitions the same as for non-awardCeremony
+     * phases: {@code PENDING → PREPARED "match-gen-done"}.
      *
      * <h2>Why totalPhases-based rather than last_job_state-based?</h2>
      *
@@ -234,7 +234,7 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
      * PENDING→PREPARED in a single {@code REQUIRES_NEW} TX (E51S14 wiring). Any approach that
      * compares {@code last_job_state IS NOT NULL} (entered) with {@code last_job_state = 'idle'}
      * races when Phase 1 is {@code 'idle'} but Phase 2's {@code @Async} thread has not yet been
-     * scheduled — Phase 2 is still {@code PENDING + NULL}, indistinguishable from a siegerehrung
+     * scheduled — Phase 2 is still {@code PENDING + NULL}, indistinguishable from an awardCeremony
      * phase by {@code last_job_state} alone. The {@code totalPhases} condition is immune because it
      * checks the FINAL STATE ({@code PREPARED}), not the in-progress state.
      *
@@ -247,9 +247,9 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
      */
     @SuppressWarnings("java:S2925") // Thread.sleep is intentional here — deterministic poll wait
     private void waitForPipelineQuiescent(UUID tournamentId) throws InterruptedException {
-        // Resolve expectedPrepared = totalPhases (all phases including siegerehrung per DEC-59
+        // Resolve expectedPrepared = totalPhases (all phases including awardCeremony per DEC-59
         // Clause E).
-        // E51S18: siegerehrung now reaches PREPARED via vacuous L1+L2 execution.
+        // E51S18: awardCeremony now reaches PREPARED via vacuous L1+L2 execution.
         // totalPhases is stable after apply() commits (phases created synchronously in apply() TX).
         // If no phases exist (apply() failed or this is a defensive tearDown call with empty DB),
         // expectedPrepared = 0 → condition "prepared == 0" immediately true → safe return.
@@ -259,8 +259,8 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
                         Integer.class,
                         tournamentId);
         int totalPhases = (totalPhasesRaw == null) ? 0 : totalPhasesRaw;
-        // E51S18 (DEC-59 Clause E): ALL phases reach PREPARED, including siegerehrung.
-        // Pre-E51S18 used (totalPhases - 1) because siegerehrung stayed PENDING.
+        // E51S18 (DEC-59 Clause E): ALL phases reach PREPARED, including awardCeremony.
+        // Pre-E51S18 used (totalPhases - 1) because awardCeremony stayed PENDING.
         int expectedPrepared = totalPhases;
 
         long deadline = System.currentTimeMillis() + 5_000;
@@ -306,7 +306,7 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
      * <ul>
      *   <li>Phase 1 (roundRobin) → MatchGen (L1) + RoundAssignment (L2) run → PREPARED
      *   <li>Phase 2 (roundRobin) → MatchGen (L1) + RoundAssignment (L2) run → PREPARED
-     *   <li>Phase 3 (siegerehrung) → vacuous L1+L2 via SiegerehrungMatchGenerator (empty match
+     *   <li>Phase 3 (awardCeremony) → vacuous L1+L2 via AwardCeremonyMatchGenerator (empty match
      *       list) → PREPARED (DEC-59 Clause E — uniform lifecycle via vacuous execution)
      * </ul>
      *
@@ -315,13 +315,13 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
      * DEC-59 Clause E.
      *
      * <p>Fixture: 3 participating teams (team_number 1-3), 2-group Phase 1 (roundRobin), 2-group
-     * Phase 2 (roundRobin), 1-group siegerehrung Phase 3. Expected avatars per DEC-59 Clause A (N
-     * avatars per phase including siegerehrung) + Clause B (teamId=NULL universally):
+     * Phase 2 (roundRobin), 1-group awardCeremony Phase 3. Expected avatars per DEC-59 Clause A (N
+     * avatars per phase including awardCeremony) + Clause B (teamId=NULL universally):
      *
      * <ul>
      *   <li>Phase 1: 3 avatars (N=3 participating teams, groupCount=2, teamId=NULL per Clause B)
      *   <li>Phase 2: 3 avatars (N=3 participating teams, teamId=NULL per Clause B)
-     *   <li>Phase 3 (siegerehrung): 3 avatars (N=3 participating teams, groupNumber=1, rank-slots,
+     *   <li>Phase 3 (awardCeremony): 3 avatars (N=3 participating teams, groupNumber=1, rank-slots,
      *       teamId=NULL per Clauses A + B)
      * </ul>
      *
@@ -330,13 +330,13 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
      *
      * @see <a href="E51S18">E51S18 — DEC-59 operationalization (K-1+K-3+K-4+K-6)</a>
      * @see <a href="E51S17">E51S17 — Equilibrium contract alignment (superseded for
-     *     siegerehrung)</a>
+     *     awardCeremony)</a>
      * @see <a href="DEC-55">DEC-55 D-3 step 1 — MatchGenJobScheduledEvent per phase (now includes
-     *     siegerehrung via DEC-59 Clause E)</a>
+     *     awardCeremony via DEC-59 Clause E)</a>
      * @see <a href="DEC-56">DEC-56 D-3 — L1+L2 always mandatory; matches reference avatar.getId()
      *     not teamId</a>
-     * @see <a href="DEC-59">DEC-59 Clause A — N avatars per phase incl. siegerehrung; Clause B —
-     *     teamId=NULL universally; Clause E — siegerehrung uniform lifecycle via vacuous L1+L2</a>
+     * @see <a href="DEC-59">DEC-59 Clause A — N avatars per phase incl. awardCeremony; Clause B —
+     *     teamId=NULL universally; Clause E — awardCeremony uniform lifecycle via vacuous L1+L2</a>
      */
     @Test
     @DisplayName(
@@ -345,7 +345,7 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
                     + " DEC-59 Clauses A+B+E)")
     void apply_withParticipatingTeams_creates3PhasesAndStructuralAvatars()
             throws InterruptedException {
-        // Arrange: 3-phase config (section 3 is siegerehrung per E48S01 last-phase invariant)
+        // Arrange: 3-phase config (section 3 is awardCeremony per E48S01 last-phase invariant)
         DraftConfig config =
                 new DraftConfig(
                         List.of(
@@ -406,26 +406,27 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
         // AC-TEST-EQUILIBRIUM-PHASE-STATUS-SHAPE: all THREE counts verified independently
         // to guard against silent regressions (e.g., a phase entering FAILED or ASSIGNED
         // without the binary pendingCount==0 projection mismatching).
-        // E51S18 (DEC-59 Clause E): ALL phases including siegerehrung reach PREPARED via
-        // vacuous L1+L2 execution (SiegerehrungMatchGenerator returns empty match list).
+        // E51S18 (DEC-59 Clause E): ALL phases including awardCeremony reach PREPARED via
+        // vacuous L1+L2 execution (AwardCeremonyMatchGenerator returns empty match list).
         assertThat(preparedCount)
                 .as(
                         "Post-quiescence equilibrium: Phase 1 + Phase 2 (roundRobin) + Phase 3"
-                                + " (siegerehrung) must all be PREPARED after L1+L2 completes"
+                                + " (awardCeremony) must all be PREPARED after L1+L2 completes"
                                 + " per DEC-56 D-3 + DEC-59 Clause E (vacuous L1+L2 for"
-                                + " siegerehrung via SiegerehrungMatchGenerator)")
+                                + " awardCeremony via AwardCeremonyMatchGenerator)")
                 .isEqualTo(3);
         assertThat(pendingCount)
                 .as(
-                        "Post-quiescence equilibrium: no phase must stay PENDING — siegerehrung"
+                        "Post-quiescence equilibrium: no phase must stay PENDING — awardCeremony"
                                 + " reaches PREPARED via vacuous L1+L2 per DEC-59 Clause E")
                 .isEqualTo(0);
         assertThat(totalPhases)
                 .as("Total phase count must be exactly 3 (one per DraftSection)")
                 .isEqualTo(3);
 
-        // DEC-59 Clause A + B: N avatars per phase including siegerehrung; teamId=NULL universally.
-        // Fixture: N=3 participating teams, 3 phases (Phase1 + Phase2 + siegerehrung)
+        // DEC-59 Clause A + B: N avatars per phase including awardCeremony; teamId=NULL
+        // universally.
+        // Fixture: N=3 participating teams, 3 phases (Phase1 + Phase2 + awardCeremony)
         //
         // Phase 1: 3 participating teams, groupCount=2, distributionMode=roundRobin
         //   → 3 avatars (N=3), teamId=NULL per Clause B
@@ -469,7 +470,7 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
                                 + " was 4 = groupCount×ceil(N/groupCount) under DEC-55 D-1)")
                 .isEqualTo(3);
 
-        // Phase 3 (siegerehrung): 3 avatars (N=3 per Clause A; was 0), teamId=NULL
+        // Phase 3 (awardCeremony): 3 avatars (N=3 per Clause A; was 0), teamId=NULL
         UUID phase3Id = createdPhaseIds.get(2);
         Integer phase3AvatarCount =
                 jdbcTemplate.queryForObject(
@@ -478,8 +479,8 @@ class DefaultDraftServiceApplyNoTeamAvatarsIT {
                         phase3Id);
         assertThat(phase3AvatarCount)
                 .as(
-                        "Phase 3 (siegerehrung) must have 3 structural avatars (N=3 per DEC-59"
-                                + " Clause A — siegerehrung is no longer skipped; was 0)")
+                        "Phase 3 (awardCeremony) must have 3 structural avatars (N=3 per DEC-59"
+                                + " Clause A — awardCeremony is no longer skipped; was 0)")
                 .isEqualTo(3);
 
         // Total: 3 + 3 + 3 = 9 avatars (DEC-59 Clause A: 3+3+3=9, not 3+4+0=7)

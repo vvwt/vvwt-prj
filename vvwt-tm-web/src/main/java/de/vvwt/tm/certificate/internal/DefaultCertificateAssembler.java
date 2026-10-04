@@ -156,10 +156,10 @@ public class DefaultCertificateAssembler implements CertificateAssembler {
         }
 
         if (ratingByAvatarId.isEmpty()) {
-            // No ratings — this is expected for a Siegerehrung (award-ceremony) phase which has
+            // No ratings — this is expected for an award-ceremony phase which has
             // zero matches by design (AwardCeremonyMatchGenerator returns empty match list).
             // Fix (E12S09 AC2): derive placement from the TeamAvatar group positions instead of
-            // from ratings. The Siegerehrung phase has a single group and groupPosition 1..N
+            // from ratings. The award-ceremony phase has a single group and groupPosition 1..N
             // maps directly to places 1..N (DEC-9 structural identity, operator-confirmed
             // 2026-05-17). If no avatar has an assigned team, the tournament is not yet ready
             // for certificate generation (AC4: legitimate 400 preserved).

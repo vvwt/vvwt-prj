@@ -14,9 +14,9 @@ import java.util.List;
  *
  * <p>This field is {@code null} on the containing {@link TimerPhaseResponse} when the {@link
  * de.vvwt.tm.tournament.draft.DraftConfig} does not have a matching section for this phase
- * (partial-DraftConfig case, AC15 path (a)) or when the phase is the zero-lap siegerehrung and the
- * config cannot be reliably inferred. The Timer SPA hides the {@code PhaseConfigRow} for phases
- * with {@code config == null} (AC13 fallback option (b)).
+ * (partial-DraftConfig case, AC15 path (a)) or when the phase is the zero-lap award-ceremony phase
+ * and the config cannot be reliably inferred. The Timer SPA hides the {@code PhaseConfigRow} for
+ * phases with {@code config == null} (AC13 fallback option (b)).
  *
  * <p>Canonical FQN: {@code de.vvwt.tm.timer.TimerPhaseConfigResponse} per DEC-40 §2026-04-27
  * Clarification Pattern A (projection == wire shape; no Clause B (a)/(c)/(d) condition fires).
